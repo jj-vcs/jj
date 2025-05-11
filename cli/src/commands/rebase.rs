@@ -333,18 +333,20 @@ pub struct RebaseDestinationArgs {
     /// commit)
     #[arg(
         long,
-        short,
+        short = 't',
+        visible_alias = "destination",
+        visible_short_alias = 'd',
         value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
-    destination: Option<Vec<RevisionArg>>,
+    onto: Option<Vec<RevisionArg>>,
     /// The revision(s) to insert after (can be repeated to create a merge
     /// commit)
     #[arg(
         long,
         short = 'A',
         visible_alias = "after",
-        conflicts_with = "destination",
+        conflicts_with = "onto",
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
@@ -355,7 +357,7 @@ pub struct RebaseDestinationArgs {
         long,
         short = 'B',
         visible_alias = "before",
-        conflicts_with = "destination",
+        conflicts_with = "onto",
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
@@ -416,12 +418,12 @@ fn plan_rebase_revisions(
     let (new_parent_ids, new_child_ids) = compute_commit_location(
         ui,
         workspace_command,
-        rebase_destination.destination.as_deref(),
+        rebase_destination.onto.as_deref(),
         rebase_destination.insert_after.as_deref(),
         rebase_destination.insert_before.as_deref(),
         "rebased commits",
     )?;
-    if rebase_destination.destination.is_some() && new_child_ids.is_empty() {
+    if rebase_destination.onto.is_some() && new_child_ids.is_empty() {
         for id in &target_commit_ids {
             if new_parent_ids.contains(id) {
                 return Err(user_error(format!(
@@ -451,12 +453,12 @@ fn plan_rebase_source(
     let (new_parent_ids, new_child_ids) = compute_commit_location(
         ui,
         workspace_command,
-        rebase_destination.destination.as_deref(),
+        rebase_destination.onto.as_deref(),
         rebase_destination.insert_after.as_deref(),
         rebase_destination.insert_before.as_deref(),
         "rebased commits",
     )?;
-    if rebase_destination.destination.is_some() && new_child_ids.is_empty() {
+    if rebase_destination.onto.is_some() && new_child_ids.is_empty() {
         for id in &source_commit_ids {
             let commit = workspace_command.repo().store().get_commit(id)?;
             check_rebase_destinations(workspace_command.repo(), &new_parent_ids, &commit)?;
@@ -491,7 +493,7 @@ fn plan_rebase_branch(
     let (new_parent_ids, new_child_ids) = compute_commit_location(
         ui,
         workspace_command,
-        rebase_destination.destination.as_deref(),
+        rebase_destination.onto.as_deref(),
         rebase_destination.insert_after.as_deref(),
         rebase_destination.insert_before.as_deref(),
         "rebased commits",
@@ -505,7 +507,7 @@ fn plan_rebase_branch(
         .iter()
         .try_collect()?;
     workspace_command.check_rewritable(&root_commit_ids)?;
-    if rebase_destination.destination.is_some() && new_child_ids.is_empty() {
+    if rebase_destination.onto.is_some() && new_child_ids.is_empty() {
         for id in &root_commit_ids {
             let commit = workspace_command.repo().store().get_commit(id)?;
             check_rebase_destinations(workspace_command.repo(), &new_parent_ids, &commit)?;

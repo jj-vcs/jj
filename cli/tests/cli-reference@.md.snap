@@ -850,7 +850,7 @@ By default, the duplicated commits retain the descriptions of the originals. Thi
 
 ###### **Options:**
 
-* `-d`, `--destination <REVSETS>` — The revision(s) to duplicate onto (can be repeated to create a merge commit)
+* `-t`, `--onto <REVSETS>` [alias: `destination`] — The revision(s) to duplicate onto (can be repeated to create a merge commit)
 * `-A`, `--insert-after <REVSETS>` [alias: `after`] — The revision(s) to insert after (can be repeated to create a merge commit)
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — The revision(s) to insert before (can be repeated to create a merge commit)
 
@@ -2186,7 +2186,7 @@ K |         K |
 J           J
 ```
 
-**Usage:** `jj rebase [OPTIONS] <--destination <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>`
+**Usage:** `jj rebase [OPTIONS] <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>`
 
 ###### **Options:**
 
@@ -2205,7 +2205,7 @@ J           J
    Unlike `-s` or `-b`, you may `jj rebase -r` a revision `A` onto a descendant of `A`.
 
    If none of `-b`, `-s`, or `-r` is provided, then the default is `-b @`.
-* `-d`, `--destination <REVSETS>` — The revision(s) to rebase onto (can be repeated to create a merge commit)
+* `-t`, `--onto <REVSETS>` [alias: `destination`] — The revision(s) to rebase onto (can be repeated to create a merge commit)
 * `-A`, `--insert-after <REVSETS>` [alias: `after`] — The revision(s) to insert after (can be repeated to create a merge commit)
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — The revision(s) to insert before (can be repeated to create a merge commit)
 * `--skip-emptied` — If true, when rebasing would produce an empty commit, the commit is abandoned. It will not be abandoned if it was already empty before the rebase. Will never skip merge commits with multiple non-empty parents
@@ -2279,12 +2279,12 @@ The reverse of each of the given revisions is applied sequentially in reverse to
 
 The description of the new revisions can be customized with the `templates.revert_description` config variable.
 
-**Usage:** `jj revert [OPTIONS] <--destination <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>`
+**Usage:** `jj revert [OPTIONS] <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>`
 
 ###### **Options:**
 
 * `-r`, `--revisions <REVSETS>` — The revision(s) to apply the reverse of
-* `-d`, `--destination <REVSETS>` — The revision(s) to apply the reverse changes on top of
+* `-t`, `--onto <REVSETS>` [alias: `destination`] — The revision(s) to apply the reverse changes on top of
 * `-A`, `--insert-after <REVSETS>` [alias: `after`] — The revision(s) to insert the reverse changes after (can be repeated to create a merge commit)
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — The revision(s) to insert the reverse changes before (can be repeated to create a merge commit)
 
@@ -2465,7 +2465,7 @@ Splitting an empty commit is not supported because the same effect can be achiev
 * `-r`, `--revision <REVSET>` — The revision to split
 
   Default value: `@`
-* `-d`, `--destination <REVSETS>` — The revision(s) to rebase onto (can be repeated to create a merge commit)
+* `-t`, `--onto <REVSETS>` [alias: `destination`] — The revision(s) to rebase onto (can be repeated to create a merge commit)
 * `-A`, `--insert-after <REVSETS>` [alias: `after`] — The revision(s) to insert after (can be repeated to create a merge commit)
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — The revision(s) to insert before (can be repeated to create a merge commit)
 * `-m`, `--message <MESSAGE>` — The change description to use (don't open editor)

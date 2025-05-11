@@ -84,19 +84,21 @@ pub(crate) struct SplitArgs {
     /// commit)
     #[arg(
         long,
-        short,
+        short = 't',
+        visible_alias = "destination",
+        visible_short_alias = 'd',
         conflicts_with = "parallel",
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
-    destination: Option<Vec<RevisionArg>>,
+    onto: Option<Vec<RevisionArg>>,
     /// The revision(s) to insert after (can be repeated to create a merge
     /// commit)
     #[arg(
         long,
         short = 'A',
         visible_alias = "after",
-        conflicts_with = "destination",
+        conflicts_with = "onto",
         conflicts_with = "parallel",
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
@@ -108,7 +110,7 @@ pub(crate) struct SplitArgs {
         long,
         short = 'B',
         visible_alias = "before",
-        conflicts_with = "destination",
+        conflicts_with = "onto",
         conflicts_with = "parallel",
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
@@ -160,14 +162,13 @@ impl SplitArgs {
             self.tool.as_deref(),
             self.interactive || self.paths.is_empty(),
         )?;
-        let use_move_flags = self.destination.is_some()
-            || self.insert_after.is_some()
-            || self.insert_before.is_some();
+        let use_move_flags =
+            self.onto.is_some() || self.insert_after.is_some() || self.insert_before.is_some();
         let (new_parent_ids, new_child_ids) = if use_move_flags {
             compute_commit_location(
                 ui,
                 workspace_command,
-                self.destination.as_deref(),
+                self.onto.as_deref(),
                 self.insert_after.as_deref(),
                 self.insert_before.as_deref(),
                 "split-out commit",
