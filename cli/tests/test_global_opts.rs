@@ -1063,7 +1063,7 @@ fn test_help() {
       -R, --repository <REPOSITORY>      Path to repository to operate on
           --ignore-working-copy          Don't snapshot the working copy, and don't update it
           --ignore-immutable             Allow rewriting immutable commits
-          --at-operation <AT_OPERATION>  Operation to load the repo at [aliases: at-op]
+          --at-operation <AT_OPERATION>  Operation to load the repo at [aliases: --at-op]
           --debug                        Enable debug logging
           --color <WHEN>                 When to colorize output [possible values: always, never, debug,
                                          auto]
