@@ -48,7 +48,7 @@ use crate::ui::Ui;
 /// Split a revision in two
 ///
 /// Starts a [diff editor] on the changes in the revision. Edit the right side
-/// of the diff until it has the content you want in the first revision. Once
+/// of the diff until it has the content you want in the new revision. Once
 /// you close the editor, your edited content will replace the previous
 /// revision. The remaining changes will be put in a new revision on top.
 ///
@@ -57,8 +57,8 @@ use crate::ui::Ui;
 ///
 /// If the change you split had a description, you will be asked to enter a
 /// change description for each commit. If the change did not have a
-/// description, the second part will not get a description, and you will be
-/// asked for a description only for the first part.
+/// description, the remaining changes will not get a description, and you will
+/// be asked for a description only for the selected changes.
 ///
 /// Splitting an empty commit is not supported because the same effect can be
 /// achieved with `jj new`.
@@ -124,7 +124,7 @@ pub(crate) struct SplitArgs {
     /// child
     #[arg(long, short)]
     parallel: bool,
-    /// Files matching any of these filesets are put in the first commit
+    /// Files matching any of these filesets are put in the selected changes
     #[arg(
         value_name = "FILESETS",
         value_hint = clap::ValueHint::AnyPath,
@@ -244,7 +244,7 @@ pub(crate) fn cmd_split(
             let template = description_template(
                 ui,
                 &tx,
-                "Enter a description for the first commit.",
+                "Enter a description for the selected changes.",
                 &temp_commit,
             )?;
             edit_description(&text_editor, &template)?
@@ -294,7 +294,7 @@ pub(crate) fn cmd_split(
             let template = description_template(
                 ui,
                 &tx,
-                "Enter a description for the second commit.",
+                "Enter a description for the remaining changes.",
                 &temp_commit,
             )?;
             edit_description(&text_editor, &template)?
@@ -319,9 +319,9 @@ pub(crate) fn cmd_split(
         if num_rebased > 0 {
             writeln!(formatter, "Rebased {num_rebased} descendant commits")?;
         }
-        write!(formatter, "First part: ")?;
+        write!(formatter, "Selected changes : ")?;
         tx.write_commit_summary(formatter.as_mut(), &first_commit)?;
-        write!(formatter, "\nSecond part: ")?;
+        write!(formatter, "\nRemaining changes: ")?;
         tx.write_commit_summary(formatter.as_mut(), &second_commit)?;
         writeln!(formatter)?;
     }
@@ -454,8 +454,9 @@ You are splitting a commit into two: {}
 
 The diff initially shows the changes in the commit you're splitting.
 
-Adjust the right side until it shows the contents you want for the first commit.
-The remainder will be in the second commit.
+Adjust the right side until it shows the contents you want to split into the
+new commit.
+The changes that are not selected will replace the original commit.
 ",
             tx.format_commit_summary(target_commit)
         )
@@ -475,12 +476,12 @@ The remainder will be in the second commit.
     if selection.is_full_selection() {
         writeln!(
             ui.warning_default(),
-            "All changes have been selected, so the second commit will be empty"
+            "All changes have been selected, so the original revision will become empty"
         )?;
     } else if selection.is_empty_selection() {
         writeln!(
             ui.warning_default(),
-            "No changes have been selected, so the first commit will be empty"
+            "No changes have been selected, so the new revision will be empty"
         )?;
     }
 
