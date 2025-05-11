@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod clear_predecessors;
 mod completion;
 mod config_schema;
 mod exec;
@@ -22,6 +23,8 @@ mod markdown_help;
 use clap::Subcommand;
 use tracing::instrument;
 
+use self::clear_predecessors::cmd_util_clear_predecessors;
+use self::clear_predecessors::UtilClearPredecessorsArgs;
 use self::completion::cmd_util_completion;
 use self::completion::UtilCompletionArgs;
 use self::config_schema::cmd_util_config_schema;
@@ -41,6 +44,7 @@ use crate::ui::Ui;
 /// Infrequently used commands such as for generating shell completions
 #[derive(Subcommand, Clone, Debug)]
 pub(crate) enum UtilCommand {
+    ClearPredecessors(UtilClearPredecessorsArgs),
     Completion(UtilCompletionArgs),
     ConfigSchema(UtilConfigSchemaArgs),
     Exec(UtilExecArgs),
@@ -56,6 +60,7 @@ pub(crate) fn cmd_util(
     subcommand: &UtilCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
+        UtilCommand::ClearPredecessors(args) => cmd_util_clear_predecessors(ui, command, args),
         UtilCommand::Completion(args) => cmd_util_completion(ui, command, args),
         UtilCommand::ConfigSchema(args) => cmd_util_config_schema(ui, command, args),
         UtilCommand::Exec(args) => cmd_util_exec(ui, command, args),
