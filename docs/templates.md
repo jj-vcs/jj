@@ -90,7 +90,7 @@ The following functions are defined.
 
 ## Types
 
-### AnnotationLine type
+### `AnnotationLine` type
 
 The following methods are defined.
 
@@ -100,11 +100,11 @@ The following methods are defined.
 * `.first_line_in_hunk() -> Boolean`: False when the directly preceding line
   references the same commit.
 
-### Boolean type
+### `Boolean` type
 
 No methods are defined. Can be constructed with `false` or `true` literal.
 
-### Commit type
+### `Commit` type
 
 This type cannot be printed. The following methods are defined.
 
@@ -145,7 +145,7 @@ This type cannot be printed. The following methods are defined.
   likely to change in future version to respect the command line path arguments.
 * `.root() -> Boolean`: True if the commit is the root commit.
 
-### CommitId / ChangeId type
+### `CommitId` / `ChangeId` type
 
 The following methods are defined.
 
@@ -154,7 +154,7 @@ The following methods are defined.
 * `.short([len: Integer]) -> String`
 * `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Shortest unique prefix.
 
-### CommitRef type
+### `CommitRef` type
 
 The following methods are defined.
 
@@ -177,7 +177,7 @@ The following methods are defined.
 * `.tracking_behind_count() -> SizeHint`: Number of commits behind of the
   tracking local ref.
 
-### ConfigValue type
+### `ConfigValue` type
 
 This type can be printed in TOML syntax. The following methods are defined.
 
@@ -187,7 +187,7 @@ This type can be printed in TOML syntax. The following methods are defined.
   value (e.g. integer) to string.
 * `.as_string_list() -> List<String>`: Extract list of strings.
 
-### CryptographicSignature type
+### `CryptographicSignature` type
 
 The following methods are defined.
 
@@ -210,7 +210,7 @@ The following methods are defined.
     if(commit.signature(), "commit has a signature", "commit is unsigned")
     ```
 
-### DiffStats type
+### `DiffStats` type
 
 This type can be printed as a histogram of the changes. The following methods
 are defined.
@@ -218,7 +218,7 @@ are defined.
 * `.total_added() -> Integer`: Total number of insertions.
 * `.total_removed() -> Integer`: Total number of deletions.
 
-### Email type
+### `Email` type
 
 The email field of a signature may or may not look like an email address. It may
 be empty, may not contain the symbol `@`, and could in principle contain
@@ -231,11 +231,11 @@ The following methods are defined.
 * `.domain() -> String`: the part of the email after the first `@` or the empty
   string.
 
-### Integer type
+### `Integer` type
 
 No methods are defined.
 
-### List type
+### `List` type
 
 A list can be implicitly converted to `Boolean`. The following methods are
 defined.
@@ -248,20 +248,20 @@ defined.
 * `.map(|item| expression) -> ListTemplate`: Apply template `expression`
   to each element. Example: `parents.map(|c| c.commit_id().short())`
 
-### List<Trailer> type
+### `List<Trailer>` type
 
 The following methods are defined. See also the `List` type.
 
 * `.contains_key(key: Template) -> Boolean`: True if the commit description
   contains at least one trailer with the key `key`.
 
-### ListTemplate type
+### `ListTemplate` type
 
 The following methods are defined. See also the `List` type.
 
 * `.join(separator: Template) -> Template`
 
-### Operation type
+### `Operation` type
 
 This type cannot be printed. The following methods are defined.
 
@@ -274,19 +274,19 @@ This type cannot be printed. The following methods are defined.
 * `.snapshot() -> Boolean`: True if the operation is a snapshot operation.
 * `.root() -> Boolean`: True if the operation is the root operation.
 
-### OperationId type
+### `OperationId` type
 
 The following methods are defined.
 
 * `.short([len: Integer]) -> String`
 
-### Option type
+### `Option` type
 
 An option can be implicitly converted to `Boolean` denoting whether the
 contained value is set. If set, all methods of the contained value can be
 invoked. If not set, an error will be reported inline on method call.
 
-### RepoPath type
+### `RepoPath` type
 
 A slash-separated path relative to the repository root. The following methods
 are defined.
@@ -295,7 +295,7 @@ are defined.
   platform-native separator, and is relative to the current working directory.
 * `.parent() -> Option<RepoPath>`: Parent directory path.
 
-### ShortestIdPrefix type
+### `ShortestIdPrefix` type
 
 The following methods are defined.
 
@@ -304,7 +304,7 @@ The following methods are defined.
 * `.upper() -> ShortestIdPrefix`
 * `.lower() -> ShortestIdPrefix`
 
-### Signature type
+### `Signature` type
 
 The following methods are defined.
 
@@ -312,7 +312,7 @@ The following methods are defined.
 * `.email() -> Email`
 * `.timestamp() -> Timestamp`
 
-### SizeHint type
+### `SizeHint` type
 
 This type cannot be printed. The following methods are defined.
 
@@ -322,7 +322,7 @@ This type cannot be printed. The following methods are defined.
   equals to the lower bound.
 * `.zero() -> Boolean`: True if upper bound is known and is `0`.
 
-### String type
+### `String` type
 
 A string can be implicitly converted to `Boolean`. The following methods are
 defined.
@@ -369,11 +369,11 @@ that don't form a valid escape sequence.
 A single-quoted string literal has no escape syntax. `'` can't be expressed
 inside a single-quoted string literal.
 
-### Template type
+### `Template` type
 
 Most types can be implicitly converted to `Template`. No methods are defined.
 
-### Timestamp type
+### `Timestamp` type
 
 The following methods are defined.
 
@@ -385,7 +385,7 @@ The following methods are defined.
 * `.after(date: String) -> Boolean`: True if the timestamp is exactly at or after the given date.
 * `.before(date: String) -> Boolean`: True if the timestamp is before, but not including, the given date.
 
-### TimestampRange type
+### `TimestampRange` type
 
 The following methods are defined.
 
@@ -393,14 +393,14 @@ The following methods are defined.
 * `.end() -> Timestamp`
 * `.duration() -> String`
 
-### Trailer type
+### `Trailer` type
 
 The following methods are defined.
 
 * `.key() -> String`
 * `.value() -> String`
 
-### TreeDiff type
+### `TreeDiff` type
 
 This type cannot be printed. The following methods are defined.
 
@@ -411,7 +411,7 @@ This type cannot be printed. The following methods are defined.
 * `.stat([width: Integer]) -> DiffStats`: Calculate stats of changed lines.
 * `.summary() -> Template`: Format as a list of status code and path pairs.
 
-### TreeDiffEntry type
+### `TreeDiffEntry` type
 
 This type cannot be printed. The following methods are defined.
 
@@ -422,7 +422,7 @@ This type cannot be printed. The following methods are defined.
 * `.source() -> TreeEntry`: The source (or left) entry.
 * `.target() -> TreeEntry`: The target (or right) entry.
 
-### TreeEntry type
+### `TreeEntry` type
 
 This type cannot be printed. The following methods are defined.
 
