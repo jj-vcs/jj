@@ -30,7 +30,7 @@ fn test_report_conflicts() {
     let output = work_dir.run_jj(["rebase", "-s=description(B)", "-d=root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 3 commits onto destination
+    Rebased 3 commits to destination
     Working copy  (@) now at: zsuskuln dd37d4a5 (conflict) (empty) (no description set)
     Parent commit (@-)      : kkmpptxz c7f5d6e5 (conflict) C
     Added 0 files, modified 1 files, removed 0 files
@@ -50,7 +50,7 @@ fn test_report_conflicts() {
     let output = work_dir.run_jj(["rebase", "-d=description(A)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 3 commits onto destination
+    Rebased 3 commits to destination
     Working copy  (@) now at: zsuskuln bad741db (empty) (no description set)
     Parent commit (@-)      : kkmpptxz cec3d034 C
     Added 0 files, modified 1 files, removed 0 files
@@ -62,7 +62,7 @@ fn test_report_conflicts() {
     let output = work_dir.run_jj(["rebase", "-r=description(B)", "-d=root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 1 commits onto destination
+    Rebased 1 commits to destination
     Rebased 2 descendant commits
     Working copy  (@) now at: zsuskuln 5b511768 (conflict) (empty) (no description set)
     Parent commit (@-)      : kkmpptxz 0252a7f0 (conflict) C
@@ -124,7 +124,7 @@ fn test_report_conflicts_with_divergent_commits() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
-    Rebased 3 commits onto destination
+    Rebased 3 commits to destination
     Working copy  (@) now at: zsuskuln?? 08a31f4f (conflict) C2
     Parent commit (@-)      : kkmpptxz 099d6624 (conflict) B
     Added 0 files, modified 1 files, removed 0 files
@@ -145,7 +145,7 @@ fn test_report_conflicts_with_divergent_commits() {
     let output = work_dir.run_jj(["rebase", "-d=description(A)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 3 commits onto destination
+    Rebased 3 commits to destination
     Working copy  (@) now at: zsuskuln?? 27ef05d9 C2
     Parent commit (@-)      : kkmpptxz 9039ed49 B
     Added 0 files, modified 1 files, removed 0 files
@@ -157,7 +157,7 @@ fn test_report_conflicts_with_divergent_commits() {
     let output = work_dir.run_jj(["rebase", "-s=description(C2)", "-d=root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 1 commits onto destination
+    Rebased 1 commits to destination
     Working copy  (@) now at: zsuskuln?? dfe73891 (conflict) C2
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
@@ -176,7 +176,7 @@ fn test_report_conflicts_with_divergent_commits() {
     let output = work_dir.run_jj(["rebase", "-s=description(C3)", "-d=root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 1 commits onto destination
+    Rebased 1 commits to destination
     New conflicts appeared in 1 commits:
       zsuskuln?? 02834578 (conflict) C3
     Hint: To resolve the conflicts, start by updating to it:
@@ -190,7 +190,7 @@ fn test_report_conflicts_with_divergent_commits() {
     let output = work_dir.run_jj(["rebase", "-s=description(C2)", "-d=description(B)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 1 commits onto destination
+    Rebased 1 commits to destination
     Working copy  (@) now at: zsuskuln?? 3fcf2fd2 C2
     Parent commit (@-)      : kkmpptxz 9039ed49 B
     Added 0 files, modified 1 files, removed 0 files
@@ -201,7 +201,7 @@ fn test_report_conflicts_with_divergent_commits() {
     let output = work_dir.run_jj(["rebase", "-s=description(C3)", "-d=description(B)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 1 commits onto destination
+    Rebased 1 commits to destination
     Existing conflicts were resolved or abandoned from 1 commits.
     [EOF]
     ");
@@ -228,7 +228,7 @@ fn test_report_conflicts_with_resolving_conflicts_hint_disabled() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 3 commits onto destination
+    Rebased 3 commits to destination
     Working copy  (@) now at: zsuskuln dd37d4a5 (conflict) (empty) (no description set)
     Parent commit (@-)      : kkmpptxz c7f5d6e5 (conflict) C
     Added 0 files, modified 1 files, removed 0 files

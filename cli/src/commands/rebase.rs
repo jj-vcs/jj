@@ -77,7 +77,7 @@ use crate::ui::Ui;
 /// ### Specifying which revisions to rebase
 ///
 /// With `--source/-s`, the command rebases the specified revision and its
-/// descendants onto the destination. For example, `jj rebase -s M -d O` would
+/// descendants to the destination. For example, `jj rebase -s M -d O` would
 /// transform your history like this (letters followed by an apostrophe are
 /// post-rebase versions):
 ///
@@ -127,7 +127,7 @@ use crate::ui::Ui;
 /// J           J
 /// ```
 ///
-/// With `--revisions/-r`, the command rebases only the specified revisions onto
+/// With `--revisions/-r`, the command rebases only the specified revisions to
 /// the destination. Any "hole" left behind will be filled by rebasing
 /// descendants onto the specified revisions' parent(s). For example,
 /// `jj rebase -r K -d M` would transform your history like this:
@@ -572,7 +572,7 @@ fn print_move_commits_stats(ui: &Ui, stats: &MoveCommitsStats) -> std::io::Resul
     if num_rebased_targets > 0 {
         writeln!(
             formatter,
-            "Rebased {num_rebased_targets} commits onto destination"
+            "Rebased {num_rebased_targets} commits to destination"
         )?;
     }
     if num_rebased_descendants > 0 {

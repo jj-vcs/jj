@@ -2405,7 +2405,7 @@ fn test_rebase_duplicates() {
     let output = work_dir.run_jj(["rebase", "-s", "b", "-d", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 4 commits onto destination
+    Rebased 4 commits to destination
     Working copy  (@) now at: royxmykx fa60711d c | c
     Parent commit (@-)      : zsuskuln 594e9d32 b | b
     Added 0 files, modified 0 files, removed 1 files
