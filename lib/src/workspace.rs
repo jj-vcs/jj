@@ -53,7 +53,6 @@ use crate::settings::UserSettings;
 use crate::signing::SignInitError;
 use crate::signing::Signer;
 use crate::simple_backend::SimpleBackend;
-use crate::store::Store;
 use crate::transaction::TransactionCommitError;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutOptions;
@@ -522,13 +521,6 @@ pub trait WorkspaceLoader {
 
     // Returns the type identifier for the WorkingCopy trait in this Workspace.
     fn get_working_copy_type(&self) -> Result<String, StoreLoadError>;
-
-    // Loads the WorkingCopy trait for this Workspace.
-    fn load_working_copy(
-        &self,
-        store: &Arc<Store>,
-        working_copy_factory: &dyn WorkingCopyFactory,
-    ) -> Result<Box<dyn WorkingCopy>, WorkspaceLoadError>;
 }
 
 pub struct DefaultWorkspaceLoaderFactory;
@@ -600,7 +592,11 @@ impl WorkspaceLoader for DefaultWorkspaceLoader {
         let repo_loader =
             RepoLoader::init_from_file_system(user_settings, &self.repo_path, store_factories)?;
         let working_copy_factory = get_working_copy_factory(self, working_copy_factories)?;
-        let working_copy = self.load_working_copy(repo_loader.store(), working_copy_factory)?;
+        let working_copy = working_copy_factory.load_working_copy(
+            repo_loader.store().clone(),
+            self.workspace_root.clone(),
+            self.working_copy_state_path.clone(),
+        )?;
         let workspace = Workspace::new(
             &self.workspace_root,
             self.repo_path.clone(),
@@ -612,18 +608,6 @@ impl WorkspaceLoader for DefaultWorkspaceLoader {
 
     fn get_working_copy_type(&self) -> Result<String, StoreLoadError> {
         read_store_type("working copy", self.working_copy_state_path.join("type"))
-    }
-
-    fn load_working_copy(
-        &self,
-        store: &Arc<Store>,
-        working_copy_factory: &dyn WorkingCopyFactory,
-    ) -> Result<Box<dyn WorkingCopy>, WorkspaceLoadError> {
-        Ok(working_copy_factory.load_working_copy(
-            store.clone(),
-            self.workspace_root.clone(),
-            self.working_copy_state_path.clone(),
-        )?)
     }
 }
 
