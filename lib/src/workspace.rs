@@ -15,6 +15,8 @@
 #![allow(missing_docs)]
 
 use std::collections::HashMap;
+#[cfg(windows)]
+use std::ffi::CString;
 use std::fs;
 use std::fs::File;
 use std::io;
@@ -24,6 +26,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use thiserror::Error;
+#[cfg(windows)]
+use winapi::um::fileapi::SetFileAttributesA;
+#[cfg(windows)]
+use winapi::um::winnt::FILE_ATTRIBUTE_HIDDEN;
 
 use crate::backend::BackendInitError;
 use crate::backend::MergedTreeId;
@@ -119,7 +125,17 @@ pub struct Workspace {
 fn create_jj_dir(workspace_root: &Path) -> Result<PathBuf, WorkspaceInitError> {
     let jj_dir = workspace_root.join(".jj");
     match std::fs::create_dir(&jj_dir).context(&jj_dir) {
-        Ok(()) => Ok(jj_dir),
+        Ok(()) => {
+            #[cfg(windows)]
+            #[allow(unsafe_code)]
+            {
+                let jj_dir = CString::new(jj_dir.to_str().unwrap()).unwrap();
+                unsafe {
+                    SetFileAttributesA(jj_dir.as_ptr(), FILE_ATTRIBUTE_HIDDEN);
+                };
+            }
+            Ok(jj_dir)
+        }
         Err(ref e) if e.error.kind() == io::ErrorKind::AlreadyExists => {
             Err(WorkspaceInitError::DestinationExists(jj_dir))
         }
