@@ -172,6 +172,13 @@ or:
 cargo install --locked --bin jj jj-cli
 ```
 
+via winget:
+
+```shell
+# To install the latest release via winget
+winget install jj-vcs.jj
+```
+
 
 ## Initial configuration
 
