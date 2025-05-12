@@ -81,6 +81,10 @@ impl Store {
         })
     }
 
+    pub fn backend(&self) -> &dyn Backend {
+        self.backend.as_ref()
+    }
+
     pub fn backend_impl(&self) -> &dyn Any {
         self.backend.as_any()
     }
