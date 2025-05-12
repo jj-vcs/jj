@@ -48,9 +48,9 @@ fn test_revert() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the following required arguments were not provided:
-      <--destination <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
+      <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
 
-    Usage: jj revert --revisions <REVSETS> <--destination <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
+    Usage: jj revert --revisions <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
 
     For more information, try '--help'.
     [EOF]

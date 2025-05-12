@@ -26,7 +26,7 @@ fn test_evolog_with_or_without_diff() {
     work_dir.write_file("file1", "foo\nbar\n");
     work_dir.write_file("file2", "foo\n");
     work_dir
-        .run_jj(["rebase", "-r", "@", "-d", "root()"])
+        .run_jj(["rebase", "-r", "@", "-o", "root()"])
         .success();
     work_dir.write_file("file1", "resolved\n");
 
@@ -162,7 +162,7 @@ fn test_evolog_with_custom_symbols() {
     work_dir.write_file("file1", "foo\nbar\n");
     work_dir.write_file("file2", "foo\n");
     work_dir
-        .run_jj(["rebase", "-r", "@", "-d", "root()"])
+        .run_jj(["rebase", "-r", "@", "-o", "root()"])
         .success();
     work_dir.write_file("file1", "resolved\n");
 

@@ -26,6 +26,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+* The `--destination/-d` arguments for `jj rebase`, `jj revert`, `jj duplicate`,
+  and `jj new` have been deprecated in favor of `--onto/-o`. We may start
+  emitting a warning in a later version if you use the old name.
+
 ### New features
 
 * `jj split` has gained a `--message` option to set the description of the

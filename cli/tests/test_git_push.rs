@@ -1349,7 +1349,7 @@ fn test_git_push_conflict() {
     work_dir.run_jj(["commit", "-m", "second"]).success();
     work_dir.write_file("file", "third");
     work_dir
-        .run_jj(["rebase", "-r", "@", "-d", "@--"])
+        .run_jj(["rebase", "-r", "@", "-o", "@--"])
         .success();
     work_dir
         .run_jj(["bookmark", "create", "-r@", "my-bookmark"])

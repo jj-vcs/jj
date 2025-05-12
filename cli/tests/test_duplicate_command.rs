@@ -294,7 +294,7 @@ fn test_duplicate_destination() {
     ");
 
     // Duplicate a single commit onto a single destination.
-    let output = work_dir.run_jj(["duplicate", "a1", "-d", "c"]);
+    let output = work_dir.run_jj(["duplicate", "a1", "-o", "c"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as nkmrtpmo f7a7a3f6 a1
@@ -317,7 +317,7 @@ fn test_duplicate_destination() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
     // Duplicate a single commit onto multiple destinations.
-    let output = work_dir.run_jj(["duplicate", "a1", "-d", "c", "-d", "d"]);
+    let output = work_dir.run_jj(["duplicate", "a1", "-o", "c", "-o", "d"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as xtnwkqum a515a8a7 a1
@@ -341,7 +341,7 @@ fn test_duplicate_destination() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
     // Duplicate a single commit onto its descendant.
-    let output = work_dir.run_jj(["duplicate", "a1", "-d", "a3"]);
+    let output = work_dir.run_jj(["duplicate", "a1", "-o", "a3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Duplicating commit 5d93a4b8f4bd as a descendant of itself
@@ -366,7 +366,7 @@ fn test_duplicate_destination() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     // Duplicate multiple commits without a direct ancestry relationship onto a
     // single destination.
-    let output = work_dir.run_jj(["duplicate", "-r=a1", "-r=b", "-d", "c"]);
+    let output = work_dir.run_jj(["duplicate", "-r=a1", "-r=b", "-o", "c"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as xlzxqlsl bfc29032 a1
@@ -393,7 +393,7 @@ fn test_duplicate_destination() {
 
     // Duplicate multiple commits without a direct ancestry relationship onto
     // multiple destinations.
-    let output = work_dir.run_jj(["duplicate", "-r=a1", "b", "-d", "c", "-d", "d"]);
+    let output = work_dir.run_jj(["duplicate", "-r=a1", "b", "-o", "c", "-o", "d"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as oupztwtk 83113cdf a1
@@ -421,7 +421,7 @@ fn test_duplicate_destination() {
 
     // Duplicate multiple commits with an ancestry relationship onto a
     // single destination.
-    let output = work_dir.run_jj(["duplicate", "a1", "a3", "-d", "c"]);
+    let output = work_dir.run_jj(["duplicate", "a1", "a3", "-o", "c"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as wtszoswq 31bc8e32 a1
@@ -447,7 +447,7 @@ fn test_duplicate_destination() {
 
     // Duplicate multiple commits with an ancestry relationship onto
     // multiple destinations.
-    let output = work_dir.run_jj(["duplicate", "a1", "a3", "-d", "c", "-d", "d"]);
+    let output = work_dir.run_jj(["duplicate", "a1", "a3", "-o", "c", "-o", "d"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Duplicated 5d93a4b8f4bd as rkoyqlrv d7d45f05 a1
@@ -2402,7 +2402,7 @@ fn test_rebase_duplicates() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-s", "b", "-d", "root()"]);
+    let output = work_dir.run_jj(["rebase", "-s", "b", "-o", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 4 commits to destination
@@ -2469,7 +2469,7 @@ fn test_duplicate_description_template() {
 
     // Test empty template
     test_env.add_config("templates.duplicate_description = ''");
-    let output = work_dir.run_jj(["duplicate", "b", "-d", "root()"]);
+    let output = work_dir.run_jj(["duplicate", "b", "-o", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Duplicated 6960bbcfd5b1 as kpqxywon 33044659 (no description set)
@@ -2481,7 +2481,7 @@ fn test_duplicate_description_template() {
     let output = work_dir.run_jj([
         "duplicate",
         "c",
-        "-d",
+        "-o",
         "root()",
         // Use an argument here so we can actually see the log in the last test
         // (We don't have a way to remove a config in TestEnvironment)

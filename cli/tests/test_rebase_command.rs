@@ -31,9 +31,9 @@ fn test_rebase_invalid() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the following required arguments were not provided:
-      <--destination <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
+      <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
 
-    Usage: jj rebase <--destination <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
+    Usage: jj rebase <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
 
     For more information, try '--help'.
     [EOF]
@@ -41,12 +41,12 @@ fn test_rebase_invalid() {
     ");
 
     // Both -r and -s
-    let output = work_dir.run_jj(["rebase", "-r", "a", "-s", "a", "-d", "b"]);
+    let output = work_dir.run_jj(["rebase", "-r", "a", "-s", "a", "-o", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the argument '--revisions <REVSETS>' cannot be used with '--source <REVSETS>'
 
-    Usage: jj rebase --revisions <REVSETS> <--destination <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
+    Usage: jj rebase --revisions <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
 
     For more information, try '--help'.
     [EOF]
@@ -54,38 +54,38 @@ fn test_rebase_invalid() {
     ");
 
     // Both -b and -s
-    let output = work_dir.run_jj(["rebase", "-b", "a", "-s", "a", "-d", "b"]);
+    let output = work_dir.run_jj(["rebase", "-b", "a", "-s", "a", "-o", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the argument '--branch <REVSETS>' cannot be used with '--source <REVSETS>'
 
-    Usage: jj rebase --branch <REVSETS> <--destination <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
+    Usage: jj rebase --branch <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
 
     For more information, try '--help'.
     [EOF]
     [exit status: 2]
     ");
 
-    // Both -d and --after
-    let output = work_dir.run_jj(["rebase", "-r", "a", "-d", "b", "--after", "b"]);
+    // Both -o and --after
+    let output = work_dir.run_jj(["rebase", "-r", "a", "-o", "b", "--after", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    error: the argument '--destination <REVSETS>' cannot be used with '--insert-after <REVSETS>'
+    error: the argument '--onto <REVSETS>' cannot be used with '--insert-after <REVSETS>'
 
-    Usage: jj rebase --revisions <REVSETS> <--destination <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
+    Usage: jj rebase --revisions <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
 
     For more information, try '--help'.
     [EOF]
     [exit status: 2]
     ");
 
-    // Both -d and --before
-    let output = work_dir.run_jj(["rebase", "-r", "a", "-d", "b", "--before", "b"]);
+    // Both -o and --before
+    let output = work_dir.run_jj(["rebase", "-r", "a", "-o", "b", "--before", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    error: the argument '--destination <REVSETS>' cannot be used with '--insert-before <REVSETS>'
+    error: the argument '--onto <REVSETS>' cannot be used with '--insert-before <REVSETS>'
 
-    Usage: jj rebase --revisions <REVSETS> <--destination <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
+    Usage: jj rebase --revisions <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
 
     For more information, try '--help'.
     [EOF]
@@ -93,7 +93,7 @@ fn test_rebase_invalid() {
     ");
 
     // Rebase onto self with -r
-    let output = work_dir.run_jj(["rebase", "-r", "a", "-d", "a"]);
+    let output = work_dir.run_jj(["rebase", "-r", "a", "-o", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Cannot rebase 7d980be7a1d4 onto itself
@@ -102,7 +102,7 @@ fn test_rebase_invalid() {
     ");
 
     // Rebase root with -r
-    let output = work_dir.run_jj(["rebase", "-r", "root()", "-d", "a"]);
+    let output = work_dir.run_jj(["rebase", "-r", "root()", "-o", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: The root commit 000000000000 is immutable
@@ -111,7 +111,7 @@ fn test_rebase_invalid() {
     ");
 
     // Rebase onto descendant with -s
-    let output = work_dir.run_jj(["rebase", "-s", "a", "-d", "b"]);
+    let output = work_dir.run_jj(["rebase", "-s", "a", "-o", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Cannot rebase 7d980be7a1d4 onto descendant 123b4d91f6e5
@@ -130,20 +130,20 @@ fn test_rebase_empty_sets() {
     create_commit(&work_dir, "b", &["a"]);
 
     // TODO: Make all of these say "Nothing changed"?
-    let output = work_dir.run_jj(["rebase", "-r=none()", "-d=b"]);
+    let output = work_dir.run_jj(["rebase", "-r=none()", "-o=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    let output = work_dir.run_jj(["rebase", "-s=none()", "-d=b"]);
+    let output = work_dir.run_jj(["rebase", "-s=none()", "-o=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Revset `none()` didn't resolve to any revisions
     [EOF]
     [exit status: 1]
     ");
-    let output = work_dir.run_jj(["rebase", "-b=none()", "-d=b"]);
+    let output = work_dir.run_jj(["rebase", "-b=none()", "-o=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Revset `none()` didn't resolve to any revisions
@@ -151,7 +151,7 @@ fn test_rebase_empty_sets() {
     [exit status: 1]
     ");
     // Empty because "b..a" is empty
-    let output = work_dir.run_jj(["rebase", "-b=a", "-d=b"]);
+    let output = work_dir.run_jj(["rebase", "-b=a", "-o=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
@@ -183,7 +183,7 @@ fn test_rebase_bookmark() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-b", "c", "-d", "e"]);
+    let output = work_dir.run_jj(["rebase", "-b", "c", "-o", "e"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
@@ -202,7 +202,7 @@ fn test_rebase_bookmark() {
 
     // Test rebasing multiple bookmarks at once
     work_dir.run_jj(["undo"]).success();
-    let output = work_dir.run_jj(["rebase", "-b=e", "-b=d", "-d=b"]);
+    let output = work_dir.run_jj(["rebase", "-b=e", "-b=d", "-o=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Skipped rebase of 1 commits that were already in place
@@ -226,7 +226,7 @@ fn test_rebase_bookmark() {
 
     // Same test but with more than one revision per argument
     work_dir.run_jj(["undo"]).success();
-    let output = work_dir.run_jj(["rebase", "-b=e|d", "-d=b"]);
+    let output = work_dir.run_jj(["rebase", "-b=e|d", "-o=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Revset `e|d` resolved to more than one revision
@@ -237,7 +237,7 @@ fn test_rebase_bookmark() {
     [EOF]
     [exit status: 1]
     ");
-    let output = work_dir.run_jj(["rebase", "-b=all:e|d", "-d=b"]);
+    let output = work_dir.run_jj(["rebase", "-b=all:e|d", "-o=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Skipped rebase of 1 commits that were already in place
@@ -285,7 +285,7 @@ fn test_rebase_bookmark_with_merge() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-b", "d", "-d", "b"]);
+    let output = work_dir.run_jj(["rebase", "-b", "d", "-o", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
@@ -308,7 +308,7 @@ fn test_rebase_bookmark_with_merge() {
     ");
 
     work_dir.run_jj(["undo"]).success();
-    let output = work_dir.run_jj(["rebase", "-d", "b"]);
+    let output = work_dir.run_jj(["rebase", "-o", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
@@ -357,7 +357,7 @@ fn test_rebase_single_revision() {
 
     // Descendants of the rebased commit "c" should be rebased onto parents. First
     // we test with a non-merge commit.
-    let output = work_dir.run_jj(["rebase", "-r", "c", "-d", "b"]);
+    let output = work_dir.run_jj(["rebase", "-r", "c", "-o", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -383,7 +383,7 @@ fn test_rebase_single_revision() {
 
     // Now, let's try moving the merge commit. After, both parents of "d" ("b" and
     // "c") should become parents of "e".
-    let output = work_dir.run_jj(["rebase", "-r", "d", "-d", "a"]);
+    let output = work_dir.run_jj(["rebase", "-r", "d", "-o", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -432,7 +432,7 @@ fn test_rebase_single_revision_merge_parent() {
 
     // Descendants of the rebased commit should be rebased onto parents, and if
     // the descendant is a merge commit, it shouldn't forget its other parents.
-    let output = work_dir.run_jj(["rebase", "-r", "c", "-d", "a"]);
+    let output = work_dir.run_jj(["rebase", "-r", "c", "-o", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -490,7 +490,7 @@ fn test_rebase_multiple_revisions() {
     ");
 
     // Test with two non-related non-merge commits.
-    let output = work_dir.run_jj(["rebase", "-r", "c", "-r", "e", "-d", "a"]);
+    let output = work_dir.run_jj(["rebase", "-r", "c", "-r", "e", "-o", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 commits to destination
@@ -523,7 +523,7 @@ fn test_rebase_multiple_revisions() {
     // Test with two related non-merge commits. Since "b" is a parent of "c", when
     // rebasing commits "b" and "c", their ancestry relationship should be
     // preserved.
-    let output = work_dir.run_jj(["rebase", "-r", "b", "-r", "c", "-d", "e"]);
+    let output = work_dir.run_jj(["rebase", "-r", "b", "-r", "c", "-o", "e"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 commits to destination
@@ -557,7 +557,7 @@ fn test_rebase_multiple_revisions() {
     // inherit its descendants which are not in the subtree ("c" and "d").
     // "f" will retain its parent "c" since "c" is outside the target set, and not
     // a descendant of any new children.
-    let output = work_dir.run_jj(["rebase", "-r", "e::g", "-d", "a"]);
+    let output = work_dir.run_jj(["rebase", "-r", "e::g", "-o", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
@@ -593,7 +593,7 @@ fn test_rebase_multiple_revisions() {
     // rebased commits. "d" should be a new parent of "f", and "f" should be a
     // new parent of "h". "f" will retain its parent "c" since "c" is outside the
     // target set, and not a descendant of any new children.
-    let output = work_dir.run_jj(["rebase", "-r", "d", "-r", "f", "-r", "h", "-d", "b"]);
+    let output = work_dir.run_jj(["rebase", "-r", "d", "-r", "f", "-r", "h", "-o", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
@@ -625,7 +625,7 @@ fn test_rebase_multiple_revisions() {
     work_dir.run_jj(["undo"]).success();
 
     // Test rebasing a subgraph onto its descendants.
-    let output = work_dir.run_jj(["rebase", "-r", "d::e", "-d", "i"]);
+    let output = work_dir.run_jj(["rebase", "-r", "d::e", "-o", "i"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 commits to destination
@@ -677,7 +677,7 @@ fn test_rebase_revision_onto_descendant() {
     let setup_opid = work_dir.current_operation_id();
 
     // Simpler example
-    let output = work_dir.run_jj(["rebase", "-r", "base", "-d", "a"]);
+    let output = work_dir.run_jj(["rebase", "-r", "base", "-o", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -711,7 +711,7 @@ fn test_rebase_revision_onto_descendant() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
-    let output = work_dir.run_jj(["rebase", "-r", "base", "-d", "merge"]);
+    let output = work_dir.run_jj(["rebase", "-r", "base", "-o", "merge"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -757,7 +757,7 @@ fn test_rebase_multiple_destinations() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-r", "a", "-d", "b", "-d", "c"]);
+    let output = work_dir.run_jj(["rebase", "-r", "a", "-o", "b", "-o", "c"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -773,7 +773,7 @@ fn test_rebase_multiple_destinations() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-r", "a", "-d", "b|c"]);
+    let output = work_dir.run_jj(["rebase", "-r", "a", "-o", "b|c"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Revset `b|c` resolved to more than one revision
@@ -786,7 +786,7 @@ fn test_rebase_multiple_destinations() {
     ");
 
     // try with 'all:' and succeed
-    let output = work_dir.run_jj(["rebase", "-r", "a", "-d", "all:b|c"]);
+    let output = work_dir.run_jj(["rebase", "-r", "a", "-o", "all:b|c"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -809,7 +809,7 @@ fn test_rebase_multiple_destinations() {
             "rebase",
             "--config=ui.always-allow-large-revsets=true",
             "-r=a",
-            "-d=b|c",
+            "-o=b|c",
         ])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -822,7 +822,7 @@ fn test_rebase_multiple_destinations() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-r", "a", "-d", "b", "-d", "b"]);
+    let output = work_dir.run_jj(["rebase", "-r", "a", "-o", "b", "-o", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: More than one revset resolved to revision d18ca3e87135
@@ -831,7 +831,7 @@ fn test_rebase_multiple_destinations() {
     ");
 
     // Same error with 'all:' if there is overlap.
-    let output = work_dir.run_jj(["rebase", "-r", "a", "-d", "all:b|c", "-d", "b"]);
+    let output = work_dir.run_jj(["rebase", "-r", "a", "-o", "all:b|c", "-o", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: More than one revset resolved to revision d18ca3e87135
@@ -839,7 +839,7 @@ fn test_rebase_multiple_destinations() {
     [exit status: 1]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-r", "a", "-d", "b", "-d", "root()"]);
+    let output = work_dir.run_jj(["rebase", "-r", "a", "-o", "b", "-o", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: The Git backend does not support creating merge commits with the root commit as one of the parents.
@@ -870,7 +870,7 @@ fn test_rebase_with_descendants() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-s", "b", "-d", "a"]);
+    let output = work_dir.run_jj(["rebase", "-s", "b", "-o", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
@@ -891,7 +891,7 @@ fn test_rebase_with_descendants() {
 
     // Rebase several subtrees at once.
     work_dir.run_jj(["undo"]).success();
-    let output = work_dir.run_jj(["rebase", "-s=c", "-s=d", "-d=a"]);
+    let output = work_dir.run_jj(["rebase", "-s=c", "-s=d", "-o=a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 commits to destination
@@ -926,7 +926,7 @@ fn test_rebase_with_descendants() {
 
     // `d` was a descendant of `b`, and both are moved to be direct descendants of
     // `a`. `c` remains a descendant of `b`.
-    let output = work_dir.run_jj(["rebase", "-s=b", "-s=d", "-d=a"]);
+    let output = work_dir.run_jj(["rebase", "-s=b", "-s=d", "-o=a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
@@ -948,7 +948,7 @@ fn test_rebase_with_descendants() {
 
     // Same test as above, but with multiple commits per argument
     work_dir.run_jj(["undo"]).success();
-    let output = work_dir.run_jj(["rebase", "-s=b|d", "-d=a"]);
+    let output = work_dir.run_jj(["rebase", "-s=b|d", "-o=a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Revset `b|d` resolved to more than one revision
@@ -959,7 +959,7 @@ fn test_rebase_with_descendants() {
     [EOF]
     [exit status: 1]
     ");
-    let output = work_dir.run_jj(["rebase", "-s=all:b|d", "-d=a"]);
+    let output = work_dir.run_jj(["rebase", "-s=all:b|d", "-o=a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
@@ -992,7 +992,7 @@ fn test_rebase_error_revision_does_not_exist() {
         .success();
     work_dir.run_jj(["new", "-r", "@-", "-m", "two"]).success();
 
-    let output = work_dir.run_jj(["rebase", "-b", "b-one", "-d", "this"]);
+    let output = work_dir.run_jj(["rebase", "-b", "b-one", "-o", "this"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Revision `this` doesn't exist
@@ -1000,7 +1000,7 @@ fn test_rebase_error_revision_does_not_exist() {
     [exit status: 1]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-b", "this", "-d", "b-one"]);
+    let output = work_dir.run_jj(["rebase", "-b", "this", "-o", "b-one"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Revision `this` doesn't exist
@@ -1038,7 +1038,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
 
     // ===================== rebase -s tests =================
     // This should be a no-op
-    let output = work_dir.run_jj(["rebase", "-s", "base", "-d", "notroot"]);
+    let output = work_dir.run_jj(["rebase", "-s", "base", "-o", "notroot"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Skipped rebase of 4 commits that were already in place
@@ -1059,7 +1059,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
 
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     // This should be a no-op
-    let output = work_dir.run_jj(["rebase", "-s", "a", "-d", "base"]);
+    let output = work_dir.run_jj(["rebase", "-s", "a", "-o", "base"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Skipped rebase of 3 commits that were already in place
@@ -1079,7 +1079,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ");
 
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    let output = work_dir.run_jj(["rebase", "-s", "a", "-d", "root()"]);
+    let output = work_dir.run_jj(["rebase", "-s", "a", "-o", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
@@ -1118,7 +1118,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
 
     // The commits in roots(base..c), i.e. commit "a" should be rebased onto "base",
     // which is a no-op
-    let output = work_dir.run_jj(["rebase", "-b", "c", "-d", "base"]);
+    let output = work_dir.run_jj(["rebase", "-b", "c", "-o", "base"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Skipped rebase of 3 commits that were already in place
@@ -1138,7 +1138,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ");
 
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    let output = work_dir.run_jj(["rebase", "-b", "c", "-d", "a"]);
+    let output = work_dir.run_jj(["rebase", "-b", "c", "-o", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 commits to destination
@@ -1160,7 +1160,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
 
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     // This should be a no-op
-    let output = work_dir.run_jj(["rebase", "-b", "a", "-d", "root()"]);
+    let output = work_dir.run_jj(["rebase", "-b", "a", "-o", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Skipped rebase of 5 commits that were already in place
@@ -1194,7 +1194,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-r", "base", "-d", "root()"]);
+    let output = work_dir.run_jj(["rebase", "-r", "base", "-o", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -1221,7 +1221,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     // This tests the algorithm for rebasing onto descendants. The result should
     // have unsimplified ancestry.
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    let output = work_dir.run_jj(["rebase", "-r", "base", "-d", "b"]);
+    let output = work_dir.run_jj(["rebase", "-r", "base", "-o", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -1247,7 +1247,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     // This tests the algorithm for rebasing onto descendants. The result should
     // have unsimplified ancestry.
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    let output = work_dir.run_jj(["rebase", "-r", "base", "-d", "a"]);
+    let output = work_dir.run_jj(["rebase", "-r", "base", "-o", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -1284,7 +1284,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-r", "a", "-d", "root()"]);
+    let output = work_dir.run_jj(["rebase", "-r", "a", "-o", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -1308,7 +1308,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ");
 
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    let output = work_dir.run_jj(["rebase", "-r", "b", "-d", "root()"]);
+    let output = work_dir.run_jj(["rebase", "-r", "b", "-o", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -1336,7 +1336,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     // This tests the algorithm for rebasing onto descendants. The result should
     // have unsimplified ancestry.
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    let output = work_dir.run_jj(["rebase", "-r", "b", "-d", "c"]);
+    let output = work_dir.run_jj(["rebase", "-r", "b", "-o", "c"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -1362,7 +1362,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     // In this test, the commit with weird ancestry is not rebased (neither directly
     // nor indirectly).
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    let output = work_dir.run_jj(["rebase", "-r", "c", "-d", "a"]);
+    let output = work_dir.run_jj(["rebase", "-r", "c", "-o", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -2724,7 +2724,7 @@ fn test_rebase_skip_emptied() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-d=b", "--skip-emptied"]);
+    let output = work_dir.run_jj(["rebase", "-o=b", "--skip-emptied"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 commits to destination
@@ -2761,7 +2761,7 @@ fn test_rebase_skip_emptied() {
     let output = work_dir.run_jj([
         "rebase",
         "-r=description('will become empty')",
-        "-d=b",
+        "-o=b",
         "--skip-emptied",
     ]);
     insta::assert_snapshot!(output, @r"
@@ -2872,7 +2872,7 @@ fn test_rebase_skip_if_on_destination() {
     ");
 
     // Skip rebase with -b
-    let output = work_dir.run_jj(["rebase", "-b", "d", "-d", "a"]);
+    let output = work_dir.run_jj(["rebase", "-b", "d", "-o", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Skipped rebase of 6 commits that were already in place
@@ -2895,7 +2895,7 @@ fn test_rebase_skip_if_on_destination() {
     ");
 
     // Skip rebase with -s
-    let output = work_dir.run_jj(["rebase", "-s", "c", "-d", "b1", "-d", "b2"]);
+    let output = work_dir.run_jj(["rebase", "-s", "c", "-o", "b1", "-o", "b2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Skipped rebase of 4 commits that were already in place
@@ -2918,7 +2918,7 @@ fn test_rebase_skip_if_on_destination() {
     ");
 
     // Skip rebase with -r since commit has no children
-    let output = work_dir.run_jj(["rebase", "-r", "d", "-d", "c"]);
+    let output = work_dir.run_jj(["rebase", "-r", "d", "-o", "c"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Skipped rebase of 1 commits that were already in place
@@ -2941,7 +2941,7 @@ fn test_rebase_skip_if_on_destination() {
     ");
 
     // Skip rebase of commit, but rebases children onto destination with -r
-    let output = work_dir.run_jj(["rebase", "-r", "e", "-d", "c"]);
+    let output = work_dir.run_jj(["rebase", "-r", "e", "-o", "c"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Skipped rebase of 1 commits that were already in place

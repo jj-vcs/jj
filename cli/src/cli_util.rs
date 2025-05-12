@@ -3058,12 +3058,12 @@ impl fmt::Display for RemoteBookmarkNamePattern {
 
 /// Computes the location (new parents and new children) to place commits.
 ///
-/// The `destination` argument is mutually exclusive to the `insert_after` and
+/// The `onto` argument is mutually exclusive to the `insert_after` and
 /// `insert_before` arguments.
 pub fn compute_commit_location(
     ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
-    destination: Option<&[RevisionArg]>,
+    onto: Option<&[RevisionArg]>,
     insert_after: Option<&[RevisionArg]>,
     insert_before: Option<&[RevisionArg]>,
     commit_type: &str,
@@ -3081,13 +3081,13 @@ pub fn compute_commit_location(
                 Ok(None)
             }
         };
-    let destination_commit_ids = resolve_revisions(destination)?;
+    let onto_commit_ids = resolve_revisions(onto)?;
     let after_commit_ids = resolve_revisions(insert_after)?;
     let before_commit_ids = resolve_revisions(insert_before)?;
 
     let (new_parent_ids, new_child_ids) =
-        match (destination_commit_ids, after_commit_ids, before_commit_ids) {
-            (Some(destination_commit_ids), None, None) => (destination_commit_ids, vec![]),
+        match (onto_commit_ids, after_commit_ids, before_commit_ids) {
+            (Some(onto_commit_ids), None, None) => (onto_commit_ids, vec![]),
             (None, Some(after_commit_ids), Some(before_commit_ids)) => {
                 (after_commit_ids, before_commit_ids)
             }
@@ -3117,10 +3117,10 @@ pub fn compute_commit_location(
                 (new_parent_ids, before_commit_ids)
             }
             (Some(_), Some(_), _) | (Some(_), _, Some(_)) => {
-                panic!("destination cannot be used with insert_after/insert_before")
+                panic!("onto cannot be used with insert_after/insert_before")
             }
             (None, None, None) => {
-                panic!("expected at least one of destination or insert_after/insert_before")
+                panic!("expected at least one of onto or insert_after/insert_before")
             }
         };
 
