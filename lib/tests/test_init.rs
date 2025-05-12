@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(windows)]
+use std::ffi::CString;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -26,6 +28,10 @@ use testutils::git;
 use testutils::write_random_commit;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
+#[cfg(windows)]
+use winapi::um::fileapi::GetFileAttributesA;
+#[cfg(windows)]
+use winapi::um::winnt::FILE_ATTRIBUTE_HIDDEN;
 
 fn canonicalize(input: &Path) -> (PathBuf, PathBuf) {
     let uncanonical = input.join("..").join(input.file_name().unwrap());
@@ -49,6 +55,20 @@ fn test_init_local() {
     // Just test that we can write a commit to the store
     let mut tx = repo.start_transaction();
     write_random_commit(tx.repo_mut());
+}
+
+#[test]
+#[cfg(windows)]
+fn test_init_hidden() {
+    let settings = testutils::user_settings();
+    let temp_dir = testutils::new_temp_dir();
+    let (canonical, uncanonical) = canonicalize(temp_dir.path());
+    Workspace::init_internal_git(&settings, &uncanonical).unwrap();
+
+    let dot_jj_path = CString::new(canonical.join(".jj").to_str().unwrap()).unwrap();
+    let dot_jj_folder_attributes = unsafe { GetFileAttributesA(dot_jj_path.as_ptr()) };
+
+    assert_ne!(dot_jj_folder_attributes & FILE_ATTRIBUTE_HIDDEN, 0);
 }
 
 #[test]
