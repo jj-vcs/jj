@@ -120,7 +120,6 @@ use jj_lib::str_util::StringPattern;
 use jj_lib::transaction::Transaction;
 use jj_lib::view::View;
 use jj_lib::working_copy;
-use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::SnapshotStats;
@@ -546,7 +545,6 @@ impl CommandHelper {
                 let stale_wc_commit = repo.store().get_commit(wc_commit_id)?;
 
                 let mut workspace_command = self.workspace_helper_no_snapshot(ui)?;
-                let checkout_options = workspace_command.checkout_options();
 
                 let repo = workspace_command.repo().clone();
                 let (mut locked_ws, desired_wc_commit) =
@@ -569,7 +567,6 @@ impl CommandHelper {
                             repo.op_id().clone(),
                             &stale_wc_commit,
                             &desired_wc_commit,
-                            &checkout_options,
                         )?;
                         workspace_command.print_updated_working_copy_stats(
                             ui,
@@ -1251,12 +1248,6 @@ impl WorkspaceCommandHelper {
         &self.env
     }
 
-    pub fn checkout_options(&self) -> CheckoutOptions {
-        CheckoutOptions {
-            conflict_marker_style: self.env.conflict_marker_style(),
-        }
-    }
-
     pub fn unchecked_start_working_copy_mutation(
         &mut self,
     ) -> Result<(LockedWorkspace, Commit), CommandError> {
@@ -1386,29 +1377,6 @@ to the current parents may contain changes from multiple commits.
         )?;
         print_parse_diagnostics(ui, "In `snapshot.auto-track`", &diagnostics)?;
         Ok(expression.to_matcher())
-    }
-
-    pub fn snapshot_options_with_start_tracking_matcher<'a>(
-        &self,
-        start_tracking_matcher: &'a dyn Matcher,
-    ) -> Result<SnapshotOptions<'a>, CommandError> {
-        let base_ignores = self.base_ignores()?;
-        let fsmonitor_settings = self.settings().fsmonitor_settings()?;
-        let HumanByteSize(mut max_new_file_size) = self
-            .settings()
-            .get_value_with("snapshot.max-new-file-size", TryInto::try_into)?;
-        if max_new_file_size == 0 {
-            max_new_file_size = u64::MAX;
-        }
-        let conflict_marker_style = self.env.conflict_marker_style();
-        Ok(SnapshotOptions {
-            base_ignores,
-            fsmonitor_settings,
-            progress: None,
-            start_tracking_matcher,
-            max_new_file_size,
-            conflict_marker_style,
-        })
     }
 
     pub(crate) fn path_converter(&self) -> &RepoPathUiConverter {
@@ -1865,9 +1833,7 @@ to the current parents may contain changes from multiple commits.
         let auto_tracking_matcher = self
             .auto_tracking_matcher(ui)
             .map_err(snapshot_command_error)?;
-        let options = self
-            .snapshot_options_with_start_tracking_matcher(&auto_tracking_matcher)
-            .map_err(snapshot_command_error)?;
+        let base_ignores = self.base_ignores().map_err(snapshot_command_error)?;
 
         // Compare working-copy tree and operation with repo's, and reload as needed.
         let mut locked_ws = self
@@ -1928,9 +1894,12 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             };
         self.user_repo = ReadonlyUserRepo::new(repo);
         let (new_tree_id, stats) = {
-            let mut options = options;
             let progress = crate::progress::snapshot_progress(ui);
-            options.progress = progress.as_ref().map(|x| x as _);
+            let options = SnapshotOptions {
+                base_ignores,
+                progress: progress.as_ref().map(|x| x as _),
+                start_tracking_matcher: &auto_tracking_matcher,
+            };
             locked_ws
                 .locked_wc()
                 .snapshot(&options)
@@ -1996,13 +1965,11 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         new_commit: &Commit,
     ) -> Result<(), CommandError> {
         assert!(self.may_update_working_copy);
-        let checkout_options = self.checkout_options();
         let stats = update_working_copy(
             &self.user_repo.repo,
             &mut self.workspace,
             maybe_old_commit,
             new_commit,
-            &checkout_options,
         )?;
         self.print_updated_working_copy_stats(ui, maybe_old_commit, new_commit, &stats)
     }
@@ -2570,22 +2537,18 @@ fn update_stale_working_copy(
     op_id: OperationId,
     stale_commit: &Commit,
     new_commit: &Commit,
-    options: &CheckoutOptions,
 ) -> Result<CheckoutStats, CommandError> {
     // The same check as start_working_copy_mutation(), but with the stale
     // working-copy commit.
     if stale_commit.tree_id() != locked_ws.locked_wc().old_tree_id() {
         return Err(user_error("Concurrent working copy operation. Try again."));
     }
-    let stats = locked_ws
-        .locked_wc()
-        .check_out(new_commit, options)
-        .map_err(|err| {
-            internal_error_with_message(
-                format!("Failed to check out commit {}", new_commit.id().hex()),
-                err,
-            )
-        })?;
+    let stats = locked_ws.locked_wc().check_out(new_commit).map_err(|err| {
+        internal_error_with_message(
+            format!("Failed to check out commit {}", new_commit.id().hex()),
+            err,
+        )
+    })?;
     locked_ws.finish(op_id)?;
 
     Ok(stats)
@@ -2841,18 +2804,12 @@ pub fn update_working_copy(
     workspace: &mut Workspace,
     old_commit: Option<&Commit>,
     new_commit: &Commit,
-    options: &CheckoutOptions,
 ) -> Result<CheckoutStats, CommandError> {
     let old_tree_id = old_commit.map(|commit| commit.tree_id().clone());
     // TODO: CheckoutError::ConcurrentCheckout should probably just result in a
     // warning for most commands (but be an error for the checkout command)
     let stats = workspace
-        .check_out(
-            repo.op_id().clone(),
-            old_tree_id.as_ref(),
-            new_commit,
-            options,
-        )
+        .check_out(repo.op_id().clone(), old_tree_id.as_ref(), new_commit)
         .map_err(|err| {
             internal_error_with_message(
                 format!("Failed to check out commit {}", new_commit.id().hex()),

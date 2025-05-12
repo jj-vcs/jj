@@ -28,6 +28,7 @@ use thiserror::Error;
 use crate::backend::BackendInitError;
 use crate::backend::MergedTreeId;
 use crate::commit::Commit;
+use crate::config::ConfigGetError;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::local_working_copy::LocalWorkingCopy;
@@ -55,11 +56,11 @@ use crate::signing::Signer;
 use crate::simple_backend::SimpleBackend;
 use crate::transaction::TransactionCommitError;
 use crate::working_copy::CheckoutError;
-use crate::working_copy::CheckoutOptions;
 use crate::working_copy::CheckoutStats;
 use crate::working_copy::LockedWorkingCopy;
 use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
+use crate::working_copy::WorkingCopySettings;
 use crate::working_copy::WorkingCopyStateError;
 
 #[derive(Error, Debug)]
@@ -98,6 +99,15 @@ pub enum WorkspaceLoadError {
     WorkingCopyState(#[from] WorkingCopyStateError),
     #[error(transparent)]
     Path(#[from] PathError),
+}
+
+/// An error while trying to start a working copy mutation.
+#[derive(Error, Debug)]
+pub enum StartWorkingCopyMutError {
+    #[error(transparent)]
+    WcState(#[from] WorkingCopyStateError),
+    #[error(transparent)]
+    ConfigGet(#[from] ConfigGetError),
 }
 
 /// The combination of a repo and a working copy.
@@ -422,8 +432,9 @@ impl Workspace {
 
     pub fn start_working_copy_mutation(
         &mut self,
-    ) -> Result<LockedWorkspace, WorkingCopyStateError> {
-        let locked_wc = self.working_copy.start_mutation()?;
+    ) -> Result<LockedWorkspace, StartWorkingCopyMutError> {
+        let wc_settings = WorkingCopySettings::from_settings(self.settings())?;
+        let locked_wc = self.working_copy.start_mutation(wc_settings)?;
         Ok(LockedWorkspace {
             base: self,
             locked_wc,
@@ -435,7 +446,6 @@ impl Workspace {
         operation_id: OperationId,
         old_tree_id: Option<&MergedTreeId>,
         commit: &Commit,
-        options: &CheckoutOptions,
     ) -> Result<CheckoutStats, CheckoutError> {
         let mut locked_ws =
             self.start_working_copy_mutation()
@@ -452,7 +462,7 @@ impl Workspace {
                 return Err(CheckoutError::ConcurrentCheckout);
             }
         }
-        let stats = locked_ws.locked_wc().check_out(commit, options)?;
+        let stats = locked_ws.locked_wc().check_out(commit)?;
         locked_ws
             .finish(operation_id)
             .map_err(|err| CheckoutError::Other {

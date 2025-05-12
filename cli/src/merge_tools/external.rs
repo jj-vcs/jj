@@ -22,7 +22,6 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::store::Store;
-use jj_lib::working_copy::CheckoutOptions;
 use pollster::FutureExt as _;
 use thiserror::Error;
 
@@ -30,7 +29,7 @@ use super::diff_working_copies::check_out_trees;
 use super::diff_working_copies::new_utf8_temp_dir;
 use super::diff_working_copies::set_readonly_recursively;
 use super::diff_working_copies::DiffEditWorkingCopies;
-use super::diff_working_copies::DiffSide;
+use super::diff_working_copies::DiffType;
 use super::ConflictResolveError;
 use super::DiffEditError;
 use super::DiffGenerateError;
@@ -379,20 +378,22 @@ pub fn edit_diff_external(
     let conflict_marker_style = editor
         .conflict_marker_style
         .unwrap_or(default_conflict_marker_style);
-    let options = CheckoutOptions {
-        conflict_marker_style,
-    };
 
     let got_output_field = find_all_variables(&editor.edit_args).contains(&"output");
+    let diff_type = if got_output_field {
+        DiffType::ThreeWay
+    } else {
+        DiffType::TwoWay
+    };
     let store = left_tree.store();
     let diffedit_wc = DiffEditWorkingCopies::check_out(
         store,
         left_tree,
         right_tree,
         matcher,
-        got_output_field.then_some(DiffSide::Right),
+        diff_type,
         instructions,
-        &options,
+        conflict_marker_style,
     )?;
 
     let patterns = diffedit_wc.working_copies.to_command_variables();
@@ -411,7 +412,7 @@ pub fn edit_diff_external(
         }));
     }
 
-    diffedit_wc.snapshot_results(base_ignores, options.conflict_marker_style)
+    diffedit_wc.snapshot_results(store, base_ignores, conflict_marker_style)
 }
 
 /// Generates textual diff by the specified `tool` and writes into `writer`.
@@ -427,15 +428,15 @@ pub fn generate_diff(
     let conflict_marker_style = tool
         .conflict_marker_style
         .unwrap_or(default_conflict_marker_style);
-    let options = CheckoutOptions {
-        conflict_marker_style,
-    };
     let store = left_tree.store();
-    let diff_wc = check_out_trees(store, left_tree, right_tree, matcher, None, &options)?;
-    set_readonly_recursively(diff_wc.left_working_copy_path())
-        .map_err(ExternalToolError::SetUpDir)?;
-    set_readonly_recursively(diff_wc.right_working_copy_path())
-        .map_err(ExternalToolError::SetUpDir)?;
+    let diff_wc = check_out_trees(
+        store,
+        left_tree,
+        right_tree,
+        matcher,
+        DiffType::TwoWay,
+        conflict_marker_style,
+    )?;
     invoke_external_diff(ui, writer, tool, &diff_wc.to_command_variables())
 }
 
