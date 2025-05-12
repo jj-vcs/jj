@@ -303,6 +303,85 @@ impl SigningBackend for GpgsmBackend {
     }
 }
 
+#[derive(Debug)]
+pub struct BpbBackend {
+    program: OsString,
+    homedir: Option<OsString>,
+}
+
+impl BpbBackend {
+    pub fn new(program: OsString) -> Self {
+        Self {
+            program,
+            homedir: None,
+        }
+    }
+
+    /// Primarily intended for testing
+    pub fn with_homedir(mut self, homedir: OsString) -> Self {
+        self.homedir = Some(homedir);
+        self
+    }
+
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        let program = settings.get_string("signing.backends.bpb.program")?;
+        Ok(Self::new(program.into()))
+    }
+
+    fn create_command(&self) -> Command {
+        let mut command = Command::new(&self.program);
+        // Hide console window on Windows (https://stackoverflow.com/a/60958956)
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
+
+        if let Some(path) = &self.homedir {
+            command.env("HOME", path);
+        }
+
+        command.stdin(Stdio::piped()).stdout(Stdio::piped());
+        command
+    }
+}
+
+impl SigningBackend for BpbBackend {
+    fn name(&self) -> &str {
+        "bpb"
+    }
+
+    fn can_read(&self, signature: &[u8]) -> bool {
+        signature.starts_with(b"-----BEGIN PGP SIGNATURE-----")
+    }
+
+    fn sign(&self, data: &[u8], _key: Option<&str>) -> Result<Vec<u8>, SignError> {
+        Ok(run_sign_command(self.create_command().arg("-s"), data)?)
+    }
+
+    fn verify(&self, data: &[u8], signature: &[u8]) -> Result<Verification, SignError> {
+        let mut signature_file = tempfile::Builder::new()
+            .prefix(".jj-bpb-sig-tmp-")
+            .tempfile()
+            .map_err(GpgError::Io)?;
+        signature_file.write_all(signature).map_err(GpgError::Io)?;
+        signature_file.flush().map_err(GpgError::Io)?;
+
+        let sig_path = signature_file.into_temp_path();
+
+        let output = run_verify_command(
+            self.create_command()
+                .args(["--status-fd=1", "--verify"])
+                .arg(&sig_path)
+                .arg("-"),
+            data,
+        )?;
+
+        parse_gpg_verify_output(&output, false)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

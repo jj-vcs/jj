@@ -7,6 +7,7 @@ use std::process::Stdio;
 
 use assert_matches::assert_matches;
 use insta::assert_debug_snapshot;
+use jj_lib::gpg_signing::BpbBackend;
 use jj_lib::gpg_signing::GpgBackend;
 use jj_lib::gpg_signing::GpgsmBackend;
 use jj_lib::signing::SigStatus;
@@ -59,6 +60,23 @@ ibOEeIIN2hOh6FBnaO2f4QVXTUoe4k0BJ2WTMtjoIJod0LKiMSUwIwYJKoZIhvcNAQkVMRYEFExi
 XBD/cYAWTxnGVx1RPk4L6lVcMEEwMTANBglghkgBZQMEAgEFAAQgj7Jjd7XJ3icDiNTp080RDoUw
 J+57G8w4qtRQPRTuOvcECGz+PguPT+pLAgIIAA==
 -----END PKCS12-----
+"#;
+
+static BPB_KEYS_FILE: &str = r#"[public]
+key = "4e2ff37a9d32203201170b398258d1f5024c34d1df4cf7e76997e8f07f2258c8"
+userid = "someone@example.com"
+timestamp = 1747031009
+
+[secret]
+key = "e193c7e1dec82eb6575939f5597d4a6e8649bb19142e6469eda64af0770a6fb3"
+"#;
+
+static BPB_PUBLIC_KEY: &str = r#"-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+mQAzBGghk+EWCSsGAQQB2kcPAQEHQE4v83qdMiAyARcLOYJY0fUCTDTR30z352mX6PB/IljItQATc29tZW9uZUBleGFtcGxlLmNvbYkAewQTFggAIxYhBOa4nzLcxUP5jRXAbFddaLrYtGFLBQJoIZPhAhsDAheAAAoJEFddaLrYtGFLQvoA/RjSoCcIw2m6UBwwfDMk1hu7RMOReXBPbTXTpXqqWlEWAQDQYPsY4saynQS0aB0Z1hdOzUtFEzgyxGUNAyW/ettPAA==
+=2g+N
+-----END PGP PUBLIC KEY BLOCK-----
+
 "#;
 
 struct GpgEnvironment {
@@ -163,6 +181,65 @@ impl GpgsmEnvironment {
     }
 }
 
+struct BpbEnvironment {
+    homedir: tempfile::TempDir,
+}
+
+impl BpbEnvironment {
+    fn new() -> Result<Self, std::process::Output> {
+        let dir = tempfile::Builder::new()
+            .prefix("bpb-test-")
+            .tempdir()
+            .unwrap();
+
+        let path = dir.path();
+        let file = path.join(".bpb_keys.toml");
+        let home = path.join(".gnupg");
+
+        #[cfg(unix)]
+        std::fs::set_permissions(path, Permissions::from_mode(0o700)).unwrap();
+
+        std::fs::File::create(&file)
+            .unwrap()
+            .write_all(BPB_KEYS_FILE.as_bytes())
+            .unwrap();
+        #[cfg(unix)]
+        std::fs::set_permissions(&file, Permissions::from_mode(0o600)).unwrap();
+
+        std::fs::create_dir(&home).unwrap();
+        #[cfg(unix)]
+        std::fs::set_permissions(&home, Permissions::from_mode(0o700)).unwrap();
+
+        let mut gpg = std::process::Command::new("gpg")
+            .arg("--homedir")
+            .arg(home)
+            .arg("--import")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+
+        gpg.stdin
+            .as_mut()
+            .unwrap()
+            .write_all(BPB_PUBLIC_KEY.as_bytes())
+            .unwrap();
+
+        gpg.stdin.as_mut().unwrap().flush().unwrap();
+
+        let res = gpg.wait_with_output().unwrap();
+
+        if !res.status.success() {
+            eprintln!("Failed to add public key to gpg-agent. Make sure it is running!");
+            eprintln!("{}", String::from_utf8_lossy(&res.stderr));
+            return Err(res);
+        }
+
+        Ok(BpbEnvironment { homedir: dir })
+    }
+}
+
 macro_rules! gpg_guard {
     () => {
         if !is_external_tool_installed("gpg") {
@@ -178,6 +255,21 @@ macro_rules! gpgsm_guard {
         if !is_external_tool_installed("gpgsm") {
             ensure_running_outside_ci("`gpgsm` must be in the PATH");
             eprintln!("Skipping test because gpgsm is not installed on the system");
+            return;
+        }
+    };
+}
+
+macro_rules! bpb_guard {
+    () => {
+        if !is_external_tool_installed("bpb") {
+            ensure_running_outside_ci("`bpb` must be in the PATH");
+            eprintln!("Skipping test because bpb is not installed on the system");
+            return;
+        }
+        if !is_external_tool_installed("gpg") {
+            ensure_running_outside_ci("`gpg` must be in the PATH");
+            eprintln!("Skipping test because gpg is not installed on the system");
             return;
         }
     };
@@ -201,6 +293,10 @@ fn gpgsm_backend(env: &GpgsmEnvironment) -> GpgsmBackend {
         env.homedir.path().as_os_str().into(),
         "--faked-system-time=1742477110!".into(),
     ])
+}
+
+fn bpb_backend(env: &BpbEnvironment) -> BpbBackend {
+    BpbBackend::new("bpb".into()).with_homedir(env.homedir.path().as_os_str().into())
 }
 
 #[test]
@@ -444,6 +540,83 @@ fn gpgsm_invalid_signature() {
     );
 
     // Large data: gpgsm command will exit early because the signature is invalid.
+    assert_matches!(
+        backend.verify(&b"a".repeat(100 * 1024), signature),
+        Err(SignError::InvalidSignatureFormat)
+    );
+}
+
+#[test]
+fn bpb_signing_roundtrip() {
+    bpb_guard!();
+
+    let env = BpbEnvironment::new().unwrap();
+    let backend = bpb_backend(&env);
+    let data = b"hello world";
+    let signature = backend.sign(data, None).unwrap();
+
+    let check = backend.verify(data, &signature).unwrap();
+    assert_eq!(check.status, SigStatus::Good);
+    assert_eq!(check.key.unwrap(), "575D68BAD8B4614B");
+    assert_eq!(check.display.unwrap(), "someone@example.com");
+
+    let check = backend.verify(b"so so bad", &signature).unwrap();
+    assert_eq!(check.status, SigStatus::Bad);
+    assert_eq!(check.key.unwrap(), "575D68BAD8B4614B");
+    assert_eq!(check.display.unwrap(), "someone@example.com");
+}
+
+#[test]
+fn bpb_unknown_key() {
+    bpb_guard!();
+
+    let env = BpbEnvironment::new().unwrap();
+    let backend = bpb_backend(&env);
+    let signature = br"-----BEGIN PGP SIGNATURE-----
+
+    iHUEABYKAB0WIQQs238pU7eC/ROoPJ0HH+PjJN1zMwUCZWPa5AAKCRAHH+PjJN1z
+    MyylAP9WQ3sZdbC4b1C+/nxs+Wl+rfwzeQWGbdcsBMyDABcpmgD/U+4KdO7eZj/I
+    e+U6bvqw3pOBoI53Th35drQ0qPI+jAE=
+    =kwsk
+    -----END PGP SIGNATURE-----";
+    assert_debug_snapshot!(backend.verify(b"hello world", signature).unwrap(), @r#"
+    Verification {
+        status: Unknown,
+        key: Some(
+            "071FE3E324DD7333",
+        ),
+        display: None,
+    }
+    "#);
+    assert_debug_snapshot!(backend.verify(b"so bad", signature).unwrap(), @r#"
+    Verification {
+        status: Unknown,
+        key: Some(
+            "071FE3E324DD7333",
+        ),
+        display: None,
+    }
+    "#);
+}
+
+#[test]
+fn bpb_invalid_signature() {
+    bpb_guard!();
+
+    let env = BpbEnvironment::new().unwrap();
+    let backend = bpb_backend(&env);
+    let signature = br"-----BEGIN PGP SIGNATURE-----
+
+    super duper invalid
+    -----END PGP SIGNATURE-----";
+
+    // Small data: bpb command will exit late.
+    assert_matches!(
+        backend.verify(b"a", signature),
+        Err(SignError::InvalidSignatureFormat)
+    );
+
+    // Large data: bpb command will exit early because the signature is invalid.
     assert_matches!(
         backend.verify(&b"a".repeat(100 * 1024), signature),
         Err(SignError::InvalidSignatureFormat)

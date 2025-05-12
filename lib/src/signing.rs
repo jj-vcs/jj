@@ -24,6 +24,7 @@ use thiserror::Error;
 
 use crate::backend::CommitId;
 use crate::config::ConfigGetError;
+use crate::gpg_signing::BpbBackend;
 use crate::gpg_signing::GpgBackend;
 use crate::gpg_signing::GpgsmBackend;
 use crate::settings::UserSettings;
@@ -179,6 +180,7 @@ impl Signer {
     /// chooses one of them to be used for signing depending on the config.
     pub fn from_settings(settings: &UserSettings) -> Result<Self, SignInitError> {
         let mut backends: Vec<Box<dyn SigningBackend>> = vec![
+            Box::new(BpbBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
             Box::new(GpgBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
             Box::new(GpgsmBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
             Box::new(SshBackend::from_settings(settings).map_err(SignInitError::BackendConfig)?),
