@@ -517,6 +517,8 @@ mod tests {
                 ],
                 diff_invocation_mode: Dir,
                 diff_do_chdir: true,
+                enable_color_args: [],
+                disable_color_args: [],
                 edit_args: [
                     "$left",
                     "$right",
@@ -548,6 +550,8 @@ mod tests {
                 ],
                 diff_invocation_mode: Dir,
                 diff_do_chdir: true,
+                enable_color_args: [],
+                disable_color_args: [],
                 edit_args: [
                     "--edit",
                     "args",
@@ -595,6 +599,8 @@ mod tests {
                 ],
                 diff_invocation_mode: Dir,
                 diff_do_chdir: true,
+                enable_color_args: [],
+                disable_color_args: [],
                 edit_args: [
                     "$left",
                     "$right",
@@ -622,6 +628,8 @@ mod tests {
                 ],
                 diff_invocation_mode: Dir,
                 diff_do_chdir: true,
+                enable_color_args: [],
+                disable_color_args: [],
                 edit_args: [
                     "-l",
                     "$left",
@@ -651,6 +659,8 @@ mod tests {
                 ],
                 diff_invocation_mode: Dir,
                 diff_do_chdir: true,
+                enable_color_args: [],
+                disable_color_args: [],
                 edit_args: [
                     "--diff",
                     "$left",
@@ -684,6 +694,8 @@ mod tests {
                 ],
                 diff_invocation_mode: Dir,
                 diff_do_chdir: true,
+                enable_color_args: [],
+                disable_color_args: [],
                 edit_args: [
                     "--edit",
                     "args",
@@ -718,6 +730,8 @@ mod tests {
                 ],
                 diff_invocation_mode: Dir,
                 diff_do_chdir: true,
+                enable_color_args: [],
+                disable_color_args: [],
                 edit_args: [
                     "$left",
                     "$right",
@@ -744,6 +758,8 @@ mod tests {
                 ],
                 diff_invocation_mode: Dir,
                 diff_do_chdir: true,
+                enable_color_args: [],
+                disable_color_args: [],
                 edit_args: [
                     "$left",
                     "$right",
@@ -801,6 +817,8 @@ mod tests {
                 ],
                 diff_invocation_mode: Dir,
                 diff_do_chdir: true,
+                enable_color_args: [],
+                disable_color_args: [],
                 edit_args: [
                     "$left",
                     "$right",
@@ -858,6 +876,8 @@ mod tests {
                 ],
                 diff_invocation_mode: Dir,
                 diff_do_chdir: true,
+                enable_color_args: [],
+                disable_color_args: [],
                 edit_args: [
                     "$left",
                     "$right",
@@ -892,6 +912,8 @@ mod tests {
                 ],
                 diff_invocation_mode: Dir,
                 diff_do_chdir: true,
+                enable_color_args: [],
+                disable_color_args: [],
                 edit_args: [
                     "$left",
                     "$right",
@@ -929,6 +951,8 @@ mod tests {
                 ],
                 diff_invocation_mode: Dir,
                 diff_do_chdir: true,
+                enable_color_args: [],
+                disable_color_args: [],
                 edit_args: [
                     "$left",
                     "$right",

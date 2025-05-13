@@ -67,6 +67,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Templates can now do arithmetic on integers with the `+`, `-`, `*`, `/`, and `%`
   infix operators.
 
+* Added config settings for passing colorization arguments (eg. `--color
+  always`) to external diff tools.
+
 ### Fixed bugs
 
 * Work around a git issue that could cause subprocess operations to hang if the
