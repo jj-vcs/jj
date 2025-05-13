@@ -19,6 +19,7 @@ use std::path::PathBuf;
 use std::str;
 use std::sync::Arc;
 
+use indoc::writedoc;
 use itertools::Itertools as _;
 use jj_lib::file_util;
 use jj_lib::git;
@@ -279,10 +280,13 @@ fn print_trackable_remote_bookmarks(ui: &Ui, view: &View) -> io::Result<()> {
             write!(formatter, "  ")?;
             writeln!(formatter.labeled("bookmark"), "{symbol}")?;
         }
-        writeln!(
+        writedoc!(
             formatter.labeled("hint").with_heading("Hint: "),
-            "Run `jj bookmark track {syms}` to keep local bookmarks updated on future pulls.",
-            syms = remote_bookmark_symbols.iter().join(" "),
+            "
+            Run the following command to keep local bookmarks updated on future pulls:
+              jj bookmark track {syms}
+            ",
+            syms = remote_bookmark_symbols.iter().join(" ")
         )?;
     }
     Ok(())
