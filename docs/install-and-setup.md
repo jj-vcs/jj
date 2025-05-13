@@ -238,6 +238,8 @@ source <(jj util completion zsh)
 #### Dynamic
 
 ```shell
+autoload -U compinit
+compinit
 source <(COMPLETE=zsh jj)
 ```
 
