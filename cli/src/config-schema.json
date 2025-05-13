@@ -673,7 +673,7 @@
             "properties": {
                 "backend": {
                     "type": "string",
-                    "enum": ["gpg", "gpgsm", "none", "ssh"],
+                    "enum": ["bpb", "gpg", "gpgsm", "none", "ssh"],
                     "description": "The backend to use for signing commits. The string `none` disables signing.",
                     "default": "none"
                 },
@@ -690,6 +690,16 @@
                     "type": "object",
                     "description": "Tables of options to pass to specific signing backends",
                     "properties": {
+                        "bpb": {
+                            "type": "object",
+                            "properties": {
+                                "program": {
+                                    "type": "string",
+                                    "description": "Path to the bpb program to be called",
+                                    "default": "bpb"
+                                }
+                            }
+                        },
                         "gpg": {
                             "type": "object",
                             "properties": {

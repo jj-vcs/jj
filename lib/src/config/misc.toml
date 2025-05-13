@@ -24,6 +24,9 @@ backend = "none"
 behavior = "keep"
 # key = <none>
 
+[signing.backends.bpb]
+program = "bpb"
+
 [signing.backends.gpg]
 allow-expired-keys = false
 program = "gpg"

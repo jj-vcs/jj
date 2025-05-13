@@ -1337,6 +1337,22 @@ as follows:
 backends.ssh.allowed-signers = "/path/to/allowed-signers"
 ```
 
+### Boat's Personal Barricade Signing
+
+```toml
+[signing]
+behavior = "own"
+backend = "bpb"
+```
+
+By default the bpb backend will look for a `bpb` binary on your path. If you want
+to change the program used or specify a path to `bpb` explicitly you can set:
+
+```toml
+[signing]
+backends.bpb.program = "bpb2"
+```
+
 ### Manually signing commits
 
 You can use [`jj sign`](./cli-reference.md#jj-sign)/[`jj unsign`](./cli-reference.md#jj-unsign)

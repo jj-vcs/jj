@@ -31,6 +31,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj split` has gained a `--message` option to set the description of the
   commit with the selected changes.
 
+* `jj sign` now supports boat's personal barricade (`bpb`) as a backend.
+
 ### Fixed bugs
 
 * Work around a git issue that could cause subprocess operations to hang if the
