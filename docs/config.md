@@ -374,6 +374,21 @@ diff-formatter = "vimdiff"
 diff-invocation-mode = "file-by-file"
 ```
 
+External diff tools can be configured with command line arguments to
+enable or disable colorization. The argument list configured in
+`enable-color-args` is passed in when color is enabled (whether
+automatically, in the configuration file, or on the command line), and
+`disable-color-args` is used when color is disabled.  If the diff-args
+list contains `$args`, the color argument is injected there; otherwise
+it is added to the end of the command line.
+
+```toml
+[merge-tools.git]
+diff-args = ["$args", "$left", "$right"]
+enable-color-args = ["--color=always"]
+disable-color-args = ["--color=never"]
+```
+
 By default `jj` will display a warning when the command exits with a non-success
 error code. The `diff-expected-exit-codes` config can suppress this warning
 message for specific exit codes:

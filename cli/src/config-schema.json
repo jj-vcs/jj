@@ -513,6 +513,18 @@
                       ],
                       "default": "dir"
                     },
+                    "enable-color-args": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "disable-color-args": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
                     "edit-args": {
                         "type": "array",
                         "items": {

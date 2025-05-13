@@ -3197,6 +3197,40 @@ fn test_diff_do_chdir() {
 }
 
 #[test]
+fn test_diff_external_color() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file1", "file1\n");
+
+    let color_on = r#"--config=merge-tools.echo.enable-color-args=["COLOR", "ON"]"#;
+    let color_off = r#"--config=merge-tools.echo.disable-color-args=["COLOR", "OFF"]"#;
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=echo", "--color=never", color_on, color_off]), @r"
+    left right COLOR OFF
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=echo", "--color=always", color_on, color_off]), @r"
+    left right COLOR ON
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=echo", "--color=never", color_off,
+        r#"--config=merge-tools.echo.diff-args=["$args", "$left", "$right"]"#]), @r"
+    COLOR OFF left right
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=echo", "--color=never", color_off,
+        r#"--config=merge-tools.echo.diff-args=["$left", "$args", "$right"]"#]), @r"
+    left COLOR OFF right
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=echo", "--color=never", color_off,
+        r#"--config=merge-tools.echo.diff-args=["$left", "$right", "$args"]"#]), @r"
+    left right COLOR OFF
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_diff_external_file_by_file_tool() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
