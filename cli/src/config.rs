@@ -287,8 +287,8 @@ impl UnresolvedConfigEnv {
                 Self::warn_for_deprecated_path(
                     ui,
                     path.as_path(),
-                    "~/Library/Application Support",
-                    "~/.config",
+                    "~/Library/Application Support/jj",
+                    "~/.config/jj",
                 );
                 paths.push(path);
             }
@@ -298,8 +298,8 @@ impl UnresolvedConfigEnv {
                 Self::warn_for_deprecated_path(
                     ui,
                     path.as_path(),
-                    "~/Library/Application Support",
-                    "~/.config",
+                    "~/Library/Application Support/jj",
+                    "~/.config/jj",
                 );
                 paths.push(path);
             }
