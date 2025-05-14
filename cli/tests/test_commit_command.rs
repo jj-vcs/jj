@@ -509,7 +509,7 @@ fn test_commit_trailers() {
         format!("-----\n{editor0}-----\n"), @r#"
     -----
 
-    
+
     Reviewed-by: foo@bar.org
 
     JJ: Lines starting with "JJ:" (like this one) will be removed.
