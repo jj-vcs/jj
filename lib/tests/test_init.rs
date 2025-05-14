@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(windows)]
-use std::ffi::CString;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -28,10 +26,6 @@ use testutils::git;
 use testutils::write_random_commit;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
-#[cfg(windows)]
-use winapi::um::fileapi::GetFileAttributesA;
-#[cfg(windows)]
-use winapi::um::winnt::FILE_ATTRIBUTE_HIDDEN;
 
 fn canonicalize(input: &Path) -> (PathBuf, PathBuf) {
     let uncanonical = input.join("..").join(input.file_name().unwrap());
@@ -57,18 +51,39 @@ fn test_init_local() {
     write_random_commit(tx.repo_mut());
 }
 
-#[test]
 #[cfg(windows)]
-fn test_init_hidden() {
-    let settings = testutils::user_settings();
-    let temp_dir = testutils::new_temp_dir();
-    let (canonical, uncanonical) = canonicalize(temp_dir.path());
-    Workspace::init_internal_git(&settings, &uncanonical).unwrap();
+mod test_visibility {
+    use jj_lib::workspace::Workspace;
+    use widestring::U16CString;
+    use winapi::um::fileapi::GetFileAttributesW;
+    use winapi::um::winnt::FILE_ATTRIBUTE_HIDDEN;
 
-    let dot_jj_path = CString::new(canonical.join(".jj").to_str().unwrap()).unwrap();
-    let dot_jj_folder_attributes = unsafe { GetFileAttributesA(dot_jj_path.as_ptr()) };
+    use super::canonicalize;
 
-    assert_ne!(dot_jj_folder_attributes & FILE_ATTRIBUTE_HIDDEN, 0);
+    #[test]
+    fn test_visibility_of_jj_git_init() {
+        let settings = testutils::user_settings();
+        let temp_dir = testutils::new_temp_dir();
+        let (canonical, uncanonical) = canonicalize(temp_dir.path());
+        Workspace::init_internal_git(&settings, &uncanonical).unwrap();
+        let dotjj_path = U16CString::from_os_str(canonical.join(".jj").as_os_str()).unwrap();
+        let dotjj_folder_attributes = unsafe { GetFileAttributesW(dotjj_path.as_ptr()) };
+        assert_ne!(dotjj_folder_attributes & FILE_ATTRIBUTE_HIDDEN, 0);
+    }
+
+    #[test]
+    fn test_visibility_of_colocated_git() {
+        let settings = testutils::user_settings();
+        let temp_dir = testutils::new_temp_dir();
+        let (canonical, uncanonical) = canonicalize(temp_dir.path());
+        Workspace::init_colocated_git(&settings, &uncanonical).unwrap();
+        let dotjj_path = U16CString::from_os_str(canonical.join(".jj").as_os_str()).unwrap();
+        let dotgit_path = U16CString::from_os_str(canonical.join(".git").as_os_str()).unwrap();
+        let dotjj_folder_attributes = unsafe { GetFileAttributesW(dotjj_path.as_ptr()) };
+        let dotgit_folder_attributes = unsafe { GetFileAttributesW(dotgit_path.as_ptr()) };
+        assert_ne!(dotjj_folder_attributes & FILE_ATTRIBUTE_HIDDEN, 0);
+        assert_ne!(dotgit_folder_attributes & FILE_ATTRIBUTE_HIDDEN, 0);
+    }
 }
 
 #[test]

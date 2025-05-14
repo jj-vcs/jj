@@ -15,8 +15,6 @@
 #![allow(missing_docs)]
 
 use std::collections::HashMap;
-#[cfg(windows)]
-use std::ffi::CString;
 use std::fs;
 use std::fs::File;
 use std::io;
@@ -26,10 +24,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use thiserror::Error;
-#[cfg(windows)]
-use winapi::um::fileapi::SetFileAttributesA;
-#[cfg(windows)]
-use winapi::um::winnt::FILE_ATTRIBUTE_HIDDEN;
 
 use crate::backend::BackendInitError;
 use crate::backend::MergedTreeId;
@@ -122,18 +116,68 @@ pub struct Workspace {
     working_copy: Box<dyn WorkingCopy>,
 }
 
+#[cfg(windows)]
+pub fn set_dotgit_and_dotjj_visibility(workspace_root: &Path) {
+    use std::time::Duration;
+    use std::time::SystemTime;
+
+    use widestring::U16CString;
+    use winapi::um::fileapi::GetFileAttributesW;
+    use winapi::um::fileapi::SetFileAttributesW;
+    use winapi::um::winnt::FILE_ATTRIBUTE_HIDDEN;
+
+    let dotjj_path = workspace_root.join(".jj");
+    let dotgit_path = workspace_root.join(".git");
+    let c_dotgit_path = U16CString::from_os_str(dotgit_path.as_os_str()).unwrap();
+    fn hide_folder(path: &Path) {
+        let dir_name = Path::new(path).file_name().unwrap().to_str().unwrap();
+        let c_path = U16CString::from_os_str(path.as_os_str()).unwrap();
+        #[allow(unsafe_code)]
+        unsafe {
+            if SetFileAttributesW(c_path.as_ptr(), FILE_ATTRIBUTE_HIDDEN) == 0 {
+                println!("Failed to hide {dir_name}");
+            }
+        }
+    }
+    fn get_folder_age(path: &Path) -> Result<Duration, io::Error> {
+        SystemTime::now()
+            .duration_since(fs::metadata(path)?.created()?)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+    }
+
+    match dotgit_path.exists() {
+        false => {
+            hide_folder(&dotjj_path);
+        }
+        true => {
+            let is_dotgit_exist_before = match get_folder_age(&dotgit_path) {
+                Ok(duration) => duration > Duration::from_secs(1),
+                Err(_) => true,
+            };
+            match is_dotgit_exist_before {
+                true => {
+                    #[allow(unsafe_code)]
+                    unsafe {
+                        if GetFileAttributesW(c_dotgit_path.as_ptr()) & FILE_ATTRIBUTE_HIDDEN != 0 {
+                            hide_folder(&dotjj_path);
+                        }
+                    }
+                }
+                false => {
+                    hide_folder(&dotjj_path);
+                    hide_folder(&dotgit_path);
+                }
+            }
+        }
+    }
+}
+
 fn create_jj_dir(workspace_root: &Path) -> Result<PathBuf, WorkspaceInitError> {
     let jj_dir = workspace_root.join(".jj");
     match std::fs::create_dir(&jj_dir).context(&jj_dir) {
         Ok(()) => {
             #[cfg(windows)]
-            #[allow(unsafe_code)]
-            {
-                let jj_dir = CString::new(jj_dir.to_str().unwrap()).unwrap();
-                unsafe {
-                    SetFileAttributesA(jj_dir.as_ptr(), FILE_ATTRIBUTE_HIDDEN);
-                };
-            }
+            set_dotgit_and_dotjj_visibility(jj_dir.parent().unwrap());
             Ok(jj_dir)
         }
         Err(ref e) if e.error.kind() == io::ErrorKind::AlreadyExists => {
