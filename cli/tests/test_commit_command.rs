@@ -96,6 +96,55 @@ fn test_commit_with_editor_avoids_unc() {
 }
 
 #[test]
+fn test_commit_with_empty_description_from_cli() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["commit", "-m="]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  51b556e22ca0
+    ○  cc8ff2284a8c
+    ◆  000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: rlvkpnrz 51b556e2 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm cc8ff228 (empty) (no description set)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_commit_with_empty_description_from_editor() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Check that the text file gets initialized and leave it untouched.
+    std::fs::write(&edit_script, ["dump editor0"].join("\0")).unwrap();
+    let output = work_dir.run_jj(["commit"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  51b556e22ca0
+    ○  cc8ff2284a8c
+    ◆  000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(),
+        @r#"JJ: Lines starting with "JJ:" (like this one) will be removed."#
+    );
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: rlvkpnrz 51b556e2 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm cc8ff228 (empty) (no description set)
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_commit_interactive() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
