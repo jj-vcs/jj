@@ -43,6 +43,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added `git.track-default-bookmark-on-clone` setting to control whether to
   track the default remote bookmark on `jj git clone`.
 
+* Templates can now do arithmetic on integers with the `+`, `-`, `*`, `/`, and `%`
+  infix operators.
+
 ### Fixed bugs
 
 * Work around a git issue that could cause subprocess operations to hang if the

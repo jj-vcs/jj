@@ -46,6 +46,11 @@ ge_op = { ">=" }
 gt_op = { ">" }
 le_op = { "<=" }
 lt_op = { "<" }
+add_op = { "+" }
+sub_op = { "-" }
+mul_op = { "*" }
+div_op = { "/" }
+rem_op = { "%" }
 logical_not_op = { "!" }
 negate_op = { "-" }
 prefix_ops = _{ logical_not_op | negate_op }
@@ -58,6 +63,11 @@ infix_ops = _{
   | gt_op
   | le_op
   | lt_op
+  | add_op
+  | sub_op
+  | mul_op
+  | div_op
+  | rem_op
 }
 
 function = { identifier ~ "(" ~ whitespace* ~ function_arguments ~ whitespace* ~ ")" }

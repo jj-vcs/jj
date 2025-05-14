@@ -813,6 +813,36 @@ fn build_binary_operation<'a, L: TemplateLanguage<'a> + ?Sized>(
             };
             Ok(L::Property::wrap_property(out))
         }
+        BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Rem => {
+            let lhs = expect_integer_expression(language, diagnostics, build_ctx, lhs_node)?;
+            let rhs = expect_integer_expression(language, diagnostics, build_ctx, rhs_node)?;
+            let build = |op: fn(i64, i64) -> Option<i64>, msg: fn(i64) -> &'static str| {
+                (lhs, rhs).and_then(move |(l, r)| {
+                    op(l, r).ok_or_else(|| TemplatePropertyError(msg(r).into()))
+                })
+            };
+            let out = match op {
+                BinaryOp::Add => build(i64::checked_add, |_| "Attempt to add with overflow"),
+                BinaryOp::Sub => build(i64::checked_sub, |_| "Attempt to subtract with overflow"),
+                BinaryOp::Mul => build(i64::checked_mul, |_| "Attempt to multiply with overflow"),
+                BinaryOp::Div => build(i64::checked_div, |r| {
+                    if r == 0 {
+                        "Attempt to divide by zero"
+                    } else {
+                        "Attempt to divide with overflow"
+                    }
+                }),
+                BinaryOp::Rem => build(i64::checked_rem, |r| {
+                    if r == 0 {
+                        "Attempt to divide by zero"
+                    } else {
+                        "Attempt to divide with overflow"
+                    }
+                }),
+                _ => unreachable!(),
+            };
+            Ok(out.into_dyn_wrapped())
+        }
     }
 }
 
@@ -2141,7 +2171,7 @@ mod tests {
         1 | description ()
           |             ^---
           |
-          = expected <EOI>, `++`, `||`, `&&`, `==`, `!=`, `>=`, `>`, `<=`, or `<`
+          = expected <EOI>, `++`, `||`, `&&`, `==`, `!=`, `>=`, `>`, `<=`, `<`, `+`, `-`, `*`, `/`, or `%`
         ");
 
         insta::assert_snapshot!(env.parse_err(r#"foo"#), @r"
@@ -2449,20 +2479,49 @@ mod tests {
         env.add_keyword("none_i64", || literal(None));
         env.add_keyword("some_i64", || literal(Some(1)));
         env.add_keyword("i64_min", || literal(i64::MIN));
+        env.add_keyword("i64_max", || literal(i64::MAX));
 
         insta::assert_snapshot!(env.render_ok(r#"-1"#), @"-1");
         insta::assert_snapshot!(env.render_ok(r#"--2"#), @"2");
         insta::assert_snapshot!(env.render_ok(r#"-(3)"#), @"-3");
+        insta::assert_snapshot!(env.render_ok(r#"1 + 2"#), @"3");
+        insta::assert_snapshot!(env.render_ok(r#"2 * 3"#), @"6");
+        insta::assert_snapshot!(env.render_ok(r#"1 + 2 * 3"#), @"7");
+        insta::assert_snapshot!(env.render_ok(r#"4 / 2"#), @"2");
+        insta::assert_snapshot!(env.render_ok(r#"5 / 2"#), @"2");
+        insta::assert_snapshot!(env.render_ok(r#"5 % 2"#), @"1");
 
         // Since methods of the contained value can be invoked, it makes sense
         // to apply operators to optional integers as well.
         insta::assert_snapshot!(env.render_ok(r#"-none_i64"#), @"<Error: No Integer available>");
         insta::assert_snapshot!(env.render_ok(r#"-some_i64"#), @"-1");
+        insta::assert_snapshot!(env.render_ok(r#"some_i64 + some_i64"#), @"2");
+        insta::assert_snapshot!(env.render_ok(r#"some_i64 + none_i64"#), @"<Error: No Integer available>");
+        insta::assert_snapshot!(env.render_ok(r#"none_i64 + some_i64"#), @"<Error: No Integer available>");
+        insta::assert_snapshot!(env.render_ok(r#"none_i64 + none_i64"#), @"<Error: No Integer available>");
 
         // No panic on integer overflow.
         insta::assert_snapshot!(
             env.render_ok(r#"-i64_min"#),
             @"<Error: Attempt to negate with overflow>");
+        insta::assert_snapshot!(
+            env.render_ok(r#"i64_max + 1"#),
+            @"<Error: Attempt to add with overflow>");
+        insta::assert_snapshot!(
+            env.render_ok(r#"i64_min - 1"#),
+            @"<Error: Attempt to subtract with overflow>");
+        insta::assert_snapshot!(
+            env.render_ok(r#"i64_max * 2"#),
+            @"<Error: Attempt to multiply with overflow>");
+        insta::assert_snapshot!(
+            env.render_ok(r#"i64_min / -1"#),
+            @"<Error: Attempt to divide with overflow>");
+        insta::assert_snapshot!(
+            env.render_ok(r#"1 / 0"#),
+            @"<Error: Attempt to divide by zero>");
+        insta::assert_snapshot!(
+            env.render_ok(r#"1 % 0"#),
+            @"<Error: Attempt to divide by zero>");
     }
 
     #[test]
