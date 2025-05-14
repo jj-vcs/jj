@@ -117,7 +117,9 @@ version_check = "0.9.5"
 watchman_client = { version = "0.9.0" }
 whoami = "1.6.0"
 winreg = "0.52"
-winapi= {version = "0.3.9"}
+windows = { version = "0.61.1", features = [
+    "Win32_Storage_FileSystem",
+] }
 widestring = "1.2.0"
 
 # put all inter-workspace libraries, i.e. those that use 'path = ...' here in

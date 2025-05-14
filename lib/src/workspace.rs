@@ -122,9 +122,10 @@ pub fn set_dotgit_and_dotjj_visibility(workspace_root: &Path) {
     use std::time::SystemTime;
 
     use widestring::U16CString;
-    use winapi::um::fileapi::GetFileAttributesW;
-    use winapi::um::fileapi::SetFileAttributesW;
-    use winapi::um::winnt::FILE_ATTRIBUTE_HIDDEN;
+    use windows::core::PCWSTR;
+    use windows::Win32::Storage::FileSystem::GetFileAttributesW;
+    use windows::Win32::Storage::FileSystem::SetFileAttributesW;
+    use windows::Win32::Storage::FileSystem::FILE_ATTRIBUTE_HIDDEN;
 
     let dotjj_path = workspace_root.join(".jj");
     let dotgit_path = workspace_root.join(".git");
@@ -134,7 +135,8 @@ pub fn set_dotgit_and_dotjj_visibility(workspace_root: &Path) {
         let c_path = U16CString::from_os_str(path.as_os_str()).unwrap();
         #[allow(unsafe_code)]
         unsafe {
-            if SetFileAttributesW(c_path.as_ptr(), FILE_ATTRIBUTE_HIDDEN) == 0 {
+            // Safety: `c_path` is a valid pointer to a null-terminated string.
+            if SetFileAttributesW(PCWSTR(c_path.as_ptr()), FILE_ATTRIBUTE_HIDDEN).is_err() {
                 println!("Failed to hide {dir_name}");
             }
         }
@@ -158,7 +160,10 @@ pub fn set_dotgit_and_dotjj_visibility(workspace_root: &Path) {
                 true => {
                     #[allow(unsafe_code)]
                     unsafe {
-                        if GetFileAttributesW(c_dotgit_path.as_ptr()) & FILE_ATTRIBUTE_HIDDEN != 0 {
+                        if GetFileAttributesW(PCWSTR(c_dotgit_path.as_ptr()))
+                            & FILE_ATTRIBUTE_HIDDEN.0
+                            != 0
+                        {
                             hide_folder(&dotjj_path);
                         }
                     }
