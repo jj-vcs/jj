@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCompleter;
+use indoc::writedoc;
 use jj_lib::backend::Signature;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
@@ -147,7 +148,18 @@ new working-copy commit.
         commit_builder.set_description(description);
         let temp_commit = commit_builder.write_hidden()?;
         let description = description_template(ui, &tx, "", &temp_commit)?;
-        edit_description(&text_editor, &description)?
+        let description = edit_description(&text_editor, &description)?;
+        if description.is_empty() {
+            writedoc!(
+                ui.hint_default(),
+                "
+                The commit message was left empty.
+                If this was not intentional, run `jj undo` to restore the previous state.
+                Or run `jj desc @-` to add a description to the parent commit.
+                "
+            )?;
+        }
+        description
     };
     commit_builder.set_description(description);
     let new_commit = commit_builder.write(tx.repo_mut())?;

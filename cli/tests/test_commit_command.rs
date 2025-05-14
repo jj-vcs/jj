@@ -138,6 +138,9 @@ fn test_commit_with_empty_description_from_editor() {
     );
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Hint: The commit message was left empty.
+    If this was not intentional, run `jj undo` to restore the previous state.
+    Or run `jj desc @-` to add a description to the parent commit.
     Working copy  (@) now at: rlvkpnrz 51b556e2 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm cc8ff228 (empty) (no description set)
     [EOF]
