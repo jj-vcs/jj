@@ -89,7 +89,6 @@ use crate::stacked_table::ReadonlyTable;
 use crate::stacked_table::TableSegment as _;
 use crate::stacked_table::TableStore;
 use crate::stacked_table::TableStoreError;
-use crate::workspace::set_dotgit_and_dotjj_visibility;
 
 const HASH_LENGTH: usize = 20;
 const CHANGE_ID_LENGTH: usize = 16;
@@ -245,6 +244,7 @@ impl GitBackend {
         let git_backend = Self::init_with_repo(store_path, &git_repo_path, git_repo, git_settings);
         #[cfg(windows)]
         if git_backend.is_ok() {
+            use crate::workspace::set_dotgit_and_dotjj_visibility;
             set_dotgit_and_dotjj_visibility(&canonical_workspace_root);
         }
         git_backend
