@@ -12,7 +12,8 @@ Note that you need to sign Google's CLA to contribute.
 # Checklist
 
 If applicable:
+
 - [ ] I have updated `CHANGELOG.md`
-- [ ] I have updated the documentation (README.md, docs/, demos/)
-- [ ] I have updated the config schema (cli/src/config-schema.json)
+- [ ] I have updated the documentation (`README.md`, `docs/`, `demos/`)
+- [ ] I have updated the config schema (`cli/src/config-schema.json`)
 - [ ] I have added tests to cover my changes
