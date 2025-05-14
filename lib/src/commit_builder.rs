@@ -166,7 +166,7 @@ pub struct DetachedCommitBuilder {
 }
 
 impl DetachedCommitBuilder {
-    /// Only called from [`MutRepo::new_commit`]. Use that function instead.
+    /// Only called from [`MutableRepo::new_commit`]. Use that function instead.
     pub(crate) fn for_new_commit(
         repo: &dyn Repo,
         settings: &UserSettings,
@@ -197,7 +197,8 @@ impl DetachedCommitBuilder {
         }
     }
 
-    /// Only called from [`MutRepo::rewrite_commit`]. Use that function instead.
+    /// Only called from [`MutableRepo::rewrite_commit`]. Use that function
+    /// instead.
     pub(crate) fn for_rewrite_from(
         repo: &dyn Repo,
         settings: &UserSettings,

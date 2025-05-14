@@ -260,11 +260,12 @@ pub(crate) fn cmd_describe(
 
     let mut num_described = 0;
     let mut num_reparented = 0;
-    // Even though `MutRepo::rewrite_commit` and `MutRepo::rebase_descendants` can
-    // handle rewriting of a commit even if it is a descendant of another commit
-    // being rewritten, using `MutRepo::transform_descendants` prevents us from
-    // rewriting the same commit multiple times, and adding additional entries
-    // in the predecessor chain.
+    // Even though `MutableRepo::rewrite_commit` and
+    // `MutableRepo::rebase_descendants` can handle rewriting of a commit even
+    // if it is a descendant of another commit being rewritten, using
+    // `MutableRepo::transform_descendants` prevents us from rewriting the same
+    // commit multiple times, and adding additional entries in the predecessor
+    // chain.
     tx.repo_mut().transform_descendants(
         commit_builders.keys().map(|&id| id.clone()).collect(),
         |rewriter| {
