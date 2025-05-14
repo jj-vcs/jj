@@ -214,7 +214,9 @@ fn fetch_new_remote(
         r#"Fetching into new repo in "{}""#,
         workspace_command.workspace_root().display()
     )?;
-    let git_settings = workspace_command.settings().git_settings()?;
+    let settings = workspace_command.settings();
+    let git_settings = settings.git_settings()?;
+    let track_default = settings.get_bool("git.track-default-bookmark-on-clone")?;
     let mut tx = workspace_command.start_transaction();
     let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
     with_remote_git_callbacks(ui, |cb| {
@@ -225,12 +227,19 @@ fn fetch_new_remote(
     if let Some(name) = &default_branch {
         let remote_symbol = name.to_remote_symbol(remote_name);
         let remote_ref = tx.repo().get_remote_bookmark(remote_symbol);
-        if remote_ref.is_present() {
+        if track_default && remote_ref.is_present() {
             // For convenience, create local bookmark as Git would do.
             tx.repo_mut().track_remote_bookmark(remote_symbol);
         }
     }
     print_git_import_stats(ui, tx.repo(), &import_stats, true)?;
+    if git_settings.auto_local_bookmark && !track_default {
+        writeln!(
+            ui.hint_default(),
+            "`git.track-default-bookmark-on-clone=false` has no effect if \
+             `git.auto-local-bookmark` is enabled."
+        )?;
+    }
     tx.finish(ui, "fetch from git remote into empty repo")?;
     Ok(default_branch)
 }

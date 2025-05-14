@@ -469,6 +469,63 @@ fn test_git_clone_remote_default_bookmark() {
     revset-aliases.'trunk()' = "feature1@origin"
     [EOF]
     "#);
+
+    // No bookmarks should be imported if both auto-local-bookmark and
+    // track-default-bookmark-on-clone are turned off
+    let output = root_dir.run_jj([
+        "git",
+        "clone",
+        "--config=git.track-default-bookmark-on-clone=false",
+        "source",
+        "clone4",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone4"
+    bookmark: feature1@origin [new] untracked
+    bookmark: main@origin     [new] untracked
+    Setting the revset alias `trunk()` to `feature1@origin`
+    Working copy  (@) now at: wmwvqwsz 5068d576 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 feature1@origin main@origin | message
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+    let clone_dir4 = test_env.work_dir("clone4");
+    insta::assert_snapshot!(get_bookmark_output(&clone_dir4), @r"
+    feature1@origin: qomsplrm ebeb70d8 message
+    main@origin: qomsplrm ebeb70d8 message
+    [EOF]
+    ");
+
+    // Show hint if track-default-bookmark-on-clone=false has no effect
+    let output = root_dir.run_jj([
+        "git",
+        "clone",
+        "--config=git.auto-local-bookmark=true",
+        "--config=git.track-default-bookmark-on-clone=false",
+        "source",
+        "clone5",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone5"
+    bookmark: feature1@origin [new] tracked
+    bookmark: main@origin     [new] tracked
+    Hint: `git.track-default-bookmark-on-clone=false` has no effect if `git.auto-local-bookmark` is enabled.
+    Setting the revset alias `trunk()` to `feature1@origin`
+    Working copy  (@) now at: vzqnnsmr fea36bca (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 feature1 main | message
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+    let clone_dir5 = test_env.work_dir("clone5");
+    insta::assert_snapshot!(get_bookmark_output(&clone_dir5), @r"
+    feature1: qomsplrm ebeb70d8 message
+      @origin: qomsplrm ebeb70d8 message
+    main: qomsplrm ebeb70d8 message
+      @origin: qomsplrm ebeb70d8 message
+    [EOF]
+    ");
 }
 
 // A branch with a strange name should get quoted in the config. Windows doesn't

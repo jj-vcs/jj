@@ -1458,6 +1458,20 @@ jj bookmark delete gh-pages
 jj bookmark untrack gh-pages@upstream
 ```
 
+### Automatic local bookmark creation on `jj git clone`
+
+When cloning a new Git repository, `jj` by default creates a local bookmark
+tracking the default remote bookmark (such as `main` for `main@origin`.) If you
+aren't going to update the `main` bookmark locally, the tracking bookmark isn't
+necessary.
+
+This behavior can be disabled by
+
+```toml
+[git]
+track-default-bookmark-on-clone = false
+```
+
 ### Abandon commits that became unreachable in Git
 
 By default, when `jj` imports refs from Git, it will look for commits that used

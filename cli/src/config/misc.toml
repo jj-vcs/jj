@@ -18,6 +18,7 @@ private-commits = "none()"
 push-bookmark-prefix = "push-"
 push-new-bookmarks = false
 sign-on-push = false
+track-default-bookmark-on-clone = true
 
 [ui]
 always-allow-large-revsets = false

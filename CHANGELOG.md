@@ -40,6 +40,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   anywhere in the revision tree with the `--insert-before`, `--insert-after` and
   `--destination` command line flags.
 
+* Added `git.track-default-bookmark-on-clone` setting to control whether to
+  track the default remote bookmark on `jj git clone`.
+
 ### Fixed bugs
 
 * Work around a git issue that could cause subprocess operations to hang if the

@@ -474,6 +474,11 @@
                     "description": "Whether jj should sign commits before pushing",
                     "default": false
                 },
+                "track-default-bookmark-on-clone": {
+                    "type": "boolean",
+                    "description": "Whether `jj git clone` creates a local bookmark tracking the default remote bookmark",
+                    "default": true
+                },
                 "write-change-id-header": {
                     "type": "boolean",
                     "description": "Whether the change id should be stored in the Git commit object",
