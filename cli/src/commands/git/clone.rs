@@ -155,13 +155,13 @@ pub fn cmd_git_clone(
             .view()
             .get_remote_bookmark(default_symbol);
         if let Some(commit_id) = default_branch_remote_ref.target.as_normal().cloned() {
-            let mut checkout_tx = workspace_command.start_transaction();
+            let mut tx = workspace_command.start_transaction();
             // For convenience, create local bookmark as Git would do.
-            checkout_tx.repo_mut().track_remote_bookmark(default_symbol);
-            if let Ok(commit) = checkout_tx.repo().store().get_commit(&commit_id) {
-                checkout_tx.check_out(&commit)?;
+            tx.repo_mut().track_remote_bookmark(default_symbol);
+            if let Ok(commit) = tx.repo().store().get_commit(&commit_id) {
+                tx.check_out(&commit)?;
             }
-            checkout_tx.finish(ui, "check out git remote's default branch")?;
+            tx.finish(ui, "check out git remote's default branch")?;
         }
     }
     Ok(())
@@ -217,14 +217,14 @@ fn fetch_new_remote(
         workspace_command.workspace_root().display()
     )?;
     let git_settings = workspace_command.settings().git_settings()?;
-    let mut fetch_tx = workspace_command.start_transaction();
-    let mut git_fetch = GitFetch::new(fetch_tx.repo_mut(), &git_settings)?;
+    let mut tx = workspace_command.start_transaction();
+    let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
     with_remote_git_callbacks(ui, |cb| {
         git_fetch.fetch(remote_name, &[StringPattern::everything()], cb, depth)
     })?;
     let default_branch = git_fetch.get_default_branch(remote_name)?;
     let import_stats = git_fetch.import_refs()?;
-    print_git_import_stats(ui, fetch_tx.repo(), &import_stats, true)?;
-    fetch_tx.finish(ui, "fetch from git remote into empty repo")?;
+    print_git_import_stats(ui, tx.repo(), &import_stats, true)?;
+    tx.finish(ui, "fetch from git remote into empty repo")?;
     Ok(default_branch)
 }
