@@ -426,7 +426,7 @@ fn test_git_clone_remote_default_bookmark() {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone2"
     bookmark: feature1@origin [new] untracked
-    bookmark: main@origin     [new] untracked
+    bookmark: main@origin     [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: rzvqmyuk 27e56779 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 feature1@origin main | message
@@ -447,7 +447,7 @@ fn test_git_clone_remote_default_bookmark() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone3"
-    bookmark: feature1@origin [new] untracked
+    bookmark: feature1@origin [new] tracked
     bookmark: main@origin     [new] untracked
     Setting the revset alias `trunk()` to `feature1@origin`
     Working copy  (@) now at: nppvrztz b16020e9 (empty) (no description set)
@@ -496,7 +496,7 @@ fn test_git_clone_remote_default_bookmark_with_escape() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
-    bookmark: "\""@origin [new] untracked
+    bookmark: "\""@origin [new] tracked
     Setting the revset alias `trunk()` to `"\""@origin`
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 "\"" | message
@@ -526,7 +526,7 @@ fn test_git_clone_ignore_working_copy() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
-    bookmark: main@origin [new] untracked
+    bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     [EOF]
     "#);
@@ -637,7 +637,7 @@ fn test_git_clone_trunk_deleted() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
-    bookmark: main@origin [new] untracked
+    bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
@@ -726,7 +726,7 @@ fn test_git_clone_conditional_config() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/new"
-    bookmark: main@origin [new] untracked
+    bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: zxsnswpr 5479cd52 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
@@ -805,7 +805,7 @@ fn test_git_clone_invalid_immutable_heads() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
-    bookmark: main@origin [new] untracked
+    bookmark: main@origin [new] tracked
     Config error: Invalid `revset-aliases.immutable_heads()`
     Caused by: Revision `unknown` doesn't exist
     For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
@@ -829,7 +829,7 @@ fn test_git_clone_malformed() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
-    bookmark: main@origin [new] untracked
+    bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Internal error: Failed to check out commit 2f4286212884d472a0b2013a961b695a144ac65c
     Caused by: Reserved path component .jj in $TEST_ENV/clone/.jj
@@ -841,7 +841,7 @@ fn test_git_clone_malformed() {
     let output = clone_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation 045afcc49a1b).
+    Error: The working copy is stale (not updated since operation c3cc6408625b).
     Hint: Run `jj workspace update-stale` to update it.
     See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy for more information.
     [EOF]
@@ -893,7 +893,7 @@ fn test_git_clone_with_global_git_remote_config() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone"
-    bookmark: main@origin [new] untracked
+    bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message

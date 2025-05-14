@@ -156,8 +156,6 @@ pub fn cmd_git_clone(
             .get_remote_bookmark(default_symbol);
         if let Some(commit_id) = default_branch_remote_ref.target.as_normal().cloned() {
             let mut tx = workspace_command.start_transaction();
-            // For convenience, create local bookmark as Git would do.
-            tx.repo_mut().track_remote_bookmark(default_symbol);
             if let Ok(commit) = tx.repo().store().get_commit(&commit_id) {
                 tx.check_out(&commit)?;
             }
@@ -224,6 +222,14 @@ fn fetch_new_remote(
     })?;
     let default_branch = git_fetch.get_default_branch(remote_name)?;
     let import_stats = git_fetch.import_refs()?;
+    if let Some(name) = &default_branch {
+        let remote_symbol = name.to_remote_symbol(remote_name);
+        let remote_ref = tx.repo().get_remote_bookmark(remote_symbol);
+        if remote_ref.is_present() {
+            // For convenience, create local bookmark as Git would do.
+            tx.repo_mut().track_remote_bookmark(remote_symbol);
+        }
+    }
     print_git_import_stats(ui, tx.repo(), &import_stats, true)?;
     tx.finish(ui, "fetch from git remote into empty repo")?;
     Ok(default_branch)
