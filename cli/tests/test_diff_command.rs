@@ -237,6 +237,36 @@ fn test_diff_basic() {
     // Unmodified paths shouldn't generate warnings
     let output = work_dir.run_jj(["diff", "-s", "--from=@", "file2"]);
     insta::assert_snapshot!(output, @"");
+
+    // Deprecated config key
+    let output = work_dir.run_jj(["diff", "--config=ui.diff.format=git", "file2"]);
+    insta::assert_snapshot!(output, @r#"
+    diff --git a/file2 b/file2
+    index 94ebaf9001..1ffc51b472 100644
+    --- a/file2
+    +++ b/file2
+    @@ -1,4 +1,3 @@
+     1
+    -2
+    +5
+     3
+    -4
+    [EOF]
+    ------- stderr -------
+    Warning: Deprecated config: ui.diff.format is updated to ui.diff-formatter = ":git"
+    [EOF]
+    "#);
+
+    // Bad builtin format
+    let output = work_dir.run_jj(["diff", "--config=ui.diff-formatter=:unknown"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Config error: Invalid type or value for ui.diff-formatter
+    Caused by: Invalid builtin diff format: unknown
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 #[test]
@@ -2911,7 +2941,7 @@ fn test_diff_external_tool() {
 
     // nonzero exit codes should print a warning
     std::fs::write(&edit_script, "fail").unwrap();
-    let output = work_dir.run_jj(["diff", "--config=ui.diff.tool=fake-diff-editor"]);
+    let output = work_dir.run_jj(["diff", "--config=ui.diff-formatter=fake-diff-editor"]);
     let mut insta_settings = insta::Settings::clone_current();
     insta_settings.add_filter("exit (status|code)", "<exit status>");
     insta_settings.bind(|| {
@@ -2990,7 +3020,7 @@ fn test_diff_external_tool() {
     ");
 
     // Enabled by default, looks up the merge-tools table
-    let config = "--config=ui.diff.tool=fake-diff-editor";
+    let config = "--config=ui.diff-formatter=fake-diff-editor";
     insta::assert_snapshot!(work_dir.run_jj(["diff", config]), @r"
     file1
     file2
@@ -3002,7 +3032,7 @@ fn test_diff_external_tool() {
 
     // Inlined command arguments
     let command_toml = to_toml_value(fake_diff_editor_path());
-    let config = format!("--config=ui.diff.tool=[{command_toml}, '$right', '$left']");
+    let config = format!("--config=ui.diff-formatter=[{command_toml}, '$right', '$left']");
     insta::assert_snapshot!(work_dir.run_jj(["diff", &config]), @r"
     file2
     file3
@@ -3035,6 +3065,30 @@ fn test_diff_external_tool() {
     [EOF]
     ------- stderr -------
     Warning: Tool exited with exit status: 1 (run with --debug to see the exact invocation)
+    [EOF]
+    ");
+
+    // Deprecated config key
+    std::fs::write(
+        &edit_script,
+        "print-files-before\0print --\0print-files-after",
+    )
+    .unwrap();
+    let output = work_dir.run_jj([
+        "diff",
+        "--config=ui.diff.format=git",
+        "--config=ui.diff.tool=fake-diff-editor",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    file1
+    file2
+    --
+    file2
+    file3
+    [EOF]
+    ------- stderr -------
+    Warning: Deprecated config: ui.diff.tool is renamed to ui.diff-formatter
+    Warning: Deprecated config: ui.diff.format is deleted (superseded by ui.diff-formatter)
     [EOF]
     ");
 
@@ -3116,7 +3170,7 @@ fn test_diff_external_file_by_file_tool() {
 
     // Enabled by default, looks up the merge-tools table
     let configs: &[_] = &[
-        "--config=ui.diff.tool=fake-diff-editor",
+        "--config=ui.diff-formatter=fake-diff-editor",
         "--config=merge-tools.fake-diff-editor.diff-invocation-mode=file-by-file",
     ];
 

@@ -10,6 +10,6 @@ env = { RUST_LOG = "poem=debug" }
 command = ["diffedit3", "$left", "$base", "$right"]
 env = { RUST_LOG = "poem=debug" }
 
-[ui.diff.tool]
+[ui.diff-formatter]
 command = ["difft", "--color=always", "$left", "$right"]
 env = { DFT_BACKGROUND = "light" }

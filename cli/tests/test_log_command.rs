@@ -205,7 +205,7 @@ fn test_log_with_or_without_diff() {
         "description",
         "-p",
         "-s",
-        "--config=ui.diff.format=summary",
+        "--config=ui.diff-formatter=:summary",
     ]);
     insta::assert_snapshot!(output, @r"
     @  a new commit

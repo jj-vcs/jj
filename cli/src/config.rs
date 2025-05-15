@@ -726,6 +726,17 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
                 Ok(format!(r#""{escaped}""#).into())
             },
         ),
+        // TODO: Delete in jj 0.36+
+        ConfigMigrationRule::rename_value("ui.diff.tool", "ui.diff-formatter"),
+        // TODO: Delete in jj 0.36+
+        ConfigMigrationRule::rename_update_value(
+            "ui.diff.format",
+            "ui.diff-formatter",
+            |old_value| {
+                let value = old_value.as_str().ok_or("expected a string")?;
+                Ok(format!(":{value}").into())
+            },
+        ),
     ]
 }
 

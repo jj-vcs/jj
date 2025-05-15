@@ -284,8 +284,10 @@ can override the default style with the following keys:
 
 ```toml
 [ui]
-# Possible values: "color-words" (default), "git", "summary"
-diff.format = "git"
+# Builtin formats: ":color-words" (default), ":git",
+#                  ":summary", ":stat", ":types", ":name-only"
+# or external command name and arguments (see below)
+diff-formatter = ":git"
 ```
 
 #### Color-words diff options
@@ -337,15 +339,15 @@ context = 3
 
 ### Generating diffs by external command
 
-If `ui.diff.tool` is set, the specified diff command will be called instead of
-the internal diff function.
+If `ui.diff-formatter` is not a builtin format, the specified diff command will
+be called.
 
 ```toml
 [ui]
 # Use Difftastic by default
-diff.tool = ["difft", "--color=always", "$left", "$right"]
+diff-formatter = ["difft", "--color=always", "$left", "$right"]
 # Use tool named "<name>" (see below)
-diff.tool = "<name>"
+diff-formatter = "<name>"
 ```
 
 The external diff tool can also be enabled by `diff --tool <name>` argument.
@@ -366,7 +368,7 @@ invocations as follows:
 
 ```toml
 [ui]
-diff.tool = "vimdiff"
+diff-formatter = "vimdiff"
 
 [merge-tools.vimdiff]
 diff-invocation-mode = "file-by-file"

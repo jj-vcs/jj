@@ -23,9 +23,8 @@ track-default-bookmark-on-clone = true
 [ui]
 always-allow-large-revsets = false
 color = "auto"
+diff-formatter = ":color-words"
 diff-instructions = true
-diff.format = "color-words"
-# diff.tool = <use-format>
 graph.style = "curved"
 pager = { command = ["less", "-FRX"], env = { LESSCHARSET = "utf-8" } }
 paginate = "auto"

@@ -155,32 +155,6 @@
                         }
                     }
                 },
-                "diff": {
-                    "type": "object",
-                    "description": "Options for how diffs are displayed",
-                    "properties": {
-                        "format": {
-                            "description": "The diff format to use",
-                            "enum": [
-                                "color-words",
-                                "git",
-                                "summary"
-                            ],
-                            "default": "color-words"
-                        },
-                        "tool": {
-                            "description": "External tool for generating diffs",
-                            "oneOf": [
-                                {
-                                    "$ref": "#/properties/ui/definitions/command"
-                                },
-                                {
-                                    "$ref": "#/properties/ui/definitions/command-env"
-                                }
-                            ]
-                        }
-                    }
-                },
                 "diff-instructions": {
                     "type": "boolean",
                     "description": "Whether to generate the JJ-INSTRUCTIONS file as part of editing a diff",
@@ -226,6 +200,18 @@
                 "diff-editor": {
                     "description": "Editor tool to use for editing diffs",
                     "default": ":builtin",
+                    "oneOf": [
+                        {
+                            "$ref": "#/properties/ui/definitions/command"
+                        },
+                        {
+                            "$ref": "#/properties/ui/definitions/command-env"
+                        }
+                    ]
+                },
+                "diff-formatter": {
+                    "description": "Tool for displaying or generating diffs",
+                    "default": ":color-words",
                     "oneOf": [
                         {
                             "$ref": "#/properties/ui/definitions/command"

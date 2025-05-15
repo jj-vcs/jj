@@ -5,7 +5,5 @@ pager = ["bat", "-p"]
 
 editor = ["C:/Program Files/Notepad++/notepad++.exe", "-multiInst", "-notabbar", "-nosession", "-noPlugin"]
 diff-editor = ["diffedit3", "$left", "$right"]
+diff-formatter = ["difft", "--color=always", "$left", "$right"]
 merge-editor = ["diffedit3", "$left", "$base", "$right"]
-
-[ui.diff]
-tool = ["difft", "--color=always", "$left", "$right"]

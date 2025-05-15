@@ -31,6 +31,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+* The `ui.diff.format` and `ui.diff.tool` config options have been merged as
+  `ui.diff-formatter`. The builtin format can be specified as `:<format>`
+  (e.g. `ui.diff-formatter=":git"` for Git diffs.)
+
 ### New features
 
 * `jj split` has gained a `--message` option to set the description of the

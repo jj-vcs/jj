@@ -35,7 +35,6 @@ use jj_lib::backend::CopyRecord;
 use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
 use jj_lib::config::ConfigGetError;
-use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::conflicts::materialized_diff_stream;
 use jj_lib::conflicts::ConflictMarkerStyle;
@@ -166,7 +165,7 @@ impl BuiltinFormatKind {
             "name-only" => Ok(Self::NameOnly),
             "git" => Ok(Self::Git),
             "color-words" => Ok(Self::ColorWords),
-            _ => Err(format!("Invalid diff format: {name}")),
+            _ => Err(format!("Invalid builtin diff format: {name}")),
         }
     }
 
@@ -280,26 +279,24 @@ fn default_diff_format(
     settings: &UserSettings,
     args: &DiffFormatArgs,
 ) -> Result<DiffFormat, ConfigGetError> {
-    if let Some(args) = settings
-        .get::<CommandNameAndArgs>("ui.diff.tool")
-        .optional()?
-    {
-        // External "tool" overrides the internal "format" option.
-        let tool = if let Some(name) = args.as_str() {
+    let tool_args: CommandNameAndArgs = settings.get("ui.diff-formatter")?;
+    if let Some(name) = tool_args.as_str().and_then(|s| s.strip_prefix(':')) {
+        BuiltinFormatKind::from_name(name)
+            .map_err(|err| ConfigGetError::Type {
+                name: "ui.diff-formatter".to_owned(),
+                error: err.into(),
+                source_path: None,
+            })?
+            .to_format(settings, args)
+    } else {
+        let tool = if let Some(name) = tool_args.as_str() {
             merge_tools::get_external_tool_config(settings, name)?
         } else {
             None
         }
-        .unwrap_or_else(|| ExternalMergeTool::with_diff_args(&args));
-        return Ok(DiffFormat::Tool(Box::new(tool)));
+        .unwrap_or_else(|| ExternalMergeTool::with_diff_args(&tool_args));
+        Ok(DiffFormat::Tool(Box::new(tool)))
     }
-    BuiltinFormatKind::from_name(&settings.get_string("ui.diff.format")?)
-        .map_err(|err| ConfigGetError::Type {
-            name: "ui.diff.format".to_owned(),
-            error: err.into(),
-            source_path: None,
-        })?
-        .to_format(settings, args)
 }
 
 #[derive(Debug, Error)]

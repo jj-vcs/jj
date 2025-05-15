@@ -3,6 +3,7 @@
 always-allow-large-revsets = true
 default-command = "status"
 default-description = "feat: "
+diff-formatter = ":git"
 color = "always"
 paginate = "never"
 pager = ":builtin"
@@ -20,10 +21,6 @@ bookmark-list-sort-keys = ["author-email", "author-date-", "committer-name"]
 [ui.streampager]
 interface = "quit-quickly-or-clear-output"
 wrapping = "word"
-
-[ui.diff]
-format = "git"
-tool = "vimdiff"
 
 [ui.graph]
 style = "ascii-large"
