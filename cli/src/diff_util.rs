@@ -159,6 +159,81 @@ impl DiffFormat {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum BuiltinFormatKind {
+    Summary,
+    Stat,
+    Types,
+    NameOnly,
+    Git,
+    ColorWords,
+}
+
+impl BuiltinFormatKind {
+    fn from_name(name: &str) -> Result<Self, String> {
+        match name {
+            "summary" => Ok(Self::Summary),
+            "stat" => Ok(Self::Stat),
+            "types" => Ok(Self::Types),
+            "name-only" => Ok(Self::NameOnly),
+            "git" => Ok(Self::Git),
+            "color-words" => Ok(Self::ColorWords),
+            _ => Err(format!("Invalid diff format: {name}")),
+        }
+    }
+
+    fn short_from_args(args: &DiffFormatArgs) -> Option<Self> {
+        if args.summary {
+            Some(Self::Summary)
+        } else if args.stat {
+            Some(Self::Stat)
+        } else if args.types {
+            Some(Self::Types)
+        } else if args.name_only {
+            Some(Self::NameOnly)
+        } else {
+            None
+        }
+    }
+
+    fn long_from_args(args: &DiffFormatArgs) -> Option<Self> {
+        if args.git {
+            Some(Self::Git)
+        } else if args.color_words {
+            Some(Self::ColorWords)
+        } else {
+            None
+        }
+    }
+
+    fn to_format(
+        self,
+        settings: &UserSettings,
+        args: &DiffFormatArgs,
+    ) -> Result<DiffFormat, ConfigGetError> {
+        match self {
+            Self::Summary => Ok(DiffFormat::Summary),
+            Self::Stat => {
+                let mut options = DiffStatOptions::default();
+                options.merge_args(args);
+                Ok(DiffFormat::Stat(Box::new(options)))
+            }
+            Self::Types => Ok(DiffFormat::Types),
+            Self::NameOnly => Ok(DiffFormat::NameOnly),
+            Self::Git => {
+                let mut options = UnifiedDiffOptions::from_settings(settings)?;
+                options.merge_args(args);
+                Ok(DiffFormat::Git(Box::new(options)))
+            }
+            Self::ColorWords => {
+                let mut options = ColorWordsDiffOptions::from_settings(settings)?;
+                options.merge_args(args);
+                Ok(DiffFormat::ColorWords(Box::new(options)))
+            }
+        }
+    }
+}
+
 /// Returns a list of requested diff formats, which will never be empty.
 pub fn diff_formats_for(
     settings: &UserSettings,
@@ -196,32 +271,13 @@ fn diff_formats_from_args(
 ) -> Result<Vec<DiffFormat>, ConfigGetError> {
     let mut formats = Vec::new();
     // "short" format first:
-    if args.summary {
-        formats.push(DiffFormat::Summary);
-    }
-    if args.stat {
-        let mut options = DiffStatOptions::default();
-        options.merge_args(args);
-        formats.push(DiffFormat::Stat(Box::new(options)));
-    }
-    if args.types {
-        formats.push(DiffFormat::Types);
-    }
-    if args.name_only {
-        formats.push(DiffFormat::NameOnly);
+    if let Some(kind) = BuiltinFormatKind::short_from_args(args) {
+        formats.push(kind.to_format(settings, args)?);
     }
     // "long" format follows:
-    if args.git {
-        let mut options = UnifiedDiffOptions::from_settings(settings)?;
-        options.merge_args(args);
-        formats.push(DiffFormat::Git(Box::new(options)));
-    }
-    if args.color_words {
-        let mut options = ColorWordsDiffOptions::from_settings(settings)?;
-        options.merge_args(args);
-        formats.push(DiffFormat::ColorWords(Box::new(options)));
-    }
-    if let Some(name) = &args.tool {
+    if let Some(kind) = BuiltinFormatKind::long_from_args(args) {
+        formats.push(kind.to_format(settings, args)?);
+    } else if let Some(name) = &args.tool {
         let tool = merge_tools::get_external_tool_config(settings, name)?
             .unwrap_or_else(|| ExternalMergeTool::with_program(name));
         formats.push(DiffFormat::Tool(Box::new(tool)));
@@ -243,31 +299,13 @@ fn default_diff_format(
         .unwrap_or_else(|| ExternalMergeTool::with_diff_args(&args));
         return Ok(DiffFormat::Tool(Box::new(tool)));
     }
-    match settings.get_string("ui.diff.format")?.as_ref() {
-        "summary" => Ok(DiffFormat::Summary),
-        "stat" => {
-            let mut options = DiffStatOptions::default();
-            options.merge_args(args);
-            Ok(DiffFormat::Stat(Box::new(options)))
-        }
-        "types" => Ok(DiffFormat::Types),
-        "name-only" => Ok(DiffFormat::NameOnly),
-        "git" => {
-            let mut options = UnifiedDiffOptions::from_settings(settings)?;
-            options.merge_args(args);
-            Ok(DiffFormat::Git(Box::new(options)))
-        }
-        "color-words" => {
-            let mut options = ColorWordsDiffOptions::from_settings(settings)?;
-            options.merge_args(args);
-            Ok(DiffFormat::ColorWords(Box::new(options)))
-        }
-        name => Err(ConfigGetError::Type {
+    BuiltinFormatKind::from_name(&settings.get_string("ui.diff.format")?)
+        .map_err(|err| ConfigGetError::Type {
             name: "ui.diff.format".to_owned(),
-            error: format!("Invalid diff format: {name}").into(),
+            error: err.into(),
             source_path: None,
-        }),
-    }
+        })?
+        .to_format(settings, args)
 }
 
 #[derive(Debug, Error)]
