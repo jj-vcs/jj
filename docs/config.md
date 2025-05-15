@@ -844,7 +844,6 @@ my-script = ["util", "exec", "--", "my-jj-script"]
 #                            ^^^^
 # This makes sure that flags are passed to your script instead of parsed by jj.
 my-inline-script = ["util", "exec", "--", "bash", "-c", """
-#!/usr/bin/env bash
 set -euo pipefail
 echo "Look Ma, everything in one file!"
 echo "args: $@"
@@ -853,6 +852,9 @@ echo "args: $@"
 # This last empty string will become "$0" in bash, so your actual arguments
 # are all included in "$@" and start at "$1" as expected.
 ```
+
+> Note: Shebangs (e.g. `#!/usr/bin/env`) aren't necessary since you're already
+> explicitly passing your script into the right shell.
 
 ## Editor
 

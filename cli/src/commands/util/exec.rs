@@ -50,7 +50,6 @@ use crate::ui::Ui;
 /// ```toml
 /// [aliases]
 /// my-inline-script = ["util", "exec", "--", "bash", "-c", """
-/// #!/usr/bin/env bash
 /// set -euo pipefail
 /// echo "Look Ma, everything in one file!"
 /// echo "args: $@"
@@ -59,6 +58,9 @@ use crate::ui::Ui;
 /// # This last empty string will become "$0" in bash, so your actual arguments
 /// # are all included in "$@" and start at "$1" as expected.
 /// ```
+///
+/// > Note: Shebangs (e.g. `#!/usr/bin/env`) aren't necessary since you're
+/// > already explicitly passing your script into the right shell.
 #[derive(clap::Args, Clone, Debug)]
 #[command(verbatim_doc_comment)]
 pub(crate) struct UtilExecArgs {
