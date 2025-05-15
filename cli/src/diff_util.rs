@@ -147,18 +147,6 @@ pub enum DiffFormat {
     Tool(Box<ExternalMergeTool>),
 }
 
-impl DiffFormat {
-    fn is_short(&self) -> bool {
-        match self {
-            DiffFormat::Summary
-            | DiffFormat::Stat(_)
-            | DiffFormat::Types
-            | DiffFormat::NameOnly => true,
-            DiffFormat::Git(_) | DiffFormat::ColorWords(_) | DiffFormat::Tool(_) => false,
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum BuiltinFormatKind {
     Summary,
@@ -240,10 +228,10 @@ pub fn diff_formats_for(
     args: &DiffFormatArgs,
 ) -> Result<Vec<DiffFormat>, ConfigGetError> {
     let formats = diff_formats_from_args(settings, args)?;
-    if formats.is_empty() {
+    if formats.iter().all(|f| f.is_none()) {
         Ok(vec![default_diff_format(settings, args)?])
     } else {
-        Ok(formats)
+        Ok(formats.into_iter().flatten().collect())
     }
 }
 
@@ -254,35 +242,38 @@ pub fn diff_formats_for_log(
     args: &DiffFormatArgs,
     patch: bool,
 ) -> Result<Vec<DiffFormat>, ConfigGetError> {
-    let mut formats = diff_formats_from_args(settings, args)?;
+    let [short_format, mut long_format] = diff_formats_from_args(settings, args)?;
     // --patch implies default if no "long" format is specified
-    if patch && formats.iter().all(DiffFormat::is_short) {
+    if patch && long_format.is_none() {
         // TODO: maybe better to error out if the configured default isn't a
         // "long" format?
-        formats.push(default_diff_format(settings, args)?);
-        formats.dedup();
+        let default_format = default_diff_format(settings, args)?;
+        if short_format.as_ref() != Some(&default_format) {
+            long_format = Some(default_format);
+        }
     }
-    Ok(formats)
+    Ok([short_format, long_format].into_iter().flatten().collect())
 }
 
 fn diff_formats_from_args(
     settings: &UserSettings,
     args: &DiffFormatArgs,
-) -> Result<Vec<DiffFormat>, ConfigGetError> {
-    let mut formats = Vec::new();
-    // "short" format first:
-    if let Some(kind) = BuiltinFormatKind::short_from_args(args) {
-        formats.push(kind.to_format(settings, args)?);
-    }
-    // "long" format follows:
-    if let Some(kind) = BuiltinFormatKind::long_from_args(args) {
-        formats.push(kind.to_format(settings, args)?);
+) -> Result<[Option<DiffFormat>; 2], ConfigGetError> {
+    let short_format = if let Some(kind) = BuiltinFormatKind::short_from_args(args) {
+        Some(kind.to_format(settings, args)?)
+    } else {
+        None
+    };
+    let long_format = if let Some(kind) = BuiltinFormatKind::long_from_args(args) {
+        Some(kind.to_format(settings, args)?)
     } else if let Some(name) = &args.tool {
         let tool = merge_tools::get_external_tool_config(settings, name)?
             .unwrap_or_else(|| ExternalMergeTool::with_program(name));
-        formats.push(DiffFormat::Tool(Box::new(tool)));
-    }
-    Ok(formats)
+        Some(DiffFormat::Tool(Box::new(tool)))
+    } else {
+        None
+    };
+    Ok([short_format, long_format])
 }
 
 fn default_diff_format(
