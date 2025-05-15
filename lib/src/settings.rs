@@ -309,7 +309,7 @@ pub struct JJRng(Mutex<ChaCha20Rng>);
 impl JJRng {
     pub fn new_change_id(&self, length: usize) -> ChangeId {
         let mut rng = self.0.lock().unwrap();
-        let random_bytes = (0..length).map(|_| rng.gen::<u8>()).collect();
+        let random_bytes = (0..length).map(|_| rng.random::<u8>()).collect();
         ChangeId::new(random_bytes)
     }
 
@@ -322,7 +322,7 @@ impl JJRng {
     fn internal_rng_from_seed(seed: Option<u64>) -> ChaCha20Rng {
         match seed {
             Some(seed) => ChaCha20Rng::seed_from_u64(seed),
-            None => ChaCha20Rng::from_entropy(),
+            None => ChaCha20Rng::from_os_rng(),
         }
     }
 }
