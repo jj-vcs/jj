@@ -253,7 +253,7 @@ impl DiffEditor {
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, MergeToolConfigError> {
         let args = editor_args_from_settings(ui, settings, "ui.diff-editor")?;
-        let tool = if let CommandNameAndArgs::String(name) = &args {
+        let tool = if let Some(name) = args.as_str() {
             DiffTool::get_tool_config(settings, name)?
         } else {
             None
@@ -388,7 +388,7 @@ impl MergeEditor {
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, MergeToolConfigError> {
         let args = editor_args_from_settings(ui, settings, "ui.merge-editor")?;
-        let tool = if let CommandNameAndArgs::String(name) = &args {
+        let tool = if let Some(name) = args.as_str() {
             MergeTool::get_tool_config(settings, name)?
         } else {
             None

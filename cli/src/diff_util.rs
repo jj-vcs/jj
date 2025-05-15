@@ -280,9 +280,12 @@ fn default_diff_format(
     settings: &UserSettings,
     args: &DiffFormatArgs,
 ) -> Result<DiffFormat, ConfigGetError> {
-    if let Some(args) = settings.get("ui.diff.tool").optional()? {
+    if let Some(args) = settings
+        .get::<CommandNameAndArgs>("ui.diff.tool")
+        .optional()?
+    {
         // External "tool" overrides the internal "format" option.
-        let tool = if let CommandNameAndArgs::String(name) = &args {
+        let tool = if let Some(name) = args.as_str() {
             merge_tools::get_external_tool_config(settings, name)?
         } else {
             None

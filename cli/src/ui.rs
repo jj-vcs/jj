@@ -328,11 +328,11 @@ impl PagerConfig {
         if matches!(config.get("ui.paginate")?, PaginationChoice::Never) {
             return Ok(PagerConfig::Disabled);
         };
-        match config.get("ui.pager")? {
-            CommandNameAndArgs::String(name) if name == BUILTIN_PAGER_NAME => {
-                Ok(PagerConfig::Builtin(config.get("ui.streampager")?))
-            }
-            pager_command => Ok(PagerConfig::External(pager_command)),
+        let args: CommandNameAndArgs = config.get("ui.pager")?;
+        if args.as_str() == Some(BUILTIN_PAGER_NAME) {
+            Ok(PagerConfig::Builtin(config.get("ui.streampager")?))
+        } else {
+            Ok(PagerConfig::External(args))
         }
     }
 }

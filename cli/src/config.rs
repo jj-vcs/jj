@@ -768,6 +768,17 @@ impl CommandNameAndArgs {
         }
     }
 
+    /// Returns command string only if the underlying type is a string.
+    ///
+    /// Use this to parse enum strings such as `":builtin"`, which can be
+    /// escaped as `[":builtin"]`.
+    pub fn as_str(&self) -> Option<&str> {
+        match self {
+            CommandNameAndArgs::String(s) => Some(s),
+            CommandNameAndArgs::Vec(_) | CommandNameAndArgs::Structured { .. } => None,
+        }
+    }
+
     /// Returns process builder configured with this.
     pub fn to_command(&self) -> Command {
         let empty: HashMap<&str, &str> = HashMap::new();
