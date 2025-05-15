@@ -319,8 +319,8 @@ fn format_multiple_revisions_error(
             write_commits_summary(formatter)
         });
         cmd_err.add_hint(
-            "Some of these commits have the same change id. Abandon one of them with `jj abandon \
-             -r <REVISION>`.",
+            "Some of these commits have the same change id. Abandon the unneeded commits with `jj \
+             abandon <commit_id>`.",
         );
     } else if let Some(bookmark_name) = expression.as_symbol() {
         // Separate hint if there's a conflicted bookmark

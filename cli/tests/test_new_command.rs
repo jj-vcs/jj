@@ -681,7 +681,7 @@ fn test_new_conflicting_change_ids() {
     Hint: The revset `qpvuntsm` resolved to these revisions:
       qpvuntsm?? 2f175dfc (empty) two
       qpvuntsm?? 401ea16f (empty) one
-    Hint: Some of these commits have the same change id. Abandon one of them with `jj abandon -r <REVISION>`.
+    Hint: Some of these commits have the same change id. Abandon the unneeded commits with `jj abandon <commit_id>`.
     [EOF]
     [exit status: 1]
     ");
