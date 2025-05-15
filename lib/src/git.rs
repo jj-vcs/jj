@@ -1014,7 +1014,7 @@ pub fn export_some_refs(
                 update_git_head(
                     &git_repo,
                     gix::refs::transaction::PreviousValue::MustExistAndMatch(old_target),
-                    current_oid,
+                    current_oid.map(gix::refs::Target::Object),
                 )
                 .map_err(GitExportError::from_git)?;
             }
@@ -1322,11 +1322,11 @@ fn update_git_ref(
 fn update_git_head(
     git_repo: &gix::Repository,
     expected_ref: gix::refs::transaction::PreviousValue,
-    new_oid: Option<gix::ObjectId>,
+    new_target: Option<gix::refs::Target>,
 ) -> Result<(), gix::reference::edit::Error> {
     let mut ref_edits = Vec::new();
-    let new_target = if let Some(oid) = new_oid {
-        gix::refs::Target::Object(oid)
+    let new_target = if let Some(target) = new_target {
+        target
     } else {
         // Can't detach HEAD without a commit. Use placeholder ref to nullify
         // the HEAD. The placeholder ref isn't a normal branch ref. Git CLI
@@ -1390,7 +1390,7 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
 
     // If the first parent of the working copy has changed, reset the Git HEAD.
     let old_head_target = mut_repo.git_head();
-    if old_head_target != new_head_target {
+    if old_head_target != new_head_target || true {
         let expected_ref = if let Some(id) = old_head_target.as_normal() {
             // We have to check the actual HEAD state because we don't record a
             // symbolic ref as such.
@@ -1407,9 +1407,38 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
             // Just overwrite if unborn (or conflict), which is also unusual.
             gix::refs::transaction::PreviousValue::MustExist
         };
-        let new_oid = new_head_target
-            .as_normal()
-            .map(|id| gix::ObjectId::from_bytes_or_panic(id.as_bytes()));
+
+        let new_oid = new_head_target.as_normal().map(|id| {
+            let single_parent_bookmark = wc_commit
+                .single_parent()
+                .and_then(|_| {
+                    mut_repo
+                        .view()
+                        .bookmarks()
+                        .filter(|(_, bookmark)| bookmark.local_target == &new_head_target)
+                        .exactly_one()
+                        .ok()
+                })
+                .and_then(|(name, _)| {
+                    to_git_ref_name(
+                        GitRefKind::Bookmark,
+                        name.to_remote_symbol(REMOTE_NAME_FOR_LOCAL_GIT_REPO),
+                    )
+                    .and_then(|name| {
+                        gix::refs::FullName::try_from(BString::from(name.into_string())).ok()
+                    })
+                    .map(gix::refs::Target::Symbolic)
+                });
+
+            match single_parent_bookmark {
+                Some(target) => target,
+                None => {
+                    let id = gix::ObjectId::from_bytes_or_panic(id.as_bytes());
+                    gix::refs::Target::Object(id)
+                }
+            }
+        });
+
         update_git_head(&git_repo, expected_ref, new_oid)
             .map_err(|err| GitResetHeadError::UpdateHeadRef(err.into()))?;
         mut_repo.set_git_head_target(new_head_target);
