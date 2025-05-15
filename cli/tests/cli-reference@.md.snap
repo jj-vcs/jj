@@ -792,6 +792,8 @@ If no option is specified, it defaults to `-r @`.
 * `--git` — Show a Git-format diff
 * `--color-words` — Show a word-level diff with changes indicated only by color
 * `--tool <TOOL>` — Generate diff by external command
+
+   A builtin format can also be specified as `:<name>`. For example, `--tool=:git` is equivalent to `--git`.
 * `--context <CONTEXT>` — Number of lines of context to show
 * `-w`, `--ignore-all-space` — Ignore whitespace when comparing lines
 * `-b`, `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
@@ -915,6 +917,8 @@ Lists the previous commits which a change has pointed to. The current commit of 
 * `--git` — Show a Git-format diff
 * `--color-words` — Show a word-level diff with changes indicated only by color
 * `--tool <TOOL>` — Generate diff by external command
+
+   A builtin format can also be specified as `:<name>`. For example, `--tool=:git` is equivalent to `--git`.
 * `--context <CONTEXT>` — Number of lines of context to show
 * `--ignore-all-space` — Ignore whitespace when comparing lines
 * `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
@@ -1465,6 +1469,8 @@ This excludes changes from other commits by temporarily rebasing `--from` onto `
 * `--git` — Show a Git-format diff
 * `--color-words` — Show a word-level diff with changes indicated only by color
 * `--tool <TOOL>` — Generate diff by external command
+
+   A builtin format can also be specified as `:<name>`. For example, `--tool=:git` is equivalent to `--git`.
 * `--context <CONTEXT>` — Number of lines of context to show
 * `-w`, `--ignore-all-space` — Ignore whitespace when comparing lines
 * `-b`, `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
@@ -1526,6 +1532,8 @@ The working-copy commit is indicated by a `@` symbol in the graph. [Immutable re
 * `--git` — Show a Git-format diff
 * `--color-words` — Show a word-level diff with changes indicated only by color
 * `--tool <TOOL>` — Generate diff by external command
+
+   A builtin format can also be specified as `:<name>`. For example, `--tool=:git` is equivalent to `--git`.
 * `--context <CONTEXT>` — Number of lines of context to show
 * `--ignore-all-space` — Ignore whitespace when comparing lines
 * `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
@@ -1730,6 +1738,8 @@ Compare changes to the repository between two operations
 * `--git` — Show a Git-format diff
 * `--color-words` — Show a word-level diff with changes indicated only by color
 * `--tool <TOOL>` — Generate diff by external command
+
+   A builtin format can also be specified as `:<name>`. For example, `--tool=:git` is equivalent to `--git`.
 * `--context <CONTEXT>` — Number of lines of context to show
 * `--ignore-all-space` — Ignore whitespace when comparing lines
 * `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
@@ -1773,6 +1783,8 @@ Like other commands, `jj op log` snapshots the current working-copy changes and 
 * `--git` — Show a Git-format diff
 * `--color-words` — Show a word-level diff with changes indicated only by color
 * `--tool <TOOL>` — Generate diff by external command
+
+   A builtin format can also be specified as `:<name>`. For example, `--tool=:git` is equivalent to `--git`.
 * `--context <CONTEXT>` — Number of lines of context to show
 * `--ignore-all-space` — Ignore whitespace when comparing lines
 * `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
@@ -1839,6 +1851,8 @@ Show changes to the repository in an operation
 * `--git` — Show a Git-format diff
 * `--color-words` — Show a word-level diff with changes indicated only by color
 * `--tool <TOOL>` — Generate diff by external command
+
+   A builtin format can also be specified as `:<name>`. For example, `--tool=:git` is equivalent to `--git`.
 * `--context <CONTEXT>` — Number of lines of context to show
 * `--ignore-all-space` — Ignore whitespace when comparing lines
 * `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
@@ -2330,6 +2344,8 @@ Show commit description and changes in a revision
 * `--git` — Show a Git-format diff
 * `--color-words` — Show a word-level diff with changes indicated only by color
 * `--tool <TOOL>` — Generate diff by external command
+
+   A builtin format can also be specified as `:<name>`. For example, `--tool=:git` is equivalent to `--git`.
 * `--context <CONTEXT>` — Number of lines of context to show
 * `--ignore-all-space` — Ignore whitespace when comparing lines
 * `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines

@@ -74,6 +74,8 @@ use thiserror::Error;
 use tracing::instrument;
 use unicode_width::UnicodeWidthStr as _;
 
+use crate::command_error::cli_error;
+use crate::command_error::CommandError;
 use crate::config::CommandNameAndArgs;
 use crate::formatter::Formatter;
 use crate::merge_tools;
@@ -89,7 +91,7 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 #[command(next_help_heading = "Diff Formatting Options")]
 #[command(group(clap::ArgGroup::new("short-format").args(&["summary", "stat", "types", "name_only"])))]
-#[command(group(clap::ArgGroup::new("long-format").args(&["git", "color_words", "tool"])))]
+#[command(group(clap::ArgGroup::new("long-format").args(&["git", "color_words"])))]
 pub struct DiffFormatArgs {
     /// For each path, show only whether it was modified, added, or deleted
     #[arg(long, short)]
@@ -119,6 +121,9 @@ pub struct DiffFormatArgs {
     #[arg(long)]
     pub color_words: bool,
     /// Generate diff by external command
+    ///
+    /// A builtin format can also be specified as `:<name>`. For example,
+    /// `--tool=:git` is equivalent to `--git`.
     #[arg(long)]
     pub tool: Option<String>,
     /// Number of lines of context to show
@@ -193,6 +198,24 @@ impl BuiltinFormatKind {
         }
     }
 
+    fn is_short(self) -> bool {
+        match self {
+            Self::Summary | Self::Stat | Self::Types | Self::NameOnly => true,
+            Self::Git | Self::ColorWords => false,
+        }
+    }
+
+    fn to_arg_name(self) -> &'static str {
+        match self {
+            Self::Summary => "summary",
+            Self::Stat => "stat",
+            Self::Types => "types",
+            Self::NameOnly => "name-only",
+            Self::Git => "git",
+            Self::ColorWords => "color-words",
+        }
+    }
+
     fn to_format(
         self,
         settings: &UserSettings,
@@ -225,7 +248,7 @@ impl BuiltinFormatKind {
 pub fn diff_formats_for(
     settings: &UserSettings,
     args: &DiffFormatArgs,
-) -> Result<Vec<DiffFormat>, ConfigGetError> {
+) -> Result<Vec<DiffFormat>, CommandError> {
     let formats = diff_formats_from_args(settings, args)?;
     if formats.iter().all(|f| f.is_none()) {
         Ok(vec![default_diff_format(settings, args)?])
@@ -240,7 +263,7 @@ pub fn diff_formats_for_log(
     settings: &UserSettings,
     args: &DiffFormatArgs,
     patch: bool,
-) -> Result<Vec<DiffFormat>, ConfigGetError> {
+) -> Result<Vec<DiffFormat>, CommandError> {
     let [short_format, mut long_format] = diff_formats_from_args(settings, args)?;
     // --patch implies default if no "long" format is specified
     if patch && long_format.is_none() {
@@ -257,21 +280,40 @@ pub fn diff_formats_for_log(
 fn diff_formats_from_args(
     settings: &UserSettings,
     args: &DiffFormatArgs,
-) -> Result<[Option<DiffFormat>; 2], ConfigGetError> {
-    let short_format = if let Some(kind) = BuiltinFormatKind::short_from_args(args) {
-        Some(kind.to_format(settings, args)?)
-    } else {
-        None
-    };
-    let long_format = if let Some(kind) = BuiltinFormatKind::long_from_args(args) {
-        Some(kind.to_format(settings, args)?)
-    } else if let Some(name) = &args.tool {
-        let tool = merge_tools::get_external_tool_config(settings, name)?
-            .unwrap_or_else(|| ExternalMergeTool::with_program(name));
-        Some(DiffFormat::Tool(Box::new(tool)))
-    } else {
-        None
-    };
+) -> Result<[Option<DiffFormat>; 2], CommandError> {
+    let short_kind = BuiltinFormatKind::short_from_args(args);
+    let long_kind = BuiltinFormatKind::long_from_args(args);
+    let mut short_format = short_kind
+        .map(|kind| kind.to_format(settings, args))
+        .transpose()?;
+    let mut long_format = long_kind
+        .map(|kind| kind.to_format(settings, args))
+        .transpose()?;
+    if let Some(name) = &args.tool {
+        let ensure_new = |old_kind: Option<BuiltinFormatKind>| match old_kind {
+            Some(old) => Err(cli_error(format!(
+                "--tool={name} cannot be used with --{old}",
+                old = old.to_arg_name()
+            ))),
+            None => Ok(()),
+        };
+        if let Some(name) = name.strip_prefix(':') {
+            let kind = BuiltinFormatKind::from_name(name).map_err(cli_error)?;
+            let format = kind.to_format(settings, args)?;
+            if kind.is_short() {
+                ensure_new(short_kind)?;
+                short_format = Some(format);
+            } else {
+                ensure_new(long_kind)?;
+                long_format = Some(format);
+            }
+        } else {
+            let tool = merge_tools::get_external_tool_config(settings, name)?
+                .unwrap_or_else(|| ExternalMergeTool::with_program(name));
+            ensure_new(long_kind)?;
+            long_format = Some(DiffFormat::Tool(Box::new(tool)));
+        }
+    }
     Ok([short_format, long_format])
 }
 

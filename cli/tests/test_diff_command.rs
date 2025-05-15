@@ -257,6 +257,57 @@ fn test_diff_basic() {
     [EOF]
     "#);
 
+    // --tool=:<builtin>
+    let output = work_dir.run_jj(["diff", "--tool=:summary", "--color-words", "file2"]);
+    insta::assert_snapshot!(output, @r"
+    M file2
+    Modified regular file file2:
+       1    1: 1
+       2    2: 25
+       3    3: 3
+       4     : 4
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["diff", "--tool=:git", "--stat", "file2"]);
+    insta::assert_snapshot!(output, @r"
+    file2 | 3 +--
+    1 file changed, 1 insertion(+), 2 deletions(-)
+    diff --git a/file2 b/file2
+    index 94ebaf9001..1ffc51b472 100644
+    --- a/file2
+    +++ b/file2
+    @@ -1,4 +1,3 @@
+     1
+    -2
+    +5
+     3
+    -4
+    [EOF]
+    ");
+
+    // Bad combination
+    let output = work_dir.run_jj(["diff", "--summary", "--tool=:stat"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: --tool=:stat cannot be used with --summary
+    [EOF]
+    [exit status: 2]
+    ");
+    let output = work_dir.run_jj(["diff", "--git", "--tool=:git"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: --tool=:git cannot be used with --git
+    [EOF]
+    [exit status: 2]
+    ");
+    let output = work_dir.run_jj(["diff", "--git", "--tool=external"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: --tool=external cannot be used with --git
+    [EOF]
+    [exit status: 2]
+    ");
+
     // Bad builtin format
     let output = work_dir.run_jj(["diff", "--config=ui.diff-formatter=:unknown"]);
     insta::assert_snapshot!(output, @r"
@@ -3096,11 +3147,9 @@ fn test_diff_external_tool() {
     let output = work_dir.run_jj(["diff", "--tool=:builtin"]);
     insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
     ------- stderr -------
-    Error: Failed to generate diff
-    Caused by:
-    1: Error executing ':builtin' (run with --debug to see the exact invocation)
+    Error: Invalid builtin diff format: builtin
     [EOF]
-    [exit status: 1]
+    [exit status: 2]
     ");
 }
 
