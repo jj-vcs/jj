@@ -207,14 +207,15 @@ fn test_concurrent_snapshot_wc_reloadable() {
     [EOF]
     ");
     let op_log_lines = output.stdout.raw().lines().collect_vec();
-    let current_op_id = op_log_lines[0].split_once("  ").unwrap().1;
-    let previous_op_id = op_log_lines[6].split_once("  ").unwrap().1;
+    let op_id_after_snapshot = op_log_lines[0].split_once("  ").unwrap().1;
+    let op_id_before_snapshot = op_log_lines[6].split_once("  ").unwrap().1;
 
-    // Another process started from the "initial" operation, but snapshots after
-    // the "child1" checkout have been completed.
+    // Simulate a concurrent operation that began from the "initial" operation
+    // (before the "child1" snapshot) but finished after the "child1"
+    // snapshot and commit.
     std::fs::rename(
-        op_heads_dir.join(current_op_id),
-        op_heads_dir.join(previous_op_id),
+        op_heads_dir.join(op_id_after_snapshot),
+        op_heads_dir.join(op_id_before_snapshot),
     )
     .unwrap();
     work_dir.write_file("child2", "");
