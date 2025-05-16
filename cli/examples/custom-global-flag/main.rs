@@ -33,5 +33,8 @@ fn process_before(ui: &mut Ui, custom_global_args: CustomGlobalArgs) -> Result<(
 }
 
 fn main() -> std::process::ExitCode {
-    CliRunner::init().add_global_args(process_before).run()
+    CliRunner::init()
+        .add_global_args(process_before)
+        .run()
+        .into()
 }

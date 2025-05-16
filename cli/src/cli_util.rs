@@ -26,7 +26,6 @@ use std::io::Write as _;
 use std::mem;
 use std::path::Path;
 use std::path::PathBuf;
-use std::process::ExitCode;
 use std::rc::Rc;
 use std::str;
 use std::str::FromStr;
@@ -3967,7 +3966,7 @@ impl<'a> CliRunner<'a> {
 
     #[must_use]
     #[instrument(skip(self))]
-    pub fn run(mut self) -> ExitCode {
+    pub fn run(mut self) -> u8 {
         // Tell crossterm to ignore NO_COLOR (we check it ourselves)
         crossterm::style::force_color_output(true);
         let config = config_from_environment(self.config_layers.drain(..));

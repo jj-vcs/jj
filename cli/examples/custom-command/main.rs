@@ -60,5 +60,8 @@ fn run_custom_command(
 }
 
 fn main() -> std::process::ExitCode {
-    CliRunner::init().add_subcommand(run_custom_command).run()
+    CliRunner::init()
+        .add_subcommand(run_custom_command)
+        .run()
+        .into()
 }

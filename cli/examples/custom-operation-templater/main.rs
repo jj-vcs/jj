@@ -88,4 +88,5 @@ fn main() -> std::process::ExitCode {
     CliRunner::init()
         .add_operation_template_extension(Box::new(HexCounter))
         .run()
+        .into()
 }

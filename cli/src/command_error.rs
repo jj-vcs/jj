@@ -17,7 +17,6 @@ use std::error::Error as _;
 use std::io;
 use std::io::Write as _;
 use std::iter;
-use std::process::ExitCode;
 use std::str;
 use std::sync::Arc;
 
@@ -896,23 +895,20 @@ fn template_parse_error_hint(err: &TemplateParseError) -> Option<String> {
 
 const BROKEN_PIPE_EXIT_CODE: u8 = 3;
 
-pub(crate) fn handle_command_result(ui: &mut Ui, result: Result<(), CommandError>) -> ExitCode {
-    try_handle_command_result(ui, result).unwrap_or_else(|_| ExitCode::from(BROKEN_PIPE_EXIT_CODE))
+pub(crate) fn handle_command_result(ui: &mut Ui, result: Result<(), CommandError>) -> u8 {
+    try_handle_command_result(ui, result).unwrap_or(BROKEN_PIPE_EXIT_CODE)
 }
 
-fn try_handle_command_result(
-    ui: &mut Ui,
-    result: Result<(), CommandError>,
-) -> io::Result<ExitCode> {
+fn try_handle_command_result(ui: &mut Ui, result: Result<(), CommandError>) -> io::Result<u8> {
     let Err(cmd_err) = &result else {
-        return Ok(ExitCode::SUCCESS);
+        return Ok(0);
     };
     let err = &cmd_err.error;
     let hints = &cmd_err.hints;
     match cmd_err.kind {
         CommandErrorKind::User => {
             print_error(ui, "Error: ", err, hints)?;
-            Ok(ExitCode::from(1))
+            Ok(1)
         }
         CommandErrorKind::Config => {
             print_error(ui, "Config error: ", err, hints)?;
@@ -921,23 +917,23 @@ fn try_handle_command_result(
                 "For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k \
                  config`."
             )?;
-            Ok(ExitCode::from(1))
+            Ok(1)
         }
         CommandErrorKind::Cli => {
             if let Some(err) = err.downcast_ref::<clap::Error>() {
                 handle_clap_error(ui, err, hints)
             } else {
                 print_error(ui, "Error: ", err, hints)?;
-                Ok(ExitCode::from(2))
+                Ok(2)
             }
         }
         CommandErrorKind::BrokenPipe => {
             // A broken pipe is not an error, but a signal to exit gracefully.
-            Ok(ExitCode::from(BROKEN_PIPE_EXIT_CODE))
+            Ok(BROKEN_PIPE_EXIT_CODE)
         }
         CommandErrorKind::Internal => {
             print_error(ui, "Internal error: ", err, hints)?;
-            Ok(ExitCode::from(255))
+            Ok(255)
         }
     }
 }
@@ -998,7 +994,7 @@ fn print_error_hints(ui: &Ui, hints: &[ErrorHint]) -> io::Result<()> {
     Ok(())
 }
 
-fn handle_clap_error(ui: &mut Ui, err: &clap::Error, hints: &[ErrorHint]) -> io::Result<ExitCode> {
+fn handle_clap_error(ui: &mut Ui, err: &clap::Error, hints: &[ErrorHint]) -> io::Result<u8> {
     let clap_str = if ui.color() {
         err.render().ansi().to_string()
     } else {
@@ -1015,7 +1011,7 @@ fn handle_clap_error(ui: &mut Ui, err: &clap::Error, hints: &[ErrorHint]) -> io:
     match err.kind() {
         clap::error::ErrorKind::DisplayHelp | clap::error::ErrorKind::DisplayVersion => {
             write!(ui.stdout(), "{clap_str}")?;
-            return Ok(ExitCode::SUCCESS);
+            return Ok(0);
         }
         _ => {}
     }
@@ -1023,7 +1019,7 @@ fn handle_clap_error(ui: &mut Ui, err: &clap::Error, hints: &[ErrorHint]) -> io:
     // Skip the first source error, which should be printed inline.
     print_error_sources(ui, err.source().and_then(|err| err.source()))?;
     print_error_hints(ui, hints)?;
-    Ok(ExitCode::from(2))
+    Ok(2)
 }
 
 /// Prints diagnostic messages emitted during parsing.

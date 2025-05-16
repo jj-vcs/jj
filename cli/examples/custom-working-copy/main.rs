@@ -97,6 +97,7 @@ fn main() -> std::process::ExitCode {
         .add_working_copy_factories(working_copy_factories)
         .add_subcommand(run_custom_command)
         .run()
+        .into()
 }
 
 /// A working copy that adds a .conflicts file with a list of unresolved

@@ -91,6 +91,7 @@ fn main() -> std::process::ExitCode {
         .add_store_factories(create_store_factories())
         .add_subcommand(run_custom_command)
         .run()
+        .into()
 }
 
 /// A commit backend that's extremely similar to the Git backend
