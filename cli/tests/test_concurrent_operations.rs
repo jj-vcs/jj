@@ -118,9 +118,7 @@ fn test_concurrent_operations_wc_modified() {
     let output = work_dir.run_jj(["op", "log"]).success();
     let op_id_hex = output.stdout.raw()[3..15].to_string();
 
-    work_dir
-        .run_jj(["new", "--at-op", &op_id_hex, "-m", "new child1"])
-        .success();
+    work_dir.run_jj(["new", "-m", "new child1"]).success();
     work_dir
         .run_jj(["new", "--at-op", &op_id_hex, "-m", "new child2"])
         .success();
