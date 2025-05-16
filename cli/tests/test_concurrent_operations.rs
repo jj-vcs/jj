@@ -96,9 +96,9 @@ fn test_concurrent_operations_auto_rebase() {
     // We should be informed about the concurrent modification
     let output = get_log_output(&work_dir);
     insta::assert_snapshot!(output, @r"
-    ○  b748b7189c0b301be205ebaf74b941c4ec209e69 new child
-    @  084d39fe0ab1cd01a6b7fd21fdea3a8dcc9a48fc rewritten
-    ◆  0000000000000000000000000000000000000000
+    ○  new child
+    @  rewritten
+    ◆
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
@@ -129,11 +129,11 @@ fn test_concurrent_operations_wc_modified() {
     // We should be informed about the concurrent modification
     let output = get_log_output(&work_dir);
     insta::assert_snapshot!(output, @r"
-    @  fe9f87c5ee87d9cbc9a81fa1ebc600bb85471fd5 new child1
-    │ ○  7fd594798328855ba9ca64f2f3708f8e61ea771d new child2
+    @  new child1
+    │ ○  new child2
     ├─╯
-    ○  4a8d8ea817a416777a551d7f41d9dfaf5dc2db5d initial
-    ◆  0000000000000000000000000000000000000000
+    ○  initial
+    ◆
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
@@ -230,22 +230,20 @@ fn test_concurrent_snapshot_wc_reloadable() {
 
     // Since the repo can be reloaded before snapshotting, "child2" should be
     // a child of "child1", not of "initial".
-    let template = r#"commit_id ++ " " ++ description"#;
-    let output = work_dir.run_jj(["log", "-T", template, "-s"]);
+    let output = work_dir.run_jj(["log", "-T", "description", "-s"]);
     insta::assert_snapshot!(output, @r"
-    @  5a2a6177e84f2e9e67b896421155ded751801da6 new child2
+    @  new child2
     │  A child2
-    ○  15bd889d60e9f054f5b163a697041a1dad1edfa3 new child1
+    ○  new child1
     │  A child1
-    ○  064f230b16b2bd6435a713d7f3363f562fb0d80f initial
+    ○  initial
     │  A base
-    ◆  0000000000000000000000000000000000000000
+    ◆
     [EOF]
     ");
 }
 
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
-    let template = r#"commit_id ++ " " ++ description"#;
-    work_dir.run_jj(["log", "-T", template])
+    work_dir.run_jj(["log", "-T", "description"])
 }
