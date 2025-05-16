@@ -52,7 +52,7 @@ fn test_concurrent_operation_divergence() {
     ");
 
     // We should be informed about the concurrent modification
-    let output = work_dir.run_jj(["log", "-T", "description"]);
+    let output = get_log_output(&work_dir);
     insta::assert_snapshot!(output, @r"
     @  message 1
     │ ○  message 2
