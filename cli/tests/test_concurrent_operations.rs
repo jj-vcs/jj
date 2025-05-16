@@ -167,24 +167,24 @@ fn test_concurrent_snapshot_wc_reloadable() {
     work_dir.write_file("child1", "");
     work_dir.run_jj(["commit", "-m", "new child1"]).success();
 
-    let template = r#"id ++ "\n" ++ description ++ "\n" ++ tags"#;
+    let template = r#"id.short() ++ "\n" ++ description ++ "\n" ++ tags"#;
     let output = work_dir.run_jj(["op", "log", "-T", template]);
     insta::assert_snapshot!(output, @r"
-    @  9009349b5198b481138bc77a268145474c016cd218f1f038317f2fa6f25e4e896e0c4c4e3271b188cb2726938b92ba8135ee2fb62ddf82b2bd41a9c839337b04
+    @  9009349b5198
     │  commit c91a0909a9d3f3d8392ba9fab88f4b40fc0810ee
     │  args: jj commit -m 'new child1'
-    ○  0b8f20a1bd79d95aa49a517fbeb0b58caa024ba887c4b8da5b0feee6e2376757fa78fec2a07ee593f61d43eb3487c1ff389df5fb2c9489c313819193ccc0e401
+    ○  0b8f20a1bd79
     │  snapshot working copy
     │  args: jj commit -m 'new child1'
-    ○  b544b8f44a8b084f965cdb3e5f32b4f3423899c1ac004036567125cb596f3eded7f4141561078463e31e7b3dd5832912348d970c78ed2468d118efe584f6e9f0
+    ○  b544b8f44a8b
     │  commit 9af4c151edead0304de97ce3a0b414552921a425
     │  args: jj commit -m initial
-    ○  8b49a5a258dd19ac6ea757de66f57933978e6e7af948da48247ac98d5933ea6d0f78ee2a3c08757ded39ad87805a2e528dd55fd2e1da71da28e501c0c3454d9a
+    ○  8b49a5a258dd
     │  snapshot working copy
     │  args: jj commit -m initial
-    ○  2affa702525487ca490c4bc8a9a365adf75f972efb5888dd58716de7603e822ba1ed1ed0a50132ee44572bb9d819f37589d0ceb790b397ddcc88c976fde2bf02
+    ○  2affa7025254
     │  add workspace 'default'
-    ○  00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    ○  000000000000
 
     [EOF]
     ");
