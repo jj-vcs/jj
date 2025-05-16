@@ -213,7 +213,7 @@ fn test_concurrent_snapshot_wc_reloadable() {
     let previous_op_id = op_log_lines[6].split_once("  ").unwrap().1;
 
     // Another process started from the "initial" operation, but snapshots after
-    // the "child1" checkout has been completed.
+    // the "child1" checkout have been completed.
     std::fs::rename(
         op_heads_dir.join(current_op_id),
         op_heads_dir.join(previous_op_id),
