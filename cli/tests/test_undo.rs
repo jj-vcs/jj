@@ -634,13 +634,9 @@ fn test_undo_bookmark_deletion() {
         .success();
     work_dir.run_jj(["bookmark", "delete", "foo"]).success();
     let output = work_dir.run_jj(["undo"]);
-    // FIXME: The warning and hint should not be shown here, since we did not undo
-    // an actual undo operation.
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Undid operation: 1075351137a2 (2001-02-03 08:05:09) delete bookmark foo
-    Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
-    Hint: To undo multiple operations, use `jj op log` to see past states and `jj op restore` to restore one of these states.
     [EOF]
     ");
 }

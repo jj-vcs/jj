@@ -60,6 +60,10 @@ fn resets_view_of(op: &Operation, parent_op: &Operation) -> Result<bool, OpStore
     Ok(op.view_id() == grandparent_op?.view_id())
 }
 
+fn tx_description(op: &Operation) -> &str {
+    &op.metadata().description
+}
+
 pub fn cmd_op_undo(
     ui: &mut Ui,
     command: &CommandHelper,
@@ -92,7 +96,30 @@ pub fn cmd_op_undo(
     }
     tx.finish(ui, format!("undo operation {}", bad_op.id().hex()))?;
 
-    if args.operation == "@" && resets_view_of(&bad_op, &parent_of_bad_op)? {
+    // Check if the user performed a "double undo", i.e. the current `undo` (C)
+    // reverts an immediately preceding `undo` (B) that is itself an `undo` of the
+    // operation preceding it (A).
+    //
+    //    C (undo of B)
+    // @  B (`bad_op` = undo of A)
+    // ○  A
+    //
+    // An exception is made for when the user specified the immediately preceding
+    // `undo` with an op set. In this situation, the user's intent is clear, so
+    // a warning is not shown.
+    //
+    // Note that undoing an older `undo` does not constitute a "double undo". For
+    // example, the current `undo` (D) here reverts an `undo` B that is not the
+    // immediately preceding operation (C). A warning is not shown in this case.
+    //
+    //    D (undo of B)
+    // @  C (unrelated operation)
+    // ○  B (`bad_op` = undo of A)
+    // ○  A
+    if args.operation == "@"
+        && resets_view_of(&bad_op, &parent_of_bad_op)?
+        && tx_description(&bad_op).contains(&parent_of_bad_op.id().hex())
+    {
         writeln!(
             ui.warning_default(),
             "The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in \
