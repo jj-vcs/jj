@@ -28,8 +28,6 @@ fn test_undo_rewrite_with_child() {
 
     work_dir.run_jj(["describe", "-m", "initial"]).success();
     work_dir.run_jj(["describe", "-m", "modified"]).success();
-    let output = work_dir.run_jj(["op", "log"]).success();
-    let op_id_hex = output.stdout.raw()[3..15].to_string();
     work_dir.run_jj(["new", "-m", "child"]).success();
     let output = work_dir.run_jj(["log", "-T", "description"]);
     insta::assert_snapshot!(output, @r"
@@ -38,7 +36,7 @@ fn test_undo_rewrite_with_child() {
     ◆
     [EOF]
     ");
-    work_dir.run_jj(["undo", &op_id_hex]).success();
+    work_dir.run_jj(["undo", "@-"]).success();
 
     // Since we undid the description-change, the child commit should now be on top
     // of the initial commit
@@ -477,9 +475,11 @@ fn test_shows_no_warning_when_undoing_a_specific_undo_change() {
 
     work_dir.run_jj(["new"]).success();
     work_dir.run_jj(["undo"]).success();
-    let output = work_dir.run_jj(["op", "log"]).success();
-    let op_id_hex = output.stdout.raw()[3..15].to_string();
-    let output = work_dir.run_jj(["undo", &op_id_hex]);
+    let output = work_dir
+        .run_jj(["op", "log", "--no-graph", "-T=id.short()", "-n=1"])
+        .success();
+    let op_id_hex = output.stdout.raw();
+    let output = work_dir.run_jj(["undo", op_id_hex]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Undid operation: 94337eb25498 (2001-02-03 08:05:09) undo operation c7b028ea7b47461d4328dde306e13337ea9000b6abfde4cb751902fae3124d578f2e0082cbd1e1d32b5e64afc001a933be5acc81a015a7f15d62d90750eaa9ca

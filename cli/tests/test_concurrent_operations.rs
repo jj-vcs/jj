@@ -73,24 +73,9 @@ fn test_concurrent_operations_auto_rebase() {
 
     work_dir.write_file("file", "contents");
     work_dir.run_jj(["describe", "-m", "initial"]).success();
-    let output = work_dir.run_jj(["op", "log"]);
-    insta::assert_snapshot!(output, @r"
-    @  aea22f517416 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
-    │  describe commit 006bd1130b84e90ab082adeabd7409270d5a86da
-    │  args: jj describe -m initial
-    ○  b5433cef81fc test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
-    │  snapshot working copy
-    │  args: jj describe -m initial
-    ○  2affa7025254 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
-    │  add workspace 'default'
-    ○  000000000000 root()
-    [EOF]
-    ");
-    let op_id_hex = output.stdout.raw()[3..15].to_string();
-
     work_dir.run_jj(["describe", "-m", "rewritten"]).success();
     work_dir
-        .run_jj(["new", "--at-op", &op_id_hex, "-m", "new child"])
+        .run_jj(["new", "--at-op=@-", "-m", "new child"])
         .success();
 
     // We should be informed about the concurrent modification
@@ -115,12 +100,9 @@ fn test_concurrent_operations_wc_modified() {
 
     work_dir.write_file("file", "contents\n");
     work_dir.run_jj(["describe", "-m", "initial"]).success();
-    let output = work_dir.run_jj(["op", "log"]).success();
-    let op_id_hex = output.stdout.raw()[3..15].to_string();
-
     work_dir.run_jj(["new", "-m", "new child1"]).success();
     work_dir
-        .run_jj(["new", "--at-op", &op_id_hex, "-m", "new child2"])
+        .run_jj(["new", "--at-op=@-", "-m", "new child2"])
         .success();
     work_dir.write_file("file", "modified\n");
 
@@ -206,9 +188,12 @@ fn test_concurrent_snapshot_wc_reloadable() {
 
     [EOF]
     ");
-    let op_log_lines = output.stdout.raw().lines().collect_vec();
-    let op_id_after_snapshot = op_log_lines[0].split_once("  ").unwrap().1;
-    let op_id_before_snapshot = op_log_lines[6].split_once("  ").unwrap().1;
+    let template = r#"id ++ "\n""#;
+    let output = work_dir.run_jj(["op", "log", "--no-graph", "-T", template]);
+    let [op_id_after_snapshot, _, op_id_before_snapshot] =
+        output.stdout.raw().lines().next_array().unwrap();
+    insta::assert_snapshot!(op_id_after_snapshot[..12], @"9009349b5198");
+    insta::assert_snapshot!(op_id_before_snapshot[..12], @"b544b8f44a8b");
 
     // Simulate a concurrent operation that began from the "initial" operation
     // (before the "child1" snapshot) but finished after the "child1"
@@ -220,12 +205,12 @@ fn test_concurrent_snapshot_wc_reloadable() {
     .unwrap();
     work_dir.write_file("child2", "");
     let output = work_dir.run_jj(["describe", "-m", "new child2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r###"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz 5a2a6177 new child2
+    Working copy  (@) now at: kkmpptxz 493da83e new child2
     Parent commit (@-)      : rlvkpnrz 15bd889d new child1
     [EOF]
-    ");
+    "###);
 
     // Since the repo can be reloaded before snapshotting, "child2" should be
     // a child of "child1", not of "initial".
