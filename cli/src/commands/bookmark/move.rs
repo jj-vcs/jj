@@ -43,6 +43,20 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 #[command(group(clap::ArgGroup::new("source").multiple(true).required(true)))]
 pub struct BookmarkMoveArgs {
+    /// Move bookmarks matching the given name patterns
+    ///
+    /// By default, the specified name matches exactly. Use `glob:` prefix to
+    /// select bookmarks by [wildcard pattern].
+    ///
+    /// [wildcard pattern]:
+    ///     https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+    #[arg(
+        group = "source",
+        value_parser = StringPattern::parse,
+        add = ArgValueCandidates::new(complete::local_bookmarks),
+    )]
+    names: Vec<StringPattern>,
+
     /// Move bookmarks from the given revisions
     #[arg(
         long, short,
@@ -66,20 +80,6 @@ pub struct BookmarkMoveArgs {
     /// Allow moving bookmarks backwards or sideways
     #[arg(long, short = 'B')]
     allow_backwards: bool,
-
-    /// Move bookmarks matching the given name patterns
-    ///
-    /// By default, the specified name matches exactly. Use `glob:` prefix to
-    /// select bookmarks by [wildcard pattern].
-    ///
-    /// [wildcard pattern]:
-    ///     https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
-    #[arg(
-        group = "source",
-        value_parser = StringPattern::parse,
-        add = ArgValueCandidates::new(complete::local_bookmarks),
-    )]
-    names: Vec<StringPattern>,
 }
 
 pub fn cmd_bookmark_move(

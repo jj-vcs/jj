@@ -407,9 +407,9 @@ fn test_bookmark_move_matching() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the following required arguments were not provided:
-      <--from <REVSETS>|NAMES>
+      <NAMES|--from <REVSETS>>
 
-    Usage: jj bookmark move --to <REVSET> <--from <REVSETS>|NAMES>
+    Usage: jj bookmark move --to <REVSET> <NAMES|--from <REVSETS>>
 
     For more information, try '--help'.
     [EOF]

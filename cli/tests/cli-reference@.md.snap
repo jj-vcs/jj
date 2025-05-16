@@ -418,7 +418,7 @@ Example: pull up the nearest bookmarks to the working-copy parent
 
 $ jj bookmark move --from 'heads(::@- & bookmarks())' --to @-
 
-**Usage:** `jj bookmark move [OPTIONS] <--from <REVSETS>|NAMES>`
+**Usage:** `jj bookmark move [OPTIONS] <NAMES|--from <REVSETS>>`
 
 **Command Alias:** `m`
 
