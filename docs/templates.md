@@ -452,6 +452,25 @@ This type cannot be printed. The following methods are defined.
   `"git-submodule"`, or `"conflict"`.
 * `.executable() -> Boolean`: True if the entry is an executable file.
 
+## Color labels
+
+Template fragments are usually labeled with the command name, the context (or
+the top-level object), and the method names. You can [customize the output
+colors][config-colors] by using these labels.
+
+For example, the following template is labeled as `op_log operation id short`:
+
+```sh
+jj op log -T 'self.id().short()'
+```
+
+In addition to that, you can insert arbitrary labels by `label(label, content)`
+function.
+
+To inspect how output fragments are labeled, use `--color=debug` option.
+
+[config-colors]: config.md#custom-colors-and-styles
+
 ## Configuration
 
 The default templates and aliases() are defined in the `[templates]` and
