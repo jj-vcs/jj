@@ -31,6 +31,7 @@ use jj_lib::repo_path::RepoPath;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetExpression;
 use testutils::create_tree;
+use testutils::read_file;
 use testutils::repo_path;
 use testutils::TestRepo;
 
@@ -77,12 +78,7 @@ fn annotate_within(
 fn annotate_parent_tree(repo: &dyn Repo, commit: &Commit, file_path: &RepoPath) -> String {
     let tree = commit.parent_tree(repo).unwrap();
     let text = match tree.path_value(file_path).unwrap().into_resolved().unwrap() {
-        Some(TreeValue::File { id, .. }) => {
-            let mut reader = repo.store().read_file(file_path, &id).unwrap();
-            let mut buf = Vec::new();
-            reader.read_to_end(&mut buf).unwrap();
-            buf
-        }
+        Some(TreeValue::File { id, .. }) => read_file(repo.store(), file_path, &id),
         value => panic!("unexpected path value: {value:?}"),
     };
     let mut annotator = FileAnnotator::with_file_content(commit.id(), file_path, text);

@@ -99,7 +99,7 @@ async fn get_file_contents(
         Some(id) => {
             let mut content = vec![];
             store
-                .read_file_async(path, id)
+                .read_file(path, id)
                 .await?
                 .read_to_end(&mut content)
                 .map_err(|err| BackendError::ReadFile {
@@ -210,7 +210,7 @@ async fn materialize_tree_value_no_access_denied(
     match value.into_resolved() {
         Ok(None) => Ok(MaterializedTreeValue::Absent),
         Ok(Some(TreeValue::File { id, executable })) => {
-            let reader = store.read_file_async(path, &id).await?;
+            let reader = store.read_file(path, &id).await?;
             Ok(MaterializedTreeValue::File(MaterializedFileValue {
                 id,
                 executable,
@@ -218,7 +218,7 @@ async fn materialize_tree_value_no_access_denied(
             }))
         }
         Ok(Some(TreeValue::Symlink(id))) => {
-            let target = store.read_symlink_async(path, &id).await?;
+            let target = store.read_symlink(path, &id).await?;
             Ok(MaterializedTreeValue::Symlink { id, target })
         }
         Ok(Some(TreeValue::GitSubmodule(id))) => Ok(MaterializedTreeValue::GitSubmodule(id)),
