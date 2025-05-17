@@ -590,7 +590,7 @@
                 "immutable_heads()": {
                     "type": "string",
                     "description": "Revisions to consider immutable. Ancestors of these are also considered immutable. The root commit is always considered immutable.",
-                    "default": "present(trunk()) | tags() | untracked_remote_branches()"
+                    "default": "present(trunk()) | tags() | untracked_remote_bookmarks()"
                 }
             },
             "additionalProperties": {
@@ -776,7 +776,7 @@
                 "legacy-bookmark-behavior": {
                     "type": "boolean",
                     "description": "If true, bookmarks will move to the second commit instead of the first.",
-                    "default": false
+                    "default": true
                 }
             }
         },
