@@ -393,12 +393,16 @@ fn test_split_with_descendants() {
     insta::assert_snapshot!(evolog_1, @r"
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:12 74306e35
     │  Add file1
+    │  -- operation 565bf57c4655 (2001-02-03 08:05:12) split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 1d2499e7
     │  Add file1 & file2
+    │  -- operation 7dc5a78da75b (2001-02-03 08:05:08) commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
+    │  -- operation 3ef175fd5b3e (2001-02-03 08:05:08) snapshot working copy
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
+       -- operation 2affa7025254 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ");
 
@@ -408,12 +412,16 @@ fn test_split_with_descendants() {
     insta::assert_snapshot!(evolog_2, @r"
     ○  royxmykx test.user@example.com 2001-02-03 08:05:12 0a37745e
     │  Add file2
+    │  -- operation 565bf57c4655 (2001-02-03 08:05:12) split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 1d2499e7
     │  Add file1 & file2
+    │  -- operation 7dc5a78da75b (2001-02-03 08:05:08) commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
+    │  -- operation 3ef175fd5b3e (2001-02-03 08:05:08) snapshot working copy
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
+       -- operation 2affa7025254 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ");
 }
@@ -547,10 +555,13 @@ fn test_split_parallel_no_descendants() {
     insta::assert_snapshot!(evolog_1, @r#"
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 7bcd474c
     │  TESTED=TODO
+    │  -- operation dc18a005d6fb (2001-02-03 08:05:09) split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
+    │  -- operation 15afe609e033 (2001-02-03 08:05:08) snapshot working copy
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
+       -- operation 2affa7025254 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ------- stderr -------
     Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
@@ -563,10 +574,13 @@ fn test_split_parallel_no_descendants() {
     insta::assert_snapshot!(evolog_2, @r#"
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 431886f6
     │  (no description set)
+    │  -- operation dc18a005d6fb (2001-02-03 08:05:09) split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
+    │  -- operation 15afe609e033 (2001-02-03 08:05:08) snapshot working copy
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
+       -- operation 2affa7025254 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ------- stderr -------
     Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
