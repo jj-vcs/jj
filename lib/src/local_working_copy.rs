@@ -27,14 +27,12 @@ use std::fs::OpenOptions;
 use std::io;
 use std::io::Read;
 use std::io::Write as _;
-use std::iter;
 use std::mem;
 use std::ops::Range;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::Path;
 use std::path::PathBuf;
-use std::slice;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
@@ -408,7 +406,7 @@ impl<'a> FileStates<'a> {
     }
 
     /// Iterates file state entries sorted by path.
-    pub fn iter(&self) -> FileStatesIter<'a> {
+    pub fn iter(&self) -> impl Iterator<Item = (&'_ RepoPath, FileState)> {
         self.data.iter().map(file_state_entry_from_proto)
     }
 
@@ -418,37 +416,6 @@ impl<'a> FileStates<'a> {
             .iter()
             .map(|entry| RepoPath::from_internal_string(&entry.path).unwrap())
     }
-}
-
-type FileStatesIter<'a> = iter::Map<
-    slice::Iter<'a, crate::protos::working_copy::FileStateEntry>,
-    fn(&crate::protos::working_copy::FileStateEntry) -> (&RepoPath, FileState),
->;
-
-impl<'a> IntoIterator for FileStates<'a> {
-    type Item = (&'a RepoPath, FileState);
-    type IntoIter = FileStatesIter<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-pub struct TreeState {
-    store: Arc<Store>,
-    working_copy_path: PathBuf,
-    state_path: PathBuf,
-    tree_id: MergedTreeId,
-    file_states: FileStatesMap,
-    // Currently only path prefixes
-    sparse_patterns: Vec<RepoPathBuf>,
-    own_mtime: MillisSinceEpoch,
-    symlink_support: bool,
-
-    /// The most recent clock value returned by Watchman. Will only be set if
-    /// the repo is configured to use the Watchman filesystem monitor and
-    /// Watchman has been queried at least once.
-    watchman_clock: Option<crate::protos::working_copy::WatchmanClock>,
 }
 
 fn file_state_from_proto(proto: &crate::protos::working_copy::FileState) -> FileState {
@@ -616,7 +583,7 @@ fn remove_old_file(disk_path: &Path) -> Result<bool, CheckoutError> {
     match fs::remove_file(disk_path) {
         Ok(()) => Ok(true),
         Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(false),
-        // TODO: Use io::ErrorKind::IsADirectory if it gets stabilized
+        Err(err) if err.kind() == io::ErrorKind::IsADirectory => Ok(false),
         Err(_) if disk_path.symlink_metadata().is_ok_and(|m| m.is_dir()) => Ok(false),
         Err(err) => Err(CheckoutError::Other {
             message: format!("Failed to remove file {}", disk_path.display()),
@@ -745,6 +712,23 @@ fn file_state(metadata: &Metadata) -> Option<FileState> {
 
 struct FsmonitorMatcher {
     matcher: Option<Box<dyn Matcher>>,
+    watchman_clock: Option<crate::protos::working_copy::WatchmanClock>,
+}
+
+pub struct TreeState {
+    store: Arc<Store>,
+    working_copy_path: PathBuf,
+    state_path: PathBuf,
+    tree_id: MergedTreeId,
+    file_states: FileStatesMap,
+    // Currently only path prefixes
+    sparse_patterns: Vec<RepoPathBuf>,
+    own_mtime: MillisSinceEpoch,
+    symlink_support: bool,
+
+    /// The most recent clock value returned by Watchman. Will only be set if
+    /// the repo is configured to use the Watchman filesystem monitor and
+    /// Watchman has been queried at least once.
     watchman_clock: Option<crate::protos::working_copy::WatchmanClock>,
 }
 
@@ -1340,7 +1324,7 @@ impl FileSnapshotter<'_> {
 
     /// Visits only paths we're already tracking.
     fn visit_tracked_files(&self, file_states: FileStates<'_>) -> Result<(), SnapshotError> {
-        for (tracked_path, current_file_state) in file_states {
+        for (tracked_path, current_file_state) in file_states.iter() {
             if current_file_state.file_type == FileType::GitSubmodule {
                 continue;
             }
@@ -2033,11 +2017,11 @@ impl WorkingCopy for LocalWorkingCopy {
         let old_tree_id = wc.tree_id()?.clone();
         Ok(Box::new(LockedLocalWorkingCopy {
             wc,
-            lock,
             old_operation_id,
             old_tree_id,
             tree_state_dirty: false,
             new_workspace_name: None,
+            _lock: lock,
         }))
     }
 }
@@ -2232,12 +2216,11 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
 /// `finish()` or `discard()`.
 pub struct LockedLocalWorkingCopy {
     wc: LocalWorkingCopy,
-    #[expect(dead_code)]
-    lock: FileLock,
     old_operation_id: OperationId,
     old_tree_id: MergedTreeId,
     tree_state_dirty: bool,
     new_workspace_name: Option<WorkspaceNameBuf>,
+    _lock: FileLock,
 }
 
 impl LockedWorkingCopy for LockedLocalWorkingCopy {
