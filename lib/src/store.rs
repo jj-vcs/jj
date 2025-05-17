@@ -234,10 +234,6 @@ impl Store {
         Ok(Tree::new(self.clone(), path.to_owned(), tree_id, data))
     }
 
-    pub fn read_file(&self, path: &RepoPath, id: &FileId) -> BackendResult<Box<dyn Read>> {
-        self.read_file_async(path, id).block_on()
-    }
-
     pub async fn read_file_async(
         &self,
         path: &RepoPath,
