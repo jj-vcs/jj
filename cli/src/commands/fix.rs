@@ -20,13 +20,13 @@ use std::process::Stdio;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
-use jj_lib::backend::FileId;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
 use jj_lib::fix::fix_files;
 use jj_lib::fix::FileToFix;
 use jj_lib::fix::FixError;
+use jj_lib::fix::FixResult;
 use jj_lib::fix::ParallelFileFixer;
 use jj_lib::matchers::Matcher;
 use jj_lib::repo_path::RepoPathUiConverter;
@@ -179,42 +179,52 @@ fn fix_one_file(
     tools_config: &ToolsConfig,
     store: &Store,
     file_to_fix: &FileToFix,
-) -> Result<Option<FileId>, FixError> {
+) -> Result<FixResult, FixError> {
     let mut matching_tools = tools_config
         .tools
         .iter()
         .filter(|tool_config| tool_config.matcher.matches(&file_to_fix.repo_path))
         .peekable();
-    if matching_tools.peek().is_some() {
-        // The first matching tool gets its input from the committed file, and any
-        // subsequent matching tool gets its input from the previous matching tool's
-        // output.
-        let mut old_content = vec![];
-        let mut read = store.read_file(&file_to_fix.repo_path, &file_to_fix.file_id)?;
-        read.read_to_end(&mut old_content)?;
-        let new_content = matching_tools.fold(old_content.clone(), |prev_content, tool_config| {
-            match run_tool(
-                workspace_root,
-                &tool_config.command,
-                file_to_fix,
-                &prev_content,
-            ) {
-                Ok(next_content) => next_content,
-                // TODO: Because the stderr is passed through, this isn't always failing
-                // silently, but it should do something better will the exit code, tool
-                // name, etc.
-                Err(_) => prev_content,
-            }
+    if matching_tools.peek().is_none() {
+        return Ok(FixResult {
+            file_id: Some(file_to_fix.file_id.clone()),
+            messages: vec![],
         });
-        if new_content != old_content {
-            // TODO: send futures back over channel
-            let new_file_id = store
-                .write_file(&file_to_fix.repo_path, &mut new_content.as_slice())
-                .block_on()?;
-            return Ok(Some(new_file_id));
-        }
     }
-    Ok(None)
+    // The first matching tool gets its input from the committed file, and any
+    // subsequent matching tool gets its input from the previous matching tool's
+    // output.
+    let mut old_content = vec![];
+    let mut read = store.read_file(&file_to_fix.repo_path, &file_to_fix.file_id)?;
+    read.read_to_end(&mut old_content)?;
+    let new_content = matching_tools.fold(old_content.clone(), |prev_content, tool_config| {
+        match run_tool(
+            workspace_root,
+            &tool_config.command,
+            file_to_fix,
+            &prev_content,
+        ) {
+            Ok(next_content) => next_content,
+            // TODO: Because the stderr is passed through, this isn't always failing
+            // silently, but it should do something better will the exit code, tool
+            // name, etc.
+            Err(_) => prev_content,
+        }
+    });
+    if new_content == old_content {
+        return Ok(FixResult {
+            file_id: None,
+            messages: vec![],
+        });
+    }
+    // TODO: send futures back over channel
+    let new_file_id = store
+        .write_file(&file_to_fix.repo_path, &mut new_content.as_slice())
+        .block_on()?;
+    Ok(FixResult {
+        file_id: Some(new_file_id),
+        messages: vec![],
+    })
 }
 
 /// Runs the `tool_command` to fix the given file content.

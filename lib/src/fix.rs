@@ -58,6 +58,25 @@ pub struct FileToFix {
     pub repo_path: RepoPathBuf,
 }
 
+/// The results of applying the [FileFixer] to fix a given file.
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct FixResult {
+    /// If file content was changed, this is the new FileId.
+    pub file_id: Option<FileId>,
+    /// Could be empty, or one value for accumulated stderr output,
+    /// or multiple values from a more structured source.
+    pub messages: Vec<FixMessage>,
+}
+
+/// A message returned by a file fixing tool.
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct FixMessage {
+    // Optional fields like arbitrary text, line numbers, etc. that `fix_fn`
+    // can choose to emit, and callers can choose to display or ignore.
+    text: Option<String>,
+    line_number: Option<usize>,
+}
+
 /// Error fixing files.
 #[derive(Debug, thiserror::Error)]
 pub enum FixError {
@@ -86,14 +105,11 @@ pub trait FileFixer {
     /// Returns a map describing the subset of `files_to_fix` that resulted in
     /// changed file content (unchanged files should not be present in the map),
     /// pointing to the new FileId for the file.
-    ///
-    /// TODO: Better error handling so we can tell the user what went wrong with
-    /// each failed input.
     fn fix_files<'a>(
         &mut self,
         store: &Store,
         files_to_fix: &'a HashSet<FileToFix>,
-    ) -> Result<HashMap<&'a FileToFix, FileId>, FixError>;
+    ) -> Result<HashMap<&'a FileToFix, FixResult>, FixError>;
 }
 
 /// Aggregate information about the outcome of the file fixer.
@@ -104,6 +120,7 @@ pub struct FixSummary {
 
     /// The number of commits that had files that were passed to the file fixer.
     pub num_checked_commits: i32,
+
     /// The number of new commits created due to file content changed by the
     /// fixer.
     pub num_fixed_commits: i32,
@@ -121,7 +138,7 @@ pub struct ParallelFileFixer<T> {
 
 impl<T> ParallelFileFixer<T>
 where
-    T: Fn(&Store, &FileToFix) -> Result<Option<FileId>, FixError> + Sync + Send,
+    T: Fn(&Store, &FileToFix) -> Result<FixResult, FixError> + Sync + Send,
 {
     /// Creates a ParallelFileFixer.
     pub fn new(fix_fn: T) -> Self {
@@ -131,32 +148,27 @@ where
 
 impl<T> FileFixer for ParallelFileFixer<T>
 where
-    T: Fn(&Store, &FileToFix) -> Result<Option<FileId>, FixError> + Sync + Send,
+    T: Fn(&Store, &FileToFix) -> Result<FixResult, FixError> + Sync + Send,
 {
     /// Applies `fix_fn()` to the inputs and stores the resulting file content.
     fn fix_files<'a>(
         &mut self,
         store: &Store,
         files_to_fix: &'a HashSet<FileToFix>,
-    ) -> Result<HashMap<&'a FileToFix, FileId>, FixError> {
+    ) -> Result<HashMap<&'a FileToFix, FixResult>, FixError> {
         let (updates_tx, updates_rx) = channel();
         files_to_fix.into_par_iter().try_for_each_init(
             || updates_tx.clone(),
             |updates_tx, file_to_fix| -> Result<(), FixError> {
-                let result = (self.fix_fn)(store, file_to_fix)?;
-                match result {
-                    Some(new_file_id) => {
-                        updates_tx.send((file_to_fix, new_file_id)).unwrap();
-                        Ok(())
-                    }
-                    None => Ok(()),
-                }
+                let fix_result = (self.fix_fn)(store, file_to_fix)?;
+                updates_tx.send((file_to_fix, fix_result)).unwrap();
+                Ok(())
             },
         )?;
         drop(updates_tx);
         let mut result = HashMap::new();
-        while let Ok((file_to_fix, new_file_id)) = updates_rx.recv() {
-            result.insert(file_to_fix, new_file_id);
+        while let Ok((file_to_fix, fix_result)) = updates_rx.recv() {
+            result.insert(file_to_fix, fix_result);
         }
         Ok(result)
     }
@@ -269,8 +281,8 @@ pub fn fix_files(
     );
 
     // Fix all of the chosen inputs.
-    let fixed_file_ids = file_fixer.fix_files(repo_mut.store().as_ref(), &unique_files_to_fix)?;
-    tracing::debug!(?fixed_file_ids, "file fixer fixed these files:");
+    let fix_results = file_fixer.fix_files(repo_mut.store().as_ref(), &unique_files_to_fix)?;
+    tracing::debug!(?fix_results, "file fixer fixed these files:");
 
     // Substitute the fixed file IDs into all of the affected commits. Currently,
     // fixes cannot delete or rename files, change the executable bit, or modify
@@ -291,11 +303,23 @@ pub fn fix_files(
                         file_id: id.clone(),
                         repo_path: repo_path.clone(),
                     };
-                    if let Some(new_id) = fixed_file_ids.get(&file_to_fix) {
-                        return Some(TreeValue::File {
-                            id: new_id.clone(),
-                            executable: *executable,
-                        });
+                    if let Some(fix_result) = fix_results.get(&file_to_fix) {
+                        if !fix_result.messages.is_empty() {
+                            // TODO: Add messages to FixSummary (but put an
+                            // upper bound on this?).
+                        }
+                        match &fix_result.file_id {
+                            Some(new_file_id) => {
+                                return Some(TreeValue::File {
+                                    id: new_file_id.clone(),
+                                    executable: *executable,
+                                });
+                            }
+                            None => {
+                                // TODO: consider counting files examined but
+                                // unchanged in FixSummary.
+                            }
+                        }
                     }
                 }
                 old_term.clone()

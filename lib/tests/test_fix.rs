@@ -18,12 +18,12 @@ use std::sync::Arc;
 
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
-use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::fix::fix_files;
 use jj_lib::fix::FileFixer;
 use jj_lib::fix::FileToFix;
 use jj_lib::fix::FixError;
+use jj_lib::fix::FixResult;
 use jj_lib::fix::ParallelFileFixer;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::merged_tree::MergedTree;
@@ -53,14 +53,13 @@ impl FileFixer for TestFileFixer {
         &mut self,
         store: &Store,
         files_to_fix: &'a HashSet<FileToFix>,
-    ) -> Result<HashMap<&'a FileToFix, FileId>, FixError> {
-        let mut changed_files = HashMap::new();
+    ) -> Result<HashMap<&'a FileToFix, FixResult>, FixError> {
+        let mut results = HashMap::new();
         for file_to_fix in files_to_fix {
-            if let Some(new_file_id) = fix_file(store, file_to_fix)? {
-                changed_files.insert(file_to_fix, new_file_id);
-            }
+            let result = fix_file(store, file_to_fix)?;
+            results.insert(file_to_fix, result);
         }
-        Ok(changed_files)
+        Ok(results)
     }
 }
 
@@ -75,7 +74,7 @@ fn make_fix_content_error(message: &str) -> FixError {
 // Reads the file from store. If the file starts with "fixme", its contents are
 // changed to uppercase and the new file id is returned. If the file starts with
 // "error", an error is raised. Otherwise returns None.
-fn fix_file(store: &Store, file_to_fix: &FileToFix) -> Result<Option<FileId>, FixError> {
+fn fix_file(store: &Store, file_to_fix: &FileToFix) -> Result<FixResult, FixError> {
     let mut old_content = vec![];
     let mut read = store
         .read_file(&file_to_fix.repo_path, &file_to_fix.file_id)
@@ -88,11 +87,17 @@ fn fix_file(store: &Store, file_to_fix: &FileToFix) -> Result<Option<FileId>, Fi
             .write_file(&file_to_fix.repo_path, &mut new_content.as_slice())
             .block_on()
             .unwrap();
-        Ok(Some(new_file_id))
+        Ok(FixResult {
+            file_id: Some(new_file_id),
+            messages: vec![],
+        })
     } else if let Some(rest) = old_content.strip_prefix(b"error:") {
         Err(make_fix_content_error(std::str::from_utf8(rest).unwrap()))
     } else {
-        Ok(None)
+        Ok(FixResult {
+            file_id: None,
+            messages: vec![],
+        })
     }
 }
 
