@@ -518,7 +518,7 @@ behave as though the `all:` modifier was used every time it would matter.
 An `all:` modifier before a revset expression does not otherwise change its
 meaning. Strictly speaking, it is not part of the revset language. The notation
 is similar to the modifiers like `glob:` allowed before [string
-patterms](#string-patterns).
+patterns](#string-patterns).
 
 For example, `jj rebase -r w -d xyz+` will rebase `w` on top of the child of
 `xyz` as long as `xyz` has exactly one child.
