@@ -479,6 +479,10 @@ Thanks to the people who made this release happen!
 * `jj undo` now shows a hint when undoing an undo operation that the user may
    be looking for `jj op restore` instead.
 
+* A minimal version of `jj run` was implemented.
+  Follow [#1869](https://github.com/jj-vcs/issues/1869) for further
+  improvements.
+
 ### Fixed bugs
 
 * `jj status` now shows untracked files under untracked directories.
