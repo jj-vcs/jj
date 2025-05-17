@@ -112,20 +112,20 @@ fn test_op_log() {
     │  [1m[38;5;5margs: jj describe -m 'description 0'[39m[0m
     │
     │  Changed commits:
-    │  ○  [38;5;2m+[39m [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [1m[38;5;4m3[0m[38;5;8mae22e7f[39m [38;5;2m(empty)[39m description 0
+    │  ○  [38;5;2m+[39m [1m[38;5;13mq[38;5;8mpvuntsm[39m [38;5;12m3[38;5;8mae22e7f[39m [38;5;10m(empty)[39m description 0[0m
     │     [38;5;1m-[39m [1m[39mq[0m[38;5;8mpvuntsm[39m hidden [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
     │
     │  Changed working copy [38;5;2mdefault@[39m:
-    │  [38;5;2m+[39m [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [1m[38;5;4m3[0m[38;5;8mae22e7f[39m [38;5;2m(empty)[39m description 0
+    │  [38;5;2m+[39m [1m[38;5;13mq[38;5;8mpvuntsm[39m [38;5;12m3[38;5;8mae22e7f[39m [38;5;10m(empty)[39m description 0[0m
     │  [38;5;1m-[39m [1m[39mq[0m[38;5;8mpvuntsm[39m hidden [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
     ○  [38;5;4m2affa7025254[39m [38;5;3mtest-username@host.example.com[39m [38;5;6m2001-02-03 04:05:07.000 +07:00[39m - [38;5;6m2001-02-03 04:05:07.000 +07:00[39m
     │  add workspace 'default'
     │
     │  Changed commits:
-    │  ○  [38;5;2m+[39m [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
+    │  ○  [38;5;2m+[39m [1m[38;5;13mq[38;5;8mpvuntsm[39m [38;5;12me[38;5;8m8849ae1[39m [38;5;10m(empty)[39m [38;5;10m(no description set)[0m
     │
     │  Changed working copy [38;5;2mdefault@[39m:
-    │  [38;5;2m+[39m [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
+    │  [38;5;2m+[39m [1m[38;5;13mq[38;5;8mpvuntsm[39m [38;5;12me[38;5;8m8849ae1[39m [38;5;10m(empty)[39m [38;5;10m(no description set)[0m
     │  [38;5;1m-[39m (absent)
     ○  [38;5;4m000000000000[39m [38;5;2mroot()[39m
     [EOF]
@@ -1076,10 +1076,10 @@ fn test_op_summary_diff_template() {
       To operation: [38;5;4m4d601e03331c[39m ([38;5;6m2001-02-03 08:05:09[39m) undo operation 5881546f5a5c322f0f5ced5216d4eb1110570617786292c2e3c102fabb6eb74c3a1183349eee2371ba24ebda7801bf43b6382957756040198384e3a0deeb34fa
 
     Changed commits:
-    ○  [38;5;2m+[39m [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
+    ○  [38;5;2m+[39m [1m[38;5;13mq[38;5;8mpvuntsm[39m [38;5;12me[38;5;8m8849ae1[39m [38;5;10m(empty)[39m [38;5;10m(no description set)[0m
 
     Changed working copy [38;5;2mdefault@[39m:
-    [38;5;2m+[39m [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
+    [38;5;2m+[39m [1m[38;5;13mq[38;5;8mpvuntsm[39m [38;5;12me[38;5;8m8849ae1[39m [38;5;10m(empty)[39m [38;5;10m(no description set)[0m
     [38;5;1m-[39m (absent)
     [EOF]
     ");
@@ -1108,10 +1108,10 @@ fn test_op_summary_diff_template() {
       To operation: [38;5;4m<<operation id short::dfdb600231fe>>[39m<<operation:: (>>[38;5;6m<<operation time end local format::2001-02-03 08:05:12>>[39m<<operation::) >><<operation description first_line::undo operation 496308a90c9da4609359f773ea4b4eae56ee1939b00bc9c5a52d4ce96517e7d936b5c3f4b76d6539f873f71908c84c72e7840f2e16a127a0cd6d79b83016ea96>>
 
     Changed commits:
-    ○  [38;5;2m<<diff added::+>>[39m [1m[38;5;5m<<change_id shortest prefix::q>>[0m[38;5;8m<<change_id shortest rest::pvuntsm>>[39m [1m[38;5;4m<<commit_id shortest prefix::e>>[0m[38;5;8m<<commit_id shortest rest::8849ae1>>[39m [38;5;2m<<empty::(empty)>>[39m [38;5;2m<<empty description placeholder::(no description set)>>[39m
+    ○  [38;5;2m<<diff added::+>>[39m [1m[38;5;13m<<working_copy change_id shortest prefix::q>>[38;5;8m<<working_copy change_id shortest rest::pvuntsm>>[39m<<working_copy:: >>[38;5;12m<<working_copy commit_id shortest prefix::e>>[38;5;8m<<working_copy commit_id shortest rest::8849ae1>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty::(empty)>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty description placeholder::(no description set)>>[0m
 
     Changed working copy [38;5;2m<<working_copies::default@>>[39m:
-    [38;5;2m<<diff added::+>>[39m [1m[38;5;5m<<change_id shortest prefix::q>>[0m[38;5;8m<<change_id shortest rest::pvuntsm>>[39m [1m[38;5;4m<<commit_id shortest prefix::e>>[0m[38;5;8m<<commit_id shortest rest::8849ae1>>[39m [38;5;2m<<empty::(empty)>>[39m [38;5;2m<<empty description placeholder::(no description set)>>[39m
+    [38;5;2m<<diff added::+>>[39m [1m[38;5;13m<<working_copy change_id shortest prefix::q>>[38;5;8m<<working_copy change_id shortest rest::pvuntsm>>[39m<<working_copy:: >>[38;5;12m<<working_copy commit_id shortest prefix::e>>[38;5;8m<<working_copy commit_id shortest rest::8849ae1>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty::(empty)>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty description placeholder::(no description set)>>[0m
     [38;5;1m<<diff removed::->>[39m (absent)
     [EOF]
     ");
