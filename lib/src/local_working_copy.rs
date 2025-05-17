@@ -1612,7 +1612,7 @@ impl TreeState {
     fn write_file(
         &self,
         disk_path: &Path,
-        contents: &mut dyn Read,
+        mut contents: impl Read,
         executable: bool,
     ) -> Result<FileState, CheckoutError> {
         let mut file = OpenOptions::new()
@@ -1623,7 +1623,7 @@ impl TreeState {
                 message: format!("Failed to open file {} for writing", disk_path.display()),
                 err: err.into(),
             })?;
-        let size = io::copy(contents, &mut file).map_err(|err| CheckoutError::Other {
+        let size = io::copy(&mut contents, &mut file).map_err(|err| CheckoutError::Other {
             message: format!("Failed to write file {}", disk_path.display()),
             err: err.into(),
         })?;
@@ -1851,8 +1851,8 @@ impl TreeState {
                     deleted_files.insert(path);
                     continue;
                 }
-                MaterializedTreeValue::File(mut file) => {
-                    self.write_file(&disk_path, &mut file.reader, file.executable)?
+                MaterializedTreeValue::File(file) => {
+                    self.write_file(&disk_path, file.reader, file.executable)?
                 }
                 MaterializedTreeValue::Symlink { id: _, target } => {
                     if self.symlink_support {
