@@ -425,7 +425,7 @@ impl GitBackend {
         self.save_extra_metadata_table(mut_table, &table_lock)
     }
 
-    fn read_file_sync(&self, id: &FileId) -> BackendResult<Box<dyn Read>> {
+    fn read_file_sync(&self, id: &FileId) -> BackendResult<Vec<u8>> {
         let git_blob_id = validate_git_object_id(id)?;
         let locked_repo = self.lock_git_repo();
         let mut blob = locked_repo
@@ -433,7 +433,7 @@ impl GitBackend {
             .map_err(|err| map_not_found_err(err, id))?
             .try_into_blob()
             .map_err(|err| to_read_object_err(err, id))?;
-        Ok(Box::new(Cursor::new(blob.take_data())))
+        Ok(blob.take_data())
     }
 
     fn new_diff_platform(&self) -> BackendResult<gix::diff::blob::Platform> {
@@ -970,7 +970,8 @@ impl Backend for GitBackend {
     }
 
     async fn read_file(&self, _path: &RepoPath, id: &FileId) -> BackendResult<Box<dyn Read>> {
-        self.read_file_sync(id)
+        let data = self.read_file_sync(id)?;
+        Ok(Box::new(Cursor::new(data)))
     }
 
     async fn write_file(
@@ -1137,15 +1138,8 @@ impl Backend for GitBackend {
     }
 
     fn read_conflict(&self, _path: &RepoPath, id: &ConflictId) -> BackendResult<Conflict> {
-        let mut file = self.read_file_sync(&FileId::new(id.to_bytes()))?;
-        let mut data = String::new();
-        file.read_to_string(&mut data)
-            .map_err(|err| BackendError::ReadObject {
-                object_type: "conflict".to_owned(),
-                hash: id.hex(),
-                source: err.into(),
-            })?;
-        let json: serde_json::Value = serde_json::from_str(&data).unwrap();
+        let data = self.read_file_sync(&FileId::new(id.to_bytes()))?;
+        let json: serde_json::Value = serde_json::from_slice(&data).unwrap();
         Ok(Conflict {
             removes: conflict_term_list_from_json(json.get("removes").unwrap()),
             adds: conflict_term_list_from_json(json.get("adds").unwrap()),
