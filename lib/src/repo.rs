@@ -634,7 +634,7 @@ pub enum RepoLoaderError {
     TransactionCommit(#[from] TransactionCommitError),
 }
 
-/// Helps create `ReadonlyRepoo` instances of a repo at the head operation or at
+/// Helps create `ReadonlyRepo` instances of a repo at the head operation or at
 /// a given operation.
 #[derive(Clone)]
 pub struct RepoLoader {
