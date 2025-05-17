@@ -132,14 +132,16 @@ pub(crate) fn cmd_describe(
     let text_editor = workspace_command.text_editor()?;
 
     let mut tx = workspace_command.start_transaction();
-    let tx_description = if commits.len() == 1 {
-        format!("describe commit {}", commits[0].id().hex())
-    } else {
-        format!(
-            "describe commit {} and {} more",
-            commits[0].id().hex(),
-            commits.len() - 1
-        )
+    let tx_description = match commits.as_slice() {
+        [] => unreachable!(),
+        [commit] => format!("describe commit {}", commit.id().hex()),
+        [first_commit, remaining_commits @ ..] => {
+            format!(
+                "describe commit {} and {} more",
+                first_commit.id().hex(),
+                remaining_commits.len()
+            )
+        }
     };
 
     let shared_description = if args.stdin {
