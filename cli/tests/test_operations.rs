@@ -109,7 +109,7 @@ fn test_op_log() {
     insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  [1m[38;5;12m09a518cf68a5[39m [38;5;3mtest-username@host.example.com[39m [38;5;14m2001-02-03 04:05:08.000 +07:00[39m - [38;5;14m2001-02-03 04:05:08.000 +07:00[39m[0m
     │  [1mdescribe commit e8849ae12c709f2321908879bc724fdb2ab8a781[0m
-    │  [1m[38;5;5margs: jj describe -m 'description 0'[39m[0m
+    │  [1m[38;5;13margs: jj describe -m 'description 0'[39m[0m
     │
     │  Changed commits:
     │  ○  [38;5;2m+[39m [1m[38;5;13mq[38;5;8mpvuntsm[39m [38;5;12m3[38;5;8mae22e7f[39m [38;5;10m(empty)[39m description 0[0m
