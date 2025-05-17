@@ -33,6 +33,7 @@ use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use pollster::FutureExt as _;
 use testutils::create_tree;
+use testutils::read_file;
 use testutils::repo_path;
 use testutils::TestRepo;
 use thiserror::Error;
@@ -76,11 +77,7 @@ fn make_fix_content_error(message: &str) -> FixError {
 // changed to uppercase and the new file id is returned. If the file starts with
 // "error", an error is raised. Otherwise returns None.
 fn fix_file(store: &Store, file_to_fix: &FileToFix) -> Result<Option<FileId>, FixError> {
-    let mut old_content = vec![];
-    let mut read = store
-        .read_file(&file_to_fix.repo_path, &file_to_fix.file_id)
-        .unwrap();
-    read.read_to_end(&mut old_content).unwrap();
+    let old_content = read_file(store, &file_to_fix.repo_path, &file_to_fix.file_id);
 
     if let Some(rest) = old_content.strip_prefix(b"fixme:") {
         let new_content = rest.to_ascii_uppercase();
