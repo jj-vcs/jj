@@ -152,11 +152,6 @@ pub(crate) fn cmd_describe(
         None
     };
 
-    // edit and no_edit are conflicting arguments and therefore it should not
-    // be possible for both to be true at the same time.
-    assert!(!(args.edit && args.no_edit));
-    let use_editor = args.edit || (shared_description.is_none() && !args.no_edit);
-
     let mut commit_builders = commits
         .iter()
         .map(|commit| {
@@ -179,6 +174,11 @@ pub(crate) fn cmd_describe(
             commit_builder
         })
         .collect_vec();
+
+    // edit and no_edit are conflicting arguments and therefore it should not
+    // be possible for both to be true at the same time.
+    assert!(!(args.edit && args.no_edit));
+    let use_editor = args.edit || (shared_description.is_none() && !args.no_edit);
 
     if let Some(trailer_template) = parse_trailers_template(ui, &tx)? {
         for commit_builder in &mut commit_builders {
