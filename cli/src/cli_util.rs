@@ -2017,7 +2017,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             if let Some(mut formatter) = ui.status_formatter() {
                 let template = self.commit_summary_template();
                 write!(formatter, "Working copy  (@) now at: ")?;
-                formatter.with_label("working_copy", |fmt| template.format(new_commit, fmt))?;
+                template.format(new_commit, formatter.as_mut())?;
                 writeln!(formatter)?;
                 for parent in new_commit.parents() {
                     let parent = parent?;

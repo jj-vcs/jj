@@ -585,7 +585,7 @@ fn test_color_ui_messages() {
     ------- stderr -------
     [1m[38;5;1mError: [39mRevset `..` resolved to more than one revision[0m
     [1m[38;5;6mHint: [0m[39mThe revset `..` resolved to these revisions:[39m
-    [39m  [1m[38;5;5mm[0m[38;5;8mzvwutvl[39m [1m[38;5;4m8[0m[38;5;8mafc18ff[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m[39m
+    [39m  [1m[38;5;13mm[38;5;8mzvwutvl[39m [38;5;12m8[38;5;8mafc18ff[39m [38;5;10m(empty)[39m [38;5;10m(no description set)[0m[39m[39m
     [39m  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m[39m
     [1m[38;5;6mHint: [0m[39mPrefix the expression with `all:` to allow any number of revisions (i.e. `all:..`).[39m
     [EOF]

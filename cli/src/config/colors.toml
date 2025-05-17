@@ -97,10 +97,12 @@
 "operation id" = "blue"
 "operation user" = "yellow"
 "operation time" = "cyan"
+"operation tags" = "magenta"
 "operation current_operation" = { bold = true }
 "operation current_operation id" = "bright blue"
 "operation current_operation user" = "yellow"                    # No bright yellow, see comment above
 "operation current_operation time" = "bright cyan"
+"operation current_operation tags" = "bright magenta"
 
 "node elided" = { fg = "bright black" }
 "node working_copy" = { fg = "green", bold = true }
