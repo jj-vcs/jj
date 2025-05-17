@@ -437,7 +437,13 @@ fn apply_changes(
 
         match contents {
             scm_record::SelectedContents::Unchanged => {
-                // Do nothing.
+                // scm_record currently only reports `Unchanged` if the file is empty.
+                // TODO: It would be sufficient to only update the executable flag on the tree
+                // value, but there's no way to retrieve the FileId or only flip the executable
+                // flag. We resort to re-writing the file, knowing that it's empty.
+                let executable = file_mode == mode::EXECUTABLE;
+                let value = write_file(&path, &[], executable)?;
+                tree_builder.set_or_remove(path, value);
             }
             scm_record::SelectedContents::Binary {
                 old_description: _,
@@ -639,7 +645,13 @@ mod tests {
     use jj_lib::matchers::EverythingMatcher;
     use jj_lib::merge::MergedTreeValue;
     use jj_lib::repo::Repo as _;
+    use proptest_state_machine::prop_state_machine;
+    use proptest_state_machine::StateMachineTest;
+    use testutils::proptest::RepoRefState;
+    use testutils::proptest::Transition;
     use testutils::repo_path;
+    use testutils::repo_path_component;
+    use testutils::write_file;
     use testutils::TestRepo;
 
     use super::*;
@@ -1260,6 +1272,75 @@ mod tests {
     }
 
     #[test]
+    fn test_edit_diff_builtin_replace_directory_with_file() {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+
+        let folder_path = repo_path("folder");
+        let file_in_folder_path = folder_path.join(repo_path_component("file_in_folder"));
+        let left_tree = testutils::create_tree(&test_repo.repo, &[(&file_in_folder_path, "")]);
+        let right_tree = testutils::create_tree(&test_repo.repo, &[(folder_path, "")]);
+
+        let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
+        insta::assert_debug_snapshot!(changed_files, @r#"
+        [
+            "folder/file_in_folder",
+            "folder",
+        ]
+        "#);
+        insta::assert_debug_snapshot!(files, @r#"
+        [
+            File {
+                old_path: None,
+                path: "folder/file_in_folder",
+                file_mode: Unix(
+                    33188,
+                ),
+                sections: [
+                    FileMode {
+                        is_checked: false,
+                        mode: Absent,
+                    },
+                ],
+            },
+            File {
+                old_path: None,
+                path: "folder",
+                file_mode: Absent,
+                sections: [
+                    FileMode {
+                        is_checked: false,
+                        mode: Unix(
+                            33188,
+                        ),
+                    },
+                ],
+            },
+        ]
+        "#);
+        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
+        assert_eq!(
+            no_changes_tree.id(),
+            left_tree.id(),
+            "no-changes tree was different",
+        );
+
+        let mut files = files;
+        for file in &mut files {
+            file.toggle_all();
+        }
+        let all_changes_tree_id =
+            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+        assert_eq!(
+            all_changes_tree.id(),
+            right_tree.id(),
+            "all-changes tree was different",
+        );
+    }
+
+    #[test]
     fn test_make_merge_sections() {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
@@ -1345,5 +1426,117 @@ mod tests {
             },
         ]
         "#);
+    }
+
+    prop_state_machine! {
+        #[test]
+        fn test_edit_diff_builtin_proptest(sequential 1..20 => EditDiffBuiltinPropTest);
+    }
+
+    struct EditDiffBuiltinPropTest {
+        test_repo: TestRepo,
+        left_tree_id: MergedTreeId,
+        right_tree_id: MergedTreeId,
+    }
+
+    impl StateMachineTest for EditDiffBuiltinPropTest {
+        type SystemUnderTest = EditDiffBuiltinPropTest;
+
+        type Reference = RepoRefState;
+
+        fn init_test(ref_state: &RepoRefState) -> Self::SystemUnderTest {
+            use testutils::proptest::File::*;
+
+            let test_repo = TestRepo::init();
+            let store = test_repo.repo.store();
+            let mut tree_builder = MergedTreeBuilder::new(store.empty_merged_tree_id());
+            for (path, file) in ref_state.files() {
+                match file {
+                    RegularFile {
+                        contents,
+                        executable,
+                    } => {
+                        let id = write_file(store, &path, contents);
+                        tree_builder.set_or_remove(
+                            path,
+                            Merge::resolved(Some(TreeValue::File {
+                                id: id.clone(),
+                                executable: *executable,
+                            })),
+                        );
+                    }
+                }
+            }
+
+            let left_tree_id = tree_builder.write_tree(store).unwrap();
+            let right_tree_id = left_tree_id.clone();
+            Self {
+                test_repo,
+                left_tree_id,
+                right_tree_id,
+            }
+        }
+
+        fn apply(
+            mut state: Self::SystemUnderTest,
+            _ref_state: &RepoRefState,
+            transition: Transition,
+        ) -> Self::SystemUnderTest {
+            let store = state.test_repo.repo.store();
+            let mut tree_builder = MergedTreeBuilder::new(state.right_tree_id);
+
+            match transition {
+                Transition::CreateFile {
+                    path,
+                    contents,
+                    executable,
+                } => {
+                    let id = write_file(store, &path, &contents);
+                    tree_builder.set_or_remove(
+                        path,
+                        Merge::resolved(Some(TreeValue::File {
+                            id: id.clone(),
+                            executable,
+                        })),
+                    );
+                }
+                Transition::DeleteFile { path } => {
+                    tree_builder.set_or_remove(path, Merge::resolved(None));
+                }
+            }
+
+            state.right_tree_id = tree_builder.write_tree(store).unwrap();
+            state
+        }
+
+        fn check_invariants(state: &Self::SystemUnderTest, _ref_state: &RepoRefState) {
+            let store = state.test_repo.repo.store();
+            let left_tree = store.get_root_tree(&state.left_tree_id).unwrap();
+            let right_tree = store.get_root_tree(&state.right_tree_id).unwrap();
+
+            let store = state.test_repo.repo.store();
+            let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
+            let no_changes_tree_id =
+                apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+            let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
+            assert_eq!(
+                no_changes_tree.id(),
+                state.left_tree_id,
+                "no-changes tree was different",
+            );
+
+            let mut files = files;
+            for file in &mut files {
+                file.toggle_all();
+            }
+            let all_changes_tree_id =
+                apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+            let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+            assert_eq!(
+                all_changes_tree.id(),
+                state.right_tree_id,
+                "all-changes tree was different",
+            );
+        }
     }
 }

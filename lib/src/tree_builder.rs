@@ -89,9 +89,13 @@ impl TreeBuilder {
                 Override::Replace(value) => {
                     tree.set(basename.to_owned(), value);
                 }
-                Override::Tombstone => {
-                    tree.remove(basename);
-                }
+                Override::Tombstone => match tree.value(basename) {
+                    Some(TreeValue::Tree(_)) => {}
+                    Some(_) => {
+                        tree.remove(basename);
+                    }
+                    None => {}
+                },
             }
         }
 
