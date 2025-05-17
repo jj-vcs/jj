@@ -318,6 +318,20 @@ fn test_git_push_forward_unexpectedly_moved() {
     [EOF]
     [exit status: 1]
     ");
+
+    // The ref name should be colorized
+    let output = work_dir.run_jj(["git", "push", "--color=always"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Move forward bookmark bookmark1 from 9b2e76de3920 to 624f94a35f00
+    [1m[38;5;1mError: [39mFailed to push some bookmarks[0m
+    [1m[38;5;6mHint: [0m[39mThe following references unexpectedly moved on the remote:[39m
+    [39m  [38;5;2mrefs/heads/bookmark1[39m (reason: stale info)[39m
+    [1m[38;5;6mHint: [0m[39mTry fetching from the remote, then make the bookmark point to where you want it to be, and push again.[39m
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 #[test]
@@ -367,6 +381,20 @@ fn test_git_push_sideways_unexpectedly_moved() {
     Hint: The following references unexpectedly moved on the remote:
       refs/heads/bookmark1 (reason: stale info)
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // The ref name should be colorized
+    let output = work_dir.run_jj(["git", "push", "--color=always"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Move sideways bookmark bookmark1 from 9b2e76de3920 to 827b8a385853
+    [1m[38;5;1mError: [39mFailed to push some bookmarks[0m
+    [1m[38;5;6mHint: [0m[39mThe following references unexpectedly moved on the remote:[39m
+    [39m  [38;5;2mrefs/heads/bookmark1[39m (reason: stale info)[39m
+    [1m[38;5;6mHint: [0m[39mTry fetching from the remote, then make the bookmark point to where you want it to be, and push again.[39m
     [EOF]
     [exit status: 1]
     ");

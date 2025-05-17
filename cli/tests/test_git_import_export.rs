@@ -305,6 +305,61 @@ fn test_git_import_move_export_with_default_undo() {
     ");
 }
 
+#[test]
+fn test_git_import_export_stats_color() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::open(work_dir.root().join(".jj/repo/store/git"));
+
+    work_dir.run_jj(["bookmark", "set", "-r@", "foo"]).success();
+    work_dir
+        .run_jj(["bookmark", "set", "-r@", "'un:exportable'"])
+        .success();
+    work_dir.run_jj(["new", "--no-edit", "root()"]).success();
+    let other_commit_id = work_dir
+        .run_jj(&["log", "-Tcommit_id", "--no-graph", "-rvisible_heads() ~ @"])
+        .success()
+        .stdout
+        .into_raw();
+
+    let output = work_dir
+        .run_jj(["git", "export", "--color=always"])
+        .success();
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    [1m[38;5;3mWarning: [39mFailed to export some bookmarks:[0m
+      [38;5;5m"un:exportable"@git[39m: Failed to set: A reference must be a valid tag name as well: A ref must not contain invalid bytes or ascii control characters: ":"
+    [1m[38;5;6mHint: [0m[39mGit doesn't allow a branch name that looks like a parent directory of[39m
+    [39manother (e.g. `foo` and `foo/bar`). Try to rename the bookmarks that failed to[39m
+    [39mexport or their "parent" bookmarks.[39m
+    [EOF]
+    "#);
+
+    let other_commit_id = gix::ObjectId::from_hex(other_commit_id.as_bytes()).unwrap();
+    for name in ["refs/heads/foo", "refs/heads/bar", "refs/tags/baz"] {
+        git_repo
+            .reference(
+                name,
+                other_commit_id,
+                gix::refs::transaction::PreviousValue::Any,
+                "",
+            )
+            .unwrap();
+    }
+
+    let output = work_dir
+        .run_jj(["git", "import", "--color=always"])
+        .success();
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    bookmark: [38;5;5mbar@git[39m [new] tracked
+    bookmark: [38;5;5mfoo@git[39m [updated] tracked
+    tag:    [38;5;5mbaz@git[39m [new] 
+    [EOF]
+    ");
+}
+
 #[must_use]
 fn get_bookmark_output(work_dir: &TestWorkDir) -> CommandOutput {
     work_dir.run_jj(["bookmark", "list", "--all-remotes"])

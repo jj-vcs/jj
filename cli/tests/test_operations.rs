@@ -105,6 +105,32 @@ fn test_op_log() {
     [EOF]
     ");
 
+    let output = work_dir.run_jj(["op", "log", "--op-diff", "--color=always"]);
+    insta::assert_snapshot!(output, @r"
+    [1m[38;5;2m@[0m  [1m[38;5;12m09a518cf68a5[39m [38;5;3mtest-username@host.example.com[39m [38;5;14m2001-02-03 04:05:08.000 +07:00[39m - [38;5;14m2001-02-03 04:05:08.000 +07:00[39m[0m
+    │  [1mdescribe commit e8849ae12c709f2321908879bc724fdb2ab8a781[0m
+    │  [1m[38;5;5margs: jj describe -m 'description 0'[39m[0m
+    │
+    │  Changed commits:
+    │  ○  [38;5;2m+[39m [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [1m[38;5;4m3[0m[38;5;8mae22e7f[39m [38;5;2m(empty)[39m description 0
+    │     [38;5;1m-[39m [1m[39mq[0m[38;5;8mpvuntsm[39m hidden [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
+    │
+    │  Changed working copy [38;5;2mdefault@[39m:
+    │  [38;5;2m+[39m [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [1m[38;5;4m3[0m[38;5;8mae22e7f[39m [38;5;2m(empty)[39m description 0
+    │  [38;5;1m-[39m [1m[39mq[0m[38;5;8mpvuntsm[39m hidden [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
+    ○  [38;5;4m2affa7025254[39m [38;5;3mtest-username@host.example.com[39m [38;5;6m2001-02-03 04:05:07.000 +07:00[39m - [38;5;6m2001-02-03 04:05:07.000 +07:00[39m
+    │  add workspace 'default'
+    │
+    │  Changed commits:
+    │  ○  [38;5;2m+[39m [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
+    │
+    │  Changed working copy [38;5;2mdefault@[39m:
+    │  [38;5;2m+[39m [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
+    │  [38;5;1m-[39m (absent)
+    ○  [38;5;4m000000000000[39m [38;5;2mroot()[39m
+    [EOF]
+    ");
+
     work_dir
         .run_jj(["describe", "-m", "description 1"])
         .success();
@@ -120,7 +146,7 @@ fn test_op_log() {
     insta::assert_snapshot!(work_dir.run_jj(["log", "--at-op", "@-"]), @r#"
     ------- stderr -------
     Error: The "@" expression resolved to more than one operation
-    Hint: Try specifying one of the operations by ID: ad1b3bd7fb02, 9e17e47612d5
+    Hint: Try specifying one of the operations by ID: ca1431ae8aca, f392182c5ff4
     [EOF]
     [exit status: 1]
     "#);
