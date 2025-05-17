@@ -490,9 +490,12 @@ pub fn diff_editors() -> Vec<CompletionCandidate> {
 /// can't tell which these are. So, this not reliable, but probably good enough
 /// for command-line completion.
 pub fn diff_formatters() -> Vec<CompletionCandidate> {
-    // TODO: Add :git and , :stat, etc (next commit)
+    let builtin_format_kinds = crate::diff_util::all_builtin_diff_format_names();
     with_jj(|_, settings| {
-        Ok(configured_merge_tools(settings)
+        Ok(builtin_format_kinds
+            .iter()
+            .map(|s| s.as_str())
+            .chain(configured_merge_tools(settings))
             .map(CompletionCandidate::new)
             .collect())
     })

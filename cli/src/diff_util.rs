@@ -168,6 +168,18 @@ enum BuiltinFormatKind {
 }
 
 impl BuiltinFormatKind {
+    // Alternatively, we could use or vendor one of the crates `strum`,
+    // `enum-iterator`, or `variant_count` (for a check that the length of the array
+    // is correct). The latter is very simple and is also a nightly feature.
+    const ALL_VARIANTS: &[BuiltinFormatKind] = &[
+        Self::Summary,
+        Self::Stat,
+        Self::Types,
+        Self::NameOnly,
+        Self::Git,
+        Self::ColorWords,
+    ];
+
     fn from_name(name: &str) -> Result<Self, String> {
         match name {
             "summary" => Ok(Self::Summary),
@@ -248,6 +260,14 @@ impl BuiltinFormatKind {
             }
         }
     }
+}
+
+/// Returns the list of builtin diff format names such as `:git`
+pub fn all_builtin_diff_format_names() -> Vec<String> {
+    BuiltinFormatKind::ALL_VARIANTS
+        .iter()
+        .map(|kind| format!(":{}", kind.to_arg_name()))
+        .collect()
 }
 
 /// Returns a list of requested diff formats, which will never be empty.
