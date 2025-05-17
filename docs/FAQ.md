@@ -89,6 +89,22 @@ This will continuously update the (colored) log output in the terminal.
 The `--ignore-working-copy` option avoids conflicts with manual operations during the creation of snapshots.
 Martin used watch in a [tmux](https://github.com/tmux/tmux/wiki) pane during his presentation [Jujutsu - A Git-compatible VCS](https://www.youtube.com/watch?v=LV0JzI8IcCY).
 
+A more efficient version of the above can be achieved with `fswatch` (available on Homebrew), where `jj` only runs when something has changed.
+
+Adding the below to your `[aliases]` configuration will add `jj mon`:
+
+```
+[aliases]
+mon = [
+        "util",
+        "exec",
+	"--",
+        "sh",
+        "-c",
+        "clear; jj --ignore-working-copy --no-pager --color always log; fswatch -o `jj root`/.jj | xargs -I{} sh -c 'clear; jj --ignore-working-copy --no-pager --color always log'"
+        ]
+```
+
 Alternatively, you can use [jj-fzf](https://github.com/tim-janik/jj-fzf), where the central piece is the `jj log` view and common operations can be carried out via key bindings while the log view updates.
 
 The wiki lists additional TUIs and GUIs beyond the terminal: [GUI-and-TUI](https://github.com/jj-vcs/jj/wiki/GUI-and-TUI)
