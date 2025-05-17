@@ -2223,6 +2223,9 @@ J           J
 * `-A`, `--insert-after <REVSETS>` [alias: `after`] — The revision(s) to insert after (can be repeated to create a merge commit)
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — The revision(s) to insert before (can be repeated to create a merge commit)
 * `--skip-emptied` — If true, when rebasing would produce an empty commit, the commit is abandoned. It will not be abandoned if it was already empty before the rebase. Will never skip merge commits with multiple non-empty parents
+* `--keep-divergent` — Keep divergent commits while rebasing
+
+   Without this flag, divergent commits are abandoned while rebasing if another commit with the same change ID is already present in the destination with identical changes.
 
 
 

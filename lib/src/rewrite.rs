@@ -27,6 +27,7 @@ use tracing::instrument;
 
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
+use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::backend::MergedTreeId;
 use crate::commit::Commit;
@@ -1179,4 +1180,115 @@ pub fn squash_commits<'repo>(
         commit_builder,
         abandoned_commits,
     }))
+}
+
+/// Find divergent commits from the target that are already present with
+/// identical contents in the destination. These commits should be able to be
+/// safely abandoned.
+pub fn find_duplicate_divergent_commits(
+    repo: &dyn Repo,
+    new_parent_ids: &[CommitId],
+    target: &MoveCommitsTarget,
+) -> BackendResult<Vec<Commit>> {
+    let target_commit_ids = match target {
+        MoveCommitsTarget::Roots(root_ids) => RevsetExpression::commits(root_ids.clone())
+            .descendants()
+            .evaluate(repo)
+            .map_err(|err| err.into_backend_error())?
+            .iter()
+            .try_collect()
+            .map_err(|err| err.into_backend_error())?,
+        MoveCommitsTarget::Commits(commit_ids) => commit_ids.clone(),
+    };
+    let change_id_targets = find_divergent_change_id_targets(repo, &target_commit_ids)?;
+    if change_id_targets.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let target_commit_root_ids = match target {
+        MoveCommitsTarget::Roots(root_ids) => root_ids,
+        MoveCommitsTarget::Commits(commit_ids) => commit_ids,
+    };
+
+    // We only care about divergent changes which are new ancestors of the rebased
+    // commits, not ones which were already ancestors of the rebased commits.
+    let is_new_ancestor = RevsetExpression::commits(target_commit_root_ids.clone())
+        .range(&RevsetExpression::commits(new_parent_ids.to_owned()))
+        .evaluate(repo)
+        .map_err(|err| err.into_backend_error())?
+        .containing_fn();
+
+    let mut duplicate_divergent = Vec::new();
+    for targets in change_id_targets.values() {
+        // Checking every pair of commits between these two sets could be expensive if
+        // there are several commits with the same change ID. However, it should be
+        // uncommon to have more than a couple commits with the same change ID being
+        // rebased at the same time, so it should be good enough in practice.
+        for rebased_commit in &targets.to_rebase {
+            for existing_commit_id in &targets.not_rebased {
+                if !is_new_ancestor(existing_commit_id).map_err(|err| err.into_backend_error())? {
+                    continue;
+                }
+
+                let existing_commit = repo.store().get_commit(existing_commit_id)?;
+                let new_tree =
+                    rebase_to_dest_parent(repo, &[rebased_commit.clone()], &existing_commit)?;
+                // Check whether the rebased commit would have the same tree as the existing
+                // commit if they had the same parents. If so, we can skip this rebased commit.
+                if new_tree.id() == *existing_commit.tree_id() {
+                    duplicate_divergent.push(rebased_commit.clone());
+                    break;
+                }
+            }
+        }
+    }
+    Ok(duplicate_divergent)
+}
+
+/// Finds all commits outside of the set of commits to be rebased which have the
+/// same change ID as a commit within the set of commits to be rebased.
+fn find_divergent_change_id_targets(
+    repo: &dyn Repo,
+    to_rebase: &[CommitId],
+) -> BackendResult<HashMap<ChangeId, ChangeIdTargetsForRebase>> {
+    let mut map: HashMap<ChangeId, ChangeIdTargetsForRebase> = HashMap::new();
+    for commit_id in to_rebase {
+        let commit = repo.store().get_commit(commit_id)?;
+        if let Some(targets) = map.get_mut(commit.change_id()) {
+            targets.add_commit_to_rebase(commit);
+        } else if let Some(targets) = ChangeIdTargetsForRebase::new(repo, &commit) {
+            map.insert(commit.change_id().clone(), targets);
+        }
+    }
+    map.retain(|_, targets| !targets.not_rebased.is_empty());
+    Ok(map)
+}
+
+/// Keeps tracks of commits which all share a change ID.
+struct ChangeIdTargetsForRebase {
+    /// Commits which are in the set of rebased commits.
+    to_rebase: Vec<Commit>,
+    /// Commits which are not in the set of rebased commits.
+    not_rebased: Vec<CommitId>,
+}
+
+impl ChangeIdTargetsForRebase {
+    // Find the change ID targets for this commit. If the commit is not divergent,
+    // returns `None`.
+    fn new(repo: &dyn Repo, commit: &Commit) -> Option<Self> {
+        let mut change_id_targets = repo.resolve_change_id(commit.change_id())?;
+        change_id_targets.retain(|target| target != commit.id());
+        if change_id_targets.is_empty() {
+            return None;
+        }
+        Some(ChangeIdTargetsForRebase {
+            to_rebase: vec![commit.clone()],
+            not_rebased: change_id_targets,
+        })
+    }
+
+    fn add_commit_to_rebase(&mut self, commit: Commit) {
+        self.not_rebased.retain(|target| target != commit.id());
+        self.to_rebase.push(commit);
+    }
 }
