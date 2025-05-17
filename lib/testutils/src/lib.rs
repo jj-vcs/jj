@@ -370,7 +370,7 @@ pub fn repo_path_buf(value: impl Into<String>) -> RepoPathBuf {
 }
 
 pub fn read_file(store: &Store, path: &RepoPath, id: &FileId) -> Vec<u8> {
-    let mut reader = store.read_file_async(path, id).block_on().unwrap();
+    let mut reader = store.read_file(path, id).block_on().unwrap();
     let mut content = vec![];
     reader.read_to_end(&mut content).unwrap();
     content

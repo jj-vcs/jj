@@ -303,7 +303,7 @@ pub async fn try_resolve_file_conflict(
     let contents = file_id_conflict
         .try_map_async(|file_id| async {
             let mut content = vec![];
-            let mut reader = store.read_file_async(filename, file_id).await?;
+            let mut reader = store.read_file(filename, file_id).await?;
             reader
                 .read_to_end(&mut content)
                 .map_err(|err| BackendError::ReadObject {

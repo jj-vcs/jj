@@ -234,11 +234,7 @@ impl Store {
         Ok(Tree::new(self.clone(), path.to_owned(), tree_id, data))
     }
 
-    pub async fn read_file_async(
-        &self,
-        path: &RepoPath,
-        id: &FileId,
-    ) -> BackendResult<Box<dyn Read>> {
+    pub async fn read_file(&self, path: &RepoPath, id: &FileId) -> BackendResult<Box<dyn Read>> {
         self.backend.read_file(path, id).await
     }
 
@@ -250,11 +246,7 @@ impl Store {
         self.backend.write_file(path, contents).await
     }
 
-    pub async fn read_symlink_async(
-        &self,
-        path: &RepoPath,
-        id: &SymlinkId,
-    ) -> BackendResult<String> {
+    pub async fn read_symlink(&self, path: &RepoPath, id: &SymlinkId) -> BackendResult<String> {
         self.backend.read_symlink(path, id).await
     }
 

@@ -191,7 +191,7 @@ fn fix_one_file(
         // output.
         let mut old_content = vec![];
         let mut read = store
-            .read_file_async(&file_to_fix.repo_path, &file_to_fix.file_id)
+            .read_file(&file_to_fix.repo_path, &file_to_fix.file_id)
             .block_on()?;
         read.read_to_end(&mut old_content)?;
         let new_content = matching_tools.fold(old_content.clone(), |prev_content, tool_config| {
