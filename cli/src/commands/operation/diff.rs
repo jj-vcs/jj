@@ -134,7 +134,9 @@ pub fn cmd_op_diff(
         workspace_env.parse_template(ui, &language, &text)?
     };
 
-    let op_summary_template = workspace_command.operation_summary_template();
+    let op_summary_template = workspace_command
+        .operation_summary_template()
+        .labeled(["op_diff"]);
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     write!(formatter, "From operation: ")?;

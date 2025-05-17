@@ -1104,8 +1104,8 @@ fn test_op_summary_diff_template() {
         "--color=debug",
     ]);
     insta::assert_snapshot!(output, @r"
-    From operation: [38;5;4m<<operation id short::000000000000>>[39m<<operation:: >>[38;5;2m<<operation root::root()>>[39m
-      To operation: [38;5;4m<<operation id short::dfdb600231fe>>[39m<<operation:: (>>[38;5;6m<<operation time end local format::2001-02-03 08:05:12>>[39m<<operation::) >><<operation description first_line::undo operation 496308a90c9da4609359f773ea4b4eae56ee1939b00bc9c5a52d4ce96517e7d936b5c3f4b76d6539f873f71908c84c72e7840f2e16a127a0cd6d79b83016ea96>>
+    From operation: [38;5;4m<<op_diff operation id short::000000000000>>[39m<<op_diff operation:: >>[38;5;2m<<op_diff operation root::root()>>[39m
+      To operation: [38;5;4m<<op_diff operation id short::dfdb600231fe>>[39m<<op_diff operation:: (>>[38;5;6m<<op_diff operation time end local format::2001-02-03 08:05:12>>[39m<<op_diff operation::) >><<op_diff operation description first_line::undo operation 496308a90c9da4609359f773ea4b4eae56ee1939b00bc9c5a52d4ce96517e7d936b5c3f4b76d6539f873f71908c84c72e7840f2e16a127a0cd6d79b83016ea96>>
 
     Changed commits:
     ○  [38;5;2m<<diff added::+>>[39m [1m[38;5;13m<<working_copy change_id shortest prefix::q>>[38;5;8m<<working_copy change_id shortest rest::pvuntsm>>[39m<<working_copy:: >>[38;5;12m<<working_copy commit_id shortest prefix::e>>[38;5;8m<<working_copy commit_id shortest rest::8849ae1>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty::(empty)>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty description placeholder::(no description set)>>[0m
