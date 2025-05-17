@@ -250,10 +250,6 @@ impl Store {
         self.backend.write_file(path, contents).await
     }
 
-    pub fn read_symlink(&self, path: &RepoPath, id: &SymlinkId) -> BackendResult<String> {
-        self.read_symlink_async(path, id).block_on()
-    }
-
     pub async fn read_symlink_async(
         &self,
         path: &RepoPath,
