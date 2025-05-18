@@ -15,6 +15,7 @@
 use std::io;
 use std::io::BufReader;
 use std::io::Read;
+use std::io::Write;
 use std::num::NonZeroU32;
 use std::path::Path;
 use std::path::PathBuf;
@@ -37,6 +38,7 @@ use crate::git_backend::GitBackend;
 use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteName;
+use crate::object_id::ObjectId;
 
 // This is not the minimum required version, that would be 2.29.0, which
 // introduced the `--no-write-fetch-head` option. However, that by itself
@@ -182,6 +184,54 @@ impl<'a> GitSubprocessContext<'a> {
         let output = wait_with_progress(self.spawn_cmd(command)?, callbacks)?;
 
         parse_git_fetch_output(output)
+    }
+
+    pub(crate) fn spawn_ensure_blobs(
+        &self,
+        ids: &[&(impl ObjectId + Send + Sync)],
+        callbacks: &mut RemoteCallbacks<'_>,
+    ) -> Result<(), GitSubprocessError> {
+        if ids.is_empty() {
+            return Ok(());
+        }
+        let mut command = self.create_command();
+        command.stdin(Stdio::piped());
+        command.stdout(Stdio::piped());
+        command.args([
+            "cat-file",
+            "--batch-check",
+            //"--format=%(objectname) %(objecttype)",
+            "--buffer",
+            "--unordered",
+        ]);
+
+        let mut child = self.spawn_cmd(command)?;
+
+        let output = thread::scope(|s| -> Result<_, GitSubprocessError> {
+            let mut child_stdin = child.stdin.take().expect("stdin should be piped");
+            let writer_thread = s.spawn(move || -> io::Result<_> {
+                for id in ids {
+                    writeln!(child_stdin, "{}", id.hex())?;
+                }
+                drop(child_stdin);
+                Ok(())
+            });
+
+            let output = wait_with_progress(child, callbacks)?;
+
+            writer_thread
+                .join()
+                .expect("writer thread panicked")
+                .map_err(GitSubprocessError::Wait)?;
+
+            Ok(output)
+        })?;
+
+        // Ignore fetch failure
+        // TODO(gus) bubble these up and let the caller decide.
+        parse_git_fetch_output(output)?;
+
+        Ok(())
     }
 
     /// Prune particular branches
