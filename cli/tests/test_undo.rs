@@ -482,8 +482,8 @@ fn test_shows_a_warning_when_undoing_an_undo_operation_as_bare_jj_undo() {
     Undid operation: 94337eb25498 (2001-02-03 08:05:09) undo operation c7b028ea7b47461d4328dde306e13337ea9000b6abfde4cb751902fae3124d578f2e0082cbd1e1d32b5e64afc001a933be5acc81a015a7f15d62d90750eaa9ca
     Working copy  (@) now at: rlvkpnrz 43444d88 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
-    Hint: This action reverted an 'undo' operation. The repository is now in the same state as it was before the original 'undo'.
-    Hint: If your goal is to undo multiple operations, consider using `jj op log` to see past states, and `jj op restore` to restore one of these states.
+    Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
+    Hint: To undo multiple operations, use `jj op log` to see past states and `jj op restore` to restore one of these states.
     [EOF]
     ");
 
@@ -496,8 +496,8 @@ fn test_shows_a_warning_when_undoing_an_undo_operation_as_bare_jj_undo() {
     Undid operation: 0456966dabcb (2001-02-03 08:05:12) undo operation aea8c90f370bd851b9b66a6542aeff24f01418d745efcd7a94c7399afe4ce9aaf79903cd1feb34a9d091bfad3b3680e138ec90ecbed759cf2f6eacdb5c34e4e6
     Working copy  (@) now at: mzvwutvl 8afc18ff (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
-    Hint: This action reverted an 'undo' operation. The repository is now in the same state as it was before the original 'undo'.
-    Hint: If your goal is to undo multiple operations, consider using `jj op log` to see past states, and `jj op restore` to restore one of these states.
+    Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
+    Hint: To undo multiple operations, use `jj op log` to see past states and `jj op restore` to restore one of these states.
     [EOF]
     ");
 }

@@ -90,14 +90,14 @@ pub fn cmd_op_undo(
 
     if args.operation == "@" && is_undo(&bad_op, &parent_of_bad_op)? {
         writeln!(
-            ui.hint_default(),
-            "This action reverted an 'undo' operation. The repository is now in the same state as \
-             it was before the original 'undo'."
+            ui.warning_default(),
+            "The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in \
+             the same state as it was before the second-last `jj undo`."
         )?;
         writeln!(
             ui.hint_default(),
-            "If your goal is to undo multiple operations, consider using `jj op log` to see past \
-             states, and `jj op restore` to restore one of these states."
+            "To undo multiple operations, use `jj op log` to see past states and `jj op restore` \
+             to restore one of these states."
         )?;
     }
 
