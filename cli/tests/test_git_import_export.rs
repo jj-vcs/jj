@@ -355,7 +355,7 @@ fn test_git_import_export_stats_color() {
     ------- stderr -------
     bookmark: [38;5;5mbar@git[39m [new] tracked
     bookmark: [38;5;5mfoo@git[39m [updated] tracked
-    tag:    [38;5;5mbaz@git[39m [new] 
+    tag: [38;5;5mbaz@git[39m [new] 
     [EOF]
     ");
 }
