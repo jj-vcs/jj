@@ -15,19 +15,19 @@ use std::collections::HashMap;
 use std::io::Write as _;
 
 use clap_complete::ArgValueCompleter;
+use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
+use jj_lib::commit_builder::DetachedCommitBuilder;
 use jj_lib::matchers::Matcher;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
-use jj_lib::rewrite::move_commits;
+use jj_lib::revset::RevsetExpression;
+use jj_lib::revset::RevsetIteratorExt as _;
+use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::rewrite::CommitWithSelection;
-use jj_lib::rewrite::EmptyBehaviour;
-use jj_lib::rewrite::MoveCommitsLocation;
-use jj_lib::rewrite::MoveCommitsTarget;
-use jj_lib::rewrite::RebaseOptions;
-use jj_lib::rewrite::RebasedCommit;
 use jj_lib::rewrite::RewriteRefsOptions;
+use maplit::hashmap;
 use tracing::instrument;
 
 use crate::cli_util::compute_commit_location;
@@ -220,7 +220,7 @@ pub(crate) fn cmd_split(
     let target = select_diff(ui, &tx, &target_commit, &matcher, &diff_selector)?;
 
     // Create the first commit, which includes the changes selected by the user.
-    let first_commit = {
+    let first_commit_builder = {
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder.set_tree_id(target.selected_tree.id());
         if use_move_flags {
@@ -246,30 +246,21 @@ pub(crate) fn cmd_split(
             edit_description(&text_editor, &template)?
         };
         commit_builder.set_description(description);
-        commit_builder.write(tx.repo_mut())?
+        commit_builder
     };
 
     // Create the second commit, which includes everything the user didn't
     // select.
-    let second_commit = {
-        let target_tree = target.commit.tree()?;
-        let new_tree = if parallel {
-            // Merge the original commit tree with its parent using the tree
-            // containing the user selected changes as the base for the merge.
-            // This results in a tree with the changes the user didn't select.
-            target_tree.merge(&target.selected_tree, &target.parent_tree)?
-        } else {
-            target_tree
-        };
-        let parents = if parallel {
-            target.commit.parent_ids().to_vec()
-        } else {
-            vec![first_commit.id().clone()]
-        };
+    let second_commit_builder = {
+        // Merge the original commit tree with its parent using the tree
+        // containing the user selected changes as the base for the merge.
+        // This results in a tree with the changes the user didn't select.
+        let new_tree = target
+            .commit
+            .tree()?
+            .merge(&target.selected_tree, &target.parent_tree)?;
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
-        commit_builder
-            .set_parents(parents)
-            .set_tree_id(new_tree.id());
+        commit_builder.set_tree_id(new_tree.id());
         if !use_move_flags {
             commit_builder
                 // Generate a new change id so that the commit being split doesn't
@@ -292,21 +283,44 @@ pub(crate) fn cmd_split(
             edit_description(&text_editor, &template)?
         };
         commit_builder.set_description(description);
-        commit_builder.write(tx.repo_mut())?
+        commit_builder
     };
 
     let (first_commit, second_commit, num_rebased) = if use_move_flags {
-        move_first_commit(
+        let first_depends_on_second = new_parent_ids.iter().any(|new_parent_id| {
+            tx.repo()
+                .index()
+                .is_ancestor(target.commit.id(), new_parent_id)
+        });
+        if !first_depends_on_second {
+            move_first_then_second_commits(
+                &mut tx,
+                &target,
+                first_commit_builder,
+                second_commit_builder,
+                new_parent_ids,
+                new_child_ids,
+            )?
+        } else {
+            move_second_then_first_commits(
+                &mut tx,
+                &target,
+                first_commit_builder,
+                second_commit_builder,
+                new_parent_ids,
+                new_child_ids,
+            )?
+        }
+    } else {
+        rewrite_descendants(
             &mut tx,
             &target,
-            first_commit,
-            second_commit,
-            new_parent_ids,
-            new_child_ids,
+            first_commit_builder,
+            second_commit_builder,
+            parallel,
         )?
-    } else {
-        rewrite_descendants(&mut tx, &target, first_commit, second_commit, parallel)?
     };
+
     if let Some(mut formatter) = ui.status_formatter() {
         if num_rebased > 0 {
             writeln!(formatter, "Rebased {num_rebased} descendant commits")?;
@@ -321,69 +335,196 @@ pub(crate) fn cmd_split(
     Ok(())
 }
 
-fn move_first_commit(
+fn move_first_then_second_commits(
     tx: &mut WorkspaceCommandTransaction,
     target: &CommitWithSelection,
-    mut first_commit: Commit,
-    mut second_commit: Commit,
+    mut first_commit_builder: DetachedCommitBuilder,
+    mut second_commit_builder: DetachedCommitBuilder,
     new_parent_ids: Vec<CommitId>,
     new_child_ids: Vec<CommitId>,
 ) -> Result<(Commit, Commit, usize), CommandError> {
-    let mut rewritten_commits: HashMap<CommitId, CommitId> = HashMap::new();
-    rewritten_commits.insert(target.commit.id().clone(), second_commit.id().clone());
-    tx.repo_mut()
-        .transform_descendants(vec![target.commit.id().clone()], |rewriter| {
-            let old_commit_id = rewriter.old_commit().id().clone();
-            let new_commit = rewriter.rebase()?.write()?;
-            rewritten_commits.insert(old_commit_id, new_commit.id().clone());
-            Ok(())
-        })?;
+    // write the first commit
+    first_commit_builder.set_parents(new_parent_ids.clone());
+    let new_parent_commits: Vec<_> = new_parent_ids
+        .iter()
+        .map(|id| tx.repo().store().get_commit(id))
+        .try_collect()?;
+    let merged_tree = merge_commit_trees(tx.repo(), &new_parent_commits)?;
+    let merged_tree = merged_tree.merge(&target.parent_tree, &target.selected_tree)?;
+    first_commit_builder.set_tree_id(merged_tree.id());
+    let first_commit = first_commit_builder.write(tx.repo_mut())?;
 
-    let new_parent_ids: Vec<_> = new_parent_ids
+    let mut num_rebased = 0;
+
+    // update the new children
+    let new_child_commits: Vec<_> = new_child_ids
         .iter()
-        .map(|commit_id| rewritten_commits.get(commit_id).unwrap_or(commit_id))
-        .cloned()
-        .collect();
-    let new_child_ids: Vec<_> = new_child_ids
-        .iter()
-        .map(|commit_id| rewritten_commits.get(commit_id).unwrap_or(commit_id))
-        .cloned()
-        .collect();
-    let stats = move_commits(
-        tx.repo_mut(),
-        &MoveCommitsLocation {
-            new_parent_ids,
-            new_child_ids,
-            target: MoveCommitsTarget::Commits(vec![first_commit.id().clone()]),
-        },
-        &RebaseOptions {
-            empty: EmptyBehaviour::Keep,
-            rewrite_refs: RewriteRefsOptions {
-                delete_abandoned_bookmarks: false,
-            },
-            simplify_ancestor_merge: false,
+        .map(|id| tx.repo().store().get_commit(id))
+        .try_collect()?;
+    tx.repo_mut().transform_commits(
+        new_child_commits
+            .iter()
+            .filter(|commit| commit.id() != target.commit.id())
+            .cloned()
+            .collect(),
+        &hashmap! {},
+        &RewriteRefsOptions::default(),
+        |mut rewriter| {
+            let new_parent_ids = rewriter
+                .old_commit()
+                .parent_ids()
+                .iter()
+                .filter(|id| !new_parent_ids.contains(id))
+                .cloned()
+                .chain(std::iter::once(first_commit.id().clone()))
+                .collect_vec();
+            rewriter.set_new_parents(new_parent_ids);
+            rewriter.rebase()?.write()?;
+            num_rebased += 1;
+            Ok(())
         },
     )?;
 
-    // 1 for the transformation of the original commit to the second commit
-    // that was inserted in rewritten_commits
-    let mut num_new_rebased = 1;
-    if let Some(RebasedCommit::Rewritten(commit)) = stats.rebased_commits.get(first_commit.id()) {
-        first_commit = commit.clone();
-        num_new_rebased += 1;
-    }
-    if let Some(RebasedCommit::Rewritten(commit)) = stats.rebased_commits.get(second_commit.id()) {
-        second_commit = commit.clone();
-    }
-
-    let num_rebased = rewritten_commits.len() + stats.rebased_commits.len()
-        // don't count the commit generated by the split in the rebased commits
-        - num_new_rebased
-        // only count once a commit that may have been rewritten twice in the process
-        - rewritten_commits
+    // find the descendants of the new children, excluding the original
+    // commit and its descendants that will be rewritten as second commit,
+    // and rebase them
+    let to_visit: Vec<_> = {
+        let to_visit_revset = RevsetExpression::commits(new_child_ids.clone())
+            .descendants_range(1..u64::MAX)
+            .minus(&RevsetExpression::commits(vec![target.commit.id().clone()]).descendants())
+            .evaluate(tx.repo())
+            .map_err(|err| err.into_backend_error())?;
+        to_visit_revset
             .iter()
-            .filter(|(_, rewritten)| stats.rebased_commits.contains_key(rewritten))
-            .count();
+            .commits(tx.repo().store())
+            .try_collect()?
+    };
+    tx.repo_mut().transform_commits(
+        to_visit,
+        &hashmap! {},
+        &RewriteRefsOptions::default(),
+        |rewriter| {
+            rewriter.rebase()?.write()?;
+            num_rebased += 1;
+            Ok(())
+        },
+    )?;
+
+    // write the second commit
+    if new_child_ids.contains(target.commit.id()) {
+        let new_parent_ids = second_commit_builder
+            .parents()
+            .iter()
+            .filter(|id| !new_parent_ids.contains(id))
+            .cloned()
+            .chain(std::iter::once(first_commit.id().clone()))
+            .collect_vec();
+        second_commit_builder.set_parents(new_parent_ids);
+    }
+    let second_commit_parents: Vec<_> = second_commit_builder
+        .parents()
+        .iter()
+        .map(|id| tx.repo().store().get_commit(id))
+        .try_collect()?;
+    let merged_parents_tree = merge_commit_trees(tx.repo(), &second_commit_parents)?;
+    let target_tree = target.commit.tree()?;
+    let target_tree = target_tree.merge(&target.selected_tree, &target.parent_tree)?;
+    let second_commit_tree = merged_parents_tree.merge(&target.parent_tree, &target_tree)?;
+    second_commit_builder.set_tree_id(second_commit_tree.id());
+    let second_commit = second_commit_builder.write(tx.repo_mut())?;
+
+    // rebase the second commit descendants
+    num_rebased += tx.repo_mut().rebase_descendants()?;
+
+    Ok((first_commit, second_commit, num_rebased))
+}
+
+fn move_second_then_first_commits(
+    tx: &mut WorkspaceCommandTransaction,
+    target: &CommitWithSelection,
+    mut first_commit_builder: DetachedCommitBuilder,
+    second_commit_builder: DetachedCommitBuilder,
+    new_parent_ids: Vec<CommitId>,
+    new_child_ids: Vec<CommitId>,
+) -> Result<(Commit, Commit, usize), CommandError> {
+    let mut rebased: HashMap<CommitId, CommitId> = HashMap::new();
+    let mut num_rebased = 0;
+
+    // write the second commit
+    let second_commit = second_commit_builder.write(tx.repo_mut())?;
+    rebased.insert(target.commit.id().clone(), second_commit.id().clone());
+
+    // find the descendants of the target commit, excluding the original
+    // new child commits and their descendants that will be rewritten once we'll
+    // have the first commit, and rebase them on the second commit
+    let to_visit: Vec<_> = {
+        let to_visit_revset = RevsetExpression::commits(vec![target.commit.id().clone()])
+            .descendants_range(1..u64::MAX)
+            .minus(&RevsetExpression::commits(new_child_ids.clone()).descendants())
+            .evaluate(tx.repo())
+            .map_err(|err| err.into_backend_error())?;
+        to_visit_revset
+            .iter()
+            .commits(tx.repo().store())
+            .try_collect()?
+    };
+    tx.repo_mut().transform_commits(
+        to_visit,
+        &hashmap! {},
+        &RewriteRefsOptions::default(),
+        |rewriter| {
+            let old_commit_id = rewriter.old_commit().id().clone();
+            let new_commit_id = rewriter.rebase()?.write()?.id().clone();
+            rebased.insert(old_commit_id, new_commit_id);
+            num_rebased += 1;
+            Ok(())
+        },
+    )?;
+
+    // write the first commit
+    let new_child_commits: Vec<_> = new_child_ids
+        .iter()
+        .map(|id| tx.repo().store().get_commit(id))
+        .try_collect()?;
+    let rewriten_new_parent_ids: Vec<_> = new_parent_ids
+        .iter()
+        .map(|id| rebased.get(id).unwrap_or(id))
+        .cloned()
+        .collect();
+    let rewriten_new_parent_commits: Vec<_> = rewriten_new_parent_ids
+        .iter()
+        .map(|id| tx.repo().store().get_commit(id))
+        .try_collect()?;
+    first_commit_builder.set_parents(rewriten_new_parent_ids);
+    let merged_tree = merge_commit_trees(tx.repo(), &rewriten_new_parent_commits)?;
+    let merged_tree = merged_tree.merge(&target.parent_tree, &target.selected_tree)?;
+    first_commit_builder.set_tree_id(merged_tree.id());
+    let first_commit = first_commit_builder.write(tx.repo_mut())?;
+
+    // update the new children
+    tx.repo_mut().transform_commits(
+        new_child_commits,
+        &hashmap! {},
+        &RewriteRefsOptions::default(),
+        |mut rewriter| {
+            let new_parent_ids = rewriter
+                .old_commit()
+                .parent_ids()
+                .iter()
+                .filter(|id| !new_parent_ids.contains(id))
+                .map(|id| rebased.get(id).unwrap_or(id))
+                .cloned()
+                .chain(std::iter::once(first_commit.id().clone()))
+                .collect_vec();
+            rewriter.set_new_parents(new_parent_ids);
+            rewriter.rebase()?.write()?;
+            num_rebased += 1;
+            Ok(())
+        },
+    )?;
+
+    // rebase the descendants of the new children
+    num_rebased += tx.repo_mut().rebase_descendants()?;
 
     Ok((first_commit, second_commit, num_rebased))
 }
@@ -391,10 +532,18 @@ fn move_first_commit(
 fn rewrite_descendants(
     tx: &mut WorkspaceCommandTransaction,
     target: &CommitWithSelection,
-    first_commit: Commit,
-    second_commit: Commit,
+    first_commit_builder: DetachedCommitBuilder,
+    mut second_commit_builder: DetachedCommitBuilder,
     parallel: bool,
 ) -> Result<(Commit, Commit, usize), CommandError> {
+    let first_commit = first_commit_builder.write(tx.repo_mut())?;
+    if !parallel {
+        second_commit_builder
+            .set_parents(vec![first_commit.id().clone()])
+            .set_tree_id(target.commit.tree_id().clone());
+    };
+    let second_commit = second_commit_builder.write(tx.repo_mut())?;
+
     let legacy_bookmark_behavior = tx.settings().get_bool("split.legacy-bookmark-behavior")?;
     if legacy_bookmark_behavior {
         // Mark the commit being split as rewritten to the second commit. This
