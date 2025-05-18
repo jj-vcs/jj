@@ -468,7 +468,7 @@
                 "write-change-id-header": {
                     "type": "boolean",
                     "description": "Whether the change id should be stored in the Git commit object",
-                    "default": false
+                    "default": true
                 },
                 "executable-path": {
                     "type": "string",
