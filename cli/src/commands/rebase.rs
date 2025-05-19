@@ -35,6 +35,7 @@ use jj_lib::rewrite::RewriteRefsOptions;
 use tracing::instrument;
 
 use crate::cli_util::compute_commit_location;
+use crate::cli_util::print_updated_commits;
 use crate::cli_util::short_commit_hash;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -409,11 +410,18 @@ pub(crate) fn cmd_rebase(
             find_duplicate_divergent_commits(tx.repo(), &loc.new_parent_ids, &loc.target)?;
         computed_move.record_to_abandon(abandoned_divergent.iter().map(Commit::id).cloned());
         if !abandoned_divergent.is_empty() {
-            writeln!(
-                ui.status(),
-                "Skipped {} divergent commits that were already present in the destination",
-                abandoned_divergent.len(),
-            )?;
+            if let Some(mut formatter) = ui.status_formatter() {
+                writeln!(
+                    formatter,
+                    "Abandoned {} divergent commits that were already present in the destination:",
+                    abandoned_divergent.len(),
+                )?;
+                print_updated_commits(
+                    formatter.as_mut(),
+                    &tx.base_workspace_helper().commit_summary_template(),
+                    &abandoned_divergent,
+                )?;
+            }
         }
     };
     let stats = computed_move.apply(tx.repo_mut(), &rebase_options)?;
