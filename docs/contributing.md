@@ -293,7 +293,7 @@ if you are adding a new page, or doing a major rewrite.
 
 ### Install `uv`
 
-The only thing you need is [`uv`][uv] (version 0.7.3 or newer).
+The only thing you need is [`uv`][uv] (version 0.5.1 or newer).
 
 `uv` is a Python project manager written in Rust. It will fetch the right Python
 version and the dependencies needed to build the docs. Install it like so:
