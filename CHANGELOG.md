@@ -82,6 +82,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj` will no longer warn about deprecated paths on macOS if the configured
   XDG directory is the deprecated one (~/Library/Application Support).
 
+* The builtin diff editor now correctly handles splitting changes where a file is
+  replaced by a directory of the same name.
+  [#5189](https://github.com/jj-vcs/jj/issues/5189)
+
 ### Packaging changes
 
 * Due to the removal of the `libgit2` code path, packagers should
