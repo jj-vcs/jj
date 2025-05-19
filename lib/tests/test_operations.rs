@@ -591,6 +591,8 @@ fn test_resolve_op_parents_children() {
     let repo = testutils::commit_transactions(vec![tx1, tx2]);
     let parent_op_ids = repo.operation().parent_ids();
 
+    // The subexpression that resolves to multiple operations (i.e. the accompanying
+    // op ids) should be reported, not the full expression provided by the user.
     let op5_id_hex = repo.operation().id().hex();
     let parents_op_str = format!("{op5_id_hex}-");
     let error = op_walk::resolve_op_with_repo(&repo, &parents_op_str).unwrap_err();
@@ -600,19 +602,15 @@ fn test_resolve_op_parents_children() {
     );
     let grandparents_op_str = format!("{op5_id_hex}--");
     let error = op_walk::resolve_op_with_repo(&repo, &grandparents_op_str).unwrap_err();
-    // FIXME: The intermediate expression should be `parents_op_str`, resolving to
-    // `parent_op_ids`.
     assert_eq!(
         extract_multiple_operations_error(&error).unwrap(),
-        (&grandparents_op_str, parent_op_ids)
+        (&parents_op_str, parent_op_ids)
     );
     let children_of_parents_op_str = format!("{op5_id_hex}-+");
     let error = op_walk::resolve_op_with_repo(&repo, &children_of_parents_op_str).unwrap_err();
-    // FIXME: The intermediate expression should be `parents_op_str`, resolving to
-    // `parent_op_ids`.
     assert_eq!(
         extract_multiple_operations_error(&error).unwrap(),
-        (&children_of_parents_op_str, parent_op_ids)
+        (&parents_op_str, parent_op_ids)
     );
 
     let op2_id_hex = operations[2].id().hex();
