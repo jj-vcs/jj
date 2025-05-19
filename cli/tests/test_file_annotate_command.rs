@@ -59,7 +59,7 @@ fn test_annotate_merge() {
     work_dir.write_file("file.txt", "line1\n");
     work_dir.run_jj(["describe", "-m=initial"]).success();
     work_dir
-        .run_jj(["branch", "create", "-r@", "initial"])
+        .run_jj(["bookmark", "create", "-r@", "initial"])
         .success();
 
     work_dir.run_jj(["new", "-m=commit1"]).success();
@@ -68,7 +68,7 @@ fn test_annotate_merge() {
         "new text from new commit 1",
     );
     work_dir
-        .run_jj(["branch", "create", "-r@", "commit1"])
+        .run_jj(["bookmark", "create", "-r@", "commit1"])
         .success();
 
     work_dir.run_jj(["new", "-m=commit2", "initial"]).success();
@@ -77,7 +77,7 @@ fn test_annotate_merge() {
         "new text from new commit 2",
     );
     work_dir
-        .run_jj(["branch", "create", "-r@", "commit2"])
+        .run_jj(["bookmark", "create", "-r@", "commit2"])
         .success();
 
     // create a (conflicted) merge
@@ -108,7 +108,7 @@ fn test_annotate_conflicted() {
     work_dir.write_file("file.txt", "line1\n");
     work_dir.run_jj(["describe", "-m=initial"]).success();
     work_dir
-        .run_jj(["branch", "create", "-r@", "initial"])
+        .run_jj(["bookmark", "create", "-r@", "initial"])
         .success();
 
     work_dir.run_jj(["new", "-m=commit1"]).success();
@@ -117,7 +117,7 @@ fn test_annotate_conflicted() {
         "new text from new commit 1",
     );
     work_dir
-        .run_jj(["branch", "create", "-r@", "commit1"])
+        .run_jj(["bookmark", "create", "-r@", "commit1"])
         .success();
 
     work_dir.run_jj(["new", "-m=commit2", "initial"]).success();
@@ -126,7 +126,7 @@ fn test_annotate_conflicted() {
         "new text from new commit 2",
     );
     work_dir
-        .run_jj(["branch", "create", "-r@", "commit2"])
+        .run_jj(["bookmark", "create", "-r@", "commit2"])
         .success();
 
     // create a (conflicted) merge
@@ -157,7 +157,7 @@ fn test_annotate_merge_one_sided_conflict_resolution() {
     work_dir.write_file("file.txt", "line1\n");
     work_dir.run_jj(["describe", "-m=initial"]).success();
     work_dir
-        .run_jj(["branch", "create", "-r@", "initial"])
+        .run_jj(["bookmark", "create", "-r@", "initial"])
         .success();
 
     work_dir.run_jj(["new", "-m=commit1"]).success();
@@ -166,7 +166,7 @@ fn test_annotate_merge_one_sided_conflict_resolution() {
         "new text from new commit 1",
     );
     work_dir
-        .run_jj(["branch", "create", "-r@", "commit1"])
+        .run_jj(["bookmark", "create", "-r@", "commit1"])
         .success();
 
     work_dir.run_jj(["new", "-m=commit2", "initial"]).success();
@@ -175,7 +175,7 @@ fn test_annotate_merge_one_sided_conflict_resolution() {
         "new text from new commit 2",
     );
     work_dir
-        .run_jj(["branch", "create", "-r@", "commit2"])
+        .run_jj(["bookmark", "create", "-r@", "commit2"])
         .success();
 
     // create a (conflicted) merge
