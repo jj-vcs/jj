@@ -91,6 +91,8 @@ This document contains the help content for the `jj` command-line program.
 * [`jj status`↴](#jj-status)
 * [`jj tag`↴](#jj-tag)
 * [`jj tag list`↴](#jj-tag-list)
+* [`jj undo`↴](#jj-undo)
+* [`jj unsign`↴](#jj-unsign)
 * [`jj util`↴](#jj-util)
 * [`jj util completion`↴](#jj-util-completion)
 * [`jj util config-schema`↴](#jj-util-config-schema)
@@ -98,8 +100,6 @@ This document contains the help content for the `jj` command-line program.
 * [`jj util gc`↴](#jj-util-gc)
 * [`jj util install-man-pages`↴](#jj-util-install-man-pages)
 * [`jj util markdown-help`↴](#jj-util-markdown-help)
-* [`jj undo`↴](#jj-undo)
-* [`jj unsign`↴](#jj-unsign)
 * [`jj version`↴](#jj-version)
 * [`jj workspace`↴](#jj-workspace)
 * [`jj workspace add`↴](#jj-workspace-add)
@@ -159,9 +159,9 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `squash` — Move changes from a revision into another revision
 * `status` — Show high-level repo status
 * `tag` — Manage tags
-* `util` — Infrequently used commands such as for generating shell completions
 * `undo` — Undo an operation (shortcut for `jj op undo`)
 * `unsign` — Drop a cryptographic signature
+* `util` — Infrequently used commands such as for generating shell completions
 * `version` — Display version information
 * `workspace` — Commands for working with workspaces
 
@@ -2584,6 +2584,53 @@ List tags
 
 
 
+## `jj undo`
+
+Undo an operation (shortcut for `jj op undo`)
+
+**Usage:** `jj undo [OPTIONS] [OPERATION]`
+
+###### **Arguments:**
+
+* `<OPERATION>` — The operation to undo
+
+   Use `jj op log` to find an operation to undo.
+
+  Default value: `@`
+
+###### **Options:**
+
+* `--what <WHAT>` — What portions of the local state to restore (can be repeated)
+
+   This option is EXPERIMENTAL.
+
+  Default values: `repo`, `remote-tracking`
+
+  Possible values:
+  - `repo`:
+    The jj repo state and local bookmarks
+  - `remote-tracking`:
+    The remote-tracking bookmarks. Do not restore these if you'd like to push after the undo
+
+
+
+
+## `jj unsign`
+
+Drop a cryptographic signature
+
+See also [commit signing] docs.
+
+[commit signing]: https://jj-vcs.github.io/jj/latest/config/#commit-signing
+
+**Usage:** `jj unsign [OPTIONS]`
+
+###### **Options:**
+
+* `-r`, `--revisions <REVSETS>` — What revision(s) to unsign
+
+
+
 ## `jj util`
 
 Infrequently used commands such as for generating shell completions
@@ -2732,53 +2779,6 @@ Install Jujutsu's manpages to the provided path
 Print the CLI help for all subcommands in Markdown
 
 **Usage:** `jj util markdown-help`
-
-
-
-## `jj undo`
-
-Undo an operation (shortcut for `jj op undo`)
-
-**Usage:** `jj undo [OPTIONS] [OPERATION]`
-
-###### **Arguments:**
-
-* `<OPERATION>` — The operation to undo
-
-   Use `jj op log` to find an operation to undo.
-
-  Default value: `@`
-
-###### **Options:**
-
-* `--what <WHAT>` — What portions of the local state to restore (can be repeated)
-
-   This option is EXPERIMENTAL.
-
-  Default values: `repo`, `remote-tracking`
-
-  Possible values:
-  - `repo`:
-    The jj repo state and local bookmarks
-  - `remote-tracking`:
-    The remote-tracking bookmarks. Do not restore these if you'd like to push after the undo
-
-
-
-
-## `jj unsign`
-
-Drop a cryptographic signature
-
-See also [commit signing] docs.
-
-[commit signing]: https://jj-vcs.github.io/jj/latest/config/#commit-signing
-
-**Usage:** `jj unsign [OPTIONS]`
-
-###### **Options:**
-
-* `-r`, `--revisions <REVSETS>` — What revision(s) to unsign
 
 
 

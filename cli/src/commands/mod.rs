@@ -144,11 +144,11 @@ enum Command {
     Status(status::StatusArgs),
     #[command(subcommand)]
     Tag(tag::TagCommand),
-    #[command(subcommand)]
-    Util(util::UtilCommand),
     /// Undo an operation (shortcut for `jj op undo`)
     Undo(operation::undo::OperationUndoArgs),
     Unsign(unsign::UnsignArgs),
+    #[command(subcommand)]
+    Util(util::UtilCommand),
     Version(version::VersionArgs),
     #[command(subcommand)]
     Workspace(workspace::WorkspaceCommand),
