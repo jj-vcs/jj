@@ -23,6 +23,7 @@ use jj_lib::backend::CommitId;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::op_store::OperationId;
 use jj_lib::op_walk;
 use jj_lib::op_walk::OpsetEvaluationError;
 use jj_lib::op_walk::OpsetResolutionError;
@@ -592,21 +593,17 @@ fn test_resolve_op_parents_children() {
 
     let op5_id_hex = repo.operation().id().hex();
     let op_str = format!("{op5_id_hex}-");
-    assert_matches!(
-        op_walk::resolve_op_with_repo(&repo, &op_str),
-        Err(OpsetEvaluationError::OpsetResolution(
-            OpsetResolutionError::MultipleOperations { expr, candidates }
-        ))
-        if expr == *op_str && candidates == parent_op_ids
+    let error = op_walk::resolve_op_with_repo(&repo, &op_str).unwrap_err();
+    assert_eq!(
+        extract_multiple_operations_error(&error).unwrap(),
+        (&op_str, parent_op_ids)
     );
     let op2_id_hex = operations[2].id().hex();
     let op_str = format!("{op2_id_hex}+");
-    assert_matches!(
-        op_walk::resolve_op_with_repo(&repo, &op_str),
-        Err(OpsetEvaluationError::OpsetResolution(
-            OpsetResolutionError::MultipleOperations { expr, candidates }
-        ))
-        if expr == *op_str && candidates == parent_op_ids
+    let error = op_walk::resolve_op_with_repo(&repo, &op_str).unwrap_err();
+    assert_eq!(
+        extract_multiple_operations_error(&error).unwrap(),
+        (&op_str, parent_op_ids)
     );
 }
 
@@ -686,4 +683,19 @@ fn test_gc() {
     // Sanity check for the last state
     assert_eq!(expected_op_entries.len(), 1);
     assert_eq!(expected_view_entries.len(), 1);
+}
+
+#[track_caller]
+fn extract_multiple_operations_error(
+    error: &OpsetEvaluationError,
+) -> Option<(&String, &[OperationId])> {
+    if let OpsetEvaluationError::OpsetResolution(OpsetResolutionError::MultipleOperations {
+        expr,
+        candidates,
+    }) = error
+    {
+        Some((expr, candidates))
+    } else {
+        None
+    }
 }
