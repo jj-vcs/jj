@@ -29,6 +29,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `bookmark.remote() == "foo"` still works, but `bookmark.remote().<method>()`
   might need `if(bookmark.remote(), ..)` to suppress error.
 
+* The deprecated `jj branch` subcommands have been removed. Use the `jj bookmark`
+  subcommands instead.
+
 ### Deprecations
 
 * The `ui.diff.format` and `ui.diff.tool` config options have been merged as

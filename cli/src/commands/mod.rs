@@ -95,9 +95,6 @@ enum Command {
     Bench(bench::BenchCommand),
     #[command(subcommand)]
     Bookmark(bookmark::BookmarkCommand),
-    // TODO: Remove in jj 0.28+
-    #[command(subcommand, hide = true)]
-    Branch(bookmark::BookmarkCommand),
     Commit(commit::CommitArgs),
     #[command(subcommand)]
     Config(config::ConfigCommand),
@@ -168,10 +165,6 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
         #[cfg(feature = "bench")]
         Command::Bench(args) => bench::cmd_bench(ui, command_helper, args),
         Command::Bookmark(args) => bookmark::cmd_bookmark(ui, command_helper, args),
-        Command::Branch(args) => {
-            let cmd = renamed_cmd("branch", "bookmark", bookmark::cmd_bookmark);
-            cmd(ui, command_helper, args)
-        }
         Command::Commit(args) => commit::cmd_commit(ui, command_helper, args),
         Command::Config(args) => config::cmd_config(ui, command_helper, args),
         Command::Debug(args) => debug::cmd_debug(ui, command_helper, args),
@@ -214,25 +207,6 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
         Command::Util(args) => util::cmd_util(ui, command_helper, args),
         Command::Version(args) => version::cmd_version(ui, command_helper, args),
         Command::Workspace(args) => workspace::cmd_workspace(ui, command_helper, args),
-    }
-}
-
-/// Wraps deprecated command of `old_name` which has been renamed to `new_name`.
-pub(crate) fn renamed_cmd<Args>(
-    old_name: &'static str,
-    new_name: &'static str,
-    cmd: impl Fn(&mut Ui, &CommandHelper, &Args) -> Result<(), CommandError>,
-) -> impl Fn(&mut Ui, &CommandHelper, &Args) -> Result<(), CommandError> {
-    move |ui: &mut Ui, command: &CommandHelper, args: &Args| -> Result<(), CommandError> {
-        writeln!(
-            ui.warning_default(),
-            "`jj {old_name}` is deprecated; use `jj {new_name}` instead, which is equivalent"
-        )?;
-        writeln!(
-            ui.warning_default(),
-            "`jj {old_name}` will be removed in a future version, and this will be a hard error"
-        )?;
-        cmd(ui, command, args)
     }
 }
 
