@@ -588,19 +588,25 @@ fn test_resolve_op_parents_children() {
     let tx1 = repo.start_transaction();
     let tx2 = repo.start_transaction();
     let repo = testutils::commit_transactions(vec![tx1, tx2]);
+    let parent_op_ids = repo.operation().parent_ids();
+
     let op5_id_hex = repo.operation().id().hex();
+    let op_str = format!("{op5_id_hex}-");
     assert_matches!(
-        op_walk::resolve_op_with_repo(&repo, &format!("{op5_id_hex}-")),
+        op_walk::resolve_op_with_repo(&repo, &op_str),
         Err(OpsetEvaluationError::OpsetResolution(
-            OpsetResolutionError::MultipleOperations { .. }
+            OpsetResolutionError::MultipleOperations { expr, candidates }
         ))
+        if expr == *op_str && candidates == parent_op_ids
     );
     let op2_id_hex = operations[2].id().hex();
+    let op_str = format!("{op2_id_hex}+");
     assert_matches!(
-        op_walk::resolve_op_with_repo(&repo, &format!("{op2_id_hex}+")),
+        op_walk::resolve_op_with_repo(&repo, &op_str),
         Err(OpsetEvaluationError::OpsetResolution(
-            OpsetResolutionError::MultipleOperations { .. }
+            OpsetResolutionError::MultipleOperations { expr, candidates }
         ))
+        if expr == *op_str && candidates == parent_op_ids
     );
 }
 
