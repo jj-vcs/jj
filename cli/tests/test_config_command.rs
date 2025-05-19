@@ -1044,6 +1044,7 @@ fn test_config_edit_invalid_config() {
     });
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Editing file: $TEST_ENV/repo/.jj/repo/config.toml
     Warning: An error has been found inside the config:
     Caused by:
     1: Configuration cannot be parsed as TOML document
@@ -1072,6 +1073,7 @@ fn test_config_edit_invalid_config() {
     });
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Editing file: $TEST_ENV/repo/.jj/repo/config.toml
     Warning: An error has been found inside the config:
     Caused by:
     1: Configuration cannot be parsed as TOML document
@@ -1156,6 +1158,7 @@ fn test_config_only_loads_toml_files() {
     1: $TEST_ENV/config/config0001.toml
     2: $TEST_ENV/config/config0002.toml
     Choose a config file (default 1): 1
+    Editing file: $TEST_ENV/config/config0001.toml
     [EOF]
     ");
 }

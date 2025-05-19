@@ -46,6 +46,7 @@ pub fn cmd_config_edit(
     // Editing again and again until either of these conditions is met
     // 1. The config is OK
     // 2. The user restores previous one
+    writeln!(ui.status(), "Editing file: {}", file.path().display())?;
     loop {
         editor.edit_file(file.path())?;
 
