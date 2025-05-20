@@ -29,11 +29,9 @@ use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
-use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::MillisSinceEpoch;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
-use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
 use jj_lib::commit_builder::CommitBuilder;
 use jj_lib::config::ConfigLayer;
@@ -68,7 +66,6 @@ use jj_lib::settings::GitSettings;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::str_util::StringPattern;
-use jj_lib::tree_builder::TreeBuilder;
 use jj_lib::workspace::Workspace;
 use maplit::btreemap;
 use maplit::hashset;
@@ -78,7 +75,6 @@ use testutils::base_user_config;
 use testutils::commit_transactions;
 use testutils::create_random_commit;
 use testutils::repo_path;
-use testutils::repo_path_buf;
 use testutils::write_random_commit;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
@@ -2559,30 +2555,20 @@ fn test_reset_head_with_index_no_conflict() {
     let mut_repo = tx.repo_mut();
 
     // Build tree containing every mode of file
-    let tree_id = {
-        let mut tree_builder =
-            TreeBuilder::new(repo.store().clone(), repo.store().empty_tree_id().clone());
-        testutils::write_normal_file(
-            &mut tree_builder,
-            repo_path("some/dir/normal-file"),
-            "file\n",
+    let tree_id = testutils::create_tree_with(&repo, |builder| {
+        builder
+            .file(repo_path("some/dir/normal-file"), "file\n")
+            .executable(false);
+        builder
+            .file(repo_path("some/dir/executable-file"), "file\n")
+            .executable(true);
+        builder.symlink(repo_path("some/dir/symlink"), "./normal-file");
+        builder.submodule(
+            repo_path("some/dir/commit"),
+            testutils::write_random_commit(mut_repo).id().clone(),
         );
-        testutils::write_executable_file(
-            &mut tree_builder,
-            repo_path("some/dir/executable-file"),
-            "file\n",
-        );
-        testutils::write_symlink(
-            &mut tree_builder,
-            repo_path("some/dir/symlink"),
-            "./normal-file",
-        );
-        tree_builder.set(
-            repo_path_buf("some/dir/commit"),
-            TreeValue::GitSubmodule(testutils::write_random_commit(mut_repo).id().clone()),
-        );
-        MergedTreeId::resolved(tree_builder.write_tree().unwrap())
-    };
+    })
+    .id();
 
     let parent_commit = mut_repo
         .new_commit(vec![repo.store().root_commit_id().clone()], tree_id.clone())
@@ -2622,76 +2608,50 @@ fn test_reset_head_with_index_merge_conflict() {
     let mut_repo = tx.repo_mut();
 
     // Build conflict trees containing every mode of file
-    let base_tree_id = {
-        let mut tree_builder =
-            TreeBuilder::new(repo.store().clone(), repo.store().empty_tree_id().clone());
-        testutils::write_normal_file(
-            &mut tree_builder,
-            repo_path("some/dir/normal-file"),
-            "base\n",
+    let base_tree_id = testutils::create_tree_with(&repo, |builder| {
+        builder
+            .file(repo_path("some/dir/normal-file"), "base\n")
+            .executable(false);
+        builder
+            .file(repo_path("some/dir/executable-file"), "base\n")
+            .executable(true);
+        builder.symlink(repo_path("some/dir/symlink"), "./normal-file");
+        builder.submodule(
+            repo_path("some/dir/commit"),
+            testutils::write_random_commit(mut_repo).id().clone(),
         );
-        testutils::write_executable_file(
-            &mut tree_builder,
-            repo_path("some/dir/executable-file"),
-            "base\n",
-        );
-        testutils::write_symlink(
-            &mut tree_builder,
-            repo_path("some/dir/symlink"),
-            "./normal-file",
-        );
-        tree_builder.set(
-            repo_path_buf("some/dir/commit"),
-            TreeValue::GitSubmodule(testutils::write_random_commit(mut_repo).id().clone()),
-        );
-        MergedTreeId::resolved(tree_builder.write_tree().unwrap())
-    };
+    })
+    .id();
 
-    let left_tree_id = {
-        let mut tree_builder =
-            TreeBuilder::new(repo.store().clone(), repo.store().empty_tree_id().clone());
-        testutils::write_normal_file(
-            &mut tree_builder,
-            repo_path("some/dir/normal-file"),
-            "left\n",
+    let left_tree_id = testutils::create_tree_with(&repo, |builder| {
+        builder
+            .file(repo_path("some/dir/normal-file"), "left\n")
+            .executable(false);
+        builder
+            .file(repo_path("some/dir/executable-file"), "left\n")
+            .executable(true);
+        builder.symlink(repo_path("some/dir/symlink"), "./executable-file");
+        builder.submodule(
+            repo_path("some/dir/commit"),
+            testutils::write_random_commit(mut_repo).id().clone(),
         );
-        testutils::write_executable_file(
-            &mut tree_builder,
-            repo_path("some/dir/executable-file"),
-            "left\n",
-        );
-        testutils::write_symlink(
-            &mut tree_builder,
-            repo_path("some/dir/symlink"),
-            "./executable-file",
-        );
-        tree_builder.set(
-            repo_path_buf("some/dir/commit"),
-            TreeValue::GitSubmodule(testutils::write_random_commit(mut_repo).id().clone()),
-        );
-        MergedTreeId::resolved(tree_builder.write_tree().unwrap())
-    };
+    })
+    .id();
 
-    let right_tree_id = {
-        let mut tree_builder =
-            TreeBuilder::new(repo.store().clone(), repo.store().empty_tree_id().clone());
-        testutils::write_normal_file(
-            &mut tree_builder,
-            repo_path("some/dir/normal-file"),
-            "right\n",
+    let right_tree_id = testutils::create_tree_with(&repo, |builder| {
+        builder
+            .file(repo_path("some/dir/normal-file"), "right\n")
+            .executable(false);
+        builder
+            .file(repo_path("some/dir/executable-file"), "right\n")
+            .executable(true);
+        builder.symlink(repo_path("some/dir/symlink"), "./commit");
+        builder.submodule(
+            repo_path("some/dir/commit"),
+            testutils::write_random_commit(mut_repo).id().clone(),
         );
-        testutils::write_executable_file(
-            &mut tree_builder,
-            repo_path("some/dir/executable-file"),
-            "right\n",
-        );
-        testutils::write_symlink(&mut tree_builder, repo_path("some/dir/symlink"), "./commit");
-        tree_builder.set(
-            repo_path_buf("some/dir/commit"),
-            TreeValue::GitSubmodule(testutils::write_random_commit(mut_repo).id().clone()),
-        );
-        MergedTreeId::resolved(tree_builder.write_tree().unwrap())
-    };
+    })
+    .id();
 
     let base_commit = mut_repo
         .new_commit(
@@ -2756,19 +2716,14 @@ fn test_reset_head_with_index_file_directory_conflict() {
     let mut_repo = tx.repo_mut();
 
     // Build conflict trees containing file-directory conflict
-    let left_tree_id = {
-        let mut tree_builder =
-            TreeBuilder::new(repo.store().clone(), repo.store().empty_tree_id().clone());
-        testutils::write_normal_file(&mut tree_builder, repo_path("test/dir/file"), "dir\n");
-        MergedTreeId::resolved(tree_builder.write_tree().unwrap())
-    };
-
-    let right_tree_id = {
-        let mut tree_builder =
-            TreeBuilder::new(repo.store().clone(), repo.store().empty_tree_id().clone());
-        testutils::write_normal_file(&mut tree_builder, repo_path("test"), "file\n");
-        MergedTreeId::resolved(tree_builder.write_tree().unwrap())
-    };
+    let left_tree_id = testutils::create_tree_with(&repo, |builder| {
+        builder.file(repo_path("test/dir/file"), "dir\n");
+    })
+    .id();
+    let right_tree_id = testutils::create_tree_with(&repo, |builder| {
+        builder.file(repo_path("test"), "file\n");
+    })
+    .id();
 
     let left_commit = mut_repo
         .new_commit(

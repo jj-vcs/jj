@@ -863,17 +863,11 @@ mod tests {
 
         let added_executable_file_path = repo_path("executable_file");
         let left_tree = testutils::create_tree(&test_repo.repo, &[]);
-        let right_tree = {
-            // let store = test_repo.repo.store();
-            let mut tree_builder = store.tree_builder(store.empty_tree_id().clone());
-            testutils::write_executable_file(
-                &mut tree_builder,
-                added_executable_file_path,
-                "executable",
-            );
-            let id = tree_builder.write_tree().unwrap();
-            MergedTree::resolved(store.get_tree(RepoPathBuf::root(), &id).unwrap())
-        };
+        let right_tree = testutils::create_tree_with(&test_repo.repo, |builder| {
+            builder
+                .file(added_executable_file_path, "executable")
+                .executable(true);
+        });
 
         let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
         insta::assert_debug_snapshot!(changed_files, @r#"

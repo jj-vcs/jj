@@ -44,6 +44,7 @@ use testutils::assert_abandoned_with_parent;
 use testutils::assert_rebased_onto;
 use testutils::create_random_commit;
 use testutils::create_tree;
+use testutils::create_tree_with;
 use testutils::rebase_descendants_with_options_return_map;
 use testutils::repo_path;
 use testutils::write_random_commit;
@@ -1661,8 +1662,11 @@ fn test_empty_commit_option(empty_behavior: EmptyBehaviour) {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let create_fixed_tree = |paths: &[&str]| {
-        let content_map = paths.iter().map(|&p| (repo_path(p), p)).collect_vec();
-        create_tree(repo, &content_map)
+        create_tree_with(repo, |builder| {
+            for path in paths {
+                builder.file(repo_path(path), path);
+            }
+        })
     };
 
     // The commit_with_parents function generates non-empty merge commits, so it
