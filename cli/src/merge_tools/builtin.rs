@@ -683,21 +683,19 @@ mod tests {
         let unchanged = repo_path("unchanged");
         let changed_path = repo_path("changed");
         let added_path = repo_path("added");
-        let left_tree = testutils::create_tree(
-            &test_repo.repo,
-            &[
-                (unchanged, "unchanged\n"),
-                (changed_path, "line1\nline2\nline3\n"),
-            ],
-        );
-        let right_tree = testutils::create_tree(
-            &test_repo.repo,
-            &[
-                (unchanged, "unchanged\n"),
-                (changed_path, "line1\nchanged1\nchanged2\nline3\nadded1\n"),
-                (added_path, "added\n"),
-            ],
-        );
+        let left_tree = testutils::create_tree(&test_repo.repo, |builder| {
+            builder.entry(unchanged).text_file("unchanged\n");
+            builder
+                .entry(changed_path)
+                .text_file("line1\nline2\nline3\n");
+        });
+        let right_tree = testutils::create_tree(&test_repo.repo, |builder| {
+            builder.entry(unchanged).text_file("unchanged\n");
+            builder
+                .entry(changed_path)
+                .text_file("line1\nchanged1\nchanged2\nline3\nadded1\n");
+            builder.entry(added_path).text_file("added\n");
+        });
 
         let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
         insta::assert_debug_snapshot!(changed_files, @r#"
@@ -808,8 +806,10 @@ mod tests {
         let store = test_repo.repo.store();
 
         let added_empty_file_path = repo_path("empty_file");
-        let left_tree = testutils::create_tree(&test_repo.repo, &[]);
-        let right_tree = testutils::create_tree(&test_repo.repo, &[(added_empty_file_path, "")]);
+        let left_tree = testutils::create_tree(&test_repo.repo, |_| {});
+        let right_tree = testutils::create_tree(&test_repo.repo, |builder| {
+            builder.entry(added_empty_file_path).empty_file();
+        });
 
         let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
         insta::assert_debug_snapshot!(changed_files, @r#"
@@ -862,18 +862,13 @@ mod tests {
         let store = test_repo.repo.store();
 
         let added_executable_file_path = repo_path("executable_file");
-        let left_tree = testutils::create_tree(&test_repo.repo, &[]);
-        let right_tree = {
-            // let store = test_repo.repo.store();
-            let mut tree_builder = store.tree_builder(store.empty_tree_id().clone());
-            testutils::write_executable_file(
-                &mut tree_builder,
-                added_executable_file_path,
-                "executable",
-            );
-            let id = tree_builder.write_tree().unwrap();
-            MergedTree::resolved(store.get_tree(RepoPathBuf::root(), &id).unwrap())
-        };
+        let left_tree = testutils::create_tree(&test_repo.repo, |_| {});
+        let right_tree = testutils::create_tree(&test_repo.repo, |builder| {
+            builder
+                .entry(added_executable_file_path)
+                .text_file("executable")
+                .executable(true);
+        });
 
         let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
         insta::assert_debug_snapshot!(changed_files, @r#"
@@ -935,8 +930,10 @@ mod tests {
         let store = test_repo.repo.store();
 
         let file_path = repo_path("file_with_content");
-        let left_tree = testutils::create_tree(&test_repo.repo, &[(file_path, "content\n")]);
-        let right_tree = testutils::create_tree(&test_repo.repo, &[]);
+        let left_tree = testutils::create_tree(&test_repo.repo, |builder| {
+            builder.entry(file_path).text_file("content\n");
+        });
+        let right_tree = testutils::create_tree(&test_repo.repo, |_| {});
 
         let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
         insta::assert_debug_snapshot!(changed_files, @r#"
@@ -998,8 +995,10 @@ mod tests {
         let store = test_repo.repo.store();
 
         let added_empty_file_path = repo_path("empty_file");
-        let left_tree = testutils::create_tree(&test_repo.repo, &[(added_empty_file_path, "")]);
-        let right_tree = testutils::create_tree(&test_repo.repo, &[]);
+        let left_tree = testutils::create_tree(&test_repo.repo, |builder| {
+            builder.entry(added_empty_file_path).text_file("");
+        });
+        let right_tree = testutils::create_tree(&test_repo.repo, |_| {});
 
         let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
         insta::assert_debug_snapshot!(changed_files, @r#"
@@ -1052,9 +1051,12 @@ mod tests {
         let store = test_repo.repo.store();
 
         let empty_file_path = repo_path("empty_file");
-        let left_tree = testutils::create_tree(&test_repo.repo, &[(empty_file_path, "")]);
-        let right_tree =
-            testutils::create_tree(&test_repo.repo, &[(empty_file_path, "modified\n")]);
+        let left_tree = testutils::create_tree(&test_repo.repo, |builder| {
+            builder.entry(empty_file_path).text_file("");
+        });
+        let right_tree = testutils::create_tree(&test_repo.repo, |builder| {
+            builder.entry(empty_file_path).text_file("modified\n");
+        });
 
         let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
         insta::assert_debug_snapshot!(changed_files, @r#"
@@ -1112,8 +1114,12 @@ mod tests {
         let store = test_repo.repo.store();
 
         let file_path = repo_path("file_with_content");
-        let left_tree = testutils::create_tree(&test_repo.repo, &[(file_path, "content\n")]);
-        let right_tree = testutils::create_tree(&test_repo.repo, &[(file_path, "")]);
+        let left_tree = testutils::create_tree(&test_repo.repo, |builder| {
+            builder.entry(file_path).text_file("content\n");
+        });
+        let right_tree = testutils::create_tree(&test_repo.repo, |builder| {
+            builder.entry(file_path).text_file("");
+        });
 
         let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
         insta::assert_debug_snapshot!(changed_files, @r#"
@@ -1172,12 +1178,20 @@ mod tests {
 
         let file_path = repo_path("file");
         let left_tree = {
-            let base = testutils::create_single_tree(&test_repo.repo, &[(file_path, "")]);
-            let left = testutils::create_single_tree(&test_repo.repo, &[(file_path, "1\n")]);
-            let right = testutils::create_single_tree(&test_repo.repo, &[(file_path, "2\n")]);
+            let base = testutils::create_single_tree(&test_repo.repo, |builder| {
+                builder.entry(file_path).text_file("");
+            });
+            let left = testutils::create_single_tree(&test_repo.repo, |builder| {
+                builder.entry(file_path).text_file("1\n");
+            });
+            let right = testutils::create_single_tree(&test_repo.repo, |builder| {
+                builder.entry(file_path).text_file("2\n");
+            });
             MergedTree::new(Merge::from_vec(vec![left, base, right]))
         };
-        let right_tree = testutils::create_tree(&test_repo.repo, &[(file_path, "resolved\n")]);
+        let right_tree = testutils::create_tree(&test_repo.repo, |builder| {
+            builder.entry(file_path).text_file("resolved\n");
+        });
 
         let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
         insta::assert_debug_snapshot!(changed_files, @r#"
@@ -1265,18 +1279,21 @@ mod tests {
         let store = test_repo.repo.store();
 
         let path = repo_path("file");
-        let base_tree = testutils::create_tree(
-            &test_repo.repo,
-            &[(path, "base 1\nbase 2\nbase 3\nbase 4\nbase 5\n")],
-        );
-        let left_tree = testutils::create_tree(
-            &test_repo.repo,
-            &[(path, "left 1\nbase 2\nbase 3\nbase 4\nleft 5\n")],
-        );
-        let right_tree = testutils::create_tree(
-            &test_repo.repo,
-            &[(path, "right 1\nbase 2\nbase 3\nbase 4\nright 5\n")],
-        );
+        let base_tree = testutils::create_tree(&test_repo.repo, |builder| {
+            builder
+                .entry(path)
+                .text_file("base 1\nbase 2\nbase 3\nbase 4\nbase 5\n");
+        });
+        let left_tree = testutils::create_tree(&test_repo.repo, |builder| {
+            builder
+                .entry(path)
+                .text_file("left 1\nbase 2\nbase 3\nbase 4\nleft 5\n");
+        });
+        let right_tree = testutils::create_tree(&test_repo.repo, |builder| {
+            builder
+                .entry(path)
+                .text_file("right 1\nbase 2\nbase 3\nbase 4\nright 5\n");
+        });
 
         fn to_file_id(tree_value: MergedTreeValue) -> Option<FileId> {
             match tree_value.into_resolved() {

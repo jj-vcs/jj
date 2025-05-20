@@ -14,9 +14,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::sync::Arc;
 
-use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeId;
@@ -26,8 +24,6 @@ use jj_lib::fix::FileToFix;
 use jj_lib::fix::FixError;
 use jj_lib::fix::ParallelFileFixer;
 use jj_lib::matchers::EverythingMatcher;
-use jj_lib::merged_tree::MergedTree;
-use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
@@ -93,17 +89,6 @@ fn fix_file(store: &Store, file_to_fix: &FileToFix) -> Result<Option<FileId>, Fi
     }
 }
 
-fn create_tree_helper(
-    repo: &Arc<ReadonlyRepo>,
-    path_and_content: &[(String, String)],
-) -> MergedTree {
-    let content_map = path_and_content
-        .iter()
-        .map(|p| (repo_path(&p.0), p.1.as_str()))
-        .collect_vec();
-    create_tree(repo, &content_map)
-}
-
 fn create_commit(tx: &mut Transaction, parents: Vec<CommitId>, tree_id: MergedTreeId) -> CommitId {
     tx.repo_mut()
         .new_commit(parents, tree_id)
@@ -120,7 +105,9 @@ fn test_fix_one_file() {
 
     let mut tx = repo.start_transaction();
     let path1 = repo_path("file1");
-    let tree1 = create_tree(repo, &[(path1, "fixme:content")]);
+    let tree1 = create_tree(repo, |builder| {
+        builder.entry(path1).text_file("fixme:content");
+    });
     let commit_a = create_commit(
         &mut tx,
         vec![repo.store().root_commit_id().clone()],
@@ -140,7 +127,9 @@ fn test_fix_one_file() {
     )
     .unwrap();
 
-    let expected_tree_a = create_tree(repo, &[(path1, "CONTENT")]);
+    let expected_tree_a = create_tree(repo, |builder| {
+        builder.entry(path1).text_file("CONTENT");
+    });
     assert_eq!(summary.rewrites.len(), 1);
     assert!(summary.rewrites.contains_key(&commit_a));
     assert_eq!(summary.num_checked_commits, 1);
@@ -160,7 +149,9 @@ fn test_fixer_does_not_change_content() {
 
     let mut tx = repo.start_transaction();
     let path1 = repo_path("file1");
-    let tree1 = create_tree(repo, &[(path1, "content")]);
+    let tree1 = create_tree(repo, |builder| {
+        builder.entry(path1).text_file("content");
+    });
     let commit_a = create_commit(
         &mut tx,
         vec![repo.store().root_commit_id().clone()],
@@ -191,7 +182,7 @@ fn test_empty_commit() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let tree1 = create_tree(repo, &[]);
+    let tree1 = create_tree(repo, |_| {});
     let commit_a = create_commit(
         &mut tx,
         vec![repo.store().root_commit_id().clone()],
@@ -223,7 +214,9 @@ fn test_fixer_fails() {
 
     let mut tx = repo.start_transaction();
     let path1 = repo_path("file1");
-    let tree1 = create_tree(repo, &[(path1, "error:boo")]);
+    let tree1 = create_tree(repo, |builder| {
+        builder.entry(path1).text_file("error:boo");
+    });
     let commit_a = create_commit(
         &mut tx,
         vec![repo.store().root_commit_id().clone()],
@@ -253,14 +246,18 @@ fn test_unchanged_file_is_not_fixed() {
 
     let mut tx = repo.start_transaction();
     let path1 = repo_path("file1");
-    let tree1 = create_tree(repo, &[(path1, "fixme:content")]);
+    let tree1 = create_tree(repo, |builder| {
+        builder.entry(path1).text_file("fixme:content");
+    });
     let commit_a = create_commit(
         &mut tx,
         vec![repo.store().root_commit_id().clone()],
         tree1.id(),
     );
 
-    let tree2 = create_tree(repo, &[(path1, "fixme:content")]);
+    let tree2 = create_tree(repo, |builder| {
+        builder.entry(path1).text_file("fixme:content");
+    });
     let commit_b = create_commit(&mut tx, vec![commit_a.clone()], tree2.id());
 
     let root_commits = vec![commit_b.clone()];
@@ -288,14 +285,18 @@ fn test_unchanged_file_is_fixed() {
 
     let mut tx = repo.start_transaction();
     let path1 = repo_path("file1");
-    let tree1 = create_tree(repo, &[(path1, "fixme:content")]);
+    let tree1 = create_tree(repo, |builder| {
+        builder.entry(path1).text_file("fixme:content");
+    });
     let commit_a = create_commit(
         &mut tx,
         vec![repo.store().root_commit_id().clone()],
         tree1.id(),
     );
 
-    let tree2 = create_tree(repo, &[(path1, "fixme:content")]);
+    let tree2 = create_tree(repo, |builder| {
+        builder.entry(path1).text_file("fixme:content");
+    });
     let commit_b = create_commit(&mut tx, vec![commit_a.clone()], tree2.id());
 
     let root_commits = vec![commit_b.clone()];
@@ -310,7 +311,9 @@ fn test_unchanged_file_is_fixed() {
     )
     .unwrap();
 
-    let expected_tree_b = create_tree(repo, &[(path1, "CONTENT")]);
+    let expected_tree_b = create_tree(repo, |builder| {
+        builder.entry(path1).text_file("CONTENT");
+    });
     assert_eq!(summary.rewrites.len(), 1);
     assert!(summary.rewrites.contains_key(&commit_b));
     assert_eq!(summary.num_checked_commits, 1);
@@ -332,14 +335,18 @@ fn test_already_fixed_descendant() {
 
     let mut tx = repo.start_transaction();
     let path1 = repo_path("file1");
-    let tree1 = create_tree(repo, &[(path1, "fixme:content")]);
+    let tree1 = create_tree(repo, |builder| {
+        builder.entry(path1).text_file("fixme:content");
+    });
     let commit_a = create_commit(
         &mut tx,
         vec![repo.store().root_commit_id().clone()],
         tree1.id(),
     );
 
-    let tree2 = create_tree(repo, &[(path1, "CONTENT")]);
+    let tree2 = create_tree(repo, |builder| {
+        builder.entry(path1).text_file("CONTENT");
+    });
     let commit_b = create_commit(&mut tx, vec![commit_a.clone()], tree2.id());
 
     let root_commits = vec![commit_a.clone()];
@@ -379,7 +386,9 @@ fn test_parallel_fixer_basic() {
 
     let mut tx = repo.start_transaction();
     let path1 = repo_path("file1");
-    let tree1 = create_tree(repo, &[(path1, "fixme:content")]);
+    let tree1 = create_tree(repo, |builder| {
+        builder.entry(path1).text_file("fixme:content");
+    });
     let commit_a = create_commit(
         &mut tx,
         vec![repo.store().root_commit_id().clone()],
@@ -399,7 +408,9 @@ fn test_parallel_fixer_basic() {
     )
     .unwrap();
 
-    let expected_tree_a = create_tree(repo, &[(path1, "CONTENT")]);
+    let expected_tree_a = create_tree(repo, |builder| {
+        builder.entry(path1).text_file("CONTENT");
+    });
     assert_eq!(summary.rewrites.len(), 1);
     assert!(summary.rewrites.contains_key(&commit_a));
     assert_eq!(summary.num_checked_commits, 1);
@@ -418,13 +429,13 @@ fn test_parallel_fixer_fixes_files() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut path_contents1 = vec![];
-    for i in 0..100 {
-        let path = format!("file{i}");
-        let content = format!("fixme:content{i}");
-        path_contents1.push((path, content));
-    }
-    let tree1 = create_tree_helper(repo, &path_contents1);
+    let tree1 = create_tree(repo, |builder| {
+        for i in 0..100 {
+            builder
+                .entry(repo_path(&format!("file{i}")))
+                .text_file(&format!("fixme:content{i}"));
+        }
+    });
     let commit_a = create_commit(
         &mut tx,
         vec![repo.store().root_commit_id().clone()],
@@ -444,13 +455,13 @@ fn test_parallel_fixer_fixes_files() {
     )
     .unwrap();
 
-    let mut expected_path_contents = vec![];
-    for i in 0..100 {
-        let path = format!("file{i}");
-        let content = format!("CONTENT{i}");
-        expected_path_contents.push((path, content));
-    }
-    let expected_tree_a = create_tree_helper(repo, &expected_path_contents);
+    let expected_tree_a = create_tree(repo, |builder| {
+        for i in 0..100 {
+            builder
+                .entry(repo_path(&format!("file{i}")))
+                .text_file(&format!("CONTENT{i}"));
+        }
+    });
 
     assert_eq!(summary.rewrites.len(), 1);
     assert!(summary.rewrites.contains_key(&commit_a));
@@ -470,13 +481,13 @@ fn test_parallel_fixer_does_not_change_content() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut path_contents1 = vec![];
-    for i in 0..100 {
-        let path = format!("file{i}");
-        let content = format!("content{i}");
-        path_contents1.push((path, content));
-    }
-    let tree1 = create_tree_helper(repo, &path_contents1);
+    let tree1 = create_tree(repo, |builder| {
+        for i in 0..100 {
+            builder
+                .entry(repo_path(&format!("file{i}")))
+                .text_file(&format!("content{i}"));
+        }
+    });
     let commit_a = create_commit(
         &mut tx,
         vec![repo.store().root_commit_id().clone()],
@@ -507,19 +518,21 @@ fn test_parallel_fixer_no_changes_upon_partial_failure() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut path_contents1 = vec![];
-    for i in 0..100 {
-        let path = format!("file{i}");
-        let content = if i == 7 {
-            format!("error:boo{i}")
-        } else if i % 3 == 0 {
-            format!("fixme:content{i}")
-        } else {
-            format!("foobar:{i}")
-        };
-        path_contents1.push((path, content));
-    }
-    let tree1 = create_tree_helper(repo, &path_contents1);
+    let tree1 = create_tree(repo, |builder| {
+        for i in 0..100 {
+            let contents = if i == 7 {
+                format!("error:boo{i}")
+            } else if i % 3 == 0 {
+                format!("fixme:content{i}")
+            } else {
+                format!("foobar:{i}")
+            };
+
+            builder
+                .entry(repo_path(&format!("file{i}")))
+                .text_file(&contents);
+        }
+    });
     let commit_a = create_commit(
         &mut tx,
         vec![repo.store().root_commit_id().clone()],
@@ -556,20 +569,28 @@ fn test_fix_multiple_revisions() {
     // A
     let mut tx = repo.start_transaction();
     let path1 = repo_path("file1");
-    let tree1 = create_tree(repo, &[(path1, "fixme:xyz")]);
+    let tree1 = create_tree(repo, |builder| {
+        builder.entry(path1).text_file("fixme:xyz");
+    });
     let commit_a = create_commit(
         &mut tx,
         vec![repo.store().root_commit_id().clone()],
         tree1.id(),
     );
     let path2 = repo_path("file2");
-    let tree2 = create_tree(repo, &[(path2, "content")]);
+    let tree2 = create_tree(repo, |builder| {
+        builder.entry(path2).text_file("content");
+    });
     let commit_b = create_commit(&mut tx, vec![commit_a.clone()], tree2.id());
     let path3 = repo_path("file3");
-    let tree3 = create_tree(repo, &[(path3, "content")]);
+    let tree3 = create_tree(repo, |builder| {
+        builder.entry(path3).text_file("content");
+    });
     let _commit_c = create_commit(&mut tx, vec![commit_b.clone()], tree3.id());
     let path4 = repo_path("file4");
-    let tree4 = create_tree(repo, &[(path4, "content")]);
+    let tree4 = create_tree(repo, |builder| {
+        builder.entry(path4).text_file("content");
+    });
     let _commit_d = create_commit(&mut tx, vec![commit_a.clone()], tree4.id());
 
     let root_commits = vec![commit_a.clone()];
@@ -585,7 +606,9 @@ fn test_fix_multiple_revisions() {
     )
     .unwrap();
 
-    let expected_tree_a = create_tree(repo, &[(path1, "XYZ")]);
+    let expected_tree_a = create_tree(repo, |builder| {
+        builder.entry(path1).text_file("XYZ");
+    });
 
     let new_commit_a = repo
         .store()

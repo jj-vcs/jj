@@ -116,13 +116,17 @@ fn test_checkout_parallel() {
     let mut tree_ids = vec![];
     for i in 0..num_threads {
         let path = repo_path_buf(format!("file{i}"));
-        let tree = create_tree(repo, &[(&path, "contents")]);
+        let tree = create_tree(repo, |builder| {
+            builder.entry(&path).text_file("contents");
+        });
         tree_ids.push(tree.id());
     }
 
     // Create another tree just so we can test the update stats reliably from the
     // first update
-    let tree = create_tree(repo, &[(repo_path("other file"), "contents")]);
+    let tree = create_tree(repo, |builder| {
+        builder.entry(repo_path("other file")).text_file("contents");
+    });
     let commit = commit_with_tree(repo.store(), tree.id());
     test_workspace
         .workspace
@@ -184,7 +188,9 @@ fn test_racy_checkout() {
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
     let path = repo_path("file");
-    let tree = create_tree(repo, &[(path, "1")]);
+    let tree = create_tree(repo, |builder| {
+        builder.entry(path).text_file("1");
+    });
     let commit = commit_with_tree(repo.store(), tree.id());
 
     let mut num_matches = 0;

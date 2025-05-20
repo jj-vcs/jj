@@ -3672,30 +3672,21 @@ fn test_evaluate_expression_file() {
     let added_clean_clean = repo_path("added_clean_clean");
     let added_modified_clean = repo_path("added_modified_clean");
     let added_modified_removed = repo_path("added_modified_removed");
-    let tree1 = create_tree(
-        repo,
-        &[
-            (added_clean_clean, "1"),
-            (added_modified_clean, "1"),
-            (added_modified_removed, "1"),
-        ],
-    );
-    let tree2 = create_tree(
-        repo,
-        &[
-            (added_clean_clean, "1"),
-            (added_modified_clean, "2"),
-            (added_modified_removed, "2"),
-        ],
-    );
-    let tree3 = create_tree(
-        repo,
-        &[
-            (added_clean_clean, "1"),
-            (added_modified_clean, "2"),
-            // added_modified_removed,
-        ],
-    );
+    let tree1 = create_tree(repo, |builder| {
+        builder.entry(added_clean_clean).text_file("1");
+        builder.entry(added_modified_clean).text_file("1");
+        builder.entry(added_modified_removed).text_file("1");
+    });
+    let tree2 = create_tree(repo, |builder| {
+        builder.entry(added_clean_clean).text_file("1");
+        builder.entry(added_modified_clean).text_file("2");
+        builder.entry(added_modified_removed).text_file("2");
+    });
+    let tree3 = create_tree(repo, |builder| {
+        builder.entry(added_clean_clean).text_file("1");
+        builder.entry(added_modified_clean).text_file("2");
+        // added_modified_removed,
+    });
     let commit1 = mut_repo
         .new_commit(vec![repo.store().root_commit_id().clone()], tree1.id())
         .write()
@@ -3784,42 +3775,40 @@ fn test_evaluate_expression_diff_contains() {
     let blank_clean_inserted_clean = repo_path("blank_clean_inserted_clean");
     let noeol_modified_modified_clean = repo_path("noeol_modified_modified_clean");
     let normal_inserted_modified_removed = repo_path("normal_inserted_modified_removed");
-    let tree1 = create_tree(
-        repo,
-        &[
-            (empty_clean_inserted_deleted, ""),
-            (blank_clean_inserted_clean, "\n"),
-            (noeol_modified_modified_clean, "1"),
-            (normal_inserted_modified_removed, "1\n"),
-        ],
-    );
-    let tree2 = create_tree(
-        repo,
-        &[
-            (empty_clean_inserted_deleted, ""),
-            (blank_clean_inserted_clean, "\n"),
-            (noeol_modified_modified_clean, "2"),
-            (normal_inserted_modified_removed, "1\n2\n"),
-        ],
-    );
-    let tree3 = create_tree(
-        repo,
-        &[
-            (empty_clean_inserted_deleted, "3"),
-            (blank_clean_inserted_clean, "\n3\n"),
-            (noeol_modified_modified_clean, "2 3"),
-            (normal_inserted_modified_removed, "1 3\n2\n"),
-        ],
-    );
-    let tree4 = create_tree(
-        repo,
-        &[
-            (empty_clean_inserted_deleted, ""),
-            (blank_clean_inserted_clean, "\n3\n"),
-            (noeol_modified_modified_clean, "2 3"),
-            // normal_inserted_modified_removed
-        ],
-    );
+    let tree1 = create_tree(repo, |builder| {
+        builder.entry(empty_clean_inserted_deleted).text_file("");
+        builder.entry(blank_clean_inserted_clean).text_file("\n");
+        builder.entry(noeol_modified_modified_clean).text_file("1");
+        builder
+            .entry(normal_inserted_modified_removed)
+            .text_file("1\n");
+    });
+    let tree2 = create_tree(repo, |builder| {
+        builder.entry(empty_clean_inserted_deleted).text_file("");
+        builder.entry(blank_clean_inserted_clean).text_file("\n");
+        builder.entry(noeol_modified_modified_clean).text_file("2");
+        builder
+            .entry(normal_inserted_modified_removed)
+            .text_file("1\n2\n");
+    });
+    let tree3 = create_tree(repo, |builder| {
+        builder.entry(empty_clean_inserted_deleted).text_file("3");
+        builder.entry(blank_clean_inserted_clean).text_file("\n3\n");
+        builder
+            .entry(noeol_modified_modified_clean)
+            .text_file("2 3");
+        builder
+            .entry(normal_inserted_modified_removed)
+            .text_file("1 3\n2\n");
+    });
+    let tree4 = create_tree(repo, |builder| {
+        builder.entry(empty_clean_inserted_deleted).text_file("");
+        builder.entry(blank_clean_inserted_clean).text_file("\n3\n");
+        builder
+            .entry(noeol_modified_modified_clean)
+            .text_file("2 3");
+        // normal_inserted_modified_removed
+    });
     let commit1 = mut_repo
         .new_commit(vec![repo.store().root_commit_id().clone()], tree1.id())
         .write()
@@ -3919,9 +3908,15 @@ fn test_evaluate_expression_diff_contains_conflict() {
     let mut_repo = tx.repo_mut();
 
     let file_path = repo_path("file");
-    let tree1 = create_tree(repo, &[(file_path, "0\n1\n")]);
-    let tree2 = create_tree(repo, &[(file_path, "0\n2\n")]);
-    let tree3 = create_tree(repo, &[(file_path, "0\n3\n")]);
+    let tree1 = create_tree(repo, |builder| {
+        builder.entry(file_path).text_file("0\n1\n");
+    });
+    let tree2 = create_tree(repo, |builder| {
+        builder.entry(file_path).text_file("0\n2\n");
+    });
+    let tree3 = create_tree(repo, |builder| {
+        builder.entry(file_path).text_file("0\n3\n");
+    });
     let tree4 = tree2.merge(&tree1, &tree3).unwrap();
 
     let mut create_commit =
@@ -3954,10 +3949,22 @@ fn test_evaluate_expression_file_merged_parents() {
     // file2 can be merged automatically, file1 can't.
     let file_path1 = repo_path("file1");
     let file_path2 = repo_path("file2");
-    let tree1 = create_tree(repo, &[(file_path1, "1\n"), (file_path2, "1\n")]);
-    let tree2 = create_tree(repo, &[(file_path1, "1\n2\n"), (file_path2, "2\n1\n")]);
-    let tree3 = create_tree(repo, &[(file_path1, "1\n3\n"), (file_path2, "1\n3\n")]);
-    let tree4 = create_tree(repo, &[(file_path1, "1\n4\n"), (file_path2, "2\n1\n3\n")]);
+    let tree1 = create_tree(repo, |builder| {
+        builder.entry(file_path1).text_file("1\n");
+        builder.entry(file_path2).text_file("1\n");
+    });
+    let tree2 = create_tree(repo, |builder| {
+        builder.entry(file_path1).text_file("1\n2\n");
+        builder.entry(file_path2).text_file("2\n1\n");
+    });
+    let tree3 = create_tree(repo, |builder| {
+        builder.entry(file_path1).text_file("1\n3\n");
+        builder.entry(file_path2).text_file("1\n3\n");
+    });
+    let tree4 = create_tree(repo, |builder| {
+        builder.entry(file_path1).text_file("1\n4\n");
+        builder.entry(file_path2).text_file("2\n1\n3\n");
+    });
 
     let mut create_commit =
         |parent_ids, tree_id| mut_repo.new_commit(parent_ids, tree_id).write().unwrap();
@@ -4023,9 +4030,18 @@ fn test_evaluate_expression_conflict() {
     // Create a few trees, including one with a conflict in `file1`
     let file_path1 = repo_path("file1");
     let file_path2 = repo_path("file2");
-    let tree1 = create_tree(repo, &[(file_path1, "1"), (file_path2, "1")]);
-    let tree2 = create_tree(repo, &[(file_path1, "2"), (file_path2, "2")]);
-    let tree3 = create_tree(repo, &[(file_path1, "3"), (file_path2, "1")]);
+    let tree1 = create_tree(repo, |builder| {
+        builder.entry(file_path1).text_file("1");
+        builder.entry(file_path2).text_file("1");
+    });
+    let tree2 = create_tree(repo, |builder| {
+        builder.entry(file_path1).text_file("2");
+        builder.entry(file_path2).text_file("2");
+    });
+    let tree3 = create_tree(repo, |builder| {
+        builder.entry(file_path1).text_file("3");
+        builder.entry(file_path2).text_file("1");
+    });
     let tree4 = tree2.merge(&tree1, &tree3).unwrap();
 
     let mut create_commit =

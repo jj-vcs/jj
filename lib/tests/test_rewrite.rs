@@ -70,11 +70,16 @@ fn test_restore_tree() {
     let path2 = repo_path("dir1/file2");
     let path3 = repo_path("dir1/file3");
     let path4 = repo_path("dir2/file4");
-    let left = create_tree(repo, &[(path2, "left"), (path3, "left"), (path4, "left")]);
-    let right = create_tree(
-        repo,
-        &[(path1, "right"), (path2, "right"), (path3, "right")],
-    );
+    let left = create_tree(repo, |builder| {
+        builder.entry(path2).text_file("left");
+        builder.entry(path3).text_file("left");
+        builder.entry(path4).text_file("left");
+    });
+    let right = create_tree(repo, |builder| {
+        builder.entry(path1).text_file("right");
+        builder.entry(path2).text_file("right");
+        builder.entry(path3).text_file("right");
+    });
 
     // Restore everything using EverythingMatcher
     let restored = restore_tree(&left, &right, &EverythingMatcher).unwrap();
@@ -91,7 +96,10 @@ fn test_restore_tree() {
 
     // Restore some files
     let restored = restore_tree(&left, &right, &FilesMatcher::new([path1, path2])).unwrap();
-    let expected = create_tree(repo, &[(path2, "left"), (path3, "right")]);
+    let expected = create_tree(repo, |builder| {
+        builder.entry(path2).text_file("left");
+        builder.entry(path3).text_file("right");
+    });
     assert_eq!(restored, expected.id());
 }
 
@@ -872,28 +880,36 @@ fn test_rebase_descendants_contents() {
     // A
     let mut tx = repo.start_transaction();
     let path1 = repo_path("file1");
-    let tree1 = create_tree(repo, &[(path1, "content")]);
+    let tree1 = create_tree(repo, |builder| {
+        builder.entry(path1).text_file("content");
+    });
     let commit_a = tx
         .repo_mut()
         .new_commit(vec![repo.store().root_commit_id().clone()], tree1.id())
         .write()
         .unwrap();
     let path2 = repo_path("file2");
-    let tree2 = create_tree(repo, &[(path2, "content")]);
+    let tree2 = create_tree(repo, |builder| {
+        builder.entry(path2).text_file("content");
+    });
     let commit_b = tx
         .repo_mut()
         .new_commit(vec![commit_a.id().clone()], tree2.id())
         .write()
         .unwrap();
     let path3 = repo_path("file3");
-    let tree3 = create_tree(repo, &[(path3, "content")]);
+    let tree3 = create_tree(repo, |builder| {
+        builder.entry(path3).text_file("content");
+    });
     let commit_c = tx
         .repo_mut()
         .new_commit(vec![commit_b.id().clone()], tree3.id())
         .write()
         .unwrap();
     let path4 = repo_path("file4");
-    let tree4 = create_tree(repo, &[(path4, "content")]);
+    let tree4 = create_tree(repo, |builder| {
+        builder.entry(path4).text_file("content");
+    });
     let commit_d = tx
         .repo_mut()
         .new_commit(vec![commit_a.id().clone()], tree4.id())
@@ -1661,8 +1677,11 @@ fn test_empty_commit_option(empty_behavior: EmptyBehaviour) {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let create_fixed_tree = |paths: &[&str]| {
-        let content_map = paths.iter().map(|&p| (repo_path(p), p)).collect_vec();
-        create_tree(repo, &content_map)
+        create_tree(repo, |builder| {
+            for path in paths {
+                builder.entry(repo_path(path)).text_file(path);
+            }
+        })
     };
 
     // The commit_with_parents function generates non-empty merge commits, so it
@@ -1912,36 +1931,39 @@ fn test_find_duplicate_divergent_commits() {
     // | /
     // A1
 
-    let tree_a1 = create_tree(repo, &[(repo_path("file1"), "a\n")]);
+    let tree_a1 = create_tree(repo, |builder| {
+        builder.entry(repo_path("file1")).text_file("a\n");
+    });
     // Commit b deletes file1 and adds file2
-    let tree_b1 = create_tree(repo, &[(repo_path("file2"), "b\n")]);
+    let tree_b1 = create_tree(repo, |builder| {
+        builder.entry(repo_path("file2")).text_file("b\n");
+    });
     // Commit c appends to file2
-    let tree_c1 = create_tree(repo, &[(repo_path("file2"), "b\nc\n")]);
+    let tree_c1 = create_tree(repo, |builder| {
+        builder.entry(repo_path("file2")).text_file("b\nc\n");
+    });
     // Commit a2 re-adds file1, the same as commit a1. Since it already has a1
     // as an ancestor, it shouldn't be abandoned even though it is divergent.
-    let tree_a2 = create_tree(
-        repo,
-        &[(repo_path("file1"), "a\n"), (repo_path("file2"), "b\nc\n")],
-    );
-    let tree_d = create_tree(
-        repo,
-        &[(repo_path("file1"), "a\n"), (repo_path("file3"), "d\n")],
-    );
-    let tree_b2 = create_tree(
-        repo,
-        &[(repo_path("file2"), "b\n"), (repo_path("file3"), "d\n")],
-    );
-    let tree_c2 = create_tree(
-        repo,
-        &[(repo_path("file2"), "b\nc\n"), (repo_path("file3"), "d\n")],
-    );
-    let tree_e = create_tree(
-        repo,
-        &[
-            (repo_path("file2"), "b\nc\n"),
-            (repo_path("file3"), "d\ne\n"),
-        ],
-    );
+    let tree_a2 = create_tree(repo, |builder| {
+        builder.entry(repo_path("file1")).text_file("a\n");
+        builder.entry(repo_path("file2")).text_file("b\nc\n");
+    });
+    let tree_d = create_tree(repo, |builder| {
+        builder.entry(repo_path("file1")).text_file("a\n");
+        builder.entry(repo_path("file3")).text_file("d\n");
+    });
+    let tree_b2 = create_tree(repo, |builder| {
+        builder.entry(repo_path("file2")).text_file("b\n");
+        builder.entry(repo_path("file3")).text_file("d\n");
+    });
+    let tree_c2 = create_tree(repo, |builder| {
+        builder.entry(repo_path("file2")).text_file("b\nc\n");
+        builder.entry(repo_path("file3")).text_file("d\n");
+    });
+    let tree_e = create_tree(repo, |builder| {
+        builder.entry(repo_path("file2")).text_file("b\nc\n");
+        builder.entry(repo_path("file3")).text_file("d\ne\n");
+    });
 
     let mut make_commit = |change_id_byte, tree_id, parents| {
         tx.repo_mut()

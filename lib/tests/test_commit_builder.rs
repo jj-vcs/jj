@@ -74,13 +74,10 @@ fn test_initial(backend: TestRepoBackend) {
 
     let root_file_path = repo_path("file");
     let dir_file_path = repo_path("dir/file");
-    let tree = create_tree(
-        repo,
-        &[
-            (root_file_path, "file contents"),
-            (dir_file_path, "dir/file contents"),
-        ],
-    );
+    let tree = create_tree(repo, |builder| {
+        builder.entry(root_file_path).text_file("file contents");
+        builder.entry(dir_file_path).text_file("dir/file contents");
+    });
 
     let mut tx = repo.start_transaction();
     let author_signature = Signature {
@@ -146,13 +143,10 @@ fn test_rewrite(backend: TestRepoBackend) {
 
     let root_file_path = repo_path("file");
     let dir_file_path = repo_path("dir/file");
-    let initial_tree = create_tree(
-        repo,
-        &[
-            (root_file_path, "file contents"),
-            (dir_file_path, "dir/file contents"),
-        ],
-    );
+    let initial_tree = create_tree(repo, |builder| {
+        builder.entry(root_file_path).text_file("file contents");
+        builder.entry(dir_file_path).text_file("dir/file contents");
+    });
 
     let mut tx = repo.start_transaction();
     let initial_commit = tx
@@ -162,13 +156,12 @@ fn test_rewrite(backend: TestRepoBackend) {
         .unwrap();
     let repo = tx.commit("test").unwrap();
 
-    let rewritten_tree = create_tree(
-        &repo,
-        &[
-            (root_file_path, "file contents"),
-            (dir_file_path, "updated dir/file contents"),
-        ],
-    );
+    let rewritten_tree = create_tree(&repo, |builder| {
+        builder.entry(root_file_path).text_file("file contents");
+        builder
+            .entry(dir_file_path)
+            .text_file("updated dir/file contents");
+    });
 
     let mut config = StackedConfig::with_defaults();
     config.add_layer(

@@ -383,61 +383,136 @@ pub fn write_file(store: &Store, path: &RepoPath, contents: &str) -> FileId {
         .unwrap()
 }
 
-pub fn write_normal_file(
-    tree_builder: &mut TreeBuilder,
-    path: &RepoPath,
-    contents: &str,
-) -> FileId {
-    let id = write_file(tree_builder.store(), path, contents);
-    tree_builder.set(
-        path.to_owned(),
-        TreeValue::File {
-            id: id.clone(),
-            executable: false,
-        },
-    );
-    id
+pub struct TestTreeBuilder {
+    store: Arc<Store>,
+    tree_builder: TreeBuilder,
 }
 
-pub fn write_executable_file(tree_builder: &mut TreeBuilder, path: &RepoPath, contents: &str) {
-    let id = write_file(tree_builder.store(), path, contents);
-    tree_builder.set(
-        path.to_owned(),
-        TreeValue::File {
-            id,
-            executable: true,
-        },
-    );
-}
-
-pub fn write_symlink(tree_builder: &mut TreeBuilder, path: &RepoPath, target: &str) {
-    let id = tree_builder
-        .store()
-        .write_symlink(path, target)
-        .block_on()
-        .unwrap();
-    tree_builder.set(path.to_owned(), TreeValue::Symlink(id));
-}
-
-pub fn create_single_tree(repo: &Arc<ReadonlyRepo>, path_contents: &[(&RepoPath, &str)]) -> Tree {
-    let store = repo.store();
-    let mut tree_builder = store.tree_builder(store.empty_tree_id().clone());
-    for (path, contents) in path_contents {
-        write_normal_file(&mut tree_builder, path, contents);
+impl TestTreeBuilder {
+    pub fn new(store: Arc<Store>) -> Self {
+        let tree_builder = store.tree_builder(store.empty_tree_id().clone());
+        Self {
+            store,
+            tree_builder,
+        }
     }
-    let id = tree_builder.write_tree().unwrap();
-    store.get_tree(RepoPathBuf::root(), &id).unwrap()
+
+    pub fn entry(&mut self, path: &RepoPath) -> TestTreeEntryBuilder<'_> {
+        TestTreeEntryBuilder {
+            tree_builder: &mut self.tree_builder,
+            path: path.to_owned(),
+        }
+    }
+
+    pub fn write_single_tree(self) -> Tree {
+        let id = self.tree_builder.write_tree().unwrap();
+        self.store.get_tree(RepoPathBuf::root(), &id).unwrap()
+    }
+
+    pub fn write_merged_tree(self) -> MergedTree {
+        MergedTree::resolved(self.write_single_tree())
+    }
 }
 
-pub fn create_tree(repo: &Arc<ReadonlyRepo>, path_contents: &[(&RepoPath, &str)]) -> MergedTree {
-    MergedTree::resolved(create_single_tree(repo, path_contents))
+#[must_use]
+pub struct TestTreeEntryBuilder<'a> {
+    tree_builder: &'a mut TreeBuilder,
+    path: RepoPathBuf,
+}
+
+impl<'a> TestTreeEntryBuilder<'a> {
+    pub fn binary_file(self, contents: Vec<u8>) -> TestTreeFileEntryBuilder<'a> {
+        TestTreeFileEntryBuilder {
+            tree_builder: self.tree_builder,
+            path: self.path,
+            contents,
+            executable: false,
+        }
+    }
+
+    pub fn text_file(self, contents: &str) -> TestTreeFileEntryBuilder<'a> {
+        self.binary_file(contents.as_bytes().to_vec())
+    }
+
+    pub fn empty_file(self) -> TestTreeFileEntryBuilder<'a> {
+        self.binary_file(vec![])
+    }
+
+    pub fn symlink(self, target: &str) {
+        let TestTreeEntryBuilder { tree_builder, path } = self;
+        let id = tree_builder
+            .store()
+            .write_symlink(&path, target)
+            .block_on()
+            .unwrap();
+        tree_builder.set(path, TreeValue::Symlink(id));
+    }
+
+    pub fn submodule(self, commit: CommitId) {
+        let TestTreeEntryBuilder { tree_builder, path } = self;
+        tree_builder.set(path, TreeValue::GitSubmodule(commit));
+    }
+}
+
+pub struct TestTreeFileEntryBuilder<'a> {
+    tree_builder: &'a mut TreeBuilder,
+    path: RepoPathBuf,
+    contents: Vec<u8>,
+    executable: bool,
+}
+
+impl TestTreeFileEntryBuilder<'_> {
+    pub fn executable(mut self, executable: bool) -> Self {
+        self.executable = executable;
+        self
+    }
+}
+
+impl Drop for TestTreeFileEntryBuilder<'_> {
+    fn drop(&mut self) {
+        let id = self
+            .tree_builder
+            .store()
+            .write_file(&self.path, &mut self.contents.as_slice())
+            .block_on()
+            .unwrap();
+        let path = std::mem::replace(&mut self.path, RepoPathBuf::root());
+        self.tree_builder.set(
+            path,
+            TreeValue::File {
+                id,
+                executable: self.executable,
+            },
+        );
+    }
+}
+
+pub fn create_single_tree(
+    repo: &Arc<ReadonlyRepo>,
+    build: impl FnOnce(&mut TestTreeBuilder),
+) -> Tree {
+    let mut builder = TestTreeBuilder::new(repo.store().clone());
+    build(&mut builder);
+    builder.write_single_tree()
+}
+
+pub fn create_tree(
+    repo: &Arc<ReadonlyRepo>,
+    build: impl FnOnce(&mut TestTreeBuilder),
+) -> MergedTree {
+    let mut builder = TestTreeBuilder::new(repo.store().clone());
+    build(&mut builder);
+    builder.write_merged_tree()
 }
 
 #[must_use]
 pub fn create_random_tree(repo: &Arc<ReadonlyRepo>) -> MergedTreeId {
     let number = rand::random::<u32>();
     let path = repo_path_buf(format!("file{number}"));
-    create_tree(repo, &[(&path, "contents")]).id()
+    create_tree(repo, |builder| {
+        builder.entry(&path).text_file("contents");
+    })
+    .id()
 }
 
 pub fn create_random_commit(mut_repo: &mut MutableRepo) -> CommitBuilder<'_> {
