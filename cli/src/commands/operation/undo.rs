@@ -47,13 +47,17 @@ pub struct OperationUndoArgs {
     what: Vec<UndoWhatToRestore>,
 }
 
-fn is_undo(op: &Operation, parent_op: &Operation) -> Result<bool, OpStoreError> {
-    let grand_parents: Vec<_> = parent_op.parents().try_collect()?;
-    if let [grand_parent_op] = &grand_parents[..] {
-        Ok(op.view_id() == grand_parent_op.view_id())
-    } else {
-        Ok(false)
-    }
+// Checks whether `op` resets the view of `parent_op` to the view of the
+// grandparent op.
+//
+// This is a necessary condition for `op` to be an undo of `parent_op` but is
+// not sufficient. For example, deleting a bookmark also resets the view
+// similarly but is not a literal `undo` operation.
+fn resets_view_of(op: &Operation, parent_op: &Operation) -> Result<bool, OpStoreError> {
+    let Ok(grandparent_op) = parent_op.parents().exactly_one() else {
+        return Ok(false);
+    };
+    Ok(op.view_id() == grandparent_op?.view_id())
 }
 
 pub fn cmd_op_undo(
@@ -88,7 +92,7 @@ pub fn cmd_op_undo(
     }
     tx.finish(ui, format!("undo operation {}", bad_op.id().hex()))?;
 
-    if args.operation == "@" && is_undo(&bad_op, &parent_of_bad_op)? {
+    if args.operation == "@" && resets_view_of(&bad_op, &parent_of_bad_op)? {
         writeln!(
             ui.warning_default(),
             "The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in \
