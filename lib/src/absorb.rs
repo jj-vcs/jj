@@ -107,7 +107,7 @@ pub async fn split_hunks_to_trees(
         let right_path = entry.path.target();
         let (left_value, right_value) = entry.values?;
         let (left_text, executable) = match to_file_value(left_value) {
-            Ok(Some(mut value)) => (value.read_all(left_path)?, value.executable),
+            Ok(Some(mut value)) => (value.read_all(left_path).await?, value.executable),
             // New file should have no destinations
             Ok(None) => continue,
             Err(reason) => {
@@ -118,7 +118,7 @@ pub async fn split_hunks_to_trees(
             }
         };
         let (right_text, deleted) = match to_file_value(right_value) {
-            Ok(Some(mut value)) => (value.read_all(right_path)?, false),
+            Ok(Some(mut value)) => (value.read_all(right_path).await?, false),
             Ok(None) => (vec![], true),
             Err(reason) => {
                 selected_trees

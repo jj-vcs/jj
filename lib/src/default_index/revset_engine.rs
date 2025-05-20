@@ -1328,8 +1328,8 @@ fn matches_diff_from_parent(
             let left_future = materialize_tree_value(store, &entry.path, left_value);
             let right_future = materialize_tree_value(store, &entry.path, right_value);
             let (left_value, right_value) = futures::try_join!(left_future, right_future)?;
-            let left_contents = to_file_content(&entry.path, left_value)?;
-            let right_contents = to_file_content(&entry.path, right_value)?;
+            let left_contents = to_file_content(&entry.path, left_value).await?;
+            let right_contents = to_file_content(&entry.path, right_value).await?;
             if diff_match_lines(&left_contents, &right_contents, text_pattern)? {
                 return Ok(true);
             }
@@ -1375,12 +1375,17 @@ fn match_lines<'a, 'b>(
     })
 }
 
-fn to_file_content(path: &RepoPath, value: MaterializedTreeValue) -> BackendResult<Merge<BString>> {
+async fn to_file_content(
+    path: &RepoPath,
+    value: MaterializedTreeValue,
+) -> BackendResult<Merge<BString>> {
     let empty = || Merge::resolved(BString::default());
     match value {
         MaterializedTreeValue::Absent => Ok(empty()),
         MaterializedTreeValue::AccessDenied(_) => Ok(empty()),
-        MaterializedTreeValue::File(mut file) => Ok(Merge::resolved(file.read_all(path)?.into())),
+        MaterializedTreeValue::File(mut file) => {
+            Ok(Merge::resolved(file.read_all(path).await?.into()))
+        }
         MaterializedTreeValue::Symlink { id: _, target } => Ok(Merge::resolved(target.into())),
         MaterializedTreeValue::GitSubmodule(_) => Ok(empty()),
         MaterializedTreeValue::FileConflict(file) => Ok(file.contents),

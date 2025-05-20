@@ -160,11 +160,11 @@ pub struct MaterializedFileValue {
 impl MaterializedFileValue {
     /// Reads file content until EOF. The provided `path` is used only for error
     /// reporting purpose.
-    pub fn read_all(&mut self, path: &RepoPath) -> BackendResult<Vec<u8>> {
+    pub async fn read_all(&mut self, path: &RepoPath) -> BackendResult<Vec<u8>> {
         let mut buf = Vec::new();
         self.reader
             .read_to_end(&mut buf)
-            .block_on()
+            .await
             .map_err(|err| BackendError::ReadFile {
                 path: path.to_owned(),
                 id: self.id.clone(),

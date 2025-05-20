@@ -1136,7 +1136,7 @@ fn file_content_for_diff<T>(
     // TODO: currently we look at the whole file, even though for binary files we
     // only need to know the file size. To change that we'd have to extend all
     // the data backends to support getting the length.
-    let contents = BString::new(file.read_all(path)?);
+    let contents = BString::new(file.read_all(path).block_on()?);
     let start = &contents[..PEEK_SIZE.min(contents.len())];
     Ok(FileContent {
         is_binary: start.contains(&b'\0'),

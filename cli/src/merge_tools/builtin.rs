@@ -138,7 +138,7 @@ fn read_file_contents(
         }),
 
         MaterializedTreeValue::File(mut file) => {
-            let buf = file.read_all(path)?;
+            let buf = file.read_all(path).block_on()?;
             let file_mode = if file.executable {
                 mode::EXECUTABLE
             } else {

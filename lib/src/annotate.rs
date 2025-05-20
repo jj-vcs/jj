@@ -233,7 +233,7 @@ impl Source {
 
     fn load(commit: &Commit, file_path: &RepoPath) -> Result<Self, BackendError> {
         let tree = commit.tree()?;
-        let text = get_file_contents(commit.store(), file_path, &tree)?;
+        let text = get_file_contents(commit.store(), file_path, &tree).block_on()?;
         Ok(Self::new(text))
     }
 
@@ -385,15 +385,15 @@ fn copy_same_lines_with(
     }
 }
 
-fn get_file_contents(
+async fn get_file_contents(
     store: &Store,
     path: &RepoPath,
     tree: &MergedTree,
 ) -> Result<BString, BackendError> {
     let file_value = tree.path_value(path)?;
-    let effective_file_value = materialize_tree_value(store, path, file_value).block_on()?;
+    let effective_file_value = materialize_tree_value(store, path, file_value).await?;
     match effective_file_value {
-        MaterializedTreeValue::File(mut file) => Ok(file.read_all(path)?.into()),
+        MaterializedTreeValue::File(mut file) => Ok(file.read_all(path).await?.into()),
         MaterializedTreeValue::FileConflict(file) => Ok(materialize_merge_result_to_bytes(
             &file.contents,
             ConflictMarkerStyle::default(),
