@@ -62,7 +62,6 @@ use jj_lib::simple_backend::SimpleBackend;
 use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use jj_lib::tree::Tree;
-use jj_lib::tree_builder::TreeBuilder;
 use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::SnapshotStats;
@@ -340,6 +339,88 @@ impl TestWorkspace {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum DirEntry {
+    File { contents: Vec<u8>, executable: bool },
+    Symlink { target: String },
+    GitSubmodule { commit: CommitId },
+}
+
+impl DirEntry {
+    pub fn empty_file() -> Self {
+        DirEntry::File {
+            contents: vec![],
+            executable: false,
+        }
+    }
+
+    pub fn text_file(contents: &str) -> Self {
+        DirEntry::File {
+            contents: contents.as_bytes().to_vec(),
+            executable: false,
+        }
+    }
+
+    pub fn binary_file(contents: Vec<u8>) -> Self {
+        DirEntry::File {
+            contents,
+            executable: false,
+        }
+    }
+
+    pub fn symlink(target: &str) -> Self {
+        DirEntry::Symlink {
+            target: target.to_owned(),
+        }
+    }
+
+    pub fn submodule(commit: CommitId) -> Self {
+        DirEntry::GitSubmodule { commit }
+    }
+
+    pub fn executable(self, executable: bool) -> Self {
+        match self {
+            Self::File { contents, .. } => Self::File {
+                contents,
+                executable,
+            },
+            DirEntry::Symlink { .. } => panic!("symlinks cannot be executable"),
+            DirEntry::GitSubmodule { .. } => panic!("submodules cannot be executable"),
+        }
+    }
+
+    pub fn is_executable(&self) -> bool {
+        match self {
+            DirEntry::File { executable, .. } => *executable,
+            DirEntry::Symlink { .. } => panic!("symlinks cannot be executable"),
+            DirEntry::GitSubmodule { .. } => panic!("submodules cannot be executable"),
+        }
+    }
+
+    pub fn text_contents(&self) -> Option<&str> {
+        match self {
+            DirEntry::File { contents, .. } => {
+                if contents.contains(&0) {
+                    None
+                } else {
+                    std::str::from_utf8(contents).ok()
+                }
+            }
+            // TODO: what should the text contents of symlinks or submodules yield?
+            DirEntry::Symlink { .. } => unimplemented!(),
+            DirEntry::GitSubmodule { .. } => unimplemented!(),
+        }
+    }
+}
+
+impl From<&str> for DirEntry {
+    fn from(contents: &str) -> Self {
+        Self::text_file(contents)
+    }
+}
+
+pub const EMPTY_DIR: [(&RepoPath, DirEntry); 0] = [];
+
 pub fn commit_transactions(txs: Vec<Transaction>) -> Arc<ReadonlyRepo> {
     let repo_loader = txs[0].base_repo().loader().clone();
     let mut op_ids = vec![];
@@ -383,61 +464,53 @@ pub fn write_file(store: &Store, path: &RepoPath, contents: &str) -> FileId {
         .unwrap()
 }
 
-pub fn write_normal_file(
-    tree_builder: &mut TreeBuilder,
-    path: &RepoPath,
-    contents: &str,
-) -> FileId {
-    let id = write_file(tree_builder.store(), path, contents);
-    tree_builder.set(
-        path.to_owned(),
-        TreeValue::File {
-            id: id.clone(),
-            executable: false,
-        },
-    );
-    id
-}
-
-pub fn write_executable_file(tree_builder: &mut TreeBuilder, path: &RepoPath, contents: &str) {
-    let id = write_file(tree_builder.store(), path, contents);
-    tree_builder.set(
-        path.to_owned(),
-        TreeValue::File {
-            id,
-            executable: true,
-        },
-    );
-}
-
-pub fn write_symlink(tree_builder: &mut TreeBuilder, path: &RepoPath, target: &str) {
-    let id = tree_builder
-        .store()
-        .write_symlink(path, target)
-        .block_on()
-        .unwrap();
-    tree_builder.set(path.to_owned(), TreeValue::Symlink(id));
-}
-
-pub fn create_single_tree(repo: &Arc<ReadonlyRepo>, path_contents: &[(&RepoPath, &str)]) -> Tree {
+pub fn create_single_tree(
+    repo: &Arc<ReadonlyRepo>,
+    path_entries: impl IntoIterator<Item = (impl AsRef<RepoPath>, impl Into<DirEntry>)>,
+) -> Tree {
     let store = repo.store();
     let mut tree_builder = store.tree_builder(store.empty_tree_id().clone());
-    for (path, contents) in path_contents {
-        write_normal_file(&mut tree_builder, path, contents);
+    for (path, entry) in path_entries {
+        let path = path.as_ref();
+        let value = match entry.into() {
+            DirEntry::File {
+                contents,
+                executable,
+            } => {
+                let id = store
+                    .write_file(path, &mut contents.as_slice())
+                    .block_on()
+                    .unwrap();
+                TreeValue::File { id, executable }
+            }
+            DirEntry::Symlink { target } => {
+                let id = tree_builder
+                    .store()
+                    .write_symlink(path, &target)
+                    .block_on()
+                    .unwrap();
+                TreeValue::Symlink(id)
+            }
+            DirEntry::GitSubmodule { commit } => TreeValue::GitSubmodule(commit),
+        };
+        tree_builder.set(path.to_owned(), value);
     }
     let id = tree_builder.write_tree().unwrap();
     store.get_tree(RepoPathBuf::root(), &id).unwrap()
 }
 
-pub fn create_tree(repo: &Arc<ReadonlyRepo>, path_contents: &[(&RepoPath, &str)]) -> MergedTree {
-    MergedTree::resolved(create_single_tree(repo, path_contents))
+pub fn create_tree(
+    repo: &Arc<ReadonlyRepo>,
+    path_entries: impl IntoIterator<Item = (impl AsRef<RepoPath>, impl Into<DirEntry>)>,
+) -> MergedTree {
+    MergedTree::resolved(create_single_tree(repo, path_entries))
 }
 
 #[must_use]
 pub fn create_random_tree(repo: &Arc<ReadonlyRepo>) -> MergedTreeId {
     let number = rand::random::<u32>();
     let path = repo_path_buf(format!("file{number}"));
-    create_tree(repo, &[(&path, "contents")]).id()
+    create_tree(repo, [(&path, "contents")]).id()
 }
 
 pub fn create_random_commit(mut_repo: &mut MutableRepo) -> CommitBuilder<'_> {

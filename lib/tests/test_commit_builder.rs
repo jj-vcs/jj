@@ -75,7 +75,7 @@ fn test_initial(backend: TestRepoBackend) {
     let dir_file_path = repo_path("dir/file");
     let tree = create_tree(
         repo,
-        &[
+        [
             (root_file_path, "file contents"),
             (dir_file_path, "dir/file contents"),
         ],
@@ -143,7 +143,7 @@ fn test_rewrite(backend: TestRepoBackend) {
     let dir_file_path = repo_path("dir/file");
     let initial_tree = create_tree(
         repo,
-        &[
+        [
             (root_file_path, "file contents"),
             (dir_file_path, "dir/file contents"),
         ],
@@ -159,7 +159,7 @@ fn test_rewrite(backend: TestRepoBackend) {
 
     let rewritten_tree = create_tree(
         &repo,
-        &[
+        [
             (root_file_path, "file contents"),
             (dir_file_path, "updated dir/file contents"),
         ],

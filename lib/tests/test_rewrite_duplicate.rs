@@ -31,9 +31,9 @@ fn test_duplicate_linear_contents() {
     let path_1 = repo_path("file1");
     let path_2 = repo_path("file2");
     let empty_tree_id = repo.store().empty_merged_tree_id();
-    let tree_1 = create_tree(repo, &[(path_1, "content1")]);
-    let tree_2 = create_tree(repo, &[(path_2, "content2")]);
-    let tree_1_2 = create_tree(repo, &[(path_1, "content1"), (path_2, "content2")]);
+    let tree_1 = create_tree(repo, [(path_1, "content1")]);
+    let tree_2 = create_tree(repo, [(path_2, "content2")]);
+    let tree_1_2 = create_tree(repo, [(path_1, "content1"), (path_2, "content2")]);
 
     // E [=file2]
     // D [-file1, =file2]
