@@ -24,8 +24,8 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
+use jj_lib::rewrite::compute_move_commits;
 use jj_lib::rewrite::find_duplicate_divergent_commits;
-use jj_lib::rewrite::move_commits;
 use jj_lib::rewrite::EmptyBehaviour;
 use jj_lib::rewrite::MoveCommitsLocation;
 use jj_lib::rewrite::MoveCommitsStats;
@@ -403,12 +403,11 @@ pub(crate) fn cmd_rebase(
     };
 
     let mut tx = workspace_command.start_transaction();
+    let mut computed_move = compute_move_commits(tx.repo(), &loc)?;
     if !args.keep_divergent {
         let abandoned_divergent =
             find_duplicate_divergent_commits(tx.repo(), &loc.new_parent_ids, &loc.target)?;
-        for commit in &abandoned_divergent {
-            tx.repo_mut().record_abandoned_commit(commit);
-        }
+        computed_move.record_to_abandon(abandoned_divergent.iter().map(Commit::id).cloned());
         if !abandoned_divergent.is_empty() {
             writeln!(
                 ui.status(),
@@ -417,7 +416,7 @@ pub(crate) fn cmd_rebase(
             )?;
         }
     };
-    let stats = move_commits(tx.repo_mut(), &loc, &rebase_options)?;
+    let stats = computed_move.apply(tx.repo_mut(), &rebase_options)?;
     print_move_commits_stats(ui, &stats)?;
     tx.finish(ui, tx_description(&loc.target))?;
 

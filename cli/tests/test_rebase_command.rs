@@ -3019,18 +3019,17 @@ fn test_rebase_skip_duplicate_divergent() {
     ------- stderr -------
     Skipped 1 divergent commits that were already present in the destination
     Rebased 1 commits to destination
-    Working copy  (@) now at: znkkpsqq ead5b1d4 d | d
-    Parent commit (@-)      : rlvkpnrz 08789390 a b1 | a
-    Added 0 files, modified 1 files, removed 0 files
+    Working copy  (@) now at: znkkpsqq 81e83d0f d | d
+    Parent commit (@-)      : zsuskuln 3f194323 b1 b2 | b2
+    Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
     // BUG: "d" should be on top of "b2", but it wasn't rebased
     insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
-    @  d  znkkpsqq  ead5b1d4:  a b1
-    │ ○  b2  zsuskuln  3f194323:  c
-    │ ○  c  royxmykx  0fdb9e5a:  a b1
-    ├─╯
-    ○  a b1  rlvkpnrz  08789390
+    @  d  znkkpsqq  81e83d0f:  b1 b2
+    ○  b1 b2  zsuskuln  3f194323:  c
+    ○  c  royxmykx  0fdb9e5a:  a
+    ○  a  rlvkpnrz  08789390
     ◆    zzzzzzzz  00000000
     [EOF]
     ");
