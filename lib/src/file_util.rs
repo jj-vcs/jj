@@ -168,7 +168,7 @@ pub fn persist_content_addressed_temp_file<P: AsRef<Path>>(
 /// Reads from an async source and writes to a sync destination. Does not spawn
 /// a task, so writes will block.
 pub async fn copy_async_to_sync<R: AsyncRead, W: Write + ?Sized>(
-    mut reader: R,
+    reader: R,
     writer: &mut W,
 ) -> io::Result<usize> {
     let mut buf = vec![0; 16 << 10];
