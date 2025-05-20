@@ -477,9 +477,17 @@ fn apply_changes(
             }
             scm_record::SelectedContents::Binary {
                 old_description: _,
-                new_description: _,
+                new_description: Some(_),
             } => {
-                let value = select_right(&path)?;
+                let value = override_file_executable_bit(select_right(&path)?, executable);
+                tree_builder.set_or_remove(path, value);
+            }
+            scm_record::SelectedContents::Binary {
+                old_description: _,
+                new_description: None,
+            } => {
+                // File contents emptied out, but file mode is not absent => write empty file.
+                let value = write_file(&path, &[], executable)?;
                 tree_builder.set_or_remove(path, value);
             }
             scm_record::SelectedContents::Text { contents } => {
@@ -1174,6 +1182,150 @@ mod tests {
             "all-changes tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
             dump_tree(store, &right_tree.id()),
             dump_tree(store, &all_changes_tree.id()),
+        );
+    }
+
+    #[test]
+    fn test_edit_diff_builtin_change_binary_file_with_unselected_file_mode_change() {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+
+        let binary_file_path = repo_path("binary_file");
+        let left_tree = testutils::create_tree_with(&test_repo.repo, |builder| {
+            builder
+                .file(binary_file_path, vec![0xff, 0x00])
+                .executable(false);
+        });
+        let right_tree = testutils::create_tree_with(&test_repo.repo, |builder| {
+            builder
+                .file(binary_file_path, vec![0xff, 0x01])
+                .executable(true);
+        });
+
+        let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
+        insta::assert_debug_snapshot!(changed_files, @r#"
+        [
+            "binary_file",
+        ]
+        "#);
+        insta::assert_debug_snapshot!(files, @r#"
+        [
+            File {
+                old_path: None,
+                path: "binary_file",
+                file_mode: Unix(
+                    33188,
+                ),
+                sections: [
+                    FileMode {
+                        is_checked: false,
+                        mode: Unix(
+                            33261,
+                        ),
+                    },
+                    Binary {
+                        is_checked: false,
+                        old_description: Some(
+                            "fb296c879f1852c0dca0 (2B)",
+                        ),
+                        new_description: Some(
+                            "cc429d26cbaec338223b (2B)",
+                        ),
+                    },
+                ],
+            },
+        ]
+        "#);
+
+        // Select only the binary change
+        let mut files = files;
+        for file in &mut files {
+            for section in &mut file.sections {
+                if let scm_record::Section::Binary { is_checked, .. } = section {
+                    *is_checked = true;
+                }
+            }
+        }
+
+        let expected_tree = testutils::create_tree_with(&test_repo.repo, |builder| {
+            builder
+                .file(binary_file_path, vec![0xff, 0x01])
+                .executable(false);
+        });
+        let actual_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        let actual_tree = store.get_root_tree(&actual_tree_id).unwrap();
+        assert_eq!(
+            expected_tree.id(),
+            actual_tree.id(),
+            "tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
+            dump_tree(store, &expected_tree.id()),
+            dump_tree(store, &actual_tree.id()),
+        );
+    }
+
+    #[test]
+    fn test_edit_diff_builtin_delete_binary_file_with_unselected_file_mode_change() {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+
+        let binary_file_path = repo_path("binary_file");
+        let left_tree = testutils::create_tree_with(&test_repo.repo, |builder| {
+            builder.file(binary_file_path, vec![0xff, 0x00]);
+        });
+        let right_tree = testutils::create_tree(&test_repo.repo, &[]);
+
+        let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
+        insta::assert_debug_snapshot!(changed_files, @r#"
+        [
+            "binary_file",
+        ]
+        "#);
+        insta::assert_debug_snapshot!(files, @r#"
+        [
+            File {
+                old_path: None,
+                path: "binary_file",
+                file_mode: Unix(
+                    33188,
+                ),
+                sections: [
+                    FileMode {
+                        is_checked: false,
+                        mode: Absent,
+                    },
+                    Binary {
+                        is_checked: false,
+                        old_description: Some(
+                            "fb296c879f1852c0dca0 (2B)",
+                        ),
+                        new_description: None,
+                    },
+                ],
+            },
+        ]
+        "#);
+
+        // Select only the binary change
+        let mut files = files;
+        for file in &mut files {
+            for section in &mut file.sections {
+                if let scm_record::Section::Binary { is_checked, .. } = section {
+                    *is_checked = true;
+                }
+            }
+        }
+
+        let expected_tree = testutils::create_tree_with(&test_repo.repo, |builder| {
+            builder.file(binary_file_path, vec![]);
+        });
+        let actual_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        let actual_tree = store.get_root_tree(&actual_tree_id).unwrap();
+        assert_eq!(
+            expected_tree.id(),
+            actual_tree.id(),
+            "tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
+            dump_tree(store, &expected_tree.id()),
+            dump_tree(store, &actual_tree.id()),
         );
     }
 
