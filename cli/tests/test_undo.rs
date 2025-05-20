@@ -468,7 +468,7 @@ fn test_bookmark_track_untrack_undo() {
 }
 
 #[test]
-fn test_shows_a_warning_when_undoing_an_undo_operation_as_bare_jj_undo() {
+fn test_undo_latest_undo_implicitly() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -503,7 +503,7 @@ fn test_shows_a_warning_when_undoing_an_undo_operation_as_bare_jj_undo() {
 }
 
 #[test]
-fn test_shows_no_warning_when_undoing_a_specific_undo_change() {
+fn test_undo_latest_undo_explicitly() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
