@@ -584,7 +584,7 @@ fn print_move_commits_stats(ui: &Ui, stats: &MoveCommitsStats) -> std::io::Resul
         num_rebased_targets,
         num_rebased_descendants,
         num_skipped_rebases,
-        num_abandoned,
+        num_abandoned_empty,
         rebased_commits: _,
     } = stats;
     if num_skipped_rebases > 0 {
@@ -605,8 +605,11 @@ fn print_move_commits_stats(ui: &Ui, stats: &MoveCommitsStats) -> std::io::Resul
             "Rebased {num_rebased_descendants} descendant commits"
         )?;
     }
-    if num_abandoned > 0 {
-        writeln!(formatter, "Abandoned {num_abandoned} newly emptied commits")?;
+    if num_abandoned_empty > 0 {
+        writeln!(
+            formatter,
+            "Abandoned {num_abandoned_empty} newly emptied commits"
+        )?;
     }
     Ok(())
 }

@@ -397,8 +397,8 @@ pub struct MoveCommitsStats {
     /// The number of commits for which rebase was skipped, due to the commit
     /// already being in place.
     pub num_skipped_rebases: u32,
-    /// The number of commits which were abandoned.
-    pub num_abandoned: u32,
+    /// The number of commits which were abandoned due to being empty.
+    pub num_abandoned_empty: u32,
     /// The rebased commits
     pub rebased_commits: HashMap<CommitId, RebasedCommit>,
 }
@@ -421,10 +421,11 @@ pub enum MoveCommitsTarget {
 }
 
 #[derive(Clone, Debug)]
-struct ComputedMoveCommits {
+pub struct ComputedMoveCommits {
     target_commit_ids: IndexSet<CommitId>,
     descendants: Vec<Commit>,
     commit_new_parents_map: HashMap<CommitId, Vec<CommitId>>,
+    to_abandon: HashSet<CommitId>,
 }
 
 impl ComputedMoveCommits {
@@ -433,7 +434,26 @@ impl ComputedMoveCommits {
             target_commit_ids: IndexSet::new(),
             descendants: vec![],
             commit_new_parents_map: HashMap::new(),
+            to_abandon: HashSet::new(),
         }
+    }
+
+    /// Records a set of commits to abandon while rebasing.
+    ///
+    /// Abandoning these commits while rebasing ensures that their descendants
+    /// are still rebased properly. [`MutableRepo::record_abandoned_commit`] is
+    /// similar, but it can lead to issues when abandoning a target commit
+    /// before the rebase.
+    pub fn record_to_abandon(&mut self, commit_ids: impl IntoIterator<Item = CommitId>) {
+        self.to_abandon.extend(commit_ids);
+    }
+
+    pub fn apply(
+        self,
+        mut_repo: &mut MutableRepo,
+        options: &RebaseOptions,
+    ) -> BackendResult<MoveCommitsStats> {
+        apply_move_commits(mut_repo, self, options)
     }
 }
 
@@ -450,11 +470,10 @@ pub fn move_commits(
     loc: &MoveCommitsLocation,
     options: &RebaseOptions,
 ) -> BackendResult<MoveCommitsStats> {
-    let commits = compute_move_commits(mut_repo, loc)?;
-    apply_move_commits(mut_repo, commits, options)
+    compute_move_commits(mut_repo, loc)?.apply(mut_repo, options)
 }
 
-fn compute_move_commits(
+pub fn compute_move_commits(
     repo: &MutableRepo,
     loc: &MoveCommitsLocation,
 ) -> BackendResult<ComputedMoveCommits> {
@@ -738,6 +757,7 @@ fn compute_move_commits(
         target_commit_ids,
         descendants,
         commit_new_parents_map,
+        to_abandon: HashSet::new(),
     })
 }
 
@@ -749,7 +769,7 @@ fn apply_move_commits(
     let mut num_rebased_targets = 0;
     let mut num_rebased_descendants = 0;
     let mut num_skipped_rebases = 0;
-    let mut num_abandoned = 0;
+    let mut num_abandoned_empty = 0;
 
     // Always keep empty commits when rebasing descendants.
     let rebase_descendant_options = &RebaseOptions {
@@ -765,7 +785,9 @@ fn apply_move_commits(
         &options.rewrite_refs,
         |rewriter| {
             let old_commit_id = rewriter.old_commit().id().clone();
-            if rewriter.parents_changed() {
+            if commits.to_abandon.contains(&old_commit_id) {
+                rewriter.abandon();
+            } else if rewriter.parents_changed() {
                 let is_target_commit = commits.target_commit_ids.contains(&old_commit_id);
                 let rebased_commit = rebase_commit_with_options(
                     rewriter,
@@ -776,7 +798,7 @@ fn apply_move_commits(
                     },
                 )?;
                 if let RebasedCommit::Abandoned { .. } = rebased_commit {
-                    num_abandoned += 1;
+                    num_abandoned_empty += 1;
                 } else if is_target_commit {
                     num_rebased_targets += 1;
                 } else {
@@ -795,7 +817,7 @@ fn apply_move_commits(
         num_rebased_targets,
         num_rebased_descendants,
         num_skipped_rebases,
-        num_abandoned,
+        num_abandoned_empty,
         rebased_commits,
     })
 }
