@@ -441,6 +441,9 @@ impl From<ConflictResolveError> for CommandError {
             ConflictResolveError::Io(err) => err.into(),
             _ => {
                 let hint = match &err {
+                    ConflictResolveError::ConflictTooComplicated { .. } => {
+                        Some("Edit the conflict markers manually to resolve this.".to_owned())
+                    }
                     ConflictResolveError::ExecutableConflict { .. } => {
                         Some("Use `jj file chmod` to update the executable bit.".to_owned())
                     }

@@ -645,6 +645,7 @@ fn test_too_many_parents() {
     Hint: Using default editor ':builtin'; run `jj config set --user ui.merge-editor :builtin` to disable this message.
     Error: Failed to resolve conflicts
     Caused by: The conflict at "file" has 3 sides. At most 2 sides are supported.
+    Hint: Edit the conflict markers manually to resolve this.
     [EOF]
     [exit status: 1]
     "#);
