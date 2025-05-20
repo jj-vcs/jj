@@ -2978,17 +2978,19 @@ fn test_rebase_skip_duplicate_divergent() {
     // Set up commit graph with divergent changes
     create_commit_with_files(&work_dir, "a", &[], &[("file1", "initial\n")]);
     create_commit_with_files(&work_dir, "b2", &["a"], &[("file1", "initial\nb\n")]);
-    create_commit_with_files(&work_dir, "c", &["a"], &[("file2", "d\n")]);
-    work_dir.run_jj(["rebase", "-s", "b2", "-d", "c"]).success();
+    create_commit_with_files(&work_dir, "c", &["a"], &[("file2", "c\n")]);
+    work_dir.run_jj(["rebase", "-r", "b2", "-d", "c"]).success();
     work_dir
         .run_jj(["bookmark", "create", "b1", "-r", "at_operation(@-, b2)"])
         .success();
+    create_commit_with_files(&work_dir, "d", &["b1"], &[("file3", "d\n")]);
 
     // Test the setup (commit B is duplicated)
     insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
-    ○  b2  zsuskuln  3bb70fa2:  c
-    @  c  royxmykx  ddc47df6:  a
-    │ ○  b1  zsuskuln  48bf33ab:  a
+    @  d  znkkpsqq  ecbe1d2f:  b1
+    ○  b1  zsuskuln  48bf33ab:  a
+    │ ○  b2  zsuskuln  3f194323:  c
+    │ ○  c  royxmykx  0fdb9e5a:  a
     ├─╯
     ○  a  rlvkpnrz  08789390
     ◆    zzzzzzzz  00000000
@@ -2996,36 +2998,54 @@ fn test_rebase_skip_duplicate_divergent() {
     ");
 
     // By default, rebase should skip the duplicate of commit B
-    insta::assert_snapshot!(work_dir.run_jj(["rebase", "-s", "c", "-d", "b1"]).success(), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["rebase", "-r", "c::", "-d", "d"]), @r"
     ------- stderr -------
     Skipped 1 divergent commits that were already present in the destination
     Rebased 1 commits to destination
-    Working copy  (@) now at: royxmykx e09e76dc b2 c | c
-    Parent commit (@-)      : zsuskuln 48bf33ab b1 | b2
-    Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
     insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
-    @  b2 c  royxmykx  e09e76dc:  b1
+    ○  b2 c  royxmykx  56740329:  d
+    @  d  znkkpsqq  ecbe1d2f:  b1
     ○  b1  zsuskuln  48bf33ab:  a
     ○  a  rlvkpnrz  08789390
     ◆    zzzzzzzz  00000000
     [EOF]
     ");
 
-    // Rebase with "--keep-divergent" shouldn't skip any duplicates
+    // Rebasing should work even if the root of the target set is abandoned
     work_dir.run_jj(["undo"]).success();
-    insta::assert_snapshot!(work_dir.run_jj(["rebase", "-s", "c", "-d", "b1", "--keep-divergent"]).success(), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["rebase", "-s", "b1", "-d", "b2"]), @r"
     ------- stderr -------
-    Rebased 2 commits to destination
-    Working copy  (@) now at: royxmykx 1e2f1d7b c | c
-    Parent commit (@-)      : zsuskuln?? 48bf33ab b1 | b2
+    Skipped 1 divergent commits that were already present in the destination
+    Rebased 1 commits to destination
+    Working copy  (@) now at: znkkpsqq ead5b1d4 d | d
+    Parent commit (@-)      : rlvkpnrz 08789390 a b1 | a
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
+    // BUG: "d" should be on top of "b2", but it wasn't rebased
     insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
-    ○  b2  zsuskuln  0f72e47f:  c
-    @  c  royxmykx  1e2f1d7b:  b1
+    @  d  znkkpsqq  ead5b1d4:  a b1
+    │ ○  b2  zsuskuln  3f194323:  c
+    │ ○  c  royxmykx  0fdb9e5a:  a b1
+    ├─╯
+    ○  a b1  rlvkpnrz  08789390
+    ◆    zzzzzzzz  00000000
+    [EOF]
+    ");
+
+    // Rebase with "--keep-divergent" shouldn't skip any duplicates
+    work_dir.run_jj(["undo"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["rebase", "-s", "c", "-d", "d", "--keep-divergent"]), @r"
+    ------- stderr -------
+    Rebased 2 commits to destination
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    ○  b2  zsuskuln  f8e418c5:  c
+    ○  c  royxmykx  e232ead1:  d
+    @  d  znkkpsqq  ecbe1d2f:  b1
     ○  b1  zsuskuln  48bf33ab:  a
     ○  a  rlvkpnrz  08789390
     ◆    zzzzzzzz  00000000
