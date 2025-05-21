@@ -341,6 +341,16 @@ async fn make_diff_files(
                 sections.extend(make_diff_sections(&old_contents, &new_contents)?);
             }
 
+            (
+                FileContents::Binary {
+                    hash: left_hash, ..
+                },
+                FileContents::Binary {
+                    hash: right_hash, ..
+                },
+            ) if left_hash == right_hash => {
+                // Binary file contents have not changed.
+            }
             (left, right @ FileContents::Binary { .. })
             | (left @ FileContents::Binary { .. }, right) => {
                 sections.push(scm_record::Section::Binary {
