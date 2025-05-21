@@ -210,36 +210,37 @@ transition once we default to these new completions.
     to the name of your shell (see examples below). See the upstream clap issue
     [#3166][clap] for the explanation.
 
+<!-- The content tabs formatting below is optimized for the website and not for GitHub. -->
 
 ### Bash
 
-#### Standard
+=== "Standard"
 
-```shell
-source <(jj util completion bash)
-```
+    ```shell
+    source <(jj util completion bash)
+    ```
 
-#### Dynamic
+=== "Dynamic"
 
-```shell
-source <(COMPLETE=bash jj)
-```
+    ```shell
+    source <(COMPLETE=bash jj)
+    ```
 
 ### Zsh
 
-#### Standard
+=== "Standard"
 
-```shell
-autoload -U compinit
-compinit
-source <(jj util completion zsh)
-```
+    ```shell
+    autoload -U compinit
+    compinit
+    source <(jj util completion zsh)
+    ```
 
-#### Dynamic
+=== "Dynamic"
 
-```shell
-source <(COMPLETE=zsh jj)
-```
+    ```shell
+    source <(COMPLETE=zsh jj)
+    ```
 
 ### Fish
 
@@ -247,45 +248,45 @@ source <(COMPLETE=zsh jj)
 
     No configuration is required with fish >= 4.0.2 which loads dynamic completions by default.
 
-#### Standard
+=== "Standard"
 
-```shell
-jj util completion fish | source
-```
+    ```shell
+    jj util completion fish | source
+    ```
 
-#### Dynamic
+=== "Dynamic"
 
-```shell
-COMPLETE=fish jj | source
-```
+    ```shell
+    COMPLETE=fish jj | source
+    ```
 
 ### Nushell
 
-```nu
-jj util completion nushell | save completions-jj.nu
-use completions-jj.nu *  # Or `source completions-jj.nu`
-```
+=== "Standard"
 
-(dynamic completions not available yet)
+    ```nu
+    jj util completion nushell | save completions-jj.nu
+    use completions-jj.nu *  # Or `source completions-jj.nu`
+    ```
 
 ### Xonsh
 
-```shell
-source-bash $(jj util completion bash)
-```
+=== "Standard"
 
-(dynamic completions not available yet)
+    ```shell
+    source-bash $(jj util completion)
+    ```
 
 ### Powershell
 
-Insert this line in your `$PROFILE` file
-(usually `$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1`):
+=== "Standard"
 
-```shell
-Invoke-Expression (& { (jj util completion power-shell | Out-String) })
-```
+    Insert this line in your `$PROFILE` file
+    (usually `$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1`):
 
-(dynamic completions not available yet)
+    ```shell
+    Invoke-Expression (& { (jj util completion power-shell | Out-String) })
+    ```
 
 [cargo-binstall]: https://github.com/cargo-bins/cargo-binstall
 [clap]: https://github.com/clap-rs/clap/issues/3166
