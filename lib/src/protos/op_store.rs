@@ -121,6 +121,12 @@ pub struct Operation {
     pub parents: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
     #[prost(message, optional, tag = "3")]
     pub metadata: ::core::option::Option<OperationMetadata>,
+    /// Introduced in jj 0.30.
+    #[prost(message, repeated, tag = "4")]
+    pub commit_predecessors: ::prost::alloc::vec::Vec<CommitPredecessors>,
+    /// Whether or not `commit_predecessors` is recorded.
+    #[prost(bool, tag = "5")]
+    pub stores_commit_predecessors: bool,
 }
 /// TODO: Share with store.proto? Do we even need the timezone here?
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -149,6 +155,13 @@ pub struct OperationMetadata {
         ::prost::alloc::string::String,
         ::prost::alloc::string::String,
     >,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CommitPredecessors {
+    #[prost(bytes = "vec", tag = "1")]
+    pub commit_id: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", repeated, tag = "2")]
+    pub predecessor_ids: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]

@@ -667,12 +667,12 @@ fn test_op_abandon_ancestors() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["debug", "local-working-copy", "--ignore-working-copy"]), @r#"
-    Current operation: OperationId("10a84113804fa7989bcbad93da85a8cd7e05fcd1a17612a380fc2ce5a1f1196d5c09cf928c4ceffdccbf851d9aed244fa226d48c1f06b4a048bfa9d88b8f23cb")
+    Current operation: OperationId("1675333b7de89b5da012c696d797345bad2a6ce55a4b605e85c3897f818f05e11e8c53de19d34c2fee38a36528dc95bd2a378f72ac0877f8bec2513a68043253")
     Current tree: Merge(Resolved(TreeId("4b825dc642cb6eb9a060e54bf8d69288fbee4904")))
     [EOF]
     "#);
     insta::assert_snapshot!(work_dir.run_jj(["op", "log"]), @r"
-    @  10a84113804f test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    @  1675333b7de8 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │  commit 4e0592f3dd52e7a4998a97d9a1f354e2727a856b
     │  args: jj commit -m 'commit 2'
     ○  000000000000 root()
@@ -690,10 +690,10 @@ fn test_op_abandon_ancestors() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["op", "log"]), @r"
-    @  117e859b7a18 test-username@host.example.com 2001-02-03 04:05:16.000 +07:00 - 2001-02-03 04:05:16.000 +07:00
+    @  9df33337d494 test-username@host.example.com 2001-02-03 04:05:16.000 +07:00 - 2001-02-03 04:05:16.000 +07:00
     │  commit 2f3e935ade915272ccdce9e43e5a5c82fc336aee
     │  args: jj commit -m 'commit 5'
-    ○  10a84113804f test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    ○  1675333b7de8 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │  commit 4e0592f3dd52e7a4998a97d9a1f354e2727a856b
     │  args: jj commit -m 'commit 2'
     ○  000000000000 root()
@@ -704,7 +704,7 @@ fn test_op_abandon_ancestors() {
     let output = work_dir.run_jj(["op", "abandon", "..@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Cannot abandon the current operation 117e859b7a18
+    Error: Cannot abandon the current operation 9df33337d494
     Hint: Run `jj undo` to revert the current operation, then use `jj op abandon`
     [EOF]
     [exit status: 1]
@@ -728,15 +728,15 @@ fn test_op_abandon_ancestors() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["debug", "local-working-copy", "--ignore-working-copy"]), @r#"
-    Current operation: OperationId("e77f5bacd23306272e980a7d59b3a60e8bdfa3da7a67e93b72d4f0bd3c945cd4b43b7c18aa338013ba06eccf40e817706acea65c4d6c513651f7d9a70d204e18")
+    Current operation: OperationId("4666f57b051cb0d73145999d689331e34224bf6bad69c367498d7fc25f0d89d230146e7234526004426d515b396b13b9de8daadf54003eaf678f4264c0a7d992")
     Current tree: Merge(Resolved(TreeId("4b825dc642cb6eb9a060e54bf8d69288fbee4904")))
     [EOF]
     "#);
     insta::assert_snapshot!(work_dir.run_jj(["op", "log"]), @r"
-    @  e77f5bacd233 test-username@host.example.com 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
-    │  undo operation 117e859b7a18a5a0867c2113191303c2deb78b27d6f2831164d152487b98b407b0ab70f817f2c74f7a3f21c25ddfb45c3778465f4a2ab48b0b6aeaf5766a5f47
+    @  4666f57b051c test-username@host.example.com 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
+    │  undo operation 9df33337d49450b21bf694025557ede1ac4c63c7b17f593add0d7adc81b394d363f1edffa025b323f88ec947dcd9214f46e82e742e7a74adbfff4c2d96321133
     │  args: jj undo
-    ○  10a84113804f test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    ○  1675333b7de8 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │  commit 4e0592f3dd52e7a4998a97d9a1f354e2727a856b
     │  args: jj commit -m 'commit 2'
     ○  000000000000 root()
@@ -751,8 +751,8 @@ fn test_op_abandon_ancestors() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["op", "log", "-n1"]), @r"
-    @  e77f5bacd233 test-username@host.example.com 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
-    │  undo operation 117e859b7a18a5a0867c2113191303c2deb78b27d6f2831164d152487b98b407b0ab70f817f2c74f7a3f21c25ddfb45c3778465f4a2ab48b0b6aeaf5766a5f47
+    @  4666f57b051c test-username@host.example.com 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
+    │  undo operation 9df33337d49450b21bf694025557ede1ac4c63c7b17f593add0d7adc81b394d363f1edffa025b323f88ec947dcd9214f46e82e742e7a74adbfff4c2d96321133
     │  args: jj undo
     [EOF]
     ");
@@ -781,7 +781,7 @@ fn test_op_abandon_without_updating_working_copy() {
     [EOF]
     "#);
     insta::assert_snapshot!(work_dir.run_jj(["op", "log", "-n1", "--ignore-working-copy"]), @r"
-    @  bdfd901af5dd test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    @  f5e2d13c1aac test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     │  commit 4b087e94a5d14530c3953d617623d075a13294c8
     │  args: jj commit -m 'commit 3'
     [EOF]
@@ -794,7 +794,7 @@ fn test_op_abandon_without_updating_working_copy() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 1 operations and reparented 1 descendant operations.
-    Warning: The working copy operation 0d4bb8e4a2ba is not updated because it differs from the repo bdfd901af5dd.
+    Warning: The working copy operation 0d4bb8e4a2ba is not updated because it differs from the repo f5e2d13c1aac.
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["debug", "local-working-copy", "--ignore-working-copy"]), @r#"
@@ -803,7 +803,7 @@ fn test_op_abandon_without_updating_working_copy() {
     [EOF]
     "#);
     insta::assert_snapshot!(work_dir.run_jj(["op", "log", "-n1", "--ignore-working-copy"]), @r"
-    @  58a15e02bb4b test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    @  aa53bfb9a190 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     │  commit 4b087e94a5d14530c3953d617623d075a13294c8
     │  args: jj commit -m 'commit 3'
     [EOF]
@@ -875,13 +875,13 @@ fn test_op_abandon_multiple_heads() {
 
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @r"
-    @    6aa2b158f53c test-username@host.example.com 2001-02-03 04:05:17.000 +07:00 - 2001-02-03 04:05:17.000 +07:00
+    @    4bc6ca79dcdc test-username@host.example.com 2001-02-03 04:05:17.000 +07:00 - 2001-02-03 04:05:17.000 +07:00
     ├─╮  reconcile divergent operations
     │ │  args: jj op log
-    ○ │  bdfd901af5dd test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    ○ │  f5e2d13c1aac test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     │ │  commit 4b087e94a5d14530c3953d617623d075a13294c8
     │ │  args: jj commit -m 'commit 3'
-    │ ○  341f3ae94078 test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
+    │ ○  56b918336386 test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
     ├─╯  commit 4e0592f3dd52e7a4998a97d9a1f354e2727a856b
     │    args: jj commit '--at-op=@--' -m 'commit 4'
     ○  c815486340d5 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00

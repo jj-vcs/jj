@@ -213,6 +213,38 @@ fn test_isolation() {
 }
 
 #[test]
+fn test_stored_commit_predecessors() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let loader = repo.loader();
+
+    let mut tx = repo.start_transaction();
+    let commit1 = create_random_commit(tx.repo_mut()).write().unwrap();
+    let commit2 = tx
+        .repo_mut()
+        .rewrite_commit(&commit1)
+        .set_description("rewritten")
+        .write()
+        .unwrap();
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo = tx.commit("test").unwrap();
+
+    // Reload operation from disk.
+    let op = loader.load_operation(repo.op_id()).unwrap();
+    assert!(op.stores_commit_predecessors());
+    assert_matches!(op.predecessors_for_commit(commit1.id()), Some([]));
+    assert_matches!(op.predecessors_for_commit(commit2.id()), Some([id]) if id == commit1.id());
+
+    // Save operation without the predecessors as old jj would do.
+    let mut data = op.store_operation().clone();
+    data.commit_predecessors = None;
+    let op_id = loader.op_store().write_operation(&data).unwrap();
+    assert_ne!(&op_id, op.id());
+    let op = loader.load_operation(&op_id).unwrap();
+    assert!(!op.stores_commit_predecessors());
+}
+
+#[test]
 fn test_reparent_range_linear() {
     let test_repo = TestRepo::init();
     let repo_0 = test_repo.repo;
