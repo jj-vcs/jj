@@ -65,7 +65,7 @@ pub fn cmd_op_undo(
     let bad_op = workspace_command.resolve_single_op(&args.operation)?;
     let mut parent_ops = bad_op.parents();
     let Some(parent_op) = parent_ops.next().transpose()? else {
-        return Err(user_error("Cannot undo repo initialization"));
+        return Err(user_error("Cannot undo root operation"));
     };
     if parent_ops.next().is_some() {
         return Err(user_error("Cannot undo a merge operation"));
