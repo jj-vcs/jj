@@ -96,6 +96,10 @@ message Operation {
   bytes view_id = 1;
   repeated bytes parents = 2;
   OperationMetadata metadata = 3;
+  // Introduced in jj 0.30.
+  repeated CommitPredecessors commit_predecessors = 4;
+  // Whether or not `commit_predecessors` is recorded.
+  bool stores_commit_predecessors = 5;
 }
 
 // TODO: Share with store.proto? Do we even need the timezone here?
@@ -112,4 +116,9 @@ message OperationMetadata {
   string username = 5;
   bool is_snapshot = 7;
   map<string, string> tags = 6;
+}
+
+message CommitPredecessors {
+  bytes commit_id = 1;
+  repeated bytes predecessor_ids = 2;
 }
