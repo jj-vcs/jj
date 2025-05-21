@@ -19,6 +19,41 @@ use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 
 #[test]
+fn test_undo_root_operation() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // TODO: `jj undo 'root()'` is not a valid command, so use the hardcoded root op
+    // id here.
+    let output = work_dir.run_jj(["undo", "000000000000"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Cannot undo root operation
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_undo_merge_operation() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["new", "--at-op=@-"]).success();
+    let output = work_dir.run_jj(["undo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    Error: Cannot undo a merge operation
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_undo_rewrite_with_child() {
     // Test that if we undo an operation that rewrote some commit, any descendants
     // after that will be rebased on top of the un-rewritten commit.
