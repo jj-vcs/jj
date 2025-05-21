@@ -63,18 +63,16 @@ pub fn cmd_op_undo(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let bad_op = workspace_command.resolve_single_op(&args.operation)?;
-    let mut parent_ops = bad_op.parents();
-    let Some(parent_op) = parent_ops.next().transpose()? else {
-        return Err(user_error("Cannot undo root operation"));
+    let parent_of_bad_op = match bad_op.parents().at_most_one() {
+        Ok(Some(parent_of_bad_op)) => parent_of_bad_op?,
+        Ok(None) => return Err(user_error("Cannot undo root operation")),
+        Err(_) => return Err(user_error("Cannot undo a merge operation")),
     };
-    if parent_ops.next().is_some() {
-        return Err(user_error("Cannot undo a merge operation"));
-    }
 
     let mut tx = workspace_command.start_transaction();
     let repo_loader = tx.base_repo().loader();
     let bad_repo = repo_loader.load_at(&bad_op)?;
-    let parent_repo = repo_loader.load_at(&parent_op)?;
+    let parent_repo = repo_loader.load_at(&parent_of_bad_op)?;
     tx.repo_mut().merge(&bad_repo, &parent_repo)?;
     let new_view = view_with_desired_portions_restored(
         tx.repo().view().store_view(),
@@ -90,7 +88,7 @@ pub fn cmd_op_undo(
     }
     tx.finish(ui, format!("undo operation {}", bad_op.id().hex()))?;
 
-    if args.operation == "@" && is_undo(&bad_op, &parent_op)? {
+    if args.operation == "@" && is_undo(&bad_op, &parent_of_bad_op)? {
         writeln!(
             ui.hint_default(),
             "This action reverted an 'undo' operation. The repository is now in the same state as \
