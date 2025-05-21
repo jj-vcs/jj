@@ -245,7 +245,7 @@ source <(COMPLETE=zsh jj)
 
 !!! note
 
-    No configuration is required with fish >= 4.1 which loads dynamic completions by default.
+    No configuration is required with fish >= 4.0.2 which loads dynamic completions by default.
 
 #### Standard
 
