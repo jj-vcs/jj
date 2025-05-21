@@ -60,8 +60,8 @@ fn resets_view_of(op: &Operation, parent_op: &Operation) -> Result<bool, OpStore
     Ok(op.view_id() == grandparent_op?.view_id())
 }
 
-fn tx_description(op: &Operation) -> &str {
-    &op.metadata().description
+fn tx_description(op: &Operation) -> String {
+    format!("undo operation {}", op.id().hex())
 }
 
 pub fn cmd_op_undo(
@@ -94,7 +94,7 @@ pub fn cmd_op_undo(
         template.format(&bad_op, formatter.as_mut())?;
         writeln!(formatter)?;
     }
-    tx.finish(ui, format!("undo operation {}", bad_op.id().hex()))?;
+    tx.finish(ui, tx_description(&bad_op))?;
 
     // Check if the user performed a "double undo", i.e. the current `undo` (C)
     // reverts an immediately preceding `undo` (B) that is itself an `undo` of the
@@ -118,7 +118,7 @@ pub fn cmd_op_undo(
     // ○  A
     if args.operation == "@"
         && resets_view_of(&bad_op, &parent_of_bad_op)?
-        && tx_description(&bad_op).contains(&parent_of_bad_op.id().hex())
+        && bad_op.metadata().description == tx_description(&parent_of_bad_op)
     {
         writeln!(
             ui.warning_default(),
