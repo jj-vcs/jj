@@ -173,7 +173,7 @@ fn test_absorb_replace_single_line_hunk() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file1", "2a\n1A\n2b\n");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r###"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       qpvuntsm 5bdb5ca1 (conflict) 1
@@ -182,13 +182,14 @@ fn test_absorb_replace_single_line_hunk() {
     Parent commit (@-)      : kkmpptxz 6068e8fc 2
     New conflicts appeared in 1 commits:
       qpvuntsm 5bdb5ca1 (conflict) 1
-    Hint: To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by creating a commit on top of
+    the conflicted commit:
       jj new qpvuntsm
     Then use `jj resolve`, or edit the conflict markers in the file directly.
-    Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
+    Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    ");
+    "###);
 
     insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
     @  mzvwutvl 804fe9d9 (empty) (no description set)
@@ -420,7 +421,7 @@ fn test_absorb_conflict() {
     work_dir.run_jj(["new", "root()"]).success();
     work_dir.write_file("file1", "2a\n2b\n");
     let output = work_dir.run_jj(["rebase", "-r@", "-ddescription(1)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r###"
     ------- stderr -------
     Rebased 1 commits to destination
     Working copy  (@) now at: kkmpptxz 66d44b8c (conflict) (no description set)
@@ -430,13 +431,14 @@ fn test_absorb_conflict() {
     file1    2-sided conflict
     New conflicts appeared in 1 commits:
       kkmpptxz 66d44b8c (conflict) (no description set)
-    Hint: To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by creating a commit on top of
+    the conflicted commit:
       jj new kkmpptxz
     Then use `jj resolve`, or edit the conflict markers in the file directly.
-    Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
+    Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    ");
+    "###);
 
     let conflict_content = work_dir.read_file("file1");
     insta::assert_snapshot!(conflict_content, @r"
@@ -545,7 +547,7 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     work_dir.remove_file("file1");
     work_dir.remove_file("file2");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r###"
     ------- stderr -------
     Absorbed changes into 2 revisions:
       kkmpptxz 8407ab95 (conflict) 2
@@ -556,15 +558,16 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     New conflicts appeared in 2 commits:
       kkmpptxz 8407ab95 (conflict) 2
       qpvuntsm f1473264 (conflict) 1
-    Hint: To resolve the conflicts, start by updating to the first one:
+    Hint: To resolve the conflicts, start by creating a commit on top of
+    the first conflicted commit:
       jj new qpvuntsm
     Then use `jj resolve`, or edit the conflict markers in the file directly.
-    Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
+    Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     Remaining changes:
     D file2
     [EOF]
-    ");
+    "###);
 
     insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
     @  zsuskuln b56f0c39 (no description set)

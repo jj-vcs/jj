@@ -805,20 +805,21 @@ fn test_squash_from_multiple() {
 
     // Squash a few commits sideways
     let output = work_dir.run_jj(["squash", "--from=b", "--from=c", "--into=d"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r###"
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: kpqxywon 703c6f0c f | (no description set)
     Parent commit (@-)      : yostqsxw 3d6a1899 e | (no description set)
     New conflicts appeared in 1 commits:
       yqosqzyt a3221d7a d | (conflict) (no description set)
-    Hint: To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by creating a commit on top of
+    the conflicted commit:
       jj new yqosqzyt
     Then use `jj resolve`, or edit the conflict markers in the file directly.
-    Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
+    Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    ");
+    "###);
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  703c6f0cae6f f
     ○    3d6a18995cae e
@@ -947,20 +948,21 @@ fn test_squash_from_multiple_partial() {
 
     // Partially squash a few commits sideways
     let output = work_dir.run_jj(["squash", "--from=b|c", "--into=d", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r###"
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: kpqxywon f3ae0274 f | (no description set)
     Parent commit (@-)      : yostqsxw 45ad30bd e | (no description set)
     New conflicts appeared in 1 commits:
       yqosqzyt 15efa8c0 d | (conflict) (no description set)
-    Hint: To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by creating a commit on top of
+    the conflicted commit:
       jj new yqosqzyt
     Then use `jj resolve`, or edit the conflict markers in the file directly.
-    Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
+    Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    ");
+    "###);
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  f3ae0274fb6c f
     ○      45ad30bdccc6 e

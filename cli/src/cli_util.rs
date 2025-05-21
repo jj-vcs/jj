@@ -2301,14 +2301,20 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             .try_collect()?;
 
         if !root_conflict_commits.is_empty() {
-            let instruction = if only_one_conflicted_commit {
-                "To resolve the conflicts, start by updating to it"
+            let suggested_change = if only_one_conflicted_commit {
+                "the conflicted commit"
             } else if root_conflict_commits.len() == 1 {
-                "To resolve the conflicts, start by updating to the first one"
+                "the first conflicted commit"
             } else {
-                "To resolve the conflicts, start by updating to one of the first ones"
+                "one of the first conflicted commits"
             };
-            writeln!(fmt.labeled("hint").with_heading("Hint: "), "{instruction}:")?;
+            writedoc!(
+                fmt.labeled("hint").with_heading("Hint: "),
+                "
+                To resolve the conflicts, start by creating a commit on top of
+                {suggested_change}:
+                "
+            )?;
             let format_short_change_id = self.short_change_id_template();
             fmt.with_label("hint", |fmt| {
                 for commit in &root_conflict_commits {
@@ -2318,11 +2324,13 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                 }
                 io::Result::Ok(())
             })?;
-            writeln!(
+            writedoc!(
                 fmt.labeled("hint"),
-                r#"Then use `jj resolve`, or edit the conflict markers in the file directly.
-Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
-Then run `jj squash` to move the resolution into the conflicted commit."#,
+                "
+                Then use `jj resolve`, or edit the conflict markers in the file directly.
+                Once the conflicts are resolved, you can inspect the result with `jj diff`.
+                Then run `jj squash` to move the resolution into the conflicted commit.
+                ",
             )?;
         }
         Ok(())
