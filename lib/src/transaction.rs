@@ -136,7 +136,7 @@ impl Transaction {
             "BUG: Descendants have not been rebased after the last rewrites."
         );
         let base_repo = mut_repo.base_repo().clone();
-        let (mut_index, view) = mut_repo.consume();
+        let (mut_index, view, predecessors) = mut_repo.consume();
 
         let operation = {
             let view_id = base_repo.op_store().write_view(view.store_view())?;
@@ -147,6 +147,7 @@ impl Transaction {
                 view_id,
                 parents,
                 metadata: self.op_metadata,
+                commit_predecessors: Some(predecessors),
             };
             let new_op_id = base_repo.op_store().write_operation(&store_operation)?;
             Operation::new(base_repo.op_store().clone(), new_op_id, store_operation)

@@ -15,6 +15,7 @@
 use std::path::Path;
 use std::path::PathBuf;
 
+use assert_matches::assert_matches;
 use jj_lib::config::StackedConfig;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::ref_name::WorkspaceName;
@@ -179,4 +180,8 @@ fn test_init_checkout(backend: TestRepoBackend) {
     assert_eq!(wc_commit.author().email, settings.user_email());
     assert_eq!(wc_commit.committer().name, settings.user_name());
     assert_eq!(wc_commit.committer().email, settings.user_email());
+    assert_matches!(
+        repo.operation().predecessors_for_commit(wc_commit.id()),
+        Some([])
+    );
 }

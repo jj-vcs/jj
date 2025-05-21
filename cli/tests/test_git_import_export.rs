@@ -116,7 +116,7 @@ fn test_git_export_undo() {
     let output = work_dir.run_jj(["op", "undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 5892a7e5aee4 (2001-02-03 08:05:10) export git refs
+    Undid operation: b718f970b78c (2001-02-03 08:05:10) export git refs
     [EOF]
     ");
     insta::assert_debug_snapshot!(get_git_repo_refs(&git_repo), @r#"
@@ -191,7 +191,7 @@ fn test_git_import_undo() {
     let output = work_dir.run_jj(["op", "restore", &base_operation_id]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Restored to operation: 2affa7025254 (2001-02-03 08:05:07) add workspace 'default'
+    Restored to operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
@@ -273,7 +273,7 @@ fn test_git_import_move_export_with_default_undo() {
     let output = work_dir.run_jj(["op", "restore", &base_operation_id]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Restored to operation: 2affa7025254 (2001-02-03 08:05:07) add workspace 'default'
+    Restored to operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
     Working copy  (@) now at: qpvuntsm e8849ae1 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]

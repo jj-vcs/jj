@@ -369,6 +369,22 @@ pub struct Operation {
     pub view_id: ViewId,
     pub parents: Vec<OperationId>,
     pub metadata: OperationMetadata,
+    /// Mapping from new commit to its predecessors, or `None` if predecessors
+    /// weren't recorded when the operation was written.
+    ///
+    /// * `commit_id: []` if the commit was newly created.
+    /// * `commit_id: [predecessor_id, ..]` if the commit was rewritten.
+    ///
+    /// This mapping preserves all transitive predecessors if a commit was
+    /// rewritten multiple times within the same transaction. For example, if
+    /// `X` was rewritten as `Y`, then rebased as `Z`, these modifications are
+    /// recorded as `{Y: [X], Z: [Y]}`.
+    ///
+    /// Existing commits (including commits imported from Git) aren't tracked
+    /// even if they became visible at this operation.
+    // BTreeMap for ease of deterministic serialization. If the deserialization
+    // cost matters, maybe this can be changed to sorted Vec.
+    pub commit_predecessors: Option<BTreeMap<CommitId, Vec<CommitId>>>,
 }
 
 impl Operation {
@@ -390,6 +406,11 @@ impl Operation {
             view_id: root_view_id,
             parents: vec![],
             metadata,
+            // The root operation is guaranteed to have no new commits. The root
+            // commit could be considered born at the root operation, but there
+            // may be other commits created within the abandoned operations.
+            // They don't have any predecessors records as well.
+            commit_predecessors: Some(BTreeMap::new()),
         }
     }
 }

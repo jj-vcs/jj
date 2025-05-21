@@ -22,6 +22,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
+use crate::backend::CommitId;
 use crate::op_store;
 use crate::op_store::OpStore;
 use crate::op_store::OpStoreResult;
@@ -115,6 +116,19 @@ impl Operation {
 
     pub fn metadata(&self) -> &OperationMetadata {
         &self.data.metadata
+    }
+
+    /// Returns true if predecessors are recorded in this operation.
+    ///
+    /// This returns false only if the operation was written by jj < 0.30.
+    pub fn stores_commit_predecessors(&self) -> bool {
+        self.data.commit_predecessors.is_some()
+    }
+
+    /// Returns predecessors of the specified commit if recorded.
+    pub fn predecessors_for_commit(&self, commit_id: &CommitId) -> Option<&[CommitId]> {
+        let map = self.data.commit_predecessors.as_ref()?;
+        Some(map.get(commit_id)?)
     }
 
     pub fn store_operation(&self) -> &op_store::Operation {
