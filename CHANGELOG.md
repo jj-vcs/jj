@@ -60,6 +60,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Templates can now do arithmetic on integers with the `+`, `-`, `*`, `/`, and `%`
   infix operators.
 
+* A minimal version of `jj run` was implemented.
+  Follow [#1869](https://github.com/jj-vcs/jj/issues/1869) for further
+  improvements.
+
 ### Fixed bugs
 
 * Work around a git issue that could cause subprocess operations to hang if the
