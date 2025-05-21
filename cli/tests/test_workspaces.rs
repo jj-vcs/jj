@@ -661,7 +661,7 @@ fn test_workspaces_updated_by_other() {
 #[test]
 fn test_workspaces_updated_by_other_automatic() {
     let test_env = TestEnvironment::default();
-    test_env.add_config("[snapshot]\nauto-update-stale = true\n");
+    test_env.add_config("snapshot.auto-update-stale = true\n");
 
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_dir = test_env.work_dir("main");
@@ -735,7 +735,7 @@ fn test_workspaces_updated_by_other_automatic() {
 fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
     let test_env = TestEnvironment::default();
     if automatic {
-        test_env.add_config("[snapshot]\nauto-update-stale = true\n");
+        test_env.add_config("snapshot.auto-update-stale = true\n");
     }
 
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
