@@ -14,6 +14,7 @@ theme:
     # - navigation.top
     - content.action.edit
     - content.code.copy
+    - content.tabs.link
     - navigation.instant
 
   icon:
