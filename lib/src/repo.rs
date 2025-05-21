@@ -15,6 +15,7 @@
 #![allow(missing_docs)]
 
 use std::collections::hash_map::Entry;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -854,6 +855,11 @@ pub struct MutableRepo {
     base_repo: Arc<ReadonlyRepo>,
     index: Box<dyn MutableIndex>,
     view: DirtyCell<View>,
+    /// Mapping from new commit to its predecessors.
+    ///
+    /// This is similar to (the reverse of) `parent_mapping`, but
+    /// `commit_predecessors` will never be cleared on `rebase_descendants()`.
+    commit_predecessors: BTreeMap<CommitId, Vec<CommitId>>,
     // The commit identified by the key has been replaced by all the ones in the value.
     // * Bookmarks pointing to the old commit should be updated to the new commit, resulting in a
     //   conflict if there multiple new commits.
@@ -877,6 +883,7 @@ impl MutableRepo {
             base_repo,
             index: mut_index,
             view: DirtyCell::with_clean(mut_view),
+            commit_predecessors: Default::default(),
             parent_mapping: Default::default(),
         }
     }
@@ -895,12 +902,20 @@ impl MutableRepo {
 
     pub fn has_changes(&self) -> bool {
         self.view.ensure_clean(|v| self.enforce_view_invariants(v));
-        !(self.parent_mapping.is_empty() && self.view() == &self.base_repo.view)
+        !(self.commit_predecessors.is_empty()
+            && self.parent_mapping.is_empty()
+            && self.view() == &self.base_repo.view)
     }
 
-    pub(crate) fn consume(self) -> (Box<dyn MutableIndex>, View) {
+    pub(crate) fn consume(
+        self,
+    ) -> (
+        Box<dyn MutableIndex>,
+        View,
+        BTreeMap<CommitId, Vec<CommitId>>,
+    ) {
         self.view.ensure_clean(|v| self.enforce_view_invariants(v));
-        (self.index, self.view.into_inner())
+        (self.index, self.view.into_inner(), self.commit_predecessors)
     }
 
     /// Returns a [`CommitBuilder`] to write new commit to the repo.
@@ -915,6 +930,10 @@ impl MutableRepo {
         DetachedCommitBuilder::for_rewrite_from(self, settings, predecessor).attach(self)
         // CommitBuilder::write will record the rewrite in
         // `self.rewritten_commits`
+    }
+
+    pub(crate) fn set_predecessors(&mut self, id: CommitId, predecessors: Vec<CommitId>) {
+        self.commit_predecessors.insert(id, predecessors);
     }
 
     /// Record a commit as having been rewritten to another commit in this

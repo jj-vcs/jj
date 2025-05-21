@@ -962,7 +962,7 @@ fn test_git_colocated_undo_head_move() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 7b91bd9df087 (2001-02-03 08:05:13) new empty commit
+    Undid operation: f349e313234e (2001-02-03 08:05:13) new empty commit
     Working copy  (@) now at: royxmykx e7d0d5fd (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]

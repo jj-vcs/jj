@@ -485,6 +485,7 @@ fn operation_from_proto(
         view_id,
         parents,
         metadata,
+        commit_predecessors: None, // TODO
     })
 }
 
@@ -832,6 +833,7 @@ mod tests {
                     "key2".to_string() => "value2".to_string(),
                 },
             },
+            commit_predecessors: None, // TODO
         }
     }
 
@@ -849,7 +851,7 @@ mod tests {
         // Test exact output so we detect regressions in compatibility
         assert_snapshot!(
             OperationId::new(blake2b_hash(&create_operation()).to_vec()).hex(),
-            @"a721c8bfe6d30b4279437722417743c2c5d9efe731942663e3e7d37320e0ab6b49a7c1452d101cc427ceb8927a4cab03d49dabe73c0677bb9edf5c8b2aa83585"
+            @"ae75bd059ed8a7710d34c79eb0ad157f6f4a8f6f73c0ed9905219ac6a6d7fe9b2edd27efb045204abbe9f60c1e1c457dcefe5e50d6fda41330159384a0c0c86c"
         );
     }
 
