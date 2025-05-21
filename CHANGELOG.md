@@ -30,6 +30,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The previously predefined `amend` alias has been removed. You can restore it
   by setting the config `aliases.amend = ["squash"]`.
 
+* The templating language's [`Timestamp` type](docs/templates.md#timestamp-type)
+  now uses [Jiff](https://github.com/BurntSushi/jiff)'s [`strftime`-like formatting
+  specifiers](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications),
+  which may differ from Chrono's (the previous implementation).
+
 ### Deprecations
 
 * The `all:` revset modifier and `ui.always-allow-large-revsets` setting is

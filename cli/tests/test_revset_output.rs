@@ -895,10 +895,7 @@ fn test_all_modifier() {
 }
 
 /// Verifies that the committer_date revset honors the local time zone.
-/// This test cannot run on Windows because The TZ env var does not control
-/// chrono::Local on that platform.
 #[test]
-#[cfg(not(target_os = "windows"))]
 fn test_revset_committer_date_with_time_zone() {
     // Use these for the test instead of tzdb identifiers like America/New_York
     // because the tz database may not be installed on some build servers
@@ -912,7 +909,7 @@ fn test_revset_committer_date_with_time_zone() {
 
     work_dir
         .run_jj([
-            "--config=debug.commit-timestamp=2023-01-25T11:30:00-05:00",
+            r#"--config=debug.commit-timestamp="2023-01-25T11:30:00[-05:00]""#,
             "describe",
             "-m",
             "first",
@@ -920,7 +917,7 @@ fn test_revset_committer_date_with_time_zone() {
         .success();
     work_dir
         .run_jj([
-            "--config=debug.commit-timestamp=2023-01-25T12:30:00-05:00",
+            r#"--config=debug.commit-timestamp="2023-01-25T12:30:00[-05:00]""#,
             "new",
             "-m",
             "second",
@@ -928,7 +925,7 @@ fn test_revset_committer_date_with_time_zone() {
         .success();
     work_dir
         .run_jj([
-            "--config=debug.commit-timestamp=2023-01-25T13:30:00-05:00",
+            r#"--config=debug.commit-timestamp="2023-01-25T13:30:00[-05:00]""#,
             "new",
             "-m",
             "third",
@@ -937,7 +934,7 @@ fn test_revset_committer_date_with_time_zone() {
 
     let mut log_commits_before_and_after = |committer_date: &str, now: &str, tz: &str| {
         test_env.add_env_var("TZ", tz);
-        let config = format!("debug.commit-timestamp={now}");
+        let config = format!(r#"debug.commit-timestamp="{now}""#);
         let work_dir = test_env.work_dir("repo");
         let before_log = work_dir.run_jj([
             "--config",
@@ -963,7 +960,7 @@ fn test_revset_committer_date_with_time_zone() {
     };
 
     let (before_log, after_log) =
-        log_commits_before_and_after("2023-01-25 12:00", "2023-02-01T00:00:00-05:00", NEW_YORK);
+        log_commits_before_and_after("2023-01-25 12:00", "2023-02-01T00:00:00[-05:00]", NEW_YORK);
     insta::assert_snapshot!(before_log, @r"
     first 2023-01-25 11:30:00.000 -05:00
     [EOF]
@@ -977,7 +974,7 @@ fn test_revset_committer_date_with_time_zone() {
     // Switch to DST and ensure we get the same results, because it should
     // evaluate 12:00 on commit date, not the current date
     let (before_log, after_log) =
-        log_commits_before_and_after("2023-01-25 12:00", "2023-06-01T00:00:00-04:00", NEW_YORK);
+        log_commits_before_and_after("2023-01-25 12:00", "2023-06-01T00:00:00[-04:00]", NEW_YORK);
     insta::assert_snapshot!(before_log, @r"
     first 2023-01-25 11:30:00.000 -05:00
     [EOF]
@@ -990,7 +987,7 @@ fn test_revset_committer_date_with_time_zone() {
 
     // Change the local time zone and ensure the result changes
     let (before_log, after_log) =
-        log_commits_before_and_after("2023-01-25 12:00", "2023-06-01T00:00:00-06:00", CHICAGO);
+        log_commits_before_and_after("2023-01-25 12:00", "2023-06-01T00:00:00[-06:00]", CHICAGO);
     insta::assert_snapshot!(before_log, @r"
     second 2023-01-25 12:30:00.000 -05:00
     first 2023-01-25 11:30:00.000 -05:00
@@ -1003,7 +1000,7 @@ fn test_revset_committer_date_with_time_zone() {
 
     // Time zone far outside USA with no DST
     let (before_log, after_log) =
-        log_commits_before_and_after("2023-01-26 03:00", "2023-06-01T00:00:00+10:00", AUSTRALIA);
+        log_commits_before_and_after("2023-01-26 03:00", "2023-06-01T00:00:00[+10:00]", AUSTRALIA);
     insta::assert_snapshot!(before_log, @r"
     first 2023-01-25 11:30:00.000 -05:00
     [EOF]

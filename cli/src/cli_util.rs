@@ -34,7 +34,6 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use bstr::ByteVec as _;
-use chrono::TimeZone as _;
 use clap::ArgAction;
 use clap::ArgMatches;
 use clap::Command;
@@ -830,17 +829,15 @@ impl WorkspaceCommandEnvironment {
             workspace_name: &self.workspace_name,
         };
         let now = if let Some(timestamp) = self.settings.commit_timestamp() {
-            chrono::Local
-                .timestamp_millis_opt(timestamp.timestamp.0)
-                .unwrap()
+            timestamp.to_zoned().unwrap()
         } else {
-            chrono::Local::now()
+            jiff::Zoned::now()
         };
         RevsetParseContext {
             aliases_map: &self.revset_aliases_map,
             local_variables: HashMap::new(),
             user_email: self.settings.user_email(),
-            date_pattern_context: now.into(),
+            date_pattern_now: now,
             extensions: self.command.revset_extensions(),
             workspace: Some(workspace_context),
         }

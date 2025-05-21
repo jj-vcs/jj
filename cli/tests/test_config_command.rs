@@ -312,9 +312,9 @@ fn test_config_list_origin() {
     test-layered-key = "test-layered-val" # repo $TEST_ENV/repo/.jj/repo/config.toml
     user.name = "Test User" # env
     user.email = "test.user@example.com" # env
-    debug.commit-timestamp = "2001-02-03T04:05:11+07:00" # env
+    debug.commit-timestamp = "2001-02-03T04:05:11+07:00[+07:00]" # env
     debug.randomness-seed = 5 # env
-    debug.operation-timestamp = "2001-02-03T04:05:11+07:00" # env
+    debug.operation-timestamp = "2001-02-03T04:05:11+07:00[+07:00]" # env
     operation.hostname = "host.example.com" # env
     operation.username = "test-username" # env
     test-cli-key = "test-cli-val" # cli

@@ -20,6 +20,7 @@ use std::path::PathBuf;
 
 use bstr::BString;
 use indoc::formatdoc;
+use jiff::ToSpan as _;
 use regex::Captures;
 use regex::Regex;
 use tempfile::TempDir;
@@ -133,10 +134,10 @@ impl TestEnvironment {
         let mut command_number = self.command_number.borrow_mut();
         *command_number += 1;
         cmd.env("JJ_RANDOMNESS_SEED", command_number.to_string());
-        let timestamp = chrono::DateTime::parse_from_rfc3339("2001-02-03T04:05:06+07:00").unwrap();
-        let timestamp = timestamp + chrono::Duration::try_seconds(*command_number).unwrap();
-        cmd.env("JJ_TIMESTAMP", timestamp.to_rfc3339());
-        cmd.env("JJ_OP_TIMESTAMP", timestamp.to_rfc3339());
+        let timestamp: jiff::Zoned = "2001-02-03T04:05:06[+07:00]".parse().unwrap();
+        let timestamp = timestamp.checked_add(command_number.seconds()).unwrap();
+        cmd.env("JJ_TIMESTAMP", timestamp.to_string());
+        cmd.env("JJ_OP_TIMESTAMP", timestamp.to_string());
 
         if cfg!(windows) {
             // Windows uses `TEMP` to create temporary directories, which we need for some
