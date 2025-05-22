@@ -391,7 +391,7 @@ commands to interact with it. To list the operations, use `jj op log`:
 ```shell
 $ jj op log
 @  d3b77addea49 martinvonz@vonz.svl.corp.google.com 3 minutes ago, lasted 3 milliseconds
-│  squash commits into 63874fe6c4fba405ffc38b0dd926f03b715cf7ef
+│  squash commits into f7fb5943a6b9460eb106dba2fac5cac1625c6f7a
 │  args: jj squash
 ○  6fc1873c1180 martinvonz@vonz.svl.corp.google.com 3 minutes ago, lasted 1 milliseconds
 │  snapshot working copy
