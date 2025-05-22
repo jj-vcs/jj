@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::fs;
 use std::io;
 use std::io::Write as _;
@@ -349,11 +350,13 @@ pub fn combine_messages_for_editing(
             .into_string()
             .map_err(|_| user_error("Trailers should be valid utf-8"))?;
         let new_trailers = parse_trailers(&trailer_lines)?;
-        let trailers: String = new_trailers
+        let trailers = new_trailers
             .iter()
             .filter(|trailer| !old_trailers.contains(trailer))
-            .map(|trailer| format!("{}: {}\n", trailer.key, trailer.value))
-            .collect();
+            .fold(String::new(), |mut output, trailer| {
+                writeln!(output, "{}: {}", trailer.key, trailer.value).unwrap();
+                output
+            });
         if !trailers.is_empty() {
             combined.push_str("\nJJ: Trailers not found in the squashed commits:\n");
             combined.push_str(&trailers);
