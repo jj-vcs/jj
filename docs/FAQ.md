@@ -242,7 +242,7 @@ Suppose you have a commit "Add new feature":
 $ jj log
 @  xxxxxxxx me@example.com 2024-08-21 11:13:21 ef612875
 │  Add new feature
-◉  yyyyyyyy me@example.com 2024-08-21 11:13:09 main b624cf12
+◆  yyyyyyyy me@example.com 2024-08-21 11:13:09 main b624cf12
 │  Existing work
 ~
 ```
@@ -271,11 +271,11 @@ Added 0 files, modified 1 files, removed 0 files
 $ jj log
 @    vvvvvvvv me@example.com 2024-08-22 08:57:40 ac4d9fbe
 ├─╮  (empty) (no description set)
-│ ◉  wwwwwwww me@example.com 2024-08-22 08:57:40 2106921e
+│ ○  wwwwwwww me@example.com 2024-08-22 08:57:40 2106921e
 │ │  private: my credentials
-◉ │  xxxxxxxx me@example.com 2024-08-21 11:13:21 ef612875
+○ │  xxxxxxxx me@example.com 2024-08-21 11:13:21 ef612875
 ├─╯  Add new feature
-◉  yyyyyyyy me@example.com 2024-08-21 11:13:09 main b624cf12
+◆  yyyyyyyy me@example.com 2024-08-21 11:13:09 main b624cf12
 │  Existing work
 ~
 ```
