@@ -40,7 +40,6 @@ use crate::cli_util::short_commit_hash;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::WorkspaceCommandHelper;
-use crate::command_error::cli_error;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::complete;
@@ -316,10 +315,6 @@ pub(crate) struct RebaseArgs {
     #[command(flatten)]
     destination: RebaseDestinationArgs,
 
-    /// Deprecated. Use --skip-emptied instead.
-    #[arg(long, conflicts_with = "revisions", hide = true)]
-    skip_empty: bool,
-
     /// If true, when rebasing would produce an empty commit, the commit is
     /// abandoned. It will not be abandoned if it was already empty before the
     /// rebase. Will never skip merge commits with multiple non-empty
@@ -378,12 +373,6 @@ pub(crate) fn cmd_rebase(
     command: &CommandHelper,
     args: &RebaseArgs,
 ) -> Result<(), CommandError> {
-    if args.skip_empty {
-        return Err(cli_error(
-            "--skip-empty is deprecated, and has been renamed to --skip-emptied.",
-        ));
-    }
-
     let rebase_options = RebaseOptions {
         empty: match args.skip_emptied {
             true => EmptyBehaviour::AbandonNewlyEmpty,

@@ -40,6 +40,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   no longer produces Bash completions by default. The deprecated optional arguments for
   different shells have been removed.
 
+* The deprecated `--skip-empty` flag for `jj rebase` has been removed. Use the
+  `--skip-emptied` flag instead.
+
 ### Deprecations
 
 * The `ui.diff.format` and `ui.diff.tool` config options have been merged as
