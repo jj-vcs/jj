@@ -401,7 +401,7 @@ $ jj op log
 │  args: jj new puqltutt
 ○  367400773f87 martinvonz@vonz.svl.corp.google.com 12 minutes ago, lasted 3 milliseconds
 │  rebase commit daa6ffd5a09a8a7d09a65796194e69b7ed0a566d and descendants
-│  args: jj rebase --source puqltutt --destination nuvyytnq
+│  args: jj rebase -s puqltutt -d nuvyytnq
 [many more lines]
 ```
 
