@@ -40,6 +40,11 @@ Apply it by running one of these:
      compinit
      source <(jj util completion zsh)
      ```
+
+See the docs on [command-line completion] for more details.
+
+[command-line completion]:
+    https://jj-vcs.github.io/jj/latest/install-and-setup/#command-line-completion
 "#]
 #[derive(clap::Args, Clone, Debug)]
 #[command(verbatim_doc_comment)]

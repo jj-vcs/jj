@@ -2671,6 +2671,11 @@ Apply it by running one of these:
     source <(jj util completion zsh)
     ```
 
+See the docs on [command-line completion] for more details.
+
+[command-line completion]:
+   https://jj-vcs.github.io/jj/latest/install-and-setup/#command-line-completion
+
 **Usage:** `jj util completion [SHELL]`
 
 ###### **Arguments:**
