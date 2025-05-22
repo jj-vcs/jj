@@ -36,6 +36,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with the same change ID is already present in the destination with identical
   changes. To keep these divergent commits, use the `--keep-divergent` flag.
 
+* The templating language's [`Timestamp` type](docs/templates.md#timestamp-type)
+  now uses [Jiff](https://github.com/BurntSushi/jiff)'s [`strftime`-like formatting
+  specifiers](https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html#conversion-specifications),
+  which may differ from Chrono's (the previous implementation).
+
 ### Deprecations
 
 * The `ui.diff.format` and `ui.diff.tool` config options have been merged as

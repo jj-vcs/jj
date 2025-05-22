@@ -24,6 +24,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
+use jiff::Zoned;
 use once_cell::sync::Lazy;
 use thiserror::Error;
 
@@ -69,7 +70,6 @@ pub use crate::revset_parser::UnaryOp;
 use crate::store::Store;
 use crate::str_util::StringPattern;
 use crate::time_util::DatePattern;
-use crate::time_util::DatePatternContext;
 
 /// Error occurred during symbol resolution.
 #[derive(Debug, Error)]
@@ -830,7 +830,7 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
     });
     map.insert("author_date", |diagnostics, function, context| {
         let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_date_pattern(diagnostics, arg, context.date_pattern_context())?;
+        let pattern = expect_date_pattern(diagnostics, arg, context.date_pattern_now())?;
         Ok(RevsetExpression::filter(RevsetFilterPredicate::AuthorDate(
             pattern,
         )))
@@ -871,7 +871,7 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
     });
     map.insert("committer_date", |diagnostics, function, context| {
         let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_date_pattern(diagnostics, arg, context.date_pattern_context())?;
+        let pattern = expect_date_pattern(diagnostics, arg, context.date_pattern_now())?;
         Ok(RevsetExpression::filter(
             RevsetFilterPredicate::CommitterDate(pattern),
         ))
@@ -984,7 +984,7 @@ pub fn expect_string_pattern(
 pub fn expect_date_pattern(
     diagnostics: &mut RevsetDiagnostics,
     node: &ExpressionNode,
-    context: &DatePatternContext,
+    zoned: &Zoned,
 ) -> Result<DatePattern, RevsetParseError> {
     revset_parser::expect_pattern_with(
         diagnostics,
@@ -993,7 +993,7 @@ pub fn expect_date_pattern(
         |_diagnostics, value, kind| -> Result<_, Box<dyn std::error::Error + Send + Sync>> {
             match kind {
                 None => Err("Date pattern must specify 'after' or 'before'".into()),
-                Some(kind) => Ok(context.parse_relative(value, kind)?),
+                Some(kind) => Ok(DatePattern::from_str_kind(value, kind, zoned.clone())?),
             }
         },
     )
@@ -2580,7 +2580,7 @@ pub struct RevsetParseContext<'a> {
     pub aliases_map: &'a RevsetAliasesMap,
     pub local_variables: HashMap<&'a str, ExpressionNode<'a>>,
     pub user_email: &'a str,
-    pub date_pattern_context: DatePatternContext,
+    pub date_pattern_now: Zoned,
     pub extensions: &'a RevsetExtensions,
     pub workspace: Option<RevsetWorkspaceContext<'a>>,
 }
@@ -2591,15 +2591,15 @@ impl<'a> RevsetParseContext<'a> {
             aliases_map: _,
             local_variables: _,
             user_email,
-            date_pattern_context,
+            date_pattern_now,
             extensions,
             workspace,
-        } = *self;
+        } = self;
         LoweringContext {
             user_email,
-            date_pattern_context,
+            date_pattern_now: date_pattern_now.clone(),
             extensions,
-            workspace,
+            workspace: *workspace,
         }
     }
 }
@@ -2608,7 +2608,7 @@ impl<'a> RevsetParseContext<'a> {
 #[derive(Clone)]
 pub struct LoweringContext<'a> {
     user_email: &'a str,
-    date_pattern_context: DatePatternContext,
+    date_pattern_now: Zoned,
     extensions: &'a RevsetExtensions,
     workspace: Option<RevsetWorkspaceContext<'a>>,
 }
@@ -2618,8 +2618,8 @@ impl<'a> LoweringContext<'a> {
         self.user_email
     }
 
-    pub fn date_pattern_context(&self) -> &DatePatternContext {
-        &self.date_pattern_context
+    pub fn date_pattern_now(&self) -> &Zoned {
+        &self.date_pattern_now
     }
 
     pub fn symbol_resolvers(&self) -> &'a [impl AsRef<dyn SymbolResolverExtension> + use<>] {
@@ -2664,6 +2664,7 @@ mod tests {
     use std::path::PathBuf;
 
     use assert_matches::assert_matches;
+    use jiff::tz::TimeZone;
 
     use super::*;
 
@@ -2690,7 +2691,7 @@ mod tests {
             aliases_map: &aliases_map,
             local_variables: HashMap::new(),
             user_email: "test.user@example.com",
-            date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+            date_pattern_now: Zoned::now().with_time_zone(TimeZone::UTC),
             extensions: &RevsetExtensions::default(),
             workspace: None,
         };
@@ -2719,7 +2720,7 @@ mod tests {
             aliases_map: &aliases_map,
             local_variables: HashMap::new(),
             user_email: "test.user@example.com",
-            date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+            date_pattern_now: Zoned::now().with_time_zone(TimeZone::UTC),
             extensions: &RevsetExtensions::default(),
             workspace: Some(workspace_ctx),
         };
@@ -2744,7 +2745,7 @@ mod tests {
             aliases_map: &aliases_map,
             local_variables: HashMap::new(),
             user_email: "test.user@example.com",
-            date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+            date_pattern_now: Zoned::now().with_time_zone(TimeZone::UTC),
             extensions: &RevsetExtensions::default(),
             workspace: None,
         };

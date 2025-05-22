@@ -23,6 +23,7 @@ use std::time::SystemTime;
 
 use async_trait::async_trait;
 use futures::stream::BoxStream;
+use jiff::Zoned;
 use thiserror::Error;
 use tokio::io::AsyncRead;
 
@@ -73,15 +74,13 @@ pub struct Timestamp {
 
 impl Timestamp {
     pub fn now() -> Self {
-        Self::from_datetime(chrono::offset::Local::now())
+        Self::from_zoned(Zoned::now())
     }
 
-    pub fn from_datetime<Tz: chrono::TimeZone<Offset = chrono::offset::FixedOffset>>(
-        datetime: chrono::DateTime<Tz>,
-    ) -> Self {
+    pub fn from_zoned(zoned: Zoned) -> Self {
         Self {
-            timestamp: MillisSinceEpoch(datetime.timestamp_millis()),
-            tz_offset: datetime.offset().local_minus_utc() / 60,
+            timestamp: MillisSinceEpoch(zoned.timestamp().as_millisecond()),
+            tz_offset: zoned.time_zone().to_offset(zoned.timestamp()).seconds() / 60,
         }
     }
 }

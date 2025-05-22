@@ -33,7 +33,6 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use bstr::ByteVec as _;
-use chrono::TimeZone as _;
 use clap::builder::MapValueParser;
 use clap::builder::NonEmptyStringValueParser;
 use clap::builder::TypedValueParser as _;
@@ -50,6 +49,8 @@ use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indoc::writedoc;
 use itertools::Itertools as _;
+use jiff::tz::TimeZone;
+use jiff::Timestamp;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -828,17 +829,18 @@ impl WorkspaceCommandEnvironment {
             workspace_name: &self.workspace_name,
         };
         let now = if let Some(timestamp) = self.settings.commit_timestamp() {
-            chrono::Local
-                .timestamp_millis_opt(timestamp.timestamp.0)
-                .unwrap()
+            jiff::Zoned::new(
+                Timestamp::from_millisecond(timestamp.timestamp.0).unwrap(),
+                TimeZone::system(),
+            )
         } else {
-            chrono::Local::now()
+            jiff::Zoned::now()
         };
         RevsetParseContext {
             aliases_map: &self.revset_aliases_map,
             local_variables: HashMap::new(),
             user_email: self.settings.user_email(),
-            date_pattern_context: now.into(),
+            date_pattern_now: now,
             extensions: self.command.revset_extensions(),
             workspace: Some(workspace_context),
         }

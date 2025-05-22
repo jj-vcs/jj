@@ -19,7 +19,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use chrono::DateTime;
 use rand::prelude::*;
 use rand_chacha::ChaCha20Rng;
 use serde::Deserialize;
@@ -118,11 +117,11 @@ fn to_timestamp(value: ConfigValue) -> Result<Timestamp, Box<dyn std::error::Err
     // Since toml_edit::Datetime isn't the date-time type used across our code
     // base, we accept both string and date-time types.
     if let Some(s) = value.as_str() {
-        Ok(Timestamp::from_datetime(DateTime::parse_from_rfc3339(s)?))
+        Ok(Timestamp::from_zoned(s.parse()?))
     } else if let Some(d) = value.as_datetime() {
         // It's easier to re-parse the TOML date-time expression.
         let s = d.to_string();
-        Ok(Timestamp::from_datetime(DateTime::parse_from_rfc3339(&s)?))
+        Ok(Timestamp::from_zoned(s.parse()?))
     } else {
         let ty = value.type_name();
         Err(format!("invalid type: {ty}, expected a date-time").into())

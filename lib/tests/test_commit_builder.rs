@@ -283,7 +283,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
     let test_env = &test_repo.env;
 
     // Create discardable commit
-    let initial_timestamp = "2001-02-03T04:05:06+07:00";
+    let initial_timestamp = "2001-02-03T04:05:06[+07:00]";
     let settings =
         UserSettings::from_config(config_with_commit_timestamp(initial_timestamp)).unwrap();
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
@@ -298,13 +298,12 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
         .unwrap();
     tx.commit("test").unwrap();
 
-    let initial_timestamp =
-        Timestamp::from_datetime(chrono::DateTime::parse_from_rfc3339(initial_timestamp).unwrap());
+    let initial_timestamp = Timestamp::from_zoned(initial_timestamp.parse().unwrap());
     assert_eq!(initial_commit.author().timestamp, initial_timestamp);
     assert_eq!(initial_commit.committer().timestamp, initial_timestamp);
 
     // Rewrite discardable commit to no longer be discardable
-    let new_timestamp_1 = "2002-03-04T05:06:07+08:00";
+    let new_timestamp_1 = "2002-03-04T05:06:07[+08:00]";
     let settings =
         UserSettings::from_config(config_with_commit_timestamp(new_timestamp_1)).unwrap();
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
@@ -319,8 +318,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
     tx.repo_mut().rebase_descendants().unwrap();
     tx.commit("test").unwrap();
 
-    let new_timestamp_1 =
-        Timestamp::from_datetime(chrono::DateTime::parse_from_rfc3339(new_timestamp_1).unwrap());
+    let new_timestamp_1 = Timestamp::from_zoned(new_timestamp_1.parse().unwrap());
     assert_ne!(new_timestamp_1, initial_timestamp);
 
     assert_eq!(rewritten_commit_1.author().timestamp, new_timestamp_1);
@@ -328,7 +326,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
     assert_eq!(rewritten_commit_1.author(), rewritten_commit_1.committer());
 
     // Rewrite non-discardable commit
-    let new_timestamp_2 = "2003-04-05T06:07:08+09:00";
+    let new_timestamp_2 = "2003-04-05T06:07:08[+09:00]";
     let settings =
         UserSettings::from_config(config_with_commit_timestamp(new_timestamp_2)).unwrap();
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
@@ -343,8 +341,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
     tx.repo_mut().rebase_descendants().unwrap();
     tx.commit("test").unwrap();
 
-    let new_timestamp_2 =
-        Timestamp::from_datetime(chrono::DateTime::parse_from_rfc3339(new_timestamp_2).unwrap());
+    let new_timestamp_2 = Timestamp::from_zoned(new_timestamp_2.parse().unwrap());
     assert_ne!(new_timestamp_2, new_timestamp_1);
 
     assert_eq!(rewritten_commit_2.author().timestamp, new_timestamp_1);

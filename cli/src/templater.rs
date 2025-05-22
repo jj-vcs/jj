@@ -155,7 +155,7 @@ pub struct TimestampRange {
 
 impl TimestampRange {
     // TODO: Introduce duration type, and move formatting to it.
-    pub fn duration(&self) -> Result<String, time_util::TimestampOutOfRange> {
+    pub fn duration(&self) -> Result<String, jiff::Error> {
         let mut f = timeago::Formatter::new();
         f.min_unit(timeago::TimeUnit::Microseconds).ago("");
         let duration = time_util::format_duration(&self.start, &self.end, &f)?;

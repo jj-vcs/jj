@@ -18,6 +18,7 @@ use std::io;
 use std::iter;
 
 use itertools::Itertools as _;
+use jiff::fmt::strtime;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigNamePathBuf;
@@ -1223,10 +1224,19 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
             let [format_node] = function.expect_exact_arguments()?;
             let format =
                 template_parser::expect_string_literal_with(format_node, |format, span| {
-                    time_util::FormattingItems::parse(format)
-                        .ok_or_else(|| TemplateParseError::expression("Invalid time format", span))
+                    // We format a dummy timestamp in order to validate the format string.
+                    match strtime::format(
+                        format,
+                        &jiff::civil::date(2020, 12, 20)
+                            .at(6, 37, 0, 0)
+                            .to_zoned(jiff::tz::TimeZone::UTC)
+                            .unwrap(),
+                    ) {
+                        Ok(_) => Ok(format),
+                        Err(_) => Err(TemplateParseError::expression("Invalid time format", span)),
+                    }
                 })?
-                .into_owned();
+                .to_owned();
             let out_property = self_property.and_then(move |timestamp| {
                 Ok(time_util::format_absolute_timestamp_with(
                     &timestamp, &format,
@@ -1253,7 +1263,12 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
             let tz_offset = std::env::var("JJ_TZ_OFFSET_MINS")
                 .ok()
                 .and_then(|tz_string| tz_string.parse::<i32>().ok())
-                .unwrap_or_else(|| chrono::Local::now().offset().local_minus_utc() / 60);
+                .unwrap_or_else(|| {
+                    jiff::tz::TimeZone::system()
+                        .to_offset(jiff::Timestamp::now())
+                        .seconds()
+                        / 60
+                });
             let out_property = self_property.map(move |mut timestamp| {
                 timestamp.tz_offset = tz_offset;
                 timestamp
@@ -1265,7 +1280,7 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         "after",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             let [date_pattern_node] = function.expect_exact_arguments()?;
-            let now = chrono::Local::now();
+            let now = jiff::Zoned::now();
             let date_pattern = template_parser::expect_string_literal_with(
                 date_pattern_node,
                 |date_pattern, span| {
