@@ -271,7 +271,7 @@ use completions-jj.nu *  # Or `source completions-jj.nu`
 ### Xonsh
 
 ```shell
-source-bash $(jj util completion)
+source-bash $(jj util completion bash)
 ```
 
 (dynamic completions not available yet)

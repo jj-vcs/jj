@@ -36,6 +36,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with the same change ID is already present in the destination with identical
   changes. To keep these divergent commits, use the `--keep-divergent` flag.
 
+* `jj util completion` now requires the name of the shell as a positional argument and
+  no longer produces Bash completions by default. The deprecated optional arguments for
+  different shells have been removed.
+
 ### Deprecations
 
 * The `ui.diff.format` and `ui.diff.tool` config options have been merged as

@@ -17,7 +17,6 @@ use std::io::Write as _;
 use clap::Command;
 
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
@@ -49,16 +48,7 @@ See the docs on [command-line completion] for more details.
 #[derive(clap::Args, Clone, Debug)]
 #[command(verbatim_doc_comment)]
 pub struct UtilCompletionArgs {
-    shell: Option<ShellCompletion>,
-    /// Deprecated. Use the SHELL positional argument instead.
-    #[arg(long, hide = true)]
-    bash: bool,
-    /// Deprecated. Use the SHELL positional argument instead.
-    #[arg(long, hide = true)]
-    fish: bool,
-    /// Deprecated. Use the SHELL positional argument instead.
-    #[arg(long, hide = true)]
-    zsh: bool,
+    shell: ShellCompletion,
 }
 
 pub fn cmd_util_completion(
@@ -67,42 +57,7 @@ pub fn cmd_util_completion(
     args: &UtilCompletionArgs,
 ) -> Result<(), CommandError> {
     let mut app = command.app().clone();
-    let warn = |shell| -> std::io::Result<()> {
-        writeln!(
-            ui.warning_default(),
-            "`jj util completion --{shell}` will be removed in a future version, and this will be \
-             a hard error"
-        )?;
-        writeln!(
-            ui.hint_default(),
-            "Use `jj util completion {shell}` instead"
-        )?;
-        Ok(())
-    };
-    let shell = match (args.shell, args.fish, args.zsh, args.bash) {
-        (Some(s), false, false, false) => s,
-        // allow `--fish` and `--zsh` for back-compat, but don't allow them to be combined
-        (None, true, false, false) => {
-            warn("fish")?;
-            ShellCompletion::Fish
-        }
-        (None, false, true, false) => {
-            warn("zsh")?;
-            ShellCompletion::Zsh
-        }
-        // default to bash for back-compat. TODO: consider making `shell` a required argument
-        (None, false, false, _) => {
-            warn("bash")?;
-            ShellCompletion::Bash
-        }
-        _ => {
-            return Err(user_error(
-                "cannot generate completion for multiple shells at once",
-            ))
-        }
-    };
-
-    let buf = shell.generate(&mut app);
+    let buf = args.shell.generate(&mut app);
     ui.stdout().write_all(&buf)?;
     Ok(())
 }

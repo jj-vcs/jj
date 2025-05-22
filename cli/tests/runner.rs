@@ -62,7 +62,6 @@ mod test_restore_command;
 mod test_revert_command;
 mod test_revset_output;
 mod test_root;
-mod test_shell_completion;
 mod test_show_command;
 mod test_sign_unsign_commands;
 mod test_simplify_parents_command;
