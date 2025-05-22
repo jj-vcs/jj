@@ -946,12 +946,9 @@ fn test_config_edit_user_new_file() {
 }
 
 // TODO: remove after deprecation period in 0.35
-// NOTE: macOS-only test
+#[cfg_attr(not(target_os = "macos"), ignore)]
 #[test]
 fn test_config_edit_user_deprecated_file() {
-    if !cfg!(target_os = "macos") {
-        return;
-    }
     let test_env = TestEnvironment::default();
     let user_config_path = test_env
         .home_dir()
