@@ -48,6 +48,7 @@ use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
+use indoc::indoc;
 use indoc::writedoc;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
@@ -2301,20 +2302,24 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             .try_collect()?;
 
         if !root_conflict_commits.is_empty() {
-            let suggested_change = if only_one_conflicted_commit {
-                "the conflicted commit"
-            } else if root_conflict_commits.len() == 1 {
-                "the first conflicted commit"
-            } else {
-                "one of the first conflicted commits"
-            };
-            writedoc!(
-                fmt.labeled("hint").with_heading("Hint: "),
-                "
+            // The common part of these strings is not extracted, to avoid i18n issues.
+            let instruction = if only_one_conflicted_commit {
+                indoc! {"
                 To resolve the conflicts, start by creating a commit on top of
-                {suggested_change}:
-                "
-            )?;
+                the conflicted commit:
+                "}
+            } else if root_conflict_commits.len() == 1 {
+                indoc! {"
+                To resolve the conflicts, start by creating a commit on top of
+                the first conflicted commit:
+                "}
+            } else {
+                indoc! {"
+                To resolve the conflicts, start by creating a commit on top of
+                one of the first conflicted commits:
+                "}
+            };
+            write!(fmt.labeled("hint").with_heading("Hint: "), "{instruction}")?;
             let format_short_change_id = self.short_change_id_template();
             fmt.with_label("hint", |fmt| {
                 for commit in &root_conflict_commits {
