@@ -489,6 +489,23 @@ log = "main@origin.."
 The default value for `revsets.log` is
 `'present(@) | ancestors(immutable_heads().., 2) | present(trunk())'`.
 
+## Git Push
+
+### Default revisions to push
+
+You can configure the default set of revisions which `jj git push` should push.
+It is required to take the remote as an input, since otherwise
+`jj git push --remote <remote>` won't work.
+
+```toml
+[revsets]
+'git-push(remote)' = 'remote_bookmarks(remote=remote)..@ & ~private()'
+```
+
+The default value for `revsets.git-push(remote)` is
+`'remote_bookmarks(remote=remote)..@'` which roughly translates to push all
+changed bookmarks for this remote.
+
 ### Default Template
 
 You can configure the template used when no `-T` is specified.

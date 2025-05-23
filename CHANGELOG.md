@@ -67,6 +67,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Templates can now do arithmetic on integers with the `+`, `-`, `*`, `/`, and `%`
   infix operators.
 
+* Added support `revsets.git-push` which allows you to customize the default
+  set of commits to push. See issue
+  [#3650](https://github.com/jj-vcs/jj/issues/3650).
+
 ### Fixed bugs
 
 * Work around a git issue that could cause subprocess operations to hang if the
