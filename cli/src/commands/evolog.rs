@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::convert::Infallible;
-
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
@@ -126,7 +124,7 @@ pub(crate) fn cmd_evolog(
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
 
-    let mut commits = topo_order_reverse_ok(
+    let commits = topo_order_reverse_ok(
         vec![Ok(start_commit)],
         |commit: &Commit| commit.id().clone(),
         |commit: &Commit| {
@@ -144,35 +142,29 @@ pub(crate) fn cmd_evolog(
             predecessors.reverse();
             predecessors
         },
-    )?;
-    if let Some(n) = args.limit {
-        commits.truncate(n);
-    }
+    )?
+    .into_iter()
+    .map(Ok::<_, CommandError>);
+    let commits = commits.take(args.limit.unwrap_or(usize::MAX));
     if !args.no_graph {
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
 
-        let commit_nodes = commits
-            .into_iter()
-            .map(|c| {
-                let ids = c.predecessor_ids();
-                let edges = ids.iter().cloned().map(GraphEdge::direct).collect_vec();
-                (c, edges)
-            })
-            .collect_vec();
+        let commit_nodes = commits.map_ok(|c| {
+            let ids = c.predecessor_ids();
+            let edges = ids.iter().cloned().map(GraphEdge::direct).collect_vec();
+            (c, edges)
+        });
 
-        let commit_nodes = if args.reversed {
-            reverse_graph(
-                commit_nodes.into_iter().map(Result::<_, Infallible>::Ok),
-                Commit::id,
-            )
-            .unwrap()
+        let commit_nodes: Box<dyn Iterator<Item = _>> = if args.reversed {
+            let nodes = reverse_graph(commit_nodes, Commit::id)?;
+            Box::new(nodes.into_iter().map(Ok))
         } else {
-            commit_nodes
+            Box::new(commit_nodes)
         };
 
         for node in commit_nodes {
-            let (commit, edges) = node;
+            let (commit, edges) = node?;
             let mut buffer = vec![];
             let within_graph = with_content_format.sub_width(graph.width(commit.id(), &edges));
             within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
@@ -202,11 +194,15 @@ pub(crate) fn cmd_evolog(
             )?;
         }
     } else {
-        if args.reversed {
-            commits.reverse();
-        }
+        let commits: Box<dyn Iterator<Item = _>> = if args.reversed {
+            let commits: Vec<_> = commits.try_collect()?;
+            Box::new(commits.into_iter().rev().map(Ok))
+        } else {
+            Box::new(commits)
+        };
 
         for commit in commits {
+            let commit = commit?;
             with_content_format
                 .write(formatter, |formatter| template.format(&commit, formatter))?;
             if let Some(renderer) = &diff_renderer {
