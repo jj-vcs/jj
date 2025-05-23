@@ -50,7 +50,7 @@ fn test_sparse_checkout() {
 
     let tree = create_tree(
         repo,
-        &[
+        [
             (root_file1_path, "contents"),
             (root_file2_path, "contents"),
             (dir1_file1_path, "contents"),
@@ -190,7 +190,7 @@ fn test_sparse_commit() {
 
     let tree = create_tree(
         repo,
-        &[
+        [
             (root_file1_path, "contents"),
             (dir1_file1_path, "contents"),
             (dir2_file1_path, "contents"),

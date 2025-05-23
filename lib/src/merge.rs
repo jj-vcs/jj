@@ -645,6 +645,24 @@ where
         Merge { values }
     }
 
+    /// Creates a new merge by setting the executable bit from the given merge.
+    /// In other words, the file ids from `self` will be preserved.
+    pub fn with_new_file_executable_bit(&self, executable: bool) -> Merge<Option<TreeValue>> {
+        let values = self
+            .values
+            .iter()
+            .map(|tree_value| match borrow_tree_value(tree_value.as_ref()) {
+                Some(TreeValue::File { id, executable: _ }) => Some(TreeValue::File {
+                    id: id.clone(),
+                    executable,
+                }),
+                Some(old) => panic!("incompatible update: expected a TreeValue::File, got {old:?}"),
+                None => None,
+            })
+            .collect();
+        Merge { values }
+    }
+
     /// Give a summary description of the conflict's "removes" and "adds"
     pub fn describe(&self) -> String {
         let mut buf = String::new();

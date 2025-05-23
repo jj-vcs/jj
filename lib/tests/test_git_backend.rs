@@ -86,7 +86,7 @@ fn make_commit(
     parents: Vec<CommitId>,
     content: &[(&RepoPath, &str)],
 ) -> Commit {
-    let tree = create_tree(tx.base_repo(), content);
+    let tree = create_tree(tx.base_repo(), content.iter().cloned());
     tx.repo_mut()
         .new_commit(parents, tree.id())
         .write()
@@ -341,8 +341,8 @@ fn test_jj_trees_header_with_one_tree() {
     let git_backend = get_git_backend(&repo);
     let git_repo = git_backend.git_repo();
 
-    let tree_1 = create_single_tree(&repo, &[(repo_path("file"), "aaa")]);
-    let tree_2 = create_single_tree(&repo, &[(repo_path("file"), "bbb")]);
+    let tree_1 = create_single_tree(&repo, [(repo_path("file"), "aaa")]);
+    let tree_2 = create_single_tree(&repo, [(repo_path("file"), "bbb")]);
 
     // Create a normal commit with tree 1
     let commit = commit_with_tree(
