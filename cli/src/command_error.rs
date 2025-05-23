@@ -28,6 +28,7 @@ use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigLoadError;
 use jj_lib::config::ConfigMigrateError;
 use jj_lib::dsl_util::Diagnostics;
+use jj_lib::evolution::WalkPredecessorsError;
 use jj_lib::fileset::FilePatternParseError;
 use jj_lib::fileset::FilesetParseError;
 use jj_lib::fileset::FilesetParseErrorKind;
@@ -413,6 +414,16 @@ impl From<ResetError> for CommandError {
 impl From<TransactionCommitError> for CommandError {
     fn from(err: TransactionCommitError) -> Self {
         internal_error(err)
+    }
+}
+
+impl From<WalkPredecessorsError> for CommandError {
+    fn from(err: WalkPredecessorsError) -> Self {
+        match err {
+            WalkPredecessorsError::Backend(err) => err.into(),
+            WalkPredecessorsError::OpStore(err) => err.into(),
+            WalkPredecessorsError::CycleDetected(_) => internal_error(err),
+        }
     }
 }
 

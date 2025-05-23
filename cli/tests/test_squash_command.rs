@@ -1118,10 +1118,10 @@ fn test_squash_from_multiple_partial_no_op() {
     insta::assert_snapshot!(output, @r"
     @    6dfc239e2ba3 d
     ├─╮
-    │ ○  b1a17f79a1a5 b
-    │ ○  d8b7d57239ca b
-    ○  fdb92bc249a0 d
-    ○  af709ccc1ca9 d
+    ○ │  fdb92bc249a0 d
+    ○ │  af709ccc1ca9 d
+      ○  b1a17f79a1a5 b
+      ○  d8b7d57239ca b
     [EOF]
     ");
 

@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::slice;
+
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
-use jj_lib::dag_walk::topo_order_reverse_ok;
+use jj_lib::evolution::walk_predecessors;
 use jj_lib::graph::reverse_graph;
 use jj_lib::graph::GraphEdge;
 use jj_lib::matchers::EverythingMatcher;
@@ -124,95 +126,78 @@ pub(crate) fn cmd_evolog(
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
 
-    let commits = topo_order_reverse_ok(
-        vec![Ok(start_commit)],
-        |commit: &Commit| commit.id().clone(),
-        |commit: &Commit| {
-            let mut predecessors = commit.predecessors().collect_vec();
-            // Predecessors don't need to follow any defined order. However in
-            // practice, if there are multiple predecessors, then usually the
-            // first predecessor is the previous version of the same change, and
-            // the other predecessors are commits that were squashed into it. If
-            // multiple commits are squashed at once, then they are usually
-            // recorded in chronological order. We want to show squashed commits
-            // in reverse chronological order, and we also want to show squashed
-            // commits before the squash destination (since the destination's
-            // subgraph may contain earlier squashed commits as well), so we
-            // visit the predecessors in reverse order.
-            predecessors.reverse();
-            predecessors
-        },
-    )?
-    .into_iter()
-    .map(Ok::<_, CommandError>);
-    let commits = commits.take(args.limit.unwrap_or(usize::MAX));
+    let repo = workspace_command.repo();
+    let evolution_entries = walk_predecessors(repo, slice::from_ref(start_commit.id()))
+        .take(args.limit.unwrap_or(usize::MAX));
     if !args.no_graph {
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
 
-        let commit_nodes = commits.map_ok(|c| {
-            let ids = c.predecessor_ids();
+        let evolution_nodes = evolution_entries.map_ok(|entry| {
+            let ids = entry.predecessor_ids();
             let edges = ids.iter().cloned().map(GraphEdge::direct).collect_vec();
-            (c, edges)
+            (entry, edges)
         });
 
-        let commit_nodes: Box<dyn Iterator<Item = _>> = if args.reversed {
-            let nodes = reverse_graph(commit_nodes, Commit::id)?;
+        let evolution_nodes: Box<dyn Iterator<Item = _>> = if args.reversed {
+            let nodes = reverse_graph(evolution_nodes, |entry| entry.commit.id())?;
             Box::new(nodes.into_iter().map(Ok))
         } else {
-            Box::new(commit_nodes)
+            Box::new(evolution_nodes)
         };
 
-        for node in commit_nodes {
-            let (commit, edges) = node?;
+        for node in evolution_nodes {
+            let (entry, edges) = node?;
             let mut buffer = vec![];
-            let within_graph = with_content_format.sub_width(graph.width(commit.id(), &edges));
+            let within_graph =
+                with_content_format.sub_width(graph.width(entry.commit.id(), &edges));
             within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
-                template.format(&commit, formatter)
+                template.format(&entry.commit, formatter)
             })?;
             if !buffer.ends_with(b"\n") {
                 buffer.push(b'\n');
             }
             if let Some(renderer) = &diff_renderer {
-                let predecessors: Vec<_> = commit.predecessors().try_collect()?;
+                let predecessors: Vec<_> = entry.predecessors().try_collect()?;
                 let mut formatter = ui.new_formatter(&mut buffer);
                 renderer.show_inter_diff(
                     ui,
                     formatter.as_mut(),
                     &predecessors,
-                    &commit,
+                    &entry.commit,
                     &EverythingMatcher,
                     within_graph.width(),
                 )?;
             }
-            let node_symbol = format_template(ui, &Some(commit.clone()), &node_template);
+            let node_symbol = format_template(ui, &Some(entry.commit.clone()), &node_template);
             graph.add_node(
-                commit.id(),
+                entry.commit.id(),
                 &edges,
                 &node_symbol,
                 &String::from_utf8_lossy(&buffer),
             )?;
         }
     } else {
-        let commits: Box<dyn Iterator<Item = _>> = if args.reversed {
-            let commits: Vec<_> = commits.try_collect()?;
-            Box::new(commits.into_iter().rev().map(Ok))
+        let evolution_entries: Box<dyn Iterator<Item = _>> = if args.reversed {
+            let entries: Vec<_> = evolution_entries.try_collect()?;
+            Box::new(entries.into_iter().rev().map(Ok))
         } else {
-            Box::new(commits)
+            Box::new(evolution_entries)
         };
 
-        for commit in commits {
-            let commit = commit?;
-            with_content_format
-                .write(formatter, |formatter| template.format(&commit, formatter))?;
+        for entry in evolution_entries {
+            let entry = entry?;
+            with_content_format.write(formatter, |formatter| {
+                template.format(&entry.commit, formatter)
+            })?;
             if let Some(renderer) = &diff_renderer {
-                let predecessors: Vec<_> = commit.predecessors().try_collect()?;
+                let predecessors: Vec<_> = entry.predecessors().try_collect()?;
                 let width = ui.term_width();
                 renderer.show_inter_diff(
                     ui,
                     formatter,
                     &predecessors,
-                    &commit,
+                    &entry.commit,
                     &EverythingMatcher,
                     width,
                 )?;
