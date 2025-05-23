@@ -201,7 +201,7 @@ jobs:
         with:
           # If you bump the version, also update docs/contributing.md
           # and all other workflows that install uv
-          version: "0.5.1"
+          version: "0.7.3"
       - name: Run Codespell
         run: uv run -- codespell && echo Codespell exited successfully
 
@@ -242,7 +242,7 @@ jobs:
         with:
           # If you bump the version, also update docs/contributing.md
           # and all other workflows that install uv
-          version: "0.5.1"
+          version: "0.7.3"
       - name: Check that `mkdocs` can build the docs
         run: uv run -- mkdocs build --strict
 
