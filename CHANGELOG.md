@@ -73,6 +73,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `core.fsmonitor` gitconfig is set in the global or system gitconfigs.
   [#6440](https://github.com/jj-vcs/jj/issues/6440)
 
+* `jj parallelize` can now parallelize groups of changes that _start_ with an
+  immutable change, but do not contain any other immutable changes.
+
 ### Packaging changes
 
 * Due to the removal of the `libgit2` code path, packagers should

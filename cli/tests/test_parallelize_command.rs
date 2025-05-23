@@ -664,6 +664,115 @@ fn test_parallelize_complex_nonlinear_target() {
     ");
 }
 
+#[test]
+fn test_parallelize_immutable_base_commits() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["new", "root()", "-m=x"]).success();
+    work_dir.run_jj(["new", "-m=x1"]).success();
+    work_dir.run_jj(["new", "-m=x2"]).success();
+    work_dir.run_jj(["new", "-m=x3"]).success();
+
+    work_dir.run_jj(["new", "root()", "-m=y"]).success();
+    work_dir.run_jj(["new", "-m=y1"]).success();
+    work_dir.run_jj(["new", "-m=y2"]).success();
+
+    work_dir
+        .run_jj([
+            "config",
+            "set",
+            "--repo",
+            "revset-aliases.'immutable_heads()'",
+            "description(exact:'x\n') | description(exact:'y\n')",
+        ])
+        .success();
+    work_dir
+        .run_jj(["config", "set", "--repo", "revsets.log", "all()"])
+        .success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  1a0f8336974a y2 parents: y1
+    ○  0e07ea90229f y1 parents: y
+    ◆  a0fb97fc193f y parents:
+    │ ○  d6c30fecfe88 x3 parents: x2
+    │ ○  6411b5818334 x2 parents: x1
+    │ ○  6d01ab1fb731 x1 parents: x
+    │ ◆  8ceb28e1dc31 x parents:
+    ├─╯
+    ◆  000000000000 parents:
+    [EOF]
+    ");
+
+    work_dir
+        .run_jj(["parallelize", "description(x)", "description(y)"])
+        .success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  264da1b87cf3 y2 parents:
+    │ ○  636008757721 y1 parents:
+    ├─╯
+    │ ○  db5717c9c093 x3 parents:
+    ├─╯
+    │ ○  3e5fc34764e8 x2 parents:
+    ├─╯
+    │ ○  71aeaa5e8891 x1 parents:
+    ├─╯
+    │ ◆  a0fb97fc193f y parents:
+    ├─╯
+    │ ◆  8ceb28e1dc31 x parents:
+    ├─╯
+    ◆  000000000000 parents:
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_parallelize_no_immutable_non_base_commits() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["new", "root()", "-m=x"]).success();
+    work_dir.run_jj(["new", "-m=x1"]).success();
+    work_dir.run_jj(["new", "-m=x2"]).success();
+    work_dir.run_jj(["new", "-m=x3"]).success();
+
+    work_dir
+        .run_jj([
+            "config",
+            "set",
+            "--repo",
+            "revset-aliases.'immutable_heads()'",
+            "description(exact:'x1\n')",
+        ])
+        .success();
+    work_dir
+        .run_jj(["config", "set", "--repo", "revsets.log", "all()"])
+        .success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  d6c30fecfe88 x3 parents: x2
+    ○  6411b5818334 x2 parents: x1
+    ◆  6d01ab1fb731 x1 parents: x
+    ◆  8ceb28e1dc31 x parents:
+    ◆  000000000000 parents:
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["parallelize", "description(x)"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Commit 6d01ab1fb731 is immutable
+    Hint: Could not modify commit: kkmpptxz 6d01ab1f (empty) x1
+    Hint: Immutable commits are used to protect shared history.
+    Hint: For more information, see:
+          - https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
+          - `jj help -k config`, "Set of immutable commits"
+    Hint: This operation would rewrite 1 immutable commits.
+    [EOF]
+    [exit status: 1]
+    "#);
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"

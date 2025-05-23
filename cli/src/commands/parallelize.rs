@@ -77,25 +77,27 @@ pub(crate) fn cmd_parallelize(
         .parse_union_revsets(ui, &args.revisions)?
         .evaluate_to_commits()?
         .try_collect()?;
-    workspace_command.check_rewritable(target_commits.iter().ids())?;
-
-    let mut tx = workspace_command.start_transaction();
 
     // New parents for commits in the target set. Since commits in the set are now
     // supposed to be independent, they inherit the parent's non-target parents,
     // recursively.
     let mut new_target_parents: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
+    let mut needs_rewrite = Vec::new();
     for commit in target_commits.iter().rev() {
         let mut new_parents = vec![];
         for old_parent in commit.parent_ids() {
             if let Some(grand_parents) = new_target_parents.get(old_parent) {
                 new_parents.extend_from_slice(grand_parents);
+                needs_rewrite.push(commit.id());
             } else {
                 new_parents.push(old_parent.clone());
             }
         }
         new_target_parents.insert(commit.id().clone(), new_parents);
     }
+
+    workspace_command.check_rewritable(needs_rewrite)?;
+    let mut tx = workspace_command.start_transaction();
 
     // If a commit outside the target set has a commit in the target set as parent,
     // then - after the transformation - it should also have that commit's
