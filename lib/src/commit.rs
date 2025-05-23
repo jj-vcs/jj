@@ -93,6 +93,14 @@ impl Commit {
         &self.data.parents
     }
 
+    pub fn single_parent(&self) -> Option<&CommitId> {
+        if self.data.parents.len() == 1 {
+            Some(&self.data.parents[0])
+        } else {
+            None
+        }
+    }
+
     pub fn parents(&self) -> impl Iterator<Item = BackendResult<Commit>> + use<'_> {
         self.data.parents.iter().map(|id| self.store.get_commit(id))
     }
