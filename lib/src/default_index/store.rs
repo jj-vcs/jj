@@ -263,6 +263,8 @@ impl DefaultIndexStore {
                 .map(|(commit_id, op_id)| get_commit_with_op(commit_id, op_id)),
             |(CommitByCommitterTimestamp(commit), _)| commit.id().clone(),
             |(CommitByCommitterTimestamp(commit), op_id)| {
+                // TODO: preserve operation.commit_predecessors.keys() instead
+                // of commit.predecessor_ids().
                 itertools::chain(commit.parent_ids(), commit.predecessor_ids())
                     .filter(|&id| !parent_file_has_id(id))
                     .map(|commit_id| get_commit_with_op(commit_id, op_id))

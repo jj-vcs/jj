@@ -459,11 +459,47 @@ fn operation_metadata_from_proto(
     }
 }
 
+fn commit_predecessors_map_to_proto(
+    map: &BTreeMap<CommitId, Vec<CommitId>>,
+) -> Vec<crate::protos::op_store::CommitPredecessors> {
+    map.iter()
+        .map(
+            |(commit_id, predecessor_ids)| crate::protos::op_store::CommitPredecessors {
+                commit_id: commit_id.to_bytes(),
+                predecessor_ids: predecessor_ids.iter().map(|id| id.to_bytes()).collect(),
+            },
+        )
+        .collect()
+}
+
+fn commit_predecessors_map_from_proto(
+    proto: Vec<crate::protos::op_store::CommitPredecessors>,
+) -> BTreeMap<CommitId, Vec<CommitId>> {
+    proto
+        .into_iter()
+        .map(|entry| {
+            let commit_id = CommitId::new(entry.commit_id);
+            let predecessor_ids = entry
+                .predecessor_ids
+                .into_iter()
+                .map(CommitId::new)
+                .collect();
+            (commit_id, predecessor_ids)
+        })
+        .collect()
+}
+
 fn operation_to_proto(operation: &Operation) -> crate::protos::op_store::Operation {
+    let (commit_predecessors, stores_commit_predecessors) = match &operation.commit_predecessors {
+        Some(map) => (commit_predecessors_map_to_proto(map), true),
+        None => (vec![], false),
+    };
     let mut proto = crate::protos::op_store::Operation {
         view_id: operation.view_id.as_bytes().to_vec(),
+        parents: Default::default(),
         metadata: Some(operation_metadata_to_proto(&operation.metadata)),
-        ..Default::default()
+        commit_predecessors,
+        stores_commit_predecessors,
     };
     for parent in &operation.parents {
         proto.parents.push(parent.to_bytes());
@@ -481,10 +517,14 @@ fn operation_from_proto(
         .try_collect()?;
     let view_id = view_id_from_proto(proto.view_id)?;
     let metadata = operation_metadata_from_proto(proto.metadata.unwrap_or_default());
+    let commit_predecessors = proto
+        .stores_commit_predecessors
+        .then(|| commit_predecessors_map_from_proto(proto.commit_predecessors));
     Ok(Operation {
         view_id,
         parents,
         metadata,
+        commit_predecessors,
     })
 }
 
@@ -832,6 +872,13 @@ mod tests {
                     "key2".to_string() => "value2".to_string(),
                 },
             },
+            commit_predecessors: Some(btreemap! {
+                CommitId::from_hex("111111") => vec![],
+                CommitId::from_hex("222222") => vec![
+                    CommitId::from_hex("333333"),
+                    CommitId::from_hex("444444"),
+                ],
+            }),
         }
     }
 
@@ -849,7 +896,7 @@ mod tests {
         // Test exact output so we detect regressions in compatibility
         assert_snapshot!(
             OperationId::new(blake2b_hash(&create_operation()).to_vec()).hex(),
-            @"a721c8bfe6d30b4279437722417743c2c5d9efe731942663e3e7d37320e0ab6b49a7c1452d101cc427ceb8927a4cab03d49dabe73c0677bb9edf5c8b2aa83585"
+            @"b544c80b5ededdd64d0f10468fa636a06b83c45d94dd9bdac95319f7fe11fee536506c5c110681dee6233e69db7647683e732939a3ec88e867250efd765fea18"
         );
     }
 
