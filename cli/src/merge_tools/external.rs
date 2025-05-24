@@ -59,6 +59,9 @@ pub struct ExternalMergeTool {
     pub diff_invocation_mode: DiffToolMode,
     /// Whether to execute the tool in the temporary diff directory
     pub diff_do_chdir: bool,
+    /// Arguments to pass to enable and disable color
+    pub enable_color_args: Vec<String>,
+    pub disable_color_args: Vec<String>,
     /// Arguments to pass to the program when editing diffs.
     /// `$left` and `$right` are replaced with the corresponding directories.
     pub edit_args: Vec<String>,
@@ -114,6 +117,8 @@ impl Default for ExternalMergeTool {
             merge_tool_edits_conflict_markers: false,
             conflict_marker_style: None,
             diff_do_chdir: true,
+            enable_color_args: vec![],
+            disable_color_args: vec![],
             diff_invocation_mode: DiffToolMode::Dir,
         }
     }
@@ -457,7 +462,6 @@ pub fn invoke_external_diff(
     diff_dir: &Path,
     patterns: &HashMap<&str, &str>,
 ) -> Result<(), DiffGenerateError> {
-    // TODO: Somehow propagate --color to the external command?
     let mut cmd = Command::new(&tool.program);
     let mut patterns = patterns.clone();
     let absolute_left_path = Path::new(diff_dir).join(patterns["left"]);
@@ -479,6 +483,11 @@ pub fn invoke_external_diff(
         cmd.current_dir(diff_dir);
     }
     cmd.args(interpolate_variables(&tool.diff_args, &patterns));
+    if ui.color() {
+        cmd.args(&tool.enable_color_args);
+    } else {
+        cmd.args(&tool.disable_color_args);
+    }
 
     tracing::info!(?cmd, "Invoking the external diff generator:");
     let mut child = cmd
