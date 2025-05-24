@@ -395,34 +395,19 @@ pub fn cmd_git_push(
         return Ok(());
     }
 
-    let sign_behavior = if tx.settings().get_bool("git.sign-on-push")? {
-        Some(SignBehavior::Own)
-    } else {
-        None
-    };
-    let commits_to_sign =
-        validate_commits_ready_to_push(ui, &bookmark_updates, remote, &tx, args, sign_behavior)?;
+    let commits_to_sign = validate_commits_ready_to_push(ui, &bookmark_updates, remote, &tx, args)?;
     if !args.dry_run && !commits_to_sign.is_empty() {
-        if let Some(sign_behavior) = sign_behavior {
-            let num_updated_signatures = commits_to_sign.len();
-            let num_rebased_descendants;
-            (num_rebased_descendants, bookmark_updates) = sign_commits_before_push(
-                &mut tx,
-                commits_to_sign,
-                sign_behavior,
-                bookmark_updates,
-            )?;
-            if let Some(mut formatter) = ui.status_formatter() {
+        let num_commits_signed = commits_to_sign.len();
+        let num_rebased_descendants;
+        (num_rebased_descendants, bookmark_updates) =
+            sign_commits_before_push(&mut tx, commits_to_sign, bookmark_updates)?;
+        if let Some(mut formatter) = ui.status_formatter() {
+            writeln!(formatter, "Signed {num_commits_signed} commits")?;
+            if num_rebased_descendants > 0 {
                 writeln!(
                     formatter,
-                    "Updated signatures of {num_updated_signatures} commits"
+                    "Rebased {num_rebased_descendants} descendant commits"
                 )?;
-                if num_rebased_descendants > 0 {
-                    writeln!(
-                        formatter,
-                        "Rebased {num_rebased_descendants} descendant commits"
-                    )?;
-                }
             }
         }
     }
@@ -508,7 +493,6 @@ fn validate_commits_ready_to_push(
     remote: &RemoteName,
     tx: &WorkspaceCommandTransaction,
     args: &GitPushArgs,
-    sign_behavior: Option<SignBehavior>,
 ) -> Result<Vec<Commit>, CommandError> {
     let workspace_helper = tx.base_workspace_helper();
     let repo = workspace_helper.repo();
@@ -533,11 +517,11 @@ fn validate_commits_ready_to_push(
         .parse_revset(ui, &private_revset_str)?
         .evaluate()?
         .containing_fn();
-    let sign_settings = sign_behavior.map(|sign_behavior| {
-        let mut sign_settings = settings.sign_settings();
-        sign_settings.behavior = sign_behavior;
-        sign_settings
-    });
+    let sign_on_push_rev = RevisionArg::from(settings.get_string("git.sign-on-push")?);
+    let should_sign_on_push = workspace_helper
+        .parse_revset(ui, &sign_on_push_rev)?
+        .evaluate()?
+        .containing_fn();
 
     let mut commits_to_sign = vec![];
 
@@ -586,10 +570,8 @@ fn validate_commits_ready_to_push(
             }
             return Err(error);
         }
-        if let Some(sign_settings) = &sign_settings {
-            if !commit.is_signed() && sign_settings.should_sign(commit.store_commit()) {
-                commits_to_sign.push(commit);
-            }
+        if should_sign_on_push(commit.id())? {
+            commits_to_sign.push(commit);
         }
     }
     Ok(commits_to_sign)
@@ -602,7 +584,6 @@ fn validate_commits_ready_to_push(
 fn sign_commits_before_push(
     tx: &mut WorkspaceCommandTransaction,
     commits_to_sign: Vec<Commit>,
-    sign_behavior: SignBehavior,
     bookmark_updates: Vec<(RefNameBuf, BookmarkPushUpdate)>,
 ) -> Result<(usize, Vec<(RefNameBuf, BookmarkPushUpdate)>), CommandError> {
     let commit_ids: IndexSet<CommitId> = commits_to_sign.iter().ids().cloned().collect();
@@ -614,7 +595,7 @@ fn sign_commits_before_push(
             if commit_ids.contains(&old_commit_id) {
                 let commit = rewriter
                     .reparent()
-                    .set_sign_behavior(sign_behavior)
+                    .set_sign_behavior(SignBehavior::Force)
                     .write()?;
                 old_to_new_commits_map.insert(old_commit_id, commit.id().clone());
             } else {
