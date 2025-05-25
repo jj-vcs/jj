@@ -26,6 +26,8 @@ use crate::ui::Ui;
 
 /// Show commit description and changes in a revision
 #[derive(clap::Args, Clone, Debug)]
+#[command(mut_arg("ignore_all_space", |a| a.short('w')))]
+#[command(mut_arg("ignore_space_change", |a| a.short('b')))]
 pub(crate) struct ShowArgs {
     /// Show changes in this revision, compared to its parent(s)
     #[arg(
