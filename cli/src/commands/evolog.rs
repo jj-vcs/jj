@@ -21,6 +21,7 @@ use jj_lib::commit::Commit;
 use jj_lib::evolution::walk_predecessors;
 use jj_lib::graph::reverse_graph;
 use jj_lib::graph::GraphEdge;
+use jj_lib::graph::TopoGroupedGraphIterator;
 use jj_lib::matchers::EverythingMatcher;
 use tracing::instrument;
 
@@ -137,8 +138,7 @@ pub(crate) fn cmd_evolog(
     let formatter = formatter.as_mut();
 
     let repo = workspace_command.repo();
-    let evolution_entries =
-        walk_predecessors(repo, &start_commit_ids).take(args.limit.unwrap_or(usize::MAX));
+    let evolution_entries = walk_predecessors(repo, &start_commit_ids);
     if !args.no_graph {
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
@@ -148,7 +148,20 @@ pub(crate) fn cmd_evolog(
             let edges = ids.iter().cloned().map(GraphEdge::direct).collect_vec();
             (entry, edges)
         });
+        // TopoGroupedGraphIterator also helps emit squashed commits in reverse
+        // chronological order. Predecessors don't need to follow any defined
+        // order. However in practice, if there are multiple predecessors, then
+        // usually the first predecessor is the previous version of the same
+        // change, and the other predecessors are commits that were squashed
+        // into it. If multiple commits are squashed at once, then they are
+        // usually recorded in chronological order. We want to show squashed
+        // commits in reverse chronological order, and we also want to show
+        // squashed commits before the squash destination (since the
+        // destination's subgraph may contain earlier squashed commits as well.
+        let evolution_nodes =
+            TopoGroupedGraphIterator::new(evolution_nodes, |node| node.commit.id());
 
+        let evolution_nodes = evolution_nodes.take(args.limit.unwrap_or(usize::MAX));
         let evolution_nodes: Box<dyn Iterator<Item = _>> = if args.reversed {
             let nodes = reverse_graph(evolution_nodes, |entry| entry.commit.id())?;
             Box::new(nodes.into_iter().map(Ok))
@@ -195,6 +208,7 @@ pub(crate) fn cmd_evolog(
             )?;
         }
     } else {
+        let evolution_entries = evolution_entries.take(args.limit.unwrap_or(usize::MAX));
         let evolution_entries: Box<dyn Iterator<Item = _>> = if args.reversed {
             let entries: Vec<_> = evolution_entries.try_collect()?;
             Box::new(entries.into_iter().rev().map(Ok))
