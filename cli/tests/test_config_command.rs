@@ -978,6 +978,21 @@ fn test_config_edit_user_deprecated_file() {
     [EOF]
     ");
 
+    // if XDG_CONFIG_HOME is ~/Library/Application Support,
+    // you shouldn't get a warning
+    let output = test_env.run_jj_with(|cmd| {
+        cmd.env_remove("JJ_CONFIG")
+            .env(
+                "XDG_CONFIG_HOME",
+                test_env.home_dir().join("Library/Application Support"),
+            )
+            .args(["config", "get", "foo.bar"])
+    });
+    insta::assert_snapshot!(output, @r"
+    Make sure I can pick this up
+    [EOF]
+    ");
+
     // if you set JJ_CONFIG, you shouldn't get a warning
     let output = test_env.run_jj_with(|cmd| {
         cmd.env("JJ_CONFIG", &user_config_path)

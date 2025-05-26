@@ -347,6 +347,10 @@ impl ConfigEnv {
                     // Library/Preferences is supposed to be exclusively plists
                     s.data_dir()
                 })
+                .filter(|data_dir| {
+                    // User might've purposefully set their config dir to the deprecated one
+                    Some(data_dir) != config_dir.as_ref()
+                })
         } else {
             None
         };

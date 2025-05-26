@@ -78,6 +78,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj parallelize` can now parallelize groups of changes that _start_ with an
   immutable change, but do not contain any other immutable changes.
 
+* `jj` will no longer warn about deprecated paths on macOS if the configured
+  XDG directory is the deprecated one (~/Library/Application Support).
+
 ### Packaging changes
 
 * Due to the removal of the `libgit2` code path, packagers should
