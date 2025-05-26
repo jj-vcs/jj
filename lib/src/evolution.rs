@@ -125,9 +125,7 @@ where
                     has_dup = true;
                     continue;
                 }
-                // Predecessors will be visited in reverse order if they appear
-                // in the same operation. See scan_commits() for why.
-                to_emit.extend(self.to_visit.splice(i..=i, next_ids.iter().rev().cloned()));
+                to_emit.extend(self.to_visit.splice(i..=i, next_ids.iter().cloned()));
             } else {
                 i += 1;
             }
@@ -170,22 +168,8 @@ where
             self.to_visit.drain(..).map(|id| self.store.get_commit(&id)),
             |commit: &Commit| commit.id().clone(),
             |commit: &Commit| {
-                // Predecessors don't need to follow any defined order. However
-                // in practice, if there are multiple predecessors, then usually
-                // the first predecessor is the previous version of the same
-                // change, and the other predecessors are commits that were
-                // squashed into it. If multiple commits are squashed at once,
-                // then they are usually recorded in chronological order. We
-                // want to show squashed commits in reverse chronological order,
-                // and we also want to show squashed commits before the squash
-                // destination (since the destination's subgraph may contain
-                // earlier squashed commits as well), so we visit the
-                // predecessors in reverse order.
                 let ids = &commit.store_commit().predecessors;
-                ids.iter()
-                    .rev()
-                    .map(|id| self.store.get_commit(id))
-                    .collect_vec()
+                ids.iter().map(|id| self.store.get_commit(id)).collect_vec()
             },
             |_| panic!("graph has cycle"),
         )?;
