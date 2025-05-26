@@ -49,7 +49,7 @@ impl CommitEvolutionEntry {
     pub fn predecessor_ids(&self) -> &[CommitId] {
         match &self.operation {
             Some(op) => op.predecessors_for_commit(self.commit.id()).unwrap(),
-            None => self.commit.predecessor_ids(),
+            None => &self.commit.store_commit().predecessors,
         }
     }
 
@@ -146,7 +146,6 @@ where
             self.to_visit.drain(..).map(|id| self.store.get_commit(&id)),
             |commit: &Commit| commit.id().clone(),
             |commit: &Commit| {
-                let mut predecessors = commit.predecessors().collect_vec();
                 // Predecessors don't need to follow any defined order. However
                 // in practice, if there are multiple predecessors, then usually
                 // the first predecessor is the previous version of the same
@@ -158,8 +157,11 @@ where
                 // destination (since the destination's subgraph may contain
                 // earlier squashed commits as well), so we visit the
                 // predecessors in reverse order.
-                predecessors.reverse();
-                predecessors
+                let ids = &commit.store_commit().predecessors;
+                ids.iter()
+                    .rev()
+                    .map(|id| self.store.get_commit(id))
+                    .collect_vec()
             },
         )?;
         self.queued

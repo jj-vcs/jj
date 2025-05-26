@@ -97,17 +97,6 @@ impl Commit {
         self.data.parents.iter().map(|id| self.store.get_commit(id))
     }
 
-    pub fn predecessor_ids(&self) -> &[CommitId] {
-        &self.data.predecessors
-    }
-
-    pub fn predecessors(&self) -> impl Iterator<Item = BackendResult<Commit>> + use<'_> {
-        self.data
-            .predecessors
-            .iter()
-            .map(|id| self.store.get_commit(id))
-    }
-
     pub fn tree(&self) -> BackendResult<MergedTree> {
         self.store.get_root_tree(&self.data.root_tree)
     }

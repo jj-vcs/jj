@@ -143,6 +143,8 @@ impl MergedTreeId {
 #[derive(ContentHash, Debug, PartialEq, Eq, Clone)]
 pub struct Commit {
     pub parents: Vec<CommitId>,
+    // TODO: delete commit.predecessors when we can assume that most commits are
+    // tracked by op.commit_predecessors. (in jj 0.42 or so?)
     pub predecessors: Vec<CommitId>,
     pub root_tree: MergedTreeId,
     pub change_id: ChangeId,

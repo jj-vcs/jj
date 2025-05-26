@@ -349,9 +349,10 @@ impl DetachedCommitBuilder {
 
     /// Writes new commit and makes it visible in the `mut_repo`.
     pub fn write(self, mut_repo: &mut MutableRepo) -> BackendResult<Commit> {
+        let predecessors = self.commit.predecessors.clone();
         let commit = write_to_store(&self.store, self.commit, &self.sign_settings)?;
         mut_repo.add_head(&commit)?;
-        mut_repo.set_predecessors(commit.id().clone(), commit.predecessor_ids().to_vec());
+        mut_repo.set_predecessors(commit.id().clone(), predecessors);
         if let Some(rewrite_source) = self.rewrite_source {
             if rewrite_source.change_id() == commit.change_id() {
                 mut_repo.set_rewritten_commit(rewrite_source.id().clone(), commit.id().clone());
