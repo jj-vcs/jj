@@ -61,11 +61,11 @@ jobs:
       uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
       with:
         toolchain: 1.84
-    - uses: taiki-e/install-action@941e8a4d9d7cdb696bd4f017cf54aca281f8ffff
+    - uses: taiki-e/install-action@6c6479b49816fcc0975a31af977bdc1f847c2920
       with:
         tool: nextest,taplo-cli
     - name: Install mold
-      uses: rui314/setup-mold@e16410e7f8d9e167b74ad5697a9089a35126eb50
+      uses: rui314/setup-mold@67424c1b3680e35255d95971cbd5de0047bf31c3
       with:
         make-default: false
     - name: Build
@@ -197,7 +197,7 @@ jobs:
         with:
           python-version: 3.11
       - name: Install uv
-        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca
+        uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb
         with:
           # If you bump the version, also update docs/contributing.md
           # and all other workflows that install uv
@@ -238,7 +238,7 @@ jobs:
         with:
           python-version: 3.11
       - name: Install uv
-        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca
+        uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb
         with:
           # If you bump the version, also update docs/contributing.md
           # and all other workflows that install uv
@@ -255,7 +255,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install uv
-        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca
+        uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb
       # 'only-managed' means that uv will always download Python, even
       # if the runner happens to provide a compatible version
       - name: Check that `mkdocs` can build the docs
@@ -273,7 +273,7 @@ jobs:
           persist-credentials: false
 
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca
+        uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb
 
       - name: Run zizmor
         run: uvx zizmor --format sarif . > results.sarif
