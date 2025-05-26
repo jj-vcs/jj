@@ -2287,7 +2287,8 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         repo: &ReadonlyRepo,
         conflicted_commits: Vec<CommitId>,
     ) -> Result<(), CommandError> {
-        if !self.settings().get_bool("hints.resolving-conflicts")? {
+        if !self.settings().get_bool("hints.resolving-conflicts")? || conflicted_commits.is_empty()
+        {
             return Ok(());
         }
 
@@ -2301,43 +2302,41 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             .commits(repo.store())
             .try_collect()?;
 
-        if !root_conflict_commits.is_empty() {
-            // The common part of these strings is not extracted, to avoid i18n issues.
-            let instruction = if only_one_conflicted_commit {
-                indoc! {"
-                To resolve the conflicts, start by creating a commit on top of
-                the conflicted commit:
-                "}
-            } else if root_conflict_commits.len() == 1 {
-                indoc! {"
-                To resolve the conflicts, start by creating a commit on top of
-                the first conflicted commit:
-                "}
-            } else {
-                indoc! {"
-                To resolve the conflicts, start by creating a commit on top of
-                one of the first conflicted commits:
-                "}
-            };
-            write!(fmt.labeled("hint").with_heading("Hint: "), "{instruction}")?;
-            let format_short_change_id = self.short_change_id_template();
-            fmt.with_label("hint", |fmt| {
-                for commit in &root_conflict_commits {
-                    write!(fmt, "  jj new ")?;
-                    format_short_change_id.format(commit, fmt)?;
-                    writeln!(fmt)?;
-                }
-                io::Result::Ok(())
-            })?;
-            writedoc!(
-                fmt.labeled("hint"),
-                "
-                Then use `jj resolve`, or edit the conflict markers in the file directly.
-                Once the conflicts are resolved, you can inspect the result with `jj diff`.
-                Then run `jj squash` to move the resolution into the conflicted commit.
-                ",
-            )?;
-        }
+        // The common part of these strings is not extracted, to avoid i18n issues.
+        let instruction = if only_one_conflicted_commit {
+            indoc! {"
+            To resolve the conflicts, start by creating a commit on top of
+            the conflicted commit:
+            "}
+        } else if root_conflict_commits.len() == 1 {
+            indoc! {"
+            To resolve the conflicts, start by creating a commit on top of
+            the first conflicted commit:
+            "}
+        } else {
+            indoc! {"
+            To resolve the conflicts, start by creating a commit on top of
+            one of the first conflicted commits:
+            "}
+        };
+        write!(fmt.labeled("hint").with_heading("Hint: "), "{instruction}")?;
+        let format_short_change_id = self.short_change_id_template();
+        fmt.with_label("hint", |fmt| {
+            for commit in &root_conflict_commits {
+                write!(fmt, "  jj new ")?;
+                format_short_change_id.format(commit, fmt)?;
+                writeln!(fmt)?;
+            }
+            io::Result::Ok(())
+        })?;
+        writedoc!(
+            fmt.labeled("hint"),
+            "
+            Then use `jj resolve`, or edit the conflict markers in the file directly.
+            Once the conflicts are resolved, you can inspect the result with `jj diff`.
+            Then run `jj squash` to move the resolution into the conflicted commit.
+            ",
+        )?;
         Ok(())
     }
 
