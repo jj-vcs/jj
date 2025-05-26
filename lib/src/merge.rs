@@ -634,8 +634,11 @@ where
         let values = zip(self.iter(), file_ids.iter().cloned())
             .map(
                 |(tree_value, file_id)| match (borrow_tree_value(tree_value.as_ref()), file_id) {
-                    (Some(&TreeValue::File { id: _, executable }), Some(id)) => {
-                        Some(TreeValue::File { id, executable })
+                    (Some(TreeValue::File { id: _, executable }), Some(id)) => {
+                        Some(TreeValue::File {
+                            id,
+                            executable: *executable,
+                        })
                     }
                     (None, None) => None,
                     (old, new) => panic!("incompatible update: {old:?} to {new:?}"),
