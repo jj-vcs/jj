@@ -67,7 +67,7 @@ libc = { version = "0.2.172" }
 maplit = "1.0.2"
 num_cpus = "1.16.0"
 once_cell = "1.21.3"
-os_pipe = "1.2.1"
+os_pipe = "1.2.2"
 pest = "2.8.0"
 pest_derive = "2.8.0"
 pollster = "0.4.0"
@@ -102,7 +102,7 @@ test-case = "3.3.1"
 textwrap = "0.16.2"
 thiserror = "2.0.12"
 timeago = { version = "0.4.2", default-features = false }
-tokio = { version = "1.44.2", features = ["io-util"] }
+tokio = { version = "1.45.1", features = ["io-util"] }
 toml_edit = { version = "0.22.26", features = ["serde"] }
 tracing = "0.1.41"
 tracing-chrome = "0.7.2"
