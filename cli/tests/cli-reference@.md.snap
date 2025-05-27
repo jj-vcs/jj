@@ -2416,6 +2416,7 @@ J           J
 * `--keep-divergent` — Keep divergent commits while rebasing
 
    Without this flag, divergent commits are abandoned while rebasing if another commit with the same change ID is already present in the destination with identical changes.
+* `--restore-snapshots <REVSETS>` — The revision(s) to preserve the content of (not the diff)
 
 
 
