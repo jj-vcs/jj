@@ -2488,6 +2488,7 @@ See `jj diffedit` if you'd like to restore portions of files rather than entire 
 * `-i`, `--interactive` — Interactively choose which parts to restore
 * `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
 * `--restore-descendants` — Preserve the content (not the diff) when rebasing descendants
+* `--restore-snapshots <REVSETS>` — The revision(s) to preserve the content of (not the diff)
 
 
 
