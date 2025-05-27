@@ -260,6 +260,35 @@ fn test_config_list_layer() {
     test-layered-key = "test-layered-val"
     [EOF]
     "#);
+
+     // Workspace (new scope takes precedence over repo)
+    // Add a workspace-level setting
+    work_dir
+        .run_jj(["config", "set", "--workspace", "test-layered-wks-key", "ws-val"])
+        .success();
+
+    // Listing user shouldn't include workspace
+    let output = work_dir.run_jj(["config", "list", "--user"]);
+    insta::assert_snapshot!(output, @r#"
+    test-key = "test-val"
+    [EOF]
+    "#);
+
+    // Listing repo shouldn't include workspace
+    let output = work_dir.run_jj(["config", "list", "--repo"]);
+    insta::assert_snapshot!(output, @r#"
+    "$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json"
+    test-layered-key = "test-layered-val"
+    [EOF]
+    "#);
+
+    // Workspace
+    let output = work_dir.run_jj(["config", "list", "--workspace"]);
+    insta::assert_snapshot!(output, @r#"
+    "$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json"
+    test-layered-wks-key = "ws-val"
+    [EOF]
+    "#);
 }
 
 #[test]
@@ -676,6 +705,32 @@ fn test_config_set_for_repo() {
 }
 
 #[test]
+fn test_config_set_for_workspace() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
+        .success();
+    let work_dir = test_env.work_dir("secondary");
+
+    // set in workspace
+    work_dir
+        .run_jj(["config", "set", "--workspace", "test-key", "ws-val"])
+        .success();
+
+    // Read workspace config
+    let workspace_config = work_dir.read_file(
+        ".jj/config.toml"
+    );
+    insta::assert_snapshot!(workspace_config, @r#"
+"$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json"
+test-key = "ws-val"
+"#);
+}
+
+#[test]
 fn test_config_set_toml_types() {
     let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -890,6 +945,33 @@ fn test_config_unset_for_repo() {
     insta::assert_snapshot!(repo_config_toml, @r#""$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json""#);
 }
 
+
+#[test]
+fn test_config_unset_for_workspace() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
+        .success();
+    let work_dir = test_env.work_dir("secondary");
+
+    // set then unset
+    work_dir
+        .run_jj(["config", "set", "--workspace", "foo", "bar"])
+        .success();
+    work_dir
+        .run_jj(["config", "unset", "--workspace", "foo"])
+        .success();
+
+    // Ensure workspace config has only schema
+    let workspace_config = work_dir.read_file(
+        ".jj/config.toml"
+    );
+    insta::assert_snapshot!(workspace_config, @r#""$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json""#);
+}
+
 #[test]
 fn test_config_edit_missing_opt() {
     let test_env = TestEnvironment::default();
@@ -897,9 +979,9 @@ fn test_config_edit_missing_opt() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the following required arguments were not provided:
-      <--user|--repo>
+      <--user|--repo|--workspace>
 
-    Usage: jj config edit <--user|--repo>
+    Usage: jj config edit <--user|--repo|--workspace>
 
     For more information, try '--help'.
     [EOF]
@@ -1615,4 +1697,72 @@ fn test_config_author_change_warning_root_env() {
 fn find_stdout_lines(keyname_pattern: &str, stdout: &str) -> String {
     let key_line_re = Regex::new(&format!(r"(?m)^{keyname_pattern} = .*\n")).unwrap();
     key_line_re.find_iter(stdout).map(|m| m.as_str()).collect()
+}
+
+
+#[test]
+fn test_config_edit_workspace() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
+        .success();
+    let second_dir = test_env.work_dir("secondary");
+    let ws_config_path = second_dir
+        .root()
+        .join(PathBuf::from_iter([".jj", "workspace", "second", "config.toml"]));
+    assert!(!ws_config_path.exists());
+
+    std::fs::write(edit_script, "dump-path path").unwrap();
+    second_dir.run_jj(["config", "edit", "--workspace"]).success();
+
+    let edited_path = PathBuf::from(
+        std::fs::read_to_string(test_env.env_root().join("path")).unwrap()
+    );
+    assert_eq!(edited_path, dunce::simplified(&ws_config_path));
+    assert!(ws_config_path.exists(), "new workspace file created");
+}
+
+#[test]
+fn test_config_edit_invalid_workspace() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    std::fs::write(
+        &edit_script,
+        "write\ninvalid config here\0next\0write\ntest=\"ok\"",
+    )
+    .unwrap();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    main_dir.run_jj(["new"]).success();
+    main_dir
+        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
+        .success();
+    let second_dir = test_env.work_dir("secondary");
+
+    // attempt to edit invalid
+    let output = second_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["config", "edit", "--workspace"])
+            .write_stdin("Y\n")
+    });
+    insta::assert_snapshot!(output, @r#"
+------- stderr -------
+Editing file: $TEST_ENV/secondary/.jj/workspace/second/config.toml
+Warning: An error has been found inside the config:
+Caused by:
+1: Configuration cannot be parsed as TOML document
+2: TOML parse error at line 1, column 9
+  |
+1 | invalid config here
+  |         ^
+expected `.`, `=`
+
+Do you want to keep editing the file? If not, previous config will be restored. (Yn): "#);
+
+    // verify valid restored
+    second_dir.run_jj(["config", "get", "test"]).success();
 }
