@@ -169,15 +169,13 @@ pub(crate) fn cmd_new(
         .iter()
         .map(|commit_id| workspace_command.repo().store().get_commit(commit_id))
         .try_collect()?;
-    let mut advance_bookmarks_target = None;
     let mut advanceable_bookmarks = vec![];
 
     if args.insert_before.is_none() && args.insert_after.is_none() {
         let should_advance_bookmarks = parent_commits.len() == 1;
         if should_advance_bookmarks {
-            advance_bookmarks_target = Some(parent_commit_ids[0].clone());
             advanceable_bookmarks =
-                workspace_command.get_advanceable_bookmarks(parent_commits[0].parent_ids())?;
+                workspace_command.get_advanceable_bookmarks(parent_commit_ids.iter())?;
         }
     };
 
@@ -234,9 +232,7 @@ pub(crate) fn cmd_new(
     }
 
     // Does nothing if there's no bookmarks to advance.
-    if let Some(target) = advance_bookmarks_target {
-        tx.advance_bookmarks(advanceable_bookmarks, &target);
-    }
+    tx.advance_bookmarks(advanceable_bookmarks, new_commit.id());
 
     tx.finish(ui, "new empty commit")?;
     Ok(())

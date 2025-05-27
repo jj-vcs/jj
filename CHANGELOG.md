@@ -79,6 +79,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj parallelize` can now parallelize groups of changes that _start_ with an
   immutable change, but do not contain any other immutable changes.
 
+* Fix advancing branch to wrong commit with `experimental-advance-branches`
+  in the `jj new` command.
+
 ### Packaging changes
 
 * Due to the removal of the `libgit2` code path, packagers should
