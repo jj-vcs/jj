@@ -2532,6 +2532,7 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 * `-i`, `--interactive` — Interactively choose which parts to squash
 * `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
 * `-k`, `--keep-emptied` — The source revision will not be abandoned
+* `--restore-snapshots <REVSETS>` — The revision(s) to preserve the content of (not the diff)
 
 
 
