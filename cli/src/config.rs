@@ -33,6 +33,7 @@ use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigResolutionContext;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::ConfigValue;
+use jj_lib::file_util::PathError;
 use jj_lib::config::StackedConfig;
 use jj_lib::dsl_util;
 use regex::Captures;
@@ -325,8 +326,10 @@ impl UnresolvedConfigEnv {
 pub struct ConfigEnv {
     home_dir: Option<PathBuf>,
     repo_path: Option<PathBuf>,
+    workspace_path: Option<PathBuf>,
     user_config_paths: Vec<ConfigPath>,
     repo_config_path: Option<ConfigPath>,
+    workspace_config_path: Option<ConfigPath>,
     command: Option<String>,
 }
 
@@ -366,8 +369,10 @@ impl ConfigEnv {
         ConfigEnv {
             home_dir,
             repo_path: None,
+            workspace_path: None,
             user_config_paths: env.resolve(ui),
             repo_config_path: None,
+            workspace_config_path: None,
             command: None,
         }
     }
@@ -482,6 +487,95 @@ impl ConfigEnv {
         config.as_mut().remove_layers(ConfigSource::Repo);
         if let Some(path) = self.existing_repo_config_path() {
             config.as_mut().load_file(ConfigSource::Repo, path)?;
+        }
+        Ok(())
+    }
+
+    /// Sets the directory where workspace-specific config file is stored. The path
+    /// is usually `.jj/config.toml`.
+    pub fn reset_workspace_path(&mut self, path: &Path) {
+        // First ensure the .jj directory exists
+        if let Some(parent) = path.parent() {
+            if let Err(e) = create_dir_all(parent) {
+                eprintln!("Failed to create parent directory: {}", e);
+                return;
+            }
+        }
+        // Create the workspace path directory if it doesn't exist
+        if let Err(e) = create_dir_all(path) {
+            eprintln!("Failed to create workspace directory: {}", e);
+            return;
+        }
+        self.workspace_path = Some(path.to_owned());
+        // Ensure we create the full path including config.toml
+        let config_path = path.join("config.toml");
+        self.workspace_config_path = Some(ConfigPath::new(config_path));
+    }
+
+    /// Returns a path to the workspace-specific config file.
+    pub fn workspace_config_path(&self) -> Option<&Path> {
+        self.workspace_config_path.as_ref().map(|p| p.as_path())
+    }
+
+    /// Returns a path to the existing workspace-specific config file.
+    fn existing_workspace_config_path(&self) -> Option<&Path> {
+        match self.workspace_config_path {
+            Some(ref path) if path.exists() => Some(path.as_path()),
+            _ => None,
+        }
+    }
+
+    /// Returns workspace configuration files for modification. Instantiates one if
+    /// `config` has no workspace configuration layers.
+    ///
+    /// If the workspace path is unknown, this function returns an empty `Vec`. Since
+    /// the workspace config path cannot be a directory, the returned `Vec` should
+    /// have at most one config file.
+    pub fn workspace_config_files(
+        &self,
+        config: &RawConfig,
+    ) -> Result<Vec<ConfigFile>, ConfigLoadError> {
+        // First ensure we have a workspace path
+        let workspace_path = self.workspace_path.as_ref().ok_or_else(|| {
+            ConfigLoadError::Read(PathError {
+                path: PathBuf::new(),
+                error: std::io::Error::new(std::io::ErrorKind::NotFound, "No workspace path set"),
+            })
+        })?;
+
+        // Create the .jj directory if it doesn't exist
+        create_dir_all(workspace_path).map_err(|e| ConfigLoadError::Read(PathError {
+            path: workspace_path.to_path_buf(),
+            error: e,
+        }))?;
+
+        // Now get the config files
+        config_files_for(config, ConfigSource::Workspace, || self.new_workspace_config_file())
+    }
+
+    fn new_workspace_config_file(&self) -> Result<Option<ConfigFile>, ConfigLoadError> {
+        self.workspace_config_path()
+            .map(|path| {
+                // Ensure parent directory exists
+                if let Some(parent) = path.parent() {
+                    create_dir_all(parent).map_err(|e| ConfigLoadError::Read(PathError {
+                        path: parent.to_path_buf(),
+                        error: e,
+                    }))?;
+                }
+                // Load or create empty config file
+                ConfigFile::load_or_empty(ConfigSource::Workspace, path)
+            })
+            .transpose()
+    }
+
+    /// Loads workspace-specific config file into the given `config`. The old
+    /// workspace-config layer will be replaced if any.
+    #[instrument]
+    pub fn reload_workspace_config(&self, config: &mut RawConfig) -> Result<(), ConfigLoadError> {
+        config.as_mut().remove_layers(ConfigSource::Workspace);
+        if let Some(path) = self.existing_workspace_config_path() {
+            config.as_mut().load_file(ConfigSource::Workspace, path)?;
         }
         Ok(())
     }
@@ -1753,8 +1847,10 @@ mod tests {
         ConfigEnv {
             home_dir,
             repo_path: None,
+            workspace_path: None,
             user_config_paths: env.resolve(&Ui::null()),
             repo_config_path: None,
+            workspace_config_path: None,
             command: None,
         }
     }

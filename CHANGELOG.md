@@ -1439,6 +1439,10 @@ Thanks to the people who made this release happen!
 
 * `jj describe` can now update the description of multiple commits.
 
+* Workspaces may have an additional layered configuration, located at
+  `.jj/config.toml`. `jj config` subcommands which took layer options like
+  `--repo` now also support `--workspace`.
+
 ### Fixed bugs
 
 * `jj status` will show different messages in a conflicted tree, depending
