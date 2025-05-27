@@ -1047,12 +1047,13 @@ fn test_help() {
       [FILESETS]...  Edit only these paths (unmatched paths will remain unchanged)
 
     Options:
-      -r, --revision <REVSET>    The revision to touch up
-      -f, --from <REVSET>        Show changes from this revision
-      -t, --to <REVSET>          Edit changes in this revision
-          --tool <NAME>          Specify diff editor to be used
-          --restore-descendants  Preserve the content (not the diff) when rebasing descendants
-      -h, --help                 Print help (see more with '--help')
+      -r, --revision <REVSET>            The revision to touch up
+      -f, --from <REVSET>                Show changes from this revision
+      -t, --to <REVSET>                  Edit changes in this revision
+          --tool <NAME>                  Specify diff editor to be used
+          --restore-descendants          Preserve the content (not the diff) when rebasing descendants
+          --restore-snapshots <REVSETS>  The revision(s) to preserve the content of (not the diff)
+      -h, --help                         Print help (see more with '--help')
 
     Global Options:
       -R, --repository <REPOSITORY>      Path to repository to operate on
