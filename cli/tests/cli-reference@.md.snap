@@ -239,6 +239,7 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 
    Bookmarks will be moved to the parent revisions instead.
 * `--restore-descendants` — Do not modify the content of the children of the abandoned commits
+* `--restore-snapshots <REVSETS>` — The revision(s) to preserve the content of (not the diff)
 
 
 
