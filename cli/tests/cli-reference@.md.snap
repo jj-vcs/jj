@@ -2734,6 +2734,7 @@ An alternative squashing UI is available via the `-d`, `-A`, and `-B` options. T
 * `-i`, `--interactive` — Interactively choose which parts to squash
 * `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
 * `-k`, `--keep-emptied` — The source revision will not be abandoned
+* `--restore-snapshots <REVSETS>` — The revision(s) to preserve the content of (not the diff)
 
 
 
