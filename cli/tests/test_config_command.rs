@@ -561,11 +561,11 @@ fn test_config_set_bad_opts() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the following required arguments were not provided:
-      <--user|--repo>
+      <--user|--repo|--workspace>
       <NAME>
       <VALUE>
 
-    Usage: jj config set <--user|--repo> <NAME> <VALUE>
+    Usage: jj config set <--user|--repo|--workspace> <NAME> <VALUE>
 
     For more information, try '--help'.
     [EOF]

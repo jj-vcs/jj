@@ -627,6 +627,7 @@ List variables set in config files, along with their values
 * `--include-overridden` — Allow printing overridden values
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
+* `--workspace` — Target the workspace-level config
 * `-T`, `--template <TEMPLATE>` — Render each variable using the given template
 
    The following keywords are available in the template expression:
@@ -664,6 +665,7 @@ See `jj config edit` if you'd like to immediately edit a file.
 
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
+* `--workspace` — Target the workspace-level config
 
 
 
@@ -688,6 +690,7 @@ Update a config file to set the given option to a given value
 
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
+* `--workspace` — Target the workspace-level config
 
 
 
@@ -707,6 +710,7 @@ Update a config file to unset the given option
 
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
+* `--workspace` — Target the workspace-level config
 
 
 
