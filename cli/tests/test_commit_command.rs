@@ -298,7 +298,7 @@ fn test_commit_with_default_description() {
     ◆  000000000000
     [EOF]
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
     insta::assert_snapshot!(

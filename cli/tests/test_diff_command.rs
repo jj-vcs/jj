@@ -253,7 +253,7 @@ fn test_diff_basic() {
     -4
     [EOF]
     ------- stderr -------
-    Warning: Deprecated config: ui.diff.format is updated to ui.diff-formatter = ":git"
+    Warning: Deprecated CLI-provided config: ui.diff.format is updated to ui.diff-formatter = ":git"
     [EOF]
     "#);
 
@@ -3138,8 +3138,8 @@ fn test_diff_external_tool() {
     file3
     [EOF]
     ------- stderr -------
-    Warning: Deprecated config: ui.diff.tool is renamed to ui.diff-formatter
-    Warning: Deprecated config: ui.diff.format is deleted (superseded by ui.diff-formatter)
+    Warning: Deprecated CLI-provided config: ui.diff.tool is renamed to ui.diff-formatter
+    Warning: Deprecated CLI-provided config: ui.diff.format is deleted (superseded by ui.diff-formatter)
     [EOF]
     ");
 

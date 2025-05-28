@@ -27,6 +27,7 @@ use toml_edit::DocumentMut;
 use crate::config::ConfigGetError;
 use crate::config::ConfigLayer;
 use crate::config::ConfigNamePathBuf;
+use crate::config::ConfigSource;
 use crate::config::ConfigUpdateError;
 use crate::config::ConfigValue;
 use crate::config::StackedConfig;
@@ -367,7 +368,7 @@ fn rename_update_value(
 pub fn migrate(
     config: &mut StackedConfig,
     rules: &[ConfigMigrationRule],
-) -> Result<Vec<String>, ConfigMigrateError> {
+) -> Result<Vec<(ConfigSource, String)>, ConfigMigrateError> {
     let mut descriptions = Vec::new();
     for layer in config.layers_mut() {
         migrate_layer(layer, rules, &mut descriptions)
@@ -379,7 +380,7 @@ pub fn migrate(
 fn migrate_layer(
     layer: &mut Arc<ConfigLayer>,
     rules: &[ConfigMigrationRule],
-    descriptions: &mut Vec<String>,
+    descriptions: &mut Vec<(ConfigSource, String)>,
 ) -> Result<(), ConfigMigrateLayerError> {
     let rules_to_apply = rules
         .iter()
@@ -391,7 +392,7 @@ fn migrate_layer(
     let layer_mut = Arc::make_mut(layer);
     for rule in rules_to_apply {
         let desc = rule.apply(layer_mut)?;
-        descriptions.push(desc);
+        descriptions.push((layer_mut.source, desc));
     }
     Ok(())
 }
@@ -862,9 +863,18 @@ mod tests {
         let descriptions = migrate(&mut config, &rules).unwrap();
         insta::assert_debug_snapshot!(descriptions, @r#"
         [
-            "foo.old is renamed to foo.new",
-            "bar.old is deleted (superseded by baz.new)",
-            "bar.old is renamed to baz.new",
+            (
+                User,
+                "foo.old is renamed to foo.new",
+            ),
+            (
+                User,
+                "bar.old is deleted (superseded by baz.new)",
+            ),
+            (
+                User,
+                "bar.old is renamed to baz.new",
+            ),
         ]
         "#);
         insta::assert_snapshot!(config.layers()[0].data, @r"
@@ -913,9 +923,18 @@ mod tests {
         let descriptions = migrate(&mut config, &rules).unwrap();
         insta::assert_debug_snapshot!(descriptions, @r#"
         [
-            "foo.old is updated to foo.new = ['foo.old #0']",
-            "bar.old is deleted (superseded by baz.new)",
-            "bar.old is updated to baz.new = \"bar.old #1 updated\"",
+            (
+                User,
+                "foo.old is updated to foo.new = ['foo.old #0']",
+            ),
+            (
+                User,
+                "bar.old is deleted (superseded by baz.new)",
+            ),
+            (
+                User,
+                "bar.old is updated to baz.new = \"bar.old #1 updated\"",
+            ),
         ]
         "#);
         insta::assert_snapshot!(config.layers()[0].data, @r"

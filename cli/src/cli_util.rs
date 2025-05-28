@@ -3938,8 +3938,18 @@ impl<'a> CliRunner<'a> {
         ui.reset(&config)?;
 
         // Print only the last migration messages to omit duplicates.
-        for desc in &last_config_migration_descriptions {
-            writeln!(ui.warning_default(), "Deprecated config: {desc}")?;
+        for (source, desc) in &last_config_migration_descriptions {
+            let source_str = match source {
+                ConfigSource::Default => "default-provided",
+                ConfigSource::EnvBase | ConfigSource::EnvOverrides => "environment-provided",
+                ConfigSource::User => "user-level",
+                ConfigSource::Repo => "repo-level",
+                ConfigSource::CommandArg => "CLI-provided",
+            };
+            writeln!(
+                ui.warning_default(),
+                "Deprecated {source_str} config: {desc}"
+            )?;
         }
 
         if args.global_args.repository.is_some() {
