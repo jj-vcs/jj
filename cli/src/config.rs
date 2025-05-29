@@ -842,6 +842,23 @@ impl fmt::Display for CommandNameAndArgs {
 static VARIABLE_REGEX: once_cell::sync::Lazy<Regex> =
     once_cell::sync::Lazy::new(|| Regex::new(r"\$([a-z0-9_]+)\b").unwrap());
 
+/// Shell-escape a string for safe use in shell commands.
+/// This function adds single quotes around the string and escapes any single quotes within it.
+fn shell_escape(s: &str) -> String {
+    if s.is_empty() {
+        return "''".to_string();
+    }
+    
+    // Check if the string needs escaping
+    if s.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '.' || c == '/') {
+        return s.to_string();
+    }
+    
+    // Escape single quotes by replacing ' with '\''
+    let escaped = s.replace('\'', r"'\''");
+    format!("'{}'", escaped)
+}
+
 pub fn interpolate_variables<V: AsRef<str>>(
     args: &[String],
     variables: &HashMap<&str, V>,
@@ -852,7 +869,7 @@ pub fn interpolate_variables<V: AsRef<str>>(
                 .replace_all(arg, |caps: &Captures| {
                     let name = &caps[1];
                     if let Some(subst) = variables.get(name) {
-                        subst.as_ref().to_owned()
+                        shell_escape(subst.as_ref())
                     } else {
                         caps[0].to_owned()
                     }
@@ -1350,6 +1367,44 @@ mod tests {
          a.b.d = "2.1"
         "#);
         insta::assert_snapshot!(list(&layers, "a.b.c"), @r#"!a.b.c.f = "0.1""#);
+    }
+
+    #[test]
+    fn test_interpolate_variables_with_shell_escape() {
+        let variables = hashmap! {
+            "left" => "file with spaces.txt",
+            "right" => "file'with'quotes.txt",
+            "base" => "file;with;semicolons.txt",
+            "output" => "file$(echo pwned).txt",
+            "normal" => "normal_file.txt",
+            "empty" => "",
+            "path" => "/some/path/to/file.txt",
+        };
+        
+        // Test basic interpolation with shell escaping
+        let args = vec!["diff".to_string(), "$left".to_string(), "$right".to_string()];
+        let result = interpolate_variables(&args, &variables);
+        assert_eq!(result, vec!["diff", "'file with spaces.txt'", "'file'\\''with'\\''quotes.txt'"]);
+        
+        // Test that normal filenames are not escaped
+        let args = vec!["merge".to_string(), "$normal".to_string(), "$path".to_string()];
+        let result = interpolate_variables(&args, &variables);
+        assert_eq!(result, vec!["merge", "normal_file.txt", "/some/path/to/file.txt"]);
+        
+        // Test dangerous characters are escaped
+        let args = vec!["tool".to_string(), "$base".to_string(), "$output".to_string()];
+        let result = interpolate_variables(&args, &variables);
+        assert_eq!(result, vec!["tool", "'file;with;semicolons.txt'", "'file$(echo pwned).txt'"]);
+        
+        // Test empty string handling
+        let args = vec!["cmd".to_string(), "$empty".to_string()];
+        let result = interpolate_variables(&args, &variables);
+        assert_eq!(result, vec!["cmd", "''"]);
+        
+        // Test non-existent variable is left as-is
+        let args = vec!["cmd".to_string(), "$nonexistent".to_string()];
+        let result = interpolate_variables(&args, &variables);
+        assert_eq!(result, vec!["cmd", "$nonexistent"]);
     }
 
     struct TestCase {
