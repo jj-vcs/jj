@@ -126,25 +126,29 @@ impl<'a> IndexEntry<'a> {
 ///
 /// This is similar to `IndexEntry` newtypes, but optimized for size and cache
 /// locality. The original `IndexEntry` will have to be looked up when needed.
-#[derive(Clone, Copy, Debug, Ord, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub(super) struct IndexPositionByGeneration {
-    pub generation: u32,    // order by generation number
-    pub pos: IndexPosition, // tie breaker
+    // Packed to single u64 value for faster comparison
+    value: u64,
 }
 
-impl Eq for IndexPositionByGeneration {}
+impl IndexPositionByGeneration {
+    fn new(IndexPosition(pos): IndexPosition, generation: u32) -> Self {
+        let value = u64::from(generation) << 32 | u64::from(pos);
+        IndexPositionByGeneration { value }
+    }
 
-impl PartialEq for IndexPositionByGeneration {
-    fn eq(&self, other: &Self) -> bool {
-        self.pos == other.pos
+    pub fn position(&self) -> IndexPosition {
+        IndexPosition(self.value as u32)
+    }
+
+    pub fn generation_number(&self) -> u32 {
+        (self.value >> 32) as u32
     }
 }
 
 impl From<&IndexEntry<'_>> for IndexPositionByGeneration {
     fn from(entry: &IndexEntry<'_>) -> Self {
-        IndexPositionByGeneration {
-            generation: entry.generation_number(),
-            pos: entry.position(),
-        }
+        Self::new(entry.position(), entry.generation_number())
     }
 }

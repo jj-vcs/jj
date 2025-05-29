@@ -331,7 +331,7 @@ impl CompositeIndex {
             match item1.cmp(item2) {
                 Ordering::Greater => {
                     let item1 = dedup_pop(&mut items1).unwrap();
-                    let entry1 = self.entry_by_pos(item1.pos);
+                    let entry1 = self.entry_by_pos(item1.position());
                     for parent_entry in entry1.parents() {
                         assert!(parent_entry.position() < entry1.position());
                         items1.push(IndexPositionByGeneration::from(&parent_entry));
@@ -339,14 +339,14 @@ impl CompositeIndex {
                 }
                 Ordering::Less => {
                     let item2 = dedup_pop(&mut items2).unwrap();
-                    let entry2 = self.entry_by_pos(item2.pos);
+                    let entry2 = self.entry_by_pos(item2.position());
                     for parent_entry in entry2.parents() {
                         assert!(parent_entry.position() < entry2.position());
                         items2.push(IndexPositionByGeneration::from(&parent_entry));
                     }
                 }
                 Ordering::Equal => {
-                    result.insert(item1.pos);
+                    result.insert(item1.position());
                     dedup_pop(&mut items1).unwrap();
                     dedup_pop(&mut items2).unwrap();
                 }
@@ -400,13 +400,14 @@ impl CompositeIndex {
         // set of candidates. Stop walking when we have gone past the minimum
         // candidate generation.
         while let Some(item) = dedup_pop(&mut work) {
-            if item.generation < min_generation {
+            if item.generation_number() < min_generation {
                 break;
             }
-            candidate_positions.remove(&item.pos);
-            let entry = self.entry_by_pos(item.pos);
+            let cur_pos = item.position();
+            candidate_positions.remove(&cur_pos);
+            let entry = self.entry_by_pos(cur_pos);
             for parent_entry in entry.parents() {
-                assert!(parent_entry.position() < entry.position());
+                assert!(parent_entry.position() < cur_pos);
                 work.push(IndexPositionByGeneration::from(&parent_entry));
             }
         }
