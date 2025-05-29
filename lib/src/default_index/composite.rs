@@ -321,39 +321,32 @@ impl CompositeIndex {
     ) -> BTreeSet<IndexPosition> {
         fn shift_to_parents(
             index: &CompositeIndex,
-            items: &mut BinaryHeap<IndexPositionByGeneration>,
+            items: &mut BinaryHeap<IndexPosition>,
             cur_pos: IndexPosition,
         ) {
-            let mut parent_entries = index.entry_by_pos(cur_pos).parents();
-            if let Some(parent_entry) = parent_entries.next() {
-                assert!(parent_entry.position() < cur_pos);
-                dedup_replace(items, IndexPositionByGeneration::from(&parent_entry)).unwrap();
+            let mut parent_positions = index.entry_by_pos(cur_pos).parent_positions().into_iter();
+            if let Some(parent_pos) = parent_positions.next() {
+                assert!(parent_pos < cur_pos);
+                dedup_replace(items, parent_pos).unwrap();
             } else {
                 dedup_pop(items).unwrap();
                 return;
             }
-            for parent_entry in parent_entries {
-                assert!(parent_entry.position() < cur_pos);
-                items.push(IndexPositionByGeneration::from(&parent_entry));
+            for parent_pos in parent_positions {
+                assert!(parent_pos < cur_pos);
+                items.push(parent_pos);
             }
         }
 
-        let mut items1: BinaryHeap<_> = set1
-            .iter()
-            .map(|pos| IndexPositionByGeneration::from(&self.entry_by_pos(*pos)))
-            .collect();
-        let mut items2: BinaryHeap<_> = set2
-            .iter()
-            .map(|pos| IndexPositionByGeneration::from(&self.entry_by_pos(*pos)))
-            .collect();
-
+        let mut items1: BinaryHeap<_> = set1.iter().copied().collect();
+        let mut items2: BinaryHeap<_> = set2.iter().copied().collect();
         let mut result = BTreeSet::new();
-        while let (Some(&item1), Some(&item2)) = (items1.peek(), items2.peek()) {
-            match item1.cmp(&item2) {
-                Ordering::Greater => shift_to_parents(self, &mut items1, item1.position()),
-                Ordering::Less => shift_to_parents(self, &mut items2, item2.position()),
+        while let (Some(&pos1), Some(&pos2)) = (items1.peek(), items2.peek()) {
+            match pos1.cmp(&pos2) {
+                Ordering::Greater => shift_to_parents(self, &mut items1, pos1),
+                Ordering::Less => shift_to_parents(self, &mut items2, pos2),
                 Ordering::Equal => {
-                    result.insert(item1.position());
+                    result.insert(pos1);
                     dedup_pop(&mut items1).unwrap();
                     dedup_pop(&mut items2).unwrap();
                 }
