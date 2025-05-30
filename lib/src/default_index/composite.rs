@@ -17,6 +17,7 @@
 use std::cmp::max;
 use std::cmp::min;
 use std::cmp::Ordering;
+use std::collections::binary_heap;
 use std::collections::BTreeSet;
 use std::collections::BinaryHeap;
 use std::collections::HashSet;
@@ -593,8 +594,12 @@ pub struct IndexStats {
 /// one.
 fn dedup_pop<T: Ord>(heap: &mut BinaryHeap<T>) -> Option<T> {
     let item = heap.pop()?;
-    while heap.peek() == Some(&item) {
-        heap.pop().unwrap();
-    }
+    remove_dup(heap, &item);
     Some(item)
+}
+
+fn remove_dup<T: Ord>(heap: &mut BinaryHeap<T>, item: &T) {
+    while let Some(x) = heap.peek_mut().filter(|x| **x == *item) {
+        binary_heap::PeekMut::pop(x);
+    }
 }
