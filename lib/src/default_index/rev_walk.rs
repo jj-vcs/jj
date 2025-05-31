@@ -329,6 +329,22 @@ impl<P: Ord, T: Ord> RevWalkQueue<P, T> {
         }
     }
 
+    fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    fn wanted_count(&self) -> usize {
+        self.len() - self.unwanted_count
+    }
+
+    fn unwanted_count(&self) -> usize {
+        self.unwanted_count
+    }
+
+    fn iter(&self) -> impl Iterator<Item = &RevWalkWorkItem<P, T>> {
+        self.items.iter()
+    }
+
     fn push_wanted(&mut self, pos: P, t: T) {
         if pos < self.min_pos {
             return;
@@ -544,9 +560,9 @@ impl<I: RevWalkIndex + ?Sized> RevWalk<I> for RevWalkImpl<I::Position> {
                 self.queue
                     .extend_wanted(index.adjacent_positions(item.pos), ());
                 return Some(item.pos);
-            } else if self.queue.items.len() == self.queue.unwanted_count {
+            } else if self.queue.wanted_count() == 0 {
                 // No more wanted entries to walk
-                debug_assert!(!self.queue.items.iter().any(|x| x.is_wanted()));
+                debug_assert!(!self.queue.iter().any(|x| x.is_wanted()));
                 return None;
             } else {
                 self.queue
@@ -555,8 +571,8 @@ impl<I: RevWalkIndex + ?Sized> RevWalk<I> for RevWalkImpl<I::Position> {
         }
 
         debug_assert_eq!(
-            self.queue.items.iter().filter(|x| !x.is_wanted()).count(),
-            self.queue.unwanted_count
+            self.queue.iter().filter(|x| !x.is_wanted()).count(),
+            self.queue.unwanted_count()
         );
         None
     }
@@ -623,9 +639,9 @@ impl<I: RevWalkIndex + ?Sized> RevWalk<I> for RevWalkGenerationRangeImpl<I::Posi
                 if some_in_range {
                     return Some(item.pos);
                 }
-            } else if self.queue.items.len() == self.queue.unwanted_count {
+            } else if self.queue.wanted_count() == 0 {
                 // No more wanted entries to walk
-                debug_assert!(!self.queue.items.iter().any(|x| x.is_wanted()));
+                debug_assert!(!self.queue.iter().any(|x| x.is_wanted()));
                 return None;
             } else {
                 self.queue.skip_while_eq(&item.pos);
@@ -635,8 +651,8 @@ impl<I: RevWalkIndex + ?Sized> RevWalk<I> for RevWalkGenerationRangeImpl<I::Posi
         }
 
         debug_assert_eq!(
-            self.queue.items.iter().filter(|x| !x.is_wanted()).count(),
-            self.queue.unwanted_count
+            self.queue.iter().filter(|x| !x.is_wanted()).count(),
+            self.queue.unwanted_count()
         );
         None
     }
@@ -991,22 +1007,22 @@ mod tests {
         let to_commit_id = |pos| index.entry_by_pos(pos).commit_id();
 
         let mut iter = make_iter(&[id_6.clone(), id_7.clone()], &[id_3.clone()]);
-        assert_eq!(iter.walk.queue.items.len(), 2);
+        assert_eq!(iter.walk.queue.len(), 2);
         assert_eq!(iter.next().map(to_commit_id), Some(id_7.clone()));
         assert_eq!(iter.next().map(to_commit_id), Some(id_6.clone()));
         assert_eq!(iter.next().map(to_commit_id), Some(id_5.clone()));
-        assert_eq!(iter.walk.queue.items.len(), 2);
+        assert_eq!(iter.walk.queue.len(), 2);
         assert_eq!(iter.next().map(to_commit_id), Some(id_4.clone()));
-        assert_eq!(iter.walk.queue.items.len(), 1); // id_1 shouldn't be queued
+        assert_eq!(iter.walk.queue.len(), 1); // id_1 shouldn't be queued
         assert_eq!(iter.next().map(to_commit_id), Some(id_3.clone()));
-        assert_eq!(iter.walk.queue.items.len(), 0); // id_2 shouldn't be queued
+        assert_eq!(iter.walk.queue.len(), 0); // id_2 shouldn't be queued
         assert!(iter.next().is_none());
 
         let iter = make_iter(&[id_6.clone(), id_7.clone(), id_2.clone()], &[id_3.clone()]);
-        assert_eq!(iter.walk.queue.items.len(), 2); // id_2 shouldn't be queued
+        assert_eq!(iter.walk.queue.len(), 2); // id_2 shouldn't be queued
 
         let iter = make_iter(&[id_6.clone(), id_7.clone()], &[]);
-        assert!(iter.walk.queue.items.is_empty()); // no ids should be queued
+        assert_eq!(iter.walk.queue.len(), 0); // no ids should be queued
     }
 
     #[test]
