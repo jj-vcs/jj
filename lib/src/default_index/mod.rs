@@ -26,6 +26,7 @@ mod entry;
 mod mutable;
 mod readonly;
 mod rev_walk;
+mod rev_walk_queue;
 pub mod revset_engine;
 mod revset_graph_iterator;
 mod store;

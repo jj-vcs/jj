@@ -16,7 +16,6 @@
 
 use std::cmp::max;
 use std::cmp::Reverse;
-use std::collections::BinaryHeap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::iter::Fuse;
@@ -28,6 +27,8 @@ use smallvec::SmallVec;
 use super::composite::CompositeIndex;
 use super::entry::IndexPosition;
 use super::entry::SmallIndexPositionsVec;
+use super::rev_walk_queue::RevWalkQueue;
+use super::rev_walk_queue::RevWalkWorkItemState;
 
 /// Like `Iterator`, but doesn't borrow the `index` internally.
 pub(super) trait RevWalk<I: ?Sized> {
@@ -291,115 +292,6 @@ impl RevWalkIndex for RevWalkDescendantsIndex {
 
     fn adjacent_positions(&self, pos: Self::Position) -> Self::AdjacentPositions {
         self.children_map[&pos.0].clone()
-    }
-}
-
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
-struct RevWalkWorkItem<P, T> {
-    pos: P,
-    state: RevWalkWorkItemState<T>,
-}
-
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-enum RevWalkWorkItemState<T> {
-    // Order matters: Unwanted should appear earlier in the max-heap.
-    Wanted(T),
-    Unwanted,
-}
-
-impl<P, T> RevWalkWorkItem<P, T> {
-    fn is_wanted(&self) -> bool {
-        matches!(self.state, RevWalkWorkItemState::Wanted(_))
-    }
-}
-
-#[derive(Clone)]
-struct RevWalkQueue<P, T> {
-    items: BinaryHeap<RevWalkWorkItem<P, T>>,
-    min_pos: P,
-    unwanted_count: usize,
-}
-
-impl<P: Ord, T: Ord> RevWalkQueue<P, T> {
-    fn with_min_pos(min_pos: P) -> Self {
-        Self {
-            items: BinaryHeap::new(),
-            min_pos,
-            unwanted_count: 0,
-        }
-    }
-
-    fn len(&self) -> usize {
-        self.items.len()
-    }
-
-    fn wanted_count(&self) -> usize {
-        self.len() - self.unwanted_count
-    }
-
-    fn unwanted_count(&self) -> usize {
-        self.unwanted_count
-    }
-
-    fn iter(&self) -> impl Iterator<Item = &RevWalkWorkItem<P, T>> {
-        self.items.iter()
-    }
-
-    fn push_wanted(&mut self, pos: P, t: T) {
-        if pos < self.min_pos {
-            return;
-        }
-        let state = RevWalkWorkItemState::Wanted(t);
-        self.items.push(RevWalkWorkItem { pos, state });
-    }
-
-    fn push_unwanted(&mut self, pos: P) {
-        if pos < self.min_pos {
-            return;
-        }
-        let state = RevWalkWorkItemState::Unwanted;
-        self.items.push(RevWalkWorkItem { pos, state });
-        self.unwanted_count += 1;
-    }
-
-    fn extend_wanted(&mut self, positions: impl IntoIterator<Item = P>, t: T)
-    where
-        T: Clone,
-    {
-        // positions typically contains one item, and single BinaryHeap::push()
-        // appears to be slightly faster than .extend() as of rustc 1.73.0.
-        for pos in positions {
-            self.push_wanted(pos, t.clone());
-        }
-    }
-
-    fn extend_unwanted(&mut self, positions: impl IntoIterator<Item = P>) {
-        for pos in positions {
-            self.push_unwanted(pos);
-        }
-    }
-
-    fn pop(&mut self) -> Option<RevWalkWorkItem<P, T>> {
-        if let Some(x) = self.items.pop() {
-            self.unwanted_count -= !x.is_wanted() as usize;
-            Some(x)
-        } else {
-            None
-        }
-    }
-
-    fn pop_eq(&mut self, pos: &P) -> Option<RevWalkWorkItem<P, T>> {
-        if let Some(x) = self.items.peek() {
-            (x.pos == *pos).then(|| self.pop().unwrap())
-        } else {
-            None
-        }
-    }
-
-    fn skip_while_eq(&mut self, pos: &P) {
-        while self.pop_eq(pos).is_some() {
-            continue;
-        }
     }
 }
 
