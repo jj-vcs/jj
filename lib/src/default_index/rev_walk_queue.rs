@@ -13,8 +13,9 @@
 // limitations under the License.
 
 use std::collections::BinaryHeap;
+use std::mem;
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub(super) struct RevWalkWorkItem<P, T> {
     pub pos: P,
     pub state: RevWalkWorkItemState<T>,
@@ -36,6 +37,9 @@ impl<P, T> RevWalkWorkItem<P, T> {
 #[derive(Clone)]
 pub(super) struct RevWalkQueue<P, T> {
     items: BinaryHeap<RevWalkWorkItem<P, T>>,
+    // Optionally keep the greatest item out of the heap, so pop() + push() of
+    // the greatest item won't have to rebalance the heap.
+    scratch_item: Option<RevWalkWorkItem<P, T>>,
     min_pos: P,
     unwanted_count: usize,
 }
@@ -44,13 +48,14 @@ impl<P: Ord, T: Ord> RevWalkQueue<P, T> {
     pub fn with_min_pos(min_pos: P) -> Self {
         Self {
             items: BinaryHeap::new(),
+            scratch_item: None,
             min_pos,
             unwanted_count: 0,
         }
     }
 
     pub fn len(&self) -> usize {
-        self.items.len()
+        self.items.len() + self.scratch_item.is_some() as usize
     }
 
     pub fn wanted_count(&self) -> usize {
@@ -62,7 +67,7 @@ impl<P: Ord, T: Ord> RevWalkQueue<P, T> {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &RevWalkWorkItem<P, T>> {
-        self.items.iter()
+        itertools::chain(&self.items, &self.scratch_item)
     }
 
     pub fn push_wanted(&mut self, pos: P, t: T) {
@@ -70,7 +75,7 @@ impl<P: Ord, T: Ord> RevWalkQueue<P, T> {
             return;
         }
         let state = RevWalkWorkItemState::Wanted(t);
-        self.items.push(RevWalkWorkItem { pos, state });
+        self.push_item(RevWalkWorkItem { pos, state });
     }
 
     pub fn push_unwanted(&mut self, pos: P) {
@@ -78,16 +83,35 @@ impl<P: Ord, T: Ord> RevWalkQueue<P, T> {
             return;
         }
         let state = RevWalkWorkItemState::Unwanted;
-        self.items.push(RevWalkWorkItem { pos, state });
+        self.push_item(RevWalkWorkItem { pos, state });
         self.unwanted_count += 1;
+    }
+
+    fn push_item(&mut self, new: RevWalkWorkItem<P, T>) {
+        if let Some(next) = self.scratch_item.as_mut() {
+            if new < *next {
+                self.items.push(new);
+            } else {
+                let next = mem::replace(next, new);
+                self.items.push(next);
+            }
+        } else if let Some(next) = self.items.peek() {
+            if new < *next {
+                // items[0] could be moved to scratch_item, but simply leave
+                // scratch_item empty.
+                self.items.push(new);
+            } else {
+                self.scratch_item = Some(new);
+            }
+        } else {
+            self.scratch_item = Some(new);
+        }
     }
 
     pub fn extend_wanted(&mut self, positions: impl IntoIterator<Item = P>, t: T)
     where
         T: Clone,
     {
-        // positions typically contains one item, and single BinaryHeap::push()
-        // appears to be slightly faster than .extend() as of rustc 1.73.0.
         for pos in positions {
             self.push_wanted(pos, t.clone());
         }
@@ -100,11 +124,11 @@ impl<P: Ord, T: Ord> RevWalkQueue<P, T> {
     }
 
     pub fn peek(&self) -> Option<&RevWalkWorkItem<P, T>> {
-        self.items.peek()
+        self.scratch_item.as_ref().or_else(|| self.items.peek())
     }
 
     pub fn pop(&mut self) -> Option<RevWalkWorkItem<P, T>> {
-        let next = self.items.pop()?;
+        let next = self.scratch_item.take().or_else(|| self.items.pop())?;
         self.unwanted_count -= !next.is_wanted() as usize;
         Some(next)
     }
@@ -118,5 +142,74 @@ impl<P: Ord, T: Ord> RevWalkQueue<P, T> {
         while self.pop_eq(pos).is_some() {
             continue;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use assert_matches::assert_matches;
+
+    use super::*;
+
+    #[test]
+    fn test_push_pop_in_forward_order() {
+        let mut queue: RevWalkQueue<u32, ()> = RevWalkQueue::with_min_pos(0);
+
+        queue.push_wanted(0, ());
+        assert!(queue.scratch_item.is_some());
+        assert_eq!(queue.items.len(), 0);
+
+        queue.push_wanted(1, ());
+        assert!(queue.scratch_item.is_some());
+        assert_eq!(queue.items.len(), 1);
+
+        assert_matches!(queue.pop(), Some(RevWalkWorkItem { pos: 1, .. }));
+        assert!(queue.scratch_item.is_none());
+        assert_eq!(queue.items.len(), 1);
+
+        queue.push_wanted(2, ());
+        assert!(queue.scratch_item.is_some());
+        assert_eq!(queue.items.len(), 1);
+
+        assert_matches!(queue.pop(), Some(RevWalkWorkItem { pos: 2, .. }));
+        assert!(queue.scratch_item.is_none());
+        assert_eq!(queue.items.len(), 1);
+
+        assert_matches!(queue.pop(), Some(RevWalkWorkItem { pos: 0, .. }));
+        assert!(queue.scratch_item.is_none());
+        assert_eq!(queue.items.len(), 0);
+
+        assert_matches!(queue.pop(), None);
+    }
+
+    #[test]
+    fn test_push_pop_in_reverse_order() {
+        let mut queue: RevWalkQueue<u32, ()> = RevWalkQueue::with_min_pos(0);
+
+        queue.push_wanted(2, ());
+        assert!(queue.scratch_item.is_some());
+        assert_eq!(queue.items.len(), 0);
+
+        queue.push_wanted(1, ());
+        assert!(queue.scratch_item.is_some());
+        assert_eq!(queue.items.len(), 1);
+
+        assert_matches!(queue.pop(), Some(RevWalkWorkItem { pos: 2, .. }));
+        assert!(queue.scratch_item.is_none());
+        assert_eq!(queue.items.len(), 1);
+
+        queue.push_wanted(0, ());
+        assert!(queue.scratch_item.is_none());
+        assert_eq!(queue.items.len(), 2);
+
+        assert_matches!(queue.pop(), Some(RevWalkWorkItem { pos: 1, .. }));
+        assert!(queue.scratch_item.is_none());
+        assert_eq!(queue.items.len(), 1);
+
+        assert_matches!(queue.pop(), Some(RevWalkWorkItem { pos: 0, .. }));
+        assert!(queue.scratch_item.is_none());
+        assert_eq!(queue.items.len(), 0);
+
+        assert_matches!(queue.pop(), None);
     }
 }
