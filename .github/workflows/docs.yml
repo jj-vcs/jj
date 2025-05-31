@@ -31,7 +31,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb
         with:
-          version: "0.5.1"
+          version: "0.7.3"
       - name: Install dependencies, compile and deploy docs
         run: |
           git config user.name 'jj-docs[bot]'
