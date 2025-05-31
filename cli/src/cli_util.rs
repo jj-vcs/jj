@@ -2452,6 +2452,7 @@ impl WorkspaceCommandTransaction<'_> {
         let language = self.commit_template_language();
         self.helper
             .reparse_valid_template(&language, &self.helper.commit_summary_template_text)
+            .labeled(["commit"])
     }
 
     /// Creates commit template language environment capturing the current

@@ -592,7 +592,7 @@ fn test_color_ui_messages() {
     [exit status: 1]
     ");
 
-    // debugging colors
+    // commit_summary template with debugging colors
     let output = work_dir.run_jj(["st", "--color", "debug"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
@@ -600,6 +600,15 @@ fn test_color_ui_messages() {
     Parent commit (@-): [1m[38;5;5m<<commit change_id shortest prefix::q>>[0m[38;5;8m<<commit change_id shortest rest::pvuntsm>>[39m<<commit:: >>[1m[38;5;4m<<commit commit_id shortest prefix::e>>[0m[38;5;8m<<commit commit_id shortest rest::8849ae1>>[39m<<commit:: >>[38;5;2m<<commit empty::(empty)>>[39m<<commit:: >>[38;5;2m<<commit empty description placeholder::(no description set)>>[39m
     [EOF]
     ");
+
+    // commit_summary template in transaction
+    let output = work_dir.run_jj(["revert", "--color=debug", "-r@", "-d@"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Reverted 1 commits as follows:
+      [1m[38;5;5m<<commit change_id shortest prefix::y>>[0m[38;5;8m<<commit change_id shortest rest::ostqsxw>>[39m<<commit:: >>[1m[38;5;4m<<commit commit_id shortest prefix::8b>>[0m[38;5;8m<<commit commit_id shortest rest::f82eec>>[39m<<commit:: >>[38;5;2m<<commit empty::(empty)>>[39m<<commit:: >><<commit description first_line::Revert "">>
+    [EOF]
+    "#);
 }
 
 #[test]
