@@ -47,6 +47,8 @@ use crate::backend::CommitId;
 use crate::backend::Conflict;
 use crate::backend::ConflictId;
 use crate::backend::ConflictTerm;
+use crate::backend::CopyHistory;
+use crate::backend::CopyId;
 use crate::backend::CopyRecord;
 use crate::backend::FileId;
 use crate::backend::MergedTreeId;
@@ -253,6 +255,24 @@ impl Backend for SimpleBackend {
         Ok(id)
     }
 
+    async fn read_copy(&self, _id: &CopyId) -> BackendResult<CopyHistory> {
+        Err(BackendError::Unsupported(
+            "The simple backend doesn't support copies".to_string(),
+        ))
+    }
+
+    async fn write_copy(&self, _contents: &CopyHistory) -> BackendResult<CopyId> {
+        Err(BackendError::Unsupported(
+            "The simple backend doesn't support copies".to_string(),
+        ))
+    }
+
+    async fn get_related_copies(&self, _copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>> {
+        Err(BackendError::Unsupported(
+            "The simple backend doesn't support copies".to_string(),
+        ))
+    }
+
     async fn read_tree(&self, _path: &RepoPath, id: &TreeId) -> BackendResult<Tree> {
         let path = self.tree_path(id);
         let buf = fs::read(path).map_err(|err| map_not_found_err(err, id))?;
@@ -447,11 +467,16 @@ fn tree_from_proto(proto: crate::protos::simple_store::Tree) -> Tree {
 fn tree_value_to_proto(value: &TreeValue) -> crate::protos::simple_store::TreeValue {
     let mut proto = crate::protos::simple_store::TreeValue::default();
     match value {
-        TreeValue::File { id, executable } => {
+        TreeValue::File {
+            id,
+            executable,
+            copy_id,
+        } => {
             proto.value = Some(crate::protos::simple_store::tree_value::Value::File(
                 crate::protos::simple_store::tree_value::File {
                     id: id.to_bytes(),
                     executable: *executable,
+                    copy_id: copy_id.to_bytes(),
                 },
             ));
         }
@@ -483,10 +508,15 @@ fn tree_value_from_proto(proto: crate::protos::simple_store::TreeValue) -> TreeV
             TreeValue::Tree(TreeId::new(id))
         }
         crate::protos::simple_store::tree_value::Value::File(
-            crate::protos::simple_store::tree_value::File { id, executable, .. },
+            crate::protos::simple_store::tree_value::File {
+                id,
+                executable,
+                copy_id,
+            },
         ) => TreeValue::File {
             id: FileId::new(id),
             executable,
+            copy_id: CopyId::new(copy_id),
         },
         crate::protos::simple_store::tree_value::Value::SymlinkId(id) => {
             TreeValue::Symlink(SymlinkId::new(id))

@@ -59,6 +59,7 @@ use tracing::trace_span;
 
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
+use crate::backend::CopyId;
 use crate::backend::FileId;
 use crate::backend::MergedTreeId;
 use crate::backend::MillisSinceEpoch;
@@ -1513,14 +1514,43 @@ impl FileSnapshotter<'_> {
             let id = self.write_file_to_store(repo_path, disk_path).await?;
             // On Windows, we preserve the executable bit from the current tree.
             let executable = executable.unwrap_or_else(|| {
-                if let Some(TreeValue::File { id: _, executable }) = current_tree_value {
+                if let Some(TreeValue::File {
+                    id: _,
+                    executable,
+                    copy_id: _,
+                }) = current_tree_value
+                {
                     *executable
                 } else {
                     false
                 }
             });
-            Ok(Merge::normal(TreeValue::File { id, executable }))
+            // Preserve the copy id from the current tree
+            let copy_id = {
+                if let Some(TreeValue::File {
+                    id: _,
+                    executable: _,
+                    copy_id,
+                }) = current_tree_value
+                {
+                    copy_id.clone()
+                } else {
+                    CopyId::placeholder()
+                }
+            };
+            Ok(Merge::normal(TreeValue::File {
+                id,
+                executable,
+                copy_id,
+            }))
         } else if let Some(old_file_ids) = current_tree_values.to_file_merge() {
+            // Safe to unwrap because the copy id exists exactly on the file variant
+            let copy_id_merge = current_tree_values.to_copy_id_merge().unwrap();
+            let copy_id = copy_id_merge
+                .resolve_trivial()
+                .cloned()
+                .flatten()
+                .unwrap_or_else(CopyId::placeholder);
             // If the file contained a conflict before and is a normal file on
             // disk, we try to parse any conflict markers in the file into a
             // conflict.
@@ -1552,6 +1582,7 @@ impl FileSnapshotter<'_> {
                     Ok(Merge::normal(TreeValue::File {
                         id: file_id.unwrap(),
                         executable,
+                        copy_id,
                     }))
                 }
                 Err(new_file_ids) => {
@@ -1934,7 +1965,11 @@ impl TreeState {
             } else {
                 let file_type = match after.into_resolved() {
                     Ok(value) => match value.unwrap() {
-                        TreeValue::File { id: _, executable } => FileType::Normal {
+                        TreeValue::File {
+                            id: _,
+                            executable,
+                            copy_id: _,
+                        } => FileType::Normal {
                             executable: FileExecutableFlag::from_bool_lossy(executable),
                         },
                         TreeValue::Symlink(_id) => FileType::Symlink,

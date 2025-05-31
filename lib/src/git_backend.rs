@@ -60,6 +60,8 @@ use crate::backend::CommitId;
 use crate::backend::Conflict;
 use crate::backend::ConflictId;
 use crate::backend::ConflictTerm;
+use crate::backend::CopyHistory;
+use crate::backend::CopyId;
 use crate::backend::CopyRecord;
 use crate::backend::FileId;
 use crate::backend::MergedTreeId;
@@ -1022,6 +1024,24 @@ impl Backend for GitBackend {
         Ok(SymlinkId::new(oid.as_bytes().to_vec()))
     }
 
+    async fn read_copy(&self, _id: &CopyId) -> BackendResult<CopyHistory> {
+        Err(BackendError::Unsupported(
+            "The Git backend doesn't support tracked copies yet".to_string(),
+        ))
+    }
+
+    async fn write_copy(&self, _contents: &CopyHistory) -> BackendResult<CopyId> {
+        Err(BackendError::Unsupported(
+            "The Git backend doesn't support tracked copies yet".to_string(),
+        ))
+    }
+
+    async fn get_related_copies(&self, _copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>> {
+        Err(BackendError::Unsupported(
+            "The Git backend doesn't support tracked copies yet".to_string(),
+        ))
+    }
+
     async fn read_tree(&self, _path: &RepoPath, id: &TreeId) -> BackendResult<Tree> {
         if id == &self.empty_tree_id {
             return Ok(Tree::default());
@@ -1057,6 +1077,7 @@ impl Backend for GitBackend {
                             TreeValue::File {
                                 id,
                                 executable: false,
+                                copy_id: CopyId::placeholder(),
                             },
                         )
                     }
@@ -1068,6 +1089,7 @@ impl Backend for GitBackend {
                         TreeValue::File {
                             id,
                             executable: true,
+                            copy_id: CopyId::placeholder(),
                         },
                     )
                 }
@@ -1096,6 +1118,7 @@ impl Backend for GitBackend {
                     TreeValue::File {
                         id,
                         executable: false,
+                        copy_id: _, // TODO: Use the value
                     } => gix::objs::tree::Entry {
                         mode: gix::object::tree::EntryKind::Blob.into(),
                         filename: name.into(),
@@ -1104,6 +1127,7 @@ impl Backend for GitBackend {
                     TreeValue::File {
                         id,
                         executable: true,
+                        copy_id: _, // TODO: Use the value
                     } => gix::objs::tree::Entry {
                         mode: gix::object::tree::EntryKind::BlobExecutable.into(),
                         filename: name.into(),
@@ -1523,7 +1547,11 @@ fn conflict_term_from_json(json: &serde_json::Value) -> ConflictTerm {
 
 fn tree_value_to_json(value: &TreeValue) -> serde_json::Value {
     match value {
-        TreeValue::File { id, executable } => serde_json::json!({
+        TreeValue::File {
+            id,
+            executable,
+            copy_id: _,
+        } => serde_json::json!({
              "file": {
                  "id": id.hex(),
                  "executable": executable,
@@ -1549,6 +1577,7 @@ fn tree_value_from_json(json: &serde_json::Value) -> TreeValue {
         TreeValue::File {
             id: FileId::new(bytes_vec_from_json(json_file.get("id").unwrap())),
             executable: json_file.get("executable").unwrap().as_bool().unwrap(),
+            copy_id: CopyId::placeholder(),
         }
     } else if let Some(json_id) = json.get("symlink_id") {
         TreeValue::Symlink(SymlinkId::new(bytes_vec_from_json(json_id)))
@@ -1757,7 +1786,8 @@ mod tests {
             file.value(),
             &TreeValue::File {
                 id: FileId::from_bytes(blob1.as_bytes()),
-                executable: false
+                executable: false,
+                copy_id: CopyId::placeholder(),
             }
         );
         assert_eq!(symlink.name().as_internal_str(), "symlink");

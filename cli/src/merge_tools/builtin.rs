@@ -6,6 +6,7 @@ use futures::stream::BoxStream;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
+use jj_lib::backend::CopyId;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::conflicts;
@@ -377,11 +378,15 @@ fn apply_diff_builtin(
         changed_files,
         files,
         |path| right_tree.path_value(path),
-        |path, contents, executable| {
+        |path, contents, executable, copy_id| {
             let old_value = left_tree.path_value(path)?;
             let new_value = if old_value.is_resolved() {
                 let id = store.write_file(path, &mut &contents[..]).block_on()?;
-                Merge::normal(TreeValue::File { id, executable })
+                Merge::normal(TreeValue::File {
+                    id,
+                    executable,
+                    copy_id,
+                })
             } else if let Some(old_file_ids) = old_value.to_file_merge() {
                 // TODO: should error out if conflicts couldn't be parsed?
                 let new_file_ids = conflicts::update_from_content(
@@ -394,7 +399,11 @@ fn apply_diff_builtin(
                 )
                 .block_on()?;
                 match new_file_ids.into_resolved() {
-                    Ok(id) => Merge::resolved(id.map(|id| TreeValue::File { id, executable })),
+                    Ok(id) => Merge::resolved(id.map(|id| TreeValue::File {
+                        id,
+                        executable,
+                        copy_id: CopyId::placeholder(),
+                    })),
                     Err(file_ids) => old_value.with_new_file_ids(&file_ids),
                 }
             } else {
@@ -411,7 +420,7 @@ fn apply_changes(
     changed_files: Vec<RepoPathBuf>,
     files: &[scm_record::File],
     select_right: impl Fn(&RepoPath) -> BackendResult<MergedTreeValue>,
-    write_file: impl Fn(&RepoPath, &[u8], bool) -> BackendResult<MergedTreeValue>,
+    write_file: impl Fn(&RepoPath, &[u8], bool, CopyId) -> BackendResult<MergedTreeValue>,
 ) -> BackendResult<()> {
     assert_eq!(
         changed_files.len(),
@@ -448,7 +457,8 @@ fn apply_changes(
             }
             scm_record::SelectedContents::Text { contents } => {
                 let executable = file_mode == mode::EXECUTABLE;
-                let value = write_file(&path, contents.as_bytes(), executable)?;
+                let copy_id = CopyId::placeholder();
+                let value = write_file(&path, contents.as_bytes(), executable, copy_id)?;
                 tree_builder.set_or_remove(path, value);
             }
         }
@@ -624,9 +634,13 @@ pub fn edit_merge_builtin(
         // TODO: It doesn't make sense to select new value from the source tree.
         // Perhaps, "their" tree value should be extracted from a conflict?
         |path| tree.path_value(path),
-        |path, contents, executable| {
+        |path, contents, executable, copy_id| {
             let id = store.write_file(path, &mut &contents[..]).block_on()?;
-            Ok(Merge::normal(TreeValue::File { id, executable }))
+            Ok(Merge::normal(TreeValue::File {
+                id,
+                executable,
+                copy_id,
+            }))
         },
     )?;
     Ok(tree_builder.write_tree(store)?)
@@ -1280,7 +1294,11 @@ mod tests {
 
         fn to_file_id(tree_value: MergedTreeValue) -> Option<FileId> {
             match tree_value.into_resolved() {
-                Ok(Some(TreeValue::File { id, executable: _ })) => Some(id.clone()),
+                Ok(Some(TreeValue::File {
+                    id,
+                    executable: _,
+                    copy_id: _,
+                })) => Some(id.clone()),
                 other => {
                     panic!("merge should have been a FileId: {other:?}")
                 }

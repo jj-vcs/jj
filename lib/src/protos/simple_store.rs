@@ -12,6 +12,8 @@ pub mod tree_value {
         pub id: ::prost::alloc::vec::Vec<u8>,
         #[prost(bool, tag = "2")]
         pub executable: bool,
+        #[prost(bytes = "vec", tag = "3")]
+        pub copy_id: ::prost::alloc::vec::Vec<u8>,
     }
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Value {

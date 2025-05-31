@@ -243,7 +243,12 @@ pub fn fix_files(
                 for term in after.into_iter().flatten() {
                     // We currently only support fixing the content of normal files, so we skip
                     // directories and symlinks, and we ignore the executable bit.
-                    if let TreeValue::File { id, executable: _ } = term {
+                    if let TreeValue::File {
+                        id,
+                        executable: _,
+                        copy_id: _,
+                    } = term
+                    {
                         // TODO: Skip the file if its content is larger than some configured size,
                         // preferably without actually reading it yet.
                         let file_to_fix = FileToFix {
@@ -286,7 +291,12 @@ pub fn fix_files(
         for repo_path in repo_paths {
             let old_value = old_tree.path_value(repo_path)?;
             let new_value = old_value.map(|old_term| {
-                if let Some(TreeValue::File { id, executable }) = old_term {
+                if let Some(TreeValue::File {
+                    id,
+                    executable,
+                    copy_id,
+                }) = old_term
+                {
                     let file_to_fix = FileToFix {
                         file_id: id.clone(),
                         repo_path: repo_path.clone(),
@@ -295,6 +305,7 @@ pub fn fix_files(
                         return Some(TreeValue::File {
                             id: new_id.clone(),
                             executable: *executable,
+                            copy_id: copy_id.clone(),
                         });
                     }
                 }
