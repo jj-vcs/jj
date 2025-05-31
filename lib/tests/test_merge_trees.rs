@@ -40,25 +40,33 @@ fn test_simplify_conflict_after_resolving_parent() {
     // a conflict since it changed an unrelated line.
     let path = repo_path("dir/file");
     let mut tx = repo.start_transaction();
-    let tree_a = create_tree(repo, &[(path, "abc\ndef\nghi\n")]);
+    let tree_a = create_tree(repo, |builder| {
+        builder.entry(path).text_file("abc\ndef\nghi\n");
+    });
     let commit_a = tx
         .repo_mut()
         .new_commit(vec![repo.store().root_commit_id().clone()], tree_a.id())
         .write()
         .unwrap();
-    let tree_b = create_tree(repo, &[(path, "Abc\ndef\nghi\n")]);
+    let tree_b = create_tree(repo, |builder| {
+        builder.entry(path).text_file("Abc\ndef\nghi\n");
+    });
     let commit_b = tx
         .repo_mut()
         .new_commit(vec![commit_a.id().clone()], tree_b.id())
         .write()
         .unwrap();
-    let tree_c = create_tree(repo, &[(path, "Abc\ndef\nGhi\n")]);
+    let tree_c = create_tree(repo, |builder| {
+        builder.entry(path).text_file("Abc\ndef\nGhi\n");
+    });
     let commit_c = tx
         .repo_mut()
         .new_commit(vec![commit_b.id().clone()], tree_c.id())
         .write()
         .unwrap();
-    let tree_d = create_tree(repo, &[(path, "abC\ndef\nghi\n")]);
+    let tree_d = create_tree(repo, |builder| {
+        builder.entry(path).text_file("abC\ndef\nghi\n");
+    });
     let commit_d = tx
         .repo_mut()
         .new_commit(vec![commit_a.id().clone()], tree_d.id())
@@ -75,7 +83,9 @@ fn test_simplify_conflict_after_resolving_parent() {
     assert!(!tree_c2.path_value(path).unwrap().is_resolved());
 
     // Create the resolved B and rebase C on top.
-    let tree_b3 = create_tree(repo, &[(path, "AbC\ndef\nghi\n")]);
+    let tree_b3 = create_tree(repo, |builder| {
+        builder.entry(path).text_file("AbC\ndef\nghi\n");
+    });
     let commit_b3 = tx
         .repo_mut()
         .rewrite_commit(&commit_b2)
@@ -132,8 +142,12 @@ fn test_rebase_linearize_lossy_merge() {
     let path = repo_path("foo");
     let mut tx = repo.start_transaction();
     let repo_mut = tx.repo_mut();
-    let tree_1 = create_tree(repo, &[(path, "1")]);
-    let tree_2 = create_tree(repo, &[(path, "2")]);
+    let tree_1 = create_tree(repo, |builder| {
+        builder.entry(path).text_file("1");
+    });
+    let tree_2 = create_tree(repo, |builder| {
+        builder.entry(path).text_file("2");
+    });
     let commit_a = repo_mut
         .new_commit(vec![repo.store().root_commit_id().clone()], tree_1.id())
         .write()
@@ -182,9 +196,15 @@ fn test_rebase_on_lossy_merge() {
     let path = repo_path("foo");
     let mut tx = repo.start_transaction();
     let repo_mut = tx.repo_mut();
-    let tree_1 = create_tree(repo, &[(path, "1")]);
-    let tree_2 = create_tree(repo, &[(path, "2")]);
-    let tree_3 = create_tree(repo, &[(path, "3")]);
+    let tree_1 = create_tree(repo, |builder| {
+        builder.entry(path).text_file("1");
+    });
+    let tree_2 = create_tree(repo, |builder| {
+        builder.entry(path).text_file("2");
+    });
+    let tree_3 = create_tree(repo, |builder| {
+        builder.entry(path).text_file("3");
+    });
     let commit_a = repo_mut
         .new_commit(vec![repo.store().root_commit_id().clone()], tree_1.id())
         .write()

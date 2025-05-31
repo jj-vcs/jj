@@ -427,6 +427,10 @@ impl RepoPath {
         RepoPathComponentsIter { value: &self.value }
     }
 
+    pub fn ancestors(&self) -> impl Iterator<Item = &RepoPath> {
+        std::iter::successors(Some(self), |path| path.parent())
+    }
+
     pub fn join(&self, entry: &RepoPathComponent) -> RepoPathBuf {
         let value = if self.value.is_empty() {
             entry.as_internal_str().to_owned()
@@ -500,6 +504,17 @@ impl PartialOrd for RepoPath {
 impl PartialOrd for RepoPathBuf {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl<P: AsRef<RepoPathComponent>> Extend<P> for RepoPathBuf {
+    fn extend<T: IntoIterator<Item = P>>(&mut self, iter: T) {
+        for component in iter {
+            if !self.value.is_empty() {
+                self.value.push('/');
+            }
+            self.value.push_str(component.as_ref().as_internal_str());
+        }
     }
 }
 
@@ -815,6 +830,19 @@ mod tests {
     }
 
     #[test]
+    fn test_extend() {
+        let mut path = RepoPathBuf::root();
+        path.extend(std::iter::empty::<RepoPathComponentBuf>());
+        assert_eq!(path.as_ref(), RepoPath::root());
+        path.extend([repo_path_component("dir")]);
+        assert_eq!(path.as_ref(), repo_path("dir"));
+        path.extend(std::iter::repeat_n(repo_path_component("subdir"), 3));
+        assert_eq!(path.as_ref(), repo_path("dir/subdir/subdir/subdir"));
+        path.extend(std::iter::empty::<RepoPathComponentBuf>());
+        assert_eq!(path.as_ref(), repo_path("dir/subdir/subdir/subdir"));
+    }
+
+    #[test]
     fn test_parent() {
         let root = RepoPath::root();
         let dir_component = repo_path_component("dir");
@@ -863,6 +891,22 @@ mod tests {
         assert_eq!(
             repo_path("dir/subdir").components().rev().collect_vec(),
             vec![repo_path_component("subdir"), repo_path_component("dir")]
+        );
+    }
+
+    #[test]
+    fn test_ancestors() {
+        assert_eq!(
+            RepoPath::root().ancestors().collect_vec(),
+            vec![RepoPath::root()]
+        );
+        assert_eq!(
+            repo_path("dir").ancestors().collect_vec(),
+            vec![repo_path("dir"), RepoPath::root()]
+        );
+        assert_eq!(
+            repo_path("dir/subdir").ancestors().collect_vec(),
+            vec![repo_path("dir/subdir"), repo_path("dir"), RepoPath::root()]
         );
     }
 

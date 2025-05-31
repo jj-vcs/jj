@@ -48,17 +48,14 @@ fn test_sparse_checkout() {
     let dir2_path = repo_path("dir2");
     let dir2_file1_path = repo_path("dir2/file1");
 
-    let tree = create_tree(
-        repo,
-        &[
-            (root_file1_path, "contents"),
-            (root_file2_path, "contents"),
-            (dir1_file1_path, "contents"),
-            (dir1_file2_path, "contents"),
-            (dir1_subdir1_file1_path, "contents"),
-            (dir2_file1_path, "contents"),
-        ],
-    );
+    let tree = create_tree(repo, |builder| {
+        builder.entry(root_file1_path).text_file("contents");
+        builder.entry(root_file2_path).text_file("contents");
+        builder.entry(dir1_file1_path).text_file("contents");
+        builder.entry(dir1_file2_path).text_file("contents");
+        builder.entry(dir1_subdir1_file1_path).text_file("contents");
+        builder.entry(dir2_file1_path).text_file("contents");
+    });
     let commit = commit_with_tree(repo.store(), tree.id());
 
     test_workspace
@@ -188,14 +185,11 @@ fn test_sparse_commit() {
     let dir2_path = repo_path("dir2");
     let dir2_file1_path = repo_path("dir2/file1");
 
-    let tree = create_tree(
-        repo,
-        &[
-            (root_file1_path, "contents"),
-            (dir1_file1_path, "contents"),
-            (dir2_file1_path, "contents"),
-        ],
-    );
+    let tree = create_tree(repo, |builder| {
+        builder.entry(root_file1_path).text_file("contents");
+        builder.entry(dir1_file1_path).text_file("contents");
+        builder.entry(dir2_file1_path).text_file("contents");
+    });
 
     let commit = commit_with_tree(repo.store(), tree.id());
     test_workspace

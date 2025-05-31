@@ -28,7 +28,6 @@ use jj_lib::git_backend::JJ_TREES_COMMIT_HEADER;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
-use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
@@ -44,6 +43,7 @@ use testutils::repo_path_buf;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
+use testutils::TestTreeBuilder;
 
 fn get_git_backend(repo: &Arc<ReadonlyRepo>) -> &GitBackend {
     repo.store()
@@ -84,9 +84,9 @@ fn get_copy_records(
 fn make_commit(
     tx: &mut Transaction,
     parents: Vec<CommitId>,
-    content: &[(&RepoPath, &str)],
+    build_tree: impl FnOnce(&mut TestTreeBuilder),
 ) -> Commit {
-    let tree = create_tree(tx.base_repo(), content);
+    let tree = create_tree(tx.base_repo(), build_tree);
     tx.repo_mut()
         .new_commit(parents, tree.id())
         .write()
@@ -256,18 +256,16 @@ fn test_copy_detection() {
     let commit_a = make_commit(
         &mut tx,
         vec![repo.store().root_commit_id().clone()],
-        &[(&paths[0], "content")],
+        |builder| {
+            builder.entry(&paths[0]).text_file("content");
+        },
     );
-    let commit_b = make_commit(
-        &mut tx,
-        vec![commit_a.id().clone()],
-        &[(&paths[1], "content")],
-    );
-    let commit_c = make_commit(
-        &mut tx,
-        vec![commit_b.id().clone()],
-        &[(&paths[2], "content")],
-    );
+    let commit_b = make_commit(&mut tx, vec![commit_a.id().clone()], |builder| {
+        builder.entry(&paths[1]).text_file("content");
+    });
+    let commit_c = make_commit(&mut tx, vec![commit_b.id().clone()], |builder| {
+        builder.entry(&paths[2]).text_file("content");
+    });
 
     let store = repo.store();
     assert_eq!(
@@ -308,21 +306,17 @@ fn test_copy_detection_file_and_dir() {
     let commit_a = make_commit(
         &mut tx,
         vec![repo.store().root_commit_id().clone()],
-        &[
-            (repo_path("a"), "content1"),
-            (repo_path("b/file"), "content2"),
-            (repo_path("c"), "content3"),
-        ],
+        |builder| {
+            builder.entry(repo_path("a")).text_file("content1");
+            builder.entry(repo_path("b/file")).text_file("content2");
+            builder.entry(repo_path("c")).text_file("content3");
+        },
     );
-    let commit_b = make_commit(
-        &mut tx,
-        vec![commit_a.id().clone()],
-        &[
-            (repo_path("a/file"), "content2"),
-            (repo_path("b"), "content1"),
-            (repo_path("c/file"), "content3"),
-        ],
-    );
+    let commit_b = make_commit(&mut tx, vec![commit_a.id().clone()], |builder| {
+        builder.entry(repo_path("a/file")).text_file("content2");
+        builder.entry(repo_path("b")).text_file("content1");
+        builder.entry(repo_path("c/file")).text_file("content3");
+    });
 
     assert_eq!(
         get_copy_records(repo.store(), None, &commit_a, &commit_b),
@@ -341,8 +335,12 @@ fn test_jj_trees_header_with_one_tree() {
     let git_backend = get_git_backend(&repo);
     let git_repo = git_backend.git_repo();
 
-    let tree_1 = create_single_tree(&repo, &[(repo_path("file"), "aaa")]);
-    let tree_2 = create_single_tree(&repo, &[(repo_path("file"), "bbb")]);
+    let tree_1 = create_single_tree(&repo, |builder| {
+        builder.entry(repo_path("file")).text_file("aaa");
+    });
+    let tree_2 = create_single_tree(&repo, |builder| {
+        builder.entry(repo_path("file")).text_file("bbb");
+    });
 
     // Create a normal commit with tree 1
     let commit = commit_with_tree(
