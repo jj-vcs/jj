@@ -78,7 +78,8 @@ pub enum StringPattern {
     GlobI(GlobPattern),
     /// Matches substrings with a regular expression.
     Regex(regex::Regex),
-    // TODO: Should we add RegexI and "regex-i" prefix?
+    /// Matches substrings with a case‐insensitive regular expression.
+    RegexI(regex::Regex),
 }
 
 impl StringPattern {
@@ -140,6 +141,15 @@ impl StringPattern {
         Ok(StringPattern::Regex(pattern))
     }
 
+    /// Parses the given string as a case-insensitive regular expression.
+    pub fn regex_i(src: &str) -> Result<Self, StringPatternParseError> {
+        let pattern = regex::RegexBuilder::new(src)
+            .case_insensitive(true)
+            .build()
+            .map_err(StringPatternParseError::Regex)?;
+        Ok(StringPattern::RegexI(pattern))
+    }
+
     /// Parses the given string as a pattern of the specified `kind`.
     pub fn from_str_kind(src: &str, kind: &str) -> Result<Self, StringPatternParseError> {
         match kind {
@@ -150,6 +160,7 @@ impl StringPattern {
             "glob" => StringPattern::glob(src),
             "glob-i" => StringPattern::glob_i(src),
             "regex" => StringPattern::regex(src),
+            "regex-i" => StringPattern::regex_i(src),
             _ => Err(StringPatternParseError::InvalidKind(kind.to_owned())),
         }
     }
@@ -182,6 +193,7 @@ impl StringPattern {
             StringPattern::Glob(pattern) => pattern.as_str(),
             StringPattern::GlobI(pattern) => pattern.as_str(),
             StringPattern::Regex(pattern) => pattern.as_str(),
+            StringPattern::RegexI(pattern) => pattern.as_str(),
         }
     }
 
@@ -205,6 +217,7 @@ impl StringPattern {
             StringPattern::SubstringI(_) => None,
             StringPattern::GlobI(_) => None,
             StringPattern::Regex(_) => None,
+            StringPattern::RegexI(_) => None,
         }
     }
 
@@ -213,10 +226,12 @@ impl StringPattern {
     /// When matching against a case‐insensitive pattern, only ASCII case
     /// differences are currently folded. This may change in the future.
     pub fn matches(&self, haystack: &str) -> bool {
-        // TODO: Unicode case folding is complicated and can be locale‐specific. The
-        // `glob` crate and Gitoxide only deal with ASCII case folding, so we do
-        // the same here; a more elaborate case folding system will require
-        // making sure those behave in a matching manner where relevant.
+        // TODO: Unicode case folding is complicated and can be
+        // locale‐specific. The `glob` crate and Gitoxide only deal with ASCII
+        // case folding, so we do the same here; a more elaborate case folding
+        // system will require making sure those behave in a matching manner
+        // where relevant. That said, regex patterns are unicode-aware by
+        // default, so we already have some inconsistencies.
         //
         // Care will need to be taken regarding normalization and the choice of an
         // appropriate case‐insensitive comparison scheme (`toNFKC_Casefold`?) to ensure
@@ -243,7 +258,10 @@ impl StringPattern {
                     ..glob::MatchOptions::new()
                 },
             ),
+            // Regex and RegexI are identical here, but callers might want to
+            // translate these to backend-specific query differently.
             StringPattern::Regex(pattern) => pattern.is_match(haystack),
+            StringPattern::RegexI(pattern) => pattern.is_match(haystack),
         }
     }
 
@@ -373,6 +391,14 @@ mod tests {
         assert_matches!(
             StringPattern::from_str_kind("foo", "regex"),
             Ok(StringPattern::Regex(p)) if p.as_str() == "foo"
+        );
+        assert_matches!(
+            StringPattern::parse("regex-i:foo"),
+            Ok(StringPattern::RegexI(p)) if p.as_str() == "foo"
+        );
+        assert_matches!(
+            StringPattern::from_str_kind("foo", "regex-i"),
+            Ok(StringPattern::RegexI(p)) if p.as_str() == "foo"
         );
 
         // Parse a pattern that contains a : itself.
