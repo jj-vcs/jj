@@ -2292,6 +2292,7 @@ pub fn push_branches(
     git_settings: &GitSettings,
     remote: &RemoteName,
     targets: &GitBranchPushTargets,
+    remote_push_options: &[&str],
     callbacks: RemoteCallbacks<'_>,
 ) -> Result<GitPushStats, GitPushError> {
     validate_remote_name(remote)?;
@@ -2306,7 +2307,14 @@ pub fn push_branches(
         })
         .collect_vec();
 
-    let push_stats = push_updates(mut_repo, git_settings, remote, &ref_updates, callbacks)?;
+    let push_stats = push_updates(
+        mut_repo,
+        git_settings,
+        remote,
+        &ref_updates,
+        remote_push_options,
+        callbacks,
+    )?;
     tracing::debug!(?push_stats);
 
     // TODO: add support for partially pushed refs? we could update the view
@@ -2338,6 +2346,7 @@ pub fn push_updates(
     git_settings: &GitSettings,
     remote_name: &RemoteName,
     updates: &[GitRefUpdate],
+    remote_push_options: &[&str],
     mut callbacks: RemoteCallbacks<'_>,
 ) -> Result<GitPushStats, GitPushError> {
     let mut qualified_remote_refs_expected_locations = HashMap::new();
@@ -2375,7 +2384,12 @@ pub fn push_updates(
         .map(|full_refspec| RefToPush::new(full_refspec, &qualified_remote_refs_expected_locations))
         .collect();
 
-    let mut push_stats = git_ctx.spawn_push(remote_name, &refs_to_push, &mut callbacks)?;
+    let mut push_stats = git_ctx.spawn_push(
+        remote_name,
+        &refs_to_push,
+        remote_push_options,
+        &mut callbacks,
+    )?;
     push_stats.pushed.sort();
     push_stats.rejected.sort();
     push_stats.remote_rejected.sort();
