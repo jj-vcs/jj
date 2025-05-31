@@ -89,6 +89,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `pkg-config`, and ensure they are not setting the Cargo `git2` or
   `vendored-openssl` features.
 
+* `aarch64-windows` binaries (release and `main` snapshots) are now provided.
+
 ## [0.29.0] - 2025-05-07
 
 ### Release highlights
