@@ -2075,6 +2075,10 @@ fn test_evaluate_expression_bookmarks() {
         resolve_commit_ids(mut_repo, "bookmarks(regex:'^[Bb]ookmark1$')"),
         vec![commit1.id().clone()]
     );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "bookmarks(regex-i:'BOOKmark')"),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
     // Can silently resolve to an empty set if there's no matches
     assert_eq!(resolve_commit_ids(mut_repo, "bookmarks(bookmark3)"), vec![]);
     assert_eq!(
