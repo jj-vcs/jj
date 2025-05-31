@@ -99,21 +99,19 @@ impl<P: Ord, T: Ord> RevWalkQueue<P, T> {
         }
     }
 
+    pub fn peek(&self) -> Option<&RevWalkWorkItem<P, T>> {
+        self.items.peek()
+    }
+
     pub fn pop(&mut self) -> Option<RevWalkWorkItem<P, T>> {
-        if let Some(x) = self.items.pop() {
-            self.unwanted_count -= !x.is_wanted() as usize;
-            Some(x)
-        } else {
-            None
-        }
+        let next = self.items.pop()?;
+        self.unwanted_count -= !next.is_wanted() as usize;
+        Some(next)
     }
 
     pub fn pop_eq(&mut self, pos: &P) -> Option<RevWalkWorkItem<P, T>> {
-        if let Some(x) = self.items.peek() {
-            (x.pos == *pos).then(|| self.pop().unwrap())
-        } else {
-            None
-        }
+        let next = self.peek()?;
+        (next.pos == *pos).then(|| self.pop().unwrap())
     }
 
     pub fn skip_while_eq(&mut self, pos: &P) {
