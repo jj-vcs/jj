@@ -79,6 +79,7 @@
         git
 
         # for schema tests
+        jq
         taplo
       ];
 
