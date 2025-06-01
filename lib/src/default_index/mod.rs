@@ -1097,7 +1097,7 @@ mod tests {
         // to (1,2) and matches the (1,2) of the first input set.
         assert_eq!(
             index.common_ancestors(&[id_1.clone(), id_2.clone()], &[id_5]),
-            vec![id_1.clone(), id_2.clone()]
+            vec![id_2.clone(), id_1.clone()]
         );
         assert_eq!(index.common_ancestors(&[id_1, id_2], &[id_3]), vec![id_0]);
     }
@@ -1198,9 +1198,16 @@ mod tests {
         // Multiple heads
         assert_eq!(
             index
-                .heads(&mut [id_4.clone(), id_3.clone()].iter())
+                .heads(&mut [id_3.clone(), id_4.clone()].iter())
                 .unwrap(),
-            vec![id_3.clone(), id_4]
+            vec![id_4.clone(), id_3.clone()]
+        );
+        // Duplicated inputs
+        assert_eq!(
+            index
+                .heads(&mut [id_4.clone(), id_3.clone(), id_4.clone()].iter())
+                .unwrap(),
+            vec![id_4.clone(), id_3.clone()]
         );
         // Merge commit and ancestors
         assert_eq!(
@@ -1212,7 +1219,7 @@ mod tests {
             index
                 .heads(&mut [id_5.clone(), id_3.clone()].iter())
                 .unwrap(),
-            vec![id_3.clone(), id_5.clone()]
+            vec![id_5.clone(), id_3.clone()]
         );
 
         assert_eq!(

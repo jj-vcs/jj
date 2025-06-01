@@ -17,7 +17,6 @@
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::cmp::Reverse;
-use std::collections::BTreeSet;
 use std::collections::BinaryHeap;
 use std::collections::HashSet;
 use std::fmt;
@@ -934,9 +933,8 @@ impl EvaluationContext<'_> {
             }
             ResolvedExpression::Heads(candidates) => {
                 let candidate_set = self.evaluate(candidates)?;
-                let head_positions: BTreeSet<_> =
+                let positions =
                     index.heads_pos(candidate_set.positions().attach(index).try_collect()?);
-                let positions = head_positions.into_iter().rev().collect();
                 Ok(Box::new(EagerRevset { positions }))
             }
             ResolvedExpression::Roots(candidates) => {
@@ -966,12 +964,8 @@ impl EvaluationContext<'_> {
                 };
                 let mut positions = vec![position?];
                 for position in expression_positions_iter {
-                    positions = index
-                        .common_ancestors_pos(&positions, [position?].as_slice())
-                        .into_iter()
-                        .collect_vec();
+                    positions = index.common_ancestors_pos(&positions, &[position?]);
                 }
-                positions.reverse();
                 Ok(Box::new(EagerRevset { positions }))
             }
             ResolvedExpression::Latest { candidates, count } => {

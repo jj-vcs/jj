@@ -16,8 +16,8 @@
 
 use std::cmp::max;
 use std::cmp::Ordering;
+use std::cmp::Reverse;
 use std::collections::binary_heap;
-use std::collections::BTreeSet;
 use std::collections::BinaryHeap;
 use std::collections::HashSet;
 use std::iter;
@@ -312,20 +312,23 @@ impl CompositeIndex {
         false
     }
 
+    /// Computes the greatest common ancestors.
+    ///
+    /// The returned index positions are sorted in descending order.
     pub(super) fn common_ancestors_pos(
         &self,
         set1: &[IndexPosition],
         set2: &[IndexPosition],
-    ) -> BTreeSet<IndexPosition> {
+    ) -> Vec<IndexPosition> {
         let mut items1: BinaryHeap<_> = set1.iter().copied().collect();
         let mut items2: BinaryHeap<_> = set2.iter().copied().collect();
-        let mut result = BTreeSet::new();
+        let mut result = Vec::new();
         while let (Some(&pos1), Some(&pos2)) = (items1.peek(), items2.peek()) {
             match pos1.cmp(&pos2) {
                 Ordering::Greater => shift_to_parents(&mut items1, &self.entry_by_pos(pos1)),
                 Ordering::Less => shift_to_parents(&mut items2, &self.entry_by_pos(pos2)),
                 Ordering::Equal => {
-                    result.insert(pos1);
+                    result.push(pos1);
                     dedup_pop(&mut items1).unwrap();
                     dedup_pop(&mut items2).unwrap();
                 }
@@ -358,24 +361,29 @@ impl CompositeIndex {
 
     /// Returns the subset of positions in `candidate_positions` which refer to
     /// entries that are heads in the repository.
-    pub fn heads_pos(
-        &self,
-        candidate_positions: BTreeSet<IndexPosition>,
-    ) -> BTreeSet<IndexPosition> {
+    ///
+    /// The `candidate_positions` must be sorted in descending order, and have
+    /// no duplicates. The returned head positions are also sorted in descending
+    /// order.
+    pub fn heads_pos(&self, candidate_positions: Vec<IndexPosition>) -> Vec<IndexPosition> {
+        debug_assert!(candidate_positions
+            .iter()
+            .tuple_windows()
+            .all(|(a, b)| a > b));
         let Some(min_generation) = candidate_positions
             .iter()
             .map(|&pos| self.entry_by_pos(pos).generation_number())
             .min()
         else {
-            return BTreeSet::new();
+            return candidate_positions;
         };
 
         // Iterate though the candidates by reverse index position, keeping track of the
         // ancestors of already-found heads. If a candidate is an ancestor of an
         // already-found head, then it can be removed.
         let mut parents = BinaryHeap::new();
-        let mut heads = BTreeSet::new();
-        'outer: for candidate in candidate_positions.into_iter().rev() {
+        let mut heads = Vec::new();
+        'outer: for candidate in candidate_positions {
             while let Some(&parent) = parents.peek().filter(|&&parent| parent >= candidate) {
                 let entry = self.entry_by_pos(parent);
                 if entry.generation_number() <= min_generation {
@@ -391,7 +399,7 @@ impl CompositeIndex {
             // No parents matched, so this commit is a head.
             let entry = self.entry_by_pos(candidate);
             parents.extend(entry.parent_positions());
-            heads.insert(candidate);
+            heads.push(candidate);
         }
         heads
     }
@@ -475,9 +483,11 @@ impl Index for &CompositeIndex {
         &self,
         candidate_ids: &mut dyn Iterator<Item = &CommitId>,
     ) -> Result<Vec<CommitId>, IndexError> {
-        let candidate_positions: BTreeSet<_> = candidate_ids
+        let mut candidate_positions = candidate_ids
             .map(|id| self.commit_id_to_pos(id).unwrap())
-            .collect();
+            .collect_vec();
+        candidate_positions.sort_unstable_by_key(|&pos| Reverse(pos));
+        candidate_positions.dedup();
 
         Ok(self
             .heads_pos(candidate_positions)
