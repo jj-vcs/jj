@@ -396,10 +396,12 @@ fn test_path_value_and_entries() {
         ),
     );
     // Get file inside file/dir conflict
-    // There is a conflict in the parent directory, but this file is still resolved
+    // There is a conflict in the parent directory, so it is considered to not be a
+    // directory in the merged tree, making the file hidden until the directory
+    // conflict has been resolved.
     assert_eq!(
         merged_tree.path_value(file_dir_conflict_sub_path).unwrap(),
-        Merge::resolved(tree3.path_value(file_dir_conflict_sub_path).unwrap()),
+        Merge::absent(),
     );
 
     // Test entries()

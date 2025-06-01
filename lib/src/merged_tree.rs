@@ -204,6 +204,9 @@ impl MergedTree {
             }
             Ok(_) => Ok(None),
             Err(merge) => {
+                if !merge.is_tree() {
+                    return Ok(None);
+                }
                 let trees = merge
                     .try_map_async(|value| async move {
                         match value {
@@ -211,7 +214,8 @@ impl MergedTree {
                                 let subdir = self.dir().join(name);
                                 self.store().get_tree_async(subdir, sub_tree_id).await
                             }
-                            _ => {
+                            Some(_) => unreachable!(),
+                            None => {
                                 let subdir = self.dir().join(name);
                                 Ok(Tree::empty(self.store().clone(), subdir))
                             }
