@@ -19,7 +19,7 @@ use thiserror::Error;
 
 /// A key-value pair representing a trailer in a commit message, of the
 /// form `Key: Value`.
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct Trailer {
     /// trailer key
     pub key: String,

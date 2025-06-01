@@ -28,6 +28,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::rewrite;
 use jj_lib::rewrite::CommitWithSelection;
 use jj_lib::rewrite::merge_commit_trees;
+use jj_lib::trailer::Trailer;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
@@ -41,7 +42,7 @@ use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
 use crate::complete;
-use crate::description_util::add_trailers;
+use crate::description_util::add_config_trailers_with_extras;
 use crate::description_util::combine_messages_for_editing;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
@@ -176,6 +177,16 @@ pub(crate) struct SquashArgs {
         add = ArgValueCandidates::new(complete::diff_editors),
     )]
     tool: Option<String>,
+
+    /// Set the authors of the squashed commits as co-authors of the
+    /// destination commit
+    #[arg(long, value_enum, group = "co-authors")]
+    co_authors: bool,
+
+    /// Don't set the authors of the squashed commits as co-authors of the
+    /// destination commit
+    #[arg(long, value_enum, group = "co-authors")]
+    no_co_authors: bool,
 
     /// Move only changes to these paths (instead of all paths)
     #[arg(
@@ -332,12 +343,36 @@ pub(crate) fn cmd_squash(
         source_commits.iter().map(|commit| &commit.selected_tree),
     )?;
 
+    let use_co_authors_trailers = if args.co_authors {
+        true
+    } else if args.no_co_authors {
+        false
+    } else {
+        tx.settings().get_bool("squash.co-authors")?
+    };
     if let Some(squashed) = rewrite::squash_commits(
         tx.repo_mut(),
         &source_commits,
         &destination,
         args.keep_emptied,
     )? {
+        let co_author_trailers: Vec<_> = if use_co_authors_trailers {
+            squashed
+                .abandoned_commits
+                .iter()
+                .filter(|commit| {
+                    commit.author().name != destination.author().name
+                        || commit.author().email != destination.author().email
+                })
+                .map(|commit| Trailer {
+                    key: "Co-authored-by".to_string(),
+                    value: format!("{} <{}>", commit.author().name, commit.author().email),
+                })
+                .unique()
+                .collect()
+        } else {
+            vec![]
+        };
         let mut commit_builder = squashed.commit_builder.detach();
         let single_description = match squashed_description {
             SquashedDescription::Exact(description) => Some(description),
@@ -352,7 +387,8 @@ pub(crate) fn cmd_squash(
                 description
             } else {
                 commit_builder.set_description(&description);
-                let description_with_trailers = add_trailers(ui, &tx, &commit_builder)?;
+                let description_with_trailers =
+                    add_config_trailers_with_extras(ui, &tx, &commit_builder, &co_author_trailers)?;
                 if args.editor {
                     commit_builder.set_description(&description_with_trailers);
                     let temp_commit = commit_builder.write_hidden()?;
@@ -372,6 +408,7 @@ pub(crate) fn cmd_squash(
                 abandoned_commits,
                 (!insert_destination_commit).then_some(&destination),
                 &commit_builder,
+                &co_author_trailers,
             )?;
             // It's weird that commit.description() contains "JJ: " lines, but works.
             commit_builder.set_description(combined);

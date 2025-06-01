@@ -25,7 +25,7 @@ use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::complete;
-use crate::description_util::add_trailers;
+use crate::description_util::add_config_trailers;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
 use crate::description_util::join_message_paragraphs;
@@ -182,11 +182,11 @@ new working-copy commit.
             // can be discarded as soon as it's no longer the working copy. Adding a
             // trailer to an empty description would break that logic.
             commit_builder.set_description(description);
-            description = add_trailers(ui, &tx, &commit_builder)?;
+            description = add_config_trailers(ui, &tx, &commit_builder)?;
         }
         description
     } else {
-        add_trailers(ui, &tx, &commit_builder)?
+        add_config_trailers(ui, &tx, &commit_builder)?
     };
     let description = if args.message_paragraphs.is_empty() || args.editor {
         commit_builder.set_description(description);

@@ -2852,6 +2852,8 @@ An alternative squashing UI is available via the `-o`, `-A`, and `-B` options. T
    Forces an editor to open when using `--message` to allow the message to be edited afterwards.
 * `-i`, `--interactive` — Interactively choose which parts to squash
 * `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
+* `--co-authors` — Set the authors of the squashed commits as co-authors of the destination commit
+* `--no-co-authors` — Don't set the authors of the squashed commits as co-authors of the destination commit
 * `-k`, `--keep-emptied` — The source revision will not be abandoned
 
 

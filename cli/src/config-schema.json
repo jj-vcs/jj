@@ -836,6 +836,17 @@
                 }
             }
         },
+        "squash": {
+            "type": "object",
+            "description": "Settings for jj squash",
+            "properties": {
+                "co-authors": {
+                    "type": "boolean",
+                    "description": "If true, the co-authors will be collected from the source commits.",
+                    "default": false
+                }
+            }
+        },
         "hints": {
             "type": "object",
             "description": "Various hints in jj's UI that can be disabled",

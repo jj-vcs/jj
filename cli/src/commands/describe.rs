@@ -228,7 +228,8 @@ pub(crate) fn cmd_describe(
             // trailer to an empty description would break that logic.
             if use_editor || !commit_builder.description().is_empty() {
                 let temp_commit = commit_builder.write_hidden()?;
-                let new_description = add_trailers_with_template(&trailer_template, &temp_commit)?;
+                let new_description =
+                    add_trailers_with_template(&trailer_template, &temp_commit, &[])?;
                 commit_builder.set_description(new_description);
             }
         }
