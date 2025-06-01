@@ -622,10 +622,10 @@ pub fn assert_abandoned_with_parent(
     new_parent_commit
 }
 
-pub fn assert_no_forgotten_test_files(test_dir: &Path) {
+pub fn assert_no_forgotten_test_files(manifest_dir: &Path, test_dir: &Path) {
     // Parse the integration tests' main modules from the Cargo manifest.
     let manifest = {
-        let file_path = test_dir.parent().unwrap().join("Cargo.toml");
+        let file_path = manifest_dir.join("Cargo.toml");
         let text = fs::read_to_string(&file_path).unwrap();
         toml_edit::ImDocument::parse(text).unwrap()
     };

@@ -14,7 +14,7 @@ fn taplo_check_config(file: &Path) -> datatest_stable::Result<Option<Output>> {
     }
 
     // Taplo requires an absolute URL to the schema :/
-    let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     Ok(Some(
         Command::new("taplo")
             .args([

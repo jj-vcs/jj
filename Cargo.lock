@@ -2433,7 +2433,6 @@ dependencies = [
  "clap_mangen",
  "criterion",
  "crossterm",
- "datatest-stable",
  "dunce",
  "etcetera",
  "futures 0.3.31",
@@ -2443,7 +2442,6 @@ dependencies = [
  "indoc",
  "insta",
  "itertools 0.14.0",
- "jj-cli",
  "jj-lib",
  "libc",
  "maplit",
@@ -2474,6 +2472,32 @@ dependencies = [
  "tracing-chrome",
  "tracing-subscriber",
  "unicode-width 0.2.0",
+ "whoami",
+]
+
+[[package]]
+name = "jj-cli-tests"
+version = "0.29.0"
+dependencies = [
+ "assert_cmd",
+ "bstr",
+ "chrono",
+ "clap",
+ "clap_complete",
+ "datatest-stable",
+ "dunce",
+ "futures 0.3.31",
+ "gix",
+ "indoc",
+ "insta",
+ "itertools 0.14.0",
+ "jj-cli",
+ "jj-lib",
+ "regex",
+ "tempfile",
+ "test-case",
+ "testutils",
+ "toml_edit",
  "whoami",
 ]
 
@@ -2525,7 +2549,6 @@ dependencies = [
  "strsim",
  "tempfile",
  "test-case",
- "testutils",
  "thiserror 2.0.12",
  "tokio",
  "toml_edit",
@@ -2542,6 +2565,31 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.101",
+]
+
+[[package]]
+name = "jj-lib-tests"
+version = "0.29.0"
+dependencies = [
+ "assert_matches",
+ "chrono",
+ "dunce",
+ "futures 0.3.31",
+ "gix",
+ "hex",
+ "indoc",
+ "insta",
+ "itertools 0.14.0",
+ "jj-lib",
+ "maplit",
+ "num_cpus",
+ "pollster",
+ "pretty_assertions",
+ "rand",
+ "tempfile",
+ "test-case",
+ "testutils",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
