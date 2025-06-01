@@ -143,6 +143,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Evolution history is now stored in the operation log. `jj evolog` can show
   associated operations for commits created by new jj versions.
 
+* `jj squash` stores the co-authors of the squashed commits in the destination
+  commit when using the `--co-authors` command line option or the
+  `squash.co-authors = true` configuration.
+  
 ### Fixed bugs
 
 * Work around a git issue that could cause subprocess operations to hang if the

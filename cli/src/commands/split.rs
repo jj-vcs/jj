@@ -39,7 +39,7 @@ use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::user_error_with_hint;
 use crate::command_error::CommandError;
 use crate::complete;
-use crate::description_util::add_trailers;
+use crate::description_util::add_config_trailers;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
 use crate::description_util::join_message_paragraphs;
@@ -233,12 +233,12 @@ pub(crate) fn cmd_split(
             let description = join_message_paragraphs(&args.message_paragraphs);
             if !description.is_empty() {
                 commit_builder.set_description(description);
-                add_trailers(ui, &tx, &commit_builder)?
+                add_config_trailers(ui, &tx, &commit_builder)?
             } else {
                 description
             }
         } else {
-            let new_description = add_trailers(ui, &tx, &commit_builder)?;
+            let new_description = add_config_trailers(ui, &tx, &commit_builder)?;
             commit_builder.set_description(new_description);
             let temp_commit = commit_builder.write_hidden()?;
             let intro = "Enter a description for the selected changes.";
@@ -284,7 +284,7 @@ pub(crate) fn cmd_split(
             // Just keep the original message unchanged
             commit_builder.description().to_owned()
         } else {
-            let new_description = add_trailers(ui, &tx, &commit_builder)?;
+            let new_description = add_config_trailers(ui, &tx, &commit_builder)?;
             commit_builder.set_description(new_description);
             let temp_commit = commit_builder.write_hidden()?;
             let intro = "Enter a description for the remaining changes.";
