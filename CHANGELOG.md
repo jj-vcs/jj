@@ -16,6 +16,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Support the git `core.autocrlf` config. A heuristics is used to detect if a
+  file is a binary file to prevent the EOL conversion from changing binary files
+  unexpectedly.
+
 ### Fixed bugs
 
 * `jj util gc --expire=now` now passes the corresponding flag to `git gc`.

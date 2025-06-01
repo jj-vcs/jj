@@ -352,7 +352,7 @@ impl GitBackend {
 
     /// Returns a copy of the underlying git config.
     ///
-    /// Further changes to the underlying git config won't reflects to the
+    /// Further changes to the underlying git config won't reflect to the
     /// returned value and vice versa.
     pub fn git_config(&self) -> gix::config::File<'static> {
         self.lock_git_repo().config_snapshot().clone()

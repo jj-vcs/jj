@@ -2381,6 +2381,7 @@ dependencies = [
  "async-trait",
  "blake2",
  "bstr",
+ "cfg-if",
  "chrono",
  "clru",
  "criterion",
