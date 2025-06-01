@@ -133,9 +133,16 @@ impl<P: Ord, T: Ord> RevWalkQueue<P, T> {
         Some(next)
     }
 
-    pub fn pop_eq(&mut self, pos: &P) -> Option<RevWalkWorkItem<P, T>> {
+    pub fn pop_if(
+        &mut self,
+        predicate: impl FnOnce(&RevWalkWorkItem<P, T>) -> bool,
+    ) -> Option<RevWalkWorkItem<P, T>> {
         let next = self.peek()?;
-        (next.pos == *pos).then(|| self.pop().unwrap())
+        predicate(next).then(|| self.pop().unwrap())
+    }
+
+    pub fn pop_eq(&mut self, pos: &P) -> Option<RevWalkWorkItem<P, T>> {
+        self.pop_if(|next| next.pos == *pos)
     }
 
     pub fn skip_while_eq(&mut self, pos: &P) {
