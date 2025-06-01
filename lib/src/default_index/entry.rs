@@ -121,34 +121,3 @@ impl<'a> IndexEntry<'a> {
             .map(move |pos| composite.entry_by_pos(pos))
     }
 }
-
-/// Wrapper to sort `IndexPosition` by its generation number.
-///
-/// This is similar to `IndexEntry` newtypes, but optimized for size and cache
-/// locality. The original `IndexEntry` will have to be looked up when needed.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub(super) struct IndexPositionByGeneration {
-    // Packed to single u64 value for faster comparison
-    value: u64,
-}
-
-impl IndexPositionByGeneration {
-    fn new(IndexPosition(pos): IndexPosition, generation: u32) -> Self {
-        let value = u64::from(generation) << 32 | u64::from(pos);
-        IndexPositionByGeneration { value }
-    }
-
-    pub fn position(&self) -> IndexPosition {
-        IndexPosition(self.value as u32)
-    }
-
-    pub fn generation_number(&self) -> u32 {
-        (self.value >> 32) as u32
-    }
-}
-
-impl From<&IndexEntry<'_>> for IndexPositionByGeneration {
-    fn from(entry: &IndexEntry<'_>) -> Self {
-        Self::new(entry.position(), entry.generation_number())
-    }
-}

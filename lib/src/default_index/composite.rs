@@ -32,7 +32,6 @@ use ref_cast::RefCastCustom;
 
 use super::entry::IndexEntry;
 use super::entry::IndexPosition;
-use super::entry::IndexPositionByGeneration;
 use super::entry::LocalPosition;
 use super::entry::SmallIndexPositionsVec;
 use super::entry::SmallLocalPositionsVec;
@@ -386,36 +385,36 @@ impl CompositeIndex {
         // Add all parents of the candidates to the work queue. The parents and their
         // ancestors are not heads.
         // Also find the smallest generation number among the candidates.
-        let mut work = BinaryHeap::new();
+        let mut work = Vec::new();
         let mut min_generation = u32::MAX;
         for pos in &candidate_positions {
             let entry = self.entry_by_pos(*pos);
             min_generation = min(min_generation, entry.generation_number());
-            for parent_entry in entry.parents() {
-                work.push(IndexPositionByGeneration::from(&parent_entry));
-            }
+            work.extend(entry.parent_positions());
         }
+        let mut work = BinaryHeap::from(work);
 
         // Walk ancestors of the parents of the candidates. Remove visited commits from
         // set of candidates. Stop walking when we have gone past the minimum
         // candidate generation.
-        while let Some(&item) = work.peek() {
-            if item.generation_number() < min_generation {
-                break;
-            }
-            let cur_pos = item.position();
+        while let Some(&cur_pos) = work.peek() {
             candidate_positions.remove(&cur_pos);
-            let mut parent_entries = self.entry_by_pos(cur_pos).parents();
-            if let Some(parent_entry) = parent_entries.next() {
-                assert!(parent_entry.position() < cur_pos);
-                dedup_replace(&mut work, IndexPositionByGeneration::from(&parent_entry)).unwrap();
+            let entry = self.entry_by_pos(cur_pos);
+            if entry.generation_number() <= min_generation {
+                dedup_pop(&mut work).unwrap();
+                continue;
+            }
+            let mut parent_positions = entry.parent_positions().into_iter();
+            if let Some(parent_pos) = parent_positions.next() {
+                assert!(parent_pos < cur_pos);
+                dedup_replace(&mut work, parent_pos).unwrap();
             } else {
                 dedup_pop(&mut work).unwrap();
                 continue;
             }
-            for parent_entry in parent_entries {
-                assert!(parent_entry.position() < cur_pos);
-                work.push(IndexPositionByGeneration::from(&parent_entry));
+            for parent_pos in parent_positions {
+                assert!(parent_pos < cur_pos);
+                work.push(parent_pos);
             }
         }
         candidate_positions
