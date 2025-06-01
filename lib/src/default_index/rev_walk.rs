@@ -28,7 +28,7 @@ use super::composite::CompositeIndex;
 use super::entry::IndexPosition;
 use super::entry::SmallIndexPositionsVec;
 use super::rev_walk_queue::RevWalkQueue;
-use super::rev_walk_queue::RevWalkWorkItemState;
+use super::rev_walk_queue::RevWalkWorkItem;
 
 /// Like `Iterator`, but doesn't borrow the `index` internally.
 pub(super) trait RevWalk<I: ?Sized> {
@@ -331,12 +331,16 @@ impl<'a> RevWalkBuilder<'a> {
 
     fn ancestors_with_min_pos(self, min_pos: IndexPosition) -> RevWalkAncestors<'a> {
         let index = self.index;
-        let mut queue = RevWalkQueue::with_min_pos(min_pos);
-        queue.extend_wanted(self.wanted, ());
-        queue.extend_unwanted(self.unwanted);
+        let mut wanted_queue = RevWalkQueue::with_min_pos(min_pos);
+        let mut unwanted_queue = RevWalkQueue::with_min_pos(min_pos);
+        wanted_queue.extend(self.wanted, ());
+        unwanted_queue.extend(self.unwanted, ());
         RevWalkBorrowedIndexIter {
             index,
-            walk: RevWalkImpl { queue },
+            walk: RevWalkImpl {
+                wanted_queue,
+                unwanted_queue,
+            },
         }
     }
 
@@ -348,14 +352,16 @@ impl<'a> RevWalkBuilder<'a> {
         generation_range: Range<u32>,
     ) -> RevWalkAncestorsGenerationRange<'a> {
         let index = self.index;
-        let mut queue = RevWalkQueue::with_min_pos(IndexPosition::MIN);
+        let mut wanted_queue = RevWalkQueue::with_min_pos(IndexPosition::MIN);
+        let mut unwanted_queue = RevWalkQueue::with_min_pos(IndexPosition::MIN);
         let item_range = RevWalkItemGenerationRange::from_filter_range(generation_range.clone());
-        queue.extend_wanted(self.wanted, Reverse(item_range));
-        queue.extend_unwanted(self.unwanted);
+        wanted_queue.extend(self.wanted, Reverse(item_range));
+        unwanted_queue.extend(self.unwanted, ());
         RevWalkBorrowedIndexIter {
             index,
             walk: RevWalkGenerationRangeImpl {
-                queue,
+                wanted_queue,
+                unwanted_queue,
                 generation_end: generation_range.end,
             },
         }
@@ -415,18 +421,20 @@ impl<'a> RevWalkBuilder<'a> {
         let positions = self.ancestors_until_roots(root_positions.iter().copied());
         let descendants_index = RevWalkDescendantsIndex::build(index, positions);
 
-        let mut queue = RevWalkQueue::with_min_pos(Reverse(IndexPosition::MAX));
+        let mut wanted_queue = RevWalkQueue::with_min_pos(Reverse(IndexPosition::MAX));
+        let unwanted_queue = RevWalkQueue::with_min_pos(Reverse(IndexPosition::MAX));
         let item_range = RevWalkItemGenerationRange::from_filter_range(generation_range.clone());
         for pos in root_positions {
             // Do not add unreachable roots which shouldn't be visited
             if descendants_index.contains_pos(pos) {
-                queue.push_wanted(Reverse(pos), Reverse(item_range));
+                wanted_queue.push(Reverse(pos), Reverse(item_range));
             }
         }
         RevWalkOwnedIndexIter {
             index: descendants_index,
             walk: RevWalkGenerationRangeImpl {
-                queue,
+                wanted_queue,
+                unwanted_queue,
                 generation_end: generation_range.end,
             },
         }
@@ -439,33 +447,23 @@ pub(super) type RevWalkAncestors<'a> =
 #[derive(Clone)]
 #[must_use]
 pub(super) struct RevWalkImpl<P> {
-    queue: RevWalkQueue<P, ()>,
+    wanted_queue: RevWalkQueue<P, ()>,
+    unwanted_queue: RevWalkQueue<P, ()>,
 }
 
 impl<I: RevWalkIndex + ?Sized> RevWalk<I> for RevWalkImpl<I::Position> {
     type Item = I::Position;
 
     fn next(&mut self, index: &I) -> Option<Self::Item> {
-        while let Some(item) = self.queue.pop() {
-            self.queue.skip_while_eq(&item.pos);
-            if item.is_wanted() {
-                self.queue
-                    .extend_wanted(index.adjacent_positions(item.pos), ());
-                return Some(item.pos);
-            } else if self.queue.wanted_count() == 0 {
-                // No more wanted entries to walk
-                debug_assert!(!self.queue.iter().any(|x| x.is_wanted()));
-                return None;
-            } else {
-                self.queue
-                    .extend_unwanted(index.adjacent_positions(item.pos));
+        while let Some(item) = self.wanted_queue.pop() {
+            self.wanted_queue.skip_while_eq(&item.pos);
+            if flush_queue_until(&mut self.unwanted_queue, index, item.pos).is_some() {
+                continue;
             }
+            self.wanted_queue
+                .extend(index.adjacent_positions(item.pos), ());
+            return Some(item.pos);
         }
-
-        debug_assert_eq!(
-            self.queue.iter().filter(|x| !x.is_wanted()).count(),
-            self.queue.unwanted_count()
-        );
         None
     }
 }
@@ -481,7 +479,8 @@ pub(super) type RevWalkDescendantsGenerationRange = RevWalkOwnedIndexIter<
 #[must_use]
 pub(super) struct RevWalkGenerationRangeImpl<P> {
     // Sort item generations in ascending order
-    queue: RevWalkQueue<P, Reverse<RevWalkItemGenerationRange>>,
+    wanted_queue: RevWalkQueue<P, Reverse<RevWalkItemGenerationRange>>,
+    unwanted_queue: RevWalkQueue<P, ()>,
     generation_end: u32,
 }
 
@@ -498,8 +497,8 @@ impl<P: Ord> RevWalkGenerationRangeImpl<P> {
             start: gen.start + 1,
             end: gen.end.saturating_add(1),
         };
-        self.queue
-            .extend_wanted(index.adjacent_positions(pos), Reverse(succ_gen));
+        self.wanted_queue
+            .extend(index.adjacent_positions(pos), Reverse(succ_gen));
     }
 }
 
@@ -507,45 +506,32 @@ impl<I: RevWalkIndex + ?Sized> RevWalk<I> for RevWalkGenerationRangeImpl<I::Posi
     type Item = I::Position;
 
     fn next(&mut self, index: &I) -> Option<Self::Item> {
-        while let Some(item) = self.queue.pop() {
-            if let RevWalkWorkItemState::Wanted(Reverse(mut pending_gen)) = item.state {
-                let mut some_in_range = pending_gen.contains_end(self.generation_end);
-                while let Some(x) = self.queue.pop_eq(&item.pos) {
-                    // Merge overlapped ranges to reduce number of the queued items.
-                    // For queries like `:(heads-)`, `gen.end` is close to `u32::MAX`, so
-                    // ranges can be merged into one. If this is still slow, maybe we can add
-                    // special case for upper/lower bounded ranges.
-                    if let RevWalkWorkItemState::Wanted(Reverse(gen)) = x.state {
-                        some_in_range |= gen.contains_end(self.generation_end);
-                        pending_gen = if let Some(merged) = pending_gen.try_merge_end(gen) {
-                            merged
-                        } else {
-                            self.enqueue_wanted_adjacents(index, item.pos, pending_gen);
-                            gen
-                        };
-                    } else {
-                        unreachable!("no more unwanted items of the same entry");
-                    }
-                }
-                self.enqueue_wanted_adjacents(index, item.pos, pending_gen);
-                if some_in_range {
-                    return Some(item.pos);
-                }
-            } else if self.queue.wanted_count() == 0 {
-                // No more wanted entries to walk
-                debug_assert!(!self.queue.iter().any(|x| x.is_wanted()));
-                return None;
-            } else {
-                self.queue.skip_while_eq(&item.pos);
-                self.queue
-                    .extend_unwanted(index.adjacent_positions(item.pos));
+        while let Some(item) = self.wanted_queue.pop() {
+            if flush_queue_until(&mut self.unwanted_queue, index, item.pos).is_some() {
+                self.wanted_queue.skip_while_eq(&item.pos);
+                continue;
+            }
+            let Reverse(mut pending_gen) = item.value;
+            let mut some_in_range = pending_gen.contains_end(self.generation_end);
+            while let Some(x) = self.wanted_queue.pop_eq(&item.pos) {
+                // Merge overlapped ranges to reduce number of the queued items.
+                // For queries like `:(heads-)`, `gen.end` is close to `u32::MAX`, so
+                // ranges can be merged into one. If this is still slow, maybe we can add
+                // special case for upper/lower bounded ranges.
+                let Reverse(gen) = x.value;
+                some_in_range |= gen.contains_end(self.generation_end);
+                pending_gen = if let Some(merged) = pending_gen.try_merge_end(gen) {
+                    merged
+                } else {
+                    self.enqueue_wanted_adjacents(index, item.pos, pending_gen);
+                    gen
+                };
+            }
+            self.enqueue_wanted_adjacents(index, item.pos, pending_gen);
+            if some_in_range {
+                return Some(item.pos);
             }
         }
-
-        debug_assert_eq!(
-            self.queue.iter().filter(|x| !x.is_wanted()).count(),
-            self.queue.unwanted_count()
-        );
         None
     }
 }
@@ -587,6 +573,22 @@ impl RevWalkItemGenerationRange {
     fn contains_end(self, end: u32) -> bool {
         self.start < end && end <= self.end
     }
+}
+
+/// Walks queue items until `bottom_pos`. Returns item if found at `bottom_pos`.
+fn flush_queue_until<I: RevWalkIndex + ?Sized>(
+    queue: &mut RevWalkQueue<I::Position, ()>,
+    index: &I,
+    bottom_pos: I::Position,
+) -> Option<RevWalkWorkItem<I::Position, ()>> {
+    while let Some(item) = queue.pop_if(|x| x.pos >= bottom_pos) {
+        queue.skip_while_eq(&item.pos);
+        queue.extend(index.adjacent_positions(item.pos), ());
+        if item.pos == bottom_pos {
+            return Some(item);
+        }
+    }
+    None
 }
 
 /// Walks descendants from the roots, in order of ascending index position.
@@ -899,22 +901,22 @@ mod tests {
         let to_commit_id = |pos| index.entry_by_pos(pos).commit_id();
 
         let mut iter = make_iter(&[id_6.clone(), id_7.clone()], &[id_3.clone()]);
-        assert_eq!(iter.walk.queue.len(), 2);
+        assert_eq!(iter.walk.wanted_queue.len(), 2);
         assert_eq!(iter.next().map(to_commit_id), Some(id_7.clone()));
         assert_eq!(iter.next().map(to_commit_id), Some(id_6.clone()));
         assert_eq!(iter.next().map(to_commit_id), Some(id_5.clone()));
-        assert_eq!(iter.walk.queue.len(), 2);
+        assert_eq!(iter.walk.wanted_queue.len(), 2);
         assert_eq!(iter.next().map(to_commit_id), Some(id_4.clone()));
-        assert_eq!(iter.walk.queue.len(), 1); // id_1 shouldn't be queued
+        assert_eq!(iter.walk.wanted_queue.len(), 1); // id_1 shouldn't be queued
         assert_eq!(iter.next().map(to_commit_id), Some(id_3.clone()));
-        assert_eq!(iter.walk.queue.len(), 0); // id_2 shouldn't be queued
+        assert_eq!(iter.walk.wanted_queue.len(), 0); // id_2 shouldn't be queued
         assert!(iter.next().is_none());
 
         let iter = make_iter(&[id_6.clone(), id_7.clone(), id_2.clone()], &[id_3.clone()]);
-        assert_eq!(iter.walk.queue.len(), 2); // id_2 shouldn't be queued
+        assert_eq!(iter.walk.wanted_queue.len(), 2); // id_2 shouldn't be queued
 
         let iter = make_iter(&[id_6.clone(), id_7.clone()], &[]);
-        assert_eq!(iter.walk.queue.len(), 0); // no ids should be queued
+        assert_eq!(iter.walk.wanted_queue.len(), 0); // no ids should be queued
     }
 
     #[test]

@@ -18,20 +18,7 @@ use std::mem;
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub(super) struct RevWalkWorkItem<P, T> {
     pub pos: P,
-    pub state: RevWalkWorkItemState<T>,
-}
-
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub(super) enum RevWalkWorkItemState<T> {
-    // Order matters: Unwanted should appear earlier in the max-heap.
-    Wanted(T),
-    Unwanted,
-}
-
-impl<P, T> RevWalkWorkItem<P, T> {
-    pub fn is_wanted(&self) -> bool {
-        matches!(self.state, RevWalkWorkItemState::Wanted(_))
-    }
+    pub value: T,
 }
 
 #[derive(Clone)]
@@ -41,7 +28,6 @@ pub(super) struct RevWalkQueue<P, T> {
     // the greatest item won't have to rebalance the heap.
     scratch_item: Option<RevWalkWorkItem<P, T>>,
     min_pos: P,
-    unwanted_count: usize,
 }
 
 impl<P: Ord, T: Ord> RevWalkQueue<P, T> {
@@ -50,41 +36,19 @@ impl<P: Ord, T: Ord> RevWalkQueue<P, T> {
             items: BinaryHeap::new(),
             scratch_item: None,
             min_pos,
-            unwanted_count: 0,
         }
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn len(&self) -> usize {
         self.items.len() + self.scratch_item.is_some() as usize
     }
 
-    pub fn wanted_count(&self) -> usize {
-        self.len() - self.unwanted_count
-    }
-
-    pub fn unwanted_count(&self) -> usize {
-        self.unwanted_count
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = &RevWalkWorkItem<P, T>> {
-        itertools::chain(&self.items, &self.scratch_item)
-    }
-
-    pub fn push_wanted(&mut self, pos: P, t: T) {
+    pub fn push(&mut self, pos: P, value: T) {
         if pos < self.min_pos {
             return;
         }
-        let state = RevWalkWorkItemState::Wanted(t);
-        self.push_item(RevWalkWorkItem { pos, state });
-    }
-
-    pub fn push_unwanted(&mut self, pos: P) {
-        if pos < self.min_pos {
-            return;
-        }
-        let state = RevWalkWorkItemState::Unwanted;
-        self.push_item(RevWalkWorkItem { pos, state });
-        self.unwanted_count += 1;
+        self.push_item(RevWalkWorkItem { pos, value });
     }
 
     fn push_item(&mut self, new: RevWalkWorkItem<P, T>) {
@@ -108,18 +72,12 @@ impl<P: Ord, T: Ord> RevWalkQueue<P, T> {
         }
     }
 
-    pub fn extend_wanted(&mut self, positions: impl IntoIterator<Item = P>, t: T)
+    pub fn extend(&mut self, positions: impl IntoIterator<Item = P>, value: T)
     where
         T: Clone,
     {
         for pos in positions {
-            self.push_wanted(pos, t.clone());
-        }
-    }
-
-    pub fn extend_unwanted(&mut self, positions: impl IntoIterator<Item = P>) {
-        for pos in positions {
-            self.push_unwanted(pos);
+            self.push(pos, value.clone());
         }
     }
 
@@ -129,7 +87,6 @@ impl<P: Ord, T: Ord> RevWalkQueue<P, T> {
 
     pub fn pop(&mut self) -> Option<RevWalkWorkItem<P, T>> {
         let next = self.scratch_item.take().or_else(|| self.items.pop())?;
-        self.unwanted_count -= !next.is_wanted() as usize;
         Some(next)
     }
 
@@ -162,11 +119,11 @@ mod tests {
     fn test_push_pop_in_forward_order() {
         let mut queue: RevWalkQueue<u32, ()> = RevWalkQueue::with_min_pos(0);
 
-        queue.push_wanted(0, ());
+        queue.push(0, ());
         assert!(queue.scratch_item.is_some());
         assert_eq!(queue.items.len(), 0);
 
-        queue.push_wanted(1, ());
+        queue.push(1, ());
         assert!(queue.scratch_item.is_some());
         assert_eq!(queue.items.len(), 1);
 
@@ -174,7 +131,7 @@ mod tests {
         assert!(queue.scratch_item.is_none());
         assert_eq!(queue.items.len(), 1);
 
-        queue.push_wanted(2, ());
+        queue.push(2, ());
         assert!(queue.scratch_item.is_some());
         assert_eq!(queue.items.len(), 1);
 
@@ -193,11 +150,11 @@ mod tests {
     fn test_push_pop_in_reverse_order() {
         let mut queue: RevWalkQueue<u32, ()> = RevWalkQueue::with_min_pos(0);
 
-        queue.push_wanted(2, ());
+        queue.push(2, ());
         assert!(queue.scratch_item.is_some());
         assert_eq!(queue.items.len(), 0);
 
-        queue.push_wanted(1, ());
+        queue.push(1, ());
         assert!(queue.scratch_item.is_some());
         assert_eq!(queue.items.len(), 1);
 
@@ -205,7 +162,7 @@ mod tests {
         assert!(queue.scratch_item.is_none());
         assert_eq!(queue.items.len(), 1);
 
-        queue.push_wanted(0, ());
+        queue.push(0, ());
         assert!(queue.scratch_item.is_none());
         assert_eq!(queue.items.len(), 2);
 
