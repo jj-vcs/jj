@@ -15,7 +15,6 @@
 #![allow(missing_docs)]
 
 use std::cmp::max;
-use std::cmp::min;
 use std::cmp::Ordering;
 use std::collections::binary_heap;
 use std::collections::BTreeSet;
@@ -318,32 +317,13 @@ impl CompositeIndex {
         set1: &[IndexPosition],
         set2: &[IndexPosition],
     ) -> BTreeSet<IndexPosition> {
-        fn shift_to_parents(
-            index: &CompositeIndex,
-            items: &mut BinaryHeap<IndexPosition>,
-            cur_pos: IndexPosition,
-        ) {
-            let mut parent_positions = index.entry_by_pos(cur_pos).parent_positions().into_iter();
-            if let Some(parent_pos) = parent_positions.next() {
-                assert!(parent_pos < cur_pos);
-                dedup_replace(items, parent_pos).unwrap();
-            } else {
-                dedup_pop(items).unwrap();
-                return;
-            }
-            for parent_pos in parent_positions {
-                assert!(parent_pos < cur_pos);
-                items.push(parent_pos);
-            }
-        }
-
         let mut items1: BinaryHeap<_> = set1.iter().copied().collect();
         let mut items2: BinaryHeap<_> = set2.iter().copied().collect();
         let mut result = BTreeSet::new();
         while let (Some(&pos1), Some(&pos2)) = (items1.peek(), items2.peek()) {
             match pos1.cmp(&pos2) {
-                Ordering::Greater => shift_to_parents(self, &mut items1, pos1),
-                Ordering::Less => shift_to_parents(self, &mut items2, pos2),
+                Ordering::Greater => shift_to_parents(&mut items1, &self.entry_by_pos(pos1)),
+                Ordering::Less => shift_to_parents(&mut items2, &self.entry_by_pos(pos2)),
                 Ordering::Equal => {
                     result.insert(pos1);
                     dedup_pop(&mut items1).unwrap();
@@ -380,44 +360,40 @@ impl CompositeIndex {
     /// entries that are heads in the repository.
     pub fn heads_pos(
         &self,
-        mut candidate_positions: BTreeSet<IndexPosition>,
+        candidate_positions: BTreeSet<IndexPosition>,
     ) -> BTreeSet<IndexPosition> {
-        // Add all parents of the candidates to the work queue. The parents and their
-        // ancestors are not heads.
-        // Also find the smallest generation number among the candidates.
-        let mut work = Vec::new();
-        let mut min_generation = u32::MAX;
-        for pos in &candidate_positions {
-            let entry = self.entry_by_pos(*pos);
-            min_generation = min(min_generation, entry.generation_number());
-            work.extend(entry.parent_positions());
-        }
-        let mut work = BinaryHeap::from(work);
+        let Some(min_generation) = candidate_positions
+            .iter()
+            .map(|&pos| self.entry_by_pos(pos).generation_number())
+            .min()
+        else {
+            return BTreeSet::new();
+        };
 
-        // Walk ancestors of the parents of the candidates. Remove visited commits from
-        // set of candidates. Stop walking when we have gone past the minimum
-        // candidate generation.
-        while let Some(&cur_pos) = work.peek() {
-            candidate_positions.remove(&cur_pos);
-            let entry = self.entry_by_pos(cur_pos);
-            if entry.generation_number() <= min_generation {
-                dedup_pop(&mut work).unwrap();
-                continue;
+        // Iterate though the candidates by reverse index position, keeping track of the
+        // ancestors of already-found heads. If a candidate is an ancestor of an
+        // already-found head, then it can be removed.
+        let mut parents = BinaryHeap::new();
+        let mut heads = BTreeSet::new();
+        'outer: for candidate in candidate_positions.into_iter().rev() {
+            while let Some(&parent) = parents.peek().filter(|&&parent| parent >= candidate) {
+                let entry = self.entry_by_pos(parent);
+                if entry.generation_number() <= min_generation {
+                    dedup_pop(&mut parents).unwrap();
+                } else {
+                    shift_to_parents(&mut parents, &entry);
+                }
+                if parent == candidate {
+                    // The candidate is an ancestor of an existing head, so we can skip it.
+                    continue 'outer;
+                }
             }
-            let mut parent_positions = entry.parent_positions().into_iter();
-            if let Some(parent_pos) = parent_positions.next() {
-                assert!(parent_pos < cur_pos);
-                dedup_replace(&mut work, parent_pos).unwrap();
-            } else {
-                dedup_pop(&mut work).unwrap();
-                continue;
-            }
-            for parent_pos in parent_positions {
-                assert!(parent_pos < cur_pos);
-                work.push(parent_pos);
-            }
+            // No parents matched, so this commit is a head.
+            let entry = self.entry_by_pos(candidate);
+            parents.extend(entry.parent_positions());
+            heads.insert(candidate);
         }
-        candidate_positions
+        heads
     }
 
     pub(super) fn evaluate_revset(
@@ -593,6 +569,22 @@ pub struct IndexStats {
     pub num_heads: u32,
     pub num_changes: u32,
     pub levels: Vec<IndexLevelStats>,
+}
+
+/// Removes an entry from the queue and replace it with its parents.
+fn shift_to_parents(items: &mut BinaryHeap<IndexPosition>, entry: &IndexEntry) {
+    let mut parent_positions = entry.parent_positions().into_iter();
+    if let Some(parent_pos) = parent_positions.next() {
+        assert!(parent_pos < entry.position());
+        dedup_replace(items, parent_pos).unwrap();
+    } else {
+        dedup_pop(items).unwrap();
+        return;
+    }
+    for parent_pos in parent_positions {
+        assert!(parent_pos < entry.position());
+        items.push(parent_pos);
+    }
 }
 
 /// Removes the greatest items (including duplicates) from the heap, returns
