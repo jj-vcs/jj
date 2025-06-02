@@ -1554,6 +1554,11 @@ snapshots on filesystem changes by setting
 You can check whether Watchman is enabled and whether it is installed correctly
 using `jj debug watchman status`.
 
+Note: `watchman` heavily uses `inotify` and sets up a user watch per-file. On
+large repositories, this may cause `watchman` to fail and commands like
+`jj status` to take longer than expected. If you experience this run
+`jj debug watchman status` and tune your `inotify` limits.
+
 ## Snapshot settings
 
 ### Paths to automatically track
