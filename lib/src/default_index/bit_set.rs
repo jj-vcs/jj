@@ -17,27 +17,18 @@ use std::cmp::max;
 use super::composite::CompositeCommitIndex;
 use super::entry::GlobalCommitPosition;
 
-/// Computes ancestors set lazily.
-///
-/// This is similar to `RevWalk` functionality-wise, but implemented with the
-/// different design goals:
-///
-/// * optimized for dense ancestors set
-/// * optimized for testing set membership
-/// * no iterator API (which could be implemented on top)
+/// Bit set of [`GlobalCommitPosition`]s.
 #[derive(Clone, Debug)]
-pub(super) struct AncestorsBitSet {
-    bitset: Vec<u64>,
-    last_visited_bitset_pos: u32,
+pub(super) struct PositionsBitSet {
+    data: Vec<u64>,
 }
 
-impl AncestorsBitSet {
+impl PositionsBitSet {
     /// Creates bit set of the specified capacity.
     pub fn with_capacity(len: u32) -> Self {
         let bitset_len = usize::try_from(u32::div_ceil(len, u64::BITS)).unwrap();
-        AncestorsBitSet {
-            bitset: vec![0; bitset_len], // request zeroed page
-            last_visited_bitset_pos: 0,
+        PositionsBitSet {
+            data: vec![0; bitset_len], // request zeroed page
         }
     }
 
@@ -49,13 +40,78 @@ impl AncestorsBitSet {
         (pos.0 / u64::BITS, pos.0 % u64::BITS)
     }
 
+    /// Returns `true` if the given `pos` is set.
+    ///
+    /// Panics if the `pos` exceeds the capacity.
+    #[cfg_attr(not(test), expect(dead_code))] // TODO
+    pub fn get(&self, pos: GlobalCommitPosition) -> bool {
+        self.get_bit(self.to_bitset_pos(pos))
+    }
+
+    fn get_bit(&self, (bitset_pos, bit_pos): (u32, u32)) -> bool {
+        let bit = 1_u64 << bit_pos;
+        self.data[usize::try_from(bitset_pos).unwrap()] & bit != 0
+    }
+
+    /// Sets `pos` to true.
+    ///
+    /// Panics if the `pos` exceeds the capacity.
+    #[cfg_attr(not(test), expect(dead_code))] // TODO
+    pub fn set(&mut self, pos: GlobalCommitPosition) {
+        self.set_bit(self.to_bitset_pos(pos));
+    }
+
+    fn set_bit(&mut self, (bitset_pos, bit_pos): (u32, u32)) {
+        let bit = 1_u64 << bit_pos;
+        self.data[usize::try_from(bitset_pos).unwrap()] |= bit;
+    }
+
+    /// Sets `pos` to true. Returns `true` if the old value was set.
+    ///
+    /// Panics if the `pos` exceeds the capacity.
+    #[cfg_attr(not(test), expect(dead_code))] // TODO
+    pub fn get_set(&mut self, pos: GlobalCommitPosition) -> bool {
+        self.get_set_bit(self.to_bitset_pos(pos))
+    }
+
+    fn get_set_bit(&mut self, (bitset_pos, bit_pos): (u32, u32)) -> bool {
+        let bit = 1_u64 << bit_pos;
+        let word = &mut self.data[usize::try_from(bitset_pos).unwrap()];
+        let old = *word & bit != 0;
+        *word |= bit;
+        old
+    }
+}
+
+/// Computes ancestors set lazily.
+///
+/// This is similar to `RevWalk` functionality-wise, but implemented with the
+/// different design goals:
+///
+/// * optimized for dense ancestors set
+/// * optimized for testing set membership
+/// * no iterator API (which could be implemented on top)
+#[derive(Clone, Debug)]
+pub(super) struct AncestorsBitSet {
+    bitset: PositionsBitSet,
+    last_visited_bitset_pos: u32,
+}
+
+impl AncestorsBitSet {
+    /// Creates bit set of the specified capacity.
+    pub fn with_capacity(len: u32) -> Self {
+        AncestorsBitSet {
+            bitset: PositionsBitSet::with_capacity(len),
+            last_visited_bitset_pos: 0,
+        }
+    }
+
     /// Adds head `pos` to the set.
     ///
     /// Panics if the `pos` exceeds the capacity.
     pub fn add_head(&mut self, pos: GlobalCommitPosition) {
-        let (bitset_pos, bit_pos) = self.to_bitset_pos(pos);
-        let bit = 1_u64 << bit_pos;
-        self.bitset[usize::try_from(bitset_pos).unwrap()] |= bit;
+        let (bitset_pos, bit_pos) = self.bitset.to_bitset_pos(pos);
+        self.bitset.set_bit((bitset_pos, bit_pos));
         self.last_visited_bitset_pos = max(self.last_visited_bitset_pos, bitset_pos + 1);
     }
 
@@ -63,10 +119,9 @@ impl AncestorsBitSet {
     ///
     /// Panics if the `pos` exceeds the capacity or has not been visited yet.
     pub fn contains(&self, pos: GlobalCommitPosition) -> bool {
-        let (bitset_pos, bit_pos) = self.to_bitset_pos(pos);
-        let bit = 1_u64 << bit_pos;
+        let (bitset_pos, bit_pos) = self.bitset.to_bitset_pos(pos);
         assert!(bitset_pos >= self.last_visited_bitset_pos);
-        self.bitset[usize::try_from(bitset_pos).unwrap()] & bit != 0
+        self.bitset.get_bit((bitset_pos, bit_pos))
     }
 
     /// Updates set by visiting ancestors until the given `to_visit_pos`.
@@ -75,21 +130,22 @@ impl AncestorsBitSet {
         index: &CompositeCommitIndex,
         to_visit_pos: GlobalCommitPosition,
     ) {
-        let (to_visit_bitset_pos, _) = self.to_bitset_pos(to_visit_pos);
+        let (to_visit_bitset_pos, _) = self.bitset.to_bitset_pos(to_visit_pos);
         if to_visit_bitset_pos >= self.last_visited_bitset_pos {
             return;
         }
         for visiting_bitset_pos in (to_visit_bitset_pos..self.last_visited_bitset_pos).rev() {
-            let mut unvisited_bits = self.bitset[usize::try_from(visiting_bitset_pos).unwrap()];
+            let mut unvisited_bits =
+                self.bitset.data[usize::try_from(visiting_bitset_pos).unwrap()];
             while unvisited_bits != 0 {
                 let bit_pos = u64::BITS - unvisited_bits.leading_zeros() - 1; // from MSB
                 unvisited_bits ^= 1_u64 << bit_pos;
-                let current_pos = self.to_global_pos((visiting_bitset_pos, bit_pos));
+                let current_pos = self.bitset.to_global_pos((visiting_bitset_pos, bit_pos));
                 for parent_pos in index.entry_by_pos(current_pos).parent_positions() {
                     assert!(parent_pos < current_pos);
-                    let (parent_bitset_pos, parent_bit_pos) = self.to_bitset_pos(parent_pos);
+                    let (parent_bitset_pos, parent_bit_pos) = self.bitset.to_bitset_pos(parent_pos);
                     let bit = 1_u64 << parent_bit_pos;
-                    self.bitset[usize::try_from(parent_bitset_pos).unwrap()] |= bit;
+                    self.bitset.data[usize::try_from(parent_bitset_pos).unwrap()] |= bit;
                     if visiting_bitset_pos == parent_bitset_pos {
                         unvisited_bits |= bit;
                     }
@@ -119,6 +175,27 @@ mod tests {
     fn change_id_generator() -> impl FnMut() -> ChangeId {
         let mut iter = (1_u128..).map(|n| ChangeId::new(n.to_le_bytes().into()));
         move || iter.next().unwrap()
+    }
+
+    #[test]
+    fn test_positions_bit_set() {
+        // Create with empty capacity, which is useless, but shouldn't panic
+        let _set = PositionsBitSet::with_capacity(0);
+
+        let mut set = PositionsBitSet::with_capacity(128);
+        assert!(!set.get(GlobalCommitPosition(0)));
+        assert!(!set.get(GlobalCommitPosition(127)));
+        set.set(GlobalCommitPosition(0));
+        assert!(set.get(GlobalCommitPosition(0)));
+        assert!(!set.get(GlobalCommitPosition(1)));
+        assert!(!set.get(GlobalCommitPosition(127)));
+        let old = set.get_set(GlobalCommitPosition(127));
+        assert!(!old);
+        assert!(!set.get(GlobalCommitPosition(63)));
+        assert!(!set.get(GlobalCommitPosition(64)));
+        assert!(set.get(GlobalCommitPosition(127)));
+        let old = set.get_set(GlobalCommitPosition(127));
+        assert!(old);
     }
 
     #[test]
