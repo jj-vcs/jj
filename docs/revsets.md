@@ -244,12 +244,12 @@ revsets (expressions) as arguments.
 * `root()`: The virtual commit that is the oldest ancestor of all other commits.
 
 * `heads(x)`: Commits in `x` that are not ancestors of other commits in `x`.
-  Note that this is different from
+  Equivalent to `x ~ ::x-`. Note that this is different from
   [Mercurial's](https://repo.mercurial-scm.org/hg/help/revsets) `heads(x)`
   function, which is equivalent to `x ~ x-`.
 
 * `roots(x)`: Commits in `x` that are not descendants of other commits in `x`.
-  Note that this is different from
+  Equivalent to `x ~ x+::`. Note that this is different from
   [Mercurial's](https://repo.mercurial-scm.org/hg/help/revsets) `roots(x)`
   function, which is equivalent to `x ~ x+`.
 
