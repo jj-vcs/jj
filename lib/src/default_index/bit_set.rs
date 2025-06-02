@@ -41,12 +41,20 @@ impl AncestorsBitSet {
         }
     }
 
+    fn to_global_pos(&self, (bitset_pos, bit_pos): (u32, u32)) -> GlobalCommitPosition {
+        GlobalCommitPosition(bitset_pos * u64::BITS + bit_pos)
+    }
+
+    fn to_bitset_pos(&self, pos: GlobalCommitPosition) -> (u32, u32) {
+        (pos.0 / u64::BITS, pos.0 % u64::BITS)
+    }
+
     /// Adds head `pos` to the set.
     ///
     /// Panics if the `pos` exceeds the capacity.
     pub fn add_head(&mut self, pos: GlobalCommitPosition) {
-        let bitset_pos = pos.0 / u64::BITS;
-        let bit = 1_u64 << (pos.0 % u64::BITS);
+        let (bitset_pos, bit_pos) = self.to_bitset_pos(pos);
+        let bit = 1_u64 << bit_pos;
         self.bitset[usize::try_from(bitset_pos).unwrap()] |= bit;
         self.last_visited_bitset_pos = max(self.last_visited_bitset_pos, bitset_pos + 1);
     }
@@ -55,8 +63,8 @@ impl AncestorsBitSet {
     ///
     /// Panics if the `pos` exceeds the capacity or has not been visited yet.
     pub fn contains(&self, pos: GlobalCommitPosition) -> bool {
-        let bitset_pos = pos.0 / u64::BITS;
-        let bit = 1_u64 << (pos.0 % u64::BITS);
+        let (bitset_pos, bit_pos) = self.to_bitset_pos(pos);
+        let bit = 1_u64 << bit_pos;
         assert!(bitset_pos >= self.last_visited_bitset_pos);
         self.bitset[usize::try_from(bitset_pos).unwrap()] & bit != 0
     }
@@ -67,7 +75,7 @@ impl AncestorsBitSet {
         index: &CompositeCommitIndex,
         to_visit_pos: GlobalCommitPosition,
     ) {
-        let to_visit_bitset_pos = to_visit_pos.0 / u64::BITS;
+        let (to_visit_bitset_pos, _) = self.to_bitset_pos(to_visit_pos);
         if to_visit_bitset_pos >= self.last_visited_bitset_pos {
             return;
         }
@@ -76,11 +84,11 @@ impl AncestorsBitSet {
             while unvisited_bits != 0 {
                 let bit_pos = u64::BITS - unvisited_bits.leading_zeros() - 1; // from MSB
                 unvisited_bits ^= 1_u64 << bit_pos;
-                let current_pos = GlobalCommitPosition(visiting_bitset_pos * u64::BITS + bit_pos);
+                let current_pos = self.to_global_pos((visiting_bitset_pos, bit_pos));
                 for parent_pos in index.entry_by_pos(current_pos).parent_positions() {
                     assert!(parent_pos < current_pos);
-                    let parent_bitset_pos = parent_pos.0 / u64::BITS;
-                    let bit = 1_u64 << (parent_pos.0 % u64::BITS);
+                    let (parent_bitset_pos, parent_bit_pos) = self.to_bitset_pos(parent_pos);
+                    let bit = 1_u64 << parent_bit_pos;
                     self.bitset[usize::try_from(parent_bitset_pos).unwrap()] |= bit;
                     if visiting_bitset_pos == parent_bitset_pos {
                         unvisited_bits |= bit;
