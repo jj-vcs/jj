@@ -21,6 +21,7 @@
 
 #![allow(missing_docs)]
 
+mod bit_set;
 mod composite;
 mod entry;
 mod mutable;

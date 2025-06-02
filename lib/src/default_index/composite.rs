@@ -29,6 +29,7 @@ use itertools::Itertools as _;
 use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
 
+use super::bit_set::AncestorsBitSet;
 use super::entry::CommitIndexEntry;
 use super::entry::GlobalCommitPosition;
 use super::entry::LocalCommitPosition;
@@ -36,7 +37,6 @@ use super::entry::SmallGlobalCommitPositionsVec;
 use super::entry::SmallLocalCommitPositionsVec;
 use super::mutable::MutableCommitIndexSegment;
 use super::readonly::ReadonlyCommitIndexSegment;
-use super::rev_walk::AncestorsBitSet;
 use super::revset_engine;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
