@@ -20,6 +20,7 @@ use std::collections::binary_heap;
 use std::collections::BTreeSet;
 use std::collections::BinaryHeap;
 use std::collections::HashSet;
+use std::convert::Infallible;
 use std::iter;
 use std::mem;
 use std::sync::Arc;
@@ -381,6 +382,19 @@ impl CompositeIndex {
         &self,
         candidate_positions: BTreeSet<IndexPosition>,
     ) -> BTreeSet<IndexPosition> {
+        let Ok(result) =
+            self.heads_pos_with_filter::<Infallible>(candidate_positions, |_| Ok(true));
+        result
+    }
+
+    /// Returns the subset of positions in `candidate_positions` which refer to
+    /// entries that are heads in the repository. The filter function is applied
+    /// to the candidate heads while finding the heads.
+    pub fn heads_pos_with_filter<E>(
+        &self,
+        candidate_positions: BTreeSet<IndexPosition>,
+        mut filter: impl FnMut(IndexPosition) -> Result<bool, E>,
+    ) -> Result<BTreeSet<IndexPosition>, E> {
         let min_generation = candidate_positions
             .iter()
             .map(|&pos| self.entry_by_pos(pos).generation_number())
@@ -410,16 +424,19 @@ impl CompositeIndex {
                     dedup_pop(&mut parents).unwrap();
                 }
                 if parent == candidate {
-                    // The candidate is an ancestor of an existing head, so we can skip it.
+                    // The candidate is an ancestor of an existing head, so we can skip it
+                    // without evaluating the filter.
                     continue 'outer;
                 }
             }
-            // No parents matched, so this commit is a head.
-            let entry = self.entry_by_pos(candidate);
-            parents.extend(entry.parent_positions());
-            heads.insert(candidate);
+            // No parents matched, so this commit is a head if the filter returns true.
+            if filter(candidate)? {
+                let entry = self.entry_by_pos(candidate);
+                parents.extend(entry.parent_positions());
+                heads.insert(candidate);
+            }
         }
-        heads
+        Ok(heads)
     }
 
     pub(super) fn evaluate_revset(
