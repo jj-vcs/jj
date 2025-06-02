@@ -338,13 +338,15 @@ impl CompositeCommitIndex {
         let mut work = vec![descendant_pos];
         let mut visited = HashSet::new();
         while let Some(descendant_pos) = work.pop() {
-            let descendant_entry = self.entry_by_pos(descendant_pos);
-            if descendant_pos == ancestor_pos {
-                return true;
+            match descendant_pos.cmp(&ancestor_pos) {
+                Ordering::Less => continue,
+                Ordering::Equal => return true,
+                Ordering::Greater => {}
             }
-            if !visited.insert(descendant_entry.position()) {
+            if !visited.insert(descendant_pos) {
                 continue;
             }
+            let descendant_entry = self.entry_by_pos(descendant_pos);
             if descendant_entry.generation_number() <= ancestor_generation {
                 continue;
             }
