@@ -61,7 +61,7 @@ jobs:
       uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
       with:
         toolchain: 1.84
-    - uses: taiki-e/install-action@6c6479b49816fcc0975a31af977bdc1f847c2920
+    - uses: taiki-e/install-action@735e5933943122c5ac182670a935f54a949265c1
       with:
         tool: nextest,taplo-cli
     - name: Install mold
