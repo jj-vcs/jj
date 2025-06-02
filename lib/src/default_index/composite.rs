@@ -402,20 +402,18 @@ impl CompositeCommitIndex {
     }
 
     pub(super) fn all_heads_pos(&self) -> impl Iterator<Item = GlobalCommitPosition> + use<> {
-        // TODO: can be optimized to use bit vec and leading/trailing_ones()
         let num_commits = self.num_commits();
-        let mut not_head: Vec<bool> = vec![false; num_commits as usize];
-        for pos in 0..num_commits {
-            let entry = self.entry_by_pos(GlobalCommitPosition(pos));
-            for GlobalCommitPosition(parent_pos) in entry.parent_positions() {
-                not_head[parent_pos as usize] = true;
+        let mut not_head = PositionsBitSet::with_capacity(num_commits);
+        for pos in (0..num_commits).map(GlobalCommitPosition) {
+            let entry = self.entry_by_pos(pos);
+            for parent_pos in entry.parent_positions() {
+                not_head.set(parent_pos);
             }
         }
-        not_head
-            .into_iter()
-            .enumerate()
-            .filter(|&(_, b)| !b)
-            .map(|(i, _)| GlobalCommitPosition(u32::try_from(i).unwrap()))
+        (0..num_commits)
+            .map(GlobalCommitPosition)
+            // TODO: can be optimized to use leading/trailing_ones()
+            .filter(move |&pos| !not_head.get(pos))
     }
 
     pub fn heads<'a>(
