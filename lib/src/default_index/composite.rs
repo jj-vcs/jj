@@ -30,6 +30,7 @@ use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
 
 use super::bit_set::AncestorsBitSet;
+use super::bit_set::PositionsBitSet;
 use super::entry::CommitIndexEntry;
 use super::entry::GlobalCommitPosition;
 use super::entry::LocalCommitPosition;
@@ -336,14 +337,14 @@ impl CompositeCommitIndex {
     ) -> bool {
         let ancestor_generation = self.entry_by_pos(ancestor_pos).generation_number();
         let mut work = vec![descendant_pos];
-        let mut visited = HashSet::new();
+        let mut visited = PositionsBitSet::with_max_pos(descendant_pos);
         while let Some(descendant_pos) = work.pop() {
             match descendant_pos.cmp(&ancestor_pos) {
                 Ordering::Less => continue,
                 Ordering::Equal => return true,
                 Ordering::Greater => {}
             }
-            if !visited.insert(descendant_pos) {
+            if visited.get_set(descendant_pos) {
                 continue;
             }
             let descendant_entry = self.entry_by_pos(descendant_pos);
