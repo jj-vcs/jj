@@ -631,7 +631,12 @@ pub enum ResolvedExpression {
         sources: Box<Self>,
         domain: Box<Self>,
     },
-    Heads(Box<Self>),
+    Heads {
+        candidates: Box<Self>,
+        /// Filter predicates can be applied more efficiently while finding
+        /// heads rather than filtering separately.
+        filters: Vec<ResolvedPredicateExpression>,
+    },
     Roots(Box<Self>),
     ForkPoint(Box<Self>),
     Latest {
@@ -2314,8 +2319,23 @@ impl VisibilityResolutionContext<'_> {
                 sources: self.resolve(sources).into(),
                 domain: self.resolve(domain).into(),
             },
-            RevsetExpression::Heads(candidates) => {
-                ResolvedExpression::Heads(self.resolve(candidates).into())
+            RevsetExpression::Heads(head_candidates) => {
+                let mut head_candidates = self.resolve(head_candidates);
+                let mut filters = Vec::new();
+                // heads(filter(filter(x, f1), f2)) => heads(x, [f1, f2])
+                while let ResolvedExpression::FilterWithin {
+                    candidates,
+                    predicate,
+                } = head_candidates
+                {
+                    head_candidates = *candidates;
+                    filters.push(predicate);
+                }
+                filters.reverse();
+                ResolvedExpression::Heads {
+                    candidates: head_candidates.into(),
+                    filters,
+                }
             }
             RevsetExpression::Roots(candidates) => {
                 ResolvedExpression::Roots(self.resolve(candidates).into())

@@ -932,10 +932,31 @@ impl EvaluationContext<'_> {
                     .collect_vec();
                 Ok(Box::new(EagerRevset { positions }))
             }
-            ResolvedExpression::Heads(candidates) => {
+            ResolvedExpression::Heads {
+                candidates,
+                filters,
+            } => {
                 let candidate_set = self.evaluate(candidates)?;
-                let head_positions: BTreeSet<_> =
-                    index.heads_pos(candidate_set.positions().attach(index).try_collect()?);
+                let mut predicates: Vec<_> = filters
+                    .iter()
+                    .map(|filter| {
+                        self.evaluate_predicate(filter)
+                            .map(|predicate| predicate.to_predicate_fn())
+                    })
+                    .try_collect()?;
+                let positions: BTreeSet<_> =
+                    candidate_set.positions().attach(index).try_collect()?;
+                let head_positions: BTreeSet<_> = index.heads_pos_with_filter(
+                    positions,
+                    |pos| -> Result<bool, RevsetEvaluationError> {
+                        for predicate in &mut predicates {
+                            if !predicate(index, pos)? {
+                                return Ok(false);
+                            }
+                        }
+                        Ok(true)
+                    },
+                )?;
                 let positions = head_positions.into_iter().rev().collect();
                 Ok(Box::new(EagerRevset { positions }))
             }
