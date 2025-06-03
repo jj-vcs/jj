@@ -70,6 +70,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Evolution history is now stored in the operation log. `jj evolog` can show
   associated operations for commits created by new jj.
 
+* Added `file.summary()` template which mirrors `diff.summary()` but for individual
+  diff entries, allowing `diff.files().map(|file| file.summary())`, for example.
+  Renamed files are shown in the form `"common/prefix/{source => target}/common/suffix"`,
+  which previously was only available through `diff.summary()`.
+
+
 ### Fixed bugs
 
 * Work around a git issue that could cause subprocess operations to hang if the
