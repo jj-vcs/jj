@@ -47,7 +47,7 @@ dunce = "1.0.5"
 etcetera = "0.10.0"
 either = "1.15.0"
 futures = "0.3.31"
-gix = { version = "0.71.0", default-features = false, features = [
+gix = { version = "0.72.0", default-features = false, features = [
     "attributes",
     "blob-diff",
     "index",
@@ -116,7 +116,7 @@ unicode-width = "0.2.0"
 version_check = "0.9.5"
 watchman_client = { version = "0.9.0" }
 whoami = "1.6.0"
-winreg = "0.52"
+winreg = "0.55"
 
 # put all inter-workspace libraries, i.e. those that use 'path = ...' here in
 # their own (alphabetically sorted) block
