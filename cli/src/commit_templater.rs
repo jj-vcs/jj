@@ -2061,6 +2061,22 @@ fn builtin_tree_diff_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
             Ok(out_property.into_dyn_wrapped())
         },
     );
+    map.insert(
+        "summary",
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|entry| {
+                let source = entry
+                    .path
+                    .source
+                    .map_or(entry.path.target.clone(), |(path, _)| path);
+                language
+                    .path_converter
+                    .format_copied_path(&source, &entry.path.target)
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
     map
 }
 
