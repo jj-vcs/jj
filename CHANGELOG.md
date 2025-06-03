@@ -331,6 +331,9 @@ Thanks to the people who made this release happen!
 * The 'how to resolve conflicts' hint that is shown when conflicts appear can
   be hidden by setting `hints.resolving-conflicts = false`.
 
+* `jj squash` now has a `--restore-descendants` option to preserve the snapshots
+  of the children of the modified commits.
+
 * `jj op diff` and `jj op log --op-diff` now show changes to which commits
   correspond to working copies.
 
