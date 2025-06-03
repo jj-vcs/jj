@@ -1889,6 +1889,11 @@ fn test_evaluate_expression_none() {
 
     // none() is empty (doesn't include the checkout, for example)
     assert_eq!(resolve_commit_ids(repo.as_ref(), "none()"), vec![]);
+    // Testing `none()` as a filter predicate due to union with a filter
+    assert_eq!(
+        resolve_commit_ids(repo.as_ref(), "none() | author_name(nobody)"),
+        vec![]
+    );
 }
 
 #[test]
@@ -1912,7 +1917,18 @@ fn test_evaluate_expression_all() {
             commit3.id().clone(),
             commit2.id().clone(),
             commit1.id().clone(),
-            root_commit_id,
+            root_commit_id.clone(),
+        ]
+    );
+    // Testing `all()` as a filter predicate due to union with a filter
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "all() | author_name(nobody)"),
+        vec![
+            commit4.id().clone(),
+            commit3.id().clone(),
+            commit2.id().clone(),
+            commit1.id().clone(),
+            root_commit_id.clone(),
         ]
     );
 }

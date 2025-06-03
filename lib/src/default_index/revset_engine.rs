@@ -1144,6 +1144,7 @@ fn build_predicate_fn(
     predicate: &RevsetFilterPredicate,
 ) -> Box<dyn ToPredicateFn> {
     match predicate {
+        RevsetFilterPredicate::All => box_pure_predicate_fn(|_, _| Ok(true)),
         RevsetFilterPredicate::ParentCount(parent_count_range) => {
             let parent_count_range = parent_count_range.clone();
             box_pure_predicate_fn(move |index, pos| {

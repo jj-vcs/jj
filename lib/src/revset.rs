@@ -156,6 +156,8 @@ pub trait RevsetFilterExtension: std::fmt::Debug + Any {
 
 #[derive(Clone, Debug)]
 pub enum RevsetFilterPredicate {
+    /// Matches all commits unconditionally.
+    All,
     /// Commits with number of parents in the range.
     ParentCount(Range<u32>),
     /// Commits with description matching the pattern.
@@ -2421,9 +2423,13 @@ impl VisibilityResolutionContext<'_> {
         expression: &ResolvedRevsetExpression,
     ) -> ResolvedPredicateExpression {
         match expression {
-            RevsetExpression::None
-            | RevsetExpression::All
-            | RevsetExpression::VisibleHeads
+            RevsetExpression::None => ResolvedPredicateExpression::NotIn(
+                ResolvedPredicateExpression::Filter(RevsetFilterPredicate::All).into(),
+            ),
+            RevsetExpression::All => {
+                ResolvedPredicateExpression::Filter(RevsetFilterPredicate::All)
+            }
+            RevsetExpression::VisibleHeads
             | RevsetExpression::Root
             | RevsetExpression::Commits(_)
             | RevsetExpression::CommitRef(_)
