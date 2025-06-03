@@ -404,6 +404,38 @@ impl CompositeIndex {
         heads
     }
 
+    /// Find the heads of a range of positions `roots..heads`, applying a filter
+    /// to the commits in the range. The heads are sorted in descending order.
+    /// The filter will also be called in descending index position order.
+    pub fn heads_from_range_and_filter<E>(
+        &self,
+        roots: Vec<IndexPosition>,
+        heads: Vec<IndexPosition>,
+        mut filter: impl FnMut(IndexPosition) -> Result<bool, E>,
+    ) -> Result<Vec<IndexPosition>, E> {
+        if heads.is_empty() {
+            return Ok(heads);
+        }
+        let mut wanted_queue = BinaryHeap::from(heads);
+        let mut unwanted_queue = BinaryHeap::from(roots);
+        let mut found_heads = Vec::new();
+        while let Some(&pos) = wanted_queue.peek() {
+            if shift_to_parents_until(&mut unwanted_queue, self, pos) {
+                dedup_pop(&mut wanted_queue);
+                continue;
+            }
+            let entry = self.entry_by_pos(pos);
+            if filter(pos)? {
+                dedup_pop(&mut wanted_queue);
+                unwanted_queue.extend(entry.parent_positions());
+                found_heads.push(pos);
+            } else {
+                shift_to_parents(&mut wanted_queue, &entry);
+            }
+        }
+        Ok(found_heads)
+    }
+
     pub(super) fn evaluate_revset(
         &self,
         expression: &ResolvedExpression,
@@ -579,6 +611,22 @@ pub struct IndexStats {
     pub num_heads: u32,
     pub num_changes: u32,
     pub levels: Vec<IndexLevelStats>,
+}
+
+/// Repeatedly `shift_to_parents` until reaching a target position. Returns true
+/// if the target position matched a position in the queue.
+fn shift_to_parents_until(
+    queue: &mut BinaryHeap<IndexPosition>,
+    index: &CompositeIndex,
+    target_pos: IndexPosition,
+) -> bool {
+    while let Some(&pos) = queue.peek().filter(|&&pos| pos >= target_pos) {
+        shift_to_parents(queue, &index.entry_by_pos(pos));
+        if pos == target_pos {
+            return true;
+        }
+    }
+    false
 }
 
 /// Removes an entry from the queue and replace it with its parents.

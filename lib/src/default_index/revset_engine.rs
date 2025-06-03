@@ -19,6 +19,7 @@ use std::cmp::Ordering;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::collections::HashSet;
+use std::convert::Infallible;
 use std::fmt;
 use std::iter;
 use std::ops::Range;
@@ -935,6 +936,39 @@ impl EvaluationContext<'_> {
                 let candidate_set = self.evaluate(candidates)?;
                 let positions =
                     index.heads_pos(candidate_set.positions().attach(index).try_collect()?);
+                Ok(Box::new(EagerRevset { positions }))
+            }
+            ResolvedExpression::HeadsRange {
+                roots,
+                heads,
+                filter,
+            } => {
+                let root_set = self.evaluate(roots)?;
+                let root_positions: Vec<_> = root_set.positions().attach(index).try_collect()?;
+                // Pre-filter heads so queries like 'immutable_heads()..' can
+                // terminate early. immutable_heads() usually includes some
+                // visible heads, which can be trivially rejected.
+                let head_set = self.evaluate(heads)?;
+                let head_positions = difference_by(
+                    head_set.positions(),
+                    EagerRevWalk::new(root_positions.iter().copied().map(Ok)),
+                    |pos1, pos2| pos1.cmp(pos2).reverse(),
+                )
+                .attach(index)
+                .try_collect()?;
+                let positions = if let Some(filter) = filter {
+                    let mut filter = self.evaluate_predicate(filter)?.to_predicate_fn();
+                    index.heads_from_range_and_filter(root_positions, head_positions, |pos| {
+                        filter(index, pos)
+                    })?
+                } else {
+                    let Ok(positions) = index.heads_from_range_and_filter::<Infallible>(
+                        root_positions,
+                        head_positions,
+                        |_| Ok(true),
+                    );
+                    positions
+                };
                 Ok(Box::new(EagerRevset { positions }))
             }
             ResolvedExpression::Roots(candidates) => {

@@ -1133,6 +1133,29 @@ fn test_evaluate_expression_heads() {
         resolve_commit_ids(mut_repo, "heads(all())"),
         resolve_commit_ids(mut_repo, "visible_heads()")
     );
+
+    // Heads of a range returns correct commit
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("heads({}..{})", commit4.id(), commit3.id())
+        ),
+        vec![commit3.id().clone()]
+    );
+
+    // Heads of a range with filter returns correct commit
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!(
+                "heads({}..{} & ~{})",
+                commit4.id(),
+                commit3.id(),
+                commit3.id()
+            )
+        ),
+        vec![commit2.id().clone()]
+    );
 }
 
 #[test]
