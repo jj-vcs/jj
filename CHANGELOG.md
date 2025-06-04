@@ -43,6 +43,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The deprecated `--skip-empty` flag for `jj rebase` has been removed. Use the
   `--skip-emptied` flag instead.
 
+* `jj op abandon` now discards previous versions of a change (or predecessors)
+  if they become unreachable from the operation history. The evolution history
+  is truncated accordingly.
+
 ### Deprecations
 
 * The `ui.diff.format` and `ui.diff.tool` config options have been merged as
