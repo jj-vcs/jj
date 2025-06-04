@@ -900,6 +900,10 @@ impl MutableRepo {
         self.index.as_ref()
     }
 
+    pub(crate) fn is_backed_by_default_index(&self) -> bool {
+        self.index.as_any().is::<DefaultMutableIndex>()
+    }
+
     pub fn has_changes(&self) -> bool {
         self.view.ensure_clean(|v| self.enforce_view_invariants(v));
         !(self.commit_predecessors.is_empty()
@@ -1781,7 +1785,7 @@ impl MutableRepo {
         // feasible to walk all added and removed commits.
         // TODO: Fix this somehow. Maybe a method on `Index` to find rewritten commits
         // given `base_heads`, `own_heads` and `other_heads`?
-        if self.index.as_any().is::<DefaultMutableIndex>() {
+        if self.is_backed_by_default_index() {
             self.record_rewrites(&base_heads, &own_heads)?;
             self.record_rewrites(&base_heads, &other_heads)?;
             // No need to remove heads removed by `other` because we already
