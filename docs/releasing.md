@@ -17,7 +17,7 @@ root=$(jj log --no-graph -r 'heads(tags(glob:"v*.*.*") & ::trunk())' -T commit_i
 filter='
    map(.commits[] | select(.author.login | endswith("[bot]") | not))
    | unique_by(.author.login)
-   | map("* \(.commit.author.name) (@\(.author.login))"))
+   | map("* \(.commit.author.name) (@\(.author.login))")
    | .[]
 '
 gh api "/repos/jj-vcs/jj/compare/$root...main" --paginate | jq -sr "$filter" | sort -f
