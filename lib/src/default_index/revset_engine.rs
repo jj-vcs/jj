@@ -964,7 +964,7 @@ impl EvaluationContext<'_> {
                 };
                 let mut positions = vec![position?];
                 for position in expression_positions_iter {
-                    positions = index.common_ancestors_pos(&positions, &[position?]);
+                    positions = index.common_ancestors_pos(positions, vec![position?]);
                 }
                 Ok(Box::new(EagerRevset { positions }))
             }

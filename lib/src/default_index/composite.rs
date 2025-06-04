@@ -317,11 +317,11 @@ impl CompositeIndex {
     /// The returned index positions are sorted in descending order.
     pub(super) fn common_ancestors_pos(
         &self,
-        set1: &[IndexPosition],
-        set2: &[IndexPosition],
+        set1: Vec<IndexPosition>,
+        set2: Vec<IndexPosition>,
     ) -> Vec<IndexPosition> {
-        let mut items1: BinaryHeap<_> = set1.iter().copied().collect();
-        let mut items2: BinaryHeap<_> = set2.iter().copied().collect();
+        let mut items1 = BinaryHeap::from(set1);
+        let mut items2 = BinaryHeap::from(set2);
         let mut result = Vec::new();
         while let (Some(&pos1), Some(&pos2)) = (items1.peek(), items2.peek()) {
             match pos1.cmp(&pos2) {
@@ -467,7 +467,7 @@ impl Index for &CompositeIndex {
             .iter()
             .map(|id| self.commit_id_to_pos(id).unwrap())
             .collect_vec();
-        self.common_ancestors_pos(&pos1, &pos2)
+        self.common_ancestors_pos(pos1, pos2)
             .iter()
             .map(|pos| self.entry_by_pos(*pos).commit_id())
             .collect()
