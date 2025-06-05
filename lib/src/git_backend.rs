@@ -664,7 +664,7 @@ fn signature_from_git(signature: gix::actor::SignatureRef) -> Signature {
     }
 }
 
-fn signature_to_git(signature: &Signature) -> gix::actor::SignatureRef<'_> {
+fn signature_to_git(signature: &Signature) -> gix::actor::Signature {
     // git does not support empty names or emails
     let name = if !signature.name.is_empty() {
         &signature.name
@@ -680,7 +680,7 @@ fn signature_to_git(signature: &Signature) -> gix::actor::SignatureRef<'_> {
         signature.timestamp.timestamp.0.div_euclid(1000),
         signature.timestamp.tz_offset * 60, // in seconds
     );
-    gix::actor::SignatureRef {
+    gix::actor::Signature {
         name: name.into(),
         email: email.into(),
         time,
@@ -1307,8 +1307,8 @@ impl Backend for GitBackend {
             let mut commit = gix::objs::Commit {
                 message: message.to_owned().into(),
                 tree: git_tree_id,
-                author: author.into(),
-                committer: committer.into(),
+                author: author.clone(),
+                committer: committer.clone(),
                 encoding: None,
                 parents: parents.clone(),
                 extra_headers: extra_headers.clone(),
