@@ -180,7 +180,7 @@ fn test_rebase_bookmark() {
     │ ○  b: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -197,7 +197,7 @@ fn test_rebase_bookmark() {
     ○  b: e
     @  e: a
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -221,7 +221,7 @@ fn test_rebase_bookmark() {
     ├─╯
     ○  b: a
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -256,7 +256,7 @@ fn test_rebase_bookmark() {
     ├─╯
     ○  b: a
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 }
@@ -282,7 +282,7 @@ fn test_rebase_bookmark_with_merge() {
     ├───╯
     ○ │  a
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -304,7 +304,7 @@ fn test_rebase_bookmark_with_merge() {
     │ ○  b: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -327,7 +327,7 @@ fn test_rebase_bookmark_with_merge() {
     │ ○  b: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 }
@@ -352,7 +352,7 @@ fn test_rebase_single_revision() {
     ○ │  b: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -377,7 +377,7 @@ fn test_rebase_single_revision() {
     ○ │  b: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["undo"]).success();
@@ -404,7 +404,7 @@ fn test_rebase_single_revision() {
     │ ○  d: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 }
@@ -427,7 +427,7 @@ fn test_rebase_single_revision_merge_parent() {
     │ ○  b
     ○ │  a
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -452,7 +452,7 @@ fn test_rebase_single_revision_merge_parent() {
     ├───╯
     ○ │  a
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 }
@@ -486,7 +486,7 @@ fn test_rebase_multiple_revisions() {
     ○ │  b: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -516,7 +516,7 @@ fn test_rebase_multiple_revisions() {
     │ ○  c: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["undo"]).success();
@@ -548,7 +548,7 @@ fn test_rebase_multiple_revisions() {
     │ ○  d: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["undo"]).success();
@@ -584,7 +584,7 @@ fn test_rebase_multiple_revisions() {
     ○ │  b: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["undo"]).success();
@@ -620,7 +620,7 @@ fn test_rebase_multiple_revisions() {
     ○ │  b: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["undo"]).success();
@@ -649,7 +649,7 @@ fn test_rebase_multiple_revisions() {
     ○ │  b: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 }
@@ -672,7 +672,7 @@ fn test_rebase_revision_onto_descendant() {
     ○ │  b: base
     ├─╯
     ○  base
-    ◆
+    ♦
     [EOF]
     ");
     let setup_opid = work_dir.current_operation_id();
@@ -697,7 +697,7 @@ fn test_rebase_revision_onto_descendant() {
     │ ├─╯
     │ ○  a
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -730,7 +730,7 @@ fn test_rebase_revision_onto_descendant() {
     │ ○  a
     ○ │  b
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -754,7 +754,7 @@ fn test_rebase_multiple_destinations() {
     ├─╯
     │ ○  a
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -770,7 +770,7 @@ fn test_rebase_multiple_destinations() {
     │ @  c
     ○ │  b
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -799,7 +799,7 @@ fn test_rebase_multiple_destinations() {
     │ ○  b
     @ │  c
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -819,7 +819,7 @@ fn test_rebase_multiple_destinations() {
     │ ○  b
     @ │  c
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -867,7 +867,7 @@ fn test_rebase_with_descendants() {
     │ ○  b
     ○ │  a
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -886,7 +886,7 @@ fn test_rebase_with_descendants() {
     │ ○  b: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -908,7 +908,7 @@ fn test_rebase_with_descendants() {
     ○  a
     │ ○  b
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -921,7 +921,7 @@ fn test_rebase_with_descendants() {
     │ ○  b
     ○ │  a
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -943,7 +943,7 @@ fn test_rebase_with_descendants() {
     │ ○  b: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -976,7 +976,7 @@ fn test_rebase_with_descendants() {
     │ ○  b: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 }
@@ -1033,7 +1033,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ├─╯
     ○  base: notroot
     ○  notroot
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1054,7 +1054,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ├─╯
     ○  base: notroot
     ○  notroot
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1075,7 +1075,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ├─╯
     ○  base: notroot
     ○  notroot
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1098,7 +1098,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ○ │  base: notroot
     ○ │  notroot
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1113,7 +1113,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ├─╯
     ○  base: notroot
     ○  notroot
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1134,7 +1134,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ├─╯
     ○  base: notroot
     ○  notroot
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1155,7 +1155,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ○  a: base
     ○  base: notroot
     ○  notroot
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1176,7 +1176,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ├─╯
     ○  base: notroot
     ○  notroot
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1191,7 +1191,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ├─╯
     ○  base: notroot
     ○  notroot
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1215,7 +1215,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ○  notroot
     │ ○  base
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1241,7 +1241,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     │ ○  a: notroot
     ├─╯
     ○  notroot
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1267,7 +1267,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     │ ○  a: notroot
     ├─╯
     ○  notroot
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1281,7 +1281,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ├─╯
     ○  base: notroot
     ○  notroot
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1304,7 +1304,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ○  notroot
     │ ○  a
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1330,7 +1330,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ○  notroot
     │ ○  b
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1356,7 +1356,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ├─╯
     ○  base: notroot
     ○  notroot
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1380,7 +1380,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ├─╯
     ○  base: notroot
     ○  notroot
-    ◆
+    ♦
     [EOF]
     ");
 }
@@ -1414,7 +1414,7 @@ fn test_rebase_after() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     let setup_opid = work_dir.current_operation_id();
@@ -1440,7 +1440,7 @@ fn test_rebase_after() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1465,7 +1465,7 @@ fn test_rebase_after() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1493,7 +1493,7 @@ fn test_rebase_after() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1522,7 +1522,7 @@ fn test_rebase_after() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1551,7 +1551,7 @@ fn test_rebase_after() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1580,7 +1580,7 @@ fn test_rebase_after() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1611,7 +1611,7 @@ fn test_rebase_after() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1641,7 +1641,7 @@ fn test_rebase_after() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1671,7 +1671,7 @@ fn test_rebase_after() {
       ○ │  d: a
       ├─╯
       ○  a
-      ◆
+      ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1703,7 +1703,7 @@ fn test_rebase_after() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1732,7 +1732,7 @@ fn test_rebase_after() {
     │ ○  b3: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1762,7 +1762,7 @@ fn test_rebase_after() {
     ○  d: c
     ○  c: b2
     ○  b2
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1792,7 +1792,7 @@ fn test_rebase_after() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1818,7 +1818,7 @@ fn test_rebase_after() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1849,7 +1849,7 @@ fn test_rebase_after() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1879,7 +1879,7 @@ fn test_rebase_after() {
     ○  b3: b1
     ○  b1: a
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1923,7 +1923,7 @@ fn test_rebase_before() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     let setup_opid = work_dir.current_operation_id();
@@ -1949,7 +1949,7 @@ fn test_rebase_before() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1974,7 +1974,7 @@ fn test_rebase_before() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -2011,7 +2011,7 @@ fn test_rebase_before() {
     ├─╯
     ○  a: c
     ○  c
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2040,7 +2040,7 @@ fn test_rebase_before() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2069,7 +2069,7 @@ fn test_rebase_before() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2098,7 +2098,7 @@ fn test_rebase_before() {
     @ │  f: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2130,7 +2130,7 @@ fn test_rebase_before() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2158,7 +2158,7 @@ fn test_rebase_before() {
     ○ │  b2: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2191,7 +2191,7 @@ fn test_rebase_before() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2222,7 +2222,7 @@ fn test_rebase_before() {
     │ ○  b4
     ○ │  b2
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2252,7 +2252,7 @@ fn test_rebase_before() {
       ○ │  b1: a
       ├─╯
       ○  a
-      ◆
+      ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2281,7 +2281,7 @@ fn test_rebase_before() {
     ○  a: e
     ○  e: b1
     ○  b1
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2311,7 +2311,7 @@ fn test_rebase_before() {
     ○  d: c
     ○  c: b2
     ○  b2
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2341,7 +2341,7 @@ fn test_rebase_before() {
     ○  d: c
     ○  c: b2
     ○  b2
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2368,7 +2368,7 @@ fn test_rebase_before() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2399,7 +2399,7 @@ fn test_rebase_before() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2430,7 +2430,7 @@ fn test_rebase_before() {
     ○  b4: b3
     ○  b3: a
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2477,7 +2477,7 @@ fn test_rebase_after_before() {
     │ ○  y: x
     │ ○  x
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
     let setup_opid = work_dir.current_operation_id();
@@ -2508,7 +2508,7 @@ fn test_rebase_after_before() {
     │ ○  y: x
     │ ○  x
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2542,7 +2542,7 @@ fn test_rebase_after_before() {
     │ ○  y: x
     │ ○  x
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2576,7 +2576,7 @@ fn test_rebase_after_before() {
     │ ○  y: x
     │ ○  x
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2616,7 +2616,7 @@ fn test_rebase_after_before() {
     │ ○  y: x
     │ ○  x
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2647,7 +2647,7 @@ fn test_rebase_after_before() {
     │ ○  y: x
     │ ○  x
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2680,7 +2680,7 @@ fn test_rebase_after_before() {
     ○ │  b1: a
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2721,7 +2721,7 @@ fn test_rebase_skip_emptied() {
     │ ○  b
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -2742,7 +2742,7 @@ fn test_rebase_skip_emptied() {
     ○  already empty
     ○  b
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -2755,7 +2755,7 @@ fn test_rebase_skip_emptied() {
     │ ○  b
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -2783,7 +2783,7 @@ fn test_rebase_skip_emptied() {
     │ ○  b
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 }
@@ -2816,7 +2816,7 @@ fn test_rebase_skip_emptied_descendants() {
     │ ○  b
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -2838,7 +2838,7 @@ fn test_rebase_skip_emptied_descendants() {
     ○  c (will become empty)
     ○  b
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 }
@@ -2868,7 +2868,7 @@ fn test_rebase_skip_if_on_destination() {
     ○ │  b1  zsuskuln  62634b59:  a
     ├─╯
     ○  a  rlvkpnrz  7d980be7
-    ◆    zzzzzzzz  00000000
+    ♦    zzzzzzzz  00000000
     [EOF]
     ");
 
@@ -2891,7 +2891,7 @@ fn test_rebase_skip_if_on_destination() {
     ○ │  b1  zsuskuln  62634b59:  a
     ├─╯
     ○  a  rlvkpnrz  7d980be7
-    ◆    zzzzzzzz  00000000
+    ♦    zzzzzzzz  00000000
     [EOF]
     ");
 
@@ -2914,7 +2914,7 @@ fn test_rebase_skip_if_on_destination() {
     ○ │  b1  zsuskuln  62634b59:  a
     ├─╯
     ○  a  rlvkpnrz  7d980be7
-    ◆    zzzzzzzz  00000000
+    ♦    zzzzzzzz  00000000
     [EOF]
     ");
 
@@ -2937,7 +2937,7 @@ fn test_rebase_skip_if_on_destination() {
     ○ │  b1  zsuskuln  62634b59:  a
     ├─╯
     ○  a  rlvkpnrz  7d980be7
-    ◆    zzzzzzzz  00000000
+    ♦    zzzzzzzz  00000000
     [EOF]
     ");
 
@@ -2964,7 +2964,7 @@ fn test_rebase_skip_if_on_destination() {
     ○ │  b1  zsuskuln  62634b59:  a
     ├─╯
     ○  a  rlvkpnrz  7d980be7
-    ◆    zzzzzzzz  00000000
+    ♦    zzzzzzzz  00000000
     [EOF]
     ");
 }
@@ -2993,7 +2993,7 @@ fn test_rebase_skip_duplicate_divergent() {
     │ ○  c  royxmykx  0fdb9e5a:  a
     ├─╯
     ○  a  rlvkpnrz  08789390
-    ◆    zzzzzzzz  00000000
+    ♦    zzzzzzzz  00000000
     [EOF]
     ");
 
@@ -3010,7 +3010,7 @@ fn test_rebase_skip_duplicate_divergent() {
     @  d  znkkpsqq  ecbe1d2f:  b1
     ○  b1  zsuskuln  48bf33ab:  a
     ○  a  rlvkpnrz  08789390
-    ◆    zzzzzzzz  00000000
+    ♦    zzzzzzzz  00000000
     [EOF]
     ");
 
@@ -3032,7 +3032,7 @@ fn test_rebase_skip_duplicate_divergent() {
     ○  b1 b2  zsuskuln  3f194323:  c
     ○  c  royxmykx  0fdb9e5a:  a
     ○  a  rlvkpnrz  08789390
-    ◆    zzzzzzzz  00000000
+    ♦    zzzzzzzz  00000000
     [EOF]
     ");
 
@@ -3049,7 +3049,7 @@ fn test_rebase_skip_duplicate_divergent() {
     @  d  znkkpsqq  ecbe1d2f:  b1
     ○  b1  zsuskuln  48bf33ab:  a
     ○  a  rlvkpnrz  08789390
-    ◆    zzzzzzzz  00000000
+    ♦    zzzzzzzz  00000000
     [EOF]
     ");
 }
