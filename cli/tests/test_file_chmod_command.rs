@@ -45,7 +45,7 @@ fn test_chmod_regular_conflict() {
     ○ │  x
     ├─╯
     ○  base
-    ◆
+    ♦
     [EOF]
     ");
     let output = work_dir.run_jj(["debug", "tree"]);
@@ -151,7 +151,7 @@ fn test_chmod_file_dir_deletion_conflicts() {
     ○ │  file
     ├─╯
     ○  base
-    ◆
+    ♦
     [EOF]
     ");
 

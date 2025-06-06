@@ -27,7 +27,7 @@ fn test_backout() {
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  7d980be7a1d4 a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
@@ -49,7 +49,7 @@ fn test_backout() {
     │
     │  This backs out commit 7d980be7a1d499e4d316ab4c01242885032f7eaf.
     @  7d980be7a1d4 a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     "#);
     let output = work_dir.run_jj(["diff", "-s", "-r", "@+"]);
@@ -75,7 +75,7 @@ fn test_backout() {
     │
     │  This backs out commit 7d980be7a1d499e4d316ab4c01242885032f7eaf.
     ○  7d980be7a1d4 a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     "#);
     let output = work_dir.run_jj(["diff", "-s", "-r", "@+"]);
@@ -104,7 +104,7 @@ fn test_backout_multiple() {
     ○  05e1f540476f c
     ○  f93a910dbdf0 b
     ○  7d980be7a1d4 a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -131,7 +131,7 @@ fn test_backout_multiple() {
     ○  05e1f540476f c
     ○  f93a910dbdf0 b
     ○  7d980be7a1d4 a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     "#);
     // View the output of each backed out commit
@@ -207,7 +207,7 @@ fn test_backout_description_template() {
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  7d980be7a1d4 a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
@@ -227,7 +227,7 @@ fn test_backout_description_template() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     ○  6bfb98a33f58 Revert commit 7d980be7a1d4 "a"
     @  7d980be7a1d4 a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     "#);
 }
