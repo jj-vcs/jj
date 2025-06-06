@@ -1270,6 +1270,7 @@ impl MutableRepo {
                 }
                 dependents
             },
+            |_| panic!("graph has cycle"),
         )
     }
 
@@ -1606,6 +1607,7 @@ impl MutableRepo {
                             .map_ok(CommitByCommitterTimestamp)
                             .collect_vec()
                     },
+                    |_| panic!("graph has cycle"),
                 )?;
                 for CommitByCommitterTimestamp(missing_commit) in missing_commits.iter().rev() {
                     self.index.add_commit(missing_commit);

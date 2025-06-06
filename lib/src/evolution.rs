@@ -163,6 +163,7 @@ where
                     .map(|id| self.store.get_commit(id))
                     .collect_vec()
             },
+            |_| panic!("graph has cycle"),
         )?;
         self.queued
             .extend(commits.into_iter().map(|commit| CommitEvolutionEntry {
