@@ -532,13 +532,13 @@ fn test_alias() {
 
     let output = work_dir.run_jj(["log", "-r", "my-root"]);
     insta::assert_snapshot!(output, @r"
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
     let output = work_dir.run_jj(["log", "-r", "identity(my-root)"]);
     insta::assert_snapshot!(output, @r"
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
@@ -710,7 +710,7 @@ fn test_bad_alias_decl() {
     // Invalid declaration should be warned and ignored.
     let output = work_dir.run_jj(["log", "-r", "my-root"]);
     insta::assert_snapshot!(output, @r#"
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ------- stderr -------
     Warning: Failed to load `revset-aliases."bad"`:  --> 1:1
@@ -767,7 +767,7 @@ fn test_all_modifier() {
     insta::assert_snapshot!(output, @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ------- stderr -------
     Warning: In revset expression
@@ -816,7 +816,7 @@ fn test_all_modifier() {
     let output = work_dir.run_jj(["log", "-Tself.contained_in('all:all()')"]);
     insta::assert_snapshot!(output, @r"
     @  true
-    ◆  true
+    ♦  true
     [EOF]
     ------- stderr -------
     Warning: In template expression

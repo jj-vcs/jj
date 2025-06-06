@@ -52,7 +52,7 @@ fn test_workspaces_add_second_workspace() {
     │ ○  bcc858e1d93f second@
     ├─╯
     ○  7b22a8cbe888
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&secondary_dir), @r"
@@ -60,7 +60,7 @@ fn test_workspaces_add_second_workspace() {
     │ ○  504e3d8c1bcd default@
     ├─╯
     ○  7b22a8cbe888
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -158,7 +158,7 @@ fn test_workspaces_add_second_workspace_on_merge() {
     │ ○  3c52528f5893
     ○ │  a3155ab1bf5a
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -299,7 +299,7 @@ fn test_workspaces_add_workspace_at_revision() {
     │ ○  ea5860fbd622 second@
     ├─╯
     ○  27473635a942
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&secondary_dir), @r"
@@ -308,7 +308,7 @@ fn test_workspaces_add_workspace_at_revision() {
     │ ○  a47d8a593529
     ├─╯
     ○  27473635a942
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -341,7 +341,7 @@ fn test_workspaces_add_workspace_multiple_revisions() {
     ├─╯
     │ ○  27473635a942
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -375,7 +375,7 @@ fn test_workspaces_add_workspace_multiple_revisions() {
     ├───╯
     │ ○  eba7f49e2358
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -498,7 +498,7 @@ fn test_workspaces_conflicting_edits() {
     │ ○  547036666102 secondary@
     ├─╯
     ○  9a462e35578a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -522,7 +522,7 @@ fn test_workspaces_conflicting_edits() {
     │ ○  90f3d42e0bff secondary@
     ├─╯
     ○  b853f7c8b006
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     let output = secondary_dir.run_jj(["st"]);
@@ -566,7 +566,7 @@ fn test_workspaces_conflicting_edits() {
     │ ○  3a9b690d6e67 default@
     ├─╯
     ○  b853f7c8b006
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     // The stale working copy should have been resolved by the previous command
@@ -577,7 +577,7 @@ fn test_workspaces_conflicting_edits() {
     │ ○  3a9b690d6e67 default@
     ├─╯
     ○  b853f7c8b006
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -602,7 +602,7 @@ fn test_workspaces_updated_by_other() {
     │ ○  547036666102 secondary@
     ├─╯
     ○  9a462e35578a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -623,7 +623,7 @@ fn test_workspaces_updated_by_other() {
     │ ○  90f3d42e0bff secondary@
     ├─╯
     ○  b853f7c8b006
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     let output = secondary_dir.run_jj(["st"]);
@@ -652,7 +652,7 @@ fn test_workspaces_updated_by_other() {
     │ ○  3a9b690d6e67 default@
     ├─╯
     ○  b853f7c8b006
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -679,7 +679,7 @@ fn test_workspaces_updated_by_other_automatic() {
     │ ○  547036666102 secondary@
     ├─╯
     ○  9a462e35578a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -700,7 +700,7 @@ fn test_workspaces_updated_by_other_automatic() {
     │ ○  90f3d42e0bff secondary@
     ├─╯
     ○  b853f7c8b006
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -725,7 +725,7 @@ fn test_workspaces_updated_by_other_automatic() {
     │ ○  3a9b690d6e67 default@
     ├─╯
     ○  b853f7c8b006
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -802,7 +802,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         │ ○  891f00062e10 secondary@
         ├─╯
         ○  367415be5b44
-        ◆  000000000000
+        ♦  000000000000
         [EOF]
         ");
     }
@@ -852,7 +852,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         │ ○  891f00062e10
         ├─╯
         ○  367415be5b44
-        ◆  000000000000
+        ♦  000000000000
         [EOF]
         ");
     }
@@ -973,7 +973,7 @@ fn test_workspaces_update_stale_snapshot() {
     │ ○  f6ae7810ef56
     ├─╯
     ○  7d5738ba9943
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -1015,7 +1015,7 @@ fn test_workspaces_forget() {
     insta::assert_snapshot!(get_log_output(&main_dir), @r"
     ○  31da14559558
     ○  006bd1130b84
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -1130,7 +1130,7 @@ fn test_workspaces_forget_abandon_commits() {
     @  006bd1130b84 default@
     │ ○  94f41578a9e1 fourth@ second@ third@
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -1142,7 +1142,7 @@ fn test_workspaces_forget_abandon_commits() {
     ○  94f41578a9e1 fourth@ second@ third@
     │ ○  006bd1130b84
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -1153,7 +1153,7 @@ fn test_workspaces_forget_abandon_commits() {
     ○  94f41578a9e1 fourth@ third@
     │ ○  006bd1130b84
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -1164,7 +1164,7 @@ fn test_workspaces_forget_abandon_commits() {
         .success();
     insta::assert_snapshot!(get_log_output(&main_dir), @r"
     ○  006bd1130b84
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -1368,14 +1368,14 @@ fn test_workspaces_rename_workspace() {
     @  e8849ae12c70 default@
     │ ○  94f41578a9e1 third@
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&secondary_dir), @r"
     @  94f41578a9e1 third@
     │ ○  e8849ae12c70 default@
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }

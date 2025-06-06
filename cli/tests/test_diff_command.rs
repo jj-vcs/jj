@@ -2475,7 +2475,7 @@ fn test_diff_conflict_sides_differ() {
     ├─╯  left1
     ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 base aa7e33ed
     │  base
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
@@ -2771,7 +2771,7 @@ fn test_diff_conflict_bases_differ() {
     ├─╯  left1
     ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 base1 44cfbde6
     │  base1
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
@@ -2925,7 +2925,7 @@ fn test_diff_conflict_three_sides() {
     ├─╯  base2
     ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 base1 07965fa1
     │  base1
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "-lrside1+side2"]), @r"
@@ -3125,7 +3125,7 @@ fn test_diff_external_tool() {
     │  --
     │  file1
     │  file2
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
        --
     [EOF]
     ");
@@ -3351,7 +3351,7 @@ fn test_diff_external_file_by_file_tool() {
     │  file2
     │  --
     │  file2
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
