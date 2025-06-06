@@ -1340,8 +1340,19 @@ impl Backend for GitBackend {
 
             match table.get_value(git_id.as_bytes()) {
                 Some(existing_extras) if existing_extras != extras => {
-                    // It's possible a commit already exists with the same commit id but different
-                    // change id. Adjust the timestamp until this is no longer the case.
+                    // It's possible a commit already exists with the same
+                    // commit id but different change id. Adjust the timestamp
+                    // until this is no longer the case.
+                    //
+                    // For example, this can happen when rebasing duplicate
+                    // commits, https://github.com/jj-vcs/jj/issues/694.
+                    //
+                    // `jj` resets the committer timestamp to the current
+                    // timestamp whenever it rewrites a commit. So, it's
+                    // unlikely for the timestamp to be 0 even if the original
+                    // commit had its timestamp set to 0. Moreover, we test that
+                    // a commit with a negative timestamp can still be written
+                    // and read back by `jj`.
                     committer.time.seconds -= 1;
                 }
                 _ => break CommitId::from_bytes(git_id.as_bytes()),
