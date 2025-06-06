@@ -116,24 +116,27 @@ where
 
     /// Looks for predecessors within the given operation.
     fn visit_op(&mut self, op: &Operation) -> Result<(), WalkPredecessorsError> {
-        let mut visited = Vec::new(); // transitive edges should be short
+        let mut to_emit = Vec::new(); // transitive edges should be short
         let mut i = 0;
         while let Some(cur_id) = self.to_visit.get(i) {
             if let Some(next_ids) = op.predecessors_for_commit(cur_id) {
-                if visited.contains(cur_id) {
+                if to_emit.contains(cur_id) {
                     return Err(WalkPredecessorsError::CycleDetected(op.id().clone()));
                 }
-                let commit = self.store.get_commit(cur_id)?;
                 // Predecessors will be visited in reverse order if they appear
                 // in the same operation. See scan_commits() for why.
-                visited.extend(self.to_visit.splice(i..=i, next_ids.iter().rev().cloned()));
-                self.queued.push_back(CommitEvolutionEntry {
-                    commit,
-                    operation: Some(op.clone()),
-                });
+                to_emit.extend(self.to_visit.splice(i..=i, next_ids.iter().rev().cloned()));
             } else {
                 i += 1;
             }
+        }
+
+        for id in &to_emit {
+            let commit = self.store.get_commit(id)?;
+            self.queued.push_back(CommitEvolutionEntry {
+                commit,
+                operation: Some(op.clone()),
+            });
         }
         Ok(())
     }
