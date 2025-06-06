@@ -1269,8 +1269,11 @@ pub fn find_duplicate_divergent_commits(
             }
 
             let ancestor_candidate = repo.store().get_commit(&ancestor_candidate_id)?;
-            let new_tree =
-                rebase_to_dest_parent(repo, &[target_commit.clone()], &ancestor_candidate)?;
+            let new_tree = rebase_to_dest_parent(
+                repo,
+                std::slice::from_ref(target_commit),
+                &ancestor_candidate,
+            )?;
             // Check whether the rebased commit would have the same tree as the existing
             // commit if they had the same parents. If so, we can skip this rebased commit.
             if new_tree.id() == *ancestor_candidate.tree_id() {
