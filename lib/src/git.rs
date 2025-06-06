@@ -1862,9 +1862,10 @@ fn remove_remote_git_refs(
     git_repo: &mut gix::Repository,
     remote: &RemoteName,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+    let prefix = format!("refs/remotes/{remote}/", remote = remote.as_str());
     let edits: Vec<_> = git_repo
         .references()?
-        .prefixed(format!("refs/remotes/{remote}/", remote = remote.as_str()))?
+        .prefixed(prefix.as_str())?
         .map_ok(remove_ref)
         .try_collect()?;
     git_repo.edit_references(edits)?;
@@ -1960,7 +1961,7 @@ fn rename_remote_git_refs(
 
     let edits: Vec<_> = git_repo
         .references()?
-        .prefixed(old_prefix.clone())?
+        .prefixed(old_prefix.as_str())?
         .map_ok(|old_ref| {
             let new_name = BString::new(
                 [

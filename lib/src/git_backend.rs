@@ -652,8 +652,9 @@ fn signature_from_git(signature: gix::actor::SignatureRef) -> Signature {
     } else {
         "".to_string()
     };
-    let timestamp = MillisSinceEpoch(signature.time.seconds * 1000);
-    let tz_offset = signature.time.offset.div_euclid(60); // in minutes
+    let time = signature.time().unwrap_or_default();
+    let timestamp = MillisSinceEpoch(time.seconds * 1000);
+    let tz_offset = time.offset.div_euclid(60); // in minutes
     Signature {
         name,
         email,
@@ -1599,6 +1600,7 @@ fn bytes_vec_from_json(value: &serde_json::Value) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
+    use gix::date::parse::TimeBuf;
     use hex::ToHex as _;
     use pollster::FutureExt as _;
 
@@ -1671,8 +1673,8 @@ mod tests {
         };
         let git_commit_id = git_repo
             .commit_as(
-                &git_committer,
-                &git_author,
+                git_committer.to_ref(&mut TimeBuf::default()),
+                git_author.to_ref(&mut TimeBuf::default()),
                 "refs/heads/dummy",
                 "git commit message",
                 root_tree_id,
@@ -1698,8 +1700,8 @@ mod tests {
         // Add an empty commit on top
         let git_commit_id2 = git_repo
             .commit_as(
-                &git_committer,
-                &git_author,
+                git_committer.to_ref(&mut TimeBuf::default()),
+                git_author.to_ref(&mut TimeBuf::default()),
                 "refs/heads/dummy2",
                 "git commit message 2",
                 root_tree_id,
@@ -1823,8 +1825,8 @@ mod tests {
             gix::ObjectId::from_hex(b"4b825dc642cb6eb9a060e54bf8d69288fbee4904").unwrap();
         let git_commit_id = git_repo
             .commit_as(
-                &signature,
-                &signature,
+                signature.to_ref(&mut TimeBuf::default()),
+                signature.to_ref(&mut TimeBuf::default()),
                 "refs/heads/main",
                 "git commit message",
                 empty_tree_id,
@@ -1954,20 +1956,20 @@ mod tests {
 
     #[test]
     fn read_empty_string_placeholder() {
-        let git_signature1 = gix::actor::SignatureRef {
+        let git_signature1 = gix::actor::Signature {
             name: EMPTY_STRING_PLACEHOLDER.into(),
             email: "git.author@example.com".into(),
             time: gix::date::Time::new(1000, 60 * 60),
         };
-        let signature1 = signature_from_git(git_signature1);
+        let signature1 = signature_from_git(git_signature1.to_ref(&mut TimeBuf::default()));
         assert!(signature1.name.is_empty());
         assert_eq!(signature1.email, "git.author@example.com");
-        let git_signature2 = gix::actor::SignatureRef {
+        let git_signature2 = gix::actor::Signature {
             name: "git committer".into(),
             email: EMPTY_STRING_PLACEHOLDER.into(),
             time: gix::date::Time::new(2000, -480 * 60),
         };
-        let signature2 = signature_from_git(git_signature2);
+        let signature2 = signature_from_git(git_signature2.to_ref(&mut TimeBuf::default()));
         assert_eq!(signature2.name, "git committer");
         assert!(signature2.email.is_empty());
     }
@@ -2124,7 +2126,7 @@ mod tests {
             .iter()
             .map(Result::unwrap)
             .filter(|entry| entry.filename() != b"README")
-            .all(|entry| entry.mode().0 == 0o040000));
+            .all(|entry| entry.mode().value() == 0o040000));
         let mut iter = git_tree.iter().map(Result::unwrap);
         let entry = iter.next().unwrap();
         assert_eq!(entry.filename(), b".jjconflict-base-0");
@@ -2158,7 +2160,7 @@ mod tests {
         );
         let entry = iter.next().unwrap();
         assert_eq!(entry.filename(), b"README");
-        assert_eq!(entry.mode().0, 0o100644);
+        assert_eq!(entry.mode().value(), 0o100644);
         assert!(iter.next().is_none());
 
         // When writing a single tree using the new format, it's represented by a
@@ -2242,8 +2244,8 @@ mod tests {
             gix::ObjectId::from_hex(b"4b825dc642cb6eb9a060e54bf8d69288fbee4904").unwrap();
         let git_commit_id = git_repo
             .commit_as(
-                &signature,
-                &signature,
+                signature.to_ref(&mut TimeBuf::default()),
+                signature.to_ref(&mut TimeBuf::default()),
                 "refs/heads/main",
                 "git commit message",
                 empty_tree_id,

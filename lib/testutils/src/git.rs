@@ -15,6 +15,8 @@
 use std::path::Path;
 use std::path::PathBuf;
 
+use gix::date::parse::TimeBuf;
+
 pub const GIT_USER: &str = "Someone";
 pub const GIT_EMAIL: &str = "someone@example.org";
 
@@ -150,8 +152,8 @@ pub fn write_commit(
 ) -> gix::ObjectId {
     let signature = signature();
     repo.commit_as(
-        &signature,
-        &signature,
+        signature.to_ref(&mut TimeBuf::default()),
+        signature.to_ref(&mut TimeBuf::default()),
         reference,
         message,
         tree_id,
