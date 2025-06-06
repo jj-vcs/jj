@@ -67,6 +67,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   argument and no longer produces Bash completions by default. The deprecated
   optional arguments for different shells have been removed.
 
+* External diff tools are now run in the temporary directory containing
+  the before (`left`) and after (`right`) directories, making diffs appear
+  more pleasing for tools that display file paths prominently. Users can
+  opt out of this by setting `merge-tools.<tool>.diff-do-chdir = false`,
+  but this will likely be removed in a future release. Please report any
+  issues you run into.
+
 ### Deprecations
 
 * The `ui.diff.format` and `ui.diff.tool` config options have been merged as
@@ -220,13 +227,6 @@ Thanks to the people who made this release happen!
   in more complex expressions. For example, typing
   `jj log -r first-bookmark..sec` and then pressing Tab could complete the
   expression to `first-bookmark..second-bookmark`.
-
-* External diff tools are now run in the temporary directory containing
-  the before (`left`) and after (`right`) directories, making diffs appear
-  more pleasing for tools that display file paths prominently. Users can
-  opt out of this by setting `merge-tools.<tool>.diff-do-chdir = false`,
-  but this will likely be removed in a future release. Please report any
-  issues you run into.
 
 ### Fixed bugs
 
