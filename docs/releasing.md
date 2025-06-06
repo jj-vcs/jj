@@ -8,6 +8,14 @@ copy-edit the changelog in order to:
 * Populate "Release highlights" if relevant
 * Put more important items first so the reader doesn't miss them
 * Make items consistent when it comes to language and formatting
+* Catch any misplaced changelog items by looking at the CHANGELOG diff.
+
+To get the CHANGELOG diff, you can run
+
+```shell
+jj log -r 'heads(tags())'  # Check that this shows the previous version
+jj diff --from 'heads(tags())' --to main CHANGELOG.md
+```
 
 Producing the list of contributors is a bit annoying. The current suggestion is
 to run something like this:
