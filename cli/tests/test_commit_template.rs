@@ -38,7 +38,7 @@ fn test_log_parents() {
     ├─╯  P: 1 e8849ae12c709f2321908879bc724fdb2ab8a781
     ○  e8849ae12c709f2321908879bc724fdb2ab8a781
     │  P: 1 0000000000000000000000000000000000000000
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
        P: 0
     [EOF]
     ");
@@ -53,7 +53,7 @@ fn test_log_parents() {
     ○ │  P: e8849ae12c70
     ├─╯
     ○  P:
-    ◆  P:
+    ♦  P:
     [EOF]
     ");
 
@@ -111,7 +111,7 @@ fn test_log_author_timestamp() {
     insta::assert_snapshot!(output, @r"
     @  2001-02-03 04:05:09.000 +07:00
     ○  2001-02-03 04:05:08.000 +07:00
-    ◆  1970-01-01 00:00:00.000 +00:00
+    ♦  1970-01-01 00:00:00.000 +00:00
     [EOF]
     ");
 }
@@ -145,7 +145,7 @@ fn test_log_author_timestamp_utc() {
     let output = work_dir.run_jj(["log", "-T", "author.timestamp().utc()"]);
     insta::assert_snapshot!(output, @r"
     @  2001-02-02 21:05:07.000 +00:00
-    ◆  1970-01-01 00:00:00.000 +00:00
+    ♦  1970-01-01 00:00:00.000 +00:00
     [EOF]
     ");
 }
@@ -161,7 +161,7 @@ fn test_log_author_timestamp_local() {
     let output = work_dir.run_jj(["log", "-T", "author.timestamp().local()"]);
     insta::assert_snapshot!(output, @r"
     @  2001-02-03 08:05:07.000 +11:00
-    ◆  1970-01-01 11:00:00.000 +11:00
+    ♦  1970-01-01 11:00:00.000 +11:00
     [EOF]
     ");
     test_env.add_env_var("TZ", "UTC+10:00");
@@ -169,7 +169,7 @@ fn test_log_author_timestamp_local() {
     let output = work_dir.run_jj(["log", "-T", "author.timestamp().local()"]);
     insta::assert_snapshot!(output, @r"
     @  2001-02-03 08:05:07.000 +11:00
-    ◆  1970-01-01 11:00:00.000 +11:00
+    ♦  1970-01-01 11:00:00.000 +11:00
     [EOF]
     ");
 }
@@ -237,7 +237,7 @@ fn test_mine_is_true_when_author_is_user() {
     insta::assert_snapshot!(output, @r"
     @  johndoe@example.com
     ○  mine
-    ◆  (no email set)
+    ♦  (no email set)
     [EOF]
     ");
 }
@@ -255,7 +255,7 @@ fn test_log_json() {
     insta::assert_snapshot!(output, @r#"
     @  {"commit_id":"b1cb6b2f9141e6ffee18532a8bf9a2075ca02606","parents":["68a505386f936fff6d718f55005e77ea72589bc1"],"change_id":"kkmpptxzrspxrzommnulwmwkkqwworpl","description":"second\n","author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"}}
     ○  {"commit_id":"68a505386f936fff6d718f55005e77ea72589bc1","parents":["0000000000000000000000000000000000000000"],"change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","description":"first\n","author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:08+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:08+07:00"}}
-    ◆  {"commit_id":"0000000000000000000000000000000000000000","parents":[],"change_id":"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz","description":"","author":{"name":"","email":"","timestamp":"1970-01-01T00:00:00Z"},"committer":{"name":"","email":"","timestamp":"1970-01-01T00:00:00Z"}}
+    ♦  {"commit_id":"0000000000000000000000000000000000000000","parents":[],"change_id":"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz","description":"","author":{"name":"","email":"","timestamp":"1970-01-01T00:00:00Z"},"committer":{"name":"","email":"","timestamp":"1970-01-01T00:00:00Z"}}
     [EOF]
     "#);
 }
@@ -280,7 +280,7 @@ fn test_log_default() {
     │  (empty) description 1
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 007859d3
     │  add a file
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
@@ -291,7 +291,7 @@ fn test_log_default() {
     │  [1m[38;5;10m(empty)[39m description 1[0m
     ○  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:08[39m [1m[38;5;4m007[0m[38;5;8m859d3[39m
     │  add a file
-    [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m000[0m[38;5;8m00000[39m
+    [1m[38;5;14m♦[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m000[0m[38;5;8m00000[39m
     [EOF]
     ");
 
@@ -316,7 +316,7 @@ fn test_log_default_without_working_copy() {
     work_dir.run_jj(["workspace", "forget"]).success();
     let output = work_dir.run_jj(["log"]);
     insta::assert_snapshot!(output, @r"
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 }
@@ -408,7 +408,7 @@ fn test_log_builtin_templates_colored() {
     insta::assert_snapshot!(render(r#"builtin_log_oneline"#), @r"
     [1m[38;5;2m@[0m  [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;9m(no email set)[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;13mmy-bookmark[39m [38;5;12ma[38;5;8mec3ec96[39m [38;5;10m(empty)[39m [38;5;10m(no description set)[39m[0m
     ○  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [38;5;3mtest.user[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
-    [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
+    [1m[38;5;14m♦[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
     [EOF]
     ");
 
@@ -417,7 +417,7 @@ fn test_log_builtin_templates_colored() {
     │  [1m[38;5;10m(empty)[39m [38;5;10m(no description set)[39m[0m
     ○  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m
     │  [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
-    [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
+    [1m[38;5;14m♦[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
     [EOF]
     ");
 
@@ -428,7 +428,7 @@ fn test_log_builtin_templates_colored() {
     ○  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m
     │  [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
     │
-    [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
+    [1m[38;5;14m♦[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
 
     [EOF]
     ");
@@ -449,7 +449,7 @@ fn test_log_builtin_templates_colored() {
     │
     │  [38;5;2m    (no description set)[39m
     │
-    [1m[38;5;14m◆[0m  Commit ID: [38;5;4m0000000000000000000000000000000000000000[39m
+    [1m[38;5;14m♦[0m  Commit ID: [38;5;4m0000000000000000000000000000000000000000[39m
        Change ID: [38;5;5mzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz[39m
        Author   : [38;5;1m(no name set)[39m <[38;5;1m(no email set)[39m> ([38;5;6m1970-01-01 11:00:00[39m)
        Committer: [38;5;1m(no name set)[39m <[38;5;1m(no email set)[39m> ([38;5;6m1970-01-01 11:00:00[39m)
@@ -477,7 +477,7 @@ fn test_log_builtin_templates_colored_debug() {
     insta::assert_snapshot!(render(r#"builtin_log_oneline"#), @r"
     [1m[38;5;2m<<log commit node working_copy::@>>[0m  [1m[38;5;13m<<log commit working_copy change_id shortest prefix::r>>[38;5;8m<<log commit working_copy change_id shortest rest::lvkpnrz>>[39m<<log commit working_copy:: >>[38;5;9m<<log commit working_copy email placeholder::(no email set)>>[39m<<log commit working_copy:: >>[38;5;14m<<log commit working_copy committer timestamp local format::2001-02-03 08:05:08>>[39m<<log commit working_copy:: >>[38;5;13m<<log commit working_copy bookmarks name::my-bookmark>>[39m<<log commit working_copy:: >>[38;5;12m<<log commit working_copy commit_id shortest prefix::a>>[38;5;8m<<log commit working_copy commit_id shortest rest::ec3ec96>>[39m<<log commit working_copy:: >>[38;5;10m<<log commit working_copy empty::(empty)>>[39m<<log commit working_copy:: >>[38;5;10m<<log commit working_copy empty description placeholder::(no description set)>>[39m<<log commit working_copy::>>[0m
     <<log commit node::○>>  [1m[38;5;5m<<log commit change_id shortest prefix::q>>[0m[38;5;8m<<log commit change_id shortest rest::pvuntsm>>[39m<<log commit:: >>[38;5;3m<<log commit author email local::test.user>>[39m<<log commit:: >>[38;5;6m<<log commit committer timestamp local format::2001-02-03 08:05:07>>[39m<<log commit:: >>[1m[38;5;4m<<log commit commit_id shortest prefix::e>>[0m[38;5;8m<<log commit commit_id shortest rest::8849ae1>>[39m<<log commit:: >>[38;5;2m<<log commit empty::(empty)>>[39m<<log commit:: >>[38;5;2m<<log commit empty description placeholder::(no description set)>>[39m<<log commit::>>
-    [1m[38;5;14m<<log commit node immutable::◆>>[0m  [1m[38;5;5m<<log commit change_id shortest prefix::z>>[0m[38;5;8m<<log commit change_id shortest rest::zzzzzzz>>[39m<<log commit:: >>[38;5;2m<<log commit root::root()>>[39m<<log commit:: >>[1m[38;5;4m<<log commit commit_id shortest prefix::0>>[0m[38;5;8m<<log commit commit_id shortest rest::0000000>>[39m<<log commit::>>
+    [1m[38;5;14m<<log commit node immutable::♦>>[0m  [1m[38;5;5m<<log commit change_id shortest prefix::z>>[0m[38;5;8m<<log commit change_id shortest rest::zzzzzzz>>[39m<<log commit:: >>[38;5;2m<<log commit root::root()>>[39m<<log commit:: >>[1m[38;5;4m<<log commit commit_id shortest prefix::0>>[0m[38;5;8m<<log commit commit_id shortest rest::0000000>>[39m<<log commit::>>
     [EOF]
     ");
 
@@ -486,7 +486,7 @@ fn test_log_builtin_templates_colored_debug() {
     │  [1m[38;5;10m<<log commit working_copy empty::(empty)>>[39m<<log commit working_copy:: >>[38;5;10m<<log commit working_copy empty description placeholder::(no description set)>>[39m<<log commit working_copy::>>[0m
     <<log commit node::○>>  [1m[38;5;5m<<log commit change_id shortest prefix::q>>[0m[38;5;8m<<log commit change_id shortest rest::pvuntsm>>[39m<<log commit:: >>[38;5;3m<<log commit author email local::test.user>><<log commit author email::@>><<log commit author email domain::example.com>>[39m<<log commit:: >>[38;5;6m<<log commit committer timestamp local format::2001-02-03 08:05:07>>[39m<<log commit:: >>[1m[38;5;4m<<log commit commit_id shortest prefix::e>>[0m[38;5;8m<<log commit commit_id shortest rest::8849ae1>>[39m<<log commit::>>
     │  [38;5;2m<<log commit empty::(empty)>>[39m<<log commit:: >>[38;5;2m<<log commit empty description placeholder::(no description set)>>[39m<<log commit::>>
-    [1m[38;5;14m<<log commit node immutable::◆>>[0m  [1m[38;5;5m<<log commit change_id shortest prefix::z>>[0m[38;5;8m<<log commit change_id shortest rest::zzzzzzz>>[39m<<log commit:: >>[38;5;2m<<log commit root::root()>>[39m<<log commit:: >>[1m[38;5;4m<<log commit commit_id shortest prefix::0>>[0m[38;5;8m<<log commit commit_id shortest rest::0000000>>[39m<<log commit::>>
+    [1m[38;5;14m<<log commit node immutable::♦>>[0m  [1m[38;5;5m<<log commit change_id shortest prefix::z>>[0m[38;5;8m<<log commit change_id shortest rest::zzzzzzz>>[39m<<log commit:: >>[38;5;2m<<log commit root::root()>>[39m<<log commit:: >>[1m[38;5;4m<<log commit commit_id shortest prefix::0>>[0m[38;5;8m<<log commit commit_id shortest rest::0000000>>[39m<<log commit::>>
     [EOF]
     ");
 
@@ -497,7 +497,7 @@ fn test_log_builtin_templates_colored_debug() {
     <<log commit node::○>>  [1m[38;5;5m<<log commit change_id shortest prefix::q>>[0m[38;5;8m<<log commit change_id shortest rest::pvuntsm>>[39m<<log commit:: >>[38;5;3m<<log commit author email local::test.user>><<log commit author email::@>><<log commit author email domain::example.com>>[39m<<log commit:: >>[38;5;6m<<log commit committer timestamp local format::2001-02-03 08:05:07>>[39m<<log commit:: >>[1m[38;5;4m<<log commit commit_id shortest prefix::e>>[0m[38;5;8m<<log commit commit_id shortest rest::8849ae1>>[39m<<log commit::>>
     │  [38;5;2m<<log commit empty::(empty)>>[39m<<log commit:: >>[38;5;2m<<log commit empty description placeholder::(no description set)>>[39m<<log commit::>>
     │  <<log commit::>>
-    [1m[38;5;14m<<log commit node immutable::◆>>[0m  [1m[38;5;5m<<log commit change_id shortest prefix::z>>[0m[38;5;8m<<log commit change_id shortest rest::zzzzzzz>>[39m<<log commit:: >>[38;5;2m<<log commit root::root()>>[39m<<log commit:: >>[1m[38;5;4m<<log commit commit_id shortest prefix::0>>[0m[38;5;8m<<log commit commit_id shortest rest::0000000>>[39m<<log commit::>>
+    [1m[38;5;14m<<log commit node immutable::♦>>[0m  [1m[38;5;5m<<log commit change_id shortest prefix::z>>[0m[38;5;8m<<log commit change_id shortest rest::zzzzzzz>>[39m<<log commit:: >>[38;5;2m<<log commit root::root()>>[39m<<log commit:: >>[1m[38;5;4m<<log commit commit_id shortest prefix::0>>[0m[38;5;8m<<log commit commit_id shortest rest::0000000>>[39m<<log commit::>>
        <<log commit::>>
     [EOF]
     ");
@@ -518,7 +518,7 @@ fn test_log_builtin_templates_colored_debug() {
     │  <<log commit::>>
     │  [38;5;2m<<log commit empty description placeholder::    (no description set)>>[39m<<log commit::>>
     │  <<log commit::>>
-    [1m[38;5;14m<<log commit node immutable::◆>>[0m  <<log commit::Commit ID: >>[38;5;4m<<log commit commit_id::0000000000000000000000000000000000000000>>[39m<<log commit::>>
+    [1m[38;5;14m<<log commit node immutable::♦>>[0m  <<log commit::Commit ID: >>[38;5;4m<<log commit commit_id::0000000000000000000000000000000000000000>>[39m<<log commit::>>
        <<log commit::Change ID: >>[38;5;5m<<log commit change_id::zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz>>[39m<<log commit::>>
        <<log commit::Author   : >>[38;5;1m<<log commit name placeholder::(no name set)>>[39m<<log commit:: <>>[38;5;1m<<log commit email placeholder::(no email set)>>[39m<<log commit::> (>>[38;5;6m<<log commit author timestamp local format::1970-01-01 11:00:00>>[39m<<log commit::)>>
        <<log commit::Committer: >>[38;5;1m<<log commit name placeholder::(no name set)>>[39m<<log commit:: <>>[38;5;1m<<log commit email placeholder::(no email set)>>[39m<<log commit::> (>>[38;5;6m<<log commit committer timestamp local format::1970-01-01 11:00:00>>[39m<<log commit::)>>
@@ -544,7 +544,7 @@ fn test_log_evolog_divergence() {
     insta::assert_snapshot!(output, @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:08 556daeb7
     │  description 1
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
@@ -558,7 +558,7 @@ fn test_log_evolog_divergence() {
     │  description 1
     │ ○  qpvuntsm?? test.user@example.com 2001-02-03 08:05:10 5cea51a1
     ├─╯  description 2
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
@@ -572,7 +572,7 @@ fn test_log_evolog_divergence() {
     │  [1mdescription 1[0m
     │ ○  [1m[4m[38;5;1mq[0m[38;5;1mpvuntsm??[39m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:10[39m [1m[38;5;4m5c[0m[38;5;8mea51a1[39m
     ├─╯  description 2
-    [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
+    [1m[38;5;14m♦[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
     [EOF]
     ");
 
@@ -687,7 +687,7 @@ fn test_log_bookmarks() {
     ├─╯
     │ ○  c7f578d6e544 bookmark1*
     ├─╯
-    ◆  000000000000 (no bookmarks)
+    ♦  000000000000 (no bookmarks)
     [EOF]
     ");
 
@@ -702,7 +702,7 @@ fn test_log_bookmarks() {
     ├─╯
     │ ○  bookmark1
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -717,7 +717,7 @@ fn test_log_bookmarks() {
     ├─╯
     │ ○  L: bookmark1* R:
     ├─╯
-    ◆  L: R:
+    ♦  L: R:
     [EOF]
     ");
 
@@ -736,7 +736,7 @@ fn test_log_bookmarks() {
     ├─╯
     │ ○  bookmark1@origin(+1/-1)
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 }
@@ -755,7 +755,7 @@ fn test_log_git_head() {
     insta::assert_snapshot!(output, @r"
     @  false
     ○  true
-    ◆  false
+    ♦  false
     [EOF]
     ");
 
@@ -765,7 +765,7 @@ fn test_log_git_head() {
     │  [1minitial[0m
     ○  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:07[39m [38;5;2mgit_head()[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m
     │  [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
-    [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
+    [1m[38;5;14m♦[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
     [EOF]
     ");
 }
@@ -788,7 +788,7 @@ fn test_log_customize_short_id() {
     insta::assert_snapshot!(output, @r"
     @  Q_pvun test.user@example.com 2001-02-03 08:05:08 6_8a50
     │  (empty) first
-    ◆  Z_zzzz root() 0_0000
+    ♦  Z_zzzz root() 0_0000
     [EOF]
     ");
 
@@ -800,7 +800,7 @@ fn test_log_customize_short_id() {
     insta::assert_snapshot!(output, @r"
     @  QPVUNTSM test.user@example.com 2001-02-03 08:05:08 68a50538
     │  (empty) first
-    ◆  ZZZZZZZZ root() 00000000
+    ♦  ZZZZZZZZ root() 00000000
     [EOF]
     ");
 }
@@ -831,10 +831,10 @@ fn test_log_immutable() {
     insta::assert_snapshot!(output, @r"
     @  D
     │ ○  C
-    │ ◆  B main [immutable]
-    │ ◆  A [immutable]
+    │ ♦  B main [immutable]
+    │ ♦  A [immutable]
     ├─╯
-    ◆  [immutable]
+    ♦  [immutable]
     [EOF]
     ");
 
@@ -912,7 +912,7 @@ fn test_log_contained_in() {
     │ ○  B main [contained_in]
     │ ○  A [contained_in]
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -928,7 +928,7 @@ fn test_log_contained_in() {
     │ ○  B main
     │ ○  A
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1451,7 +1451,7 @@ fn test_file_list_entries() {
     │ ○  conflict-exec-file conflict-file dir/file exec-file
     ○ │  conflict-exec-file conflict-file
     ├─╯
-    ◆  (empty)
+    ♦  (empty)
     [EOF]
     ");
 
@@ -1463,7 +1463,7 @@ fn test_file_list_entries() {
     │ ○  dir/file
     ○ │
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 }
@@ -1508,7 +1508,7 @@ fn test_signature_templates() {
     insta::assert_snapshot!(output, @r"
     @  good test-display signature
     ○  no signature
-    ◆  no signature
+    ♦  no signature
     [EOF]
     ");
     let output = work_dir.run_jj(["show", "-T", template]);

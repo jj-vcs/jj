@@ -78,7 +78,7 @@ fn test_advance_bookmarks_enabled(make_commit: CommitFn) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_log_output_with_bookmarks(&work_dir), @r"
     @  bookmarks{} desc:
-    ◆  bookmarks{test_bookmark} desc:
+    ♦  bookmarks{test_bookmark} desc:
     [EOF]
     ");
     }
@@ -89,7 +89,7 @@ fn test_advance_bookmarks_enabled(make_commit: CommitFn) {
     insta::assert_snapshot!(get_log_output_with_bookmarks(&work_dir), @r"
     @  bookmarks{} desc:
     ○  bookmarks{test_bookmark} desc: first
-    ◆  bookmarks{} desc:
+    ♦  bookmarks{} desc:
     [EOF]
     ");
     }
@@ -102,7 +102,7 @@ fn test_advance_bookmarks_enabled(make_commit: CommitFn) {
     @  bookmarks{} desc:
     ○  bookmarks{} desc: second
     ○  bookmarks{test_bookmark} desc: first
-    ◆  bookmarks{} desc:
+    ♦  bookmarks{} desc:
     [EOF]
     ");
     }
@@ -125,7 +125,7 @@ fn test_advance_bookmarks_at_minus(make_commit: CommitFn) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_log_output_with_bookmarks(&work_dir), @r"
     @  bookmarks{test_bookmark} desc:
-    ◆  bookmarks{} desc:
+    ♦  bookmarks{} desc:
     [EOF]
     ");
     }
@@ -135,7 +135,7 @@ fn test_advance_bookmarks_at_minus(make_commit: CommitFn) {
     insta::assert_snapshot!(get_log_output_with_bookmarks(&work_dir), @r"
     @  bookmarks{} desc:
     ○  bookmarks{test_bookmark} desc: first
-    ◆  bookmarks{} desc:
+    ♦  bookmarks{} desc:
     [EOF]
     ");
     }
@@ -151,7 +151,7 @@ fn test_advance_bookmarks_at_minus(make_commit: CommitFn) {
     @  bookmarks{} desc:
     ○  bookmarks{test_bookmark test_bookmark2} desc: second
     ○  bookmarks{} desc: first
-    ◆  bookmarks{} desc:
+    ♦  bookmarks{} desc:
     [EOF]
     ");
     }
@@ -175,7 +175,7 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_log_output_with_bookmarks(&work_dir), @r"
     @  bookmarks{} desc:
-    ◆  bookmarks{test_bookmark} desc:
+    ♦  bookmarks{test_bookmark} desc:
     [EOF]
     ");
     }
@@ -186,7 +186,7 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
     insta::assert_snapshot!(get_log_output_with_bookmarks(&work_dir), @r"
     @  bookmarks{} desc:
     ○  bookmarks{} desc: first
-    ◆  bookmarks{test_bookmark} desc:
+    ♦  bookmarks{test_bookmark} desc:
     [EOF]
     ");
     }
@@ -205,7 +205,7 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
     insta::assert_snapshot!(get_log_output_with_bookmarks(&work_dir), @r"
     @  bookmarks{} desc:
     ○  bookmarks{test_bookmark} desc: first
-    ◆  bookmarks{} desc:
+    ♦  bookmarks{} desc:
     [EOF]
     ");
     }
@@ -215,7 +215,7 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
     @  bookmarks{} desc:
     ○  bookmarks{} desc: second
     ○  bookmarks{test_bookmark} desc: first
-    ◆  bookmarks{} desc:
+    ♦  bookmarks{} desc:
     [EOF]
     ");
     }
@@ -235,7 +235,7 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
     ○  bookmarks{} desc: third
     ○  bookmarks{} desc: second
     ○  bookmarks{test_bookmark} desc: first
-    ◆  bookmarks{} desc:
+    ♦  bookmarks{} desc:
     [EOF]
     ");
     }
@@ -255,7 +255,7 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
     ○  bookmarks{second_bookmark test_bookmark} desc: third
     ○  bookmarks{} desc: second
     ○  bookmarks{} desc: first
-    ◆  bookmarks{} desc:
+    ♦  bookmarks{} desc:
     [EOF]
     ");
     }
@@ -267,7 +267,7 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
     ○  bookmarks{second_bookmark test_bookmark} desc: third
     ○  bookmarks{} desc: second
     ○  bookmarks{} desc: first
-    ◆  bookmarks{} desc:
+    ♦  bookmarks{} desc:
     [EOF]
     ");
     }
@@ -293,7 +293,7 @@ fn test_advance_bookmarks_multiple_bookmarks(make_commit: CommitFn) {
     // Check the initial state of the repo.
     insta::assert_snapshot!(get_log_output_with_bookmarks(&work_dir), @r"
     @  bookmarks{} desc:
-    ◆  bookmarks{first_bookmark second_bookmark} desc:
+    ♦  bookmarks{first_bookmark second_bookmark} desc:
     [EOF]
     ");
     }
@@ -304,7 +304,7 @@ fn test_advance_bookmarks_multiple_bookmarks(make_commit: CommitFn) {
     insta::assert_snapshot!(get_log_output_with_bookmarks(&work_dir), @r"
     @  bookmarks{} desc:
     ○  bookmarks{first_bookmark second_bookmark} desc: first
-    ◆  bookmarks{} desc:
+    ♦  bookmarks{} desc:
     [EOF]
     ");
     }
@@ -323,7 +323,7 @@ fn test_new_advance_bookmarks_interior() {
     // Check the initial state of the repo.
     insta::assert_snapshot!(get_log_output_with_bookmarks(&work_dir), @r"
     @  bookmarks{} desc:
-    ◆  bookmarks{} desc:
+    ♦  bookmarks{} desc:
     [EOF]
     ");
 
@@ -339,7 +339,7 @@ fn test_new_advance_bookmarks_interior() {
     ○  bookmarks{} desc: third
     ○  bookmarks{} desc: second
     ○  bookmarks{test_bookmark} desc: first
-    ◆  bookmarks{} desc:
+    ♦  bookmarks{} desc:
     [EOF]
     ");
 
@@ -350,7 +350,7 @@ fn test_new_advance_bookmarks_interior() {
     ├─╯
     ○  bookmarks{test_bookmark} desc: second
     ○  bookmarks{} desc: first
-    ◆  bookmarks{} desc:
+    ♦  bookmarks{} desc:
     [EOF]
     ");
 }
@@ -367,7 +367,7 @@ fn test_new_advance_bookmarks_before() {
     // Check the initial state of the repo.
     insta::assert_snapshot!(get_log_output_with_bookmarks(&work_dir), @r"
     @  bookmarks{} desc:
-    ◆  bookmarks{} desc:
+    ♦  bookmarks{} desc:
     [EOF]
     ");
 
@@ -383,7 +383,7 @@ fn test_new_advance_bookmarks_before() {
     ○  bookmarks{} desc: third
     ○  bookmarks{} desc: second
     ○  bookmarks{test_bookmark} desc: first
-    ◆  bookmarks{} desc:
+    ♦  bookmarks{} desc:
     [EOF]
     ");
 
@@ -393,7 +393,7 @@ fn test_new_advance_bookmarks_before() {
     @  bookmarks{} desc:
     ○  bookmarks{} desc: second
     ○  bookmarks{test_bookmark} desc: first
-    ◆  bookmarks{} desc:
+    ♦  bookmarks{} desc:
     [EOF]
     ");
 }
@@ -413,7 +413,7 @@ fn test_new_advance_bookmarks_after() {
     // Check the initial state of the repo.
     insta::assert_snapshot!(get_log_output_with_bookmarks(&work_dir), @r"
     @  bookmarks{} desc:
-    ◆  bookmarks{test_bookmark} desc:
+    ♦  bookmarks{test_bookmark} desc:
     [EOF]
     ");
 
@@ -422,7 +422,7 @@ fn test_new_advance_bookmarks_after() {
     insta::assert_snapshot!(get_log_output_with_bookmarks(&work_dir), @r"
     @  bookmarks{} desc:
     ○  bookmarks{} desc: first
-    ◆  bookmarks{test_bookmark} desc:
+    ♦  bookmarks{test_bookmark} desc:
     [EOF]
     ");
 }
@@ -455,7 +455,7 @@ fn test_new_advance_bookmarks_merge_children() {
     │ ○  bookmarks{} desc: 1
     ├─╯
     ○  bookmarks{test_bookmark} desc: 0
-    ◆  bookmarks{} desc:
+    ♦  bookmarks{} desc:
     [EOF]
     ");
 
@@ -470,7 +470,7 @@ fn test_new_advance_bookmarks_merge_children() {
     ○ │  bookmarks{} desc: 1
     ├─╯
     ○  bookmarks{test_bookmark} desc: 0
-    ◆  bookmarks{} desc:
+    ♦  bookmarks{} desc:
     [EOF]
     ");
 }

@@ -49,19 +49,19 @@ fn test_op_log() {
     // Can load the repo at a specific operation ID
     insta::assert_snapshot!(get_log_output(&work_dir, add_workspace_id), @r"
     @  e8849ae12c709f2321908879bc724fdb2ab8a781
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
     // "@" resolves to the head operation
     insta::assert_snapshot!(get_log_output(&work_dir, "@"), @r"
     @  3ae22e7f50a15d393e412cca72d09a61165d0c84
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
     // "@-" resolves to the parent of the head operation
     insta::assert_snapshot!(get_log_output(&work_dir, "@-"), @r"
     @  e8849ae12c709f2321908879bc724fdb2ab8a781
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["log", "--at-op", "@---"]), @r#"
@@ -1004,7 +1004,7 @@ fn test_op_recover_from_bad_gc() {
     ├─╯  (empty) 4.1
     ○  zsuskuln test.user@example.com 2001-02-03 08:05:10 git_head() c2934cfb
     │  (empty) (no description set)
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
@@ -1277,7 +1277,7 @@ fn test_op_diff() {
     │  (empty) (no description set)
     │ ○  pukowqtp someone@example.org 1970-01-01 11:00:00 bookmark-1?? bookmark-1@origin 0cb7e07e
     ├─╯  Commit 1
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
@@ -1796,7 +1796,7 @@ fn test_op_diff_divergent_change() {
     ├─╯  2a
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 8a06f3b3
     │  1
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
     let divergent_op_id = work_dir.current_operation_id();
@@ -1810,7 +1810,7 @@ fn test_op_diff_divergent_change() {
     │  2ab
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 8a06f3b3
     │  1
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
     let resolved_op_id = work_dir.current_operation_id();
@@ -2005,7 +2005,7 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
     ├─╯  (empty) 2b
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 6666e5c3
     │  (empty) 1
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
@@ -2319,7 +2319,7 @@ fn test_op_show() {
     │  (empty) (no description set)
     │ ○  pukowqtp someone@example.org 1970-01-01 11:00:00 bookmark-1?? bookmark-1@origin 0cb7e07e
     ├─╯  Commit 1
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.

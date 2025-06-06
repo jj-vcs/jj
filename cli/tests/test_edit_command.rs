@@ -53,7 +53,7 @@ fn test_edit() {
     insta::assert_snapshot!(output, @r"
     ○  b38b8e65163a second
     @  1f6994f8b95b first
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.read_file("file1"), @"0");
@@ -64,7 +64,7 @@ fn test_edit() {
     insta::assert_snapshot!(output, @r"
     ○  d5aea29cb4cb second
     @  2636584c21c0 first
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ------- stderr -------
     Rebased 1 descendant commits onto updated working copy

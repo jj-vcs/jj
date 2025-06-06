@@ -39,7 +39,7 @@ fn test_next_simple() {
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -52,7 +52,7 @@ fn test_next_simple() {
     ├─╯
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -69,7 +69,7 @@ fn test_next_simple() {
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 }
@@ -93,7 +93,7 @@ fn test_next_multiple() {
     ├─╯
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -112,7 +112,7 @@ fn test_next_multiple() {
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 }
@@ -131,7 +131,7 @@ fn test_prev_simple() {
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -149,7 +149,7 @@ fn test_prev_simple() {
     ├─╯
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 }
@@ -170,7 +170,7 @@ fn test_prev_multiple_without_root() {
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -189,7 +189,7 @@ fn test_prev_multiple_without_root() {
     ├─╯
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 }
@@ -209,7 +209,7 @@ fn test_next_exceeding_history() {
     ○  kkmpptxzrspx third
     @  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -243,7 +243,7 @@ fn test_next_parent_has_multiple_descendants() {
     │ ○  kkmpptxzrspx 2
     │ ○  qpvuntsmwlqt 1
     ├─╯
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -260,7 +260,7 @@ fn test_next_parent_has_multiple_descendants() {
     │ ○  kkmpptxzrspx 2
     │ ○  qpvuntsmwlqt 1
     ├─╯
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 }
@@ -287,7 +287,7 @@ fn test_next_with_merge_commit_parent() {
     │ ○  kkmpptxzrspx 2
     ○ │  qpvuntsmwlqt 1
     ├─╯
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -306,7 +306,7 @@ fn test_next_with_merge_commit_parent() {
     │ ○  kkmpptxzrspx 2
     ○ │  qpvuntsmwlqt 1
     ├─╯
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 }
@@ -331,7 +331,7 @@ fn test_next_on_merge_commit() {
     │ ○  kkmpptxzrspx 2
     ○ │  qpvuntsmwlqt 1
     ├─╯
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -349,7 +349,7 @@ fn test_next_on_merge_commit() {
     │ ○  kkmpptxzrspx 2
     ○ │  qpvuntsmwlqt 1
     ├─╯
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 }
@@ -372,7 +372,7 @@ fn test_next_fails_on_bookmarking_children_no_stdin() {
     │ ○  rlvkpnrzqnoo second
     ├─╯
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -408,7 +408,7 @@ fn test_next_fails_on_bookmarking_children_quit_prompt() {
     │ ○  rlvkpnrzqnoo second
     ├─╯
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -471,7 +471,7 @@ fn test_prev_on_merge_commit() {
     │ ○  zsuskulnrvyr right second
     ○ │  qpvuntsmwlqt left first
     ├─╯
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -527,7 +527,7 @@ fn test_prev_on_merge_commit_with_parent_merge() {
     │ ├─╯
     ○ │  qpvuntsmwlqt x
     ├─╯
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -589,7 +589,7 @@ fn test_prev_prompts_on_multiple_parents() {
     │ ├─╯
     ○ │  mzvwutvlkqwt third
     ├─╯
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -621,7 +621,7 @@ fn test_prev_prompts_on_multiple_parents() {
     ├───╯
     │ ○  mzvwutvlkqwt third
     ├─╯
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -637,7 +637,7 @@ fn test_prev_prompts_on_multiple_parents() {
     │ ├─╯
     ○ │  mzvwutvlkqwt third
     ├─╯
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -668,7 +668,7 @@ fn test_prev_beyond_root_fails() {
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
     // @- is at "fourth", and there is no parent 5 commits behind it.
@@ -700,7 +700,7 @@ fn test_prev_editing() {
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -717,7 +717,7 @@ fn test_prev_editing() {
     @  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 }
@@ -739,7 +739,7 @@ fn test_next_editing() {
     ○  kkmpptxzrspx third
     @  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -756,7 +756,7 @@ fn test_next_editing() {
     @  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 }
@@ -784,7 +784,7 @@ fn test_prev_conflict() {
     ×  kkmpptxzrspx conflict third
     ×  rlvkpnrzqnoo conflict second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
     work_dir.run_jj(["prev", "--conflict"]).success();
@@ -795,7 +795,7 @@ fn test_prev_conflict() {
     ×  kkmpptxzrspx conflict third
     ×  rlvkpnrzqnoo conflict second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 }
@@ -820,7 +820,7 @@ fn test_prev_conflict_editing() {
     ×  kkmpptxzrspx conflict third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
     work_dir.run_jj(["prev", "--conflict", "--edit"]).success();
@@ -829,7 +829,7 @@ fn test_prev_conflict_editing() {
     @  kkmpptxzrspx conflict third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 }
@@ -859,7 +859,7 @@ fn test_next_conflict() {
     │ ○  rlvkpnrzqnoo second
     ├─╯
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
     work_dir.run_jj(["next", "--conflict"]).success();
@@ -868,7 +868,7 @@ fn test_next_conflict() {
     ×  kkmpptxzrspx conflict third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 }
@@ -893,7 +893,7 @@ fn test_next_conflict_editing() {
     ×  kkmpptxzrspx conflict
     ○  rlvkpnrzqnoo second
     @  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
     work_dir.run_jj(["next", "--conflict", "--edit"]).success();
@@ -901,7 +901,7 @@ fn test_next_conflict_editing() {
     @  kkmpptxzrspx conflict
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 }
@@ -919,7 +919,7 @@ fn test_next_conflict_head() {
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  rlvkpnrzqnoo conflict
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -958,7 +958,7 @@ fn test_movement_edit_mode_true() {
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -968,7 +968,7 @@ fn test_movement_edit_mode_true() {
     @  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -984,7 +984,7 @@ fn test_movement_edit_mode_true() {
     ○  kkmpptxzrspx third
     @  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1000,7 +1000,7 @@ fn test_movement_edit_mode_true() {
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     @  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1024,7 +1024,7 @@ fn test_movement_edit_mode_true() {
     ○  kkmpptxzrspx third
     @  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1040,7 +1040,7 @@ fn test_movement_edit_mode_true() {
     @  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1058,7 +1058,7 @@ fn test_movement_edit_mode_true() {
     │ ○  rlvkpnrzqnoo second
     ├─╯
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1076,7 +1076,7 @@ fn test_movement_edit_mode_true() {
     ├─╯
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1106,7 +1106,7 @@ fn test_movement_edit_mode_false() {
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1118,7 +1118,7 @@ fn test_movement_edit_mode_false() {
     ├─╯
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1136,7 +1136,7 @@ fn test_movement_edit_mode_false() {
     │ ○  rlvkpnrzqnoo second
     ├─╯
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1163,7 +1163,7 @@ fn test_movement_edit_mode_false() {
     ├─╯
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1187,7 +1187,7 @@ fn test_movement_edit_mode_false() {
     ○  kkmpptxzrspx third
     @  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1203,7 +1203,7 @@ fn test_movement_edit_mode_false() {
     @  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 }
@@ -1236,7 +1236,7 @@ fn test_next_offset_when_wc_has_descendants() {
     │ ○  royxmykxtrkr left-wc
     ├─╯
     ○  qpvuntsmwlqt base
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1252,7 +1252,7 @@ fn test_next_offset_when_wc_has_descendants() {
     │ ○  rlvkpnrzqnoo right-wc
     ├─╯
     ○  qpvuntsmwlqt base
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1266,7 +1266,7 @@ fn test_next_offset_when_wc_has_descendants() {
     │ ○  rlvkpnrzqnoo right-wc
     ├─╯
     ○  qpvuntsmwlqt base
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1282,7 +1282,7 @@ fn test_next_offset_when_wc_has_descendants() {
     │ ○  royxmykxtrkr left-wc
     ├─╯
     ○  qpvuntsmwlqt base
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 }

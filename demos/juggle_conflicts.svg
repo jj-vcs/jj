@@ -48,7 +48,7 @@
 </tspan><tspan xml:space="preserve" x="10" y="194" class="output">│  second
 </tspan><tspan xml:space="preserve" x="10" y="212" class="output">○  <tspan class="bold fg5">y</tspan><tspan class="fg8">zkyuwyx</tspan> <tspan class="fg3">jjfan@example.com</tspan> <tspan class="fg6">2024-10-13 19:54:53</tspan> <tspan class="fg5">first</tspan> <tspan class="bold fg4">d</tspan><tspan class="fg8">11b168f</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="230" class="output">│  first
-</tspan><tspan xml:space="preserve" x="10" y="248" class="output"><tspan class="bold fg14">◆</tspan>  <tspan class="bold fg5">z</tspan><tspan class="fg8">zzzzzzz</tspan> <tspan class="fg2">root()</tspan> <tspan class="bold fg4">0</tspan><tspan class="fg8">0000000</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="248" class="output"><tspan class="bold fg14">♦</tspan>  <tspan class="bold fg5">z</tspan><tspan class="fg8">zzzzzzz</tspan> <tspan class="fg2">root()</tspan> <tspan class="bold fg4">0</tspan><tspan class="fg8">0000000</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="266" class="output">$ jj diff -r first
 </tspan><tspan xml:space="preserve" x="10" y="284" class="output"><tspan class="fg3">Added regular file file:</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="302" class="output">     <tspan class="fg2">   1</tspan>: <tspan class="underline fg2">first</tspan>
@@ -74,7 +74,7 @@
 </tspan><tspan xml:space="preserve" x="10" y="662" class="output">│  third
 </tspan><tspan xml:space="preserve" x="10" y="680" class="output">○  <tspan class="bold fg5">y</tspan><tspan class="fg8">zkyuwyx</tspan> <tspan class="fg3">jjfan@example.com</tspan> <tspan class="fg6">2024-10-13 19:54:53</tspan> <tspan class="fg5">first</tspan> <tspan class="bold fg4">d</tspan><tspan class="fg8">11b168f</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="698" class="output">│  first
-</tspan><tspan xml:space="preserve" x="10" y="716" class="output"><tspan class="bold fg14">◆</tspan>  <tspan class="bold fg5">z</tspan><tspan class="fg8">zzzzzzz</tspan> <tspan class="fg2">root()</tspan> <tspan class="bold fg4">0</tspan><tspan class="fg8">0000000</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="716" class="output"><tspan class="bold fg14">♦</tspan>  <tspan class="bold fg5">z</tspan><tspan class="fg8">zzzzzzz</tspan> <tspan class="fg2">root()</tspan> <tspan class="bold fg4">0</tspan><tspan class="fg8">0000000</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="734" class="output">
 </tspan><tspan xml:space="preserve" x="10" y="752" class="output"><tspan class="fg2"># The commit labeled "third" has a conflict, as expected. What's more</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="770" class="output"><tspan class="fg2"># interesting is that the top commit has no conflict! That's because it</tspan>
@@ -111,7 +111,7 @@
 </tspan><tspan xml:space="preserve" x="10" y="1328" class="output">├─╯  second
 </tspan><tspan xml:space="preserve" x="10" y="1346" class="output">○  <tspan class="bold fg5">y</tspan><tspan class="fg8">zkyuwyx</tspan> <tspan class="fg3">jjfan@example.com</tspan> <tspan class="fg6">2024-10-13 19:54:53</tspan> <tspan class="fg5">first</tspan> <tspan class="bold fg4">d</tspan><tspan class="fg8">11b168f</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="1364" class="output">│  first
-</tspan><tspan xml:space="preserve" x="10" y="1382" class="output"><tspan class="bold fg14">◆</tspan>  <tspan class="bold fg5">z</tspan><tspan class="fg8">zzzzzzz</tspan> <tspan class="fg2">root()</tspan> <tspan class="bold fg4">0</tspan><tspan class="fg8">0000000</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1382" class="output"><tspan class="bold fg14">♦</tspan>  <tspan class="bold fg5">z</tspan><tspan class="fg8">zzzzzzz</tspan> <tspan class="fg2">root()</tspan> <tspan class="bold fg4">0</tspan><tspan class="fg8">0000000</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="1400" class="output">
 </tspan><tspan xml:space="preserve" x="10" y="1418" class="output"><tspan class="fg2"># Again, because the merge commit has the</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="1436" class="output"><tspan class="fg2"># changes from all three commits, it has no</tspan>

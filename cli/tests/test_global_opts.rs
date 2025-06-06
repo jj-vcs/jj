@@ -150,7 +150,7 @@ fn test_ignore_working_copy() {
     let output = work_dir.run_jj(["log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
     @  82a10a4d9ef783fd68b661f40ce10dd80d599d9e
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
 
@@ -164,7 +164,7 @@ fn test_ignore_working_copy() {
     let output = work_dir.run_jj(["log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
     @  00fc09f48ccf5c8b025a0f93b0ec3b0e4294a598
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
 }
@@ -429,7 +429,7 @@ fn test_color_config() {
     let output = work_dir.run_jj(["--color=always", "log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  [38;5;4me8849ae12c709f2321908879bc724fdb2ab8a781[39m
-    [1m[38;5;14m◆[0m  [38;5;4m0000000000000000000000000000000000000000[39m
+    [1m[38;5;14m♦[0m  [38;5;4m0000000000000000000000000000000000000000[39m
     [EOF]
     ");
 
@@ -438,7 +438,7 @@ fn test_color_config() {
     let output = work_dir.run_jj(["log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  [38;5;4me8849ae12c709f2321908879bc724fdb2ab8a781[39m
-    [1m[38;5;14m◆[0m  [38;5;4m0000000000000000000000000000000000000000[39m
+    [1m[38;5;14m♦[0m  [38;5;4m0000000000000000000000000000000000000000[39m
     [EOF]
     ");
 
@@ -446,7 +446,7 @@ fn test_color_config() {
     let output = work_dir.run_jj(["--color=never", "log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
     @  e8849ae12c709f2321908879bc724fdb2ab8a781
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
 
@@ -454,7 +454,7 @@ fn test_color_config() {
     let output = work_dir.run_jj(["--color=auto", "log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
     @  e8849ae12c709f2321908879bc724fdb2ab8a781
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
 
@@ -462,7 +462,7 @@ fn test_color_config() {
     let output = work_dir.run_jj(["--config=ui.color=never", "log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
     @  e8849ae12c709f2321908879bc724fdb2ab8a781
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
 
@@ -477,7 +477,7 @@ fn test_color_config() {
     ]);
     insta::assert_snapshot!(output, @r"
     @  e8849ae12c709f2321908879bc724fdb2ab8a781
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
 
@@ -487,7 +487,7 @@ fn test_color_config() {
     let output = work_dir.run_jj(["log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  [38;5;4me8849ae12c709f2321908879bc724fdb2ab8a781[39m
-    [1m[38;5;14m◆[0m  [38;5;4m0000000000000000000000000000000000000000[39m
+    [1m[38;5;14m♦[0m  [38;5;4m0000000000000000000000000000000000000000[39m
     [EOF]
     ");
 
@@ -496,7 +496,7 @@ fn test_color_config() {
     let output = work_dir.run_jj(["log", "-T", "commit_id"]);
     insta::assert_snapshot!(output, @r"
     @  e8849ae12c709f2321908879bc724fdb2ab8a781
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
 
@@ -962,7 +962,7 @@ fn test_default_config() {
     │  (empty) (no description set)
     ○  <change-id> (no email set) <date-time> <id>
     │  (empty) (no description set)
-    ◆  <change-id> root() <id>
+    ♦  <change-id> root() <id>
     [EOF]
     ");
 

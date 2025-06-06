@@ -179,7 +179,7 @@ $ jj log
 │  (empty) (no description set)
 ○  kntqzsqt martinvonz@google.com 2023-02-12 14:56:59 5d39e19d
 │  Say goodbye
-◆  orrkosyo octocat@nowhere.com 2012-03-06 15:06:50 master 7fd1a60b
+♦  orrkosyo octocat@nowhere.com 2012-03-06 15:06:50 master 7fd1a60b
 │  (empty) Merge pull request #6 from Spaceghost/patch-1
 ~
 ```
@@ -205,10 +205,10 @@ $ jj log -r '@ | root() | bookmarks()'
 @  mpqrykyp martinvonz@google.com 2023-02-12 15:00:22 aef4df99
 │  (empty) (no description set)
 ~  (elided revisions)
-◆  orrkosyo octocat@nowhere.com 2012-03-06 15:06:50 master 7fd1a60b
+♦  orrkosyo octocat@nowhere.com 2012-03-06 15:06:50 master 7fd1a60b
 │  (empty) Merge pull request #6 from Spaceghost/patch-1
 ~  (elided revisions)
-◆  zzzzzzzz root() 00000000
+♦  zzzzzzzz root() 00000000
 ```
 
 The `00000000` commit (change ID `zzzzzzzz`) is a virtual commit that's called
@@ -256,7 +256,7 @@ $ jj log
 │  A
 │ ○  kntqzsqt martinvonz@google.com 2023-02-12 14:56:59 5d39e19d
 ├─╯  Say goodbye
-◆  orrkosyo octocat@nowhere.com 2012-03-06 15:06:50 master 7fd1a60b
+♦  orrkosyo octocat@nowhere.com 2012-03-06 15:06:50 master 7fd1a60b
 │  (empty) Merge pull request #6 from Spaceghost/patch-1
 ~
 ```
@@ -295,7 +295,7 @@ $ jj log
 │  A
 │ ○  kntqzsqt martinvonz@google.com 2023-02-12 14:56:59 5d39e19d
 ├─╯  Say goodbye
-◆  orrkosyo octocat@nowhere.com 2012-03-06 15:06:50 master 7fd1a60b
+♦  orrkosyo octocat@nowhere.com 2012-03-06 15:06:50 master 7fd1a60b
 │  (empty) Merge pull request #6 from Spaceghost/patch-1
 ~
 ```
@@ -370,7 +370,7 @@ $ jj log
 │  A
 │ ○  kntqzsqt martinvonz@google.com 2023-02-12 14:56:59 5d39e19d
 ├─╯  Say goodbye
-◆  orrkosyo octocat@nowhere.com 2012-03-06 15:06:50 master 7fd1a60b
+♦  orrkosyo octocat@nowhere.com 2012-03-06 15:06:50 master 7fd1a60b
 │  (empty) Merge pull request #6 from Spaceghost/patch-1
 ~
 ```
@@ -436,7 +436,7 @@ $ jj log
 │  A
 │ ○  kntqzsqt martinvonz@google.com 2023-02-12 14:56:59 5d39e19d
 ├─╯  Say goodbye
-◆  orrkosyo octocat@nowhere.com 2012-03-06 15:06:50 master 7fd1a60b
+♦  orrkosyo octocat@nowhere.com 2012-03-06 15:06:50 master 7fd1a60b
 │  (empty) Merge pull request #6 from Spaceghost/patch-1
 ~
 ```
@@ -480,7 +480,7 @@ $ jj log -r master::@
 │  ABC
 ○  ztqrpvnw martinvonz@google.com 2023-02-12 19:38:03 51002261
 │  abc
-◆  orrkosyo octocat@nowhere.com 2012-03-06 15:06:50 master 7fd1a60b
+♦  orrkosyo octocat@nowhere.com 2012-03-06 15:06:50 master 7fd1a60b
 │  (empty) Merge pull request #6 from Spaceghost/patch-1
 ~
 ```

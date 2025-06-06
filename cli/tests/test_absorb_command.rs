@@ -941,7 +941,7 @@ fn test_absorb_immutable() {
     │   1b
     │  +2a
     │  +2B
-    ◆  qpvuntsm e35bcaff 1
+    ♦  qpvuntsm e35bcaff 1
     │  diff --git a/file1 b/file1
     ~  new file mode 100644
        index 0000000000..8c5268f893

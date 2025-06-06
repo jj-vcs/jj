@@ -55,7 +55,7 @@ fn test_bookmark_multiple_names() {
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  bar foo e8849ae12c70
-    ◆   000000000000
+    ♦   000000000000
     [EOF]
     ");
 
@@ -69,7 +69,7 @@ fn test_bookmark_multiple_names() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  bar foo 0e555a27ac99
     ○   e8849ae12c70
-    ◆   000000000000
+    ♦   000000000000
     [EOF]
     ");
 
@@ -82,7 +82,7 @@ fn test_bookmark_multiple_names() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @   0e555a27ac99
     ○   e8849ae12c70
-    ◆   000000000000
+    ♦   000000000000
     [EOF]
     ");
 
@@ -398,7 +398,7 @@ fn test_bookmark_move_matching() {
     │ ○   9328ecc52471
     │ ○  a1 a2 e8849ae12c70
     ├─╯
-    ◆   000000000000
+    ♦   000000000000
     [EOF]
     ");
 
@@ -456,7 +456,7 @@ fn test_bookmark_move_matching() {
     │ ○   9328ecc52471
     │ ○  a1 a2 e8849ae12c70
     ├─╯
-    ◆   000000000000
+    ♦   000000000000
     [EOF]
     ");
     work_dir.run_jj(["undo"]).success();
@@ -477,7 +477,7 @@ fn test_bookmark_move_matching() {
     │ ○   9328ecc52471
     │ ○  a1 a2 e8849ae12c70
     ├─╯
-    ◆   000000000000
+    ♦   000000000000
     [EOF]
     ");
 
@@ -495,7 +495,7 @@ fn test_bookmark_move_matching() {
     │ ○  a1 9328ecc52471
     │ ○  a2 e8849ae12c70
     ├─╯
-    ◆   000000000000
+    ♦   000000000000
     [EOF]
     ");
 }
@@ -537,7 +537,7 @@ fn test_bookmark_move_conflicting() {
     ├─╯
     │ ○  B0 foo??
     ├─╯
-    ◆
+    ♦
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
@@ -569,7 +569,7 @@ fn test_bookmark_move_conflicting() {
     ├─╯
     │ ○  B0
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 }
@@ -678,7 +678,7 @@ fn test_bookmark_forget_glob() {
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  bar-2 foo-1 foo-3 foo-4 e8849ae12c70
-    ◆   000000000000
+    ♦   000000000000
     [EOF]
     ");
     let output = work_dir.run_jj(["bookmark", "forget", "glob:foo-[1-3]"]);
@@ -696,7 +696,7 @@ fn test_bookmark_forget_glob() {
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  bar-2 foo-4 e8849ae12c70
-    ◆   000000000000
+    ♦   000000000000
     [EOF]
     ");
 
@@ -710,7 +710,7 @@ fn test_bookmark_forget_glob() {
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  bar-2 e8849ae12c70
-    ◆   000000000000
+    ♦   000000000000
     [EOF]
     ");
 
@@ -773,7 +773,7 @@ fn test_bookmark_delete_glob() {
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  bar-2 foo-1 foo-3 foo-4 8e056f6b8c37
-    ◆   000000000000
+    ♦   000000000000
     [EOF]
     ");
     let output = work_dir.run_jj(["bookmark", "delete", "glob:foo-[1-3]"]);
@@ -791,7 +791,7 @@ fn test_bookmark_delete_glob() {
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  bar-2 foo-1@origin foo-3@origin foo-4 8e056f6b8c37
-    ◆   000000000000
+    ♦   000000000000
     [EOF]
     ");
 
@@ -815,7 +815,7 @@ fn test_bookmark_delete_glob() {
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  bar-2 foo-1@origin foo-3@origin foo-4@origin 8e056f6b8c37
-    ◆   000000000000
+    ♦   000000000000
     [EOF]
     ");
 
@@ -1173,9 +1173,9 @@ fn test_bookmark_track_untrack() {
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @   e8849ae12c70
-    │ ◆  feature1@origin feature2@origin main@origin bd843888ee66
+    │ ♦  feature1@origin feature2@origin main@origin bd843888ee66
     ├─╯
-    ◆   000000000000
+    ♦   000000000000
     [EOF]
     ");
 
@@ -1229,9 +1229,9 @@ fn test_bookmark_track_untrack() {
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @   e8849ae12c70
-    │ ◆  feature1 feature1@origin feature2@origin main bd843888ee66
+    │ ♦  feature1 feature1@origin feature2@origin main bd843888ee66
     ├─╯
-    ◆   000000000000
+    ♦   000000000000
     [EOF]
     ");
 
@@ -1264,11 +1264,11 @@ fn test_bookmark_track_untrack() {
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @   e8849ae12c70
-    │ ◆  feature1@origin feature2@origin main 48ec79a430e9
+    │ ♦  feature1@origin feature2@origin main 48ec79a430e9
     ├─╯
     │ ○  feature1 bd843888ee66
     ├─╯
-    ◆   000000000000
+    ♦   000000000000
     [EOF]
     ");
 
@@ -1308,11 +1308,11 @@ fn test_bookmark_track_untrack() {
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @   e8849ae12c70
-    │ ◆  feature1@origin feature2@origin feature3 main d8cd3e020382
+    │ ♦  feature1@origin feature2@origin feature3 main d8cd3e020382
     ├─╯
     │ ○  feature1 bd843888ee66
     ├─╯
-    ◆   000000000000
+    ♦   000000000000
     [EOF]
     ");
 }
@@ -1786,7 +1786,7 @@ fn test_bookmark_list_filtered() {
     ├─╯
     │ ○  c2f2ee40f03a remote-keep
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 

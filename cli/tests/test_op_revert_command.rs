@@ -68,7 +68,7 @@ fn test_revert_rewrite_with_child() {
     insta::assert_snapshot!(output, @r"
     @  child
     ○  modified
-    ◆
+    ♦
     [EOF]
     ");
     work_dir.run_jj(["op", "revert", "@-"]).success();
@@ -79,7 +79,7 @@ fn test_revert_rewrite_with_child() {
     insta::assert_snapshot!(output, @r"
     @  child
     ○  initial
-    ◆
+    ♦
     [EOF]
     ");
 }

@@ -61,7 +61,7 @@ fn test_builtin_alias_trunk_matches_main() {
 
     let output = work_dir.run_jj(["log", "-r", "trunk()"]);
     insta::assert_snapshot!(output, @r"
-    ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:08 main 9b2e76de
+    ♦  qpvuntsm test.user@example.com 2001-02-03 08:05:08 main 9b2e76de
     │  (empty) description 1
     ~
     [EOF]
@@ -75,7 +75,7 @@ fn test_builtin_alias_trunk_matches_master() {
 
     let output = work_dir.run_jj(["log", "-r", "trunk()"]);
     insta::assert_snapshot!(output, @r"
-    ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:08 master 9b2e76de
+    ♦  qpvuntsm test.user@example.com 2001-02-03 08:05:08 master 9b2e76de
     │  (empty) description 1
     ~
     [EOF]
@@ -89,7 +89,7 @@ fn test_builtin_alias_trunk_matches_trunk() {
 
     let output = work_dir.run_jj(["log", "-r", "trunk()"]);
     insta::assert_snapshot!(output, @r"
-    ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:08 trunk 9b2e76de
+    ♦  qpvuntsm test.user@example.com 2001-02-03 08:05:08 trunk 9b2e76de
     │  (empty) description 1
     ~
     [EOF]
@@ -110,7 +110,7 @@ fn test_builtin_alias_trunk_matches_exactly_one_commit() {
 
     let output = work_dir.run_jj(["log", "-r", "trunk()"]);
     insta::assert_snapshot!(output, @r"
-    ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:08 main 9b2e76de
+    ♦  qpvuntsm test.user@example.com 2001-02-03 08:05:08 main 9b2e76de
     │  (empty) description 1
     ~
     [EOF]
@@ -128,7 +128,7 @@ fn test_builtin_alias_trunk_override_alias() {
 
     let output = work_dir.run_jj(["log", "-r", "trunk()"]);
     insta::assert_snapshot!(output, @r"
-    ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:08 override-trunk 9b2e76de
+    ♦  qpvuntsm test.user@example.com 2001-02-03 08:05:08 override-trunk 9b2e76de
     │  (empty) description 1
     ~
     [EOF]
@@ -142,7 +142,7 @@ fn test_builtin_alias_trunk_no_match() {
 
     let output = work_dir.run_jj(["log", "-r", "trunk()"]);
     insta::assert_snapshot!(output, @r"
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 }
@@ -154,7 +154,7 @@ fn test_builtin_alias_trunk_no_match_only_exact() {
 
     let output = work_dir.run_jj(["log", "-r", "trunk()"]);
     insta::assert_snapshot!(output, @r"
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 }
