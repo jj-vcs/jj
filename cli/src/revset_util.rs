@@ -146,6 +146,7 @@ fn warn_user_redefined_builtin(
         ConfigSource::EnvBase
         | ConfigSource::User
         | ConfigSource::Repo
+        | ConfigSource::Workspace
         | ConfigSource::EnvOverrides
         | ConfigSource::CommandArg => {
             let checked_mutability_builtins =
