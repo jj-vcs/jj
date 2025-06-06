@@ -117,11 +117,14 @@ where
     /// Looks for predecessors within the given operation.
     fn visit_op(&mut self, op: &Operation) -> Result<(), WalkPredecessorsError> {
         let mut to_emit = Vec::new(); // transitive edges should be short
+        let mut has_dup = false;
         let mut i = 0;
         while let Some(cur_id) = self.to_visit.get(i) {
             if let Some(next_ids) = op.predecessors_for_commit(cur_id) {
                 if to_emit.contains(cur_id) {
-                    return Err(WalkPredecessorsError::CycleDetected(op.id().clone()));
+                    self.to_visit.remove(i);
+                    has_dup = true;
+                    continue;
                 }
                 // Predecessors will be visited in reverse order if they appear
                 // in the same operation. See scan_commits() for why.
@@ -131,12 +134,31 @@ where
             }
         }
 
-        for id in &to_emit {
+        let mut emit = |id: &CommitId| -> BackendResult<()> {
             let commit = self.store.get_commit(id)?;
             self.queued.push_back(CommitEvolutionEntry {
                 commit,
                 operation: Some(op.clone()),
             });
+            Ok(())
+        };
+        match &*to_emit {
+            [] => {}
+            [id] if !has_dup => emit(id)?,
+            _ => {
+                let sorted_ids = dag_walk::topo_order_reverse_ok(
+                    to_emit.iter().map(Ok),
+                    |&id| id,
+                    |&id| op.predecessors_for_commit(id).into_iter().flatten().map(Ok),
+                    |_| (),
+                )
+                .map_err(|()| WalkPredecessorsError::CycleDetected(op.id().clone()))?;
+                for &id in &sorted_ids {
+                    if op.predecessors_for_commit(id).is_some() {
+                        emit(id)?;
+                    }
+                }
+            }
         }
         Ok(())
     }
