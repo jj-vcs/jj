@@ -1566,6 +1566,42 @@ fn sort_intersection_by_key<St: ExpressionState, T: Ord>(
     sort_intersection_helper(base, expression, get_key(expression), get_key)
 }
 
+/// Push `ancestors(x)` and `~ancestors(x)` down (to the left) in intersections.
+/// All `~ancestors(x)` will be moved before `ancestors(x)`, since negated
+/// ancestors can be converted to ranges. All other negations are moved to the
+/// right, since these negations can usually be evaluated better as differences.
+fn sort_negations_and_ancestors<St: ExpressionState>(
+    expression: &Rc<RevsetExpression<St>>,
+) -> TransformedExpression<St> {
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    enum AncestorsOrder {
+        NegatedAncestors,
+        Ancestors,
+        Other,
+        NegatedOther,
+    }
+
+    transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
+        RevsetExpression::Intersection(expression1, expression2) => {
+            sort_intersection_by_key(expression1, expression2, |expression| match expression {
+                RevsetExpression::Ancestors {
+                    generation: Range { end: u64::MAX, .. },
+                    ..
+                } => AncestorsOrder::Ancestors,
+                RevsetExpression::NotIn(complement) => match complement.as_ref() {
+                    RevsetExpression::Ancestors {
+                        generation: Range { end: u64::MAX, .. },
+                        ..
+                    } => AncestorsOrder::NegatedAncestors,
+                    _ => AncestorsOrder::NegatedOther,
+                },
+                _ => AncestorsOrder::Other,
+            })
+        }
+        _ => None,
+    })
+}
+
 /// Transforms filter expressions, by applying the following rules.
 ///
 /// a. Moves as many sets to left of filter intersection as possible, to
@@ -1868,6 +1904,7 @@ pub fn optimize<St: ExpressionState>(
     let expression = fold_redundant_expression(&expression).unwrap_or(expression);
     let expression = fold_generation(&expression).unwrap_or(expression);
     let expression = flatten_intersections(&expression).unwrap_or(expression);
+    let expression = sort_negations_and_ancestors(&expression).unwrap_or(expression);
     let expression = internalize_filter(&expression).unwrap_or(expression);
     let expression = fold_ancestors_union(&expression).unwrap_or(expression);
     let expression = fold_difference(&expression).unwrap_or(expression);
@@ -3829,6 +3866,52 @@ mod tests {
             CommitRef(Symbol("bar")),
         )
         "#);
+
+        // The roots of multiple ranges can be folded after being unfolded.
+        insta::assert_debug_snapshot!(optimize(parse("a..b & c..d").unwrap()), @r#"
+        Intersection(
+            Range {
+                roots: Union(
+                    CommitRef(Symbol("a")),
+                    CommitRef(Symbol("c")),
+                ),
+                heads: CommitRef(Symbol("b")),
+                generation: 0..18446744073709551615,
+            },
+            Ancestors {
+                heads: CommitRef(Symbol("d")),
+                generation: 0..18446744073709551615,
+            },
+        )
+        "#);
+
+        // Negated ancestors can be combined into a range regardless of intersection
+        // grouping order and intervening expressions.
+        insta::assert_debug_snapshot!(optimize(parse("foo ~ ::a & (::b & bar & ::c) & (baz ~ ::d)").unwrap()), @r#"
+        Intersection(
+            Intersection(
+                Intersection(
+                    Intersection(
+                        Range {
+                            roots: Union(
+                                CommitRef(Symbol("a")),
+                                CommitRef(Symbol("d")),
+                            ),
+                            heads: CommitRef(Symbol("b")),
+                            generation: 0..18446744073709551615,
+                        },
+                        Ancestors {
+                            heads: CommitRef(Symbol("c")),
+                            generation: 0..18446744073709551615,
+                        },
+                    ),
+                    CommitRef(Symbol("foo")),
+                ),
+                CommitRef(Symbol("bar")),
+            ),
+            CommitRef(Symbol("baz")),
+        )
+        "#);
     }
 
     #[test]
@@ -4494,7 +4577,7 @@ mod tests {
         }
         "#);
 
-        // Negated ancestors should be folded at the start of an intersection.
+        // Negated ancestors should be folded.
         insta::assert_debug_snapshot!(optimize(parse("~::a- & ~::b & ~::c & ::d").unwrap()), @r#"
         Range {
             roots: Union(
@@ -4511,6 +4594,22 @@ mod tests {
             generation: 0..18446744073709551615,
         }
         "#);
+        insta::assert_debug_snapshot!(optimize(parse("a..b ~ ::c- ~ ::d").unwrap()), @r#"
+        Range {
+            roots: Union(
+                Union(
+                    CommitRef(Symbol("a")),
+                    Ancestors {
+                        heads: CommitRef(Symbol("c")),
+                        generation: 1..2,
+                    },
+                ),
+                CommitRef(Symbol("d")),
+            ),
+            heads: CommitRef(Symbol("b")),
+            generation: 0..18446744073709551615,
+        }
+        "#);
 
         // Ancestors with a bounded generation range should not be merged.
         insta::assert_debug_snapshot!(optimize(parse("ancestors(a, 2) | ancestors(b)").unwrap()), @r#"
@@ -4523,6 +4622,43 @@ mod tests {
                 heads: CommitRef(Symbol("b")),
                 generation: 0..18446744073709551615,
             },
+        )
+        "#);
+    }
+
+    #[test]
+    fn test_optimize_sort_negations_and_ancestors() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+
+        // Negated ancestors and ancestors should be moved to the left, and other
+        // negations should be moved to the right.
+        insta::assert_debug_snapshot!(optimize(parse("~a & ::b & ~::c & d ~ e & f & ::g & ~::h").unwrap()), @r#"
+        Difference(
+            Difference(
+                Intersection(
+                    Intersection(
+                        Intersection(
+                            Range {
+                                roots: Union(
+                                    CommitRef(Symbol("c")),
+                                    CommitRef(Symbol("h")),
+                                ),
+                                heads: CommitRef(Symbol("b")),
+                                generation: 0..18446744073709551615,
+                            },
+                            Ancestors {
+                                heads: CommitRef(Symbol("g")),
+                                generation: 0..18446744073709551615,
+                            },
+                        ),
+                        CommitRef(Symbol("d")),
+                    ),
+                    CommitRef(Symbol("f")),
+                ),
+                CommitRef(Symbol("a")),
+            ),
+            CommitRef(Symbol("e")),
         )
         "#);
     }
