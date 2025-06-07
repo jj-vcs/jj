@@ -101,6 +101,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Evolution history is now stored in the operation log. `jj evolog` can show
   associated operations for commits created by new jj versions.
 
+* `jj split` assigns the change id and the bookmarks of the source revision
+  to the revision with the non-selected changes.
+  You can opt out of this change by setting `split.legacy-bookmark-behavior = true`,
+  but this will likely be removed in a future release.
+
 ### Fixed bugs
 
 * Work around a git issue that could cause subprocess operations to hang if the
