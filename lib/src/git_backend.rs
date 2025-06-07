@@ -837,10 +837,14 @@ fn recreate_no_gc_refs(
     Ok(())
 }
 
-fn run_git_gc(program: &OsStr, git_dir: &Path) -> Result<(), GitGcError> {
+fn run_git_gc(program: &OsStr, git_dir: &Path, keep_newer: SystemTime) -> Result<(), GitGcError> {
+    let keep_newer = keep_newer
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap_or_default(); // underflow
     let mut git = Command::new(program);
-    git.arg("--git-dir=."); // turn off discovery
-    git.arg("gc");
+    git.arg("--git-dir=.") // turn off discovery
+        .arg("gc")
+        .arg(format!("--prune=@{} +0000", keep_newer.as_secs()));
     // Don't specify it by GIT_DIR/--git-dir. On Windows, the path could be
     // canonicalized as UNC path, which wouldn't be supported by git.
     git.current_dir(git_dir);
@@ -1467,9 +1471,12 @@ impl Backend for GitBackend {
         // mtime <= keep_newer? (it won't be consistent with no-gc refs
         // preserved by the keep_newer timestamp though)
         // TODO: remove unreachable extras table segments
-        // TODO: pass in keep_newer to "git gc" command
-        run_git_gc(self.git_executable.as_ref(), self.git_repo_path())
-            .map_err(|err| BackendError::Other(err.into()))?;
+        run_git_gc(
+            self.git_executable.as_ref(),
+            self.git_repo_path(),
+            keep_newer,
+        )
+        .map_err(|err| BackendError::Other(err.into()))?;
         // Since "git gc" will move loose refs into packed refs, in-memory
         // packed-refs cache should be invalidated without relying on mtime.
         git_repo.refs.force_refresh_packed_buffer().ok();
