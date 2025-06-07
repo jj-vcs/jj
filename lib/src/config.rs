@@ -64,7 +64,7 @@ pub enum ConfigLoadError {
     Parse {
         /// Source error.
         #[source]
-        error: toml_edit::TomlError,
+        error: Box<toml_edit::TomlError>,
         /// Source file path.
         source_path: Option<PathBuf>,
     },
@@ -337,7 +337,7 @@ impl ConfigLayer {
     /// Parses TOML document `text` into new layer.
     pub fn parse(source: ConfigSource, text: &str) -> Result<Self, ConfigLoadError> {
         let data = ImDocument::parse(text).map_err(|error| ConfigLoadError::Parse {
-            error,
+            error: Box::new(error),
             source_path: None,
         })?;
         Ok(Self::with_data(source, data.into_mut()))
@@ -349,7 +349,7 @@ impl ConfigLayer {
             .context(&path)
             .map_err(ConfigLoadError::Read)?;
         let data = ImDocument::parse(text).map_err(|error| ConfigLoadError::Parse {
-            error,
+            error: Box::new(error),
             source_path: Some(path.clone()),
         })?;
         Ok(ConfigLayer {
