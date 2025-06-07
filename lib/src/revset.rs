@@ -1063,9 +1063,7 @@ pub fn lower_expression(
             ))
         }
         ExpressionKind::DagRangeAll => Ok(RevsetExpression::all()),
-        ExpressionKind::RangeAll => {
-            Ok(RevsetExpression::root().range(&RevsetExpression::visible_heads()))
-        }
+        ExpressionKind::RangeAll => Ok(RevsetExpression::root().negated()),
         ExpressionKind::Unary(op, arg_node) => {
             let arg = lower_expression(diagnostics, arg_node, context)?;
             match op {
@@ -1073,7 +1071,7 @@ pub fn lower_expression(
                 UnaryOp::DagRangePre => Ok(arg.ancestors()),
                 UnaryOp::DagRangePost => Ok(arg.descendants()),
                 UnaryOp::RangePre => Ok(RevsetExpression::root().range(&arg)),
-                UnaryOp::RangePost => Ok(arg.range(&RevsetExpression::visible_heads())),
+                UnaryOp::RangePost => Ok(arg.ancestors().negated()),
                 UnaryOp::Parents => Ok(arg.parents()),
                 UnaryOp::Children => Ok(arg.children()),
             }
@@ -3064,11 +3062,12 @@ mod tests {
         }
         "#);
         insta::assert_debug_snapshot!(parse("foo..").unwrap(), @r#"
-        Range {
-            roots: CommitRef(Symbol("foo")),
-            heads: VisibleHeads,
-            generation: 0..18446744073709551615,
-        }
+        NotIn(
+            Ancestors {
+                heads: CommitRef(Symbol("foo")),
+                generation: 0..18446744073709551615,
+            },
+        )
         "#);
         insta::assert_debug_snapshot!(parse("foo..bar").unwrap(), @r#"
         Range {
@@ -3078,13 +3077,7 @@ mod tests {
         }
         "#);
         // Parse the nullary "range" operator
-        insta::assert_debug_snapshot!(parse("..").unwrap(), @r"
-        Range {
-            roots: Root,
-            heads: VisibleHeads,
-            generation: 0..18446744073709551615,
-        }
-        ");
+        insta::assert_debug_snapshot!(parse("..").unwrap(), @r#"NotIn(Root)"#);
         // Parse the "negate" operator
         insta::assert_debug_snapshot!(
             parse("~ foo").unwrap(),
@@ -3687,6 +3680,13 @@ mod tests {
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("foo..bar").unwrap()), @r#"
+        Range {
+            roots: CommitRef(Symbol("foo")),
+            heads: CommitRef(Symbol("bar")),
+            generation: 0..18446744073709551615,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("foo.. & ::bar").unwrap()), @r#"
         Range {
             roots: CommitRef(Symbol("foo")),
             heads: CommitRef(Symbol("bar")),
