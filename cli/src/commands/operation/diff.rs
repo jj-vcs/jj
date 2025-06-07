@@ -30,7 +30,6 @@ use jj_lib::refs::diff_named_ref_targets;
 use jj_lib::refs::diff_named_remote_refs;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
-use jj_lib::revset;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetIteratorExt as _;
 
@@ -492,13 +491,11 @@ fn compute_operation_commits_diff(
 
     let from_heads = from_repo.view().heads().iter().cloned().collect_vec();
     let to_heads = to_repo.view().heads().iter().cloned().collect_vec();
+    let from_expr = RevsetExpression::commits(from_heads);
+    let to_expr = RevsetExpression::commits(to_heads);
 
-    // Find newly added commits in `to_repo` which were not present in
-    // `from_repo`.
-    for commit in revset::walk_revs(repo, &to_heads, &from_heads)?
-        .iter()
-        .commits(repo.store())
-    {
+    let newly_visible = from_expr.range(&to_expr).evaluate(repo)?;
+    for commit in newly_visible.iter().commits(repo.store()) {
         let commit = commit?;
         let modified_change = changes
             .entry(commit.change_id().clone())
@@ -509,11 +506,8 @@ fn compute_operation_commits_diff(
         modified_change.added_commits.push(commit);
     }
 
-    // Find commits which were hidden in `to_repo`.
-    for commit in revset::walk_revs(repo, &from_heads, &to_heads)?
-        .iter()
-        .commits(repo.store())
-    {
+    let newly_hidden = to_expr.range(&from_expr).evaluate(repo)?;
+    for commit in newly_hidden.iter().commits(repo.store()) {
         let commit = commit?;
         let modified_change = changes
             .entry(commit.change_id().clone())
