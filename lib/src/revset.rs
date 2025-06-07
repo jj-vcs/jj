@@ -2661,6 +2661,8 @@ pub fn format_remote_symbol(name: &str, remote: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::cloned_ref_to_slice_refs)]
+
     use std::path::PathBuf;
 
     use assert_matches::assert_matches;
