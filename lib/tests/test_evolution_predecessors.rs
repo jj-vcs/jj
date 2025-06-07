@@ -17,11 +17,17 @@ use std::slice;
 use assert_matches::assert_matches;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
+use jj_lib::commit::Commit;
+use jj_lib::config::ConfigLayer;
+use jj_lib::config::ConfigSource;
+use jj_lib::evolution::accumulate_predecessors;
 use jj_lib::evolution::walk_predecessors;
 use jj_lib::evolution::CommitEvolutionEntry;
 use jj_lib::evolution::WalkPredecessorsError;
+use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
+use jj_lib::settings::UserSettings;
 use maplit::btreemap;
 use testutils::commit_transactions;
 use testutils::write_random_commit;
@@ -481,5 +487,156 @@ fn test_walk_predecessors_indirect_cycle_within_op() {
     assert_matches!(
         walk_predecessors(&repo1, slice::from_ref(commit3.id())).next(),
         Some(Err(WalkPredecessorsError::CycleDetected(_)))
+    );
+}
+
+#[test]
+fn test_accumulate_predecessors() {
+    // Stabilize commit IDs
+    let mut config = testutils::base_user_config();
+    let mut layer = ConfigLayer::empty(ConfigSource::User);
+    layer
+        .set_value("debug.commit-timestamp", "2001-02-03T04:05:06+07:00")
+        .unwrap();
+    config.add_layer(layer);
+    let settings = UserSettings::from_config(config).unwrap();
+
+    let test_repo = TestRepo::init_with_settings(&settings);
+    let repo_0 = test_repo.repo;
+
+    fn new_commit(repo: &mut MutableRepo, desc: &str) -> Commit {
+        repo.new_commit(
+            vec![repo.store().root_commit_id().clone()],
+            repo.store().empty_merged_tree_id(),
+        )
+        .set_description(desc)
+        .write()
+        .unwrap()
+    }
+
+    fn rewrite_commit(repo: &mut MutableRepo, predecessors: &[&Commit], desc: &str) -> Commit {
+        repo.rewrite_commit(predecessors[0])
+            .set_predecessors(predecessors.iter().map(|c| c.id().clone()).collect())
+            .set_description(desc)
+            .write()
+            .unwrap()
+    }
+
+    // Set up operation graph:
+    //
+    //     {commit: predecessors}
+    //   D {d1: [a1], d2: [a2]}
+    // C | {c1: [b1], c2: [b2, a3], c3: [c2]}
+    // B | {b1: [a1], b2: [a2, a3]}
+    // |/
+    // A   {a1: [], a2: [], a3: []}
+    // 0
+
+    let mut tx = repo_0.start_transaction();
+    let commit_a1 = new_commit(tx.repo_mut(), "a1");
+    let commit_a2 = new_commit(tx.repo_mut(), "a2");
+    let commit_a3 = new_commit(tx.repo_mut(), "a3");
+    let repo_a = tx.commit("a").unwrap();
+
+    let mut tx = repo_a.start_transaction();
+    let commit_b1 = rewrite_commit(tx.repo_mut(), &[&commit_a1], "b1");
+    let commit_b2 = rewrite_commit(tx.repo_mut(), &[&commit_a2, &commit_a3], "b2");
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo_b = tx.commit("b").unwrap();
+
+    let mut tx = repo_b.start_transaction();
+    let commit_c1 = rewrite_commit(tx.repo_mut(), &[&commit_b1], "c1");
+    let commit_c2 = rewrite_commit(tx.repo_mut(), &[&commit_b2, &commit_a3], "c2");
+    let commit_c3 = rewrite_commit(tx.repo_mut(), &[&commit_c2], "c3");
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo_c = tx.commit("c").unwrap();
+
+    let mut tx = repo_a.start_transaction();
+    let commit_d1 = rewrite_commit(tx.repo_mut(), &[&commit_a1], "d1");
+    let commit_d2 = rewrite_commit(tx.repo_mut(), &[&commit_a2], "d2");
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo_d = tx.commit("d").unwrap();
+
+    // Empty old/new ops
+    let predecessors = accumulate_predecessors(&[], slice::from_ref(repo_c.operation())).unwrap();
+    assert!(predecessors.is_empty());
+    let predecessors = accumulate_predecessors(slice::from_ref(repo_c.operation()), &[]).unwrap();
+    assert!(predecessors.is_empty());
+
+    // Empty range
+    let predecessors = accumulate_predecessors(
+        slice::from_ref(repo_c.operation()),
+        slice::from_ref(repo_c.operation()),
+    )
+    .unwrap();
+    assert!(predecessors.is_empty());
+
+    // Single forward operation
+    let predecessors = accumulate_predecessors(
+        slice::from_ref(repo_c.operation()),
+        slice::from_ref(repo_b.operation()),
+    )
+    .unwrap();
+    assert_eq!(
+        predecessors,
+        btreemap! {
+            commit_c1.id().clone() => vec![commit_b1.id().clone()],
+            commit_c2.id().clone() => vec![commit_b2.id().clone(), commit_a3.id().clone()],
+            commit_c3.id().clone() => vec![commit_b2.id().clone(), commit_a3.id().clone()],
+        }
+    );
+
+    // Multiple forward operations
+    let predecessors = accumulate_predecessors(
+        slice::from_ref(repo_c.operation()),
+        slice::from_ref(repo_a.operation()),
+    )
+    .unwrap();
+    assert_eq!(
+        predecessors,
+        btreemap! {
+            commit_b1.id().clone() => vec![commit_a1.id().clone()],
+            commit_b2.id().clone() => vec![commit_a2.id().clone(), commit_a3.id().clone()],
+            commit_c1.id().clone() => vec![commit_a1.id().clone()],
+            commit_c2.id().clone() => vec![commit_a2.id().clone(), commit_a3.id().clone()],
+            commit_c3.id().clone() => vec![commit_a2.id().clone(), commit_a3.id().clone()],
+        }
+    );
+
+    // Multiple reverse operations
+    let predecessors = accumulate_predecessors(
+        slice::from_ref(repo_a.operation()),
+        slice::from_ref(repo_c.operation()),
+    )
+    .unwrap();
+    assert_eq!(
+        predecessors,
+        btreemap! {
+            commit_a1.id().clone() => vec![commit_c1.id().clone()],
+            commit_a2.id().clone() => vec![commit_c3.id().clone()],
+            commit_a3.id().clone() => vec![commit_c3.id().clone()],
+            commit_b1.id().clone() => vec![commit_c1.id().clone()],
+            commit_b2.id().clone() => vec![commit_c3.id().clone()],
+            commit_c2.id().clone() => vec![commit_c3.id().clone()],
+        }
+    );
+
+    // Sibling operations
+    let predecessors = accumulate_predecessors(
+        slice::from_ref(repo_d.operation()),
+        slice::from_ref(repo_c.operation()),
+    )
+    .unwrap();
+    assert_eq!(
+        predecessors,
+        btreemap! {
+            commit_a1.id().clone() => vec![commit_c1.id().clone()],
+            commit_a2.id().clone() => vec![commit_c3.id().clone()],
+            commit_b1.id().clone() => vec![commit_c1.id().clone()],
+            commit_b2.id().clone() => vec![commit_c3.id().clone()],
+            commit_c2.id().clone() => vec![commit_c3.id().clone()],
+            commit_d1.id().clone() => vec![commit_c1.id().clone()],
+            commit_d2.id().clone() => vec![commit_c3.id().clone()],
+        }
     );
 }
