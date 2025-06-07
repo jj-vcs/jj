@@ -845,7 +845,9 @@ fn run_git_gc(program: &OsStr, git_dir: &Path) -> Result<(), GitGcError> {
     // canonicalized as UNC path, which wouldn't be supported by git.
     git.current_dir(git_dir);
     // TODO: pass output to UI layer instead of printing directly here
+    tracing::info!(?git, "running git gc");
     let status = git.status().map_err(GitGcError::GcCommand)?;
+    tracing::info!(?status, "git gc exited");
     if !status.success() {
         return Err(GitGcError::GcCommandErrorStatus(status));
     }
