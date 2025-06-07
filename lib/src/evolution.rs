@@ -14,6 +14,7 @@
 
 //! Utility for commit evolution history.
 
+use std::collections::BTreeMap;
 use std::collections::VecDeque;
 use std::slice;
 use std::sync::Arc;
@@ -206,4 +207,104 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         self.try_next().transpose()
     }
+}
+
+/// Collects predecessor records from `new_ops` to `old_ops`, and resolves
+/// transitive entries.
+///
+/// This function assumes that there exists a single greatest common ancestors
+/// between `old_ops` and `new_ops`. If `old_ops` and `new_ops` have ancestors
+/// and descendants each other, or if criss-crossed merges exist between these
+/// operations, the returned mapping would be lossy.
+pub fn accumulate_predecessors(
+    new_ops: &[Operation],
+    old_ops: &[Operation],
+) -> Result<BTreeMap<CommitId, Vec<CommitId>>, WalkPredecessorsError> {
+    if new_ops.is_empty() || old_ops.is_empty() {
+        return Ok(BTreeMap::new()); // No common ancestor exists
+    }
+
+    // Fast path for the single forward operation case.
+    if let [op] = new_ops {
+        if op.parent_ids().iter().eq(old_ops.iter().map(|op| op.id())) {
+            let Some(map) = &op.store_operation().commit_predecessors else {
+                return Ok(BTreeMap::new());
+            };
+            return resolve_transitive_edges(map, map.keys())
+                .map_err(|id| WalkPredecessorsError::CycleDetected(id.clone()));
+        }
+    }
+
+    // Follow reverse edges from the common ancestor to old_ops. Here we use
+    // BTreeMap to stabilize order of the reversed edges.
+    let mut accumulated = BTreeMap::new();
+    let reverse_ops = op_walk::walk_ancestors_range(old_ops, new_ops);
+    if !try_collect_predecessors_into(&mut accumulated, reverse_ops)? {
+        return Ok(BTreeMap::new());
+    }
+    let mut accumulated = reverse_edges(accumulated);
+    // Follow forward edges from new_ops to the common ancestor.
+    let forward_ops = op_walk::walk_ancestors_range(new_ops, old_ops);
+    if !try_collect_predecessors_into(&mut accumulated, forward_ops)? {
+        return Ok(BTreeMap::new());
+    }
+    let new_commit_ids = new_ops
+        .iter()
+        .filter_map(|op| op.store_operation().commit_predecessors.as_ref())
+        .flat_map(|map| map.keys());
+    resolve_transitive_edges(&accumulated, new_commit_ids)
+        .map_err(|id| WalkPredecessorsError::CycleDetected(id.clone()))
+}
+
+fn try_collect_predecessors_into(
+    collected: &mut BTreeMap<CommitId, Vec<CommitId>>,
+    ops: impl IntoIterator<Item = OpStoreResult<Operation>>,
+) -> OpStoreResult<bool> {
+    for op in ops {
+        let op = op?;
+        let Some(map) = &op.store_operation().commit_predecessors else {
+            return Ok(false);
+        };
+        // Just insert. There should be no duplicate entries.
+        collected.extend(map.iter().map(|(k, v)| (k.clone(), v.clone())));
+    }
+    Ok(true)
+}
+
+/// Resolves transitive edges in `graph` starting from the `start` nodes,
+/// returns new DAG. The returned DAG only includes edges reachable from the
+/// `start` nodes.
+fn resolve_transitive_edges<'a: 'b, 'b>(
+    graph: &'a BTreeMap<CommitId, Vec<CommitId>>,
+    start: impl IntoIterator<Item = &'b CommitId>,
+) -> Result<BTreeMap<CommitId, Vec<CommitId>>, &'b CommitId> {
+    let mut new_graph: BTreeMap<CommitId, Vec<CommitId>> = BTreeMap::new();
+    let sorted_ids = dag_walk::topo_order_forward_ok(
+        start.into_iter().map(Ok),
+        |&id| id,
+        |&id| graph.get(id).into_iter().flatten().map(Ok),
+        |id| id, // Err(&CommitId) if graph has cycle
+    )?;
+    for cur_id in sorted_ids {
+        let Some(neighbors) = graph.get(cur_id) else {
+            continue;
+        };
+        let lookup = |id| new_graph.get(id).map_or(slice::from_ref(id), Vec::as_slice);
+        let new_neighbors = match &neighbors[..] {
+            [id] => lookup(id).to_vec(), // unique() not needed
+            ids => ids.iter().flat_map(lookup).unique().cloned().collect(),
+        };
+        new_graph.insert(cur_id.clone(), new_neighbors);
+    }
+    Ok(new_graph)
+}
+
+fn reverse_edges(graph: BTreeMap<CommitId, Vec<CommitId>>) -> BTreeMap<CommitId, Vec<CommitId>> {
+    let mut new_graph: BTreeMap<CommitId, Vec<CommitId>> = BTreeMap::new();
+    for (node1, neighbors) in graph {
+        for node2 in neighbors {
+            new_graph.entry(node2).or_default().push(node1.clone());
+        }
+    }
+    new_graph
 }

@@ -22,6 +22,7 @@ use itertools::Itertools as _;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
+use jj_lib::evolution::accumulate_predecessors;
 use jj_lib::graph::GraphEdgeType;
 use jj_lib::graph::TopoGroupedGraphIterator;
 use jj_lib::matchers::EverythingMatcher;
@@ -506,6 +507,11 @@ fn compute_operation_commits_diff(
     let from_expr = RevsetExpression::commits(from_heads);
     let to_expr = RevsetExpression::commits(to_heads);
 
+    let predecessor_commits = accumulate_predecessors(
+        slice::from_ref(to_repo.operation()),
+        slice::from_ref(from_repo.operation()),
+    )?;
+
     // Collect hidden commits to find abandoned/rewritten changes.
     let mut hidden_commits_by_change: HashMap<ChangeId, CommitId> = HashMap::new();
     let mut abandoned_commits: HashSet<CommitId> = HashSet::new();
@@ -520,13 +526,14 @@ fn compute_operation_commits_diff(
         abandoned_commits.insert(commit_id);
     }
 
-    // For each new commit, deduce predecessors based on change id.
+    // For each new commit, copy/deduce predecessors based on change id.
     let mut changes: HashMap<CommitId, ModifiedChange> = HashMap::new();
     let newly_visible = from_expr.range(&to_expr).evaluate(repo)?;
     for item in newly_visible.commit_change_ids() {
         let (commit_id, change_id) = item?;
-        // TODO: Use predecessors to associate old/new commits.
-        let predecessor_ids = if let Some(id) = hidden_commits_by_change.get(&change_id) {
+        let predecessor_ids = if let Some(ids) = predecessor_commits.get(&commit_id) {
+            ids // including visible predecessors
+        } else if let Some(id) = hidden_commits_by_change.get(&change_id) {
             slice::from_ref(id)
         } else {
             &[]
