@@ -457,6 +457,8 @@ pub struct TreeState {
     /// the repo is configured to use the Watchman filesystem monitor and
     /// Watchman has been queried at least once.
     watchman_clock: Option<crate::protos::working_copy::WatchmanClock>,
+
+    target_eol_strategy: Arc<eol::TargetEolStrategy>,
 }
 
 fn file_state_from_proto(proto: &crate::protos::working_copy::FileState) -> FileState {
@@ -806,6 +808,7 @@ impl TreeState {
 
     fn empty(store: Arc<Store>, working_copy_path: PathBuf, state_path: PathBuf) -> TreeState {
         let tree_id = store.empty_merged_tree_id();
+        let target_eol_strategy = Arc::new(eol::TargetEolStrategy::new(Arc::clone(&store)));
         TreeState {
             store,
             working_copy_path,
@@ -816,6 +819,7 @@ impl TreeState {
             own_mtime: MillisSinceEpoch(0),
             symlink_support: check_symlink_support().unwrap_or(false),
             watchman_clock: None,
+            target_eol_strategy,
         }
     }
 
@@ -1032,6 +1036,7 @@ impl TreeState {
                 progress,
                 max_new_file_size,
                 conflict_marker_style,
+                target_eol_strategy: Arc::clone(&self.target_eol_strategy),
             };
             let directory_to_visit = DirectoryToVisit {
                 dir: RepoPathBuf::root(),
@@ -1179,6 +1184,7 @@ struct FileSnapshotter<'a> {
     progress: Option<&'a SnapshotProgress<'a>>,
     max_new_file_size: u64,
     conflict_marker_style: ConflictMarkerStyle,
+    target_eol_strategy: Arc<eol::TargetEolStrategy>,
 }
 
 impl FileSnapshotter<'_> {
@@ -1567,7 +1573,9 @@ impl FileSnapshotter<'_> {
                         err: err.into(),
                     })?;
             let mut content = vec![];
-            let target_eol = eol::get_snapshot_reader_target_eol(disk_path, self.store());
+            let target_eol = self
+                .target_eol_strategy
+                .get_snapshot_reader_target_eol(disk_path);
             disk_file
                 .read_with_eol(target_eol)
                 .read_to_end(&mut content)
@@ -1624,7 +1632,9 @@ impl FileSnapshotter<'_> {
             message: format!("Failed to open file {}", disk_path.display()),
             err: err.into(),
         })?;
-        let target_eol = eol::get_snapshot_reader_target_eol(disk_path, self.store());
+        let target_eol = self
+            .target_eol_strategy
+            .get_snapshot_reader_target_eol(disk_path);
         let file = file.read_with_eol(target_eol);
         let file_id = self
             .store()
@@ -1927,8 +1937,10 @@ impl TreeState {
                     continue;
                 }
                 MaterializedTreeValue::File(file) => {
-                    let target_eol =
-                        eol::get_update_writer_target_eol(&path, &file.id, &self.store).await;
+                    let target_eol = self
+                        .target_eol_strategy
+                        .get_update_writer_target_eol(&path, &file.id)
+                        .await;
                     self.write_file(&disk_path, file.reader, file.executable, target_eol)?
                 }
                 MaterializedTreeValue::Symlink { id: _, target } => {
