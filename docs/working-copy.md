@@ -61,10 +61,10 @@ parts came from.
 
 You probably don't want build outputs and temporary files to be under version
 control. You can tell Jujutsu to not automatically track certain files by using
-`.gitignore` files (there's no such thing as `.jjignore` yet).
-See https://git-scm.com/docs/gitignore for details about the format.
-`.gitignore` files are supported in any directory in the working copy, as well
-as in `$XDG_CONFIG_HOME/git/ignore` and `$GIT_DIR/info/exclude`.
+`.gitignore` files (there's no such thing as `.jjignore` yet). See
+<https://git-scm.com/docs/gitignore> for details about the format. `.gitignore`
+files are supported in any directory in the working copy, as well as in
+`$XDG_CONFIG_HOME/git/ignore` and `$GIT_DIR/info/exclude`.
 
 Ignored files are never tracked automatically (regardless of the value of
 `snapshot.auto-track`), but files that were already tracked will remain tracked

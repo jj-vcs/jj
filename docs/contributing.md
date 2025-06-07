@@ -452,8 +452,8 @@ you can submit a PR based on the `gh-pages` bookmark of
 Previously, the version switcher would not work unless the value of the
 `site_url` config in `mkdocs.yml` matched the actual URL the site is being
 served from. This bug should now be fixed, but if you are not serving the site
-from https://jj-vcs.github.com/jj and something does not work weirdly, you might
-want to adjust the `site_url` to something like `https://jjfan.github.io/jj`.
+from <https://jj-vcs.github.com/jj> and something fails weirdly, you might want
+to adjust the `site_url` to something like `https://jjfan.github.io/jj`.
 
 
 ## Modifying protobuffers (this is not common)

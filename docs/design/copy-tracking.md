@@ -831,6 +831,6 @@ information.
 
 [^martinvonz_slow]: This took me (@martinvonz) months to really understand.
 [^mercurial_changeset_copies]: From around
-    https://repo.mercurial-scm.org/hg/rev/49ad315b39ee, Mercurial also supports
-    storing copy info in commits. That made it the kind of snapshot/patch model
-    we described above as not working well.
+    <https://repo.mercurial-scm.org/hg/rev/49ad315b39ee>, Mercurial also
+    supports storing copy info in commits. That made it the kind of
+    snapshot/patch model we described above as not working well.
