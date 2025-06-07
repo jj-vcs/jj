@@ -2,7 +2,7 @@
 
 ## Update changelog and Cargo versions
 
-Send a PR similar to https://github.com/jj-vcs/jj/pull/5215. Feel free to
+Send a PR similar to <https://github.com/jj-vcs/jj/pull/5215>. Feel free to
 copy-edit the changelog in order to:
 
 * Populate "Release highlights" if relevant
@@ -31,7 +31,7 @@ filter='
 gh api "/repos/jj-vcs/jj/compare/$root...main" --paginate | jq -sr "$filter" | sort -f
 ```
 
-https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#compare-two-commits
+<https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#compare-two-commits>
 
 Alternatively, the list can be produced locally:
 
@@ -41,13 +41,13 @@ jj log --no-graph -r 'heads(tags())..main' -T '"* " ++ author ++ "\n"' | sort -f
 
 Then try to find the right GitHub username for each person and copy their name
 and username from the GitHub page for the person
-(e.g. https://github.com/martinvonz).
+(e.g. <https://github.com/martinvonz>).
 
 Get the PR through review and get it merged as usual.
 
 ## Create a tag and a GitHub release
 
-1. Go to https://github.com/jj-vcs/jj/releases and click "Draft a new release"
+1. Go to <https://github.com/jj-vcs/jj/releases> and click "Draft a new release"
 2. Click "Choose a tag" and enter "v0.\<number\>.0" (e.g. "v0.26.0") to create a
    new tag
 3. Click "Target", then "Recent commits", and select the commit from your merged
