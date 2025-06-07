@@ -260,6 +260,13 @@ pub enum RevsetExpression<St: ExpressionState> {
         domain: Rc<Self>,
     },
     Heads(Rc<Self>),
+    /// Heads of the set of commits which are ancestors of `heads` but are not
+    /// ancestors of `roots`, and which also are contained in `filter`.
+    HeadsRange {
+        roots: Rc<Self>,
+        heads: Rc<Self>,
+        filter: Rc<Self>,
+    },
     Roots(Rc<Self>),
     ForkPoint(Rc<Self>),
     Latest {
@@ -620,6 +627,13 @@ pub enum ResolvedExpression {
         domain: Box<Self>,
     },
     Heads(Box<Self>),
+    /// Heads of the set of commits which are ancestors of `heads` but are not
+    /// ancestors of `roots`, and which also are contained in `filter`.
+    HeadsRange {
+        roots: Box<Self>,
+        heads: Box<Self>,
+        filter: Box<Self>,
+    },
     Roots(Box<Self>),
     ForkPoint(Box<Self>),
     Latest {
@@ -1250,6 +1264,23 @@ fn try_transform_expression<St: ExpressionState, E>(
             RevsetExpression::Heads(candidates) => {
                 transform_rec(candidates, pre, post)?.map(RevsetExpression::Heads)
             }
+            RevsetExpression::HeadsRange {
+                roots,
+                heads,
+                filter,
+            } => {
+                let transformed_roots = transform_rec(roots, pre, post)?;
+                let transformed_heads = transform_rec(heads, pre, post)?;
+                let transformed_filter = transform_rec(filter, pre, post)?;
+                (transformed_roots.is_some()
+                    || transformed_heads.is_some()
+                    || transformed_filter.is_some())
+                .then(|| RevsetExpression::HeadsRange {
+                    roots: transformed_roots.unwrap_or_else(|| roots.clone()),
+                    heads: transformed_heads.unwrap_or_else(|| heads.clone()),
+                    filter: transformed_filter.unwrap_or_else(|| filter.clone()),
+                })
+            }
             RevsetExpression::Roots(candidates) => {
                 transform_rec(candidates, pre, post)?.map(RevsetExpression::Roots)
             }
@@ -1442,6 +1473,21 @@ where
             let heads = folder.fold_expression(heads)?;
             RevsetExpression::Heads(heads).into()
         }
+        RevsetExpression::HeadsRange {
+            roots,
+            heads,
+            filter,
+        } => {
+            let roots = folder.fold_expression(roots)?;
+            let heads = folder.fold_expression(heads)?;
+            let filter = folder.fold_expression(filter)?;
+            RevsetExpression::HeadsRange {
+                roots,
+                heads,
+                filter,
+            }
+            .into()
+        }
         RevsetExpression::Roots(roots) => {
             let roots = folder.fold_expression(roots)?;
             RevsetExpression::Roots(roots).into()
@@ -1508,6 +1554,80 @@ where
     Ok(expression)
 }
 
+/// Flatten all intersections to be left-recursive. For instance, transforms
+/// `(a & b) & (c & d)` into `((a & b) & c) & d`.
+fn flatten_intersections<St: ExpressionState>(
+    expression: &Rc<RevsetExpression<St>>,
+) -> TransformedExpression<St> {
+    fn flatten<St: ExpressionState>(
+        expression1: &Rc<RevsetExpression<St>>,
+        expression2: &Rc<RevsetExpression<St>>,
+    ) -> TransformedExpression<St> {
+        match expression2.as_ref() {
+            // flatten(a & (b & c)) -> flatten(a & b) & c
+            RevsetExpression::Intersection(inner1, inner2) => Some(
+                flatten(expression1, inner1)
+                    .unwrap_or_else(|| expression1.intersection(inner1))
+                    .intersection(inner2),
+            ),
+            _ => None,
+        }
+    }
+
+    transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
+        RevsetExpression::Intersection(expression1, expression2) => {
+            flatten(expression1, expression2)
+        }
+        _ => None,
+    })
+}
+
+/// Push `ancestors(x)` and `~ancestors(x)` down (to the left) in intersections.
+fn push_ancestors_down<St: ExpressionState>(
+    expression: &Rc<RevsetExpression<St>>,
+) -> TransformedExpression<St> {
+    fn is_ancestors<St: ExpressionState>(expression: &RevsetExpression<St>) -> bool {
+        match expression {
+            RevsetExpression::Ancestors { .. } => true,
+            RevsetExpression::NotIn(complement) => {
+                matches!(complement.as_ref(), RevsetExpression::Ancestors { .. })
+            }
+            _ => false,
+        }
+    }
+
+    fn should_swap<St: ExpressionState>(
+        expression1: &Rc<RevsetExpression<St>>,
+        expression2: &Rc<RevsetExpression<St>>,
+    ) -> bool {
+        !is_ancestors(expression1) && is_ancestors(expression2)
+    }
+
+    fn intersect_ancestors_down<St: ExpressionState>(
+        expression1: &Rc<RevsetExpression<St>>,
+        expression2: &Rc<RevsetExpression<St>>,
+    ) -> TransformedExpression<St> {
+        if let RevsetExpression::Intersection(inner1, inner2) = expression1.as_ref() {
+            // (a & b) & ::c -> (a & ::c) & b
+            should_swap(inner2, expression2).then(|| {
+                intersect_ancestors_down(inner1, expression2)
+                    .unwrap_or_else(|| inner1.intersection(expression2))
+                    .intersection(inner2)
+            })
+        } else {
+            // a & ::b -> ::b & a
+            should_swap(expression1, expression2).then(|| expression2.intersection(expression1))
+        }
+    }
+
+    transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
+        RevsetExpression::Intersection(expression1, expression2) => {
+            intersect_ancestors_down(expression1, expression2)
+        }
+        _ => None,
+    })
+}
+
 /// Transforms filter expressions, by applying the following rules.
 ///
 /// a. Moves as many sets to left of filter intersection as possible, to
@@ -1543,9 +1663,7 @@ fn internalize_filter<St: ExpressionState>(
     }
 
     // Since both sides must have already been intersect_down()-ed, we don't need to
-    // apply the whole bottom-up pass to new intersection node. Instead, just push
-    // new 'c & (d & g)' down-left to '(c & d) & g' while either side is
-    // an intersection of filter node.
+    // apply the whole bottom-up pass to new intersection node.
     fn intersect_down<St: ExpressionState>(
         expression1: &Rc<RevsetExpression<St>>,
         expression2: &Rc<RevsetExpression<St>>,
@@ -1556,14 +1674,13 @@ fn internalize_filter<St: ExpressionState>(
             (_, e2) if is_filter(e2) => None,
             // f1 & e2 -> e2 & f1
             (e1, _) if is_filter(e1) => Some(expression2.intersection(expression1)),
-            (e1, e2) => match (as_filter_intersection(e1), as_filter_intersection(e2)) {
-                // e1 & (c2 & f2) -> (e1 & c2) & f2
-                // (c1 & f1) & (c2 & f2) -> ((c1 & f1) & c2) & f2 -> ((c1 & c2) & f1) & f2
-                (_, Some((c2, f2))) => Some(recurse(expression1, c2).intersection(f2)),
+            // Intersections have already been flattened, so we know that the right subtree cannot
+            // be an intersection.
+            (e1, _) => match as_filter_intersection(e1) {
                 // (c1 & f1) & e2 -> (c1 & e2) & f1
                 // ((c1 & f1) & g1) & e2 -> ((c1 & f1) & e2) & g1 -> ((c1 & e2) & f1) & g1
-                (Some((c1, f1)), _) => Some(recurse(c1, expression2).intersection(f1)),
-                (None, None) => None,
+                Some((c1, f1)) => Some(recurse(c1, expression2).intersection(f1)),
+                None => None,
             },
         }
     }
@@ -1646,6 +1763,27 @@ fn to_difference_range<St: ExpressionState>(
             heads: heads.clone(),
             generation: generation.clone(),
         })),
+        (RevsetExpression::NotIn(expression_complement), _) => {
+            match (expression_complement.as_ref(), complement.as_ref()) {
+                // ~::x & ~::y -> ~::(x | y)
+                (
+                    RevsetExpression::Ancestors {
+                        heads: roots1,
+                        generation: g1,
+                    },
+                    RevsetExpression::Ancestors {
+                        heads: roots2,
+                        generation: g2,
+                    },
+                ) if g1 == g2 => Some(roots1.union(roots2).ancestors_range(g1.clone()).negated()),
+                // ~x & ~y -> ~(x | y)
+                _ => Some(expression_complement.union(complement).negated()),
+            }
+        }
+        // (a & ::heads) & ~::roots -> a & roots..heads
+        (RevsetExpression::Intersection(inner1, inner2), _) => {
+            to_difference_range(inner2, complement).map(|range| inner1.intersection(&range))
+        }
         _ => None,
     }
 }
@@ -1672,6 +1810,11 @@ fn fold_difference<St: ExpressionState>(
                 }
                 (RevsetExpression::NotIn(complement), _) => {
                     Some(to_difference(expression2, complement))
+                }
+                // (a ~ ::b) & ::c -> a & b..c
+                (RevsetExpression::Difference(inner, complement), _) => {
+                    to_difference_range(expression2, complement)
+                        .map(|range| inner.intersection(&range))
                 }
                 _ => None,
             }
@@ -1784,6 +1927,111 @@ fn fold_generation<St: ExpressionState>(
     })
 }
 
+/// Transforms expressions like `heads(roots..heads & filters)` into a combined
+/// operation where possible. Ancestors and negated ancestors should have
+/// already been moved to the left in intersections, and filters should have
+/// already been moved to the right.
+fn fold_heads_range<St: ExpressionState>(
+    expression: &Rc<RevsetExpression<St>>,
+) -> TransformedExpression<St> {
+    // Represents `roots..heads & filter`
+    struct FilteredRange<St: ExpressionState> {
+        roots: Rc<RevsetExpression<St>>,
+        heads: Rc<RevsetExpression<St>>,
+        filter: Rc<RevsetExpression<St>>,
+    }
+
+    impl<St: ExpressionState> FilteredRange<St> {
+        fn all() -> Self {
+            // none()..visible_heads() & all()
+            Self {
+                roots: RevsetExpression::none(),
+                heads: RevsetExpression::visible_heads(),
+                filter: RevsetExpression::all(),
+            }
+        }
+
+        fn add(mut self, expression: &Rc<RevsetExpression<St>>) -> Self {
+            match expression.as_ref() {
+                // x..y & all() -> x..y
+                RevsetExpression::All => {
+                    return self;
+                }
+                // x..visible_heads() & ::y -> x..y
+                RevsetExpression::Ancestors {
+                    heads,
+                    generation: GENERATION_RANGE_FULL,
+                } if matches!(self.heads.as_ref(), RevsetExpression::VisibleHeads) => {
+                    self.heads = heads.clone();
+                    return self;
+                }
+                RevsetExpression::NotIn(complement) => {
+                    if let RevsetExpression::Ancestors {
+                        heads,
+                        generation: GENERATION_RANGE_FULL,
+                    } = complement.as_ref()
+                    {
+                        if matches!(self.roots.as_ref(), RevsetExpression::None) {
+                            // none()..y & ~::x -> x..y
+                            self.roots = heads.clone();
+                        } else {
+                            // x..y & ~::z -> (x | z)..y
+                            self.roots = self.roots.union(heads);
+                        }
+                        return self;
+                    }
+                }
+                _ => {}
+            }
+            if matches!(self.filter.as_ref(), RevsetExpression::All) {
+                // x..y & all() & f -> x..y & f
+                self.filter = expression.clone();
+            } else {
+                self.filter = self.filter.intersection(expression);
+            }
+            self
+        }
+    }
+
+    fn to_filtered_range<St: ExpressionState>(
+        expression: &Rc<RevsetExpression<St>>,
+    ) -> Option<FilteredRange<St>> {
+        match expression.as_ref() {
+            // We only optimize `heads()` if the first expression in the intersection is one of
+            // these. Ancestors and negated ancestors will have already been moved to the left by a
+            // previous pass.
+            RevsetExpression::All
+            | RevsetExpression::Ancestors {
+                generation: GENERATION_RANGE_FULL,
+                ..
+            }
+            | RevsetExpression::Filter(_)
+            | RevsetExpression::AsFilter(_)
+            | RevsetExpression::NotIn(_) => Some(FilteredRange::all().add(expression)),
+            // We only need to handle intersections recursively. Differences will have been
+            // unfolded already.
+            RevsetExpression::Intersection(expression1, expression2) => {
+                to_filtered_range(expression1).map(|filtered_range| filtered_range.add(expression2))
+            }
+            _ => None,
+        }
+    }
+
+    transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
+        RevsetExpression::Heads(candidates) => {
+            to_filtered_range(candidates).map(|filtered_range| {
+                RevsetExpression::HeadsRange {
+                    roots: filtered_range.roots,
+                    heads: filtered_range.heads,
+                    filter: filtered_range.filter,
+                }
+                .into()
+            })
+        }
+        _ => None,
+    })
+}
+
 /// Rewrites the given `expression` tree to reduce evaluation cost. Returns new
 /// tree.
 pub fn optimize<St: ExpressionState>(
@@ -1791,8 +2039,11 @@ pub fn optimize<St: ExpressionState>(
 ) -> Rc<RevsetExpression<St>> {
     let expression = unfold_difference(&expression).unwrap_or(expression);
     let expression = fold_redundant_expression(&expression).unwrap_or(expression);
-    let expression = fold_generation(&expression).unwrap_or(expression);
+    let expression = flatten_intersections(&expression).unwrap_or(expression);
+    let expression = push_ancestors_down(&expression).unwrap_or(expression);
     let expression = internalize_filter(&expression).unwrap_or(expression);
+    let expression = fold_heads_range(&expression).unwrap_or(expression);
+    let expression = fold_generation(&expression).unwrap_or(expression);
     let expression = fold_difference(&expression).unwrap_or(expression);
     fold_not_in_ancestors(&expression).unwrap_or(expression)
 }
@@ -2326,6 +2577,15 @@ impl VisibilityResolutionContext<'_> {
             RevsetExpression::Heads(candidates) => {
                 ResolvedExpression::Heads(self.resolve(candidates).into())
             }
+            RevsetExpression::HeadsRange {
+                roots,
+                heads,
+                filter,
+            } => ResolvedExpression::HeadsRange {
+                roots: self.resolve(roots).into(),
+                heads: self.resolve(heads).into(),
+                filter: self.resolve(filter).into(),
+            },
             RevsetExpression::Roots(candidates) => {
                 ResolvedExpression::Roots(self.resolve(candidates).into())
             }
@@ -2435,6 +2695,7 @@ impl VisibilityResolutionContext<'_> {
             | RevsetExpression::DagRange { .. }
             | RevsetExpression::Reachable { .. }
             | RevsetExpression::Heads(_)
+            | RevsetExpression::HeadsRange { .. }
             | RevsetExpression::Roots(_)
             | RevsetExpression::ForkPoint(_)
             | RevsetExpression::Latest { .. } => {
@@ -3716,9 +3977,80 @@ mod tests {
 
         // Should be better than '(all() & ~foo) & (all() & ~bar)'.
         insta::assert_debug_snapshot!(optimize(parse("~foo & ~bar").unwrap()), @r#"
+        NotIn(
+            Union(
+                CommitRef(Symbol("foo")),
+                CommitRef(Symbol("bar")),
+            ),
+        )
+        "#);
+
+        // Negated ancestors are pushed to the left during optimization, but they should
+        // be combined into a single difference when possible.
+        insta::assert_debug_snapshot!(optimize(parse("roots(a) ~ ::c ~ ::d").unwrap()), @r#"
         Difference(
-            NotIn(CommitRef(Symbol("foo"))),
-            CommitRef(Symbol("bar")),
+            Roots(CommitRef(Symbol("a"))),
+            Ancestors {
+                heads: Union(
+                    CommitRef(Symbol("c")),
+                    CommitRef(Symbol("d")),
+                ),
+                generation: 0..18446744073709551615,
+            },
+        )
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("~a & roots(b) & ~::c").unwrap()), @r#"
+        Difference(
+            Roots(CommitRef(Symbol("b"))),
+            Union(
+                Ancestors {
+                    heads: CommitRef(Symbol("c")),
+                    generation: 0..18446744073709551615,
+                },
+                CommitRef(Symbol("a")),
+            ),
+        )
+        "#);
+
+        // Multiple ranges can be folded after being unfolded initially.
+        insta::assert_debug_snapshot!(optimize(parse("a..b & c..d").unwrap()), @r#"
+        Intersection(
+            Range {
+                roots: CommitRef(Symbol("a")),
+                heads: CommitRef(Symbol("b")),
+                generation: 0..18446744073709551615,
+            },
+            Range {
+                roots: CommitRef(Symbol("c")),
+                heads: CommitRef(Symbol("d")),
+                generation: 0..18446744073709551615,
+            },
+        )
+        "#);
+
+        // Ranges can be combined regardless of intersection grouping order and
+        // intervening expressions.
+        insta::assert_debug_snapshot!(optimize(parse("foo ~ ::a & (::b & bar & ::c) & (baz ~ ::d)").unwrap()), @r#"
+        Intersection(
+            Intersection(
+                Intersection(
+                    Intersection(
+                        Range {
+                            roots: CommitRef(Symbol("a")),
+                            heads: CommitRef(Symbol("b")),
+                            generation: 0..18446744073709551615,
+                        },
+                        Range {
+                            roots: CommitRef(Symbol("d")),
+                            heads: CommitRef(Symbol("c")),
+                            generation: 0..18446744073709551615,
+                        },
+                    ),
+                    CommitRef(Symbol("foo")),
+                ),
+                CommitRef(Symbol("bar")),
+            ),
+            CommitRef(Symbol("baz")),
         )
         "#);
     }
@@ -3937,11 +4269,11 @@ mod tests {
         Intersection(
             Intersection(
                 Intersection(
-                    CommitRef(Symbol("foo")),
                     Ancestors {
                         heads: Filter(AuthorName(Substring("baz"))),
                         generation: 1..2,
                     },
+                    CommitRef(Symbol("foo")),
                 ),
                 CommitRef(Symbol("qux")),
             ),
@@ -3953,7 +4285,6 @@ mod tests {
             @r#"
         Intersection(
             Intersection(
-                CommitRef(Symbol("foo")),
                 Ancestors {
                     heads: Intersection(
                         CommitRef(Symbol("qux")),
@@ -3961,6 +4292,7 @@ mod tests {
                     ),
                     generation: 1..2,
                 },
+                CommitRef(Symbol("foo")),
             ),
             Filter(Description(Substring("bar"))),
         )
@@ -3995,11 +4327,11 @@ mod tests {
                 Intersection(
                     Intersection(
                         Intersection(
-                            CommitRef(Symbol("a")),
                             Intersection(
+                                CommitRef(Symbol("a")),
                                 CommitRef(Symbol("b")),
-                                CommitRef(Symbol("c")),
                             ),
+                            CommitRef(Symbol("c")),
                         ),
                         CommitRef(Symbol("d")),
                     ),
@@ -4297,6 +4629,140 @@ mod tests {
                 generation: 2..3,
             },
             heads: CommitRef(Symbol("bar")),
+        }
+        "#);
+    }
+
+    #[test]
+    fn test_optimize_heads_range() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+
+        // Heads of basic range operators can be folded
+        insta::assert_debug_snapshot!(optimize(parse("heads(::)").unwrap()), @r"
+        HeadsRange {
+            roots: None,
+            heads: VisibleHeads,
+            filter: All,
+        }
+        ");
+        insta::assert_debug_snapshot!(optimize(parse("heads(::foo)").unwrap()), @r#"
+        HeadsRange {
+            roots: None,
+            heads: CommitRef(Symbol("foo")),
+            filter: All,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("heads(..)").unwrap()), @r"
+        HeadsRange {
+            roots: Root,
+            heads: VisibleHeads,
+            filter: All,
+        }
+        ");
+        insta::assert_debug_snapshot!(optimize(parse("heads(foo..)").unwrap()), @r#"
+        HeadsRange {
+            roots: CommitRef(Symbol("foo")),
+            heads: VisibleHeads,
+            filter: All,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("heads(..bar)").unwrap()), @r#"
+        HeadsRange {
+            roots: Root,
+            heads: CommitRef(Symbol("bar")),
+            filter: All,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("heads(foo..bar)").unwrap()), @r#"
+        HeadsRange {
+            roots: CommitRef(Symbol("foo")),
+            heads: CommitRef(Symbol("bar")),
+            filter: All,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("heads(~::foo & ::bar)").unwrap()), @r#"
+        HeadsRange {
+            roots: CommitRef(Symbol("foo")),
+            heads: CommitRef(Symbol("bar")),
+            filter: All,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("heads(~::foo)").unwrap()), @r#"
+        HeadsRange {
+            roots: CommitRef(Symbol("foo")),
+            heads: VisibleHeads,
+            filter: All,
+        }
+        "#);
+
+        // Generation folding should happen after building the range
+        insta::assert_debug_snapshot!(optimize(parse("heads(ancestors(foo--))").unwrap()), @r#"
+        HeadsRange {
+            roots: None,
+            heads: Ancestors {
+                heads: CommitRef(Symbol("foo")),
+                generation: 2..3,
+            },
+            filter: All,
+        }
+        "#);
+
+        // Heads of filters and negations can be folded
+        insta::assert_debug_snapshot!(optimize(parse("heads(author_name(A) | author_name(B))").unwrap()), @r#"
+        HeadsRange {
+            roots: None,
+            heads: VisibleHeads,
+            filter: AsFilter(
+                Union(
+                    Filter(AuthorName(Substring("A"))),
+                    Filter(AuthorName(Substring("B"))),
+                ),
+            ),
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("heads(~author_name(A))").unwrap()), @r#"
+        HeadsRange {
+            roots: None,
+            heads: VisibleHeads,
+            filter: AsFilter(
+                NotIn(Filter(AuthorName(Substring("A")))),
+            ),
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("heads(~foo)").unwrap()), @r#"
+        HeadsRange {
+            roots: None,
+            heads: VisibleHeads,
+            filter: NotIn(CommitRef(Symbol("foo"))),
+        }
+        "#);
+
+        // Heads of intersections with filters can be folded
+        insta::assert_debug_snapshot!(optimize(parse("heads(author_name(A) & ::foo ~ author_name(B))").unwrap()), @r#"
+        HeadsRange {
+            roots: None,
+            heads: CommitRef(Symbol("foo")),
+            filter: Intersection(
+                Filter(AuthorName(Substring("A"))),
+                AsFilter(
+                    NotIn(Filter(AuthorName(Substring("B")))),
+                ),
+            ),
+        }
+        "#);
+
+        // Heads of intersections with negations can be folded
+        insta::assert_debug_snapshot!(optimize(parse("heads(~foo & ~roots(bar) & ::baz)").unwrap()), @r#"
+        HeadsRange {
+            roots: None,
+            heads: CommitRef(Symbol("baz")),
+            filter: NotIn(
+                Union(
+                    CommitRef(Symbol("foo")),
+                    Roots(CommitRef(Symbol("bar"))),
+                ),
+            ),
         }
         "#);
     }
