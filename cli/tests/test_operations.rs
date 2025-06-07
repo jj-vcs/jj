@@ -1828,7 +1828,8 @@ fn test_op_diff_divergent_change() {
 
     Changed commits:
     ○  + rlvkpnrz?? 82ad1ba9 2b
-       + rlvkpnrz?? a7e9a63b 2a
+       - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+    ○  + rlvkpnrz?? a7e9a63b 2a
        - rlvkpnrz hidden 4f7a567a (empty) (no description set)
 
     Changed working copy default@:
@@ -1853,7 +1854,7 @@ fn test_op_diff_divergent_change() {
     Changed commits:
     ○  + rlvkpnrz da3f472d 2ab
        - rlvkpnrz hidden 82ad1ba9 2b
-       - rlvkpnrz hidden a7e9a63b 2a
+    ○  - rlvkpnrz hidden a7e9a63b 2a
 
     Changed working copy default@:
     + rlvkpnrz da3f472d 2ab
@@ -1877,8 +1878,23 @@ fn test_op_diff_divergent_change() {
 
     Changed commits:
     ○  + rlvkpnrz?? 82ad1ba9 2b
-       + rlvkpnrz?? a7e9a63b 2a
        - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+       diff --git a/file b/file
+       index d00491fd7e..5e0f51b37b 100644
+       --- a/file
+       +++ b/file
+       @@ -1,1 +1,2 @@
+        1
+       +2b
+    ○  + rlvkpnrz?? a7e9a63b 2a
+       - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+       diff --git a/file b/file
+       index d00491fd7e..13a46f22fa 100644
+       --- a/file
+       +++ b/file
+       @@ -1,1 +1,2 @@
+       +2a
+        1
 
     Changed working copy default@:
     + rlvkpnrz?? 82ad1ba9 2b
@@ -1903,7 +1919,22 @@ fn test_op_diff_divergent_change() {
     Changed commits:
     ○  + rlvkpnrz da3f472d 2ab
        - rlvkpnrz hidden 82ad1ba9 2b
-       - rlvkpnrz hidden a7e9a63b 2a
+       diff --git a/file b/file
+       index 5e0f51b37b..60327514e0 100644
+       --- a/file
+       +++ b/file
+       @@ -1,2 +1,3 @@
+       +2a
+        1
+        2b
+    ○  - rlvkpnrz hidden a7e9a63b 2a
+       diff --git a/file b/file
+       index d00491fd7e..13a46f22fa 100644
+       --- a/file
+       +++ b/file
+       @@ -1,1 +1,2 @@
+       +2a
+        1
 
     Changed working copy default@:
     + rlvkpnrz da3f472d 2ab

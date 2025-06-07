@@ -13,11 +13,14 @@
 // limitations under the License.
 
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::slice;
 use std::sync::Arc;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::backend::ChangeId;
+use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::graph::GraphEdgeType;
 use jj_lib::graph::TopoGroupedGraphIterator;
@@ -31,7 +34,6 @@ use jj_lib::refs::diff_named_remote_refs;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
-use jj_lib::revset::RevsetIteratorExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
@@ -176,20 +178,10 @@ pub fn show_op_diff(
     with_content_format: &LogContentFormat,
     diff_renderer: Option<&DiffRenderer>,
 ) -> Result<(), CommandError> {
-    // TODO: Do not pack divergent commits into a single change node. Instead,
-    // we can use predecessors to associate old/new commits (if "from" operation
-    // is an ancestor of "to"), and mark the remaining old commits as abandoned.
     let changes = compute_operation_commits_diff(current_repo, from_repo, to_repo)?;
     if !changes.is_empty() {
-        let primary_commit_ids = changes
-            .values()
-            .map(|change| {
-                let created = change.added_commits.first();
-                let abandoned = change.removed_commits.first();
-                created.or(abandoned).unwrap().id().clone()
-            })
-            .collect();
-        let revset = RevsetExpression::commits(primary_commit_ids).evaluate(current_repo)?;
+        let revset =
+            RevsetExpression::commits(changes.keys().cloned().collect()).evaluate(current_repo)?;
         writeln!(formatter)?;
         with_content_format.write(formatter, |formatter| {
             writeln!(formatter, "Changed commits:")
@@ -200,8 +192,7 @@ pub fn show_op_diff(
             let graph_iter = TopoGroupedGraphIterator::new(revset.iter_graph());
             for node in graph_iter {
                 let (commit_id, mut edges) = node?;
-                let commit = current_repo.store().get_commit(&commit_id)?;
-                let modified_change = changes.get(commit.change_id()).unwrap();
+                let modified_change = changes.get(&commit_id).unwrap();
                 // Omit "missing" edge to keep the graph concise.
                 edges.retain(|edge| edge.edge_type != GraphEdgeType::Missing);
 
@@ -240,8 +231,7 @@ pub fn show_op_diff(
         } else {
             for commit_id in revset.iter() {
                 let commit_id = commit_id?;
-                let commit = current_repo.store().get_commit(&commit_id)?;
-                let modified_change = changes.get(commit.change_id()).unwrap();
+                let modified_change = changes.get(&commit_id).unwrap();
                 with_content_format.write(formatter, |formatter| {
                     write_modified_change_summary(
                         formatter,
@@ -402,13 +392,13 @@ fn write_modified_change_summary(
     commit_summary_template: &TemplateRenderer<Commit>,
     modified_change: &ModifiedChange,
 ) -> Result<(), std::io::Error> {
-    for commit in &modified_change.added_commits {
+    for commit in modified_change.added_commits() {
         formatter.with_label("diff", |formatter| write!(formatter.labeled("added"), "+"))?;
         write!(formatter, " ")?;
         commit_summary_template.format(commit, formatter)?;
         writeln!(formatter)?;
     }
-    for commit in &modified_change.removed_commits {
+    for commit in modified_change.removed_commits() {
         formatter.with_label("diff", |formatter| {
             write!(formatter.labeled("removed"), "-")
         })?;
@@ -474,59 +464,103 @@ fn write_ref_target_summary(
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct ModifiedChange {
-    added_commits: Vec<Commit>,
-    removed_commits: Vec<Commit>,
+enum ModifiedChange {
+    /// Created or rewritten commit.
+    Existing {
+        commit: Commit,
+        predecessors: Vec<Commit>,
+    },
+    /// Abandoned commit.
+    Abandoned { commit: Commit },
 }
 
-/// Compute the changes in commits between two operations, returned as a
-/// `HashMap` from `ChangeId` to a `ModifiedChange` struct containing the added
-/// and removed commits for the change ID.
+impl ModifiedChange {
+    fn removed_commits(&self) -> &[Commit] {
+        match self {
+            Self::Existing { predecessors, .. } => predecessors,
+            Self::Abandoned { commit } => slice::from_ref(commit),
+        }
+    }
+
+    fn added_commits(&self) -> &[Commit] {
+        match self {
+            Self::Existing { commit, .. } => slice::from_ref(commit),
+            Self::Abandoned { .. } => &[],
+        }
+    }
+}
+
+/// Computes created/rewritten/abandoned commits between two operations.
+///
+/// Returns a map of [`ModifiedChange`]s containing the new and old commits. For
+/// created/rewritten commits, the map entries are indexed by new ids. For
+/// abandoned commits, the entries are indexed by old ids.
 fn compute_operation_commits_diff(
     repo: &dyn Repo,
     from_repo: &ReadonlyRepo,
     to_repo: &ReadonlyRepo,
-) -> Result<HashMap<ChangeId, ModifiedChange>, CommandError> {
-    let mut changes: HashMap<ChangeId, ModifiedChange> = HashMap::new();
-
+) -> Result<HashMap<CommitId, ModifiedChange>, CommandError> {
+    let store = repo.store();
     let from_heads = from_repo.view().heads().iter().cloned().collect_vec();
     let to_heads = to_repo.view().heads().iter().cloned().collect_vec();
     let from_expr = RevsetExpression::commits(from_heads);
     let to_expr = RevsetExpression::commits(to_heads);
 
-    let newly_visible = from_expr.range(&to_expr).evaluate(repo)?;
-    for commit in newly_visible.iter().commits(repo.store()) {
-        let commit = commit?;
-        let modified_change = changes
-            .entry(commit.change_id().clone())
-            .or_insert_with(|| ModifiedChange {
-                added_commits: vec![],
-                removed_commits: vec![],
-            });
-        modified_change.added_commits.push(commit);
+    // Collect hidden commits to find abandoned/rewritten changes.
+    let mut hidden_commits_by_change: HashMap<ChangeId, CommitId> = HashMap::new();
+    let mut abandoned_commits: HashSet<CommitId> = HashSet::new();
+    let newly_hidden = to_expr.range(&from_expr).evaluate(repo)?;
+    for item in newly_hidden.commit_change_ids() {
+        let (commit_id, change_id) = item?;
+        // Just pick one if diverged. Divergent commits shouldn't be considered
+        // "squashed" into the new commit.
+        hidden_commits_by_change
+            .entry(change_id)
+            .or_insert_with(|| commit_id.clone());
+        abandoned_commits.insert(commit_id);
     }
 
-    let newly_hidden = to_expr.range(&from_expr).evaluate(repo)?;
-    for commit in newly_hidden.iter().commits(repo.store()) {
-        let commit = commit?;
-        let modified_change = changes
-            .entry(commit.change_id().clone())
-            .or_insert_with(|| ModifiedChange {
-                added_commits: vec![],
-                removed_commits: vec![],
-            });
-        modified_change.removed_commits.push(commit);
+    // For each new commit, deduce predecessors based on change id.
+    let mut changes: HashMap<CommitId, ModifiedChange> = HashMap::new();
+    let newly_visible = from_expr.range(&to_expr).evaluate(repo)?;
+    for item in newly_visible.commit_change_ids() {
+        let (commit_id, change_id) = item?;
+        // TODO: Use predecessors to associate old/new commits.
+        let predecessor_ids = if let Some(id) = hidden_commits_by_change.get(&change_id) {
+            slice::from_ref(id)
+        } else {
+            &[]
+        };
+        for id in predecessor_ids {
+            abandoned_commits.remove(id);
+        }
+        let change = ModifiedChange::Existing {
+            commit: store.get_commit(&commit_id)?,
+            predecessors: predecessor_ids
+                .iter()
+                .map(|id| store.get_commit(id))
+                .try_collect()?,
+        };
+        changes.insert(commit_id, change);
+    }
+
+    // Record remainders as abandoned.
+    for commit_id in abandoned_commits {
+        let change = ModifiedChange::Abandoned {
+            commit: store.get_commit(&commit_id)?,
+        };
+        changes.insert(commit_id, change);
     }
 
     Ok(changes)
 }
 
-/// Displays the diffs of a modified change. The output differs based on the
-/// commits added and removed for the change.
-/// If there is a single added and removed commit, the diff is shown between the
-/// removed commit and the added commit rebased onto the removed commit's
-/// parents. If there is only a single added or single removed commit, the diff
-/// is shown of that commit's contents.
+/// Displays the diffs of a modified change.
+///
+/// For created/rewritten commits, the diff is shown between the old (or
+/// predecessor) commits and the new commit. The old commits are temporarily
+/// rebased onto the new commit's parents. For abandoned commits, the diff is
+/// shown of that commit's contents.
 fn show_change_diff(
     ui: &Ui,
     formatter: &mut dyn Formatter,
@@ -534,10 +568,11 @@ fn show_change_diff(
     change: &ModifiedChange,
     width: usize,
 ) -> Result<(), CommandError> {
-    match (&*change.removed_commits, &*change.added_commits) {
-        (predecessors @ ([] | [_]), [commit]) => {
-            // New or modified change. If the modification involved a rebase,
-            // show diffs from the rebased tree.
+    match change {
+        ModifiedChange::Existing {
+            commit,
+            predecessors,
+        } => {
             diff_renderer.show_inter_diff(
                 ui,
                 formatter,
@@ -547,12 +582,10 @@ fn show_change_diff(
                 width,
             )?;
         }
-        ([commit], []) => {
+        ModifiedChange::Abandoned { commit } => {
             // TODO: Should we show a reverse diff?
             diff_renderer.show_patch(ui, formatter, commit, &EverythingMatcher, width)?;
         }
-        ([_, _, ..], _) | (_, [_, _, ..]) => {}
-        ([], []) => panic!("ModifiedChange should have at least one entry"),
     }
     Ok(())
 }
