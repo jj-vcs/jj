@@ -1,6 +1,6 @@
 # Paying employers and their employees
 
-This is the list companies paying for contributions to Jujutsu. For each
+This is the list of companies paying for contributions to Jujutsu. For each
 company, all contributors are listed, whether it's part of their job to
 contribute or not.
 
