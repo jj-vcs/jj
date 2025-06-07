@@ -1593,16 +1593,16 @@ fn test_op_diff_patch() {
 
     Changed commits:
     ○  + mzvwutvl 6cbd01ae (empty) (no description set)
-    │ ○  - rlvkpnrz hidden 05a2969e (no description set)
-    ├─╯  diff --git a/file b/file
-    │    index 7898192261..6178079822 100644
-    │    --- a/file
-    │    +++ b/file
-    │    @@ -1,1 +1,1 @@
-    │    -a
-    │    +b
     ○  + qpvuntsm 7aa2ec5d (no description set)
        - qpvuntsm hidden 6b57e33c (no description set)
+       diff --git a/file b/file
+       index 7898192261..6178079822 100644
+       --- a/file
+       +++ b/file
+       @@ -1,1 +1,1 @@
+       -a
+       +b
+    ○  - rlvkpnrz hidden 05a2969e (no description set)
        diff --git a/file b/file
        index 7898192261..6178079822 100644
        --- a/file
@@ -1726,13 +1726,13 @@ fn test_op_diff_sibling() {
       To operation: 252ff3a5a0e6 (2001-02-03 08:05:12) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
 
     Changed commits:
-    ○  + qpvuntsm b1ca67e2 (empty) B
     ○    - mzvwutvl hidden 08c63613 (empty) A
     ├─╮
     │ ○  - kkmpptxz hidden 6c70a4f7 A.1
     │    A file1
     ○  - zsuskuln hidden 47b9525e A.2
        A file2
+    ○  + qpvuntsm b1ca67e2 (empty) B
 
     Changed working copy default@:
     + qpvuntsm b1ca67e2 (empty) B
@@ -1755,13 +1755,13 @@ fn test_op_diff_sibling() {
       To operation: 9f1e89c03a5b (2001-02-03 08:05:11) new empty commit
 
     Changed commits:
+    ○  - qpvuntsm hidden b1ca67e2 (empty) B
     ○    + mzvwutvl 08c63613 (empty) A
     ├─╮
     │ ○  + kkmpptxz 6c70a4f7 A.1
     │    A file1
     ○  + zsuskuln 47b9525e A.2
        A file2
-    ○  - qpvuntsm hidden b1ca67e2 (empty) B
 
     Changed working copy default@:
     + mzvwutvl 08c63613 (empty) A
@@ -2529,16 +2529,16 @@ fn test_op_show_patch() {
 
     Changed commits:
     ○  + mzvwutvl 6cbd01ae (empty) (no description set)
-    │ ○  - rlvkpnrz hidden 05a2969e (no description set)
-    ├─╯  diff --git a/file b/file
-    │    index 7898192261..6178079822 100644
-    │    --- a/file
-    │    +++ b/file
-    │    @@ -1,1 +1,1 @@
-    │    -a
-    │    +b
     ○  + qpvuntsm 7aa2ec5d (no description set)
        - qpvuntsm hidden 6b57e33c (no description set)
+       diff --git a/file b/file
+       index 7898192261..6178079822 100644
+       --- a/file
+       +++ b/file
+       @@ -1,1 +1,1 @@
+       -a
+       +b
+    ○  - rlvkpnrz hidden 05a2969e (no description set)
        diff --git a/file b/file
        index 7898192261..6178079822 100644
        --- a/file
@@ -2599,16 +2599,16 @@ fn test_op_show_patch() {
     │
     │  Changed commits:
     │  ○  + mzvwutvl 6cbd01ae (empty) (no description set)
-    │  │ ○  - rlvkpnrz hidden 05a2969e (no description set)
-    │  ├─╯  diff --git a/file b/file
-    │  │    index 7898192261..6178079822 100644
-    │  │    --- a/file
-    │  │    +++ b/file
-    │  │    @@ -1,1 +1,1 @@
-    │  │    -a
-    │  │    +b
     │  ○  + qpvuntsm 7aa2ec5d (no description set)
     │     - qpvuntsm hidden 6b57e33c (no description set)
+    │     diff --git a/file b/file
+    │     index 7898192261..6178079822 100644
+    │     --- a/file
+    │     +++ b/file
+    │     @@ -1,1 +1,1 @@
+    │     -a
+    │     +b
+    │  ○  - rlvkpnrz hidden 05a2969e (no description set)
     │     diff --git a/file b/file
     │     index 7898192261..6178079822 100644
     │     --- a/file

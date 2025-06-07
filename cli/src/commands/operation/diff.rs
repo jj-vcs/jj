@@ -13,17 +13,13 @@
 // limitations under the License.
 
 use std::collections::HashMap;
-use std::convert::Infallible;
 use std::sync::Arc;
 
 use clap_complete::ArgValueCandidates;
-use indexmap::IndexMap;
 use itertools::Itertools as _;
 use jj_lib::backend::ChangeId;
-use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
-use jj_lib::dag_walk;
-use jj_lib::graph::GraphEdge;
+use jj_lib::graph::GraphEdgeType;
 use jj_lib::graph::TopoGroupedGraphIterator;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::op_store::RefTarget;
@@ -35,6 +31,7 @@ use jj_lib::refs::diff_named_remote_refs;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::revset;
+use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetIteratorExt as _;
 
 use crate::cli_util::CommandHelper;
@@ -180,35 +177,20 @@ pub fn show_op_diff(
     with_content_format: &LogContentFormat,
     diff_renderer: Option<&DiffRenderer>,
 ) -> Result<(), CommandError> {
+    // TODO: Do not pack divergent commits into a single change node. Instead,
+    // we can use predecessors to associate old/new commits (if "from" operation
+    // is an ancestor of "to"), and mark the remaining old commits as abandoned.
     let changes = compute_operation_commits_diff(current_repo, from_repo, to_repo)?;
-
-    let commit_id_change_id_map: HashMap<CommitId, ChangeId> = changes
-        .iter()
-        .flat_map(|(change_id, modified_change)| {
-            itertools::chain(
-                &modified_change.added_commits,
-                &modified_change.removed_commits,
-            )
-            .map(|commit| (commit.id().clone(), change_id.clone()))
-        })
-        .collect();
-
-    let change_parents: HashMap<_, _> = changes
-        .iter()
-        .map(|(change_id, modified_change)| {
-            let parent_change_ids = get_parent_changes(modified_change, &commit_id_change_id_map);
-            (change_id.clone(), parent_change_ids)
-        })
-        .collect();
-
-    // Order changes in reverse topological order.
-    let ordered_change_ids = dag_walk::topo_order_reverse(
-        changes.keys().cloned().collect_vec(),
-        |change_id: &ChangeId| change_id.clone(),
-        |change_id: &ChangeId| change_parents.get(change_id).unwrap().clone(),
-    );
-
-    if !ordered_change_ids.is_empty() {
+    if !changes.is_empty() {
+        let primary_commit_ids = changes
+            .values()
+            .map(|change| {
+                let created = change.added_commits.first();
+                let abandoned = change.removed_commits.first();
+                created.or(abandoned).unwrap().id().clone()
+            })
+            .collect();
+        let revset = RevsetExpression::commits(primary_commit_ids).evaluate(current_repo)?;
         writeln!(formatter)?;
         with_content_format.write(formatter, |formatter| {
             writeln!(formatter, "Changed commits:")
@@ -216,26 +198,16 @@ pub fn show_op_diff(
         if let Some(graph_style) = graph_style {
             let mut raw_output = formatter.raw()?;
             let mut graph = get_graphlog(graph_style, raw_output.as_mut());
-
-            let graph_iter = TopoGroupedGraphIterator::new(ordered_change_ids.iter().map(
-                |change_id| -> Result<_, Infallible> {
-                    let parent_change_ids = change_parents.get(change_id).unwrap();
-                    Ok((
-                        change_id.clone(),
-                        parent_change_ids
-                            .iter()
-                            .map(|parent_change_id| GraphEdge::direct(parent_change_id.clone()))
-                            .collect_vec(),
-                    ))
-                },
-            ));
-
+            let graph_iter = TopoGroupedGraphIterator::new(revset.iter_graph());
             for node in graph_iter {
-                let (change_id, edges) = node.unwrap();
-                let modified_change = changes.get(&change_id).unwrap();
+                let (commit_id, mut edges) = node?;
+                let commit = current_repo.store().get_commit(&commit_id)?;
+                let modified_change = changes.get(commit.change_id()).unwrap();
+                // Omit "missing" edge to keep the graph concise.
+                edges.retain(|edge| edge.edge_type != GraphEdgeType::Missing);
 
                 let mut buffer = vec![];
-                let within_graph = with_content_format.sub_width(graph.width(&change_id, &edges));
+                let within_graph = with_content_format.sub_width(graph.width(&commit_id, &edges));
                 within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
                     write_modified_change_summary(
                         formatter,
@@ -260,15 +232,17 @@ pub fn show_op_diff(
                 // TODO: customize node symbol?
                 let node_symbol = "○";
                 graph.add_node(
-                    &change_id,
+                    &commit_id,
                     &edges,
                     node_symbol,
                     &String::from_utf8_lossy(&buffer),
                 )?;
             }
         } else {
-            for change_id in ordered_change_ids {
-                let modified_change = changes.get(&change_id).unwrap();
+            for commit_id in revset.iter() {
+                let commit_id = commit_id?;
+                let commit = current_repo.store().get_commit(&commit_id)?;
+                let modified_change = changes.get(commit.change_id()).unwrap();
                 with_content_format.write(formatter, |formatter| {
                     write_modified_change_summary(
                         formatter,
@@ -500,33 +474,6 @@ fn write_ref_target_summary(
     Ok(())
 }
 
-/// Returns the change IDs of the parents of the given `modified_change`, which
-/// are the parents of all newly added commits for the change, or the parents of
-/// all removed commits if there are no added commits.
-fn get_parent_changes(
-    modified_change: &ModifiedChange,
-    commit_id_change_id_map: &HashMap<CommitId, ChangeId>,
-) -> Vec<ChangeId> {
-    // TODO: how should we handle multiple added or removed commits?
-    if !modified_change.added_commits.is_empty() {
-        modified_change
-            .added_commits
-            .iter()
-            .flat_map(|commit| commit.parent_ids())
-            .filter_map(|parent_id| commit_id_change_id_map.get(parent_id).cloned())
-            .unique()
-            .collect_vec()
-    } else {
-        modified_change
-            .removed_commits
-            .iter()
-            .flat_map(|commit| commit.parent_ids())
-            .filter_map(|parent_id| commit_id_change_id_map.get(parent_id).cloned())
-            .unique()
-            .collect_vec()
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct ModifiedChange {
     added_commits: Vec<Commit>,
@@ -540,8 +487,8 @@ fn compute_operation_commits_diff(
     repo: &dyn Repo,
     from_repo: &ReadonlyRepo,
     to_repo: &ReadonlyRepo,
-) -> Result<IndexMap<ChangeId, ModifiedChange>, CommandError> {
-    let mut changes: IndexMap<ChangeId, ModifiedChange> = IndexMap::new();
+) -> Result<HashMap<ChangeId, ModifiedChange>, CommandError> {
+    let mut changes: HashMap<ChangeId, ModifiedChange> = HashMap::new();
 
     let from_heads = from_repo.view().heads().iter().cloned().collect_vec();
     let to_heads = to_repo.view().heads().iter().cloned().collect_vec();
