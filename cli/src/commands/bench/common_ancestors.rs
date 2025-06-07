@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::slice;
+
 use jj_lib::repo::Repo as _;
 
 use super::run_bench;
@@ -39,7 +41,8 @@ pub fn cmd_bench_common_ancestors(
     let commit1 = workspace_command.resolve_single_rev(ui, &args.revision1)?;
     let commit2 = workspace_command.resolve_single_rev(ui, &args.revision2)?;
     let index = workspace_command.repo().index();
-    let routine = || index.common_ancestors(&[commit1.id().clone()], &[commit2.id().clone()]);
+    let routine =
+        || index.common_ancestors(slice::from_ref(commit1.id()), slice::from_ref(commit2.id()));
     run_bench(
         ui,
         &format!("common-ancestors-{}-{}", args.revision1, args.revision2),
