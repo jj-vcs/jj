@@ -706,6 +706,7 @@ impl AncestorsBitSet {
 }
 
 #[cfg(test)]
+#[allow(clippy::cloned_ref_to_slice_refs)]
 mod tests {
     use itertools::Itertools as _;
 
