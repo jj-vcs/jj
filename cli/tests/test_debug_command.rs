@@ -88,6 +88,33 @@ fn test_debug_revset() {
     [EOF]
     ");
 
+    let output = work_dir.run_jj(["debug", "revset", "--no-optimize", "root() & ~@"]);
+    assert_snapshot!(output, @r"
+    -- Parsed:
+    Intersection(
+        ..
+    )
+
+    -- Resolved:
+    Intersection(
+        ..
+    )
+
+    -- Backend:
+    Intersection(
+        ..
+    )
+
+    -- Evaluated:
+    RevsetImpl {
+        ..
+    }
+
+    -- Commit IDs:
+    0000000000000000000000000000000000000000
+    [EOF]
+    ");
+
     let output = work_dir.run_jj(["debug", "revset", "--no-resolve", "foo & ~bar"]);
     assert_snapshot!(output, @r"
     -- Parsed:
@@ -97,6 +124,22 @@ fn test_debug_revset() {
 
     -- Optimized:
     Difference(
+        ..
+    )
+
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj([
+        "debug",
+        "revset",
+        "--no-resolve",
+        "--no-optimize",
+        "foo & ~bar",
+    ]);
+    assert_snapshot!(output, @r"
+    -- Parsed:
+    Intersection(
         ..
     )
 

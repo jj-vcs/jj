@@ -32,6 +32,9 @@ pub struct DebugRevsetArgs {
     /// Do not resolve and evaluate expression
     #[arg(long)]
     no_resolve: bool,
+    /// Do not rewrite expression to optimized form
+    #[arg(long)]
+    no_optimize: bool,
 }
 
 pub fn cmd_debug_revset(
@@ -50,7 +53,9 @@ pub fn cmd_debug_revset(
     writeln!(ui.stdout(), "{expression:#?}")?;
     writeln!(ui.stdout())?;
 
-    if args.no_resolve {
+    if args.no_resolve && args.no_optimize {
+        return Ok(());
+    } else if args.no_resolve {
         let expression = revset::optimize(expression);
         writeln!(ui.stdout(), "-- Optimized:")?;
         writeln!(ui.stdout(), "{expression:#?}")?;
@@ -63,15 +68,17 @@ pub fn cmd_debug_revset(
         command.revset_extensions().symbol_resolvers(),
         workspace_command.id_prefix_context(),
     );
-    let expression = expression.resolve_user_expression(repo, &symbol_resolver)?;
+    let mut expression = expression.resolve_user_expression(repo, &symbol_resolver)?;
     writeln!(ui.stdout(), "-- Resolved:")?;
     writeln!(ui.stdout(), "{expression:#?}")?;
     writeln!(ui.stdout())?;
 
-    let expression = revset::optimize(expression);
-    writeln!(ui.stdout(), "-- Optimized:")?;
-    writeln!(ui.stdout(), "{expression:#?}")?;
-    writeln!(ui.stdout())?;
+    if !args.no_optimize {
+        expression = revset::optimize(expression);
+        writeln!(ui.stdout(), "-- Optimized:")?;
+        writeln!(ui.stdout(), "{expression:#?}")?;
+        writeln!(ui.stdout())?;
+    }
 
     let backend_expression = expression.to_backend_expression(repo);
     writeln!(ui.stdout(), "-- Backend:")?;
