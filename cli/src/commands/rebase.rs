@@ -382,6 +382,7 @@ pub(crate) fn cmd_rebase(
             delete_abandoned_bookmarks: false,
         },
         simplify_ancestor_merge: false,
+        preserve_predecessors: false,
     };
     let mut workspace_command = command.workspace_helper(ui)?;
     let loc = if !args.revisions.is_empty() {

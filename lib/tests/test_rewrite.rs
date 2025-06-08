@@ -1716,6 +1716,7 @@ fn test_empty_commit_option(empty_behavior: EmptyBehaviour) {
                 delete_abandoned_bookmarks: false,
             },
             simplify_ancestor_merge: true,
+            preserve_predecessors: false,
         },
     );
 
@@ -1851,6 +1852,7 @@ fn test_rebase_abandoning_empty() {
             delete_abandoned_bookmarks: false,
         },
         simplify_ancestor_merge: true,
+        preserve_predecessors: false,
     };
     let rewriter = CommitRewriter::new(tx.repo_mut(), commit_b, vec![commit_b2.id().clone()]);
     rebase_commit_with_options(rewriter, &rebase_options).unwrap();
