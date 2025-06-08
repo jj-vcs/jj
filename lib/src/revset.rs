@@ -1652,41 +1652,77 @@ fn fold_redundant_expression<St: ExpressionState>(
     })
 }
 
+/// Extracts `heads` from a revset expression `ancestors(heads)`. Unfolds
+/// generations as necessary, so `ancestors(heads, 2..)` would return
+/// `ancestors(heads, 2..3)`, which is equivalent to `heads--`.
+fn ancestors_to_heads<St: ExpressionState>(
+    expression: &RevsetExpression<St>,
+) -> Result<Rc<RevsetExpression<St>>, ()> {
+    match expression {
+        RevsetExpression::Ancestors {
+            heads,
+            generation: GENERATION_RANGE_FULL,
+        } => Ok(heads.clone()),
+        RevsetExpression::Ancestors {
+            heads,
+            generation: Range {
+                start,
+                end: u64::MAX,
+            },
+        } => Ok(heads.ancestors_at(*start)),
+        _ => Err(()),
+    }
+}
+
+/// Folds `::x | ::y` into `::(x | y)`, and `~::x & ~::y` into `~::(x | y)`.
+/// Does not fold intersections of negations involving non-ancestors
+/// expressions, since this can result in less efficient evaluation, such as for
+/// `~::x & ~y`, which should be `x.. ~ y` instead of `~(::x | y)`.
+fn fold_ancestors_union<St: ExpressionState>(
+    expression: &Rc<RevsetExpression<St>>,
+) -> TransformedExpression<St> {
+    fn union_ancestors<St: ExpressionState>(
+        expression1: &Rc<RevsetExpression<St>>,
+        expression2: &Rc<RevsetExpression<St>>,
+    ) -> TransformedExpression<St> {
+        let heads1 = ancestors_to_heads(expression1).ok()?;
+        let heads2 = ancestors_to_heads(expression2).ok()?;
+        Some(heads1.union(&heads2).ancestors())
+    }
+
+    transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
+        RevsetExpression::Union(expression1, expression2) => {
+            // ::x | ::y -> ::(x | y)
+            union_ancestors(expression1, expression2)
+        }
+        RevsetExpression::Intersection(expression1, expression2) => {
+            match (expression1.as_ref(), expression2.as_ref()) {
+                // ~::x & ~::y -> ~(::x | ::y) -> ~::(x | y)
+                (RevsetExpression::NotIn(complement1), RevsetExpression::NotIn(complement2)) => {
+                    union_ancestors(complement1, complement2).map(|expression| expression.negated())
+                }
+                _ => None,
+            }
+        }
+        _ => None,
+    })
+}
+
 fn to_difference_range<St: ExpressionState>(
     expression: &Rc<RevsetExpression<St>>,
     complement: &Rc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
-    match (expression.as_ref(), complement.as_ref()) {
-        // ::heads & ~(::roots) -> roots..heads
-        (
-            RevsetExpression::Ancestors { heads, generation },
-            RevsetExpression::Ancestors {
-                heads: roots,
-                generation: GENERATION_RANGE_FULL,
-            },
-        ) => Some(Rc::new(RevsetExpression::Range {
-            roots: roots.clone(),
-            heads: heads.clone(),
-            generation: generation.clone(),
-        })),
-        // ::heads & ~(::roots-) -> ::heads & ~ancestors(roots, 1..) -> roots-..heads
-        (
-            RevsetExpression::Ancestors { heads, generation },
-            RevsetExpression::Ancestors {
-                heads: roots,
-                generation:
-                    Range {
-                        start: roots_start,
-                        end: u64::MAX,
-                    },
-            },
-        ) => Some(Rc::new(RevsetExpression::Range {
-            roots: roots.ancestors_at(*roots_start),
-            heads: heads.clone(),
-            generation: generation.clone(),
-        })),
-        _ => None,
-    }
+    let RevsetExpression::Ancestors { heads, generation } = expression.as_ref() else {
+        return None;
+    };
+    let roots = ancestors_to_heads(complement).ok()?;
+    // ::heads & ~(::roots) -> roots..heads
+    // ::heads & ~(::roots-) -> ::heads & ~ancestors(roots, 1..) -> roots-..heads
+    Some(Rc::new(RevsetExpression::Range {
+        roots,
+        heads: heads.clone(),
+        generation: generation.clone(),
+    }))
 }
 
 /// Transforms negative intersection to difference. Redundant intersections like
@@ -1833,6 +1869,7 @@ pub fn optimize<St: ExpressionState>(
     let expression = fold_generation(&expression).unwrap_or(expression);
     let expression = flatten_intersections(&expression).unwrap_or(expression);
     let expression = internalize_filter(&expression).unwrap_or(expression);
+    let expression = fold_ancestors_union(&expression).unwrap_or(expression);
     let expression = fold_difference(&expression).unwrap_or(expression);
     fold_not_in_ancestors(&expression).unwrap_or(expression)
 }
@@ -4419,6 +4456,73 @@ mod tests {
                 CommitRef(Symbol("d")),
             ),
             CommitRef(Symbol("e")),
+        )
+        "#);
+    }
+
+    #[test]
+    fn test_optimize_ancestors_union() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+
+        // Ancestors should be folded in unions.
+        insta::assert_debug_snapshot!(optimize(parse("::a | ::b | ::c | ::d").unwrap()), @r#"
+        Ancestors {
+            heads: Union(
+                Union(
+                    CommitRef(Symbol("a")),
+                    CommitRef(Symbol("b")),
+                ),
+                Union(
+                    CommitRef(Symbol("c")),
+                    CommitRef(Symbol("d")),
+                ),
+            ),
+            generation: 0..18446744073709551615,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("ancestors(a-) | ancestors(b)").unwrap()), @r#"
+        Ancestors {
+            heads: Union(
+                Ancestors {
+                    heads: CommitRef(Symbol("a")),
+                    generation: 1..2,
+                },
+                CommitRef(Symbol("b")),
+            ),
+            generation: 0..18446744073709551615,
+        }
+        "#);
+
+        // Negated ancestors should be folded at the start of an intersection.
+        insta::assert_debug_snapshot!(optimize(parse("~::a- & ~::b & ~::c & ::d").unwrap()), @r#"
+        Range {
+            roots: Union(
+                Union(
+                    Ancestors {
+                        heads: CommitRef(Symbol("a")),
+                        generation: 1..2,
+                    },
+                    CommitRef(Symbol("b")),
+                ),
+                CommitRef(Symbol("c")),
+            ),
+            heads: CommitRef(Symbol("d")),
+            generation: 0..18446744073709551615,
+        }
+        "#);
+
+        // Ancestors with a bounded generation range should not be merged.
+        insta::assert_debug_snapshot!(optimize(parse("ancestors(a, 2) | ancestors(b)").unwrap()), @r#"
+        Union(
+            Ancestors {
+                heads: CommitRef(Symbol("a")),
+                generation: 0..2,
+            },
+            Ancestors {
+                heads: CommitRef(Symbol("b")),
+                generation: 0..18446744073709551615,
+            },
         )
         "#);
     }
