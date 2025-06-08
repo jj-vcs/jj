@@ -655,6 +655,136 @@ fn test_resolve_op_parents_children() {
 }
 
 #[test]
+fn test_walk_ancestors() {
+    let test_repo = TestRepo::init();
+    let repo_0 = test_repo.repo;
+    let loader = repo_0.loader();
+
+    fn op_parents<const N: usize>(op: &Operation) -> [Operation; N] {
+        let parents: Vec<_> = op.parents().try_collect().unwrap();
+        parents.try_into().unwrap()
+    }
+
+    fn collect_ancestors(head_ops: &[Operation]) -> Vec<Operation> {
+        op_walk::walk_ancestors(head_ops).try_collect().unwrap()
+    }
+
+    fn collect_ancestors_range(head_ops: &[Operation], root_ops: &[Operation]) -> Vec<Operation> {
+        op_walk::walk_ancestors_range(head_ops, root_ops)
+            .try_collect()
+            .unwrap()
+    }
+
+    // Set up operation graph:
+    // H
+    // G
+    // |\
+    // | F
+    // E |
+    // D |
+    // |/
+    // C
+    // | B
+    // A |
+    // |/
+    // 0 (initial)
+    let repo_a = repo_0.start_transaction().commit("op A").unwrap();
+    let repo_b = repo_0
+        .start_transaction()
+        .write("op B")
+        .unwrap()
+        .leave_unpublished();
+    let repo_c = repo_a.start_transaction().commit("op C").unwrap();
+    let repo_d = repo_c.start_transaction().commit("op D").unwrap();
+    let tx_e = repo_d.start_transaction();
+    let tx_f = repo_c.start_transaction();
+    let repo_g = testutils::commit_transactions(vec![tx_e, tx_f]);
+    let [op_e, op_f] = op_parents(repo_g.operation());
+    let repo_h = repo_g.start_transaction().commit("op H").unwrap();
+
+    // At merge, parents are visited in forward order, which isn't important.
+    assert_eq!(
+        collect_ancestors(slice::from_ref(repo_h.operation())),
+        [
+            repo_h.operation().clone(),
+            repo_g.operation().clone(),
+            op_e.clone(),
+            repo_d.operation().clone(),
+            op_f.clone(),
+            repo_c.operation().clone(),
+            repo_a.operation().clone(),
+            loader.root_operation(),
+        ]
+    );
+
+    // Ancestors of multiple heads
+    assert_eq!(
+        collect_ancestors(&[op_f.clone(), repo_b.operation().clone()]),
+        [
+            op_f.clone(),
+            repo_c.operation().clone(),
+            repo_a.operation().clone(),
+            repo_b.operation().clone(),
+            loader.root_operation(),
+        ]
+    );
+
+    // Exclude direct ancestor
+    assert_eq!(
+        collect_ancestors_range(
+            slice::from_ref(repo_h.operation()),
+            slice::from_ref(repo_d.operation()),
+        ),
+        [
+            repo_h.operation().clone(),
+            repo_g.operation().clone(),
+            op_e.clone(),
+            op_f.clone(),
+        ]
+    );
+
+    // Exclude indirect ancestor
+    assert_eq!(
+        collect_ancestors_range(slice::from_ref(&op_e), slice::from_ref(&op_f)),
+        [op_e.clone(), repo_d.operation().clone()]
+    );
+
+    // Exclude far ancestor
+    assert_eq!(
+        collect_ancestors_range(
+            slice::from_ref(repo_h.operation()),
+            slice::from_ref(repo_a.operation()),
+        ),
+        [
+            repo_h.operation().clone(),
+            repo_g.operation().clone(),
+            op_e.clone(),
+            repo_d.operation().clone(),
+            op_f.clone(),
+            repo_c.operation().clone(),
+        ]
+    );
+
+    // Exclude ancestors of descendant
+    assert_eq!(
+        collect_ancestors_range(
+            slice::from_ref(repo_g.operation()),
+            slice::from_ref(repo_h.operation()),
+        ),
+        []
+    );
+
+    // Exclude multiple roots
+    assert_eq!(
+        collect_ancestors_range(
+            slice::from_ref(repo_g.operation()),
+            &[repo_d.operation().clone(), op_f.clone()],
+        ),
+        [repo_g.operation().clone(), op_e.clone()]
+    );
+}
+
+#[test]
 fn test_gc() {
     let settings = stable_op_id_settings();
     let test_repo = TestRepo::init_with_settings(&settings);
