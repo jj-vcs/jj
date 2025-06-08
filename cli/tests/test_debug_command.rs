@@ -58,35 +58,50 @@ fn test_debug_revset() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
+    let mut insta_settings = insta::Settings::clone_current();
+    insta_settings.add_filter(r"(?m)(^    .*\n)+", "    ..\n");
+    let _guard = insta_settings.bind_to_scope();
+
     let output = work_dir.run_jj(["debug", "revset", "root()"]);
-    insta::with_settings!({filters => vec![
-        (r"(?m)(^    .*\n)+", "    ..\n"),
-    ]}, {
-        assert_snapshot!(output, @r"
-        -- Parsed:
-        Root
+    assert_snapshot!(output, @r"
+    -- Parsed:
+    Root
 
-        -- Resolved:
-        Root
+    -- Resolved:
+    Root
 
-        -- Optimized:
-        Root
+    -- Optimized:
+    Root
 
-        -- Backend:
-        Commits(
-            ..
-        )
+    -- Backend:
+    Commits(
+        ..
+    )
 
-        -- Evaluated:
-        RevsetImpl {
-            ..
-        }
+    -- Evaluated:
+    RevsetImpl {
+        ..
+    }
 
-        -- Commit IDs:
-        0000000000000000000000000000000000000000
-        [EOF]
-        ");
-    });
+    -- Commit IDs:
+    0000000000000000000000000000000000000000
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["debug", "revset", "--no-resolve", "foo & ~bar"]);
+    assert_snapshot!(output, @r"
+    -- Parsed:
+    Intersection(
+        ..
+    )
+
+    -- Optimized:
+    Difference(
+        ..
+    )
+
+    [EOF]
+    ");
 }
 
 #[test]

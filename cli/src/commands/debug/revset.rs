@@ -29,6 +29,9 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct DebugRevsetArgs {
     revision: String,
+    /// Do not resolve and evaluate expression
+    #[arg(long)]
+    no_resolve: bool,
 }
 
 pub fn cmd_debug_revset(
@@ -46,6 +49,14 @@ pub fn cmd_debug_revset(
     writeln!(ui.stdout(), "-- Parsed:")?;
     writeln!(ui.stdout(), "{expression:#?}")?;
     writeln!(ui.stdout())?;
+
+    if args.no_resolve {
+        let expression = revset::optimize(expression);
+        writeln!(ui.stdout(), "-- Optimized:")?;
+        writeln!(ui.stdout(), "{expression:#?}")?;
+        writeln!(ui.stdout())?;
+        return Ok(());
+    }
 
     let symbol_resolver = revset_util::default_symbol_resolver(
         repo,
