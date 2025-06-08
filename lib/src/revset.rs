@@ -588,11 +588,9 @@ pub enum ResolvedPredicateExpression {
     /// Set expression to be evaluated as filter. This is typically a subtree
     /// node of `Union` with a pure filter predicate.
     Set(Box<ResolvedExpression>),
-    NotIn(Box<ResolvedPredicateExpression>),
-    Union(
-        Box<ResolvedPredicateExpression>,
-        Box<ResolvedPredicateExpression>,
-    ),
+    NotIn(Box<Self>),
+    Union(Box<Self>, Box<Self>),
+    Intersection(Box<Self>, Box<Self>),
 }
 
 /// Describes evaluation plan of revset expression.
@@ -2735,10 +2733,16 @@ impl VisibilityResolutionContext<'_> {
                 let predicate2 = self.resolve_predicate(expression2);
                 ResolvedPredicateExpression::Union(predicate1.into(), predicate2.into())
             }
-            // Intersection of filters should have been substituted by optimize().
-            // If it weren't, just fall back to the set evaluation path.
-            RevsetExpression::Intersection(..) | RevsetExpression::Difference(..) => {
-                ResolvedPredicateExpression::Set(self.resolve(expression).into())
+            RevsetExpression::Intersection(expression1, expression2) => {
+                let predicate1 = self.resolve_predicate(expression1);
+                let predicate2 = self.resolve_predicate(expression2);
+                ResolvedPredicateExpression::Intersection(predicate1.into(), predicate2.into())
+            }
+            RevsetExpression::Difference(expression1, expression2) => {
+                let predicate1 = self.resolve_predicate(expression1);
+                let predicate2 = self.resolve_predicate(expression2);
+                let predicate2 = ResolvedPredicateExpression::NotIn(predicate2.into());
+                ResolvedPredicateExpression::Intersection(predicate1.into(), predicate2.into())
             }
         }
     }

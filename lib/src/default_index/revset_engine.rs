@@ -1059,6 +1059,11 @@ impl EvaluationContext<'_> {
                 let set2 = self.evaluate_predicate(expression2)?;
                 Ok(Box::new(UnionRevset { set1, set2 }))
             }
+            ResolvedPredicateExpression::Intersection(expression1, expression2) => {
+                let set1 = self.evaluate_predicate(expression1)?;
+                let set2 = self.evaluate_predicate(expression2)?;
+                Ok(Box::new(IntersectionRevset { set1, set2 }))
+            }
         }
     }
 

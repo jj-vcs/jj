@@ -3738,6 +3738,20 @@ fn test_evaluate_expression_filter_combinator() {
     assert_eq!(
         resolve_commit_ids(
             mut_repo,
+            ".. & (description(1) & description(commit) | description(2))"
+        ),
+        vec![commit2.id().clone(), commit1.id().clone()],
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            ".. & (description(1) ~ description(commit) | description(2))"
+        ),
+        vec![commit2.id().clone()],
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
             &format!("{}.. & (description(1) | description(2))", commit1.id()),
         ),
         vec![commit2.id().clone()],
