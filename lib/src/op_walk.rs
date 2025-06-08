@@ -271,6 +271,63 @@ pub fn walk_ancestors(
     .map_ok(|OperationByEndTime(op)| op)
 }
 
+/// Walks ancestors from `head_ops` in reverse topological order, excluding
+/// ancestors of `root_ops`.
+pub fn walk_ancestors_range(
+    head_ops: &[Operation],
+    root_ops: &[Operation],
+) -> impl Iterator<Item = OpStoreResult<Operation>> + use<> {
+    let mut start_ops = itertools::chain(head_ops, root_ops)
+        .cloned()
+        .map(OperationByEndTime)
+        .collect_vec();
+
+    // Consume items until root_ops to get rid of unwanted ops.
+    let leading_items = if root_ops.is_empty() {
+        vec![]
+    } else {
+        let unwanted_ids = root_ops.iter().map(|op| op.id().clone()).collect();
+        collect_ancestors_until_roots(&mut start_ops, unwanted_ids)
+    };
+
+    // Lazily load operations based on timestamp-based heuristic. This works so long
+    // as the operation history is mostly linear.
+    let trailing_iter = dag_walk::topo_order_reverse_lazy_ok(
+        start_ops.into_iter().map(Ok),
+        |OperationByEndTime(op)| op.id().clone(),
+        |OperationByEndTime(op)| op.parents().map_ok(OperationByEndTime).collect_vec(),
+        |_| panic!("graph has cycle"),
+    )
+    .map_ok(|OperationByEndTime(op)| op);
+    itertools::chain(leading_items, trailing_iter)
+}
+
+fn collect_ancestors_until_roots(
+    start_ops: &mut Vec<OperationByEndTime>,
+    mut unwanted_ids: HashSet<OperationId>,
+) -> Vec<OpStoreResult<Operation>> {
+    let sorted_ops = match dag_walk::topo_order_reverse_chunked(
+        start_ops,
+        |OperationByEndTime(op)| op.id().clone(),
+        |OperationByEndTime(op)| op.parents().map_ok(OperationByEndTime).collect_vec(),
+        |_| panic!("graph has cycle"),
+    ) {
+        Ok(sorted_ops) => sorted_ops,
+        Err(err) => return vec![Err(err)],
+    };
+    let mut items = Vec::new();
+    for OperationByEndTime(op) in sorted_ops {
+        if unwanted_ids.contains(op.id()) {
+            unwanted_ids.extend(op.parent_ids().iter().cloned());
+        } else {
+            items.push(Ok(op));
+        }
+    }
+    // Don't visit ancestors of unwanted ops further.
+    start_ops.retain(|OperationByEndTime(op)| !unwanted_ids.contains(op.id()));
+    items
+}
+
 /// Stats about `reparent_range()`.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReparentStats {
