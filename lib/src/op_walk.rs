@@ -355,18 +355,9 @@ pub fn reparent_range(
     head_ops: &[Operation],
     dest_op: &Operation,
 ) -> OpStoreResult<ReparentStats> {
-    // Calculate ::root_ops to exclude them from the source range and count the
-    // number of operations that become unreachable.
-    let mut unwanted_ids: HashSet<_> = walk_ancestors(root_ops)
-        .map_ok(|op| op.id().clone())
-        .try_collect()?;
-    let ops_to_reparent: Vec<_> = walk_ancestors(head_ops)
-        .filter_ok(|op| !unwanted_ids.contains(op.id()))
-        .try_collect()?;
-    for op in walk_ancestors(slice::from_ref(dest_op)) {
-        unwanted_ids.remove(op?.id());
-    }
-    let unreachable_ids = unwanted_ids;
+    let ops_to_reparent: Vec<_> = walk_ancestors_range(head_ops, root_ops).try_collect()?;
+    let unreachable_count = walk_ancestors_range(root_ops, slice::from_ref(dest_op))
+        .process_results(|iter| iter.count())?;
 
     assert!(
         ops_to_reparent
@@ -397,6 +388,6 @@ pub fn reparent_range(
     Ok(ReparentStats {
         new_head_ids,
         rewritten_count: rewritten_ids.len(),
-        unreachable_count: unreachable_ids.len(),
+        unreachable_count,
     })
 }
