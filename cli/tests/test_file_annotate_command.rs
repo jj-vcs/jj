@@ -206,8 +206,8 @@ fn test_annotate_abandoned() {
 
     let output = work_dir.run_jj(["file", "annotate", "-rat_operation(@-, @)", "file.txt"]);
     insta::assert_snapshot!(output, @r"
-    zzzzzzzz          1970-01-01 11:00:00    1: line1
-    zzzzzzzz          1970-01-01 11:00:00    2: line2
+    qpvuntsm test.use 2001-02-03 08:05:08    1: line1
+    rlvkpnrz test.use 2001-02-03 08:05:09    2: line2
     [EOF]
     ");
 }

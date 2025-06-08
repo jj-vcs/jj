@@ -1525,7 +1525,13 @@ fn internalize_filter<St: ExpressionState>(
     }
 
     fn is_filter_tree<St: ExpressionState>(expression: &RevsetExpression<St>) -> bool {
-        is_filter(expression) || as_filter_intersection(expression).is_some()
+        if let RevsetExpression::Intersection(expression1, _) = expression {
+            // 'f1 & f2' can't be evaluated by itself, but 's1 & f2' can be
+            // filtered within 's1'. 'f1 & s2' should have been reordered.
+            is_filter(expression1)
+        } else {
+            is_filter(expression)
+        }
     }
 
     // Extracts 'c & f' from intersect_down()-ed node.
@@ -4103,6 +4109,33 @@ mod tests {
         )
         "#);
 
+        // 'merges() & foo' can be evaluated independently
+        insta::assert_debug_snapshot!(
+            optimize(parse("merges() & foo | bar").unwrap()), @r#"
+        Union(
+            Intersection(
+                CommitRef(Symbol("foo")),
+                Filter(ParentCount(2..4294967295)),
+            ),
+            CommitRef(Symbol("bar")),
+        )
+        "#);
+
+        // 'merges() & foo' can be evaluated independently, but 'conflicts()'
+        // can't. We'll need implicit 'all() & _' anyway.
+        insta::assert_debug_snapshot!(
+            optimize(parse("merges() & foo | conflicts()").unwrap()), @r#"
+        AsFilter(
+            Union(
+                Intersection(
+                    CommitRef(Symbol("foo")),
+                    Filter(ParentCount(2..4294967295)),
+                ),
+                Filter(HasConflict),
+            ),
+        )
+        "#);
+
         insta::assert_debug_snapshot!(
             optimize(parse("(foo | committer_name(bar)) & description(baz) & qux").unwrap()), @r#"
         Intersection(
@@ -4120,7 +4153,8 @@ mod tests {
         "#);
 
         insta::assert_debug_snapshot!(
-            optimize(parse("(~present(author_name(foo) & bar) | baz) & qux").unwrap()), @r#"
+            optimize(parse(
+                "(~present(author_name(foo) & description(bar)) | baz) & qux").unwrap()), @r#"
         Intersection(
             CommitRef(Symbol("qux")),
             AsFilter(
@@ -4130,8 +4164,8 @@ mod tests {
                             AsFilter(
                                 Present(
                                     Intersection(
-                                        CommitRef(Symbol("bar")),
                                         Filter(AuthorName(Substring("foo"))),
+                                        Filter(Description(Substring("bar"))),
                                     ),
                                 ),
                             ),
