@@ -191,32 +191,25 @@ impl DefaultIndexStore {
         let operations_dir = self.operations_dir();
         let commit_id_length = store.commit_id_length();
         let change_id_length = store.change_id_length();
-        let ops_to_visit: Vec<_> =
-            op_walk::walk_ancestors(slice::from_ref(operation)).try_collect()?;
         // Pick the latest existing ancestor operation as the parent segment.
-        let parent_op = ops_to_visit
-            .iter()
-            .find(|op| operations_dir.join(op.id().hex()).is_file())
-            .cloned();
-        // Remove ancestors of the latest existing operation, which should have
-        // been indexed in the parent segment. This could be optimized for
-        // linear history, but parent_op is often None.
-        let ops_to_visit = if let Some(op) = &parent_op {
-            let mut wanted_ops: HashMap<&OperationId, &Operation> =
-                ops_to_visit.iter().map(|op| (op.id(), op)).collect();
-            let mut work = vec![op.id()];
-            while let Some(id) = work.pop() {
-                if let Some(op) = wanted_ops.remove(id) {
-                    work.extend(op.parent_ids());
-                }
+        let mut unindexed_ops = Vec::new();
+        let mut parent_op = None;
+        for op in op_walk::walk_ancestors(slice::from_ref(operation)) {
+            let op = op?;
+            if operations_dir.join(op.id().hex()).is_file() {
+                parent_op = Some(op);
+                break;
+            } else {
+                unindexed_ops.push(op);
             }
-            ops_to_visit
-                .iter()
-                .filter(|op| wanted_ops.contains_key(op.id()))
-                .cloned()
-                .collect()
+        }
+        let ops_to_visit = if let Some(op) = &parent_op {
+            // There may be concurrent ops, so revisit from the head. The parent
+            // op is usually shallow if existed.
+            op_walk::walk_ancestors_range(slice::from_ref(operation), slice::from_ref(op))
+                .try_collect()?
         } else {
-            ops_to_visit
+            unindexed_ops
         };
         tracing::info!(
             ops_count = ops_to_visit.len(),
