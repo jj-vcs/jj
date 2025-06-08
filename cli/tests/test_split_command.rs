@@ -1271,10 +1271,7 @@ fn test_split_move_first_commit() {
     insta::assert_snapshot!(evolog_1, @r"
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:17 76ebcbb8
     │  file2
-    │  -- operation 45cf98ff360e (2001-02-03 08:05:17) split commit 5dad33447a74e157748fc8122486b2c1a5f093c6
-    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:17 bd58c2c3
-    │  file2
-    │  -- operation 45cf98ff360e (2001-02-03 08:05:17) split commit 5dad33447a74e157748fc8122486b2c1a5f093c6
+    │  -- operation bd9f517355ee (2001-02-03 08:05:17) split commit 5dad33447a74e157748fc8122486b2c1a5f093c6
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 5dad3344
     │  file2
     │  -- operation 16bbaf3acf2d (2001-02-03 08:05:08) commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
