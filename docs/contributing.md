@@ -176,10 +176,8 @@ These are listed roughly in order of decreasing importance.
    version of `rustfmt`. To do this on your computer, install the nightly
    toolchain and use `cargo +nightly fmt`.
 
-3. Your code will be rejected if it cannot be compiled with the minimal
-   supported version of Rust ("MSRV"). Currently, `jj` follows a rather
-   casual MSRV policy: "The current `rustc` stable version, minus one."
-   As of this writing, that version is **1.84.0**.
+3. Your code will be rejected if it cannot be compiled with the [minimal
+   supported version of Rust ("MSRV")](#msrv-the-minimum-supported-rust-version).
 
 4. Your code needs to pass `cargo clippy`. You can also
    use `cargo +nightly clippy` if you wish to see more warnings.
@@ -194,6 +192,38 @@ These are listed roughly in order of decreasing importance.
    On Linux, you may be able to speed up `nextest` even further by using
    the `mold` linker, as explained below.
 
+### MSRV, the Minimum Supported Rust Version
+
+Our current Rust MSRV is **1.84.0**. We have a presubmit check that verifies
+that `jj` can be compiled with this version of the Rust toolchain. We do not
+enforce this with `rust-toolchain.toml`.
+
+If you are updating our MSRV, please mark it as a breaking change in the
+changelog. See `Cargo.toml` for a list of places to update, but it also helps to
+search the entire codebase for the old MSRV.
+
+Our guidelines for when to update our MSRV are currently lax. We guide ourselves
+by the [Rust version in Debian testing] (which usually corresponds to "Rust
+stable - 1") as an upper bound and the generally conservative [MSRV of Firefox]
+as a lax lower bound for `jj` MSRV.
+
+In between this bounds, we should feel free to bump the MSRV whenever it would
+avoid any work or save somebody any time. We should also feel free to keep the
+MSRV the same when there is no reason to update.
+
+Once there are requests from packagers or users, or once `jj` is packaged in
+more conservative distributions, we may become stricter and, perhaps, follow
+Firefox MSRV more closely.
+
+Some developers prefer to work on `jj`  using a nightly Rust toolchain, some use
+a stable toolchain for everything other than `cargo fmt`, and some prefer to
+stick to the MSRV toolchain for everything except `cargo fmt`. In the first two
+cases there is some risk that code that works on your machine will not work in
+CI, but recent Rust versions are getting better at avoiding such problems (with
+MSRV-aware cargo resolvers, MSRV-aware clippy lints, etc).
+
+[Rust version in Debian testing]: https://packages.debian.org/testing/rustc
+[MSRV of Firefox]: https://firefox-source-docs.mozilla.org/writing-rust-code/update-policy.html#schedule
 
 ### Configuring `jj fix` to run `rustfmt`
 
