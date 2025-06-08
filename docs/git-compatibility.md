@@ -59,8 +59,7 @@ a comparison with Git, including how workflows are different, see the
   create a repo backed by a bare Git repo.
 * **Submodules: No.** They will not show up in the working copy, but they will
   not be lost either.
-* **Partial clones: No.** We use the [libgit2](https://libgit2.org/) library,
-  which [doesn't have support for partial clones](https://github.com/libgit2/libgit2/issues/5564).
+* **Partial clones: No.**
 * **Shallow clones: Kind of.** Shallow commits all have the virtual root commit as
   their parent. However, deepening or fully unshallowing a repository is currently not yet
   supported and will cause issues.
