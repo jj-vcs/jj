@@ -23,6 +23,8 @@ use std::iter;
 use std::mem;
 
 use itertools::Itertools as _;
+use smallvec::smallvec_inline;
+use smallvec::SmallVec;
 
 /// Traverses nodes from `start` in depth-first order.
 pub fn dfs<T, ID, II, NI>(
@@ -306,6 +308,59 @@ impl<T: Ord, ID: Hash + Eq + Clone, E> TopoOrderReverseLazyInner<T, ID, E> {
             Err(err) => Some(Err(err)),
         }
     }
+}
+
+/// Splits DAG at the first single fork point, and builds a list of nodes
+/// reachable from the `start` where neighbors come after the node itself.
+///
+/// This is a building block for lazy DAG iterators similar to
+/// [`topo_order_reverse_lazy()`]. The `start` list will be updated to include
+/// the next nodes to visit.
+///
+/// If the split chunk of the graph has cycle, `cycle_fn()` is called with one
+/// of the nodes involved in the cycle.
+pub fn topo_order_reverse_chunked<T, ID, E, NI>(
+    start: &mut Vec<T>,
+    id_fn: impl Fn(&T) -> ID,
+    mut neighbors_fn: impl FnMut(&T) -> NI,
+    mut cycle_fn: impl FnMut(T) -> E,
+) -> Result<SmallVec<[T; 1]>, E>
+where
+    T: Ord,
+    ID: Hash + Eq + Clone,
+    NI: IntoIterator<Item = Result<T, E>>,
+{
+    // Fast path for linear DAG
+    if start.len() <= 1 {
+        let Some(node) = start.pop() else {
+            return Ok(SmallVec::new());
+        };
+        let neighbors_iter = neighbors_fn(&node).into_iter();
+        start.reserve(neighbors_iter.size_hint().0);
+        for neighbor in neighbors_iter {
+            start.push(neighbor?);
+        }
+        return Ok(smallvec_inline![node]);
+    }
+
+    // Extract graph nodes based on T's order, and sort them by using ids
+    // (because we wouldn't want to clone T itself)
+    let start_ids = start.iter().map(&id_fn).collect_vec();
+    let (mut node_map, neighbor_ids_map, remainder) =
+        look_ahead_sub_graph(mem::take(start), &id_fn, &mut neighbors_fn)?;
+    *start = remainder;
+    let sorted_ids = topo_order_forward_ok(
+        start_ids.iter().map(Ok),
+        |id| *id,
+        |id| neighbor_ids_map[id].iter().map(Ok),
+        |id| cycle_fn(node_map.remove(id).unwrap()),
+    )?;
+    let sorted_nodes = sorted_ids
+        .iter()
+        .rev()
+        .map(|&id| node_map.remove(id).unwrap())
+        .collect();
+    Ok(sorted_nodes)
 }
 
 /// Splits DAG at single fork point, and extracts branchy part as sub graph.
@@ -910,6 +965,22 @@ mod tests {
         );
         assert!(!inner_iter.start.is_empty());
         assert!(inner_iter.result.is_empty());
+
+        // Run each step of lazy iterator by using low-level function.
+        let mut start = vec!['G'];
+        let next = |start: &mut Vec<char>| {
+            topo_order_reverse_chunked(start, id_fn, neighbors_fn, cycle_fn).unwrap()
+        };
+        assert_eq!(next(&mut start), ['G'].into());
+        assert_eq!(start, ['E', 'F']);
+        assert_eq!(next(&mut start), ['E', 'F', 'D', 'C'].into());
+        assert_eq!(start, ['B']);
+        assert_eq!(next(&mut start), ['B'].into());
+        assert_eq!(start, ['A']);
+        assert_eq!(next(&mut start), ['A'].into());
+        assert!(start.is_empty());
+        assert!(next(&mut start).is_empty());
+        assert!(start.is_empty());
     }
 
     #[test]
@@ -966,6 +1037,22 @@ mod tests {
         );
         assert!(!inner_iter.start.is_empty());
         assert!(inner_iter.result.is_empty());
+
+        // Run each step of lazy iterator by using low-level function.
+        let mut start = vec!['G'];
+        let next = |start: &mut Vec<char>| {
+            topo_order_reverse_chunked(start, id_fn, neighbors_fn, cycle_fn).unwrap()
+        };
+        assert_eq!(next(&mut start), ['G'].into());
+        assert_eq!(start, ['F', 'D']);
+        assert_eq!(next(&mut start), ['F', 'E', 'D', 'c'].into());
+        assert_eq!(start, ['B']);
+        assert_eq!(next(&mut start), ['B'].into());
+        assert_eq!(start, ['A']);
+        assert_eq!(next(&mut start), ['A'].into());
+        assert!(start.is_empty());
+        assert!(next(&mut start).is_empty());
+        assert!(start.is_empty());
     }
 
     #[test]
@@ -1021,6 +1108,22 @@ mod tests {
         );
         assert!(!inner_iter.start.is_empty());
         assert!(inner_iter.result.is_empty());
+
+        // Run each step of lazy iterator by using low-level function.
+        let mut start = vec!['G'];
+        let next = |start: &mut Vec<char>| {
+            topo_order_reverse_chunked(start, id_fn, neighbors_fn, cycle_fn).unwrap()
+        };
+        assert_eq!(next(&mut start), ['G'].into());
+        assert_eq!(start, ['f', 'd']);
+        assert_eq!(next(&mut start), ['f', 'e', 'd', 'C'].into());
+        assert_eq!(start, ['B']);
+        assert_eq!(next(&mut start), ['B'].into());
+        assert_eq!(start, ['A']);
+        assert_eq!(next(&mut start), ['A'].into());
+        assert!(start.is_empty());
+        assert!(next(&mut start).is_empty());
+        assert!(start.is_empty());
     }
 
     #[test]
@@ -1215,6 +1318,14 @@ mod tests {
         assert_matches!(
             topo_order_reverse_lazy_ok([Ok('D')], id_fn, neighbors_fn, cycle_fn).nth(1),
             Some(Err('C' | 'B'))
+        );
+
+        // Try again with low-level function
+        let mut start = vec!['D'];
+        topo_order_reverse_chunked(&mut start, id_fn, neighbors_fn, cycle_fn).unwrap();
+        assert_matches!(
+            topo_order_reverse_chunked(&mut start, id_fn, neighbors_fn, cycle_fn),
+            Err('C' | 'B')
         );
     }
 
