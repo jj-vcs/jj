@@ -194,6 +194,25 @@ fn test_annotate_merge_one_sided_conflict_resolution() {
 }
 
 #[test]
+fn test_annotate_abandoned() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file.txt", "line1\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file.txt", "line1\nline2\n");
+    work_dir.run_jj(["abandon"]).success();
+
+    let output = work_dir.run_jj(["file", "annotate", "-rat_operation(@-, @)", "file.txt"]);
+    insta::assert_snapshot!(output, @r"
+    zzzzzzzz          1970-01-01 11:00:00    1: line1
+    zzzzzzzz          1970-01-01 11:00:00    2: line2
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_annotate_with_template() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
