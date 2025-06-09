@@ -50,7 +50,7 @@ use crate::ui::Ui;
 pub(crate) struct DiffArgs {
     /// Show changes in these revisions
     ///
-    /// If there are multiple revisions, then then total diff for all of them
+    /// If there are multiple revisions, then the total diff for all of them
     /// will be shown. For example, if you have a linear chain of revisions
     /// A..D, then `jj diff -r B::D` equals `jj diff --from A --to D`. Multiple
     /// heads and/or roots are supported, but gaps in the revset are not
