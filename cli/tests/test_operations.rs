@@ -1771,6 +1771,148 @@ fn test_op_diff_sibling() {
 }
 
 #[test]
+fn test_op_diff_divergent_change() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Initial change
+    work_dir.write_file("file", "1\n");
+    work_dir.run_jj(["commit", "-m1"]).success();
+    let initial_op_id = work_dir.current_operation_id();
+
+    // Create divergent change
+    work_dir.write_file("file", "2a\n1\n");
+    work_dir.run_jj(["desc", "-m2a"]).success();
+    work_dir.run_jj(["edit", "at_operation(@--, @)"]).success();
+    work_dir.write_file("file", "1\n2b\n");
+    work_dir.run_jj(["desc", "-m2b"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["log"]), @r"
+    @  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:12 82ad1ba9
+    │  2b
+    │ ○  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:10 a7e9a63b
+    ├─╯  2a
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 8a06f3b3
+    │  1
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+    let divergent_op_id = work_dir.current_operation_id();
+
+    // Resolve divergence by squashing commits
+    work_dir
+        .run_jj(["squash", "--from=subject(2a)", "--to=@", "-m2ab"])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["log"]), @r"
+    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:15 da3f472d
+    │  2ab
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 8a06f3b3
+    │  1
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+    let resolved_op_id = work_dir.current_operation_id();
+
+    // Diff of new divergence
+    let output = work_dir.run_jj([
+        "op",
+        "diff",
+        "--from",
+        &initial_op_id,
+        "--to",
+        &divergent_op_id,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    From operation: ef75d88dd5fe (2001-02-03 08:05:08) commit 5d86d4b609080a15077fcd723e537582d5ea6559
+      To operation: 80381a6750a7 (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+
+    Changed commits:
+    ○  + rlvkpnrz?? 82ad1ba9 2b
+       + rlvkpnrz?? a7e9a63b 2a
+       - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+
+    Changed working copy default@:
+    + rlvkpnrz?? 82ad1ba9 2b
+    - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+    [EOF]
+    ");
+
+    // Diff of old divergence
+    let output = work_dir.run_jj([
+        "op",
+        "diff",
+        "--from",
+        &divergent_op_id,
+        "--to",
+        &resolved_op_id,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    From operation: 80381a6750a7 (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+      To operation: 366c90c8bc44 (2001-02-03 08:05:15) squash commits into 82ad1ba9ded407bab6fea1524b207f49a02779a0
+
+    Changed commits:
+    ○  + rlvkpnrz da3f472d 2ab
+       - rlvkpnrz hidden 82ad1ba9 2b
+       - rlvkpnrz hidden a7e9a63b 2a
+
+    Changed working copy default@:
+    + rlvkpnrz da3f472d 2ab
+    - rlvkpnrz hidden 82ad1ba9 2b
+    [EOF]
+    ");
+
+    // Diff of new divergence with patch
+    let output = work_dir.run_jj([
+        "op",
+        "diff",
+        "--git",
+        "--from",
+        &initial_op_id,
+        "--to",
+        &divergent_op_id,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    From operation: ef75d88dd5fe (2001-02-03 08:05:08) commit 5d86d4b609080a15077fcd723e537582d5ea6559
+      To operation: 80381a6750a7 (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+
+    Changed commits:
+    ○  + rlvkpnrz?? 82ad1ba9 2b
+       + rlvkpnrz?? a7e9a63b 2a
+       - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+
+    Changed working copy default@:
+    + rlvkpnrz?? 82ad1ba9 2b
+    - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+    [EOF]
+    ");
+
+    // Diff of old divergence with patch
+    let output = work_dir.run_jj([
+        "op",
+        "diff",
+        "--git",
+        "--from",
+        &divergent_op_id,
+        "--to",
+        &resolved_op_id,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    From operation: 80381a6750a7 (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+      To operation: 366c90c8bc44 (2001-02-03 08:05:15) squash commits into 82ad1ba9ded407bab6fea1524b207f49a02779a0
+
+    Changed commits:
+    ○  + rlvkpnrz da3f472d 2ab
+       - rlvkpnrz hidden 82ad1ba9 2b
+       - rlvkpnrz hidden a7e9a63b 2a
+
+    Changed working copy default@:
+    + rlvkpnrz da3f472d 2ab
+    - rlvkpnrz hidden 82ad1ba9 2b
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_op_diff_at_merge_op_with_rebased_commits() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
