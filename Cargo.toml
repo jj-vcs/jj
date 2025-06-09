@@ -22,14 +22,14 @@ assert_matches = "1.5.0"
 async-trait = "0.1.88"
 blake2 = "0.10.6"
 bstr = "1.11.3"
-clap = { version = "4.5.39", features = [
+clap = { version = "4.5.40", features = [
     "derive",
     "deprecated",
     "wrap_help",
     "string",
 ] }
-clap_complete = { version = "4.5.52", features = ["unstable-dynamic"] }
-clap_complete_nushell = "4.5.6"
+clap_complete = { version = "4.5.54", features = ["unstable-dynamic"] }
+clap_complete_nushell = "4.5.7"
 # Update clap-markdown manually since test_generate_md_cli_help snapshot
 # will need regenerating.
 clap-markdown = "=0.1.5"
@@ -55,7 +55,7 @@ gix = { version = "0.72.1", default-features = false, features = [
     "zlib-rs",
 ] }
 glob = "0.3.2"
-hashbrown = { version = "0.15.3", default-features = false, features = ["inline-more"] }
+hashbrown = { version = "0.15.4", default-features = false, features = ["inline-more"] }
 hex = "0.4.3"
 ignore = "0.4.23"
 indexmap = { version = "2.9.0", features = ["serde"] }
@@ -90,7 +90,7 @@ scm-record = "0.8.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.140"
 slab = "0.4.9"
-smallvec = { version = "1.14.0", features = [
+smallvec = { version = "1.15.1", features = [
     "const_generics",
     "const_new",
     "union",
