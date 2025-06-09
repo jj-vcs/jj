@@ -194,7 +194,7 @@ impl Backend for SimpleBackend {
         &self,
         path: &RepoPath,
         id: &FileId,
-    ) -> BackendResult<Pin<Box<dyn AsyncRead>>> {
+    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
         let disk_path = self.file_path(id);
         let mut file = File::open(disk_path).map_err(|err| map_not_found_err(err, id))?;
         let mut buf = vec![];

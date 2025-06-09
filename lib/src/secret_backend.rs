@@ -125,7 +125,7 @@ impl Backend for SecretBackend {
         &self,
         path: &RepoPath,
         id: &FileId,
-    ) -> BackendResult<Pin<Box<dyn AsyncRead>>> {
+    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
         if path.as_internal_file_string().contains("secret")
             || SECRET_CONTENTS_HEX.contains(&id.hex().as_ref())
         {

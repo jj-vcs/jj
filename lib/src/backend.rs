@@ -462,7 +462,7 @@ pub trait Backend: Send + Sync + Debug {
         &self,
         path: &RepoPath,
         id: &FileId,
-    ) -> BackendResult<Pin<Box<dyn AsyncRead>>>;
+    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>>;
 
     async fn write_file(
         &self,

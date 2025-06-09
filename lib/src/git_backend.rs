@@ -984,7 +984,7 @@ impl Backend for GitBackend {
         &self,
         _path: &RepoPath,
         id: &FileId,
-    ) -> BackendResult<Pin<Box<dyn AsyncRead>>> {
+    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
         let data = self.read_file_sync(id)?;
         Ok(Box::pin(Cursor::new(data)))
     }
