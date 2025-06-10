@@ -886,7 +886,7 @@ Lists the previous commits which a change has pointed to. The current commit of 
 
 ###### **Options:**
 
-* `-r`, `--revision <REVSET>`
+* `-r`, `--revisions <REVSETS>` — Follow changes from these revisions
 
   Default value: `@`
 * `-n`, `--limit <LIMIT>` — Limit number of revisions to show
