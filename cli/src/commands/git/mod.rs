@@ -20,10 +20,13 @@ mod init;
 mod push;
 mod remote;
 mod root;
+mod sync;
 
+use std::collections::HashSet;
 use std::path::Path;
 
 use clap::Subcommand;
+use itertools::Itertools as _;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
 use jj_lib::git;
@@ -31,6 +34,7 @@ use jj_lib::git::UnexpectedGitBackendError;
 use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::store::Store;
+use jj_lib::str_util::StringPattern;
 
 use self::clone::cmd_git_clone;
 use self::clone::GitCloneArgs;
@@ -48,8 +52,11 @@ use self::remote::cmd_git_remote;
 use self::remote::RemoteCommand;
 use self::root::cmd_git_root;
 use self::root::GitRootArgs;
+use self::sync::cmd_git_sync;
+use self::sync::GitSyncArgs;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
+use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
@@ -74,6 +81,7 @@ pub enum GitCommand {
     #[command(subcommand)]
     Remote(RemoteCommand),
     Root(GitRootArgs),
+    Sync(GitSyncArgs),
 }
 
 pub fn cmd_git(
@@ -90,6 +98,7 @@ pub fn cmd_git(
         GitCommand::Push(args) => cmd_git_push(ui, command, args),
         GitCommand::Remote(args) => cmd_git_remote(ui, command, args),
         GitCommand::Root(args) => cmd_git_root(ui, command, args),
+        GitCommand::Sync(args) => cmd_git_sync(ui, command, args),
     }
 }
 
@@ -131,4 +140,35 @@ fn write_repository_level_trunk_alias(
         "Setting the revset alias `trunk()` to `{symbol}`",
     )?;
     Ok(())
+}
+
+/// Resolves remote patterns into a concrete list of remote names
+///
+/// Returns a sorted vector of matching remote names, warning for unmatched
+/// patterns.
+pub fn resolve_remote_patterns(
+    ui: &mut Ui,
+    store: &Store,
+    remote_patterns: &[StringPattern],
+) -> Result<Vec<RemoteNameBuf>, CommandError> {
+    let all_remotes = git::get_all_remote_names(store)?;
+    let mut matching_remotes = HashSet::new();
+
+    for pattern in remote_patterns {
+        let matched = all_remotes
+            .iter()
+            .filter(|r| pattern.matches(r.as_str()))
+            .collect_vec();
+        if matched.is_empty() {
+            writeln!(ui.warning_default(), "No git remotes matching '{pattern}'")?;
+        } else {
+            matching_remotes.extend(matched.into_iter().cloned());
+        }
+    }
+
+    if matching_remotes.is_empty() {
+        return Err(user_error("No git remotes to sync"));
+    }
+
+    Ok(matching_remotes.into_iter().sorted().collect())
 }

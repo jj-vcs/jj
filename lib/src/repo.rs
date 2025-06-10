@@ -1117,6 +1117,16 @@ impl MutableRepo {
         rewrite_mapping: &HashMap<CommitId, Vec<CommitId>>,
         options: &RewriteRefsOptions,
     ) {
+        if tracing::enabled!(tracing::Level::DEBUG) {
+            let num_rewrites = rewrite_mapping.len();
+            tracing::debug!(num_rewrites, "update_local_bookmarks called");
+            for (old_id, new_ids) in rewrite_mapping {
+                let old_hex = old_id.hex();
+                let new_hexes: Vec<String> = new_ids.iter().map(|id| id.hex()).collect();
+                tracing::debug!(?old_hex, ?new_hexes, "Rewrite mapping");
+            }
+        }
+
         let changed_branches = self
             .view()
             .local_bookmarks()
@@ -1127,6 +1137,10 @@ impl MutableRepo {
                 })
             })
             .collect_vec();
+
+        let num_bookmarks = changed_branches.len();
+        tracing::debug!(num_bookmarks, "Found bookmarks that need updating");
+
         for (bookmark_name, (old_commit_id, new_commit_ids)) in changed_branches {
             let should_delete = options.delete_abandoned_bookmarks
                 && matches!(
@@ -1141,6 +1155,15 @@ impl MutableRepo {
                     .map(|id| Some(id.clone()));
                 RefTarget::from_merge(MergeBuilder::from_iter(ids).build())
             };
+
+            let old_hex = old_commit_id.hex();
+            tracing::debug!(
+                ?bookmark_name,
+                ?old_hex,
+                ?new_target,
+                should_delete,
+                "Updating bookmark"
+            );
 
             self.merge_local_bookmark(&bookmark_name, &old_target, &new_target);
         }

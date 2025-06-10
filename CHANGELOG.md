@@ -10,6 +10,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Release highlights
 
+* git: Introduce `jj git sync` for a `git pull --rebase`-like workflow across multiple bookmarks.
+
 ### Breaking changes
 
 ### Deprecations

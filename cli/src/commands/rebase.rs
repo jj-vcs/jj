@@ -22,7 +22,9 @@ use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::ReadonlyRepo;
+use jj_lib::repo::Repo;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::rewrite::compute_move_commits;
 use jj_lib::rewrite::find_duplicate_divergent_commits;
@@ -489,6 +491,27 @@ fn plan_rebase_source(
     })
 }
 
+/// Find fork-point roots for rebasing branch commits onto new parents
+pub(crate) fn find_branch_fork_point_roots(
+    repo: &dyn Repo,
+    new_parent_ids: &[CommitId],
+    branch_commit_ids: &[CommitId],
+) -> Result<Vec<CommitId>, RevsetEvaluationError> {
+    let roots_expression = RevsetExpression::commits(new_parent_ids.to_vec())
+        .range(&RevsetExpression::commits(branch_commit_ids.to_vec()))
+        .roots();
+    let root_commit_ids: Vec<_> = roots_expression
+        .evaluate(repo)?
+        .iter()
+        .try_collect()?;
+    
+    Ok(if root_commit_ids.is_empty() {
+        branch_commit_ids.to_vec()
+    } else {
+        root_commit_ids
+    })
+}
+
 fn plan_rebase_branch(
     ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
@@ -515,14 +538,13 @@ fn plan_rebase_branch(
         rebase_destination.insert_before.as_deref(),
         "rebased commits",
     )?;
-    let roots_expression = RevsetExpression::commits(new_parent_ids.clone())
-        .range(&RevsetExpression::commits(branch_commit_ids))
-        .roots();
-    let root_commit_ids: Vec<_> = roots_expression
-        .evaluate(workspace_command.repo().as_ref())
-        .unwrap()
-        .iter()
-        .try_collect()?;
+    
+    let root_commit_ids = find_branch_fork_point_roots(
+        workspace_command.repo().as_ref(),
+        &new_parent_ids,
+        &branch_commit_ids,
+    )?;
+    
     workspace_command.check_rewritable(&root_commit_ids)?;
     if rebase_destination.destination.is_some() && new_child_ids.is_empty() {
         for id in &root_commit_ids {

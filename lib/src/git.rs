@@ -493,6 +493,16 @@ pub fn import_some_refs(
                 default_remote_ref_state_for(GitRefKind::Bookmark, symbol, git_settings)
             },
         };
+
+        let is_tracked = new_remote_ref.is_tracked();
+        tracing::debug!(
+            ?symbol,
+            is_tracked,
+            ?base_target,
+            ?new_target,
+            "Git import updating bookmark"
+        );
+
         if new_remote_ref.is_tracked() {
             mut_repo.merge_local_bookmark(symbol.name, base_target, &new_remote_ref.target);
         }
