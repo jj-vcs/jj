@@ -6,7 +6,7 @@ contribute or not.
 
 ## East River Source Control
 
-* bwb
+* benbrittain
 * thoughtpolice
 
 ## Google
