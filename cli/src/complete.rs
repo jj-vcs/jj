@@ -941,6 +941,8 @@ fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
     if let Ok(loader) = &maybe_cwd_workspace_loader {
         config_env.reset_repo_path(loader.repo_path());
         let _ = config_env.reload_repo_config(&mut raw_config);
+        config_env.reset_workspace_path(loader.workspace_root());
+        let _ = config_env.reload_workspace_config(&mut raw_config);
     }
     let mut config = config_env.resolve_config(&raw_config)?;
     // skip 2 because of the clap_complete prelude: jj -- jj <actual args...>
@@ -959,6 +961,8 @@ fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
         if let Ok(loader) = DefaultWorkspaceLoaderFactory.create(&cwd.join(&repository)) {
             config_env.reset_repo_path(loader.repo_path());
             let _ = config_env.reload_repo_config(&mut raw_config);
+            config_env.reset_workspace_path(loader.workspace_root());
+            let _ = config_env.reload_workspace_config(&mut raw_config);
             if let Ok(new_config) = config_env.resolve_config(&raw_config) {
                 config = new_config;
             }
