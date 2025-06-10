@@ -28,6 +28,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added `template-aliases.empty_commit_marker`. Users can override this value in
   their config to change the "(empty)" label on empty commits.
 
+* Workspaces may have an additional layered configuration, located at
+  `.jj/workspace-config.toml`. `jj config` subcommands which took layer options like
+  `--repo` now also support `--workspace`.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer

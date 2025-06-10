@@ -260,6 +260,32 @@ fn test_config_list_layer() {
     test-layered-key = "test-layered-val"
     [EOF]
     "#);
+
+    // Workspace (new scope takes precedence over repo)
+    // Add a workspace-level setting
+    work_dir
+        .run_jj([
+            "config",
+            "set",
+            "--workspace",
+            "test-layered-wks-key",
+            "ws-val",
+        ])
+        .success();
+
+    // Listing user shouldn't include workspace
+    let output = work_dir.run_jj(["config", "list", "--user"]);
+    insta::assert_snapshot!(output, @r#"
+    test-key = "test-val"
+    [EOF]
+    "#);
+
+    // Workspace
+    let output = work_dir.run_jj(["config", "list", "--workspace"]);
+    insta::assert_snapshot!(output, @r#"
+    test-layered-wks-key = "ws-val"
+    [EOF]
+    "#);
 }
 
 #[test]
@@ -554,11 +580,11 @@ fn test_config_set_bad_opts() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the following required arguments were not provided:
-      <--user|--repo>
+      <--user|--repo|--workspace>
       <NAME>
       <VALUE>
 
-    Usage: jj config set <--user|--repo> <NAME> <VALUE>
+    Usage: jj config set <--user|--repo|--workspace> <NAME> <VALUE>
 
     For more information, try '--help'.
     [EOF]
@@ -699,6 +725,31 @@ fn test_config_set_for_repo() {
 
     [test-table]
     foo = true
+    "#);
+}
+
+#[test]
+fn test_config_set_for_workspace() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
+        .success();
+    let work_dir = test_env.work_dir("secondary");
+
+    // set in workspace
+    work_dir
+        .run_jj(["config", "set", "--workspace", "test-key", "ws-val"])
+        .success();
+
+    // Read workspace config
+    let workspace_config = work_dir.read_file(".jj/workspace-config.toml");
+    insta::assert_snapshot!(workspace_config, @r#"
+    #:schema https://jj-vcs.github.io/jj/latest/config-schema.json
+
+    test-key = "ws-val"
     "#);
 }
 
@@ -915,15 +966,38 @@ fn test_config_unset_for_repo() {
 }
 
 #[test]
+fn test_config_unset_for_workspace() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
+        .success();
+    let work_dir = test_env.work_dir("secondary");
+
+    // set then unset
+    work_dir
+        .run_jj(["config", "set", "--workspace", "foo", "bar"])
+        .success();
+    work_dir
+        .run_jj(["config", "unset", "--workspace", "foo"])
+        .success();
+
+    let workspace_config = work_dir.read_file(".jj/workspace-config.toml");
+    insta::assert_snapshot!(workspace_config, @"");
+}
+
+#[test]
 fn test_config_edit_missing_opt() {
     let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["config", "edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the following required arguments were not provided:
-      <--user|--repo>
+      <--user|--repo|--workspace>
 
-    Usage: jj config edit <--user|--repo>
+    Usage: jj config edit <--user|--repo|--workspace>
 
     For more information, try '--help'.
     [EOF]

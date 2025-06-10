@@ -17,6 +17,9 @@ config path --user`.
 - The repo settings. These can be edited with `jj config edit --repo` and are
 located in `.jj/repo/config.toml`.
 
+- The workspace settings. These can be edited with `jj config edit --workspace`
+and are located in `.jj/workspace-config.toml` in the workspace root.
+
 - Settings [specified in the command-line](#specifying-config-on-the-command-line).
 
 These are listed in the order they are loaded; the settings from earlier items
