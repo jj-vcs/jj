@@ -21,7 +21,6 @@ use tracing::instrument;
 
 use super::update_sparse_patterns_with;
 use crate::cli_util::CommandHelper;
-use crate::command_error::internal_error;
 use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
 use crate::description_util::TextEditor;
@@ -55,13 +54,8 @@ fn edit_sparse(
     for sparse_path in sparse {
         // Invalid path shouldn't block editing. Edited paths will be validated.
         let workspace_relative_sparse_path = sparse_path.to_fs_path_unchecked(Path::new(""));
-        let path_string = workspace_relative_sparse_path.to_str().ok_or_else(|| {
-            internal_error(format!(
-                "Stored sparse path is not valid utf-8: {}",
-                workspace_relative_sparse_path.display()
-            ))
-        })?;
-        writeln!(&mut content, "{path_string}").unwrap();
+        let path = workspace_relative_sparse_path.display();
+        writeln!(&mut content, "{path}").unwrap();
     }
 
     let content = editor
