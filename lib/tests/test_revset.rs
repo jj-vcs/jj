@@ -974,6 +974,62 @@ fn resolve_commit_ids_in_workspace(
 }
 
 #[test]
+fn test_evaluate_expression_with_hidden_revisions() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let root_commit_id = repo.store().root_commit_id();
+
+    // 4   (abandoned)
+    // 3   (abandoned)
+    // 1 2
+    // |/
+    // 0
+    let mut tx = repo.start_transaction();
+    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
+    let commit1 = graph_builder.initial_commit();
+    let commit2 = graph_builder.initial_commit();
+    let commit3 = graph_builder.commit_with_parents(&[&commit1]);
+    let commit4 = graph_builder.commit_with_parents(&[&commit3]);
+    let repo = tx.commit("test").unwrap();
+    let mut tx = repo.start_transaction();
+    tx.repo_mut().record_abandoned_commit(&commit3);
+    tx.repo_mut().record_abandoned_commit(&commit4);
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo = tx.commit("test").unwrap();
+
+    // Sanity check
+    assert_eq!(
+        resolve_commit_ids(repo.as_ref(), "all()"),
+        [commit2.id(), commit1.id(), root_commit_id].map(Clone::clone)
+    );
+
+    // Single hidden revision
+    assert_eq!(
+        resolve_commit_ids(repo.as_ref(), &commit4.id().hex()),
+        [commit4.id()].map(Clone::clone)
+    );
+
+    // Hidden revision in addition to all visible revisions
+    assert_eq!(
+        resolve_commit_ids(repo.as_ref(), &format!("all() | {}", commit3.id())),
+        [commit3.id(), commit2.id(), commit1.id(), root_commit_id].map(Clone::clone)
+    );
+
+    // Hidden revision, its ancestors, and all visible revisions
+    assert_eq!(
+        resolve_commit_ids(repo.as_ref(), &format!("all() | ::{}", commit4.id())),
+        [
+            commit4.id(),
+            commit3.id(),
+            commit2.id(),
+            commit1.id(),
+            root_commit_id
+        ]
+        .map(Clone::clone)
+    );
+}
+
+#[test]
 fn test_evaluate_expression_root_and_checkout() {
     let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;

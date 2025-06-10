@@ -1590,8 +1590,8 @@ fn internalize_filter<St: ExpressionState>(
 
 /// Eliminates redundant nodes like `x & all()`, `~~x`.
 ///
-/// This does not rewrite 'x & none()' to 'none()' because 'x' may be an invalid
-/// symbol.
+/// Since this function rewrites `x & none()` to `none()`, user symbols should
+/// have been resolved. Otherwise, an invalid symbol could be optimized out.
 fn fold_redundant_expression<St: ExpressionState>(
     expression: &Rc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
@@ -1600,8 +1600,23 @@ fn fold_redundant_expression<St: ExpressionState>(
             RevsetExpression::NotIn(inner) => Some(inner.clone()),
             _ => None,
         },
+        RevsetExpression::Union(expression1, expression2) => {
+            match (expression1.as_ref(), expression2.as_ref()) {
+                (_, RevsetExpression::None) => Some(expression1.clone()),
+                (RevsetExpression::None, _) => Some(expression2.clone()),
+                // TODO: To enable these substitution rules, we'll first need to
+                // fix handling of hidden revisions. See
+                // VisibilityResolutionContext::resolve_all() for details.
+                //
+                // (RevsetExpression::All, _) => Some(RevsetExpression::all()),
+                // (_, RevsetExpression::All) => Some(RevsetExpression::all()),
+                _ => None,
+            }
+        }
         RevsetExpression::Intersection(expression1, expression2) => {
             match (expression1.as_ref(), expression2.as_ref()) {
+                (RevsetExpression::None, _) => Some(RevsetExpression::none()),
+                (_, RevsetExpression::None) => Some(RevsetExpression::none()),
                 (_, RevsetExpression::All) => Some(expression1.clone()),
                 (RevsetExpression::All, _) => Some(expression2.clone()),
                 _ => None,
@@ -3605,6 +3620,35 @@ mod tests {
             unwrap_union(&optimized).1.as_ref(),
             RevsetExpression::CommitRef(RevsetCommitRef::Tags(_))
         );
+    }
+
+    #[test]
+    fn test_optimize_basic() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+
+        insta::assert_debug_snapshot!(optimize(parse("all() | none()").unwrap()), @"All");
+        insta::assert_debug_snapshot!(optimize(parse("all() & none()").unwrap()), @"None");
+        insta::assert_debug_snapshot!(optimize(parse("root() | all()").unwrap()), @r"
+        Union(
+            Root,
+            All,
+        )
+        ");
+        insta::assert_debug_snapshot!(optimize(parse("root() & all()").unwrap()), @"Root");
+        insta::assert_debug_snapshot!(optimize(parse("none() | root()").unwrap()), @"Root");
+        insta::assert_debug_snapshot!(optimize(parse("none() & root()").unwrap()), @"None");
+        insta::assert_debug_snapshot!(optimize(parse("~~none()").unwrap()), @"None");
+        insta::assert_debug_snapshot!(
+            optimize(parse("(root() | none()) & (visible_heads() | ~~all())").unwrap()), @r"
+        Intersection(
+            Root,
+            Union(
+                VisibleHeads,
+                All,
+            ),
+        )
+        ");
     }
 
     #[test]

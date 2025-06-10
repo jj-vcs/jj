@@ -419,6 +419,71 @@ fn test_function_name_hint() {
 }
 
 #[test]
+fn test_bad_symbol_or_argument_should_not_be_optimized_out() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["log", "-r", "unknown & none()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Revision `unknown` doesn't exist
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["log", "-r", "all() | unknown"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Revision `unknown` doesn't exist
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["log", "-r", "description(regex:'(') & none()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Failed to parse revset: Invalid string pattern
+    Caused by:
+    1:  --> 1:13
+      |
+    1 | description(regex:'(') & none()
+      |             ^-------^
+      |
+      = Invalid string pattern
+    2: regex parse error:
+        (
+        ^
+    error: unclosed group
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["log", "-r", "files('..') & none()"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Error: Failed to parse revset: In fileset expression
+    Caused by:
+    1:  --> 1:7
+      |
+    1 | files('..') & none()
+      |       ^--^
+      |
+      = In fileset expression
+    2:  --> 1:1
+      |
+    1 | '..'
+      | ^--^
+      |
+      = Invalid file pattern
+    3: Path ".." is not in the repo "."
+    4: Invalid component ".." in repo-relative path "../"
+    [EOF]
+    [exit status: 1]
+    "#);
+}
+
+#[test]
 fn test_alias() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
