@@ -602,9 +602,8 @@ impl RepoPathUiConverter {
         match self {
             RepoPathUiConverter::Fs { cwd, base } => {
                 file_util::relative_path(cwd, &file.to_fs_path_unchecked(base))
-                    .to_str()
-                    .unwrap()
-                    .to_owned()
+                    .display()
+                    .to_string()
             }
         }
     }
@@ -649,7 +648,7 @@ impl RepoPathUiConverter {
                     .min(target_components.len().saturating_sub(1));
 
                 fn format_components(c: &[std::path::Component]) -> String {
-                    c.iter().collect::<PathBuf>().to_str().unwrap().to_owned()
+                    c.iter().collect::<PathBuf>().display().to_string()
                 }
 
                 if prefix_count > 0 {

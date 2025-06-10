@@ -23,6 +23,7 @@ use std::fmt::Formatter;
 use std::fs;
 use std::io;
 use std::io::Cursor;
+use std::path;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -290,14 +291,14 @@ impl GitBackend {
             // This only works for relative paths. If the path is absolute, there's not much
             // we can do, and it simply won't work inside and outside WSL at the same time.
             let git_repo_path_string = git_repo_path
-                .components()
-                .map(|component| component.as_os_str().to_str().unwrap().to_owned())
-                .join("/");
+                .display()
+                .to_string()
+                .replace(path::MAIN_SEPARATOR, "/");
             fs::write(&target_path, git_repo_path_string.as_bytes())
                 .context(&target_path)
                 .map_err(GitBackendInitError::Path)?;
         } else {
-            fs::write(&target_path, git_repo_path.to_str().unwrap().as_bytes())
+            fs::write(&target_path, git_repo_path.display().to_string())
                 .context(&target_path)
                 .map_err(GitBackendInitError::Path)?;
         };
