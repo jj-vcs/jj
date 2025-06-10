@@ -52,6 +52,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `.normal_hex()` method will be removed from the `CommitId` template type.
   It's useful only for the `ChangeId` type.
 
+* Workspaces may have an additional layered configuration, located at
+  `.jj/workspace/config.toml`. `jj config` subcommands which took layer options like
+  `--repo` now also support `--workspace`.
+
 ### New features
 
 * `jj split` has gained a `--message` option to set the description of the

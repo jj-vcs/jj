@@ -35,6 +35,7 @@ use jj_lib::config::ConfigSource;
 use jj_lib::config::ConfigValue;
 use jj_lib::config::StackedConfig;
 use jj_lib::dsl_util;
+use jj_lib::file_util::PathError;
 use regex::Captures;
 use regex::Regex;
 use tracing::instrument;
@@ -325,8 +326,10 @@ impl UnresolvedConfigEnv {
 pub struct ConfigEnv {
     home_dir: Option<PathBuf>,
     repo_path: Option<PathBuf>,
+    workspace_path: Option<PathBuf>,
     user_config_paths: Vec<ConfigPath>,
     repo_config_path: Option<ConfigPath>,
+    workspace_config_path: Option<ConfigPath>,
     command: Option<String>,
 }
 
@@ -366,8 +369,10 @@ impl ConfigEnv {
         ConfigEnv {
             home_dir,
             repo_path: None,
+            workspace_path: None,
             user_config_paths: env.resolve(ui),
             repo_config_path: None,
+            workspace_config_path: None,
             command: None,
         }
     }
@@ -486,6 +491,70 @@ impl ConfigEnv {
         Ok(())
     }
 
+    /// Sets the directory where workspace-specific config file is stored. The
+    /// path is usually `.jj/workspace/config.toml`.
+    pub fn reset_workspace_path(&mut self, path: &Path) {
+        self.workspace_path = Some(path.to_owned());
+        self.workspace_config_path = Some(ConfigPath::new(path.join("workspace").join("config.toml")));
+    }
+
+    /// Returns a path to the workspace-specific config file.
+    pub fn workspace_config_path(&self) -> Option<&Path> {
+        self.workspace_config_path.as_ref().map(|p| p.as_path())
+    }
+
+    /// Returns a path to the existing workspace-specific config file.
+    fn existing_workspace_config_path(&self) -> Option<&Path> {
+        match self.workspace_config_path {
+            Some(ref path) if path.exists() => Some(path.as_path()),
+            _ => None,
+        }
+    }
+
+    /// Returns workspace configuration files for modification. Instantiates one
+    /// if `config` has no workspace configuration layers.
+    ///
+    /// If the workspace path is unknown, this function returns an empty `Vec`.
+    /// Since the workspace config path cannot be a directory, the returned
+    /// `Vec` should have at most one config file.
+    pub fn workspace_config_files(
+        &self,
+        config: &RawConfig,
+    ) -> Result<Vec<ConfigFile>, ConfigLoadError> {
+        config_files_for(config, ConfigSource::Workspace, || {
+            self.new_workspace_config_file()
+        })
+    }
+
+    fn new_workspace_config_file(&self) -> Result<Option<ConfigFile>, ConfigLoadError> {
+        self.workspace_config_path()
+            .map(|path| {
+                // Ensure parent directory exists if not then at first it will create the necessary directories
+                if let Some(parent) = path.parent() {
+                    create_dir_all(parent).map_err(|e| {
+                        ConfigLoadError::Read(PathError {
+                            path: parent.to_path_buf(),
+                            error: e,
+                        })
+                    })?;
+                }
+                // Load or create empty config file
+                ConfigFile::load_or_empty(ConfigSource::Workspace, path)
+            })
+            .transpose()
+    }
+
+    /// Loads workspace-specific config file into the given `config`. The old
+    /// workspace-config layer will be replaced if any.
+    #[instrument]
+    pub fn reload_workspace_config(&self, config: &mut RawConfig) -> Result<(), ConfigLoadError> {
+        config.as_mut().remove_layers(ConfigSource::Workspace);
+        if let Some(path) = self.existing_workspace_config_path() {
+            config.as_mut().load_file(ConfigSource::Workspace, path)?;
+        }
+        Ok(())
+    }
+
     /// Resolves conditional scopes within the current environment. Returns new
     /// resolved config.
     pub fn resolve_config(&self, config: &RawConfig) -> Result<StackedConfig, ConfigGetError> {
@@ -523,7 +592,7 @@ fn config_files_for(
 /// 2. Base environment variables
 /// 3. [User configs](https://jj-vcs.github.io/jj/latest/config/)
 /// 4. Repo config `.jj/repo/config.toml`
-/// 5. TODO: Workspace config `.jj/config.toml`
+/// 5. Workspace config `.jj/workspace/config.toml`
 /// 6. Override environment variables
 /// 7. Command-line arguments `--config`, `--config-toml`, `--config-file`
 ///
@@ -1753,8 +1822,10 @@ mod tests {
         ConfigEnv {
             home_dir,
             repo_path: None,
+            workspace_path: None,
             user_config_paths: env.resolve(&Ui::null()),
             repo_config_path: None,
+            workspace_config_path: None,
             command: None,
         }
     }
