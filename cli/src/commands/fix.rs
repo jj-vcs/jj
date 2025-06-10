@@ -153,7 +153,8 @@ pub(crate) fn cmd_fix(
         args.include_unchanged_files,
         tx.repo_mut(),
         &mut parallel_fixer,
-    )?;
+    )
+    .block_on()?;
     writeln!(
         ui.status(),
         "Fixed {} commits of {} checked.",

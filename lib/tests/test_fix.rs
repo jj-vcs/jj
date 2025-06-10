@@ -124,6 +124,7 @@ fn test_fix_one_file() {
         tx.repo_mut(),
         &mut file_fixer,
     )
+    .block_on()
     .unwrap();
 
     let expected_tree_a = create_tree(repo, &[(path1, "CONTENT")]);
@@ -164,6 +165,7 @@ fn test_fixer_does_not_change_content() {
         tx.repo_mut(),
         &mut file_fixer,
     )
+    .block_on()
     .unwrap();
 
     assert!(summary.rewrites.is_empty());
@@ -195,6 +197,7 @@ fn test_empty_commit() {
         tx.repo_mut(),
         &mut file_fixer,
     )
+    .block_on()
     .unwrap();
 
     assert!(summary.rewrites.is_empty());
@@ -226,7 +229,8 @@ fn test_fixer_fails() {
         include_unchanged_files,
         tx.repo_mut(),
         &mut file_fixer,
-    );
+    )
+    .block_on();
 
     let error = result.err().unwrap();
     assert_eq!(error.to_string(), "Forced failure: boo");
@@ -260,6 +264,7 @@ fn test_unchanged_file_is_not_fixed() {
         tx.repo_mut(),
         &mut file_fixer,
     )
+    .block_on()
     .unwrap();
 
     assert!(summary.rewrites.is_empty());
@@ -294,6 +299,7 @@ fn test_unchanged_file_is_fixed() {
         tx.repo_mut(),
         &mut file_fixer,
     )
+    .block_on()
     .unwrap();
 
     let expected_tree_b = create_tree(repo, &[(path1, "CONTENT")]);
@@ -338,6 +344,7 @@ fn test_already_fixed_descendant() {
         tx.repo_mut(),
         &mut file_fixer,
     )
+    .block_on()
     .unwrap();
 
     assert_eq!(summary.rewrites.len(), 2);
@@ -383,6 +390,7 @@ fn test_parallel_fixer_basic() {
         tx.repo_mut(),
         &mut parallel_fixer,
     )
+    .block_on()
     .unwrap();
 
     let expected_tree_a = create_tree(repo, &[(path1, "CONTENT")]);
@@ -426,6 +434,7 @@ fn test_parallel_fixer_fixes_files() {
         tx.repo_mut(),
         &mut parallel_fixer,
     )
+    .block_on()
     .unwrap();
 
     let expected_tree_a = create_tree_with(repo, |builder| {
@@ -474,6 +483,7 @@ fn test_parallel_fixer_does_not_change_content() {
         tx.repo_mut(),
         &mut parallel_fixer,
     )
+    .block_on()
     .unwrap();
 
     assert!(summary.rewrites.is_empty());
@@ -516,7 +526,8 @@ fn test_parallel_fixer_no_changes_upon_partial_failure() {
         include_unchanged_files,
         tx.repo_mut(),
         &mut parallel_fixer,
-    );
+    )
+    .block_on();
     let error = result.err().unwrap();
     assert_eq!(error.to_string(), "Forced failure: boo7");
 }
@@ -563,6 +574,7 @@ fn test_fix_multiple_revisions() {
         tx.repo_mut(),
         &mut file_fixer,
     )
+    .block_on()
     .unwrap();
 
     let expected_tree_a = create_tree(repo, &[(path1, "XYZ")]);

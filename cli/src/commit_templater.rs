@@ -1882,6 +1882,7 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                             &options,
                             conflict_marker_style,
                         )
+                        .block_on()
                     })
                 })
                 .into_template();
@@ -1922,6 +1923,7 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                             &options,
                             conflict_marker_style,
                         )
+                        .block_on()
                     })
                 })
                 .into_template();
@@ -1971,6 +1973,7 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                 .map(move |diff| {
                     diff.into_formatted(move |formatter, _store, tree_diff| {
                         diff_util::show_diff_summary(formatter, tree_diff, path_converter)
+                            .block_on()
                     })
                 })
                 .into_template();

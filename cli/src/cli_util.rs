@@ -138,6 +138,7 @@ use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceLoadError;
 use jj_lib::workspace::WorkspaceLoader;
 use jj_lib::workspace::WorkspaceLoaderFactory;
+use pollster::FutureExt as _;
 use tracing::instrument;
 use tracing_chrome::ChromeLayerBuilder;
 use tracing_subscriber::prelude::*;
@@ -3003,7 +3004,7 @@ impl DiffSelector {
         matcher: &dyn Matcher,
         format_instructions: impl FnOnce() -> String,
     ) -> Result<MergedTreeId, CommandError> {
-        let selected_tree_id = restore_tree(right_tree, left_tree, matcher)?;
+        let selected_tree_id = restore_tree(right_tree, left_tree, matcher).block_on()?;
         match self {
             DiffSelector::NonInteractive => Ok(selected_tree_id),
             DiffSelector::Interactive(editor) => {

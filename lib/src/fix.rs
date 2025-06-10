@@ -36,7 +36,6 @@ use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::store::Store;
 use jj_lib::tree::Tree;
-use pollster::FutureExt as _;
 use rayon::iter::IntoParallelIterator as _;
 use rayon::prelude::ParallelIterator as _;
 
@@ -173,7 +172,7 @@ where
 /// that the fixes are not lost. This will never result in new conflicts. Files
 /// with existing conflicts are updated on all sides of the conflict, which
 /// can potentially increase or decrease the number of conflict markers.
-pub fn fix_files(
+pub async fn fix_files(
     root_commits: Vec<CommitId>,
     matcher: &dyn Matcher,
     include_unchanged_files: bool,
@@ -230,39 +229,35 @@ pub fn fix_files(
         };
         // TODO: handle copy tracking
         let mut diff_stream = parent_tree.diff_stream(&commit.tree()?, &matcher);
-        async {
-            while let Some(TreeDiffEntry {
-                path: repo_path,
-                values,
-            }) = diff_stream.next().await
-            {
-                let (_before, after) = values?;
-                // Deleted files have no file content to fix, and they have no terms in `after`,
-                // so we don't add any files-to-fix for them. Conflicted files produce one
-                // file-to-fix for each side of the conflict.
-                for term in after.into_iter().flatten() {
-                    // We currently only support fixing the content of normal files, so we skip
-                    // directories and symlinks, and we ignore the executable bit.
-                    if let TreeValue::File {
-                        id,
-                        executable: _,
-                        copy_id: _,
-                    } = term
-                    {
-                        // TODO: Skip the file if its content is larger than some configured size,
-                        // preferably without actually reading it yet.
-                        let file_to_fix = FileToFix {
-                            file_id: id.clone(),
-                            repo_path: repo_path.clone(),
-                        };
-                        unique_files_to_fix.insert(file_to_fix.clone());
-                        paths.insert(repo_path.clone());
-                    }
+        while let Some(TreeDiffEntry {
+            path: repo_path,
+            values,
+        }) = diff_stream.next().await
+        {
+            let (_before, after) = values?;
+            // Deleted files have no file content to fix, and they have no terms in `after`,
+            // so we don't add any files-to-fix for them. Conflicted files produce one
+            // file-to-fix for each side of the conflict.
+            for term in after.into_iter().flatten() {
+                // We currently only support fixing the content of normal files, so we skip
+                // directories and symlinks, and we ignore the executable bit.
+                if let TreeValue::File {
+                    id,
+                    executable: _,
+                    copy_id: _,
+                } = term
+                {
+                    // TODO: Skip the file if its content is larger than some configured size,
+                    // preferably without actually reading it yet.
+                    let file_to_fix = FileToFix {
+                        file_id: id.clone(),
+                        repo_path: repo_path.clone(),
+                    };
+                    unique_files_to_fix.insert(file_to_fix.clone());
+                    paths.insert(repo_path.clone());
                 }
             }
-            Ok::<(), BackendError>(())
         }
-        .block_on()?;
 
         commit_paths.insert(commit.id().clone(), paths);
     }

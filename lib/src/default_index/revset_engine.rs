@@ -1222,7 +1222,7 @@ fn build_predicate_fn(
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
-                Ok(has_diff_from_parent(&store, index, &commit, &*matcher)?)
+                Ok(has_diff_from_parent(&store, index, &commit, &*matcher).block_on()?)
             })
         }
         RevsetFilterPredicate::DiffContains { text, files } => {
@@ -1231,13 +1231,16 @@ fn build_predicate_fn(
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
-                Ok(matches_diff_from_parent(
-                    &store,
-                    index,
-                    &commit,
-                    &text_pattern,
-                    &*files_matcher,
-                )?)
+                Ok(
+                    matches_diff_from_parent(
+                        &store,
+                        index,
+                        &commit,
+                        &text_pattern,
+                        &*files_matcher,
+                    )
+                    .block_on()?,
+                )
             })
         }
         RevsetFilterPredicate::HasConflict => box_pure_predicate_fn(move |index, pos| {
@@ -1261,7 +1264,7 @@ fn build_predicate_fn(
     }
 }
 
-fn has_diff_from_parent(
+async fn has_diff_from_parent(
     store: &Arc<Store>,
     index: &CompositeIndex,
     commit: &Commit,
@@ -1283,22 +1286,19 @@ fn has_diff_from_parent(
     let to_tree = commit.tree()?;
     // TODO: handle copy tracking
     let mut tree_diff = from_tree.diff_stream(&to_tree, matcher);
-    async {
-        // TODO: Resolve values concurrently
-        while let Some(entry) = tree_diff.next().await {
-            let (from_value, to_value) = entry.values?;
-            let from_value = resolve_file_values(store, &entry.path, from_value).await?;
-            if from_value == to_value {
-                continue;
-            }
-            return Ok(true);
+    // TODO: Resolve values concurrently
+    while let Some(entry) = tree_diff.next().await {
+        let (from_value, to_value) = entry.values?;
+        let from_value = resolve_file_values(store, &entry.path, from_value).await?;
+        if from_value == to_value {
+            continue;
         }
-        Ok(false)
+        return Ok(true);
     }
-    .block_on()
+    Ok(false)
 }
 
-fn matches_diff_from_parent(
+async fn matches_diff_from_parent(
     store: &Arc<Store>,
     index: &CompositeIndex,
     commit: &Commit,
@@ -1311,26 +1311,23 @@ fn matches_diff_from_parent(
     let to_tree = commit.tree()?;
     // TODO: handle copy tracking
     let mut tree_diff = from_tree.diff_stream(&to_tree, files_matcher);
-    async {
-        // TODO: Resolve values concurrently
-        while let Some(entry) = tree_diff.next().await {
-            let (left_value, right_value) = entry.values?;
-            let left_value = resolve_file_values(store, &entry.path, left_value).await?;
-            if left_value == right_value {
-                continue;
-            }
-            let left_future = materialize_tree_value(store, &entry.path, left_value);
-            let right_future = materialize_tree_value(store, &entry.path, right_value);
-            let (left_value, right_value) = futures::try_join!(left_future, right_future)?;
-            let left_contents = to_file_content(&entry.path, left_value).await?;
-            let right_contents = to_file_content(&entry.path, right_value).await?;
-            if diff_match_lines(&left_contents, &right_contents, text_pattern)? {
-                return Ok(true);
-            }
+    // TODO: Resolve values concurrently
+    while let Some(entry) = tree_diff.next().await {
+        let (left_value, right_value) = entry.values?;
+        let left_value = resolve_file_values(store, &entry.path, left_value).await?;
+        if left_value == right_value {
+            continue;
         }
-        Ok(false)
+        let left_future = materialize_tree_value(store, &entry.path, left_value);
+        let right_future = materialize_tree_value(store, &entry.path, right_value);
+        let (left_value, right_value) = futures::try_join!(left_future, right_future)?;
+        let left_contents = to_file_content(&entry.path, left_value).await?;
+        let right_contents = to_file_content(&entry.path, right_value).await?;
+        if diff_match_lines(&left_contents, &right_contents, text_pattern)? {
+            return Ok(true);
+        }
     }
-    .block_on()
+    Ok(false)
 }
 
 fn diff_match_lines(

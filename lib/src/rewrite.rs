@@ -23,7 +23,6 @@ use futures::StreamExt as _;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::backend::BackendError;
@@ -88,7 +87,7 @@ pub fn merge_commit_trees_no_resolve_without_repo(
 }
 
 /// Restore matching paths from the source into the destination.
-pub fn restore_tree(
+pub async fn restore_tree(
     source: &MergedTree,
     destination: &MergedTree,
     matcher: &dyn Matcher,
@@ -100,20 +99,16 @@ pub fn restore_tree(
         // TODO: We should be able to not traverse deeper in the diff if the matcher
         // matches an entire subtree.
         let mut tree_builder = MergedTreeBuilder::new(destination.id().clone());
-        async {
-            // TODO: handle copy tracking
-            let mut diff_stream = source.diff_stream(destination, matcher);
-            while let Some(TreeDiffEntry {
-                path: repo_path,
-                values,
-            }) = diff_stream.next().await
-            {
-                let (source_value, _destination_value) = values?;
-                tree_builder.set_or_remove(repo_path, source_value);
-            }
-            Ok::<(), BackendError>(())
+        // TODO: handle copy tracking
+        let mut diff_stream = source.diff_stream(destination, matcher);
+        while let Some(TreeDiffEntry {
+            path: repo_path,
+            values,
+        }) = diff_stream.next().await
+        {
+            let (source_value, _destination_value) = values?;
+            tree_builder.set_or_remove(repo_path, source_value);
         }
-        .block_on()?;
         tree_builder.write_tree(destination.store())
     }
 }

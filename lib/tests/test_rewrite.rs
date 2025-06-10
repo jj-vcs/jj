@@ -39,6 +39,7 @@ use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RewriteRefsOptions;
 use maplit::hashmap;
 use maplit::hashset;
+use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::assert_abandoned_with_parent;
 use testutils::assert_rebased_onto;
@@ -78,7 +79,9 @@ fn test_restore_tree() {
     );
 
     // Restore everything using EverythingMatcher
-    let restored = restore_tree(&left, &right, &EverythingMatcher).unwrap();
+    let restored = restore_tree(&left, &right, &EverythingMatcher)
+        .block_on()
+        .unwrap();
     assert_eq!(restored, left.id());
 
     // Restore everything using FilesMatcher
@@ -87,11 +90,14 @@ fn test_restore_tree() {
         &right,
         &FilesMatcher::new([&path1, &path2, &path3, &path4]),
     )
+    .block_on()
     .unwrap();
     assert_eq!(restored, left.id());
 
     // Restore some files
-    let restored = restore_tree(&left, &right, &FilesMatcher::new([path1, path2])).unwrap();
+    let restored = restore_tree(&left, &right, &FilesMatcher::new([path1, path2]))
+        .block_on()
+        .unwrap();
     let expected = create_tree(repo, &[(path2, "left"), (path3, "right")]);
     assert_eq!(restored, expected.id());
 }
