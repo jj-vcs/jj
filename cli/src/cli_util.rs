@@ -3811,6 +3811,9 @@ impl<'a> CliRunner<'a> {
                 jj_lib::config::migrate(config, &self.config_migrations)?;
             Ok(())
         };
+
+        // Initial load: user, repo, and workspace-level configs for
+        // alias/default-command resolution
         // Use cwd-relative workspace configs to resolve default command and
         // aliases. WorkspaceLoader::init() won't do any heavy lifting other
         // than the path resolution.
@@ -3822,6 +3825,10 @@ impl<'a> CliRunner<'a> {
         if let Ok(loader) = &maybe_cwd_workspace_loader {
             config_env.reset_repo_path(loader.repo_path());
             config_env.reload_repo_config(&mut raw_config)?;
+            // register workspace config config: .jj/workspace-config.toml
+            let ws_conf_dir = loader.workspace_root().join(".jj");
+            config_env.reset_workspace_path(&ws_conf_dir);
+            config_env.reload_workspace_config(&mut raw_config)?;
         }
         let mut config = config_env.resolve_config(&raw_config)?;
         migrate_config(&mut config)?;
@@ -3866,6 +3873,10 @@ impl<'a> CliRunner<'a> {
                 .map_err(|err| map_workspace_load_error(err, Some(path)))?;
             config_env.reset_repo_path(loader.repo_path());
             config_env.reload_repo_config(&mut raw_config)?;
+            // update workspace path too
+            let ws_conf_dir = loader.workspace_root().join(".jj");
+            config_env.reset_workspace_path(&ws_conf_dir);
+            config_env.reload_workspace_config(&mut raw_config)?;
             Ok(loader)
         } else {
             maybe_cwd_workspace_loader
@@ -3883,6 +3894,7 @@ impl<'a> CliRunner<'a> {
                 ConfigSource::EnvBase | ConfigSource::EnvOverrides => "environment-provided",
                 ConfigSource::User => "user-level",
                 ConfigSource::Repo => "repo-level",
+                ConfigSource::Workspace => "workspace-level",
                 ConfigSource::CommandArg => "CLI-provided",
             };
             writeln!(

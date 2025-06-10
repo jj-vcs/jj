@@ -14,6 +14,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Workspaces may have an additional layered configuration, located at
+  `.jj/workspace-config.toml`. `jj config` subcommands which took layer options like
+  `--repo` now also support `--workspace`.
+
 ### Fixed bugs
 
 ## [0.34.0] - 2025-10-01
