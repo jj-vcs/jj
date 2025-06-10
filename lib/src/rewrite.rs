@@ -68,7 +68,9 @@ pub async fn merge_commit_trees_no_resolve_without_repo(
     commits: &[Commit],
 ) -> BackendResult<MergedTree> {
     if commits.is_empty() {
-        Ok(store.get_root_tree(&store.empty_merged_tree_id())?)
+        Ok(store
+            .get_root_tree_async(&store.empty_merged_tree_id())
+            .await?)
     } else {
         let mut new_tree = commits[0].tree()?;
         let commit_ids = commits

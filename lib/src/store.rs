@@ -208,13 +208,22 @@ impl Store {
     }
 
     pub fn get_root_tree(self: &Arc<Self>, id: &MergedTreeId) -> BackendResult<MergedTree> {
+        self.get_root_tree_async(id).block_on()
+    }
+
+    pub async fn get_root_tree_async(
+        self: &Arc<Self>,
+        id: &MergedTreeId,
+    ) -> BackendResult<MergedTree> {
         match &id {
             MergedTreeId::Legacy(id) => {
-                let tree = self.get_tree(RepoPathBuf::root(), id)?;
+                let tree = self.get_tree_async(RepoPathBuf::root(), id).await?;
                 MergedTree::from_legacy_tree(tree)
             }
             MergedTreeId::Merge(ids) => {
-                let trees = ids.try_map(|id| self.get_tree(RepoPathBuf::root(), id))?;
+                let trees = ids
+                    .try_map_async(|id| self.get_tree_async(RepoPathBuf::root(), id))
+                    .await?;
                 Ok(MergedTree::new(trees))
             }
         }
