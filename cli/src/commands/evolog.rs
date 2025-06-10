@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use std::io;
-use std::slice;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
@@ -44,13 +43,15 @@ use crate::ui::Ui;
 /// of a change evolves when the change is updated, rebased, etc.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct EvologArgs {
+    /// Follow changes from these revisions
     #[arg(
         long, short,
         default_value = "@",
-        value_name = "REVSET",
+        value_name = "REVSETS",
+        alias = "revision",
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
-    revision: RevisionArg,
+    revisions: Vec<RevisionArg>,
     /// Limit number of revisions to show
     ///
     /// Applied after revisions are reordered topologically, but before being
@@ -97,7 +98,10 @@ pub(crate) fn cmd_evolog(
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
 
-    let start_commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
+    let start_commit_ids: Vec<_> = workspace_command
+        .parse_union_revsets(ui, &args.revisions)?
+        .evaluate_to_commit_ids()?
+        .try_collect()?;
 
     let diff_renderer = workspace_command.diff_renderer_for_log(&args.diff_format, args.patch)?;
     let graph_style = GraphStyle::from_settings(workspace_command.settings())?;
@@ -133,8 +137,8 @@ pub(crate) fn cmd_evolog(
     let formatter = formatter.as_mut();
 
     let repo = workspace_command.repo();
-    let evolution_entries = walk_predecessors(repo, slice::from_ref(start_commit.id()))
-        .take(args.limit.unwrap_or(usize::MAX));
+    let evolution_entries =
+        walk_predecessors(repo, &start_commit_ids).take(args.limit.unwrap_or(usize::MAX));
     if !args.no_graph {
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());

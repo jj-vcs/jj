@@ -97,6 +97,30 @@ fn test_evolog_with_or_without_diff() {
     [EOF]
     ");
 
+    // Multiple starting revisions
+    let output = work_dir.run_jj(["evolog", "-r.."]);
+    insta::assert_snapshot!(output, @r"
+    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
+    │  my description
+    │  -- operation 3499115d3831 (2001-02-03 08:05:10) snapshot working copy
+    ×  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 7f56b2a0 conflict
+    │  my description
+    │  -- operation eb87ec366530 (2001-02-03 08:05:09) rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
+    ○  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 51e08f95
+    │  my description
+    │  -- operation 18a971ce330a (2001-02-03 08:05:09) snapshot working copy
+    ○  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:08 b955b72e
+       (empty) my description
+       -- operation e0f8e58b3800 (2001-02-03 08:05:08) new empty commit
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 c664a51b
+    │  (no description set)
+    │  -- operation ca1226de0084 (2001-02-03 08:05:08) snapshot working copy
+    ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
+       (empty) (no description set)
+       -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+    [EOF]
+    ");
+
     // Test `--limit`
     let output = work_dir.run_jj(["evolog", "--limit=2"]);
     insta::assert_snapshot!(output, @r"
