@@ -19,10 +19,12 @@ use std::collections::HashSet;
 use std::slice;
 use std::sync::Arc;
 
+use futures::future::try_join_all;
 use futures::StreamExt as _;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::backend::BackendError;
@@ -52,13 +54,15 @@ pub fn merge_commit_trees(repo: &dyn Repo, commits: &[Commit]) -> BackendResult<
     if let [commit] = commits {
         commit.tree()
     } else {
-        merge_commit_trees_no_resolve_without_repo(repo.store(), repo.index(), commits)?.resolve()
+        merge_commit_trees_no_resolve_without_repo(repo.store(), repo.index(), commits)
+            .block_on()?
+            .resolve()
     }
 }
 
 /// Merges `commits` without attempting to resolve file conflicts.
 #[instrument(skip(index))]
-pub fn merge_commit_trees_no_resolve_without_repo(
+pub async fn merge_commit_trees_no_resolve_without_repo(
     store: &Arc<Store>,
     index: &dyn Index,
     commits: &[Commit],
@@ -73,12 +77,12 @@ pub fn merge_commit_trees_no_resolve_without_repo(
             .collect_vec();
         for (i, other_commit) in commits.iter().enumerate().skip(1) {
             let ancestor_ids = index.common_ancestors(&commit_ids[0..i], &commit_ids[i..][..1]);
-            let ancestors: Vec<_> = ancestor_ids
-                .iter()
-                .map(|id| store.get_commit(id))
-                .try_collect()?;
-            let ancestor_tree =
-                merge_commit_trees_no_resolve_without_repo(store, index, &ancestors)?;
+            let ancestors: Vec<_> =
+                try_join_all(ancestor_ids.iter().map(|id| store.get_commit_async(id))).await?;
+            let ancestor_tree = Box::pin(merge_commit_trees_no_resolve_without_repo(
+                store, index, &ancestors,
+            ))
+            .await?;
             let other_tree = other_commit.tree()?;
             new_tree = new_tree.merge_no_resolve(&ancestor_tree, &other_tree);
         }
