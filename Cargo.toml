@@ -103,7 +103,7 @@ textwrap = "0.16.2"
 thiserror = "2.0.12"
 timeago = { version = "0.4.2", default-features = false }
 tokio = { version = "1.45.1", features = ["io-util"] }
-toml_edit = { version = "=0.22.26", features = ["serde"] } # FIXME(aseipp): 0.22.27 broke somehow?
+toml_edit = { version = "0.22.27", features = ["serde"] }
 tracing = "0.1.41"
 tracing-chrome = "0.7.2"
 tracing-subscriber = { version = "0.3.19", default-features = false, features = [
