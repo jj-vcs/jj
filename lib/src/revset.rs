@@ -232,6 +232,9 @@ pub enum RevsetExpression<St: ExpressionState> {
     None,
     All,
     VisibleHeads,
+    /// Visible heads and all referenced commits within the current expression
+    /// scope. Used as the default of `Range`/`DagRange` heads.
+    VisibleHeadsOrReferenced,
     Root,
     Commits(Vec<CommitId>),
     CommitRef(St::CommitRef),
@@ -303,12 +306,18 @@ impl<St: ExpressionState> RevsetExpression<St> {
         Rc::new(Self::None)
     }
 
+    /// Ancestors of visible heads and all referenced commits within the current
+    /// expression scope, which may include hidden commits.
     pub fn all() -> Rc<Self> {
         Rc::new(Self::All)
     }
 
     pub fn visible_heads() -> Rc<Self> {
         Rc::new(Self::VisibleHeads)
+    }
+
+    fn visible_heads_or_referenced() -> Rc<Self> {
+        Rc::new(Self::VisibleHeadsOrReferenced)
     }
 
     pub fn root() -> Rc<Self> {
@@ -1235,6 +1244,7 @@ fn try_transform_expression<St: ExpressionState, E>(
             RevsetExpression::None => None,
             RevsetExpression::All => None,
             RevsetExpression::VisibleHeads => None,
+            RevsetExpression::VisibleHeadsOrReferenced => None,
             RevsetExpression::Root => None,
             RevsetExpression::Commits(_) => None,
             RevsetExpression::CommitRef(_) => None,
@@ -1437,6 +1447,9 @@ where
         RevsetExpression::None => RevsetExpression::None.into(),
         RevsetExpression::All => RevsetExpression::All.into(),
         RevsetExpression::VisibleHeads => RevsetExpression::VisibleHeads.into(),
+        RevsetExpression::VisibleHeadsOrReferenced => {
+            RevsetExpression::VisibleHeadsOrReferenced.into()
+        }
         RevsetExpression::Root => RevsetExpression::Root.into(),
         RevsetExpression::Commits(ids) => RevsetExpression::Commits(ids.clone()).into(),
         RevsetExpression::CommitRef(commit_ref) => folder.fold_commit_ref(commit_ref)?,
@@ -1908,7 +1921,7 @@ fn fold_heads_range<St: ExpressionState>(
                     roots: filtered_range.roots,
                     heads: filtered_range
                         .heads
-                        .unwrap_or_else(RevsetExpression::visible_heads),
+                        .unwrap_or_else(RevsetExpression::visible_heads_or_referenced),
                     filter: filtered_range.filter,
                 }
                 .into()
@@ -1978,7 +1991,10 @@ fn fold_not_in_ancestors<St: ExpressionState>(
         {
             // ~(::heads) -> heads..
             // ~(::heads-) -> ~ancestors(heads, 1..) -> heads-..
-            to_difference_range(&RevsetExpression::visible_heads().ancestors(), complement)
+            to_difference_range(
+                &RevsetExpression::visible_heads_or_referenced().ancestors(),
+                complement,
+            )
         }
         _ => None,
     })
@@ -2561,6 +2577,7 @@ fn resolve_visibility(
     expression: &ResolvedRevsetExpression,
 ) -> ResolvedExpression {
     let context = VisibilityResolutionContext {
+        referenced_commits: &[],
         visible_heads: &repo.view().heads().iter().cloned().collect_vec(),
         root: repo.store().root_commit_id(),
     };
@@ -2569,6 +2586,7 @@ fn resolve_visibility(
 
 #[derive(Clone, Debug)]
 struct VisibilityResolutionContext<'a> {
+    referenced_commits: &'a [CommitId],
     visible_heads: &'a [CommitId],
     root: &'a CommitId,
 }
@@ -2580,6 +2598,9 @@ impl VisibilityResolutionContext<'_> {
             RevsetExpression::None => ResolvedExpression::Commits(vec![]),
             RevsetExpression::All => self.resolve_all(),
             RevsetExpression::VisibleHeads => self.resolve_visible_heads(),
+            RevsetExpression::VisibleHeadsOrReferenced => {
+                self.resolve_visible_heads_or_referenced()
+            }
             RevsetExpression::Root => self.resolve_root(),
             RevsetExpression::Commits(commit_ids) => {
                 ResolvedExpression::Commits(commit_ids.clone())
@@ -2591,7 +2612,7 @@ impl VisibilityResolutionContext<'_> {
             },
             RevsetExpression::Descendants { roots, generation } => ResolvedExpression::DagRange {
                 roots: self.resolve(roots).into(),
-                heads: self.resolve_visible_heads().into(),
+                heads: self.resolve_visible_heads_or_referenced().into(),
                 generation_from_roots: generation.clone(),
             },
             RevsetExpression::Range {
@@ -2649,6 +2670,7 @@ impl VisibilityResolutionContext<'_> {
                 visible_heads,
             } => {
                 let context = VisibilityResolutionContext {
+                    referenced_commits: self.referenced_commits,
                     visible_heads,
                     root: self.root,
                 };
@@ -2700,13 +2722,20 @@ impl VisibilityResolutionContext<'_> {
         // some optimization rules could be removed, but that means `author(_) & x`
         // would have to test `::visible_heads() & x`.
         ResolvedExpression::Ancestors {
-            heads: self.resolve_visible_heads().into(),
+            heads: self.resolve_visible_heads_or_referenced().into(),
             generation: GENERATION_RANGE_FULL,
         }
     }
 
     fn resolve_visible_heads(&self) -> ResolvedExpression {
         ResolvedExpression::Commits(self.visible_heads.to_owned())
+    }
+
+    fn resolve_visible_heads_or_referenced(&self) -> ResolvedExpression {
+        let commits = itertools::chain(self.referenced_commits, self.visible_heads)
+            .cloned()
+            .collect();
+        ResolvedExpression::Commits(commits)
     }
 
     fn resolve_root(&self) -> ResolvedExpression {
@@ -2725,6 +2754,7 @@ impl VisibilityResolutionContext<'_> {
             RevsetExpression::None
             | RevsetExpression::All
             | RevsetExpression::VisibleHeads
+            | RevsetExpression::VisibleHeadsOrReferenced
             | RevsetExpression::Root
             | RevsetExpression::Commits(_)
             | RevsetExpression::CommitRef(_)
@@ -4056,7 +4086,7 @@ mod tests {
         insta::assert_debug_snapshot!(optimize(parse("foo..").unwrap()), @r#"
         Range {
             roots: CommitRef(Symbol("foo")),
-            heads: VisibleHeads,
+            heads: VisibleHeadsOrReferenced,
             generation: 0..18446744073709551615,
         }
         "#);
@@ -4159,7 +4189,7 @@ mod tests {
         insta::assert_debug_snapshot!(optimize(parse("~(::foo)").unwrap()), @r#"
         Range {
             roots: CommitRef(Symbol("foo")),
-            heads: VisibleHeads,
+            heads: VisibleHeadsOrReferenced,
             generation: 0..18446744073709551615,
         }
         "#);
@@ -4171,7 +4201,7 @@ mod tests {
                 heads: CommitRef(Symbol("foo")),
                 generation: 1..2,
             },
-            heads: VisibleHeads,
+            heads: VisibleHeadsOrReferenced,
             generation: 0..18446744073709551615,
         }
         "#);
@@ -4181,7 +4211,7 @@ mod tests {
                 heads: CommitRef(Symbol("foo")),
                 generation: 2..3,
             },
-            heads: VisibleHeads,
+            heads: VisibleHeadsOrReferenced,
             generation: 0..18446744073709551615,
         }
         "#);
@@ -4935,7 +4965,7 @@ mod tests {
         insta::assert_debug_snapshot!(optimize(parse("heads(::)").unwrap()), @r"
         HeadsRange {
             roots: None,
-            heads: VisibleHeads,
+            heads: VisibleHeadsOrReferenced,
             filter: All,
         }
         ");
@@ -4951,14 +4981,14 @@ mod tests {
         insta::assert_debug_snapshot!(optimize(parse("heads(..)").unwrap()), @r"
         HeadsRange {
             roots: None,
-            heads: VisibleHeads,
+            heads: VisibleHeadsOrReferenced,
             filter: NotIn(Root),
         }
         ");
         insta::assert_debug_snapshot!(optimize(parse("heads(foo..)").unwrap()), @r#"
         HeadsRange {
             roots: CommitRef(Symbol("foo")),
-            heads: VisibleHeads,
+            heads: VisibleHeadsOrReferenced,
             filter: All,
         }
         "#);
@@ -4986,7 +5016,7 @@ mod tests {
         insta::assert_debug_snapshot!(optimize(parse("heads(~::foo)").unwrap()), @r#"
         HeadsRange {
             roots: CommitRef(Symbol("foo")),
-            heads: VisibleHeads,
+            heads: VisibleHeadsOrReferenced,
             filter: All,
         }
         "#);
@@ -5030,7 +5060,7 @@ mod tests {
         insta::assert_debug_snapshot!(optimize(parse("heads(author_name(A) | author_name(B))").unwrap()), @r#"
         HeadsRange {
             roots: None,
-            heads: VisibleHeads,
+            heads: VisibleHeadsOrReferenced,
             filter: AsFilter(
                 Union(
                     Filter(AuthorName(Substring("A"))),
@@ -5042,7 +5072,7 @@ mod tests {
         insta::assert_debug_snapshot!(optimize(parse("heads(~author_name(A))").unwrap()), @r#"
         HeadsRange {
             roots: None,
-            heads: VisibleHeads,
+            heads: VisibleHeadsOrReferenced,
             filter: AsFilter(
                 NotIn(Filter(AuthorName(Substring("A")))),
             ),
@@ -5051,7 +5081,7 @@ mod tests {
         insta::assert_debug_snapshot!(optimize(parse("heads(~foo)").unwrap()), @r#"
         HeadsRange {
             roots: None,
-            heads: VisibleHeads,
+            heads: VisibleHeadsOrReferenced,
             filter: NotIn(CommitRef(Symbol("foo"))),
         }
         "#);
