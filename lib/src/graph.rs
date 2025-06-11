@@ -117,7 +117,7 @@ pub fn reverse_graph<N, ID: Clone + Eq + Hash, E>(
 pub struct TopoGroupedGraphIterator<N, I> {
     input_iter: I,
     /// Graph nodes read from the input iterator but not yet emitted.
-    nodes: HashMap<N, TopoGroupedGraphNode<N>>,
+    nodes: HashMap<N, TopoGroupedGraphNode<N, N>>,
     /// Stack of graph nodes to be emitted.
     emittable_ids: Vec<N>,
     /// List of new head nodes found while processing unpopulated nodes, or
@@ -128,18 +128,19 @@ pub struct TopoGroupedGraphIterator<N, I> {
 }
 
 #[derive(Clone, Debug)]
-struct TopoGroupedGraphNode<N> {
+struct TopoGroupedGraphNode<N, ID> {
     /// Graph nodes which must be emitted before.
-    child_ids: HashSet<N>,
-    /// Graph edges to parent nodes. `None` until this node is populated.
-    edges: Option<Vec<GraphEdge<N>>>,
+    child_ids: HashSet<ID>,
+    /// Graph node data and edges to parent nodes. `None` until this node is
+    /// populated.
+    item: Option<GraphNode<N, ID>>,
 }
 
-impl<N> Default for TopoGroupedGraphNode<N> {
+impl<N, ID> Default for TopoGroupedGraphNode<N, ID> {
     fn default() -> Self {
         Self {
             child_ids: Default::default(),
-            edges: None,
+            item: None,
         }
     }
 }
@@ -178,8 +179,8 @@ where
     }
 
     fn populate_one(&mut self) -> Result<Option<()>, E> {
-        let (current_id, edges) = match self.input_iter.next() {
-            Some(Ok(data)) => data,
+        let item = match self.input_iter.next() {
+            Some(Ok(item)) => item,
             Some(Err(err)) => {
                 return Err(err);
             }
@@ -187,20 +188,22 @@ where
                 return Ok(None);
             }
         };
+        let (current_id, edges) = &item;
 
         // Set up reverse reference
-        for parent_id in reachable_targets(&edges) {
+        for parent_id in reachable_targets(edges) {
             let parent_node = self.nodes.entry(parent_id.clone()).or_default();
             parent_node.child_ids.insert(current_id.clone());
         }
 
         // Populate the current node
-        if let Some(current_node) = self.nodes.get_mut(&current_id) {
-            assert!(current_node.edges.is_none());
-            current_node.edges = Some(edges);
+        if let Some(current_node) = self.nodes.get_mut(current_id) {
+            assert!(current_node.item.is_none());
+            current_node.item = Some(item);
         } else {
+            let current_id = current_id.clone();
             let current_node = TopoGroupedGraphNode {
-                edges: Some(edges),
+                item: Some(item),
                 ..Default::default()
             };
             self.nodes.insert(current_id.clone(), current_node);
@@ -257,7 +260,7 @@ where
         visited.remove(&new_head_id);
         while let Some(id) = to_visit.pop() {
             let node = self.nodes.get(id).unwrap();
-            if let Some(edges) = &node.edges {
+            if let Some((_, edges)) = &node.item {
                 to_visit.extend(reachable_targets(edges).filter(|id| visited.remove(id)));
             }
         }
@@ -280,7 +283,7 @@ where
                     self.blocked_ids.insert(current_id);
                     continue;
                 }
-                let Some(edges) = current_node.edges.take() else {
+                let Some(item) = current_node.item.take() else {
                     // Not yet populated
                     self.populate_one()?
                         .expect("parent or prioritized node should exist");
@@ -289,7 +292,8 @@ where
                 // The second (or the last) parent will be visited first
                 let current_id = self.emittable_ids.pop().unwrap();
                 self.nodes.remove(&current_id).unwrap();
-                for parent_id in reachable_targets(&edges) {
+                let (_, edges) = &item;
+                for parent_id in reachable_targets(edges) {
                     let parent_node = self.nodes.get_mut(parent_id).unwrap();
                     parent_node.child_ids.remove(&current_id);
                     if parent_node.child_ids.is_empty() {
@@ -300,7 +304,7 @@ where
                         self.blocked_ids.insert(parent_id.clone());
                     }
                 }
-                return Ok(Some((current_id, edges)));
+                return Ok(Some(item));
             } else if !self.new_head_ids.is_empty() {
                 self.flush_new_head();
             } else {
