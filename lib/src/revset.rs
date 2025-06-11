@@ -1855,12 +1855,8 @@ fn fold_redundant_expression<St: ExpressionState>(
             match (expression1.as_ref(), expression2.as_ref()) {
                 (_, RevsetExpression::None) => Some(expression1.clone()),
                 (RevsetExpression::None, _) => Some(expression2.clone()),
-                // TODO: To enable these substitution rules, we'll first need to
-                // fix handling of hidden revisions. See
-                // VisibilityResolutionContext::resolve_all() for details.
-                //
-                // (RevsetExpression::All, _) => Some(RevsetExpression::all()),
-                // (_, RevsetExpression::All) => Some(RevsetExpression::all()),
+                (RevsetExpression::All, _) => Some(RevsetExpression::all()),
+                (_, RevsetExpression::All) => Some(RevsetExpression::all()),
                 _ => None,
             }
         }
@@ -2193,6 +2189,8 @@ fn fold_generation<St: ExpressionState>(
 pub fn optimize<St: ExpressionState>(
     expression: Rc<RevsetExpression<St>>,
 ) -> Rc<RevsetExpression<St>> {
+    // Since fold_redundant_expression() can remove hidden commits that look
+    // redundant, referenced commits should be collected earlier.
     let expression = resolve_referenced_commits(&expression).unwrap_or(expression);
     let expression = unfold_difference(&expression).unwrap_or(expression);
     let expression = fold_redundant_expression(&expression).unwrap_or(expression);
@@ -4357,26 +4355,13 @@ mod tests {
 
         insta::assert_debug_snapshot!(optimize(parse("all() | none()").unwrap()), @"All");
         insta::assert_debug_snapshot!(optimize(parse("all() & none()").unwrap()), @"None");
-        insta::assert_debug_snapshot!(optimize(parse("root() | all()").unwrap()), @r"
-        Union(
-            Root,
-            All,
-        )
-        ");
+        insta::assert_debug_snapshot!(optimize(parse("root() | all()").unwrap()), @"All");
         insta::assert_debug_snapshot!(optimize(parse("root() & all()").unwrap()), @"Root");
         insta::assert_debug_snapshot!(optimize(parse("none() | root()").unwrap()), @"Root");
         insta::assert_debug_snapshot!(optimize(parse("none() & root()").unwrap()), @"None");
         insta::assert_debug_snapshot!(optimize(parse("~~none()").unwrap()), @"None");
         insta::assert_debug_snapshot!(
-            optimize(parse("(root() | none()) & (visible_heads() | ~~all())").unwrap()), @r"
-        Intersection(
-            Root,
-            Union(
-                VisibleHeads,
-                All,
-            ),
-        )
-        ");
+            optimize(parse("(root() | none()) & (visible_heads() | ~~all())").unwrap()), @"Root");
     }
 
     #[test]
