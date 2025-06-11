@@ -1771,6 +1771,67 @@ fn test_op_diff_sibling() {
 }
 
 #[test]
+fn test_op_diff_at_merge_op_with_rebased_commits() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create merge operation that rebases descendant commits
+    work_dir.run_jj(["new", "-m2a"]).success();
+    work_dir.run_jj(["desc", "-r@-", "-m1"]).success();
+    work_dir.run_jj(["desc", "--at-op=@-", "-m2b"]).success();
+
+    insta::assert_snapshot!(work_dir.run_jj(["log"]), @r"
+    @  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:09 7ed5a610
+    │  (empty) 2a
+    │ ○  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:11 8f35f6a6
+    ├─╯  (empty) 2b
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 6666e5c3
+    │  (empty) 1
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    Rebased 1 descendant commits onto commits rewritten by other operation
+    [EOF]
+    ");
+
+    // FIXME: the diff should be empty
+    let output = work_dir.run_jj(["op", "diff"]);
+    insta::assert_snapshot!(output, @r"
+    From operation: f03a0b976a7e (2001-02-03 08:05:12) merge 2 operations
+      To operation: 1b4a05d4dd99 (2001-02-03 08:05:11) reconcile divergent operations
+
+    Changed commits:
+    ○  + rlvkpnrz?? 8f35f6a6 (empty) 2b
+       - rlvkpnrz hidden 4545eaf5 (empty) 2b
+    [EOF]
+    ");
+
+    // FIXME: shouldn't fail at looking up commit in index
+    let output = work_dir.run_jj(["op", "show"]);
+    insta::assert_snapshot!(output, @r"
+    1b4a05d4dd99 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    reconcile divergent operations
+    args: jj log
+    [EOF]
+    ------- stderr -------
+    Error: Commit ID 9f04137238d45e2016e4031f4531d2df2ce5e2b5 not found in index (index or view might be corrupted)
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // FIXME: shouldn't fail at looking up commit in index
+    let output = work_dir.run_jj(["op", "log", "--op-diff", "--limit=3"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Commit ID 514d78ff571168057063d3f6c22c9fca73f786fb not found in index (index or view might be corrupted)
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_op_diff_word_wrap() {
     let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("git-repo");
