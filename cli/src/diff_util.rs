@@ -1432,11 +1432,15 @@ pub async fn show_file_by_file_diff(
         let right_path = create_file(right_path, &right_wc_dir, right_value)?;
         let patterns = &maplit::hashmap! {
             "left" => left_path
-                .strip_prefix(temp_dir.path()).expect("path should be relative to temp_dir")
-                .to_str().expect("temp_dir should be valid utf-8"),
+                .strip_prefix(temp_dir.path())
+                .expect("path should be relative to temp_dir")
+                .display()
+                .to_string(),
             "right" => right_path
-                .strip_prefix(temp_dir.path()).expect("path should be relative to temp_dir")
-                .to_str().expect("temp_dir should be valid utf-8"),
+                .strip_prefix(temp_dir.path())
+                .expect("path should be relative to temp_dir")
+                .display()
+                .to_string(),
         };
 
         let mut writer = formatter.raw()?;
