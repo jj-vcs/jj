@@ -12,6 +12,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* Revset expressions like `hidden_id | description(x)` now [search the specified
+  hidden revision and its ancestors](docs/revsets.md#hidden-revisions) as well
+  as all visible revisions.
+
 ### Deprecations
 
 ### New features

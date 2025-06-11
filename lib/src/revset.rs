@@ -285,6 +285,13 @@ pub enum RevsetExpression<St: ExpressionState> {
         operation: St::Operation,
         candidates: Rc<Self>,
     },
+    /// Makes `All` include the commits and their ancestors in addition to the
+    /// visible heads.
+    WithinReference {
+        candidates: Rc<Self>,
+        /// Commits explicitly referenced within the scope.
+        commits: Vec<CommitId>,
+    },
     /// Resolves visibility within the specified repo state.
     WithinVisibility {
         candidates: Rc<Self>,
@@ -569,7 +576,8 @@ impl ResolvedRevsetExpression {
         self: Rc<Self>,
         repo: &'index dyn Repo,
     ) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError> {
-        optimize(self).evaluate_unoptimized(repo)
+        let expr = optimize(self).to_backend_expression(repo);
+        repo.index().evaluate_revset(&expr, repo.store())
     }
 
     /// Evaluates this expression without optimizing it.
@@ -577,10 +585,15 @@ impl ResolvedRevsetExpression {
     /// Use this function if `self` is already optimized, or to debug
     /// optimization pass.
     pub fn evaluate_unoptimized<'index>(
-        &self,
+        self: &Rc<Self>,
         repo: &'index dyn Repo,
     ) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError> {
-        let expr = self.to_backend_expression(repo);
+        // Since referenced commits change the evaluation result, they must be
+        // collected no matter if optimization is disabled.
+        let expr = resolve_referenced_commits(self)
+            .as_ref()
+            .unwrap_or(self)
+            .to_backend_expression(repo);
         repo.index().evaluate_revset(&expr, repo.store())
     }
 
@@ -1321,6 +1334,15 @@ fn try_transform_expression<St: ExpressionState, E>(
                     candidates,
                 }
             }),
+            RevsetExpression::WithinReference {
+                candidates,
+                commits,
+            } => transform_rec(candidates, pre, post)?.map(|candidates| {
+                RevsetExpression::WithinReference {
+                    candidates,
+                    commits: commits.clone(),
+                }
+            }),
             RevsetExpression::WithinVisibility {
                 candidates,
                 visible_heads,
@@ -1529,6 +1551,18 @@ where
             operation,
             candidates,
         } => folder.fold_at_operation(operation, candidates)?,
+        RevsetExpression::WithinReference {
+            candidates,
+            commits,
+        } => {
+            let candidates = folder.fold_expression(candidates)?;
+            let commits = commits.clone();
+            RevsetExpression::WithinReference {
+                candidates,
+                commits,
+            }
+            .into()
+        }
         RevsetExpression::WithinVisibility {
             candidates,
             visible_heads,
@@ -1571,6 +1605,75 @@ where
         }
     };
     Ok(expression)
+}
+
+/// Collects explicitly-referenced commits, inserts marker nodes.
+///
+/// User symbols and `at_operation()` scopes should have been resolved.
+fn resolve_referenced_commits<St: ExpressionState>(
+    expression: &Rc<RevsetExpression<St>>,
+) -> TransformedExpression<St> {
+    // Trust precomputed value if any
+    if matches!(
+        expression.as_ref(),
+        RevsetExpression::WithinReference { .. }
+    ) {
+        return None;
+    }
+
+    // Use separate Vec to get around borrowing issue
+    let mut inner_commits = Vec::new();
+    let mut outer_commits = Vec::new();
+    let transformed = transform_expression(
+        expression,
+        |expression| match expression.as_ref() {
+            // Trust precomputed value
+            RevsetExpression::WithinReference { commits, .. } => {
+                inner_commits.extend_from_slice(commits);
+                ControlFlow::Break(None)
+            }
+            // at_operation() scope shouldn't be affected by outer
+            RevsetExpression::WithinVisibility {
+                candidates,
+                visible_heads,
+            } => {
+                // ::visible_heads shouldn't be filtered out by outer
+                inner_commits.extend_from_slice(visible_heads);
+                let transformed = resolve_referenced_commits(candidates);
+                // Referenced commits shouldn't be filtered out by outer
+                if let RevsetExpression::WithinReference { commits, .. } =
+                    transformed.as_deref().unwrap_or(candidates)
+                {
+                    inner_commits.extend_from_slice(commits);
+                }
+                ControlFlow::Break(transformed.map(|candidates| {
+                    Rc::new(RevsetExpression::WithinVisibility {
+                        candidates,
+                        visible_heads: visible_heads.clone(),
+                    })
+                }))
+            }
+            _ => ControlFlow::Continue(()),
+        },
+        |expression| {
+            if let RevsetExpression::Commits(commits) = expression.as_ref() {
+                outer_commits.extend_from_slice(commits);
+            }
+            None
+        },
+    );
+
+    // Commits could be deduplicated here, but they'll be concatenated with
+    // the visible heads later, which may have duplicates.
+    outer_commits.extend(inner_commits);
+    if outer_commits.is_empty() {
+        // Omit empty node to keep test/debug output concise
+        return transformed;
+    }
+    Some(Rc::new(RevsetExpression::WithinReference {
+        candidates: transformed.unwrap_or_else(|| expression.clone()),
+        commits: outer_commits,
+    }))
 }
 
 /// Flatten all intersections to be left-recursive. For instance, transforms
@@ -2090,6 +2193,7 @@ fn fold_generation<St: ExpressionState>(
 pub fn optimize<St: ExpressionState>(
     expression: Rc<RevsetExpression<St>>,
 ) -> Rc<RevsetExpression<St>> {
+    let expression = resolve_referenced_commits(&expression).unwrap_or(expression);
     let expression = unfold_difference(&expression).unwrap_or(expression);
     let expression = fold_redundant_expression(&expression).unwrap_or(expression);
     let expression = fold_generation(&expression).unwrap_or(expression);
@@ -2567,7 +2671,7 @@ fn resolve_symbols(
 ///
 /// Symbols and commit refs in the `expression` should have been resolved.
 ///
-/// This is a separate step because a symbol-resolved `expression` could be
+/// This is a separate step because a symbol-resolved `expression` may be
 /// transformed further to e.g. combine OR-ed `Commits(_)`, or to collect
 /// commit ids to make `all()` include hidden-but-specified commits. The
 /// return type `ResolvedExpression` is stricter than `RevsetExpression`,
@@ -2665,6 +2769,17 @@ impl VisibilityResolutionContext<'_> {
                 }
             }
             RevsetExpression::AtOperation { operation, .. } => match *operation {},
+            RevsetExpression::WithinReference {
+                candidates,
+                commits,
+            } => {
+                let context = VisibilityResolutionContext {
+                    referenced_commits: commits,
+                    visible_heads: self.visible_heads,
+                    root: self.root,
+                };
+                context.resolve(candidates)
+            }
             RevsetExpression::WithinVisibility {
                 candidates,
                 visible_heads,
@@ -2714,13 +2829,6 @@ impl VisibilityResolutionContext<'_> {
     }
 
     fn resolve_all(&self) -> ResolvedExpression {
-        // Since `all()` does not include hidden commits, some of the logical
-        // transformation rules may subtly change the evaluated set. For example,
-        // `all() & x` is not `x` if `x` is hidden. This wouldn't matter in practice,
-        // but if it does, the heads set could be extended to include the commits
-        // (and `remote_bookmarks()`) specified in the revset expression. Alternatively,
-        // some optimization rules could be removed, but that means `author(_) & x`
-        // would have to test `::visible_heads() & x`.
         ResolvedExpression::Ancestors {
             heads: self.resolve_visible_heads_or_referenced().into(),
             generation: GENERATION_RANGE_FULL,
@@ -2732,6 +2840,10 @@ impl VisibilityResolutionContext<'_> {
     }
 
     fn resolve_visible_heads_or_referenced(&self) -> ResolvedExpression {
+        // The referenced commits may be hidden. If they weren't included in
+        // `all()`, some of the logical transformation rules might subtly change
+        // the evaluated set. For example, `all() & x` wouldn't be `x` if `x`
+        // were hidden and if not included in `all()`.
         let commits = itertools::chain(self.referenced_commits, self.visible_heads)
             .cloned()
             .collect();
@@ -2776,7 +2888,8 @@ impl VisibilityResolutionContext<'_> {
             RevsetExpression::AsFilter(candidates) => self.resolve_predicate(candidates),
             RevsetExpression::AtOperation { operation, .. } => match *operation {},
             // Filters should be intersected with all() within the at-op repo.
-            RevsetExpression::WithinVisibility { .. } => {
+            RevsetExpression::WithinReference { .. }
+            | RevsetExpression::WithinVisibility { .. } => {
                 ResolvedPredicateExpression::Set(self.resolve(expression).into())
             }
             RevsetExpression::Coalesce(_, _) => {
@@ -3814,6 +3927,237 @@ mod tests {
     }
 
     #[test]
+    fn test_resolve_referenced_commits() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+
+        let visibility1 = Rc::new(ResolvedRevsetExpression::WithinVisibility {
+            candidates: RevsetExpression::commit(CommitId::from_hex("100001")),
+            visible_heads: vec![CommitId::from_hex("100000")],
+        });
+        let visibility2 = Rc::new(ResolvedRevsetExpression::WithinVisibility {
+            candidates: RevsetExpression::filter(RevsetFilterPredicate::HasConflict),
+            visible_heads: vec![CommitId::from_hex("200000")],
+        });
+        let commit3 = RevsetExpression::commit(CommitId::from_hex("000003"));
+
+        // Inner commits should be scoped. Both inner commits and visible heads
+        // should be added to the outer scope.
+        insta::assert_debug_snapshot!(
+            resolve_referenced_commits(&visibility1.intersection(&RevsetExpression::all())), @r#"
+        Some(
+            WithinReference {
+                candidates: Intersection(
+                    WithinVisibility {
+                        candidates: WithinReference {
+                            candidates: Commits(
+                                [
+                                    CommitId("100001"),
+                                ],
+                            ),
+                            commits: [
+                                CommitId("100001"),
+                            ],
+                        },
+                        visible_heads: [
+                            CommitId("100000"),
+                        ],
+                    },
+                    All,
+                ),
+                commits: [
+                    CommitId("100000"),
+                    CommitId("100001"),
+                ],
+            },
+        )
+        "#);
+
+        // Inner scope has no references, so WithinReference should be omitted.
+        insta::assert_debug_snapshot!(
+            resolve_referenced_commits(
+                &visibility2
+                    .intersection(&RevsetExpression::all())
+                    .union(&commit3),
+            ), @r#"
+        Some(
+            WithinReference {
+                candidates: Union(
+                    Intersection(
+                        WithinVisibility {
+                            candidates: Filter(HasConflict),
+                            visible_heads: [
+                                CommitId("200000"),
+                            ],
+                        },
+                        All,
+                    ),
+                    Commits(
+                        [
+                            CommitId("000003"),
+                        ],
+                    ),
+                ),
+                commits: [
+                    CommitId("000003"),
+                    CommitId("200000"),
+                ],
+            },
+        )
+        "#);
+
+        // Sibling scopes should track referenced commits individually.
+        insta::assert_debug_snapshot!(
+            resolve_referenced_commits(
+                &visibility1
+                    .union(&visibility2)
+                    .union(&commit3)
+                    .intersection(&RevsetExpression::all())
+            ), @r#"
+        Some(
+            WithinReference {
+                candidates: Intersection(
+                    Union(
+                        Union(
+                            WithinVisibility {
+                                candidates: WithinReference {
+                                    candidates: Commits(
+                                        [
+                                            CommitId("100001"),
+                                        ],
+                                    ),
+                                    commits: [
+                                        CommitId("100001"),
+                                    ],
+                                },
+                                visible_heads: [
+                                    CommitId("100000"),
+                                ],
+                            },
+                            WithinVisibility {
+                                candidates: Filter(HasConflict),
+                                visible_heads: [
+                                    CommitId("200000"),
+                                ],
+                            },
+                        ),
+                        Commits(
+                            [
+                                CommitId("000003"),
+                            ],
+                        ),
+                    ),
+                    All,
+                ),
+                commits: [
+                    CommitId("000003"),
+                    CommitId("100000"),
+                    CommitId("100001"),
+                    CommitId("200000"),
+                ],
+            },
+        )
+        "#);
+
+        // Referenced commits should be propagated from the innermost scope.
+        insta::assert_debug_snapshot!(
+            resolve_referenced_commits(&Rc::new(ResolvedRevsetExpression::WithinVisibility {
+                candidates: visibility1.clone(),
+                visible_heads: vec![CommitId::from_hex("400000")],
+            })), @r#"
+        Some(
+            WithinReference {
+                candidates: WithinVisibility {
+                    candidates: WithinReference {
+                        candidates: WithinVisibility {
+                            candidates: WithinReference {
+                                candidates: Commits(
+                                    [
+                                        CommitId("100001"),
+                                    ],
+                                ),
+                                commits: [
+                                    CommitId("100001"),
+                                ],
+                            },
+                            visible_heads: [
+                                CommitId("100000"),
+                            ],
+                        },
+                        commits: [
+                            CommitId("100000"),
+                            CommitId("100001"),
+                        ],
+                    },
+                    visible_heads: [
+                        CommitId("400000"),
+                    ],
+                },
+                commits: [
+                    CommitId("400000"),
+                    CommitId("100000"),
+                    CommitId("100001"),
+                ],
+            },
+        )
+        "#);
+
+        // Resolved expression should be reused.
+        let resolved = Rc::new(ResolvedRevsetExpression::WithinReference {
+            // No referenced commits within the scope to test whether the
+            // precomputed value is reused.
+            candidates: RevsetExpression::none(),
+            commits: vec![CommitId::from_hex("100000")],
+        });
+        insta::assert_debug_snapshot!(
+            resolve_referenced_commits(&resolved), @"None");
+        insta::assert_debug_snapshot!(
+            resolve_referenced_commits(&resolved.intersection(&RevsetExpression::all())), @r#"
+        Some(
+            WithinReference {
+                candidates: Intersection(
+                    WithinReference {
+                        candidates: None,
+                        commits: [
+                            CommitId("100000"),
+                        ],
+                    },
+                    All,
+                ),
+                commits: [
+                    CommitId("100000"),
+                ],
+            },
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            resolve_referenced_commits(&Rc::new(ResolvedRevsetExpression::WithinVisibility {
+                candidates: resolved.clone(),
+                visible_heads: vec![CommitId::from_hex("400000")],
+            })), @r#"
+        Some(
+            WithinReference {
+                candidates: WithinVisibility {
+                    candidates: WithinReference {
+                        candidates: None,
+                        commits: [
+                            CommitId("100000"),
+                        ],
+                    },
+                    visible_heads: [
+                        CommitId("400000"),
+                    ],
+                },
+                commits: [
+                    CommitId("400000"),
+                    CommitId("100000"),
+                ],
+            },
+        )
+        "#);
+    }
+
+    #[test]
     fn test_optimize_subtree() {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
@@ -3902,13 +4246,30 @@ mod tests {
         }
         "#);
         insta::assert_debug_snapshot!(
+            optimize(Rc::new(RevsetExpression::WithinReference {
+                candidates: parse("bookmarks() & all()").unwrap(),
+                commits: vec![CommitId::from_hex("012345")],
+            })), @r#"
+        WithinReference {
+            candidates: CommitRef(Bookmarks(Substring(""))),
+            commits: [
+                CommitId("012345"),
+            ],
+        }
+        "#);
+        insta::assert_debug_snapshot!(
             optimize(Rc::new(RevsetExpression::WithinVisibility {
                 candidates: parse("bookmarks() & all()").unwrap(),
                 visible_heads: vec![CommitId::from_hex("012345")],
             })), @r#"
-        WithinVisibility {
-            candidates: CommitRef(Bookmarks(Substring(""))),
-            visible_heads: [
+        WithinReference {
+            candidates: WithinVisibility {
+                candidates: CommitRef(Bookmarks(Substring(""))),
+                visible_heads: [
+                    CommitId("012345"),
+                ],
+            },
+            commits: [
                 CommitId("012345"),
             ],
         }

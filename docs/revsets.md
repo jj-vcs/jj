@@ -12,9 +12,16 @@ commits) to such commands.
 
 The words "revisions" and "commits" are used interchangeably in this document.
 
+## Hidden revisions
+
 Most revsets search only the [visible commits](glossary.md#visible-commits).
 Other commits are only included if you explicitly mention them (e.g. by commit
-ID or a Git ref pointing to them).
+ID, `<name>@<remote>` symbol, or `at_operation()` function).
+
+If hidden commits are specified, their ancestors also become available to the
+search space. They are included in `all()`, `x..`, `~x`, etc., but not in
+`..visible_heads()`, etc. For example, `hidden_id | all()` is equivalent to
+`hidden_id | ::(hidden_id | visible_heads())`.
 
 ## Symbols
 
@@ -52,10 +59,10 @@ only symbols.
 
 * `x-`: Parents of `x`, can be empty.
 * `x+`: Children of `x`, can be empty.
-* `x::`: Descendants of `x`, including the commits in `x` itself. Shorthand for
-  `x::visible_heads()`.
-* `x..`: Revisions that are not ancestors of `x`. Shorthand for
-  `x..visible_heads()`. Equivalent to `~::x`.
+* `x::`: Descendants of `x`, including the commits in `x` itself. Equivalent to
+  `x::visible_heads()` if no hidden revisions are mentioned.
+* `x..`: Revisions that are not ancestors of `x`. Equivalent to `~::x`, and
+  `x..visible_heads()` if no hidden revisions are mentioned.
 * `::x`: Ancestors of `x`, including the commits in `x` itself. Shorthand for
   `root()::x`.
 * `..x`: Ancestors of `x`, including the commits in `x` itself, but excluding
@@ -64,10 +71,11 @@ only symbols.
    to `x:: & ::y`. This is what `git log` calls `--ancestry-path x..y`.
 * `x..y`: Ancestors of `y` that are not also ancestors of `x`. Equivalent to
   `::y ~ ::x`. This is what `git log` calls `x..y` (i.e. the same as we call it).
-* `::`: All visible commits in the repo. Shorthand for
-  `root()::visible_heads()`. Equivalent to `all()`.
+* `::`: All visible commits in the repo. Equivalent to `all()`, and
+  `root()::visible_heads()` if no hidden revisions are mentioned.
 * `..`: All visible commits in the repo, but excluding the root commit.
-  Shorthand for `root()..visible_heads()`. Equivalent to `~root()`.
+  Equivalent to `~root()`, and `root()..visible_heads()` if no hidden revisions
+  are mentioned.
 * `~x`: Revisions that are not in `x`.
 * `x & y`: Revisions that are in both `x` and `y`.
 * `x ~ y`: Revisions that are in `x` but not in `y`.
@@ -194,7 +202,7 @@ revsets (expressions) as arguments.
 
 * `connected(x)`: Same as `x::x`. Useful when `x` includes several commits.
 
-* `all()`: All visible commits in the repo.
+* `all()`: All visible commits and ancestors of commits explicitly mentioned.
 
 * `none()`: No commits. This function is rarely useful; it is provided for
   completeness.
@@ -239,7 +247,8 @@ revsets (expressions) as arguments.
 
 * `git_head()`: The Git `HEAD` target as of the last import.
 
-* `visible_heads()`: All visible heads (same as `heads(all())`).
+* `visible_heads()`: All visible heads (same as `heads(all())` if no hidden
+  revisions are mentioned).
 
 * `root()`: The virtual commit that is the oldest ancestor of all other commits.
 
@@ -345,6 +354,11 @@ revsets (expressions) as arguments.
 * `at_operation(op, x)`: Evaluates `x` at the specified [operation][]. For
   example, `at_operation(@-, visible_heads())` will return all heads which were
   visible at the previous operation.
+
+  Since `at_operation(op, x)` brings all commits that were visible at the
+  operation to the search space, `at_operation(op, x) | all()` is equivalent to
+  `at_operation(op, x) | ::(at_operation(op, x | visible_heads()) |
+  visible_heads())`.
 
 [operation]: glossary.md#operation
 

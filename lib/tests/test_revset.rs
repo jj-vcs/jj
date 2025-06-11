@@ -1015,6 +1015,29 @@ fn test_evaluate_expression_with_hidden_revisions() {
         [commit3.id(), commit2.id(), commit1.id(), root_commit_id].map(Clone::clone)
     );
 
+    // Hidden revision in addition to filter
+    assert_eq!(
+        resolve_commit_ids(repo.as_ref(), &format!("empty() | {}", commit3.id())),
+        [commit3.id(), root_commit_id].map(Clone::clone)
+    );
+
+    // Hidden revision and its ancestors are included in all()
+    assert_eq!(
+        resolve_commit_ids(repo.as_ref(), &format!("all() | {}", commit4.id())),
+        [
+            commit4.id(),
+            commit3.id(),
+            commit2.id(),
+            commit1.id(),
+            root_commit_id
+        ]
+        .map(Clone::clone)
+    );
+    assert_eq!(
+        resolve_commit_ids(repo.as_ref(), &format!("~{}", commit4.id())),
+        [commit3.id(), commit2.id(), commit1.id(), root_commit_id].map(Clone::clone)
+    );
+
     // Hidden revision, its ancestors, and all visible revisions
     assert_eq!(
         resolve_commit_ids(repo.as_ref(), &format!("all() | ::{}", commit4.id())),
@@ -3370,7 +3393,6 @@ fn test_evaluate_expression_at_operation() {
 
     // Filter should be evaluated within the at-op repo. Note that this can
     // populate hidden commits without explicitly referring them by commit refs.
-    // It might be better to intersect inner results again with the outer repo.
     assert_eq!(
         resolve_commit_ids(repo2.as_ref(), "at_operation(@-, description('commit'))"),
         vec![commit2_op1.id().clone(), commit1_op1.id().clone()]
