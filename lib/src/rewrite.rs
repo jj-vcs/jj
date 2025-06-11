@@ -72,7 +72,7 @@ pub async fn merge_commit_trees_no_resolve_without_repo(
             .get_root_tree_async(&store.empty_merged_tree_id())
             .await?)
     } else {
-        let mut new_tree = commits[0].tree()?;
+        let mut new_tree = commits[0].tree_async().await?;
         let commit_ids = commits
             .iter()
             .map(|commit| commit.id().clone())
@@ -85,7 +85,7 @@ pub async fn merge_commit_trees_no_resolve_without_repo(
                 store, index, &ancestors,
             ))
             .await?;
-            let other_tree = other_commit.tree()?;
+            let other_tree = other_commit.tree_async().await?;
             new_tree = new_tree.merge_no_resolve(&ancestor_tree, &other_tree);
         }
         Ok(new_tree)

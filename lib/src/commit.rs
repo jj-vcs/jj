@@ -23,6 +23,7 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 
 use crate::backend;
 use crate::backend::BackendResult;
@@ -101,7 +102,11 @@ impl Commit {
     }
 
     pub fn tree(&self) -> BackendResult<MergedTree> {
-        self.store.get_root_tree(&self.data.root_tree)
+        self.tree_async().block_on()
+    }
+
+    pub async fn tree_async(&self) -> BackendResult<MergedTree> {
+        self.store.get_root_tree_async(&self.data.root_tree).await
     }
 
     pub fn tree_id(&self) -> &MergedTreeId {
