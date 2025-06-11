@@ -1799,7 +1799,8 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
     // FIXME: the diff should be empty
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @r"
-    From operation: f03a0b976a7e (2001-02-03 08:05:12) merge 2 operations
+    From operation: e6d8f40ac61c (2001-02-03 08:05:09) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    From operation: 2842b640d1cb (2001-02-03 08:05:10) describe commit ab92d1a87bebb4300165a16a753c5403bd7bc578
       To operation: 1b4a05d4dd99 (2001-02-03 08:05:11) reconcile divergent operations
 
     Changed commits:

@@ -97,20 +97,20 @@ pub fn cmd_op_diff(
     let workspace_env = workspace_command.env();
     let repo_loader = workspace_command.workspace().repo_loader();
     let settings = workspace_command.settings();
-    let from_op;
+    let from_ops;
     let to_op;
     if args.from.is_some() || args.to.is_some() {
-        from_op = workspace_command.resolve_single_op(args.from.as_deref().unwrap_or("@"))?;
+        from_ops = vec![workspace_command.resolve_single_op(args.from.as_deref().unwrap_or("@"))?];
         to_op = workspace_command.resolve_single_op(args.to.as_deref().unwrap_or("@"))?;
     } else {
         to_op = workspace_command.resolve_single_op(args.operation.as_deref().unwrap_or("@"))?;
-        let to_op_parents: Vec<_> = to_op.parents().try_collect()?;
-        from_op = repo_loader.merge_operations(to_op_parents, None)?;
+        from_ops = to_op.parents().try_collect()?;
     }
     let graph_style = GraphStyle::from_settings(settings)?;
     let with_content_format = LogContentFormat::new(ui, settings)?;
 
-    let from_repo = repo_loader.load_at(&from_op)?;
+    let merged_from_op = repo_loader.merge_operations(from_ops.clone(), None)?;
+    let from_repo = repo_loader.load_at(&merged_from_op)?;
     let to_repo = repo_loader.load_at(&to_op)?;
 
     // Create a new transaction starting from `to_repo`.
@@ -141,9 +141,12 @@ pub fn cmd_op_diff(
         .labeled(["op_diff"]);
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
-    write!(formatter, "From operation: ")?;
-    op_summary_template.format(&from_op, &mut *formatter)?;
-    writeln!(formatter)?;
+    for op in &from_ops {
+        write!(formatter, "From operation: ")?;
+        op_summary_template.format(op, &mut *formatter)?;
+        writeln!(formatter)?;
+    }
+    //                "From operation: "
     write!(formatter, "  To operation: ")?;
     op_summary_template.format(&to_op, &mut *formatter)?;
     writeln!(formatter)?;
