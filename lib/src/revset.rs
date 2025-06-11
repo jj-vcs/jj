@@ -19,6 +19,7 @@ use std::collections::hash_map;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::fmt;
+use std::ops::ControlFlow;
 use std::ops::Range;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -1185,25 +1186,34 @@ fn to_binary_expression<T: Clone>(
 
 /// `Some` for rewritten expression, or `None` to reuse the original expression.
 type TransformedExpression<St> = Option<Rc<RevsetExpression<St>>>;
+/// `Break` to not transform subtree recursively. `Continue(Some(rewritten))`
+/// isn't allowed because it could be a source of infinite substitution bugs.
+type PreTransformedExpression<St> = ControlFlow<TransformedExpression<St>, ()>;
 
-/// Walks `expression` tree and applies `f` recursively from leaf nodes.
+/// Walks `expression` tree and applies `pre`/`post` transformation recursively.
+fn transform_expression<St: ExpressionState>(
+    expression: &Rc<RevsetExpression<St>>,
+    mut pre: impl FnMut(&Rc<RevsetExpression<St>>) -> PreTransformedExpression<St>,
+    mut post: impl FnMut(&Rc<RevsetExpression<St>>) -> TransformedExpression<St>,
+) -> TransformedExpression<St> {
+    let Ok(transformed) =
+        try_transform_expression::<St, Infallible>(expression, |x| Ok(pre(x)), |x| Ok(post(x)));
+    transformed
+}
+
+/// Walks `expression` tree and applies `post` recursively from leaf nodes.
 fn transform_expression_bottom_up<St: ExpressionState>(
     expression: &Rc<RevsetExpression<St>>,
-    mut f: impl FnMut(&Rc<RevsetExpression<St>>) -> TransformedExpression<St>,
+    post: impl FnMut(&Rc<RevsetExpression<St>>) -> TransformedExpression<St>,
 ) -> TransformedExpression<St> {
-    try_transform_expression::<St, Infallible>(
-        expression,
-        |_| Ok(None),
-        |expression| Ok(f(expression)),
-    )
-    .unwrap()
+    transform_expression(expression, |_| ControlFlow::Continue(()), post)
 }
 
 /// Walks `expression` tree and applies transformation recursively.
 ///
-/// `pre` is the callback to rewrite subtree including children. It is
-/// invoked before visiting the child nodes. If returned `Some`, children
-/// won't be visited.
+/// `pre` is the callback to rewrite subtree including children. It is invoked
+/// before visiting the child nodes. If returned `Break`, children won't be
+/// visited.
 ///
 /// `post` is the callback to rewrite from leaf nodes. If returned `None`,
 /// the original expression node will be reused.
@@ -1213,12 +1223,12 @@ fn transform_expression_bottom_up<St: ExpressionState>(
 /// applied repeatedly until converged.
 fn try_transform_expression<St: ExpressionState, E>(
     expression: &Rc<RevsetExpression<St>>,
-    mut pre: impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
+    mut pre: impl FnMut(&Rc<RevsetExpression<St>>) -> Result<PreTransformedExpression<St>, E>,
     mut post: impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
 ) -> Result<TransformedExpression<St>, E> {
     fn transform_child_rec<St: ExpressionState, E>(
         expression: &Rc<RevsetExpression<St>>,
-        pre: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
+        pre: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<PreTransformedExpression<St>, E>,
         post: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
     ) -> Result<TransformedExpression<St>, E> {
         Ok(match expression.as_ref() {
@@ -1348,7 +1358,7 @@ fn try_transform_expression<St: ExpressionState, E>(
     #[expect(clippy::type_complexity)]
     fn transform_rec_pair<St: ExpressionState, E>(
         (expression1, expression2): (&Rc<RevsetExpression<St>>, &Rc<RevsetExpression<St>>),
-        pre: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
+        pre: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<PreTransformedExpression<St>, E>,
         post: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
     ) -> Result<Option<(Rc<RevsetExpression<St>>, Rc<RevsetExpression<St>>)>, E> {
         match (
@@ -1366,11 +1376,11 @@ fn try_transform_expression<St: ExpressionState, E>(
 
     fn transform_rec<St: ExpressionState, E>(
         expression: &Rc<RevsetExpression<St>>,
-        pre: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
+        pre: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<PreTransformedExpression<St>, E>,
         post: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
     ) -> Result<TransformedExpression<St>, E> {
-        if let Some(new_expression) = pre(expression)? {
-            return Ok(Some(new_expression));
+        if let ControlFlow::Break(transformed) = pre(expression)? {
+            return Ok(transformed);
         }
         if let Some(new_expression) = transform_child_rec(expression, pre, post)? {
             // must propagate new expression tree
@@ -3727,6 +3737,50 @@ mod tests {
             Filter(CommitterName(Substring("a"))),
         )
         "#);
+    }
+
+    #[test]
+    fn test_transform_expression() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+
+        // Break without pre transformation
+        insta::assert_debug_snapshot!(
+            transform_expression(
+                &ResolvedRevsetExpression::root(),
+                |_| ControlFlow::Break(None),
+                |_| Some(RevsetExpression::none()),
+            ), @"None");
+
+        // Break with pre transformation
+        insta::assert_debug_snapshot!(
+            transform_expression(
+                &ResolvedRevsetExpression::root(),
+                |_| ControlFlow::Break(Some(RevsetExpression::all())),
+                |_| Some(RevsetExpression::none()),
+            ), @"Some(All)");
+
+        // Continue without pre transformation, do transform child
+        insta::assert_debug_snapshot!(
+            transform_expression(
+                &ResolvedRevsetExpression::root().heads(),
+                |_| ControlFlow::Continue(()),
+                |x| match x.as_ref() {
+                    RevsetExpression::Root => Some(RevsetExpression::none()),
+                    _ => None,
+                },
+            ), @"Some(Heads(None))");
+
+        // Continue without pre transformation, do transform self
+        insta::assert_debug_snapshot!(
+            transform_expression(
+                &ResolvedRevsetExpression::root().heads(),
+                |_| ControlFlow::Continue(()),
+                |x| match x.as_ref() {
+                    RevsetExpression::Heads(y) => Some(y.clone()),
+                    _ => None,
+                },
+            ), @"Some(Root)");
     }
 
     #[test]
