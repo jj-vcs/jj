@@ -149,9 +149,9 @@ fn do_op_log(
                          formatter: &mut dyn Formatter,
                          op: &Operation,
                          with_content_format: &LogContentFormat| {
-            let parents: Vec<_> = op.parents().try_collect()?;
-            let parent_op = repo_loader.merge_operations(parents, None)?;
-            let parent_repo = repo_loader.load_at(&parent_op)?;
+            let parent_ops: Vec<_> = op.parents().try_collect()?;
+            let merged_parent_op = repo_loader.merge_operations(parent_ops.clone(), None)?;
+            let parent_repo = repo_loader.load_at(&merged_parent_op)?;
             let repo = repo_loader.load_at(op)?;
 
             let id_prefix_context = workspace_env.new_id_prefix_context();
@@ -173,6 +173,11 @@ fn do_op_log(
                 )
             });
 
+            // TODO: Merged repo may have newly rebased commits, which wouldn't
+            // exist in the index. (#4465)
+            if parent_ops.len() > 1 {
+                return Ok(());
+            }
             show_op_diff(
                 ui,
                 formatter,

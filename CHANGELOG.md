@@ -18,6 +18,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj op log --op-diff` no longer fails at displaying "reconcile divergent
+  operations." [#4465](https://github.com/jj-vcs/jj/issues/4465)
+
 * `jj util gc --expire=now` now passes the corresponding flag to `git gc`.
 
 ### Packaging changes

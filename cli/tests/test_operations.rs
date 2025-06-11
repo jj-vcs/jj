@@ -1809,26 +1809,44 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
     [EOF]
     ");
 
-    // FIXME: shouldn't fail at looking up commit in index
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @r"
     1b4a05d4dd99 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     reconcile divergent operations
     args: jj log
     [EOF]
-    ------- stderr -------
-    Error: Commit ID 9f04137238d45e2016e4031f4531d2df2ce5e2b5 not found in index (index or view might be corrupted)
-    [EOF]
-    [exit status: 1]
     ");
 
-    // FIXME: shouldn't fail at looking up commit in index
     let output = work_dir.run_jj(["op", "log", "--op-diff", "--limit=3"]);
     insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Error: Commit ID 514d78ff571168057063d3f6c22c9fca73f786fb not found in index (index or view might be corrupted)
+    @    1b4a05d4dd99 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    ├─╮  reconcile divergent operations
+    │ │  args: jj log
+    ○ │  e6d8f40ac61c test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    │ │  describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    │ │  args: jj desc -r@- -m1
+    │ │
+    │ │  Changed commits:
+    │ │  ○  + rlvkpnrz 7ed5a610 (empty) 2a
+    │ │  │  - rlvkpnrz hidden ab92d1a8 (empty) 2a
+    │ │  ○  + qpvuntsm 6666e5c3 (empty) 1
+    │ │     - qpvuntsm hidden e8849ae1 (empty) (no description set)
+    │ │
+    │ │  Changed working copy default@:
+    │ │  + rlvkpnrz 7ed5a610 (empty) 2a
+    │ │  - rlvkpnrz hidden ab92d1a8 (empty) 2a
+    │ ○  2842b640d1cb test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    ├─╯  describe commit ab92d1a87bebb4300165a16a753c5403bd7bc578
+    │    args: jj desc '--at-op=@-' -m2b
+    │
+    │    Changed commits:
+    │    ○  + rlvkpnrz 50ec12eb (empty) 2b
+    │       - rlvkpnrz hidden ab92d1a8 (empty) 2a
+    │
+    │    Changed working copy default@:
+    │    + rlvkpnrz 50ec12eb (empty) 2b
+    │    - rlvkpnrz hidden ab92d1a8 (empty) 2a
     [EOF]
-    [exit status: 1]
     ");
 }
 
