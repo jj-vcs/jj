@@ -1093,6 +1093,7 @@ dependencies = [
 name = "gen-protos"
 version = "0.30.0"
 dependencies = [
+ "camino",
  "prost-build",
 ]
 

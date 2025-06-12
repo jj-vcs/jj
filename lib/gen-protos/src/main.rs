@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::io::Result;
-use std::path::Path;
+use std::io;
 
-fn main() -> Result<()> {
+use camino::Utf8Path;
+
+fn main() -> io::Result<()> {
     let input = [
         "git_store.proto",
         "simple_store.proto",
@@ -23,7 +24,7 @@ fn main() -> Result<()> {
         "working_copy.proto",
     ];
 
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let root = Utf8Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let protos_dir = root.join("src").join("protos");
 
     prost_build::Config::new()

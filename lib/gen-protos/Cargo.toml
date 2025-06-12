@@ -8,6 +8,7 @@ edition = { workspace = true }
 license = { workspace = true }
 
 [dependencies]
+camino = { workspace = true }
 prost-build = { workspace = true }
 
 [lints]
