@@ -171,6 +171,7 @@ nav: # This lists all the files that become part of the documentation
       - Copy tracking and tracing: 'design/copy-tracking.md'
 
   - Development roadmap: 'roadmap.md'
+  - Changelog: 'changelog.md'
 
 # The following follow .gitignore syntax, relative
 # to the docs dir.
