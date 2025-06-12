@@ -28,7 +28,6 @@ use crate::commit::Commit;
 use crate::dag_walk;
 use crate::op_store::OpStoreError;
 use crate::op_store::OpStoreResult;
-use crate::op_store::OperationId;
 use crate::op_walk;
 use crate::operation::Operation;
 use crate::repo::ReadonlyRepo;
@@ -67,8 +66,8 @@ pub enum WalkPredecessorsError {
     Backend(#[from] BackendError),
     #[error(transparent)]
     OpStore(#[from] OpStoreError),
-    #[error("Predecessors cycle detected at operation {0}")]
-    CycleDetected(OperationId),
+    #[error("Predecessors cycle detected around commit {0}")]
+    CycleDetected(CommitId),
 }
 
 /// Walks operations to emit commit predecessors in reverse topological order.
@@ -150,9 +149,9 @@ where
                     to_emit.iter().map(Ok),
                     |&id| id,
                     |&id| op.predecessors_for_commit(id).into_iter().flatten().map(Ok),
-                    |_| (),
+                    |id| id, // Err(&CommitId) if graph has cycle
                 )
-                .map_err(|()| WalkPredecessorsError::CycleDetected(op.id().clone()))?;
+                .map_err(|id| WalkPredecessorsError::CycleDetected(id.clone()))?;
                 for &id in &sorted_ids {
                     if op.predecessors_for_commit(id).is_some() {
                         emit(id)?;
