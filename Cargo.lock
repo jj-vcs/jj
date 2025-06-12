@@ -314,6 +314,9 @@ name = "camino"
 version = "1.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0da45bc31171d8d6960122e222a67740df867c1dd53b4d51caa297084c185cab"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "cassowary"
@@ -2394,6 +2397,7 @@ dependencies = [
  "async-trait",
  "blake2",
  "bstr",
+ "camino",
  "chrono",
  "clru",
  "criterion",
