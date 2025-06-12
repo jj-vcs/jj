@@ -232,6 +232,14 @@ fn test_bookmark_names() {
     [EOF]
     ");
 
+    let output = work_dir.complete_fish(["bookmark", "create", "a"]);
+    insta::assert_snapshot!(output, @r"
+    aaa-local	x
+    aaa-tracked	x
+    aaa-untracked
+    [EOF]
+    ");
+
     let output = work_dir.complete_fish(["bookmark", "forget", "a"]);
     insta::assert_snapshot!(output, @r"
     aaa-local	x

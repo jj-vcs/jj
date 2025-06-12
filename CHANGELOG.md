@@ -10,6 +10,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Release highlights
 
+* `jj bookmark create` now tab completes on existing bookmarks.
+
 ### Breaking changes
 
 ### Deprecations
