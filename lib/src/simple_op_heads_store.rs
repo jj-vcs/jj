@@ -19,9 +19,9 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fs;
 use std::io;
-use std::path::Path;
-use std::path::PathBuf;
 
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use thiserror::Error;
 
 use crate::backend::BackendInitError;
@@ -46,7 +46,7 @@ impl From<SimpleOpHeadsStoreInitError> for BackendInitError {
 }
 
 pub struct SimpleOpHeadsStore {
-    dir: PathBuf,
+    dir: Utf8PathBuf,
 }
 
 impl Debug for SimpleOpHeadsStore {
@@ -62,13 +62,13 @@ impl SimpleOpHeadsStore {
         "simple_op_heads_store"
     }
 
-    pub fn init(dir: &Path) -> Result<Self, SimpleOpHeadsStoreInitError> {
+    pub fn init(dir: &Utf8Path) -> Result<Self, SimpleOpHeadsStoreInitError> {
         let op_heads_dir = dir.join("heads");
         fs::create_dir(&op_heads_dir).context(&op_heads_dir)?;
         Ok(Self { dir: op_heads_dir })
     }
 
-    pub fn load(dir: &Path) -> Self {
+    pub fn load(dir: &Utf8Path) -> Self {
         let op_heads_dir = dir.join("heads");
         Self { dir: op_heads_dir }
     }

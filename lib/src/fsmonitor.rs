@@ -22,7 +22,7 @@
 
 #![warn(missing_docs)]
 
-use std::path::PathBuf;
+use camino::Utf8PathBuf;
 
 use crate::config::ConfigGetError;
 use crate::settings::UserSettings;
@@ -44,7 +44,7 @@ pub enum FsmonitorSettings {
     Test {
         /// The set of changed files to pretend that the filesystem monitor is
         /// reporting.
-        changed_files: Vec<PathBuf>,
+        changed_files: Vec<Utf8PathBuf>,
     },
 
     /// No filesystem monitor. This is the default if nothing is configured, but
@@ -82,9 +82,8 @@ impl FsmonitorSettings {
 /// installed on the system.
 #[cfg(feature = "watchman")]
 pub mod watchman {
-    use std::path::Path;
-    use std::path::PathBuf;
-
+    use camino::Utf8Path;
+    use camino::Utf8PathBuf;
     use itertools::Itertools as _;
     use thiserror::Error;
     use tracing::info;
@@ -178,7 +177,7 @@ pub mod watchman {
         /// filesystem, which may take some time.
         #[instrument]
         pub async fn init(
-            working_copy_path: &Path,
+            working_copy_path: &Utf8Path,
             config: &super::WatchmanConfig,
         ) -> Result<Self, Error> {
             info!("Initializing Watchman filesystem monitor...");
@@ -218,7 +217,7 @@ pub mod watchman {
         pub async fn query_changed_files(
             &self,
             previous_clock: Option<Clock>,
-        ) -> Result<(Clock, Option<Vec<PathBuf>>), Error> {
+        ) -> Result<(Clock, Option<Vec<Utf8PathBuf>>), Error> {
             // TODO: might be better to specify query options by caller, but we
             // shouldn't expose the underlying watchman API too much.
             info!("Querying Watchman for changed files...");
@@ -257,7 +256,11 @@ pub mod watchman {
                     .unwrap_or_default()
                     .into_iter()
                     .map(|NameOnly { name }| name.into_inner())
-                    .collect_vec();
+                    .map(Utf8PathBuf::try_from)
+                    .try_collect()
+                    .map_err(|err| err.into_io_error())
+                    // XXX Placeholder
+                    .map_err(Error::CanonicalizeRootError)?;
                 Ok((clock, Some(paths)))
             }
         }
@@ -313,17 +316,20 @@ pub mod watchman {
         /// Build an exclude expr for `working_copy_path`.
         fn build_exclude_expr(&self) -> expr::Expr {
             // TODO: consider parsing `.gitignore`.
-            let exclude_dirs = [Path::new(".git"), Path::new(".jj")];
+            let exclude_dirs = [Utf8Path::new(".git"), Utf8Path::new(".jj")];
             let excludes = itertools::chain(
                 // the directories themselves
                 [expr::Expr::Name(expr::NameTerm {
-                    paths: exclude_dirs.iter().map(|&name| name.to_owned()).collect(),
+                    paths: exclude_dirs
+                        .iter()
+                        .map(|&name| name.to_owned().into_std_path_buf())
+                        .collect(),
                     wholename: true,
                 })],
                 // and all files under the directories
                 exclude_dirs.iter().map(|&name| {
                     expr::Expr::DirName(expr::DirNameTerm {
-                        path: name.to_owned(),
+                        path: name.to_owned().into_std_path_buf(),
                         depth: None,
                     })
                 }),

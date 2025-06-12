@@ -14,10 +14,10 @@
 
 //! Post-processing functions for [`StackedConfig`].
 
-use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use itertools::Itertools as _;
 use serde::de::IntoDeserializer as _;
 use serde::Deserialize as _;
@@ -42,9 +42,9 @@ const SCOPE_TABLE_KEY: &str = "--scope";
 #[derive(Clone, Debug)]
 pub struct ConfigResolutionContext<'a> {
     /// Home directory. `~` will be substituted with this path.
-    pub home_dir: Option<&'a Path>,
+    pub home_dir: Option<&'a Utf8Path>,
     /// Repository path, which is usually `<workspace_root>/.jj/repo`.
-    pub repo_path: Option<&'a Path>,
+    pub repo_path: Option<&'a Utf8Path>,
     /// Space-separated subcommand. `jj file show ...` should result in `"file
     /// show"`.
     pub command: Option<&'a str>,
@@ -61,7 +61,7 @@ pub struct ConfigResolutionContext<'a> {
 #[serde(default, rename_all = "kebab-case")]
 struct ScopeCondition {
     /// Paths to match the repository path prefix.
-    pub repositories: Option<Vec<PathBuf>>,
+    pub repositories: Option<Vec<Utf8PathBuf>>,
     /// Commands to match. Subcommands are matched space-separated.
     /// - `--when.commands = ["foo"]` -> matches "foo", "foo bar", "foo bar baz"
     /// - `--when.commands = ["foo bar"]` -> matches "foo bar", "foo bar baz",
@@ -85,7 +85,7 @@ impl ScopeCondition {
         // be careful to not resolve relative path patterns against cwd, which
         // wouldn't be what the user would expect.
         for path in self.repositories.as_mut().into_iter().flatten() {
-            if let Some(new_path) = expand_home(path, context.home_dir)? {
+            if let Some(new_path) = expand_home(&path, context.home_dir)? {
                 *path = new_path;
             }
         }
@@ -98,8 +98,11 @@ impl ScopeCondition {
     }
 }
 
-fn expand_home(path: &Path, home_dir: Option<&Path>) -> Result<Option<PathBuf>, &'static str> {
-    match path.strip_prefix("~") {
+fn expand_home(
+    path: impl AsRef<Utf8Path>,
+    home_dir: Option<&Utf8Path>,
+) -> Result<Option<Utf8PathBuf>, &'static str> {
+    match path.as_ref().strip_prefix("~") {
         Ok(tail) => {
             let home_dir = home_dir.ok_or("Cannot expand ~ (home directory is unknown)")?;
             Ok(Some(home_dir.join(tail)))
@@ -108,7 +111,7 @@ fn expand_home(path: &Path, home_dir: Option<&Path>) -> Result<Option<PathBuf>, 
     }
 }
 
-fn matches_path_prefix(candidates: Option<&[PathBuf]>, actual: Option<&Path>) -> bool {
+fn matches_path_prefix(candidates: Option<&[Utf8PathBuf]>, actual: Option<&Utf8Path>) -> bool {
     match (candidates, actual) {
         (Some(candidates), Some(actual)) => candidates.iter().any(|base| actual.starts_with(base)),
         (Some(_), None) => false, // actual path not known (e.g. not in workspace)
@@ -208,7 +211,7 @@ pub struct ConfigMigrateError {
     #[source]
     pub error: ConfigMigrateLayerError,
     /// Source file path where the value is defined.
-    pub source_path: Option<PathBuf>,
+    pub source_path: Option<Utf8PathBuf>,
 }
 
 /// Inner error of [`ConfigMigrateError`].
@@ -229,7 +232,7 @@ pub enum ConfigMigrateLayerError {
 }
 
 impl ConfigMigrateLayerError {
-    fn with_source_path(self, source_path: Option<&Path>) -> ConfigMigrateError {
+    fn with_source_path(self, source_path: Option<&Utf8Path>) -> ConfigMigrateError {
         ConfigMigrateError {
             error: self,
             source_path: source_path.map(|path| path.to_owned()),
@@ -407,18 +410,18 @@ mod tests {
 
     #[test]
     fn test_expand_home() {
-        let home_dir = Some(Path::new("/home/dir"));
+        let home_dir: Option<&_> = Some(Utf8Path::new("/home/dir"));
         assert_eq!(
-            expand_home("~".as_ref(), home_dir).unwrap(),
-            Some(PathBuf::from("/home/dir"))
+            expand_home("~", home_dir).unwrap(),
+            Some(Utf8PathBuf::from("/home/dir"))
         );
-        assert_eq!(expand_home("~foo".as_ref(), home_dir).unwrap(), None);
-        assert_eq!(expand_home("/foo/~".as_ref(), home_dir).unwrap(), None);
+        assert_eq!(expand_home("~foo", home_dir).unwrap(), None);
+        assert_eq!(expand_home("/foo/~", home_dir).unwrap(), None);
         assert_eq!(
-            expand_home("~/foo".as_ref(), home_dir).unwrap(),
-            Some(PathBuf::from("/home/dir/foo"))
+            expand_home("~/foo", home_dir).unwrap(),
+            Some(Utf8PathBuf::from("/home/dir/foo"))
         );
-        assert!(expand_home("~/foo".as_ref(), None).is_err());
+        assert!(expand_home("~/foo", None).is_err());
     }
 
     #[test]
@@ -433,7 +436,7 @@ mod tests {
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
             home_dir: None,
-            repo_path: Some(Path::new("/foo")),
+            repo_path: Some(Utf8Path::new("/foo")),
             command: None,
         };
         assert!(condition.matches(&context));
@@ -442,7 +445,7 @@ mod tests {
     #[test]
     fn test_condition_repo_path() {
         let condition = ScopeCondition {
-            repositories: Some(["/foo", "/bar"].map(PathBuf::from).into()),
+            repositories: Some(["/foo", "/bar"].map(Utf8PathBuf::from).into()),
             commands: None,
         };
 
@@ -454,25 +457,25 @@ mod tests {
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
             home_dir: None,
-            repo_path: Some(Path::new("/foo")),
+            repo_path: Some(Utf8Path::new("/foo")),
             command: None,
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
             home_dir: None,
-            repo_path: Some(Path::new("/fooo")),
+            repo_path: Some(Utf8Path::new("/fooo")),
             command: None,
         };
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
             home_dir: None,
-            repo_path: Some(Path::new("/foo/baz")),
+            repo_path: Some(Utf8Path::new("/foo/baz")),
             command: None,
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
             home_dir: None,
-            repo_path: Some(Path::new("/bar")),
+            repo_path: Some(Utf8Path::new("/bar")),
             command: None,
         };
         assert!(condition.matches(&context));
@@ -481,31 +484,31 @@ mod tests {
     #[test]
     fn test_condition_repo_path_windows() {
         let condition = ScopeCondition {
-            repositories: Some(["c:/foo", r"d:\bar/baz"].map(PathBuf::from).into()),
+            repositories: Some(["c:/foo", r"d:\bar/baz"].map(Utf8PathBuf::from).into()),
             commands: None,
         };
 
         let context = ConfigResolutionContext {
             home_dir: None,
-            repo_path: Some(Path::new(r"c:\foo")),
+            repo_path: Some(Utf8Path::new(r"c:\foo")),
             command: None,
         };
         assert_eq!(condition.matches(&context), cfg!(windows));
         let context = ConfigResolutionContext {
             home_dir: None,
-            repo_path: Some(Path::new(r"c:\foo\baz")),
+            repo_path: Some(Utf8Path::new(r"c:\foo\baz")),
             command: None,
         };
         assert_eq!(condition.matches(&context), cfg!(windows));
         let context = ConfigResolutionContext {
             home_dir: None,
-            repo_path: Some(Path::new(r"d:\foo")),
+            repo_path: Some(Utf8Path::new(r"d:\foo")),
             command: None,
         };
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
             home_dir: None,
-            repo_path: Some(Path::new(r"d:/bar\baz")),
+            repo_path: Some(Utf8Path::new(r"d:/bar\baz")),
             command: None,
         };
         assert_eq!(condition.matches(&context), cfg!(windows));
@@ -598,7 +601,7 @@ mod tests {
         "}));
 
         let context = ConfigResolutionContext {
-            home_dir: Some(Path::new("/home/dir")),
+            home_dir: Some(Utf8Path::new("/home/dir")),
             repo_path: None,
             command: None,
         };
@@ -607,8 +610,8 @@ mod tests {
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
 
         let context = ConfigResolutionContext {
-            home_dir: Some(Path::new("/home/dir")),
-            repo_path: Some(Path::new("/foo/.jj/repo")),
+            home_dir: Some(Utf8Path::new("/home/dir")),
+            repo_path: Some(Utf8Path::new("/foo/.jj/repo")),
             command: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -618,8 +621,8 @@ mod tests {
         insta::assert_snapshot!(resolved_config.layers()[2].data, @"a = 'a #0.2 foo|bar'");
 
         let context = ConfigResolutionContext {
-            home_dir: Some(Path::new("/home/dir")),
-            repo_path: Some(Path::new("/bar/.jj/repo")),
+            home_dir: Some(Utf8Path::new("/home/dir")),
+            repo_path: Some(Utf8Path::new("/bar/.jj/repo")),
             command: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -628,8 +631,8 @@ mod tests {
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.2 foo|bar'");
 
         let context = ConfigResolutionContext {
-            home_dir: Some(Path::new("/home/dir")),
-            repo_path: Some(Path::new("/home/dir/baz/.jj/repo")),
+            home_dir: Some(Utf8Path::new("/home/dir")),
+            repo_path: Some(Utf8Path::new("/home/dir/baz/.jj/repo")),
             command: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -722,7 +725,7 @@ mod tests {
         "}));
 
         let context = ConfigResolutionContext {
-            home_dir: Some(Path::new("/home/dir")),
+            home_dir: Some(Utf8Path::new("/home/dir")),
             repo_path: None,
             command: None,
         };
@@ -732,8 +735,8 @@ mod tests {
 
         // only repo matches
         let context = ConfigResolutionContext {
-            home_dir: Some(Path::new("/home/dir")),
-            repo_path: Some(Path::new("/foo")),
+            home_dir: Some(Utf8Path::new("/home/dir")),
+            repo_path: Some(Utf8Path::new("/foo")),
             command: Some("other"),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -742,8 +745,8 @@ mod tests {
 
         // only command matches
         let context = ConfigResolutionContext {
-            home_dir: Some(Path::new("/home/dir")),
-            repo_path: Some(Path::new("/qux")),
+            home_dir: Some(Utf8Path::new("/home/dir")),
+            repo_path: Some(Utf8Path::new("/qux")),
             command: Some("ABC"),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -752,8 +755,8 @@ mod tests {
 
         // both match
         let context = ConfigResolutionContext {
-            home_dir: Some(Path::new("/home/dir")),
-            repo_path: Some(Path::new("/bar")),
+            home_dir: Some(Utf8Path::new("/home/dir")),
+            repo_path: Some(Utf8Path::new("/bar")),
             command: Some("DEF"),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -770,8 +773,8 @@ mod tests {
             config
         };
         let context = ConfigResolutionContext {
-            home_dir: Some(Path::new("/home/dir")),
-            repo_path: Some(Path::new("/foo/.jj/repo")),
+            home_dir: Some(Utf8Path::new("/home/dir")),
+            repo_path: Some(Utf8Path::new("/foo/.jj/repo")),
             command: None,
         };
         assert_matches!(
@@ -788,8 +791,8 @@ mod tests {
             config
         };
         let context = ConfigResolutionContext {
-            home_dir: Some(Path::new("/home/dir")),
-            repo_path: Some(Path::new("/foo/.jj/repo")),
+            home_dir: Some(Utf8Path::new("/home/dir")),
+            repo_path: Some(Utf8Path::new("/foo/.jj/repo")),
             command: None,
         };
         assert_matches!(

@@ -17,6 +17,7 @@ readme = { workspace = true }
 [dependencies]
 async-trait = { workspace = true }
 bstr = { workspace = true }
+camino = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true, features = [
     "status",

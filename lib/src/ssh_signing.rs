@@ -14,15 +14,15 @@
 
 #![allow(missing_docs)]
 
+use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::fmt::Debug;
 use std::io::Write as _;
-use std::path::Path;
-use std::path::PathBuf;
 use std::process::Command;
 use std::process::ExitStatus;
 use std::process::Stdio;
 
+use camino::Utf8PathBuf;
 use either::Either;
 use thiserror::Error;
 
@@ -87,7 +87,7 @@ fn run_command(command: &mut Command, stdin: &[u8]) -> SshResult<Vec<u8>> {
 // This attempts to convert given key data into a file and return the filepath.
 // If the given data is actually already a filepath to a key on disk then the
 // key input is returned directly.
-fn ensure_key_as_file(key: &str) -> SshResult<Either<PathBuf, tempfile::TempPath>> {
+fn ensure_key_as_file(key: &str) -> SshResult<Either<Utf8PathBuf, tempfile::TempPath>> {
     let is_inlined_ssh_key = key.starts_with("ssh-");
     if !is_inlined_ssh_key {
         let key_path = crate::file_util::expand_home_path(key);
@@ -146,7 +146,10 @@ impl SshBackend {
         command
     }
 
-    fn find_principal(&self, signature_file_path: &Path) -> Result<Option<String>, SshError> {
+    fn find_principal(
+        &self,
+        signature_file_path: impl AsRef<OsStr>,
+    ) -> Result<Option<String>, SshError> {
         let Some(allowed_signers) = &self.allowed_signers else {
             return Ok(None);
         };
@@ -316,9 +319,6 @@ mod tests {
 
         let path = ensure_key_as_file(file_path.to_str().unwrap()).unwrap();
 
-        assert_eq!(
-            file_path.to_str().unwrap(),
-            path.left().unwrap().to_str().unwrap()
-        );
+        assert_eq!(file_path.to_str().unwrap(), path.left().unwrap());
     }
 }

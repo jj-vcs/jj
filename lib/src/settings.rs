@@ -14,11 +14,11 @@
 
 #![allow(missing_docs)]
 
-use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use camino::Utf8PathBuf;
 use chrono::DateTime;
 use rand::prelude::*;
 use rand_chacha::ChaCha20Rng;
@@ -61,7 +61,7 @@ struct UserSettingsData {
 pub struct GitSettings {
     pub auto_local_bookmark: bool,
     pub abandon_unreachable_commits: bool,
-    pub executable_path: PathBuf,
+    pub executable_path: Utf8PathBuf,
     pub write_change_id_header: bool,
 }
 
@@ -81,7 +81,7 @@ impl Default for GitSettings {
         GitSettings {
             auto_local_bookmark: false,
             abandon_unreachable_commits: true,
-            executable_path: PathBuf::from("git"),
+            executable_path: Utf8PathBuf::from("git"),
             write_change_id_header: true,
         }
     }

@@ -16,11 +16,11 @@
 use std::os::unix::fs::PermissionsExt as _;
 #[cfg(unix)]
 use std::os::unix::net::UnixListener;
-use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use assert_matches::assert_matches;
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use indoc::indoc;
 use itertools::Itertools as _;
 use jj_lib::backend::CopyId;
@@ -64,7 +64,7 @@ use testutils::write_random_commit;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
 
-fn check_icase_fs(dir: &Path) -> bool {
+fn check_icase_fs(dir: &Utf8Path) -> bool {
     let test_file = tempfile::Builder::new()
         .prefix("icase-")
         .tempfile_in(dir)
@@ -77,7 +77,7 @@ fn check_icase_fs(dir: &Path) -> bool {
 
 /// Returns true if the directory appears to ignore some unicode zero-width
 /// characters, as in HFS+.
-fn check_hfs_plus(dir: &Path) -> bool {
+fn check_hfs_plus(dir: &Utf8Path) -> bool {
     let test_file = tempfile::Builder::new()
         .prefix("hfs-plus-\u{200c}-")
         .tempfile_in(dir)
@@ -89,7 +89,7 @@ fn check_hfs_plus(dir: &Path) -> bool {
 }
 
 /// Returns true if the directory appears to support Windows short file names.
-fn check_vfat(dir: &Path) -> bool {
+fn check_vfat(dir: &Utf8Path) -> bool {
     let _test_file = tempfile::Builder::new()
         .prefix("vfattest-")
         .tempfile_in(dir)
@@ -1347,7 +1347,7 @@ fn test_git_submodule(gitignore_content: &str) {
     let store = repo.store().clone();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
     let base_ignores = GitIgnoreFile::empty()
-        .chain("", Path::new(""), gitignore_content.as_bytes())
+        .chain("", Utf8Path::new(""), gitignore_content.as_bytes())
         .unwrap();
     let snapshot_options = SnapshotOptions {
         base_ignores,
@@ -1632,7 +1632,7 @@ fn test_check_out_existing_file_symlink_icase_fs(victim_exists: bool) {
     // Creates a symlink in working directory, and a tree that will overwrite
     // the symlink content.
     try_symlink(
-        PathBuf::from_iter(["..", "pwned"]),
+        Utf8PathBuf::from_iter(["..", "pwned"]),
         workspace_root.join("parent"),
     )
     .unwrap();
@@ -2087,7 +2087,7 @@ fn test_fsmonitor() {
     let snapshot = |locked_ws: &mut LockedWorkspace, paths: &[&RepoPath]| {
         let fs_paths = paths
             .iter()
-            .map(|p| p.to_fs_path_unchecked(Path::new("")))
+            .map(|p| p.to_fs_path_unchecked(Utf8Path::new("")))
             .collect();
         let (tree_id, _stats) = locked_ws
             .locked_wc()

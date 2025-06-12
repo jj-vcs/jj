@@ -3989,6 +3989,7 @@ version = "0.30.0"
 dependencies = [
  "async-trait",
  "bstr",
+ "camino",
  "futures 0.3.31",
  "gix",
  "hex",

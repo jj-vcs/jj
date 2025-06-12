@@ -110,6 +110,7 @@ pub mod stacked_table;
 pub mod store;
 pub mod str_util;
 pub mod submodule_store;
+pub mod tempdir;
 #[cfg(feature = "testing")]
 pub mod test_signing_backend;
 pub mod time_util;
@@ -124,14 +125,15 @@ pub mod workspace;
 
 #[cfg(test)]
 mod tests {
-    use tempfile::TempDir;
 
     /// Unlike `testutils::new_temp_dir()`, this function doesn't set up
     /// hermetic Git environment.
-    pub fn new_temp_dir() -> TempDir {
+    pub fn new_temp_dir() -> super::tempdir::Utf8TempDir {
         tempfile::Builder::new()
             .prefix("jj-test-")
             .tempdir()
+            .unwrap()
+            .try_into()
             .unwrap()
     }
 }

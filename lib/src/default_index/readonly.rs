@@ -21,9 +21,9 @@ use std::fmt::Formatter;
 use std::fs::File;
 use std::io;
 use std::io::Read;
-use std::path::Path;
 use std::sync::Arc;
 
+use camino::Utf8Path;
 use smallvec::smallvec;
 use thiserror::Error;
 
@@ -249,7 +249,7 @@ impl Debug for ReadonlyIndexSegment {
 impl ReadonlyIndexSegment {
     /// Loads both parent segments and local entries from the given file `name`.
     pub(super) fn load(
-        dir: &Path,
+        dir: &Utf8Path,
         name: String,
         commit_id_length: usize,
         change_id_length: usize,
@@ -262,7 +262,7 @@ impl ReadonlyIndexSegment {
     /// Loads both parent segments and local entries from the given `file`.
     pub(super) fn load_from(
         file: &mut dyn Read,
-        dir: &Path,
+        dir: &Utf8Path,
         name: String,
         commit_id_length: usize,
         change_id_length: usize,

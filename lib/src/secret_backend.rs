@@ -15,11 +15,11 @@
 //! Provides a backend for testing ACLs
 
 use std::any::Any;
-use std::path::Path;
 use std::pin::Pin;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use camino::Utf8Path;
 use futures::stream::BoxStream;
 use tokio::io::AsyncRead;
 
@@ -67,14 +67,14 @@ impl SecretBackend {
     }
 
     /// Loads the backend from the given path.
-    pub fn load(settings: &UserSettings, store_path: &Path) -> Result<Self, BackendLoadError> {
+    pub fn load(settings: &UserSettings, store_path: &Utf8Path) -> Result<Self, BackendLoadError> {
         let inner = GitBackend::load(settings, store_path)?;
         Ok(SecretBackend { inner })
     }
 
     /// Convert a git repo to using `SecretBackend`
     // TODO: Avoid this hack
-    pub fn adopt_git_repo(workspace_path: &Path) {
+    pub fn adopt_git_repo(workspace_path: &Utf8Path) {
         std::fs::write(
             workspace_path
                 .join(".jj")

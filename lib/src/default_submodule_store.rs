@@ -14,26 +14,26 @@
 
 #![allow(missing_docs)]
 
-use std::path::Path;
-use std::path::PathBuf;
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 
 use crate::submodule_store::SubmoduleStore;
 
 #[derive(Debug)]
 pub struct DefaultSubmoduleStore {
     #[expect(dead_code)]
-    path: PathBuf,
+    path: Utf8PathBuf,
 }
 
 impl DefaultSubmoduleStore {
     /// Load an existing SubmoduleStore
-    pub fn load(store_path: &Path) -> Self {
+    pub fn load(store_path: &Utf8Path) -> Self {
         DefaultSubmoduleStore {
             path: store_path.to_path_buf(),
         }
     }
 
-    pub fn init(store_path: &Path) -> Self {
+    pub fn init(store_path: &Utf8Path) -> Self {
         DefaultSubmoduleStore {
             path: store_path.to_path_buf(),
         }

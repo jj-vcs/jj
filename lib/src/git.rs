@@ -21,12 +21,13 @@ use std::collections::HashSet;
 use std::default::Default;
 use std::fs::File;
 use std::num::NonZeroU32;
-use std::path::PathBuf;
 use std::str;
 use std::sync::Arc;
 
 use bstr::BStr;
 use bstr::BString;
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
@@ -1305,14 +1306,19 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
             std::io::ErrorKind::NotFound => Ok(()),
             _ => Err(GitResetHeadError::from_git(err)),
         };
+
+        let git_repo_path = Utf8Path::from_path(git_repo.path())
+            // FIXME!!!
+            .unwrap();
+
         for file_name in STATE_FILE_NAMES {
-            let path = git_repo.path().join(file_name);
+            let path = git_repo_path.join(file_name);
             std::fs::remove_file(&path)
                 .context(&path)
                 .or_else(handle_err)?;
         }
         for dir_name in STATE_DIR_NAMES {
-            let path = git_repo.path().join(dir_name);
+            let path = git_repo_path.join(dir_name);
             std::fs::remove_dir_all(&path)
                 .context(&path)
                 .or_else(handle_err)?;
@@ -2397,7 +2403,7 @@ pub fn push_updates(
 pub struct RemoteCallbacks<'a> {
     pub progress: Option<&'a mut dyn FnMut(&Progress)>,
     pub sideband_progress: Option<&'a mut dyn FnMut(&[u8])>,
-    pub get_ssh_keys: Option<&'a mut dyn FnMut(&str) -> Vec<PathBuf>>,
+    pub get_ssh_keys: Option<&'a mut dyn FnMut(&str) -> Vec<Utf8PathBuf>>,
     pub get_password: Option<&'a mut dyn FnMut(&str, &str) -> Option<String>>,
     pub get_username_password: Option<&'a mut dyn FnMut(&str) -> Option<(String, String)>>,
 }

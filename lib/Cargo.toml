@@ -36,6 +36,7 @@ version_check = { workspace = true }
 async-trait = { workspace = true }
 blake2 = { workspace = true }
 bstr = { workspace = true }
+camino = { workspace = true }
 chrono = { workspace = true }
 clru = { workspace = true }
 digest = { workspace = true }

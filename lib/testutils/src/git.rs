@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::Path;
-use std::path::PathBuf;
-
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use gix::date::parse::TimeBuf;
 
 pub const GIT_USER: &str = "Someone";
@@ -34,13 +33,13 @@ fn open_options() -> gix::open::Options {
         .strict_config(true)
 }
 
-pub fn open(directory: impl Into<PathBuf>) -> gix::Repository {
-    gix::open_opts(directory, open_options()).unwrap()
+pub fn open(directory: impl Into<Utf8PathBuf>) -> gix::Repository {
+    gix::open_opts(directory.into(), open_options()).unwrap()
 }
 
-pub fn init(directory: impl AsRef<Path>) -> gix::Repository {
+pub fn init(directory: impl AsRef<Utf8Path>) -> gix::Repository {
     gix::ThreadSafeRepository::init_opts(
-        directory,
+        directory.as_ref(),
         gix::create::Kind::WithWorktree,
         gix::create::Options::default(),
         open_options(),
@@ -49,9 +48,9 @@ pub fn init(directory: impl AsRef<Path>) -> gix::Repository {
     .to_thread_local()
 }
 
-pub fn init_bare(directory: impl AsRef<Path>) -> gix::Repository {
+pub fn init_bare(directory: impl AsRef<Utf8Path>) -> gix::Repository {
     gix::ThreadSafeRepository::init_opts(
-        directory,
+        directory.as_ref(),
         gix::create::Kind::Bare,
         gix::create::Options::default(),
         open_options(),
@@ -60,7 +59,7 @@ pub fn init_bare(directory: impl AsRef<Path>) -> gix::Repository {
     .to_thread_local()
 }
 
-pub fn clone(dest_path: &Path, repo_url: &str, remote_name: Option<&str>) -> gix::Repository {
+pub fn clone(dest_path: &Utf8Path, repo_url: &str, remote_name: Option<&str>) -> gix::Repository {
     let remote_name = remote_name.unwrap_or("origin");
     // gitoxide doesn't write the remote HEAD as a symbolic link, which prevents
     // `jj` from getting it.
@@ -84,13 +83,9 @@ pub fn clone(dest_path: &Path, repo_url: &str, remote_name: Option<&str>) -> gix
 }
 
 /// Writes out gitlink entry pointing to the `target_repo`.
-pub fn create_gitlink(src_repo: impl AsRef<Path>, target_repo: impl AsRef<Path>) {
+pub fn create_gitlink(src_repo: impl AsRef<Utf8Path>, target_repo: impl AsRef<Utf8Path>) {
     let git_link_path = src_repo.as_ref().join(".git");
-    std::fs::write(
-        git_link_path,
-        format!("gitdir: {}\n", target_repo.as_ref().display()),
-    )
-    .unwrap();
+    std::fs::write(git_link_path, format!("gitdir: {}\n", target_repo.as_ref())).unwrap();
 }
 
 pub fn remove_config_value(mut repo: gix::Repository, section: &str, key: &str) {
@@ -356,9 +351,9 @@ impl<'a> IndexManager<'a> {
     }
 }
 
-pub fn add_remote(repo_dir: impl AsRef<Path>, remote_name: &str, url: &str) {
+pub fn add_remote(repo_dir: impl AsRef<Utf8Path>, remote_name: &str, url: &str) {
     let output = std::process::Command::new("git")
-        .current_dir(repo_dir)
+        .current_dir(repo_dir.as_ref())
         .args(["remote", "add", remote_name, url])
         .output()
         .unwrap();
@@ -371,9 +366,9 @@ pub fn add_remote(repo_dir: impl AsRef<Path>, remote_name: &str, url: &str) {
     );
 }
 
-pub fn rename_remote(repo_dir: impl AsRef<Path>, original: &str, new: &str) {
+pub fn rename_remote(repo_dir: impl AsRef<Utf8Path>, original: &str, new: &str) {
     let output = std::process::Command::new("git")
-        .current_dir(repo_dir)
+        .current_dir(repo_dir.as_ref())
         .args(["remote", "rename", original, new])
         .output()
         .unwrap();
@@ -386,9 +381,9 @@ pub fn rename_remote(repo_dir: impl AsRef<Path>, original: &str, new: &str) {
     );
 }
 
-pub fn fetch(repo_dir: impl AsRef<Path>, remote: &str) {
+pub fn fetch(repo_dir: impl AsRef<Utf8Path>, remote: &str) {
     let output = std::process::Command::new("git")
-        .current_dir(repo_dir)
+        .current_dir(repo_dir.as_ref())
         .args(["fetch", remote])
         .output()
         .unwrap();

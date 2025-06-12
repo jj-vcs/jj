@@ -14,11 +14,11 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::SystemTime;
 
+use camino::Utf8Path;
 use futures::executor::block_on_stream;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::CopyRecord;
@@ -52,7 +52,7 @@ fn get_git_backend(repo: &Arc<ReadonlyRepo>) -> &GitBackend {
         .unwrap()
 }
 
-fn collect_no_gc_refs(git_repo_path: &Path) -> HashSet<CommitId> {
+fn collect_no_gc_refs(git_repo_path: &Utf8Path) -> HashSet<CommitId> {
     // Load fresh git repo to isolate from false caching issue. Here we want to
     // ensure that the underlying data is correct. We could test the in-memory
     // data as well, but we don't have any special handling in our code.

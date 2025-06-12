@@ -19,11 +19,11 @@ use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::io::Write as _;
-use std::path::Path;
-use std::path::PathBuf;
 use std::slice;
 use std::sync::Arc;
 
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use itertools::Itertools as _;
 use tempfile::NamedTempFile;
 use thiserror::Error;
@@ -92,7 +92,7 @@ pub enum DefaultIndexStoreError {
 
 #[derive(Debug)]
 pub struct DefaultIndexStore {
-    dir: PathBuf,
+    dir: Utf8PathBuf,
 }
 
 impl DefaultIndexStore {
@@ -100,37 +100,35 @@ impl DefaultIndexStore {
         "default"
     }
 
-    pub fn init(dir: &Path) -> Result<Self, DefaultIndexStoreInitError> {
-        let store = DefaultIndexStore {
-            dir: dir.to_owned(),
-        };
+    pub fn init(dir: &Utf8Path) -> Result<Self, DefaultIndexStoreInitError> {
+        let dir = dir.to_path_buf();
+        let store = DefaultIndexStore { dir };
         store.ensure_base_dirs()?;
         Ok(store)
     }
 
-    pub fn load(dir: &Path) -> DefaultIndexStore {
-        DefaultIndexStore {
-            dir: dir.to_owned(),
-        }
+    pub fn load(dir: &Utf8Path) -> DefaultIndexStore {
+        let dir = dir.to_path_buf();
+        DefaultIndexStore { dir }
     }
 
     pub fn reinit(&self) -> Result<(), DefaultIndexStoreInitError> {
         // Create base directories in case the store was initialized by old jj.
         self.ensure_base_dirs()?;
         // Remove all operation links to trigger rebuilding.
-        file_util::remove_dir_contents(&self.operations_dir())?;
+        file_util::remove_dir_contents(self.operations_dir())?;
         // Remove index segments to save disk space. If raced, new segment file
         // will be created by the other process.
-        file_util::remove_dir_contents(&self.segments_dir())?;
+        file_util::remove_dir_contents(self.segments_dir())?;
         // jj <= 0.14 created segment files in the top directory
-        for entry in self.dir.read_dir().context(&self.dir)? {
+        for entry in self.dir.read_dir_utf8().context(&self.dir)? {
             let entry = entry.context(&self.dir)?;
             let path = entry.path();
-            if path.file_name().unwrap().len() != SEGMENT_FILE_NAME_LENGTH {
+            if path.file_name().unwrap_or_default().len() != SEGMENT_FILE_NAME_LENGTH {
                 // Skip "type" file, "operations" directory, etc.
                 continue;
             }
-            fs::remove_file(&path).context(&path)?;
+            fs::remove_file(path).context(path)?;
         }
         Ok(())
     }
@@ -142,11 +140,11 @@ impl DefaultIndexStore {
         Ok(())
     }
 
-    fn operations_dir(&self) -> PathBuf {
+    fn operations_dir(&self) -> Utf8PathBuf {
         self.dir.join("operations")
     }
 
-    fn segments_dir(&self) -> PathBuf {
+    fn segments_dir(&self) -> Utf8PathBuf {
         self.dir.join("segments")
     }
 
@@ -306,7 +304,7 @@ impl DefaultIndexStore {
         op_id: &OperationId,
     ) -> Result<Arc<ReadonlyIndexSegment>, DefaultIndexStoreError> {
         let index_segment = mutable_index
-            .squash_and_save_in(&self.segments_dir())
+            .squash_and_save_in(self.segments_dir())
             .map_err(DefaultIndexStoreError::SaveIndex)?;
         self.associate_file_with_operation(&index_segment, op_id)
             .map_err(|source| DefaultIndexStoreError::AssociateIndex {

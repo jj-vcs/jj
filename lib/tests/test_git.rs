@@ -17,14 +17,14 @@ use std::collections::HashSet;
 use std::fs;
 use std::io::Write as _;
 use std::iter;
-use std::path::Path;
-use std::path::PathBuf;
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::sync::Barrier;
 use std::thread;
 
 use assert_matches::assert_matches;
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::ChangeId;
@@ -66,10 +66,10 @@ use jj_lib::settings::GitSettings;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::str_util::StringPattern;
+use jj_lib::tempdir::Utf8TempDir;
 use jj_lib::workspace::Workspace;
 use maplit::btreemap;
 use maplit::hashset;
-use tempfile::TempDir;
 use test_case::test_case;
 use testutils::base_user_config;
 use testutils::commit_transactions;
@@ -1403,7 +1403,7 @@ fn delete_git_ref(git_repo: &gix::Repository, name: &str) {
 }
 
 struct GitRepoData {
-    _temp_dir: TempDir,
+    _temp_dir: Utf8TempDir,
     origin_repo: gix::Repository,
     git_repo: gix::Repository,
     repo: Arc<ReadonlyRepo>,
@@ -1416,8 +1416,8 @@ impl GitRepoData {
         let origin_repo_dir = temp_dir.path().join("source");
         let origin_repo = testutils::git::init_bare(&origin_repo_dir);
         let git_repo_dir = temp_dir.path().join("git");
-        let git_repo =
-            testutils::git::clone(&git_repo_dir, origin_repo_dir.to_str().unwrap(), None);
+        let git_repo = testutils::git::clone(&git_repo_dir, origin_repo_dir.as_str(), None);
+        let git_repo_path = git_repo.path().try_into().unwrap();
         let jj_repo_dir = temp_dir.path().join("jj");
         std::fs::create_dir(&jj_repo_dir).unwrap();
         let repo = ReadonlyRepo::init(
@@ -1427,7 +1427,7 @@ impl GitRepoData {
                 Ok(Box::new(GitBackend::init_external(
                     settings,
                     store_path,
-                    git_repo.path(),
+                    git_repo_path,
                 )?))
             },
             Signer::from_settings(&settings).unwrap(),
@@ -2481,7 +2481,7 @@ fn test_reset_head_detached_out_of_sync() {
     );
 }
 
-fn get_index_state(workspace_root: &Path) -> String {
+fn get_index_state(workspace_root: &Utf8Path) -> String {
     let git_repo = gix::open(workspace_root).unwrap();
     let index = git_repo.index().unwrap();
     index
@@ -2762,6 +2762,7 @@ fn test_init() {
     let git_repo_dir = temp_dir.path().join("git");
     let jj_repo_dir = temp_dir.path().join("jj");
     let git_repo = testutils::git::init_bare(git_repo_dir);
+    let git_repo_path = git_repo.path().try_into().unwrap();
     let initial_git_commit = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     std::fs::create_dir(&jj_repo_dir).unwrap();
     let repo = &ReadonlyRepo::init(
@@ -2771,7 +2772,7 @@ fn test_init() {
             Ok(Box::new(GitBackend::init_external(
                 settings,
                 store_path,
-                git_repo.path(),
+                git_repo_path,
             )?))
         },
         Signer::from_settings(&settings).unwrap(),
@@ -3126,7 +3127,7 @@ fn test_fetch_multiple_branches() {
 }
 
 struct PushTestSetup {
-    source_repo_dir: PathBuf,
+    source_repo_dir: Utf8PathBuf,
     jj_repo: Arc<ReadonlyRepo>,
     main_commit: Commit,
     child_of_main_commit: Commit,
@@ -3145,7 +3146,7 @@ struct PushTestSetup {
 /// | o  sideways_commit
 /// |/
 /// ~    root
-fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSetup {
+fn set_up_push_repos(settings: &UserSettings, temp_dir: &Utf8TempDir) -> PushTestSetup {
     let source_repo_dir = temp_dir.path().join("source");
     let clone_repo_dir = temp_dir.path().join("clone");
     let jj_repo_dir = temp_dir.path().join("jj");
@@ -3156,8 +3157,8 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
         "refs/heads/main",
         &[parent_of_initial_git_commit],
     );
-    let clone_repo =
-        testutils::git::clone(&clone_repo_dir, source_repo_dir.to_str().unwrap(), None);
+    let clone_repo = testutils::git::clone(&clone_repo_dir, source_repo_dir.as_str(), None);
+    let clone_repo_path = clone_repo.path().try_into().unwrap();
     std::fs::create_dir(&jj_repo_dir).unwrap();
     let jj_repo = ReadonlyRepo::init(
         settings,
@@ -3166,7 +3167,7 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
             Ok(Box::new(GitBackend::init_external(
                 settings,
                 store_path,
-                clone_repo.path(),
+                clone_repo_path,
             )?))
         },
         Signer::from_settings(settings).unwrap(),

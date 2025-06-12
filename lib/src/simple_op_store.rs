@@ -23,10 +23,11 @@ use std::fs;
 use std::io;
 use std::io::ErrorKind;
 use std::io::Write as _;
-use std::path::Path;
-use std::path::PathBuf;
 use std::time::SystemTime;
 
+use camino::Utf8DirEntry;
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use itertools::Itertools as _;
 use prost::Message as _;
 use tempfile::NamedTempFile;
@@ -82,7 +83,7 @@ impl From<SimpleOpStoreInitError> for BackendInitError {
 
 #[derive(Debug)]
 pub struct SimpleOpStore {
-    path: PathBuf,
+    path: Utf8PathBuf,
     root_data: RootOperationData,
     root_operation_id: OperationId,
     root_view_id: ViewId,
@@ -95,7 +96,7 @@ impl SimpleOpStore {
 
     /// Creates an empty OpStore. Returns error if it already exists.
     pub fn init(
-        store_path: &Path,
+        store_path: &Utf8Path,
         root_data: RootOperationData,
     ) -> Result<Self, SimpleOpStoreInitError> {
         let store = Self::new(store_path, root_data);
@@ -104,11 +105,11 @@ impl SimpleOpStore {
     }
 
     /// Load an existing OpStore
-    pub fn load(store_path: &Path, root_data: RootOperationData) -> Self {
+    pub fn load(store_path: &Utf8Path, root_data: RootOperationData) -> Self {
         Self::new(store_path, root_data)
     }
 
-    fn new(store_path: &Path, root_data: RootOperationData) -> Self {
+    fn new(store_path: &Utf8Path, root_data: RootOperationData) -> Self {
         SimpleOpStore {
             path: store_path.to_path_buf(),
             root_data,
@@ -124,11 +125,11 @@ impl SimpleOpStore {
         Ok(())
     }
 
-    fn views_dir(&self) -> PathBuf {
+    fn views_dir(&self) -> Utf8PathBuf {
         self.path.join("views")
     }
 
-    fn operations_dir(&self) -> PathBuf {
+    fn operations_dir(&self) -> Utf8PathBuf {
         self.path.join("operations")
     }
 }
@@ -171,7 +172,7 @@ impl OpStore for SimpleOpStore {
         temp_file
             .as_file()
             .write_all(&proto.encode_to_vec())
-            .context(temp_file.path())
+            .context_ntf(&temp_file)
             .map_err(|err| io_to_write_error(err, "view"))?;
 
         let id = ViewId::new(blake2b_hash(view).to_vec());
@@ -216,7 +217,7 @@ impl OpStore for SimpleOpStore {
         temp_file
             .as_file()
             .write_all(&proto.encode_to_vec())
-            .context(temp_file.path())
+            .context_ntf(&temp_file)
             .map_err(|err| io_to_write_error(err, "operation"))?;
 
         let id = OperationId::new(blake2b_hash(operation).to_vec());
@@ -275,26 +276,26 @@ impl OpStore for SimpleOpStore {
 
     #[tracing::instrument(skip(self))]
     fn gc(&self, head_ids: &[OperationId], keep_newer: SystemTime) -> OpStoreResult<()> {
-        let to_op_id = |entry: &fs::DirEntry| -> Option<OperationId> {
-            let name = entry.file_name().into_string().ok()?;
-            OperationId::try_from_hex(&name).ok()
+        let to_op_id = |entry: &Utf8DirEntry| -> Option<OperationId> {
+            let name = entry.file_name();
+            OperationId::try_from_hex(name).ok()
         };
-        let to_view_id = |entry: &fs::DirEntry| -> Option<ViewId> {
-            let name = entry.file_name().into_string().ok()?;
-            ViewId::try_from_hex(&name).ok()
+        let to_view_id = |entry: &Utf8DirEntry| -> Option<ViewId> {
+            let name = entry.file_name();
+            ViewId::try_from_hex(name).ok()
         };
-        let remove_file_if_not_new = |entry: &fs::DirEntry| -> Result<(), PathError> {
+        let remove_file_if_not_new = |entry: &Utf8DirEntry| -> Result<(), PathError> {
             let path = entry.path();
             // Check timestamp, but there's still TOCTOU problem if an existing
             // file is renewed.
-            let metadata = entry.metadata().context(&path)?;
+            let metadata = entry.metadata().context(path)?;
             let mtime = metadata.modified().expect("unsupported platform?");
             if mtime > keep_newer {
                 tracing::trace!(?path, "not removing");
                 Ok(())
             } else {
                 tracing::trace!(?path, "removing");
-                fs::remove_file(&path).context(&path)
+                fs::remove_file(path).context(path)
             }
         };
 
@@ -318,7 +319,7 @@ impl OpStore for SimpleOpStore {
 
         let prune_ops = || -> Result<(), PathError> {
             let op_dir = self.operations_dir();
-            for entry in op_dir.read_dir().context(&op_dir)? {
+            for entry in op_dir.read_dir_utf8().context(&op_dir)? {
                 let entry = entry.context(&op_dir)?;
                 let Some(id) = to_op_id(&entry) else {
                     tracing::trace!(?entry, "skipping invalid file name");
@@ -338,7 +339,7 @@ impl OpStore for SimpleOpStore {
 
         let prune_views = || -> Result<(), PathError> {
             let view_dir = self.views_dir();
-            for entry in view_dir.read_dir().context(&view_dir)? {
+            for entry in view_dir.read_dir_utf8().context(&view_dir)? {
                 let entry = entry.context(&view_dir)?;
                 let Some(id) = to_view_id(&entry) else {
                     tracing::trace!(?entry, "skipping invalid file name");

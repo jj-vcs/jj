@@ -21,10 +21,10 @@ use std::collections::HashMap;
 use std::io;
 use std::io::Write as _;
 use std::ops::Bound;
-use std::path::Path;
 use std::sync::Arc;
 
 use blake2::Blake2b512;
+use camino::Utf8Path;
 use digest::Digest as _;
 use itertools::Itertools as _;
 use smallvec::smallvec;
@@ -348,11 +348,15 @@ impl MutableIndexSegment {
         squashed
     }
 
-    pub(super) fn save_in(self, dir: &Path) -> io::Result<Arc<ReadonlyIndexSegment>> {
+    pub(super) fn save_in(
+        self,
+        dir: impl AsRef<Utf8Path>,
+    ) -> io::Result<Arc<ReadonlyIndexSegment>> {
         if self.num_local_commits() == 0 && self.parent_file.is_some() {
             return Ok(self.parent_file.unwrap());
         }
 
+        let dir = dir.as_ref();
         let mut buf = Vec::new();
         buf.extend(INDEX_SEGMENT_FILE_FORMAT_VERSION.to_le_bytes());
         self.serialize_parent_filename(&mut buf);
@@ -479,7 +483,10 @@ impl DefaultMutableIndex {
         self.0.add_commit_data(commit_id, change_id, parent_ids);
     }
 
-    pub(super) fn squash_and_save_in(self, dir: &Path) -> io::Result<Arc<ReadonlyIndexSegment>> {
+    pub(super) fn squash_and_save_in(
+        self,
+        dir: impl AsRef<Utf8Path>,
+    ) -> io::Result<Arc<ReadonlyIndexSegment>> {
         self.0.maybe_squash_with_ancestors().save_in(dir)
     }
 }

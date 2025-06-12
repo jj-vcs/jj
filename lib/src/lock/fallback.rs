@@ -14,15 +14,15 @@
 
 use std::fs::File;
 use std::fs::OpenOptions;
-use std::path::PathBuf;
 use std::time::Duration;
 
+use camino::Utf8PathBuf;
 use tracing::instrument;
 
 use super::FileLockError;
 
 pub struct FileLock {
-    path: PathBuf,
+    path: Utf8PathBuf,
     _file: File,
 }
 
@@ -58,7 +58,7 @@ impl Iterator for BackoffIterator {
 // Suppress warning on platforms where specialized lock impl is available
 #[cfg_attr(unix, allow(dead_code))]
 impl FileLock {
-    pub fn lock(path: PathBuf) -> Result<FileLock, FileLockError> {
+    pub fn lock(path: Utf8PathBuf) -> Result<FileLock, FileLockError> {
         let mut options = OpenOptions::new();
         options.create_new(true);
         options.write(true);

@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::Path;
 use std::slice;
 use std::sync::Arc;
 use std::time::SystemTime;
 
 use assert_matches::assert_matches;
+use camino::Utf8Path;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::config::ConfigLayer;
@@ -35,10 +35,10 @@ use testutils::create_random_commit;
 use testutils::write_random_commit;
 use testutils::TestRepo;
 
-fn list_dir(dir: &Path) -> Vec<String> {
-    std::fs::read_dir(dir)
+fn list_dir(dir: &Utf8Path) -> Vec<String> {
+    dir.read_dir_utf8()
         .unwrap()
-        .map(|entry| entry.unwrap().file_name().to_str().unwrap().to_owned())
+        .map(|entry| entry.unwrap().file_name().to_owned())
         .sorted()
         .collect()
 }

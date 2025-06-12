@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::Path;
-use std::path::PathBuf;
-
 use assert_matches::assert_matches;
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use jj_lib::config::StackedConfig;
+use jj_lib::file_util::canonicalize_path;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::Repo as _;
@@ -28,9 +28,9 @@ use testutils::write_random_commit;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
 
-fn canonicalize(input: &Path) -> (PathBuf, PathBuf) {
+fn canonicalize(input: &Utf8Path) -> (Utf8PathBuf, Utf8PathBuf) {
     let uncanonical = input.join("..").join(input.file_name().unwrap());
-    let canonical = dunce::canonicalize(&uncanonical).unwrap();
+    let canonical = canonicalize_path(&uncanonical).unwrap();
     (canonical, uncanonical)
 }
 
@@ -67,7 +67,7 @@ fn test_init_internal_git() {
     assert_eq!(workspace.workspace_root(), &canonical);
     assert_eq!(
         git_backend.git_repo_path(),
-        canonical.join(PathBuf::from_iter([".jj", "repo", "store", "git"])),
+        canonical.join(Utf8PathBuf::from_iter([".jj", "repo", "store", "git"])),
     );
     assert!(git_backend.git_workdir().is_none());
     assert_eq!(

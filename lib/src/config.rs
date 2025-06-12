@@ -21,12 +21,12 @@ use std::fmt::Display;
 use std::fs;
 use std::io;
 use std::ops::Range;
-use std::path::Path;
-use std::path::PathBuf;
 use std::slice;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use itertools::Itertools as _;
 use once_cell::sync::Lazy;
 use serde::de::IntoDeserializer as _;
@@ -66,7 +66,7 @@ pub enum ConfigLoadError {
         #[source]
         error: Box<toml_edit::TomlError>,
         /// Source file path.
-        source_path: Option<PathBuf>,
+        source_path: Option<Utf8PathBuf>,
     },
 }
 
@@ -93,7 +93,7 @@ pub enum ConfigGetError {
         #[source]
         error: Box<dyn std::error::Error + Send + Sync>,
         /// Source file path where the value is defined.
-        source_path: Option<PathBuf>,
+        source_path: Option<Utf8PathBuf>,
     },
 }
 
@@ -314,7 +314,7 @@ pub struct ConfigLayer {
     /// Source type of this layer.
     pub source: ConfigSource,
     /// Source file path of this layer if any.
-    pub path: Option<PathBuf>,
+    pub path: Option<Utf8PathBuf>,
     /// Configuration variables.
     pub data: DocumentMut,
 }
@@ -344,29 +344,29 @@ impl ConfigLayer {
     }
 
     /// Loads TOML file from the specified `path`.
-    pub fn load_from_file(source: ConfigSource, path: PathBuf) -> Result<Self, ConfigLoadError> {
-        let text = fs::read_to_string(&path)
-            .context(&path)
+    pub fn load_from_file(source: ConfigSource, path: &Utf8Path) -> Result<Self, ConfigLoadError> {
+        let text = fs::read_to_string(path)
+            .context(path)
             .map_err(ConfigLoadError::Read)?;
         let data = ImDocument::parse(text).map_err(|error| ConfigLoadError::Parse {
             error: Box::new(error),
-            source_path: Some(path.clone()),
+            source_path: Some(path.to_path_buf()),
         })?;
         Ok(ConfigLayer {
             source,
-            path: Some(path),
+            path: Some(path.to_path_buf()),
             data: data.into_mut(),
         })
     }
 
-    fn load_from_dir(source: ConfigSource, path: &Path) -> Result<Vec<Self>, ConfigLoadError> {
+    fn load_from_dir(source: ConfigSource, path: &Utf8Path) -> Result<Vec<Self>, ConfigLoadError> {
         // TODO: Walk the directory recursively?
         let mut file_paths: Vec<_> = path
-            .read_dir()
+            .read_dir_utf8()
             .and_then(|dir_entries| {
                 dir_entries
-                    .map(|entry| Ok(entry?.path()))
-                    .filter_ok(|path| path.is_file() && path.extension() == Some("toml".as_ref()))
+                    .map(|entry| Ok(entry?.into_path()))
+                    .filter_ok(|path| path.is_file() && path.extension() == Some("toml"))
                     .try_collect()
             })
             .context(path)
@@ -374,7 +374,7 @@ impl ConfigLayer {
         file_paths.sort_unstable();
         file_paths
             .into_iter()
-            .map(|path| Self::load_from_file(source, path))
+            .map(|path| Self::load_from_file(source, &path))
             .try_collect()
     }
 
@@ -552,9 +552,10 @@ impl ConfigFile {
     /// object if the file doesn't exist.
     pub fn load_or_empty(
         source: ConfigSource,
-        path: impl Into<PathBuf>,
+        path: impl AsRef<Utf8Path>,
     ) -> Result<Self, ConfigLoadError> {
-        let layer = match ConfigLayer::load_from_file(source, path.into()) {
+        let path = path.as_ref();
+        let layer = match ConfigLayer::load_from_file(source, path) {
             Ok(layer) => Arc::new(layer),
             Err(ConfigLoadError::Read(PathError { path, error }))
                 if error.kind() == io::ErrorKind::NotFound =>
@@ -596,7 +597,7 @@ impl ConfigFile {
     }
 
     /// Source file path.
-    pub fn path(&self) -> &Path {
+    pub fn path(&self) -> &Utf8Path {
         self.layer.path.as_ref().expect("path must be known")
     }
 
@@ -661,9 +662,9 @@ impl StackedConfig {
     pub fn load_file(
         &mut self,
         source: ConfigSource,
-        path: impl Into<PathBuf>,
+        path: &Utf8Path,
     ) -> Result<(), ConfigLoadError> {
-        let layer = ConfigLayer::load_from_file(source, path.into())?;
+        let layer = ConfigLayer::load_from_file(source, path)?;
         self.add_layer(layer);
         Ok(())
     }
@@ -673,9 +674,9 @@ impl StackedConfig {
     pub fn load_dir(
         &mut self,
         source: ConfigSource,
-        path: impl AsRef<Path>,
+        path: &Utf8Path,
     ) -> Result<(), ConfigLoadError> {
-        let layers = ConfigLayer::load_from_dir(source, path.as_ref())?;
+        let layers = ConfigLayer::load_from_dir(source, path)?;
         self.extend_layers(layers);
         Ok(())
     }

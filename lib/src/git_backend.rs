@@ -23,8 +23,6 @@ use std::fmt::Formatter;
 use std::fs;
 use std::io;
 use std::io::Cursor;
-use std::path::Path;
-use std::path::PathBuf;
 use std::pin::Pin;
 use std::process::Command;
 use std::process::ExitStatus;
@@ -35,6 +33,8 @@ use std::sync::MutexGuard;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use futures::stream::BoxStream;
 use gix::bstr::BString;
 use gix::objs::CommitRef;
@@ -75,6 +75,7 @@ use crate::backend::Tree;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::config::ConfigGetError;
+use crate::file_util::canonicalize_path;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::hex_util::to_forward_hex;
@@ -172,7 +173,7 @@ pub struct GitBackend {
     empty_tree_id: TreeId,
     extra_metadata_store: TableStore,
     cached_extra_metadata: Mutex<Option<Arc<ReadonlyTable>>>,
-    git_executable: PathBuf,
+    git_executable: Utf8PathBuf,
     write_change_id_header: bool,
 }
 
@@ -205,9 +206,9 @@ impl GitBackend {
 
     pub fn init_internal(
         settings: &UserSettings,
-        store_path: &Path,
+        store_path: &Utf8Path,
     ) -> Result<Self, Box<GitBackendInitError>> {
-        let git_repo_path = Path::new("git");
+        let git_repo_path = Utf8Path::new("git");
         let git_repo = gix::ThreadSafeRepository::init_opts(
             store_path.join(git_repo_path),
             gix::create::Kind::Bare,
@@ -225,8 +226,8 @@ impl GitBackend {
     /// workspace path. The workspace directory must exist.
     pub fn init_colocated(
         settings: &UserSettings,
-        store_path: &Path,
-        workspace_root: &Path,
+        store_path: &Utf8Path,
+        workspace_root: &Utf8Path,
     ) -> Result<Self, Box<GitBackendInitError>> {
         let canonical_workspace_root = {
             let path = store_path.join(workspace_root);
@@ -251,8 +252,8 @@ impl GitBackend {
     /// Initializes backend with an existing Git repo at the specified path.
     pub fn init_external(
         settings: &UserSettings,
-        store_path: &Path,
-        git_repo_path: &Path,
+        store_path: &Utf8Path,
+        git_repo_path: &Utf8Path,
     ) -> Result<Self, Box<GitBackendInitError>> {
         let canonical_git_repo_path = {
             let path = store_path.join(git_repo_path);
@@ -272,8 +273,8 @@ impl GitBackend {
     }
 
     fn init_with_repo(
-        store_path: &Path,
-        git_repo_path: &Path,
+        store_path: &Utf8Path,
+        git_repo_path: &Utf8Path,
         repo: gix::ThreadSafeRepository,
         git_settings: GitSettings,
     ) -> Result<Self, Box<GitBackendInitError>> {
@@ -297,7 +298,7 @@ impl GitBackend {
                 .context(&target_path)
                 .map_err(GitBackendInitError::Path)?;
         } else {
-            fs::write(&target_path, git_repo_path.to_str().unwrap().as_bytes())
+            fs::write(&target_path, git_repo_path.as_str())
                 .context(&target_path)
                 .map_err(GitBackendInitError::Path)?;
         };
@@ -307,7 +308,7 @@ impl GitBackend {
 
     pub fn load(
         settings: &UserSettings,
-        store_path: &Path,
+        store_path: &Utf8Path,
     ) -> Result<Self, Box<GitBackendLoadError>> {
         let git_repo_path = {
             let target_path = store_path.join("git_target");
@@ -341,13 +342,16 @@ impl GitBackend {
     }
 
     /// Path to the `.git` directory or the repository itself if it's bare.
-    pub fn git_repo_path(&self) -> &Path {
-        self.base_repo.path()
+    pub fn git_repo_path(&self) -> &Utf8Path {
+        let path = self.base_repo.path();
+        Utf8Path::from_path(path)
+            // FIXME !!!
+            .unwrap()
     }
 
     /// Path to the working directory if the repository isn't bare.
-    pub fn git_workdir(&self) -> Option<&Path> {
-        self.base_repo.work_dir()
+    pub fn git_workdir(&self) -> Option<&Utf8Path> {
+        self.base_repo.work_dir().and_then(Utf8Path::from_path)
     }
 
     fn cached_extra_metadata_table(&self) -> BackendResult<Arc<ReadonlyTable>> {
@@ -442,7 +446,7 @@ impl GitBackend {
 
     fn new_diff_platform(&self) -> BackendResult<gix::diff::blob::Platform> {
         let attributes = gix::worktree::Stack::new(
-            Path::new(""),
+            Utf8Path::new(""),
             gix::worktree::stack::State::AttributesStack(Default::default()),
             gix::worktree::glob::pattern::Case::Sensitive,
             Vec::new(),
@@ -489,12 +493,12 @@ impl GitBackend {
 /// config. This config is usually set, but the "repo" tool will set up such
 /// repositories and symlinks. Opening such repo with fully-canonicalized path
 /// would turn a colocated Git repo into a bare repo.
-pub fn canonicalize_git_repo_path(path: &Path) -> io::Result<PathBuf> {
+pub fn canonicalize_git_repo_path(path: &Utf8Path) -> io::Result<Utf8PathBuf> {
     if path.ends_with(".git") {
         let workdir = path.parent().unwrap();
-        dunce::canonicalize(workdir).map(|dir| dir.join(".git"))
+        canonicalize_path(workdir).map(|dir| dir.join(".git"))
     } else {
-        dunce::canonicalize(path)
+        canonicalize_path(path)
     }
 }
 
@@ -837,7 +841,11 @@ fn recreate_no_gc_refs(
     Ok(())
 }
 
-fn run_git_gc(program: &OsStr, git_dir: &Path, keep_newer: SystemTime) -> Result<(), GitGcError> {
+fn run_git_gc(
+    program: &OsStr,
+    git_dir: &Utf8Path,
+    keep_newer: SystemTime,
+) -> Result<(), GitGcError> {
     let keep_newer = keep_newer
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap_or_default(); // underflow
@@ -1646,9 +1654,9 @@ mod tests {
             .strict_config(true)
     }
 
-    fn git_init(directory: impl AsRef<Path>) -> gix::Repository {
+    fn git_init(directory: impl AsRef<Utf8Path>) -> gix::Repository {
         gix::ThreadSafeRepository::init_opts(
-            directory,
+            directory.as_ref(),
             gix::create::Kind::WithWorktree,
             gix::create::Options::default(),
             open_options(),
@@ -1663,7 +1671,7 @@ mod tests {
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
         let git_repo_path = temp_dir.path().join("git");
-        let git_repo = git_init(git_repo_path);
+        let git_repo = git_init(&git_repo_path);
 
         // Add a commit with some files in
         let blob1 = git_repo.write_blob(b"content1").unwrap().detach();
@@ -1736,7 +1744,9 @@ mod tests {
             .unwrap();
         let commit_id2 = CommitId::from_bytes(git_commit_id2.as_bytes());
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
+        let backend =
+            GitBackend::init_external(&settings, store_path, git_repo.path().try_into().unwrap())
+                .unwrap();
 
         // Import the head commit and its ancestors
         backend.import_head_commits([&commit_id2]).unwrap();
@@ -1854,7 +1864,9 @@ mod tests {
             )
             .unwrap();
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
+        let backend =
+            GitBackend::init_external(&settings, store_path, git_repo.path().try_into().unwrap())
+                .unwrap();
 
         // read_commit() without import_head_commits() works as of now. This might be
         // changed later.
@@ -1878,7 +1890,7 @@ mod tests {
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
         let git_repo_path = temp_dir.path().join("git");
-        let git_repo = git_init(git_repo_path);
+        let git_repo = git_init(&git_repo_path);
 
         let signature = gix::actor::Signature {
             name: GIT_USER.into(),
@@ -1911,7 +1923,9 @@ mod tests {
 
         let git_commit_id = git_repo.write_object(&commit).unwrap();
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
+        let backend =
+            GitBackend::init_external(&settings, store_path, git_repo.path().try_into().unwrap())
+                .unwrap();
 
         let commit = backend
             .read_commit(&CommitId::from_bytes(git_commit_id.as_bytes()))
@@ -1935,9 +1949,11 @@ mod tests {
         let empty_store_path = temp_dir.path().join("empty_store");
         fs::create_dir(&empty_store_path).unwrap();
         let git_repo_path = temp_dir.path().join("git");
-        let git_repo = git_init(git_repo_path);
+        let git_repo = git_init(&git_repo_path);
 
-        let backend = GitBackend::init_external(&settings, &store_path, git_repo.path()).unwrap();
+        let backend =
+            GitBackend::init_external(&settings, &store_path, git_repo.path().try_into().unwrap())
+                .unwrap();
         let original_change_id = ChangeId::from_hex("1111eeee1111eeee1111eeee1111eeee");
         let commit = Commit {
             parents: vec![backend.root_commit_id().clone()],
@@ -1961,8 +1977,12 @@ mod tests {
         // Because of how change ids are also persisted in extra proto files,
         // initialize a new store without those files, but reuse the same git
         // storage. This change-id must be derived from the git commit header.
-        let no_extra_backend =
-            GitBackend::init_external(&settings, &empty_store_path, git_repo.path()).unwrap();
+        let no_extra_backend = GitBackend::init_external(
+            &settings,
+            &empty_store_path,
+            git_repo.path().try_into().unwrap(),
+        )
+        .unwrap();
         let no_extra_commit = no_extra_backend
             .read_commit(&initial_commit_id)
             .block_on()
@@ -2029,7 +2049,9 @@ mod tests {
         let git_repo_path = temp_dir.path().join("git");
         let git_repo = git_init(&git_repo_path);
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
+        let backend =
+            GitBackend::init_external(&settings, store_path, git_repo.path().try_into().unwrap())
+                .unwrap();
         let mut commit = Commit {
             parents: vec![],
             predecessors: vec![],
@@ -2098,7 +2120,9 @@ mod tests {
         let git_repo_path = temp_dir.path().join("git");
         let git_repo = git_init(&git_repo_path);
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
+        let backend =
+            GitBackend::init_external(&settings, store_path, git_repo.path().try_into().unwrap())
+                .unwrap();
         let create_tree = |i| {
             let blob_id = git_repo.write_blob(format!("content {i}")).unwrap();
             let mut tree_builder = git_repo.empty_tree().edit().unwrap();

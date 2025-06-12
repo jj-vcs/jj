@@ -16,8 +16,6 @@ use std::io;
 use std::io::BufReader;
 use std::io::Read;
 use std::num::NonZeroU32;
-use std::path::Path;
-use std::path::PathBuf;
 use std::process::Child;
 use std::process::Command;
 use std::process::Output;
@@ -25,6 +23,8 @@ use std::process::Stdio;
 use std::thread;
 
 use bstr::ByteSlice as _;
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use itertools::Itertools as _;
 use thiserror::Error;
 
@@ -53,13 +53,13 @@ pub enum GitSubprocessError {
     NoSuchRepository(String),
     #[error("Could not execute the git process, found in the OS path '{path}'")]
     SpawnInPath {
-        path: PathBuf,
+        path: Utf8PathBuf,
         #[source]
         error: std::io::Error,
     },
     #[error("Could not execute git process at specified path '{path}'")]
     Spawn {
-        path: PathBuf,
+        path: Utf8PathBuf,
         #[source]
         error: std::io::Error,
     },
@@ -76,21 +76,22 @@ pub enum GitSubprocessError {
 
 /// Context for creating Git subprocesses
 pub(crate) struct GitSubprocessContext<'a> {
-    git_dir: PathBuf,
-    git_executable_path: &'a Path,
+    git_dir: Utf8PathBuf,
+    git_executable_path: &'a Utf8Path,
 }
 
 impl<'a> GitSubprocessContext<'a> {
-    pub(crate) fn new(git_dir: impl Into<PathBuf>, git_executable_path: &'a Path) -> Self {
+    pub(crate) fn new(git_dir: &Utf8Path, git_executable_path: &'a Utf8Path) -> Self {
+        let git_dir = git_dir.to_path_buf();
         GitSubprocessContext {
-            git_dir: git_dir.into(),
+            git_dir,
             git_executable_path,
         }
     }
 
     pub(crate) fn from_git_backend(
         git_backend: &GitBackend,
-        git_executable_path: &'a Path,
+        git_executable_path: &'a Utf8Path,
     ) -> Self {
         Self::new(git_backend.git_repo_path(), git_executable_path)
     }

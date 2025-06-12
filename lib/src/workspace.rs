@@ -16,18 +16,17 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::fs::File;
 use std::io;
-use std::io::Write as _;
-use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use thiserror::Error;
 
 use crate::backend::BackendInitError;
 use crate::backend::MergedTreeId;
 use crate::commit::Commit;
+use crate::file_util::canonicalize_path;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::local_working_copy::LocalWorkingCopy;
@@ -65,7 +64,7 @@ use crate::working_copy::WorkingCopyStateError;
 #[derive(Error, Debug)]
 pub enum WorkspaceInitError {
     #[error("The destination repo ({0}) already exists")]
-    DestinationExists(PathBuf),
+    DestinationExists(Utf8PathBuf),
     #[error("Repo path could not be interpreted as Unicode text")]
     NonUnicodePath,
     #[error(transparent)]
@@ -87,9 +86,9 @@ pub enum WorkspaceInitError {
 #[derive(Error, Debug)]
 pub enum WorkspaceLoadError {
     #[error("The repo appears to no longer be at {0}")]
-    RepoDoesNotExist(PathBuf),
+    RepoDoesNotExist(Utf8PathBuf),
     #[error("There is no Jujutsu repo in {0}")]
-    NoWorkspaceHere(PathBuf),
+    NoWorkspaceHere(Utf8PathBuf),
     #[error("Cannot read the repo")]
     StoreLoadError(#[from] StoreLoadError),
     #[error("Repo path could not be interpreted as Unicode text")]
@@ -109,13 +108,13 @@ pub enum WorkspaceLoadError {
 pub struct Workspace {
     // Path to the workspace root (typically the parent of a .jj/ directory), which is where
     // working copy files live.
-    workspace_root: PathBuf,
-    repo_path: PathBuf,
+    workspace_root: Utf8PathBuf,
+    repo_path: Utf8PathBuf,
     repo_loader: RepoLoader,
     working_copy: Box<dyn WorkingCopy>,
 }
 
-fn create_jj_dir(workspace_root: &Path) -> Result<PathBuf, WorkspaceInitError> {
+fn create_jj_dir(workspace_root: &Utf8Path) -> Result<Utf8PathBuf, WorkspaceInitError> {
     let jj_dir = workspace_root.join(".jj");
     match std::fs::create_dir(&jj_dir).context(&jj_dir) {
         Ok(()) => Ok(jj_dir),
@@ -128,8 +127,8 @@ fn create_jj_dir(workspace_root: &Path) -> Result<PathBuf, WorkspaceInitError> {
 
 fn init_working_copy(
     repo: &Arc<ReadonlyRepo>,
-    workspace_root: &Path,
-    jj_dir: &Path,
+    workspace_root: &Utf8Path,
+    jj_dir: &Utf8Path,
     working_copy_factory: &dyn WorkingCopyFactory,
     workspace_name: WorkspaceNameBuf,
 ) -> Result<(Box<dyn WorkingCopy>, Arc<ReadonlyRepo>), WorkspaceInitError> {
@@ -155,12 +154,12 @@ fn init_working_copy(
 
 impl Workspace {
     pub fn new(
-        workspace_root: &Path,
-        repo_path: PathBuf,
+        workspace_root: &Utf8Path,
+        repo_path: Utf8PathBuf,
         working_copy: Box<dyn WorkingCopy>,
         repo_loader: RepoLoader,
     ) -> Result<Workspace, PathError> {
-        let workspace_root = dunce::canonicalize(workspace_root).context(workspace_root)?;
+        let workspace_root = canonicalize_path(workspace_root).context(workspace_root)?;
         Ok(Self::new_no_canonicalize(
             workspace_root,
             repo_path,
@@ -170,8 +169,8 @@ impl Workspace {
     }
 
     pub fn new_no_canonicalize(
-        workspace_root: PathBuf,
-        repo_path: PathBuf,
+        workspace_root: Utf8PathBuf,
+        repo_path: Utf8PathBuf,
         working_copy: Box<dyn WorkingCopy>,
         repo_loader: RepoLoader,
     ) -> Self {
@@ -185,7 +184,7 @@ impl Workspace {
 
     pub fn init_simple(
         user_settings: &UserSettings,
-        workspace_root: &Path,
+        workspace_root: &Utf8Path,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer: &BackendInitializer =
             &|_settings, store_path| Ok(Box::new(SimpleBackend::init(store_path)));
@@ -198,7 +197,7 @@ impl Workspace {
     #[cfg(feature = "git")]
     pub fn init_internal_git(
         user_settings: &UserSettings,
-        workspace_root: &Path,
+        workspace_root: &Utf8Path,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer: &BackendInitializer = &|settings, store_path| {
             Ok(Box::new(crate::git_backend::GitBackend::init_internal(
@@ -214,16 +213,16 @@ impl Workspace {
     #[cfg(feature = "git")]
     pub fn init_colocated_git(
         user_settings: &UserSettings,
-        workspace_root: &Path,
+        workspace_root: &Utf8Path,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer = |settings: &UserSettings,
-                                   store_path: &Path|
+                                   store_path: &Utf8Path|
          -> Result<Box<dyn crate::backend::Backend>, _> {
             // TODO: Clean up path normalization. store_path is canonicalized by
             // ReadonlyRepo::init(). workspace_root will be canonicalized by
             // Workspace::new(), but it's not yet here.
             let store_relative_workspace_root =
-                if let Ok(workspace_root) = dunce::canonicalize(workspace_root) {
+                if let Ok(workspace_root) = canonicalize_path(workspace_root) {
                     crate::file_util::relative_path(store_path, &workspace_root)
                 } else {
                     workspace_root.to_owned()
@@ -246,11 +245,11 @@ impl Workspace {
     #[cfg(feature = "git")]
     pub fn init_external_git(
         user_settings: &UserSettings,
-        workspace_root: &Path,
-        git_repo_path: &Path,
+        workspace_root: &Utf8Path,
+        git_repo_path: &Utf8Path,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer = |settings: &UserSettings,
-                                   store_path: &Path|
+                                   store_path: &Utf8Path|
          -> Result<Box<dyn crate::backend::Backend>, _> {
             // If the git repo is inside the workspace, use a relative path to it so the
             // whole workspace can be moved without breaking.
@@ -258,7 +257,7 @@ impl Workspace {
             // ReadonlyRepo::init(). workspace_root will be canonicalized by
             // Workspace::new(), but it's not yet here.
             let store_relative_git_repo_path = match (
-                dunce::canonicalize(workspace_root),
+                canonicalize_path(workspace_root),
                 crate::git_backend::canonicalize_git_repo_path(git_repo_path),
             ) {
                 (Ok(workspace_root), Ok(git_repo_path))
@@ -282,7 +281,7 @@ impl Workspace {
     #[expect(clippy::too_many_arguments)]
     pub fn init_with_factories(
         user_settings: &UserSettings,
-        workspace_root: &Path,
+        workspace_root: &Utf8Path,
         backend_initializer: &BackendInitializer,
         signer: Signer,
         op_store_initializer: &OpStoreInitializer,
@@ -329,7 +328,7 @@ impl Workspace {
 
     pub fn init_with_backend(
         user_settings: &UserSettings,
-        workspace_root: &Path,
+        workspace_root: &Utf8Path,
         backend_initializer: &BackendInitializer,
         signer: Signer,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
@@ -348,25 +347,17 @@ impl Workspace {
     }
 
     pub fn init_workspace_with_existing_repo(
-        workspace_root: &Path,
-        repo_path: &Path,
+        workspace_root: &Utf8Path,
+        repo_path: &Utf8Path,
         repo: &Arc<ReadonlyRepo>,
         working_copy_factory: &dyn WorkingCopyFactory,
         workspace_name: WorkspaceNameBuf,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let jj_dir = create_jj_dir(workspace_root)?;
 
-        let repo_dir = dunce::canonicalize(repo_path).context(repo_path)?;
+        let repo_dir = canonicalize_path(repo_path).context(repo_path)?;
         let repo_file_path = jj_dir.join("repo");
-        let mut repo_file = File::create(&repo_file_path).context(&repo_file_path)?;
-        repo_file
-            .write_all(
-                repo_dir
-                    .to_str()
-                    .ok_or(WorkspaceInitError::NonUnicodePath)?
-                    .as_bytes(),
-            )
-            .context(&repo_file_path)?;
+        fs::write(&repo_file_path, repo_dir.as_str()).context(&repo_file_path)?;
 
         let (working_copy, repo) = init_working_copy(
             repo,
@@ -386,7 +377,7 @@ impl Workspace {
 
     pub fn load(
         user_settings: &UserSettings,
-        workspace_path: &Path,
+        workspace_path: &Utf8Path,
         store_factories: &StoreFactories,
         working_copy_factories: &WorkingCopyFactories,
     ) -> Result<Self, WorkspaceLoadError> {
@@ -395,7 +386,7 @@ impl Workspace {
         Ok(workspace)
     }
 
-    pub fn workspace_root(&self) -> &Path {
+    pub fn workspace_root(&self) -> &Utf8Path {
         &self.workspace_root
     }
 
@@ -403,7 +394,7 @@ impl Workspace {
         self.working_copy.workspace_name()
     }
 
-    pub fn repo_path(&self) -> &Path {
+    pub fn repo_path(&self) -> &Utf8Path {
         &self.repo_path
     }
 
@@ -482,8 +473,10 @@ impl LockedWorkspace<'_> {
 
 // Factory trait to build WorkspaceLoaders given the workspace root.
 pub trait WorkspaceLoaderFactory {
-    fn create(&self, workspace_root: &Path)
-        -> Result<Box<dyn WorkspaceLoader>, WorkspaceLoadError>;
+    fn create(
+        &self,
+        workspace_root: &Utf8Path,
+    ) -> Result<Box<dyn WorkspaceLoader>, WorkspaceLoadError>;
 }
 
 pub fn get_working_copy_factory<'a>(
@@ -506,10 +499,10 @@ pub fn get_working_copy_factory<'a>(
 // Workspace object for that path.
 pub trait WorkspaceLoader {
     // The root of the Workspace to be loaded.
-    fn workspace_root(&self) -> &Path;
+    fn workspace_root(&self) -> &Utf8Path;
 
     // The path to the repo/ dir for this Workspace.
-    fn repo_path(&self) -> &Path;
+    fn repo_path(&self) -> &Utf8Path;
 
     // Loads the specified Workspace with the provided factories.
     fn load(
@@ -528,7 +521,7 @@ pub struct DefaultWorkspaceLoaderFactory;
 impl WorkspaceLoaderFactory for DefaultWorkspaceLoaderFactory {
     fn create(
         &self,
-        workspace_root: &Path,
+        workspace_root: &Utf8Path,
     ) -> Result<Box<dyn WorkspaceLoader>, WorkspaceLoadError> {
         Ok(Box::new(DefaultWorkspaceLoader::new(workspace_root)?))
     }
@@ -538,15 +531,15 @@ impl WorkspaceLoaderFactory for DefaultWorkspaceLoaderFactory {
 /// `.jj/working_copy/` from the file system.
 #[derive(Clone, Debug)]
 struct DefaultWorkspaceLoader {
-    workspace_root: PathBuf,
-    repo_path: PathBuf,
-    working_copy_state_path: PathBuf,
+    workspace_root: Utf8PathBuf,
+    repo_path: Utf8PathBuf,
+    working_copy_state_path: Utf8PathBuf,
 }
 
 pub type WorkingCopyFactories = HashMap<String, Box<dyn WorkingCopyFactory>>;
 
 impl DefaultWorkspaceLoader {
-    pub fn new(workspace_root: &Path) -> Result<Self, WorkspaceLoadError> {
+    pub fn new(workspace_root: &Utf8Path) -> Result<Self, WorkspaceLoadError> {
         let jj_dir = workspace_root.join(".jj");
         if !jj_dir.is_dir() {
             return Err(WorkspaceLoadError::NoWorkspaceHere(
@@ -558,9 +551,10 @@ impl DefaultWorkspaceLoader {
         // the actual repo directory (typically in another workspace).
         if repo_dir.is_file() {
             let buf = fs::read(&repo_dir).context(&repo_dir)?;
-            let repo_path_str =
-                String::from_utf8(buf).map_err(|_| WorkspaceLoadError::NonUnicodePath)?;
-            repo_dir = dunce::canonicalize(jj_dir.join(&repo_path_str)).context(&repo_path_str)?;
+            let repo_path = String::from_utf8(buf)
+                .map(Utf8PathBuf::from)
+                .map_err(|_| WorkspaceLoadError::NonUnicodePath)?;
+            repo_dir = canonicalize_path(jj_dir.join(&repo_path)).context(&repo_path)?;
             if !repo_dir.is_dir() {
                 return Err(WorkspaceLoadError::RepoDoesNotExist(repo_dir));
             }
@@ -575,11 +569,11 @@ impl DefaultWorkspaceLoader {
 }
 
 impl WorkspaceLoader for DefaultWorkspaceLoader {
-    fn workspace_root(&self) -> &Path {
+    fn workspace_root(&self) -> &Utf8Path {
         &self.workspace_root
     }
 
-    fn repo_path(&self) -> &Path {
+    fn repo_path(&self) -> &Utf8Path {
         &self.repo_path
     }
 

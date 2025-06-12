@@ -15,20 +15,20 @@
 #![allow(missing_docs)]
 
 use std::fs::File;
-use std::path::PathBuf;
 
+use camino::Utf8PathBuf;
 use rustix::fs::FlockOperation;
 use tracing::instrument;
 
 use super::FileLockError;
 
 pub struct FileLock {
-    path: PathBuf,
+    path: Utf8PathBuf,
     file: File,
 }
 
 impl FileLock {
-    pub fn lock(path: PathBuf) -> Result<FileLock, FileLockError> {
+    pub fn lock(path: Utf8PathBuf) -> Result<FileLock, FileLockError> {
         loop {
             // Create lockfile, or open pre-existing one
             let file = File::create(&path).map_err(|err| FileLockError {

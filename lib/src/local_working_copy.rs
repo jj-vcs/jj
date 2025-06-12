@@ -20,7 +20,6 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::error::Error;
 use std::fs;
-use std::fs::DirEntry;
 use std::fs::File;
 use std::fs::Metadata;
 use std::fs::OpenOptions;
@@ -32,8 +31,6 @@ use std::mem;
 use std::ops::Range;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt as _;
-use std::path::Path;
-use std::path::PathBuf;
 use std::slice;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Sender;
@@ -41,6 +38,9 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 use std::time::UNIX_EPOCH;
 
+use camino::Utf8DirEntry;
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use either::Either;
 use futures::StreamExt as _;
 use itertools::EitherOrBoth;
@@ -440,8 +440,8 @@ impl<'a> IntoIterator for FileStates<'a> {
 
 pub struct TreeState {
     store: Arc<Store>,
-    working_copy_path: PathBuf,
-    state_path: PathBuf,
+    working_copy_path: Utf8PathBuf,
+    state_path: Utf8PathBuf,
     tree_id: MergedTreeId,
     file_states: FileStatesMap,
     // Currently only path prefixes
@@ -563,9 +563,9 @@ fn sparse_patterns_from_proto(
 /// Another process may remove the directory created by this function and put a
 /// symlink there.
 fn create_parent_dirs(
-    working_copy_path: &Path,
+    working_copy_path: &Utf8Path,
     repo_path: &RepoPath,
-) -> Result<Option<PathBuf>, CheckoutError> {
+) -> Result<Option<Utf8PathBuf>, CheckoutError> {
     let (parent_path, basename) = repo_path.split().expect("repo path shouldn't be root");
     let mut dir_path = working_copy_path.to_owned();
     for c in parent_path.components() {
@@ -585,7 +585,7 @@ fn create_parent_dirs(
                     return Err(CheckoutError::Other {
                         message: format!(
                             "Failed to create parent directories for {}",
-                            repo_path.to_fs_path_unchecked(working_copy_path).display(),
+                            repo_path.to_fs_path_unchecked(working_copy_path),
                         ),
                         err: err.into(),
                     })
@@ -615,7 +615,7 @@ fn create_parent_dirs(
 ///
 /// If the existing file points to ".git" or ".jj", this function returns an
 /// error.
-fn remove_old_file(disk_path: &Path) -> Result<bool, CheckoutError> {
+fn remove_old_file(disk_path: &Utf8Path) -> Result<bool, CheckoutError> {
     reject_reserved_existing_path(disk_path)?;
     match fs::remove_file(disk_path) {
         Ok(()) => Ok(true),
@@ -623,7 +623,7 @@ fn remove_old_file(disk_path: &Path) -> Result<bool, CheckoutError> {
         // TODO: Use io::ErrorKind::IsADirectory if it gets stabilized
         Err(_) if disk_path.symlink_metadata().is_ok_and(|m| m.is_dir()) => Ok(false),
         Err(err) => Err(CheckoutError::Other {
-            message: format!("Failed to remove file {}", disk_path.display()),
+            message: format!("Failed to remove file {disk_path}"),
             err: err.into(),
         }),
     }
@@ -638,7 +638,7 @@ fn remove_old_file(disk_path: &Path) -> Result<bool, CheckoutError> {
 /// error.
 ///
 /// This function can fail if `disk_path.parent()` isn't a directory.
-fn can_create_new_file(disk_path: &Path) -> Result<bool, CheckoutError> {
+fn can_create_new_file(disk_path: &Utf8Path) -> Result<bool, CheckoutError> {
     // New file or symlink will be created by caller. If it were pointed to by
     // name ".git" or ".jj", git/jj CLI could be tricked to load configuration
     // from an attacker-controlled location. So we first test the path by
@@ -655,7 +655,7 @@ fn can_create_new_file(disk_path: &Path) -> Result<bool, CheckoutError> {
             Ok(_) => false,
             Err(err) => {
                 return Err(CheckoutError::Other {
-                    message: format!("Failed to stat {}", disk_path.display()),
+                    message: format!("Failed to stat {disk_path}"),
                     err: err.into(),
                 })
             }
@@ -668,7 +668,7 @@ fn can_create_new_file(disk_path: &Path) -> Result<bool, CheckoutError> {
     })?;
     if new_file_created {
         fs::remove_file(disk_path).map_err(|err| CheckoutError::Other {
-            message: format!("Failed to remove temporary file {}", disk_path.display()),
+            message: format!("Failed to remove temporary file {disk_path}"),
             err: err.into(),
         })?;
     }
@@ -679,7 +679,7 @@ const RESERVED_DIR_NAMES: &[&str] = &[".git", ".jj"];
 
 /// Suppose the `disk_path` exists, checks if the last component points to
 /// ".git" or ".jj" in the same parent directory.
-fn reject_reserved_existing_path(disk_path: &Path) -> Result<(), CheckoutError> {
+fn reject_reserved_existing_path(disk_path: &Utf8Path) -> Result<(), CheckoutError> {
     let parent_dir_path = disk_path.parent().expect("content path shouldn't be root");
     for name in RESERVED_DIR_NAMES {
         let reserved_path = parent_dir_path.join(name);
@@ -696,7 +696,7 @@ fn reject_reserved_existing_path(disk_path: &Path) -> Result<(), CheckoutError> 
             Err(err) if err.kind() == io::ErrorKind::NotFound => {}
             Err(err) => {
                 return Err(CheckoutError::Other {
-                    message: format!("Failed to validate path {}", disk_path.display()),
+                    message: format!("Failed to validate path {disk_path}"),
                     err: err.into(),
                 });
             }
@@ -755,22 +755,31 @@ struct FsmonitorMatcher {
 #[derive(Debug, Error)]
 pub enum TreeStateError {
     #[error("Reading tree state from {path}")]
-    ReadTreeState { path: PathBuf, source: io::Error },
+    ReadTreeState {
+        path: Utf8PathBuf,
+        source: io::Error,
+    },
     #[error("Decoding tree state from {path}")]
     DecodeTreeState {
-        path: PathBuf,
+        path: Utf8PathBuf,
         source: prost::DecodeError,
     },
     #[error("Writing tree state to temporary file {path}")]
-    WriteTreeState { path: PathBuf, source: io::Error },
+    WriteTreeState {
+        path: Utf8PathBuf,
+        source: io::Error,
+    },
     #[error("Persisting tree state to file {path}")]
-    PersistTreeState { path: PathBuf, source: io::Error },
+    PersistTreeState {
+        path: Utf8PathBuf,
+        source: io::Error,
+    },
     #[error("Filesystem monitor error")]
     Fsmonitor(#[source] Box<dyn Error + Send + Sync>),
 }
 
 impl TreeState {
-    pub fn working_copy_path(&self) -> &Path {
+    pub fn working_copy_path(&self) -> &Utf8Path {
         &self.working_copy_path
     }
 
@@ -792,15 +801,19 @@ impl TreeState {
 
     pub fn init(
         store: Arc<Store>,
-        working_copy_path: PathBuf,
-        state_path: PathBuf,
+        working_copy_path: Utf8PathBuf,
+        state_path: Utf8PathBuf,
     ) -> Result<TreeState, TreeStateError> {
         let mut wc = TreeState::empty(store, working_copy_path, state_path);
         wc.save()?;
         Ok(wc)
     }
 
-    fn empty(store: Arc<Store>, working_copy_path: PathBuf, state_path: PathBuf) -> TreeState {
+    fn empty(
+        store: Arc<Store>,
+        working_copy_path: Utf8PathBuf,
+        state_path: Utf8PathBuf,
+    ) -> TreeState {
         let tree_id = store.empty_merged_tree_id();
         TreeState {
             store,
@@ -817,8 +830,8 @@ impl TreeState {
 
     pub fn load(
         store: Arc<Store>,
-        working_copy_path: PathBuf,
-        state_path: PathBuf,
+        working_copy_path: Utf8PathBuf,
+        state_path: Utf8PathBuf,
     ) -> Result<TreeState, TreeStateError> {
         let tree_state_path = state_path.join("tree_state");
         let file = match File::open(&tree_state_path) {
@@ -847,7 +860,7 @@ impl TreeState {
         }
     }
 
-    fn read(&mut self, tree_state_path: &Path, mut file: File) -> Result<(), TreeStateError> {
+    fn read(&mut self, tree_state_path: &Utf8Path, mut file: File) -> Result<(), TreeStateError> {
         self.update_own_mtime();
         let mut buf = Vec::new();
         file.read_to_end(&mut buf)
@@ -941,7 +954,7 @@ impl TreeState {
     pub async fn query_watchman(
         &self,
         config: &WatchmanConfig,
-    ) -> Result<(watchman::Clock, Option<Vec<PathBuf>>), TreeStateError> {
+    ) -> Result<(watchman::Clock, Option<Vec<Utf8PathBuf>>), TreeStateError> {
         let fsmonitor = watchman::Fsmonitor::init(&self.working_copy_path, config)
             .await
             .map_err(|err| TreeStateError::Fsmonitor(Box::new(err)))?;
@@ -1144,7 +1157,7 @@ impl TreeState {
 
 struct DirectoryToVisit<'a> {
     dir: RepoPathBuf,
-    disk_dir: PathBuf,
+    disk_dir: Utf8PathBuf,
     git_ignore: Arc<GitIgnoreFile>,
     file_states: FileStates<'a>,
 }
@@ -1218,10 +1231,10 @@ impl FileSnapshotter<'_> {
         let git_ignore = git_ignore
             .chain_with_file(&dir.to_internal_dir_string(), disk_dir.join(".gitignore"))?;
         let dir_entries: Vec<_> = disk_dir
-            .read_dir()
+            .read_dir_utf8()
             .and_then(|entries| entries.try_collect())
             .map_err(|err| SnapshotError::Other {
-                message: format!("Failed to read directory {}", disk_dir.display()),
+                message: format!("Failed to read directory {disk_dir}"),
                 err: err.into(),
             })?;
         let (dirs, files) = dir_entries
@@ -1239,7 +1252,7 @@ impl FileSnapshotter<'_> {
                 Err(err) => Err(err),
             })
             .collect::<Result<_, _>>()?;
-        let present_entries = PresentDirEntries { dirs, files };
+        let present_entries: PresentDirEntries = PresentDirEntries { dirs, files };
         self.emit_deleted_files(&dir, file_states, &present_entries);
         Ok(())
     }
@@ -1249,19 +1262,19 @@ impl FileSnapshotter<'_> {
         dir: &RepoPath,
         git_ignore: &Arc<GitIgnoreFile>,
         file_states: FileStates<'scope>,
-        entry: &DirEntry,
+        entry: &Utf8DirEntry,
         scope: &rayon::Scope<'scope>,
     ) -> Result<Option<(PresentDirEntryKind, String)>, SnapshotError> {
         let file_type = entry.file_type().unwrap();
         let file_name = entry.file_name();
-        let name_string = file_name
-            .into_string()
-            .map_err(|path| SnapshotError::InvalidUtf8Path { path })?;
+        // let name_string = file_name
+        //     .into_string()
+        //     .map_err(|path| SnapshotError::InvalidUtf8Path { path })?;
 
-        if RESERVED_DIR_NAMES.contains(&name_string.as_str()) {
+        if RESERVED_DIR_NAMES.contains(&file_name) {
             return Ok(None);
         }
-        let name = RepoPathComponent::new(&name_string).unwrap();
+        let name = RepoPathComponent::new(file_name).unwrap();
         let path = dir.join(name);
         let maybe_current_file_state = file_states.get_at(dir, name);
         if let Some(file_state) = &maybe_current_file_state {
@@ -1282,7 +1295,7 @@ impl FileSnapshotter<'_> {
             } else if !self.matcher.visit(&path).is_nothing() {
                 let directory_to_visit = DirectoryToVisit {
                     dir: path,
-                    disk_dir: entry.path(),
+                    disk_dir: entry.path().to_path_buf(),
                     git_ignore: git_ignore.clone(),
                     file_states,
                 };
@@ -1292,7 +1305,7 @@ impl FileSnapshotter<'_> {
             }
             // Whether or not the directory path matches, any child file entries
             // shouldn't be touched within the current recursion step.
-            Ok(Some((PresentDirEntryKind::Dir, name_string)))
+            Ok(Some((PresentDirEntryKind::Dir, file_name.to_string())))
         } else if self.matcher.matches(&path) {
             if let Some(progress) = self.progress {
                 progress(&path);
@@ -1313,7 +1326,7 @@ impl FileSnapshotter<'_> {
                 Ok(None)
             } else {
                 let metadata = entry.metadata().map_err(|err| SnapshotError::Other {
-                    message: format!("Failed to stat file {}", entry.path().display()),
+                    message: format!("Failed to stat file {}", entry.path()),
                     err: err.into(),
                 })?;
                 if maybe_current_file_state.is_none() && metadata.len() > self.max_new_file_size {
@@ -1327,11 +1340,11 @@ impl FileSnapshotter<'_> {
                 } else if let Some(new_file_state) = file_state(&metadata) {
                     self.process_present_file(
                         path,
-                        &entry.path(),
+                        entry.path(),
                         maybe_current_file_state.as_ref(),
                         new_file_state,
                     )?;
-                    Ok(Some((PresentDirEntryKind::File, name_string)))
+                    Ok(Some((PresentDirEntryKind::File, file_name.to_string())))
                 } else {
                     // Special file is not considered present
                     Ok(None)
@@ -1357,7 +1370,7 @@ impl FileSnapshotter<'_> {
                 Err(err) if err.kind() == io::ErrorKind::NotFound => None,
                 Err(err) => {
                     return Err(SnapshotError::Other {
-                        message: format!("Failed to stat file {}", disk_path.display()),
+                        message: format!("Failed to stat file {disk_path}"),
                         err: err.into(),
                     });
                 }
@@ -1379,7 +1392,7 @@ impl FileSnapshotter<'_> {
     fn process_present_file(
         &self,
         path: RepoPathBuf,
-        disk_path: &Path,
+        disk_path: &Utf8Path,
         maybe_current_file_state: Option<&FileState>,
         mut new_file_state: FileState,
     ) -> Result<(), SnapshotError> {
@@ -1441,7 +1454,7 @@ impl FileSnapshotter<'_> {
     fn get_updated_tree_value(
         &self,
         repo_path: &RepoPath,
-        disk_path: &Path,
+        disk_path: &Utf8Path,
         maybe_current_file_state: Option<&FileState>,
         new_file_state: &FileState,
     ) -> Result<Option<MergedTreeValue>, SnapshotError> {
@@ -1505,7 +1518,7 @@ impl FileSnapshotter<'_> {
     async fn write_path_to_store(
         &self,
         repo_path: &RepoPath,
-        disk_path: &Path,
+        disk_path: &Utf8Path,
         current_tree_values: &MergedTreeValue,
         executable: FileExecutableFlag,
         materialized_conflict_data: Option<MaterializedConflictData>,
@@ -1555,7 +1568,7 @@ impl FileSnapshotter<'_> {
             // disk, we try to parse any conflict markers in the file into a
             // conflict.
             let content = fs::read(disk_path).map_err(|err| SnapshotError::Other {
-                message: format!("Failed to open file {}", disk_path.display()),
+                message: format!("Failed to open file {disk_path}"),
                 err: err.into(),
             })?;
             let new_file_ids = conflicts::update_from_content(
@@ -1601,10 +1614,10 @@ impl FileSnapshotter<'_> {
     async fn write_file_to_store(
         &self,
         path: &RepoPath,
-        disk_path: &Path,
+        disk_path: &Utf8Path,
     ) -> Result<FileId, SnapshotError> {
         let file = File::open(disk_path).map_err(|err| SnapshotError::Other {
-            message: format!("Failed to open file {}", disk_path.display()),
+            message: format!("Failed to open file {disk_path}"),
             err: err.into(),
         })?;
         Ok(self
@@ -1616,11 +1629,11 @@ impl FileSnapshotter<'_> {
     async fn write_symlink_to_store(
         &self,
         path: &RepoPath,
-        disk_path: &Path,
+        disk_path: &Utf8Path,
     ) -> Result<SymlinkId, SnapshotError> {
         if self.tree_state.symlink_support {
             let target = disk_path.read_link().map_err(|err| SnapshotError::Other {
-                message: format!("Failed to read symlink {}", disk_path.display()),
+                message: format!("Failed to read symlink {disk_path}"),
                 err: err.into(),
             })?;
             let str_target =
@@ -1632,7 +1645,7 @@ impl FileSnapshotter<'_> {
             Ok(self.store().write_symlink(path, str_target).await?)
         } else {
             let target = fs::read(disk_path).map_err(|err| SnapshotError::Other {
-                message: format!("Failed to read file {}", disk_path.display()),
+                message: format!("Failed to read file {disk_path}"),
                 err: err.into(),
             })?;
             let string_target =
@@ -1648,7 +1661,7 @@ impl FileSnapshotter<'_> {
 impl TreeState {
     fn write_file(
         &self,
-        disk_path: &Path,
+        disk_path: &Utf8Path,
         contents: impl AsyncRead,
         executable: bool,
     ) -> Result<FileState, CheckoutError> {
@@ -1657,13 +1670,13 @@ impl TreeState {
             .create_new(true) // Don't overwrite un-ignored file. Don't follow symlink.
             .open(disk_path)
             .map_err(|err| CheckoutError::Other {
-                message: format!("Failed to open file {} for writing", disk_path.display()),
+                message: format!("Failed to open file {disk_path} for writing"),
                 err: err.into(),
             })?;
         let size = copy_async_to_sync(contents, &mut file)
             .block_on()
             .map_err(|err| CheckoutError::Other {
-                message: format!("Failed to write file {}", disk_path.display()),
+                message: format!("Failed to write file {disk_path}"),
                 err: err.into(),
             })?;
         self.set_executable(disk_path, executable)?;
@@ -1682,14 +1695,14 @@ impl TreeState {
         ))
     }
 
-    fn write_symlink(&self, disk_path: &Path, target: String) -> Result<FileState, CheckoutError> {
-        let target = PathBuf::from(&target);
+    fn write_symlink(
+        &self,
+        disk_path: &Utf8Path,
+        target: String,
+    ) -> Result<FileState, CheckoutError> {
+        let target = Utf8PathBuf::from(&target);
         try_symlink(&target, disk_path).map_err(|err| CheckoutError::Other {
-            message: format!(
-                "Failed to create symlink from {} to {}",
-                disk_path.display(),
-                target.display()
-            ),
+            message: format!("Failed to create symlink from {disk_path} to {target}"),
             err: err.into(),
         })?;
         let metadata = disk_path
@@ -1700,7 +1713,7 @@ impl TreeState {
 
     fn write_conflict(
         &self,
-        disk_path: &Path,
+        disk_path: &Utf8Path,
         conflict_data: Vec<u8>,
         executable: bool,
         materialized_conflict_data: Option<MaterializedConflictData>,
@@ -1710,12 +1723,12 @@ impl TreeState {
             .create_new(true) // Don't overwrite un-ignored file. Don't follow symlink.
             .open(disk_path)
             .map_err(|err| CheckoutError::Other {
-                message: format!("Failed to open file {} for writing", disk_path.display()),
+                message: format!("Failed to open file {disk_path} for writing"),
                 err: err.into(),
             })?;
         file.write_all(&conflict_data)
             .map_err(|err| CheckoutError::Other {
-                message: format!("Failed to write conflict to file {}", disk_path.display()),
+                message: format!("Failed to write conflict to file {disk_path}"),
                 err: err.into(),
             })?;
         let size = conflict_data.len() as u64;
@@ -1732,7 +1745,7 @@ impl TreeState {
     }
 
     #[cfg_attr(windows, allow(unused_variables))]
-    fn set_executable(&self, disk_path: &Path, executable: bool) -> Result<(), CheckoutError> {
+    fn set_executable(&self, disk_path: &Utf8Path, executable: bool) -> Result<(), CheckoutError> {
         #[cfg(unix)]
         {
             let mode = if executable { 0o755 } else { 0o644 };
@@ -2013,9 +2026,9 @@ impl TreeState {
     }
 }
 
-fn checkout_error_for_stat_error(err: io::Error, path: &Path) -> CheckoutError {
+fn checkout_error_for_stat_error(err: io::Error, path: &Utf8Path) -> CheckoutError {
     CheckoutError::Other {
-        message: format!("Failed to stat file {}", path.display()),
+        message: format!("Failed to stat file {path}"),
         err: err.into(),
     }
 }
@@ -2029,8 +2042,8 @@ struct CheckoutState {
 
 pub struct LocalWorkingCopy {
     store: Arc<Store>,
-    working_copy_path: PathBuf,
-    state_path: PathBuf,
+    working_copy_path: Utf8PathBuf,
+    state_path: Utf8PathBuf,
     checkout_state: OnceCell<CheckoutState>,
     tree_state: OnceCell<TreeState>,
 }
@@ -2100,8 +2113,8 @@ impl LocalWorkingCopy {
     /// copy will have the empty tree checked out.
     pub fn init(
         store: Arc<Store>,
-        working_copy_path: PathBuf,
-        state_path: PathBuf,
+        working_copy_path: Utf8PathBuf,
+        state_path: Utf8PathBuf,
         operation_id: OperationId,
         workspace_name: WorkspaceNameBuf,
     ) -> Result<LocalWorkingCopy, WorkingCopyStateError> {
@@ -2133,8 +2146,8 @@ impl LocalWorkingCopy {
 
     pub fn load(
         store: Arc<Store>,
-        working_copy_path: PathBuf,
-        state_path: PathBuf,
+        working_copy_path: Utf8PathBuf,
+        state_path: Utf8PathBuf,
     ) -> LocalWorkingCopy {
         LocalWorkingCopy {
             store,
@@ -2145,7 +2158,7 @@ impl LocalWorkingCopy {
         }
     }
 
-    pub fn state_path(&self) -> &Path {
+    pub fn state_path(&self) -> &Utf8Path {
         &self.state_path
     }
 
@@ -2219,7 +2232,7 @@ impl LocalWorkingCopy {
     pub fn query_watchman(
         &self,
         config: &WatchmanConfig,
-    ) -> Result<(watchman::Clock, Option<Vec<PathBuf>>), WorkingCopyStateError> {
+    ) -> Result<(watchman::Clock, Option<Vec<Utf8PathBuf>>), WorkingCopyStateError> {
         self.tree_state()?
             .query_watchman(config)
             .map_err(|err| WorkingCopyStateError {
@@ -2248,8 +2261,8 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
     fn init_working_copy(
         &self,
         store: Arc<Store>,
-        working_copy_path: PathBuf,
-        state_path: PathBuf,
+        working_copy_path: Utf8PathBuf,
+        state_path: Utf8PathBuf,
         operation_id: OperationId,
         workspace_name: WorkspaceNameBuf,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
@@ -2265,8 +2278,8 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
     fn load_working_copy(
         &self,
         store: Arc<Store>,
-        working_copy_path: PathBuf,
-        state_path: PathBuf,
+        working_copy_path: Utf8PathBuf,
+        state_path: Utf8PathBuf,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
         Ok(Box::new(LocalWorkingCopy::load(
             store,

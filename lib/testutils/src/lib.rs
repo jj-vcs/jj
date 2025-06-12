@@ -19,12 +19,12 @@ use std::ffi::OsStr;
 use std::fs;
 use std::fs::OpenOptions;
 use std::io::Write as _;
-use std::path::Path;
-use std::path::PathBuf;
 use std::process::Command;
 use std::process::Stdio;
 use std::sync::Arc;
 
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use itertools::Itertools as _;
 use jj_lib::backend;
 use jj_lib::backend::Backend;
@@ -61,6 +61,7 @@ use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::simple_backend::SimpleBackend;
 use jj_lib::store::Store;
+use jj_lib::tempdir;
 use jj_lib::transaction::Transaction;
 use jj_lib::tree::Tree;
 use jj_lib::tree_builder::TreeBuilder;
@@ -69,7 +70,6 @@ use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::workspace::Workspace;
 use pollster::FutureExt as _;
-use tempfile::TempDir;
 use tokio::io::AsyncReadExt as _;
 
 use crate::test_backend::TestBackendFactory;
@@ -94,11 +94,13 @@ pub fn hermetic_git() {
     env::set_var("GIT_CONFIG_COUNT", "1");
 }
 
-pub fn new_temp_dir() -> TempDir {
+pub fn new_temp_dir() -> tempdir::Utf8TempDir {
     hermetic_git();
     tempfile::Builder::new()
         .prefix("jj-test-")
         .tempdir()
+        .unwrap()
+        .try_into()
         .unwrap()
 }
 
@@ -144,7 +146,7 @@ pub fn is_external_tool_installed(program_name: impl AsRef<OsStr>) -> bool {
 
 #[derive(Debug)]
 pub struct TestEnvironment {
-    temp_dir: TempDir,
+    temp_dir: tempdir::Utf8TempDir,
     test_backend_factory: TestBackendFactory,
 }
 
@@ -156,7 +158,7 @@ impl TestEnvironment {
         }
     }
 
-    pub fn root(&self) -> &Path {
+    pub fn root(&self) -> &Utf8Path {
         self.temp_dir.path()
     }
 
@@ -178,7 +180,7 @@ impl TestEnvironment {
     pub fn load_repo_at_head(
         &self,
         settings: &UserSettings,
-        repo_path: &Path,
+        repo_path: &Utf8Path,
     ) -> Arc<ReadonlyRepo> {
         RepoLoader::init_from_file_system(settings, repo_path, &self.default_store_factories())
             .unwrap()
@@ -190,7 +192,7 @@ impl TestEnvironment {
 pub struct TestRepo {
     pub env: TestEnvironment,
     pub repo: Arc<ReadonlyRepo>,
-    repo_path: PathBuf,
+    repo_path: Utf8PathBuf,
 }
 
 #[derive(PartialEq, Eq, Copy, Clone)]
@@ -205,7 +207,7 @@ impl TestRepoBackend {
         &self,
         env: &TestEnvironment,
         settings: &UserSettings,
-        store_path: &Path,
+        store_path: &Utf8Path,
     ) -> Result<Box<dyn Backend>, BackendInitError> {
         match self {
             TestRepoBackend::Git => Ok(Box::new(GitBackend::init_internal(settings, store_path)?)),
@@ -256,7 +258,7 @@ impl TestRepo {
         }
     }
 
-    pub fn repo_path(&self) -> &Path {
+    pub fn repo_path(&self) -> &Utf8Path {
         &self.repo_path
     }
 }
@@ -313,11 +315,11 @@ impl TestWorkspace {
         }
     }
 
-    pub fn root_dir(&self) -> PathBuf {
+    pub fn root_dir(&self) -> Utf8PathBuf {
         self.env.root().join("repo").join("..")
     }
 
-    pub fn repo_path(&self) -> &Path {
+    pub fn repo_path(&self) -> &Utf8Path {
         self.workspace.repo_path()
     }
 
@@ -602,7 +604,7 @@ pub fn write_random_commit(mut_repo: &mut MutableRepo) -> Commit {
     create_random_commit(mut_repo).write().unwrap()
 }
 
-pub fn write_working_copy_file(workspace_root: &Path, path: &RepoPath, contents: &str) {
+pub fn write_working_copy_file(workspace_root: &Utf8Path, path: &RepoPath, contents: &str) {
     let path = path.to_fs_path(workspace_root).unwrap();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).unwrap();
@@ -715,7 +717,7 @@ pub fn assert_abandoned_with_parent(
     new_parent_commit
 }
 
-pub fn assert_no_forgotten_test_files(test_dir: &Path) {
+pub fn assert_no_forgotten_test_files(test_dir: &Utf8Path) {
     // Parse the integration tests' main modules from the Cargo manifest.
     let manifest = {
         let file_path = test_dir.parent().unwrap().join("Cargo.toml");

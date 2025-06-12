@@ -19,12 +19,13 @@ use std::fs::File;
 use std::io;
 use std::io::Read;
 use std::io::Write;
-use std::path::Component;
-use std::path::Path;
-use std::path::PathBuf;
 use std::pin::Pin;
 use std::task::Poll;
 
+use camino::FromPathBufError;
+use camino::Utf8Component;
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use tempfile::NamedTempFile;
 use tempfile::PersistError;
 use thiserror::Error;
@@ -37,21 +38,33 @@ pub use self::platform::*;
 #[derive(Debug, Error)]
 #[error("Cannot access {path}")]
 pub struct PathError {
-    pub path: PathBuf,
+    pub path: Utf8PathBuf,
     #[source]
     pub error: io::Error,
 }
 
 pub trait IoResultExt<T> {
-    fn context(self, path: impl AsRef<Path>) -> Result<T, PathError>;
+    fn context(self, path: &Utf8Path) -> Result<T, PathError>;
+    fn context_ntf(self, path: &NamedTempFile) -> Result<T, PathError>;
 }
 
 impl<T> IoResultExt<T> for io::Result<T> {
-    fn context(self, path: impl AsRef<Path>) -> Result<T, PathError> {
-        self.map_err(|error| PathError {
-            path: path.as_ref().to_path_buf(),
-            error,
-        })
+    fn context(self, path: &Utf8Path) -> Result<T, PathError> {
+        let path = path.to_path_buf();
+        self.map_err(|error| PathError { path, error })
+    }
+
+    fn context_ntf(self, ntf: &NamedTempFile) -> Result<T, PathError> {
+        let path = Utf8Path::from_path(ntf.path()).unwrap();
+        self.context(path)
+    }
+}
+
+impl From<FromPathBufError> for PathError {
+    fn from(err: FromPathBufError) -> Self {
+        let error = err.from_path_error().into_io_error();
+        let path = err.into_path_buf().display().to_string().into();
+        Self { path, error }
     }
 }
 
@@ -60,7 +73,8 @@ impl<T> IoResultExt<T> for io::Result<T> {
 /// Returns the underlying error if the directory can't be created.
 /// The function will also fail if intermediate directories on the path do not
 /// already exist.
-pub fn create_or_reuse_dir(dirname: &Path) -> io::Result<()> {
+pub fn create_or_reuse_dir(dirname: impl AsRef<Utf8Path>) -> io::Result<()> {
+    let dirname = dirname.as_ref();
     match fs::create_dir(dirname) {
         Ok(()) => Ok(()),
         Err(_) if dirname.is_dir() => Ok(()),
@@ -71,37 +85,40 @@ pub fn create_or_reuse_dir(dirname: &Path) -> io::Result<()> {
 /// Removes all files in the directory, but not the directory itself.
 ///
 /// The directory must exist, and there should be no sub directories.
-pub fn remove_dir_contents(dirname: &Path) -> Result<(), PathError> {
-    for entry in dirname.read_dir().context(dirname)? {
+pub fn remove_dir_contents(dirname: impl AsRef<Utf8Path>) -> Result<(), PathError> {
+    let dirname = dirname.as_ref();
+    for entry in dirname.read_dir_utf8().context(dirname)? {
         let entry = entry.context(dirname)?;
         let path = entry.path();
-        fs::remove_file(&path).context(&path)?;
+        fs::remove_file(path).context(path)?;
     }
     Ok(())
 }
 
 /// Expands "~/" to "$HOME/".
-pub fn expand_home_path(path_str: &str) -> PathBuf {
-    if let Some(remainder) = path_str.strip_prefix("~/") {
-        if let Ok(home_dir_str) = std::env::var("HOME") {
-            return PathBuf::from(home_dir_str).join(remainder);
+pub fn expand_home_path(path: &str) -> Utf8PathBuf {
+    if let Some(remainder) = path.strip_prefix("~/") {
+        if let Ok(home_dir) = std::env::var("HOME") {
+            return Utf8PathBuf::from(home_dir).join(remainder);
         }
     }
-    PathBuf::from(path_str)
+    Utf8PathBuf::from(path)
 }
 
 /// Turns the given `to` path into relative path starting from the `from` path.
 ///
 /// Both `from` and `to` paths are supposed to be absolute and normalized in the
 /// same manner.
-pub fn relative_path(from: &Path, to: &Path) -> PathBuf {
+pub fn relative_path(from: impl AsRef<Utf8Path>, to: impl AsRef<Utf8Path>) -> Utf8PathBuf {
+    let from = from.as_ref();
+    let to = to.as_ref();
     // Find common prefix.
     for (i, base) in from.ancestors().enumerate() {
         if let Ok(suffix) = to.strip_prefix(base) {
             if i == 0 && suffix.as_os_str().is_empty() {
                 return ".".into();
             } else {
-                let mut result = PathBuf::from_iter(std::iter::repeat_n("..", i));
+                let mut result = Utf8PathBuf::from_iter(std::iter::repeat_n("..", i));
                 result.push(suffix);
                 return result;
             }
@@ -113,13 +130,16 @@ pub fn relative_path(from: &Path, to: &Path) -> PathBuf {
 }
 
 /// Consumes as much `..` and `.` as possible without considering symlinks.
-pub fn normalize_path(path: &Path) -> PathBuf {
-    let mut result = PathBuf::new();
+pub fn normalize_path(path: &Utf8Path) -> Utf8PathBuf {
+    let mut result = Utf8PathBuf::new();
     for c in path.components() {
         match c {
-            Component::CurDir => {}
-            Component::ParentDir
-                if matches!(result.components().next_back(), Some(Component::Normal(_))) =>
+            Utf8Component::CurDir => {}
+            Utf8Component::ParentDir
+                if matches!(
+                    result.components().next_back(),
+                    Some(Utf8Component::Normal(_))
+                ) =>
             {
                 // Do not pop ".."
                 let popped = result.pop();
@@ -138,17 +158,25 @@ pub fn normalize_path(path: &Path) -> PathBuf {
     }
 }
 
+#[expect(clippy::disallowed_types)]
+pub fn canonicalize_path(path: impl AsRef<std::path::Path>) -> io::Result<Utf8PathBuf> {
+    dunce::canonicalize(path.as_ref())?
+        .try_into()
+        .map_err(|err: FromPathBufError| err.into_io_error())
+}
+
 /// Like `NamedTempFile::persist()`, but doesn't try to overwrite the existing
 /// target on Windows.
-pub fn persist_content_addressed_temp_file<P: AsRef<Path>>(
+pub fn persist_content_addressed_temp_file(
     temp_file: NamedTempFile,
-    new_path: P,
+    new_path: impl AsRef<Utf8Path>,
 ) -> io::Result<File> {
+    let new_path = new_path.as_ref();
     if cfg!(windows) {
         // On Windows, overwriting file can fail if the file is opened without
         // FILE_SHARE_DELETE for example. We don't need to take a risk if the
         // file already exists.
-        match temp_file.persist_noclobber(&new_path) {
+        match temp_file.persist_noclobber(new_path) {
             Ok(file) => Ok(file),
             Err(PersistError { error, file: _ }) => {
                 if let Ok(existing_file) = File::open(new_path) {
@@ -219,15 +247,19 @@ impl<R: Read + Unpin> AsyncRead for BlockingAsyncReader<R> {
 mod platform {
     use std::io;
     use std::os::unix::fs::symlink;
-    use std::path::Path;
+
+    use camino::Utf8Path;
 
     /// Symlinks are always available on UNIX
     pub fn check_symlink_support() -> io::Result<bool> {
         Ok(true)
     }
 
-    pub fn try_symlink<P: AsRef<Path>, Q: AsRef<Path>>(original: P, link: Q) -> io::Result<()> {
-        symlink(original, link)
+    pub fn try_symlink<P: AsRef<Utf8Path>, Q: AsRef<Utf8Path>>(
+        original: P,
+        link: Q,
+    ) -> io::Result<()> {
+        symlink(original.as_ref(), link.as_ref())
     }
 }
 
@@ -275,15 +307,18 @@ mod tests {
 
     #[test]
     fn normalize_too_many_dot_dot() {
-        assert_eq!(normalize_path(Path::new("foo/..")), Path::new("."));
-        assert_eq!(normalize_path(Path::new("foo/../..")), Path::new(".."));
+        assert_eq!(normalize_path(Utf8Path::new("foo/..")), Utf8Path::new("."));
         assert_eq!(
-            normalize_path(Path::new("foo/../../..")),
-            Path::new("../..")
+            normalize_path(Utf8Path::new("foo/../..")),
+            Utf8Path::new("..")
         );
         assert_eq!(
-            normalize_path(Path::new("foo/../../../bar/baz/..")),
-            Path::new("../../bar")
+            normalize_path(Utf8Path::new("foo/../../..")),
+            Utf8Path::new("../..")
+        );
+        assert_eq!(
+            normalize_path(Utf8Path::new("foo/../../../bar/baz/..")),
+            Utf8Path::new("../../bar")
         );
     }
 

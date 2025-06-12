@@ -18,9 +18,9 @@
 use std::any::Any;
 use std::collections::BTreeMap;
 use std::ffi::OsString;
-use std::path::PathBuf;
 use std::sync::Arc;
 
+use camino::Utf8PathBuf;
 use itertools::Itertools as _;
 use thiserror::Error;
 use tracing::instrument;
@@ -84,8 +84,8 @@ pub trait WorkingCopyFactory {
     fn init_working_copy(
         &self,
         store: Arc<Store>,
-        working_copy_path: PathBuf,
-        state_path: PathBuf,
+        working_copy_path: Utf8PathBuf,
+        state_path: Utf8PathBuf,
         operation_id: OperationId,
         workspace_name: WorkspaceNameBuf,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
@@ -94,8 +94,8 @@ pub trait WorkingCopyFactory {
     fn load_working_copy(
         &self,
         store: Arc<Store>,
-        working_copy_path: PathBuf,
-        state_path: PathBuf,
+        working_copy_path: Utf8PathBuf,
+        state_path: Utf8PathBuf,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
 }
 
@@ -176,7 +176,7 @@ pub enum SnapshotError {
     InvalidUtf8SymlinkTarget {
         /// The path of the symlink that has a target that's not valid UTF-8.
         /// This path itself is valid UTF-8.
-        path: PathBuf,
+        path: Utf8PathBuf,
     },
     /// Reading or writing from the commit backend failed.
     #[error(transparent)]
@@ -316,7 +316,7 @@ pub enum CheckoutError {
     #[error("Reserved path component {name} in {path}")]
     ReservedPathComponent {
         /// The file or directory path.
-        path: PathBuf,
+        path: Utf8PathBuf,
         /// The reserved path component.
         name: &'static str,
     },

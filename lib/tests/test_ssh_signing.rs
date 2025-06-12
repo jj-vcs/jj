@@ -18,12 +18,12 @@ use std::fs::Permissions;
 use std::io::Write as _;
 #[cfg(unix)]
 use std::os::unix::prelude::PermissionsExt as _;
-use std::path::Path;
-use std::path::PathBuf;
 
+use camino::Utf8PathBuf;
 use jj_lib::signing::SigStatus;
 use jj_lib::signing::SigningBackend as _;
 use jj_lib::ssh_signing::SshBackend;
+use jj_lib::tempdir::Utf8TempDir;
 
 static PRIVATE_KEY: &str = r#"-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
@@ -38,19 +38,21 @@ static PUBLIC_KEY: &str =
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGj+J6N6SO+4P8dOZqfR1oiay2yxhhHnagH52avUqw5h";
 
 struct SshEnvironment {
-    _keys: tempfile::TempDir,
-    private_key_path: PathBuf,
+    _keys: Utf8TempDir,
+    private_key_path: Utf8PathBuf,
     allowed_signers: Option<tempfile::TempPath>,
 }
 
 impl SshEnvironment {
     fn new() -> Result<Self, std::process::Output> {
-        let keys_dir = tempfile::Builder::new()
+        let keys_dir: Utf8TempDir = tempfile::Builder::new()
             .prefix("jj-test-signing-keys-")
             .tempdir()
+            .unwrap()
+            .try_into()
             .unwrap();
 
-        let private_key_path = Path::new(keys_dir.path()).join("key");
+        let private_key_path = keys_dir.path().join("key");
 
         fs::write(&private_key_path, PRIVATE_KEY).unwrap();
 
@@ -121,7 +123,7 @@ fn ssh_signing_roundtrip() {
     let data = b"hello world";
 
     let signature = backend
-        .sign(data, Some(env.private_key_path.to_str().unwrap()))
+        .sign(data, Some(env.private_key_path.as_str()))
         .unwrap();
 
     let check = backend.verify(data, &signature).unwrap();
@@ -143,7 +145,7 @@ fn ssh_signing_bad_allowed_signers() {
     let data = b"hello world";
 
     let signature = backend
-        .sign(data, Some(env.private_key_path.to_str().unwrap()))
+        .sign(data, Some(env.private_key_path.as_str()))
         .unwrap();
 
     let check = backend.verify(data, &signature).unwrap();
@@ -160,7 +162,7 @@ fn ssh_signing_missing_allowed_signers() {
     let data = b"hello world";
 
     let signature = backend
-        .sign(data, Some(env.private_key_path.to_str().unwrap()))
+        .sign(data, Some(env.private_key_path.as_str()))
         .unwrap();
 
     let check = backend.verify(data, &signature).unwrap();

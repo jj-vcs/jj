@@ -18,8 +18,6 @@ use std::fmt::Debug;
 use std::fmt::Error;
 use std::fmt::Formatter;
 use std::io::Cursor;
-use std::path::Path;
-use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -27,6 +25,8 @@ use std::sync::MutexGuard;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use futures::stream;
 use futures::stream::BoxStream;
 use jj_lib::backend::make_root_commit;
@@ -62,7 +62,7 @@ const CHANGE_ID_LENGTH: usize = 16;
 // rely on on the file system to resolve two different uncanonicalized paths to
 // the same real path (as we would if we just used the path with `std::fs`
 // functions).
-type TestBackendDataMap = HashMap<PathBuf, Arc<Mutex<TestBackendData>>>;
+type TestBackendDataMap = HashMap<Utf8PathBuf, Arc<Mutex<TestBackendData>>>;
 
 #[derive(Default)]
 pub struct TestBackendData {
@@ -80,21 +80,21 @@ pub struct TestBackendFactory {
 }
 
 impl TestBackendFactory {
-    pub fn init(&self, store_path: &Path) -> TestBackend {
+    pub fn init(&self, store_path: &Utf8Path) -> TestBackend {
         let data = Arc::new(Mutex::new(TestBackendData::default()));
         self.backend_data
             .lock()
             .unwrap()
-            .insert(store_path.canonicalize().unwrap(), data.clone());
+            .insert(store_path.canonicalize_utf8().unwrap(), data.clone());
         TestBackend::with_data(data)
     }
 
-    pub fn load(&self, store_path: &Path) -> TestBackend {
+    pub fn load(&self, store_path: &Utf8Path) -> TestBackend {
         let data = self
             .backend_data
             .lock()
             .unwrap()
-            .get(&store_path.canonicalize().unwrap())
+            .get(&store_path.canonicalize_utf8().unwrap())
             .unwrap()
             .clone();
         TestBackend::with_data(data)

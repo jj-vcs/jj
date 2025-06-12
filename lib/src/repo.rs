@@ -21,10 +21,10 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fs;
-use std::path::Path;
 use std::slice;
 use std::sync::Arc;
 
+use camino::Utf8Path;
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
 use thiserror::Error;
@@ -47,6 +47,7 @@ use crate::dag_walk;
 use crate::default_index::DefaultIndexStore;
 use crate::default_index::DefaultMutableIndex;
 use crate::default_submodule_store::DefaultSubmoduleStore;
+use crate::file_util::canonicalize_path;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::index::ChangeIdIndex;
@@ -187,7 +188,7 @@ impl ReadonlyRepo {
     #[expect(clippy::too_many_arguments)]
     pub fn init(
         settings: &UserSettings,
-        repo_path: &Path,
+        repo_path: &Utf8Path,
         backend_initializer: &BackendInitializer,
         signer: Signer,
         op_store_initializer: &OpStoreInitializer,
@@ -195,7 +196,7 @@ impl ReadonlyRepo {
         index_store_initializer: &IndexStoreInitializer,
         submodule_store_initializer: &SubmoduleStoreInitializer,
     ) -> Result<Arc<ReadonlyRepo>, RepoInitError> {
-        let repo_path = dunce::canonicalize(repo_path).context(repo_path)?;
+        let repo_path = canonicalize_path(repo_path).context(repo_path)?;
 
         let store_path = repo_path.join("store");
         fs::create_dir(&store_path).context(&store_path)?;
@@ -355,29 +356,33 @@ impl Repo for ReadonlyRepo {
 }
 
 pub type BackendInitializer<'a> =
-    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn Backend>, BackendInitError> + 'a;
+    dyn Fn(&UserSettings, &Utf8Path) -> Result<Box<dyn Backend>, BackendInitError> + 'a;
 #[rustfmt::skip] // auto-formatted line would exceed the maximum width
 pub type OpStoreInitializer<'a> =
-    dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendInitError>
+    dyn Fn(&UserSettings, &Utf8Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendInitError>
     + 'a;
 pub type OpHeadsStoreInitializer<'a> =
-    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn OpHeadsStore>, BackendInitError> + 'a;
+    dyn Fn(&UserSettings, &Utf8Path) -> Result<Box<dyn OpHeadsStore>, BackendInitError> + 'a;
 pub type IndexStoreInitializer<'a> =
-    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn IndexStore>, BackendInitError> + 'a;
+    dyn Fn(&UserSettings, &Utf8Path) -> Result<Box<dyn IndexStore>, BackendInitError> + 'a;
 pub type SubmoduleStoreInitializer<'a> =
-    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn SubmoduleStore>, BackendInitError> + 'a;
+    dyn Fn(&UserSettings, &Utf8Path) -> Result<Box<dyn SubmoduleStore>, BackendInitError> + 'a;
 
 type BackendFactory =
-    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn Backend>, BackendLoadError>>;
+    Box<dyn Fn(&UserSettings, &Utf8Path) -> Result<Box<dyn Backend>, BackendLoadError>>;
 type OpStoreFactory = Box<
-    dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendLoadError>,
+    dyn Fn(
+        &UserSettings,
+        &Utf8Path,
+        RootOperationData,
+    ) -> Result<Box<dyn OpStore>, BackendLoadError>,
 >;
 type OpHeadsStoreFactory =
-    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn OpHeadsStore>, BackendLoadError>>;
+    Box<dyn Fn(&UserSettings, &Utf8Path) -> Result<Box<dyn OpHeadsStore>, BackendLoadError>>;
 type IndexStoreFactory =
-    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn IndexStore>, BackendLoadError>>;
+    Box<dyn Fn(&UserSettings, &Utf8Path) -> Result<Box<dyn IndexStore>, BackendLoadError>>;
 type SubmoduleStoreFactory =
-    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn SubmoduleStore>, BackendLoadError>>;
+    Box<dyn Fn(&UserSettings, &Utf8Path) -> Result<Box<dyn SubmoduleStore>, BackendLoadError>>;
 
 pub fn merge_factories_map<F>(base: &mut HashMap<String, F>, ext: HashMap<String, F>) {
     for (name, factory) in ext {
@@ -513,7 +518,7 @@ impl StoreFactories {
     pub fn load_backend(
         &self,
         settings: &UserSettings,
-        store_path: &Path,
+        store_path: &Utf8Path,
     ) -> Result<Box<dyn Backend>, StoreLoadError> {
         let backend_type = read_store_type("commit", store_path.join("type"))?;
         let backend_factory = self.backend_factories.get(&backend_type).ok_or_else(|| {
@@ -532,7 +537,7 @@ impl StoreFactories {
     pub fn load_op_store(
         &self,
         settings: &UserSettings,
-        store_path: &Path,
+        store_path: &Utf8Path,
         root_data: RootOperationData,
     ) -> Result<Box<dyn OpStore>, StoreLoadError> {
         let op_store_type = read_store_type("operation", store_path.join("type"))?;
@@ -553,7 +558,7 @@ impl StoreFactories {
     pub fn load_op_heads_store(
         &self,
         settings: &UserSettings,
-        store_path: &Path,
+        store_path: &Utf8Path,
     ) -> Result<Box<dyn OpHeadsStore>, StoreLoadError> {
         let op_heads_store_type = read_store_type("operation heads", store_path.join("type"))?;
         let op_heads_store_factory = self
@@ -573,7 +578,7 @@ impl StoreFactories {
     pub fn load_index_store(
         &self,
         settings: &UserSettings,
-        store_path: &Path,
+        store_path: &Utf8Path,
     ) -> Result<Box<dyn IndexStore>, StoreLoadError> {
         let index_store_type = read_store_type("index", store_path.join("type"))?;
         let index_store_factory = self
@@ -594,7 +599,7 @@ impl StoreFactories {
     pub fn load_submodule_store(
         &self,
         settings: &UserSettings,
-        store_path: &Path,
+        store_path: &Utf8Path,
     ) -> Result<Box<dyn SubmoduleStore>, StoreLoadError> {
         let submodule_store_type = read_store_type("submodule_store", store_path.join("type"))?;
         let submodule_store_factory = self
@@ -611,7 +616,7 @@ impl StoreFactories {
 
 pub fn read_store_type(
     store: &'static str,
-    path: impl AsRef<Path>,
+    path: impl AsRef<Utf8Path>,
 ) -> Result<String, StoreLoadError> {
     let path = path.as_ref();
     fs::read_to_string(path)
@@ -671,7 +676,7 @@ impl RepoLoader {
     /// backends from `store_factories`.
     pub fn init_from_file_system(
         settings: &UserSettings,
-        repo_path: &Path,
+        repo_path: &Utf8Path,
         store_factories: &StoreFactories,
     ) -> Result<Self, StoreLoadError> {
         let store = Store::new(

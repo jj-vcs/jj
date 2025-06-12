@@ -21,10 +21,10 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::iter::FusedIterator;
 use std::ops::Deref;
-use std::path::Component;
-use std::path::Path;
-use std::path::PathBuf;
 
+use camino::Utf8Component;
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use itertools::Itertools as _;
 use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
@@ -89,11 +89,11 @@ impl RepoPathComponent {
     /// Returns a normal filesystem entry name if this path component is valid
     /// as a file/directory name.
     pub fn to_fs_name(&self) -> Result<&str, InvalidRepoPathComponentError> {
-        let mut components = Path::new(&self.value).components().fuse();
+        let mut components = Utf8Path::new(&self.value).components().fuse();
         match (components.next(), components.next()) {
             // Trailing "." can be normalized by Path::components(), so compare
             // component name. e.g. "foo\." (on Windows) should be rejected.
-            (Some(Component::Normal(name)), None) if name == &self.value => Ok(&self.value),
+            (Some(Utf8Component::Normal(name)), None) if name == &self.value => Ok(&self.value),
             // e.g. ".", "..", "foo\bar" (on Windows)
             _ => Err(InvalidRepoPathComponentError {
                 component: self.value.into(),
@@ -256,22 +256,17 @@ impl RepoPathBuf {
     ///
     /// The input path should not contain redundant `.` or `..`.
     pub fn from_relative_path(
-        relative_path: impl AsRef<Path>,
+        relative_path: impl AsRef<Utf8Path>,
     ) -> Result<Self, RelativePathParseError> {
         let relative_path = relative_path.as_ref();
-        if relative_path == Path::new(".") {
+        if relative_path == Utf8Path::new(".") {
             return Ok(Self::root());
         }
 
         let mut components = relative_path
             .components()
             .map(|c| match c {
-                Component::Normal(name) => {
-                    name.to_str()
-                        .ok_or_else(|| RelativePathParseError::InvalidUtf8 {
-                            path: relative_path.into(),
-                        })
-                }
+                Utf8Component::Normal(name) => Ok(name),
                 _ => Err(RelativePathParseError::InvalidComponent {
                     component: c.as_os_str().to_string_lossy().into(),
                     path: relative_path.into(),
@@ -295,9 +290,9 @@ impl RepoPathBuf {
     /// the same manner. The `input` path may be either relative to `cwd` or
     /// absolute.
     pub fn parse_fs_path(
-        cwd: &Path,
-        base: &Path,
-        input: impl AsRef<Path>,
+        cwd: &Utf8Path,
+        base: &Utf8Path,
+        input: impl AsRef<Utf8Path>,
     ) -> Result<Self, FsPathParseError> {
         let input = input.as_ref();
         let abs_input_path = file_util::normalize_path(&cwd.join(input));
@@ -360,8 +355,8 @@ impl RepoPath {
     ///
     /// The returned path should never contain `..`, `C:` (on Windows), etc.
     /// However, it may contain reserved working-copy directories such as `.jj`.
-    pub fn to_fs_path(&self, base: &Path) -> Result<PathBuf, InvalidRepoPathError> {
-        let mut result = PathBuf::with_capacity(base.as_os_str().len() + self.value.len() + 1);
+    pub fn to_fs_path(&self, base: &Utf8Path) -> Result<Utf8PathBuf, InvalidRepoPathError> {
+        let mut result = Utf8PathBuf::with_capacity(base.as_os_str().len() + self.value.len() + 1);
         result.push(base);
         for c in self.components() {
             result.push(c.to_fs_name().map_err(|err| err.with_path(self))?);
@@ -377,8 +372,8 @@ impl RepoPath {
     ///
     /// The returned path may point outside of the `base` directory. Use this
     /// function only for displaying or testing purposes.
-    pub fn to_fs_path_unchecked(&self, base: &Path) -> PathBuf {
-        let mut result = PathBuf::with_capacity(base.as_os_str().len() + self.value.len() + 1);
+    pub fn to_fs_path_unchecked(&self, base: &Utf8Path) -> Utf8PathBuf {
+        let mut result = Utf8PathBuf::with_capacity(base.as_os_str().len() + self.value.len() + 1);
         result.push(base);
         result.extend(self.components().map(RepoPathComponent::as_internal_str));
         if result.as_os_str().is_empty() {
@@ -550,19 +545,19 @@ pub enum RelativePathParseError {
     #[error(r#"Invalid component "{component}" in repo-relative path "{path}""#)]
     InvalidComponent {
         component: Box<str>,
-        path: Box<Path>,
+        path: Box<Utf8Path>,
     },
-    #[error(r#"Not valid UTF-8 path "{path}""#)]
-    InvalidUtf8 { path: Box<Path> },
+    // #[error(r#"Not valid UTF-8 path "{path}""#)]
+    // InvalidUtf8 { path: Box<Utf8Path> },
 }
 
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
 #[error(r#"Path "{input}" is not in the repo "{base}""#)]
 pub struct FsPathParseError {
     /// Repository or workspace root path relative to the `cwd`.
-    pub base: Box<Path>,
+    pub base: Box<Utf8Path>,
     /// Input path without normalization.
-    pub input: Box<Path>,
+    pub input: Box<Utf8Path>,
     /// Source error.
     pub source: RelativePathParseError,
 }
@@ -591,7 +586,7 @@ pub enum RepoPathUiConverter {
     ///
     /// The `cwd` and `base` paths are supposed to be absolute and normalized in
     /// the same manner.
-    Fs { cwd: PathBuf, base: PathBuf },
+    Fs { cwd: Utf8PathBuf, base: Utf8PathBuf },
     // TODO: Add a no-op variant that uses the internal `RepoPath` representation. Can be useful
     // on a server.
 }
@@ -601,9 +596,7 @@ impl RepoPathUiConverter {
     pub fn format_file_path(&self, file: &RepoPath) -> String {
         match self {
             RepoPathUiConverter::Fs { cwd, base } => {
-                file_util::relative_path(cwd, &file.to_fs_path_unchecked(base))
-                    .display()
-                    .to_string()
+                file_util::relative_path(cwd, file.to_fs_path_unchecked(base)).to_string()
             }
         }
     }
@@ -620,8 +613,8 @@ impl RepoPathUiConverter {
         let mut formatted = String::new();
         match self {
             RepoPathUiConverter::Fs { cwd, base } => {
-                let source_path = file_util::relative_path(cwd, &source.to_fs_path_unchecked(base));
-                let target_path = file_util::relative_path(cwd, &target.to_fs_path_unchecked(base));
+                let source_path = file_util::relative_path(cwd, source.to_fs_path_unchecked(base));
+                let target_path = file_util::relative_path(cwd, target.to_fs_path_unchecked(base));
 
                 let source_components = source_path.components().collect_vec();
                 let target_components = target_path.components().collect_vec();
@@ -647,8 +640,8 @@ impl RepoPathUiConverter {
                     .min(source_components.len().saturating_sub(1))
                     .min(target_components.len().saturating_sub(1));
 
-                fn format_components(c: &[std::path::Component]) -> String {
-                    c.iter().collect::<PathBuf>().display().to_string()
+                fn format_components(c: &[Utf8Component]) -> String {
+                    c.iter().collect::<Utf8PathBuf>().to_string()
                 }
 
                 if prefix_count > 0 {
@@ -912,56 +905,66 @@ mod tests {
     #[test]
     fn test_to_fs_path() {
         assert_eq!(
-            repo_path("").to_fs_path(Path::new("base/dir")).unwrap(),
-            Path::new("base/dir")
+            repo_path("").to_fs_path(Utf8Path::new("base/dir")).unwrap(),
+            Utf8Path::new("base/dir")
         );
         assert_eq!(
-            repo_path("").to_fs_path(Path::new("")).unwrap(),
-            Path::new(".")
+            repo_path("").to_fs_path(Utf8Path::new("")).unwrap(),
+            Utf8Path::new(".")
         );
         assert_eq!(
-            repo_path("file").to_fs_path(Path::new("base/dir")).unwrap(),
-            Path::new("base/dir/file")
+            repo_path("file")
+                .to_fs_path(Utf8Path::new("base/dir"))
+                .unwrap(),
+            Utf8Path::new("base/dir/file")
         );
         assert_eq!(
             repo_path("some/deep/dir/file")
-                .to_fs_path(Path::new("base/dir"))
+                .to_fs_path(Utf8Path::new("base/dir"))
                 .unwrap(),
-            Path::new("base/dir/some/deep/dir/file")
+            Utf8Path::new("base/dir/some/deep/dir/file")
         );
         assert_eq!(
-            repo_path("dir/file").to_fs_path(Path::new("")).unwrap(),
-            Path::new("dir/file")
+            repo_path("dir/file").to_fs_path(Utf8Path::new("")).unwrap(),
+            Utf8Path::new("dir/file")
         );
 
         // Current/parent dir component
-        assert!(repo_path(".").to_fs_path(Path::new("base")).is_err());
-        assert!(repo_path("..").to_fs_path(Path::new("base")).is_err());
+        assert!(repo_path(".").to_fs_path(Utf8Path::new("base")).is_err());
+        assert!(repo_path("..").to_fs_path(Utf8Path::new("base")).is_err());
         assert!(repo_path("dir/../file")
-            .to_fs_path(Path::new("base"))
+            .to_fs_path(Utf8Path::new("base"))
             .is_err());
-        assert!(repo_path("./file").to_fs_path(Path::new("base")).is_err());
-        assert!(repo_path("file/.").to_fs_path(Path::new("base")).is_err());
-        assert!(repo_path("../file").to_fs_path(Path::new("base")).is_err());
-        assert!(repo_path("file/..").to_fs_path(Path::new("base")).is_err());
+        assert!(repo_path("./file")
+            .to_fs_path(Utf8Path::new("base"))
+            .is_err());
+        assert!(repo_path("file/.")
+            .to_fs_path(Utf8Path::new("base"))
+            .is_err());
+        assert!(repo_path("../file")
+            .to_fs_path(Utf8Path::new("base"))
+            .is_err());
+        assert!(repo_path("file/..")
+            .to_fs_path(Utf8Path::new("base"))
+            .is_err());
 
         // Empty component (which is invalid as a repo path)
         assert!(RepoPath::from_internal_string_unchecked("/")
-            .to_fs_path(Path::new("base"))
+            .to_fs_path(Utf8Path::new("base"))
             .is_err());
         assert_eq!(
             // Iterator omits empty component after "/", which is fine so long
             // as the returned path doesn't escape.
             RepoPath::from_internal_string_unchecked("a/")
-                .to_fs_path(Path::new("base"))
+                .to_fs_path(Utf8Path::new("base"))
                 .unwrap(),
-            Path::new("base/a")
+            Utf8Path::new("base/a")
         );
         assert!(RepoPath::from_internal_string_unchecked("/b")
-            .to_fs_path(Path::new("base"))
+            .to_fs_path(Utf8Path::new("base"))
             .is_err());
         assert!(RepoPath::from_internal_string_unchecked("a//b")
-            .to_fs_path(Path::new("base"))
+            .to_fs_path(Utf8Path::new("base"))
             .is_err());
 
         // Component containing slash (simulating Windows path separator)
@@ -979,16 +982,16 @@ mod tests {
         // Windows path separator and drive letter
         if cfg!(windows) {
             assert!(repo_path(r#"wind\ows"#)
-                .to_fs_path(Path::new("base"))
+                .to_fs_path(Utf8Path::new("base"))
                 .is_err());
             assert!(repo_path(r#".\file"#)
-                .to_fs_path(Path::new("base"))
+                .to_fs_path(Utf8Path::new("base"))
                 .is_err());
             assert!(repo_path(r#"file\."#)
-                .to_fs_path(Path::new("base"))
+                .to_fs_path(Utf8Path::new("base"))
                 .is_err());
             assert!(repo_path(r#"c:/foo"#)
-                .to_fs_path(Path::new("base"))
+                .to_fs_path(Utf8Path::new("base"))
                 .is_err());
         }
     }
@@ -996,24 +999,24 @@ mod tests {
     #[test]
     fn test_to_fs_path_unchecked() {
         assert_eq!(
-            repo_path("").to_fs_path_unchecked(Path::new("base/dir")),
-            Path::new("base/dir")
+            repo_path("").to_fs_path_unchecked(Utf8Path::new("base/dir")),
+            Utf8Path::new("base/dir")
         );
         assert_eq!(
-            repo_path("").to_fs_path_unchecked(Path::new("")),
-            Path::new(".")
+            repo_path("").to_fs_path_unchecked(Utf8Path::new("")),
+            Utf8Path::new(".")
         );
         assert_eq!(
-            repo_path("file").to_fs_path_unchecked(Path::new("base/dir")),
-            Path::new("base/dir/file")
+            repo_path("file").to_fs_path_unchecked(Utf8Path::new("base/dir")),
+            Utf8Path::new("base/dir/file")
         );
         assert_eq!(
-            repo_path("some/deep/dir/file").to_fs_path_unchecked(Path::new("base/dir")),
-            Path::new("base/dir/some/deep/dir/file")
+            repo_path("some/deep/dir/file").to_fs_path_unchecked(Utf8Path::new("base/dir")),
+            Utf8Path::new("base/dir/some/deep/dir/file")
         );
         assert_eq!(
-            repo_path("dir/file").to_fs_path_unchecked(Path::new("")),
-            Path::new("dir/file")
+            repo_path("dir/file").to_fs_path_unchecked(Utf8Path::new("")),
+            Utf8Path::new("dir/file")
         );
     }
 
@@ -1066,12 +1069,7 @@ mod tests {
         );
         // Input may be absolute path with ".."
         assert_eq!(
-            RepoPathBuf::parse_fs_path(
-                &cwd_path,
-                &cwd_path,
-                cwd_path.join("../repo").to_str().unwrap()
-            )
-            .as_deref(),
+            RepoPathBuf::parse_fs_path(&cwd_path, &cwd_path, cwd_path.join("../repo")).as_deref(),
             Ok(RepoPath::root())
         );
     }
@@ -1152,8 +1150,8 @@ mod tests {
     #[test]
     fn test_format_copied_path() {
         let ui = RepoPathUiConverter::Fs {
-            cwd: PathBuf::from("."),
-            base: PathBuf::from("."),
+            cwd: Utf8PathBuf::from("."),
+            base: Utf8PathBuf::from("."),
         };
 
         let format = |before, after| {

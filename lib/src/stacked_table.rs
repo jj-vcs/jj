@@ -29,12 +29,12 @@ use std::fs::File;
 use std::io;
 use std::io::Read;
 use std::io::Write as _;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::RwLock;
 
 use blake2::Blake2b512;
 use blake2::Digest as _;
+use camino::Utf8PathBuf;
 use tempfile::NamedTempFile;
 use thiserror::Error;
 
@@ -399,13 +399,13 @@ pub enum TableStoreError {
 pub type TableStoreResult<T> = Result<T, TableStoreError>;
 
 pub struct TableStore {
-    dir: PathBuf,
+    dir: Utf8PathBuf,
     key_size: usize,
     cached_tables: RwLock<HashMap<String, Arc<ReadonlyTable>>>,
 }
 
 impl TableStore {
-    pub fn init(dir: PathBuf, key_size: usize) -> Self {
+    pub fn init(dir: Utf8PathBuf, key_size: usize) -> Self {
         std::fs::create_dir(dir.join("heads")).unwrap();
         TableStore {
             dir,
@@ -423,7 +423,7 @@ impl TableStore {
         self.key_size
     }
 
-    pub fn load(dir: PathBuf, key_size: usize) -> Self {
+    pub fn load(dir: Utf8PathBuf, key_size: usize) -> Self {
         TableStore {
             dir,
             key_size,

@@ -495,7 +495,7 @@ pub fn parse_maybe_bare(
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use camino::Utf8PathBuf;
 
     use super::*;
 
@@ -526,8 +526,8 @@ mod tests {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
         let path_converter = RepoPathUiConverter::Fs {
-            cwd: PathBuf::from("/ws/cur"),
-            base: PathBuf::from("/ws"),
+            cwd: Utf8PathBuf::from("/ws/cur"),
+            base: Utf8PathBuf::from("/ws"),
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &path_converter);
 
@@ -571,8 +571,8 @@ mod tests {
         let _guard = settings.bind_to_scope();
         let path_converter = RepoPathUiConverter::Fs {
             // meta character in cwd path shouldn't be expanded
-            cwd: PathBuf::from("/ws/cur*"),
-            base: PathBuf::from("/ws"),
+            cwd: Utf8PathBuf::from("/ws/cur*"),
+            base: Utf8PathBuf::from("/ws"),
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &path_converter);
 
@@ -744,8 +744,8 @@ mod tests {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
         let path_converter = RepoPathUiConverter::Fs {
-            cwd: PathBuf::from("/ws/cur"),
-            base: PathBuf::from("/ws"),
+            cwd: Utf8PathBuf::from("/ws/cur"),
+            base: Utf8PathBuf::from("/ws"),
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &path_converter);
 
@@ -772,8 +772,8 @@ mod tests {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
         let path_converter = RepoPathUiConverter::Fs {
-            cwd: PathBuf::from("/ws/cur"),
-            base: PathBuf::from("/ws"),
+            cwd: Utf8PathBuf::from("/ws/cur"),
+            base: Utf8PathBuf::from("/ws"),
         };
         let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &path_converter);
 

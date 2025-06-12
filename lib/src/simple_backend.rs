@@ -21,14 +21,14 @@ use std::fs::File;
 use std::io::Cursor;
 use std::io::Read as _;
 use std::io::Write as _;
-use std::path::Path;
-use std::path::PathBuf;
 use std::pin::Pin;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
 use blake2::Blake2b512;
 use blake2::Digest as _;
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use futures::stream;
 use futures::stream::BoxStream;
 use pollster::FutureExt as _;
@@ -95,7 +95,7 @@ fn to_other_err(err: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Bac
 
 #[derive(Debug)]
 pub struct SimpleBackend {
-    path: PathBuf,
+    path: Utf8PathBuf,
     root_commit_id: CommitId,
     root_change_id: ChangeId,
     empty_tree_id: TreeId,
@@ -106,7 +106,7 @@ impl SimpleBackend {
         "Simple"
     }
 
-    pub fn init(store_path: &Path) -> Self {
+    pub fn init(store_path: &Utf8Path) -> Self {
         fs::create_dir(store_path.join("commits")).unwrap();
         fs::create_dir(store_path.join("trees")).unwrap();
         fs::create_dir(store_path.join("files")).unwrap();
@@ -121,7 +121,7 @@ impl SimpleBackend {
         backend
     }
 
-    pub fn load(store_path: &Path) -> Self {
+    pub fn load(store_path: &Utf8Path) -> Self {
         let root_commit_id = CommitId::from_bytes(&[0; COMMIT_ID_LENGTH]);
         let root_change_id = ChangeId::from_bytes(&[0; CHANGE_ID_LENGTH]);
         let empty_tree_id = TreeId::from_hex(
@@ -135,23 +135,23 @@ impl SimpleBackend {
         }
     }
 
-    fn file_path(&self, id: &FileId) -> PathBuf {
+    fn file_path(&self, id: &FileId) -> Utf8PathBuf {
         self.path.join("files").join(id.hex())
     }
 
-    fn symlink_path(&self, id: &SymlinkId) -> PathBuf {
+    fn symlink_path(&self, id: &SymlinkId) -> Utf8PathBuf {
         self.path.join("symlinks").join(id.hex())
     }
 
-    fn tree_path(&self, id: &TreeId) -> PathBuf {
+    fn tree_path(&self, id: &TreeId) -> Utf8PathBuf {
         self.path.join("trees").join(id.hex())
     }
 
-    fn commit_path(&self, id: &CommitId) -> PathBuf {
+    fn commit_path(&self, id: &CommitId) -> Utf8PathBuf {
         self.path.join("commits").join(id.hex())
     }
 
-    fn conflict_path(&self, id: &ConflictId) -> PathBuf {
+    fn conflict_path(&self, id: &ConflictId) -> Utf8PathBuf {
         self.path.join("conflicts").join(id.hex())
     }
 }

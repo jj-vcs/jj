@@ -14,9 +14,9 @@
 
 use std::collections::HashMap;
 use std::iter;
-use std::path::Path;
 
 use assert_matches::assert_matches;
+use camino::Utf8Path;
 use chrono::DateTime;
 use itertools::Itertools as _;
 use jj_lib::backend::ChangeId;
@@ -929,7 +929,7 @@ fn resolve_commit_ids_in_workspace(
     repo: &dyn Repo,
     revset_str: &str,
     workspace: &Workspace,
-    cwd: Option<&Path>,
+    cwd: Option<&Utf8Path>,
 ) -> Vec<CommitId> {
     let settings = testutils::user_settings();
     let path_converter = RepoPathUiConverter::Fs {

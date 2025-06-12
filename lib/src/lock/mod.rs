@@ -19,8 +19,8 @@ mod fallback;
 mod unix;
 
 use std::io;
-use std::path::PathBuf;
 
+use camino::Utf8PathBuf;
 use thiserror::Error;
 
 #[cfg(not(unix))]
@@ -32,7 +32,7 @@ pub use self::unix::FileLock;
 #[error("{message}: {path}")]
 pub struct FileLockError {
     pub message: &'static str,
-    pub path: PathBuf,
+    pub path: Utf8PathBuf,
     #[source]
     pub err: io::Error,
 }
@@ -51,7 +51,7 @@ mod tests {
 
     #[test_case(FileLock::lock)]
     #[cfg_attr(unix, test_case(fallback::FileLock::lock))]
-    fn lock_basic<T>(lock_fn: fn(PathBuf) -> Result<T, FileLockError>) {
+    fn lock_basic<T>(lock_fn: fn(Utf8PathBuf) -> Result<T, FileLockError>) {
         let temp_dir = new_temp_dir();
         let lock_path = temp_dir.path().join("test.lock");
         assert!(!lock_path.exists());
@@ -64,7 +64,7 @@ mod tests {
 
     #[test_case(FileLock::lock)]
     #[cfg_attr(unix, test_case(fallback::FileLock::lock))]
-    fn lock_concurrent<T>(lock_fn: fn(PathBuf) -> Result<T, FileLockError>) {
+    fn lock_concurrent<T>(lock_fn: fn(Utf8PathBuf) -> Result<T, FileLockError>) {
         let temp_dir = new_temp_dir();
         let data_path = temp_dir.path().join("test");
         let lock_path = temp_dir.path().join("test.lock");
