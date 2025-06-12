@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use std::io::Write as _;
-use std::path::Path;
 
+use camino::Utf8Path;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -40,7 +40,7 @@ pub fn cmd_sparse_list(
         writeln!(
             ui.stdout(),
             "{}",
-            path.to_fs_path_unchecked(Path::new("")).display()
+            path.to_fs_path_unchecked(Utf8Path::new(""))
         )?;
     }
     Ok(())

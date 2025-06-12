@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::Path;
 use std::process::Command;
 use std::str;
+
+use camino::Utf8Path;
 
 const GIT_HEAD_PATH: &str = "../.git/HEAD";
 const JJ_OP_HEADS_PATH: &str = "../.jj/repo/op_heads/heads";
@@ -22,10 +23,10 @@ const JJ_OP_HEADS_PATH: &str = "../.jj/repo/op_heads/heads";
 fn main() {
     let version = std::env::var("CARGO_PKG_VERSION").unwrap();
 
-    if Path::new(GIT_HEAD_PATH).exists() {
+    if Utf8Path::new(GIT_HEAD_PATH).exists() {
         // In colocated repo, .git/HEAD should reflect the working-copy parent.
         println!("cargo:rerun-if-changed={GIT_HEAD_PATH}");
-    } else if Path::new(JJ_OP_HEADS_PATH).exists() {
+    } else if Utf8Path::new(JJ_OP_HEADS_PATH).exists() {
         // op_heads changes when working-copy files are mutated, which is way more
         // frequent than .git/HEAD.
         println!("cargo:rerun-if-changed={JJ_OP_HEADS_PATH}");
@@ -38,8 +39,8 @@ fn main() {
         println!("cargo:rustc-env=JJ_VERSION={version}");
     }
 
-    let docs_symlink_path = Path::new("docs");
-    println!("cargo:rerun-if-changed={}", docs_symlink_path.display());
+    let docs_symlink_path = Utf8Path::new("docs");
+    println!("cargo:rerun-if-changed={docs_symlink_path}");
     if docs_symlink_path.join("index.md").exists() {
         println!("cargo:rustc-env=JJ_DOCS_DIR=docs/");
     } else {

@@ -19,8 +19,7 @@ mod path;
 mod set;
 mod unset;
 
-use std::path::Path;
-
+use camino::Utf8Path;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
@@ -67,7 +66,10 @@ impl ConfigLevelArgs {
         }
     }
 
-    fn config_paths<'a>(&self, config_env: &'a ConfigEnv) -> Result<Vec<&'a Path>, CommandError> {
+    fn config_paths<'a>(
+        &self,
+        config_env: &'a ConfigEnv,
+    ) -> Result<Vec<&'a Utf8Path>, CommandError> {
         if self.user {
             let paths = config_env.user_config_paths().collect_vec();
             if paths.is_empty() {
@@ -96,7 +98,7 @@ impl ConfigLevelArgs {
                 let mut choices = vec![];
                 let mut formatter = ui.stderr_formatter();
                 for (i, file) in files.iter().enumerate() {
-                    writeln!(formatter, "{}: {}", i + 1, file.path().display())?;
+                    writeln!(formatter, "{}: {}", i + 1, file.path())?;
                     choices.push((i + 1).to_string());
                 }
                 drop(formatter);

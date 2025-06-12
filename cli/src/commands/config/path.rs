@@ -18,7 +18,6 @@ use tracing::instrument;
 
 use super::ConfigLevelArgs;
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
@@ -40,13 +39,7 @@ pub fn cmd_config_path(
     args: &ConfigPathArgs,
 ) -> Result<(), CommandError> {
     for config_path in args.level.config_paths(command.config_env())? {
-        writeln!(
-            ui.stdout(),
-            "{}",
-            config_path
-                .to_str()
-                .ok_or_else(|| user_error("The config path is not valid UTF-8"))?
-        )?;
+        writeln!(ui.stdout(), "{config_path}")?;
     }
     Ok(())
 }

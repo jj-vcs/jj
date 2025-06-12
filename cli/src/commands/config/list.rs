@@ -146,7 +146,7 @@ fn config_template_language(settings: &UserSettings) -> ConfigTemplateLanguage {
             annotated
                 .path
                 .as_ref()
-                .map_or_else(String::new, |path| path.to_string_lossy().into_owned())
+                .map_or_else(String::new, |path| path.to_string())
         });
         Ok(out_property.into_dyn_wrapped())
     });

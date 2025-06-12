@@ -2,11 +2,11 @@ use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::io::Write as _;
-use std::path::Path;
-use std::path::PathBuf;
 use std::process::ExitStatus;
 
 use bstr::ByteVec as _;
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use indexmap::IndexMap;
 use indoc::indoc;
 use itertools::FoldWhile;
@@ -18,6 +18,7 @@ use jj_lib::config::ConfigGetError;
 use jj_lib::file_util::IoResultExt as _;
 use jj_lib::file_util::PathError;
 use jj_lib::settings::UserSettings;
+use jj_lib::tempdir::Utf8NamedTempFile;
 use jj_lib::trailer::parse_description_trailers;
 use jj_lib::trailer::parse_trailers;
 use thiserror::Error;
@@ -48,11 +49,11 @@ pub struct TempTextEditError {
     /// Short description of the edited content.
     pub name: Option<String>,
     /// Path to the temporary file.
-    pub path: Option<PathBuf>,
+    pub path: Option<Utf8PathBuf>,
 }
 
 impl TempTextEditError {
-    fn new(error: Box<dyn std::error::Error + Send + Sync>, path: Option<PathBuf>) -> Self {
+    fn new(error: Box<dyn std::error::Error + Send + Sync>, path: Option<Utf8PathBuf>) -> Self {
         TempTextEditError {
             error,
             name: None,
@@ -71,7 +72,7 @@ impl TempTextEditError {
 #[derive(Clone, Debug)]
 pub struct TextEditor {
     editor: CommandNameAndArgs,
-    dir: Option<PathBuf>,
+    dir: Option<Utf8PathBuf>,
 }
 
 impl TextEditor {
@@ -80,13 +81,13 @@ impl TextEditor {
         Ok(TextEditor { editor, dir: None })
     }
 
-    pub fn with_temp_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+    pub fn with_temp_dir(mut self, dir: impl Into<Utf8PathBuf>) -> Self {
         self.dir = Some(dir.into());
         self
     }
 
     /// Opens the given `path` in editor.
-    pub fn edit_file(&self, path: impl AsRef<Path>) -> Result<(), TextEditError> {
+    pub fn edit_file(&self, path: impl AsRef<Utf8Path>) -> Result<(), TextEditError> {
         let mut cmd = self.editor.to_command();
         cmd.arg(path.as_ref());
         tracing::info!(?cmd, "running editor");
@@ -121,17 +122,26 @@ impl TextEditor {
         Ok(edited)
     }
 
-    fn write_temp_file(&self, content: &[u8], suffix: Option<&str>) -> Result<PathBuf, PathError> {
-        let dir = self.dir.clone().unwrap_or_else(tempfile::env::temp_dir);
+    fn write_temp_file(
+        &self,
+        content: &[u8],
+        suffix: Option<&str>,
+    ) -> Result<Utf8PathBuf, PathError> {
+        let dir = if let Some(dir) = self.dir.clone() {
+            dir
+        } else {
+            tempfile::env::temp_dir().try_into()?
+        };
         let mut file = tempfile::Builder::new()
             .prefix("editor-")
             .suffix(suffix.unwrap_or(""))
             .tempfile_in(&dir)
+            .and_then(Utf8NamedTempFile::try_from)
             .context(&dir)?;
-        file.write_all(content).context(file.path())?;
+        file.write_all(content).context_ntf(&file)?;
         let (_, path) = file
             .keep()
-            .or_else(|err| Err(err.error).context(err.file.path()))?;
+            .or_else(|err| Err(err.error).context_ntf(&err.file))?;
         Ok(path)
     }
 }

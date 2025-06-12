@@ -16,8 +16,9 @@ use std::fs;
 use std::io;
 use std::io::Write as _;
 use std::num::NonZeroU32;
-use std::path::Path;
 
+use camino::Utf8Path;
+use jj_lib::file_util::canonicalize_path;
 use jj_lib::git;
 use jj_lib::git::GitFetch;
 use jj_lib::ref_name::RefNameBuf;
@@ -75,7 +76,7 @@ fn clone_destination_for_source(source: &str) -> Option<&str> {
         .map(|(_, name)| name)
 }
 
-fn is_empty_dir(path: &Path) -> bool {
+fn is_empty_dir(path: &Utf8Path) -> bool {
     if let Ok(mut entries) = path.read_dir() {
         entries.next().is_none()
     } else {
@@ -113,7 +114,7 @@ pub fn cmd_git_clone(
 
     // Canonicalize because fs::remove_dir_all() doesn't seem to like e.g.
     // `/some/path/.`
-    let canonical_wc_path = dunce::canonicalize(&wc_path)
+    let canonical_wc_path = canonicalize_path(&wc_path)
         .map_err(|err| user_error_with_message(format!("Failed to create {wc_path_str}"), err))?;
 
     let clone_result = (|| -> Result<_, CommandError> {
@@ -137,9 +138,7 @@ pub fn cmd_git_clone(
         if let Err(err) = clean_up_dirs() {
             writeln!(
                 ui.warning_default(),
-                "Failed to clean up {}: {}",
-                canonical_wc_path.display(),
-                err
+                "Failed to clean up {canonical_wc_path}: {err}"
             )
             .ok();
         }
@@ -168,7 +167,7 @@ pub fn cmd_git_clone(
 fn init_workspace(
     ui: &Ui,
     command: &CommandHelper,
-    wc_path: &Path,
+    wc_path: &Utf8Path,
     colocate: bool,
 ) -> Result<WorkspaceCommandHelper, CommandError> {
     let settings = command.settings_for_new_workspace(wc_path)?;
@@ -212,7 +211,7 @@ fn fetch_new_remote(
     writeln!(
         ui.status(),
         r#"Fetching into new repo in "{}""#,
-        workspace_command.workspace_root().display()
+        workspace_command.workspace_root()
     )?;
     let settings = workspace_command.settings();
     let git_settings = settings.git_settings()?;

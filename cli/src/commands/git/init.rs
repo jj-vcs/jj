@@ -14,11 +14,11 @@
 
 use std::io;
 use std::io::Write as _;
-use std::path::Path;
-use std::path::PathBuf;
 use std::str;
 use std::sync::Arc;
 
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use indoc::writedoc;
 use itertools::Itertools as _;
 use jj_lib::file_util;
@@ -95,7 +95,7 @@ pub fn cmd_git_init(
     let cwd = command.cwd();
     let wc_path = cwd.join(&args.destination);
     let wc_path = file_util::create_or_reuse_dir(&wc_path)
-        .and_then(|_| dunce::canonicalize(wc_path))
+        .and_then(|_| file_util::canonicalize_path(wc_path))
         .map_err(|e| user_error_with_message("Failed to create workspace", e))?;
 
     do_init(
@@ -107,11 +107,7 @@ pub fn cmd_git_init(
     )?;
 
     let relative_wc_path = file_util::relative_path(cwd, &wc_path);
-    writeln!(
-        ui.status(),
-        r#"Initialized repo in "{}""#,
-        relative_wc_path.display()
-    )?;
+    writeln!(ui.status(), r#"Initialized repo in "{relative_wc_path}""#)?;
 
     Ok(())
 }
@@ -119,14 +115,14 @@ pub fn cmd_git_init(
 fn do_init(
     ui: &mut Ui,
     command: &CommandHelper,
-    workspace_root: &Path,
+    workspace_root: &Utf8Path,
     colocate: bool,
     git_repo: Option<&str>,
 ) -> Result<(), CommandError> {
     #[derive(Clone, Debug)]
     enum GitInitMode {
         Colocate,
-        External(PathBuf),
+        External(Utf8PathBuf),
         Internal,
     }
 

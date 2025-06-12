@@ -24,8 +24,6 @@ use std::fmt::Debug;
 use std::io;
 use std::io::Write as _;
 use std::mem;
-use std::path::Path;
-use std::path::PathBuf;
 use std::rc::Rc;
 use std::slice;
 use std::str;
@@ -34,6 +32,8 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use bstr::ByteVec as _;
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use chrono::TimeZone as _;
 use clap::builder::MapValueParser;
 use clap::builder::NonEmptyStringValueParser;
@@ -66,6 +66,7 @@ use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
 use jj_lib::conflicts::ConflictMarkerStyle;
+use jj_lib::file_util::canonicalize_path;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
@@ -290,7 +291,7 @@ pub struct CommandHelper {
 
 struct CommandHelperData {
     app: Command,
-    cwd: PathBuf,
+    cwd: Utf8PathBuf,
     string_args: Vec<String>,
     matches: ArgMatches,
     global_args: GlobalArgs,
@@ -316,7 +317,7 @@ impl CommandHelper {
     ///
     /// A loaded `Workspace::workspace_root()` also returns a canonical path, so
     /// relative paths can be easily computed from these paths.
-    pub fn cwd(&self) -> &Path {
+    pub fn cwd(&self) -> &Utf8Path {
         &self.data.cwd
     }
 
@@ -356,7 +357,7 @@ impl CommandHelper {
     /// Resolves configuration for new workspace located at the specified path.
     pub fn settings_for_new_workspace(
         &self,
-        workspace_root: &Path,
+        workspace_root: &Utf8Path,
     ) -> Result<UserSettings, CommandError> {
         let mut config_env = self.data.config_env.clone();
         let mut raw_config = self.data.raw_config.clone();
@@ -411,7 +412,7 @@ impl CommandHelper {
 
     fn new_workspace_loader_at(
         &self,
-        workspace_root: &Path,
+        workspace_root: &Utf8Path,
     ) -> Result<Box<dyn WorkspaceLoader>, CommandError> {
         self.data
             .workspace_loader_factory
@@ -507,7 +508,7 @@ impl CommandHelper {
     #[instrument(skip(self, settings))]
     pub fn load_workspace_at(
         &self,
-        workspace_root: &Path,
+        workspace_root: &Utf8Path,
         settings: &UserSettings,
     ) -> Result<Workspace, CommandError> {
         let loader = self.new_workspace_loader_at(workspace_root)?;
@@ -1219,7 +1220,7 @@ impl WorkspaceCommandHelper {
         &self.user_repo.repo
     }
 
-    pub fn repo_path(&self) -> &Path {
+    pub fn repo_path(&self) -> &Utf8Path {
         self.workspace.repo_path()
     }
 
@@ -1300,7 +1301,7 @@ to the current parents may contain changes from multiple commits.
             .map_err(|err| err.into_command_error())
     }
 
-    pub fn workspace_root(&self) -> &Path {
+    pub fn workspace_root(&self) -> &Utf8Path {
         self.workspace.workspace_root()
     }
 
@@ -1407,7 +1408,7 @@ to the current parents may contain changes from multiple commits.
     #[cfg(feature = "git")]
     #[instrument(skip_all)]
     pub fn base_ignores(&self) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
-        let get_excludes_file_path = |config: &gix::config::File| -> Option<PathBuf> {
+        let get_excludes_file_path = |config: &gix::config::File| -> Option<Utf8PathBuf> {
             // TODO: maybe use path() and interpolate(), which can process non-utf-8
             // path on Unix.
             if let Some(value) = config.string("core.excludesFile") {
@@ -1422,13 +1423,13 @@ to the current parents may contain changes from multiple commits.
             }
         };
 
-        fn xdg_config_home() -> Result<PathBuf, std::env::VarError> {
+        fn xdg_config_home() -> Result<Utf8PathBuf, std::env::VarError> {
             if let Ok(x) = std::env::var("XDG_CONFIG_HOME") {
                 if !x.is_empty() {
-                    return Ok(PathBuf::from(x));
+                    return Ok(Utf8PathBuf::from(x));
                 }
             }
-            std::env::var("HOME").map(|x| Path::new(&x).join(".config"))
+            std::env::var("HOME").map(|x| Utf8Path::new(&x).join(".config"))
         }
 
         let mut git_ignores = GitIgnoreFile::empty();
@@ -2504,7 +2505,7 @@ impl WorkspaceCommandTransaction<'_> {
     }
 }
 
-pub fn find_workspace_dir(cwd: &Path) -> &Path {
+pub fn find_workspace_dir(cwd: &Utf8Path) -> &Utf8Path {
     cwd.ancestors()
         .find(|path| path.join(".jj").is_dir())
         .unwrap_or(cwd)
@@ -2514,8 +2515,8 @@ fn map_workspace_load_error(err: WorkspaceLoadError, user_wc_path: Option<&str>)
     match err {
         WorkspaceLoadError::NoWorkspaceHere(wc_path) => {
             // Prefer user-specified path instead of absolute wc_path if any.
-            let short_wc_path = user_wc_path.map_or(wc_path.as_ref(), Path::new);
-            let message = format!(r#"There is no jj repo in "{}""#, short_wc_path.display());
+            let short_wc_path = user_wc_path.map_or(wc_path.as_ref(), Utf8Path::new);
+            let message = format!(r#"There is no jj repo in "{short_wc_path}""#);
             let git_dir = wc_path.join(".git");
             if git_dir.is_dir() {
                 user_error_with_hint(
@@ -2529,8 +2530,7 @@ jj git init --colocate",
             }
         }
         WorkspaceLoadError::RepoDoesNotExist(repo_dir) => user_error(format!(
-            "The repository directory at {} is missing. Was it moved?",
-            repo_dir.display(),
+            "The repository directory at {repo_dir} is missing. Was it moved?"
         )),
         WorkspaceLoadError::StoreLoadError(err @ StoreLoadError::UnsupportedType { .. }) => {
             internal_error_with_message(
@@ -3533,7 +3533,7 @@ fn handle_shell_completion(
     ui: &Ui,
     app: &Command,
     config: &StackedConfig,
-    cwd: &Path,
+    cwd: &Utf8Path,
 ) -> Result<(), CommandError> {
     let mut orig_args = env::args_os();
 
@@ -3594,7 +3594,7 @@ fn handle_shell_completion(
             // for completing aliases
             .allow_external_subcommands(true)
     })
-    .try_complete(args.iter(), Some(cwd))?;
+    .try_complete(args.iter(), Some(cwd.as_std_path()))?;
     assert!(
         ran_completion,
         "This function should not be called without the COMPLETE variable set."
@@ -3850,7 +3850,7 @@ impl<'a> CliRunner<'a> {
         // `cwd` is canonicalized for consistency with `Workspace::workspace_root()` and
         // to easily compute relative paths between them.
         let cwd = env::current_dir()
-            .and_then(dunce::canonicalize)
+            .and_then(canonicalize_path)
             .map_err(|_| {
                 user_error_with_hint(
                     "Could not determine current directory",
@@ -3917,7 +3917,7 @@ impl<'a> CliRunner<'a> {
         let maybe_workspace_loader = if let Some(path) = &args.global_args.repository {
             // TODO: maybe path should be canonicalized by WorkspaceLoader?
             let abs_path = cwd.join(path);
-            let abs_path = dunce::canonicalize(&abs_path).unwrap_or(abs_path);
+            let abs_path = canonicalize_path(&abs_path).unwrap_or(abs_path);
             // Invalid -R path is an error. No need to proceed.
             let loader = self
                 .workspace_loader_factory

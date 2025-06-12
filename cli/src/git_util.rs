@@ -20,12 +20,12 @@ use std::io::Read as _;
 use std::io::Write as _;
 use std::iter;
 use std::mem;
-use std::path::Path;
-use std::path::PathBuf;
 use std::process::Stdio;
 use std::time::Duration;
 use std::time::Instant;
 
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 use indoc::writedoc;
@@ -49,6 +49,7 @@ use crate::command_error::cli_error;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::formatter::Formatter;
+use crate::home_dir;
 use crate::ui::ProgressOutput;
 use crate::ui::Ui;
 
@@ -71,13 +72,13 @@ pub fn is_colocated_git_workspace(workspace: &Workspace, repo: &ReadonlyRepo) ->
 }
 
 /// Parses user-specified remote URL or path to absolute form.
-pub fn absolute_git_url(cwd: &Path, source: &str) -> Result<String, CommandError> {
+pub fn absolute_git_url(cwd: &Utf8Path, source: &str) -> Result<String, CommandError> {
     // Git appears to turn URL-like source to absolute path if local git directory
     // exits, and fails because '$PWD/https' is unsupported protocol. Since it would
     // be tedious to copy the exact git (or libgit2) behavior, we simply let gix
     // parse the input as URL, rcp-like, or local path.
     let mut url = gix::url::parse(source.as_ref()).map_err(cli_error)?;
-    url.canonicalize(cwd).map_err(user_error)?;
+    url.canonicalize(cwd.as_std_path()).map_err(user_error)?;
     // As of gix 0.68.0, the canonicalized path uses platform-native directory
     // separator, which isn't compatible with libgit2 on Windows.
     if url.scheme == gix::url::Scheme::File {
@@ -147,9 +148,9 @@ fn pinentry_get_pw(url: &str) -> Option<String> {
 }
 
 #[tracing::instrument]
-fn get_ssh_keys(_username: &str) -> Vec<PathBuf> {
+fn get_ssh_keys(_username: &str) -> Vec<Utf8PathBuf> {
     let mut paths = vec![];
-    if let Ok(home_dir) = etcetera::home_dir() {
+    if let Ok(home_dir) = home_dir() {
         let ssh_dir = home_dir.join(".ssh");
         for filename in ["id_ed25519_sk", "id_ed25519", "id_rsa"] {
             let key_path = ssh_dir.join(filename);
@@ -606,6 +607,7 @@ mod tests {
     use std::path::MAIN_SEPARATOR;
 
     use insta::assert_snapshot;
+    use jj_lib::file_util::canonicalize_path;
 
     use super::*;
 
@@ -614,8 +616,8 @@ mod tests {
         // gix::Url::canonicalize() works even if the path doesn't exist.
         // However, we need to ensure that no symlinks exist at the test paths.
         let temp_dir = testutils::new_temp_dir();
-        let cwd = dunce::canonicalize(temp_dir.path()).unwrap();
-        let cwd_slash = cwd.to_str().unwrap().replace(MAIN_SEPARATOR, "/");
+        let cwd = canonicalize_path(temp_dir.path()).unwrap();
+        let cwd_slash = cwd.as_str().replace(MAIN_SEPARATOR, "/");
 
         // Local path
         assert_eq!(

@@ -18,11 +18,11 @@ use std::io;
 use std::iter;
 use std::mem;
 use std::ops::Range;
-use std::path::Path;
-use std::path::PathBuf;
 
 use bstr::BStr;
 use bstr::BString;
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use futures::executor::block_on_stream;
 use futures::stream::BoxStream;
 use futures::StreamExt as _;
@@ -1390,9 +1390,9 @@ pub async fn show_file_by_file_diff(
     conflict_marker_style: ConflictMarkerStyle,
 ) -> Result<(), DiffRenderError> {
     let create_file = |path: &RepoPath,
-                       wc_dir: &Path,
+                       wc_dir: &Utf8Path,
                        value: MaterializedTreeValue|
-     -> Result<PathBuf, DiffRenderError> {
+     -> Result<Utf8PathBuf, DiffRenderError> {
         let fs_path = path.to_fs_path(wc_dir)?;
         std::fs::create_dir_all(fs_path.parent().unwrap())?;
         let content = diff_content(path, value, conflict_marker_style)?;
@@ -1435,10 +1435,10 @@ pub async fn show_file_by_file_diff(
         let patterns = &maplit::hashmap! {
             "left" => left_path
                 .strip_prefix(temp_dir.path()).expect("path should be relative to temp_dir")
-                .to_str().expect("temp_dir should be valid utf-8"),
+                .as_str(),
             "right" => right_path
                 .strip_prefix(temp_dir.path()).expect("path should be relative to temp_dir")
-                .to_str().expect("temp_dir should be valid utf-8"),
+                .as_str(),
         };
 
         let mut writer = formatter.raw()?;

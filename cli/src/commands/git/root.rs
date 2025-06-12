@@ -18,7 +18,6 @@ use jj_lib::repo::Repo as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
@@ -35,10 +34,7 @@ pub fn cmd_git_root(
     let workspace_command = command.workspace_helper(ui)?;
     let store = workspace_command.repo().store();
     let git_backend = jj_lib::git::get_git_backend(store)?;
-    let root = git_backend
-        .git_repo_path()
-        .to_str()
-        .ok_or_else(|| user_error("The workspace root is not valid UTF-8"))?;
+    let root = git_backend.git_repo_path();
     writeln!(ui.stdout(), "{root}")?;
     Ok(())
 }

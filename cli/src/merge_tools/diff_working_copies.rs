@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::Write as _;
-use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use futures::StreamExt as _;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::conflicts::ConflictMarkerStyle;
@@ -19,11 +19,11 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::TreeDiffEntry;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::store::Store;
+use jj_lib::tempdir::Utf8TempDir;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::SnapshotOptions;
 use pollster::FutureExt as _;
-use tempfile::TempDir;
 use thiserror::Error;
 
 use super::external::ExternalToolError;
@@ -40,28 +40,28 @@ pub enum DiffCheckoutError {
 }
 
 pub(crate) struct DiffWorkingCopies {
-    _temp_dir: TempDir, // Temp dir will be deleted when this is dropped
+    _temp_dir: Utf8TempDir, // Temp dir will be deleted when this is dropped
     left_tree_state: TreeState,
     right_tree_state: TreeState,
     output_tree_state: Option<TreeState>,
 }
 
 impl DiffWorkingCopies {
-    pub fn left_working_copy_path(&self) -> &Path {
+    pub fn left_working_copy_path(&self) -> &Utf8Path {
         self.left_tree_state.working_copy_path()
     }
 
-    pub fn right_working_copy_path(&self) -> &Path {
+    pub fn right_working_copy_path(&self) -> &Utf8Path {
         self.right_tree_state.working_copy_path()
     }
 
-    pub fn output_working_copy_path(&self) -> Option<&Path> {
+    pub fn output_working_copy_path(&self) -> Option<&Utf8Path> {
         self.output_tree_state
             .as_ref()
             .map(|state| state.working_copy_path())
     }
 
-    pub fn temp_dir(&self) -> &Path {
+    pub fn temp_dir(&self) -> &Utf8Path {
         self._temp_dir.path()
     }
 
@@ -77,16 +77,11 @@ impl DiffWorkingCopies {
                 .expect("path should be relative to temp_dir");
         }
         let mut result = maplit::hashmap! {
-            "left" => left_wc_dir.to_str().expect("temp_dir should be valid utf-8"),
-            "right" => right_wc_dir.to_str().expect("temp_dir should be valid utf-8"),
+            "left" => left_wc_dir.as_str(),
+            "right" => right_wc_dir.as_str(),
         };
         if let Some(output_wc_dir) = self.output_working_copy_path() {
-            result.insert(
-                "output",
-                output_wc_dir
-                    .to_str()
-                    .expect("temp_dir should be valid utf-8"),
-            );
+            result.insert("output", output_wc_dir.as_str());
         }
         result
     }
@@ -94,8 +89,8 @@ impl DiffWorkingCopies {
 
 fn check_out(
     store: Arc<Store>,
-    wc_dir: PathBuf,
-    state_dir: PathBuf,
+    wc_dir: Utf8PathBuf,
+    state_dir: Utf8PathBuf,
     tree: &MergedTree,
     sparse_patterns: Vec<RepoPathBuf>,
     options: &CheckoutOptions,
@@ -108,23 +103,30 @@ fn check_out(
     Ok(tree_state)
 }
 
-pub(crate) fn new_utf8_temp_dir(prefix: &str) -> io::Result<TempDir> {
-    let temp_dir = tempfile::Builder::new().prefix(prefix).tempdir()?;
-    if temp_dir.path().to_str().is_none() {
-        // Not using .display() as we know the path contains unprintable character
-        let message = format!("path {:?} is not valid UTF-8", temp_dir.path());
-        return Err(io::Error::new(io::ErrorKind::InvalidData, message));
-    }
-    Ok(temp_dir)
+pub(crate) fn new_utf8_temp_dir(prefix: &str) -> io::Result<Utf8TempDir> {
+    tempfile::Builder::new()
+        .prefix(prefix)
+        .tempdir()?
+        .try_into()
+    // let temp_dir = tempfile::Builder::new().prefix(prefix).tempdir()?;
+    // let temp_path = temp_dir.path();
+    // let temp_dir = Utf8TempDir::try_from(temp_dir);
+    // let message = format!("path {:?} is not valid UTF-8", temp_path);
+    // // if temp_dir.path().to_str().is_none() {
+    // //     // Not using .display() as we know the path contains unprintable
+    // // character     let message = format!("path {:?} is not valid UTF-8",
+    // // temp_dir.path());     return
+    // // Err(io::Error::new(io::ErrorKind::InvalidData, message)); }
+    // temp_dir
 }
 
-pub(crate) fn set_readonly_recursively(path: &Path) -> Result<(), std::io::Error> {
+pub(crate) fn set_readonly_recursively(path: &Utf8Path) -> Result<(), std::io::Error> {
     // Directory permission is unchanged since files under readonly directory cannot
     // be removed.
     let metadata = path.symlink_metadata()?;
     if metadata.is_dir() {
-        for entry in path.read_dir()? {
-            set_readonly_recursively(&entry?.path())?;
+        for entry in path.read_dir_utf8()? {
+            set_readonly_recursively(entry?.path())?;
         }
         Ok(())
     } else if metadata.is_file() {
@@ -206,7 +208,7 @@ pub(crate) fn check_out_trees(
 
 pub(crate) struct DiffEditWorkingCopies {
     pub working_copies: DiffWorkingCopies,
-    instructions_path_to_cleanup: Option<PathBuf>,
+    instructions_path_to_cleanup: Option<Utf8PathBuf>,
 }
 
 impl DiffEditWorkingCopies {

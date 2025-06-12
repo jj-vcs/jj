@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::PathBuf;
+use camino::Utf8PathBuf;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
@@ -24,7 +24,7 @@ pub struct UtilInstallManPagesArgs {
     /// The path where manpages will installed. An example path might be
     /// `/usr/share/man`. The provided path will be appended with `man1`,
     /// etc., as appropriate
-    path: PathBuf,
+    path: Utf8PathBuf,
 }
 
 pub fn cmd_util_install_man_pages(

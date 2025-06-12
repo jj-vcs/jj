@@ -1,8 +1,8 @@
-use std::path::Path;
 use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
 
+use camino::Utf8Path;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 use jj_lib::repo_path::RepoPath;
@@ -52,9 +52,8 @@ pub fn snapshot_progress(ui: &Ui) -> Option<impl Fn(&RepoPath) + use<>> {
 
         let line_width = state.output.term_width().map(usize::from).unwrap_or(80);
         let max_path_width = line_width.saturating_sub(13); // Account for "Snapshotting "
-        let fs_path = path.to_fs_path_unchecked(Path::new(""));
-        let (display_path, _) =
-            text_util::elide_start(fs_path.to_str().unwrap(), "...", max_path_width);
+        let fs_path = path.to_fs_path_unchecked(Utf8Path::new(""));
+        let (display_path, _) = text_util::elide_start(fs_path.as_str(), "...", max_path_width);
 
         _ = write!(
             state.output,

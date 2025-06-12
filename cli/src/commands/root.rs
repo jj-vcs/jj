@@ -17,7 +17,6 @@ use std::io::Write as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
@@ -31,11 +30,7 @@ pub(crate) fn cmd_root(
     command: &CommandHelper,
     RootArgs {}: &RootArgs,
 ) -> Result<(), CommandError> {
-    let root = command
-        .workspace_loader()?
-        .workspace_root()
-        .to_str()
-        .ok_or_else(|| user_error("The workspace root is not valid UTF-8"))?;
+    let root = command.workspace_loader()?.workspace_root();
     writeln!(ui.stdout(), "{root}")?;
     Ok(())
 }

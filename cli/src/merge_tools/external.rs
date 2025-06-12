@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 use std::io;
 use std::io::Write;
-use std::path::Path;
 use std::process::Command;
 use std::process::ExitStatus;
 use std::process::Stdio;
 use std::sync::Arc;
 
 use bstr::BString;
+use camino::Utf8Path;
 use itertools::Itertools as _;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::MergedTreeId;
@@ -459,27 +459,17 @@ pub fn invoke_external_diff(
     ui: &Ui,
     writer: &mut dyn Write,
     tool: &ExternalMergeTool,
-    diff_dir: &Path,
+    diff_dir: &Utf8Path,
     patterns: &HashMap<&str, &str>,
 ) -> Result<(), DiffGenerateError> {
     // TODO: Somehow propagate --color to the external command?
     let mut cmd = Command::new(&tool.program);
     let mut patterns = patterns.clone();
-    let absolute_left_path = Path::new(diff_dir).join(patterns["left"]);
-    let absolute_right_path = Path::new(diff_dir).join(patterns["right"]);
+    let absolute_left_path = Utf8Path::new(diff_dir).join(patterns["left"]);
+    let absolute_right_path = Utf8Path::new(diff_dir).join(patterns["right"]);
     if !tool.diff_do_chdir {
-        patterns.insert(
-            "left",
-            absolute_left_path
-                .to_str()
-                .expect("temp_dir should be valid utf-8"),
-        );
-        patterns.insert(
-            "right",
-            absolute_right_path
-                .to_str()
-                .expect("temp_dir should be valid utf-8"),
-        );
+        patterns.insert("left", absolute_left_path.as_str());
+        patterns.insert("right", absolute_right_path.as_str());
     } else {
         cmd.current_dir(diff_dir);
     }

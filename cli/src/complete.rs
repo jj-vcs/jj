@@ -19,6 +19,7 @@ use clap::FromArgMatches as _;
 use clap_complete::CompletionCandidate;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigNamePathBuf;
+use jj_lib::file_util::canonicalize_path;
 use jj_lib::settings::UserSettings;
 use jj_lib::workspace::DefaultWorkspaceLoaderFactory;
 use jj_lib::workspace::WorkspaceLoaderFactory as _;
@@ -876,7 +877,10 @@ where
 /// the preferred method, because it's more maintainable and the performance
 /// requirements of completions aren't very high.
 fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
-    let current_exe = std::env::current_exe().map_err(user_error)?;
+    let current_exe = std::env::current_exe()
+        .map_err(user_error)?
+        .try_into()
+        .map_err(user_error)?;
     let mut cmd_args = Vec::<String>::new();
 
     // Snapshotting could make completions much slower in some situations
@@ -892,7 +896,7 @@ fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
     let mut raw_config = config_from_environment(default_config_layers());
     let ui = Ui::null();
     let cwd = std::env::current_dir()
-        .and_then(dunce::canonicalize)
+        .and_then(canonicalize_path)
         .map_err(user_error)?;
     // No config migration for completion. Simply ignore deprecated variables.
     let mut config_env = ConfigEnv::from_environment(&ui);
@@ -974,7 +978,7 @@ fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
 /// A helper struct to allow completion functions to call jj multiple times with
 /// different arguments.
 struct JjBuilder {
-    cmd: std::path::PathBuf,
+    cmd: camino::Utf8PathBuf,
     args: Vec<String>,
 }
 

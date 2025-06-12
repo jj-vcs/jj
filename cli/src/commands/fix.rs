@@ -14,9 +14,9 @@
 
 use std::collections::HashMap;
 use std::io::Write as _;
-use std::path::Path;
 use std::process::Stdio;
 
+use camino::Utf8Path;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
@@ -177,7 +177,7 @@ pub(crate) fn cmd_fix(
 /// TODO: Better error handling so we can tell the user what went wrong with
 /// each failed input.
 async fn fix_one_file(
-    workspace_root: &Path,
+    workspace_root: &Utf8Path,
     tools_config: &ToolsConfig,
     store: &Store,
     file_to_fix: &FileToFix,
@@ -230,7 +230,7 @@ async fn fix_one_file(
 /// unless the command introduced changes. Returns `None` if there were any
 /// failures when starting, stopping, or communicating with the subprocess.
 fn run_tool(
-    workspace_root: &Path,
+    workspace_root: &Utf8Path,
     tool_command: &CommandNameAndArgs,
     file_to_fix: &FileToFix,
     old_content: &[u8],

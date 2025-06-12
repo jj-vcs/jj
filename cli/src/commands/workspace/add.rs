@@ -92,10 +92,7 @@ pub fn cmd_workspace_add(
         name.to_owned()
     } else {
         let file_name = destination_path.file_name().unwrap();
-        file_name
-            .to_str()
-            .ok_or_else(|| user_error("Destination path is not valid UTF-8"))?
-            .into()
+        file_name.into()
     };
     let repo = old_workspace_command.repo();
     if repo.view().get_wc_commit_id(&workspace_name).is_some() {
@@ -119,7 +116,7 @@ pub fn cmd_workspace_add(
     writeln!(
         ui.status(),
         "Created workspace in \"{}\"",
-        file_util::relative_path(command.cwd(), &destination_path).display()
+        file_util::relative_path(command.cwd(), &destination_path)
     )?;
     // Show a warning if the user passed a path without a separator, since they
     // may have intended the argument to only be the name for the workspace.

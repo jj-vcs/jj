@@ -21,8 +21,7 @@ mod push;
 mod remote;
 mod root;
 
-use std::path::Path;
-
+use camino::Utf8Path;
 use clap::Subcommand;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
@@ -119,7 +118,7 @@ fn get_single_remote(store: &Store) -> Result<Option<RemoteNameBuf>, UnexpectedG
 /// Sets repository level `trunk()` alias to the specified remote symbol.
 fn write_repository_level_trunk_alias(
     ui: &Ui,
-    repo_path: &Path,
+    repo_path: &Utf8Path,
     symbol: RemoteRefSymbol<'_>,
 ) -> Result<(), CommandError> {
     let mut file = ConfigFile::load_or_empty(ConfigSource::Repo, repo_path.join("config.toml"))?;

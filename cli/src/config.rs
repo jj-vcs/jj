@@ -18,10 +18,10 @@ use std::collections::HashMap;
 use std::env;
 use std::env::split_paths;
 use std::fmt;
-use std::path::Path;
-use std::path::PathBuf;
 use std::process::Command;
 
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use etcetera::BaseStrategy as _;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigFile;
@@ -35,6 +35,7 @@ use jj_lib::config::ConfigSource;
 use jj_lib::config::ConfigValue;
 use jj_lib::config::StackedConfig;
 use jj_lib::dsl_util;
+use jj_lib::file_util::canonicalize_path;
 use regex::Captures;
 use regex::Regex;
 use tracing::instrument;
@@ -42,6 +43,7 @@ use tracing::instrument;
 use crate::command_error::config_error;
 use crate::command_error::config_error_with_message;
 use crate::command_error::CommandError;
+use crate::home_dir;
 use crate::text_util;
 use crate::ui::Ui;
 
@@ -80,7 +82,7 @@ pub struct AnnotatedValue {
     /// Source of the configuration value.
     pub source: ConfigSource,
     /// Path to the source file, if available.
-    pub path: Option<PathBuf>,
+    pub path: Option<Utf8PathBuf>,
     /// True if this value is overridden in higher precedence layers.
     pub is_overridden: bool,
 }
@@ -177,12 +179,12 @@ enum ConfigPathState {
 ///   created at this path
 #[derive(Clone, Debug)]
 struct ConfigPath {
-    path: PathBuf,
+    path: Utf8PathBuf,
     state: ConfigPathState,
 }
 
 impl ConfigPath {
-    fn new(path: PathBuf) -> Self {
+    fn new(path: Utf8PathBuf) -> Self {
         use ConfigPathState::*;
         ConfigPath {
             state: if path.exists() { Exists } else { New },
@@ -190,7 +192,7 @@ impl ConfigPath {
         }
     }
 
-    fn as_path(&self) -> &Path {
+    fn as_path(&self) -> &Utf8Path {
         &self.path
     }
     fn exists(&self) -> bool {
@@ -203,7 +205,7 @@ impl ConfigPath {
 
 /// Like std::fs::create_dir_all but creates new directories to be accessible to
 /// the user only on Unix (chmod 700).
-fn create_dir_all(path: &Path) -> std::io::Result<()> {
+fn create_dir_all(path: &Utf8Path) -> std::io::Result<()> {
     let mut dir = std::fs::DirBuilder::new();
     dir.recursive(true);
     #[cfg(unix)]
@@ -217,10 +219,10 @@ fn create_dir_all(path: &Path) -> std::io::Result<()> {
 // The struct exists so that we can mock certain global values in unit tests.
 #[derive(Clone, Default, Debug)]
 struct UnresolvedConfigEnv {
-    config_dir: Option<PathBuf>,
+    config_dir: Option<Utf8PathBuf>,
     // TODO: remove after jj 0.35
-    macos_legacy_config_dir: Option<PathBuf>,
-    home_dir: Option<PathBuf>,
+    macos_legacy_config_dir: Option<Utf8PathBuf>,
+    home_dir: Option<Utf8PathBuf>,
     jj_config: Option<String>,
 }
 
@@ -228,7 +230,8 @@ impl UnresolvedConfigEnv {
     fn resolve(self, ui: &Ui) -> Vec<ConfigPath> {
         if let Some(paths) = self.jj_config {
             return split_paths(&paths)
-                .filter(|path| !path.as_os_str().is_empty())
+                .filter_map(|path| Utf8PathBuf::from_path_buf(path).ok())
+                .filter(|path| !path.as_str().is_empty())
                 .map(ConfigPath::new)
                 .collect();
         }
@@ -308,23 +311,22 @@ impl UnresolvedConfigEnv {
         paths
     }
 
-    fn warn_for_deprecated_path(ui: &Ui, path: &Path, old: &str, new: &str) {
+    fn warn_for_deprecated_path(ui: &Ui, path: &Utf8Path, old: &str, new: &str) {
         let _ = indoc::writedoc!(
             ui.warning_default(),
             r"
-            Deprecated configuration file `{}`.
+            Deprecated configuration file `{path}`.
             Configuration files in `{old}` are deprecated, and support will be removed in a future release.
             Instead, move your configuration files to `{new}`.
             ",
-            path.display(),
         );
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct ConfigEnv {
-    home_dir: Option<PathBuf>,
-    repo_path: Option<PathBuf>,
+    home_dir: Option<Utf8PathBuf>,
+    repo_path: Option<Utf8PathBuf>,
     user_config_paths: Vec<ConfigPath>,
     repo_config_path: Option<ConfigPath>,
     command: Option<String>,
@@ -335,21 +337,22 @@ impl ConfigEnv {
     pub fn from_environment(ui: &Ui) -> Self {
         let config_dir = etcetera::choose_base_strategy()
             .ok()
-            .map(|s| s.config_dir());
+            .map(|s| s.config_dir())
+            .and_then(|path| Utf8PathBuf::from_path_buf(path).ok());
 
         // older versions of jj used a more "GUI" config option,
         // which is not designed for user-editable configuration of CLI utilities.
         let macos_legacy_config_dir = if cfg!(target_os = "macos") {
             etcetera::base_strategy::choose_native_strategy()
                 .ok()
-                .map(|s| {
+                .and_then(|s| {
                     // note that etcetera calls Library/Application Support the "data dir",
                     // Library/Preferences is supposed to be exclusively plists
-                    s.data_dir()
+                    Utf8PathBuf::from_path_buf(s.data_dir()).ok()
                 })
                 .filter(|data_dir| {
                     // User might've purposefully set their config dir to the deprecated one
-                    Some(data_dir) != config_dir.as_ref()
+                    config_dir.as_ref().is_some_and(|path| path != data_dir)
                 })
         } else {
             None
@@ -357,9 +360,7 @@ impl ConfigEnv {
 
         // Canonicalize home as we do canonicalize cwd in CliRunner. $HOME might
         // point to symlink.
-        let home_dir = etcetera::home_dir()
-            .ok()
-            .map(|d| dunce::canonicalize(&d).unwrap_or(d));
+        let home_dir = home_dir().ok().map(|d| canonicalize_path(&d).unwrap_or(d));
 
         let env = UnresolvedConfigEnv {
             config_dir,
@@ -381,13 +382,13 @@ impl ConfigEnv {
     }
 
     /// Returns the paths to the user-specific config files or directories.
-    pub fn user_config_paths(&self) -> impl Iterator<Item = &Path> {
+    pub fn user_config_paths(&self) -> impl Iterator<Item = &Utf8Path> {
         self.user_config_paths.iter().map(ConfigPath::as_path)
     }
 
     /// Returns the paths to the existing user-specific config files or
     /// directories.
-    pub fn existing_user_config_paths(&self) -> impl Iterator<Item = &Path> {
+    pub fn existing_user_config_paths(&self) -> impl Iterator<Item = &Utf8Path> {
         self.user_config_paths
             .iter()
             .filter(|p| p.exists())
@@ -440,18 +441,18 @@ impl ConfigEnv {
 
     /// Sets the directory where repo-specific config file is stored. The path
     /// is usually `.jj/repo`.
-    pub fn reset_repo_path(&mut self, path: &Path) {
+    pub fn reset_repo_path(&mut self, path: &Utf8Path) {
         self.repo_path = Some(path.to_owned());
         self.repo_config_path = Some(ConfigPath::new(path.join("config.toml")));
     }
 
     /// Returns a path to the repo-specific config file.
-    pub fn repo_config_path(&self) -> Option<&Path> {
+    pub fn repo_config_path(&self) -> Option<&Utf8Path> {
         self.repo_config_path.as_ref().map(|p| p.as_path())
     }
 
     /// Returns a path to the existing repo-specific config file.
-    fn existing_repo_config_path(&self) -> Option<&Path> {
+    fn existing_repo_config_path(&self) -> Option<&Utf8Path> {
         match self.repo_config_path {
             Some(ref path) if path.exists() => Some(path.as_path()),
             _ => None,
@@ -665,7 +666,7 @@ pub fn parse_config_args(
             }
             ConfigArgKind::File => {
                 for (_, path) in chunk {
-                    layers.push(ConfigLayer::load_from_file(source, path.into())?);
+                    layers.push(ConfigLayer::load_from_file(source, Utf8Path::new(path))?);
                 }
             }
         }
@@ -1384,7 +1385,7 @@ mod tests {
             }
         }
 
-        fn rooted_path(&self, root: &Path) -> PathBuf {
+        fn rooted_path(&self, root: &Utf8Path) -> Utf8PathBuf {
             root.join(self.path)
         }
 
@@ -1724,7 +1725,7 @@ mod tests {
         assert_eq!(exists_paths, exists_expected_paths);
     }
 
-    fn setup_config_fs(files: &[&str]) -> tempfile::TempDir {
+    fn setup_config_fs(files: &[&str]) -> jj_lib::tempdir::Utf8TempDir {
         let tmp = testutils::new_temp_dir();
         for file in files {
             let path = tmp.path().join(file);
@@ -1736,7 +1737,7 @@ mod tests {
         tmp
     }
 
-    fn resolve_config_env(env: &UnresolvedConfigEnv, root: &Path) -> ConfigEnv {
+    fn resolve_config_env(env: &UnresolvedConfigEnv, root: &Utf8Path) -> ConfigEnv {
         let home_dir = env.home_dir.as_ref().map(|p| root.join(p));
         let env = UnresolvedConfigEnv {
             config_dir: env.config_dir.as_ref().map(|p| root.join(p)),
@@ -1747,7 +1748,7 @@ mod tests {
                     if p.as_os_str().is_empty() {
                         return p;
                     }
-                    root.join(p)
+                    root.as_std_path().join(p)
                 }))
                 .unwrap()
                 .into_string()

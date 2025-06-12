@@ -2374,9 +2374,9 @@ fn builtin_trailer_list_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
     use std::sync::Arc;
 
+    use camino::Utf8Path;
     use jj_lib::config::ConfigLayer;
     use jj_lib::config::ConfigSource;
     use jj_lib::revset::RevsetAliasesMap;
@@ -2438,7 +2438,7 @@ mod tests {
             }
         }
 
-        fn set_cwd(&mut self, path: impl AsRef<Path>) {
+        fn set_cwd(&mut self, path: impl AsRef<Utf8Path>) {
             self.path_converter = RepoPathUiConverter::Fs {
                 cwd: self.test_workspace.workspace.workspace_root().join(path),
                 base: self.test_workspace.workspace.workspace_root().to_owned(),

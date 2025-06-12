@@ -50,3 +50,9 @@ pub mod templater;
 pub mod text_util;
 pub mod time_util;
 pub mod ui;
+
+fn home_dir() -> Result<camino::Utf8PathBuf, etcetera::HomeDirError> {
+    etcetera::home_dir()?
+        .try_into()
+        .map_err(|_err| etcetera::HomeDirError)
+}

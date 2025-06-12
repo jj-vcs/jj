@@ -54,16 +54,12 @@ pub(crate) fn cmd_debug_init_simple(
     let cwd = command.cwd();
     let wc_path = cwd.join(&args.destination);
     let wc_path = file_util::create_or_reuse_dir(&wc_path)
-        .and_then(|_| dunce::canonicalize(wc_path))
+        .and_then(|_| file_util::canonicalize_path(wc_path))
         .map_err(|e| user_error_with_message("Failed to create workspace", e))?;
 
     Workspace::init_simple(&command.settings_for_new_workspace(&wc_path)?, &wc_path)?;
 
     let relative_wc_path = file_util::relative_path(cwd, &wc_path);
-    writeln!(
-        ui.status(),
-        "Initialized repo in \"{}\"",
-        relative_wc_path.display()
-    )?;
+    writeln!(ui.status(), "Initialized repo in \"{relative_wc_path}\"")?;
     Ok(())
 }

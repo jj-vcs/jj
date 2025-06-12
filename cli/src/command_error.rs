@@ -272,7 +272,7 @@ impl From<ConfigLoadError> for CommandError {
             ConfigLoadError::Read(_) => None,
             ConfigLoadError::Parse { source_path, .. } => source_path
                 .as_ref()
-                .map(|path| format!("Check the config file: {}", path.display())),
+                .map(|path| format!("Check the config file: {path}")),
         };
         let mut cmd_err = config_error(err);
         cmd_err.extend_hints(hint);
@@ -285,7 +285,7 @@ impl From<ConfigMigrateError> for CommandError {
         let hint = err
             .source_path
             .as_ref()
-            .map(|path| format!("Check the config file: {}", path.display()));
+            .map(|path| format!("Check the config file: {path}"));
         let mut cmd_err = config_error(err);
         cmd_err.extend_hints(hint);
         cmd_err
@@ -503,7 +503,7 @@ impl From<TempTextEditError> for CommandError {
     fn from(err: TempTextEditError) -> Self {
         let hint = err.path.as_ref().map(|path| {
             let name = err.name.as_deref().unwrap_or("file");
-            format!("Edited {name} is left in {path}", path = path.display())
+            format!("Edited {name} is left in {path}")
         });
         let mut cmd_err = user_error(err);
         cmd_err.extend_hints(hint);
@@ -778,7 +778,7 @@ fn config_get_error_hint(err: &ConfigGetError) -> Option<String> {
         ConfigGetError::NotFound { .. } => None,
         ConfigGetError::Type { source_path, .. } => source_path
             .as_ref()
-            .map(|path| format!("Check the config file: {}", path.display())),
+            .map(|path| format!("Check the config file: {path}")),
     }
 }
 

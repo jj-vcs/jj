@@ -46,13 +46,12 @@ pub fn cmd_config_edit(
     // Editing again and again until either of these conditions is met
     // 1. The config is OK
     // 2. The user restores previous one
-    writeln!(ui.status(), "Editing file: {}", file.path().display())?;
+    writeln!(ui.status(), "Editing file: {}", file.path())?;
     loop {
         editor.edit_file(file.path())?;
 
         // Trying to load back config. If error, prompt to continue editing
-        if let Err(e) = ConfigLayer::load_from_file(file.layer().source, file.path().to_path_buf())
-        {
+        if let Err(e) = ConfigLayer::load_from_file(file.layer().source, file.path()) {
             writeln!(
                 ui.warning_default(),
                 "An error has been found inside the config:"

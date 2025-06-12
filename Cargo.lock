@@ -2335,6 +2335,7 @@ dependencies = [
  "assert_matches",
  "async-trait",
  "bstr",
+ "camino",
  "chrono",
  "clap",
  "clap-markdown",

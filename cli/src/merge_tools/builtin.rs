@@ -1,7 +1,7 @@
 use std::borrow::Cow;
-use std::path::Path;
 use std::sync::Arc;
 
+use camino::Utf8Path;
 use futures::stream::BoxStream;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
@@ -367,7 +367,11 @@ async fn make_diff_files(
         files.push(scm_record::File {
             old_path: None,
             // Path for displaying purposes, not for file access.
-            path: Cow::Owned(right_path.to_fs_path_unchecked(Path::new(""))),
+            path: Cow::Owned(
+                right_path
+                    .to_fs_path_unchecked(Utf8Path::new(""))
+                    .into_std_path_buf(),
+            ),
             file_mode: left_info.file_mode,
             sections,
         });
@@ -657,7 +661,8 @@ fn make_merge_file(
         path: Cow::Owned(
             merge_tool_file
                 .repo_path
-                .to_fs_path_unchecked(Path::new("")),
+                .to_fs_path_unchecked(Utf8Path::new(""))
+                .into_std_path_buf(),
         ),
         file_mode,
         sections,
