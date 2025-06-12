@@ -109,7 +109,7 @@ pub fn cmd_git_fetch(
     }
 
     if matching_remotes.is_empty() {
-        return Err(user_error("No git remotes to push"));
+        return Err(user_error("No git remotes to fetch from"));
     }
 
     let remotes = matching_remotes

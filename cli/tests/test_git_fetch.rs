@@ -288,7 +288,7 @@ fn test_git_fetch_with_glob_with_no_matching_remotes() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No git remotes matching 'rem*'
-    Error: No git remotes to push
+    Error: No git remotes to fetch from
     [EOF]
     [exit status: 1]
     ");
@@ -353,7 +353,7 @@ fn test_git_fetch_no_matching_remote() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No git remotes matching 'rem1'
-    Error: No git remotes to push
+    Error: No git remotes to fetch from
     [EOF]
     [exit status: 1]
     ");
