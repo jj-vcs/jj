@@ -1674,18 +1674,6 @@ fn internalize_filter<St: ExpressionState>(
         }
     }
 
-    fn get_filter_tree<St: ExpressionState>(
-        expression: &Rc<RevsetExpression<St>>,
-    ) -> Option<&Rc<RevsetExpression<St>>> {
-        if let RevsetExpression::Intersection(expression1, _) = expression.as_ref() {
-            // 'f1 & f2' can't be evaluated by itself, but 's1 & f2' can be
-            // filtered within 's1'. 'f1 & s2' should have been reordered.
-            is_filter(expression1).then_some(expression)
-        } else {
-            get_filter(expression)
-        }
-    }
-
     fn mark_filter<St: ExpressionState>(
         expression: Rc<RevsetExpression<St>>,
     ) -> Rc<RevsetExpression<St>> {
@@ -1694,20 +1682,21 @@ fn internalize_filter<St: ExpressionState>(
 
     transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
         // Mark expression as filter if any of the child nodes are filter.
-        RevsetExpression::Present(e) => get_filter_tree(e).map(|f| mark_filter(f.present())),
-        RevsetExpression::NotIn(e) => get_filter_tree(e).map(|f| mark_filter(f.negated())),
+        RevsetExpression::Present(e) => get_filter(e).map(|f| mark_filter(f.present())),
+        RevsetExpression::NotIn(e) => get_filter(e).map(|f| mark_filter(f.negated())),
         RevsetExpression::Union(e1, e2) => {
-            let f1 = get_filter_tree(e1);
-            let f2 = get_filter_tree(e2);
+            let f1 = get_filter(e1);
+            let f2 = get_filter(e2);
             (f1.is_some() || f2.is_some())
                 .then(|| mark_filter(f1.unwrap_or(e1).union(f2.unwrap_or(e2))))
         }
         // Bottom-up pass pulls up-right filter node from leaf '(c & f) & e' ->
         // '(c & e) & f', so that an intersection of filter node can be found as
         // a direct child of another intersection node.
-        RevsetExpression::Intersection(expression1, expression2) => {
-            sort_intersection_by_key(expression1, expression2, is_filter)
-        }
+        RevsetExpression::Intersection(e1, e2) => match (get_filter(e1), get_filter(e2)) {
+            (Some(f1), Some(f2)) => Some(mark_filter(f1.intersection(f2))),
+            _ => sort_intersection_by_key(e1, e2, is_filter),
+        },
         // Difference(e1, e2) should have been unfolded to Intersection(e1, NotIn(e2)).
         _ => None,
     })
@@ -4225,9 +4214,11 @@ mod tests {
         "#);
         insta::assert_debug_snapshot!(
             optimize(parse("author_name(foo) & committer_name(bar)").unwrap()), @r#"
-        Intersection(
-            Filter(AuthorName(Substring("foo"))),
-            Filter(CommitterName(Substring("bar"))),
+        AsFilter(
+            Intersection(
+                Filter(AuthorName(Substring("foo"))),
+                Filter(CommitterName(Substring("bar"))),
+            ),
         )
         "#);
 
@@ -4257,11 +4248,13 @@ mod tests {
                 WorkspaceName::DEFAULT).unwrap(),
             ), @r#"
         Intersection(
-            Intersection(
-                CommitRef(Symbol("baz")),
-                Filter(CommitterName(Substring("foo"))),
+            CommitRef(Symbol("baz")),
+            AsFilter(
+                Intersection(
+                    Filter(CommitterName(Substring("foo"))),
+                    Filter(File(Pattern(PrefixPath("bar")))),
+                ),
             ),
-            Filter(File(Pattern(PrefixPath("bar")))),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -4269,12 +4262,14 @@ mod tests {
                 "committer_name(foo) & files(bar) & author_name(baz)",
                 WorkspaceName::DEFAULT).unwrap(),
             ), @r#"
-        Intersection(
+        AsFilter(
             Intersection(
-                Filter(CommitterName(Substring("foo"))),
-                Filter(File(Pattern(PrefixPath("bar")))),
+                Intersection(
+                    Filter(CommitterName(Substring("foo"))),
+                    Filter(File(Pattern(PrefixPath("bar")))),
+                ),
+                Filter(AuthorName(Substring("baz"))),
             ),
-            Filter(AuthorName(Substring("baz"))),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -4459,19 +4454,36 @@ mod tests {
         )
         "#);
 
+        // Nested filter intersection with union
+        insta::assert_debug_snapshot!(
+            optimize(parse("foo | conflicts() & merges() & signed()").unwrap()), @r#"
+        AsFilter(
+            Union(
+                CommitRef(Symbol("foo")),
+                Intersection(
+                    Intersection(
+                        Filter(HasConflict),
+                        Filter(ParentCount(2..4294967295)),
+                    ),
+                    Filter(Signed),
+                ),
+            ),
+        )
+        "#);
+
         insta::assert_debug_snapshot!(
             optimize(parse("(foo | committer_name(bar)) & description(baz) & qux").unwrap()), @r#"
         Intersection(
-            Intersection(
-                CommitRef(Symbol("qux")),
-                AsFilter(
+            CommitRef(Symbol("qux")),
+            AsFilter(
+                Intersection(
                     Union(
                         CommitRef(Symbol("foo")),
                         Filter(CommitterName(Substring("bar"))),
                     ),
+                    Filter(Description(Substring("baz"))),
                 ),
             ),
-            Filter(Description(Substring("baz"))),
         )
         "#);
 
