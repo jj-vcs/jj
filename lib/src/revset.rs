@@ -1528,7 +1528,7 @@ fn internalize_filter<St: ExpressionState>(
         if let RevsetExpression::Intersection(expression1, _) = expression {
             // 'f1 & f2' can't be evaluated by itself, but 's1 & f2' can be
             // filtered within 's1'. 'f1 & s2' should have been reordered.
-            is_filter(expression1)
+            is_filter_tree(expression1)
         } else {
             is_filter(expression)
         }
@@ -4132,6 +4132,34 @@ mod tests {
                     Filter(ParentCount(2..4294967295)),
                 ),
                 Filter(HasConflict),
+            ),
+        )
+        "#);
+
+        insta::assert_debug_snapshot!(
+            optimize(parse("foo | merges() & conflicts()").unwrap()), @r#"
+        AsFilter(
+            Union(
+                CommitRef(Symbol("foo")),
+                Intersection(
+                    Filter(ParentCount(2..4294967295)),
+                    Filter(HasConflict),
+                ),
+            ),
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            optimize(parse("foo | merges() & conflicts() & author_name(bar)").unwrap()), @r#"
+        AsFilter(
+            Union(
+                CommitRef(Symbol("foo")),
+                Intersection(
+                    Intersection(
+                        Filter(ParentCount(2..4294967295)),
+                        Filter(HasConflict),
+                    ),
+                    Filter(AuthorName(Substring("bar"))),
+                ),
             ),
         )
         "#);
