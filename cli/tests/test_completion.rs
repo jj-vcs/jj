@@ -876,6 +876,12 @@ fn test_revisions() {
     let output = work_dir.complete_fish(["git", "push", "--named", "a"]);
     insta::assert_snapshot!(output, @"");
 
+    let output = work_dir.complete_fish(["git", "push", "--named", "i"]);
+    insta::assert_snapshot!(output, @"
+    immutable_bookmark	immutable
+    [EOF]
+    ");
+
     let output = work_dir.complete_fish(["git", "push", "--named", "a="]);
     insta::assert_snapshot!(output, @r"
     a=immutable_bookmark	immutable
