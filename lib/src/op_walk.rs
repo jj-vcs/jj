@@ -255,13 +255,11 @@ impl PartialOrd for OperationByEndTime {
 pub fn walk_ancestors(
     head_ops: &[Operation],
 ) -> impl Iterator<Item = OpStoreResult<Operation>> + use<> {
-    // Emit the latest head first to stabilize the order.
-    let mut head_ops = head_ops
+    let head_ops = head_ops
         .iter()
         .cloned()
         .map(OperationByEndTime)
         .collect_vec();
-    head_ops.sort_unstable_by(|op1, op2| op1.cmp(op2).reverse());
     // Lazily load operations based on timestamp-based heuristic. This works so long
     // as the operation history is mostly linear.
     dag_walk::topo_order_reverse_lazy_ok(
