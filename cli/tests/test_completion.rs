@@ -866,10 +866,13 @@ fn test_revisions() {
 
     // Begin testing `jj git push --named`
 
-    // The name of a bookmark does not get completed, since we want to create a new
-    // bookmark
     let output = work_dir.complete_fish(["git", "push", "--named", ""]);
-    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(output, @"
+    immutable_bookmark	immutable
+    mutable_bookmark	mutable
+    remote_bookmark
+    [EOF]
+    ");
     let output = work_dir.complete_fish(["git", "push", "--named", "a"]);
     insta::assert_snapshot!(output, @"");
 

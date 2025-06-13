@@ -615,14 +615,24 @@ pub fn branch_name_equals_any_revision(current: &std::ffi::OsStr) -> Vec<Complet
         return Vec::new();
     };
 
-    let Some((branch_name, revision)) = current.split_once('=') else {
-        // Don't complete branch names since we want to create a new branch
-        return Vec::new();
-    };
-    revset_expression(revision.as_ref(), None)
-        .into_iter()
-        .map(|rev| rev.add_prefix(format!("{branch_name}=")))
-        .collect()
+    match current.split_once('=') {
+        Some((branch_name, revision)) => revset_expression(revision.as_ref(), None)
+            .into_iter()
+            .map(|rev| rev.add_prefix(format!("{branch_name}=")))
+            .collect(),
+        None => {
+            // Look for existing bookmark names to match on tab complete
+            bookmarks()
+                .into_iter()
+                .filter(|bookmark| {
+                    match bookmark.get_value().to_str() {
+                        Some(bookmark) => bookmark.starts_with(current),
+                        None => false,
+                    }
+                })
+                .collect()
+        }
+    }
 }
 
 fn dir_prefix_from<'a>(path: &'a str, current: &str) -> Option<&'a str> {
