@@ -1664,25 +1664,44 @@ fn internalize_filter<St: ExpressionState>(
         )
     }
 
-    fn is_filter_tree<St: ExpressionState>(expression: &RevsetExpression<St>) -> bool {
-        if let RevsetExpression::Intersection(expression1, _) = expression {
-            // 'f1 & f2' can't be evaluated by itself, but 's1 & f2' can be
-            // filtered within 's1'. 'f1 & s2' should have been reordered.
-            is_filter(expression1)
-        } else {
-            is_filter(expression)
+    fn get_filter<St: ExpressionState>(
+        expression: &Rc<RevsetExpression<St>>,
+    ) -> Option<&Rc<RevsetExpression<St>>> {
+        match expression.as_ref() {
+            RevsetExpression::Filter(_) => Some(expression),
+            RevsetExpression::AsFilter(candidates) => Some(candidates),
+            _ => None,
         }
     }
 
+    fn get_filter_tree<St: ExpressionState>(
+        expression: &Rc<RevsetExpression<St>>,
+    ) -> Option<&Rc<RevsetExpression<St>>> {
+        if let RevsetExpression::Intersection(expression1, _) = expression.as_ref() {
+            // 'f1 & f2' can't be evaluated by itself, but 's1 & f2' can be
+            // filtered within 's1'. 'f1 & s2' should have been reordered.
+            is_filter(expression1).then_some(expression)
+        } else {
+            get_filter(expression)
+        }
+    }
+
+    fn mark_filter<St: ExpressionState>(
+        expression: Rc<RevsetExpression<St>>,
+    ) -> Rc<RevsetExpression<St>> {
+        Rc::new(RevsetExpression::AsFilter(expression))
+    }
+
     transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
-        RevsetExpression::Present(e) => {
-            is_filter_tree(e).then(|| Rc::new(RevsetExpression::AsFilter(expression.clone())))
+        // Mark expression as filter if any of the child nodes are filter.
+        RevsetExpression::Present(e) => get_filter_tree(e).map(|f| mark_filter(f.present())),
+        RevsetExpression::NotIn(e) => get_filter_tree(e).map(|f| mark_filter(f.negated())),
+        RevsetExpression::Union(e1, e2) => {
+            let f1 = get_filter_tree(e1);
+            let f2 = get_filter_tree(e2);
+            (f1.is_some() || f2.is_some())
+                .then(|| mark_filter(f1.unwrap_or(e1).union(f2.unwrap_or(e2))))
         }
-        RevsetExpression::NotIn(e) => {
-            is_filter_tree(e).then(|| Rc::new(RevsetExpression::AsFilter(expression.clone())))
-        }
-        RevsetExpression::Union(e1, e2) => (is_filter_tree(e1) || is_filter_tree(e2))
-            .then(|| Rc::new(RevsetExpression::AsFilter(expression.clone()))),
         // Bottom-up pass pulls up-right filter node from leaf '(c & f) & e' ->
         // '(c & e) & f', so that an intersection of filter node can be found as
         // a direct child of another intersection node.
@@ -4463,15 +4482,11 @@ mod tests {
             CommitRef(Symbol("qux")),
             AsFilter(
                 Union(
-                    AsFilter(
-                        NotIn(
-                            AsFilter(
-                                Present(
-                                    Intersection(
-                                        Filter(AuthorName(Substring("foo"))),
-                                        Filter(Description(Substring("bar"))),
-                                    ),
-                                ),
+                    NotIn(
+                        Present(
+                            Intersection(
+                                Filter(AuthorName(Substring("foo"))),
+                                Filter(Description(Substring("bar"))),
                             ),
                         ),
                     ),
