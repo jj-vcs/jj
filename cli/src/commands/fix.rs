@@ -15,6 +15,7 @@
 use std::collections::HashMap;
 use std::io::Write as _;
 use std::path::Path;
+use std::process::ExitStatus;
 use std::process::Stdio;
 
 use clap_complete::ArgValueCompleter;
@@ -145,7 +146,7 @@ pub(crate) fn cmd_fix(
 
     let mut tx = workspace_command.start_transaction();
     let mut parallel_fixer = ParallelFileFixer::new(|store, file_to_fix| {
-        fix_one_file(&workspace_root, &tools_config, store, file_to_fix).block_on()
+        fix_one_file(&workspace_root, &tools_config, store, file_to_fix, ui).block_on()
     });
     let summary = fix_files(
         root_commits,
@@ -173,14 +174,12 @@ pub(crate) fn cmd_fix(
 /// the file. However, if a tool invocation fails for whatever reason, the tool
 /// is simply skipped and we proceed to invoke the next tool (this is
 /// indistinguishable from succeeding with no changes).
-///
-/// TODO: Better error handling so we can tell the user what went wrong with
-/// each failed input.
 async fn fix_one_file(
     workspace_root: &Path,
     tools_config: &ToolsConfig,
     store: &Store,
     file_to_fix: &FileToFix,
+    ui: &Ui,
 ) -> Result<Option<FileId>, FixError> {
     let mut matching_tools = tools_config
         .tools
@@ -196,20 +195,41 @@ async fn fix_one_file(
             .read_file(&file_to_fix.repo_path, &file_to_fix.file_id)
             .await?;
         read.read_to_end(&mut old_content).await?;
-        let new_content = matching_tools.fold(old_content.clone(), |prev_content, tool_config| {
-            match run_tool(
-                workspace_root,
-                &tool_config.command,
-                file_to_fix,
-                &prev_content,
-            ) {
-                Ok(next_content) => next_content,
-                // TODO: Because the stderr is passed through, this isn't always failing
-                // silently, but it should do something better will the exit code, tool
-                // name, etc.
-                Err(_) => prev_content,
-            }
-        });
+        let new_content =
+            matching_tools.fold(
+                old_content.clone(),
+                |prev_content, tool_config| match run_tool(
+                    workspace_root,
+                    &tool_config.command,
+                    file_to_fix,
+                    &prev_content,
+                ) {
+                    Ok(next_content) => next_content,
+                    Err(Some(e)) => {
+                        let stderr_text = if e.stderr.is_empty() {
+                            "(no stderr)".to_string()
+                        } else {
+                            format!("'{}'", String::from_utf8_lossy(&e.stderr).trim())
+                        };
+
+                        writeln!(
+                            ui.warning_default(),
+                            "tool '{}' exited with status {} when fixing '{}': {}",
+                            tool_config.name,
+                            e.status.code().unwrap_or_default(),
+                            // We use `RepoPath::as_internal_file_string` in this warning
+                            // as it's what is (optionally) passed as an argument to the
+                            // tool.
+                            file_to_fix.repo_path.as_internal_file_string(),
+                            stderr_text
+                        )
+                        .ok();
+
+                        prev_content
+                    }
+                    Err(None) => prev_content,
+                },
+            );
         if new_content != old_content {
             // TODO: send futures back over channel
             let new_file_id = store
@@ -227,16 +247,15 @@ async fn fix_one_file(
 /// this is not verified.
 ///
 /// Returns the new file content, whose value will be the same as `old_content`
-/// unless the command introduced changes. Returns `None` if there were any
-/// failures when starting, stopping, or communicating with the subprocess.
+/// unless the command introduced changes. Returns `Err(None)` if there were any
+/// failures when starting, stopping, or communicating with the subprocess, and
+/// `Err(Some(ToolExecError))` if the tool exited with a nonzero status.
 fn run_tool(
     workspace_root: &Path,
     tool_command: &CommandNameAndArgs,
     file_to_fix: &FileToFix,
     old_content: &[u8],
-) -> Result<Vec<u8>, ()> {
-    // TODO: Pipe stderr so we can tell the user which commit, file, and tool it is
-    // associated with.
+) -> Result<Vec<u8>, Option<ToolExecError>> {
     let mut vars: HashMap<&str, &str> = HashMap::new();
     vars.insert("path", file_to_fix.repo_path.as_internal_file_string());
     let mut command = tool_command.to_command_with_variables(&vars);
@@ -245,34 +264,44 @@ fn run_tool(
         .current_dir(workspace_root)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()
-        .or(Err(()))?;
+        .or(Err(None))?;
     let mut stdin = child.stdin.take().unwrap();
     let output = std::thread::scope(|s| {
         s.spawn(move || {
             stdin.write_all(old_content).ok();
         });
-        Some(child.wait_with_output().or(Err(())))
+        Some(child.wait_with_output().or(Err(None)))
     })
     .unwrap()?;
     tracing::debug!(?command, ?output.status, "fix tool exited:");
     if output.status.success() {
         Ok(output.stdout)
     } else {
-        Err(())
+        Err(Some(ToolExecError {
+            status: output.status,
+            stderr: output.stderr,
+        }))
     }
 }
 
 /// Represents an entry in the `fix.tools` config table.
 struct ToolConfig {
+    /// The tool's name in the table.
+    name: String,
     /// The command that will be run to fix a matching file.
     command: CommandNameAndArgs,
     /// The matcher that determines if this tool matches a file.
     matcher: Box<dyn Matcher>,
     /// Whether the tool is enabled
     enabled: bool,
-    // TODO: Store the `name` field here and print it with the command's stderr, to clearly
-    // associate any errors/warnings with the tool and its configuration entry.
+}
+
+/// Represents the failure to execute a fix tool.
+struct ToolExecError {
+    status: ExitStatus,
+    stderr: Vec<u8>,
 }
 
 /// Represents the `fix.tools` config table.
@@ -326,6 +355,7 @@ fn get_tools_config(ui: &mut Ui, settings: &UserSettings) -> Result<ToolsConfig,
             );
             print_parse_diagnostics(ui, &format!("In `fix.tools.{name}`"), &diagnostics)?;
             Ok(ToolConfig {
+                name: name.to_string(),
                 command: tool.command,
                 matcher: expression.to_matcher(),
                 enabled: tool.enabled,
