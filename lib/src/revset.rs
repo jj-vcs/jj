@@ -1611,38 +1611,57 @@ fn sort_negations_and_ancestors<St: ExpressionState>(
 fn internalize_filter<St: ExpressionState>(
     expression: &Rc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
-    fn is_filter<St: ExpressionState>(expression: &RevsetExpression<St>) -> bool {
-        matches!(
-            expression,
-            RevsetExpression::Filter(_) | RevsetExpression::AsFilter(_)
-        )
+    fn get_filter<St: ExpressionState>(
+        expression: &Rc<RevsetExpression<St>>,
+    ) -> Option<&Rc<RevsetExpression<St>>> {
+        match expression.as_ref() {
+            RevsetExpression::Filter(_) => Some(expression),
+            RevsetExpression::AsFilter(candidates) => Some(candidates),
+            _ => None,
+        }
     }
 
-    fn is_filter_tree<St: ExpressionState>(expression: &RevsetExpression<St>) -> bool {
-        if let RevsetExpression::Intersection(expression1, _) = expression {
-            // 'f1 & f2' can't be evaluated by itself, but 's1 & f2' can be
-            // filtered within 's1'. 'f1 & s2' should have been reordered.
-            is_filter(expression1)
-        } else {
-            is_filter(expression)
-        }
+    fn mark_filter<St: ExpressionState>(
+        expression: Rc<RevsetExpression<St>>,
+    ) -> Rc<RevsetExpression<St>> {
+        Rc::new(RevsetExpression::AsFilter(expression))
     }
 
     transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
-        RevsetExpression::Present(e) => {
-            is_filter_tree(e).then(|| Rc::new(RevsetExpression::AsFilter(expression.clone())))
+        // Mark expression as filter if any of the child nodes are filter.
+        RevsetExpression::Present(e) => get_filter(e).map(|f| mark_filter(f.present())),
+        RevsetExpression::NotIn(e) => get_filter(e).map(|f| mark_filter(f.negated())),
+        RevsetExpression::Union(e1, e2) => {
+            let f1 = get_filter(e1);
+            let f2 = get_filter(e2);
+            (f1.is_some() || f2.is_some())
+                .then(|| mark_filter(f1.unwrap_or(e1).union(f2.unwrap_or(e2))))
         }
-        RevsetExpression::NotIn(e) => {
-            is_filter_tree(e).then(|| Rc::new(RevsetExpression::AsFilter(expression.clone())))
-        }
-        RevsetExpression::Union(e1, e2) => (is_filter_tree(e1) || is_filter_tree(e2))
-            .then(|| Rc::new(RevsetExpression::AsFilter(expression.clone()))),
         // Bottom-up pass pulls up-right filter node from leaf '(c & f) & e' ->
         // '(c & e) & f', so that an intersection of filter node can be found as
-        // a direct child of another intersection node.
-        RevsetExpression::Intersection(expression1, expression2) => {
-            sort_intersection_by_key(expression1, expression2, is_filter)
-        }
+        // a direct child of another intersection node. Suppose intersection is
+        // left-recursive, e2 shouldn't be an intersection node. e1 may be set,
+        // filter, (set & filter), ((set & set) & filter), ...
+        RevsetExpression::Intersection(e1, e2) => match (get_filter(e1), get_filter(e2)) {
+            // f1 & f2 -> filter(f1 & f2)
+            (Some(f1), Some(f2)) => Some(mark_filter(f1.intersection(f2))),
+            // f1 & s2 -> s2 & filter(f1)
+            (Some(_), None) => Some(e2.intersection(e1)),
+            // (s1a & f1b) & f2 -> s1a & filter(f1b & f2)
+            (None, Some(f2)) => match e1.as_ref() {
+                RevsetExpression::Intersection(e1a, e1b) => {
+                    get_filter(e1b).map(|f1b| e1a.intersection(&mark_filter(f1b.intersection(f2))))
+                }
+                _ => None,
+            },
+            // (s1a & f1b) & s2 -> (s1a & s2) & filter(f1b)
+            (None, None) => match e1.as_ref() {
+                RevsetExpression::Intersection(e1a, e1b) => {
+                    get_filter(e1b).map(|_| e1a.intersection(e2).intersection(e1b))
+                }
+                _ => None,
+            },
+        },
         // Difference(e1, e2) should have been unfolded to Intersection(e1, NotIn(e2)).
         _ => None,
     })
@@ -4047,30 +4066,36 @@ mod tests {
         "#);
         insta::assert_debug_snapshot!(
             optimize(parse("author_name(foo) & committer_name(bar)").unwrap()), @r#"
-        Intersection(
-            Filter(AuthorName(Substring("foo"))),
-            Filter(CommitterName(Substring("bar"))),
+        AsFilter(
+            Intersection(
+                Filter(AuthorName(Substring("foo"))),
+                Filter(CommitterName(Substring("bar"))),
+            ),
         )
         "#);
 
         insta::assert_debug_snapshot!(
             optimize(parse("foo & description(bar) & author_name(baz)").unwrap()), @r#"
         Intersection(
-            Intersection(
-                CommitRef(Symbol("foo")),
-                Filter(Description(Substring("bar"))),
+            CommitRef(Symbol("foo")),
+            AsFilter(
+                Intersection(
+                    Filter(Description(Substring("bar"))),
+                    Filter(AuthorName(Substring("baz"))),
+                ),
             ),
-            Filter(AuthorName(Substring("baz"))),
         )
         "#);
         insta::assert_debug_snapshot!(
             optimize(parse("committer_name(foo) & bar & author_name(baz)").unwrap()), @r#"
         Intersection(
-            Intersection(
-                CommitRef(Symbol("bar")),
-                Filter(CommitterName(Substring("foo"))),
+            CommitRef(Symbol("bar")),
+            AsFilter(
+                Intersection(
+                    Filter(CommitterName(Substring("foo"))),
+                    Filter(AuthorName(Substring("baz"))),
+                ),
             ),
-            Filter(AuthorName(Substring("baz"))),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -4079,11 +4104,13 @@ mod tests {
                 WorkspaceName::DEFAULT).unwrap(),
             ), @r#"
         Intersection(
-            Intersection(
-                CommitRef(Symbol("baz")),
-                Filter(CommitterName(Substring("foo"))),
+            CommitRef(Symbol("baz")),
+            AsFilter(
+                Intersection(
+                    Filter(CommitterName(Substring("foo"))),
+                    Filter(File(Pattern(PrefixPath("bar")))),
+                ),
             ),
-            Filter(File(Pattern(PrefixPath("bar")))),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -4091,12 +4118,14 @@ mod tests {
                 "committer_name(foo) & files(bar) & author_name(baz)",
                 WorkspaceName::DEFAULT).unwrap(),
             ), @r#"
-        Intersection(
+        AsFilter(
             Intersection(
-                Filter(CommitterName(Substring("foo"))),
-                Filter(File(Pattern(PrefixPath("bar")))),
+                Intersection(
+                    Filter(CommitterName(Substring("foo"))),
+                    Filter(File(Pattern(PrefixPath("bar")))),
+                ),
+                Filter(AuthorName(Substring("baz"))),
             ),
-            Filter(AuthorName(Substring("baz"))),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -4117,13 +4146,15 @@ mod tests {
             optimize(parse("foo & description(bar) & author_name(baz) & qux").unwrap()), @r#"
         Intersection(
             Intersection(
-                Intersection(
-                    CommitRef(Symbol("foo")),
-                    CommitRef(Symbol("qux")),
-                ),
-                Filter(Description(Substring("bar"))),
+                CommitRef(Symbol("foo")),
+                CommitRef(Symbol("qux")),
             ),
-            Filter(AuthorName(Substring("baz"))),
+            AsFilter(
+                Intersection(
+                    Filter(Description(Substring("bar"))),
+                    Filter(AuthorName(Substring("baz"))),
+                ),
+            ),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -4168,18 +4199,20 @@ mod tests {
         Intersection(
             Intersection(
                 Intersection(
-                    Intersection(
-                        Intersection(
-                            CommitRef(Symbol("a")),
-                            CommitRef(Symbol("b")),
-                        ),
-                        CommitRef(Symbol("c")),
-                    ),
-                    Filter(AuthorName(Substring("A"))),
+                    CommitRef(Symbol("a")),
+                    CommitRef(Symbol("b")),
                 ),
-                Filter(AuthorName(Substring("B"))),
+                CommitRef(Symbol("c")),
             ),
-            Filter(AuthorName(Substring("C"))),
+            AsFilter(
+                Intersection(
+                    Intersection(
+                        Filter(AuthorName(Substring("A"))),
+                        Filter(AuthorName(Substring("B"))),
+                    ),
+                    Filter(AuthorName(Substring("C"))),
+                ),
+            ),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -4189,20 +4222,22 @@ mod tests {
             Intersection(
                 Intersection(
                     Intersection(
-                        Intersection(
-                            Intersection(
-                                CommitRef(Symbol("a")),
-                                CommitRef(Symbol("b")),
-                            ),
-                            CommitRef(Symbol("c")),
-                        ),
-                        CommitRef(Symbol("d")),
+                        CommitRef(Symbol("a")),
+                        CommitRef(Symbol("b")),
                     ),
-                    Filter(AuthorName(Substring("A"))),
+                    CommitRef(Symbol("c")),
                 ),
-                Filter(AuthorName(Substring("B"))),
+                CommitRef(Symbol("d")),
             ),
-            Filter(AuthorName(Substring("C"))),
+            AsFilter(
+                Intersection(
+                    Intersection(
+                        Filter(AuthorName(Substring("A"))),
+                        Filter(AuthorName(Substring("B"))),
+                    ),
+                    Filter(AuthorName(Substring("C"))),
+                ),
+            ),
         )
         "#);
 
@@ -4211,11 +4246,13 @@ mod tests {
             optimize(parse("foo & (all() & description(bar)) & (author_name(baz) & all())").unwrap()),
             @r#"
         Intersection(
-            Intersection(
-                CommitRef(Symbol("foo")),
-                Filter(Description(Substring("bar"))),
+            CommitRef(Symbol("foo")),
+            AsFilter(
+                Intersection(
+                    Filter(Description(Substring("bar"))),
+                    Filter(AuthorName(Substring("baz"))),
+                ),
             ),
-            Filter(AuthorName(Substring("baz"))),
         )
         "#);
 
@@ -4281,19 +4318,36 @@ mod tests {
         )
         "#);
 
+        // Nested filter intersection with union
+        insta::assert_debug_snapshot!(
+            optimize(parse("foo | conflicts() & merges() & signed()").unwrap()), @r#"
+        AsFilter(
+            Union(
+                CommitRef(Symbol("foo")),
+                Intersection(
+                    Intersection(
+                        Filter(HasConflict),
+                        Filter(ParentCount(2..4294967295)),
+                    ),
+                    Filter(Signed),
+                ),
+            ),
+        )
+        "#);
+
         insta::assert_debug_snapshot!(
             optimize(parse("(foo | committer_name(bar)) & description(baz) & qux").unwrap()), @r#"
         Intersection(
-            Intersection(
-                CommitRef(Symbol("qux")),
-                AsFilter(
+            CommitRef(Symbol("qux")),
+            AsFilter(
+                Intersection(
                     Union(
                         CommitRef(Symbol("foo")),
                         Filter(CommitterName(Substring("bar"))),
                     ),
+                    Filter(Description(Substring("baz"))),
                 ),
             ),
-            Filter(Description(Substring("baz"))),
         )
         "#);
 
@@ -4304,15 +4358,11 @@ mod tests {
             CommitRef(Symbol("qux")),
             AsFilter(
                 Union(
-                    AsFilter(
-                        NotIn(
-                            AsFilter(
-                                Present(
-                                    Intersection(
-                                        Filter(AuthorName(Substring("foo"))),
-                                        Filter(Description(Substring("bar"))),
-                                    ),
-                                ),
+                    NotIn(
+                        Present(
+                            Intersection(
+                                Filter(AuthorName(Substring("foo"))),
+                                Filter(Description(Substring("bar"))),
                             ),
                         ),
                     ),
@@ -4330,31 +4380,27 @@ mod tests {
         Intersection(
             Intersection(
                 Intersection(
+                    CommitRef(Symbol("a")),
+                    CommitRef(Symbol("b")),
+                ),
+                CommitRef(Symbol("c")),
+            ),
+            AsFilter(
+                Intersection(
                     Intersection(
-                        Intersection(
-                            CommitRef(Symbol("a")),
-                            CommitRef(Symbol("b")),
-                        ),
-                        CommitRef(Symbol("c")),
-                    ),
-                    AsFilter(
                         Union(
                             Filter(AuthorName(Substring("A"))),
                             CommitRef(Symbol("0")),
                         ),
+                        Union(
+                            Filter(AuthorName(Substring("B"))),
+                            CommitRef(Symbol("1")),
+                        ),
                     ),
-                ),
-                AsFilter(
                     Union(
-                        Filter(AuthorName(Substring("B"))),
-                        CommitRef(Symbol("1")),
+                        Filter(AuthorName(Substring("C"))),
+                        CommitRef(Symbol("2")),
                     ),
-                ),
-            ),
-            AsFilter(
-                Union(
-                    Filter(AuthorName(Substring("C"))),
-                    CommitRef(Symbol("2")),
                 ),
             ),
         )
