@@ -23,6 +23,9 @@ use std::mem;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Stdio;
+use std::sync::mpsc;
+use std::sync::mpsc::RecvTimeoutError;
+use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -48,6 +51,7 @@ use crate::cleanup_guard::CleanupGuard;
 use crate::command_error::cli_error;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::config::TimeoutNotification;
 use crate::formatter::Formatter;
 use crate::ui::ProgressOutput;
 use crate::ui::Ui;
@@ -248,7 +252,11 @@ impl GitSidebandProgressMessageWriter {
     }
 }
 
-pub fn with_remote_git_callbacks<T>(ui: &Ui, f: impl FnOnce(git::RemoteCallbacks<'_>) -> T) -> T {
+pub fn with_remote_git_callbacks<T>(
+    ui: &Ui,
+    notify_opts: Option<TimeoutNotification>,
+    f: impl FnOnce(git::RemoteCallbacks<'_>) -> T,
+) -> T {
     let mut callbacks = git::RemoteCallbacks::default();
 
     let mut progress_callback;
@@ -275,7 +283,25 @@ pub fn with_remote_git_callbacks<T>(ui: &Ui, f: impl FnOnce(git::RemoteCallbacks
         |url: &str| Some((terminal_get_username(ui, url)?, terminal_get_pw(ui, url)?));
     callbacks.get_username_password = Some(&mut get_user_pw);
 
-    let result = f(callbacks);
+    let result = if let Some(opts) = notify_opts {
+        let (tx, rx) = mpsc::channel();
+        callbacks.first_progress = Some(tx);
+
+        thread::scope(|s| {
+            s.spawn(move || {
+                if let Err(RecvTimeoutError::Timeout) =
+                    rx.recv_timeout(Duration::from_secs(opts.secs))
+                {
+                    writeln!(ui.status(), "{}", opts.message).ok();
+                }
+            });
+
+            f(callbacks)
+        })
+    } else {
+        f(callbacks)
+    };
+
     _ = sideband_progress_writer.flush(ui);
     result
 }
