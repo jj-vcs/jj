@@ -41,7 +41,11 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 use std::time::UNIX_EPOCH;
 
+mod eol;
+
 use either::Either;
+use eol::ReadExt as _;
+use eol::WriteExt as _;
 use futures::StreamExt as _;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
@@ -453,6 +457,8 @@ pub struct TreeState {
     /// the repo is configured to use the Watchman filesystem monitor and
     /// Watchman has been queried at least once.
     watchman_clock: Option<crate::protos::working_copy::WatchmanClock>,
+
+    target_eol_strategy: Arc<eol::TargetEolStrategy>,
 }
 
 fn file_state_from_proto(proto: &crate::protos::working_copy::FileState) -> FileState {
@@ -802,6 +808,7 @@ impl TreeState {
 
     fn empty(store: Arc<Store>, working_copy_path: PathBuf, state_path: PathBuf) -> TreeState {
         let tree_id = store.empty_merged_tree_id();
+        let target_eol_strategy = Arc::new(eol::TargetEolStrategy::new(Arc::clone(&store)));
         TreeState {
             store,
             working_copy_path,
@@ -812,6 +819,7 @@ impl TreeState {
             own_mtime: MillisSinceEpoch(0),
             symlink_support: check_symlink_support().unwrap_or(false),
             watchman_clock: None,
+            target_eol_strategy,
         }
     }
 
@@ -1028,6 +1036,7 @@ impl TreeState {
                 progress,
                 max_new_file_size,
                 conflict_marker_style,
+                target_eol_strategy: Arc::clone(&self.target_eol_strategy),
             };
             let directory_to_visit = DirectoryToVisit {
                 dir: RepoPathBuf::root(),
@@ -1175,6 +1184,7 @@ struct FileSnapshotter<'a> {
     progress: Option<&'a SnapshotProgress<'a>>,
     max_new_file_size: u64,
     conflict_marker_style: ConflictMarkerStyle,
+    target_eol_strategy: Arc<eol::TargetEolStrategy>,
 }
 
 impl FileSnapshotter<'_> {
@@ -1554,10 +1564,25 @@ impl FileSnapshotter<'_> {
             // If the file contained a conflict before and is a normal file on
             // disk, we try to parse any conflict markers in the file into a
             // conflict.
-            let content = fs::read(disk_path).map_err(|err| SnapshotError::Other {
-                message: format!("Failed to open file {}", disk_path.display()),
-                err: err.into(),
-            })?;
+            let mut disk_file =
+                File::options()
+                    .read(true)
+                    .open(disk_path)
+                    .map_err(|err| SnapshotError::Other {
+                        message: format!("Failed to open file {}", disk_path.display()),
+                        err: err.into(),
+                    })?;
+            let mut content = vec![];
+            let target_eol = self
+                .target_eol_strategy
+                .get_snapshot_reader_target_eol(disk_path);
+            disk_file
+                .read_with_eol(target_eol)
+                .read_to_end(&mut content)
+                .map_err(|err| SnapshotError::Other {
+                    message: format!("Failed to open file {}", disk_path.display()),
+                    err: err.into(),
+                })?;
             let new_file_ids = conflicts::update_from_content(
                 &old_file_ids,
                 self.store(),
@@ -1603,14 +1628,19 @@ impl FileSnapshotter<'_> {
         path: &RepoPath,
         disk_path: &Path,
     ) -> Result<FileId, SnapshotError> {
-        let file = File::open(disk_path).map_err(|err| SnapshotError::Other {
+        let mut file = File::open(disk_path).map_err(|err| SnapshotError::Other {
             message: format!("Failed to open file {}", disk_path.display()),
             err: err.into(),
         })?;
-        Ok(self
+        let target_eol = self
+            .target_eol_strategy
+            .get_snapshot_reader_target_eol(disk_path);
+        let file = file.read_with_eol(target_eol);
+        let file_id = self
             .store()
             .write_file(path, &mut BlockingAsyncReader::new(file))
-            .await?)
+            .await?;
+        Ok(file_id)
     }
 
     async fn write_symlink_to_store(
@@ -1651,6 +1681,7 @@ impl TreeState {
         disk_path: &Path,
         contents: impl AsyncRead,
         executable: bool,
+        target_eol: eol::TargetEol,
     ) -> Result<FileState, CheckoutError> {
         let mut file = OpenOptions::new()
             .write(true)
@@ -1660,12 +1691,22 @@ impl TreeState {
                 message: format!("Failed to open file {} for writing", disk_path.display()),
                 err: err.into(),
             })?;
-        let size = copy_async_to_sync(contents, &mut file)
+        let mut file_writer = file.count_consumed_bytes();
+        // The number of bytes consumed can be different from the number of bytes
+        // written due to EOL conversion, so we can't use the return value here to
+        // calculate the file size.
+        copy_async_to_sync(contents, &mut file_writer.write_with_eol(target_eol))
             .block_on()
             .map_err(|err| CheckoutError::Other {
                 message: format!("Failed to write file {}", disk_path.display()),
                 err: err.into(),
             })?;
+        file_writer.flush().map_err(|err| CheckoutError::Other {
+            message: format!("Failed to flush to file {}", disk_path.display()),
+            err: err.into(),
+        })?;
+        let size = file_writer.bytes_consumed();
+
         self.set_executable(disk_path, executable)?;
         // Read the file state from the file descriptor. That way, know that the file
         // exists and is of the expected type, and the stat information is most likely
@@ -1896,13 +1937,22 @@ impl TreeState {
                     continue;
                 }
                 MaterializedTreeValue::File(file) => {
-                    self.write_file(&disk_path, file.reader, file.executable)?
+                    let target_eol = self
+                        .target_eol_strategy
+                        .get_update_writer_target_eol(&path, &file.id)
+                        .await;
+                    self.write_file(&disk_path, file.reader, file.executable, target_eol)?
                 }
                 MaterializedTreeValue::Symlink { id: _, target } => {
                     if self.symlink_support {
                         self.write_symlink(&disk_path, target)?
                     } else {
-                        self.write_file(&disk_path, target.as_bytes(), false)?
+                        self.write_file(
+                            &disk_path,
+                            target.as_bytes(),
+                            false,
+                            eol::TargetEol::PassThrough,
+                        )?
                     }
                 }
                 MaterializedTreeValue::GitSubmodule(_) => {
