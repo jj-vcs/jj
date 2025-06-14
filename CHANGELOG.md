@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj evolog` can now follow changes from multiple revisions such as divergent
+  revisions.
+
 ### Fixed bugs
 
 * `jj file annotate` can now process files at a hidden revision.

@@ -254,7 +254,6 @@ fn test_walk_predecessors_multiple_predecessors_within_op() {
     tx.repo_mut().rebase_descendants().unwrap();
     let repo2 = tx.commit("test").unwrap();
 
-    // Predecessor commits are emitted in reverse within operation.
     let entries = collect_predecessors(&repo2, commit3.id());
     assert_eq!(entries.len(), 3);
     assert_eq!(entries[0].commit, commit3);
@@ -263,10 +262,10 @@ fn test_walk_predecessors_multiple_predecessors_within_op() {
         entries[0].predecessor_ids(),
         [commit1.id().clone(), commit2.id().clone()]
     );
-    assert_eq!(entries[1].commit, commit2);
+    assert_eq!(entries[1].commit, commit1);
     assert_eq!(entries[1].operation.as_ref(), Some(repo1.operation()));
     assert_eq!(entries[1].predecessor_ids(), []);
-    assert_eq!(entries[2].commit, commit1);
+    assert_eq!(entries[2].commit, commit2);
     assert_eq!(entries[2].operation.as_ref(), Some(repo1.operation()));
     assert_eq!(entries[2].predecessor_ids(), []);
 }
@@ -316,9 +315,9 @@ fn test_walk_predecessors_transitive_graph_order() {
 
     // 5    : op2
     // |\
-    // 3 4  : op1
+    // 4 3  : op1
     // | |  :
-    // 2 |  :
+    // | 2  :
     // |/   :
     // 1    :
 
@@ -348,8 +347,8 @@ fn test_walk_predecessors_transitive_graph_order() {
     let mut tx = repo1.start_transaction();
     let commit5 = tx
         .repo_mut()
-        .rewrite_commit(&commit3)
-        .set_predecessors(vec![commit3.id().clone(), commit4.id().clone()])
+        .rewrite_commit(&commit4)
+        .set_predecessors(vec![commit4.id().clone(), commit3.id().clone()])
         .set_description("rewritten 5")
         .write()
         .unwrap();
@@ -362,7 +361,7 @@ fn test_walk_predecessors_transitive_graph_order() {
     assert_eq!(entries[0].operation.as_ref(), Some(repo2.operation()));
     assert_eq!(
         entries[0].predecessor_ids(),
-        [commit3.id().clone(), commit4.id().clone()]
+        [commit4.id().clone(), commit3.id().clone()]
     );
     assert_eq!(entries[1].commit, commit4);
     assert_eq!(entries[1].operation.as_ref(), Some(repo1.operation()));

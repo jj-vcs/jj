@@ -189,7 +189,7 @@ pub(crate) fn cmd_log(
             let mut raw_output = formatter.raw()?;
             let mut graph = get_graphlog(graph_style, raw_output.as_mut());
             let iter: Box<dyn Iterator<Item = _>> = {
-                let mut forward_iter = TopoGroupedGraphIterator::new(revset.iter_graph());
+                let mut forward_iter = TopoGroupedGraphIterator::new(revset.iter_graph(), |id| id);
 
                 let has_commit = revset.containing_fn();
 
