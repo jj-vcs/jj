@@ -112,6 +112,14 @@ pub(crate) struct SquashArgs {
     /// The source revision will not be abandoned
     #[arg(long, short)]
     keep_emptied: bool,
+
+    /// The revision(s) to preserve the content of (not the diff)
+    #[arg(
+        long,
+        value_name = "REVSETS",
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+    )]
+    restore_snapshots: Option<Vec<RevisionArg>>,
 }
 
 #[instrument(skip_all)]
@@ -155,6 +163,15 @@ pub(crate) fn cmd_squash(
         destination = parents.pop().unwrap();
     }
 
+    let to_restore = if let Some(restore_snapshots) = args.restore_snapshots.as_deref() {
+        workspace_command
+            .parse_union_revsets(ui, restore_snapshots)?
+            .evaluate_to_commit_ids()?
+            .try_collect()?
+    } else {
+        std::collections::HashSet::new()
+    };
+
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
@@ -173,6 +190,7 @@ pub(crate) fn cmd_squash(
         &source_commits,
         &destination,
         args.keep_emptied,
+        &to_restore,
     )? {
         let mut commit_builder = squashed.commit_builder.detach();
         let new_description = match description {
@@ -241,7 +259,7 @@ pub(crate) fn cmd_squash(
             }
         }
     }
-    tx.finish(ui, tx_description)?;
+    tx.finish_with_to_restore(ui, tx_description, &to_restore)?;
     Ok(())
 }
 
