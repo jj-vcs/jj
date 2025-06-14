@@ -42,7 +42,7 @@
 </tspan><tspan xml:space="preserve" x="10" y="86" class="output">$ jj log
 </tspan><tspan xml:space="preserve" x="10" y="104" class="output"><tspan class="bold fg2">@</tspan>  <tspan class="bold fg13">t</tspan><tspan class="bold fg8">mnxzsns</tspan><tspan class="bold"> </tspan><tspan class="bold fg3">jjfan@example.com</tspan><tspan class="bold"> </tspan><tspan class="bold fg14">2024-10-13 19:54:57</tspan><tspan class="bold"> </tspan><tspan class="bold fg12">e</tspan><tspan class="bold fg8">692ad7d</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="122" class="output">│  <tspan class="bold fg10">(empty)</tspan><tspan class="bold"> </tspan><tspan class="bold fg10">(no description set)</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="140" class="output"><tspan class="bold fg14">◆</tspan>  <tspan class="bold fg5">o</tspan><tspan class="fg8">rrkosyo</tspan> <tspan class="fg3">octocat@nowhere.com</tspan> <tspan class="fg6">2012-03-06 16:06:50</tspan> <tspan class="fg5">master</tspan> <tspan class="bold fg4">7</tspan><tspan class="fg8">fd1a60b</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="140" class="output"><tspan class="bold fg14">♦</tspan>  <tspan class="bold fg5">o</tspan><tspan class="fg8">rrkosyo</tspan> <tspan class="fg3">octocat@nowhere.com</tspan> <tspan class="fg6">2012-03-06 16:06:50</tspan> <tspan class="fg5">master</tspan> <tspan class="bold fg4">7</tspan><tspan class="fg8">fd1a60b</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="158" class="output">│  <tspan class="fg2">(empty)</tspan> Merge pull request #6 from Spaceghost/patch-1
 </tspan><tspan xml:space="preserve" x="10" y="176" class="output">~
 </tspan><tspan xml:space="preserve" x="10" y="194" class="output">
@@ -89,10 +89,10 @@
 </tspan><tspan xml:space="preserve" x="10" y="932" class="output">$ jj log
 </tspan><tspan xml:space="preserve" x="10" y="950" class="output"><tspan class="bold fg9">@</tspan>  <tspan class="bold fg13">tm</tspan><tspan class="bold fg8">nxzsns</tspan><tspan class="bold"> </tspan><tspan class="bold fg3">jjfan@example.com</tspan><tspan class="bold"> </tspan><tspan class="bold fg14">2024-10-13 19:54:57</tspan><tspan class="bold"> </tspan><tspan class="bold fg12">0</tspan><tspan class="bold fg8">23f3c51</tspan><tspan class="bold"> </tspan><tspan class="bold fg9">conflict</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="968" class="output">│  <tspan class="bold">README: say which world</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="986" class="output"><tspan class="bold fg14">◆</tspan>  <tspan class="bold fg5">tp</tspan><tspan class="fg8">stlust</tspan> <tspan class="fg3">support+octocat@github.com</tspan> <tspan class="fg6">2018-05-10 10:55:19</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="986" class="output"><tspan class="bold fg14">♦</tspan>  <tspan class="bold fg5">tp</tspan><tspan class="fg8">stlust</tspan> <tspan class="fg3">support+octocat@github.com</tspan> <tspan class="fg6">2018-05-10 10:55:19</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="1004" class="output">│  <tspan class="fg5">octocat-patch-1@origin</tspan> <tspan class="bold fg4">b</tspan><tspan class="fg8">1b3f972</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="1022" class="output">│  sentence case
-</tspan><tspan xml:space="preserve" x="10" y="1040" class="output"><tspan class="bold fg14">◆</tspan>  <tspan class="bold fg5">o</tspan><tspan class="fg8">rrkosyo</tspan> <tspan class="fg3">octocat@nowhere.com</tspan> <tspan class="fg6">2012-03-06 16:06:50</tspan> <tspan class="fg5">master</tspan> <tspan class="bold fg4">7</tspan><tspan class="fg8">fd1a60b</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1040" class="output"><tspan class="bold fg14">♦</tspan>  <tspan class="bold fg5">o</tspan><tspan class="fg8">rrkosyo</tspan> <tspan class="fg3">octocat@nowhere.com</tspan> <tspan class="fg6">2012-03-06 16:06:50</tspan> <tspan class="fg5">master</tspan> <tspan class="bold fg4">7</tspan><tspan class="fg8">fd1a60b</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="1058" class="output">│  <tspan class="fg2">(empty)</tspan> Merge pull request #6 from Spaceghost/patch-1
 </tspan><tspan xml:space="preserve" x="10" y="1076" class="output">~
 </tspan><tspan xml:space="preserve" x="10" y="1094" class="output">$ jj status
