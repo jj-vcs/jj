@@ -575,7 +575,7 @@ Start an editor on a jj config file.
 
 Creates the file if it doesn't already exist regardless of what the editor does.
 
-**Usage:** `jj config edit <--user|--repo>`
+**Usage:** `jj config edit <--user|--repo|--workspace>`
 
 **Command Alias:** `e`
 
@@ -583,6 +583,7 @@ Creates the file if it doesn't already exist regardless of what the editor does.
 
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
+* `--workspace` — Target the workspace-level config
 
 
 
@@ -626,6 +627,7 @@ List variables set in config files, along with their values
 * `--include-overridden` — Allow printing overridden values
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
+* `--workspace` — Target the workspace-level config
 * `-T`, `--template <TEMPLATE>` — Render each variable using the given template
 
    The following keywords are available in the template expression:
@@ -655,7 +657,7 @@ A config file at that path may or may not exist.
 
 See `jj config edit` if you'd like to immediately edit a file.
 
-**Usage:** `jj config path <--user|--repo>`
+**Usage:** `jj config path <--user|--repo|--workspace>`
 
 **Command Alias:** `p`
 
@@ -663,6 +665,7 @@ See `jj config edit` if you'd like to immediately edit a file.
 
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
+* `--workspace` — Target the workspace-level config
 
 
 
@@ -670,7 +673,7 @@ See `jj config edit` if you'd like to immediately edit a file.
 
 Update a config file to set the given option to a given value
 
-**Usage:** `jj config set <--user|--repo> <NAME> <VALUE>`
+**Usage:** `jj config set <--user|--repo|--workspace> <NAME> <VALUE>`
 
 **Command Alias:** `s`
 
@@ -687,6 +690,7 @@ Update a config file to set the given option to a given value
 
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
+* `--workspace` — Target the workspace-level config
 
 
 
@@ -694,7 +698,7 @@ Update a config file to set the given option to a given value
 
 Update a config file to unset the given option
 
-**Usage:** `jj config unset <--user|--repo> <NAME>`
+**Usage:** `jj config unset <--user|--repo|--workspace> <NAME>`
 
 **Command Alias:** `u`
 
@@ -706,6 +710,7 @@ Update a config file to unset the given option
 
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
+* `--workspace` — Target the workspace-level config
 
 
 
