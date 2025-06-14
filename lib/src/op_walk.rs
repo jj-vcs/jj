@@ -268,6 +268,7 @@ pub fn walk_ancestors(
         head_ops.into_iter().map(Ok),
         |OperationByEndTime(op)| op.id().clone(),
         |OperationByEndTime(op)| op.parents().map_ok(OperationByEndTime).collect_vec(),
+        |_| panic!("graph has cycle"),
     )
     .map_ok(|OperationByEndTime(op)| op)
 }

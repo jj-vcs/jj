@@ -310,7 +310,153 @@ fn test_walk_predecessors_transitive() {
 }
 
 #[test]
-fn test_walk_predecessors_cycle_within_op() {
+fn test_walk_predecessors_transitive_graph_order() {
+    let test_repo = TestRepo::init();
+    let repo0 = test_repo.repo;
+
+    // 5    : op2
+    // |\
+    // 3 4  : op1
+    // | |  :
+    // 2 |  :
+    // |/   :
+    // 1    :
+
+    let mut tx = repo0.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = tx
+        .repo_mut()
+        .rewrite_commit(&commit1)
+        .set_description("rewritten 2")
+        .write()
+        .unwrap();
+    let commit3 = tx
+        .repo_mut()
+        .rewrite_commit(&commit2)
+        .set_description("rewritten 3")
+        .write()
+        .unwrap();
+    let commit4 = tx
+        .repo_mut()
+        .rewrite_commit(&commit1)
+        .set_description("rewritten 4")
+        .write()
+        .unwrap();
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo1 = tx.commit("test").unwrap();
+
+    let mut tx = repo1.start_transaction();
+    let commit5 = tx
+        .repo_mut()
+        .rewrite_commit(&commit3)
+        .set_predecessors(vec![commit3.id().clone(), commit4.id().clone()])
+        .set_description("rewritten 5")
+        .write()
+        .unwrap();
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo2 = tx.commit("test").unwrap();
+
+    let entries = collect_predecessors(&repo2, commit5.id());
+    assert_eq!(entries.len(), 5);
+    assert_eq!(entries[0].commit, commit5);
+    assert_eq!(entries[0].operation.as_ref(), Some(repo2.operation()));
+    assert_eq!(
+        entries[0].predecessor_ids(),
+        [commit3.id().clone(), commit4.id().clone()]
+    );
+    assert_eq!(entries[1].commit, commit4);
+    assert_eq!(entries[1].operation.as_ref(), Some(repo1.operation()));
+    assert_eq!(entries[1].predecessor_ids(), [commit1.id().clone()]);
+    assert_eq!(entries[2].commit, commit3);
+    assert_eq!(entries[2].operation.as_ref(), Some(repo1.operation()));
+    assert_eq!(entries[2].predecessor_ids(), [commit2.id().clone()]);
+    assert_eq!(entries[3].commit, commit2);
+    assert_eq!(entries[3].operation.as_ref(), Some(repo1.operation()));
+    assert_eq!(entries[3].predecessor_ids(), [commit1.id().clone()]);
+    assert_eq!(entries[4].commit, commit1);
+    assert_eq!(entries[4].operation.as_ref(), Some(repo1.operation()));
+    assert_eq!(entries[4].predecessor_ids(), []);
+}
+
+#[test]
+fn test_walk_predecessors_unsimplified() {
+    let test_repo = TestRepo::init();
+    let repo0 = test_repo.repo;
+
+    // 3
+    // |\
+    // | 2
+    // |/
+    // 1
+
+    let mut tx = repo0.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let repo1 = tx.commit("test").unwrap();
+
+    let mut tx = repo1.start_transaction();
+    let commit2 = tx
+        .repo_mut()
+        .rewrite_commit(&commit1)
+        .set_description("rewritten 2")
+        .write()
+        .unwrap();
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo2 = tx.commit("test").unwrap();
+
+    let mut tx = repo2.start_transaction();
+    let commit3 = tx
+        .repo_mut()
+        .rewrite_commit(&commit1)
+        .set_predecessors(vec![commit1.id().clone(), commit2.id().clone()])
+        .set_description("rewritten 3")
+        .write()
+        .unwrap();
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo3 = tx.commit("test").unwrap();
+
+    let entries = collect_predecessors(&repo3, commit3.id());
+    assert_eq!(entries.len(), 3);
+    assert_eq!(entries[0].commit, commit3);
+    assert_eq!(entries[0].operation.as_ref(), Some(repo3.operation()));
+    assert_eq!(
+        entries[0].predecessor_ids(),
+        [commit1.id().clone(), commit2.id().clone()]
+    );
+    assert_eq!(entries[1].commit, commit2);
+    assert_eq!(entries[1].operation.as_ref(), Some(repo2.operation()));
+    assert_eq!(entries[1].predecessor_ids(), [commit1.id().clone()]);
+    assert_eq!(entries[2].commit, commit1);
+    assert_eq!(entries[2].operation.as_ref(), Some(repo1.operation()));
+    assert_eq!(entries[2].predecessor_ids(), []);
+}
+
+#[test]
+fn test_walk_predecessors_direct_cycle_within_op() {
+    let test_repo = TestRepo::init();
+    let repo0 = test_repo.repo;
+    let loader = repo0.loader();
+
+    let mut tx = repo0.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let repo1 = tx.commit("test").unwrap();
+
+    let repo1 = {
+        let mut data = repo1.operation().store_operation().clone();
+        data.commit_predecessors = Some(btreemap! {
+            commit1.id().clone() => vec![commit1.id().clone()],
+        });
+        let op_id = loader.op_store().write_operation(&data).unwrap();
+        let op = loader.load_operation(&op_id).unwrap();
+        loader.load_at(&op).unwrap()
+    };
+    assert_matches!(
+        walk_predecessors(&repo1, slice::from_ref(commit1.id())).next(),
+        Some(Err(WalkPredecessorsError::CycleDetected(_)))
+    );
+}
+
+#[test]
+fn test_walk_predecessors_indirect_cycle_within_op() {
     let test_repo = TestRepo::init();
     let repo0 = test_repo.repo;
     let loader = repo0.loader();

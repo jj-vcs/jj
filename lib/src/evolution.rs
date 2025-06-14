@@ -28,7 +28,6 @@ use crate::commit::Commit;
 use crate::dag_walk;
 use crate::op_store::OpStoreError;
 use crate::op_store::OpStoreResult;
-use crate::op_store::OperationId;
 use crate::op_walk;
 use crate::operation::Operation;
 use crate::repo::ReadonlyRepo;
@@ -67,8 +66,8 @@ pub enum WalkPredecessorsError {
     Backend(#[from] BackendError),
     #[error(transparent)]
     OpStore(#[from] OpStoreError),
-    #[error("Predecessors cycle detected at operation {0}")]
-    CycleDetected(OperationId),
+    #[error("Predecessors cycle detected around commit {0}")]
+    CycleDetected(CommitId),
 }
 
 /// Walks operations to emit commit predecessors in reverse topological order.
@@ -116,23 +115,48 @@ where
 
     /// Looks for predecessors within the given operation.
     fn visit_op(&mut self, op: &Operation) -> Result<(), WalkPredecessorsError> {
-        let mut visited = Vec::new(); // transitive edges should be short
+        let mut to_emit = Vec::new(); // transitive edges should be short
+        let mut has_dup = false;
         let mut i = 0;
         while let Some(cur_id) = self.to_visit.get(i) {
             if let Some(next_ids) = op.predecessors_for_commit(cur_id) {
-                if visited.contains(cur_id) {
-                    return Err(WalkPredecessorsError::CycleDetected(op.id().clone()));
+                if to_emit.contains(cur_id) {
+                    self.to_visit.remove(i);
+                    has_dup = true;
+                    continue;
                 }
-                let commit = self.store.get_commit(cur_id)?;
                 // Predecessors will be visited in reverse order if they appear
                 // in the same operation. See scan_commits() for why.
-                visited.extend(self.to_visit.splice(i..=i, next_ids.iter().rev().cloned()));
-                self.queued.push_back(CommitEvolutionEntry {
-                    commit,
-                    operation: Some(op.clone()),
-                });
+                to_emit.extend(self.to_visit.splice(i..=i, next_ids.iter().rev().cloned()));
             } else {
                 i += 1;
+            }
+        }
+
+        let mut emit = |id: &CommitId| -> BackendResult<()> {
+            let commit = self.store.get_commit(id)?;
+            self.queued.push_back(CommitEvolutionEntry {
+                commit,
+                operation: Some(op.clone()),
+            });
+            Ok(())
+        };
+        match &*to_emit {
+            [] => {}
+            [id] if !has_dup => emit(id)?,
+            _ => {
+                let sorted_ids = dag_walk::topo_order_reverse_ok(
+                    to_emit.iter().map(Ok),
+                    |&id| id,
+                    |&id| op.predecessors_for_commit(id).into_iter().flatten().map(Ok),
+                    |id| id, // Err(&CommitId) if graph has cycle
+                )
+                .map_err(|id| WalkPredecessorsError::CycleDetected(id.clone()))?;
+                for &id in &sorted_ids {
+                    if op.predecessors_for_commit(id).is_some() {
+                        emit(id)?;
+                    }
+                }
             }
         }
         Ok(())
@@ -163,6 +187,7 @@ where
                     .map(|id| self.store.get_commit(id))
                     .collect_vec()
             },
+            |_| panic!("graph has cycle"),
         )?;
         self.queued
             .extend(commits.into_iter().map(|commit| CommitEvolutionEntry {

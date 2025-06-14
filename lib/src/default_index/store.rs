@@ -284,6 +284,7 @@ impl DefaultIndexStore {
                     .map(|commit_id| get_commit_with_op(commit_id, op_id))
                     .collect_vec()
             },
+            |_| panic!("graph has cycle"),
         )?;
         for (CommitByCommitterTimestamp(commit), _) in commits.iter().rev() {
             mutable_index.add_commit(commit);
