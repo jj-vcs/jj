@@ -1089,6 +1089,61 @@ fn test_template_alias() {
     ");
 }
 
+#[test]
+fn test_merge_tools() {
+    let mut test_env = TestEnvironment::default();
+    test_env.add_env_var("COMPLETE", "fish");
+    let dir = test_env.env_root();
+
+    let output = test_env.run_jj_in(dir, ["--", "jj", "diff", "--tool", ""]);
+    insta::assert_snapshot!(output, @r"
+    diffedit3
+    diffedit3-ssh
+    difft
+    kdiff3
+    meld
+    meld-3
+    mergiraf
+    smerge
+    vimdiff
+    vscode
+    vscodium
+    [EOF]
+    ");
+    // Includes :builtin
+    let output = test_env.run_jj_in(dir, ["--", "jj", "diffedit", "--tool", ""]);
+    insta::assert_snapshot!(output, @r"
+    :builtin
+    diffedit3
+    diffedit3-ssh
+    difft
+    kdiff3
+    meld
+    meld-3
+    mergiraf
+    smerge
+    vimdiff
+    vscode
+    vscodium
+    [EOF]
+    ");
+    // Only includes configured merge editors
+    let output = test_env.run_jj_in(dir, ["--", "jj", "resolve", "--tool", ""]);
+    insta::assert_snapshot!(output, @r"
+    :builtin
+    :ours
+    :theirs
+    kdiff3
+    meld
+    mergiraf
+    smerge
+    vimdiff
+    vscode
+    vscodium
+    [EOF]
+    ");
+}
+
 fn create_commit(
     work_dir: &TestWorkDir,
     name: &str,
