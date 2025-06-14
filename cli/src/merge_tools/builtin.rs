@@ -708,12 +708,21 @@ pub fn edit_merge_builtin(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use jj_lib::backend::FileId;
     use jj_lib::conflicts::extract_as_single_hunk;
     use jj_lib::matchers::EverythingMatcher;
     use jj_lib::merge::MergedTreeValue;
     use jj_lib::repo::Repo as _;
+    use proptest::prelude::*;
+    use proptest_state_machine::prop_state_machine;
+    use proptest_state_machine::ReferenceStateMachine;
+    use proptest_state_machine::StateMachineTest;
+    use testutils::assert_tree_eq;
     use testutils::dump_tree;
+    use testutils::proptest::Transition;
+    use testutils::proptest::WorkingCopyReferenceStateMachine;
     use testutils::repo_path;
     use testutils::repo_path_component;
     use testutils::TestRepo;
@@ -858,9 +867,10 @@ mod tests {
 
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            no_changes_tree.id(),
-            left_tree.id(),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
             "no-changes tree was different",
         );
 
@@ -871,9 +881,10 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            all_changes_tree.id(),
-            right_tree.id(),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
             "all-changes tree was different",
         );
     }
@@ -912,9 +923,10 @@ mod tests {
         "#);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            no_changes_tree.id(),
-            left_tree.id(),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
             "no-changes tree was different",
         );
 
@@ -925,9 +937,10 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            all_changes_tree.id(),
-            right_tree.id(),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
             "all-changes tree was different",
         );
     }
@@ -979,9 +992,10 @@ mod tests {
         "###);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            no_changes_tree.id(),
-            left_tree.id(),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
             "no-changes tree was different",
         );
 
@@ -992,9 +1006,10 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            all_changes_tree.id(),
-            right_tree.id(),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
             "all-changes tree was different",
         );
     }
@@ -1039,12 +1054,11 @@ mod tests {
         "#);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            left_tree.id(),
-            no_changes_tree.id(),
-            "no-changes tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &left_tree.id()),
-            dump_tree(store, &no_changes_tree.id()),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
+            "no-changes tree was different",
         );
 
         let mut files = files;
@@ -1054,12 +1068,11 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            right_tree.id(),
-            all_changes_tree.id(),
-            "all-changes tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &right_tree.id()),
-            dump_tree(store, &all_changes_tree.id()),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
+            "all-changes tree was different",
         );
     }
 
@@ -1108,12 +1121,11 @@ mod tests {
         "#);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            left_tree.id(),
-            no_changes_tree.id(),
-            "no-changes tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &left_tree.id()),
-            dump_tree(store, &no_changes_tree.id()),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
+            "no-changes tree was different",
         );
 
         let mut files = files;
@@ -1123,12 +1135,11 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            right_tree.id(),
-            all_changes_tree.id(),
-            "all-changes tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &right_tree.id()),
-            dump_tree(store, &all_changes_tree.id()),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
+            "all-changes tree was different",
         );
     }
 
@@ -1176,12 +1187,11 @@ mod tests {
         "#);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            left_tree.id(),
-            no_changes_tree.id(),
-            "no-changes tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &left_tree.id()),
-            dump_tree(store, &no_changes_tree.id()),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
+            "no-changes tree was different",
         );
 
         let mut files = files;
@@ -1191,12 +1201,11 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            right_tree.id(),
-            all_changes_tree.id(),
-            "all-changes tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &right_tree.id()),
-            dump_tree(store, &all_changes_tree.id()),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
+            "all-changes tree was different",
         );
     }
 
@@ -1269,13 +1278,7 @@ mod tests {
         });
         let actual_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let actual_tree = store.get_root_tree(&actual_tree_id).unwrap();
-        assert_eq!(
-            expected_tree.id(),
-            actual_tree.id(),
-            "tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &expected_tree.id()),
-            dump_tree(store, &actual_tree.id()),
-        );
+        assert_tree_eq!(&expected_tree.id(), &actual_tree.id(), store);
     }
 
     #[test]
@@ -1335,13 +1338,7 @@ mod tests {
         });
         let actual_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let actual_tree = store.get_root_tree(&actual_tree_id).unwrap();
-        assert_eq!(
-            expected_tree.id(),
-            actual_tree.id(),
-            "tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &expected_tree.id()),
-            dump_tree(store, &actual_tree.id()),
-        );
+        assert_tree_eq!(&expected_tree.id(), &actual_tree.id(), store);
     }
 
     #[test]
@@ -1387,9 +1384,10 @@ mod tests {
         "###);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            no_changes_tree.id(),
-            left_tree.id(),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
             "no-changes tree was different",
         );
 
@@ -1400,9 +1398,10 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            all_changes_tree.id(),
-            right_tree.id(),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
             "all-changes tree was different",
         );
     }
@@ -1441,9 +1440,10 @@ mod tests {
         "#);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            no_changes_tree.id(),
-            left_tree.id(),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
             "no-changes tree was different",
         );
 
@@ -1454,9 +1454,10 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            all_changes_tree.id(),
-            right_tree.id(),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
             "all-changes tree was different",
         );
     }
@@ -1501,9 +1502,10 @@ mod tests {
         "#);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            no_changes_tree.id(),
-            left_tree.id(),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
             "no-changes tree was different",
         );
 
@@ -1514,9 +1516,10 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            all_changes_tree.id(),
-            right_tree.id(),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
             "all-changes tree was different",
         );
     }
@@ -1560,9 +1563,10 @@ mod tests {
         "###);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            no_changes_tree.id(),
-            left_tree.id(),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
             "no-changes tree was different",
         );
 
@@ -1573,9 +1577,10 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            all_changes_tree.id(),
-            right_tree.id(),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
             "all-changes tree was different",
         );
     }
@@ -1654,9 +1659,10 @@ mod tests {
         "#);
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            no_changes_tree.id(),
-            left_tree.id(),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
             "no-changes tree was different",
         );
 
@@ -1667,9 +1673,10 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            all_changes_tree.id(),
-            right_tree.id(),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
             "all-changes tree was different",
         );
     }
@@ -1729,12 +1736,11 @@ mod tests {
         });
         let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_eq!(
-            left_tree.id(),
-            no_changes_tree.id(),
-            "no-changes tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &left_tree.id()),
-            dump_tree(store, &no_changes_tree.id()),
+        assert_tree_eq!(
+            &left_tree.id(),
+            &no_changes_tree.id(),
+            store,
+            "no-changes tree was different",
         );
 
         let mut files = files;
@@ -1744,12 +1750,11 @@ mod tests {
         let all_changes_tree_id =
             apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
-        assert_eq!(
-            right_tree.id(),
-            all_changes_tree.id(),
-            "all-changes tree was different:\nexpected tree:\n{}\nactual tree:\n{}",
-            dump_tree(store, &right_tree.id()),
-            dump_tree(store, &all_changes_tree.id()),
+        assert_tree_eq!(
+            &right_tree.id(),
+            &all_changes_tree.id(),
+            store,
+            "all-changes tree was different",
         );
     }
 
@@ -1843,5 +1848,364 @@ mod tests {
             },
         ]
         "#);
+    }
+
+    prop_state_machine! {
+        #[test]
+        fn test_edit_diff_builtin_all_or_nothing_proptest(
+            sequential 1..20 => EditDiffBuiltinAllOrNothingPropTest
+        );
+
+        #[test]
+        fn test_edit_diff_builtin_partial_selection_proptest(
+            sequential 1..20 => EditDiffBuiltinPartialSelectionPropTest
+        );
+    }
+
+    /// SUT for property-based test to check that selecting all or none of the
+    /// changes in the diff between two working copy states reproduces the right
+    /// or the left tree, respectively.
+    struct EditDiffBuiltinAllOrNothingPropTest {
+        test_repo: TestRepo,
+        prev_tree_id: MergedTreeId,
+    }
+
+    impl StateMachineTest for EditDiffBuiltinAllOrNothingPropTest {
+        type SystemUnderTest = EditDiffBuiltinAllOrNothingPropTest;
+
+        type Reference = WorkingCopyReferenceStateMachine;
+
+        fn init_test(ref_state: &WorkingCopyReferenceStateMachine) -> Self::SystemUnderTest {
+            let test_repo = TestRepo::init();
+            let initial_tree_id = ref_state.create_tree(&test_repo.repo).id();
+            Self {
+                test_repo,
+                prev_tree_id: initial_tree_id,
+            }
+        }
+
+        fn apply(
+            state: Self::SystemUnderTest,
+            ref_state: &WorkingCopyReferenceStateMachine,
+            transition: Transition,
+        ) -> Self::SystemUnderTest {
+            match transition {
+                Transition::Commit => {
+                    let prev_tree_id = ref_state.create_tree(&state.test_repo.repo).id();
+                    Self {
+                        test_repo: state.test_repo,
+                        prev_tree_id,
+                    }
+                }
+
+                Transition::SetDirEntry { .. } => {
+                    // Do nothing; this is handled by the reference state machine.
+                    state
+                }
+            }
+        }
+
+        fn check_invariants(
+            state: &Self::SystemUnderTest,
+            ref_state: &WorkingCopyReferenceStateMachine,
+        ) {
+            let store = state.test_repo.repo.store();
+            let left_tree = store.get_root_tree(&state.prev_tree_id).unwrap();
+            let right_tree_id = ref_state.create_tree(&state.test_repo.repo).id();
+            let right_tree = store.get_root_tree(&right_tree_id).unwrap();
+
+            let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
+            let no_changes_tree_id =
+                apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+            let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
+            assert_tree_eq!(
+                &left_tree.id(),
+                &no_changes_tree.id(),
+                store,
+                "no-changes tree was different",
+            );
+
+            let mut files = files;
+            for file in &mut files {
+                file.toggle_all();
+            }
+            let all_changes_tree_id =
+                apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+            let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+            assert_tree_eq!(
+                &right_tree_id,
+                &all_changes_tree.id(),
+                store,
+                "all-changes tree was different",
+            );
+        }
+    }
+
+    /// SUT for property-based test to check that after selecting some of the
+    /// changes in a diff, applying the remaining changes to the intermediate
+    /// tree reproduces the right tree.
+    ///
+    /// This "roundtrip" property only holds if none of the selected changes
+    /// implicitly incurs changes that would conflict with the unselected
+    /// ones. An example of this is the deletion of a non-empty file which
+    /// is represented by a file mode change to `Absent` and a text or
+    /// binary change deleting the contents. When only the file mode change
+    /// is selected, the file is still entirely removed. scm_record should
+    /// ensure that selecting the file mode change implies the content
+    /// change, but we cannot rely on this.
+    ///
+    /// Another situation arises when a file, e.g. "a", is replaced by a
+    /// directory containing another file, e.g. "a/b". Selecting the creation of
+    /// "a/b" but not the deletion of "a" will still implicitly replace the file
+    /// "a" directory. scm_record currently does not group or enforce selections
+    /// of changes in a way to prevent this.
+    ///
+    /// This test does not allow selections of changes that violate the
+    /// "roundtrip" property for the above reasons. Otherwise, it sources its
+    /// selection from a bit mask that is part of the reference state and is
+    /// subject to random generation and shrinking but otherwise does not affect
+    /// the state machine's transition, nor is it affected by any of the
+    /// transitions.
+    struct EditDiffBuiltinPartialSelectionPropTest {
+        test_repo: TestRepo,
+        prev_tree_id: MergedTreeId,
+        prev_file_list: BTreeSet<RepoPathBuf>,
+    }
+
+    impl StateMachineTest for EditDiffBuiltinPartialSelectionPropTest {
+        type SystemUnderTest = EditDiffBuiltinPartialSelectionPropTest;
+        type Reference = WorkingCopyWithSelectionStateMachine;
+
+        fn init_test(ref_state: &WorkingCopyWithSelectionStateMachine) -> Self::SystemUnderTest {
+            let test_repo = TestRepo::init();
+            let initial_tree_id = ref_state.working_copy.create_tree(&test_repo.repo).id();
+            Self {
+                test_repo,
+                prev_tree_id: initial_tree_id,
+                prev_file_list: BTreeSet::new(),
+            }
+        }
+
+        fn apply(
+            state: Self::SystemUnderTest,
+            ref_state: &WorkingCopyWithSelectionStateMachine,
+            transition: Transition,
+        ) -> Self::SystemUnderTest {
+            match transition {
+                Transition::Commit => {
+                    let prev_tree_id = ref_state
+                        .working_copy
+                        .create_tree(&state.test_repo.repo)
+                        .id();
+                    let prev_file_list = ref_state
+                        .working_copy
+                        .paths()
+                        .map(ToOwned::to_owned)
+                        .collect();
+                    Self {
+                        test_repo: state.test_repo,
+                        prev_tree_id,
+                        prev_file_list,
+                    }
+                }
+
+                Transition::SetDirEntry { .. } => {
+                    // Do nothing; this is handled by the reference state machine.
+                    state
+                }
+            }
+        }
+
+        fn check_invariants(
+            state: &Self::SystemUnderTest,
+            ref_state: &WorkingCopyWithSelectionStateMachine,
+        ) {
+            let store = state.test_repo.repo.store();
+            let left_tree = store.get_root_tree(&state.prev_tree_id).unwrap();
+            let right_tree_id = ref_state
+                .working_copy
+                .create_tree(&state.test_repo.repo)
+                .id();
+            let right_tree = store.get_root_tree(&right_tree_id).unwrap();
+
+            let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
+
+            let mut files = files;
+            for (path, file) in changed_files.iter().zip(&mut files) {
+                for (section, selected) in file.sections.iter_mut().zip(&ref_state.selection_mask) {
+                    section.set_checked(*selected);
+                }
+
+                // Sanity checks: Does the partial selection make sense on its own?
+                if let Some(scm_record::Section::FileMode { is_checked, mode }) =
+                    file.sections.first()
+                {
+                    let did_file_exist = state.prev_file_list.contains(path);
+                    let is_anything_selected = file.sections.iter().any(|sec| match sec {
+                        scm_record::Section::FileMode { is_checked, .. }
+                        | scm_record::Section::Binary { is_checked, .. } => *is_checked,
+                        scm_record::Section::Changed { lines } => {
+                            lines.iter().any(|line| line.is_checked)
+                        }
+                        scm_record::Section::Unchanged { .. } => false,
+                    });
+
+                    if did_file_exist && *mode == scm_record::FileMode::Absent && *is_checked {
+                        // File was removed, so all sections need to be checked.
+                        file.set_checked(true);
+                    }
+                    if !did_file_exist && is_anything_selected {
+                        // File was created, so if any changes are selected, then so must the file
+                        // mode change.
+                        file.sections[0].set_checked(true);
+                    }
+                }
+
+                if state
+                    .prev_file_list
+                    .iter()
+                    .any(|f| f.ancestors().skip(1).contains(path.as_ref()))
+                {
+                    // Do not create files which would overwrite directories.
+                    file.set_checked(false);
+                }
+
+                if path
+                    .ancestors()
+                    .skip(1)
+                    .any(|dir| state.prev_file_list.contains(dir))
+                {
+                    // Do not create files which would create directories overwriting files.
+                    file.set_checked(false);
+                }
+            }
+
+            eprintln!("selected changes: {files:#?}");
+
+            let selected_changes_tree_id =
+                apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+            let selected_changes_tree = store.get_root_tree(&selected_changes_tree_id).unwrap();
+
+            eprintln!(
+                "selected changes intermediate tree:\n{}",
+                dump_tree(store, &selected_changes_tree_id)
+            );
+
+            // Transform `files` to create the complementary set of changes:
+            for file in &mut files {
+                // If a file mode change was applied, update the base mode.
+                if let Some(scm_record::Section::FileMode { is_checked, mode }) =
+                    file.sections.first()
+                {
+                    if *is_checked {
+                        file.file_mode = *mode;
+                    }
+                }
+
+                // If the file has been renamed, it's now in its new position.
+                file.old_path = None;
+
+                // Only keep sections which weren't selected previously. For text files,
+                // transform additions which have already been applied into `Unchanged` hunks.
+                file.sections = std::mem::take(&mut file.sections)
+                    .into_iter()
+                    .flat_map(|sec| {
+                        use scm_record::ChangeType::*;
+                        use scm_record::Section::*;
+                        use scm_record::SectionChangedLine;
+                        match sec {
+                            Changed { lines } => lines
+                                .into_iter()
+                                .filter_map(|line_change| match line_change {
+                                    SectionChangedLine {
+                                        is_checked: true,
+                                        change_type: Added,
+                                        line,
+                                    } => Some(Unchanged { lines: vec![line] }),
+                                    SectionChangedLine {
+                                        is_checked: true,
+                                        change_type: Removed,
+                                        line: _,
+                                    } => None,
+                                    SectionChangedLine {
+                                        is_checked: false, ..
+                                    } => Some(Changed {
+                                        lines: vec![line_change],
+                                    }),
+                                })
+                                .collect(),
+
+                            Unchanged { .. }
+                            | FileMode {
+                                is_checked: false, ..
+                            }
+                            | Binary {
+                                is_checked: false, ..
+                            } => vec![sec],
+
+                            FileMode {
+                                is_checked: true, ..
+                            }
+                            | Binary {
+                                is_checked: true, ..
+                            } => vec![],
+                        }
+                    })
+                    .collect();
+
+                // We want to select all of the remaining changes this time.
+                file.set_checked(true);
+            }
+
+            eprintln!("remaining changes: {files:#?}");
+
+            let all_changes_tree_id = apply_diff(
+                store,
+                &selected_changes_tree,
+                &right_tree,
+                &changed_files,
+                &files,
+            );
+            let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+            assert_tree_eq!(
+                &right_tree_id,
+                &all_changes_tree.id(),
+                store,
+                "all-changes tree was different",
+            );
+        }
+    }
+
+    #[derive(Debug, Clone, Default)]
+    struct WorkingCopyWithSelectionStateMachine {
+        working_copy: WorkingCopyReferenceStateMachine,
+        selection_mask: Vec<bool>,
+    }
+
+    impl ReferenceStateMachine for WorkingCopyWithSelectionStateMachine {
+        type State = Self;
+        type Transition = <WorkingCopyReferenceStateMachine as ReferenceStateMachine>::Transition;
+
+        fn init_state() -> BoxedStrategy<Self::State> {
+            (
+                WorkingCopyReferenceStateMachine::init_state(),
+                proptest::collection::vec(any::<bool>(), 20),
+            )
+                .prop_map(|(working_copy, selection_mask)| Self {
+                    working_copy,
+                    selection_mask,
+                })
+                .boxed()
+        }
+
+        fn transitions(state: &Self::State) -> BoxedStrategy<Self::Transition> {
+            WorkingCopyReferenceStateMachine::transitions(&state.working_copy)
+        }
+
+        fn apply(mut state: Self::State, transition: &Self::Transition) -> Self::State {
+            state.working_copy =
+                WorkingCopyReferenceStateMachine::apply(state.working_copy, transition);
+            state
+        }
     }
 }
