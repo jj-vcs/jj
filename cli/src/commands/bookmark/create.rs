@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
@@ -46,7 +47,11 @@ pub struct BookmarkCreateArgs {
     revision: Option<RevisionArg>,
 
     /// The bookmarks to create
-    #[arg(required = true, value_parser = revset_util::parse_bookmark_name)]
+    #[arg(
+        required = true,
+        value_parser = revset_util::parse_bookmark_name,
+        add = ArgValueCandidates::new(complete::bookmarks),
+    )]
     names: Vec<RefNameBuf>,
 }
 
