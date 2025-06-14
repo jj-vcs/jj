@@ -52,9 +52,11 @@ pub fn snapshot_progress(ui: &Ui) -> Option<impl Fn(&RepoPath) + use<>> {
 
         let line_width = state.output.term_width().map(usize::from).unwrap_or(80);
         let max_path_width = line_width.saturating_sub(13); // Account for "Snapshotting "
-        let fs_path = path.to_fs_path_unchecked(Path::new(""));
-        let (display_path, _) =
-            text_util::elide_start(fs_path.to_str().unwrap(), "...", max_path_width);
+        let path = path
+            .to_fs_path_unchecked(Path::new(""))
+            .display()
+            .to_string();
+        let (display_path, _) = text_util::elide_start(&path, "...", max_path_width);
 
         _ = write!(
             state.output,

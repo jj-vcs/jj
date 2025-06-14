@@ -1623,13 +1623,8 @@ impl FileSnapshotter<'_> {
                 message: format!("Failed to read symlink {}", disk_path.display()),
                 err: err.into(),
             })?;
-            let str_target =
-                target
-                    .to_str()
-                    .ok_or_else(|| SnapshotError::InvalidUtf8SymlinkTarget {
-                        path: disk_path.to_path_buf(),
-                    })?;
-            Ok(self.store().write_symlink(path, str_target).await?)
+            let contents = target.display().to_string();
+            Ok(self.store().write_symlink(path, &contents).await?)
         } else {
             let target = fs::read(disk_path).map_err(|err| SnapshotError::Other {
                 message: format!("Failed to read file {}", disk_path.display()),

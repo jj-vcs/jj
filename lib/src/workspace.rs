@@ -16,9 +16,7 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::fs::File;
 use std::io;
-use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -358,15 +356,7 @@ impl Workspace {
 
         let repo_dir = dunce::canonicalize(repo_path).context(repo_path)?;
         let repo_file_path = jj_dir.join("repo");
-        let mut repo_file = File::create(&repo_file_path).context(&repo_file_path)?;
-        repo_file
-            .write_all(
-                repo_dir
-                    .to_str()
-                    .ok_or(WorkspaceInitError::NonUnicodePath)?
-                    .as_bytes(),
-            )
-            .context(&repo_file_path)?;
+        fs::write(&repo_file_path, repo_dir.display().to_string()).context(&repo_file_path)?;
 
         let (working_copy, repo) = init_working_copy(
             repo,
