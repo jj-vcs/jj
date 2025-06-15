@@ -20,6 +20,7 @@ use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::refs::diff_named_ref_targets;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset::RevsetExpression;
 use jj_lib::rewrite::RewriteRefsOptions;
 use tracing::instrument;
 
@@ -78,8 +79,8 @@ pub(crate) fn cmd_abandon(
         writeln!(ui.warning_default(), "--summary is no longer supported.")?;
     }
     let mut workspace_command = command.workspace_helper(ui)?;
-    let to_abandon: IndexSet<_> =
-        if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
+    let to_abandon = {
+        let targets: Vec<_> = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
             workspace_command
                 .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
         } else {
@@ -87,6 +88,20 @@ pub(crate) fn cmd_abandon(
         }
         .evaluate_to_commit_ids()?
         .try_collect()?;
+        let visible: IndexSet<_> = RevsetExpression::commits(targets.clone())
+            .intersection(&RevsetExpression::visible_heads().ancestors())
+            .evaluate(workspace_command.repo().as_ref())?
+            .iter()
+            .try_collect()?;
+        if visible.len() < targets.len() {
+            writeln!(
+                ui.status(),
+                "Skipping {n} revisions that are already hidden.",
+                n = targets.len() - visible.len()
+            )?;
+        }
+        visible
+    };
     if to_abandon.is_empty() {
         writeln!(ui.status(), "No revisions to abandon.")?;
         return Ok(());

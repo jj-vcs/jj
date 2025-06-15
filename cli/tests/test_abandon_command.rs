@@ -422,9 +422,8 @@ fn test_double_abandon() {
     let output = work_dir.run_jj(["abandon", &commit_id]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned 1 commits:
-      rlvkpnrz hidden 7d980be7 a
-    Nothing changed.
+    Skipping 1 revisions that are already hidden.
+    No revisions to abandon.
     [EOF]
     ");
 }
