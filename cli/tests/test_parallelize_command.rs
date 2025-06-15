@@ -33,7 +33,7 @@ fn test_parallelize_no_descendants() {
     ○  8cfb27e238c8 3 parents: 2
     ○  320daf48ba58 2 parents: 1
     ○  884fe9b9c656 1 parents:
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 
@@ -52,7 +52,7 @@ fn test_parallelize_no_descendants() {
     ├─╯
     │ ○  884fe9b9c656 1 parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 }
@@ -75,7 +75,7 @@ fn test_parallelize_with_descendants_simple() {
     ○  8cfb27e238c8 3 parents: 2
     ○  320daf48ba58 2 parents: 1
     ○  884fe9b9c656 1 parents:
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 
@@ -93,7 +93,7 @@ fn test_parallelize_with_descendants_simple() {
     │ ├─╯
     ○ │  884fe9b9c656 1 parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 }
@@ -123,7 +123,7 @@ fn test_parallelize_where_interior_has_non_target_children() {
     ├─╯
     ○  320daf48ba58 2 parents: 1
     ○  884fe9b9c656 1 parents:
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 
@@ -143,7 +143,7 @@ fn test_parallelize_where_interior_has_non_target_children() {
     │ ├─╯
     ○ │  884fe9b9c656 1 parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 }
@@ -168,7 +168,7 @@ fn test_parallelize_where_root_has_non_target_children() {
     │ ○  2935e6f82e54 1c parents: 1
     ├─╯
     ○  884fe9b9c656 1 parents:
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
     work_dir
@@ -184,7 +184,7 @@ fn test_parallelize_where_root_has_non_target_children() {
     ├───╯
     ○ │  884fe9b9c656 1 parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 }
@@ -216,7 +216,7 @@ fn test_parallelize_with_merge_commit_child() {
     ○ │  320daf48ba58 2 parents: 1
     ○ │  884fe9b9c656 1 parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 
@@ -236,7 +236,7 @@ fn test_parallelize_with_merge_commit_child() {
     │ ├─╯
     ○ │  884fe9b9c656 1 parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 }
@@ -255,7 +255,7 @@ fn test_parallelize_disconnected_target_commits() {
     @  8cfb27e238c8 3 parents: 2
     ○  320daf48ba58 2 parents: 1
     ○  884fe9b9c656 1 parents:
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 
@@ -269,7 +269,7 @@ fn test_parallelize_disconnected_target_commits() {
     @  8cfb27e238c8 3 parents: 2
     ○  320daf48ba58 2 parents: 1
     ○  884fe9b9c656 1 parents:
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 }
@@ -297,7 +297,7 @@ fn test_parallelize_head_is_a_merge() {
     ○ │  42fc76489fb1 1 parents: 0
     ○ │  fc8a812f1b99 0 parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 
@@ -315,7 +315,7 @@ fn test_parallelize_head_is_a_merge() {
     ├───╯
     ○ │  fc8a812f1b99 0 parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 }
@@ -340,7 +340,7 @@ fn test_parallelize_interior_target_is_a_merge() {
     ○ │  42fc76489fb1 1 parents: 0
     ○ │  fc8a812f1b99 0 parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 
@@ -357,7 +357,7 @@ fn test_parallelize_interior_target_is_a_merge() {
     ├───╯
     ○ │  fc8a812f1b99 0 parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 }
@@ -382,7 +382,7 @@ fn test_parallelize_root_is_a_merge() {
     │ ○  2d5d6dbc7e1f x parents:
     ○ │  1ecf47f2262c y parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 
@@ -399,7 +399,7 @@ fn test_parallelize_root_is_a_merge() {
       │ ○  2d5d6dbc7e1f x parents:
       ○ │  1ecf47f2262c y parents:
       ├─╯
-      ◆  000000000000 parents:
+      ♦  000000000000 parents:
     [EOF]
     ");
 }
@@ -417,7 +417,7 @@ fn test_parallelize_multiple_heads() {
     │ ○  42fc76489fb1 1 parents: 0
     ├─╯
     ○  fc8a812f1b99 0 parents:
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 
@@ -430,7 +430,7 @@ fn test_parallelize_multiple_heads() {
     ├─╯
     │ ○  fc8a812f1b99 0 parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 }
@@ -451,7 +451,7 @@ fn test_parallelize_multiple_heads_with_and_without_children() {
     │ ○  42fc76489fb1 1 parents: 0
     ├─╯
     ○  fc8a812f1b99 0 parents:
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 
@@ -463,7 +463,7 @@ fn test_parallelize_multiple_heads_with_and_without_children() {
     ○  fc8a812f1b99 0 parents:
     │ ○  c4b1ea1106d1 1 parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 }
@@ -486,7 +486,7 @@ fn test_parallelize_multiple_roots() {
     │ ○  3ce82963438f a parents:
     ○ │  884fe9b9c656 1 parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 
@@ -500,7 +500,7 @@ fn test_parallelize_multiple_roots() {
     ├─╯
     │ ○  884fe9b9c656 1 parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 }
@@ -526,7 +526,7 @@ fn test_parallelize_multiple_heads_with_different_children() {
     │ ○  320daf48ba58 2 parents: 1
     │ ○  884fe9b9c656 1 parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 
@@ -550,7 +550,7 @@ fn test_parallelize_multiple_heads_with_different_children() {
     ├───╯
     │ ○  884fe9b9c656 1 parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 }
@@ -576,7 +576,7 @@ fn test_parallelize_multiple_roots_with_different_parents() {
     ○ │  320daf48ba58 2 parents: 1
     ○ │  884fe9b9c656 1 parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 
@@ -593,7 +593,7 @@ fn test_parallelize_multiple_roots_with_different_parents() {
     ├───╯
     ○ │  884fe9b9c656 1 parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 }
@@ -631,7 +631,7 @@ fn test_parallelize_complex_nonlinear_target() {
     │ ○  883b398bc1fd 1 parents: 0
     ├─╯
     ○  973f85cf2550 0 parents:
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 
@@ -659,7 +659,7 @@ fn test_parallelize_complex_nonlinear_target() {
     ├─╯
     │ ○  0f9aae95edbe 4 parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 }
@@ -694,13 +694,13 @@ fn test_parallelize_immutable_base_commits() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  1a0f8336974a y2 parents: y1
     ○  0e07ea90229f y1 parents: y
-    ◆  a0fb97fc193f y parents:
+    ♦  a0fb97fc193f y parents:
     │ ○  d6c30fecfe88 x3 parents: x2
     │ ○  6411b5818334 x2 parents: x1
     │ ○  6d01ab1fb731 x1 parents: x
-    │ ◆  8ceb28e1dc31 x parents:
+    │ ♦  8ceb28e1dc31 x parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 
@@ -717,11 +717,11 @@ fn test_parallelize_immutable_base_commits() {
     ├─╯
     │ ○  71aeaa5e8891 x1 parents:
     ├─╯
-    │ ◆  a0fb97fc193f y parents:
+    │ ♦  a0fb97fc193f y parents:
     ├─╯
-    │ ◆  8ceb28e1dc31 x parents:
+    │ ♦  8ceb28e1dc31 x parents:
     ├─╯
-    ◆  000000000000 parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 }
@@ -752,9 +752,9 @@ fn test_parallelize_no_immutable_non_base_commits() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  d6c30fecfe88 x3 parents: x2
     ○  6411b5818334 x2 parents: x1
-    ◆  6d01ab1fb731 x1 parents: x
-    ◆  8ceb28e1dc31 x parents:
-    ◆  000000000000 parents:
+    ♦  6d01ab1fb731 x1 parents: x
+    ♦  8ceb28e1dc31 x parents:
+    ♦  000000000000 parents:
     [EOF]
     ");
 
