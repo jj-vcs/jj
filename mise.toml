@@ -1,0 +1,58 @@
+#:schema https://mise.jdx.dev/schema/mise.json
+
+# NOTE: Tool versions repeat throughout this file. Here's why.
+# ----------
+#
+# We could use [vars], but they are not supported in task tools:
+# https://github.com/jdx/mise/discussions/4885
+#
+# We could at least set Rust in [tools], but then it can't be overridden per task.
+# (Another bug?)
+#
+# Finally, adding per-folder [tools] is a bit fragile in general:
+# If 'jj' is itself installed via Mise, any 'jj' invocation will want the tools.
+# And this can easily fail:
+#   - "cargo:" tools with unavailable binaries may fail to build on Windows,
+#   - a binary might not be available for your OS+architecture, etc.
+
+[tools]
+# We need cargo-binstall so that Mise would download "cargo:" tools instead of building them.
+"cargo-binstall" = "latest"
+
+[tasks."format"]
+description = "Format the code"
+tools.rust = "nightly"
+run = "cargo fmt"
+
+[tasks."lint"]
+description = "Lint the code"
+tools.rust = "1.86"  # newer clippy
+run = "cargo clippy --workspace --all-targets --all-features" # TODO: --all-features yay or nay?
+
+[tasks."zizmor"]
+description = "Check GitHub workflows with Zizmor"
+tools.uv = "0.5.1"
+run = "uvx zizmor ."
+
+[tasks."test"]
+description = "Run tests"
+tools.rust = "1.84"
+tools."cargo:cargo-insta" = "1.42.2"
+tools."cargo:cargo-nextest" = "0.9.93" # TODO: bump to 0.9.94 to get aarch64 on Win
+run = "cargo insta test --workspace --test-runner nextest"
+
+[tasks."update-cli-help"]
+description = "Update generated CLI help (cli/tests/cli-reference@.md.snap)"
+tools.rust = "1.84"
+tools."cargo:cargo-insta" = "1.42.2"
+run = "cargo insta test --accept --workspace -- test_generate_md_cli_help"
+
+[tasks."docs:build"]
+description = "Build documentation into rendered-docs/ for offline use"
+tools.uv = "0.5.1"
+run = "uv run mkdocs build -f mkdocs-offline.yml"
+
+[tasks."docs:serve"]
+description = "Preview documentation with live reloading"
+tools.uv = "0.5.1"
+run = "uv run mkdocs serve"
