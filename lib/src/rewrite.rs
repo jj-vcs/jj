@@ -313,7 +313,19 @@ pub fn rebase_commit_with_options(
         _ => None,
     };
     let new_parents_len = rewriter.new_parents.len();
-    if let Some(builder) = rewriter.rebase_with_empty_behavior(options.empty)? {
+    let predecessors = if options.preserve_predecessors {
+        rewriter
+            .mut_repo
+            .predecessors()
+            .get(rewriter.old_commit.id())
+            .cloned()
+    } else {
+        None
+    };
+    if let Some(mut builder) = rewriter.rebase_with_empty_behavior(options.empty)? {
+        if let Some(predecessors) = predecessors {
+            builder = builder.set_predecessors(predecessors);
+        }
         let new_commit = builder.write()?;
         Ok(RebasedCommit::Rewritten(new_commit))
     } else {
@@ -373,6 +385,7 @@ pub struct RebaseOptions {
     /// If a merge commit would end up with one parent being an ancestor of the
     /// other, then filter out the ancestor.
     pub simplify_ancestor_merge: bool,
+    pub preserve_predecessors: bool,
 }
 
 /// Configuration for [`MutableRepo::update_rewritten_references()`].
@@ -772,6 +785,7 @@ fn apply_move_commits(
         empty: EmptyBehaviour::Keep,
         rewrite_refs: options.rewrite_refs.clone(),
         simplify_ancestor_merge: options.simplify_ancestor_merge,
+        preserve_predecessors: options.preserve_predecessors,
     };
 
     let mut rebased_commits: HashMap<CommitId, RebasedCommit> = HashMap::new();
