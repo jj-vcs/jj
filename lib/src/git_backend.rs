@@ -350,6 +350,29 @@ impl GitBackend {
         self.base_repo.work_dir()
     }
 
+    /// Returns a copy of the underlying git config.
+    ///
+    /// Further changes to the underlying git config won't reflect to the
+    /// returned value and vice versa.
+    pub fn git_config(&self) -> gix::config::File<'static> {
+        self.lock_git_repo().config_snapshot().clone()
+    }
+
+    /// Set the git config.
+    ///
+    /// Note that changes to the configuration are in-memory only and are
+    /// observed only this instance of the [`GitBackend`], which behaves the
+    /// same as [`gix::Repository::config_snapshot_mut`].
+    pub fn git_config_set_raw_value<'a>(
+        &self,
+        key: &'static impl gix::config::AsKey,
+        new_value: impl Into<&'a bstr::BStr>,
+    ) -> Result<(), impl std::error::Error> {
+        let mut repo = self.lock_git_repo();
+        let mut config = repo.config_snapshot_mut();
+        config.set_raw_value(key, new_value).map(|_| ())
+    }
+
     fn cached_extra_metadata_table(&self) -> BackendResult<Arc<ReadonlyTable>> {
         let mut locked_head = self.cached_extra_metadata.lock().unwrap();
         match locked_head.as_ref() {

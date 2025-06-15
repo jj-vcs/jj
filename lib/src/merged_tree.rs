@@ -349,6 +349,7 @@ impl MergedTree {
 }
 
 /// A single entry in a tree diff.
+#[derive(Debug)]
 pub struct TreeDiffEntry {
     /// The path.
     pub path: RepoPathBuf,
