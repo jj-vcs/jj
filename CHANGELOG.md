@@ -21,6 +21,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj evolog` can now follow changes from multiple revisions such as divergent
   revisions.
 
+* The ANSI 256-color palette can be used when configuring colors. For example,
+  `colors."diff removed token" = { bg = "ansicolor52", underline = false }`
+  will apply a dark red background on removed words in diffs.
+
 ### Fixed bugs
 
 * `jj file annotate` can now process files at a hidden revision.
