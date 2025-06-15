@@ -1595,21 +1595,7 @@ fn test_op_diff_patch() {
     ○  + mzvwutvl 6cbd01ae (empty) (no description set)
     ○  + qpvuntsm 7aa2ec5d (no description set)
        - qpvuntsm hidden 6b57e33c (no description set)
-       diff --git a/file b/file
-       index 7898192261..6178079822 100644
-       --- a/file
-       +++ b/file
-       @@ -1,1 +1,1 @@
-       -a
-       +b
-    ○  - rlvkpnrz hidden 05a2969e (no description set)
-       diff --git a/file b/file
-       index 7898192261..6178079822 100644
-       --- a/file
-       +++ b/file
-       @@ -1,1 +1,1 @@
-       -a
-       +b
+       - rlvkpnrz hidden 05a2969e (no description set)
 
     Changed working copy default@:
     + mzvwutvl 6cbd01ae (empty) (no description set)
@@ -1733,6 +1719,7 @@ fn test_op_diff_sibling() {
     ○  - zsuskuln hidden 47b9525e A.2
        A file2
     ○  + qpvuntsm b1ca67e2 (empty) B
+       - qpvuntsm hidden e8849ae1 (empty) (no description set)
 
     Changed working copy default@:
     + qpvuntsm b1ca67e2 (empty) B
@@ -1854,7 +1841,7 @@ fn test_op_diff_divergent_change() {
     Changed commits:
     ○  + rlvkpnrz da3f472d 2ab
        - rlvkpnrz hidden 82ad1ba9 2b
-    ○  - rlvkpnrz hidden a7e9a63b 2a
+       - rlvkpnrz hidden a7e9a63b 2a
 
     Changed working copy default@:
     + rlvkpnrz da3f472d 2ab
@@ -1919,25 +1906,59 @@ fn test_op_diff_divergent_change() {
     Changed commits:
     ○  + rlvkpnrz da3f472d 2ab
        - rlvkpnrz hidden 82ad1ba9 2b
-       diff --git a/file b/file
-       index 5e0f51b37b..60327514e0 100644
-       --- a/file
-       +++ b/file
-       @@ -1,2 +1,3 @@
-       +2a
-        1
-        2b
-    ○  - rlvkpnrz hidden a7e9a63b 2a
-       diff --git a/file b/file
-       index d00491fd7e..13a46f22fa 100644
-       --- a/file
-       +++ b/file
-       @@ -1,1 +1,2 @@
-       +2a
-        1
+       - rlvkpnrz hidden a7e9a63b 2a
 
     Changed working copy default@:
     + rlvkpnrz da3f472d 2ab
+    - rlvkpnrz hidden 82ad1ba9 2b
+    [EOF]
+    ");
+
+    // Reverse diff of old divergence
+    let output = work_dir.run_jj([
+        "op",
+        "diff",
+        "--from",
+        &resolved_op_id,
+        "--to",
+        &divergent_op_id,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    From operation: 366c90c8bc44 (2001-02-03 08:05:15) squash commits into 82ad1ba9ded407bab6fea1524b207f49a02779a0
+      To operation: 80381a6750a7 (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+
+    Changed commits:
+    ○  + rlvkpnrz?? 82ad1ba9 2b
+       - rlvkpnrz hidden da3f472d 2ab
+    ○  + rlvkpnrz?? a7e9a63b 2a
+       - rlvkpnrz hidden da3f472d 2ab
+
+    Changed working copy default@:
+    + rlvkpnrz?? 82ad1ba9 2b
+    - rlvkpnrz hidden da3f472d 2ab
+    [EOF]
+    ");
+
+    // Reverse diff of new divergence
+    let output = work_dir.run_jj([
+        "op",
+        "diff",
+        "--from",
+        &divergent_op_id,
+        "--to",
+        &initial_op_id,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    From operation: 80381a6750a7 (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+      To operation: ef75d88dd5fe (2001-02-03 08:05:08) commit 5d86d4b609080a15077fcd723e537582d5ea6559
+
+    Changed commits:
+    ○  + rlvkpnrz 4f7a567a (empty) (no description set)
+       - rlvkpnrz hidden 82ad1ba9 2b
+       - rlvkpnrz hidden a7e9a63b 2a
+
+    Changed working copy default@:
+    + rlvkpnrz 4f7a567a (empty) (no description set)
     - rlvkpnrz hidden 82ad1ba9 2b
     [EOF]
     ");
@@ -2562,21 +2583,7 @@ fn test_op_show_patch() {
     ○  + mzvwutvl 6cbd01ae (empty) (no description set)
     ○  + qpvuntsm 7aa2ec5d (no description set)
        - qpvuntsm hidden 6b57e33c (no description set)
-       diff --git a/file b/file
-       index 7898192261..6178079822 100644
-       --- a/file
-       +++ b/file
-       @@ -1,1 +1,1 @@
-       -a
-       +b
-    ○  - rlvkpnrz hidden 05a2969e (no description set)
-       diff --git a/file b/file
-       index 7898192261..6178079822 100644
-       --- a/file
-       +++ b/file
-       @@ -1,1 +1,1 @@
-       -a
-       +b
+       - rlvkpnrz hidden 05a2969e (no description set)
 
     Changed working copy default@:
     + mzvwutvl 6cbd01ae (empty) (no description set)
@@ -2632,21 +2639,7 @@ fn test_op_show_patch() {
     │  ○  + mzvwutvl 6cbd01ae (empty) (no description set)
     │  ○  + qpvuntsm 7aa2ec5d (no description set)
     │     - qpvuntsm hidden 6b57e33c (no description set)
-    │     diff --git a/file b/file
-    │     index 7898192261..6178079822 100644
-    │     --- a/file
-    │     +++ b/file
-    │     @@ -1,1 +1,1 @@
-    │     -a
-    │     +b
-    │  ○  - rlvkpnrz hidden 05a2969e (no description set)
-    │     diff --git a/file b/file
-    │     index 7898192261..6178079822 100644
-    │     --- a/file
-    │     +++ b/file
-    │     @@ -1,1 +1,1 @@
-    │     -a
-    │     +b
+    │     - rlvkpnrz hidden 05a2969e (no description set)
     │
     │  Changed working copy default@:
     │  + mzvwutvl 6cbd01ae (empty) (no description set)
