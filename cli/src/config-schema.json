@@ -322,6 +322,10 @@
                         "bright white"
                     ]
                 },
+                "ansi256Color": {
+                    "type": "string",
+                    "pattern": "^ansi-color-([1-9]?[0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$"
+                },
                 "hexColor": {
                     "type": "string",
                     "pattern": "^#[0-9a-fA-F]{6}$"
@@ -330,6 +334,9 @@
                   "oneOf": [
                     {
                         "$ref": "#/properties/colors/definitions/colorNames"
+                    },
+                    {
+                        "$ref": "#/properties/colors/definitions/ansi256Color"
                     },
                     {
                         "$ref": "#/properties/colors/definitions/hexColor"
