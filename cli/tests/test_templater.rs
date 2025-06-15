@@ -530,6 +530,32 @@ fn test_templater_config_function() {
     ");
 }
 
+#[test]
+fn test_templater_json_function() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    insta::assert_snapshot!(get_template_output(&work_dir, "@", r#"json()"#), @r#"
+    {"commit_id":"e8849ae12c709f2321908879bc724fdb2ab8a781","change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","parents":["0000000000000000000000000000000000000000"],"author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:07+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:07+07:00"},"description":"","empty":true,"conflict":false,"divergent":false,"hidden":false,"current_working_copy":true,"immutable":false,"bookmarks":[],"tags":[],"remote_bookmarks":[]}
+    [EOF]
+    "#);
+
+    std::fs::write(work_dir.root().join("file1"), "content").unwrap();
+    work_dir.run_jj(["new", "-m", "commit 1"]).success();
+    work_dir
+        .run_jj(["new", "-m", r#"commit 2 with "quotes""#])
+        .success();
+
+    insta::assert_snapshot!(get_template_output(&work_dir, "::@", r#"json()"#), @r#"
+    {"commit_id":"3c9db14f67271cd2173cc8cbea771b7842429a6f","change_id":"zsuskulnrvyrovkzqrwmxqlsskqntxvp","parents":["11b07850de2f0441710cf30df519b8fb27cf3b98"],"author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:10+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:10+07:00"},"description":"commit 2 with \"quotes\"\n","empty":true,"conflict":false,"divergent":false,"hidden":false,"current_working_copy":true,"immutable":false,"bookmarks":[],"tags":[],"remote_bookmarks":[]}
+    {"commit_id":"11b07850de2f0441710cf30df519b8fb27cf3b98","change_id":"kkmpptxzrspxrzommnulwmwkkqwworpl","parents":["54326e422272959bb832282085b8d034f52165d7"],"author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"},"description":"commit 1\n","empty":true,"conflict":false,"divergent":false,"hidden":false,"current_working_copy":false,"immutable":false,"bookmarks":[],"tags":[],"remote_bookmarks":[]}
+    {"commit_id":"54326e422272959bb832282085b8d034f52165d7","change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","parents":["0000000000000000000000000000000000000000"],"author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"},"description":"","empty":false,"conflict":false,"divergent":false,"hidden":false,"current_working_copy":false,"immutable":false,"bookmarks":[],"tags":[],"remote_bookmarks":[]}
+    {"commit_id":"0000000000000000000000000000000000000000","change_id":"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz","parents":[],"author":{"name":"","email":"","timestamp":"1970-01-01T00:00:00+00:00"},"committer":{"name":"","email":"","timestamp":"1970-01-01T00:00:00+00:00"},"description":"","empty":true,"conflict":false,"divergent":false,"hidden":false,"current_working_copy":false,"immutable":true,"bookmarks":[],"tags":[],"remote_bookmarks":[]}
+    [EOF]
+    "#);
+}
+
 #[must_use]
 fn get_template_output(work_dir: &TestWorkDir, rev: &str, template: &str) -> CommandOutput {
     work_dir.run_jj(["log", "--no-graph", "-r", rev, "-T", template])

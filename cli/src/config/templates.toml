@@ -433,3 +433,33 @@ git_format_patch_email_headers = '''
 # Gerrit change id is 40 chars, jj change id is 32, so we need some padding.
 # `6a6a6964` is the hexadecimal of `jjid` in ASCII, just to not pad with zeros.
 "format_gerrit_change_id_trailer(commit)" = '"Change-Id: I6a6a6964" ++ commit.change_id().normal_hex() ++ "\n"'
+
+# JSON formatting function(s)
+'json()' = 'json(self)'
+'json(commit)' = '''concat("{",
+  separate(",",
+    '"commit_id":"' ++ stringify(commit.commit_id()) ++ '"',
+    '"change_id":"' ++ stringify(commit.change_id()) ++ '"',
+    '"parents":' ++ "[" ++ commit.parents().map(|p| '"' ++ stringify(p.commit_id()) ++ '"').join(",") ++ "]",
+    '"author":{' ++ separate(",",
+      '"name":"' ++ coalesce(commit.author().name(), "") ++ '"',
+      '"email":"' ++ coalesce(commit.author().email(), "") ++ '"',
+      '"timestamp":"' ++ commit.author().timestamp().format("%Y-%m-%dT%H:%M:%S%:z") ++ '"'
+    ) ++ "}",
+    '"committer":{' ++ separate(",",
+      '"name":"' ++ coalesce(commit.committer().name(), "") ++ '"',
+      '"email":"' ++ coalesce(commit.committer().email(), "") ++ '"',
+      '"timestamp":"' ++ commit.committer().timestamp().format("%Y-%m-%dT%H:%M:%S%:z") ++ '"'
+    ) ++ "}",
+    '"description":' ++ commit.description().escape_json(),
+    '"empty":' ++ if(commit.empty(), "true", "false"),
+    '"conflict":' ++ if(commit.conflict(), "true", "false"),
+    '"divergent":' ++ if(commit.divergent(), "true", "false"),
+    '"hidden":' ++ if(commit.hidden(), "true", "false"),
+    '"current_working_copy":' ++ if(commit.current_working_copy(), "true", "false"),
+    '"immutable":' ++ if(commit.immutable(), "true", "false"),
+    '"bookmarks":' ++ "[" ++ commit.bookmarks().map(|b| '"' ++ b ++ '"').join(",") ++ "]",
+    '"tags":' ++ "[" ++ commit.tags().map(|t| '"' ++ t ++ '"').join(",") ++ "]",
+    '"remote_bookmarks":' ++ "[" ++ commit.remote_bookmarks().map(|b| '"' ++ b ++ '"').join(",") ++ "]"
+  ),
+"}\n")'''

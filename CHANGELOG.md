@@ -21,6 +21,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj evolog` can now follow changes from multiple revisions such as divergent
   revisions.
 
+* A new pair of default template language functions, `json(commit)` and
+  `ndjson(commit)` can be used to output information about a commit in JSON
+  format. Default aliases `json()` and `ndjson()` are also included, which
+  simply call the function with `self`. This allows you to pass `-T 'ndjson()'`
+  to get full newline-delimited JSON output that you can pass to other tools like
+  jq, gron, etc.
+
 ### Fixed bugs
 
 * `jj file annotate` can now process files at a hidden revision.
