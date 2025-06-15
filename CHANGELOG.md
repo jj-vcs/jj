@@ -21,6 +21,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj evolog` can now follow changes from multiple revisions such as divergent
   revisions.
 
+* The ANSI 256-color palette can be used when configuring colors. For example,
+  `colors."diff removed token" = { bg = "ansicolor52", underline = false }`
+  will apply a dark red background on removed words in diffs.
+
 ### Fixed bugs
 
 * `jj file annotate` can now process files at a hidden revision.
@@ -768,7 +772,7 @@ Thanks to the people who made this release happen!
 * Added `--into` flag to `jj restore`, similarly to `jj squash` and `jj
   absorb`. It is equivalent to `--to`, but `--into` is the recommended name.
 
-* Italic text is now supported. You can set e.g. `color.error = { fg = "red",
+* Italic text is now supported. You can set e.g. `colors.error = { fg = "red",
   italic = true }` in your config.
 
 * New `author_name`/`author_email`/`committer_name`/`committer_email(pattern)`
@@ -3009,7 +3013,7 @@ Thanks to the people who made this release happen!
 * Per-repository configuration is now read from `.jj/repo/config.toml`.
 
 * Background colors, bold text, and underlining are now supported. You can set
-  e.g. `color.error = { bg = "red", bold = true, underline = true }` in your
+  e.g. `colors.error = { bg = "red", bold = true, underline = true }` in your
   `~/.jjconfig.toml`.
 
 * The `empty` condition in templates is true when the commit makes no change to

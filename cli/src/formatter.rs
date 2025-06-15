@@ -465,8 +465,8 @@ fn deserialize_color<'de, D>(deserializer: D) -> Result<Color, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let name_or_hex = String::deserialize(deserializer)?;
-    color_for_name_or_hex(&name_or_hex).map_err(D::Error::custom)
+    let name_or_index_or_hex = String::deserialize(deserializer)?;
+    color_for_string(&name_or_index_or_hex).map_err(D::Error::custom)
 }
 
 fn deserialize_color_opt<'de, D>(deserializer: D) -> Result<Option<Color>, D::Error>
@@ -476,8 +476,8 @@ where
     deserialize_color(deserializer).map(Some)
 }
 
-fn color_for_name_or_hex(name_or_hex: &str) -> Result<Color, String> {
-    match name_or_hex {
+fn color_for_string(name_or_index_or_hex: &str) -> Result<Color, String> {
+    match name_or_index_or_hex {
         "default" => Ok(Color::Reset),
         "black" => Ok(Color::Black),
         "red" => Ok(Color::DarkRed),
@@ -495,8 +495,18 @@ fn color_for_name_or_hex(name_or_hex: &str) -> Result<Color, String> {
         "bright magenta" => Ok(Color::Magenta),
         "bright cyan" => Ok(Color::Cyan),
         "bright white" => Ok(Color::White),
-        _ => color_for_hex(name_or_hex).ok_or_else(|| format!("Invalid color: {name_or_hex}")),
+        _ => color_for_ansi256_index(name_or_index_or_hex)
+            .or_else(|| color_for_hex(name_or_index_or_hex))
+            .ok_or_else(|| format!("Invalid color: {name_or_index_or_hex}")),
     }
+}
+
+fn color_for_ansi256_index(color: &str) -> Option<Color> {
+    color
+        .strip_prefix("ansicolor")
+        .filter(|s| s.len() <= 3)
+        .and_then(|n| n.parse::<u8>().ok())
+        .map(Color::AnsiValue)
 }
 
 fn color_for_hex(color: &str) -> Option<Color> {
@@ -836,6 +846,33 @@ mod tests {
     }
 
     #[test]
+    fn test_color_formatter_ansi256() {
+        // Test the color code for each color.
+        let config = config_from_string(indoc! {"
+            [colors]
+            black = 'ansicolor0'
+            purple = 'ansicolor93'
+            gray = 'ansicolor244'
+        "});
+        let colors: IndexMap<String, String> = config.get("colors").unwrap();
+        let mut output: Vec<u8> = vec![];
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        for label in colors.keys() {
+            formatter.push_label(&label.replace(' ', "-")).unwrap();
+            write!(formatter, " {label} ").unwrap();
+            formatter.pop_label().unwrap();
+            writeln!(formatter).unwrap();
+        }
+        drop(formatter);
+        insta::assert_snapshot!(to_snapshot_string(output), @r"
+        [38;5;0m black [39m
+        [38;5;93m purple [39m
+        [38;5;244m gray [39m
+        [EOF]
+        ");
+    }
+
+    #[test]
     fn test_color_formatter_hex_colors() {
         // Test the color code for each color.
         let config = config_from_string(indoc! {"
@@ -1079,6 +1116,21 @@ mod tests {
         let err = ColorFormatter::for_config(&mut output, &config, false).unwrap_err();
         insta::assert_snapshot!(err, @r#"Invalid type or value for colors."outer inner""#);
         insta::assert_snapshot!(err.source().unwrap(), @"Invalid color: bloo");
+    }
+
+    #[test]
+    fn test_color_formatter_unrecognized_ansi256_color() {
+        // An unrecognized ANSI color causes an error.
+        let config = config_from_string(
+            r##"
+            colors."outer" = "red"
+            colors."outer inner" = "ansicolor256"
+            "##,
+        );
+        let mut output: Vec<u8> = vec![];
+        let err = ColorFormatter::for_config(&mut output, &config, false).unwrap_err();
+        insta::assert_snapshot!(err, @r#"Invalid type or value for colors."outer inner""#);
+        insta::assert_snapshot!(err.source().unwrap(), @"Invalid color: ansicolor256");
     }
 
     #[test]
