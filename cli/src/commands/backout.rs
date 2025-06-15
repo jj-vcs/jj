@@ -26,7 +26,8 @@ use crate::complete;
 use crate::formatter::PlainTextFormatter;
 use crate::ui::Ui;
 
-/// Apply the reverse of given revisions on top of another revision
+/// (deprecated; use `revert`) Apply the reverse of given revisions on top of
+/// another revision
 ///
 /// The description of the new revisions can be customized with the
 /// `templates.backout_description` config variable.
