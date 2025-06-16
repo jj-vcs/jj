@@ -63,13 +63,13 @@ indoc = "2.0.6"
 insta = { version = "1.43.1", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
 itertools = "0.14.0"
-libc = { version = "0.2.172" }
+libc = { version = "0.2.173" }
 maplit = "1.0.2"
 num_cpus = "1.17.0"
 once_cell = "1.21.3"
 os_pipe = "1.2.2"
-pest = "2.8.0"
-pest_derive = "2.8.0"
+pest = "2.8.1"
+pest_derive = "2.8.1"
 pollster = "0.4.0"
 pretty_assertions = "1.4.1"
 proc-macro2 = "1.0.95"
@@ -89,14 +89,14 @@ sapling-streampager = "0.11.0"
 scm-record = "0.8.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.140"
-slab = "0.4.9"
+slab = "0.4.10"
 smallvec = { version = "1.15.1", features = [
     "const_generics",
     "const_new",
     "union",
 ] }
 strsim = "0.11.1"
-syn = "2.0.101"
+syn = "2.0.103"
 tempfile = "3.20.0"
 test-case = "3.3.1"
 textwrap = "0.16.2"
