@@ -23,6 +23,7 @@ use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::repo_path::RepoPathUiConverter;
+use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
 use jj_lib::working_copy::CheckoutOptions;
 use pollster::FutureExt as _;
@@ -376,6 +377,7 @@ pub fn run_mergetool_external(
     Ok((new_tree, partial_resolution_error))
 }
 
+#[expect(clippy::too_many_arguments)]
 pub fn edit_diff_external(
     editor: &ExternalMergeTool,
     left_tree: &MergedTree,
@@ -384,6 +386,7 @@ pub fn edit_diff_external(
     instructions: Option<&str>,
     base_ignores: Arc<GitIgnoreFile>,
     default_conflict_marker_style: ConflictMarkerStyle,
+    user_settings: &UserSettings,
 ) -> Result<MergedTreeId, DiffEditError> {
     let conflict_marker_style = editor
         .conflict_marker_style
@@ -402,6 +405,7 @@ pub fn edit_diff_external(
         got_output_field.then_some(DiffSide::Right),
         instructions,
         &options,
+        user_settings,
     )?;
 
     let patterns = diffedit_wc.working_copies.to_command_variables(false);
@@ -424,6 +428,7 @@ pub fn edit_diff_external(
 }
 
 /// Generates textual diff by the specified `tool` and writes into `writer`.
+#[expect(clippy::too_many_arguments)]
 pub fn generate_diff(
     ui: &Ui,
     writer: &mut dyn Write,
@@ -432,6 +437,7 @@ pub fn generate_diff(
     matcher: &dyn Matcher,
     tool: &ExternalMergeTool,
     default_conflict_marker_style: ConflictMarkerStyle,
+    user_settings: &UserSettings,
 ) -> Result<(), DiffGenerateError> {
     let conflict_marker_style = tool
         .conflict_marker_style
@@ -440,7 +446,15 @@ pub fn generate_diff(
         conflict_marker_style,
     };
     let store = left_tree.store();
-    let diff_wc = check_out_trees(store, left_tree, right_tree, matcher, None, &options)?;
+    let diff_wc = check_out_trees(
+        store,
+        left_tree,
+        right_tree,
+        matcher,
+        None,
+        &options,
+        user_settings,
+    )?;
     set_readonly_recursively(diff_wc.left_working_copy_path())
         .map_err(ExternalToolError::SetUpDir)?;
     set_readonly_recursively(diff_wc.right_working_copy_path())
