@@ -366,6 +366,7 @@ pub struct DiffRenderer<'a> {
     path_converter: &'a RepoPathUiConverter,
     conflict_marker_style: ConflictMarkerStyle,
     formats: Vec<DiffFormat>,
+    user_settings: &'a UserSettings,
 }
 
 impl<'a> DiffRenderer<'a> {
@@ -374,12 +375,14 @@ impl<'a> DiffRenderer<'a> {
         path_converter: &'a RepoPathUiConverter,
         conflict_marker_style: ConflictMarkerStyle,
         formats: Vec<DiffFormat>,
+        user_settings: &'a UserSettings,
     ) -> Self {
         DiffRenderer {
             repo,
             path_converter,
             conflict_marker_style,
             formats,
+            user_settings,
         }
     }
 
@@ -498,6 +501,7 @@ impl<'a> DiffRenderer<'a> {
                                 matcher,
                                 tool,
                                 self.conflict_marker_style,
+                                self.user_settings,
                             )
                             .map_err(DiffRenderError::DiffGenerate)
                         }

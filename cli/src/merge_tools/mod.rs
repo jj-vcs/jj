@@ -230,6 +230,7 @@ pub struct DiffEditor {
     base_ignores: Arc<GitIgnoreFile>,
     use_instructions: bool,
     conflict_marker_style: ConflictMarkerStyle,
+    user_settings: UserSettings,
 }
 
 impl DiffEditor {
@@ -274,6 +275,7 @@ impl DiffEditor {
             base_ignores,
             use_instructions: settings.get_bool("ui.diff-instructions")?,
             conflict_marker_style,
+            user_settings: settings.clone(),
         })
     }
 
@@ -309,6 +311,7 @@ impl DiffEditor {
                     instructions.as_deref(),
                     self.base_ignores.clone(),
                     self.conflict_marker_style,
+                    &self.user_settings,
                 )
             }
         }
