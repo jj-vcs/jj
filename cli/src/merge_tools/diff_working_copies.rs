@@ -13,6 +13,7 @@ use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateError;
+use jj_lib::local_working_copy::TreeStateSettings;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::Matcher;
 use jj_lib::merged_tree::MergedTree;
@@ -102,7 +103,7 @@ fn check_out(
 ) -> Result<TreeState, DiffCheckoutError> {
     std::fs::create_dir(&wc_dir).map_err(DiffCheckoutError::SetUpDir)?;
     std::fs::create_dir(&state_dir).map_err(DiffCheckoutError::SetUpDir)?;
-    let mut tree_state = TreeState::init(store, wc_dir, state_dir)?;
+    let mut tree_state = TreeState::init(store, wc_dir, state_dir, &TreeStateSettings::default())?;
     tree_state.set_sparse_patterns(sparse_patterns, options)?;
     tree_state.check_out(tree, options)?;
     Ok(tree_state)

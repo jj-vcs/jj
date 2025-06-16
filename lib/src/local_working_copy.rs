@@ -67,6 +67,7 @@ use crate::backend::SymlinkId;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::commit::Commit;
+use crate::config::ConfigGetError;
 use crate::conflicts;
 use crate::conflicts::choose_materialized_conflict_marker_len;
 use crate::conflicts::materialize_merge_result_to_bytes_with_marker_len;
@@ -104,6 +105,7 @@ use crate::ref_name::WorkspaceNameBuf;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;
+use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::tree::Tree;
 use crate::working_copy::CheckoutError;
@@ -432,6 +434,18 @@ impl<'a> IntoIterator for FileStates<'a> {
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
+    }
+}
+
+#[derive(Default, Clone, Debug)]
+#[non_exhaustive]
+/// Options that controls the behavior of the [`TreeState`] created.
+pub struct TreeStateSettings;
+
+impl TreeStateSettings {
+    /// Create [`TreeStateSettings`] from [`UserSettings`].
+    pub fn try_from_user_settings(_user_settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        Ok(Self)
     }
 }
 
@@ -790,6 +804,7 @@ impl TreeState {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
+        _tree_state_settings: &TreeStateSettings,
     ) -> Result<TreeState, TreeStateError> {
         let mut wc = TreeState::empty(store, working_copy_path, state_path);
         wc.save()?;
@@ -815,11 +830,12 @@ impl TreeState {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
+        tree_state_settings: &TreeStateSettings,
     ) -> Result<TreeState, TreeStateError> {
         let tree_state_path = state_path.join("tree_state");
         let file = match File::open(&tree_state_path) {
             Err(ref err) if err.kind() == io::ErrorKind::NotFound => {
-                return TreeState::init(store, working_copy_path, state_path);
+                return TreeState::init(store, working_copy_path, state_path, tree_state_settings);
             }
             Err(err) => {
                 return Err(TreeStateError::ReadTreeState {
@@ -2029,6 +2045,7 @@ pub struct LocalWorkingCopy {
     state_path: PathBuf,
     checkout_state: OnceCell<CheckoutState>,
     tree_state: OnceCell<TreeState>,
+    tree_state_settings: TreeStateSettings,
 }
 
 impl WorkingCopy for LocalWorkingCopy {
@@ -2072,6 +2089,7 @@ impl WorkingCopy for LocalWorkingCopy {
             // TODO: It's expensive to reload the whole tree. We should copy it from `self` if it
             // hasn't changed.
             tree_state: OnceCell::new(),
+            tree_state_settings: self.tree_state_settings.clone(),
         };
         let old_operation_id = wc.operation_id().clone();
         let old_tree_id = wc.tree_id()?.clone();
@@ -2100,6 +2118,7 @@ impl LocalWorkingCopy {
         state_path: PathBuf,
         operation_id: OperationId,
         workspace_name: WorkspaceNameBuf,
+        user_settings: &UserSettings,
     ) -> Result<LocalWorkingCopy, WorkingCopyStateError> {
         let proto = crate::protos::working_copy::Checkout {
             operation_id: operation_id.to_bytes(),
@@ -2111,19 +2130,28 @@ impl LocalWorkingCopy {
             .open(state_path.join("checkout"))
             .unwrap();
         file.write_all(&proto.encode_to_vec()).unwrap();
-        let tree_state =
-            TreeState::init(store.clone(), working_copy_path.clone(), state_path.clone()).map_err(
-                |err| WorkingCopyStateError {
-                    message: "Failed to initialize working copy state".to_string(),
-                    err: err.into(),
-                },
-            )?;
+        let tree_state_settings = TreeStateSettings::try_from_user_settings(user_settings)
+            .map_err(|err| WorkingCopyStateError {
+                message: "Failed to read the tree state settings".to_string(),
+                err: err.into(),
+            })?;
+        let tree_state = TreeState::init(
+            store.clone(),
+            working_copy_path.clone(),
+            state_path.clone(),
+            &tree_state_settings,
+        )
+        .map_err(|err| WorkingCopyStateError {
+            message: "Failed to initialize working copy state".to_string(),
+            err: err.into(),
+        })?;
         Ok(LocalWorkingCopy {
             store,
             working_copy_path,
             state_path,
             checkout_state: OnceCell::new(),
             tree_state: OnceCell::with_value(tree_state),
+            tree_state_settings,
         })
     }
 
@@ -2131,14 +2159,21 @@ impl LocalWorkingCopy {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
-    ) -> LocalWorkingCopy {
-        LocalWorkingCopy {
+        user_settings: &UserSettings,
+    ) -> Result<LocalWorkingCopy, WorkingCopyStateError> {
+        let tree_state_settings = TreeStateSettings::try_from_user_settings(user_settings)
+            .map_err(|err| WorkingCopyStateError {
+                message: "Failed to read the tree state settings".to_string(),
+                err: err.into(),
+            })?;
+        Ok(LocalWorkingCopy {
             store,
             working_copy_path,
             state_path,
             checkout_state: OnceCell::new(),
             tree_state: OnceCell::new(),
-        }
+            tree_state_settings,
+        })
     }
 
     pub fn state_path(&self) -> &Path {
@@ -2180,18 +2215,18 @@ impl LocalWorkingCopy {
 
     #[instrument(skip_all)]
     fn tree_state(&self) -> Result<&TreeState, WorkingCopyStateError> {
-        self.tree_state
-            .get_or_try_init(|| {
-                TreeState::load(
-                    self.store.clone(),
-                    self.working_copy_path.clone(),
-                    self.state_path.clone(),
-                )
-            })
+        self.tree_state.get_or_try_init(|| {
+            TreeState::load(
+                self.store.clone(),
+                self.working_copy_path.clone(),
+                self.state_path.clone(),
+                &self.tree_state_settings,
+            )
             .map_err(|err| WorkingCopyStateError {
                 message: "Failed to read working copy state".to_string(),
                 err: err.into(),
             })
+        })
     }
 
     fn tree_state_mut(&mut self) -> Result<&mut TreeState, WorkingCopyStateError> {
@@ -2248,6 +2283,7 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
         state_path: PathBuf,
         operation_id: OperationId,
         workspace_name: WorkspaceNameBuf,
+        settings: &UserSettings,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
         Ok(Box::new(LocalWorkingCopy::init(
             store,
@@ -2255,6 +2291,7 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
             state_path,
             operation_id,
             workspace_name,
+            settings,
         )?))
     }
 
@@ -2263,12 +2300,14 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
+        settings: &UserSettings,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
         Ok(Box::new(LocalWorkingCopy::load(
             store,
             working_copy_path,
             state_path,
-        )))
+            settings,
+        )?))
     }
 }
 
