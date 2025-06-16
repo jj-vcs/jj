@@ -26,6 +26,7 @@ use pollster::FutureExt as _;
 use testutils::commit_with_tree;
 use testutils::create_tree;
 use testutils::repo_path;
+use testutils::user_settings;
 use testutils::TestWorkspace;
 
 fn to_owned_path_vec(paths: &[&RepoPath]) -> Vec<RepoPathBuf> {
@@ -125,6 +126,7 @@ fn test_sparse_checkout() {
         repo.store().clone(),
         ws.workspace_root().to_path_buf(),
         wc.state_path().to_path_buf(),
+        &user_settings(),
     );
     assert_eq!(
         wc.file_states().unwrap().paths().collect_vec(),

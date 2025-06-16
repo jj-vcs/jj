@@ -60,6 +60,7 @@ use testutils::create_tree_with;
 use testutils::repo_path;
 use testutils::repo_path_buf;
 use testutils::repo_path_component;
+use testutils::user_settings;
 use testutils::write_random_commit;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
@@ -807,8 +808,12 @@ fn test_checkout_discard() {
     // The change should be reflected in the working copy but not saved
     assert!(!file1_path.to_fs_path_unchecked(&workspace_root).is_file());
     assert!(file2_path.to_fs_path_unchecked(&workspace_root).is_file());
-    let reloaded_wc =
-        LocalWorkingCopy::load(store.clone(), workspace_root.clone(), state_path.clone());
+    let reloaded_wc = LocalWorkingCopy::load(
+        store.clone(),
+        workspace_root.clone(),
+        state_path.clone(),
+        &user_settings(),
+    );
     assert!(reloaded_wc.file_states().unwrap().contains_path(file1_path));
     assert!(!reloaded_wc.file_states().unwrap().contains_path(file2_path));
     drop(locked_ws);
@@ -819,7 +824,8 @@ fn test_checkout_discard() {
     assert!(!wc.file_states().unwrap().contains_path(file2_path));
     assert!(!file1_path.to_fs_path_unchecked(&workspace_root).is_file());
     assert!(file2_path.to_fs_path_unchecked(&workspace_root).is_file());
-    let reloaded_wc = LocalWorkingCopy::load(store.clone(), workspace_root, state_path);
+    let reloaded_wc =
+        LocalWorkingCopy::load(store.clone(), workspace_root, state_path, &user_settings());
     assert!(reloaded_wc.file_states().unwrap().contains_path(file1_path));
     assert!(!reloaded_wc.file_states().unwrap().contains_path(file2_path));
 }
