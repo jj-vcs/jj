@@ -91,6 +91,7 @@ use crate::template_parser::TemplateDiagnostics;
 use crate::template_parser::TemplateParseError;
 use crate::template_parser::TemplateParseResult;
 use crate::templater;
+use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
 use crate::templater::ListTemplate;
 use crate::templater::PlainTextFormattedProperty;
@@ -488,6 +489,34 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
                 let template = self.try_into_template()?;
                 Some(PlainTextFormattedProperty::new(template).into_dyn())
             }
+        }
+    }
+
+    fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'repo>> {
+        match self {
+            Self::Core(property) => property.try_into_serialize(),
+            Self::Commit(_) => None,
+            Self::CommitOpt(_) => None,
+            Self::CommitList(_) => None,
+            Self::CommitRef(_) => None,
+            Self::CommitRefOpt(_) => None,
+            Self::CommitRefList(_) => None,
+            Self::RefSymbol(property) => Some(property.into_serialize()),
+            Self::RefSymbolOpt(property) => Some(property.into_serialize()),
+            Self::RepoPath(_) => None,
+            Self::RepoPathOpt(_) => None,
+            Self::ChangeId(_) => None,
+            Self::CommitId(_) => None,
+            Self::ShortestIdPrefix(_) => None,
+            Self::TreeDiff(_) => None,
+            Self::TreeDiffEntry(_) => None,
+            Self::TreeDiffEntryList(_) => None,
+            Self::TreeEntry(_) => None,
+            Self::DiffStats(_) => None,
+            Self::CryptographicSignatureOpt(_) => None,
+            Self::AnnotationLine(_) => None,
+            Self::Trailer(_) => None,
+            Self::TrailerList(_) => None,
         }
     }
 
@@ -1511,7 +1540,8 @@ fn build_commit_refs_index<'a, K: Into<String>>(
 }
 
 /// Wrapper to render ref/remote name in revset syntax.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
+#[serde(transparent)]
 pub struct RefSymbolBuf(String);
 
 impl AsRef<str> for RefSymbolBuf {

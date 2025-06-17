@@ -105,7 +105,8 @@ impl Template for Signature {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
+#[serde(transparent)]
 pub struct Email(pub String);
 
 impl Template for Email {
@@ -389,6 +390,8 @@ tuple_impls! {
 }
 
 pub type BoxedTemplateProperty<'a, O> = Box<dyn TemplateProperty<Output = O> + 'a>;
+pub type BoxedSerializeProperty<'a> =
+    BoxedTemplateProperty<'a, Box<dyn erased_serde::Serialize + 'a>>;
 
 /// `TemplateProperty` adapters that are useful when implementing methods.
 pub trait TemplatePropertyExt: TemplateProperty {
@@ -421,6 +424,15 @@ pub trait TemplatePropertyExt: TemplateProperty {
         self.and_then(move |opt| {
             opt.ok_or_else(|| TemplatePropertyError(format!("No {type_name} available").into()))
         })
+    }
+
+    /// Converts this property into boxed serialize property.
+    fn into_serialize<'a>(self) -> BoxedSerializeProperty<'a>
+    where
+        Self: Sized + 'a,
+        Self::Output: serde::Serialize,
+    {
+        Box::new(self.map(|value| Box::new(value) as Box<dyn erased_serde::Serialize>))
     }
 
     /// Converts this property into `Template`.

@@ -27,6 +27,7 @@ use crate::template_parser;
 use crate::template_parser::FunctionCallNode;
 use crate::template_parser::TemplateDiagnostics;
 use crate::template_parser::TemplateParseResult;
+use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
 use crate::templater::ListTemplate;
 use crate::templater::Template;
@@ -193,6 +194,13 @@ impl<'a, C> CoreTemplatePropertyVar<'a> for GenericTemplatePropertyKind<'a, C> {
     fn try_into_plain_text(self) -> Option<BoxedTemplateProperty<'a, String>> {
         match self {
             Self::Core(property) => property.try_into_plain_text(),
+            Self::Self_(_) => None,
+        }
+    }
+
+    fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
+        match self {
+            Self::Core(property) => property.try_into_serialize(),
             Self::Self_(_) => None,
         }
     }

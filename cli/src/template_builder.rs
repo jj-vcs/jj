@@ -42,6 +42,7 @@ use crate::template_parser::TemplateParseError;
 use crate::template_parser::TemplateParseErrorKind;
 use crate::template_parser::TemplateParseResult;
 use crate::template_parser::UnaryOp;
+use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
 use crate::templater::CoalesceTemplate;
 use crate::templater::ConcatTemplate;
@@ -171,6 +172,7 @@ where
     fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>>;
 
     fn try_into_plain_text(self) -> Option<BoxedTemplateProperty<'a, String>>;
+    fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>>;
     fn try_into_template(self) -> Option<Box<dyn Template + 'a>>;
 
     /// Transforms into a property that will evaluate to `self == other`.
@@ -296,6 +298,24 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 let template = self.try_into_template()?;
                 Some(PlainTextFormattedProperty::new(template).into_dyn())
             }
+        }
+    }
+
+    fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
+        match self {
+            Self::String(property) => Some(property.into_serialize()),
+            Self::StringList(property) => Some(property.into_serialize()),
+            Self::Boolean(property) => Some(property.into_serialize()),
+            Self::Integer(property) => Some(property.into_serialize()),
+            Self::IntegerOpt(property) => Some(property.into_serialize()),
+            Self::ConfigValue(_) => None,
+            Self::Signature(_) => None,
+            Self::Email(property) => Some(property.into_serialize()),
+            Self::SizeHint(property) => Some(property.into_serialize()),
+            Self::Timestamp(_) => None,
+            Self::TimestampRange(_) => None,
+            Self::Template(_) => None,
+            Self::ListTemplate(_) => None,
         }
     }
 
@@ -662,6 +682,10 @@ impl<'a, P: CoreTemplatePropertyVar<'a>> Expression<P> {
 
     pub fn try_into_plain_text(self) -> Option<BoxedTemplateProperty<'a, String>> {
         self.property.try_into_plain_text()
+    }
+
+    pub fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
+        self.property.try_into_serialize()
     }
 
     pub fn try_into_template(self) -> Option<Box<dyn Template + 'a>> {
@@ -1959,6 +1983,22 @@ pub fn expect_plain_text_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
         node,
         "Template",
         |expression| expression.try_into_plain_text(),
+    )
+}
+
+pub fn expect_serialize_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
+    language: &L,
+    diagnostics: &mut TemplateDiagnostics,
+    build_ctx: &BuildContext<L::Property>,
+    node: &ExpressionNode,
+) -> TemplateParseResult<BoxedSerializeProperty<'a>> {
+    expect_expression_of_type(
+        language,
+        diagnostics,
+        build_ctx,
+        node,
+        "Serialize",
+        |expression| expression.try_into_serialize(),
     )
 }
 

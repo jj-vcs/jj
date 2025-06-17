@@ -37,6 +37,7 @@ use crate::template_parser;
 use crate::template_parser::FunctionCallNode;
 use crate::template_parser::TemplateDiagnostics;
 use crate::template_parser::TemplateParseResult;
+use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
 use crate::templater::ListTemplate;
 use crate::templater::PlainTextFormattedProperty;
@@ -187,6 +188,14 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
                 let template = self.try_into_template()?;
                 Some(PlainTextFormattedProperty::new(template).into_dyn())
             }
+        }
+    }
+
+    fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'static>> {
+        match self {
+            Self::Core(property) => property.try_into_serialize(),
+            Self::Operation(_) => None,
+            Self::OperationId(_) => None,
         }
     }
 
