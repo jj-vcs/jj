@@ -389,7 +389,7 @@ impl ReadonlyIndexSegment {
         self.change_id_length
     }
 
-    fn graph_entry(&self, local_pos: LocalPosition) -> CommitGraphEntry {
+    fn graph_entry(&self, local_pos: LocalPosition) -> CommitGraphEntry<'_> {
         let table = &self.data[..self.commit_lookup_base];
         let entry_size = CommitGraphEntry::size(self.commit_id_length);
         let offset = (local_pos.0 as usize) * entry_size;

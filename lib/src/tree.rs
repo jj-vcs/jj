@@ -110,7 +110,7 @@ impl Tree {
         &self.data
     }
 
-    pub fn entries_non_recursive(&self) -> TreeEntriesNonRecursiveIterator {
+    pub fn entries_non_recursive(&self) -> TreeEntriesNonRecursiveIterator<'_> {
         self.data.entries()
     }
 

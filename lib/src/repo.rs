@@ -923,13 +923,17 @@ impl MutableRepo {
     }
 
     /// Returns a [`CommitBuilder`] to write new commit to the repo.
-    pub fn new_commit(&mut self, parents: Vec<CommitId>, tree_id: MergedTreeId) -> CommitBuilder {
+    pub fn new_commit(
+        &mut self,
+        parents: Vec<CommitId>,
+        tree_id: MergedTreeId,
+    ) -> CommitBuilder<'_> {
         let settings = self.base_repo.settings();
         DetachedCommitBuilder::for_new_commit(self, settings, parents, tree_id).attach(self)
     }
 
     /// Returns a [`CommitBuilder`] to rewrite an existing commit in the repo.
-    pub fn rewrite_commit(&mut self, predecessor: &Commit) -> CommitBuilder {
+    pub fn rewrite_commit(&mut self, predecessor: &Commit) -> CommitBuilder<'_> {
         let settings = self.base_repo.settings();
         DetachedCommitBuilder::for_rewrite_from(self, settings, predecessor).attach(self)
         // CommitBuilder::write will record the rewrite in

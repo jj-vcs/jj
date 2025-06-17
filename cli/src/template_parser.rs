@@ -419,7 +419,7 @@ fn parse_identifier_or_literal(pair: Pair<Rule>) -> ExpressionKind {
     }
 }
 
-fn parse_identifier_name(pair: Pair<Rule>) -> TemplateParseResult<&str> {
+fn parse_identifier_name(pair: Pair<'_, Rule>) -> TemplateParseResult<&str> {
     let span = pair.as_span();
     if let ExpressionKind::Identifier(name) = parse_identifier_or_literal(pair) {
         Ok(name)
@@ -428,7 +428,7 @@ fn parse_identifier_name(pair: Pair<Rule>) -> TemplateParseResult<&str> {
     }
 }
 
-fn parse_formal_parameters(params_pair: Pair<Rule>) -> TemplateParseResult<Vec<&str>> {
+fn parse_formal_parameters(params_pair: Pair<'_, Rule>) -> TemplateParseResult<Vec<&str>> {
     assert_eq!(params_pair.as_rule(), Rule::formal_parameters);
     let params_span = params_pair.as_span();
     let params: Vec<_> = params_pair
@@ -591,7 +591,7 @@ fn parse_template_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> 
 }
 
 /// Parses text into AST nodes. No type/name checking is made at this stage.
-pub fn parse_template(template_text: &str) -> TemplateParseResult<ExpressionNode> {
+pub fn parse_template(template_text: &str) -> TemplateParseResult<ExpressionNode<'_>> {
     let mut pairs: Pairs<Rule> = TemplateParser::parse(Rule::program, template_text)?;
     let first_pair = pairs.next().unwrap();
     if first_pair.as_rule() == Rule::EOI {
@@ -773,13 +773,13 @@ mod tests {
         WithTemplateAliasesMap(aliases_map)
     }
 
-    fn parse_into_kind(template_text: &str) -> Result<ExpressionKind, TemplateParseErrorKind> {
+    fn parse_into_kind(template_text: &str) -> Result<ExpressionKind<'_>, TemplateParseErrorKind> {
         parse_template(template_text)
             .map(|node| node.kind)
             .map_err(|err| err.kind)
     }
 
-    fn parse_normalized(template_text: &str) -> ExpressionNode {
+    fn parse_normalized(template_text: &str) -> ExpressionNode<'_> {
         normalize_tree(parse_template(template_text).unwrap())
     }
 

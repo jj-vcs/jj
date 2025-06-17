@@ -370,7 +370,7 @@ impl Tree {
         self.entries.keys().map(|name| name.as_ref())
     }
 
-    pub fn entries(&self) -> TreeEntriesNonRecursiveIterator {
+    pub fn entries(&self) -> TreeEntriesNonRecursiveIterator<'_> {
         TreeEntriesNonRecursiveIterator {
             iter: self.entries.iter(),
         }
@@ -395,7 +395,7 @@ impl Tree {
         }
     }
 
-    pub fn entry(&self, name: &RepoPathComponent) -> Option<TreeEntry> {
+    pub fn entry(&self, name: &RepoPathComponent) -> Option<TreeEntry<'_>> {
         self.entries
             .get_key_value(name)
             .map(|(name, value)| TreeEntry { name, value })
@@ -545,7 +545,7 @@ pub trait Backend: Send + Sync + Debug {
         paths: Option<&[RepoPathBuf]>,
         root: &CommitId,
         head: &CommitId,
-    ) -> BackendResult<BoxStream<BackendResult<CopyRecord>>>;
+    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>>;
 
     /// Perform garbage collection.
     ///

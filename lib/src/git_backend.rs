@@ -1385,7 +1385,7 @@ impl Backend for GitBackend {
         paths: Option<&[RepoPathBuf]>,
         root_id: &CommitId,
         head_id: &CommitId,
-    ) -> BackendResult<BoxStream<BackendResult<CopyRecord>>> {
+    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
         let repo = self.git_repo();
         let root_tree = self.read_tree_for_commit(&repo, root_id)?;
         let head_tree = self.read_tree_for_commit(&repo, head_id)?;

@@ -314,7 +314,7 @@ fn parse_expression_node(pair: Pair<Rule>) -> FilesetParseResult<ExpressionNode>
 }
 
 /// Parses text into expression tree. No name resolution is made at this stage.
-pub fn parse_program(text: &str) -> FilesetParseResult<ExpressionNode> {
+pub fn parse_program(text: &str) -> FilesetParseResult<ExpressionNode<'_>> {
     let mut pairs = FilesetParser::parse(Rule::program, text)?;
     let first = pairs.next().unwrap();
     parse_expression_node(first)
@@ -325,7 +325,7 @@ pub fn parse_program(text: &str) -> FilesetParseResult<ExpressionNode> {
 ///
 /// If the text can't be parsed as a fileset expression, and if it doesn't
 /// contain any operator-like characters, it will be parsed as a file path.
-pub fn parse_program_or_bare_string(text: &str) -> FilesetParseResult<ExpressionNode> {
+pub fn parse_program_or_bare_string(text: &str) -> FilesetParseResult<ExpressionNode<'_>> {
     let mut pairs = FilesetParser::parse(Rule::program_or_bare_string, text)?;
     let first = pairs.next().unwrap();
     let span = first.as_span();
@@ -353,23 +353,23 @@ mod tests {
     use super::*;
     use crate::dsl_util::KeywordArgument;
 
-    fn parse_into_kind(text: &str) -> Result<ExpressionKind, FilesetParseErrorKind> {
+    fn parse_into_kind(text: &str) -> Result<ExpressionKind<'_>, FilesetParseErrorKind> {
         parse_program(text)
             .map(|node| node.kind)
             .map_err(|err| err.kind)
     }
 
-    fn parse_maybe_bare_into_kind(text: &str) -> Result<ExpressionKind, FilesetParseErrorKind> {
+    fn parse_maybe_bare_into_kind(text: &str) -> Result<ExpressionKind<'_>, FilesetParseErrorKind> {
         parse_program_or_bare_string(text)
             .map(|node| node.kind)
             .map_err(|err| err.kind)
     }
 
-    fn parse_normalized(text: &str) -> ExpressionNode {
+    fn parse_normalized(text: &str) -> ExpressionNode<'_> {
         normalize_tree(parse_program(text).unwrap())
     }
 
-    fn parse_maybe_bare_normalized(text: &str) -> ExpressionNode {
+    fn parse_maybe_bare_normalized(text: &str) -> ExpressionNode<'_> {
         normalize_tree(parse_program_or_bare_string(text).unwrap())
     }
 

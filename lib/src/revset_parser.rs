@@ -465,7 +465,7 @@ fn union_nodes<'i>(lhs: ExpressionNode<'i>, rhs: ExpressionNode<'i>) -> Expressi
 }
 
 /// Parses text into expression tree. No name resolution is made at this stage.
-pub fn parse_program(revset_str: &str) -> Result<ExpressionNode, RevsetParseError> {
+pub fn parse_program(revset_str: &str) -> Result<ExpressionNode<'_>, RevsetParseError> {
     let mut pairs = RevsetParser::parse(Rule::program, revset_str)?;
     let first = pairs.next().unwrap();
     match first.as_rule() {
@@ -885,13 +885,13 @@ mod tests {
         }
     }
 
-    fn parse_into_kind(text: &str) -> Result<ExpressionKind, RevsetParseErrorKind> {
+    fn parse_into_kind(text: &str) -> Result<ExpressionKind<'_>, RevsetParseErrorKind> {
         parse_program(text)
             .map(|node| node.kind)
             .map_err(|err| *err.kind)
     }
 
-    fn parse_normalized(text: &str) -> ExpressionNode {
+    fn parse_normalized(text: &str) -> ExpressionNode<'_> {
         normalize_tree(parse_program(text).unwrap())
     }
 

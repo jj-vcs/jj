@@ -391,7 +391,7 @@ impl ConfigLayer {
     pub fn look_up_table(
         &self,
         name: impl ToConfigNamePath,
-    ) -> Result<Option<&ConfigTableLike>, &ConfigItem> {
+    ) -> Result<Option<&ConfigTableLike<'_>>, &ConfigItem> {
         match self.look_up_item(name) {
             Ok(Some(item)) => match item.as_table_like() {
                 Some(table) => Ok(Some(table)),
@@ -492,7 +492,7 @@ impl ConfigLayer {
     pub fn ensure_table(
         &mut self,
         name: impl ToConfigNamePath,
-    ) -> Result<&mut ConfigTableLike, ConfigUpdateError> {
+    ) -> Result<&mut ConfigTableLike<'_>, ConfigUpdateError> {
         let would_overwrite_table = |name| ConfigUpdateError::WouldOverwriteValue { name };
         let name = name.into_name_path();
         let name = name.borrow();

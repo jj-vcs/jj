@@ -152,7 +152,7 @@ impl MergedTree {
     /// `self` is a `Merge`, which happens if the value at the path can be
     /// trivially merged. Does not recurse, so if `basename` refers to a Tree,
     /// then a `TreeValue::Tree` will be returned.
-    pub fn value(&self, basename: &RepoPathComponent) -> MergedTreeVal {
+    pub fn value(&self, basename: &RepoPathComponent) -> MergedTreeVal<'_> {
         trees_value(&self.trees, basename)
     }
 

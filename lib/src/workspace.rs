@@ -422,7 +422,7 @@ impl Workspace {
 
     pub fn start_working_copy_mutation(
         &mut self,
-    ) -> Result<LockedWorkspace, WorkingCopyStateError> {
+    ) -> Result<LockedWorkspace<'_>, WorkingCopyStateError> {
         let locked_wc = self.working_copy.start_mutation()?;
         Ok(LockedWorkspace {
             base: self,

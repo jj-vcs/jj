@@ -758,7 +758,7 @@ pub enum CommandNameAndArgs {
 
 impl CommandNameAndArgs {
     /// Returns command name without arguments.
-    pub fn split_name(&self) -> Cow<str> {
+    pub fn split_name(&self) -> Cow<'_, str> {
         let (name, _) = self.split_name_and_args();
         name
     }
@@ -766,7 +766,7 @@ impl CommandNameAndArgs {
     /// Returns command name and arguments.
     ///
     /// The command name may be an empty string (as well as each argument.)
-    pub fn split_name_and_args(&self) -> (Cow<str>, Cow<[String]>) {
+    pub fn split_name_and_args(&self) -> (Cow<'_, str>, Cow<'_, [String]>) {
         match self {
             CommandNameAndArgs::String(s) => {
                 // Handle things like `EDITOR=emacs -nw` (TODO: parse shell escapes)

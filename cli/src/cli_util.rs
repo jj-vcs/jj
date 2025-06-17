@@ -825,7 +825,7 @@ impl WorkspaceCommandEnvironment {
         &self.workspace_name
     }
 
-    pub(crate) fn revset_parse_context(&self) -> RevsetParseContext {
+    pub(crate) fn revset_parse_context(&self) -> RevsetParseContext<'_> {
         let workspace_context = RevsetWorkspaceContext {
             path_converter: &self.path_converter,
             workspace_name: &self.workspace_name,
@@ -1243,7 +1243,7 @@ impl WorkspaceCommandHelper {
 
     pub fn unchecked_start_working_copy_mutation(
         &mut self,
-    ) -> Result<(LockedWorkspace, Commit), CommandError> {
+    ) -> Result<(LockedWorkspace<'_>, Commit), CommandError> {
         self.check_working_copy_writable()?;
         let wc_commit = if let Some(wc_commit_id) = self.get_wc_commit_id() {
             self.repo().store().get_commit(wc_commit_id)?
@@ -1258,7 +1258,7 @@ impl WorkspaceCommandHelper {
 
     pub fn start_working_copy_mutation(
         &mut self,
-    ) -> Result<(LockedWorkspace, Commit), CommandError> {
+    ) -> Result<(LockedWorkspace<'_>, Commit), CommandError> {
         let (mut locked_ws, wc_commit) = self.unchecked_start_working_copy_mutation()?;
         if wc_commit.tree_id() != locked_ws.locked_wc().old_tree_id() {
             return Err(user_error("Concurrent working copy operation. Try again."));
@@ -2045,7 +2045,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         Ok(())
     }
 
-    pub fn start_transaction(&mut self) -> WorkspaceCommandTransaction {
+    pub fn start_transaction(&mut self) -> WorkspaceCommandTransaction<'_> {
         let tx = start_repo_transaction(self.repo(), self.env.command.string_args());
         let id_prefix_context = mem::take(&mut self.user_repo.id_prefix_context);
         WorkspaceCommandTransaction {

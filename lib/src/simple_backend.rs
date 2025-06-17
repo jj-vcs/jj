@@ -378,7 +378,7 @@ impl Backend for SimpleBackend {
         _paths: Option<&[RepoPathBuf]>,
         _root: &CommitId,
         _head: &CommitId,
-    ) -> BackendResult<BoxStream<BackendResult<CopyRecord>>> {
+    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
         Ok(Box::pin(stream::empty()))
     }
 
