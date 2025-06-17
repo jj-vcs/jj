@@ -63,6 +63,7 @@ clap_mangen = { workspace = true }
 criterion = { workspace = true, optional = true }
 crossterm = { workspace = true }
 dunce = { workspace = true }
+erased-serde = { workspace = true }
 etcetera = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true, optional = true }
@@ -144,4 +145,3 @@ assets = [
     { source = "target/release/jj", dest = "usr/bin/", mode = "755"},
 ]
 default-features = true
-
