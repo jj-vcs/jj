@@ -195,7 +195,7 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
         match self {
             Self::Core(property) => property.try_into_serialize(),
             Self::Operation(_) => None,
-            Self::OperationId(_) => None,
+            Self::OperationId(property) => Some(property.into_serialize()),
         }
     }
 

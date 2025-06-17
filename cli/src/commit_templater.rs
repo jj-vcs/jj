@@ -502,11 +502,11 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::CommitRefList(_) => None,
             Self::RefSymbol(property) => Some(property.into_serialize()),
             Self::RefSymbolOpt(property) => Some(property.into_serialize()),
-            Self::RepoPath(_) => None,
-            Self::RepoPathOpt(_) => None,
-            Self::ChangeId(_) => None,
-            Self::CommitId(_) => None,
-            Self::ShortestIdPrefix(_) => None,
+            Self::RepoPath(property) => Some(property.into_serialize()),
+            Self::RepoPathOpt(property) => Some(property.into_serialize()),
+            Self::ChangeId(property) => Some(property.into_serialize()),
+            Self::CommitId(property) => Some(property.into_serialize()),
+            Self::ShortestIdPrefix(property) => Some(property.into_serialize()),
             Self::TreeDiff(_) => None,
             Self::TreeDiffEntry(_) => None,
             Self::TreeDiffEntryList(_) => None,
@@ -1722,6 +1722,7 @@ where
     map
 }
 
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct ShortestIdPrefix {
     pub prefix: String,
     pub rest: String,
@@ -2586,6 +2587,12 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(template, &repo_path_buf("")), @"<none>");
         insta::assert_snapshot!(env.render_ok(template, &repo_path_buf("file")), @"");
         insta::assert_snapshot!(env.render_ok(template, &repo_path_buf("dir/file")), @"dir");
+
+        // JSON
+        insta::assert_snapshot!(
+            env.render_ok("json(self)", &repo_path_buf("dir/file")), @r#""dir/file""#);
+        insta::assert_snapshot!(
+            env.render_ok("json(self)", &None::<RepoPathBuf>), @"null");
     }
 
     #[test]
@@ -2615,6 +2622,10 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok("self.shortest(-100)", &id),
             @"<Error: out of range integral type conversion attempted>");
+
+        // JSON
+        insta::assert_snapshot!(
+            env.render_ok("json(self)", &id), @r#""08a70ab33d7143b7130ed8594d8216ef688623c0""#);
     }
 
     #[test]
@@ -2644,5 +2655,23 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok("self.shortest(-100)", &id),
             @"<Error: out of range integral type conversion attempted>");
+
+        // JSON
+        insta::assert_snapshot!(
+            env.render_ok("json(self)", &id), @r#""kkmpptxzrspxrzommnulwmwkkqwworpl""#);
+    }
+
+    #[test]
+    fn test_shortest_id_prefix_type() {
+        let env = CommitTemplateTestEnv::init();
+
+        let id = ShortestIdPrefix {
+            prefix: "012".to_owned(),
+            rest: "3abcdef".to_owned(),
+        };
+
+        // JSON
+        insta::assert_snapshot!(
+            env.render_ok("json(self)", &id), @r#"{"prefix":"012","rest":"3abcdef"}"#);
     }
 }

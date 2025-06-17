@@ -148,7 +148,7 @@ impl Template for Timestamp {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
 pub struct TimestampRange {
     // Could be aliased to Range<Timestamp> if needed.
     pub start: Timestamp,
