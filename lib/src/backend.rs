@@ -132,7 +132,7 @@ impl serde::Serialize for Timestamp {
 }
 
 /// Represents a [`Commit`] signature.
-#[derive(ContentHash, Debug, PartialEq, Eq, Clone)]
+#[derive(ContentHash, Debug, PartialEq, Eq, Clone, serde::Serialize)]
 pub struct Signature {
     pub name: String,
     pub email: String,
