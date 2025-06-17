@@ -79,6 +79,7 @@ The following functions are defined.
   nonzero display width may break wrapping, indentation etc.
 * `stringify(content: Template) -> String`: Format `content` to string. This
   effectively removes color labels.
+* `json(value: Serialize) -> String`: Serialize `value` in JSON format.
 * `if(condition: Boolean, then: Template[, else: Template]) -> Template`:
   Conditionally evaluate `then`/`else` template content.
 * `coalesce(content: Template...) -> Template`: Returns the first **non-empty**

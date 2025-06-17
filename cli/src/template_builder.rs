@@ -1641,6 +1641,15 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         let content = expect_plain_text_expression(language, diagnostics, build_ctx, content_node)?;
         Ok(L::Property::wrap_property(content))
     });
+    map.insert("json", |language, diagnostics, build_ctx, function| {
+        // TODO: Add pretty=true|false? or json(key=value, ..)? The latter might
+        // be implemented as a map constructor/literal if we add support for
+        // heterogeneous list/map types.
+        let [value_node] = function.expect_exact_arguments()?;
+        let value = expect_serialize_expression(language, diagnostics, build_ctx, value_node)?;
+        let out_property = value.and_then(|v| Ok(serde_json::to_string(&v)?));
+        Ok(out_property.into_dyn_wrapped())
+    });
     map.insert("if", |language, diagnostics, build_ctx, function| {
         let ([condition_node, true_node], [false_node]) = function.expect_arguments()?;
         let condition =
@@ -3295,6 +3304,34 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("stringify(false)"), @"false");
         insta::assert_snapshot!(env.render_ok("stringify(42).len()"), @"2");
         insta::assert_snapshot!(env.render_ok("stringify(label('error', 'text'))"), @"text");
+    }
+
+    #[test]
+    fn test_json_function() {
+        let mut env = TestTemplateEnv::new();
+        env.add_keyword("none_i64", || literal(None::<i64>));
+        env.add_keyword("string_list", || {
+            literal(vec!["foo".to_owned(), "bar".to_owned()])
+        });
+        env.add_keyword("email", || literal(Email("foo@bar".to_owned())));
+        env.add_keyword("size_hint", || literal((5, None)));
+
+        insta::assert_snapshot!(env.render_ok(r#"json('"quoted"')"#), @r#""\"quoted\"""#);
+        insta::assert_snapshot!(env.render_ok(r#"json(string_list)"#), @r#"["foo","bar"]"#);
+        insta::assert_snapshot!(env.render_ok("json(false)"), @"false");
+        insta::assert_snapshot!(env.render_ok("json(42)"), @"42");
+        insta::assert_snapshot!(env.render_ok("json(none_i64)"), @"null");
+        insta::assert_snapshot!(env.render_ok("json(email)"), @r#""foo@bar""#);
+        insta::assert_snapshot!(env.render_ok("json(size_hint)"), @"[5,null]");
+
+        insta::assert_snapshot!(env.parse_err(r#"json(self)"#), @r"
+         --> 1:6
+          |
+        1 | json(self)
+          |      ^--^
+          |
+          = Expected expression of type `Serialize`, but actual type is `Self`
+        ");
     }
 
     #[test]

@@ -21,6 +21,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj evolog` can now follow changes from multiple revisions such as divergent
   revisions.
 
+* Templates now support `json(x)` function to serialize values in JSON format.
+
 ### Fixed bugs
 
 * `jj file annotate` can now process files at a hidden revision.

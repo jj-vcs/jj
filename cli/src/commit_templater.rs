@@ -2559,6 +2559,9 @@ mod tests {
 
         // string methods
         insta::assert_snapshot!(env.render_ok("self.len()", &sym("a b")), @"3");
+
+        // JSON
+        insta::assert_snapshot!(env.render_ok("json(self)", &sym("foo bar")), @r#""foo bar""#);
     }
 
     #[test]
