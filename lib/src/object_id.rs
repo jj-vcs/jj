@@ -84,6 +84,19 @@ macro_rules! impl_id_type {
             }
         }
 
+        impl serde::Serialize for $name {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                if serializer.is_human_readable() {
+                    self.$hex_method().serialize(serializer)
+                } else {
+                    self.as_bytes().serialize(serializer)
+                }
+            }
+        }
+
         impl crate::object_id::ObjectId for $name {
             fn object_type(&self) -> String {
                 stringify!($name)
