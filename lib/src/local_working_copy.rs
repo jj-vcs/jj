@@ -18,7 +18,6 @@
 use std::any::Any;
 use std::cmp::Ordering;
 use std::collections::HashSet;
-use std::convert::Infallible;
 use std::error::Error;
 use std::fs;
 use std::fs::DirEntry;
@@ -55,6 +54,7 @@ use rayon::prelude::ParallelIterator as _;
 use tempfile::NamedTempFile;
 use thiserror::Error;
 use tokio::io::AsyncRead;
+use tokio::io::AsyncReadExt as _;
 use tracing::instrument;
 use tracing::trace_span;
 
@@ -75,6 +75,9 @@ use crate::conflicts::materialize_tree_value;
 use crate::conflicts::ConflictMarkerStyle;
 use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::MIN_CONFLICT_MARKER_LEN;
+use crate::eol::create_target_eol_strategy;
+pub use crate::eol::EolConversionSettings;
+use crate::eol::TargetEolStrategy;
 use crate::file_util::check_symlink_support;
 use crate::file_util::copy_async_to_sync;
 use crate::file_util::try_symlink;
@@ -440,17 +443,42 @@ impl<'a> IntoIterator for FileStates<'a> {
     }
 }
 
-#[derive(Default, Clone, Debug)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 /// Options that controls the behavior of the [`TreeState`] created.
-pub struct TreeStateSettings;
+pub struct TreeStateSettings {
+    /// Configuring auto-converting CRLF line endings into LF when you add a
+    /// file to the backend, and vice versa when it checks out code onto your
+    /// filesystem.
+    pub eol_conversion_settings: EolConversionSettings,
+}
 
 impl TreeStateSettings {
     /// Create [`TreeStateSettings`] from [`UserSettings`].
     pub fn try_from_user_settings(
-        _user_settings: &UserSettings,
+        user_settings: &UserSettings,
     ) -> Result<Self, impl Error + Send + Sync> {
-        Ok::<_, Infallible>(Self)
+        #[expect(
+            clippy::question_mark,
+            reason = "Can't use ? here, because the error type is an implicit type."
+        )]
+        let eol_conversion_settings =
+            match EolConversionSettings::try_get_from_settings(user_settings) {
+                Ok(value) => value,
+                Err(e) => return Err(e),
+            };
+        Ok(Self {
+            eol_conversion_settings,
+        })
+    }
+}
+
+impl Default for TreeStateSettings {
+    /// Default to not enable EOL conversions.
+    fn default() -> Self {
+        Self {
+            eol_conversion_settings: EolConversionSettings::None,
+        }
     }
 }
 
@@ -469,6 +497,8 @@ pub struct TreeState {
     /// the repo is configured to use the Watchman filesystem monitor and
     /// Watchman has been queried at least once.
     watchman_clock: Option<crate::protos::working_copy::WatchmanClock>,
+
+    target_eol_strategy: Arc<TargetEolStrategy>,
 }
 
 fn file_state_from_proto(proto: &crate::protos::working_copy::FileState) -> FileState {
@@ -783,6 +813,11 @@ pub enum TreeStateError {
     PersistTreeState { path: PathBuf, source: io::Error },
     #[error("Filesystem monitor error")]
     Fsmonitor(#[source] Box<dyn Error + Send + Sync>),
+    #[error("{message}")]
+    Other {
+        message: String,
+        source: Option<Box<dyn Error + Send + Sync>>,
+    },
 }
 
 impl TreeState {
@@ -810,14 +845,20 @@ impl TreeState {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
-        _tree_state_settings: &TreeStateSettings,
+        tree_state_settings: &TreeStateSettings,
     ) -> Result<TreeState, TreeStateError> {
-        let mut wc = TreeState::empty(store, working_copy_path, state_path);
+        let target_eol_strategy = create_target_eol_strategy(tree_state_settings);
+        let mut wc = TreeState::empty(store, working_copy_path, state_path, target_eol_strategy);
         wc.save()?;
         Ok(wc)
     }
 
-    fn empty(store: Arc<Store>, working_copy_path: PathBuf, state_path: PathBuf) -> TreeState {
+    fn empty(
+        store: Arc<Store>,
+        working_copy_path: PathBuf,
+        state_path: PathBuf,
+        target_eol_strategy: TargetEolStrategy,
+    ) -> TreeState {
         let tree_id = store.empty_merged_tree_id();
         TreeState {
             store,
@@ -829,6 +870,7 @@ impl TreeState {
             own_mtime: MillisSinceEpoch(0),
             symlink_support: check_symlink_support().unwrap_or(false),
             watchman_clock: None,
+            target_eol_strategy: Arc::new(target_eol_strategy),
         }
     }
 
@@ -838,6 +880,7 @@ impl TreeState {
         state_path: PathBuf,
         tree_state_settings: &TreeStateSettings,
     ) -> Result<TreeState, TreeStateError> {
+        let target_eol_strategy = create_target_eol_strategy(tree_state_settings);
         let tree_state_path = state_path.join("tree_state");
         let file = match File::open(&tree_state_path) {
             Err(ref err) if err.kind() == io::ErrorKind::NotFound => {
@@ -852,7 +895,7 @@ impl TreeState {
             Ok(file) => file,
         };
 
-        let mut wc = TreeState::empty(store, working_copy_path, state_path);
+        let mut wc = TreeState::empty(store, working_copy_path, state_path, target_eol_strategy);
         wc.read(&tree_state_path, file)?;
         Ok(wc)
     }
@@ -1046,6 +1089,7 @@ impl TreeState {
                 progress,
                 max_new_file_size,
                 conflict_marker_style,
+                target_eol_strategy: Arc::clone(&self.target_eol_strategy),
             };
             let directory_to_visit = DirectoryToVisit {
                 dir: RepoPathBuf::root(),
@@ -1193,6 +1237,7 @@ struct FileSnapshotter<'a> {
     progress: Option<&'a SnapshotProgress<'a>>,
     max_new_file_size: u64,
     conflict_marker_style: ConflictMarkerStyle,
+    target_eol_strategy: Arc<TargetEolStrategy>,
 }
 
 impl FileSnapshotter<'_> {
@@ -1569,18 +1614,35 @@ impl FileSnapshotter<'_> {
                 .cloned()
                 .flatten()
                 .unwrap_or_else(CopyId::placeholder);
+            let mut contents = vec![];
+            let file = File::options()
+                .read(true)
+                .open(disk_path)
+                .map_err(|err| SnapshotError::Other {
+                    message: format!("failed to open the file {}", disk_path.display()),
+                    err: err.into(),
+                })?;
+            self.target_eol_strategy
+                .convert_eol_for_snapshot(BlockingAsyncReader::new(file))
+                .await
+                .map_err(|err| SnapshotError::Other {
+                    message: "failed to convert the EOL".to_string(),
+                    err: err.into(),
+                })?
+                .read_to_end(&mut contents)
+                .await
+                .map_err(|err| SnapshotError::Other {
+                    message: "failed to read the EOL converted contents".to_string(),
+                    err: err.into(),
+                })?;
             // If the file contained a conflict before and is a normal file on
             // disk, we try to parse any conflict markers in the file into a
             // conflict.
-            let content = fs::read(disk_path).map_err(|err| SnapshotError::Other {
-                message: format!("Failed to open file {}", disk_path.display()),
-                err: err.into(),
-            })?;
             let new_file_ids = conflicts::update_from_content(
                 &old_file_ids,
                 self.store(),
                 repo_path,
-                &content,
+                &contents,
                 self.conflict_marker_style,
                 materialized_conflict_data.map_or(MIN_CONFLICT_MARKER_LEN, |data| {
                     data.conflict_marker_len as usize
@@ -1621,14 +1683,22 @@ impl FileSnapshotter<'_> {
         path: &RepoPath,
         disk_path: &Path,
     ) -> Result<FileId, SnapshotError> {
-        let file = File::open(disk_path).map_err(|err| SnapshotError::Other {
-            message: format!("Failed to open file {}", disk_path.display()),
-            err: err.into(),
-        })?;
-        Ok(self
-            .store()
-            .write_file(path, &mut BlockingAsyncReader::new(file))
-            .await?)
+        let file = File::options()
+            .read(true)
+            .open(disk_path)
+            .map_err(|err| SnapshotError::Other {
+                message: format!("failed to open the file {}", disk_path.display()),
+                err: err.into(),
+            })?;
+        let mut contents = self
+            .target_eol_strategy
+            .convert_eol_for_snapshot(BlockingAsyncReader::new(file))
+            .await
+            .map_err(|err| SnapshotError::Other {
+                message: "failed to convert the EOL".to_string(),
+                err: err.into(),
+            })?;
+        Ok(self.store().write_file(path, &mut contents).await?)
     }
 
     async fn write_symlink_to_store(
@@ -1664,13 +1734,13 @@ impl FileSnapshotter<'_> {
 
 /// Functions to update local-disk files from the store.
 impl TreeState {
-    fn write_file(
+    async fn write_file(
         &self,
         disk_path: &Path,
-        contents: impl AsyncRead,
+        contents: impl AsyncRead + Send + Unpin,
         executable: bool,
     ) -> Result<FileState, CheckoutError> {
-        let mut file = OpenOptions::new()
+        let mut file = File::options()
             .write(true)
             .create_new(true) // Don't overwrite un-ignored file. Don't follow symlink.
             .open(disk_path)
@@ -1678,10 +1748,21 @@ impl TreeState {
                 message: format!("Failed to open file {} for writing", disk_path.display()),
                 err: err.into(),
             })?;
-        let size = copy_async_to_sync(contents, &mut file)
-            .block_on()
+        let content = self
+            .target_eol_strategy
+            .convert_eol_for_update(contents)
+            .await
             .map_err(|err| CheckoutError::Other {
-                message: format!("Failed to write file {}", disk_path.display()),
+                message: "Failed to convert the EOL for the content".to_string(),
+                err: err.into(),
+            })?;
+        let size = copy_async_to_sync(content, &mut file)
+            .await
+            .map_err(|err| CheckoutError::Other {
+                message: format!(
+                    "Failed to write the content to the file {}",
+                    disk_path.display()
+                ),
                 err: err.into(),
             })?;
         self.set_executable(disk_path, executable)?;
@@ -1914,13 +1995,17 @@ impl TreeState {
                     continue;
                 }
                 MaterializedTreeValue::File(file) => {
-                    self.write_file(&disk_path, file.reader, file.executable)?
+                    self.write_file(&disk_path, file.reader, file.executable)
+                        .await?
                 }
                 MaterializedTreeValue::Symlink { id: _, target } => {
                     if self.symlink_support {
                         self.write_symlink(&disk_path, target)?
                     } else {
-                        self.write_file(&disk_path, target.as_bytes(), false)?
+                        // FIXME(06393993): if the target contains LF or CRLF, we may convert those
+                        // bytes incorrectly based on the EOL conversion settings.
+                        self.write_file(&disk_path, target.as_bytes(), false)
+                            .await?
                     }
                 }
                 MaterializedTreeValue::GitSubmodule(_) => {
