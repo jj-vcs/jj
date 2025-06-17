@@ -866,6 +866,22 @@
             "additionalProperties": {
                 "type": "string"
             }
+        },
+        "working-copy": {
+            "type": "object",
+            "description": "Working copy settings",
+            "properties": {
+                "eol-conversion": {
+                    "type": "string",
+                    "description": "Configuring auto-converting CRLF line endings into LF when you add a file to the backend, and vice versa when it checks out code onto your filesystem.",
+                    "enum": [
+                        "input",
+                        "input-output",
+                        "none"
+                    ],
+                    "default": "none"
+                }
+            }
         }
     }
 }
