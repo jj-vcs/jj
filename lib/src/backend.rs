@@ -120,6 +120,17 @@ impl Timestamp {
     }
 }
 
+impl serde::Serialize for Timestamp {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // TODO: test is_human_readable() to use raw format?
+        let t = self.to_datetime().map_err(serde::ser::Error::custom)?;
+        t.serialize(serializer)
+    }
+}
+
 /// Represents a [`Commit`] signature.
 #[derive(ContentHash, Debug, PartialEq, Eq, Clone)]
 pub struct Signature {
