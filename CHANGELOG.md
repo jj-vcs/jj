@@ -40,6 +40,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `depth` argument. For instance, `parents(x, 3)` is equivalent to `x---`, and
   `children(x, 3)` is equivalent to `x+++`.
 
+* Add the `working-copy.eol-conversion` config which is similar to the git
+  `core.autocrlf` config. A heuristics is used to detect if a file is a binary
+  file to prevent the EOL conversion from changing binary files unexpectedly.
+
+
 ### Fixed bugs
 
 * `jj file annotate` can now process files at a hidden revision.
