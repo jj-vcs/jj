@@ -46,6 +46,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   It still fully traverses them while snapshotting but they won't clutter up
   the output with all of their contents.
 
+* Add the `working-copy.eol-conversion` config which is similar to the git
+  `core.autocrlf` config. A heuristics is used to detect if a file is a binary
+  file to prevent the EOL conversion from changing binary files unexpectedly.
+
 ### Fixed bugs
 
 ### Packaging changes

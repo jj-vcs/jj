@@ -1589,6 +1589,39 @@ Files that already exist in the working copy are not subject to this limit.
 
 Setting this value to zero will disable the limit entirely.
 
+## Working copy settings
+
+### EOL conversion settings
+
+This settings serves the same purpose as the [`core.autocrlf`][git-autocrlf] git
+config.
+
+The line endings conversion won't be applied to files detected as binary files
+via a heuristics[^1] regardless of the settings. This is similar to git.
+
+```toml
+[working-copy]
+# No EOL conversion. Similar to core.autocrlf = false.
+eol-conversion = "none"
+# Apply CRLF to LF EOL conversion when we check files in the backend store from
+# the local file system but not apply EOL conversion when we check out the code
+# from the backend store to the local file system. Similar to core.autocrlf =
+# input.
+eol-conversion = "input"
+# Setting this to "input-output" if you want to have CRLF line endings in your
+# working directory and the repository has LF line endings. Similar to
+# core.autocrlf = true.
+eol-conversion = "input-output"
+```
+
+[git-autocrlf]: https://git-scm.com/book/en/v2/Customizing-Git-Git-Configuration#_core_autocrlf
+[^1]: To detect if a file is binary, Jujutsu currently checks if there is NULL
+      byte in the file which is different from the algorithm of
+      [`gitoxide`][gitoxide-is-binary] or [`git`][git-is-binary]. Jujutsu
+      doesn't plan to align the binary detection logic with git.
+[gitoxide-is-binary]: https://github.com/GitoxideLabs/gitoxide/blob/073487b38ed40bcd7eb45dc110ae1ce84f9275a9/gix-filter/src/eol/utils.rs#L98-L100
+[git-is-binary]: https://github.com/git/git/blob/f1ca98f609f9a730b9accf24e5558a10a0b41b6c/convert.c#L94-L103
+
 ## Ways to specify `jj` config: details
 
 ### User config files
