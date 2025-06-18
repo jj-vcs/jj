@@ -70,6 +70,7 @@ use jj_lib::trailer;
 use jj_lib::trailer::Trailer;
 use once_cell::unsync::OnceCell;
 use pollster::FutureExt as _;
+use serde::Serialize as _;
 
 use crate::diff_util;
 use crate::diff_util::DiffStats;
@@ -497,9 +498,9 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::Commit(_) => None,
             Self::CommitOpt(_) => None,
             Self::CommitList(_) => None,
-            Self::CommitRef(_) => None,
-            Self::CommitRefOpt(_) => None,
-            Self::CommitRefList(_) => None,
+            Self::CommitRef(property) => Some(property.into_serialize()),
+            Self::CommitRefOpt(property) => Some(property.into_serialize()),
+            Self::CommitRefList(property) => Some(property.into_serialize()),
             Self::RefSymbol(property) => Some(property.into_serialize()),
             Self::RefSymbolOpt(property) => Some(property.into_serialize()),
             Self::RepoPath(property) => Some(property.into_serialize()),
@@ -1162,20 +1163,25 @@ fn evaluate_user_revset<'repo>(
 }
 
 /// Bookmark or tag name with metadata.
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 pub struct CommitRef {
     // Not using Ref/GitRef/RemoteName types here because it would be overly
     // complex to generalize the name type as T: RefName|GitRefName.
     /// Local name.
     name: RefSymbolBuf,
     /// Remote name if this is a remote or Git-tracking ref.
+    #[serde(skip_serializing_if = "Option::is_none")] // local ref shouldn't have this field
     remote: Option<RefSymbolBuf>,
     /// Target commit ids.
     target: RefTarget,
     /// Local ref metadata which tracks this remote ref.
+    #[serde(rename = "tracking_target")]
+    #[serde(skip_serializing_if = "Option::is_none")] // local ref shouldn't have this field
+    #[serde(serialize_with = "serialize_tracking_target")]
     tracking_ref: Option<TrackingRef>,
     /// Local ref is synchronized with all tracking remotes, or tracking remote
     /// ref is synchronized with the local.
+    #[serde(skip)] // internal state used mainly for Template impl
     synced: bool,
 }
 
@@ -1370,6 +1376,17 @@ impl Template for Vec<Rc<CommitRef>> {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
         templater::format_joined(formatter, self, " ")
     }
+}
+
+fn serialize_tracking_target<S>(
+    tracking_ref: &Option<TrackingRef>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let target = tracking_ref.as_ref().map(|tracking| &tracking.target);
+    target.serialize(serializer)
 }
 
 fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Rc<CommitRef>> {

@@ -1713,6 +1713,20 @@ fn test_bookmark_list() {
     Hint: Bookmarks marked as deleted can be *deleted permanently* on the remote by running `jj git push --deleted`. Use `jj bookmark forget` if you don't want that.
     [EOF]
     ");
+
+    let output = local_dir.run_jj(["bookmark", "list", r#"-Tjson(self) ++ "\n""#]);
+    insta::assert_snapshot!(output, @r#"
+    {"name":"local-only","target":["0353dd35c56156971ce5f023a1db7a6196160a8a"]}
+    {"name":"remote-delete","target":[null]}
+    {"name":"remote-delete","remote":"origin","target":["b32031cf329fbb90d042635c295b4e3fa2ca2651"],"tracking_target":[null]}
+    {"name":"remote-sync","target":["7a07dbeef135886b7ba7adb27d05190c39cd92ab"]}
+    {"name":"remote-unsync","target":["0353dd35c56156971ce5f023a1db7a6196160a8a"]}
+    {"name":"remote-unsync","remote":"origin","target":["553203baa52803406124962dbc0bcdc0227b20b2"],"tracking_target":["0353dd35c56156971ce5f023a1db7a6196160a8a"]}
+    [EOF]
+    ------- stderr -------
+    Hint: Bookmarks marked as deleted can be *deleted permanently* on the remote by running `jj git push --deleted`. Use `jj bookmark forget` if you don't want that.
+    [EOF]
+    "#);
 }
 
 #[test]
