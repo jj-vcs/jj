@@ -236,8 +236,9 @@ non-standard `jj:trees` commit header. As long as you use `jj`
 commands to work with them, you won't notice those paths. If, on the other hand,
 you use e.g. `git switch` to check one of them out, you will see those
 directories in your working copy. If you then run e.g. `jj status`, the
-resulting snapshot will contain those directories, making it look like they
-replaced all the other paths in your repo. You will probably want to run
+resulting snapshot will contain the contents of the first side of the conflict
+as well as the `.jjconflict-*/` directories, making it look like they
+were added to your working copy. You will probably want to run
 `jj abandon` to get back to the state with the unresolved conflicts.
 
 Change IDs are stored in git commit headers as reverse hex encodings. This is

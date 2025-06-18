@@ -95,6 +95,8 @@ const CHANGE_ID_LENGTH: usize = 16;
 /// Ref namespace used only for preventing GC.
 const NO_GC_REF_NAMESPACE: &str = "refs/jj/keep/";
 
+pub const JJ_CONFLICT_README_FILE_NAME: &str = "JJ-CONFLICT-README";
+
 pub const JJ_TREES_COMMIT_HEADER: &str = "jj:trees";
 pub const JJ_CONFLICT_LABELS_COMMIT_HEADER: &str = "jj:conflict-labels";
 pub const CHANGE_ID_COMMIT_HEADER: &str = "change-id";
@@ -1497,7 +1499,10 @@ impl Backend for GitBackend {
 }
 
 /// Write a tree conflict as a special tree with `.jjconflict-base-N` and
-/// `.jjconflict-base-N` subtrees. This ensure that the parts are not GC'd.
+/// `.jjconflict-side-N` subtrees. This ensure that the parts are not GC'd.
+/// Also includes a `JJ-CONFLICT-README` file explaining why these trees are
+/// present. The rest of the tree is copied from the first term of the conflict,
+/// which prevents editors with Git support from highlighting all files as new.
 fn write_tree_conflict(
     repo: &gix::Repository,
     conflict: &Merge<TreeId>,
@@ -1522,12 +1527,12 @@ fn write_tree_conflict(
     let readme_id = repo
         .write_blob(
             r#"This commit was made by jj, https://jj-vcs.dev/.
-The commit contains file conflicts, and therefore looks wrong when used with plain
-Git or other tools that are unfamiliar with jj.
+The commit contains file conflicts, and therefore looks wrong when used with
+plain Git or other tools that are unfamiliar with jj.
 
 The .jjconflict-* directories represent the different inputs to the conflict.
 For details, see
-https://docs.jj-vcs.dev/prerelease/git-compatibility/#format-mapping-details
+https://docs.jj-vcs.dev/latest/git-compatibility/#format-mapping-details
 
 If you see this file in your working copy, it probably means that you used a
 regular `git` command to check out a conflicted commit. Use `jj abandon` to
@@ -1540,9 +1545,21 @@ recover.
         .detach();
     entries.push(gix::objs::tree::Entry {
         mode: gix::object::tree::EntryKind::Blob.into(),
-        filename: "README".into(),
+        filename: JJ_CONFLICT_README_FILE_NAME.into(),
         oid: readme_id,
     });
+    let first_tree_id = conflict.first();
+    let first_tree = repo
+        .find_tree(gix::ObjectId::from_bytes_or_panic(first_tree_id.as_bytes()))
+        .map_err(|err| to_read_object_err(err, first_tree_id))?;
+    for entry in first_tree.iter() {
+        let entry = entry.map_err(|err| to_read_object_err(err, first_tree_id))?;
+        if !entry.filename().starts_with(b".jjconflict")
+            && entry.filename() != JJ_CONFLICT_README_FILE_NAME
+        {
+            entries.push(entry.detach().into());
+        }
+    }
     entries.sort_unstable();
     let id = repo
         .write_object(gix::objs::Tree { entries })
@@ -2153,14 +2170,21 @@ mod tests {
             ))
             .unwrap();
         let git_tree = git_repo.find_tree(git_commit.tree_id().unwrap()).unwrap();
+        let jj_conflict_entries = git_tree
+            .iter()
+            .map(Result::unwrap)
+            .filter(|entry| {
+                entry.filename().starts_with(b".jjconflict")
+                    || entry.filename() == JJ_CONFLICT_README_FILE_NAME
+            })
+            .collect_vec();
         assert!(
-            git_tree
+            jj_conflict_entries
                 .iter()
-                .map(Result::unwrap)
-                .filter(|entry| entry.filename() != b"README")
+                .filter(|entry| entry.filename() != JJ_CONFLICT_README_FILE_NAME)
                 .all(|entry| entry.mode().value() == 0o040000)
         );
-        let mut iter = git_tree.iter().map(Result::unwrap);
+        let mut iter = jj_conflict_entries.iter();
         let entry = iter.next().unwrap();
         assert_eq!(entry.filename(), b".jjconflict-base-0");
         assert_eq!(
@@ -2192,7 +2216,7 @@ mod tests {
             root_tree.get_add(2).unwrap().as_bytes()
         );
         let entry = iter.next().unwrap();
-        assert_eq!(entry.filename(), b"README");
+        assert_eq!(entry.filename(), b"JJ-CONFLICT-README");
         assert_eq!(entry.mode().value(), 0o100644);
         assert!(iter.next().is_none());
 

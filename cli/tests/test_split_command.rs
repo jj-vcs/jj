@@ -783,14 +783,14 @@ fn test_split_parallel_with_conflict() {
     ------- stderr -------
     Rebased 1 descendant commits
     Selected changes : rlvkpnrz abe15fea (no description set)
-    Remaining changes: royxmykx ec55f25f (conflict) (no description set)
-    Working copy  (@) now at: royxmykx ec55f25f (conflict) (no description set)
+    Remaining changes: royxmykx 4bbc5826 (conflict) (no description set)
+    Working copy  (@) now at: royxmykx 4bbc5826 (conflict) (no description set)
     Parent commit (@-)      : qpvuntsm ee8e9376 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     New conflicts appeared in 1 commits:
-      royxmykx ec55f25f (conflict) (no description set)
+      royxmykx 4bbc5826 (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new royxmykx
