@@ -1332,7 +1332,17 @@ fn builtin_timestamp_range_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         "duration",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.and_then(|time_range| Ok(time_range.duration()?));
+            // TODO: Introduce duration type, and move formatting to it.
+            let out_property = self_property.and_then(|time_range| {
+                let mut f = timeago::Formatter::new();
+                f.min_unit(timeago::TimeUnit::Microseconds).ago("");
+                let duration = time_util::format_duration(&time_range.start, &time_range.end, &f)?;
+                if duration == "now" {
+                    Ok("less than a microsecond".to_owned())
+                } else {
+                    Ok(duration)
+                }
+            });
             Ok(out_property.into_dyn_wrapped())
         },
     );
