@@ -495,9 +495,9 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'repo>> {
         match self {
             Self::Core(property) => property.try_into_serialize(),
-            Self::Commit(_) => None,
-            Self::CommitOpt(_) => None,
-            Self::CommitList(_) => None,
+            Self::Commit(property) => Some(property.into_serialize()),
+            Self::CommitOpt(property) => Some(property.into_serialize()),
+            Self::CommitList(property) => Some(property.into_serialize()),
             Self::CommitRef(property) => Some(property.into_serialize()),
             Self::CommitRefOpt(property) => Some(property.into_serialize()),
             Self::CommitRefList(property) => Some(property.into_serialize()),

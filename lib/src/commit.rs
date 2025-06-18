@@ -37,10 +37,13 @@ use crate::signing::SignResult;
 use crate::signing::Verification;
 use crate::store::Store;
 
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize)]
 pub struct Commit {
+    #[serde(skip)]
     store: Arc<Store>,
+    #[serde(rename = "commit_id")]
     id: CommitId,
+    #[serde(flatten)]
     data: Arc<backend::Commit>,
 }
 

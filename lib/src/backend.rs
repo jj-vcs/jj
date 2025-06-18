@@ -186,17 +186,20 @@ impl MergedTreeId {
     }
 }
 
-#[derive(ContentHash, Debug, PartialEq, Eq, Clone)]
+#[derive(ContentHash, Debug, PartialEq, Eq, Clone, serde::Serialize)]
 pub struct Commit {
     pub parents: Vec<CommitId>,
     // TODO: delete commit.predecessors when we can assume that most commits are
     // tracked by op.commit_predecessors. (in jj 0.42 or so?)
+    #[serde(skip)] // deprecated
     pub predecessors: Vec<CommitId>,
+    #[serde(skip)] // TODO: should be exposed?
     pub root_tree: MergedTreeId,
     pub change_id: ChangeId,
     pub description: String,
     pub author: Signature,
     pub committer: Signature,
+    #[serde(skip)] // raw data wouldn't be useful
     pub secure_sig: Option<SecureSig>,
 }
 
