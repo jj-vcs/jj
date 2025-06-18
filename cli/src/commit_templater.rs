@@ -100,7 +100,6 @@ use crate::templater::Template;
 use crate::templater::TemplateFormatter;
 use crate::templater::TemplatePropertyError;
 use crate::templater::TemplatePropertyExt as _;
-use crate::text_util;
 
 pub trait CommitTemplateLanguageExtension {
     fn build_fn_table<'repo>(&self) -> CommitTemplateBuildFnTable<'repo>;
@@ -812,8 +811,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         "description",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property =
-                self_property.map(|commit| text_util::complete_newline(commit.description()));
+            let out_property = self_property.map(|commit| commit.description().to_owned());
             Ok(out_property.into_dyn_wrapped())
         },
     );

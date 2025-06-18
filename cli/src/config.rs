@@ -724,7 +724,7 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
             "template-aliases.default_commit_description",
             |old_value| {
                 let value = old_value.as_str().ok_or("expected a string")?;
-                // Trailing newline would be padded by templater
+                // Trailing newline would be padded by templater (in jj < 0.31)
                 let value = text_util::complete_newline(value);
                 let escaped = dsl_util::escape_string(&value);
                 Ok(format!(r#""{escaped}""#).into())
