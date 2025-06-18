@@ -67,13 +67,13 @@ fn test_restore() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: kkmpptxz 7f135b03 (conflict) (no description set)
+    Working copy  (@) now at: kkmpptxz faa5911c (conflict) (no description set)
     Parent commit (@-)      : rlvkpnrz 67841e01 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict including 1 deletion
     New conflicts appeared in 1 commits:
-      kkmpptxz 7f135b03 (conflict) (no description set)
+      kkmpptxz faa5911c (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new kkmpptxz
@@ -220,7 +220,7 @@ fn test_restore_conflicted_merge() {
     let output = work_dir.run_jj(["restore", "file"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv 68f6b87a conflict | (conflict) (empty) conflict
+    Working copy  (@) now at: vruxwmqv 7efcd5f8 conflict | (conflict) (empty) conflict
     Parent commit (@-)      : zsuskuln 45537d53 a | a
     Parent commit (@-)      : royxmykx 89d1b299 b | b
     Added 0 files, modified 1 files, removed 0 files
@@ -261,7 +261,7 @@ fn test_restore_conflicted_merge() {
     let output = work_dir.run_jj(["restore"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv 60d86a33 conflict | (conflict) (empty) conflict
+    Working copy  (@) now at: vruxwmqv e0c3b307 conflict | (conflict) (empty) conflict
     Parent commit (@-)      : zsuskuln 45537d53 a | a
     Parent commit (@-)      : royxmykx 89d1b299 b | b
     Added 0 files, modified 1 files, removed 0 files

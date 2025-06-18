@@ -386,9 +386,9 @@ fn test_revert_with_conflict() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Reverted 1 commits as follows:
-      yostqsxw 0b3e98ea (conflict) Revert "b"
+      yostqsxw eadfde9a (conflict) Revert "b"
     New conflicts appeared in 1 commits:
-      yostqsxw 0b3e98ea (conflict) Revert "b"
+      yostqsxw eadfde9a (conflict) Revert "b"
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new yostqsxw
@@ -398,7 +398,7 @@ fn test_revert_with_conflict() {
     [EOF]
     "#);
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    ×  0b3e98eae4a9 Revert "b"
+    ×  eadfde9a48f3 Revert "b"
     │
     │  This reverts commit f93a910dbdf0f841e6cf2bc0ab0ba4c336d6f436.
     @  48b910edc43e c
