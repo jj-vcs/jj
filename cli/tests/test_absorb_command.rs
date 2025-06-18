@@ -173,15 +173,15 @@ fn test_absorb_replace_single_line_hunk() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file1", "2a\n1A\n2b\n");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
-      qpvuntsm 19034586 (conflict) 1
+      qpvuntsm aa4d0cf8 (conflict) 1
     Rebased 1 descendant commits.
-    Working copy  (@) now at: mzvwutvl f9c426f2 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz a5f84679 2
+    Working copy  (@) now at: mzvwutvl 29a35f77 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 7aa81f48 2
     New conflicts appeared in 1 commits:
-      qpvuntsm 19034586 (conflict) 1
+      qpvuntsm aa4d0cf8 (conflict) 1
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new qpvuntsm
@@ -189,11 +189,11 @@ fn test_absorb_replace_single_line_hunk() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
 
     insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
-    @  mzvwutvl f9c426f2 (empty) (no description set)
-    ○  kkmpptxz a5f84679 2
+    @  mzvwutvl 29a35f77 (empty) (no description set)
+    ○  kkmpptxz 7aa81f48 2
     │  diff --git a/file1 b/file1
     │  index 0000000000..2f87e8e465 100644
     │  --- a/file1
@@ -209,7 +209,7 @@ fn test_absorb_replace_single_line_hunk() {
     │   1A
     │   2b
     │  ->>>>>>> Conflict 1 of 1 ends
-    ×  qpvuntsm 19034586 (conflict) 1
+    ×  qpvuntsm aa4d0cf8 (conflict) 1
     │  diff --git a/file1 b/file1
     ~  new file mode 100644
        index 0000000000..0000000000
@@ -421,16 +421,16 @@ fn test_absorb_conflict() {
     work_dir.run_jj(["new", "root()"]).success();
     work_dir.write_file("file1", "2a\n2b\n");
     let output = work_dir.run_jj(["rebase", "-r@", "-dsubject(glob:1)"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
-    Working copy  (@) now at: kkmpptxz 01e6cd99 (conflict) (no description set)
+    Working copy  (@) now at: kkmpptxz 254325db (conflict) (no description set)
     Parent commit (@-)      : qpvuntsm e35bcaff 1
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file1    2-sided conflict
     New conflicts appeared in 1 commits:
-      kkmpptxz 01e6cd99 (conflict) (no description set)
+      kkmpptxz 254325db (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new kkmpptxz
@@ -438,7 +438,7 @@ fn test_absorb_conflict() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
 
     let conflict_content = work_dir.read_file("file1");
     insta::assert_snapshot!(conflict_content, @r"
@@ -547,17 +547,17 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     work_dir.remove_file("file1");
     work_dir.remove_file("file2");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 2 revisions:
-      kkmpptxz 9210e16d (conflict) 2
-      qpvuntsm a52f61f7 (conflict) 1
+      kkmpptxz c7077d2e (conflict) 2
+      qpvuntsm 6c9721ea (conflict) 1
     Rebased 1 descendant commits.
-    Working copy  (@) now at: zsuskuln f8744d38 (no description set)
-    Parent commit (@-)      : kkmpptxz 9210e16d (conflict) 2
+    Working copy  (@) now at: zsuskuln 8f7b5d78 (no description set)
+    Parent commit (@-)      : kkmpptxz c7077d2e (conflict) 2
     New conflicts appeared in 2 commits:
-      kkmpptxz 9210e16d (conflict) 2
-      qpvuntsm a52f61f7 (conflict) 1
+      kkmpptxz c7077d2e (conflict) 2
+      qpvuntsm 6c9721ea (conflict) 1
     Hint: To resolve the conflicts, start by creating a commit on top of
     the first conflicted commit:
       jj new qpvuntsm
@@ -567,10 +567,10 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     Remaining changes:
     D file2
     [EOF]
-    "###);
+    ");
 
     insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
-    @  zsuskuln f8744d38 (no description set)
+    @  zsuskuln 8f7b5d78 (no description set)
     │  diff --git a/file2 b/file2
     │  deleted file mode 100644
     │  index 0000000000..0000000000
@@ -584,7 +584,7 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     │  -+++++++ Contents of side #2
     │  -1a
     │  ->>>>>>> Conflict 1 of 1 ends
-    ×  kkmpptxz 9210e16d (conflict) 2
+    ×  kkmpptxz c7077d2e (conflict) 2
     │  diff --git a/file1 b/file1
     │  deleted file mode 100644
     │  index 0000000000..0000000000
@@ -611,7 +611,7 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     │  -1b
     │  +1a
     │   >>>>>>> Conflict 1 of 1 ends
-    ×  qpvuntsm a52f61f7 (conflict) 1
+    ×  qpvuntsm 6c9721ea (conflict) 1
     │  diff --git a/file1 b/file1
     ~  new file mode 100644
        index 0000000000..0000000000

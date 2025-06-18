@@ -28,17 +28,17 @@ fn test_report_conflicts() {
     work_dir.run_jj(["commit", "-m=C"]).success();
 
     let output = work_dir.run_jj(["rebase", "-s=subject(glob:B)", "-d=root()"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
-    Working copy  (@) now at: zsuskuln 1f0443b9 (conflict) (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 94037e0e (conflict) C
+    Working copy  (@) now at: zsuskuln b32d6cfb (conflict) (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 76c756c3 (conflict) C
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
     New conflicts appeared in 2 commits:
-      kkmpptxz 94037e0e (conflict) C
-      rlvkpnrz 871ac2e2 (conflict) B
+      kkmpptxz 76c756c3 (conflict) C
+      rlvkpnrz 339f4b13 (conflict) B
     Hint: To resolve the conflicts, start by creating a commit on top of
     the first conflicted commit:
       jj new rlvkpnrz
@@ -46,7 +46,7 @@ fn test_report_conflicts() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
 
     let output = work_dir.run_jj(["rebase", "-d=subject(glob:A)"]);
     insta::assert_snapshot!(output, @r"
@@ -61,18 +61,18 @@ fn test_report_conflicts() {
 
     // Can get hint about multiple root commits
     let output = work_dir.run_jj(["rebase", "-r=subject(glob:B)", "-d=root()"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
     Rebased 2 descendant commits
-    Working copy  (@) now at: zsuskuln f525f3b5 (conflict) (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 2aa6a481 (conflict) C
+    Working copy  (@) now at: zsuskuln f2be9860 (conflict) (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 43fd5a26 (conflict) C
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     New conflicts appeared in 2 commits:
-      kkmpptxz 2aa6a481 (conflict) C
-      rlvkpnrz 50a742b3 (conflict) B
+      kkmpptxz 43fd5a26 (conflict) C
+      rlvkpnrz 6f785214 (conflict) B
     Hint: To resolve the conflicts, start by creating a commit on top of
     one of the first conflicted commits:
       jj new kkmpptxz
@@ -81,14 +81,14 @@ fn test_report_conflicts() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
 
     // Resolve one of the conflicts by (mostly) following the instructions
     let output = work_dir.run_jj(["new", "rlvkpnrzqnoo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv 36e37773 (conflict) (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 50a742b3 (conflict) B
+    Working copy  (@) now at: vruxwmqv 4c43b9cb (conflict) (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 6f785214 (conflict) B
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
@@ -123,19 +123,19 @@ fn test_report_conflicts_with_divergent_commits() {
         .success();
 
     let output = work_dir.run_jj(["rebase", "-s=subject(glob:B)", "-d=root()"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
     Rebased 3 commits to destination
-    Working copy  (@) now at: zsuskuln?? e91a430b (conflict) C2
-    Parent commit (@-)      : kkmpptxz fcd54aca (conflict) B
+    Working copy  (@) now at: zsuskuln?? ad79ade3 (conflict) C2
+    Parent commit (@-)      : kkmpptxz 9fb5aa34 (conflict) B
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
     New conflicts appeared in 3 commits:
-      zsuskuln?? 33d16252 (conflict) C3
-      zsuskuln?? e91a430b (conflict) C2
-      kkmpptxz fcd54aca (conflict) B
+      zsuskuln?? 82f533e6 (conflict) C3
+      zsuskuln?? ad79ade3 (conflict) C2
+      kkmpptxz 9fb5aa34 (conflict) B
     Hint: To resolve the conflicts, start by creating a commit on top of
     the first conflicted commit:
       jj new kkmpptxz
@@ -143,7 +143,7 @@ fn test_report_conflicts_with_divergent_commits() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
 
     let output = work_dir.run_jj(["rebase", "-d=subject(glob:A)"]);
     insta::assert_snapshot!(output, @r"
@@ -158,16 +158,16 @@ fn test_report_conflicts_with_divergent_commits() {
 
     // Same thing when rebasing the divergent commits one at a time
     let output = work_dir.run_jj(["rebase", "-s=subject(glob:C2)", "-d=root()"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
-    Working copy  (@) now at: zsuskuln?? 151c23fc (conflict) C2
+    Working copy  (@) now at: zsuskuln?? 8e2e9411 (conflict) C2
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
     New conflicts appeared in 1 commits:
-      zsuskuln?? 151c23fc (conflict) C2
+      zsuskuln?? 8e2e9411 (conflict) C2
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new zsuskuln
@@ -175,14 +175,14 @@ fn test_report_conflicts_with_divergent_commits() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
 
     let output = work_dir.run_jj(["rebase", "-s=subject(glob:C3)", "-d=root()"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
     New conflicts appeared in 1 commits:
-      zsuskuln?? d59fa233 (conflict) C3
+      zsuskuln?? 899c1fbd (conflict) C3
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new zsuskuln
@@ -190,7 +190,7 @@ fn test_report_conflicts_with_divergent_commits() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
 
     let output = work_dir.run_jj(["rebase", "-s=subject(glob:C2)", "-d=subject(glob:B)"]);
     insta::assert_snapshot!(output, @r"
@@ -234,14 +234,14 @@ fn test_report_conflicts_with_resolving_conflicts_hint_disabled() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
-    Working copy  (@) now at: zsuskuln 1f0443b9 (conflict) (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 94037e0e (conflict) C
+    Working copy  (@) now at: zsuskuln b32d6cfb (conflict) (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 76c756c3 (conflict) C
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
     New conflicts appeared in 2 commits:
-      kkmpptxz 94037e0e (conflict) C
-      rlvkpnrz 871ac2e2 (conflict) B
+      kkmpptxz 76c756c3 (conflict) C
+      rlvkpnrz 339f4b13 (conflict) B
     [EOF]
     ");
 }

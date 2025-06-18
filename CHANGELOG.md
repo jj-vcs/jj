@@ -19,6 +19,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   filesystem's behavior, but this can be overridden manually by setting
   `working-copy.exec-bit-change = "respect" | "ignore"`.
 
+* Changed Git representation of conflicted commits to include files from the
+  first side of the conflict. This should prevent unchanged files from being
+  highlighted as "added" in editors when checking out a conflicted commit in a
+  colocated workspace.
+
 ### Fixed bugs
 
 ## [0.36.0] - 2025-12-03
