@@ -352,6 +352,13 @@ pub(crate) fn flatten_remote_bookmarks(
         .kmerge_by(|(symbol1, _), (symbol2, _)| symbol1 < symbol2)
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
+pub struct TimestampRange {
+    // Could be aliased to Range<Timestamp> if needed.
+    pub start: Timestamp,
+    pub end: Timestamp,
+}
+
 /// Represents an operation (transaction) on the repo view, just like how a
 /// Commit object represents an operation on the tree.
 ///

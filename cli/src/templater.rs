@@ -25,6 +25,7 @@ use bstr::BString;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigValue;
+use jj_lib::op_store::TimestampRange;
 
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
@@ -145,13 +146,6 @@ impl Template for Timestamp {
             Err(err) => formatter.handle_error(err.into()),
         }
     }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
-pub struct TimestampRange {
-    // Could be aliased to Range<Timestamp> if needed.
-    pub start: Timestamp,
-    pub end: Timestamp,
 }
 
 impl Template for TimestampRange {

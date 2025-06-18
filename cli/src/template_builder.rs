@@ -23,6 +23,7 @@ use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigValue;
 use jj_lib::dsl_util::AliasExpandError as _;
+use jj_lib::op_store::TimestampRange;
 use jj_lib::settings::UserSettings;
 use jj_lib::time_util::DatePattern;
 use serde::de::IntoDeserializer as _;
@@ -63,7 +64,6 @@ use crate::templater::TemplateProperty;
 use crate::templater::TemplatePropertyError;
 use crate::templater::TemplatePropertyExt as _;
 use crate::templater::TemplateRenderer;
-use crate::templater::TimestampRange;
 use crate::templater::WrapTemplateProperty;
 use crate::text_util;
 use crate::time_util;
@@ -226,7 +226,7 @@ macro_rules! impl_core_property_wrappers {
             Email($crate::templater::Email),
             SizeHint($crate::templater::SizeHint),
             Timestamp(jj_lib::backend::Timestamp),
-            TimestampRange($crate::templater::TimestampRange),
+            TimestampRange(jj_lib::op_store::TimestampRange),
         });
     };
 }
