@@ -1448,7 +1448,7 @@ impl Backend for GitBackend {
 }
 
 /// Write a tree conflict as a special tree with `.jjconflict-base-N` and
-/// `.jjconflict-base-N` subtrees. This ensure that the parts are not GC'd.
+/// `.jjconflict-side-N` subtrees. This ensure that the parts are not GC'd.
 fn write_tree_conflict(
     repo: &gix::Repository,
     conflict: &Merge<TreeId>,
@@ -1491,9 +1491,28 @@ recover.
         .detach();
     entries.push(gix::objs::tree::Entry {
         mode: gix::object::tree::EntryKind::Blob.into(),
-        filename: "README".into(),
+        filename: ".jjconflict-readme".into(),
         oid: readme_id,
     });
+    let first_tree = repo
+        .find_tree(gix::ObjectId::from_bytes_or_panic(
+            conflict.first().as_bytes(),
+        ))
+        .map_err(|err| BackendError::ReadObject {
+            object_type: "tree".to_string(),
+            hash: conflict.first().to_string(),
+            source: Box::new(err),
+        })?;
+    for entry in first_tree.iter() {
+        let entry = entry.map_err(|err| BackendError::ReadObject {
+            object_type: "tree".to_string(),
+            hash: conflict.first().to_string(),
+            source: Box::new(err),
+        })?;
+        if !entry.filename().starts_with(b".jjconflict") {
+            entries.push(entry.detach().into());
+        }
+    }
     entries.sort_unstable();
     let id = repo
         .write_object(gix::objs::Tree { entries })
@@ -2101,14 +2120,18 @@ mod tests {
             ))
             .unwrap();
         let git_tree = git_repo.find_tree(git_commit.tree_id().unwrap()).unwrap();
+        let jj_conflict_entries = git_tree
+            .iter()
+            .map(Result::unwrap)
+            .filter(|entry| entry.filename().starts_with(b".jjconflict"))
+            .collect_vec();
         assert!(
-            git_tree
+            jj_conflict_entries
                 .iter()
-                .map(Result::unwrap)
-                .filter(|entry| entry.filename() != b"README")
+                .filter(|entry| entry.filename() != b".jjconflict-readme")
                 .all(|entry| entry.mode().value() == 0o040000)
         );
-        let mut iter = git_tree.iter().map(Result::unwrap);
+        let mut iter = jj_conflict_entries.iter();
         let entry = iter.next().unwrap();
         assert_eq!(entry.filename(), b".jjconflict-base-0");
         assert_eq!(
@@ -2121,6 +2144,9 @@ mod tests {
             entry.id().as_bytes(),
             root_tree.get_remove(1).unwrap().as_bytes()
         );
+        let entry = iter.next().unwrap();
+        assert_eq!(entry.filename(), b".jjconflict-readme");
+        assert_eq!(entry.mode().value(), 0o100644);
         let entry = iter.next().unwrap();
         assert_eq!(entry.filename(), b".jjconflict-side-0");
         assert_eq!(
@@ -2139,9 +2165,6 @@ mod tests {
             entry.id().as_bytes(),
             root_tree.get_add(2).unwrap().as_bytes()
         );
-        let entry = iter.next().unwrap();
-        assert_eq!(entry.filename(), b"README");
-        assert_eq!(entry.mode().value(), 0o100644);
         assert!(iter.next().is_none());
 
         // When writing a single tree using the new format, it's represented by a

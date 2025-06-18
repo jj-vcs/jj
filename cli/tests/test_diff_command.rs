@@ -2461,13 +2461,13 @@ fn test_diff_conflict_sides_differ() {
     // left1+right1.
     work_dir.run_jj(["new", "root()"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @r"
-    ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left2+right2 530ede8c conflict
+    ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left2+right2 899434dd conflict
     ├─╮  (empty) left2+right2
     │ ○  znkkpsqq test.user@example.com 2001-02-03 08:05:17 right2 e57450eb
     │ │  right2
     ○ │  royxmykx test.user@example.com 2001-02-03 08:05:13 left2 b50b218b
     │ │  left2
-    │ │ ×  kmkuslsw test.user@example.com 2001-02-03 08:05:18 left1+right1 83cdbdb5 conflict
+    │ │ ×  kmkuslsw test.user@example.com 2001-02-03 08:05:18 left1+right1 4988fd02 conflict
     ╭─┬─╯  (empty) left1+right1
     │ ○  vruxwmqv test.user@example.com 2001-02-03 08:05:15 right1 3fe2e860
     │ │  right1
@@ -2755,7 +2755,7 @@ fn test_diff_conflict_bases_differ() {
     // left1+right1.
     work_dir.run_jj(["new", "root()"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @r"
-    ×    nkmrtpmo test.user@example.com 2001-02-03 08:05:22 left2+right2 22cb40d9 conflict
+    ×    nkmrtpmo test.user@example.com 2001-02-03 08:05:22 left2+right2 5c8e9f1d conflict
     ├─╮  (empty) left2+right2
     │ ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 right2 656695c3
     │ │  right2
@@ -2763,7 +2763,7 @@ fn test_diff_conflict_bases_differ() {
     ├─╯  left2
     ○  vruxwmqv test.user@example.com 2001-02-03 08:05:15 base2 3c4d67e6
     │  base2
-    │ ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left1+right1 1711cb65 conflict
+    │ ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left1+right1 e3882b06 conflict
     │ ├─╮  (empty) left1+right1
     │ │ ○  royxmykx test.user@example.com 2001-02-03 08:05:13 right1 3087be1f
     ├───╯  right1
@@ -2911,11 +2911,11 @@ fn test_diff_conflict_three_sides() {
     // Test the setup
     work_dir.run_jj(["new", "root()"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @r"
-    ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 side1+side2+side3 ac1efd43 conflict
+    ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 side1+side2+side3 71b80924 conflict
     ├─╮  (empty) side1+side2+side3
     │ ○  znkkpsqq test.user@example.com 2001-02-03 08:05:17 side3 f73063c9
     │ │  side3
-    × │    kmkuslsw test.user@example.com 2001-02-03 08:05:18 side1+side2 a1f24e10 conflict
+    × │    kmkuslsw test.user@example.com 2001-02-03 08:05:18 side1+side2 fb809e69 conflict
     ├───╮  (empty) side1+side2
     │ │ ○  vruxwmqv test.user@example.com 2001-02-03 08:05:15 side2 bc176227
     │ │ │  side2

@@ -938,7 +938,7 @@ fn test_next_conflict_head() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: The working copy has no descendants with conflicts
-    Hint: Working copy: rlvkpnrz 5f088cac (conflict) (no description set)
+    Hint: Working copy: rlvkpnrz ffbc31dc (conflict) (no description set)
     [EOF]
     [exit status: 1]
     ");

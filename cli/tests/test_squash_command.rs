@@ -872,13 +872,13 @@ fn test_squash_from_multiple() {
 
     // Squash a few commits sideways
     let output = work_dir.run_jj(["squash", "--from=b", "--from=c", "--into=d"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: kpqxywon 703c6f0c f | (no description set)
-    Parent commit (@-)      : yostqsxw 3d6a1899 e | (no description set)
+    Working copy  (@) now at: kpqxywon 7b385c7e f | (no description set)
+    Parent commit (@-)      : yostqsxw 42d3c684 e | (no description set)
     New conflicts appeared in 1 commits:
-      yqosqzyt a3221d7a d | (conflict) (no description set)
+      yqosqzyt 3b5e923b d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new yqosqzyt
@@ -886,12 +886,12 @@ fn test_squash_from_multiple() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  703c6f0cae6f f
-    ○    3d6a18995cae e
+    @  7b385c7eacab f
+    ○    42d3c6849017 e
     ├─╮
-    × │  a3221d7ae02a d
+    × │  3b5e923bd58a d
     ├─╯
     ○  e88768e65e67 a b c
     ◆  000000000000 (empty)
@@ -1016,13 +1016,13 @@ fn test_squash_from_multiple_partial() {
 
     // Partially squash a few commits sideways
     let output = work_dir.run_jj(["squash", "--from=b|c", "--into=d", "file1"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: kpqxywon f3ae0274 f | (no description set)
-    Parent commit (@-)      : yostqsxw 45ad30bd e | (no description set)
+    Working copy  (@) now at: kpqxywon ff303e10 f | (no description set)
+    Parent commit (@-)      : yostqsxw 1fa951c1 e | (no description set)
     New conflicts appeared in 1 commits:
-      yqosqzyt 15efa8c0 d | (conflict) (no description set)
+      yqosqzyt ecd46806 d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new yqosqzyt
@@ -1030,15 +1030,15 @@ fn test_squash_from_multiple_partial() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  f3ae0274fb6c f
-    ○      45ad30bdccc6 e
+    @  ff303e10654a f
+    ○      1fa951c1a008 e
     ├─┬─╮
     │ │ ○  e9db15b956c4 b
     │ ○ │  83cbe51db94d c
     │ ├─╯
-    × │  15efa8c069e0 d
+    × │  ecd468066c69 d
     ├─╯
     ○  64ea60be8d77 a
     ◆  000000000000 (empty)

@@ -1422,7 +1422,7 @@ fn test_fix_both_sides_of_conflict() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 3 commits of 3 checked.
-    Working copy  (@) now at: mzvwutvl d4d02bf0 (conflict) (empty) (no description set)
+    Working copy  (@) now at: mzvwutvl 6597ef77 (conflict) (empty) (no description set)
     Parent commit (@-)      : qpvuntsm 0eae0dae a | (no description set)
     Parent commit (@-)      : kkmpptxz eb61ba8d b | (no description set)
     Added 0 files, modified 1 files, removed 0 files
