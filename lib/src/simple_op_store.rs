@@ -57,6 +57,7 @@ use crate::op_store::RemoteRef;
 use crate::op_store::RemoteRefState;
 use crate::op_store::RemoteView;
 use crate::op_store::RootOperationData;
+use crate::op_store::TimestampRange;
 use crate::op_store::View;
 use crate::op_store::ViewId;
 use crate::ref_name::GitRefNameBuf;
@@ -433,8 +434,8 @@ fn operation_metadata_to_proto(
     metadata: &OperationMetadata,
 ) -> crate::protos::op_store::OperationMetadata {
     crate::protos::op_store::OperationMetadata {
-        start_time: Some(timestamp_to_proto(&metadata.start_time)),
-        end_time: Some(timestamp_to_proto(&metadata.end_time)),
+        start_time: Some(timestamp_to_proto(&metadata.time.start)),
+        end_time: Some(timestamp_to_proto(&metadata.time.end)),
         description: metadata.description.clone(),
         hostname: metadata.hostname.clone(),
         username: metadata.username.clone(),
@@ -446,11 +447,12 @@ fn operation_metadata_to_proto(
 fn operation_metadata_from_proto(
     proto: crate::protos::op_store::OperationMetadata,
 ) -> OperationMetadata {
-    let start_time = timestamp_from_proto(proto.start_time.unwrap_or_default());
-    let end_time = timestamp_from_proto(proto.end_time.unwrap_or_default());
+    let time = TimestampRange {
+        start: timestamp_from_proto(proto.start_time.unwrap_or_default()),
+        end: timestamp_from_proto(proto.end_time.unwrap_or_default()),
+    };
     OperationMetadata {
-        start_time,
-        end_time,
+        time,
         description: proto.description,
         hostname: proto.hostname,
         username: proto.username,
@@ -855,13 +857,15 @@ mod tests {
                 OperationId::new(pad_id_bytes("bbb222", OPERATION_ID_LENGTH)),
             ],
             metadata: OperationMetadata {
-                start_time: Timestamp {
-                    timestamp: MillisSinceEpoch(123456789),
-                    tz_offset: 3600,
-                },
-                end_time: Timestamp {
-                    timestamp: MillisSinceEpoch(123456800),
-                    tz_offset: 3600,
+                time: TimestampRange {
+                    start: Timestamp {
+                        timestamp: MillisSinceEpoch(123456789),
+                        tz_offset: 3600,
+                    },
+                    end: Timestamp {
+                        timestamp: MillisSinceEpoch(123456800),
+                        tz_offset: 3600,
+                    },
                 },
                 description: "check out foo".to_string(),
                 hostname: "some.host.example.com".to_string(),

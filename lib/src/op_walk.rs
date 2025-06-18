@@ -214,7 +214,7 @@ pub fn get_current_head_ops(
         })
         .try_collect()?;
     // To stabilize output, sort in the same order as resolve_op_heads()
-    head_ops.sort_by_key(|op| op.metadata().end_time.timestamp);
+    head_ops.sort_by_key(|op| op.metadata().time.end.timestamp);
     Ok(head_ops)
 }
 
@@ -237,8 +237,8 @@ struct OperationByEndTime(Operation);
 
 impl Ord for OperationByEndTime {
     fn cmp(&self, other: &Self) -> Ordering {
-        let self_end_time = &self.0.metadata().end_time;
-        let other_end_time = &other.0.metadata().end_time;
+        let self_end_time = &self.0.metadata().time.end;
+        let other_end_time = &other.0.metadata().time.end;
         self_end_time
             .cmp(other_end_time)
             .then_with(|| self.0.cmp(&other.0)) // to comply with Eq

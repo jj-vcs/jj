@@ -352,7 +352,7 @@ pub(crate) fn flatten_remote_bookmarks(
         .kmerge_by(|(symbol1, _), (symbol2, _)| symbol1 < symbol2)
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
+#[derive(Clone, ContentHash, Debug, Eq, PartialEq, serde::Serialize)]
 pub struct TimestampRange {
     // Could be aliased to Range<Timestamp> if needed.
     pub start: Timestamp,
@@ -401,8 +401,10 @@ impl Operation {
             tz_offset: 0,
         };
         let metadata = OperationMetadata {
-            start_time: timestamp,
-            end_time: timestamp,
+            time: TimestampRange {
+                start: timestamp,
+                end: timestamp,
+            },
             description: "".to_string(),
             hostname: "".to_string(),
             username: "".to_string(),
@@ -424,8 +426,7 @@ impl Operation {
 
 #[derive(ContentHash, PartialEq, Eq, Clone, Debug)]
 pub struct OperationMetadata {
-    pub start_time: Timestamp,
-    pub end_time: Timestamp,
+    pub time: TimestampRange,
     // Whatever is useful to the user, such as exact command line call
     pub description: String,
     pub hostname: String,
