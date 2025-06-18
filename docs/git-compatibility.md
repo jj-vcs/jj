@@ -228,20 +228,17 @@ other encodings.
 
 Commits created by `jj` have a ref starting with `refs/jj/` to prevent GC.
 
-Commit metadata that cannot be represented in Git commits (such as the Change
-ID and information about conflicts) is stored outside of the Git repo (currently
-in `.jj/store/extra/`).
-
 Commits with conflicts cannot be represented in Git. They appear in the Git
 commit as root directories called`.jjconflict-base-*/` and
 `.jjconflict-side-*/`. Note that the purpose of this representation is only to
-prevent GC of the relevant trees; the authoritative information is in the
-Git-external storage mentioned in the paragraph above. As long as you use `jj`
+prevent GC of the relevant trees; the authoritative information is in a
+non-standard `jj:trees` commit header. As long as you use `jj`
 commands to work with them, you won't notice those paths. If, on the other hand,
 you use e.g. `git switch` to check one of them out, you will see those
 directories in your working copy. If you then run e.g. `jj status`, the
-resulting snapshot will contain those directories, making it look like they
-replaced all the other paths in your repo. You will probably want to run
+resulting snapshot will contain the contents of the first side of the conflict
+as well as the `jjconflict-*/` directories, making it look like they
+were added to your working copy. You will probably want to run
 `jj abandon` to get back to the state with the unresolved conflicts.
 
 Change IDs are stored in git commit headers as reverse hex encodings. This is

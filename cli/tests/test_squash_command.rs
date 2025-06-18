@@ -903,10 +903,10 @@ fn test_squash_from_multiple() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: kpqxywon 0b695306 f | (no description set)
-    Parent commit (@-)      : yostqsxw ff064d52 e | (no description set)
+    Working copy  (@) now at: kpqxywon 946d72b3 f | (no description set)
+    Parent commit (@-)      : yostqsxw 0548a21e e | (no description set)
     New conflicts appeared in 1 commits:
-      yqosqzyt 61130da4 d | (conflict) (no description set)
+      yqosqzyt d09442d5 d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new yqosqzyt
@@ -916,10 +916,10 @@ fn test_squash_from_multiple() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  0b6953066ee0 f
-    ○    ff064d529578 e
+    @  946d72b3accc f
+    ○    0548a21ee11f e
     ├─╮
-    × │  61130da4e714 d
+    × │  d09442d5c19c d
     ├─╯
     ○  e88768e65e67 a b c
     ◆  000000000000 (empty)
@@ -1047,10 +1047,10 @@ fn test_squash_from_multiple_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: kpqxywon a724910c f | (no description set)
-    Parent commit (@-)      : yostqsxw 1bc405e1 e | (no description set)
+    Working copy  (@) now at: kpqxywon fc992abe f | (no description set)
+    Parent commit (@-)      : yostqsxw 1ca421ce e | (no description set)
     New conflicts appeared in 1 commits:
-      yqosqzyt 7ddfe685 d | (conflict) (no description set)
+      yqosqzyt ed941d96 d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new yqosqzyt
@@ -1060,13 +1060,13 @@ fn test_squash_from_multiple_partial() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  a724910cd361 f
-    ○      1bc405e12b68 e
+    @  fc992abefdf9 f
+    ○      1ca421cea1e6 e
     ├─┬─╮
     │ │ ○  e9db15b956c4 b
     │ ○ │  83cbe51db94d c
     │ ├─╯
-    × │  7ddfe6857387 d
+    × │  ed941d968a24 d
     ├─╯
     ○  64ea60be8d77 a
     ◆  000000000000 (empty)

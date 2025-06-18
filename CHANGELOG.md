@@ -80,6 +80,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   conflict came from (currently this is only supported for conflicts created by
   certain commands).
 
+* Changed Git representation of conflicted commits to include files from the
+  first side of the conflict. This should prevent unchanged files from being
+  highlighted as "added" in editors when checking out a conflicted commit in a
+  colocated workspace.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).

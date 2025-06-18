@@ -176,12 +176,12 @@ fn test_absorb_replace_single_line_hunk() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
-      qpvuntsm 19034586 (conflict) 1
+      qpvuntsm 15a19655 (conflict) 1
     Rebased 1 descendant commits.
-    Working copy  (@) now at: mzvwutvl f9c426f2 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz a5f84679 2
+    Working copy  (@) now at: mzvwutvl 1ca8a930 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 4d6d7605 2
     New conflicts appeared in 1 commits:
-      qpvuntsm 19034586 (conflict) 1
+      qpvuntsm 15a19655 (conflict) 1
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new qpvuntsm
@@ -192,8 +192,8 @@ fn test_absorb_replace_single_line_hunk() {
     ");
 
     insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
-    @  mzvwutvl f9c426f2 (empty) (no description set)
-    ○  kkmpptxz a5f84679 2
+    @  mzvwutvl 1ca8a930 (empty) (no description set)
+    ○  kkmpptxz 4d6d7605 2
     │  diff --git a/file1 b/file1
     │  index 0000000000..2f87e8e465 100644
     │  --- a/file1
@@ -209,7 +209,7 @@ fn test_absorb_replace_single_line_hunk() {
     │   1A
     │   2b
     │  ->>>>>>> conflict 1 of 1 ends
-    ×  qpvuntsm 19034586 (conflict) 1
+    ×  qpvuntsm 15a19655 (conflict) 1
     │  diff --git a/file1 b/file1
     ~  new file mode 100644
        index 0000000000..0000000000
@@ -424,13 +424,13 @@ fn test_absorb_conflict() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
-    Working copy  (@) now at: kkmpptxz fd856fef (conflict) (no description set)
+    Working copy  (@) now at: kkmpptxz 07727fea (conflict) (no description set)
     Parent commit (@-)      : qpvuntsm e35bcaff 1
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file1    2-sided conflict
     New conflicts appeared in 1 commits:
-      kkmpptxz fd856fef (conflict) (no description set)
+      kkmpptxz 07727fea (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new kkmpptxz
@@ -551,14 +551,14 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 2 revisions:
-      kkmpptxz 9210e16d (conflict) 2
-      qpvuntsm a52f61f7 (conflict) 1
+      kkmpptxz 8d6d8e53 (conflict) 2
+      qpvuntsm b22c9194 (conflict) 1
     Rebased 1 descendant commits.
-    Working copy  (@) now at: zsuskuln f8744d38 (no description set)
-    Parent commit (@-)      : kkmpptxz 9210e16d (conflict) 2
+    Working copy  (@) now at: zsuskuln 5657b9b0 (no description set)
+    Parent commit (@-)      : kkmpptxz 8d6d8e53 (conflict) 2
     New conflicts appeared in 2 commits:
-      kkmpptxz 9210e16d (conflict) 2
-      qpvuntsm a52f61f7 (conflict) 1
+      kkmpptxz 8d6d8e53 (conflict) 2
+      qpvuntsm b22c9194 (conflict) 1
     Hint: To resolve the conflicts, start by creating a commit on top of
     the first conflicted commit:
       jj new qpvuntsm
@@ -571,7 +571,7 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     ");
 
     insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
-    @  zsuskuln f8744d38 (no description set)
+    @  zsuskuln 5657b9b0 (no description set)
     │  diff --git a/file2 b/file2
     │  deleted file mode 100644
     │  index 0000000000..0000000000
@@ -585,7 +585,7 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     │  -+++++++ side #2
     │  -1a
     │  ->>>>>>> conflict 1 of 1 ends
-    ×  kkmpptxz 9210e16d (conflict) 2
+    ×  kkmpptxz 8d6d8e53 (conflict) 2
     │  diff --git a/file1 b/file1
     │  deleted file mode 100644
     │  index 0000000000..0000000000
@@ -612,7 +612,7 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     │  -1b
     │  +1a
     │   >>>>>>> conflict 1 of 1 ends
-    ×  qpvuntsm a52f61f7 (conflict) 1
+    ×  qpvuntsm b22c9194 (conflict) 1
     │  diff --git a/file1 b/file1
     ~  new file mode 100644
        index 0000000000..0000000000
