@@ -193,7 +193,7 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
     fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'static>> {
         match self {
             Self::Core(property) => property.try_into_serialize(),
-            Self::Operation(_) => None,
+            Self::Operation(property) => Some(property.into_serialize()),
             Self::OperationId(property) => Some(property.into_serialize()),
         }
     }

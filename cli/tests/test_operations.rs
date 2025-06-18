@@ -397,6 +397,12 @@ fn test_op_log_template() {
     [EOF]
     ");
 
+    insta::assert_snapshot!(render(r#"json(self) ++ "\n""#), @r#"
+    @  {"id":"8f47435a3990362feaf967ca6de2eb0a31c8b883dfcb66fba5c22200d12bbe61e3dc8bc855f1f6879285fcafaf85ac792f9a43bcc36e57d28737d18347d5e752","parents":["00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"],"time":{"start":"2001-02-03T04:05:07+07:00","end":"2001-02-03T04:05:07+07:00"},"description":"add workspace 'default'","hostname":"host.example.com","username":"test-username","is_snapshot":false,"tags":{}}
+    ○  {"id":"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","parents":[],"time":{"start":"1970-01-01T00:00:00Z","end":"1970-01-01T00:00:00Z"},"description":"","hostname":"","username":"","is_snapshot":false,"tags":{}}
+    [EOF]
+    "#);
+
     // Test the default template, i.e. with relative start time and duration. We
     // don't generally use that template because it depends on the current time,
     // so we need to reset the time range format here.

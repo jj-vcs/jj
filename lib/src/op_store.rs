@@ -371,10 +371,12 @@ pub struct TimestampRange {
 /// taken and it will be checked that the current head of the operation
 /// graph is unchanged. If the current head has changed, there has been
 /// concurrent operation.
-#[derive(ContentHash, PartialEq, Eq, Clone, Debug)]
+#[derive(ContentHash, PartialEq, Eq, Clone, Debug, serde::Serialize)]
 pub struct Operation {
+    #[serde(skip)] // TODO: should be exposed?
     pub view_id: ViewId,
     pub parents: Vec<OperationId>,
+    #[serde(flatten)]
     pub metadata: OperationMetadata,
     /// Mapping from new commit to its predecessors, or `None` if predecessors
     /// weren't recorded when the operation was written.
@@ -391,6 +393,7 @@ pub struct Operation {
     /// even if they became visible at this operation.
     // BTreeMap for ease of deterministic serialization. If the deserialization
     // cost matters, maybe this can be changed to sorted Vec.
+    #[serde(skip)] // TODO: should be exposed?
     pub commit_predecessors: Option<BTreeMap<CommitId, Vec<CommitId>>>,
 }
 
@@ -424,7 +427,7 @@ impl Operation {
     }
 }
 
-#[derive(ContentHash, PartialEq, Eq, Clone, Debug)]
+#[derive(ContentHash, PartialEq, Eq, Clone, Debug, serde::Serialize)]
 pub struct OperationMetadata {
     pub time: TimestampRange,
     // Whatever is useful to the user, such as exact command line call
