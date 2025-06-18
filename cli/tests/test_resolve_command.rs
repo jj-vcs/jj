@@ -215,14 +215,14 @@ fn test_resolution() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: file
-    Working copy  (@) now at: vruxwmqv e4a8cd2d conflict | (conflict) conflict
+    Working copy  (@) now at: vruxwmqv e760e190 conflict | (conflict) conflict
     Parent commit (@-)      : zsuskuln 45537d53 a | a
     Parent commit (@-)      : royxmykx 89d1b299 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv e4a8cd2d conflict | (conflict) conflict
+      vruxwmqv e760e190 conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new vruxwmqv
@@ -359,14 +359,14 @@ fn test_resolution() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: file
-    Working copy  (@) now at: vruxwmqv fe2a966d conflict | (conflict) conflict
+    Working copy  (@) now at: vruxwmqv 5b9635ee conflict | (conflict) conflict
     Parent commit (@-)      : zsuskuln 45537d53 a | a
     Parent commit (@-)      : royxmykx 89d1b299 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv fe2a966d conflict | (conflict) conflict
+      vruxwmqv 5b9635ee conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new vruxwmqv
@@ -438,14 +438,14 @@ fn test_resolution() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: file
-    Working copy  (@) now at: vruxwmqv 16d4ec9a conflict | (conflict) conflict
+    Working copy  (@) now at: vruxwmqv 46aba37e conflict | (conflict) conflict
     Parent commit (@-)      : zsuskuln 45537d53 a | a
     Parent commit (@-)      : royxmykx 89d1b299 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv 16d4ec9a conflict | (conflict) conflict
+      vruxwmqv 46aba37e conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new vruxwmqv
@@ -571,7 +571,7 @@ fn test_files_still_have_conflicts() {
     Resolving conflicts in: file1
     Rebased 1 descendant commits
     New conflicts appeared in 1 commits:
-      vruxwmqv 5f31d8ad conflict | (conflict) conflict
+      vruxwmqv d00a3363 conflict | (conflict) conflict
     Warning: After this operation, some files at this revision still have conflicts:
     file2    2-sided conflict
     [EOF]
@@ -592,13 +592,13 @@ fn test_files_still_have_conflicts() {
     ------- stderr -------
     Resolving conflicts in: file1
     Rebased 1 descendant commits
-    Working copy  (@) now at: znkkpsqq 1577a6a8 c | (conflict) (empty) c
-    Parent commit (@-)      : vruxwmqv c6be5b3d conflict | (conflict) conflict
+    Working copy  (@) now at: znkkpsqq 4dda4334 c | (conflict) (empty) c
+    Parent commit (@-)      : vruxwmqv 88e91f4a conflict | (conflict) conflict
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv c6be5b3d conflict | (conflict) conflict
+      vruxwmqv 88e91f4a conflict | (conflict) conflict
     Warning: After this operation, some files at this revision still have conflicts:
     file2    2-sided conflict
     [EOF]
@@ -833,15 +833,15 @@ fn test_simplify_conflict_sides() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: fileB
-    Working copy  (@) now at: nkmrtpmo e2260d62 conflict | (conflict) conflict
-    Parent commit (@-)      : kmkuslsw 73b61e6e conflictA | (conflict) (empty) conflictA
-    Parent commit (@-)      : lylxulpl 563db74e conflictB | (conflict) (empty) conflictB
+    Working copy  (@) now at: nkmrtpmo eef38e0e conflict | (conflict) conflict
+    Parent commit (@-)      : kmkuslsw 2fa1eea2 conflictA | (conflict) (empty) conflictA
+    Parent commit (@-)      : lylxulpl 64e18f02 conflictB | (conflict) (empty) conflictB
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     fileA    2-sided conflict
     fileB    2-sided conflict
     New conflicts appeared in 1 commits:
-      nkmrtpmo e2260d62 conflict | (conflict) conflict
+      nkmrtpmo eef38e0e conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new nkmrtpmo
@@ -1067,14 +1067,14 @@ fn test_resolve_conflicts_with_executable() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: file1
-    Working copy  (@) now at: znkkpsqq dd280a2f conflict | (conflict) conflict
+    Working copy  (@) now at: znkkpsqq f094ebd7 conflict | (conflict) conflict
     Parent commit (@-)      : mzvwutvl 86f7f0e3 a | a
     Parent commit (@-)      : yqosqzyt 36361412 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict including an executable
     New conflicts appeared in 1 commits:
-      znkkpsqq dd280a2f conflict | (conflict) conflict
+      znkkpsqq f094ebd7 conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new znkkpsqq
@@ -1111,14 +1111,14 @@ fn test_resolve_conflicts_with_executable() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: file2
-    Working copy  (@) now at: znkkpsqq 6a536f34 conflict | (conflict) conflict
+    Working copy  (@) now at: znkkpsqq f3dc193a conflict | (conflict) conflict
     Parent commit (@-)      : mzvwutvl 86f7f0e3 a | a
     Parent commit (@-)      : yqosqzyt 36361412 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file1    2-sided conflict including an executable
     New conflicts appeared in 1 commits:
-      znkkpsqq 6a536f34 conflict | (conflict) conflict
+      znkkpsqq f3dc193a conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new znkkpsqq
@@ -1294,7 +1294,7 @@ fn test_resolve_change_delete_executable() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["log", "--git"]), @r"
-    @    kmkuslsw test.user@example.com 2001-02-03 08:05:18 conflict 861671a0 conflict
+    @    kmkuslsw test.user@example.com 2001-02-03 08:05:18 conflict e16689ff conflict
     ├─╮  (empty) conflict
     │ ○  vruxwmqv test.user@example.com 2001-02-03 08:05:17 b 888b6cc3
     │ │  b
@@ -1395,7 +1395,7 @@ fn test_resolve_change_delete_executable() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: file2
-    Working copy  (@) now at: kmkuslsw 50de8ae5 conflict | (conflict) conflict
+    Working copy  (@) now at: kmkuslsw 42d22fad conflict | (conflict) conflict
     Parent commit (@-)      : mzvwutvl e2d3924b a | a
     Parent commit (@-)      : vruxwmqv 888b6cc3 b | b
     Added 0 files, modified 1 files, removed 0 files
@@ -1426,7 +1426,7 @@ fn test_resolve_change_delete_executable() {
     let output = work_dir.run_jj(["resolve", "file4", "--tool=:ours"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kmkuslsw 94218b9e conflict | (conflict) conflict
+    Working copy  (@) now at: kmkuslsw 28ea0775 conflict | (conflict) conflict
     Parent commit (@-)      : mzvwutvl e2d3924b a | a
     Parent commit (@-)      : vruxwmqv 888b6cc3 b | b
     Added 0 files, modified 1 files, removed 0 files
@@ -1601,14 +1601,14 @@ fn test_resolve_long_conflict_markers() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: file
-    Working copy  (@) now at: vruxwmqv c0d761e3 conflict | (conflict) conflict
+    Working copy  (@) now at: vruxwmqv adbb417b conflict | (conflict) conflict
     Parent commit (@-)      : zsuskuln 10d994ef a | a
     Parent commit (@-)      : royxmykx 7f215575 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv c0d761e3 conflict | (conflict) conflict
+      vruxwmqv adbb417b conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new vruxwmqv
@@ -1671,14 +1671,14 @@ fn test_resolve_long_conflict_markers() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: file
-    Working copy  (@) now at: vruxwmqv eab21a40 conflict | (conflict) conflict
+    Working copy  (@) now at: vruxwmqv d76c1aae conflict | (conflict) conflict
     Parent commit (@-)      : zsuskuln 10d994ef a | a
     Parent commit (@-)      : royxmykx 7f215575 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv eab21a40 conflict | (conflict) conflict
+      vruxwmqv d76c1aae conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new vruxwmqv
@@ -1747,14 +1747,14 @@ fn test_resolve_long_conflict_markers() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: file
-    Working copy  (@) now at: vruxwmqv cd9cf2ca conflict | (conflict) conflict
+    Working copy  (@) now at: vruxwmqv 5726a719 conflict | (conflict) conflict
     Parent commit (@-)      : zsuskuln 10d994ef a | a
     Parent commit (@-)      : royxmykx 7f215575 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv cd9cf2ca conflict | (conflict) conflict
+      vruxwmqv 5726a719 conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new vruxwmqv
@@ -1880,14 +1880,14 @@ fn test_multiple_conflicts() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: another_file
-    Working copy  (@) now at: vruxwmqv 57b85650 conflict | (conflict) conflict
+    Working copy  (@) now at: vruxwmqv f0acdd42 conflict | (conflict) conflict
     Parent commit (@-)      : zsuskuln 2c821f70 a | a
     Parent commit (@-)      : royxmykx 4c2029de b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     this_file_has_a_very_long_name_to_test_padding 2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv 57b85650 conflict | (conflict) conflict
+      vruxwmqv f0acdd42 conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new vruxwmqv
@@ -2052,14 +2052,14 @@ fn test_multiple_conflicts_with_error() {
     ------- stderr -------
     Resolving conflicts in: file1
     Resolving conflicts in: file2
-    Working copy  (@) now at: vruxwmqv 7fb57d04 conflict | (conflict) conflict
+    Working copy  (@) now at: vruxwmqv 0da96694 conflict | (conflict) conflict
     Parent commit (@-)      : zsuskuln 6c31698c a | a
     Parent commit (@-)      : royxmykx ba0a5538 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv 7fb57d04 conflict | (conflict) conflict
+      vruxwmqv 0da96694 conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new vruxwmqv
@@ -2104,14 +2104,14 @@ fn test_multiple_conflicts_with_error() {
     ------- stderr -------
     Resolving conflicts in: file1
     Resolving conflicts in: file2
-    Working copy  (@) now at: vruxwmqv 0a5265e6 conflict | (conflict) conflict
+    Working copy  (@) now at: vruxwmqv 972fff0a conflict | (conflict) conflict
     Parent commit (@-)      : zsuskuln 6c31698c a | a
     Parent commit (@-)      : royxmykx ba0a5538 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv 0a5265e6 conflict | (conflict) conflict
+      vruxwmqv 972fff0a conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new vruxwmqv
