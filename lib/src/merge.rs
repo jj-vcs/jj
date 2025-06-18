@@ -108,7 +108,8 @@ where
 /// There is exactly one more `adds()` than `removes()`. When interpreted as a
 /// series of diffs, the merge's (i+1)-st add is matched with the i-th
 /// remove. The zeroth add is considered a diff from the non-existent state.
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone, serde::Serialize)]
+#[serde(transparent)]
 pub struct Merge<T> {
     /// Alternates between positive and negative terms, starting with positive.
     values: SmallVec<[T; 1]>,

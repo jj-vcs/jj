@@ -98,6 +98,7 @@ slab = "0.4.10"
 smallvec = { version = "1.15.1", features = [
     "const_generics",
     "const_new",
+    "serde",
     "union",
 ] }
 strsim = "0.11.1"

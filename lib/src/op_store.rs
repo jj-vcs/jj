@@ -46,7 +46,8 @@ use crate::ref_name::WorkspaceNameBuf;
 id_type!(pub ViewId { hex() });
 id_type!(pub OperationId { hex() });
 
-#[derive(ContentHash, PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(ContentHash, PartialEq, Eq, Hash, Clone, Debug, serde::Serialize)]
+#[serde(transparent)]
 pub struct RefTarget {
     merge: Merge<Option<CommitId>>,
 }
