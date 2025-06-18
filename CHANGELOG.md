@@ -37,6 +37,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   locally. Setting it to `"*"` is now the closest replacement for the deprecated
   `git.push-new-bookmarks` option.
 
+* Changed Git representation of conflicted commits to include files from the
+  first side of the conflict. This should prevent unchanged files from being
+  highlighted as "added" in editors when checking out a conflicted commit in a
+  colocated workspace.
+
 ### Fixed bugs
 
 * `jj git push` now ensures that tracked remote bookmarks are updated even if
