@@ -940,6 +940,10 @@ impl MutableRepo {
         // `self.rewritten_commits`
     }
 
+    pub(crate) fn predecessors(&self) -> &BTreeMap<CommitId, Vec<CommitId>> {
+        &self.commit_predecessors
+    }
+
     pub(crate) fn set_predecessors(&mut self, id: CommitId, predecessors: Vec<CommitId>) {
         self.commit_predecessors.insert(id, predecessors);
     }
