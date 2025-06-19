@@ -2419,6 +2419,7 @@ dependencies = [
  "pest_derive",
  "pollster",
  "pretty_assertions",
+ "proptest",
  "prost",
  "rand 0.9.1",
  "rand_chacha 0.9.0",

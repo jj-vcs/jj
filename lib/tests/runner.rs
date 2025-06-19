@@ -30,6 +30,7 @@ mod test_mut_repo;
 mod test_operations;
 mod test_refs;
 mod test_revset;
+mod test_revset_optimized;
 mod test_rewrite;
 mod test_rewrite_duplicate;
 mod test_rewrite_transform;
