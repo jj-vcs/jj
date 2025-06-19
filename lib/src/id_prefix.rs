@@ -164,13 +164,21 @@ impl IdPrefixIndex<'_> {
             let resolution = indexes
                 .commit_index
                 .resolve_prefix_to_key(&*indexes.commit_change_ids, prefix);
-            if let PrefixResolution::SingleMatch(id) = resolution {
-                // The disambiguation set may be loaded from a different repo,
-                // and contain a commit that doesn't exist in the current repo.
-                if repo.index().has_id(&id) {
-                    return PrefixResolution::SingleMatch(id);
-                } else {
-                    return PrefixResolution::NoMatch;
+            match resolution {
+                PrefixResolution::NoMatch => {
+                    // Fall back to resolving in entire repo
+                }
+                PrefixResolution::SingleMatch(id) => {
+                    // The disambiguation set may be loaded from a different repo,
+                    // and contain a commit that doesn't exist in the current repo.
+                    if repo.index().has_id(&id) {
+                        return PrefixResolution::SingleMatch(id);
+                    } else {
+                        return PrefixResolution::NoMatch;
+                    }
+                }
+                PrefixResolution::AmbiguousMatch => {
+                    return PrefixResolution::AmbiguousMatch;
                 }
             }
         }
@@ -201,13 +209,21 @@ impl IdPrefixIndex<'_> {
             let resolution = indexes
                 .change_index
                 .resolve_prefix_to_key(&*indexes.commit_change_ids, prefix);
-            if let PrefixResolution::SingleMatch(change_id) = resolution {
-                return match repo.resolve_change_id(&change_id) {
-                    // There may be more commits with this change id outside the narrower sets.
-                    Some(commit_ids) => PrefixResolution::SingleMatch(commit_ids),
-                    // The disambiguation set may contain hidden commits.
-                    None => PrefixResolution::NoMatch,
-                };
+            match resolution {
+                PrefixResolution::NoMatch => {
+                    // Fall back to resolving in entire repo
+                }
+                PrefixResolution::SingleMatch(change_id) => {
+                    return match repo.resolve_change_id(&change_id) {
+                        // There may be more commits with this change id outside the narrower sets.
+                        Some(commit_ids) => PrefixResolution::SingleMatch(commit_ids),
+                        // The disambiguation set may contain hidden commits.
+                        None => PrefixResolution::NoMatch,
+                    };
+                }
+                PrefixResolution::AmbiguousMatch => {
+                    return PrefixResolution::AmbiguousMatch;
+                }
             }
         }
         repo.resolve_change_id_prefix(prefix)
