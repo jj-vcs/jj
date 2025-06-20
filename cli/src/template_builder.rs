@@ -61,6 +61,7 @@ use crate::templater::PropertyPlaceholder;
 use crate::templater::RawEscapeSequenceTemplate;
 use crate::templater::ReformatTemplate;
 use crate::templater::SeparateTemplate;
+use crate::templater::SerializeMapProperty;
 use crate::templater::SizeHint;
 use crate::templater::Template;
 use crate::templater::TemplateProperty;
@@ -1853,9 +1854,7 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         Ok(L::Property::wrap_property(content))
     });
     map.insert("json", |language, diagnostics, build_ctx, function| {
-        // TODO: Add pretty=true|false? or json(key=value, ..)? The latter might
-        // be implemented as a map constructor/literal if we add support for
-        // heterogeneous list/map types.
+        // TODO: Add pretty=true|false?
         let [value_node] = function.expect_exact_arguments()?;
         let value = expect_serialize_expression(language, diagnostics, build_ctx, value_node)?;
         let out_property = value.and_then(|v| Ok(serde_json::to_string(&v)?));
@@ -2225,14 +2224,28 @@ pub fn expect_serialize_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     build_ctx: &BuildContext<L::Property>,
     node: &ExpressionNode,
 ) -> TemplateParseResult<BoxedSerializeProperty<'a>> {
-    expect_expression_of_type(
-        language,
-        diagnostics,
-        build_ctx,
-        node,
-        "Serialize",
-        |expression| expression.try_into_serialize(),
-    )
+    template_parser::catch_aliases(diagnostics, node, |diagnostics, node| match &node.kind {
+        ExpressionKind::Map(entries) => {
+            let entries = entries
+                .iter()
+                .map(|(key_node, value_node)| -> TemplateParseResult<_> {
+                    let key =
+                        expect_serialize_expression(language, diagnostics, build_ctx, key_node)?;
+                    let value =
+                        expect_serialize_expression(language, diagnostics, build_ctx, value_node)?;
+                    Ok((key, value))
+                })
+                .try_collect()?;
+            Ok(SerializeMapProperty::new(entries).into_serialize())
+        }
+        _ => {
+            let expression = build_expression(language, diagnostics, build_ctx, node)?;
+            let actual_type = expression.type_name();
+            expression.try_into_serialize().ok_or_else(|| {
+                TemplateParseError::expected_type("Serialize", actual_type, node.span)
+            })
+        }
+    })
 }
 
 pub fn expect_template_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
@@ -4068,12 +4081,21 @@ mod tests {
             env.render_ok("json(timestamp_range)"),
             @r#"{"start":"1970-01-01T00:00:00Z","end":"1970-01-01T23:00:00-01:00"}"#);
 
+        // Map literal
+        insta::assert_snapshot!(env.render_ok("json({})"), @"{}");
+        insta::assert_snapshot!(
+            env.render_ok("json({'a' => 'b', 'c' => {'d' => 'e'}})"),
+            @r#"{"a":"b","c":{"d":"e"}}"#);
+        insta::assert_snapshot!(
+            env.render_ok("json({email => size_hint})"),
+            @r#"{"foo@bar":[5,null]}"#);
+
         // Template and ListTemplate are unserializable
-        insta::assert_snapshot!(env.parse_err(r#"json(string_list.map(|s| s))"#), @"
-         --> 1:6
+        insta::assert_snapshot!(env.parse_err(r#"json({'a' => string_list.map(|s| s)})"#), @"
+         --> 1:14
           |
-        1 | json(string_list.map(|s| s))
-          |      ^--------------------^
+        1 | json({'a' => string_list.map(|s| s)})
+          |              ^--------------------^
           |
           = Expected expression of type `Serialize`, but actual type is `ListTemplate`
         ");
