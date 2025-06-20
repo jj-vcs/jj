@@ -457,6 +457,11 @@
                         }
                     ]
                 },
+                "private-commits": {
+                    "type": "string",
+                    "description": "Revset of commits to refuse to push to remotes",
+                    "default": "none()"
+                },
                 "push": {
                     "type": "string",
                     "description": "The remote to which commits are pushed",
