@@ -22,7 +22,6 @@ use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigValue;
-use jj_lib::dsl_util::AliasExpandError as _;
 use jj_lib::op_store::TimestampRange;
 use jj_lib::settings::UserSettings;
 use jj_lib::time_util::DatePattern;
@@ -1807,7 +1806,7 @@ pub fn build_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     build_ctx: &BuildContext<L::Property>,
     node: &ExpressionNode,
 ) -> TemplateParseResult<Expression<L::Property>> {
-    match &node.kind {
+    template_parser::catch_aliases(diagnostics, node, |diagnostics, node| match &node.kind {
         ExpressionKind::Identifier(name) => {
             if let Some(make) = build_ctx.local_variables.get(name) {
                 // Don't label a local variable with its name
@@ -1883,16 +1882,8 @@ pub fn build_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
             "Lambda cannot be defined here",
             node.span,
         )),
-        ExpressionKind::AliasExpanded(id, subst) => {
-            let mut inner_diagnostics = TemplateDiagnostics::new();
-            let expression = build_expression(language, &mut inner_diagnostics, build_ctx, subst)
-                .map_err(|e| e.within_alias_expansion(*id, node.span))?;
-            diagnostics.extend_with(inner_diagnostics, |diag| {
-                diag.within_alias_expansion(*id, node.span)
-            });
-            Ok(expression)
-        }
-    }
+        ExpressionKind::AliasExpanded(..) => unreachable!(),
+    })
 }
 
 /// Builds template evaluation tree from AST nodes, with fresh build context.
@@ -2045,27 +2036,12 @@ fn expect_expression_of_type<'a, L: TemplateLanguage<'a> + ?Sized, T>(
     expected_type: &str,
     f: impl FnOnce(Expression<L::Property>) -> Option<T>,
 ) -> TemplateParseResult<T> {
-    if let ExpressionKind::AliasExpanded(id, subst) = &node.kind {
-        let mut inner_diagnostics = TemplateDiagnostics::new();
-        let expression = expect_expression_of_type(
-            language,
-            &mut inner_diagnostics,
-            build_ctx,
-            subst,
-            expected_type,
-            f,
-        )
-        .map_err(|e| e.within_alias_expansion(*id, node.span))?;
-        diagnostics.extend_with(inner_diagnostics, |diag| {
-            diag.within_alias_expansion(*id, node.span)
-        });
-        Ok(expression)
-    } else {
+    template_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
         let expression = build_expression(language, diagnostics, build_ctx, node)?;
         let actual_type = expression.type_name();
         f(expression)
             .ok_or_else(|| TemplateParseError::expected_type(expected_type, actual_type, node.span))
-    }
+    })
 }
 
 #[cfg(test)]

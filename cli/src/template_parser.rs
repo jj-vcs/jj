@@ -659,23 +659,13 @@ pub fn expect_string_literal_with<'a, 'i, T>(
     node: &'a ExpressionNode<'i>,
     f: impl FnOnce(&'a str, pest::Span<'i>) -> TemplateParseResult<T>,
 ) -> TemplateParseResult<T> {
-    match &node.kind {
+    catch_aliases_no_diagnostics(node, |node| match &node.kind {
         ExpressionKind::String(s) => f(s, node.span),
-        ExpressionKind::Identifier(_)
-        | ExpressionKind::Boolean(_)
-        | ExpressionKind::Integer(_)
-        | ExpressionKind::Unary(..)
-        | ExpressionKind::Binary(..)
-        | ExpressionKind::Concat(_)
-        | ExpressionKind::FunctionCall(_)
-        | ExpressionKind::MethodCall(_)
-        | ExpressionKind::Lambda(_) => Err(TemplateParseError::expression(
+        _ => Err(TemplateParseError::expression(
             "Expected string literal",
             node.span,
         )),
-        ExpressionKind::AliasExpanded(id, subst) => expect_string_literal_with(subst, f)
-            .map_err(|e| e.within_alias_expansion(*id, node.span)),
-    }
+    })
 }
 
 /// Applies the given function if the `node` is a lambda.
@@ -683,24 +673,59 @@ pub fn expect_lambda_with<'a, 'i, T>(
     node: &'a ExpressionNode<'i>,
     f: impl FnOnce(&'a LambdaNode<'i>, pest::Span<'i>) -> TemplateParseResult<T>,
 ) -> TemplateParseResult<T> {
-    match &node.kind {
+    catch_aliases_no_diagnostics(node, |node| match &node.kind {
         ExpressionKind::Lambda(lambda) => f(lambda, node.span),
-        ExpressionKind::Identifier(_)
-        | ExpressionKind::Boolean(_)
-        | ExpressionKind::Integer(_)
-        | ExpressionKind::String(_)
-        | ExpressionKind::Unary(..)
-        | ExpressionKind::Binary(..)
-        | ExpressionKind::Concat(_)
-        | ExpressionKind::FunctionCall(_)
-        | ExpressionKind::MethodCall(_) => Err(TemplateParseError::expression(
+        _ => Err(TemplateParseError::expression(
             "Expected lambda expression",
             node.span,
         )),
-        ExpressionKind::AliasExpanded(id, subst) => {
-            expect_lambda_with(subst, f).map_err(|e| e.within_alias_expansion(*id, node.span))
-        }
+    })
+}
+
+/// Applies the given function to the innermost `node` by unwrapping alias
+/// expansion nodes. Appends alias expansion stack to error and diagnostics.
+pub fn catch_aliases<'a, 'i, T>(
+    diagnostics: &mut TemplateDiagnostics,
+    node: &'a ExpressionNode<'i>,
+    f: impl FnOnce(&mut TemplateDiagnostics, &'a ExpressionNode<'i>) -> TemplateParseResult<T>,
+) -> TemplateParseResult<T> {
+    let (node, stack) = skip_aliases(node);
+    if stack.is_empty() {
+        f(diagnostics, node)
+    } else {
+        let mut inner_diagnostics = TemplateDiagnostics::new();
+        let result = f(&mut inner_diagnostics, node);
+        diagnostics.extend_with(inner_diagnostics, |diag| attach_aliases_err(diag, &stack));
+        result.map_err(|err| attach_aliases_err(err, &stack))
     }
+}
+
+fn catch_aliases_no_diagnostics<'a, 'i, T>(
+    node: &'a ExpressionNode<'i>,
+    f: impl FnOnce(&'a ExpressionNode<'i>) -> TemplateParseResult<T>,
+) -> TemplateParseResult<T> {
+    let (node, stack) = skip_aliases(node);
+    f(node).map_err(|err| attach_aliases_err(err, &stack))
+}
+
+fn skip_aliases<'a, 'i>(
+    mut node: &'a ExpressionNode<'i>,
+) -> (&'a ExpressionNode<'i>, Vec<(AliasId<'i>, pest::Span<'i>)>) {
+    let mut stack = Vec::new();
+    while let ExpressionKind::AliasExpanded(id, subst) = &node.kind {
+        stack.push((*id, node.span));
+        node = subst;
+    }
+    (node, stack)
+}
+
+fn attach_aliases_err(
+    err: TemplateParseError,
+    stack: &[(AliasId<'_>, pest::Span<'_>)],
+) -> TemplateParseError {
+    stack
+        .iter()
+        .rfold(err, |err, &(id, span)| err.within_alias_expansion(id, span))
 }
 
 /// Looks up `table` by the given function name.
