@@ -2276,6 +2276,10 @@ pub fn build_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
             "Lambda cannot be defined here",
             node.span,
         )),
+        ExpressionKind::Map(_) => Err(TemplateParseError::expression(
+            "Map cannot be defined here",
+            node.span,
+        )),
         ExpressionKind::AliasExpanded(..) => unreachable!(),
     })
 }
