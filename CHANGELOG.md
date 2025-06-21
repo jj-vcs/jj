@@ -12,6 +12,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* Commit templates no longer normalize `description` by appending final newline
+  character. Use `description.trim_end() ++ "\n"` if needed.
+
 * Revset expressions like `hidden_id | description(x)` now [search the specified
   hidden revision and its ancestors](docs/revsets.md#hidden-revisions) as well
   as all visible revisions.
