@@ -16,15 +16,12 @@ use std::slice;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
-use jj_lib::config::ConfigGetError;
-use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::graph::reverse_graph;
 use jj_lib::graph::GraphEdge;
 use jj_lib::op_store::OpStoreError;
 use jj_lib::op_walk;
 use jj_lib::operation::Operation;
 use jj_lib::repo::RepoLoader;
-use jj_lib::settings::UserSettings;
 
 use super::diff::show_op_diff;
 use crate::cli_util::format_template;
@@ -138,7 +135,11 @@ fn do_op_log(
             .parse_template(ui, &language, &text)?
             .labeled(["op_log", "operation"]);
         op_node_template = workspace_env
-            .parse_template(ui, &language, &get_node_template(graph_style, settings)?)?
+            .parse_template(
+                ui,
+                &language,
+                &settings.get_string("templates.op_log_node")?,
+            )?
             .labeled(["op_log", "operation", "node"]);
     }
 
@@ -253,14 +254,4 @@ fn do_op_log(
     }
 
     Ok(())
-}
-
-fn get_node_template(style: GraphStyle, settings: &UserSettings) -> Result<String, ConfigGetError> {
-    let symbol = settings.get_string("templates.op_log_node").optional()?;
-    let default = if style.is_ascii() {
-        "builtin_op_log_node_ascii"
-    } else {
-        "builtin_op_log_node"
-    };
-    Ok(symbol.unwrap_or_else(|| default.to_owned()))
 }

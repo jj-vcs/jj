@@ -31,6 +31,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `colors."diff removed token" = { bg = "ansi-color-52", underline = false }`
   will apply a dark red background on removed words in diffs.
 
+* Log node templates are now specified in toml rather than hardcoded.
+
 ### Fixed bugs
 
 * `jj file annotate` can now process files at a hidden revision.

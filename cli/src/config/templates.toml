@@ -70,6 +70,22 @@ separate(" ",
 )
 '''
 
+log_node = '''
+if(
+  config("ui.graph.style").as_string().starts_with("ascii"),
+  builtin_log_node_ascii,
+  builtin_log_node
+)
+'''
+
+op_log_node = '''
+if(
+  config("ui.graph.style").as_string().starts_with("ascii"),
+  builtin_op_log_node_ascii,
+  builtin_op_log_node
+)
+'''
+
 [template-aliases]
 
 'format_config_item(x)' = '''

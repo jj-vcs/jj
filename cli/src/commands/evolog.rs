@@ -25,7 +25,6 @@ use jj_lib::graph::TopoGroupedGraphIterator;
 use jj_lib::matchers::EverythingMatcher;
 use tracing::instrument;
 
-use super::log::get_node_template;
 use crate::cli_util::format_template;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
@@ -123,7 +122,9 @@ pub(crate) fn cmd_evolog(
             .parse_template(
                 ui,
                 &language,
-                &get_node_template(graph_style, workspace_command.settings())?,
+                &workspace_command
+                    .settings()
+                    .get_string("templates.log_node")?,
             )?
             .labeled(["log", "commit", "node"]);
     }

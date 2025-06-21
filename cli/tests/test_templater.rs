@@ -216,6 +216,8 @@ fn test_templater_alias() {
     'deprecated()' = 'author.username()'
     'builtin_log_node' = '"#"'
     'builtin_op_log_node' = '"#"'
+    'builtin_log_node_ascii' = '"#"'
+    'builtin_op_log_node_ascii' = '"#"'
     "###,
     );
 

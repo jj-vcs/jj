@@ -17,8 +17,6 @@ use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
-use jj_lib::config::ConfigGetError;
-use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::graph::reverse_graph;
 use jj_lib::graph::GraphEdge;
 use jj_lib::graph::GraphEdgeType;
@@ -28,7 +26,6 @@ use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetIteratorExt as _;
-use jj_lib::settings::UserSettings;
 use tracing::instrument;
 
 use crate::cli_util::format_template;
@@ -176,7 +173,7 @@ pub(crate) fn cmd_log(
             .parse_template(ui, &language, &template_string)?
             .labeled(["log", "commit"]);
         node_template = workspace_command
-            .parse_template(ui, &language, &get_node_template(graph_style, settings)?)?
+            .parse_template(ui, &language, &settings.get_string("templates.log_node")?)?
             .labeled(["log", "commit", "node"]);
     }
 
@@ -335,17 +332,4 @@ pub(crate) fn cmd_log(
     }
 
     Ok(())
-}
-
-pub fn get_node_template(
-    style: GraphStyle,
-    settings: &UserSettings,
-) -> Result<String, ConfigGetError> {
-    let symbol = settings.get_string("templates.log_node").optional()?;
-    let default = if style.is_ascii() {
-        "builtin_log_node_ascii"
-    } else {
-        "builtin_log_node"
-    };
-    Ok(symbol.unwrap_or_else(|| default.to_owned()))
 }
