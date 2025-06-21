@@ -43,8 +43,6 @@ use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::revset::parse;
-use jj_lib::revset::DefaultSymbolResolver;
-use jj_lib::revset::FailingSymbolResolver;
 use jj_lib::revset::Revset;
 use jj_lib::revset::RevsetAliasesMap;
 use jj_lib::revset::RevsetDiagnostics;
@@ -54,7 +52,7 @@ use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetResolutionError;
 use jj_lib::revset::RevsetWorkspaceContext;
-use jj_lib::revset::SymbolResolver as _;
+use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::signing::SignBehavior;
 use jj_lib::signing::Signer;
@@ -81,22 +79,22 @@ where
     }
 }
 
-fn resolve_symbol_with_extensions(
-    repo: &dyn Repo,
-    extensions: &RevsetExtensions,
-    symbol: &str,
-) -> Result<Vec<CommitId>, RevsetResolutionError> {
+fn default_symbol_resolver(repo: &dyn Repo) -> SymbolResolver<'_> {
+    SymbolResolver::new(repo, &([] as [&Box<dyn SymbolResolverExtension>; 0]))
+}
+
+fn resolve_symbol(repo: &dyn Repo, symbol: &str) -> Result<Vec<CommitId>, RevsetResolutionError> {
     let context = RevsetParseContext {
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
         user_email: "",
         date_pattern_context: chrono::Local::now().into(),
-        extensions,
+        extensions: &RevsetExtensions::default(),
         workspace: None,
     };
     let expression = parse(&mut RevsetDiagnostics::new(), symbol, &context).unwrap();
     assert_matches!(*expression, RevsetExpression::CommitRef(_));
-    let symbol_resolver = DefaultSymbolResolver::new(repo, extensions.symbol_resolvers());
+    let symbol_resolver = default_symbol_resolver(repo);
     match expression
         .resolve_user_expression(repo, &symbol_resolver)?
         .as_ref()
@@ -106,16 +104,11 @@ fn resolve_symbol_with_extensions(
     }
 }
 
-fn resolve_symbol(repo: &dyn Repo, symbol: &str) -> Result<Vec<CommitId>, RevsetResolutionError> {
-    resolve_symbol_with_extensions(repo, &RevsetExtensions::default(), symbol)
-}
-
 fn revset_for_commits<'index>(
     repo: &'index dyn Repo,
     commits: &[&Commit],
 ) -> Box<dyn Revset + 'index> {
-    let symbol_resolver =
-        DefaultSymbolResolver::new(repo, &([] as [&Box<dyn SymbolResolverExtension>; 0]));
+    let symbol_resolver = default_symbol_resolver(repo);
     RevsetExpression::commits(commits.iter().map(|commit| commit.id().clone()).collect())
         .resolve_user_expression(repo, &symbol_resolver)
         .unwrap()
@@ -213,10 +206,7 @@ fn test_resolve_symbol_commit_id() {
 
     // Test present() suppresses only NoSuchRevision error
     assert_eq!(resolve_commit_ids(repo.as_ref(), "present(foo)"), []);
-    let symbol_resolver = DefaultSymbolResolver::new(
-        repo.as_ref(),
-        &([] as [&Box<dyn SymbolResolverExtension>; 0]),
-    );
+    let symbol_resolver = default_symbol_resolver(repo.as_ref());
     let context = RevsetParseContext {
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
@@ -381,8 +371,7 @@ fn test_resolve_symbol_in_different_disambiguation_context() {
     let id_prefix_context = IdPrefixContext::new(Default::default())
         .disambiguate_within(RevsetExpression::commit(commit2.id().clone()));
     let symbol_resolver =
-        DefaultSymbolResolver::new(repo2.as_ref(), &[] as &[Box<dyn SymbolResolverExtension>])
-            .with_id_prefix_context(&id_prefix_context);
+        default_symbol_resolver(repo2.as_ref()).with_id_prefix_context(&id_prefix_context);
 
     // Sanity check
     let change_hex = commit2.change_id().reverse_hex();
@@ -421,18 +410,17 @@ fn test_resolve_working_copy() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut_repo = tx.repo_mut();
-
-    let commit1 = write_random_commit(mut_repo);
-    let commit2 = write_random_commit(mut_repo);
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit(tx.repo_mut());
 
     let ws1 = WorkspaceNameBuf::from("ws1");
     let ws2 = WorkspaceNameBuf::from("ws2");
 
     // Cannot resolve a working-copy commit for an unknown workspace
+    let symbol_resolver = default_symbol_resolver(tx.repo());
     assert_matches!(
         RevsetExpression::working_copy(ws1.clone())
-            .resolve_user_expression(mut_repo, &FailingSymbolResolver),
+            .resolve_user_expression(tx.repo(), &symbol_resolver),
         Err(RevsetResolutionError::WorkspaceMissingWorkingCopy { name }) if name == "ws1"
     );
 
@@ -440,28 +428,30 @@ fn test_resolve_working_copy() {
     assert_eq!(
         RevsetExpression::working_copy(ws1.clone())
             .present()
-            .resolve_user_expression(mut_repo, &FailingSymbolResolver)
+            .resolve_user_expression(tx.repo(), &symbol_resolver)
             .unwrap()
-            .evaluate(mut_repo)
+            .evaluate(tx.repo())
             .unwrap()
             .iter()
             .map(Result::unwrap)
             .collect_vec(),
         vec![]
     );
+    drop(symbol_resolver);
 
     // Add some workspaces
-    mut_repo
+    tx.repo_mut()
         .set_wc_commit(ws1.clone(), commit1.id().clone())
         .unwrap();
-    mut_repo
+    tx.repo_mut()
         .set_wc_commit(ws2.clone(), commit2.id().clone())
         .unwrap();
+    let symbol_resolver = default_symbol_resolver(tx.repo());
     let resolve = |name: WorkspaceNameBuf| -> Vec<CommitId> {
         RevsetExpression::working_copy(name)
-            .resolve_user_expression(mut_repo, &FailingSymbolResolver)
+            .resolve_user_expression(tx.repo(), &symbol_resolver)
             .unwrap()
-            .evaluate(mut_repo)
+            .evaluate(tx.repo())
             .unwrap()
             .iter()
             .map(Result::unwrap)
@@ -480,27 +470,26 @@ fn test_resolve_working_copies() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut_repo = tx.repo_mut();
-
-    let commit1 = write_random_commit(mut_repo);
-    let commit2 = write_random_commit(mut_repo);
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit(tx.repo_mut());
 
     // Add some workspaces
     let ws1 = WorkspaceNameBuf::from("ws1");
     let ws2 = WorkspaceNameBuf::from("ws2");
 
     // add one commit to each working copy
-    mut_repo
+    tx.repo_mut()
         .set_wc_commit(ws1.clone(), commit1.id().clone())
         .unwrap();
-    mut_repo
+    tx.repo_mut()
         .set_wc_commit(ws2.clone(), commit2.id().clone())
         .unwrap();
+    let symbol_resolver = default_symbol_resolver(tx.repo());
     let resolve = || -> Vec<CommitId> {
         RevsetExpression::working_copies()
-            .resolve_user_expression(mut_repo, &FailingSymbolResolver)
+            .resolve_user_expression(tx.repo(), &symbol_resolver)
             .unwrap()
-            .evaluate(mut_repo)
+            .evaluate(tx.repo())
             .unwrap()
             .iter()
             .map(Result::unwrap)
@@ -926,7 +915,7 @@ fn try_resolve_commit_ids(
         workspace: None,
     };
     let expression = parse(&mut RevsetDiagnostics::new(), revset_str, &context).unwrap();
-    let symbol_resolver = DefaultSymbolResolver::new(repo, context.extensions.symbol_resolvers());
+    let symbol_resolver = default_symbol_resolver(repo);
     let expression = expression.resolve_user_expression(repo, &symbol_resolver)?;
     Ok(expression
         .evaluate(repo)
@@ -960,8 +949,7 @@ fn resolve_commit_ids_in_workspace(
         workspace: Some(workspace_ctx),
     };
     let expression = parse(&mut RevsetDiagnostics::new(), revset_str, &context).unwrap();
-    let symbol_resolver =
-        DefaultSymbolResolver::new(repo, &([] as [&Box<dyn SymbolResolverExtension>; 0]));
+    let symbol_resolver = default_symbol_resolver(repo);
     let expression = expression
         .resolve_user_expression(repo, &symbol_resolver)
         .unwrap();
@@ -1088,8 +1076,9 @@ fn test_evaluate_expression_root_and_checkout() {
     );
 
     // Shouldn't panic by unindexed commit ID
+    let symbol_resolver = default_symbol_resolver(tx.repo());
     let expression = RevsetExpression::commit(commit1.id().clone())
-        .resolve_user_expression(tx.repo(), &FailingSymbolResolver)
+        .resolve_user_expression(tx.repo(), &symbol_resolver)
         .unwrap();
     assert!(expression.evaluate(tx.base_repo().as_ref()).is_err());
 }
