@@ -199,7 +199,8 @@ impl DoubleEndedIterator for RepoPathComponentsIter<'_> {
 impl FusedIterator for RepoPathComponentsIter<'_> {}
 
 /// Owned repository path.
-#[derive(ContentHash, Clone, Eq, Hash, PartialEq)]
+#[derive(ContentHash, Clone, Eq, Hash, PartialEq, serde::Serialize)]
+#[serde(transparent)]
 pub struct RepoPathBuf {
     // Don't add more fields. Eq, Hash, and Ord must be compatible with the
     // borrowed RepoPath type.
@@ -207,8 +208,9 @@ pub struct RepoPathBuf {
 }
 
 /// Borrowed repository path.
-#[derive(ContentHash, Eq, Hash, PartialEq, RefCastCustom)]
+#[derive(ContentHash, Eq, Hash, PartialEq, RefCastCustom, serde::Serialize)]
 #[repr(transparent)]
+#[serde(transparent)]
 pub struct RepoPath {
     value: str,
 }

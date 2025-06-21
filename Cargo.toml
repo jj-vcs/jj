@@ -37,6 +37,7 @@ clap_mangen = "0.2.25"
 chrono = { version = "0.4.41", default-features = false, features = [
     "std",
     "clock",
+    "serde",
 ] }
 clru = "0.6.2"
 criterion = "0.5.1"

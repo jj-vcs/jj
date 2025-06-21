@@ -21,6 +21,7 @@ use std::pin::Pin;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use chrono::TimeZone as _;
 use futures::stream::BoxStream;
 use thiserror::Error;
 use tokio::io::AsyncRead;
@@ -70,6 +71,10 @@ impl CopyId {
     }
 }
 
+#[derive(Debug, Error)]
+#[error("Out-of-range date")]
+pub struct TimestampOutOfRange;
+
 #[derive(ContentHash, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
 pub struct MillisSinceEpoch(pub i64);
 
@@ -93,10 +98,41 @@ impl Timestamp {
             tz_offset: datetime.offset().local_minus_utc() / 60,
         }
     }
+
+    pub fn to_datetime(
+        &self,
+    ) -> Result<chrono::DateTime<chrono::FixedOffset>, TimestampOutOfRange> {
+        let utc = match chrono::Utc.timestamp_opt(
+            self.timestamp.0.div_euclid(1000),
+            (self.timestamp.0.rem_euclid(1000)) as u32 * 1000000,
+        ) {
+            chrono::LocalResult::None => {
+                return Err(TimestampOutOfRange);
+            }
+            chrono::LocalResult::Single(x) => x,
+            chrono::LocalResult::Ambiguous(y, _z) => y,
+        };
+
+        Ok(utc.with_timezone(
+            &chrono::FixedOffset::east_opt(self.tz_offset * 60)
+                .unwrap_or_else(|| chrono::FixedOffset::east_opt(0).unwrap()),
+        ))
+    }
+}
+
+impl serde::Serialize for Timestamp {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // TODO: test is_human_readable() to use raw format?
+        let t = self.to_datetime().map_err(serde::ser::Error::custom)?;
+        t.serialize(serializer)
+    }
 }
 
 /// Represents a [`Commit`] signature.
-#[derive(ContentHash, Debug, PartialEq, Eq, Clone)]
+#[derive(ContentHash, Debug, PartialEq, Eq, Clone, serde::Serialize)]
 pub struct Signature {
     pub name: String,
     pub email: String,

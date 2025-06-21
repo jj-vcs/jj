@@ -24,6 +24,7 @@ use bstr::BStr;
 use bstr::BString;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
+use jj_lib::backend::TimestampOutOfRange;
 use jj_lib::config::ConfigValue;
 
 use crate::formatter::FormatRecorder;
@@ -147,7 +148,7 @@ impl Template for Timestamp {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
 pub struct TimestampRange {
     // Could be aliased to Range<Timestamp> if needed.
     pub start: Timestamp,
@@ -156,7 +157,7 @@ pub struct TimestampRange {
 
 impl TimestampRange {
     // TODO: Introduce duration type, and move formatting to it.
-    pub fn duration(&self) -> Result<String, time_util::TimestampOutOfRange> {
+    pub fn duration(&self) -> Result<String, TimestampOutOfRange> {
         let mut f = timeago::Formatter::new();
         f.min_unit(timeago::TimeUnit::Microseconds).ago("");
         let duration = time_util::format_duration(&self.start, &self.end, &f)?;

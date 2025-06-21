@@ -1,12 +1,7 @@
 use chrono::format::StrftimeItems;
-use chrono::DateTime;
-use chrono::FixedOffset;
-use chrono::LocalResult;
-use chrono::TimeZone as _;
-use chrono::Utc;
 use jj_lib::backend::Timestamp;
+use jj_lib::backend::TimestampOutOfRange;
 use once_cell::sync::Lazy;
-use thiserror::Error;
 
 /// Parsed formatting items which should never contain an error.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -46,30 +41,6 @@ impl<'a> FormattingItems<'a> {
     }
 }
 
-#[derive(Debug, Error)]
-#[error("Out-of-range date")]
-pub struct TimestampOutOfRange;
-
-fn datetime_from_timestamp(
-    context: &Timestamp,
-) -> Result<DateTime<FixedOffset>, TimestampOutOfRange> {
-    let utc = match Utc.timestamp_opt(
-        context.timestamp.0.div_euclid(1000),
-        (context.timestamp.0.rem_euclid(1000)) as u32 * 1000000,
-    ) {
-        LocalResult::None => {
-            return Err(TimestampOutOfRange);
-        }
-        LocalResult::Single(x) => x,
-        LocalResult::Ambiguous(y, _z) => y,
-    };
-
-    Ok(utc.with_timezone(
-        &FixedOffset::east_opt(context.tz_offset * 60)
-            .unwrap_or_else(|| FixedOffset::east_opt(0).unwrap()),
-    ))
-}
-
 pub fn format_absolute_timestamp(timestamp: &Timestamp) -> Result<String, TimestampOutOfRange> {
     static DEFAULT_FORMAT: Lazy<FormattingItems> =
         Lazy::new(|| FormattingItems::parse("%Y-%m-%d %H:%M:%S.%3f %:z").unwrap());
@@ -80,7 +51,7 @@ pub fn format_absolute_timestamp_with(
     timestamp: &Timestamp,
     format: &FormattingItems,
 ) -> Result<String, TimestampOutOfRange> {
-    let datetime = datetime_from_timestamp(timestamp)?;
+    let datetime = timestamp.to_datetime()?;
     Ok(datetime.format_with_items(format.items.iter()).to_string())
 }
 
@@ -89,8 +60,9 @@ pub fn format_duration(
     to: &Timestamp,
     format: &timeago::Formatter,
 ) -> Result<String, TimestampOutOfRange> {
-    let duration = datetime_from_timestamp(to)?
-        .signed_duration_since(datetime_from_timestamp(from)?)
+    let duration = to
+        .to_datetime()?
+        .signed_duration_since(from.to_datetime()?)
         .to_std()
         .map_err(|_: chrono::OutOfRangeError| TimestampOutOfRange)?;
     Ok(format.convert(duration))

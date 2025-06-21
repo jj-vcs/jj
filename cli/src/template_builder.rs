@@ -309,11 +309,11 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Integer(property) => Some(property.into_serialize()),
             Self::IntegerOpt(property) => Some(property.into_serialize()),
             Self::ConfigValue(_) => None,
-            Self::Signature(_) => None,
+            Self::Signature(property) => Some(property.into_serialize()),
             Self::Email(property) => Some(property.into_serialize()),
             Self::SizeHint(property) => Some(property.into_serialize()),
-            Self::Timestamp(_) => None,
-            Self::TimestampRange(_) => None,
+            Self::Timestamp(property) => Some(property.into_serialize()),
+            Self::TimestampRange(property) => Some(property.into_serialize()),
             Self::Template(_) => None,
             Self::ListTemplate(_) => None,
         }
@@ -3313,8 +3313,36 @@ mod tests {
         env.add_keyword("string_list", || {
             literal(vec!["foo".to_owned(), "bar".to_owned()])
         });
+        env.add_keyword("signature", || {
+            literal(Signature {
+                name: "Test User".to_owned(),
+                email: "test.user@example.com".to_owned(),
+                timestamp: Timestamp {
+                    timestamp: MillisSinceEpoch(0),
+                    tz_offset: 0,
+                },
+            })
+        });
         env.add_keyword("email", || literal(Email("foo@bar".to_owned())));
         env.add_keyword("size_hint", || literal((5, None)));
+        env.add_keyword("timestamp", || {
+            literal(Timestamp {
+                timestamp: MillisSinceEpoch(0),
+                tz_offset: 0,
+            })
+        });
+        env.add_keyword("timestamp_range", || {
+            literal(TimestampRange {
+                start: Timestamp {
+                    timestamp: MillisSinceEpoch(0),
+                    tz_offset: 0,
+                },
+                end: Timestamp {
+                    timestamp: MillisSinceEpoch(86_400_000),
+                    tz_offset: -60,
+                },
+            })
+        });
 
         insta::assert_snapshot!(env.render_ok(r#"json('"quoted"')"#), @r#""\"quoted\"""#);
         insta::assert_snapshot!(env.render_ok(r#"json(string_list)"#), @r#"["foo","bar"]"#);
@@ -3322,7 +3350,14 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("json(42)"), @"42");
         insta::assert_snapshot!(env.render_ok("json(none_i64)"), @"null");
         insta::assert_snapshot!(env.render_ok("json(email)"), @r#""foo@bar""#);
+        insta::assert_snapshot!(
+            env.render_ok("json(signature)"),
+            @r#"{"name":"Test User","email":"test.user@example.com","timestamp":"1970-01-01T00:00:00Z"}"#);
         insta::assert_snapshot!(env.render_ok("json(size_hint)"), @"[5,null]");
+        insta::assert_snapshot!(env.render_ok("json(timestamp)"), @r#""1970-01-01T00:00:00Z""#);
+        insta::assert_snapshot!(
+            env.render_ok("json(timestamp_range)"),
+            @r#"{"start":"1970-01-01T00:00:00Z","end":"1970-01-01T23:00:00-01:00"}"#);
 
         insta::assert_snapshot!(env.parse_err(r#"json(self)"#), @r"
          --> 1:6
