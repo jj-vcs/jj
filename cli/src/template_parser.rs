@@ -654,13 +654,10 @@ pub fn parse<'i>(
     dsl_util::expand_aliases(node, aliases_map)
 }
 
-/// Applies the given function if the `node` is a string literal.
-pub fn expect_string_literal_with<'a, 'i, T>(
-    node: &'a ExpressionNode<'i>,
-    f: impl FnOnce(&'a str, pest::Span<'i>) -> TemplateParseResult<T>,
-) -> TemplateParseResult<T> {
+/// Unwraps inner value if the given `node` is a string literal.
+pub fn expect_string_literal<'a>(node: &'a ExpressionNode<'_>) -> TemplateParseResult<&'a str> {
     catch_aliases_no_diagnostics(node, |node| match &node.kind {
-        ExpressionKind::String(s) => f(s, node.span),
+        ExpressionKind::String(s) => Ok(s.as_str()),
         _ => Err(TemplateParseError::expression(
             "Expected string literal",
             node.span,
@@ -668,13 +665,12 @@ pub fn expect_string_literal_with<'a, 'i, T>(
     })
 }
 
-/// Applies the given function if the `node` is a lambda.
-pub fn expect_lambda_with<'a, 'i, T>(
+/// Unwraps inner node if the given `node` is a lambda.
+pub fn expect_lambda<'a, 'i>(
     node: &'a ExpressionNode<'i>,
-    f: impl FnOnce(&'a LambdaNode<'i>, pest::Span<'i>) -> TemplateParseResult<T>,
-) -> TemplateParseResult<T> {
+) -> TemplateParseResult<&'a LambdaNode<'i>> {
     catch_aliases_no_diagnostics(node, |node| match &node.kind {
-        ExpressionKind::Lambda(lambda) => f(lambda, node.span),
+        ExpressionKind::Lambda(lambda) => Ok(lambda.as_ref()),
         _ => Err(TemplateParseError::expression(
             "Expected lambda expression",
             node.span,

@@ -143,19 +143,23 @@ impl CommitTemplateLanguageExtension for HexCounter {
         );
         table.commit_methods.insert(
             "num_char_in_id",
-            |_language, _diagnostics, _build_context, property, call| {
+            |_language, diagnostics, _build_context, property, call| {
                 let [string_arg] = call.expect_exact_arguments()?;
-                let char_arg =
-                    template_parser::expect_string_literal_with(string_arg, |string, span| {
+                let char_arg = template_parser::catch_aliases(
+                    diagnostics,
+                    string_arg,
+                    |_diagnostics, arg| {
+                        let string = template_parser::expect_string_literal(arg)?;
                         let chars: Vec<_> = string.chars().collect();
                         match chars[..] {
                             [ch] => Ok(ch),
                             _ => Err(TemplateParseError::expression(
                                 "Expected singular character argument",
-                                span,
+                                arg.span,
                             )),
                         }
-                    })?;
+                    },
+                )?;
 
                 let out_property = property.map(move |commit| num_char_in_id(commit, char_arg));
                 Ok(out_property.into_dyn_wrapped())
