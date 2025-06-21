@@ -43,7 +43,6 @@ use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::revset::parse;
-use jj_lib::revset::DefaultSymbolResolver;
 use jj_lib::revset::Revset;
 use jj_lib::revset::RevsetAliasesMap;
 use jj_lib::revset::RevsetDiagnostics;
@@ -53,7 +52,7 @@ use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetResolutionError;
 use jj_lib::revset::RevsetWorkspaceContext;
-use jj_lib::revset::SymbolResolver as _;
+use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::signing::SignBehavior;
 use jj_lib::signing::Signer;
@@ -80,8 +79,8 @@ where
     }
 }
 
-fn default_symbol_resolver(repo: &dyn Repo) -> DefaultSymbolResolver<'_> {
-    DefaultSymbolResolver::new(repo, &([] as [&Box<dyn SymbolResolverExtension>; 0]))
+fn default_symbol_resolver(repo: &dyn Repo) -> SymbolResolver<'_> {
+    SymbolResolver::new(repo, &([] as [&Box<dyn SymbolResolverExtension>; 0]))
 }
 
 fn resolve_symbol(repo: &dyn Repo, symbol: &str) -> Result<Vec<CommitId>, RevsetResolutionError> {

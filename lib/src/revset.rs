@@ -560,11 +560,11 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
 
 impl UserRevsetExpression {
     /// Resolve a user-provided expression. Symbols will be resolved using the
-    /// provided `SymbolResolver`.
+    /// provided [`SymbolResolver`].
     pub fn resolve_user_expression(
         &self,
         repo: &dyn Repo,
-        symbol_resolver: &dyn SymbolResolver,
+        symbol_resolver: &SymbolResolver,
     ) -> Result<Rc<ResolvedRevsetExpression>, RevsetResolutionError> {
         resolve_symbols(repo, self, symbol_resolver)
     }
@@ -2274,15 +2274,6 @@ fn make_no_such_symbol_error(repo: &dyn Repo, name: String) -> RevsetResolutionE
     RevsetResolutionError::NoSuchRevision { name, candidates }
 }
 
-pub trait SymbolResolver {
-    /// Looks up `symbol` in the given `repo`.
-    fn resolve_symbol(
-        &self,
-        repo: &dyn Repo,
-        symbol: &str,
-    ) -> Result<Vec<CommitId>, RevsetResolutionError>;
-}
-
 /// A symbol resolver for a specific namespace of labels.
 ///
 /// Returns None if it cannot handle the symbol.
@@ -2409,7 +2400,7 @@ impl PartialSymbolResolver for ChangePrefixResolver<'_> {
     }
 }
 
-/// An extension of the DefaultSymbolResolver.
+/// An extension of the [`SymbolResolver`].
 ///
 /// Each PartialSymbolResolver will be invoked in order, its result used if one
 /// is provided. Native resolvers are always invoked first. In the future, we
@@ -2428,20 +2419,20 @@ pub trait SymbolResolverExtension {
 
 /// Resolves bookmarks, remote bookmarks, tags, git refs, and full and
 /// abbreviated commit and change ids.
-pub struct DefaultSymbolResolver<'a> {
+pub struct SymbolResolver<'a> {
     commit_id_resolver: CommitPrefixResolver<'a>,
     change_id_resolver: ChangePrefixResolver<'a>,
     extensions: Vec<Box<dyn PartialSymbolResolver + 'a>>,
 }
 
-impl<'a> DefaultSymbolResolver<'a> {
+impl<'a> SymbolResolver<'a> {
     /// Creates new symbol resolver that will first disambiguate short ID
     /// prefixes within the given `context_repo` if configured.
     pub fn new(
         context_repo: &'a dyn Repo,
         extensions: &[impl AsRef<dyn SymbolResolverExtension>],
     ) -> Self {
-        DefaultSymbolResolver {
+        SymbolResolver {
             commit_id_resolver: CommitPrefixResolver {
                 context_repo,
                 context: None,
@@ -2472,10 +2463,9 @@ impl<'a> DefaultSymbolResolver<'a> {
             self.extensions.iter().map(|e| e.as_ref())
         )
     }
-}
 
-impl SymbolResolver for DefaultSymbolResolver<'_> {
-    fn resolve_symbol(
+    /// Looks up `symbol` in the given `repo`.
+    pub fn resolve_symbol(
         &self,
         repo: &dyn Repo,
         symbol: &str,
@@ -2497,7 +2487,7 @@ impl SymbolResolver for DefaultSymbolResolver<'_> {
 fn resolve_commit_ref(
     repo: &dyn Repo,
     commit_ref: &RevsetCommitRef,
-    symbol_resolver: &dyn SymbolResolver,
+    symbol_resolver: &SymbolResolver,
 ) -> Result<Vec<CommitId>, RevsetResolutionError> {
     match commit_ref {
         RevsetCommitRef::Symbol(symbol) => symbol_resolver.resolve_symbol(repo, symbol),
@@ -2562,14 +2552,14 @@ fn resolve_commit_ref(
 }
 
 /// Resolves symbols and commit refs recursively.
-struct ExpressionSymbolResolver<'a> {
+struct ExpressionSymbolResolver<'a, 'b> {
     base_repo: &'a dyn Repo,
     repo_stack: Vec<Arc<ReadonlyRepo>>,
-    symbol_resolver: &'a dyn SymbolResolver,
+    symbol_resolver: &'a SymbolResolver<'b>,
 }
 
-impl<'a> ExpressionSymbolResolver<'a> {
-    fn new(base_repo: &'a dyn Repo, symbol_resolver: &'a dyn SymbolResolver) -> Self {
+impl<'a, 'b> ExpressionSymbolResolver<'a, 'b> {
+    fn new(base_repo: &'a dyn Repo, symbol_resolver: &'a SymbolResolver<'b>) -> Self {
         ExpressionSymbolResolver {
             base_repo,
             repo_stack: vec![],
@@ -2585,7 +2575,7 @@ impl<'a> ExpressionSymbolResolver<'a> {
 }
 
 impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
-    for ExpressionSymbolResolver<'_>
+    for ExpressionSymbolResolver<'_, '_>
 {
     type Error = RevsetResolutionError;
 
@@ -2640,7 +2630,7 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
 fn resolve_symbols(
     repo: &dyn Repo,
     expression: &UserRevsetExpression,
-    symbol_resolver: &dyn SymbolResolver,
+    symbol_resolver: &SymbolResolver,
 ) -> Result<Rc<ResolvedRevsetExpression>, RevsetResolutionError> {
     let mut resolver = ExpressionSymbolResolver::new(repo, symbol_resolver);
     resolver.fold_expression(expression)

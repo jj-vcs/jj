@@ -30,10 +30,10 @@ use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId;
 use crate::object_id::PrefixResolution;
 use crate::repo::Repo;
-use crate::revset::DefaultSymbolResolver;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExtensions;
 use crate::revset::RevsetResolutionError;
+use crate::revset::SymbolResolver;
 use crate::revset::SymbolResolverExtension;
 use crate::revset::UserRevsetExpression;
 
@@ -63,7 +63,7 @@ impl DisambiguationData {
         extensions: &[impl AsRef<dyn SymbolResolverExtension>],
     ) -> Result<&Indexes, IdPrefixIndexLoadError> {
         self.indexes.get_or_try_init(|| {
-            let symbol_resolver = DefaultSymbolResolver::new(repo, extensions);
+            let symbol_resolver = SymbolResolver::new(repo, extensions);
             let revset = self
                 .expression
                 .resolve_user_expression(repo, &symbol_resolver)?

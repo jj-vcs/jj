@@ -29,7 +29,6 @@ use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::repo::Repo;
 use jj_lib::revset;
-use jj_lib::revset::DefaultSymbolResolver;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::Revset;
 use jj_lib::revset::RevsetAliasesMap;
@@ -41,6 +40,7 @@ use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetParseError;
 use jj_lib::revset::RevsetResolutionError;
+use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
 use thiserror::Error;
@@ -209,8 +209,8 @@ pub fn default_symbol_resolver<'a>(
     repo: &'a dyn Repo,
     extensions: &[impl AsRef<dyn SymbolResolverExtension>],
     id_prefix_context: &'a IdPrefixContext,
-) -> DefaultSymbolResolver<'a> {
-    DefaultSymbolResolver::new(repo, extensions).with_id_prefix_context(id_prefix_context)
+) -> SymbolResolver<'a> {
+    SymbolResolver::new(repo, extensions).with_id_prefix_context(id_prefix_context)
 }
 
 /// Parses user-configured expression defining the heads of the immutable set.
@@ -244,7 +244,7 @@ pub(super) fn warn_unresolvable_trunk(
     };
     // Not using IdPrefixContext since trunk() revset shouldn't contain short
     // prefixes.
-    let symbol_resolver = DefaultSymbolResolver::new(repo, context.extensions.symbol_resolvers());
+    let symbol_resolver = SymbolResolver::new(repo, context.extensions.symbol_resolvers());
     if let Err(err) = expression.resolve_user_expression(repo, &symbol_resolver) {
         writeln!(
             ui.warning_default(),
