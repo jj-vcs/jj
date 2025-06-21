@@ -2283,25 +2283,6 @@ pub trait SymbolResolver {
     ) -> Result<Vec<CommitId>, RevsetResolutionError>;
 }
 
-/// Fails on any attempt to resolve a symbol.
-pub struct FailingSymbolResolver;
-
-impl SymbolResolver for FailingSymbolResolver {
-    fn resolve_symbol(
-        &self,
-        _repo: &dyn Repo,
-        symbol: &str,
-    ) -> Result<Vec<CommitId>, RevsetResolutionError> {
-        Err(RevsetResolutionError::NoSuchRevision {
-            name: format!(
-                "Won't resolve symbol {symbol:?}. When creating revsets programmatically, avoid \
-                 using RevsetExpression::symbol(); use RevsetExpression::commits() instead."
-            ),
-            candidates: Default::default(),
-        })
-    }
-}
-
 /// A symbol resolver for a specific namespace of labels.
 ///
 /// Returns None if it cannot handle the symbol.

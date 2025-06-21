@@ -44,7 +44,6 @@ use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::revset::parse;
 use jj_lib::revset::DefaultSymbolResolver;
-use jj_lib::revset::FailingSymbolResolver;
 use jj_lib::revset::Revset;
 use jj_lib::revset::RevsetAliasesMap;
 use jj_lib::revset::RevsetDiagnostics;
@@ -412,18 +411,17 @@ fn test_resolve_working_copy() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut_repo = tx.repo_mut();
-
-    let commit1 = write_random_commit(mut_repo);
-    let commit2 = write_random_commit(mut_repo);
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit(tx.repo_mut());
 
     let ws1 = WorkspaceNameBuf::from("ws1");
     let ws2 = WorkspaceNameBuf::from("ws2");
 
     // Cannot resolve a working-copy commit for an unknown workspace
+    let symbol_resolver = default_symbol_resolver(tx.repo());
     assert_matches!(
         RevsetExpression::working_copy(ws1.clone())
-            .resolve_user_expression(mut_repo, &FailingSymbolResolver),
+            .resolve_user_expression(tx.repo(), &symbol_resolver),
         Err(RevsetResolutionError::WorkspaceMissingWorkingCopy { name }) if name == "ws1"
     );
 
@@ -431,28 +429,30 @@ fn test_resolve_working_copy() {
     assert_eq!(
         RevsetExpression::working_copy(ws1.clone())
             .present()
-            .resolve_user_expression(mut_repo, &FailingSymbolResolver)
+            .resolve_user_expression(tx.repo(), &symbol_resolver)
             .unwrap()
-            .evaluate(mut_repo)
+            .evaluate(tx.repo())
             .unwrap()
             .iter()
             .map(Result::unwrap)
             .collect_vec(),
         vec![]
     );
+    drop(symbol_resolver);
 
     // Add some workspaces
-    mut_repo
+    tx.repo_mut()
         .set_wc_commit(ws1.clone(), commit1.id().clone())
         .unwrap();
-    mut_repo
+    tx.repo_mut()
         .set_wc_commit(ws2.clone(), commit2.id().clone())
         .unwrap();
+    let symbol_resolver = default_symbol_resolver(tx.repo());
     let resolve = |name: WorkspaceNameBuf| -> Vec<CommitId> {
         RevsetExpression::working_copy(name)
-            .resolve_user_expression(mut_repo, &FailingSymbolResolver)
+            .resolve_user_expression(tx.repo(), &symbol_resolver)
             .unwrap()
-            .evaluate(mut_repo)
+            .evaluate(tx.repo())
             .unwrap()
             .iter()
             .map(Result::unwrap)
@@ -471,27 +471,26 @@ fn test_resolve_working_copies() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut_repo = tx.repo_mut();
-
-    let commit1 = write_random_commit(mut_repo);
-    let commit2 = write_random_commit(mut_repo);
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit(tx.repo_mut());
 
     // Add some workspaces
     let ws1 = WorkspaceNameBuf::from("ws1");
     let ws2 = WorkspaceNameBuf::from("ws2");
 
     // add one commit to each working copy
-    mut_repo
+    tx.repo_mut()
         .set_wc_commit(ws1.clone(), commit1.id().clone())
         .unwrap();
-    mut_repo
+    tx.repo_mut()
         .set_wc_commit(ws2.clone(), commit2.id().clone())
         .unwrap();
+    let symbol_resolver = default_symbol_resolver(tx.repo());
     let resolve = || -> Vec<CommitId> {
         RevsetExpression::working_copies()
-            .resolve_user_expression(mut_repo, &FailingSymbolResolver)
+            .resolve_user_expression(tx.repo(), &symbol_resolver)
             .unwrap()
-            .evaluate(mut_repo)
+            .evaluate(tx.repo())
             .unwrap()
             .iter()
             .map(Result::unwrap)
@@ -1078,8 +1077,9 @@ fn test_evaluate_expression_root_and_checkout() {
     );
 
     // Shouldn't panic by unindexed commit ID
+    let symbol_resolver = default_symbol_resolver(tx.repo());
     let expression = RevsetExpression::commit(commit1.id().clone())
-        .resolve_user_expression(tx.repo(), &FailingSymbolResolver)
+        .resolve_user_expression(tx.repo(), &symbol_resolver)
         .unwrap();
     assert!(expression.evaluate(tx.base_repo().as_ref()).is_err());
 }
