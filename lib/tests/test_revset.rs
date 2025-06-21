@@ -81,22 +81,22 @@ where
     }
 }
 
-fn resolve_symbol_with_extensions(
-    repo: &dyn Repo,
-    extensions: &RevsetExtensions,
-    symbol: &str,
-) -> Result<Vec<CommitId>, RevsetResolutionError> {
+fn default_symbol_resolver(repo: &dyn Repo) -> DefaultSymbolResolver<'_> {
+    DefaultSymbolResolver::new(repo, &([] as [&Box<dyn SymbolResolverExtension>; 0]))
+}
+
+fn resolve_symbol(repo: &dyn Repo, symbol: &str) -> Result<Vec<CommitId>, RevsetResolutionError> {
     let context = RevsetParseContext {
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
         user_email: "",
         date_pattern_context: chrono::Local::now().into(),
-        extensions,
+        extensions: &RevsetExtensions::default(),
         workspace: None,
     };
     let expression = parse(&mut RevsetDiagnostics::new(), symbol, &context).unwrap();
     assert_matches!(*expression, RevsetExpression::CommitRef(_));
-    let symbol_resolver = DefaultSymbolResolver::new(repo, extensions.symbol_resolvers());
+    let symbol_resolver = default_symbol_resolver(repo);
     match expression
         .resolve_user_expression(repo, &symbol_resolver)?
         .as_ref()
@@ -106,16 +106,11 @@ fn resolve_symbol_with_extensions(
     }
 }
 
-fn resolve_symbol(repo: &dyn Repo, symbol: &str) -> Result<Vec<CommitId>, RevsetResolutionError> {
-    resolve_symbol_with_extensions(repo, &RevsetExtensions::default(), symbol)
-}
-
 fn revset_for_commits<'index>(
     repo: &'index dyn Repo,
     commits: &[&Commit],
 ) -> Box<dyn Revset + 'index> {
-    let symbol_resolver =
-        DefaultSymbolResolver::new(repo, &([] as [&Box<dyn SymbolResolverExtension>; 0]));
+    let symbol_resolver = default_symbol_resolver(repo);
     RevsetExpression::commits(commits.iter().map(|commit| commit.id().clone()).collect())
         .resolve_user_expression(repo, &symbol_resolver)
         .unwrap()
@@ -213,10 +208,7 @@ fn test_resolve_symbol_commit_id() {
 
     // Test present() suppresses only NoSuchRevision error
     assert_eq!(resolve_commit_ids(repo.as_ref(), "present(foo)"), []);
-    let symbol_resolver = DefaultSymbolResolver::new(
-        repo.as_ref(),
-        &([] as [&Box<dyn SymbolResolverExtension>; 0]),
-    );
+    let symbol_resolver = default_symbol_resolver(repo.as_ref());
     let context = RevsetParseContext {
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
@@ -381,8 +373,7 @@ fn test_resolve_symbol_in_different_disambiguation_context() {
     let id_prefix_context = IdPrefixContext::new(Default::default())
         .disambiguate_within(RevsetExpression::commit(commit2.id().clone()));
     let symbol_resolver =
-        DefaultSymbolResolver::new(repo2.as_ref(), &[] as &[Box<dyn SymbolResolverExtension>])
-            .with_id_prefix_context(&id_prefix_context);
+        default_symbol_resolver(repo2.as_ref()).with_id_prefix_context(&id_prefix_context);
 
     // Sanity check
     let change_hex = commit2.change_id().reverse_hex();
@@ -926,7 +917,7 @@ fn try_resolve_commit_ids(
         workspace: None,
     };
     let expression = parse(&mut RevsetDiagnostics::new(), revset_str, &context).unwrap();
-    let symbol_resolver = DefaultSymbolResolver::new(repo, context.extensions.symbol_resolvers());
+    let symbol_resolver = default_symbol_resolver(repo);
     let expression = expression.resolve_user_expression(repo, &symbol_resolver)?;
     Ok(expression
         .evaluate(repo)
@@ -960,8 +951,7 @@ fn resolve_commit_ids_in_workspace(
         workspace: Some(workspace_ctx),
     };
     let expression = parse(&mut RevsetDiagnostics::new(), revset_str, &context).unwrap();
-    let symbol_resolver =
-        DefaultSymbolResolver::new(repo, &([] as [&Box<dyn SymbolResolverExtension>; 0]));
+    let symbol_resolver = default_symbol_resolver(repo);
     let expression = expression
         .resolve_user_expression(repo, &symbol_resolver)
         .unwrap();
