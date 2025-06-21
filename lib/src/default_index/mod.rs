@@ -45,6 +45,7 @@ pub use self::store::DefaultIndexStoreError;
 pub use self::store::DefaultIndexStoreInitError;
 
 #[cfg(test)]
+#[allow(clippy::cloned_ref_to_slice_refs)]
 mod tests {
     use std::cmp::Reverse;
     use std::convert::Infallible;
