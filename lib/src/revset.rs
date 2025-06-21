@@ -1849,6 +1849,8 @@ fn fold_redundant_expression<St: ExpressionState>(
     transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
         RevsetExpression::NotIn(outer) => match outer.as_ref() {
             RevsetExpression::NotIn(inner) => Some(inner.clone()),
+            RevsetExpression::None => Some(RevsetExpression::all()),
+            RevsetExpression::All => Some(RevsetExpression::none()),
             _ => None,
         },
         RevsetExpression::Union(expression1, expression2) => {
@@ -4359,7 +4361,11 @@ mod tests {
         insta::assert_debug_snapshot!(optimize(parse("root() & all()").unwrap()), @"Root");
         insta::assert_debug_snapshot!(optimize(parse("none() | root()").unwrap()), @"Root");
         insta::assert_debug_snapshot!(optimize(parse("none() & root()").unwrap()), @"None");
+        insta::assert_debug_snapshot!(optimize(parse("~none()").unwrap()), @"All");
         insta::assert_debug_snapshot!(optimize(parse("~~none()").unwrap()), @"None");
+        insta::assert_debug_snapshot!(optimize(parse("~all()").unwrap()), @"None");
+        insta::assert_debug_snapshot!(optimize(parse("~~all()").unwrap()), @"All");
+        insta::assert_debug_snapshot!(optimize(parse("~~foo").unwrap()), @r#"CommitRef(Symbol("foo"))"#);
         insta::assert_debug_snapshot!(
             optimize(parse("(root() | none()) & (visible_heads() | ~~all())").unwrap()), @"Root");
     }
