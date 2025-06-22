@@ -107,13 +107,6 @@ impl GraphStyle {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         settings.get("ui.graph.style")
     }
-
-    pub fn is_ascii(self) -> bool {
-        match self {
-            GraphStyle::Ascii | GraphStyle::AsciiLarge => true,
-            GraphStyle::Curved | GraphStyle::Square => false,
-        }
-    }
 }
 
 pub fn get_graphlog<'a, K: Clone + Eq + Hash + 'a>(
