@@ -571,6 +571,11 @@ where
             })
     }
 
+    /// Whether this merge is present and not a tree
+    pub fn is_file_like(&self) -> bool {
+        self.is_present() && !self.is_tree()
+    }
+
     /// If this merge contains only files or absent entries, returns a merge of
     /// the `FileId`s`. The executable bits and copy IDs will be ignored. Use
     /// `Merge::with_new_file_ids()` to produce a new merge with the original

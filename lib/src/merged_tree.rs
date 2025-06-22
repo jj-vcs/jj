@@ -1039,10 +1039,10 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
                 let (before, after) = self.items.remove(&key).unwrap().unwrap();
                 // If this was a transition from file to tree or vice versa, add back an item
                 // for just the removal/addition of the file.
-                if before.is_present() && !before.is_tree() {
+                if before.is_file_like() {
                     self.items
                         .insert(key.clone(), Ok((before, Merge::absent())));
-                } else if after.is_present() && !after.is_tree() {
+                } else if after.is_file_like() {
                     self.items.insert(
                         DiffStreamKey::file_after_dir(key.path.clone()),
                         Ok((Merge::absent(), after)),
