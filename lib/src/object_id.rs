@@ -155,7 +155,11 @@ impl HexPrefix {
     /// Returns a new `HexPrefix` or `None` if `prefix` cannot be decoded from
     /// "reverse" hex to bytes.
     pub fn try_from_reverse_hex(prefix: &str) -> Option<HexPrefix> {
-        Self::new(&hex_util::to_forward_hex(prefix)?)
+        let (min_prefix_bytes, has_odd_byte) = hex_util::decode_reverse_hex_prefix(prefix)?;
+        Some(HexPrefix {
+            min_prefix_bytes,
+            has_odd_byte,
+        })
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Self {
