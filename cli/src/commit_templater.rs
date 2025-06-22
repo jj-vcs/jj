@@ -2412,6 +2412,7 @@ pub struct AnnotationLine {
     pub commit: Commit,
     pub content: BString,
     pub line_number: usize,
+    pub original_line_number: usize,
     pub first_line_in_hunk: bool,
 }
 
@@ -2441,6 +2442,15 @@ fn builtin_annotation_line_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|line| Ok(i64::try_from(line.line_number)?));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "original_line_number",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property =
+                self_property.and_then(|line| Ok(i64::try_from(line.original_line_number)?));
             Ok(out_property.into_dyn_wrapped())
         },
     );
