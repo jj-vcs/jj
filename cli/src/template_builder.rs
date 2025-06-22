@@ -1993,14 +1993,14 @@ pub fn expect_plain_text_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     build_ctx: &BuildContext<L::Property>,
     node: &ExpressionNode,
 ) -> TemplateParseResult<BoxedTemplateProperty<'a, String>> {
-    // Since any formattable type can be converted to a string property,
-    // the expected type is not a String, but a Template.
+    // Since any formattable type can be converted to a string property, the
+    // expected type is not a String.
     expect_expression_of_type(
         language,
         diagnostics,
         build_ctx,
         node,
-        "Template",
+        "PlainText",
         |expression| expression.try_into_plain_text(),
     )
 }
