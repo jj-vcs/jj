@@ -23,6 +23,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* AnnotationLine objects in templates now have a `original_line_number() ->
+  Integer` method.
+
 ### Fixed bugs
 
 ### Packaging changes
