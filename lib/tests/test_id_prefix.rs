@@ -18,16 +18,30 @@ use jj_lib::backend::CommitId;
 use jj_lib::backend::MillisSinceEpoch;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
+use jj_lib::config::ConfigLayer;
+use jj_lib::config::ConfigSource;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::object_id::HexPrefix;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::object_id::PrefixResolution::AmbiguousMatch;
 use jj_lib::object_id::PrefixResolution::NoMatch;
 use jj_lib::object_id::PrefixResolution::SingleMatch;
+use jj_lib::op_store::RefTarget;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
+use jj_lib::settings::UserSettings;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
+
+fn stable_settings() -> UserSettings {
+    let mut config = testutils::base_user_config();
+    let mut layer = ConfigLayer::empty(ConfigSource::User);
+    layer
+        .set_value("debug.commit-timestamp", "2001-02-03T04:05:06+07:00")
+        .unwrap();
+    config.add_layer(layer);
+    UserSettings::from_config(config).unwrap()
+}
 
 #[test]
 fn test_id_prefix() {
@@ -530,5 +544,92 @@ fn test_id_prefix_hidden() {
             &prefix(&hidden_commit.change_id().hex()[..2])
         ),
         NoMatch
+    );
+}
+
+#[test]
+fn test_id_prefix_shadowed_by_ref() {
+    let settings = stable_settings();
+    let test_repo = TestRepo::init_with_settings(&settings);
+    let repo = &test_repo.repo;
+    let root_commit_id = repo.store().root_commit_id();
+
+    let mut tx = repo.start_transaction();
+    let commit = tx
+        .repo_mut()
+        .new_commit(
+            vec![root_commit_id.clone()],
+            repo.store().empty_merged_tree_id(),
+        )
+        .write()
+        .unwrap();
+
+    let commit_id_sym = commit.id().to_string();
+    let change_id_sym = commit.change_id().to_string();
+    insta::assert_snapshot!(commit_id_sym, @"ccde67f2a6ece4661cf4");
+    insta::assert_snapshot!(change_id_sym, @"sryyqqkqmuumyrlruupspprvnulvovzm");
+
+    let context = IdPrefixContext::default();
+    let index = context.populate(tx.repo()).unwrap();
+
+    assert_eq!(index.shortest_commit_prefix_len(tx.repo(), commit.id()), 1);
+    assert_eq!(
+        index.shortest_change_prefix_len(tx.repo(), commit.change_id()),
+        1
+    );
+
+    // Longer symbol doesn't count
+    let dummy_target = RefTarget::normal(root_commit_id.clone());
+    tx.repo_mut()
+        .set_tag_target(commit_id_sym[..2].as_ref(), dummy_target.clone());
+    tx.repo_mut()
+        .set_tag_target(change_id_sym[..2].as_ref(), dummy_target.clone());
+    assert_eq!(index.shortest_commit_prefix_len(tx.repo(), commit.id()), 1);
+    assert_eq!(
+        index.shortest_change_prefix_len(tx.repo(), commit.change_id()),
+        1
+    );
+
+    // 1-char conflict with bookmark, 2-char with tag
+    tx.repo_mut()
+        .set_local_bookmark_target(commit_id_sym[..1].as_ref(), dummy_target.clone());
+    tx.repo_mut()
+        .set_local_bookmark_target(change_id_sym[..1].as_ref(), dummy_target.clone());
+    assert_eq!(index.shortest_commit_prefix_len(tx.repo(), commit.id()), 3);
+    assert_eq!(
+        index.shortest_change_prefix_len(tx.repo(), commit.change_id()),
+        3
+    );
+
+    // Many-char conflicts
+    for n in 3..commit_id_sym.len() {
+        tx.repo_mut()
+            .set_tag_target(commit_id_sym[..n].as_ref(), dummy_target.clone());
+    }
+    for n in 3..change_id_sym.len() {
+        tx.repo_mut()
+            .set_tag_target(change_id_sym[..n].as_ref(), dummy_target.clone());
+    }
+    assert_eq!(
+        index.shortest_commit_prefix_len(tx.repo(), commit.id()),
+        commit_id_sym.len()
+    );
+    assert_eq!(
+        index.shortest_change_prefix_len(tx.repo(), commit.change_id()),
+        change_id_sym.len()
+    );
+
+    // Full-char conflicts
+    tx.repo_mut()
+        .set_tag_target(commit_id_sym.as_ref(), dummy_target.clone());
+    tx.repo_mut()
+        .set_tag_target(change_id_sym.as_ref(), dummy_target.clone());
+    assert_eq!(
+        index.shortest_commit_prefix_len(tx.repo(), commit.id()),
+        commit_id_sym.len()
+    );
+    assert_eq!(
+        index.shortest_change_prefix_len(tx.repo(), commit.change_id()),
+        change_id_sym.len()
     );
 }

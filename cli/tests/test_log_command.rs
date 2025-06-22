@@ -484,6 +484,16 @@ fn test_log_shortest_accessors() {
     zzz[zzzzzzzzz] 00[0000000000]
     [EOF]
     ");
+
+    // The shortest prefix "zzz" is shadowed by bookmark
+    work_dir
+        .run_jj(["bookmark", "set", "-r@", "z", "zz", "zzz"])
+        .success();
+    insta::assert_snapshot!(
+        render("root()", r#"format_id(change_id) ++ " " ++ format_id(commit_id) ++ "\n""#), @r"
+    zzzz[zzzzzzzz] 00[0000000000]
+    [EOF]
+    ");
 }
 
 #[test]

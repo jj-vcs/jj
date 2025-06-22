@@ -45,6 +45,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj util gc --expire=now` now passes the corresponding flag to `git gc`.
 
+* `change_id`/`commit_id.shortest()` template functions now take conflicting
+  bookmark and tag names into account.
+  [#2416](https://github.com/jj-vcs/jj/issues/2416)
+
 * Fixed lockfile issue on stale file handles observed with NFS.
 
 ### Packaging changes

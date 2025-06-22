@@ -36,6 +36,7 @@ use crate::revset::RevsetResolutionError;
 use crate::revset::SymbolResolver;
 use crate::revset::SymbolResolverExtension;
 use crate::revset::UserRevsetExpression;
+use crate::view::View;
 
 #[derive(Debug, Error)]
 pub enum IdPrefixIndexLoadError {
@@ -185,9 +186,14 @@ impl IdPrefixIndex<'_> {
         repo.index().resolve_commit_id_prefix(prefix)
     }
 
-    /// Returns the shortest length of a prefix of `commit_id` that
-    /// can still be resolved by `resolve_commit_prefix()`.
+    /// Returns the shortest length of a prefix of `commit_id` that can still be
+    /// resolved by `resolve_commit_prefix()` and [`SymbolResolver`].
     pub fn shortest_commit_prefix_len(&self, repo: &dyn Repo, commit_id: &CommitId) -> usize {
+        let len = self.shortest_commit_prefix_len_exact(repo, commit_id);
+        disambiguate_prefix_with_refs(repo.view(), &commit_id.to_string(), len)
+    }
+
+    pub fn shortest_commit_prefix_len_exact(&self, repo: &dyn Repo, commit_id: &CommitId) -> usize {
         if let Some(indexes) = self.indexes {
             if let Some(lookup) = indexes
                 .commit_index
@@ -229,9 +235,14 @@ impl IdPrefixIndex<'_> {
         repo.resolve_change_id_prefix(prefix)
     }
 
-    /// Returns the shortest length of a prefix of `change_id` that
-    /// can still be resolved by `resolve_change_prefix()`.
+    /// Returns the shortest length of a prefix of `change_id` that can still be
+    /// resolved by `resolve_change_prefix()` and [`SymbolResolver`].
     pub fn shortest_change_prefix_len(&self, repo: &dyn Repo, change_id: &ChangeId) -> usize {
+        let len = self.shortest_change_prefix_len_exact(repo, change_id);
+        disambiguate_prefix_with_refs(repo.view(), &change_id.to_string(), len)
+    }
+
+    fn shortest_change_prefix_len_exact(&self, repo: &dyn Repo, change_id: &ChangeId) -> usize {
         if let Some(indexes) = self.indexes {
             if let Some(lookup) = indexes
                 .change_index
@@ -242,6 +253,21 @@ impl IdPrefixIndex<'_> {
         }
         repo.shortest_unique_change_id_prefix_len(change_id)
     }
+}
+
+fn disambiguate_prefix_with_refs(view: &View, id_sym: &str, min_len: usize) -> usize {
+    debug_assert!(id_sym.is_ascii());
+    (min_len..id_sym.len())
+        .find(|&n| {
+            // Tags, bookmarks, and Git refs have higher priority, but Git refs
+            // should include "/" char. Extension symbols have lower priority.
+            let prefix = &id_sym[..n];
+            view.get_tag(prefix.as_ref()).is_absent()
+                && view.get_local_bookmark(prefix.as_ref()).is_absent()
+        })
+        // No need to test conflicts with the full ID. We have to return some
+        // valid length anyway.
+        .unwrap_or(id_sym.len())
 }
 
 /// In-memory immutable index to do prefix lookup of key `K` through `P`.
