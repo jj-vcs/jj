@@ -1847,6 +1847,7 @@ fn fold_redundant_expression<St: ExpressionState>(
     expression: &Rc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
     transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
+        RevsetExpression::Commits(commits) if commits.is_empty() => Some(RevsetExpression::none()),
         RevsetExpression::NotIn(outer) => match outer.as_ref() {
             RevsetExpression::NotIn(inner) => Some(inner.clone()),
             RevsetExpression::None => Some(RevsetExpression::all()),
@@ -4339,6 +4340,10 @@ mod tests {
         insta::assert_debug_snapshot!(optimize(parse("~~foo").unwrap()), @r#"CommitRef(Symbol("foo"))"#);
         insta::assert_debug_snapshot!(
             optimize(parse("(root() | none()) & (visible_heads() | ~~all())").unwrap()), @"Root");
+        insta::assert_debug_snapshot!(
+            optimize(UserRevsetExpression::commits(vec![])), @"None");
+        insta::assert_debug_snapshot!(
+            optimize(UserRevsetExpression::commits(vec![]).negated()), @"All");
     }
 
     #[test]
