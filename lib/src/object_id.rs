@@ -169,8 +169,18 @@ impl HexPrefix {
         }
     }
 
+    /// Returns string representation of this prefix using hex digits.
     pub fn hex(&self) -> String {
         let mut hex_string = hex::encode(&self.min_prefix_bytes);
+        if self.has_odd_byte {
+            hex_string.pop().unwrap();
+        }
+        hex_string
+    }
+
+    /// Returns string representation of this prefix using `z-k` "digits".
+    pub fn reverse_hex(&self) -> String {
+        let mut hex_string = hex_util::encode_reverse_hex(&self.min_prefix_bytes);
         if self.has_odd_byte {
             hex_string.pop().unwrap();
         }
