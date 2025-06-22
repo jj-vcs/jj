@@ -14,6 +14,8 @@
 
 #![allow(missing_docs)]
 
+use crate::hex_util;
+
 pub trait ObjectId {
     fn object_type(&self) -> String;
     fn as_bytes(&self) -> &[u8];
@@ -148,6 +150,12 @@ impl HexPrefix {
             min_prefix_bytes,
             has_odd_byte,
         })
+    }
+
+    /// Returns a new `HexPrefix` or `None` if `prefix` cannot be decoded from
+    /// "reverse" hex to bytes.
+    pub fn try_from_reverse_hex(prefix: &str) -> Option<HexPrefix> {
+        Self::new(&hex_util::to_forward_hex(prefix)?)
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Self {

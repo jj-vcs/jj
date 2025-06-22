@@ -38,7 +38,6 @@ use crate::fileset;
 use crate::fileset::FilesetDiagnostics;
 use crate::fileset::FilesetExpression;
 use crate::graph::GraphNode;
-use crate::hex_util::to_forward_hex;
 use crate::id_prefix::IdPrefixContext;
 use crate::id_prefix::IdPrefixIndex;
 use crate::object_id::HexPrefix;
@@ -2390,7 +2389,7 @@ impl PartialSymbolResolver for ChangePrefixResolver<'_> {
         repo: &dyn Repo,
         symbol: &str,
     ) -> Result<Option<Vec<CommitId>>, RevsetResolutionError> {
-        if let Some(prefix) = to_forward_hex(symbol).as_deref().and_then(HexPrefix::new) {
+        if let Some(prefix) = HexPrefix::try_from_reverse_hex(symbol) {
             let index = self
                 .context
                 .map(|ctx| ctx.populate(self.context_repo))

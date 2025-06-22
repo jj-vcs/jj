@@ -55,6 +55,11 @@ id_type!(pub ConflictId { hex() });
 id_type!(pub CopyId { hex() });
 
 impl ChangeId {
+    /// Parses the given "reverse" hex string into a `ChangeId`.
+    pub fn try_from_reverse_hex(hex: impl AsRef<[u8]>) -> Option<Self> {
+        Self::try_from_hex(&hex_util::to_forward_hex(hex)?).ok()
+    }
+
     /// Returns the hex string representation of this ID, which uses `z-k`
     /// "digits" instead of `0-9a-f`.
     pub fn reverse_hex(&self) -> String {
