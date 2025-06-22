@@ -224,6 +224,32 @@ fn test_resolve_symbol_commit_id() {
         resolve_commit_ids(repo.as_ref(), "present(017)"),
         vec![commits[2].id().clone()]
     );
+
+    // Test commit_id() function, which is roughly equivalent to present(id)
+    assert_eq!(
+        resolve_symbol(
+            repo.as_ref(),
+            "commit_id(019f179b4479a4f3d1373b772866037929e4f63c)",
+        )
+        .unwrap(),
+        vec![commits[0].id().clone()]
+    );
+    assert_eq!(
+        resolve_symbol(repo.as_ref(), "commit_id(019f1)").unwrap(),
+        vec![commits[0].id().clone()]
+    );
+    assert_eq!(
+        resolve_symbol(repo.as_ref(), "commit_id(12345)").unwrap(),
+        vec![]
+    );
+    assert_matches!(
+        resolve_symbol(repo.as_ref(), "commit_id('')"),
+        Err(RevsetResolutionError::AmbiguousCommitIdPrefix(s)) if s.is_empty()
+    );
+    assert_matches!(
+        resolve_symbol(repo.as_ref(), "commit_id(0)"),
+        Err(RevsetResolutionError::AmbiguousCommitIdPrefix(s)) if s == "0"
+    );
 }
 
 #[test_case(false ; "mutable")]
@@ -346,6 +372,25 @@ fn test_resolve_symbol_change_id(readonly: bool) {
             name,
             candidates
         }) if name == "foo" && candidates.is_empty()
+    );
+
+    // Test change_id() function, which is roughly equivalent to present(id)
+    assert_eq!(
+        resolve_symbol(repo, "change_id(zvlyxpuvtsoopsqzlkorrpqrszrqvlnx)").unwrap(),
+        vec![commits[0].id().clone()]
+    );
+    assert_eq!(
+        resolve_symbol(repo, "change_id(zvlyx)").unwrap(),
+        vec![commits[0].id().clone()]
+    );
+    assert_eq!(resolve_symbol(repo, "change_id(xyzzy)").unwrap(), vec![]);
+    assert_matches!(
+        resolve_symbol(repo, "change_id('')"),
+        Err(RevsetResolutionError::AmbiguousChangeIdPrefix(s)) if s.is_empty()
+    );
+    assert_matches!(
+        resolve_symbol(repo, "change_id(z)"),
+        Err(RevsetResolutionError::AmbiguousChangeIdPrefix(s)) if s == "z"
     );
 }
 

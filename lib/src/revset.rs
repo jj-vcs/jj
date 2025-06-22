@@ -134,6 +134,8 @@ pub enum RevsetCommitRef {
     WorkingCopies,
     Symbol(String),
     RemoteSymbol(RemoteRefSymbolBuf),
+    ChangeId(HexPrefix),
+    CommitId(HexPrefix),
     Bookmarks(StringPattern),
     RemoteBookmarks {
         bookmark_pattern: StringPattern,
@@ -363,6 +365,16 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
 
     pub fn remote_symbol(value: RemoteRefSymbolBuf) -> Rc<Self> {
         let commit_ref = RevsetCommitRef::RemoteSymbol(value);
+        Rc::new(Self::CommitRef(commit_ref))
+    }
+
+    pub fn change_id_prefix(prefix: HexPrefix) -> Rc<Self> {
+        let commit_ref = RevsetCommitRef::ChangeId(prefix);
+        Rc::new(Self::CommitRef(commit_ref))
+    }
+
+    pub fn commit_id_prefix(prefix: HexPrefix) -> Rc<Self> {
+        let commit_ref = RevsetCommitRef::CommitId(prefix);
         Rc::new(Self::CommitRef(commit_ref))
     }
 
@@ -763,6 +775,24 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
     map.insert("root", |_diagnostics, function, _context| {
         function.expect_no_arguments()?;
         Ok(RevsetExpression::root())
+    });
+    map.insert("change_id", |diagnostics, function, _context| {
+        let [arg] = function.expect_exact_arguments()?;
+        let prefix = revset_parser::catch_aliases(diagnostics, arg, |_diagnostics, arg| {
+            let value = revset_parser::expect_string_literal("change ID prefix", arg)?;
+            HexPrefix::try_from_reverse_hex(value)
+                .ok_or_else(|| RevsetParseError::expression("Invalid change ID prefix", arg.span))
+        })?;
+        Ok(RevsetExpression::change_id_prefix(prefix))
+    });
+    map.insert("commit_id", |diagnostics, function, _context| {
+        let [arg] = function.expect_exact_arguments()?;
+        let prefix = revset_parser::catch_aliases(diagnostics, arg, |_diagnostics, arg| {
+            let value = revset_parser::expect_string_literal("commit ID prefix", arg)?;
+            HexPrefix::new(value)
+                .ok_or_else(|| RevsetParseError::expression("Invalid commit ID prefix", arg.span))
+        })?;
+        Ok(RevsetExpression::commit_id_prefix(prefix))
     });
     map.insert("bookmarks", |diagnostics, function, _context| {
         let ([], [opt_arg]) = function.expect_arguments()?;
@@ -2533,6 +2563,14 @@ fn resolve_commit_ref(
             let wc_commits = repo.view().wc_commit_ids().values().cloned().collect_vec();
             Ok(wc_commits)
         }
+        RevsetCommitRef::ChangeId(prefix) => {
+            let resolver = &symbol_resolver.change_id_resolver;
+            Ok(resolver.try_resolve(repo, prefix)?.unwrap_or_else(Vec::new))
+        }
+        RevsetCommitRef::CommitId(prefix) => {
+            let resolver = &symbol_resolver.commit_id_resolver;
+            Ok(resolver.try_resolve(repo, prefix)?.into_iter().collect())
+        }
         RevsetCommitRef::Bookmarks(pattern) => {
             let commit_ids = repo
                 .view()
@@ -3718,6 +3756,32 @@ mod tests {
         )
         "#);
         insta::assert_debug_snapshot!(parse("signed()").unwrap(), @"Filter(Signed)");
+    }
+
+    #[test]
+    fn test_parse_revset_change_commit_id_functions() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+
+        insta::assert_debug_snapshot!(
+            parse("change_id(z)").unwrap(),
+            @r#"CommitRef(ChangeId(HexPrefix("0")))"#);
+        insta::assert_debug_snapshot!(
+            parse("change_id('zk')").unwrap(),
+            @r#"CommitRef(ChangeId(HexPrefix("0f")))"#);
+        insta::assert_debug_snapshot!(
+            parse("change_id(01234)").unwrap_err().kind(),
+            @r#"Expression("Invalid change ID prefix")"#);
+
+        insta::assert_debug_snapshot!(
+            parse("commit_id(0)").unwrap(),
+            @r#"CommitRef(CommitId(HexPrefix("0")))"#);
+        insta::assert_debug_snapshot!(
+            parse("commit_id('0f')").unwrap(),
+            @r#"CommitRef(CommitId(HexPrefix("0f")))"#);
+        insta::assert_debug_snapshot!(
+            parse("commit_id(xyzzy)").unwrap_err().kind(),
+            @r#"Expression("Invalid commit ID prefix")"#);
     }
 
     #[test]
