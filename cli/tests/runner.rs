@@ -1,10 +1,10 @@
-use std::path::PathBuf;
+use camino::Utf8PathBuf;
 
 mod common;
 
 #[test]
 fn test_no_forgotten_test_files() {
-    let test_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests");
+    let test_dir = Utf8PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests");
     testutils::assert_no_forgotten_test_files(&test_dir);
 }
 

@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::PathBuf;
-
+use camino::Utf8PathBuf;
 use test_case::test_case;
 
 use crate::common::CommandOutput;
@@ -767,11 +766,11 @@ fn test_split_message_editor_avoids_unc() {
     work_dir.run_jj(["split", "file2"]).success();
 
     let edited_path =
-        PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path")).unwrap());
+        Utf8PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path")).unwrap());
     // While `assert!(!edited_path.starts_with("//?/"))` could work here in most
     // cases, it fails when it is not safe to strip the prefix, such as paths
     // over 260 chars.
-    assert_eq!(edited_path, dunce::simplified(&edited_path));
+    assert_eq!(edited_path, dunce::simplified(edited_path.as_ref()));
 }
 
 #[test]

@@ -14,11 +14,12 @@
 
 use std::fs::OpenOptions;
 use std::io::Write as _;
-use std::path::Path;
+
+use camino::Utf8Path;
 
 use crate::common::TestEnvironment;
 
-fn append_to_file(file_path: &Path, contents: &str) {
+fn append_to_file(file_path: &Utf8Path, contents: &str) {
     let mut options = OpenOptions::new();
     options.append(true);
     let mut file = options.open(file_path).unwrap();

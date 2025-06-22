@@ -1531,10 +1531,7 @@ fn test_bookmark_list() {
     let mut remote_git_path = remote_dir.root().to_owned();
     remote_git_path.extend([".jj", "repo", "store", "git"]);
     test_env
-        .run_jj_in(
-            ".",
-            ["git", "clone", remote_git_path.to_str().unwrap(), "local"],
-        )
+        .run_jj_in(".", ["git", "clone", remote_git_path.as_str(), "local"])
         .success();
     let local_dir = test_env.work_dir("local");
     local_dir
@@ -1739,10 +1736,7 @@ fn test_bookmark_list_filtered() {
     let mut remote_git_path = remote_dir.root().to_owned();
     remote_git_path.extend([".jj", "repo", "store", "git"]);
     test_env
-        .run_jj_in(
-            ".",
-            ["git", "clone", remote_git_path.to_str().unwrap(), "local"],
-        )
+        .run_jj_in(".", ["git", "clone", remote_git_path.as_str(), "local"])
         .success();
     let local_dir = test_env.work_dir("local");
     local_dir
@@ -1995,10 +1989,7 @@ fn test_bookmark_list_much_remote_divergence() {
     let mut remote_git_path = remote_dir.root().to_owned();
     remote_git_path.extend([".jj", "repo", "store", "git"]);
     test_env
-        .run_jj_in(
-            ".",
-            ["git", "clone", remote_git_path.to_str().unwrap(), "local"],
-        )
+        .run_jj_in(".", ["git", "clone", remote_git_path.as_str(), "local"])
         .success();
     let local_dir = test_env.work_dir("local");
     local_dir
@@ -2065,7 +2056,7 @@ fn test_bookmark_list_tracked() {
                 "git",
                 "clone",
                 "--colocate",
-                remote_git_path.to_str().unwrap(),
+                remote_git_path.as_str(),
                 "local",
             ],
         )
@@ -2097,7 +2088,7 @@ fn test_bookmark_list_tracked() {
             "remote",
             "add",
             "upstream",
-            upstream_git_path.to_str().unwrap(),
+            upstream_git_path.as_str(),
         ])
         .success();
     local_dir

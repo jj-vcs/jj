@@ -627,12 +627,7 @@ fn test_log_bookmarks() {
     test_env
         .run_jj_in(
             ".",
-            [
-                "git",
-                "clone",
-                origin_git_repo_path.to_str().unwrap(),
-                "local",
-            ],
+            ["git", "clone", origin_git_repo_path.as_str(), "local"],
         )
         .success();
     let work_dir = test_env.work_dir("local");

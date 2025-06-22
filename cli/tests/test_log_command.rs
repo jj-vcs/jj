@@ -885,7 +885,7 @@ fn test_log_filtered_by_path() {
         [
             "log",
             "-R",
-            work_dir.root().to_str().unwrap(),
+            work_dir.root().as_str(),
             "-Tdescription",
             "-s",
             "root:file1",

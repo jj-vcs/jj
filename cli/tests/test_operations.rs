@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::Path;
-use std::path::PathBuf;
-
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use itertools::Itertools as _;
 use regex::Regex;
 use testutils::git;
@@ -1011,7 +1010,7 @@ fn test_op_corrupted_operation_file() {
     let work_dir = test_env.work_dir("repo");
     let op_store_path = work_dir
         .root()
-        .join(PathBuf::from_iter([".jj", "repo", "op_store"]));
+        .join(Utf8PathBuf::from_iter([".jj", "repo", "op_store"]));
 
     let op_id = work_dir.current_operation_id();
     insta::assert_snapshot!(op_id, @"8f47435a3990362feaf967ca6de2eb0a31c8b883dfcb66fba5c22200d12bbe61e3dc8bc855f1f6879285fcafaf85ac792f9a43bcc36e57d28737d18347d5e752");
@@ -2711,7 +2710,7 @@ fn test_op_show_patch() {
     ");
 }
 
-fn init_bare_git_repo(git_repo_path: &Path) -> gix::Repository {
+fn init_bare_git_repo(git_repo_path: &Utf8Path) -> gix::Repository {
     let git_repo = git::init_bare(git_repo_path);
     let commit_result = git::add_commit(
         &git_repo,

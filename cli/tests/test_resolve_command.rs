@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::Path;
-
+use camino::Utf8Path;
 use indoc::indoc;
 
 use crate::common::create_commit_with_files;
@@ -516,7 +515,7 @@ fn test_resolution() {
 
 fn check_resolve_produces_input_file(
     test_env: &mut TestEnvironment,
-    root: impl AsRef<Path>,
+    root: impl AsRef<Utf8Path>,
     filename: &str,
     role: &str,
     expected_content: &str,

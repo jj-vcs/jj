@@ -14,10 +14,10 @@
 
 use std::collections::HashSet;
 use std::env;
-use std::path::Path;
-use std::path::PathBuf;
 use std::process::exit;
 
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use clap::Parser;
 use itertools::Itertools as _;
 
@@ -26,28 +26,28 @@ use itertools::Itertools as _;
 #[clap()]
 struct Args {
     /// Path to the "before" directory
-    before: PathBuf,
+    before: Utf8PathBuf,
 
     /// Path to the "after" directory
-    after: PathBuf,
+    after: Utf8PathBuf,
 
     /// Ignored argument
     #[arg(long)]
     _ignore: Vec<String>,
 }
 
-fn files_recursively(p: &Path) -> HashSet<String> {
+fn files_recursively(p: &Utf8Path) -> HashSet<String> {
     let mut files = HashSet::new();
     if !p.is_dir() {
-        files.insert(p.file_name().unwrap().to_str().unwrap().to_string());
+        files.insert(p.file_name().unwrap().to_string());
     } else {
-        for dir_entry in std::fs::read_dir(p).unwrap() {
+        for dir_entry in p.read_dir_utf8().unwrap() {
             let dir_entry = dir_entry.unwrap();
-            let base_name = dir_entry.file_name().to_str().unwrap().to_string();
+            let base_name = dir_entry.file_name().to_string();
             if !dir_entry.path().is_dir() {
                 files.insert(base_name);
             } else {
-                for sub_path in files_recursively(&dir_entry.path()) {
+                for sub_path in files_recursively(dir_entry.path()) {
                     files.insert(format!("{base_name}/{sub_path}"));
                 }
             }
@@ -58,7 +58,7 @@ fn files_recursively(p: &Path) -> HashSet<String> {
 
 fn main() {
     let args: Args = Args::parse();
-    let edit_script_path = PathBuf::from(std::env::var_os("DIFF_EDIT_SCRIPT").unwrap());
+    let edit_script_path = Utf8PathBuf::from(std::env::var("DIFF_EDIT_SCRIPT").unwrap());
     let edit_script = String::from_utf8(std::fs::read(&edit_script_path).unwrap()).unwrap();
     for instruction in edit_script.split('\0') {
         let (command, payload) = instruction.split_once('\n').unwrap_or((instruction, ""));

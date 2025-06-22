@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::Path;
-use std::path::PathBuf;
-
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use indoc::formatdoc;
 use test_case::test_case;
 use testutils::git;
@@ -24,7 +23,7 @@ use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 
-fn init_git_repo(git_repo_path: &Path, bare: bool) -> gix::Repository {
+fn init_git_repo(git_repo_path: &Utf8Path, bare: bool) -> gix::Repository {
     let git_repo = if bare {
         git::init_bare(git_repo_path)
     } else {
@@ -125,13 +124,7 @@ fn test_git_init_external(bare: bool) {
 
     let output = test_env.run_jj_in(
         ".",
-        [
-            "git",
-            "init",
-            "repo",
-            "--git-repo",
-            git_repo_path.to_str().unwrap(),
-        ],
+        ["git", "init", "repo", "--git-repo", git_repo_path.as_str()],
     );
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
@@ -202,13 +195,7 @@ fn test_git_init_external_import_trunk(bare: bool) {
 
     let output = test_env.run_jj_in(
         ".",
-        [
-            "git",
-            "init",
-            "repo",
-            "--git-repo",
-            git_repo_path.to_str().unwrap(),
-        ],
+        ["git", "init", "repo", "--git-repo", git_repo_path.as_str()],
     );
     insta::allow_duplicates! {
     insta::assert_snapshot!(output, @r#"
@@ -248,7 +235,7 @@ fn test_git_init_external_ignore_working_copy() {
         "init",
         "--ignore-working-copy",
         "--git-repo",
-        git_repo_path.to_str().unwrap(),
+        git_repo_path.as_str(),
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -270,7 +257,7 @@ fn test_git_init_external_at_operation() {
         "init",
         "--at-op=@-",
         "--git-repo",
-        git_repo_path.to_str().unwrap(),
+        git_repo_path.as_str(),
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -364,7 +351,10 @@ fn test_git_init_colocated_via_git_repo_path_gitlink() {
     let git_repo_path = test_env.env_root().join("git-repo");
     let git_repo = init_git_repo(&git_repo_path, false);
     let jj_work_dir = test_env.work_dir("").create_dir("repo");
-    git::create_gitlink(jj_work_dir.root(), git_repo.path());
+    git::create_gitlink(
+        jj_work_dir.root(),
+        Utf8Path::from_path(git_repo.path()).unwrap(),
+    );
 
     assert!(jj_work_dir.root().join(".git").is_file());
     let output = jj_work_dir.run_jj(["git", "init", "--git-repo", "."]);
@@ -484,7 +474,10 @@ fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() {
     let git_workdir_path = test_env.env_root().join("git-workdir");
     let git_repo = init_git_repo(&git_repo_path, false);
     std::fs::create_dir(&git_workdir_path).unwrap();
-    git::create_gitlink(&git_workdir_path, git_repo.path());
+    git::create_gitlink(
+        &git_workdir_path,
+        Utf8Path::from_path(git_repo.path()).unwrap(),
+    );
     assert!(git_workdir_path.join(".git").is_file());
     let jj_work_dir = test_env.work_dir("").create_dir("repo");
     std::os::unix::fs::symlink(
@@ -536,9 +529,9 @@ fn test_git_init_colocated_via_git_repo_path_imported_refs() {
 
     let remote_git_path = remote_dir
         .root()
-        .join(PathBuf::from_iter([".jj", "repo", "store", "git"]));
-    let set_up_local_repo = |local_path: &Path| {
-        let git_repo = git::clone(local_path, remote_git_path.to_str().unwrap(), None);
+        .join(Utf8PathBuf::from_iter([".jj", "repo", "store", "git"]));
+    let set_up_local_repo = |local_path: &Utf8Path| {
+        let git_repo = git::clone(local_path, remote_git_path.as_str(), None);
         let git_ref = git_repo
             .find_reference("refs/remotes/origin/local-remote")
             .unwrap();
@@ -739,7 +732,7 @@ fn test_git_init_external_but_git_dir_exists() {
     let work_dir = test_env.work_dir("repo");
     git::init(&git_repo_path);
     init_git_repo(work_dir.root(), false);
-    let output = work_dir.run_jj(["git", "init", "--git-repo", git_repo_path.to_str().unwrap()]);
+    let output = work_dir.run_jj(["git", "init", "--git-repo", git_repo_path.as_str()]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Initialized repo in "."
@@ -854,7 +847,7 @@ fn test_git_init_conditional_config() {
         user.email = 'new-repo@example.org'
         operation.username = 'new-repo'
         ",
-        new_workspace_root = to_toml_value(new_workspace_dir.root().to_str().unwrap()),
+        new_workspace_root = to_toml_value(new_workspace_dir.root().as_str()),
     });
 
     // Override operation.hostname by repo config, which should be loaded into

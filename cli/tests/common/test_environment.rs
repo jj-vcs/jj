@@ -15,14 +15,15 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::OsStr;
-use std::path::Path;
-use std::path::PathBuf;
 
 use bstr::BString;
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use indoc::formatdoc;
+use jj_lib::file_util::canonicalize_path;
+use jj_lib::tempdir;
 use regex::Captures;
 use regex::Regex;
-use tempfile::TempDir;
 
 use super::command_output::CommandOutput;
 use super::command_output::CommandOutputString;
@@ -31,10 +32,10 @@ use super::fake_editor_path;
 use super::to_toml_value;
 
 pub struct TestEnvironment {
-    _temp_dir: TempDir,
-    env_root: PathBuf,
-    home_dir: PathBuf,
-    config_path: PathBuf,
+    _temp_dir: tempdir::Utf8TempDir,
+    env_root: Utf8PathBuf,
+    home_dir: Utf8PathBuf,
+    config_path: Utf8PathBuf,
     env_vars: HashMap<String, String>,
     config_file_number: RefCell<i64>,
     command_number: RefCell<i64>,
@@ -45,7 +46,7 @@ impl Default for TestEnvironment {
         testutils::hermetic_git();
 
         let tmp_dir = testutils::new_temp_dir();
-        let env_root = dunce::canonicalize(tmp_dir.path()).unwrap();
+        let env_root = canonicalize_path(tmp_dir.path()).unwrap();
         let home_dir = env_root.join("home");
         std::fs::create_dir(&home_dir).unwrap();
         let config_dir = env_root.join("config");
@@ -79,14 +80,14 @@ impl TestEnvironment {
     /// The `root` path usually points to the workspace root, but it may be
     /// arbitrary path including non-existent directory.
     #[must_use]
-    pub fn work_dir(&self, root: impl AsRef<Path>) -> TestWorkDir<'_> {
+    pub fn work_dir(&self, root: impl AsRef<Utf8Path>) -> TestWorkDir<'_> {
         let root = self.env_root.join(root);
         TestWorkDir { env: self, root }
     }
 
     /// Runs `jj args..` in the `current_dir`, returns the output.
     #[must_use = "either snapshot the output or assert the exit status with .success()"]
-    pub fn run_jj_in<I>(&self, current_dir: impl AsRef<Path>, args: I) -> CommandOutput
+    pub fn run_jj_in<I>(&self, current_dir: impl AsRef<Utf8Path>, args: I) -> CommandOutput
     where
         I: IntoIterator,
         I::Item: AsRef<OsStr>,
@@ -116,11 +117,11 @@ impl TestEnvironment {
         // We want to keep the "PATH" environment variable to allow accessing
         // executables like `git` from the PATH.
         cmd.env("PATH", std::env::var_os("PATH").unwrap_or_default());
-        cmd.env("HOME", self.home_dir.to_str().unwrap());
+        cmd.env("HOME", self.home_dir.as_str());
         // Prevent git.subprocess from reading outside git config
         cmd.env("GIT_CONFIG_SYSTEM", "/dev/null");
         cmd.env("GIT_CONFIG_GLOBAL", "/dev/null");
-        cmd.env("JJ_CONFIG", self.config_path.to_str().unwrap());
+        cmd.env("JJ_CONFIG", self.config_path.as_str());
         cmd.env("JJ_USER", "Test User");
         cmd.env("JJ_EMAIL", "test.user@example.com");
         cmd.env("JJ_OP_HOSTNAME", "host.example.com");
@@ -149,31 +150,31 @@ impl TestEnvironment {
         cmd
     }
 
-    pub fn env_root(&self) -> &Path {
+    pub fn env_root(&self) -> &Utf8Path {
         &self.env_root
     }
 
-    pub fn home_dir(&self) -> &Path {
+    pub fn home_dir(&self) -> &Utf8Path {
         &self.home_dir
     }
 
-    pub fn config_path(&self) -> &PathBuf {
+    pub fn config_path(&self) -> &Utf8PathBuf {
         &self.config_path
     }
 
-    pub fn first_config_file_path(&self) -> PathBuf {
+    pub fn first_config_file_path(&self) -> Utf8PathBuf {
         let config_file_number = 1;
         self.config_path
             .join(format!("config{config_file_number:04}.toml"))
     }
 
-    pub fn last_config_file_path(&self) -> PathBuf {
+    pub fn last_config_file_path(&self) -> Utf8PathBuf {
         let config_file_number = self.config_file_number.borrow();
         self.config_path
             .join(format!("config{config_file_number:04}.toml"))
     }
 
-    pub fn set_config_path(&mut self, config_path: impl Into<PathBuf>) {
+    pub fn set_config_path(&mut self, config_path: impl Into<Utf8PathBuf>) {
         self.config_path = config_path.into();
     }
 
@@ -200,7 +201,7 @@ impl TestEnvironment {
 
     /// Sets up the fake editor to read an edit script from the returned path
     /// Also sets up the fake editor as a merge tool named "fake-editor"
-    pub fn set_up_fake_editor(&mut self) -> PathBuf {
+    pub fn set_up_fake_editor(&mut self) -> Utf8PathBuf {
         let editor_path = to_toml_value(fake_editor_path());
         self.add_config(formatdoc! {r#"
             [ui]
@@ -213,13 +214,13 @@ impl TestEnvironment {
         "#});
         let edit_script = self.env_root().join("edit_script");
         std::fs::write(&edit_script, "").unwrap();
-        self.add_env_var("EDIT_SCRIPT", edit_script.to_str().unwrap());
+        self.add_env_var("EDIT_SCRIPT", edit_script.as_str());
         edit_script
     }
 
     /// Sets up the fake diff-editor to read an edit script from the returned
     /// path
-    pub fn set_up_fake_diff_editor(&mut self) -> PathBuf {
+    pub fn set_up_fake_diff_editor(&mut self) -> Utf8PathBuf {
         let diff_editor_path = to_toml_value(fake_diff_editor_path());
         self.add_config(formatdoc! {r#"
             ui.diff-editor = "fake-diff-editor"
@@ -227,7 +228,7 @@ impl TestEnvironment {
         "#});
         let edit_script = self.env_root().join("diff_edit_script");
         std::fs::write(&edit_script, "").unwrap();
-        self.add_env_var("DIFF_EDIT_SCRIPT", edit_script.to_str().unwrap());
+        self.add_env_var("DIFF_EDIT_SCRIPT", edit_script.as_str());
         edit_script
     }
 
@@ -253,12 +254,12 @@ impl TestEnvironment {
 /// Helper to execute `jj` or file operation in sub directory.
 pub struct TestWorkDir<'a> {
     env: &'a TestEnvironment,
-    root: PathBuf,
+    root: Utf8PathBuf,
 }
 
 impl TestWorkDir<'_> {
     /// Path to the working directory.
-    pub fn root(&self) -> &Path {
+    pub fn root(&self) -> &Utf8Path {
         &self.root
     }
 
@@ -298,43 +299,43 @@ impl TestWorkDir<'_> {
 
     /// Returns test helper for the specified sub directory.
     #[must_use]
-    pub fn dir(&self, path: impl AsRef<Path>) -> Self {
+    pub fn dir(&self, path: impl AsRef<Utf8Path>) -> Self {
         let env = self.env;
         let root = self.root.join(path);
         TestWorkDir { env, root }
     }
 
     #[track_caller]
-    pub fn create_dir(&self, path: impl AsRef<Path>) -> Self {
+    pub fn create_dir(&self, path: impl AsRef<Utf8Path>) -> Self {
         let dir = self.dir(path);
         std::fs::create_dir(&dir.root).unwrap();
         dir
     }
 
     #[track_caller]
-    pub fn create_dir_all(&self, path: impl AsRef<Path>) -> Self {
+    pub fn create_dir_all(&self, path: impl AsRef<Utf8Path>) -> Self {
         let dir = self.dir(path);
         std::fs::create_dir_all(&dir.root).unwrap();
         dir
     }
 
     #[track_caller]
-    pub fn remove_dir_all(&self, path: impl AsRef<Path>) {
+    pub fn remove_dir_all(&self, path: impl AsRef<Utf8Path>) {
         std::fs::remove_dir_all(self.root.join(path)).unwrap();
     }
 
     #[track_caller]
-    pub fn remove_file(&self, path: impl AsRef<Path>) {
+    pub fn remove_file(&self, path: impl AsRef<Utf8Path>) {
         std::fs::remove_file(self.root.join(path)).unwrap();
     }
 
     #[track_caller]
-    pub fn read_file(&self, path: impl AsRef<Path>) -> BString {
+    pub fn read_file(&self, path: impl AsRef<Utf8Path>) -> BString {
         std::fs::read(self.root.join(path)).unwrap().into()
     }
 
     #[track_caller]
-    pub fn write_file(&self, path: impl AsRef<Path>, contents: impl AsRef<[u8]>) {
+    pub fn write_file(&self, path: impl AsRef<Utf8Path>, contents: impl AsRef<[u8]>) {
         let path = path.as_ref();
         if let Some(dir) = path.parent() {
             self.create_dir_all(dir);
@@ -343,9 +344,9 @@ impl TestWorkDir<'_> {
     }
 }
 
-fn normalize_output(text: &str, env_root: &Path) -> String {
+fn normalize_output(text: &str, env_root: &Utf8Path) -> String {
     let text = text.replace("jj.exe", "jj");
-    let env_root = env_root.display().to_string();
+    let env_root = env_root.to_string();
     // Platform-native $TEST_ENV
     let regex = Regex::new(&format!(r"{}(\S+)", regex::escape(&env_root))).unwrap();
     let text = regex.replace_all(&text, |caps: &Captures| {

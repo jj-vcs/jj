@@ -14,15 +14,15 @@
 
 use std::fs;
 use std::io::Write as _;
-use std::path::Path;
-use std::path::PathBuf;
 
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use indoc::indoc;
 use testutils::git;
 
 use crate::common::TestEnvironment;
 
-fn read_git_config(repo_path: &Path) -> String {
+fn read_git_config(repo_path: &Utf8Path) -> String {
     let git_config = fs::read_to_string(repo_path.join(".jj/repo/store/git/config"))
         .or_else(|_| fs::read_to_string(repo_path.join(".git/config")))
         .unwrap();
@@ -188,9 +188,9 @@ fn test_git_remote_relative_path() {
     let work_dir = test_env.work_dir("repo");
 
     // Relative path using OS-native separator
-    let path = PathBuf::from_iter(["..", "native", "sep"]);
+    let path = Utf8PathBuf::from_iter(["..", "native", "sep"]);
     work_dir
-        .run_jj(["git", "remote", "add", "foo", path.to_str().unwrap()])
+        .run_jj(["git", "remote", "add", "foo", path.as_str()])
         .success();
     let output = work_dir.run_jj(["git", "remote", "list"]);
     insta::assert_snapshot!(output, @r"
@@ -478,7 +478,7 @@ fn test_git_remote_with_global_git_remote_config() {
     );
     test_env.add_env_var(
         "GIT_CONFIG_GLOBAL",
-        test_env.env_root().join("git-config").to_str().unwrap(),
+        test_env.env_root().join("git-config").as_str(),
     );
 
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

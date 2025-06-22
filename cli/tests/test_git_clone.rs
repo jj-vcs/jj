@@ -758,7 +758,7 @@ fn test_git_clone_conditional_config() {
         user.email = 'new-repo@example.org'
         operation.username = 'new-repo'
         ",
-        new_workspace_root = to_toml_value(new_workspace_dir.root().to_str().unwrap()),
+        new_workspace_root = to_toml_value(new_workspace_dir.root().as_str()),
     });
 
     // Override operation.hostname by repo config, which should be loaded into
@@ -938,7 +938,7 @@ fn test_git_clone_with_global_git_remote_config() {
     );
     test_env.add_env_var(
         "GIT_CONFIG_GLOBAL",
-        test_env.env_root().join("git-config").to_str().unwrap(),
+        test_env.env_root().join("git-config").as_str(),
     );
 
     let root_dir = test_env.work_dir("");
@@ -985,7 +985,7 @@ fn test_git_clone_no_git_executable_with_path() {
     let invalid_git_executable_path = test_env.env_root().join("invalid").join("path");
     test_env.add_config(format!(
         "git.executable-path = {}",
-        to_toml_value(invalid_git_executable_path.to_str().unwrap())
+        to_toml_value(invalid_git_executable_path.as_str())
     ));
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(git_repo_path);

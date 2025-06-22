@@ -73,7 +73,7 @@ fn test_git_root_git_backend_external_git_dir() {
             "git",
             "init",
             "--git-repo",
-            git_repo_work_dir.root().to_str().unwrap(),
+            git_repo_work_dir.root().as_str(),
         ])
         .success();
 

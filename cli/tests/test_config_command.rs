@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use std::env::join_paths;
-use std::path::PathBuf;
 
+use camino::Utf8PathBuf;
 use indoc::indoc;
 use itertools::Itertools as _;
 use regex::Regex;
@@ -600,7 +600,7 @@ fn test_config_set_for_user() {
 
     // Ensure test-key successfully written to user config.
     let user_config_toml = std::fs::read_to_string(&user_config_path)
-        .unwrap_or_else(|_| panic!("Failed to read file {}", user_config_path.display()));
+        .unwrap_or_else(|_| panic!("Failed to read file {user_config_path}"));
     insta::assert_snapshot!(user_config_toml, @r#"
     "$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json"
     test-key = "test-val"
@@ -922,10 +922,10 @@ fn test_config_edit_user() {
     work_dir.run_jj(["config", "edit", "--user"]).success();
 
     let edited_path =
-        PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path")).unwrap());
+        Utf8PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path")).unwrap());
     assert_eq!(
         edited_path,
-        dunce::simplified(&test_env.last_config_file_path())
+        dunce::simplified(test_env.last_config_file_path().as_ref())
     );
 }
 
@@ -1024,17 +1024,18 @@ fn test_config_edit_repo() {
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
-    let repo_config_path = work_dir
-        .root()
-        .join(PathBuf::from_iter([".jj", "repo", "config.toml"]));
+    let repo_config_path =
+        work_dir
+            .root()
+            .join(Utf8PathBuf::from_iter([".jj", "repo", "config.toml"]));
     assert!(!repo_config_path.exists());
 
     std::fs::write(edit_script, "dump-path path").unwrap();
     work_dir.run_jj(["config", "edit", "--repo"]).success();
 
     let edited_path =
-        PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path")).unwrap());
-    assert_eq!(edited_path, dunce::simplified(&repo_config_path));
+        Utf8PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path")).unwrap());
+    assert_eq!(edited_path, dunce::simplified(repo_config_path.as_ref()));
     assert!(repo_config_path.exists(), "new file should be created");
 }
 
@@ -1114,9 +1115,10 @@ fn test_config_path() {
     let work_dir = test_env.work_dir("repo");
 
     let user_config_path = test_env.env_root().join("config.toml");
-    let repo_config_path = work_dir
-        .root()
-        .join(PathBuf::from_iter([".jj", "repo", "config.toml"]));
+    let repo_config_path =
+        work_dir
+            .root()
+            .join(Utf8PathBuf::from_iter([".jj", "repo", "config.toml"]));
     test_env.set_config_path(&user_config_path);
     let work_dir = test_env.work_dir("repo");
 
@@ -1153,6 +1155,7 @@ fn test_config_path_multiple() {
     let config_path = test_env.config_path().join("config.toml");
     let work_config_path = test_env.config_path().join("conf.d");
     let user_config_path = join_paths([config_path, work_config_path]).unwrap();
+    let user_config_path = Utf8PathBuf::from_path_buf(user_config_path.into()).unwrap();
     test_env.set_config_path(&user_config_path);
     let work_dir = test_env.work_dir("repo");
     insta::assert_snapshot!(work_dir.run_jj(["config", "path", "--user"]), @r"
@@ -1627,7 +1630,11 @@ fn test_config_conditional_without_home_dir() {
                 foo = 'repo'
             "},
             // "\\?\" paths shouldn't be required on Windows
-            repo_path = to_toml_value(dunce::simplified(work_dir.root()).to_str().unwrap())
+            repo_path = to_toml_value(
+                dunce::simplified(work_dir.root().as_ref())
+                    .to_str()
+                    .unwrap()
+            )
         ),
     )
     .unwrap();

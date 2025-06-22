@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use std::fmt::Write as _;
-use std::path::Path;
 
+use camino::Utf8Path;
 use testutils::git;
 
 use crate::common::CommandOutput;
@@ -638,7 +638,7 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() {
         .success();
 
     let clone_dir = test_env.work_dir("clone");
-    git::clone(clone_dir.root(), origin_dir.root().to_str().unwrap(), None);
+    git::clone(clone_dir.root(), origin_dir.root().as_str(), None);
     clone_dir.run_jj(["git", "init", "--git-repo=."]).success();
     clone_dir.run_jj(["new", "A"]).success();
     insta::assert_snapshot!(get_log_output(&clone_dir), @r"
@@ -1411,7 +1411,7 @@ fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     work_dir.run_jj(["log", "-T", template, "-r=all()"])
 }
 
-fn update_git_index(repo_path: &Path) {
+fn update_git_index(repo_path: &Utf8Path) {
     let mut iter = git::open(repo_path)
         .status(gix::progress::Discard)
         .unwrap()
@@ -1431,7 +1431,7 @@ fn update_git_index(repo_path: &Path) {
         .unwrap();
 }
 
-fn get_index_state(repo_path: &Path) -> String {
+fn get_index_state(repo_path: &Utf8Path) -> String {
     let git_repo = gix::open(repo_path).expect("git repo should exist");
     let mut buffer = String::new();
     // We can't use the real time from disk, since it would change each time the

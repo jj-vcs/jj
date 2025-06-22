@@ -39,7 +39,7 @@ fn set_up(test_env: &TestEnvironment) {
                 "git",
                 "clone",
                 "--config=git.auto-local-bookmark=true",
-                origin_git_repo_path.to_str().unwrap(),
+                origin_git_repo_path.as_str(),
                 "local",
             ],
         )
@@ -62,7 +62,7 @@ fn set_up_remote_at_main(test_env: &TestEnvironment, work_dir: &TestWorkDir, rem
             "remote",
             "add",
             remote_name,
-            other_git_repo_path.to_str().unwrap(),
+            other_git_repo_path.as_str(),
         ])
         .success();
     work_dir

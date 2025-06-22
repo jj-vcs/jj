@@ -37,12 +37,12 @@ fn test_config_schema_default_values_are_consistent_with_schema() {
     };
 
     // Taplo requires an absolute URL to the schema :/
-    let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let root = camino::Utf8PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let mut taplo_child = Command::new("taplo")
         .args([
             "check",
             "--schema",
-            &format!("file://{}/src/config-schema.json", root.display()),
+            &format!("file://{root}/src/config-schema.json"),
             "-", // read from stdin
         ])
         .stdin(Stdio::piped())

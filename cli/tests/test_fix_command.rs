@@ -14,8 +14,8 @@
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt as _;
-use std::path::PathBuf;
 
+use camino::Utf8PathBuf;
 use indoc::formatdoc;
 use indoc::indoc;
 use jj_lib::file_util::try_symlink;
@@ -943,8 +943,8 @@ fn test_deduplication() {
     ");
 }
 
-fn sorted_lines(path: PathBuf) -> String {
-    let mut log: Vec<_> = std::fs::read_to_string(path.as_os_str())
+fn sorted_lines(path: Utf8PathBuf) -> String {
+    let mut log: Vec<_> = std::fs::read_to_string(path)
         .unwrap()
         .lines()
         .map(String::from)

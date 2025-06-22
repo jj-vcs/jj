@@ -13,11 +13,11 @@
 // limitations under the License.
 
 use std::any::Any;
-use std::path::Path;
 use std::pin::Pin;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use camino::Utf8Path;
 use futures::stream::BoxStream;
 use jj_cli::cli_util::CliRunner;
 use jj_cli::cli_util::CommandHelper;
@@ -104,12 +104,12 @@ struct JitBackend {
 }
 
 impl JitBackend {
-    fn init(settings: &UserSettings, store_path: &Path) -> Result<Self, BackendInitError> {
+    fn init(settings: &UserSettings, store_path: &Utf8Path) -> Result<Self, BackendInitError> {
         let inner = GitBackend::init_internal(settings, store_path)?;
         Ok(JitBackend { inner })
     }
 
-    fn load(settings: &UserSettings, store_path: &Path) -> Result<Self, BackendLoadError> {
+    fn load(settings: &UserSettings, store_path: &Utf8Path) -> Result<Self, BackendLoadError> {
         let inner = GitBackend::load(settings, store_path)?;
         Ok(JitBackend { inner })
     }

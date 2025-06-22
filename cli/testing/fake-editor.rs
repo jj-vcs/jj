@@ -14,9 +14,9 @@
 
 use std::env;
 use std::fs;
-use std::path::PathBuf;
 use std::process::exit;
 
+use camino::Utf8PathBuf;
 use clap::Parser;
 use itertools::Itertools as _;
 
@@ -26,14 +26,14 @@ use itertools::Itertools as _;
 #[clap()]
 struct Args {
     /// Path to the file to edit
-    file: PathBuf,
+    file: Utf8PathBuf,
     /// Other arguments to the editor
     other_args: Vec<String>,
 }
 
 fn main() {
     let args: Args = Args::parse();
-    let edit_script_path = PathBuf::from(env::var_os("EDIT_SCRIPT").unwrap());
+    let edit_script_path = Utf8PathBuf::from(env::var("EDIT_SCRIPT").unwrap());
     let edit_script = fs::read_to_string(&edit_script_path).unwrap();
 
     let mut instructions = edit_script.split('\0').collect_vec();
@@ -55,7 +55,7 @@ fn main() {
             }
             ["dump-path", dest] => {
                 let dest_path = edit_script_path.parent().unwrap().join(dest);
-                fs::write(&dest_path, args.file.to_str().unwrap())
+                fs::write(&dest_path, args.file.as_str())
                     .unwrap_or_else(|err| panic!("Failed to write file {dest_path:?}: {err}"));
             }
             ["expect"] => {
@@ -81,9 +81,8 @@ fn main() {
                 }
             }
             ["write"] => {
-                fs::write(&args.file, payload).unwrap_or_else(|_| {
-                    panic!("Failed to write file {}", args.file.to_str().unwrap())
-                });
+                fs::write(&args.file, payload)
+                    .unwrap_or_else(|_| panic!("Failed to write file {}", args.file.as_str()));
             }
             _ => {
                 eprintln!("fake-editor: unexpected command: {command}");

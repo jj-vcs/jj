@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::Path;
 use std::process::Command;
 use std::process::Output;
 use std::process::Stdio;
 
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use testutils::ensure_running_outside_ci;
 use testutils::is_external_tool_installed;
 
-fn taplo_check_config(file: &Path) -> datatest_stable::Result<Option<Output>> {
+fn taplo_check_config(file: &Utf8Path) -> datatest_stable::Result<Option<Output>> {
     if !is_external_tool_installed("taplo") {
         ensure_running_outside_ci("`taplo` must be in the PATH");
         eprintln!("Skipping test because taplo is not installed on the system");
@@ -28,13 +29,13 @@ fn taplo_check_config(file: &Path) -> datatest_stable::Result<Option<Output>> {
     }
 
     // Taplo requires an absolute URL to the schema :/
-    let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let root = Utf8PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     Ok(Some(
         Command::new("taplo")
             .args([
                 "check",
                 "--schema",
-                &format!("file://{}/src/config-schema.json", root.display()),
+                &format!("file://{root}/src/config-schema.json"),
             ])
             .arg(file.as_os_str())
             .stdout(Stdio::piped())
@@ -44,10 +45,10 @@ fn taplo_check_config(file: &Path) -> datatest_stable::Result<Option<Output>> {
     ))
 }
 
-pub(crate) fn taplo_check_config_valid(file: &Path) -> datatest_stable::Result<()> {
+pub(crate) fn taplo_check_config_valid(file: &Utf8Path) -> datatest_stable::Result<()> {
     if let Some(taplo_res) = taplo_check_config(file)? {
         if !taplo_res.status.success() {
-            eprintln!("Failed to validate {}:", file.display());
+            eprintln!("Failed to validate {file}:");
             eprintln!("{}", String::from_utf8_lossy(&taplo_res.stderr));
             return Err("Validation failed".into());
         }
@@ -55,7 +56,7 @@ pub(crate) fn taplo_check_config_valid(file: &Path) -> datatest_stable::Result<(
     Ok(())
 }
 
-pub(crate) fn taplo_check_config_invalid(file: &Path) -> datatest_stable::Result<()> {
+pub(crate) fn taplo_check_config_invalid(file: &Utf8Path) -> datatest_stable::Result<()> {
     if let Some(taplo_res) = taplo_check_config(file)? {
         if taplo_res.status.success() {
             return Err("Validation unexpectedly passed".into());

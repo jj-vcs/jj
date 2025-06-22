@@ -76,7 +76,7 @@ fn test_edit() {
 // Windows says "Access is denied" when trying to delete the object file.
 #[cfg(unix)]
 fn test_edit_current_wc_commit_missing() {
-    use std::path::PathBuf;
+    use camino::Utf8PathBuf;
 
     // Test that we get a reasonable error message when the current working-copy
     // commit is missing
@@ -99,7 +99,7 @@ fn test_edit_current_wc_commit_missing() {
         .stdout
         .into_raw();
     // Make the Git backend fail to read the current working copy commit
-    let commit_object_path = PathBuf::from_iter([
+    let commit_object_path = Utf8PathBuf::from_iter([
         ".jj",
         "repo",
         "store",

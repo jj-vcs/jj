@@ -328,7 +328,7 @@ fn test_alias_in_repo_config() {
     ");
 
     // Aliases can't be loaded from the -R path due to chicken and egg problem.
-    let output = work_dir2.run_jj(["l", "-R", work_dir1.root().to_str().unwrap()]);
+    let output = work_dir2.run_jj(["l", "-R", work_dir1.root().as_str()]);
     insta::assert_snapshot!(output, @r"
     user alias
     [EOF]
@@ -338,7 +338,7 @@ fn test_alias_in_repo_config() {
     ");
 
     // Aliases are loaded from the cwd-relative workspace even with -R.
-    let output = work_dir1.run_jj(["l", "-R", work_dir2.root().to_str().unwrap()]);
+    let output = work_dir1.run_jj(["l", "-R", work_dir2.root().as_str()]);
     insta::assert_snapshot!(output, @r"
     repo1 alias
     [EOF]
@@ -348,18 +348,12 @@ fn test_alias_in_repo_config() {
     ");
 
     // No warning if the expanded command is identical.
-    let output = work_dir1.run_jj(["file", "list", "-R", work_dir2.root().to_str().unwrap()]);
+    let output = work_dir1.run_jj(["file", "list", "-R", work_dir2.root().as_str()]);
     insta::assert_snapshot!(output, @"");
 
     // Config loaded from the cwd-relative workspace shouldn't persist. It's
     // used only for command arguments expansion.
-    let output = work_dir1.run_jj([
-        "config",
-        "list",
-        "aliases",
-        "-R",
-        work_dir2.root().to_str().unwrap(),
-    ]);
+    let output = work_dir1.run_jj(["config", "list", "aliases", "-R", work_dir2.root().as_str()]);
     insta::assert_snapshot!(output, @r#"
     aliases.l = ['log', '-r@', '--no-graph', '-T"user alias\n"']
     [EOF]

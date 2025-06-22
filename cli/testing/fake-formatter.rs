@@ -14,9 +14,9 @@
 
 use std::fs::OpenOptions;
 use std::io::Write as _;
-use std::path::PathBuf;
 use std::process::ExitCode;
 
+use camino::Utf8PathBuf;
 use clap::arg;
 use clap::Parser;
 use itertools::Itertools as _;
@@ -63,7 +63,7 @@ struct Args {
 
     /// Duplicate stdout into this file.
     #[arg(long)]
-    tee: Option<PathBuf>,
+    tee: Option<Utf8PathBuf>,
 }
 
 fn main() -> ExitCode {

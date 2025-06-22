@@ -46,7 +46,7 @@ fn set_up(trunk_name: &str) -> TestEnvironment {
                 "git",
                 "clone",
                 "--config=git.auto-local-bookmark=true",
-                origin_git_repo_path.to_str().unwrap(),
+                origin_git_repo_path.as_str(),
                 "local",
             ],
         )

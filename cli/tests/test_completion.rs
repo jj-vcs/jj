@@ -159,7 +159,7 @@ fn test_bookmark_names() {
             "remote",
             "add",
             "origin",
-            origin_git_repo_path.to_str().unwrap(),
+            origin_git_repo_path.as_str(),
         ])
         .success();
     work_dir
@@ -652,7 +652,7 @@ fn test_aliases_are_completed(shell: Shell) {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
-    let repo_path = work_dir.root().to_str().unwrap();
+    let repo_path = work_dir.root().as_str();
 
     // user config alias
     test_env.add_config(r#"aliases.user-alias = ["bookmark"]"#);
@@ -735,7 +735,7 @@ fn test_revisions() {
             "remote",
             "add",
             "origin",
-            origin_git_repo_path.to_str().unwrap(),
+            origin_git_repo_path.as_str(),
         ])
         .success();
     origin_dir

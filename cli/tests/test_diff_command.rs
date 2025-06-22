@@ -578,7 +578,8 @@ fn test_diff_types() {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt as _;
-        use std::path::PathBuf;
+
+        use camino::Utf8PathBuf;
 
         // Executable
         work_dir
@@ -593,7 +594,8 @@ fn test_diff_types() {
 
         // Symlink
         work_dir.run_jj(["new", "root()", "-m=symlink"]).success();
-        std::os::unix::fs::symlink(PathBuf::from("."), work_dir.root().join(file_path)).unwrap();
+        std::os::unix::fs::symlink(Utf8PathBuf::from("."), work_dir.root().join(file_path))
+            .unwrap();
     }
 
     let diff = |from: &str, to: &str| {

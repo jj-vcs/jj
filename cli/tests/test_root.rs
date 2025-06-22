@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::Path;
-
+use camino::Utf8Path;
 use test_case::test_case;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
@@ -29,16 +28,13 @@ fn test_root(backend: TestRepoBackend) {
     let subdir = root.join("subdir");
     std::fs::create_dir(&subdir).unwrap();
     let output = test_env.run_jj_in(&subdir, ["root"]).success();
-    assert_eq!(
-        output.stdout.raw(),
-        &[root.to_str().unwrap(), "\n"].concat()
-    );
+    assert_eq!(output.stdout.raw(), &[root.as_str(), "\n"].concat());
 }
 
 #[test]
 fn test_root_outside_a_repo() {
     let test_env = TestEnvironment::default();
-    let output = test_env.run_jj_in(Path::new("/"), ["root"]);
+    let output = test_env.run_jj_in(Utf8Path::new("/"), ["root"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: There is no jj repo in "."

@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use camino::Utf8PathBuf;
 use testutils::git;
 
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 
-fn git_repo_dir_for_jj_repo(work_dir: &TestWorkDir<'_>) -> std::path::PathBuf {
+fn git_repo_dir_for_jj_repo(work_dir: &TestWorkDir<'_>) -> Utf8PathBuf {
     work_dir
         .root()
         .join(".jj")
@@ -53,7 +54,7 @@ fn set_up(test_env: &TestEnvironment) {
                 "git",
                 "clone",
                 "--config=git.auto-local-bookmark=true",
-                origin_git_repo_path.to_str().unwrap(),
+                origin_git_repo_path.as_str(),
                 "local",
             ],
         )
@@ -238,13 +239,7 @@ fn test_git_push_other_remote_has_bookmark() {
         .join("store")
         .join("git");
     work_dir
-        .run_jj([
-            "git",
-            "remote",
-            "add",
-            "other",
-            other_remote_path.to_str().unwrap(),
-        ])
+        .run_jj(["git", "remote", "add", "other", other_remote_path.as_str()])
         .success();
     // Modify bookmark1 and push it to `origin`
     work_dir.run_jj(["edit", "bookmark1"]).success();
@@ -1023,7 +1018,7 @@ fn test_git_push_changes_with_name_deleted_tracked() {
             "remote",
             "add",
             "another_remote",
-            another_remote_git_repo_path.to_str().unwrap(),
+            another_remote_git_repo_path.as_str(),
         ])
         .success();
     work_dir.run_jj(["describe", "-m", "foo"]).success();

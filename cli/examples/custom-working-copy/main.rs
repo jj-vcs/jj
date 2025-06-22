@@ -13,10 +13,10 @@
 // limitations under the License.
 
 use std::any::Any;
-use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use itertools::Itertools as _;
 use jj_cli::cli_util::CliRunner;
 use jj_cli::cli_util::CommandHelper;
@@ -65,7 +65,7 @@ fn run_custom_command(
         CustomCommand::InitConflicts => {
             let wc_path = command_helper.cwd();
             let settings = command_helper.settings_for_new_workspace(wc_path)?;
-            let backend_initializer = |settings: &UserSettings, store_path: &Path| {
+            let backend_initializer = |settings: &UserSettings, store_path: &Utf8Path| {
                 let backend: Box<dyn Backend> =
                     Box::new(GitBackend::init_internal(settings, store_path)?);
                 Ok(backend)
@@ -109,7 +109,7 @@ fn main() -> std::process::ExitCode {
 /// file to the working copy.
 struct ConflictsWorkingCopy {
     inner: Box<dyn WorkingCopy>,
-    working_copy_path: PathBuf,
+    working_copy_path: Utf8PathBuf,
 }
 
 impl ConflictsWorkingCopy {
@@ -119,8 +119,8 @@ impl ConflictsWorkingCopy {
 
     fn init(
         store: Arc<Store>,
-        working_copy_path: PathBuf,
-        state_path: PathBuf,
+        working_copy_path: Utf8PathBuf,
+        state_path: Utf8PathBuf,
         operation_id: OperationId,
         workspace_name: WorkspaceNameBuf,
     ) -> Result<Self, WorkingCopyStateError> {
@@ -137,7 +137,7 @@ impl ConflictsWorkingCopy {
         })
     }
 
-    fn load(store: Arc<Store>, working_copy_path: PathBuf, state_path: PathBuf) -> Self {
+    fn load(store: Arc<Store>, working_copy_path: Utf8PathBuf, state_path: Utf8PathBuf) -> Self {
         let inner = LocalWorkingCopy::load(store, working_copy_path.clone(), state_path);
         ConflictsWorkingCopy {
             inner: Box::new(inner),
@@ -186,8 +186,8 @@ impl WorkingCopyFactory for ConflictsWorkingCopyFactory {
     fn init_working_copy(
         &self,
         store: Arc<Store>,
-        working_copy_path: PathBuf,
-        state_path: PathBuf,
+        working_copy_path: Utf8PathBuf,
+        state_path: Utf8PathBuf,
         operation_id: OperationId,
         workspace_name: WorkspaceNameBuf,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
@@ -203,8 +203,8 @@ impl WorkingCopyFactory for ConflictsWorkingCopyFactory {
     fn load_working_copy(
         &self,
         store: Arc<Store>,
-        working_copy_path: PathBuf,
-        state_path: PathBuf,
+        working_copy_path: Utf8PathBuf,
+        state_path: Utf8PathBuf,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
         Ok(Box::new(ConflictsWorkingCopy::load(
             store,
@@ -215,7 +215,7 @@ impl WorkingCopyFactory for ConflictsWorkingCopyFactory {
 }
 
 struct LockedConflictsWorkingCopy {
-    wc_path: PathBuf,
+    wc_path: Utf8PathBuf,
     inner: Box<dyn LockedWorkingCopy>,
 }
 
@@ -243,7 +243,7 @@ impl LockedWorkingCopy for LockedConflictsWorkingCopy {
         let options = SnapshotOptions {
             base_ignores: options.base_ignores.chain(
                 "",
-                Path::new(""),
+                Utf8Path::new(""),
                 "/.conflicts".as_bytes(),
             )?,
             ..options.clone()

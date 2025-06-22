@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use camino::Utf8Path;
 use testutils::git;
 
 use crate::common::create_commit;
@@ -74,7 +75,7 @@ fn clone_git_remote_into(
 ) -> gix::Repository {
     let upstream_path = test_env.env_root().join(upstream);
     let fork_path = test_env.env_root().join(fork);
-    let fork_repo = git::clone(&fork_path, upstream_path.to_str().unwrap(), Some(upstream));
+    let fork_repo = git::clone(&fork_path, upstream_path.as_str(), Some(upstream));
 
     // create local branch mirroring the upstream
     let upstream_head = fork_repo
@@ -1700,8 +1701,9 @@ fn test_git_fetch_preserve_commits_across_repos() {
     ");
 
     // merge fork/feature into the upstream/upstream
-    git::add_remote(upstream_repo.git_dir(), "fork", fork_path.to_str().unwrap());
-    git::fetch(upstream_repo.git_dir(), "fork");
+    let upstream_repo_git_dir = Utf8Path::from_path(upstream_repo.git_dir()).unwrap();
+    git::add_remote(upstream_repo_git_dir, "fork", fork_path.as_str());
+    git::fetch(upstream_repo_git_dir, "fork");
 
     let base_id = upstream_repo
         .find_reference("refs/heads/upstream")
