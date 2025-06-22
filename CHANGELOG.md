@@ -66,6 +66,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj diffedit` now accepts filesets to edit only the specified paths.
 
+* AnnotationLine objects in templates now have a `original_line_number() ->
+  Integer` method.
+
 ### Fixed bugs
 
 ### Packaging changes

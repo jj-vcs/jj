@@ -103,6 +103,7 @@ The following methods are defined.
 * `.commit() -> Commit`: Commit responsible for changing the relevant line.
 * `.content() -> Template`: Line content including newline character.
 * `.line_number() -> Integer`: 1-based line number.
+* `.original_line_number() -> Integer`: 1-based line number in the original commit.
 * `.first_line_in_hunk() -> Boolean`: False when the directly preceding line
   references the same commit.
 
