@@ -126,7 +126,7 @@ impl FileAnnotation {
 pub struct FileAnnotator {
     // If we add copy-tracing support, file_path might be tracked by state.
     file_path: RepoPathBuf,
-    original_text: BString,
+    starting_text: BString,
     state: AnnotationState,
 }
 
@@ -160,7 +160,7 @@ impl FileAnnotator {
         mut source: Source,
     ) -> Self {
         source.fill_line_map();
-        let original_text = source.text.clone();
+        let starting_text = source.text.clone();
         let state = AnnotationState {
             original_line_map: vec![Err(starting_commit_id.clone()); source.line_map.len()],
             commit_source_map: HashMap::from([(starting_commit_id.clone(), source)]),
@@ -168,7 +168,7 @@ impl FileAnnotator {
         };
         FileAnnotator {
             file_path: file_path.to_owned(),
-            original_text,
+            starting_text,
             state,
         }
     }
@@ -198,7 +198,7 @@ impl FileAnnotator {
         // at a certain ancestor commit without recomputing.
         FileAnnotation {
             line_map: self.state.original_line_map.clone(),
-            text: self.original_text.clone(),
+            text: self.starting_text.clone(),
         }
     }
 }
@@ -217,7 +217,7 @@ struct AnnotationState {
 #[derive(Clone, Debug)]
 struct Source {
     /// Mapping of line numbers in the file at the current commit to the
-    /// original file, sorted by the line numbers at the current commit.
+    /// starting file, sorted by the line numbers at the current commit.
     line_map: Vec<(usize, usize)>,
     /// File content at the current commit.
     text: BString,
@@ -244,7 +244,7 @@ impl Source {
 }
 
 /// List of commit IDs that originated lines, indexed by line numbers in the
-/// original file.
+/// starting file.
 type OriginalLineMap = Vec<Result<CommitId, CommitId>>;
 
 /// Starting from the source commits, compute changes at that commit relative to
@@ -306,9 +306,9 @@ fn process_commit(
         // overwrite the new mapping in the results for the new commit. Let's
         // say I have a file in commit A and commit B. We know that according to
         // local line_map, in commit A, line 3 corresponds to line 7 of the
-        // original file. Now, line 3 in Commit A corresponds to line 6 in
+        // starting file. Now, line 3 in Commit A corresponds to line 6 in
         // commit B. Then, we update local line_map to say that "Commit B line 6
-        // goes to line 7 of the original file". We repeat this for all lines in
+        // goes to line 7 of the starting file". We repeat this for all lines in
         // common in the two commits.
         let mut current_lines = current_source.line_map.iter().copied().peekable();
         let mut new_current_line_map = Vec::new();
@@ -319,11 +319,11 @@ fn process_commit(
             |current_start, parent_start, count| {
                 new_current_line_map
                     .extend(current_lines.peeking_take_while(|&(cur, _)| cur < current_start));
-                while let Some((current, original)) =
+                while let Some((current, starting)) =
                     current_lines.next_if(|&(cur, _)| cur < current_start + count)
                 {
                     let parent = parent_start + (current - current_start);
-                    new_parent_line_map.push((parent, original));
+                    new_parent_line_map.push((parent, starting));
                 }
             },
         );
@@ -340,8 +340,8 @@ fn process_commit(
             // If an omitted parent had the file, leave these lines unresolved.
             // The origin of the unresolved lines is represented as
             // Err(parent_commit_id).
-            for &(_, original_line_number) in &parent_source.line_map {
-                state.original_line_map[original_line_number] = Err(parent_commit_id.clone());
+            for &(_, starting_line_number) in &parent_source.line_map {
+                state.original_line_map[starting_line_number] = Err(parent_commit_id.clone());
             }
             state.num_unresolved_roots += 1;
         }
@@ -350,8 +350,8 @@ fn process_commit(
     // Once we've looked at all parents of a commit, any leftover lines must be
     // original to the current commit, so we save this information in
     // original_line_map.
-    for (_, original_line_number) in current_source.line_map {
-        state.original_line_map[original_line_number] = Ok(current_commit_id.clone());
+    for (_, starting_line_number) in current_source.line_map {
+        state.original_line_map[starting_line_number] = Ok(current_commit_id.clone());
     }
 
     Ok(())
