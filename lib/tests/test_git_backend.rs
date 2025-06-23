@@ -364,7 +364,7 @@ fn test_jj_trees_header_with_one_tree() {
     // Import new commit into `jj` repo. This should fail, because allowing a
     // non-conflicted commit to have a different tree in `jj` than in Git could be
     // used to hide malicious code.
-    insta::assert_debug_snapshot!(git_backend.import_head_commits(&[new_commit_id.clone()]), @r#"
+    insta::assert_debug_snapshot!(git_backend.import_head_commits(std::slice::from_ref(&new_commit_id)), @r#"
     Err(
         ReadObject {
             object_type: "commit",

@@ -706,6 +706,10 @@ impl AncestorsBitSet {
 }
 
 #[cfg(test)]
+#[rustversion::attr(
+    since(1.89),
+    expect(clippy::cloned_ref_to_slice_refs, reason = "makes tests more readable")
+)]
 mod tests {
     use itertools::Itertools as _;
 

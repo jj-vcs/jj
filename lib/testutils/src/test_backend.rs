@@ -425,9 +425,9 @@ mod tests {
         // Test with a single chain so the resulting order is deterministic
         let copy1 = copy_history("foo1", &[]);
         let copy1_id = backend.write_copy(&copy1).block_on().unwrap();
-        let copy2 = copy_history("foo2", &[copy1_id.clone()]);
+        let copy2 = copy_history("foo2", std::slice::from_ref(&copy1_id));
         let copy2_id = backend.write_copy(&copy2).block_on().unwrap();
-        let copy3 = copy_history("foo3", &[copy2_id.clone()]);
+        let copy3 = copy_history("foo3", std::slice::from_ref(&copy2_id));
         let copy3_id = backend.write_copy(&copy3).block_on().unwrap();
 
         // Error when looking up by non-existent id

@@ -45,6 +45,10 @@ pub use self::store::DefaultIndexStoreError;
 pub use self::store::DefaultIndexStoreInitError;
 
 #[cfg(test)]
+#[rustversion::attr(
+    since(1.89),
+    expect(clippy::cloned_ref_to_slice_refs, reason = "makes tests more readable")
+)]
 mod tests {
     use std::cmp::Reverse;
     use std::convert::Infallible;

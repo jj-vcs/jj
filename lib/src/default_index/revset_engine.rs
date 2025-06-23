@@ -1427,6 +1427,10 @@ async fn to_file_content(
 }
 
 #[cfg(test)]
+#[rustversion::attr(
+    since(1.89),
+    expect(clippy::cloned_ref_to_slice_refs, reason = "makes tests more readable")
+)]
 mod tests {
     use indoc::indoc;
 

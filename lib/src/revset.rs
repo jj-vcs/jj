@@ -3090,6 +3090,10 @@ pub fn format_remote_symbol(name: &str, remote: &str) -> String {
 }
 
 #[cfg(test)]
+#[rustversion::attr(
+    since(1.89),
+    expect(clippy::cloned_ref_to_slice_refs, reason = "makes tests more readable")
+)]
 mod tests {
     use std::path::PathBuf;
 

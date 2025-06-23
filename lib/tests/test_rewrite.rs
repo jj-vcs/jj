@@ -2006,5 +2006,5 @@ fn test_find_duplicate_divergent_commits() {
     )
     .unwrap();
     // Commit c2 is a duplicate
-    assert_eq!(duplicate_commits, &[commit_c2.clone()]);
+    assert_eq!(duplicate_commits, std::slice::from_ref(&commit_c2));
 }

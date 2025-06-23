@@ -2427,6 +2427,7 @@ dependencies = [
  "ref-cast",
  "regex",
  "rustix 1.0.7",
+ "rustversion",
  "same-file",
  "sapling-renderdag",
  "serde",
