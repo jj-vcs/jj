@@ -64,11 +64,11 @@ jobs:
       uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
       with:
         toolchain: 1.84
-    - uses: taiki-e/install-action@d12e869b89167df346dd0ff65da342d1fb1202fb
+    - uses: taiki-e/install-action@9ba3ac3fd006a70c6e186a683577abc1ccf0ff3a
       with:
         tool: nextest,taplo-cli
     - name: Install mold
-      uses: rui314/setup-mold@b3958095189f34b95d402a680b6e96b7f194f7b9
+      uses: rui314/setup-mold@85c79d00377f0d32cdbae595a46de6f7c2fa6599
       with:
         make-default: false
     - name: Build
@@ -185,7 +185,7 @@ jobs:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       with:
         persist-credentials: false
-    - uses: EmbarkStudios/cargo-deny-action@34899fc7ba81ca6268d5947a7a16b4649013fea1
+    - uses: EmbarkStudios/cargo-deny-action@30f817c6f72275c6d54dc744fbca09ebc958599f
       with:
         command: check ${{ matrix.checks }}
 
@@ -200,7 +200,7 @@ jobs:
         with:
           python-version: 3.11
       - name: Install uv
-        uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb
+        uses: astral-sh/setup-uv@445689ea25e0de0a23313031f5fe577c74ae45a1
         with:
           # If you bump the version, also update docs/contributing.md
           # and all other workflows that install uv
@@ -241,7 +241,7 @@ jobs:
         with:
           python-version: 3.11
       - name: Install uv
-        uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb
+        uses: astral-sh/setup-uv@445689ea25e0de0a23313031f5fe577c74ae45a1
         with:
           # If you bump the version, also update docs/contributing.md
           # and all other workflows that install uv
@@ -258,7 +258,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install uv
-        uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb
+        uses: astral-sh/setup-uv@445689ea25e0de0a23313031f5fe577c74ae45a1
       # 'only-managed' means that uv will always download Python, even
       # if the runner happens to provide a compatible version
       - name: Check that `mkdocs` can build the docs
@@ -276,7 +276,7 @@ jobs:
           persist-credentials: false
 
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb
+        uses: astral-sh/setup-uv@445689ea25e0de0a23313031f5fe577c74ae45a1
 
       - name: Run zizmor
         run: uvx zizmor --format sarif . > results.sarif
