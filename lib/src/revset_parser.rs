@@ -785,21 +785,25 @@ pub(super) fn expect_pattern_with<T, E: Into<Box<dyn error::Error + Send + Sync>
     node: &ExpressionNode,
     parse_pattern: impl FnOnce(&mut RevsetDiagnostics, &str, Option<&str>) -> Result<T, E>,
 ) -> Result<T, RevsetParseError> {
-    let wrap_error = |err: E| {
-        RevsetParseError::expression(format!("Invalid {type_name}"), node.span).with_source(err)
-    };
-    expect_expression_with(diagnostics, node, |diagnostics, node| match &node.kind {
-        ExpressionKind::Identifier(name) => {
-            parse_pattern(diagnostics, name, None).map_err(wrap_error)
+    expect_expression_with(diagnostics, node, |diagnostics, node| {
+        let wrap_error = |err: E| {
+            RevsetParseError::expression(format!("Invalid {type_name}"), node.span).with_source(err)
+        };
+        match &node.kind {
+            ExpressionKind::Identifier(name) => {
+                parse_pattern(diagnostics, name, None).map_err(wrap_error)
+            }
+            ExpressionKind::String(name) => {
+                parse_pattern(diagnostics, name, None).map_err(wrap_error)
+            }
+            ExpressionKind::StringPattern { kind, value } => {
+                parse_pattern(diagnostics, value, Some(kind)).map_err(wrap_error)
+            }
+            _ => Err(RevsetParseError::expression(
+                format!("Expected expression of {type_name}"),
+                node.span,
+            )),
         }
-        ExpressionKind::String(name) => parse_pattern(diagnostics, name, None).map_err(wrap_error),
-        ExpressionKind::StringPattern { kind, value } => {
-            parse_pattern(diagnostics, value, Some(kind)).map_err(wrap_error)
-        }
-        _ => Err(RevsetParseError::expression(
-            format!("Expected expression of {type_name}"),
-            node.span,
-        )),
     })
 }
 
@@ -808,16 +812,18 @@ pub fn expect_literal<T: FromStr>(
     type_name: &str,
     node: &ExpressionNode,
 ) -> Result<T, RevsetParseError> {
-    let make_error = || {
-        RevsetParseError::expression(
-            format!("Expected expression of type {type_name}"),
-            node.span,
-        )
-    };
-    expect_expression_with(diagnostics, node, |_diagnostics, node| match &node.kind {
-        ExpressionKind::Identifier(name) => name.parse().map_err(|_| make_error()),
-        ExpressionKind::String(name) => name.parse().map_err(|_| make_error()),
-        _ => Err(make_error()),
+    expect_expression_with(diagnostics, node, |_diagnostics, node| {
+        let make_error = || {
+            RevsetParseError::expression(
+                format!("Expected expression of type {type_name}"),
+                node.span,
+            )
+        };
+        match &node.kind {
+            ExpressionKind::Identifier(name) => name.parse().map_err(|_| make_error()),
+            ExpressionKind::String(name) => name.parse().map_err(|_| make_error()),
+            _ => Err(make_error()),
+        }
     })
 }
 

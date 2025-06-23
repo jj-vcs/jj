@@ -577,6 +577,35 @@ fn test_alias() {
     [exit status: 1]
     ");
 
+    let output = work_dir.run_jj(["log", "-r", "my_author(unknown:pat)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Failed to parse revset: In alias `my_author(x)`
+    Caused by:
+    1:  --> 1:1
+      |
+    1 | my_author(unknown:pat)
+      | ^--------------------^
+      |
+      = In alias `my_author(x)`
+    2:  --> 1:8
+      |
+    1 | author(x)
+      |        ^
+      |
+      = In function parameter `x`
+    3:  --> 1:11
+      |
+    1 | my_author(unknown:pat)
+      |           ^---------^
+      |
+      = Invalid string pattern
+    4: Invalid string pattern kind `unknown:`
+    Hint: Try prefixing with one of `exact:`, `glob:`, `regex:`, `substring:`, or one of these with `-i` suffix added (e.g. `glob-i:`) for case-insensitive matching
+    [EOF]
+    [exit status: 1]
+    ");
+
     let output = work_dir.run_jj(["log", "-r", "root() & recurse"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
