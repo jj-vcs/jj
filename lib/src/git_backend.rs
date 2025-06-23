@@ -100,8 +100,8 @@ const CHANGE_ID_LENGTH: usize = 16;
 const NO_GC_REF_NAMESPACE: &str = "refs/jj/keep/";
 const CONFLICT_SUFFIX: &str = ".jjconflict";
 
-pub const JJ_TREES_COMMIT_HEADER: &[u8] = b"jj:trees";
-pub const CHANGE_ID_COMMIT_HEADER: &[u8] = b"change-id";
+pub const JJ_TREES_COMMIT_HEADER: &str = "jj:trees";
+pub const CHANGE_ID_COMMIT_HEADER: &str = "change-id";
 
 #[derive(Debug, Error)]
 pub enum GitBackendInitError {
@@ -554,7 +554,7 @@ fn commit_from_git_without_root_parent(
     // valid JJ Change Id
     let change_id = commit
         .extra_headers()
-        .find("change-id")
+        .find(CHANGE_ID_COMMIT_HEADER)
         .and_then(to_forward_hex)
         .and_then(|change_id_hex| ChangeId::try_from_hex(change_id_hex.as_str()).ok())
         .filter(|val| val.as_bytes().len() == CHANGE_ID_LENGTH)
@@ -1285,20 +1285,17 @@ impl Backend for GitBackend {
                 parents.push(validate_git_object_id(parent_id)?);
             }
         }
-        let mut extra_headers = vec![];
+        let mut extra_headers: Vec<(BString, BString)> = vec![];
         if let MergedTreeId::Merge(tree_ids) = &contents.root_tree {
             if !tree_ids.is_resolved() {
-                let value = tree_ids.iter().map(|id| id.hex()).join(" ").into_bytes();
-                extra_headers.push((
-                    BString::new(JJ_TREES_COMMIT_HEADER.to_vec()),
-                    BString::new(value),
-                ));
+                let value = tree_ids.iter().map(|id| id.hex()).join(" ");
+                extra_headers.push((JJ_TREES_COMMIT_HEADER.into(), value.into()));
             }
         }
         if self.write_change_id_header {
             extra_headers.push((
-                BString::new(CHANGE_ID_COMMIT_HEADER.to_vec()),
-                BString::new(contents.change_id.reverse_hex().into()),
+                CHANGE_ID_COMMIT_HEADER.into(),
+                contents.change_id.reverse_hex().into(),
             ));
         }
 
