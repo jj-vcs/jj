@@ -14,6 +14,9 @@
 
 #![allow(missing_docs)]
 
+use std::fmt;
+use std::fmt::Debug;
+
 use crate::hex_util;
 
 pub trait ObjectId {
@@ -128,7 +131,7 @@ pub(crate) use impl_id_type;
 
 /// An identifier prefix (typically from a type implementing the [`ObjectId`]
 /// trait) with facilities for converting between bytes and a hex string.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct HexPrefix {
     // For odd-length prefixes, the lower 4 bits of the last byte are
     // zero-filled (e.g. the prefix "abc" is stored in two bytes as "abc0").
@@ -221,6 +224,12 @@ impl HexPrefix {
         } else {
             false
         }
+    }
+}
+
+impl Debug for HexPrefix {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        f.debug_tuple("HexPrefix").field(&self.hex()).finish()
     }
 }
 
