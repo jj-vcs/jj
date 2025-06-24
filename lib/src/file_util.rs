@@ -14,6 +14,8 @@
 
 #![allow(missing_docs)]
 
+use std::borrow::Cow;
+use std::ffi::OsString;
 use std::fs;
 use std::fs::File;
 use std::io;
@@ -136,6 +138,32 @@ pub fn normalize_path(path: &Path) -> PathBuf {
     } else {
         result
     }
+}
+
+/// Converts the given `path` to Unix-like path separated by "/".
+///
+/// The returned path might not work on Windows if it was canonicalized. On
+/// Unix, this function is noop.
+pub fn slash_path(path: &Path) -> Cow<'_, Path> {
+    if cfg!(windows) {
+        Cow::Owned(to_slash_separated(path).into())
+    } else {
+        Cow::Borrowed(path)
+    }
+}
+
+fn to_slash_separated(path: &Path) -> OsString {
+    let mut buf = OsString::with_capacity(path.as_os_str().len());
+    let mut components = path.components();
+    match components.next() {
+        Some(c) => buf.push(c),
+        None => return buf,
+    }
+    for c in components {
+        buf.push("/");
+        buf.push(c);
+    }
+    buf
 }
 
 /// Like `NamedTempFile::persist()`, but doesn't try to overwrite the existing
@@ -284,6 +312,30 @@ mod tests {
         assert_eq!(
             normalize_path(Path::new("foo/../../../bar/baz/..")),
             Path::new("../../bar")
+        );
+    }
+
+    #[test]
+    fn test_slash_path() {
+        assert_eq!(slash_path(Path::new("")), Path::new(""));
+        assert_eq!(slash_path(Path::new("foo")), Path::new("foo"));
+        assert_eq!(slash_path(Path::new("foo/bar")), Path::new("foo/bar"));
+        assert_eq!(slash_path(Path::new("foo/bar/..")), Path::new("foo/bar/.."));
+        assert_eq!(
+            slash_path(Path::new(r"foo\bar")),
+            if cfg!(windows) {
+                Path::new("foo/bar")
+            } else {
+                Path::new(r"foo\bar")
+            }
+        );
+        assert_eq!(
+            slash_path(Path::new(r"..\foo\bar")),
+            if cfg!(windows) {
+                Path::new("../foo/bar")
+            } else {
+                Path::new(r"..\foo\bar")
+            }
         );
     }
 

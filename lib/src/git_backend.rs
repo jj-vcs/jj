@@ -75,6 +75,7 @@ use crate::backend::Tree;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::config::ConfigGetError;
+use crate::file_util;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::hex_util::to_forward_hex;
@@ -282,25 +283,20 @@ impl GitBackend {
             .context(&extra_path)
             .map_err(GitBackendInitError::Path)?;
         let target_path = store_path.join("git_target");
-        if cfg!(windows) && git_repo_path.is_relative() {
+        let git_repo_path = if cfg!(windows) && git_repo_path.is_relative() {
             // When a repository is created in Windows, format the path with *forward
             // slashes* and not backwards slashes. This makes it possible to use the same
             // repository under Windows Subsystem for Linux.
             //
             // This only works for relative paths. If the path is absolute, there's not much
             // we can do, and it simply won't work inside and outside WSL at the same time.
-            let git_repo_path_string = git_repo_path
-                .components()
-                .map(|component| component.as_os_str().to_str().unwrap().to_owned())
-                .join("/");
-            fs::write(&target_path, git_repo_path_string.as_bytes())
-                .context(&target_path)
-                .map_err(GitBackendInitError::Path)?;
+            file_util::slash_path(git_repo_path)
         } else {
-            fs::write(&target_path, git_repo_path.to_str().unwrap().as_bytes())
-                .context(&target_path)
-                .map_err(GitBackendInitError::Path)?;
+            git_repo_path.into()
         };
+        fs::write(&target_path, git_repo_path.to_str().unwrap().as_bytes())
+            .context(&target_path)
+            .map_err(GitBackendInitError::Path)?;
         let extra_metadata_store = TableStore::init(extra_path, HASH_LENGTH);
         Ok(GitBackend::new(repo, extra_metadata_store, git_settings))
     }
