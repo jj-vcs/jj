@@ -34,7 +34,8 @@ use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt as _;
 use tokio::io::ReadBuf;
 
-pub use self::platform::*;
+pub use self::platform::check_symlink_support;
+pub use self::platform::try_symlink;
 
 #[derive(Debug, Error)]
 #[error("Cannot access {path}")]
@@ -80,6 +81,30 @@ pub fn remove_dir_contents(dirname: &Path) -> Result<(), PathError> {
         fs::remove_file(&path).context(&path)?;
     }
     Ok(())
+}
+
+#[derive(Debug, Error)]
+#[error(transparent)]
+pub struct BadPathEncoding(platform::BadOsStrEncoding);
+
+/// Constructs [`Path`] from `bytes` in platform-specific manner.
+///
+/// On Unix, this function never fails because paths are just bytes. On Windows,
+/// this may return error if the input wasn't well-formed UTF-8.
+pub fn path_from_bytes(bytes: &[u8]) -> Result<&Path, BadPathEncoding> {
+    let s = platform::os_str_from_bytes(bytes).map_err(BadPathEncoding)?;
+    Ok(Path::new(s))
+}
+
+/// Converts `path` to bytes in platform-specific manner.
+///
+/// On Unix, this function never fails because paths are just bytes. On Windows,
+/// this may return error if the input wasn't well-formed UTF-8.
+///
+/// The returned byte sequence can be considered a superset of ASCII (such as
+/// UTF-8 bytes.)
+pub fn path_to_bytes(path: &Path) -> Result<&[u8], BadPathEncoding> {
+    platform::os_str_to_bytes(path.as_ref()).map_err(BadPathEncoding)
 }
 
 /// Expands "~/" to "$HOME/".
@@ -245,9 +270,22 @@ impl<R: Read + Unpin> AsyncRead for BlockingAsyncReader<R> {
 
 #[cfg(unix)]
 mod platform {
+    use std::convert::Infallible;
+    use std::ffi::OsStr;
     use std::io;
+    use std::os::unix::ffi::OsStrExt as _;
     use std::os::unix::fs::symlink;
     use std::path::Path;
+
+    pub type BadOsStrEncoding = Infallible;
+
+    pub fn os_str_from_bytes(data: &[u8]) -> Result<&OsStr, BadOsStrEncoding> {
+        Ok(OsStr::from_bytes(data))
+    }
+
+    pub fn os_str_to_bytes(data: &OsStr) -> Result<&[u8], BadOsStrEncoding> {
+        Ok(data.as_bytes())
+    }
 
     /// Symlinks are always available on UNIX
     pub fn check_symlink_support() -> io::Result<bool> {
@@ -267,6 +305,10 @@ mod platform {
 
     use winreg::enums::HKEY_LOCAL_MACHINE;
     use winreg::RegKey;
+
+    pub use super::fallback::os_str_from_bytes;
+    pub use super::fallback::os_str_to_bytes;
+    pub use super::fallback::BadOsStrEncoding;
 
     /// Symlinks may or may not be enabled on Windows. They require the
     /// Developer Mode setting, which is stored in the registry key below.
@@ -289,6 +331,27 @@ mod platform {
     }
 }
 
+#[cfg_attr(unix, allow(dead_code))]
+mod fallback {
+    use std::ffi::OsStr;
+    use std::str;
+
+    use thiserror::Error;
+
+    // Define error per platform so we can explicitly say UTF-8 is expected.
+    #[derive(Debug, Error)]
+    #[error("Invalid UTF-8 sequence")]
+    pub struct BadOsStrEncoding;
+
+    pub fn os_str_from_bytes(data: &[u8]) -> Result<&OsStr, BadOsStrEncoding> {
+        Ok(str::from_utf8(data).map_err(|_| BadOsStrEncoding)?.as_ref())
+    }
+
+    pub fn os_str_to_bytes(data: &OsStr) -> Result<&[u8], BadOsStrEncoding> {
+        Ok(data.to_str().ok_or(BadOsStrEncoding)?.as_ref())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;
@@ -300,6 +363,25 @@ mod tests {
 
     use super::*;
     use crate::tests::new_temp_dir;
+
+    #[test]
+    fn test_path_bytes_roundtrip() {
+        let bytes = b"ascii";
+        let path = path_from_bytes(bytes).unwrap();
+        assert_eq!(path_to_bytes(path).unwrap(), bytes);
+
+        let bytes = b"utf-8.\xc3\xa0";
+        let path = path_from_bytes(bytes).unwrap();
+        assert_eq!(path_to_bytes(path).unwrap(), bytes);
+
+        let bytes = b"latin1.\xe0";
+        if cfg!(unix) {
+            let path = path_from_bytes(bytes).unwrap();
+            assert_eq!(path_to_bytes(path).unwrap(), bytes);
+        } else {
+            assert!(path_from_bytes(bytes).is_err());
+        }
+    }
 
     #[test]
     fn normalize_too_many_dot_dot() {
