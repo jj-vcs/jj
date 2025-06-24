@@ -325,6 +325,37 @@ fn test_squash_partial() {
     Nothing changed.
     [EOF]
     "#);
+
+    // we can use --interactive and fileset together
+    work_dir.run_jj(["undo"]).success();
+    work_dir.write_file("file3", "foo\n");
+    std::fs::write(&edit_script, "reset file1").unwrap();
+    let output = work_dir.run_jj(["squash", "-i", "file1", "file3"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 1 descendant commits
+    Working copy  (@) now at: mzvwutvl 69c58f86 c | (no description set)
+    Parent commit (@-)      : kkmpptxz 0f38c564 b | (no description set)
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["log", "-s"]);
+    insta::assert_snapshot!(output, @r"
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:36 c 69c58f86
+    │  (no description set)
+    │  M file1
+    │  M file2
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:36 b 0f38c564
+    │  (no description set)
+    │  M file1
+    │  M file2
+    │  A file3
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 a 64ea60be
+    │  (no description set)
+    │  A file1
+    │  A file2
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
 }
 
 #[test]
