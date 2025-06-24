@@ -2544,13 +2544,17 @@ This includes:
 
 [Conflicted bookmarks]: https://jj-vcs.github.io/jj/latest/bookmarks/#conflicts
 
-**Usage:** `jj status [FILESETS]...`
+**Usage:** `jj status [OPTIONS] [FILESETS]...`
 
 **Command Alias:** `st`
 
 ###### **Arguments:**
 
 * `<FILESETS>` — Restrict the status display to these paths
+
+###### **Options:**
+
+* `--ignore-untracked` — Ignore untracked files
 
 
 

@@ -36,6 +36,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Log node templates are now specified in toml rather than hardcoded.
 
+* `jj status` now accepts `--ignore-untracked` to hide the "Untracked paths"
+  section.
+
 ### Fixed bugs
 
 * `jj file annotate` can now process files at a hidden revision.

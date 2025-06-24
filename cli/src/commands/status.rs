@@ -46,6 +46,9 @@ pub(crate) struct StatusArgs {
     /// Restrict the status display to these paths
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
     paths: Vec<String>,
+    /// Ignore untracked files
+    #[arg(long)]
+    ignore_untracked: bool,
 }
 
 #[instrument(skip_all)]
@@ -102,14 +105,27 @@ pub(crate) fn cmd_status(
             }
 
             if wc_has_untracked {
-                writeln!(formatter, "Untracked paths:")?;
-                formatter.with_label("diff", |formatter| {
-                    for path in snapshot_stats.untracked_paths.keys() {
-                        let ui_path = workspace_command.path_converter().format_file_path(path);
-                        writeln!(formatter.labeled("untracked"), "? {ui_path}")?;
-                    }
-                    io::Result::Ok(())
-                })?;
+                if args.ignore_untracked {
+                    // Untracked paths could contain files which are untracked not because of the
+                    // user's configuration, but because they are too large. We do not display them
+                    // here as a warning would have been printed already.
+                    let ignored_count = snapshot_stats.untracked_paths.len();
+
+                    writeln!(
+                        formatter,
+                        "{ignored_count} untracked path{} ignored",
+                        if ignored_count == 1 { "" } else { "s" },
+                    )?;
+                } else {
+                    writeln!(formatter, "Untracked paths:")?;
+                    formatter.with_label("diff", |formatter| {
+                        for path in snapshot_stats.untracked_paths.keys() {
+                            let ui_path = workspace_command.path_converter().format_file_path(path);
+                            writeln!(formatter.labeled("untracked"), "? {ui_path}")?;
+                        }
+                        io::Result::Ok(())
+                    })?;
+                }
             }
         }
 
