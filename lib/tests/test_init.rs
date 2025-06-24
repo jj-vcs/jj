@@ -185,3 +185,40 @@ fn test_init_checkout(backend: TestRepoBackend) {
         Some([])
     );
 }
+
+#[cfg(unix)]
+#[cfg_attr(target_os = "macos", ignore = "APFS/HFS+ don't like non-UTF-8 paths")]
+#[test]
+fn test_init_load_non_utf8_path() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt as _;
+
+    use jj_lib::workspace::default_working_copy_factories;
+    use testutils::TestEnvironment;
+
+    let settings = testutils::user_settings();
+    let test_env = TestEnvironment::init();
+
+    let git_repo_path = test_env.root().join(OsStr::from_bytes(b"git\xe0"));
+    assert!(git_repo_path.to_str().is_none());
+    git::init(&git_repo_path);
+
+    // Workspace can be created
+    let workspace_root = test_env.root().join(OsStr::from_bytes(b"jj\xe0"));
+    std::fs::create_dir(&workspace_root).unwrap();
+    Workspace::init_external_git(&settings, &workspace_root, &git_repo_path.join(".git")).unwrap();
+
+    // Workspace can be loaded
+    let workspace = Workspace::load(
+        &settings,
+        &workspace_root,
+        &test_env.default_store_factories(),
+        &default_working_copy_factories(),
+    )
+    .unwrap();
+
+    // Just test that we can write a commit to the store
+    let repo = workspace.repo_loader().load_at_head().unwrap();
+    let mut tx = repo.start_transaction();
+    write_random_commit(tx.repo_mut());
+}

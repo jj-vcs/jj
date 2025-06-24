@@ -76,6 +76,7 @@ use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::config::ConfigGetError;
 use crate::file_util;
+use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::hex_util::to_forward_hex;
@@ -110,6 +111,8 @@ pub enum GitBackendInitError {
     InitRepository(#[source] gix::init::Error),
     #[error("Failed to open git repository")]
     OpenRepository(#[source] gix::open::Error),
+    #[error("Failed to encode git repository path")]
+    EncodeRepositoryPath(#[source] BadPathEncoding),
     #[error(transparent)]
     Config(ConfigGetError),
     #[error(transparent)]
@@ -126,6 +129,8 @@ impl From<Box<GitBackendInitError>> for BackendInitError {
 pub enum GitBackendLoadError {
     #[error("Failed to open git repository")]
     OpenRepository(#[source] gix::open::Error),
+    #[error("Failed to decode git repository path")]
+    DecodeRepositoryPath(#[source] BadPathEncoding),
     #[error(transparent)]
     Config(ConfigGetError),
     #[error(transparent)]
@@ -294,7 +299,9 @@ impl GitBackend {
         } else {
             git_repo_path.into()
         };
-        fs::write(&target_path, git_repo_path.to_str().unwrap().as_bytes())
+        let git_repo_path_bytes = file_util::path_to_bytes(&git_repo_path)
+            .map_err(GitBackendInitError::EncodeRepositoryPath)?;
+        fs::write(&target_path, git_repo_path_bytes)
             .context(&target_path)
             .map_err(GitBackendInitError::Path)?;
         let extra_metadata_store = TableStore::init(extra_path, HASH_LENGTH);
@@ -307,10 +314,12 @@ impl GitBackend {
     ) -> Result<Self, Box<GitBackendLoadError>> {
         let git_repo_path = {
             let target_path = store_path.join("git_target");
-            let git_repo_path_str = fs::read_to_string(&target_path)
+            let git_repo_path_bytes = fs::read(&target_path)
                 .context(&target_path)
                 .map_err(GitBackendLoadError::Path)?;
-            let git_repo_path = store_path.join(git_repo_path_str);
+            let git_repo_path = file_util::path_from_bytes(&git_repo_path_bytes)
+                .map_err(GitBackendLoadError::DecodeRepositoryPath)?;
+            let git_repo_path = store_path.join(git_repo_path);
             canonicalize_git_repo_path(&git_repo_path)
                 .context(&git_repo_path)
                 .map_err(GitBackendLoadError::Path)?
