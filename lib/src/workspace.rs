@@ -16,9 +16,7 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::fs::File;
 use std::io;
-use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -28,6 +26,8 @@ use thiserror::Error;
 use crate::backend::BackendInitError;
 use crate::backend::MergedTreeId;
 use crate::commit::Commit;
+use crate::file_util;
+use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::local_working_copy::LocalWorkingCopy;
@@ -66,8 +66,8 @@ use crate::working_copy::WorkingCopyStateError;
 pub enum WorkspaceInitError {
     #[error("The destination repo ({0}) already exists")]
     DestinationExists(PathBuf),
-    #[error("Repo path could not be interpreted as Unicode text")]
-    NonUnicodePath,
+    #[error("Repo path could not be encoded")]
+    EncodeRepoPath(#[source] BadPathEncoding),
     #[error(transparent)]
     CheckOutCommit(#[from] CheckOutCommitError),
     #[error(transparent)]
@@ -92,8 +92,8 @@ pub enum WorkspaceLoadError {
     NoWorkspaceHere(PathBuf),
     #[error("Cannot read the repo")]
     StoreLoadError(#[from] StoreLoadError),
-    #[error("Repo path could not be interpreted as Unicode text")]
-    NonUnicodePath,
+    #[error("Repo path could not be decoded")]
+    DecodeRepoPath(#[source] BadPathEncoding),
     #[error(transparent)]
     WorkingCopyState(#[from] WorkingCopyStateError),
     #[error(transparent)]
@@ -357,16 +357,10 @@ impl Workspace {
         let jj_dir = create_jj_dir(workspace_root)?;
 
         let repo_dir = dunce::canonicalize(repo_path).context(repo_path)?;
+        let repo_dir_bytes =
+            file_util::path_to_bytes(&repo_dir).map_err(WorkspaceInitError::EncodeRepoPath)?;
         let repo_file_path = jj_dir.join("repo");
-        let mut repo_file = File::create(&repo_file_path).context(&repo_file_path)?;
-        repo_file
-            .write_all(
-                repo_dir
-                    .to_str()
-                    .ok_or(WorkspaceInitError::NonUnicodePath)?
-                    .as_bytes(),
-            )
-            .context(&repo_file_path)?;
+        fs::write(&repo_file_path, repo_dir_bytes).context(&repo_file_path)?;
 
         let (working_copy, repo) = init_working_copy(
             repo,
@@ -558,9 +552,9 @@ impl DefaultWorkspaceLoader {
         // the actual repo directory (typically in another workspace).
         if repo_dir.is_file() {
             let buf = fs::read(&repo_dir).context(&repo_dir)?;
-            let repo_path_str =
-                String::from_utf8(buf).map_err(|_| WorkspaceLoadError::NonUnicodePath)?;
-            repo_dir = dunce::canonicalize(jj_dir.join(&repo_path_str)).context(&repo_path_str)?;
+            let repo_path =
+                file_util::path_from_bytes(&buf).map_err(WorkspaceLoadError::DecodeRepoPath)?;
+            repo_dir = dunce::canonicalize(jj_dir.join(repo_path)).context(repo_path)?;
             if !repo_dir.is_dir() {
                 return Err(WorkspaceLoadError::RepoDoesNotExist(repo_dir));
             }

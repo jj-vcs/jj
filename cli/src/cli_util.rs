@@ -2543,7 +2543,7 @@ jj git init --colocate",
         ) => internal_error_with_message("The repository appears broken or inaccessible", err),
         WorkspaceLoadError::StoreLoadError(StoreLoadError::Signing(err)) => user_error(err),
         WorkspaceLoadError::WorkingCopyState(err) => internal_error(err),
-        WorkspaceLoadError::NonUnicodePath | WorkspaceLoadError::Path(_) => user_error(err),
+        WorkspaceLoadError::DecodeRepoPath(_) | WorkspaceLoadError::Path(_) => user_error(err),
     }
 }
 

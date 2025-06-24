@@ -337,9 +337,7 @@ impl From<WorkspaceInitError> for CommandError {
             WorkspaceInitError::DestinationExists(_) => {
                 user_error("The target repo already exists")
             }
-            WorkspaceInitError::NonUnicodePath => {
-                user_error("The target repo path contains non-unicode characters")
-            }
+            WorkspaceInitError::EncodeRepoPath(_) => user_error(err),
             WorkspaceInitError::CheckOutCommit(err) => {
                 internal_error_with_message("Failed to check out the initial commit", err)
             }

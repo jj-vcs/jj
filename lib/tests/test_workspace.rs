@@ -92,6 +92,55 @@ fn test_init_additional_workspace() {
     assert_eq!(same_workspace.workspace_root(), ws2.workspace_root());
 }
 
+#[cfg(unix)]
+#[cfg_attr(target_os = "macos", ignore = "APFS/HFS+ don't like non-UTF-8 paths")]
+#[test]
+fn test_init_additional_workspace_non_utf8_path() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt as _;
+
+    let settings = testutils::user_settings();
+    let test_env = TestEnvironment::init();
+
+    let ws1_root = test_env.root().join(OsStr::from_bytes(b"ws1_root\xe0"));
+    std::fs::create_dir(&ws1_root).unwrap();
+    let (ws1, repo) = Workspace::init_simple(&settings, &ws1_root).unwrap();
+
+    let ws2_name = WorkspaceNameBuf::from("ws2");
+    let ws2_root = test_env.root().join(OsStr::from_bytes(b"ws2_root\xe0"));
+    std::fs::create_dir(&ws2_root).unwrap();
+    let (ws2, _repo) = Workspace::init_workspace_with_existing_repo(
+        &ws2_root,
+        ws1.repo_path(),
+        &repo,
+        &*default_working_copy_factory(),
+        ws2_name.clone(),
+    )
+    .unwrap();
+    assert_eq!(ws2.workspace_name(), &ws2_name);
+    assert_eq!(
+        *ws2.repo_path(),
+        dunce::canonicalize(ws1.repo_path()).unwrap()
+    );
+    assert_eq!(
+        *ws2.workspace_root(),
+        dunce::canonicalize(&ws2_root).unwrap()
+    );
+    let same_workspace = Workspace::load(
+        &settings,
+        &ws2_root,
+        &test_env.default_store_factories(),
+        &default_working_copy_factories(),
+    );
+    let same_workspace = same_workspace.unwrap();
+    assert_eq!(same_workspace.workspace_name(), &ws2_name);
+    assert_eq!(
+        *same_workspace.repo_path(),
+        dunce::canonicalize(ws1.repo_path()).unwrap()
+    );
+    assert_eq!(same_workspace.workspace_root(), ws2.workspace_root());
+}
+
 /// Test cross-thread access to a workspace, which requires it to be Send
 #[test]
 fn test_sendable() {
