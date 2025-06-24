@@ -14,6 +14,7 @@
 
 use std::io::Write as _;
 
+use jj_lib::file_util;
 use jj_lib::repo::Repo as _;
 use tracing::instrument;
 
@@ -35,10 +36,8 @@ pub fn cmd_git_root(
     let workspace_command = command.workspace_helper(ui)?;
     let store = workspace_command.repo().store();
     let git_backend = jj_lib::git::get_git_backend(store)?;
-    let root = git_backend
-        .git_repo_path()
-        .to_str()
-        .ok_or_else(|| user_error("The workspace root is not valid UTF-8"))?;
-    writeln!(ui.stdout(), "{root}")?;
+    let path_bytes = file_util::path_to_bytes(git_backend.git_repo_path()).map_err(user_error)?;
+    ui.stdout().write_all(path_bytes)?;
+    writeln!(ui.stdout())?;
     Ok(())
 }
