@@ -789,21 +789,23 @@ pub(super) fn expect_pattern_with<T, E: Into<Box<dyn error::Error + Send + Sync>
         let wrap_error = |err: E| {
             RevsetParseError::expression(format!("Invalid {type_name}"), node.span).with_source(err)
         };
-        match &node.kind {
-            ExpressionKind::Identifier(name) => {
-                parse_pattern(diagnostics, name, None).map_err(wrap_error)
-            }
-            ExpressionKind::String(name) => {
-                parse_pattern(diagnostics, name, None).map_err(wrap_error)
-            }
-            ExpressionKind::StringPattern { kind, value } => {
-                parse_pattern(diagnostics, value, Some(kind)).map_err(wrap_error)
-            }
-            _ => Err(RevsetParseError::expression(
-                format!("Expected {type_name}"),
-                node.span,
-            )),
-        }
+        let (value, kind) = expect_string_pattern(type_name, node)?;
+        parse_pattern(diagnostics, value, kind).map_err(wrap_error)
+    })
+}
+
+pub(super) fn expect_string_pattern<'a>(
+    type_name: &str,
+    node: &'a ExpressionNode<'_>,
+) -> Result<(&'a str, Option<&'a str>), RevsetParseError> {
+    catch_aliases_no_diagnostics(node, |node| match &node.kind {
+        ExpressionKind::Identifier(name) => Ok((*name, None)),
+        ExpressionKind::String(name) => Ok((name, None)),
+        ExpressionKind::StringPattern { kind, value } => Ok((value, Some(*kind))),
+        _ => Err(RevsetParseError::expression(
+            format!("Expected {type_name}"),
+            node.span,
+        )),
     })
 }
 
@@ -812,13 +814,24 @@ pub fn expect_literal<T: FromStr>(
     node: &ExpressionNode,
 ) -> Result<T, RevsetParseError> {
     catch_aliases_no_diagnostics(node, |node| {
-        let make_error =
-            || RevsetParseError::expression(format!("Expected {type_name}"), node.span);
-        match &node.kind {
-            ExpressionKind::Identifier(name) => name.parse().map_err(|_| make_error()),
-            ExpressionKind::String(name) => name.parse().map_err(|_| make_error()),
-            _ => Err(make_error()),
-        }
+        let value = expect_string_literal(type_name, node)?;
+        value
+            .parse()
+            .map_err(|_| RevsetParseError::expression(format!("Expected {type_name}"), node.span))
+    })
+}
+
+pub(super) fn expect_string_literal<'a>(
+    type_name: &str,
+    node: &'a ExpressionNode<'_>,
+) -> Result<&'a str, RevsetParseError> {
+    catch_aliases_no_diagnostics(node, |node| match &node.kind {
+        ExpressionKind::Identifier(name) => Ok(*name),
+        ExpressionKind::String(name) => Ok(name),
+        _ => Err(RevsetParseError::expression(
+            format!("Expected {type_name}"),
+            node.span,
+        )),
     })
 }
 
