@@ -3396,7 +3396,7 @@ mod tests {
         // "@" in function argument must be quoted
         insta::assert_debug_snapshot!(
             parse("author_name(foo@)").unwrap_err().kind(),
-            @r#"Expression("Expected expression of string pattern")"#);
+            @r#"Expression("Expected string pattern")"#);
         insta::assert_debug_snapshot!(
             parse(r#"author_name("foo@")"#).unwrap(),
             @r#"Filter(AuthorName(Substring("foo@")))"#);
@@ -3570,10 +3570,10 @@ mod tests {
             @r#"Expression("Invalid string pattern")"#);
         insta::assert_debug_snapshot!(
             parse(r#"bookmarks(exact::"foo")"#).unwrap_err().kind(),
-            @r#"Expression("Expected expression of string pattern")"#);
+            @r#"Expression("Expected string pattern")"#);
         insta::assert_debug_snapshot!(
             parse(r#"bookmarks(exact:"foo"+)"#).unwrap_err().kind(),
-            @r#"Expression("Expected expression of string pattern")"#);
+            @r#"Expression("Expected string pattern")"#);
 
         insta::assert_debug_snapshot!(
             parse(r#"tags("foo")"#).unwrap(),
@@ -3589,10 +3589,10 @@ mod tests {
             @r#"Expression("Invalid string pattern")"#);
         insta::assert_debug_snapshot!(
             parse(r#"tags(exact::"foo")"#).unwrap_err().kind(),
-            @r#"Expression("Expected expression of string pattern")"#);
+            @r#"Expression("Expected string pattern")"#);
         insta::assert_debug_snapshot!(
             parse(r#"tags(exact:"foo"+)"#).unwrap_err().kind(),
-            @r#"Expression("Expected expression of string pattern")"#);
+            @r#"Expression("Expected string pattern")"#);
 
         // String pattern isn't allowed at top level.
         assert_matches!(
@@ -3649,7 +3649,7 @@ mod tests {
             @r#"Filter(Description(Substring("foo")))"#);
         insta::assert_debug_snapshot!(
             parse("description(visible_heads())").unwrap_err().kind(),
-            @r#"Expression("Expected expression of string pattern")"#);
+            @r#"Expression("Expected string pattern")"#);
         insta::assert_debug_snapshot!(
             parse("description(\"(foo)\")").unwrap(),
             @r#"Filter(Description(Substring("(foo)")))"#);

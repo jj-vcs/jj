@@ -146,13 +146,13 @@ fn test_bad_function_call() {
     let output = work_dir.run_jj(["log", "-r", "latest(a, not_an_integer)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Failed to parse revset: Expected expression of type integer
+    Error: Failed to parse revset: Expected integer
     Caused by:  --> 1:11
       |
     1 | latest(a, not_an_integer)
       |           ^------------^
       |
-      = Expected expression of type integer
+      = Expected integer
     [EOF]
     [exit status: 1]
     ");
@@ -572,7 +572,7 @@ fn test_alias() {
     1 | my_author(none())
       |           ^----^
       |
-      = Expected expression of string pattern
+      = Expected string pattern
     [EOF]
     [exit status: 1]
     ");

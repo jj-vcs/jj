@@ -800,7 +800,7 @@ pub(super) fn expect_pattern_with<T, E: Into<Box<dyn error::Error + Send + Sync>
                 parse_pattern(diagnostics, value, Some(kind)).map_err(wrap_error)
             }
             _ => Err(RevsetParseError::expression(
-                format!("Expected expression of {type_name}"),
+                format!("Expected {type_name}"),
                 node.span,
             )),
         }
@@ -813,12 +813,8 @@ pub fn expect_literal<T: FromStr>(
     node: &ExpressionNode,
 ) -> Result<T, RevsetParseError> {
     expect_expression_with(diagnostics, node, |_diagnostics, node| {
-        let make_error = || {
-            RevsetParseError::expression(
-                format!("Expected expression of type {type_name}"),
-                node.span,
-            )
-        };
+        let make_error =
+            || RevsetParseError::expression(format!("Expected {type_name}"), node.span);
         match &node.kind {
             ExpressionKind::Identifier(name) => name.parse().map_err(|_| make_error()),
             ExpressionKind::String(name) => name.parse().map_err(|_| make_error()),
