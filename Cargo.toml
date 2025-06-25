@@ -48,7 +48,7 @@ erased-serde = "0.4.6"
 etcetera = "0.10.0"
 either = "1.15.0"
 futures = "0.3.31"
-gix = { version = "0.72.1", default-features = false, features = [
+gix = { version = "0.73.0", default-features = false, features = [
     "attributes",
     "blob-diff",
     "index",

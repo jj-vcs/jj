@@ -430,11 +430,15 @@ fn test_git_fetch_from_remote_named_git() {
     // Implicit import shouldn't fail because of the remote ref.
     let output = work_dir.run_jj(["bookmark", "list", "--all-remotes"]);
     insta::assert_snapshot!(output, @r"
+    FETCH_HEAD: vkponlun 400c483d message
+      @git: vkponlun 400c483d message
+    [EOF]
     ------- stderr -------
     Warning: Failed to import some Git refs:
       refs/remotes/git/git
     Hint: Git remote named 'git' is reserved for local Git repository.
     Use `jj git remote rename` to give a different name.
+    Done importing changes from the underlying Git repo.
     [EOF]
     ");
 
@@ -461,6 +465,8 @@ fn test_git_fetch_from_remote_named_git() {
         .success();
     let output = work_dir.run_jj(["bookmark", "list", "--all-remotes"]);
     insta::assert_snapshot!(output, @r"
+    FETCH_HEAD: vkponlun 400c483d message
+      @git: vkponlun 400c483d message
     git: vkponlun 400c483d message
       @bar: vkponlun 400c483d message
       @git: vkponlun 400c483d message

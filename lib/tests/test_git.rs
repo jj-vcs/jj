@@ -1232,6 +1232,7 @@ fn test_import_some_refs() {
     let commit_feat3 = empty_git_commit(&git_repo, "refs/remotes/origin/feature3", &[commit_feat1]);
     let commit_feat4 = empty_git_commit(&git_repo, "refs/remotes/origin/feature4", &[commit_feat3]);
     let commit_ign = empty_git_commit(&git_repo, "refs/remotes/origin/ignored", &[]);
+    let commit_jiri_head = empty_git_commit(&git_repo, "JIRI_HEAD", &[commit_main]);
 
     // Import bookmarks feature1, feature2, and feature3.
     let mut tx = repo.start_transaction();
@@ -1388,6 +1389,25 @@ fn test_import_some_refs() {
     assert_eq!(view.bookmarks().count(), 1);
     let expected_heads = hashset! {
             jj_id(commit_feat2),
+    };
+    assert_eq!(*view.heads(), expected_heads);
+
+    // Import JIRI_HEAD: this should cause the bookmark to be added.
+    let mut tx = repo.start_transaction();
+    git::import_some_refs(tx.repo_mut(), &git_settings, |kind, symbol| {
+        kind == GitRefKind::Bookmark
+            && symbol.name.as_str().ends_with("_HEAD")
+            && symbol.remote == "git"
+    })
+    .unwrap();
+    // No descendant should be rewritten
+    assert_eq!(tx.repo_mut().rebase_descendants().unwrap(), 0);
+    let repo = tx.commit("test").unwrap();
+    let view = repo.view();
+    assert_eq!(view.bookmarks().count(), 2);
+    let expected_heads = hashset! {
+            jj_id(commit_feat2),
+            jj_id(commit_jiri_head),
     };
     assert_eq!(*view.heads(), expected_heads);
 }
