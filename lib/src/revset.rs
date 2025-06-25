@@ -696,7 +696,7 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
         let ([heads_arg], [depth_opt_arg]) = function.expect_arguments()?;
         let heads = lower_expression(diagnostics, heads_arg, context)?;
         let generation = if let Some(depth_arg) = depth_opt_arg {
-            let depth = expect_literal(diagnostics, "integer", depth_arg)?;
+            let depth = expect_literal("integer", depth_arg)?;
             0..depth
         } else {
             GENERATION_RANGE_FULL
@@ -707,7 +707,7 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
         let ([roots_arg], [depth_opt_arg]) = function.expect_arguments()?;
         let roots = lower_expression(diagnostics, roots_arg, context)?;
         let generation = if let Some(depth_arg) = depth_opt_arg {
-            let depth = expect_literal(diagnostics, "integer", depth_arg)?;
+            let depth = expect_literal("integer", depth_arg)?;
             0..depth
         } else {
             GENERATION_RANGE_FULL
@@ -800,7 +800,7 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
         let ([candidates_arg], [count_opt_arg]) = function.expect_arguments()?;
         let candidates = lower_expression(diagnostics, candidates_arg, context)?;
         let count = if let Some(count_arg) = count_opt_arg {
-            expect_literal(diagnostics, "integer", count_arg)?
+            expect_literal("integer", count_arg)?
         } else {
             1
         };

@@ -808,11 +808,10 @@ pub(super) fn expect_pattern_with<T, E: Into<Box<dyn error::Error + Send + Sync>
 }
 
 pub fn expect_literal<T: FromStr>(
-    diagnostics: &mut RevsetDiagnostics,
     type_name: &str,
     node: &ExpressionNode,
 ) -> Result<T, RevsetParseError> {
-    catch_aliases(diagnostics, node, |_diagnostics, node| {
+    catch_aliases_no_diagnostics(node, |node| {
         let make_error =
             || RevsetParseError::expression(format!("Expected {type_name}"), node.span);
         match &node.kind {
@@ -839,6 +838,14 @@ pub(super) fn catch_aliases<'a, 'i, T>(
         diagnostics.extend_with(inner_diagnostics, |diag| attach_aliases_err(diag, &stack));
         result.map_err(|err| attach_aliases_err(err, &stack))
     }
+}
+
+fn catch_aliases_no_diagnostics<'a, 'i, T>(
+    node: &'a ExpressionNode<'i>,
+    f: impl FnOnce(&'a ExpressionNode<'i>) -> Result<T, RevsetParseError>,
+) -> Result<T, RevsetParseError> {
+    let (node, stack) = skip_aliases(node);
+    f(node).map_err(|err| attach_aliases_err(err, &stack))
 }
 
 fn skip_aliases<'a, 'i>(
