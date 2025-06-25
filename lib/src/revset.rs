@@ -34,7 +34,6 @@ use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::dsl_util;
 use crate::dsl_util::collect_similar;
-use crate::dsl_util::AliasExpandError as _;
 use crate::fileset;
 use crate::fileset::FilesetDiagnostics;
 use crate::fileset::FilesetExpression;
@@ -946,10 +945,9 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
     map.insert("at_operation", |diagnostics, function, context| {
         let [op_arg, cand_arg] = function.expect_exact_arguments()?;
         // TODO: Parse "opset" here if we add proper language support.
-        let operation =
-            revset_parser::expect_expression_with(diagnostics, op_arg, |_diagnostics, node| {
-                Ok(node.span.as_str().to_owned())
-            })?;
+        let operation = revset_parser::catch_aliases(diagnostics, op_arg, |_diagnostics, node| {
+            Ok(node.span.as_str().to_owned())
+        })?;
         let candidates = lower_expression(diagnostics, cand_arg, context)?;
         Ok(Rc::new(RevsetExpression::AtOperation {
             operation,
@@ -976,7 +974,7 @@ pub fn expect_fileset_expression(
     // Alias handling is a bit tricky. The outermost expression `alias` is
     // substituted, but inner expressions `x & alias` aren't. If this seemed
     // weird, we can either transform AST or turn off revset aliases completely.
-    revset_parser::expect_expression_with(diagnostics, node, |diagnostics, node| {
+    revset_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
         let mut inner_diagnostics = FilesetDiagnostics::new();
         let expression = fileset::parse(&mut inner_diagnostics, node.span.as_str(), path_converter)
             .map_err(|err| {
@@ -1073,7 +1071,7 @@ pub fn lower_expression(
     node: &ExpressionNode,
     context: &LoweringContext,
 ) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
-    match &node.kind {
+    revset_parser::catch_aliases(diagnostics, node, |diagnostics, node| match &node.kind {
         ExpressionKind::Identifier(name) => Ok(RevsetExpression::symbol((*name).to_owned())),
         ExpressionKind::String(name) => Ok(RevsetExpression::symbol(name.to_owned())),
         ExpressionKind::StringPattern { .. } => Err(RevsetParseError::with_span(
@@ -1138,16 +1136,8 @@ pub fn lower_expression(
                 modifier.name_span,
             ))
         }
-        ExpressionKind::AliasExpanded(id, subst) => {
-            let mut inner_diagnostics = RevsetDiagnostics::new();
-            let expression = lower_expression(&mut inner_diagnostics, subst, context)
-                .map_err(|e| e.within_alias_expansion(*id, node.span))?;
-            diagnostics.extend_with(inner_diagnostics, |diag| {
-                diag.within_alias_expansion(*id, node.span)
-            });
-            Ok(expression)
-        }
-    }
+        ExpressionKind::AliasExpanded(..) => unreachable!(),
+    })
 }
 
 pub fn parse(

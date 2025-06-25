@@ -769,7 +769,7 @@ pub(super) fn expect_program_with<B, M>(
         pest::Span<'_>,
     ) -> Result<M, RevsetParseError>,
 ) -> Result<(B, Option<M>), RevsetParseError> {
-    expect_expression_with(diagnostics, node, |diagnostics, node| match &node.kind {
+    catch_aliases(diagnostics, node, |diagnostics, node| match &node.kind {
         ExpressionKind::Modifier(modifier) => {
             let parsed_modifier = parse_modifier(diagnostics, modifier.name, modifier.name_span)?;
             let parsed_body = parse_body(diagnostics, &modifier.body)?;
@@ -785,7 +785,7 @@ pub(super) fn expect_pattern_with<T, E: Into<Box<dyn error::Error + Send + Sync>
     node: &ExpressionNode,
     parse_pattern: impl FnOnce(&mut RevsetDiagnostics, &str, Option<&str>) -> Result<T, E>,
 ) -> Result<T, RevsetParseError> {
-    expect_expression_with(diagnostics, node, |diagnostics, node| {
+    catch_aliases(diagnostics, node, |diagnostics, node| {
         let wrap_error = |err: E| {
             RevsetParseError::expression(format!("Invalid {type_name}"), node.span).with_source(err)
         };
@@ -812,7 +812,7 @@ pub fn expect_literal<T: FromStr>(
     type_name: &str,
     node: &ExpressionNode,
 ) -> Result<T, RevsetParseError> {
-    expect_expression_with(diagnostics, node, |_diagnostics, node| {
+    catch_aliases(diagnostics, node, |_diagnostics, node| {
         let make_error =
             || RevsetParseError::expression(format!("Expected {type_name}"), node.span);
         match &node.kind {
@@ -823,24 +823,42 @@ pub fn expect_literal<T: FromStr>(
     })
 }
 
-/// Applies the give function to the innermost `node` by unwrapping alias
-/// expansion nodes.
-pub(super) fn expect_expression_with<T>(
+/// Applies the given function to the innermost `node` by unwrapping alias
+/// expansion nodes. Appends alias expansion stack to error and diagnostics.
+pub(super) fn catch_aliases<'a, 'i, T>(
     diagnostics: &mut RevsetDiagnostics,
-    node: &ExpressionNode,
-    f: impl FnOnce(&mut RevsetDiagnostics, &ExpressionNode) -> Result<T, RevsetParseError>,
+    node: &'a ExpressionNode<'i>,
+    f: impl FnOnce(&mut RevsetDiagnostics, &'a ExpressionNode<'i>) -> Result<T, RevsetParseError>,
 ) -> Result<T, RevsetParseError> {
-    if let ExpressionKind::AliasExpanded(id, subst) = &node.kind {
-        let mut inner_diagnostics = RevsetDiagnostics::new();
-        let expression = expect_expression_with(&mut inner_diagnostics, subst, f)
-            .map_err(|e| e.within_alias_expansion(*id, node.span))?;
-        diagnostics.extend_with(inner_diagnostics, |diag| {
-            diag.within_alias_expansion(*id, node.span)
-        });
-        Ok(expression)
-    } else {
+    let (node, stack) = skip_aliases(node);
+    if stack.is_empty() {
         f(diagnostics, node)
+    } else {
+        let mut inner_diagnostics = RevsetDiagnostics::new();
+        let result = f(&mut inner_diagnostics, node);
+        diagnostics.extend_with(inner_diagnostics, |diag| attach_aliases_err(diag, &stack));
+        result.map_err(|err| attach_aliases_err(err, &stack))
     }
+}
+
+fn skip_aliases<'a, 'i>(
+    mut node: &'a ExpressionNode<'i>,
+) -> (&'a ExpressionNode<'i>, Vec<(AliasId<'i>, pest::Span<'i>)>) {
+    let mut stack = Vec::new();
+    while let ExpressionKind::AliasExpanded(id, subst) = &node.kind {
+        stack.push((*id, node.span));
+        node = subst;
+    }
+    (node, stack)
+}
+
+fn attach_aliases_err(
+    err: RevsetParseError,
+    stack: &[(AliasId<'_>, pest::Span<'_>)],
+) -> RevsetParseError {
+    stack
+        .iter()
+        .rfold(err, |err, &(id, span)| err.within_alias_expansion(id, span))
 }
 
 #[cfg(test)]
