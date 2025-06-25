@@ -757,43 +757,6 @@ impl AliasDefinitionParser for RevsetAliasParser {
     }
 }
 
-/// Applies the given functions to the top-level expression body node with an
-/// optional modifier. Alias expansion nodes are unwrapped accordingly.
-pub(super) fn expect_program_with<B, M>(
-    diagnostics: &mut RevsetDiagnostics,
-    node: &ExpressionNode,
-    parse_body: impl FnOnce(&mut RevsetDiagnostics, &ExpressionNode) -> Result<B, RevsetParseError>,
-    parse_modifier: impl FnOnce(
-        &mut RevsetDiagnostics,
-        &str,
-        pest::Span<'_>,
-    ) -> Result<M, RevsetParseError>,
-) -> Result<(B, Option<M>), RevsetParseError> {
-    catch_aliases(diagnostics, node, |diagnostics, node| match &node.kind {
-        ExpressionKind::Modifier(modifier) => {
-            let parsed_modifier = parse_modifier(diagnostics, modifier.name, modifier.name_span)?;
-            let parsed_body = parse_body(diagnostics, &modifier.body)?;
-            Ok((parsed_body, Some(parsed_modifier)))
-        }
-        _ => Ok((parse_body(diagnostics, node)?, None)),
-    })
-}
-
-pub(super) fn expect_pattern_with<T, E: Into<Box<dyn error::Error + Send + Sync>>>(
-    diagnostics: &mut RevsetDiagnostics,
-    type_name: &str,
-    node: &ExpressionNode,
-    parse_pattern: impl FnOnce(&mut RevsetDiagnostics, &str, Option<&str>) -> Result<T, E>,
-) -> Result<T, RevsetParseError> {
-    catch_aliases(diagnostics, node, |diagnostics, node| {
-        let wrap_error = |err: E| {
-            RevsetParseError::expression(format!("Invalid {type_name}"), node.span).with_source(err)
-        };
-        let (value, kind) = expect_string_pattern(type_name, node)?;
-        parse_pattern(diagnostics, value, kind).map_err(wrap_error)
-    })
-}
-
 pub(super) fn expect_string_pattern<'a>(
     type_name: &str,
     node: &'a ExpressionNode<'_>,

@@ -991,15 +991,16 @@ pub fn expect_string_pattern(
     diagnostics: &mut RevsetDiagnostics,
     node: &ExpressionNode,
 ) -> Result<StringPattern, RevsetParseError> {
-    revset_parser::expect_pattern_with(
-        diagnostics,
-        "string pattern",
-        node,
-        |_diagnostics, value, kind| match kind {
-            Some(kind) => StringPattern::from_str_kind(value, kind),
-            None => Ok(StringPattern::Substring(value.to_owned())),
-        },
-    )
+    revset_parser::catch_aliases(diagnostics, node, |_diagnostics, node| {
+        let (value, kind) = revset_parser::expect_string_pattern("string pattern", node)?;
+        if let Some(kind) = kind {
+            StringPattern::from_str_kind(value, kind).map_err(|err| {
+                RevsetParseError::expression("Invalid string pattern", node.span).with_source(err)
+            })
+        } else {
+            Ok(StringPattern::Substring(value.to_owned()))
+        }
+    })
 }
 
 pub fn expect_date_pattern(
@@ -1007,17 +1008,15 @@ pub fn expect_date_pattern(
     node: &ExpressionNode,
     context: &DatePatternContext,
 ) -> Result<DatePattern, RevsetParseError> {
-    revset_parser::expect_pattern_with(
-        diagnostics,
-        "date pattern",
-        node,
-        |_diagnostics, value, kind| -> Result<_, Box<dyn std::error::Error + Send + Sync>> {
-            match kind {
-                None => Err("Date pattern must specify 'after' or 'before'".into()),
-                Some(kind) => Ok(context.parse_relative(value, kind)?),
-            }
-        },
-    )
+    revset_parser::catch_aliases(diagnostics, node, |_diagnostics, node| {
+        let (value, kind) = revset_parser::expect_string_pattern("date pattern", node)?;
+        let kind = kind.ok_or_else(|| {
+            RevsetParseError::expression("Date pattern must specify 'after' or 'before'", node.span)
+        })?;
+        context.parse_relative(value, kind).map_err(|err| {
+            RevsetParseError::expression("Invalid date pattern", node.span).with_source(err)
+        })
+    })
 }
 
 fn parse_remote_bookmarks_arguments(
@@ -1160,18 +1159,26 @@ pub fn parse_with_modifier(
     let node = parse_program(revset_str)?;
     let node =
         dsl_util::expand_aliases_with_locals(node, context.aliases_map, &context.local_variables)?;
-    revset_parser::expect_program_with(
-        diagnostics,
-        &node,
-        |diagnostics, node| lower_expression(diagnostics, node, &context.to_lowering_context()),
-        |_diagnostics, name, span| match name {
-            "all" => Ok(RevsetModifier::All),
-            _ => Err(RevsetParseError::with_span(
-                RevsetParseErrorKind::NoSuchModifier(name.to_owned()),
-                span,
-            )),
-        },
-    )
+    revset_parser::catch_aliases(diagnostics, &node, |diagnostics, node| match &node.kind {
+        ExpressionKind::Modifier(modifier) => {
+            let parsed_modifier = match modifier.name {
+                "all" => RevsetModifier::All,
+                _ => {
+                    return Err(RevsetParseError::with_span(
+                        RevsetParseErrorKind::NoSuchModifier(modifier.name.to_owned()),
+                        modifier.name_span,
+                    ));
+                }
+            };
+            let parsed_body =
+                lower_expression(diagnostics, &modifier.body, &context.to_lowering_context())?;
+            Ok((parsed_body, Some(parsed_modifier)))
+        }
+        _ => {
+            let parsed_body = lower_expression(diagnostics, node, &context.to_lowering_context())?;
+            Ok((parsed_body, None))
+        }
+    })
     .map_err(|err| err.extend_function_candidates(context.aliases_map.function_names()))
 }
 
