@@ -1240,17 +1240,17 @@ fn test_diff_dir_file() {
                 (Merge::absent(), right_value(&path4.join(file))),
             ),
             // path5: directory1 -> file1+(file2-absent)
+            (path5.to_owned(), (Merge::absent(), right_value(path5))),
             (
                 path5.join(file),
                 (left_value(&path5.join(file)), Merge::absent()),
             ),
-            (path5.to_owned(), (Merge::absent(), right_value(path5))),
             // path6: directory1 -> file1+(directory1-absent)
+            (path6.to_owned(), (Merge::absent(), right_value(path6))),
             (
                 path6.join(file),
                 (left_value(&path6.join(file)), Merge::absent()),
             ),
-            (path6.to_owned(), (Merge::absent(), right_value(path6))),
         ];
         assert_eq!(actual_diff, expected_diff);
         diff_stream_equals_iter(&left_merged, &right_merged, &EverythingMatcher);
@@ -1265,25 +1265,25 @@ fn test_diff_dir_file() {
             .block_on();
         let expected_diff = vec![
             // path1: file1 -> directory1
+            (path1.to_owned(), (Merge::absent(), left_value(path1))),
             (
                 path1.join(file),
                 (right_value(&path1.join(file)), Merge::absent()),
             ),
-            (path1.to_owned(), (Merge::absent(), left_value(path1))),
             // path2: file1 -> directory1+(directory2-absent)
+            (path2.to_owned(), (Merge::absent(), left_value(path2))),
             (
                 path2.join(file),
                 (right_value(&path2.join(file)), Merge::absent()),
             ),
-            (path2.to_owned(), (Merge::absent(), left_value(path2))),
             // path3: file1 -> directory1+(file1-absent)
             (path3.to_owned(), (right_value(path3), left_value(path3))),
             // path4: file1+(file2-file3) -> directory1+(directory2-directory3)
+            (path4.to_owned(), (Merge::absent(), left_value(path4))),
             (
                 path4.join(file),
                 (right_value(&path4.join(file)), Merge::absent()),
             ),
-            (path4.to_owned(), (Merge::absent(), left_value(path4))),
             // path5: directory1 -> file1+(file2-absent)
             (path5.to_owned(), (right_value(path5), Merge::absent())),
             (

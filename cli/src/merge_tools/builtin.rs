@@ -1698,26 +1698,13 @@ mod tests {
         let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
         insta::assert_debug_snapshot!(changed_files, @r#"
         [
-            "folder/file_in_folder",
             "folder",
+            "folder/file_in_folder",
         ]
         "#);
         insta::with_settings!({filters => vec![(r"\\\\", "/")]}, {
             insta::assert_debug_snapshot!(files, @r#"
             [
-                File {
-                    old_path: None,
-                    path: "folder/file_in_folder",
-                    file_mode: Unix(
-                        33188,
-                    ),
-                    sections: [
-                        FileMode {
-                            is_checked: false,
-                            mode: Absent,
-                        },
-                    ],
-                },
                 File {
                     old_path: None,
                     path: "folder",
@@ -1728,6 +1715,19 @@ mod tests {
                             mode: Unix(
                                 33188,
                             ),
+                        },
+                    ],
+                },
+                File {
+                    old_path: None,
+                    path: "folder/file_in_folder",
+                    file_mode: Unix(
+                        33188,
+                    ),
+                    sections: [
+                        FileMode {
+                            is_checked: false,
+                            mode: Absent,
                         },
                     ],
                 },
@@ -2148,7 +2148,9 @@ mod tests {
                             }
                             | Binary {
                                 is_checked: true, ..
-                            } => vec![],
+                            } => {
+                                vec![]
+                            }
                         }
                     })
                     .collect();

@@ -31,6 +31,7 @@ use either::Either;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
 use futures::Stream;
+use futures::StreamExt as _;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
@@ -292,15 +293,15 @@ impl MergedTree {
 
     /// Stream of the differences between this tree and another tree.
     ///
-    /// The files in a removed tree will be returned before a file that replaces
-    /// it.
-    pub fn diff_stream<'matcher>(
+    /// Tree entries (`MergedTreeValue::is_tree()`) are included only if the
+    /// other side is present and not a tree.
+    fn diff_stream_internal<'matcher>(
         &self,
         other: &MergedTree,
         matcher: &'matcher dyn Matcher,
     ) -> TreeDiffStream<'matcher> {
         let concurrency = self.store().concurrency();
-        let inner: TreeDiffStream<'matcher> = if concurrency <= 1 {
+        if concurrency <= 1 {
             Box::pin(futures::stream::iter(TreeDiffIterator::new(
                 &self.trees,
                 &other.trees,
@@ -313,8 +314,28 @@ impl MergedTree {
                 matcher,
                 concurrency,
             ))
-        };
-        Box::pin(DiffStreamForFileSystem::new(inner))
+        }
+    }
+
+    /// Stream of the differences between this tree and another tree.
+    pub fn diff_stream<'matcher>(
+        &self,
+        other: &MergedTree,
+        matcher: &'matcher dyn Matcher,
+    ) -> TreeDiffStream<'matcher> {
+        stream_without_trees(self.diff_stream_internal(other, matcher))
+    }
+
+    /// Like `diff_stream()` but files in a removed tree will be returned before
+    /// a file that replaces it.
+    pub fn diff_stream_for_file_system<'matcher>(
+        &self,
+        other: &MergedTree,
+        matcher: &'matcher dyn Matcher,
+    ) -> TreeDiffStream<'matcher> {
+        Box::pin(DiffStreamForFileSystem::new(
+            self.diff_stream_internal(other, matcher),
+        ))
     }
 
     /// Like `diff_stream()` but takes the given copy records into account.
@@ -1014,6 +1035,22 @@ impl Stream for TreeDiffStreamImpl<'_> {
             Poll::Pending
         }
     }
+}
+
+fn stream_without_trees(stream: TreeDiffStream) -> TreeDiffStream {
+    Box::pin(stream.map(|mut entry| {
+        let skip_tree = |merge: MergedTreeValue| {
+            if merge.is_tree() {
+                Merge::absent()
+            } else {
+                merge
+            }
+        };
+        entry.values = entry
+            .values
+            .map(|(before, after)| (skip_tree(before), skip_tree(after)));
+        entry
+    }))
 }
 
 /// Adapts a `TreeDiffStream` to emit a added file at a given path after a

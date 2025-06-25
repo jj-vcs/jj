@@ -1829,7 +1829,7 @@ impl TreeState {
         let mut changed_file_states = Vec::new();
         let mut deleted_files = HashSet::new();
         let mut diff_stream = old_tree
-            .diff_stream(new_tree, matcher)
+            .diff_stream_for_file_system(new_tree, matcher)
             .map(|TreeDiffEntry { path, values }| async {
                 match values {
                     Ok((before, after)) => {
@@ -1957,7 +1957,7 @@ impl TreeState {
         let matcher = self.sparse_matcher();
         let mut changed_file_states = Vec::new();
         let mut deleted_files = HashSet::new();
-        let mut diff_stream = old_tree.diff_stream(new_tree, matcher.as_ref());
+        let mut diff_stream = old_tree.diff_stream_for_file_system(new_tree, matcher.as_ref());
         while let Some(TreeDiffEntry { path, values }) = diff_stream.next().await {
             let (_before, after) = values?;
             if after.is_absent() {
