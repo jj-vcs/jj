@@ -26,6 +26,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Trailers separators are now specified in the toml configuration.
 
+* The `commit_trailers` template now generates trailers without modification, and
+  their separators are defined in the TOML configuration.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).

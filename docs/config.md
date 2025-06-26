@@ -285,6 +285,9 @@ The recognizable trailer separators can be customized with the
 separators = ":%="
 ```
 
+The `format_trailer(key, value)` template uses the first `trailer.separators` character as
+separator as in [git](https://git-scm.com/docs/git-interpret-trailers#Documentation/git-interpret-trailers.txt-trailerseparators).
+
 ### Diff colors and styles
 
 In color-words and git diffs, word-level hunks are rendered with underline. You

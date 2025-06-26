@@ -1130,7 +1130,7 @@ fn test_add_trailer() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kpqxywon 5d7b55cb (empty) hop
+    Working copy  (@) now at: kpqxywon aa8b2009 (empty) hop
     Parent commit (@-)      : qpvuntsm 2b2e302d (empty) Message from CLI
     [EOF]
     ");
@@ -1140,11 +1140,11 @@ fn test_add_trailer() {
     hop
 
     A: 1
-    B: 2
-    C: 3
-    D: 4
-    E: 5
-    F: 6
+    B> 2
+    C@ 3
+    D$4
+    E-5
+    F/6
     [EOF]
     ");
 }
