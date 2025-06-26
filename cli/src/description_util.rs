@@ -342,11 +342,8 @@ pub fn combine_messages_for_editing(
             .flat_map(|commit| parse_description_trailers(commit.description()))
             .collect();
         let commit = commit_builder.write_hidden()?;
-        let mut output = Vec::new();
-        template
-            .format(&commit, &mut PlainTextFormatter::new(&mut output))
-            .expect("write() to vec backed formatter should never fail");
-        let trailer_lines = output
+        let trailer_lines = template
+            .format_plain_text(&commit)
             .into_string()
             .map_err(|_| user_error("Trailers should be valid utf-8"))?;
         let new_trailers = parse_trailers(&trailer_lines)?;
@@ -401,11 +398,8 @@ pub fn add_trailers_with_template(
     commit: &Commit,
 ) -> Result<String, CommandError> {
     let trailers = parse_description_trailers(commit.description());
-    let mut output = Vec::new();
-    template
-        .format(commit, &mut PlainTextFormatter::new(&mut output))
-        .expect("write() to vec backed formatter should never fail");
-    let trailer_lines = output
+    let trailer_lines = template
+        .format_plain_text(commit)
         .into_string()
         .map_err(|_| user_error("Trailers should be valid utf-8"))?;
     let new_trailers = parse_trailers(&trailer_lines)?;

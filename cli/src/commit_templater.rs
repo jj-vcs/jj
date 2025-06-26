@@ -2406,7 +2406,6 @@ mod tests {
     use testutils::TestWorkspace;
 
     use super::*;
-    use crate::formatter::PlainTextFormatter;
     use crate::template_parser::TemplateAliasesMap;
     use crate::templater::TemplateRenderer;
     use crate::templater::WrapTemplateProperty;
@@ -2517,9 +2516,7 @@ mod tests {
             CommitTemplatePropertyKind<'a>: WrapTemplateProperty<'a, C>,
         {
             let template = self.parse(text).unwrap();
-            let mut output = Vec::new();
-            let mut formatter = PlainTextFormatter::new(&mut output);
-            template.format(context, &mut formatter).unwrap();
+            let output = template.format_plain_text(context);
             String::from_utf8(output).unwrap()
         }
     }

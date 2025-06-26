@@ -167,7 +167,6 @@ use crate::diff_util::DiffFormatArgs;
 use crate::diff_util::DiffRenderer;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
-use crate::formatter::PlainTextFormatter;
 use crate::merge_tools::DiffEditor;
 use crate::merge_tools::MergeEditor;
 use crate::merge_tools::MergeToolConfigError;
@@ -1773,10 +1772,7 @@ to the current parents may contain changes from multiple commits.
     /// Use `write_commit_summary()` to get colorized output. Use
     /// `commit_summary_template()` if you have many commits to process.
     pub fn format_commit_summary(&self, commit: &Commit) -> String {
-        let mut output = Vec::new();
-        self.write_commit_summary(&mut PlainTextFormatter::new(&mut output), commit)
-            .expect("write() to PlainTextFormatter should never fail");
-        // Template output is usually UTF-8, but it can contain file content.
+        let output = self.commit_summary_template().format_plain_text(commit);
         output.into_string_lossy()
     }
 
@@ -2430,10 +2426,7 @@ impl WorkspaceCommandTransaction<'_> {
     }
 
     pub fn format_commit_summary(&self, commit: &Commit) -> String {
-        let mut output = Vec::new();
-        self.write_commit_summary(&mut PlainTextFormatter::new(&mut output), commit)
-            .expect("write() to PlainTextFormatter should never fail");
-        // Template output is usually UTF-8, but it can contain file content.
+        let output = self.commit_summary_template().format_plain_text(commit);
         output.into_string_lossy()
     }
 

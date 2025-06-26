@@ -23,7 +23,6 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
 use crate::complete;
-use crate::formatter::PlainTextFormatter;
 use crate::ui::Ui;
 
 /// (deprecated; use `revert`) Apply the reverse of given revisions on top of
@@ -101,12 +100,7 @@ pub(crate) fn cmd_backout(
         to_back_out
             .into_iter()
             .map(|commit| {
-                let mut output = Vec::new();
-                template
-                    .format(&commit, &mut PlainTextFormatter::new(&mut output))
-                    .expect("write() to vec backed formatter should never fail");
-                // Template output is usually UTF-8, but it can contain file content.
-                let commit_description = output.into_string_lossy();
+                let commit_description = template.format_plain_text(&commit).into_string_lossy();
                 (commit, commit_description)
             })
             .collect_vec()

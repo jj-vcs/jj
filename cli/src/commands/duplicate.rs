@@ -32,7 +32,6 @@ use crate::cli_util::RevisionArg;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
 use crate::complete;
-use crate::formatter::PlainTextFormatter;
 use crate::ui::Ui;
 
 /// Create new changes with the same content as existing ones
@@ -180,12 +179,8 @@ pub(crate) fn cmd_duplicate(
         to_duplicate
             .iter()
             .map(|commit_id| -> BackendResult<_> {
-                let mut output = Vec::new();
                 let commit = tx.repo().store().get_commit(commit_id)?;
-                parsed
-                    .format(&commit, &mut PlainTextFormatter::new(&mut output))
-                    .expect("write() to vec backed formatter should never fail");
-
+                let output = parsed.format_plain_text(&commit);
                 Ok((commit_id.clone(), output.into_string_lossy()))
             })
             .try_collect()?

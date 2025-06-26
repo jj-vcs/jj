@@ -745,6 +745,17 @@ impl<'a, C: Clone> TemplateRenderer<'a, C> {
             format_labeled(&mut wrapper, &self.template, &self.labels)
         })
     }
+
+    /// Renders template into buffer ignoring any color labels.
+    ///
+    /// The output is usually UTF-8, but it can contain arbitrary bytes such as
+    /// file content.
+    pub fn format_plain_text(&self, context: &C) -> Vec<u8> {
+        let mut output = Vec::new();
+        self.format(context, &mut PlainTextFormatter::new(&mut output))
+            .expect("write() to vec backed formatter should never fail");
+        output
+    }
 }
 
 /// Wrapper to pass around `Formatter` and error handler.
