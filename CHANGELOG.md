@@ -52,6 +52,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Unquoted `*` is now allowed in revsets. `bookmarks(glob:foo*)` no longer
   needs quoting.
 
+* Trailers separators are now specified in the toml configuration.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.

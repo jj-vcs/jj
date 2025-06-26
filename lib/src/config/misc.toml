@@ -55,3 +55,6 @@ eol-conversion = "none"
 
 [experimental]
 record-predecessors-in-commit = true
+
+[trailer]
+separators = ":"

@@ -221,6 +221,7 @@ pub(crate) fn cmd_describe(
     let use_editor = args.editor || args.edit || (shared_description.is_none() && !args.no_edit);
 
     if let Some(trailer_template) = parse_trailers_template(ui, &tx)? {
+        let separators = &tx.settings().get_string("trailer.separators")?;
         for commit_builder in &mut commit_builders {
             // The first trailer would become the first line of the description.
             // Also, a commit with no description is treated in a special way in jujutsu: it
@@ -228,7 +229,8 @@ pub(crate) fn cmd_describe(
             // trailer to an empty description would break that logic.
             if use_editor || !commit_builder.description().is_empty() {
                 let temp_commit = commit_builder.write_hidden()?;
-                let new_description = add_trailers_with_template(&trailer_template, &temp_commit)?;
+                let new_description =
+                    add_trailers_with_template(&trailer_template, &temp_commit, separators)?;
                 commit_builder.set_description(new_description);
             }
         }
