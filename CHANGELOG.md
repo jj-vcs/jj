@@ -36,7 +36,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Log node templates are now specified in toml rather than hardcoded.
 
-* Trailers separators are now specified in the toml configuration.
+* The `commit_trailers` template now generates trailers without modification, and
+  their separators are defined in the TOML configuration.
 
 ### Fixed bugs
 
