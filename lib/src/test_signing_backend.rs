@@ -16,12 +16,13 @@
 //! various backends.
 
 use hex::ToHex as _;
-use jj_lib::content_hash::blake2b_hash;
-use jj_lib::signing::SigStatus;
-use jj_lib::signing::SignError;
-use jj_lib::signing::SignResult;
-use jj_lib::signing::SigningBackend;
-use jj_lib::signing::Verification;
+
+use crate::content_hash::blake2b_hash;
+use crate::signing::SigStatus;
+use crate::signing::SignError;
+use crate::signing::SignResult;
+use crate::signing::SigningBackend;
+use crate::signing::Verification;
 
 /// A test signing backend that uses a simple hash-based signature format.
 #[derive(Debug)]
