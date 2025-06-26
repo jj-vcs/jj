@@ -143,7 +143,7 @@ fn test_id_prefix() {
     fee 25
     ");
 
-    let prefix = |x| HexPrefix::new(x).unwrap();
+    let prefix = |x| HexPrefix::try_from_hex(x).unwrap();
 
     // Without a disambiguation revset
     // ---------------------------------------------------------------------------------------------
@@ -330,7 +330,7 @@ fn test_id_prefix_divergent() {
     c596 2
     ");
 
-    let prefix = |x| HexPrefix::new(x).unwrap();
+    let prefix = |x| HexPrefix::try_from_hex(x).unwrap();
 
     // Without a disambiguation revset
     // --------------------------------
@@ -473,7 +473,7 @@ fn test_id_prefix_hidden() {
     tx.repo_mut().rebase_descendants().unwrap();
     let repo = tx.commit("test").unwrap();
 
-    let prefix = |x: &str| HexPrefix::new(x).unwrap();
+    let prefix = |x: &str| HexPrefix::try_from_hex(x).unwrap();
 
     // Without a disambiguation revset
     // --------------------------------

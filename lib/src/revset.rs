@@ -789,7 +789,7 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
         let [arg] = function.expect_exact_arguments()?;
         let prefix = revset_parser::catch_aliases(diagnostics, arg, |_diagnostics, arg| {
             let value = revset_parser::expect_string_literal("commit ID prefix", arg)?;
-            HexPrefix::new(value)
+            HexPrefix::try_from_hex(value)
                 .ok_or_else(|| RevsetParseError::expression("Invalid commit ID prefix", arg.span))
         })?;
         Ok(RevsetExpression::commit_id_prefix(prefix))
@@ -2410,7 +2410,7 @@ impl PartialSymbolResolver for CommitPrefixResolver<'_> {
         repo: &dyn Repo,
         symbol: &str,
     ) -> Result<Option<Vec<CommitId>>, RevsetResolutionError> {
-        if let Some(prefix) = HexPrefix::new(symbol) {
+        if let Some(prefix) = HexPrefix::try_from_hex(symbol) {
             Ok(self.try_resolve(repo, &prefix)?.map(|id| vec![id]))
         } else {
             Ok(None)

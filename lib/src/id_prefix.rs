@@ -587,35 +587,35 @@ mod tests {
             })
         };
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("0").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("0").unwrap()),
             PrefixResolution::AmbiguousMatch,
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("00").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("00").unwrap()),
             PrefixResolution::AmbiguousMatch,
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("000").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("000").unwrap()),
             PrefixResolution::SingleMatch((ChangeId::from_hex("0000"), vec![0])),
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("0001").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("0001").unwrap()),
             PrefixResolution::NoMatch,
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("009").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("009").unwrap()),
             PrefixResolution::SingleMatch((ChangeId::from_hex("0099"), vec![1, 2])),
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("0aa").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("0aa").unwrap()),
             PrefixResolution::AmbiguousMatch,
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("0aab").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("0aab").unwrap()),
             PrefixResolution::SingleMatch((ChangeId::from_hex("0aab"), vec![4])),
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("f").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("f").unwrap()),
             PrefixResolution::NoMatch,
         );
 
@@ -630,33 +630,33 @@ mod tests {
             })
         };
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("00").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("00").unwrap()),
             PrefixResolution::AmbiguousMatch,
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("000").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("000").unwrap()),
             PrefixResolution::SingleMatch((ChangeId::from_hex("0000"), vec![0])),
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("0001").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("0001").unwrap()),
             PrefixResolution::NoMatch,
         );
         // For short key "00", ["0000", "0099", "0099"] would match. We shouldn't
         // break at "009".matches("0000").
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("009").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("009").unwrap()),
             PrefixResolution::SingleMatch((ChangeId::from_hex("0099"), vec![1, 2])),
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("0a").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("0a").unwrap()),
             PrefixResolution::AmbiguousMatch,
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("0aa").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("0aa").unwrap()),
             PrefixResolution::AmbiguousMatch,
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("0aab").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("0aab").unwrap()),
             PrefixResolution::SingleMatch((ChangeId::from_hex("0aab"), vec![4])),
         );
     }

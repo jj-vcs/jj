@@ -35,7 +35,7 @@ pub fn cmd_bench_resolve_prefix(
     args: &BenchResolvePrefixArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
-    let prefix = HexPrefix::new(&args.prefix).unwrap();
+    let prefix = HexPrefix::try_from_hex(&args.prefix).unwrap();
     let index = workspace_command.repo().index();
     let routine = || index.resolve_commit_id_prefix(&prefix);
     run_bench(

@@ -789,7 +789,7 @@ fn test_change_id_index() {
     assert_eq!(prefix_len(&commit_5), 1);
     let resolve_prefix = |prefix: &str| {
         change_id_index
-            .resolve_prefix(&HexPrefix::new(prefix).unwrap())
+            .resolve_prefix(&HexPrefix::try_from_hex(prefix).unwrap())
             .map(HashSet::from_iter)
     };
     // Ambiguous matches
@@ -830,7 +830,7 @@ fn test_change_id_index() {
     let change_id_index = index_for_heads(&[&commit_1, &commit_2]);
     let resolve_prefix = |prefix: &str| {
         change_id_index
-            .resolve_prefix(&HexPrefix::new(prefix).unwrap())
+            .resolve_prefix(&HexPrefix::try_from_hex(prefix).unwrap())
             .map(HashSet::from_iter)
     };
     assert_eq!(

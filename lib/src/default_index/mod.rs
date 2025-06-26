@@ -388,31 +388,31 @@ mod tests {
         );
         // Test nonexistent commits
         assert_eq!(
-            index.resolve_commit_id_prefix(&HexPrefix::new("ffffff").unwrap()),
+            index.resolve_commit_id_prefix(&HexPrefix::try_from_hex("ffffff").unwrap()),
             PrefixResolution::NoMatch
         );
         assert_eq!(
-            index.resolve_commit_id_prefix(&HexPrefix::new("000001").unwrap()),
+            index.resolve_commit_id_prefix(&HexPrefix::try_from_hex("000001").unwrap()),
             PrefixResolution::NoMatch
         );
         // Test ambiguous prefix
         assert_eq!(
-            index.resolve_commit_id_prefix(&HexPrefix::new("0").unwrap()),
+            index.resolve_commit_id_prefix(&HexPrefix::try_from_hex("0").unwrap()),
             PrefixResolution::AmbiguousMatch
         );
         // Test a globally unique prefix in initial part
         assert_eq!(
-            index.resolve_commit_id_prefix(&HexPrefix::new("009").unwrap()),
+            index.resolve_commit_id_prefix(&HexPrefix::try_from_hex("009").unwrap()),
             PrefixResolution::SingleMatch(CommitId::from_hex("009999"))
         );
         // Test a globally unique prefix in incremental part
         assert_eq!(
-            index.resolve_commit_id_prefix(&HexPrefix::new("03").unwrap()),
+            index.resolve_commit_id_prefix(&HexPrefix::try_from_hex("03").unwrap()),
             PrefixResolution::SingleMatch(CommitId::from_hex("033333"))
         );
         // Test a locally unique but globally ambiguous prefix
         assert_eq!(
-            index.resolve_commit_id_prefix(&HexPrefix::new("0554").unwrap()),
+            index.resolve_commit_id_prefix(&HexPrefix::try_from_hex("0554").unwrap()),
             PrefixResolution::AmbiguousMatch
         );
     }
@@ -671,31 +671,31 @@ mod tests {
 
         // Local lookup with locally unknown prefix
         assert_eq!(
-            initial_file.resolve_change_id_prefix(&HexPrefix::new("0555").unwrap()),
+            initial_file.resolve_change_id_prefix(&HexPrefix::try_from_hex("0555").unwrap()),
             PrefixResolution::NoMatch
         );
         assert_eq!(
-            mutable_segment.resolve_change_id_prefix(&HexPrefix::new("000").unwrap()),
+            mutable_segment.resolve_change_id_prefix(&HexPrefix::try_from_hex("000").unwrap()),
             PrefixResolution::NoMatch
         );
 
         // Local lookup with locally unique prefix
         assert_eq!(
-            initial_file.resolve_change_id_prefix(&HexPrefix::new("0554").unwrap()),
+            initial_file.resolve_change_id_prefix(&HexPrefix::try_from_hex("0554").unwrap()),
             PrefixResolution::SingleMatch((id_2.clone(), local_positions_vec(&[2, 4, 5])))
         );
         assert_eq!(
-            mutable_segment.resolve_change_id_prefix(&HexPrefix::new("0554").unwrap()),
+            mutable_segment.resolve_change_id_prefix(&HexPrefix::try_from_hex("0554").unwrap()),
             PrefixResolution::SingleMatch((id_3.clone(), local_positions_vec(&[0, 1])))
         );
 
         // Local lookup with locally ambiguous prefix
         assert_eq!(
-            initial_file.resolve_change_id_prefix(&HexPrefix::new("00").unwrap()),
+            initial_file.resolve_change_id_prefix(&HexPrefix::try_from_hex("00").unwrap()),
             PrefixResolution::AmbiguousMatch
         );
         assert_eq!(
-            mutable_segment.resolve_change_id_prefix(&HexPrefix::new("05555").unwrap()),
+            mutable_segment.resolve_change_id_prefix(&HexPrefix::try_from_hex("05555").unwrap()),
             PrefixResolution::AmbiguousMatch
         );
 
@@ -729,43 +729,43 @@ mod tests {
 
         // Global lookup with unknown prefix
         assert_eq!(
-            index.resolve_change_id_prefix(&HexPrefix::new("ffffffff").unwrap()),
+            index.resolve_change_id_prefix(&HexPrefix::try_from_hex("ffffffff").unwrap()),
             PrefixResolution::NoMatch
         );
         assert_eq!(
-            index.resolve_change_id_prefix(&HexPrefix::new("00000002").unwrap()),
+            index.resolve_change_id_prefix(&HexPrefix::try_from_hex("00000002").unwrap()),
             PrefixResolution::NoMatch
         );
 
         // Global lookup with globally unique prefix
         assert_eq!(
-            index.resolve_change_id_prefix(&HexPrefix::new("000").unwrap()),
+            index.resolve_change_id_prefix(&HexPrefix::try_from_hex("000").unwrap()),
             PrefixResolution::SingleMatch((id_0.clone(), index_positions_vec(&[0])))
         );
         assert_eq!(
-            index.resolve_change_id_prefix(&HexPrefix::new("055553").unwrap()),
+            index.resolve_change_id_prefix(&HexPrefix::try_from_hex("055553").unwrap()),
             PrefixResolution::SingleMatch((id_5.clone(), index_positions_vec(&[10])))
         );
 
         // Global lookup with globally unique prefix stored in both parts
         assert_eq!(
-            index.resolve_change_id_prefix(&HexPrefix::new("009").unwrap()),
+            index.resolve_change_id_prefix(&HexPrefix::try_from_hex("009").unwrap()),
             PrefixResolution::SingleMatch((id_1.clone(), index_positions_vec(&[1, 3, 9])))
         );
 
         // Global lookup with locally ambiguous prefix
         assert_eq!(
-            index.resolve_change_id_prefix(&HexPrefix::new("00").unwrap()),
+            index.resolve_change_id_prefix(&HexPrefix::try_from_hex("00").unwrap()),
             PrefixResolution::AmbiguousMatch
         );
         assert_eq!(
-            index.resolve_change_id_prefix(&HexPrefix::new("05555").unwrap()),
+            index.resolve_change_id_prefix(&HexPrefix::try_from_hex("05555").unwrap()),
             PrefixResolution::AmbiguousMatch
         );
 
         // Global lookup with locally unique but globally ambiguous prefix
         assert_eq!(
-            index.resolve_change_id_prefix(&HexPrefix::new("0554").unwrap()),
+            index.resolve_change_id_prefix(&HexPrefix::try_from_hex("0554").unwrap()),
             PrefixResolution::AmbiguousMatch
         );
     }

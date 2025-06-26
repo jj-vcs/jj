@@ -183,7 +183,7 @@ fn resolve_single_op_from_store(
     if op_str.is_empty() {
         return Err(OpsetResolutionError::InvalidIdPrefix(op_str.to_owned()).into());
     }
-    let prefix = HexPrefix::new(op_str)
+    let prefix = HexPrefix::try_from_hex(op_str)
         .ok_or_else(|| OpsetResolutionError::InvalidIdPrefix(op_str.to_owned()))?;
     match op_store.resolve_operation_id_prefix(&prefix)? {
         PrefixResolution::NoMatch => {

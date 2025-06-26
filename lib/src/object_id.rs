@@ -142,7 +142,7 @@ pub struct HexPrefix {
 impl HexPrefix {
     /// Returns a new `HexPrefix` or `None` if `prefix` cannot be decoded from
     /// hex to bytes.
-    pub fn new(prefix: &str) -> Option<HexPrefix> {
+    pub fn try_from_hex(prefix: &str) -> Option<HexPrefix> {
         let has_odd_byte = prefix.len() & 1 != 0;
         let min_prefix_bytes = if has_odd_byte {
             hex::decode(prefix.to_owned() + "0").ok()?
@@ -289,22 +289,22 @@ mod tests {
 
     #[test]
     fn test_hex_prefix_prefixes() {
-        let prefix = HexPrefix::new("").unwrap();
+        let prefix = HexPrefix::try_from_hex("").unwrap();
         assert_eq!(prefix.min_prefix_bytes(), b"");
 
-        let prefix = HexPrefix::new("1").unwrap();
+        let prefix = HexPrefix::try_from_hex("1").unwrap();
         assert_eq!(prefix.min_prefix_bytes(), b"\x10");
 
-        let prefix = HexPrefix::new("12").unwrap();
+        let prefix = HexPrefix::try_from_hex("12").unwrap();
         assert_eq!(prefix.min_prefix_bytes(), b"\x12");
 
-        let prefix = HexPrefix::new("123").unwrap();
+        let prefix = HexPrefix::try_from_hex("123").unwrap();
         assert_eq!(prefix.min_prefix_bytes(), b"\x12\x30");
 
-        let bad_prefix = HexPrefix::new("0x123");
+        let bad_prefix = HexPrefix::try_from_hex("0x123");
         assert_eq!(bad_prefix, None);
 
-        let bad_prefix = HexPrefix::new("foobar");
+        let bad_prefix = HexPrefix::try_from_hex("foobar");
         assert_eq!(bad_prefix, None);
     }
 
@@ -312,16 +312,16 @@ mod tests {
     fn test_hex_prefix_matches() {
         let id = CommitId::from_hex("1234");
 
-        assert!(HexPrefix::new("").unwrap().matches(&id));
-        assert!(HexPrefix::new("1").unwrap().matches(&id));
-        assert!(HexPrefix::new("12").unwrap().matches(&id));
-        assert!(HexPrefix::new("123").unwrap().matches(&id));
-        assert!(HexPrefix::new("1234").unwrap().matches(&id));
-        assert!(!HexPrefix::new("12345").unwrap().matches(&id));
+        assert!(HexPrefix::try_from_hex("").unwrap().matches(&id));
+        assert!(HexPrefix::try_from_hex("1").unwrap().matches(&id));
+        assert!(HexPrefix::try_from_hex("12").unwrap().matches(&id));
+        assert!(HexPrefix::try_from_hex("123").unwrap().matches(&id));
+        assert!(HexPrefix::try_from_hex("1234").unwrap().matches(&id));
+        assert!(!HexPrefix::try_from_hex("12345").unwrap().matches(&id));
 
-        assert!(!HexPrefix::new("a").unwrap().matches(&id));
-        assert!(!HexPrefix::new("1a").unwrap().matches(&id));
-        assert!(!HexPrefix::new("12a").unwrap().matches(&id));
-        assert!(!HexPrefix::new("123a").unwrap().matches(&id));
+        assert!(!HexPrefix::try_from_hex("a").unwrap().matches(&id));
+        assert!(!HexPrefix::try_from_hex("1a").unwrap().matches(&id));
+        assert!(!HexPrefix::try_from_hex("12a").unwrap().matches(&id));
+        assert!(!HexPrefix::try_from_hex("123a").unwrap().matches(&id));
     }
 }
