@@ -810,14 +810,12 @@ pager = ["sh", "-c", "diff-so-fancy | less -RFX"]
 
 Some formatters (like [`delta`](https://github.com/dandavison/delta)) require
 git style diffs for formatting. You can configure this style of
-diff as the default with the `ui.diff` setting. For example:
+diff as the default with the `ui.diff-formatter` setting. For example:
 
 ```toml
 [ui]
 pager = "delta"
-
-[ui.diff]
-format = "git"
+diff-formatter = ":git"
 ```
 
 ## Aliases
