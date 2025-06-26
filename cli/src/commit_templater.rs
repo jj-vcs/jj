@@ -1006,10 +1006,18 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
     );
     map.insert(
         "trailers",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property
-                .map(|commit| trailer::parse_description_trailers(commit.description()));
+            let separators = language
+                .settings()
+                .get_string("trailer.separators")
+                .map_err(|err| {
+                    let message = "Failed to load trailer separator settings";
+                    TemplateParseError::expression(message, function.name_span).with_source(err)
+                })?;
+            let out_property = self_property.map(move |commit| {
+                trailer::parse_description_trailers(commit.description(), &separators)
+            });
             Ok(out_property.into_dyn_wrapped())
         },
     );
