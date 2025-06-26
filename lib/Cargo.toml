@@ -45,7 +45,6 @@ futures = { workspace = true }
 gix = { workspace = true, optional = true }
 glob = { workspace = true }
 hashbrown = { workspace = true }
-hex = { workspace = true }
 ignore = { workspace = true }
 indexmap = { workspace = true }
 interim = { workspace = true }

@@ -27,6 +27,7 @@ use thiserror::Error;
 use crate::backend::BackendInitError;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::hex_util;
 use crate::lock::FileLock;
 use crate::object_id::ObjectId as _;
 use crate::op_heads_store::OpHeadsStore;
@@ -141,7 +142,7 @@ impl OpHeadsStore for SimpleOpHeadsStore {
                     format!("Non-utf8 in op head file name: {op_head_file_name:?}").into(),
                 )
             })?;
-            if let Ok(op_head) = hex::decode(op_head_file_name) {
+            if let Some(op_head) = hex_util::decode_hex(op_head_file_name) {
                 op_heads.push(OperationId::new(op_head));
             }
         }

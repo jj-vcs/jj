@@ -79,6 +79,7 @@ use crate::file_util;
 use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::hex_util;
 use crate::index::Index;
 use crate::lock::FileLock;
 use crate::merge::Merge;
@@ -524,7 +525,7 @@ fn gix_open_opts_from_settings(settings: &UserSettings) -> gix::open::Options {
 fn root_tree_from_git_extra_header(value: &BStr) -> Result<MergedTreeId, ()> {
     let mut tree_ids = SmallVec::new();
     for hex in str::from_utf8(value.as_ref()).or(Err(()))?.split(' ') {
-        let tree_id = TreeId::try_from_hex(hex).or(Err(()))?;
+        let tree_id = TreeId::try_from_hex(hex).ok_or(())?;
         if tree_id.as_bytes().len() != HASH_LENGTH {
             return Err(());
         }
@@ -1614,14 +1615,13 @@ fn tree_value_from_json(json: &serde_json::Value) -> TreeValue {
 }
 
 fn bytes_vec_from_json(value: &serde_json::Value) -> Vec<u8> {
-    hex::decode(value.as_str().unwrap()).unwrap()
+    hex_util::decode_hex(value.as_str().unwrap()).unwrap()
 }
 
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
     use gix::date::parse::TimeBuf;
-    use hex::ToHex as _;
     use pollster::FutureExt as _;
 
     use super::*;
@@ -2346,7 +2346,7 @@ mod tests {
         };
 
         let mut signer = |data: &_| {
-            let hash: String = blake2b_hash(data).encode_hex();
+            let hash: String = hex_util::encode_hex(&blake2b_hash(data));
             Ok(format!("test sig\nhash={hash}\n").into_bytes())
         };
 

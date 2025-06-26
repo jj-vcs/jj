@@ -39,6 +39,7 @@ use tempfile::NamedTempFile;
 use thiserror::Error;
 
 use crate::file_util::persist_content_addressed_temp_file;
+use crate::hex_util;
 use crate::lock::FileLock;
 use crate::lock::FileLockError;
 
@@ -338,7 +339,7 @@ impl MutableTable {
         let buf = self.maybe_squash_with_ancestors().serialize();
         let mut hasher = Blake2b512::new();
         hasher.update(&buf);
-        let file_id_hex = hex::encode(hasher.finalize());
+        let file_id_hex = hex_util::encode_hex(&hasher.finalize());
         let file_path = store.dir.join(&file_id_hex);
         let to_save_err = |err| TableStoreError::SaveSegment {
             name: file_id_hex.clone(),

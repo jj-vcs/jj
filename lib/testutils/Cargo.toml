@@ -23,7 +23,6 @@ gix = { workspace = true, features = [
     "tree-editor",
     "worktree-mutation",
 ] }
-hex = { workspace = true }
 itertools = { workspace = true }
 jj-lib = { workspace = true, features = ["testing"] }
 pollster = { workspace = true }

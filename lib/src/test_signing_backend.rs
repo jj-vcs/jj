@@ -15,9 +15,8 @@
 //! Generic APIs to work with cryptographic signatures created and verified by
 //! various backends.
 
-use hex::ToHex as _;
-
 use crate::content_hash::blake2b_hash;
+use crate::hex_util;
 use crate::signing::SigStatus;
 use crate::signing::SignError;
 use crate::signing::SignResult;
@@ -45,7 +44,7 @@ impl SigningBackend for TestSigningBackend {
         body.extend_from_slice(key.as_bytes());
         body.extend_from_slice(data);
 
-        let hash: String = blake2b_hash(&body).encode_hex();
+        let hash = hex_util::encode_hex(&blake2b_hash(&body));
 
         Ok(format!("{PREFIX}{key}\n{hash}\n").into_bytes())
     }

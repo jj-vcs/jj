@@ -157,6 +157,7 @@ mod tests {
     use std::collections::HashMap;
 
     use super::*;
+    use crate::hex_util;
 
     #[test]
     fn test_string_sanity() {
@@ -221,7 +222,7 @@ mod tests {
             x: Vec<Option<i32>>,
             y: i64,
         }
-        let foo_hash = hex::encode(hash(&Foo {
+        let foo_hash = hex_util::encode_hex(&hash(&Foo {
             x: vec![None, Some(42)],
             y: 17,
         }));
@@ -237,7 +238,7 @@ mod tests {
             y: Y,
         }
         assert_eq!(
-            hex::encode(hash(&GenericFoo {
+            hex_util::encode_hex(&hash(&GenericFoo {
                 x: vec![None, Some(42)],
                 y: 17i64
             })),

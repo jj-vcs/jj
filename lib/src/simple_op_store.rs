@@ -255,7 +255,7 @@ impl OpStore for SimpleOpStore {
                 if !name.starts_with(&hex_prefix) {
                     continue;
                 }
-                let Ok(id) = OperationId::try_from_hex(&name) else {
+                let Some(id) = OperationId::try_from_hex(&name) else {
                     continue; // Skip invalid hex
                 };
                 if matched.is_some() {
@@ -278,11 +278,11 @@ impl OpStore for SimpleOpStore {
     fn gc(&self, head_ids: &[OperationId], keep_newer: SystemTime) -> OpStoreResult<()> {
         let to_op_id = |entry: &fs::DirEntry| -> Option<OperationId> {
             let name = entry.file_name().into_string().ok()?;
-            OperationId::try_from_hex(&name).ok()
+            OperationId::try_from_hex(&name)
         };
         let to_view_id = |entry: &fs::DirEntry| -> Option<ViewId> {
             let name = entry.file_name().into_string().ok()?;
-            ViewId::try_from_hex(&name).ok()
+            ViewId::try_from_hex(&name)
         };
         let remove_file_if_not_new = |entry: &fs::DirEntry| -> Result<(), PathError> {
             let path = entry.path();
@@ -792,6 +792,7 @@ mod tests {
     use maplit::hashset;
 
     use super::*;
+    use crate::hex_util;
     use crate::tests::new_temp_dir;
 
     fn create_view() -> View {
@@ -846,7 +847,7 @@ mod tests {
 
     fn create_operation() -> Operation {
         let pad_id_bytes = |hex: &str, len: usize| {
-            let mut bytes = hex::decode(hex).unwrap();
+            let mut bytes = hex_util::decode_hex(hex).unwrap();
             bytes.resize(len, b'\0');
             bytes
         };
