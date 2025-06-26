@@ -43,6 +43,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New `change_id(prefix)`/`commit_id(prefix)` revset functions to explicitly
   query commits by change/commit ID prefix.
 
+* Trailers separators are now specified in the toml configuration.
+
 ### Fixed bugs
 
 * `jj file annotate` can now process files at a hidden revision.
