@@ -36,6 +36,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Log node templates are now specified in toml rather than hardcoded.
 
+* Trailers separators are now specified in the toml configuration.
+
 ### Fixed bugs
 
 * `jj file annotate` can now process files at a hidden revision.

@@ -39,3 +39,6 @@ program = "ssh-keygen"
 [user]
 email = ""
 name = ""
+
+[trailer]
+separators = ":"

@@ -939,6 +939,7 @@ fn test_add_trailer() {
     [EOF]
     ");
 
+    // it won't create a duplicate an entry
     // multiple trailers may be used, and work with --no-edit
     let output = work_dir.run_jj([
         "describe",
@@ -963,12 +964,36 @@ fn test_add_trailer() {
     [EOF]
     ");
 
-    // it won't create a duplicate entry
     let output = work_dir.run_jj([
         "describe",
         "--no-edit",
         "--config",
         r#"templates.commit_trailers='"CC: alice@example.com"'"#,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
+    Message from CLI
+
+    Signed-off-by: Test User <test.user@example.com>
+    CC: alice@example.com
+    Change-Id: I6a6a69649a45c67d3e96a7e5007c110ede34dec5
+    [EOF]
+    ");
+
+    // it won't create a duplicate an entry, even when using a different separator
+    let output = work_dir.run_jj([
+        "describe",
+        "--no-edit",
+        "--config",
+        r#"trailer.separators=':>'"#,
+        "--config",
+        r#"templates.commit_trailers='"CC> alice@example.com"'"#,
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1004,7 +1029,7 @@ fn test_add_trailer() {
     let output = work_dir.run_jj(["new"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: yostqsxw dbea21e1 (empty) (no description set)
+    Working copy  (@) now at: kpqxywon 38973c79 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm 2b2e302d (empty) Message from CLI
     [EOF]
     ");
@@ -1017,6 +1042,35 @@ fn test_add_trailer() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
+    [EOF]
+    ");
+
+    // it supports various trailer separators
+    let output = work_dir.run_jj([
+        "describe",
+        "--message=hop",
+        "--config",
+        r#"trailer.separators=':>@$-/'"#,
+        "--config",
+        r#"templates.commit_trailers='"A: 1\nB> 2\nC@ 3\nD$4\nE-5\nF/6\n"'"#,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: kpqxywon 5d7b55cb (empty) hop
+    Parent commit (@-)      : qpvuntsm 2b2e302d (empty) Message from CLI
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
+    hop
+
+    A: 1
+    B: 2
+    C: 3
+    D: 4
+    E: 5
+    F: 6
     [EOF]
     ");
 }
