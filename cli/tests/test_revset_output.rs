@@ -104,27 +104,27 @@ fn test_bad_function_call() {
     let output = work_dir.run_jj(["log", "-r", "parents()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Failed to parse revset: Function `parents`: Expected 1 arguments
+    Error: Failed to parse revset: Function `parents`: Expected 1 to 2 arguments
     Caused by:  --> 1:9
       |
     1 | parents()
       |         ^
       |
-      = Function `parents`: Expected 1 arguments
+      = Function `parents`: Expected 1 to 2 arguments
     [EOF]
     [exit status: 1]
     ");
 
-    let output = work_dir.run_jj(["log", "-r", "parents(foo, bar)"]);
+    let output = work_dir.run_jj(["log", "-r", "parents(foo, bar, baz)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Failed to parse revset: Function `parents`: Expected 1 arguments
+    Error: Failed to parse revset: Function `parents`: Expected 1 to 2 arguments
     Caused by:  --> 1:9
       |
-    1 | parents(foo, bar)
-      |         ^------^
+    1 | parents(foo, bar, baz)
+      |         ^-----------^
       |
-      = Function `parents`: Expected 1 arguments
+      = Function `parents`: Expected 1 to 2 arguments
     [EOF]
     [exit status: 1]
     ");

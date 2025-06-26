@@ -1294,6 +1294,32 @@ fn test_evaluate_expression_parents() {
         ),
         vec![commit1.id().clone(), root_commit.id().clone()]
     );
+
+    // `parents(x, 0)` is equivalent to `x`
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("parents({}, 0)", commit5.id())),
+        vec![commit5.id().clone()]
+    );
+
+    // `parents(x, 2)` is equivalent to `x--`
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("parents({}, 2)", commit4.id())),
+        vec![commit1.id().clone(), root_commit.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("parents({} | {}, 2)", commit4.id(), commit5.id())
+        ),
+        vec![commit1.id().clone(), root_commit.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("parents({} | {}, 2)", commit4.id(), commit2.id())
+        ),
+        vec![commit1.id().clone(), root_commit.id().clone()]
+    );
 }
 
 #[test]
@@ -1373,6 +1399,34 @@ fn test_evaluate_expression_children() {
 
     // Empty root
     assert_eq!(resolve_commit_ids(mut_repo, "none()+"), vec![]);
+
+    // `children(x, 0)` is equivalent to `x`
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("children({}, 0)", commit1.id())),
+        vec![commit1.id().clone()]
+    );
+
+    // `children(x, 2)` is equivalent to `x++`
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "children(root(), 2)"),
+        vec![commit4.id().clone(), commit2.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("children(root() | {}, 2)", commit1.id())),
+        vec![
+            commit5.id().clone(),
+            commit4.id().clone(),
+            commit3.id().clone(),
+            commit2.id().clone(),
+        ]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("children({} | {}, 2)", commit4.id(), commit2.id())
+        ),
+        vec![commit6.id().clone(), commit5.id().clone()]
+    );
 }
 
 #[test]

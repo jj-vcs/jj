@@ -36,6 +36,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Log node templates are now specified in toml rather than hardcoded.
 
+* The `parents()` and `children()` revset functions now accept an optional
+  `depth` argument. For instance, `parents(x, 3)` is equivalent to `x---`, and
+  `children(x, 3)` is equivalent to `x+++`.
+
 ### Fixed bugs
 
 * `jj file annotate` can now process files at a hidden revision.

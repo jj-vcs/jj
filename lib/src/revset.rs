@@ -428,7 +428,7 @@ impl<St: ExpressionState> RevsetExpression<St> {
     /// Ancestors of `self` at an offset of `generation` behind `self`.
     /// The `generation` offset is zero-based starting from `self`.
     pub fn ancestors_at(self: &Rc<Self>, generation: u64) -> Rc<Self> {
-        self.ancestors_range(generation..(generation + 1))
+        self.ancestors_range(generation..generation.saturating_add(1))
     }
 
     /// Ancestors of `self` in the given range.
@@ -452,7 +452,7 @@ impl<St: ExpressionState> RevsetExpression<St> {
     /// Descendants of `self` at an offset of `generation` ahead of `self`.
     /// The `generation` offset is zero-based starting from `self`.
     pub fn descendants_at(self: &Rc<Self>, generation: u64) -> Rc<Self> {
-        self.descendants_range(generation..(generation + 1))
+        self.descendants_range(generation..generation.saturating_add(1))
     }
 
     /// Descendants of `self` in the given range.
@@ -683,14 +683,24 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
     // code completion inside macro is quite restricted.
     let mut map: HashMap<&'static str, RevsetFunction> = HashMap::new();
     map.insert("parents", |diagnostics, function, context| {
-        let [arg] = function.expect_exact_arguments()?;
+        let ([arg], [depth_opt_arg]) = function.expect_arguments()?;
         let expression = lower_expression(diagnostics, arg, context)?;
-        Ok(expression.parents())
+        if let Some(depth_arg) = depth_opt_arg {
+            let depth = expect_literal("integer", depth_arg)?;
+            Ok(expression.ancestors_at(depth))
+        } else {
+            Ok(expression.parents())
+        }
     });
     map.insert("children", |diagnostics, function, context| {
-        let [arg] = function.expect_exact_arguments()?;
+        let ([arg], [depth_opt_arg]) = function.expect_arguments()?;
         let expression = lower_expression(diagnostics, arg, context)?;
-        Ok(expression.children())
+        if let Some(depth_arg) = depth_opt_arg {
+            let depth = expect_literal("integer", depth_arg)?;
+            Ok(expression.descendants_at(depth))
+        } else {
+            Ok(expression.children())
+        }
     });
     map.insert("ancestors", |diagnostics, function, context| {
         let ([heads_arg], [depth_opt_arg]) = function.expect_arguments()?;
@@ -3628,10 +3638,17 @@ mod tests {
         }
         "#);
         insta::assert_debug_snapshot!(
-            parse("parents(foo,foo)").unwrap_err().kind(), @r#"
+            parse("parents(foo, bar, baz)").unwrap_err().kind(), @r#"
         InvalidFunctionArguments {
             name: "parents",
-            message: "Expected 1 arguments",
+            message: "Expected 1 to 2 arguments",
+        }
+        "#);
+        insta::assert_debug_snapshot!(
+            parse("parents(foo, 2)").unwrap(), @r#"
+        Ancestors {
+            heads: CommitRef(Symbol("foo")),
+            generation: 2..3,
         }
         "#);
         insta::assert_debug_snapshot!(

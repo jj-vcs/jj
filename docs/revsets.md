@@ -185,9 +185,13 @@ You can use parentheses to control evaluation order, such as `(x & y) | z` or
 You can also specify revisions by using functions. Some functions take other
 revsets (expressions) as arguments.
 
-* `parents(x)`: Same as `x-`.
+* `parents(x[, depth])`: `parents(x)` is the same as `x-`.
+  `parents(x, depth)` returns the parents of `x` at the given `depth`. For
+  instance, `parents(x, 3)` is equivalent to `x---`.
 
-* `children(x)`: Same as `x+`.
+* `children(x[, depth])`: `children(x)` is the same as `x+`.
+  `children(x, depth)` returns the children of `x` at the given `depth`. For
+  instance, `children(x, 3)` is equivalent to `x+++`.
 
 * `ancestors(x[, depth])`: `ancestors(x)` is the same as `::x`.
   `ancestors(x, depth)` returns the ancestors of `x` limited to the given
