@@ -545,7 +545,8 @@ Thanks to the people who made this release happen!
   `colors."diff removed token" = { bg = "ansi-color-52", underline = false }`
   will apply a dark red background on removed words in diffs.
 
-* Trailers separators are now specified in the toml configuration.
+* The `commit_trailers` template now generates trailers without modification, and
+  their separators are defined in the TOML configuration.
 
 ### Fixed bugs
 
