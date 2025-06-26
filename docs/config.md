@@ -277,6 +277,14 @@ Some ready-to-use trailer templates are available for frequently used trailers:
 
 Existing trailers are also accessible via `commit.trailers()`.
 
+The recognizable trailer separators can be customized with the
+`trailer.separators` configuration. Its default value is `:`.
+
+```toml
+[trailer]
+separators = ":%="
+```
+
 ### Diff colors and styles
 
 In color-words and git diffs, word-level hunks are rendered with underline. You
