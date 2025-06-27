@@ -28,7 +28,7 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
 use crate::complete;
-use crate::description_util::add_trailers;
+use crate::description_util::add_config_trailers;
 use crate::description_util::join_message_paragraphs;
 use crate::ui::Ui;
 
@@ -196,7 +196,7 @@ pub(crate) fn cmd_new(
         // can be discarded as soon as it's no longer the working copy. Adding a
         // trailer to an empty description would break that logic.
         commit_builder.set_description(description);
-        description = add_trailers(ui, &tx, &commit_builder)?;
+        description = add_config_trailers(ui, &tx, &commit_builder)?;
     }
     commit_builder.set_description(&description);
     let new_commit = commit_builder.write(tx.repo_mut())?;
