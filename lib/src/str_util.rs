@@ -476,11 +476,15 @@ mod tests {
         assert!(StringPattern::regex(r"^.$").unwrap().is_match("\u{c0}"));
         // ASCII-compatible mode should also work
         assert!(StringPattern::regex(r"^(?-u)\w$").unwrap().is_match("a"));
-        assert!(!StringPattern::regex(r"^(?-u)\w$")
-            .unwrap()
-            .is_match("\u{c0}"));
-        assert!(StringPattern::regex(r"^(?-u).{2}$")
-            .unwrap()
-            .is_match("\u{c0}"));
+        assert!(
+            !StringPattern::regex(r"^(?-u)\w$")
+                .unwrap()
+                .is_match("\u{c0}")
+        );
+        assert!(
+            StringPattern::regex(r"^(?-u).{2}$")
+                .unwrap()
+                .is_match("\u{c0}")
+        );
     }
 }

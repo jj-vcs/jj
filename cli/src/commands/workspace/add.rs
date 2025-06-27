@@ -27,9 +27,9 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::command_error::CommandError;
 use crate::command_error::internal_error_with_message;
 use crate::command_error::user_error;
-use crate::command_error::CommandError;
 use crate::ui::Ui;
 
 /// How to handle sparse patterns when creating a new workspace.

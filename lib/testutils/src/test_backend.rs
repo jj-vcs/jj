@@ -29,7 +29,6 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use futures::stream;
 use futures::stream::BoxStream;
-use jj_lib::backend::make_root_commit;
 use jj_lib::backend::Backend;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::BackendResult;
@@ -47,6 +46,7 @@ use jj_lib::backend::SigningFn;
 use jj_lib::backend::SymlinkId;
 use jj_lib::backend::Tree;
 use jj_lib::backend::TreeId;
+use jj_lib::backend::make_root_commit;
 use jj_lib::dag_walk::topo_order_reverse;
 use jj_lib::index::Index;
 use jj_lib::object_id::ObjectId as _;
@@ -488,10 +488,12 @@ mod tests {
         let copy3_id = backend.write_copy(&copy3).block_on().unwrap();
 
         // Error when looking up by non-existent id
-        assert!(backend
-            .get_related_copies(&CopyId::from_hex("abcd"))
-            .block_on()
-            .is_err());
+        assert!(
+            backend
+                .get_related_copies(&CopyId::from_hex("abcd"))
+                .block_on()
+                .is_err()
+        );
 
         // Looking up by any id returns the related copies in the same order (children
         // before parents)

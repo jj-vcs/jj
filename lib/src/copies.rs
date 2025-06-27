@@ -16,9 +16,9 @@
 
 use std::collections::HashMap;
 use std::pin::Pin;
-use std::task::ready;
 use std::task::Context;
 use std::task::Poll;
+use std::task::ready;
 
 use futures::Stream;
 

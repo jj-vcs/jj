@@ -22,8 +22,8 @@ use jj_lib::working_copy::SnapshotStats;
 use jj_lib::working_copy::UntrackedReason;
 use tracing::instrument;
 
-use crate::cli_util::print_untracked_files;
 use crate::cli_util::CommandHelper;
+use crate::cli_util::print_untracked_files;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 

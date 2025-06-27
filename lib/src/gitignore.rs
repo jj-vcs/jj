@@ -272,9 +272,11 @@ mod tests {
         assert!(matches(b"\\?\n", "?"));
         assert!(!matches(b"\\?\n", "x"));
         assert!(matches(b"\\w\n", "w"));
-        assert!(GitIgnoreFile::empty()
-            .chain("", Path::new(""), b"\\\n")
-            .is_err());
+        assert!(
+            GitIgnoreFile::empty()
+                .chain("", Path::new(""), b"\\\n")
+                .is_err()
+        );
     }
 
     #[test]
@@ -327,9 +329,11 @@ mod tests {
         assert!(matches(b"a\r\r\n", "a"));
         assert!(matches(b"\ra\n", "\ra"));
         assert!(!matches(b"\ra\n", "a"));
-        assert!(GitIgnoreFile::empty()
-            .chain("", Path::new(""), b"a b \\  \n")
-            .is_err());
+        assert!(
+            GitIgnoreFile::empty()
+                .chain("", Path::new(""), b"a b \\  \n")
+                .is_err()
+        );
     }
 
     #[test]

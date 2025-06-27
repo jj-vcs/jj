@@ -2,19 +2,19 @@ use std::borrow::Cow;
 use std::path::Path;
 use std::sync::Arc;
 
-use futures::stream::BoxStream;
 use futures::StreamExt as _;
+use futures::stream::BoxStream;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::conflicts;
+use jj_lib::conflicts::ConflictMarkerStyle;
+use jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN;
+use jj_lib::conflicts::MaterializedTreeValue;
 use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::conflicts::materialized_diff_stream;
-use jj_lib::conflicts::ConflictMarkerStyle;
-use jj_lib::conflicts::MaterializedTreeValue;
-use jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN;
 use jj_lib::copies::CopiesTreeDiffEntry;
 use jj_lib::copies::CopyRecords;
 use jj_lib::diff::Diff;
@@ -726,16 +726,16 @@ mod tests {
     use jj_lib::matchers::FilesMatcher;
     use jj_lib::repo::Repo as _;
     use proptest::prelude::*;
-    use proptest_state_machine::prop_state_machine;
     use proptest_state_machine::ReferenceStateMachine;
     use proptest_state_machine::StateMachineTest;
+    use proptest_state_machine::prop_state_machine;
+    use testutils::TestRepo;
     use testutils::assert_tree_eq;
     use testutils::dump_tree;
     use testutils::proptest::Transition;
     use testutils::proptest::WorkingCopyReferenceStateMachine;
     use testutils::repo_path;
     use testutils::repo_path_component;
-    use testutils::TestRepo;
 
     use super::*;
 

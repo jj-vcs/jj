@@ -20,11 +20,11 @@ use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::signing::SignBehavior;
 
-use crate::cli_util::print_updated_commits;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
-use crate::command_error::user_error_with_hint;
+use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
+use crate::command_error::user_error_with_hint;
 use crate::complete;
 use crate::ui::Ui;
 

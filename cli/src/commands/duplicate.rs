@@ -20,17 +20,17 @@ use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::CommitId;
 use jj_lib::repo::Repo as _;
+use jj_lib::rewrite::DuplicateCommitsStats;
 use jj_lib::rewrite::duplicate_commits;
 use jj_lib::rewrite::duplicate_commits_onto_parents;
-use jj_lib::rewrite::DuplicateCommitsStats;
 use tracing::instrument;
 
-use crate::cli_util::compute_commit_location;
-use crate::cli_util::short_commit_hash;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
-use crate::command_error::user_error;
+use crate::cli_util::compute_commit_location;
+use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::ui::Ui;
 

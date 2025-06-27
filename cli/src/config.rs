@@ -40,9 +40,9 @@ use regex::Captures;
 use regex::Regex;
 use tracing::instrument;
 
+use crate::command_error::CommandError;
 use crate::command_error::config_error;
 use crate::command_error::config_error_with_message;
-use crate::command_error::CommandError;
 use crate::text_util;
 use crate::ui::Ui;
 

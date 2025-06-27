@@ -29,18 +29,18 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 
 use itertools::Itertools as _;
-use serde::de::IntoDeserializer as _;
 use serde::Deserialize;
+use serde::de::IntoDeserializer as _;
 use thiserror::Error;
 use toml_edit::DocumentMut;
 use toml_edit::ImDocument;
 
-pub use crate::config_resolver::migrate;
-pub use crate::config_resolver::resolve;
 pub use crate::config_resolver::ConfigMigrateError;
 pub use crate::config_resolver::ConfigMigrateLayerError;
 pub use crate::config_resolver::ConfigMigrationRule;
 pub use crate::config_resolver::ConfigResolutionContext;
+pub use crate::config_resolver::migrate;
+pub use crate::config_resolver::resolve;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 

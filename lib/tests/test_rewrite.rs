@@ -28,19 +28,21 @@ use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
-use jj_lib::rewrite::find_duplicate_divergent_commits;
-use jj_lib::rewrite::rebase_commit_with_options;
-use jj_lib::rewrite::restore_tree;
 use jj_lib::rewrite::CommitRewriter;
 use jj_lib::rewrite::CommitWithSelection;
 use jj_lib::rewrite::EmptyBehavior;
 use jj_lib::rewrite::MoveCommitsTarget;
 use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RewriteRefsOptions;
+use jj_lib::rewrite::find_duplicate_divergent_commits;
+use jj_lib::rewrite::rebase_commit_with_options;
+use jj_lib::rewrite::restore_tree;
 use maplit::hashmap;
 use maplit::hashset;
 use pollster::FutureExt as _;
 use test_case::test_case;
+use testutils::CommitGraphBuilder;
+use testutils::TestRepo;
 use testutils::assert_abandoned_with_parent;
 use testutils::assert_rebased_onto;
 use testutils::create_random_commit;
@@ -49,8 +51,6 @@ use testutils::create_tree_with;
 use testutils::rebase_descendants_with_options_return_map;
 use testutils::repo_path;
 use testutils::write_random_commit;
-use testutils::CommitGraphBuilder;
-use testutils::TestRepo;
 
 fn remote_symbol<'a, N, M>(name: &'a N, remote: &'a M) -> RemoteRefSymbol<'a>
 where

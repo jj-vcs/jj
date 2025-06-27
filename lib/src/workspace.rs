@@ -36,7 +36,6 @@ use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store::OperationId;
 use crate::ref_name::WorkspaceName;
 use crate::ref_name::WorkspaceNameBuf;
-use crate::repo::read_store_type;
 use crate::repo::BackendInitializer;
 use crate::repo::CheckOutCommitError;
 use crate::repo::IndexStoreInitializer;
@@ -49,6 +48,7 @@ use crate::repo::RepoLoader;
 use crate::repo::StoreFactories;
 use crate::repo::StoreLoadError;
 use crate::repo::SubmoduleStoreInitializer;
+use crate::repo::read_store_type;
 use crate::settings::UserSettings;
 use crate::signing::SignInitError;
 use crate::signing::Signer;
@@ -478,7 +478,7 @@ impl LockedWorkspace<'_> {
 // Factory trait to build WorkspaceLoaders given the workspace root.
 pub trait WorkspaceLoaderFactory {
     fn create(&self, workspace_root: &Path)
-        -> Result<Box<dyn WorkspaceLoader>, WorkspaceLoadError>;
+    -> Result<Box<dyn WorkspaceLoader>, WorkspaceLoadError>;
 }
 
 pub fn get_working_copy_factory<'a>(

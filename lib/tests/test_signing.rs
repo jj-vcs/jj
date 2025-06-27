@@ -11,10 +11,10 @@ use jj_lib::signing::Signer;
 use jj_lib::signing::Verification;
 use jj_lib::test_signing_backend::TestSigningBackend;
 use test_case::test_case;
-use testutils::create_random_commit;
-use testutils::write_random_commit;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
+use testutils::create_random_commit;
+use testutils::write_random_commit;
 
 fn user_settings(behavior: SignBehavior) -> UserSettings {
     let mut config = testutils::base_user_config();

@@ -33,10 +33,10 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::settings::UserSettings;
 use test_case::test_case;
-use testutils::create_random_commit;
-use testutils::write_random_commit;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
+use testutils::create_random_commit;
+use testutils::write_random_commit;
 
 fn get_predecessors(repo: &ReadonlyRepo, id: &CommitId) -> Vec<CommitId> {
     let entries: Vec<_> = walk_predecessors(repo, slice::from_ref(id))

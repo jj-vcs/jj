@@ -23,10 +23,10 @@ use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::WorkingCopy as _;
 use pollster::FutureExt as _;
+use testutils::TestWorkspace;
 use testutils::commit_with_tree;
 use testutils::create_tree;
 use testutils::repo_path;
-use testutils::TestWorkspace;
 
 fn to_owned_path_vec(paths: &[&RepoPath]) -> Vec<RepoPathBuf> {
     paths.iter().map(|&path| path.to_owned()).collect()
@@ -92,24 +92,36 @@ fn test_sparse_checkout() {
         locked_ws.locked_wc().sparse_patterns().unwrap(),
         sparse_patterns
     );
-    assert!(!root_file1_path
-        .to_fs_path_unchecked(&working_copy_path)
-        .exists());
-    assert!(!root_file2_path
-        .to_fs_path_unchecked(&working_copy_path)
-        .exists());
-    assert!(dir1_file1_path
-        .to_fs_path_unchecked(&working_copy_path)
-        .exists());
-    assert!(dir1_file2_path
-        .to_fs_path_unchecked(&working_copy_path)
-        .exists());
-    assert!(dir1_subdir1_file1_path
-        .to_fs_path_unchecked(&working_copy_path)
-        .exists());
-    assert!(!dir2_file1_path
-        .to_fs_path_unchecked(&working_copy_path)
-        .exists());
+    assert!(
+        !root_file1_path
+            .to_fs_path_unchecked(&working_copy_path)
+            .exists()
+    );
+    assert!(
+        !root_file2_path
+            .to_fs_path_unchecked(&working_copy_path)
+            .exists()
+    );
+    assert!(
+        dir1_file1_path
+            .to_fs_path_unchecked(&working_copy_path)
+            .exists()
+    );
+    assert!(
+        dir1_file2_path
+            .to_fs_path_unchecked(&working_copy_path)
+            .exists()
+    );
+    assert!(
+        dir1_subdir1_file1_path
+            .to_fs_path_unchecked(&working_copy_path)
+            .exists()
+    );
+    assert!(
+        !dir2_file1_path
+            .to_fs_path_unchecked(&working_copy_path)
+            .exists()
+    );
 
     // Write the new state to disk
     locked_ws.finish(repo.op_id().clone()).unwrap();
@@ -150,24 +162,36 @@ fn test_sparse_checkout() {
         }
     );
     assert_eq!(locked_wc.sparse_patterns().unwrap(), sparse_patterns);
-    assert!(root_file1_path
-        .to_fs_path_unchecked(&working_copy_path)
-        .exists());
-    assert!(!root_file2_path
-        .to_fs_path_unchecked(&working_copy_path)
-        .exists());
-    assert!(!dir1_file1_path
-        .to_fs_path_unchecked(&working_copy_path)
-        .exists());
-    assert!(!dir1_file2_path
-        .to_fs_path_unchecked(&working_copy_path)
-        .exists());
-    assert!(dir1_subdir1_file1_path
-        .to_fs_path_unchecked(&working_copy_path)
-        .exists());
-    assert!(dir2_file1_path
-        .to_fs_path_unchecked(&working_copy_path)
-        .exists());
+    assert!(
+        root_file1_path
+            .to_fs_path_unchecked(&working_copy_path)
+            .exists()
+    );
+    assert!(
+        !root_file2_path
+            .to_fs_path_unchecked(&working_copy_path)
+            .exists()
+    );
+    assert!(
+        !dir1_file1_path
+            .to_fs_path_unchecked(&working_copy_path)
+            .exists()
+    );
+    assert!(
+        !dir1_file2_path
+            .to_fs_path_unchecked(&working_copy_path)
+            .exists()
+    );
+    assert!(
+        dir1_subdir1_file1_path
+            .to_fs_path_unchecked(&working_copy_path)
+            .exists()
+    );
+    assert!(
+        dir2_file1_path
+            .to_fs_path_unchecked(&working_copy_path)
+            .exists()
+    );
     let wc = locked_wc.finish(repo.op_id().clone()).unwrap();
     let wc: &LocalWorkingCopy = wc.as_any().downcast_ref().unwrap();
     assert_eq!(

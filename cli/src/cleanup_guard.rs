@@ -55,9 +55,9 @@ mod platform {
     use std::sync::atomic::Ordering;
     use std::thread;
 
-    use libc::c_int;
     use libc::SIGINT;
     use libc::SIGTERM;
+    use libc::c_int;
 
     use super::*;
 

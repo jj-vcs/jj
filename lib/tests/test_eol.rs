@@ -23,15 +23,15 @@ use jj_lib::repo::StoreFactories;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::settings::UserSettings;
 use jj_lib::working_copy::CheckoutOptions;
-use jj_lib::workspace::default_working_copy_factories;
 use jj_lib::workspace::Workspace;
+use jj_lib::workspace::default_working_copy_factories;
 use pollster::FutureExt as _;
 use test_case::test_case;
+use testutils::TestRepoBackend;
+use testutils::TestWorkspace;
 use testutils::base_user_config;
 use testutils::commit_with_tree;
 use testutils::repo_path;
-use testutils::TestRepoBackend;
-use testutils::TestWorkspace;
 
 static LF_FILE_CONTENT: &[u8] = b"aaa\nbbbb\nccccc\n";
 static CRLF_FILE_CONTENT: &[u8] = b"aaa\r\nbbbb\r\nccccc\r\n";

@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use std::any::Any;
-use std::cmp::max;
 use std::cmp::Ordering;
+use std::cmp::max;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
@@ -22,9 +22,9 @@ use std::io;
 use std::rc::Rc;
 
 use bstr::BString;
-use futures::stream::BoxStream;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
+use futures::stream::BoxStream;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
@@ -77,14 +77,14 @@ use crate::diff_util::DiffStats;
 use crate::formatter::Formatter;
 use crate::revset_util;
 use crate::template_builder;
-use crate::template_builder::expect_stringify_expression;
-use crate::template_builder::merge_fn_map;
 use crate::template_builder::BuildContext;
 use crate::template_builder::CoreTemplateBuildFnTable;
 use crate::template_builder::CoreTemplatePropertyKind;
 use crate::template_builder::CoreTemplatePropertyVar;
 use crate::template_builder::TemplateBuildMethodFnMap;
 use crate::template_builder::TemplateLanguage;
+use crate::template_builder::expect_stringify_expression;
+use crate::template_builder::merge_fn_map;
 use crate::template_parser;
 use crate::template_parser::ExpressionNode;
 use crate::template_parser::FunctionCallNode;
@@ -1883,8 +1883,8 @@ impl ShortestIdPrefix {
     }
 }
 
-fn builtin_shortest_id_prefix_methods<'repo>(
-) -> CommitTemplateBuildMethodFnMap<'repo, ShortestIdPrefix> {
+fn builtin_shortest_id_prefix_methods<'repo>()
+-> CommitTemplateBuildMethodFnMap<'repo, ShortestIdPrefix> {
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = CommitTemplateBuildMethodFnMap::<ShortestIdPrefix>::new();
@@ -2371,8 +2371,8 @@ impl CryptographicSignature {
     }
 }
 
-fn builtin_cryptographic_signature_methods<'repo>(
-) -> CommitTemplateBuildMethodFnMap<'repo, CryptographicSignature> {
+fn builtin_cryptographic_signature_methods<'repo>()
+-> CommitTemplateBuildMethodFnMap<'repo, CryptographicSignature> {
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = CommitTemplateBuildMethodFnMap::<CryptographicSignature>::new();
@@ -2526,9 +2526,9 @@ mod tests {
     use jj_lib::revset::RevsetExpression;
     use jj_lib::revset::RevsetExtensions;
     use jj_lib::revset::RevsetWorkspaceContext;
-    use testutils::repo_path_buf;
     use testutils::TestRepoBackend;
     use testutils::TestWorkspace;
+    use testutils::repo_path_buf;
 
     use super::*;
     use crate::template_parser::TemplateAliasesMap;

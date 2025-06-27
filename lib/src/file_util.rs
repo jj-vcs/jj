@@ -303,12 +303,12 @@ mod platform {
     use std::os::windows::fs::symlink_file;
     use std::path::Path;
 
-    use winreg::enums::HKEY_LOCAL_MACHINE;
     use winreg::RegKey;
+    use winreg::enums::HKEY_LOCAL_MACHINE;
 
+    pub use super::fallback::BadOsStrEncoding;
     pub use super::fallback::os_str_from_bytes;
     pub use super::fallback::os_str_to_bytes;
-    pub use super::fallback::BadOsStrEncoding;
 
     /// Symlinks may or may not be enabled on Windows. They require the
     /// Developer Mode setting, which is stored in the registry key below.

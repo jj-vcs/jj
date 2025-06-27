@@ -44,10 +44,11 @@ impl ExtensionsMap {
     ///
     /// Requires that this type has not been inserted before.
     pub fn insert<V: Any>(&mut self, value: V) {
-        assert!(self
-            .values
-            .insert(TypeId::of::<V>(), Box::new(value))
-            .is_none());
+        assert!(
+            self.values
+                .insert(TypeId::of::<V>(), Box::new(value))
+                .is_none()
+        );
     }
 }
 

@@ -26,8 +26,8 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use itertools::Itertools as _;
-use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
+use ref_cast::ref_cast_custom;
 use thiserror::Error;
 
 use crate::content_hash::ContentHash;
@@ -939,18 +939,22 @@ mod tests {
         // Current/parent dir component
         assert!(repo_path(".").to_fs_path(Path::new("base")).is_err());
         assert!(repo_path("..").to_fs_path(Path::new("base")).is_err());
-        assert!(repo_path("dir/../file")
-            .to_fs_path(Path::new("base"))
-            .is_err());
+        assert!(
+            repo_path("dir/../file")
+                .to_fs_path(Path::new("base"))
+                .is_err()
+        );
         assert!(repo_path("./file").to_fs_path(Path::new("base")).is_err());
         assert!(repo_path("file/.").to_fs_path(Path::new("base")).is_err());
         assert!(repo_path("../file").to_fs_path(Path::new("base")).is_err());
         assert!(repo_path("file/..").to_fs_path(Path::new("base")).is_err());
 
         // Empty component (which is invalid as a repo path)
-        assert!(RepoPath::from_internal_string_unchecked("/")
-            .to_fs_path(Path::new("base"))
-            .is_err());
+        assert!(
+            RepoPath::from_internal_string_unchecked("/")
+                .to_fs_path(Path::new("base"))
+                .is_err()
+        );
         assert_eq!(
             // Iterator omits empty component after "/", which is fine so long
             // as the returned path doesn't escape.
@@ -959,39 +963,57 @@ mod tests {
                 .unwrap(),
             Path::new("base/a")
         );
-        assert!(RepoPath::from_internal_string_unchecked("/b")
-            .to_fs_path(Path::new("base"))
-            .is_err());
-        assert!(RepoPath::from_internal_string_unchecked("a//b")
-            .to_fs_path(Path::new("base"))
-            .is_err());
+        assert!(
+            RepoPath::from_internal_string_unchecked("/b")
+                .to_fs_path(Path::new("base"))
+                .is_err()
+        );
+        assert!(
+            RepoPath::from_internal_string_unchecked("a//b")
+                .to_fs_path(Path::new("base"))
+                .is_err()
+        );
 
         // Component containing slash (simulating Windows path separator)
-        assert!(RepoPathComponent::new_unchecked("wind/ows")
-            .to_fs_name()
-            .is_err());
-        assert!(RepoPathComponent::new_unchecked("./file")
-            .to_fs_name()
-            .is_err());
-        assert!(RepoPathComponent::new_unchecked("file/.")
-            .to_fs_name()
-            .is_err());
+        assert!(
+            RepoPathComponent::new_unchecked("wind/ows")
+                .to_fs_name()
+                .is_err()
+        );
+        assert!(
+            RepoPathComponent::new_unchecked("./file")
+                .to_fs_name()
+                .is_err()
+        );
+        assert!(
+            RepoPathComponent::new_unchecked("file/.")
+                .to_fs_name()
+                .is_err()
+        );
         assert!(RepoPathComponent::new_unchecked("/").to_fs_name().is_err());
 
         // Windows path separator and drive letter
         if cfg!(windows) {
-            assert!(repo_path(r#"wind\ows"#)
-                .to_fs_path(Path::new("base"))
-                .is_err());
-            assert!(repo_path(r#".\file"#)
-                .to_fs_path(Path::new("base"))
-                .is_err());
-            assert!(repo_path(r#"file\."#)
-                .to_fs_path(Path::new("base"))
-                .is_err());
-            assert!(repo_path(r#"c:/foo"#)
-                .to_fs_path(Path::new("base"))
-                .is_err());
+            assert!(
+                repo_path(r#"wind\ows"#)
+                    .to_fs_path(Path::new("base"))
+                    .is_err()
+            );
+            assert!(
+                repo_path(r#".\file"#)
+                    .to_fs_path(Path::new("base"))
+                    .is_err()
+            );
+            assert!(
+                repo_path(r#"file\."#)
+                    .to_fs_path(Path::new("base"))
+                    .is_err()
+            );
+            assert!(
+                repo_path(r#"c:/foo"#)
+                    .to_fs_path(Path::new("base"))
+                    .is_err()
+            );
         }
     }
 

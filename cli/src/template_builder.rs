@@ -25,8 +25,8 @@ use jj_lib::config::ConfigValue;
 use jj_lib::op_store::TimestampRange;
 use jj_lib::settings::UserSettings;
 use jj_lib::time_util::DatePattern;
-use serde::de::IntoDeserializer as _;
 use serde::Deserialize;
+use serde::de::IntoDeserializer as _;
 
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
@@ -870,8 +870,8 @@ fn build_binary_operation<'a, L: TemplateLanguage<'a> + ?Sized>(
     }
 }
 
-fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
-) -> TemplateBuildMethodFnMap<'a, L, String> {
+fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
+-> TemplateBuildMethodFnMap<'a, L, String> {
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = TemplateBuildMethodFnMap::<L, String>::new();
@@ -1049,8 +1049,8 @@ fn string_index_to_char_boundary(s: &str, i: isize) -> usize {
     }
 }
 
-fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
-) -> TemplateBuildMethodFnMap<'a, L, ConfigValue> {
+fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
+-> TemplateBuildMethodFnMap<'a, L, ConfigValue> {
     fn extract<'de, T: Deserialize<'de>>(value: ConfigValue) -> Result<T, TemplatePropertyError> {
         T::deserialize(value.into_deserializer())
             // map to err.message() because TomlError appends newline to it
@@ -1101,8 +1101,8 @@ fn builtin_config_value_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
     map
 }
 
-fn builtin_signature_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
-) -> TemplateBuildMethodFnMap<'a, L, Signature> {
+fn builtin_signature_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
+-> TemplateBuildMethodFnMap<'a, L, Signature> {
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = TemplateBuildMethodFnMap::<L, Signature>::new();
@@ -1149,8 +1149,8 @@ fn builtin_signature_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
     map
 }
 
-fn builtin_email_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
-) -> TemplateBuildMethodFnMap<'a, L, Email> {
+fn builtin_email_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
+-> TemplateBuildMethodFnMap<'a, L, Email> {
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = TemplateBuildMethodFnMap::<L, Email>::new();
@@ -1179,8 +1179,8 @@ fn builtin_email_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
     map
 }
 
-fn builtin_size_hint_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
-) -> TemplateBuildMethodFnMap<'a, L, SizeHint> {
+fn builtin_size_hint_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
+-> TemplateBuildMethodFnMap<'a, L, SizeHint> {
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = TemplateBuildMethodFnMap::<L, SizeHint>::new();
@@ -1223,8 +1223,8 @@ fn builtin_size_hint_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
     map
 }
 
-fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
-) -> TemplateBuildMethodFnMap<'a, L, Timestamp> {
+fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
+-> TemplateBuildMethodFnMap<'a, L, Timestamp> {
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = TemplateBuildMethodFnMap::<L, Timestamp>::new();
@@ -1311,8 +1311,8 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
     map
 }
 
-fn builtin_timestamp_range_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
-) -> TemplateBuildMethodFnMap<'a, L, TimestampRange> {
+fn builtin_timestamp_range_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
+-> TemplateBuildMethodFnMap<'a, L, TimestampRange> {
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = TemplateBuildMethodFnMap::<L, TimestampRange>::new();
@@ -1353,8 +1353,8 @@ fn builtin_timestamp_range_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
     map
 }
 
-fn builtin_list_template_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
-) -> BuildListTemplateMethodFnMap<'a, L> {
+fn builtin_list_template_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
+-> BuildListTemplateMethodFnMap<'a, L> {
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = BuildListTemplateMethodFnMap::<L>::new();

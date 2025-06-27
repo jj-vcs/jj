@@ -44,8 +44,8 @@ use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::backend::MillisSinceEpoch;
 use crate::commit::Commit;
-use crate::conflicts::materialize_tree_value;
 use crate::conflicts::MaterializedTreeValue;
+use crate::conflicts::materialize_tree_value;
 use crate::diff::Diff;
 use crate::diff::DiffHunkKind;
 use crate::files;
@@ -56,13 +56,13 @@ use crate::merge::Merge;
 use crate::merged_tree::resolve_file_values;
 use crate::object_id::ObjectId as _;
 use crate::repo_path::RepoPath;
+use crate::revset::GENERATION_RANGE_FULL;
 use crate::revset::ResolvedExpression;
 use crate::revset::ResolvedPredicateExpression;
 use crate::revset::Revset;
 use crate::revset::RevsetContainingFn;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetFilterPredicate;
-use crate::revset::GENERATION_RANGE_FULL;
 use crate::rewrite;
 use crate::store::Store;
 use crate::str_util::StringPattern;
@@ -1470,8 +1470,8 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
-    use crate::default_index::readonly::FieldLengths;
     use crate::default_index::DefaultMutableIndex;
+    use crate::default_index::readonly::FieldLengths;
 
     const TEST_FIELD_LENGTHS: FieldLengths = FieldLengths {
         commit_id: 3,
@@ -1777,9 +1777,11 @@ mod tests {
         // Does not consume positions for unknown commits
         let positions_accum = PositionsAccumulator::new(index, full_set.positions());
 
-        assert!(!positions_accum
-            .contains(&CommitId::from_hex("999999"))
-            .unwrap());
+        assert!(
+            !positions_accum
+                .contains(&CommitId::from_hex("999999"))
+                .unwrap()
+        );
         assert_eq!(positions_accum.consumed_len(), 0);
 
         // Does not consume without necessity

@@ -21,17 +21,16 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 
 use itertools::Itertools as _;
+use pest::Parser as _;
 use pest::iterators::Pair;
 use pest::iterators::Pairs;
 use pest::pratt_parser::Assoc;
 use pest::pratt_parser::Op;
 use pest::pratt_parser::PrattParser;
-use pest::Parser as _;
 use pest_derive::Parser;
 use thiserror::Error;
 
 use crate::dsl_util;
-use crate::dsl_util::collect_similar;
 use crate::dsl_util::AliasDeclaration;
 use crate::dsl_util::AliasDeclarationParser;
 use crate::dsl_util::AliasDefinitionParser;
@@ -45,6 +44,7 @@ use crate::dsl_util::FoldableExpression;
 use crate::dsl_util::FunctionCallParser;
 use crate::dsl_util::InvalidArguments;
 use crate::dsl_util::StringLiteralParser;
+use crate::dsl_util::collect_similar;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteNameBuf;
 use crate::ref_name::RemoteRefSymbolBuf;

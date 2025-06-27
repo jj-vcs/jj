@@ -14,20 +14,20 @@
 
 #![allow(missing_docs)]
 
-use std::cmp::max;
 use std::cmp::Ordering;
 use std::cmp::Reverse;
-use std::collections::binary_heap;
+use std::cmp::max;
 use std::collections::BinaryHeap;
 use std::collections::HashSet;
+use std::collections::binary_heap;
 use std::iter;
 use std::mem;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use itertools::Itertools as _;
-use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
+use ref_cast::ref_cast_custom;
 
 use super::bit_set::AncestorsBitSet;
 use super::bit_set::PositionsBitSet;
@@ -46,10 +46,10 @@ use crate::index::AllHeadsForGcUnsupported;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
 use crate::index::IndexError;
-use crate::object_id::id_type;
 use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId as _;
 use crate::object_id::PrefixResolution;
+use crate::object_id::id_type;
 use crate::revset::ResolvedExpression;
 use crate::revset::Revset;
 use crate::revset::RevsetEvaluationError;

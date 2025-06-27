@@ -22,9 +22,9 @@ use jj_lib::rewrite::merge_commit_trees;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
-use crate::cli_util::print_unmatched_explicit_paths;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::ui::Ui;
@@ -116,8 +116,10 @@ pub(crate) fn cmd_diffedit(
     if args.from.is_some() || args.to.is_some() {
         target_commit = workspace_command
             .resolve_single_rev(ui, args.to.as_ref().unwrap_or(&RevisionArg::AT))?;
-        base_commits = vec![workspace_command
-            .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))?];
+        base_commits = vec![
+            workspace_command
+                .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))?,
+        ];
         diff_description = format!(
             "The diff initially shows the commit's changes relative to:\n{}",
             workspace_command.format_commit_summary(&base_commits[0])

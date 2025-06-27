@@ -19,12 +19,12 @@ use jj_lib::op_store::OpStoreError;
 use jj_lib::operation::Operation;
 use jj_lib::repo::Repo as _;
 
-use super::view_with_desired_portions_restored;
-use super::UndoWhatToRestore;
 use super::DEFAULT_UNDO_WHAT;
+use super::UndoWhatToRestore;
+use super::view_with_desired_portions_restored;
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::ui::Ui;
 

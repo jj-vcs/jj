@@ -666,30 +666,42 @@ mod tests {
         // No crash if empty
         let source: Vec<(ChangeId, ())> = vec![];
         let id_index = build_id_index::<_, 1>(&source);
-        assert!(id_index
-            .lookup_exact(&*source, &ChangeId::from_hex("00"))
-            .is_none());
+        assert!(
+            id_index
+                .lookup_exact(&*source, &ChangeId::from_hex("00"))
+                .is_none()
+        );
 
         let source = vec![
             (ChangeId::from_hex("ab00"), ()),
             (ChangeId::from_hex("ab01"), ()),
         ];
         let id_index = build_id_index::<_, 1>(&source);
-        assert!(id_index
-            .lookup_exact(&*source, &ChangeId::from_hex("aa00"))
-            .is_none());
-        assert!(id_index
-            .lookup_exact(&*source, &ChangeId::from_hex("ab00"))
-            .is_some());
-        assert!(id_index
-            .lookup_exact(&*source, &ChangeId::from_hex("ab01"))
-            .is_some());
-        assert!(id_index
-            .lookup_exact(&*source, &ChangeId::from_hex("ab02"))
-            .is_none());
-        assert!(id_index
-            .lookup_exact(&*source, &ChangeId::from_hex("ac00"))
-            .is_none());
+        assert!(
+            id_index
+                .lookup_exact(&*source, &ChangeId::from_hex("aa00"))
+                .is_none()
+        );
+        assert!(
+            id_index
+                .lookup_exact(&*source, &ChangeId::from_hex("ab00"))
+                .is_some()
+        );
+        assert!(
+            id_index
+                .lookup_exact(&*source, &ChangeId::from_hex("ab01"))
+                .is_some()
+        );
+        assert!(
+            id_index
+                .lookup_exact(&*source, &ChangeId::from_hex("ab02"))
+                .is_none()
+        );
+        assert!(
+            id_index
+                .lookup_exact(&*source, &ChangeId::from_hex("ac00"))
+                .is_none()
+        );
     }
 
     #[test]

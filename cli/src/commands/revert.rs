@@ -26,10 +26,10 @@ use jj_lib::rewrite::merge_commit_trees;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
-use crate::cli_util::compute_commit_location;
-use crate::cli_util::print_updated_commits;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::compute_commit_location;
+use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::ui::Ui;

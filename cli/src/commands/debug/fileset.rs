@@ -19,8 +19,8 @@ use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
 
 use crate::cli_util::CommandHelper;
-use crate::command_error::print_parse_diagnostics;
 use crate::command_error::CommandError;
+use crate::command_error::print_parse_diagnostics;
 use crate::ui::Ui;
 
 /// Parse fileset expression

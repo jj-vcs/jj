@@ -20,8 +20,8 @@ use jj_lib::revset;
 use jj_lib::revset::RevsetDiagnostics;
 
 use crate::cli_util::CommandHelper;
-use crate::command_error::print_parse_diagnostics;
 use crate::command_error::CommandError;
+use crate::command_error::print_parse_diagnostics;
 use crate::revset_util;
 use crate::ui::Ui;
 

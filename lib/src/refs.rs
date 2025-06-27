@@ -18,8 +18,8 @@ use itertools::EitherOrBoth;
 
 use crate::backend::CommitId;
 use crate::index::Index;
-use crate::merge::trivial_merge;
 use crate::merge::Merge;
+use crate::merge::trivial_merge;
 use crate::op_store::RefTarget;
 use crate::op_store::RemoteRef;
 

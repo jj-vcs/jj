@@ -32,26 +32,26 @@ use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::store::Store;
 
-use self::clone::cmd_git_clone;
 use self::clone::GitCloneArgs;
-use self::export::cmd_git_export;
+use self::clone::cmd_git_clone;
 use self::export::GitExportArgs;
-use self::fetch::cmd_git_fetch;
+use self::export::cmd_git_export;
 use self::fetch::GitFetchArgs;
-use self::import::cmd_git_import;
+use self::fetch::cmd_git_fetch;
 use self::import::GitImportArgs;
-use self::init::cmd_git_init;
+use self::import::cmd_git_import;
 use self::init::GitInitArgs;
-use self::push::cmd_git_push;
+use self::init::cmd_git_init;
 use self::push::GitPushArgs;
-use self::remote::cmd_git_remote;
+use self::push::cmd_git_push;
 use self::remote::RemoteCommand;
-use self::root::cmd_git_root;
+use self::remote::cmd_git_remote;
 use self::root::GitRootArgs;
+use self::root::cmd_git_root;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
-use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
+use crate::command_error::user_error_with_message;
 use crate::ui::Ui;
 
 /// Commands for working with Git remotes and the underlying Git repo

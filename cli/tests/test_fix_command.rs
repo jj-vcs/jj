@@ -20,8 +20,8 @@ use indoc::formatdoc;
 use indoc::indoc;
 use jj_lib::file_util::try_symlink;
 
-use crate::common::to_toml_value;
 use crate::common::TestEnvironment;
+use crate::common::to_toml_value;
 
 fn set_up_fake_formatter(test_env: &TestEnvironment, args: &[&str]) {
     let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");

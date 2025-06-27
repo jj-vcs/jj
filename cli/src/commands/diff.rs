@@ -21,16 +21,16 @@ use jj_lib::rewrite::merge_commit_trees;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
-use crate::cli_util::print_unmatched_explicit_paths;
-use crate::cli_util::short_commit_hash;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
-use crate::command_error::user_error_with_hint;
+use crate::cli_util::print_unmatched_explicit_paths;
+use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
+use crate::command_error::user_error_with_hint;
 use crate::complete;
+use crate::diff_util::DiffFormatArgs;
 use crate::diff_util::get_copy_records;
 use crate::diff_util::show_templated;
-use crate::diff_util::DiffFormatArgs;
 use crate::ui::Ui;
 
 /// Compare file contents between two revisions

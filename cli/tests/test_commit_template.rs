@@ -1033,8 +1033,8 @@ fn test_short_prefix_in_transaction() {
 
     // Short prefix should be used for commit summary inside the transaction
     let parent_id = "c0b41"; // Force id lookup to build index before mutation.
-                             // If the cached index wasn't invalidated, the
-                             // newly created commit wouldn't be found in it.
+    // If the cached index wasn't invalidated, the
+    // newly created commit wouldn't be found in it.
     let output = work_dir.run_jj(["new", parent_id, "--no-edit", "-m", "test"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------

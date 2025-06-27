@@ -18,8 +18,8 @@
 //! TODO: Add support for different blame layers with a trait in the future.
 //! Like commit metadata and more.
 
-use std::collections::hash_map;
 use std::collections::HashMap;
+use std::collections::hash_map;
 use std::iter;
 use std::ops::Range;
 use std::rc::Rc;
@@ -33,10 +33,10 @@ use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::CommitId;
 use crate::commit::Commit;
-use crate::conflicts::materialize_merge_result_to_bytes;
-use crate::conflicts::materialize_tree_value;
 use crate::conflicts::ConflictMarkerStyle;
 use crate::conflicts::MaterializedTreeValue;
+use crate::conflicts::materialize_merge_result_to_bytes;
+use crate::conflicts::materialize_tree_value;
 use crate::diff::Diff;
 use crate::diff::DiffHunkKind;
 use crate::fileset::FilesetExpression;

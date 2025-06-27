@@ -50,11 +50,13 @@ use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::UntrackedReason;
 use jj_lib::working_copy::WorkingCopy as _;
-use jj_lib::workspace::default_working_copy_factories;
 use jj_lib::workspace::LockedWorkspace;
 use jj_lib::workspace::Workspace;
+use jj_lib::workspace::default_working_copy_factories;
 use pollster::FutureExt as _;
 use test_case::test_case;
+use testutils::TestRepoBackend;
+use testutils::TestWorkspace;
 use testutils::commit_with_tree;
 use testutils::create_tree;
 use testutils::create_tree_with;
@@ -62,8 +64,6 @@ use testutils::repo_path;
 use testutils::repo_path_buf;
 use testutils::repo_path_component;
 use testutils::write_random_commit;
-use testutils::TestRepoBackend;
-use testutils::TestWorkspace;
 
 fn check_icase_fs(dir: &Path) -> bool {
     let test_file = tempfile::Builder::new()
@@ -516,21 +516,31 @@ fn test_acl() {
         &CheckoutOptions::empty_for_test(),
     )
     .unwrap();
-    assert!(!secret_modified_path
-        .to_fs_path_unchecked(&workspace_root)
-        .is_file());
-    assert!(!secret_added_path
-        .to_fs_path_unchecked(&workspace_root)
-        .is_file());
-    assert!(!secret_deleted_path
-        .to_fs_path_unchecked(&workspace_root)
-        .is_file());
-    assert!(became_secret_path
-        .to_fs_path_unchecked(&workspace_root)
-        .is_file());
-    assert!(!became_public_path
-        .to_fs_path_unchecked(&workspace_root)
-        .is_file());
+    assert!(
+        !secret_modified_path
+            .to_fs_path_unchecked(&workspace_root)
+            .is_file()
+    );
+    assert!(
+        !secret_added_path
+            .to_fs_path_unchecked(&workspace_root)
+            .is_file()
+    );
+    assert!(
+        !secret_deleted_path
+            .to_fs_path_unchecked(&workspace_root)
+            .is_file()
+    );
+    assert!(
+        became_secret_path
+            .to_fs_path_unchecked(&workspace_root)
+            .is_file()
+    );
+    assert!(
+        !became_public_path
+            .to_fs_path_unchecked(&workspace_root)
+            .is_file()
+    );
     ws.check_out(
         repo.op_id().clone(),
         None,
@@ -538,21 +548,31 @@ fn test_acl() {
         &CheckoutOptions::empty_for_test(),
     )
     .unwrap();
-    assert!(!secret_modified_path
-        .to_fs_path_unchecked(&workspace_root)
-        .is_file());
-    assert!(!secret_added_path
-        .to_fs_path_unchecked(&workspace_root)
-        .is_file());
-    assert!(!secret_deleted_path
-        .to_fs_path_unchecked(&workspace_root)
-        .is_file());
-    assert!(!became_secret_path
-        .to_fs_path_unchecked(&workspace_root)
-        .is_file());
-    assert!(became_public_path
-        .to_fs_path_unchecked(&workspace_root)
-        .is_file());
+    assert!(
+        !secret_modified_path
+            .to_fs_path_unchecked(&workspace_root)
+            .is_file()
+    );
+    assert!(
+        !secret_added_path
+            .to_fs_path_unchecked(&workspace_root)
+            .is_file()
+    );
+    assert!(
+        !secret_deleted_path
+            .to_fs_path_unchecked(&workspace_root)
+            .is_file()
+    );
+    assert!(
+        !became_secret_path
+            .to_fs_path_unchecked(&workspace_root)
+            .is_file()
+    );
+    assert!(
+        became_public_path
+            .to_fs_path_unchecked(&workspace_root)
+            .is_file()
+    );
 }
 
 #[test]
@@ -1217,14 +1237,15 @@ fn test_gitignores_checkout_never_overwrites_ignored() {
     // "contents". The exiting contents ("garbage") shouldn't be replaced in the
     // working copy.
     let ws = &mut test_workspace.workspace;
-    assert!(ws
-        .check_out(
+    assert!(
+        ws.check_out(
             repo.op_id().clone(),
             None,
             &commit,
             &CheckoutOptions::empty_for_test()
         )
-        .is_ok());
+        .is_ok()
+    );
 
     // Check that the old contents are in the working copy
     let path = workspace_root.join("modified");

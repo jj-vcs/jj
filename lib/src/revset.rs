@@ -15,8 +15,8 @@
 #![allow(missing_docs)]
 
 use std::any::Any;
-use std::collections::hash_map;
 use std::collections::HashMap;
+use std::collections::hash_map;
 use std::convert::Infallible;
 use std::fmt;
 use std::ops::ControlFlow;
@@ -54,9 +54,6 @@ use crate::repo::Repo;
 use crate::repo::RepoLoaderError;
 use crate::repo_path::RepoPathUiConverter;
 use crate::revset_parser;
-pub use crate::revset_parser::expect_literal;
-pub use crate::revset_parser::parse_program;
-pub use crate::revset_parser::parse_symbol;
 pub use crate::revset_parser::BinaryOp;
 pub use crate::revset_parser::ExpressionKind;
 pub use crate::revset_parser::ExpressionNode;
@@ -66,6 +63,9 @@ pub use crate::revset_parser::RevsetDiagnostics;
 pub use crate::revset_parser::RevsetParseError;
 pub use crate::revset_parser::RevsetParseErrorKind;
 pub use crate::revset_parser::UnaryOp;
+pub use crate::revset_parser::expect_literal;
+pub use crate::revset_parser::parse_program;
+pub use crate::revset_parser::parse_symbol;
 use crate::store::Store;
 use crate::str_util::StringPattern;
 use crate::time_util::DatePattern;

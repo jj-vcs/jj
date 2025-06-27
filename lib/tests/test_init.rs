@@ -23,10 +23,10 @@ use jj_lib::repo::Repo as _;
 use jj_lib::settings::UserSettings;
 use jj_lib::workspace::Workspace;
 use test_case::test_case;
-use testutils::git;
-use testutils::write_random_commit;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
+use testutils::git;
+use testutils::write_random_commit;
 
 fn canonicalize(input: &Path) -> (PathBuf, PathBuf) {
     let uncanonical = input.join("..").join(input.file_name().unwrap());
@@ -40,11 +40,12 @@ fn test_init_local() {
     let temp_dir = testutils::new_temp_dir();
     let (canonical, uncanonical) = canonicalize(temp_dir.path());
     let (workspace, repo) = Workspace::init_simple(&settings, &uncanonical).unwrap();
-    assert!(repo
-        .store()
-        .backend_impl()
-        .downcast_ref::<GitBackend>()
-        .is_none());
+    assert!(
+        repo.store()
+            .backend_impl()
+            .downcast_ref::<GitBackend>()
+            .is_none()
+    );
     assert_eq!(workspace.workspace_root(), &canonical);
 
     // Just test that we can write a commit to the store

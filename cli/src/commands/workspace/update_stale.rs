@@ -14,8 +14,8 @@
 
 use tracing::instrument;
 
-use crate::cli_util::print_snapshot_stats;
 use crate::cli_util::CommandHelper;
+use crate::cli_util::print_snapshot_stats;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 

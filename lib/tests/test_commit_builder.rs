@@ -33,13 +33,13 @@ use jj_lib::rewrite::RebaseOptions;
 use jj_lib::settings::UserSettings;
 use pollster::FutureExt as _;
 use test_case::test_case;
+use testutils::CommitGraphBuilder;
+use testutils::TestRepo;
+use testutils::TestRepoBackend;
 use testutils::assert_rebased_onto;
 use testutils::create_tree;
 use testutils::rebase_descendants_with_options_return_map;
 use testutils::repo_path;
-use testutils::CommitGraphBuilder;
-use testutils::TestRepo;
-use testutils::TestRepoBackend;
 
 fn config_with_commit_timestamp(timestamp: &str) -> StackedConfig {
     let mut config = testutils::base_user_config();

@@ -142,7 +142,7 @@ pub trait ReadonlyIndex: Send + Sync {
     fn as_index(&self) -> &dyn Index;
 
     fn change_id_index(&self, heads: &mut dyn Iterator<Item = &CommitId>)
-        -> Box<dyn ChangeIdIndex>;
+    -> Box<dyn ChangeIdIndex>;
 
     fn start_modification(&self) -> Box<dyn MutableIndex>;
 }

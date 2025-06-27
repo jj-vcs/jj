@@ -20,9 +20,9 @@ use jj_lib::dag_walk;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use test_case::test_case;
-use testutils::write_random_commit;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
+use testutils::write_random_commit;
 
 fn count_non_merge_operations(repo: &Arc<ReadonlyRepo>) -> usize {
     let op_store = repo.op_store();

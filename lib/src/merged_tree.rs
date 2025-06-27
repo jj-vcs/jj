@@ -21,17 +21,17 @@ use std::iter;
 use std::iter::zip;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::ready;
 use std::task::Context;
 use std::task::Poll;
+use std::task::ready;
 use std::vec;
 
 use either::Either;
-use futures::future::try_join;
-use futures::future::BoxFuture;
-use futures::stream::BoxStream;
 use futures::Stream;
 use futures::StreamExt as _;
+use futures::future::BoxFuture;
+use futures::future::try_join;
+use futures::stream::BoxStream;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
@@ -54,8 +54,8 @@ use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;
 use crate::store::Store;
-use crate::tree::try_resolve_file_conflict;
 use crate::tree::Tree;
+use crate::tree::try_resolve_file_conflict;
 use crate::tree_builder::TreeBuilder;
 
 /// Presents a view of a merged set of trees.
@@ -75,10 +75,12 @@ impl MergedTree {
     pub fn new(trees: Merge<Tree>) -> Self {
         debug_assert!(!trees.iter().any(|t| t.has_conflict()));
         debug_assert!(trees.iter().map(|tree| tree.dir()).all_equal());
-        debug_assert!(trees
-            .iter()
-            .map(|tree| Arc::as_ptr(tree.store()))
-            .all_equal());
+        debug_assert!(
+            trees
+                .iter()
+                .map(|tree| Arc::as_ptr(tree.store()))
+                .all_equal()
+        );
         Self { trees }
     }
 
@@ -1143,10 +1145,12 @@ impl MergedTreeBuilder {
     /// value or as a resolved `Merge` value using `TreeValue::Conflict`.
     pub fn set_or_remove(&mut self, path: RepoPathBuf, values: MergedTreeValue) {
         if let MergedTreeId::Merge(_) = &self.base_tree_id {
-            assert!(!values
-                .iter()
-                .flatten()
-                .any(|value| matches!(value, TreeValue::Conflict(_))));
+            assert!(
+                !values
+                    .iter()
+                    .flatten()
+                    .any(|value| matches!(value, TreeValue::Conflict(_)))
+            );
         }
         self.overrides.insert(path, values);
     }

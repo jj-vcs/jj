@@ -26,8 +26,8 @@ use std::slice;
 use bstr::BStr;
 use hashbrown::HashTable;
 use itertools::Itertools as _;
-use smallvec::smallvec;
 use smallvec::SmallVec;
+use smallvec::smallvec;
 
 pub fn find_line_ranges(text: &[u8]) -> Vec<Range<usize>> {
     text.split_inclusive(|b| *b == b'\n')

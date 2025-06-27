@@ -19,10 +19,10 @@ use indoc::formatdoc;
 use test_case::test_case;
 use testutils::git;
 
-use crate::common::to_toml_value;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::to_toml_value;
 
 fn init_git_repo(git_repo_path: &Path, bare: bool) -> gix::Repository {
     let git_repo = if bare {
@@ -334,9 +334,11 @@ fn test_git_init_colocated_via_git_repo_path() {
     assert!(jj_path.join("working_copy").is_dir());
     assert!(repo_path.is_dir());
     assert!(store_path.is_dir());
-    assert!(read_git_target(&work_dir)
-        .replace('\\', "/")
-        .ends_with("../../../.git"));
+    assert!(
+        read_git_target(&work_dir)
+            .replace('\\', "/")
+            .ends_with("../../../.git")
+    );
 
     // Check that the Git repo's HEAD got checked out
     insta::assert_snapshot!(get_log_output(&work_dir), @r"

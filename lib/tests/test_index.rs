@@ -37,15 +37,15 @@ use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
-use jj_lib::revset::ResolvedExpression;
 use jj_lib::revset::GENERATION_RANGE_FULL;
+use jj_lib::revset::ResolvedExpression;
 use maplit::hashset;
+use testutils::CommitGraphBuilder;
+use testutils::TestRepo;
 use testutils::commit_transactions;
 use testutils::create_random_commit;
 use testutils::test_backend::TestBackend;
 use testutils::write_random_commit;
-use testutils::CommitGraphBuilder;
-use testutils::TestRepo;
 
 fn child_commit<'repo>(mut_repo: &'repo mut MutableRepo, commit: &Commit) -> CommitBuilder<'repo> {
     create_random_commit(mut_repo).set_parents(vec![commit.id().clone()])

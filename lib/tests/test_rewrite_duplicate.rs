@@ -19,9 +19,9 @@ use jj_lib::backend::CommitId;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::duplicate_commits;
 use jj_lib::transaction::Transaction;
+use testutils::TestRepo;
 use testutils::create_tree;
 use testutils::repo_path;
-use testutils::TestRepo;
 
 #[test]
 fn test_duplicate_linear_contents() {

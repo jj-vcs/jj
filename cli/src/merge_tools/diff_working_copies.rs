@@ -27,8 +27,8 @@ use pollster::FutureExt as _;
 use tempfile::TempDir;
 use thiserror::Error;
 
-use super::external::ExternalToolError;
 use super::DiffEditError;
+use super::external::ExternalToolError;
 
 #[derive(Debug, Error)]
 pub enum DiffCheckoutError {

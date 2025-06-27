@@ -45,8 +45,8 @@ use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
 use thiserror::Error;
 
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::formatter::Formatter;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;

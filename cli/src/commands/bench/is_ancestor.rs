@@ -14,8 +14,8 @@
 
 use jj_lib::repo::Repo as _;
 
-use super::run_bench;
 use super::CriterionArgs;
+use super::run_bench;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;

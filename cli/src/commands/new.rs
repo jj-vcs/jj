@@ -24,9 +24,9 @@ use jj_lib::rewrite::rebase_commit;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
-use crate::cli_util::compute_commit_location;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::compute_commit_location;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::description_util::add_trailers;

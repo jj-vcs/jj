@@ -26,11 +26,11 @@ use jj_lib::repo::Repo as _;
 use maplit::btreemap;
 use maplit::hashset;
 use test_case::test_case;
+use testutils::CommitGraphBuilder;
+use testutils::TestRepo;
 use testutils::commit_transactions;
 use testutils::create_random_commit;
 use testutils::write_random_commit;
-use testutils::CommitGraphBuilder;
-use testutils::TestRepo;
 
 fn remote_symbol<'a, N, M>(name: &'a N, remote: &'a M) -> RemoteRefSymbol<'a>
 where

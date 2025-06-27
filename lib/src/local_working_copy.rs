@@ -35,10 +35,10 @@ use std::os::unix::fs::PermissionsExt as _;
 use std::path::Path;
 use std::path::PathBuf;
 use std::slice;
-use std::sync::mpsc::channel;
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::sync::OnceLock;
+use std::sync::mpsc::Sender;
+use std::sync::mpsc::channel;
 use std::time::UNIX_EPOCH;
 
 use either::Either;
@@ -70,24 +70,24 @@ use crate::backend::TreeValue;
 use crate::commit::Commit;
 use crate::config::ConfigGetError;
 use crate::conflicts;
+use crate::conflicts::ConflictMarkerStyle;
+use crate::conflicts::MIN_CONFLICT_MARKER_LEN;
+use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::choose_materialized_conflict_marker_len;
 use crate::conflicts::materialize_merge_result_to_bytes_with_marker_len;
 use crate::conflicts::materialize_tree_value;
-use crate::conflicts::ConflictMarkerStyle;
-use crate::conflicts::MaterializedTreeValue;
-use crate::conflicts::MIN_CONFLICT_MARKER_LEN;
-use crate::eol::create_target_eol_strategy;
 pub use crate::eol::EolConversionMode;
 use crate::eol::TargetEolStrategy;
+use crate::eol::create_target_eol_strategy;
+use crate::file_util::BlockingAsyncReader;
 use crate::file_util::check_symlink_support;
 use crate::file_util::copy_async_to_sync;
 use crate::file_util::try_symlink;
-use crate::file_util::BlockingAsyncReader;
-#[cfg(feature = "watchman")]
-use crate::fsmonitor::watchman;
 use crate::fsmonitor::FsmonitorSettings;
 #[cfg(feature = "watchman")]
 use crate::fsmonitor::WatchmanConfig;
+#[cfg(feature = "watchman")]
+use crate::fsmonitor::watchman;
 use crate::gitignore::GitIgnoreFile;
 use crate::lock::FileLock;
 use crate::matchers::DifferenceMatcher;
@@ -610,7 +610,7 @@ fn create_parent_dirs(
                             repo_path.to_fs_path_unchecked(working_copy_path).display(),
                         ),
                         err: err.into(),
-                    })
+                    });
                 }
             },
         };
@@ -679,7 +679,7 @@ fn can_create_new_file(disk_path: &Path) -> Result<bool, CheckoutError> {
                 return Err(CheckoutError::Other {
                     message: format!("Failed to stat {}", disk_path.display()),
                     err: err.into(),
-                })
+                });
             }
         },
     };

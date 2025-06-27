@@ -20,14 +20,14 @@ use jj_lib::repo::Repo as _;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::SnapshotOptions;
-use jj_lib::workspace::default_working_copy_factories;
 use jj_lib::workspace::Workspace;
+use jj_lib::workspace::default_working_copy_factories;
+use testutils::TestWorkspace;
 use testutils::commit_with_tree;
 use testutils::create_tree;
 use testutils::repo_path;
 use testutils::repo_path_buf;
 use testutils::write_working_copy_file;
-use testutils::TestWorkspace;
 
 #[test]
 fn test_concurrent_checkout() {

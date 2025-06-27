@@ -14,8 +14,8 @@
 
 #![allow(missing_docs)]
 
-use std::cmp::max;
 use std::cmp::Reverse;
+use std::cmp::max;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::iter::Fuse;

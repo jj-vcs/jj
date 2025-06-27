@@ -23,12 +23,12 @@ use jj_lib::revset::RevsetFilterPredicate;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
+use crate::cli_util::CommandHelper;
 use crate::cli_util::print_conflicted_paths;
 use crate::cli_util::print_snapshot_stats;
-use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
-use crate::diff_util::get_copy_records;
 use crate::diff_util::DiffFormat;
+use crate::diff_util::get_copy_records;
 use crate::ui::Ui;
 
 /// Show high-level repo status [default alias: st]
@@ -288,9 +288,9 @@ async fn visit_collapsed_untracked_files(
 
 #[cfg(test)]
 mod test {
-    use testutils::repo_path;
     use testutils::TestRepo;
     use testutils::TestTreeBuilder;
+    use testutils::repo_path;
 
     use super::*;
 

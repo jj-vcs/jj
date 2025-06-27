@@ -19,9 +19,9 @@ use std::collections::HashSet;
 use std::slice;
 use std::sync::Arc;
 
+use futures::StreamExt as _;
 use futures::future::try_join_all;
 use futures::try_join;
-use futures::StreamExt as _;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools as _;

@@ -21,10 +21,10 @@ use std::pin::Pin;
 
 use bstr::BString;
 use bstr::ByteSlice as _;
-use futures::stream::BoxStream;
-use futures::try_join;
 use futures::Stream;
 use futures::StreamExt as _;
+use futures::stream::BoxStream;
+use futures::try_join;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use tokio::io::AsyncRead;

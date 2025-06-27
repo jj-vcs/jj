@@ -27,8 +27,8 @@ use jj_lib::fsmonitor::WatchmanConfig;
 use jj_lib::local_working_copy::LocalWorkingCopy;
 
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::ui::Ui;
 
 #[derive(Subcommand, Clone, Debug)]
@@ -86,7 +86,7 @@ pub fn cmd_debug_watchman(
                 other_fsmonitor => {
                     return Err(user_error(format!(
                         r"This command does not support the currently enabled filesystem monitor: {other_fsmonitor:?}."
-                    )))
+                    )));
                 }
             };
             let wc = check_local_disk_wc(workspace_command.working_copy().as_any())?;

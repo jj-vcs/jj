@@ -19,8 +19,8 @@ use std::time::SystemTime;
 use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::ui::Ui;
 
 /// Run backend-dependent garbage collection.

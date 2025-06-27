@@ -673,8 +673,7 @@ fn assert_in_rebased_map(
             expected_old_commit.id().hex()
         )
     });
-    let new_commit = repo.store().get_commit(new_commit_id).unwrap().clone();
-    new_commit
+    repo.store().get_commit(new_commit_id).unwrap().clone()
 }
 
 pub fn assert_rebased_onto(

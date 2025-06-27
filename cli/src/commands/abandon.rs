@@ -24,11 +24,11 @@ use jj_lib::revset::RevsetExpression;
 use jj_lib::rewrite::RewriteRefsOptions;
 use tracing::instrument;
 
+use crate::cli_util::CommandHelper;
+use crate::cli_util::RevisionArg;
 #[cfg(feature = "git")]
 use crate::cli_util::has_tracked_remote_bookmarks;
 use crate::cli_util::print_updated_commits;
-use crate::cli_util::CommandHelper;
-use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::ui::Ui;

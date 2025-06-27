@@ -14,10 +14,10 @@
 
 #![allow(missing_docs)]
 
-use std::collections::hash_map::Entry;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::hash_map::Entry;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fs;
@@ -56,8 +56,8 @@ use crate::index::IndexReadError;
 use crate::index::IndexStore;
 use crate::index::MutableIndex;
 use crate::index::ReadonlyIndex;
-use crate::merge::trivial_merge;
 use crate::merge::MergeBuilder;
+use crate::merge::trivial_merge;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::op_heads_store;
@@ -89,12 +89,12 @@ use crate::revset;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetIteratorExt as _;
-use crate::rewrite::merge_commit_trees;
-use crate::rewrite::rebase_commit_with_options;
 use crate::rewrite::CommitRewriter;
 use crate::rewrite::RebaseOptions;
 use crate::rewrite::RebasedCommit;
 use crate::rewrite::RewriteRefsOptions;
+use crate::rewrite::merge_commit_trees;
+use crate::rewrite::rebase_commit_with_options;
 use crate::settings::UserSettings;
 use crate::signing::SignInitError;
 use crate::signing::Signer;

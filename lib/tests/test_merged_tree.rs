@@ -42,13 +42,13 @@ use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::tree_builder::TreeBuilder;
 use pollster::FutureExt as _;
 use pretty_assertions::assert_eq;
+use testutils::TestRepo;
 use testutils::create_single_tree;
 use testutils::create_tree;
 use testutils::repo_path;
 use testutils::repo_path_buf;
 use testutils::repo_path_component;
 use testutils::write_file;
-use testutils::TestRepo;
 
 fn file_value(file_id: &FileId) -> TreeValue {
     TreeValue::File {
