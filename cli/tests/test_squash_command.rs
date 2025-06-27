@@ -1560,7 +1560,7 @@ fn test_squash_from_to_restore_descendants() {
     Parent commit (@-)      : mzvwutvl 4e3db108 c | (no description set)
     [EOF]
     ");
-    // WILL CHANGE NEXT COMMIT: b should now be empty, but isn't.
+    // b is now empty
     insta::assert_snapshot!(run_log(), @"
     @    f25876e1c27b f
     ├─╮  A b
@@ -1602,7 +1602,8 @@ fn test_squash_from_to_restore_descendants() {
 
     // Squashing from grandchild to grandparent with `--keep-emptied` also has
     // several different behaviors we could choose from. Instead of choosing,
-    // we forbid this behavior entirely.
+    // we forbid this behavior entirely. See comment in
+    // [`jj_lib::rewrite::squash_commits`].
     work_dir
         .run_jj(["operation", "restore", &beginning])
         .success();
@@ -1619,30 +1620,6 @@ fn test_squash_from_to_restore_descendants() {
     Working copy  (@) now at: kpqxywon e68a1aeb f | (no description set)
     Parent commit (@-)      : yostqsxw d748f816 e | (no description set)
     Parent commit (@-)      : mzvwutvl 4cc7a349 c | (empty) (no description set)
-    [EOF]
-    ");
-    // WILL CHANGE NEXT COMMIT: This is one of several possible behaviors here,
-    // perhaps a more reasonable one, but it is not consistent with what we consider
-    // the "reasonable" in the cases above and below. So, we will forbid
-    // squashing in this case entirely in the next commit, since any choice
-    // would have confusing aspects.
-    insta::assert_snapshot!(run_log(), @"
-    @    e68a1aeb8dc5 f
-    ├─╮  A c
-    │ │  A f
-    │ ○  4cc7a3491d5f c (empty)
-    │ ○  5e52be79326a b
-    │ │  A b
-    │ │  D c
-    ○ │  d748f816e719 e
-    │ │  A e
-    ○ │  182d71be8f76 d
-    ├─╯  D c
-    │    A d
-    ○  14d719ec8da2 a
-    │  A a
-    │  A c
-    ◆  000000000000 (empty)
     [EOF]
     ");
 
@@ -1662,36 +1639,9 @@ fn test_squash_from_to_restore_descendants() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 5 descendant commits (while preserving their content)
-    Working copy  (@) now at: kpqxywon b7a0c1f5 f | (no description set)
-    Parent commit (@-)      : yostqsxw b26366b4 e | (no description set)
-    Parent commit (@-)      : mzvwutvl ec212e80 c | (no description set)
-    [EOF]
-    ");
-    // WILL CHANGE NEXT COMMIT: This is one of several possible behaviors here.
-    // The user might expect `b` and `d` to have empty diffs, which is not the
-    // case. We will forbid squashing in this case in the next commit..
-    insta::assert_snapshot!(run_log(), @"
-    @    b7a0c1f57f33 f
-    ├─╮  A b
-    │ │  A d
-    │ │  A f
-    │ ○  ec212e80dcd7 c
-    │ │  A b
-    │ │  A c
-    │ ○  6b7ecfcb7195 b
-    │ │  D b
-    │ │  D d
-    ○ │  b26366b44ef5 e
-    │ │  A d
-    │ │  A e
-    ○ │  11ce896ba6fa d
-    ├─╯  D b
-    │    D d
-    ○  a92a7b2bca0b a
-    │  A a
-    │  A b
-    │  A d
-    ◆  000000000000 (empty)
+    Working copy  (@) now at: kpqxywon bd91f812 f | (no description set)
+    Parent commit (@-)      : yostqsxw c201a0d0 e | (no description set)
+    Parent commit (@-)      : mzvwutvl 07d7a74d c | (no description set)
     [EOF]
     ");
 
@@ -1710,25 +1660,25 @@ fn test_squash_from_to_restore_descendants() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 5 descendant commits (while preserving their content)
-    Working copy  (@) now at: kpqxywon c6826494 f | (no description set)
-    Parent commit (@-)      : yostqsxw de0638e5 e | (no description set)
-    Parent commit (@-)      : mzvwutvl 042cb4e4 c | (no description set)
+    Working copy  (@) now at: kpqxywon cbbac1d7 f | (no description set)
+    Parent commit (@-)      : yostqsxw 300414fc e | (no description set)
+    Parent commit (@-)      : mzvwutvl 7e376226 c | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(run_log(), @"
-    @    c6826494e062 f
+    @    cbbac1d78547 f
     ├─╮  A f
-    │ ○  042cb4e43018 c
+    │ ○  7e37622615e1 c
     │ │  A c
-    │ ○  607835f81f49 b
+    │ ○  7652b687923c b
     │ │  A a
     │ │  A b
-    ○ │  de0638e59243 e
+    ○ │  300414fcc37e e
     │ │  A e
-    ○ │  4f58f74d8f6b d
+    ○ │  6c5cc8583d6c d
     ├─╯  A a
     │    A d
-    ○  705b75c84a2f a (empty)
+    ○  8f4586fb90e3 a (empty)
     ◆  000000000000 (empty)
     [EOF]
     ");
