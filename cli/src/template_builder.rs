@@ -2156,7 +2156,7 @@ mod tests {
     use crate::generic_templater;
     use crate::generic_templater::GenericTemplateLanguage;
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, serde::Serialize)]
     struct Context;
 
     type TestTemplateLanguage = GenericTemplateLanguage<'static, Context>;
@@ -3535,13 +3535,13 @@ mod tests {
             env.render_ok("json(timestamp_range)"),
             @r#"{"start":"1970-01-01T00:00:00Z","end":"1970-01-01T23:00:00-01:00"}"#);
 
-        insta::assert_snapshot!(env.parse_err(r#"json(self)"#), @r"
+        insta::assert_snapshot!(env.parse_err(r#"json(string_list.map(|s| s))"#), @r"
          --> 1:6
           |
-        1 | json(self)
-          |      ^--^
+        1 | json(string_list.map(|s| s))
+          |      ^--------------------^
           |
-          = Expected expression of type `Serialize`, but actual type is `Self`
+          = Expected expression of type `Serialize`, but actual type is `ListTemplate`
         ");
     }
 

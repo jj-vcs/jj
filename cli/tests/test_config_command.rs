@@ -336,6 +336,27 @@ fn test_config_list_origin() {
     [38;5;2m<<config_list name::test-key>>[39m<<config_list:: = >>[38;5;3m<<config_list value::"test-cli-val">>[39m<<config_list:: # >>[38;5;4m<<config_list source::cli>>[39m<<config_list::>>
     [EOF]
     "#);
+
+    let output = work_dir.run_jj([
+        "config",
+        "list",
+        r#"-Tjson(self) ++ "\n""#,
+        "--include-defaults",
+        "--include-overridden",
+        "--config=test-key=test-cli-val",
+        "test-key",
+    ]);
+    insta::with_settings!({
+        // Windows paths will be escaped in JSON syntax, which cannot be
+        // normalized as $TEST_ENV.
+        filters => [(r#""path":"[^"]*","#, r#""path":"<redacted>","#)],
+    }, {
+        insta::assert_snapshot!(output, @r#"
+        {"name":"test-key","value":"test-val","source":"user","path":"<redacted>","is_overridden":true}
+        {"name":"test-key","value":"test-cli-val","source":"cli","path":null,"is_overridden":false}
+        [EOF]
+        "#);
+    });
 }
 
 #[test]

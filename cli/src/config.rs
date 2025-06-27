@@ -38,6 +38,7 @@ use jj_lib::config::StackedConfig;
 use jj_lib::dsl_util;
 use regex::Captures;
 use regex::Regex;
+use serde::Serialize as _;
 use tracing::instrument;
 
 use crate::command_error::CommandError;
@@ -95,18 +96,42 @@ pub fn to_serializable_value(value: ConfigValue) -> toml::Value {
 }
 
 /// Configuration variable with its source information.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct AnnotatedValue {
     /// Dotted name path to the configuration variable.
+    #[serde(serialize_with = "serialize_name")]
     pub name: ConfigNamePathBuf,
     /// Configuration value.
+    #[serde(serialize_with = "serialize_value")]
     pub value: ConfigValue,
     /// Source of the configuration value.
+    #[serde(serialize_with = "serialize_source")]
     pub source: ConfigSource,
     /// Path to the source file, if available.
     pub path: Option<PathBuf>,
     /// True if this value is overridden in higher precedence layers.
     pub is_overridden: bool,
+}
+
+fn serialize_name<S>(name: &ConfigNamePathBuf, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    name.to_string().serialize(serializer)
+}
+
+fn serialize_value<S>(value: &ConfigValue, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    to_serializable_value(value.clone()).serialize(serializer)
+}
+
+fn serialize_source<S>(source: &ConfigSource, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    source.to_string().serialize(serializer)
 }
 
 /// Collects values under the given `filter_prefix` name recursively, from all

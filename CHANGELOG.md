@@ -58,6 +58,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   minutes depending on the number of merge commits. The indexing command UI is
   subject to change. [#4674](https://github.com/jj-vcs/jj/issues/4674)
 
+* `jj config list` now supports `-T'json(self) ++ "\n"'` serialization output.
+
 * `jj file show` now accepts `-T`/`--template` option to insert file metadata.
 
 * The new configuration option `git.colocate=boolean` controls whether or not

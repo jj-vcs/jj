@@ -31,6 +31,7 @@ use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
 use crate::templater::ListTemplate;
 use crate::templater::Template;
+use crate::templater::TemplatePropertyExt as _;
 
 /// General-purpose template language for basic value types.
 ///
@@ -43,7 +44,10 @@ pub struct GenericTemplateLanguage<'a, C> {
     build_fn_table: GenericTemplateBuildFnTable<'a, C>,
 }
 
-impl<'a, C> GenericTemplateLanguage<'a, C> {
+impl<'a, C> GenericTemplateLanguage<'a, C>
+where
+    C: serde::Serialize + 'a,
+{
     /// Sets up environment with no keywords.
     ///
     /// New keyword functions can be registered by `add_keyword()`.
@@ -89,7 +93,10 @@ impl<'a, C> GenericTemplateLanguage<'a, C> {
     }
 }
 
-impl<'a, C> TemplateLanguage<'a> for GenericTemplateLanguage<'a, C> {
+impl<'a, C> TemplateLanguage<'a> for GenericTemplateLanguage<'a, C>
+where
+    C: serde::Serialize + 'a,
+{
     type Property = GenericTemplatePropertyKind<'a, C>;
 
     fn settings(&self) -> &UserSettings {
@@ -161,7 +168,10 @@ macro_rules! impl_self_property_wrapper {
 
 pub(crate) use impl_self_property_wrapper;
 
-impl<'a, C> CoreTemplatePropertyVar<'a> for GenericTemplatePropertyKind<'a, C> {
+impl<'a, C> CoreTemplatePropertyVar<'a> for GenericTemplatePropertyKind<'a, C>
+where
+    C: serde::Serialize + 'a,
+{
     fn wrap_template(template: Box<dyn Template + 'a>) -> Self {
         Self::Core(CoreTemplatePropertyKind::wrap_template(template))
     }
@@ -201,7 +211,7 @@ impl<'a, C> CoreTemplatePropertyVar<'a> for GenericTemplatePropertyKind<'a, C> {
     fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
         match self {
             Self::Core(property) => property.try_into_serialize(),
-            Self::Self_(_) => None,
+            Self::Self_(property) => Some(property.into_serialize()),
         }
     }
 
@@ -245,6 +255,10 @@ pub type GenericTemplateBuildKeywordFnMap<'a, C> =
 
 /// Symbol table of methods available in the general-purpose template.
 struct GenericTemplateBuildFnTable<'a, C> {
-    core: CoreTemplateBuildFnTable<'a, GenericTemplateLanguage<'a, C>>,
+    core: CoreTemplateBuildFnTable<
+        'a,
+        GenericTemplateLanguage<'a, C>,
+        GenericTemplatePropertyKind<'a, C>,
+    >,
     keywords: GenericTemplateBuildKeywordFnMap<'a, C>,
 }
