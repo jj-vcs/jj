@@ -71,6 +71,29 @@ fn is_bare_string(value_str: &str) -> bool {
     }
 }
 
+/// Converts [`ConfigValue`] (or [`toml_edit::Value`]) to [`toml::Value`] which
+/// implements [`serde::Serialize`].
+pub fn to_serializable_value(value: ConfigValue) -> toml::Value {
+    match value {
+        ConfigValue::String(v) => toml::Value::String(v.into_value()),
+        ConfigValue::Integer(v) => toml::Value::Integer(v.into_value()),
+        ConfigValue::Float(v) => toml::Value::Float(v.into_value()),
+        ConfigValue::Boolean(v) => toml::Value::Boolean(v.into_value()),
+        ConfigValue::Datetime(v) => toml::Value::Datetime(v.into_value()),
+        ConfigValue::Array(array) => {
+            let array = array.into_iter().map(to_serializable_value).collect();
+            toml::Value::Array(array)
+        }
+        ConfigValue::InlineTable(table) => {
+            let table = table
+                .into_iter()
+                .map(|(k, v)| (k, to_serializable_value(v)))
+                .collect();
+            toml::Value::Table(table)
+        }
+    }
+}
+
 /// Configuration variable with its source information.
 #[derive(Clone, Debug)]
 pub struct AnnotatedValue {

@@ -111,6 +111,7 @@ textwrap = "0.16.2"
 thiserror = "2.0.12"
 timeago = { version = "0.4.2", default-features = false }
 tokio = { version = "1.47.1", features = ["io-util"] }
+toml = "0.9.5"
 toml_edit = { version = "0.23.3", features = ["serde"] }
 tracing = "0.1.41"
 tracing-chrome = "0.7.2"

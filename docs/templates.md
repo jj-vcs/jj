@@ -218,7 +218,7 @@ The following methods are defined.
 
 ### `ConfigValue` type
 
-_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 
 This type can be printed in TOML syntax. The following methods are defined.
 

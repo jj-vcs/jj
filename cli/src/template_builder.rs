@@ -30,6 +30,7 @@ use jj_lib::time_util::DatePattern;
 use serde::Deserialize;
 use serde::de::IntoDeserializer as _;
 
+use crate::config;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
 use crate::template_parser;
@@ -310,7 +311,9 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Boolean(property) => Some(property.into_serialize()),
             Self::Integer(property) => Some(property.into_serialize()),
             Self::IntegerOpt(property) => Some(property.into_serialize()),
-            Self::ConfigValue(_) => None,
+            Self::ConfigValue(property) => {
+                Some(property.map(config::to_serializable_value).into_serialize())
+            }
             Self::Signature(property) => Some(property.into_serialize()),
             Self::Email(property) => Some(property.into_serialize()),
             Self::SizeHint(property) => Some(property.into_serialize()),
@@ -3482,6 +3485,9 @@ mod tests {
         env.add_keyword("string_list", || {
             literal(vec!["foo".to_owned(), "bar".to_owned()])
         });
+        env.add_keyword("config_value_table", || {
+            literal(ConfigValue::from_iter([("foo", "bar")]))
+        });
         env.add_keyword("signature", || {
             literal(Signature {
                 name: "Test User".to_owned(),
@@ -3518,6 +3524,7 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("json(false)"), @"false");
         insta::assert_snapshot!(env.render_ok("json(42)"), @"42");
         insta::assert_snapshot!(env.render_ok("json(none_i64)"), @"null");
+        insta::assert_snapshot!(env.render_ok(r#"json(config_value_table)"#), @r#"{"foo":"bar"}"#);
         insta::assert_snapshot!(env.render_ok("json(email)"), @r#""foo@bar""#);
         insta::assert_snapshot!(
             env.render_ok("json(signature)"),
