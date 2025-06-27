@@ -493,20 +493,24 @@ pub(super) struct RevWalkGenerationRangeImpl<P> {
 }
 
 impl<P: Ord> RevWalkGenerationRangeImpl<P> {
-    fn enqueue_wanted_adjacents<I>(&mut self, index: &I, pos: P, gen: RevWalkItemGenerationRange)
-    where
+    fn enqueue_wanted_adjacents<I>(
+        &mut self,
+        index: &I,
+        pos: P,
+        generation: RevWalkItemGenerationRange,
+    ) where
         I: RevWalkIndex<Position = P> + ?Sized,
     {
         // `gen.start` is incremented from 0, which should never overflow
-        if gen.start + 1 >= self.generation_end {
+        if generation.start + 1 >= self.generation_end {
             return;
         }
-        let succ_gen = RevWalkItemGenerationRange {
-            start: gen.start + 1,
-            end: gen.end.saturating_add(1),
+        let succ_generation = RevWalkItemGenerationRange {
+            start: generation.start + 1,
+            end: generation.end.saturating_add(1),
         };
         self.wanted_queue
-            .extend(index.adjacent_positions(pos), Reverse(succ_gen));
+            .extend(index.adjacent_positions(pos), Reverse(succ_generation));
     }
 }
 
@@ -526,13 +530,13 @@ impl<I: RevWalkIndex + ?Sized> RevWalk<I> for RevWalkGenerationRangeImpl<I::Posi
                 // For queries like `:(heads-)`, `gen.end` is close to `u32::MAX`, so
                 // ranges can be merged into one. If this is still slow, maybe we can add
                 // special case for upper/lower bounded ranges.
-                let Reverse(gen) = x.value;
-                some_in_range |= gen.contains_end(self.generation_end);
-                pending_gen = if let Some(merged) = pending_gen.try_merge_end(gen) {
+                let Reverse(generation) = x.value;
+                some_in_range |= generation.contains_end(self.generation_end);
+                pending_gen = if let Some(merged) = pending_gen.try_merge_end(generation) {
                     merged
                 } else {
                     self.enqueue_wanted_adjacents(index, item.pos, pending_gen);
-                    gen
+                    generation
                 };
             }
             self.enqueue_wanted_adjacents(index, item.pos, pending_gen);
@@ -1073,7 +1077,10 @@ mod tests {
         // Full generation bounds
         assert_eq!(
             walk_commit_ids(&[&id_0].map(Clone::clone), &visible_heads, 0..u32::MAX),
-            [&id_0, &id_1, &id_2, &id_3, &id_4, &id_5, &id_6, &id_7, &id_8].map(Clone::clone)
+            [
+                &id_0, &id_1, &id_2, &id_3, &id_4, &id_5, &id_6, &id_7, &id_8
+            ]
+            .map(Clone::clone)
         );
 
         // Simple generation bounds

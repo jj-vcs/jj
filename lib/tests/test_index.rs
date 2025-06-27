@@ -160,11 +160,15 @@ fn test_index_commits_criss_cross() {
     let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
     let mut left_commits = vec![graph_builder.initial_commit()];
     let mut right_commits = vec![graph_builder.initial_commit()];
-    for gen in 1..num_generations {
-        let new_left =
-            graph_builder.commit_with_parents(&[&left_commits[gen - 1], &right_commits[gen - 1]]);
-        let new_right =
-            graph_builder.commit_with_parents(&[&left_commits[gen - 1], &right_commits[gen - 1]]);
+    for generation in 1..num_generations {
+        let new_left = graph_builder.commit_with_parents(&[
+            &left_commits[generation - 1],
+            &right_commits[generation - 1],
+        ]);
+        let new_right = graph_builder.commit_with_parents(&[
+            &left_commits[generation - 1],
+            &right_commits[generation - 1],
+        ]);
         left_commits.push(new_left);
         right_commits.push(new_right);
     }
@@ -181,32 +185,48 @@ fn test_index_commits_criss_cross() {
     assert_eq!(stats.max_generation_number, num_generations as u32);
 
     // Check generation numbers
-    for gen in 0..num_generations {
+    for generation in 0..num_generations {
         assert_eq!(
-            index.generation_number(left_commits[gen].id()).unwrap(),
-            (gen as u32) + 1
+            index
+                .generation_number(left_commits[generation].id())
+                .unwrap(),
+            (generation as u32) + 1
         );
         assert_eq!(
-            index.generation_number(right_commits[gen].id()).unwrap(),
-            (gen as u32) + 1
+            index
+                .generation_number(right_commits[generation].id())
+                .unwrap(),
+            (generation as u32) + 1
         );
     }
 
     // The left and right commits of the same generation should not be ancestors of
     // each other
-    for gen in 0..num_generations {
-        assert!(!index.is_ancestor(left_commits[gen].id(), right_commits[gen].id()));
-        assert!(!index.is_ancestor(right_commits[gen].id(), left_commits[gen].id()));
+    for generation in 0..num_generations {
+        assert!(!index.is_ancestor(
+            left_commits[generation].id(),
+            right_commits[generation].id()
+        ));
+        assert!(!index.is_ancestor(
+            right_commits[generation].id(),
+            left_commits[generation].id()
+        ));
     }
 
     // Both sides of earlier generations should be ancestors. Check a few different
     // earlier generations.
-    for gen in 1..num_generations {
+    for generation in 1..num_generations {
         for ancestor_side in &[&left_commits, &right_commits] {
             for descendant_side in &[&left_commits, &right_commits] {
-                assert!(index.is_ancestor(ancestor_side[0].id(), descendant_side[gen].id()));
-                assert!(index.is_ancestor(ancestor_side[gen - 1].id(), descendant_side[gen].id()));
-                assert!(index.is_ancestor(ancestor_side[gen / 2].id(), descendant_side[gen].id()));
+                assert!(index.is_ancestor(ancestor_side[0].id(), descendant_side[generation].id()));
+                assert!(index.is_ancestor(
+                    ancestor_side[generation - 1].id(),
+                    descendant_side[generation].id()
+                ));
+                assert!(index.is_ancestor(
+                    ancestor_side[generation / 2].id(),
+                    descendant_side[generation].id()
+                ));
             }
         }
     }
