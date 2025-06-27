@@ -1519,21 +1519,19 @@ fn test_squash_from_to_restore_descendants() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 5 descendant commits (while preserving their content)
-    Working copy  (@) now at: kpqxywon f25876e1 f | (no description set)
+    Working copy  (@) now at: kpqxywon 452e8669 f | (no description set)
     Parent commit (@-)      : yostqsxw bf3abc1c e | (no description set)
-    Parent commit (@-)      : mzvwutvl 4e3db108 c | (no description set)
+    Parent commit (@-)      : mzvwutvl 6a439c6c c | (no description set)
     [EOF]
     ");
-    // WILL CHANGE NEXT COMMIT: b should now be empty, but isn't.
+    // b is now empty
     insta::assert_snapshot!(run_log(), @r"
-    @    f25876e1c27b f
+    @    452e86696ab5 f
     ├─╮  A b
     │ │  A f
-    │ ○  4e3db108b4ab c
-    │ │  A b
+    │ ○  6a439c6c3e93 c
     │ │  A c
-    │ ○  c8a5db5d033d b
-    │ │  D b
+    │ ○  4a3f4ad6571d b (empty)
     ○ │  bf3abc1c878e e
     │ │  A e
     ○ │  f4921ae685ee d
@@ -1548,6 +1546,7 @@ fn test_squash_from_to_restore_descendants() {
     let output = work_dir.run_jj(["file", "list", "-r=b"]);
     insta::assert_snapshot!(output, @r"
     a
+    b
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "list", "-r=c"]);
@@ -1566,7 +1565,8 @@ fn test_squash_from_to_restore_descendants() {
 
     // Squashing from grandchild to grandparent with `--keep-emptied` also has
     // several different behaviors we could choose from. Instead of choosing,
-    // we forbid this behavior entirely.
+    // we forbid this behavior entirely. See comment in
+    // [`jj_lib::rewrite::squash_commits`].
     work_dir
         .run_jj(["operation", "restore", &beginning])
         .success();
@@ -1579,35 +1579,11 @@ fn test_squash_from_to_restore_descendants() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 5 descendant commits (while preserving their content)
-    Working copy  (@) now at: kpqxywon e68a1aeb f | (no description set)
-    Parent commit (@-)      : yostqsxw d748f816 e | (no description set)
-    Parent commit (@-)      : mzvwutvl 4cc7a349 c | (empty) (no description set)
+    Error: Not allowed to partially squash a commit 4fb9706b0f47 into a non-immediate ancestor 7468364c89fc (immediate parent would be OK) with `--restore-descendants`
+    Hint: Full squash (without --keep-emptied, paths specifiers, etc.) is allowed. Split followed by `squash --restore-descendants` is an option, but note that the order of the split may matter.
+    Hint: The reason for this restriction is that, when squashing into an ancestor, one expects the diff of the source commit to change, but the snapshot of it to stay the same. In this situation, these two expectations contradict each other.
     [EOF]
-    ");
-    // WILL CHANGE NEXT COMMIT: This is one of several possible behaviors here,
-    // perhaps a more reasonable one, but it is not consistent with what we consider
-    // the "reasonable" in the cases above and below. So, we will forbid
-    // squashing in this case entirely in the next commit, since any choice
-    // would have confusing aspects.
-    insta::assert_snapshot!(run_log(), @r"
-    @    e68a1aeb8dc5 f
-    ├─╮  A c
-    │ │  A f
-    │ ○  4cc7a3491d5f c (empty)
-    │ ○  5e52be79326a b
-    │ │  A b
-    │ │  D c
-    ○ │  d748f816e719 e
-    │ │  A e
-    ○ │  182d71be8f76 d
-    ├─╯  D c
-    │    A d
-    ○  14d719ec8da2 a
-    │  A a
-    │  A c
-    ◆  000000000000 (empty)
-    [EOF]
+    [exit status: 1]
     ");
 
     // squash into parent with `--keep-emptied` and two sources also has several
@@ -1625,38 +1601,10 @@ fn test_squash_from_to_restore_descendants() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Rebased 5 descendant commits (while preserving their content)
-    Working copy  (@) now at: kpqxywon b7a0c1f5 f | (no description set)
-    Parent commit (@-)      : yostqsxw b26366b4 e | (no description set)
-    Parent commit (@-)      : mzvwutvl ec212e80 c | (no description set)
+    Error: Unimplemented: partially squashing a commit b1e1eea2f666 into parent 7468364c89fc together with other `--from` commits and with `--restore-descendants` is not implemented
+    Hint: Full squash (without --keep-emptied, paths specifiers, etc.) is allowed. Split followed by `squash --restore-descendants` is an option, but note that the order of the split may matter.
     [EOF]
-    ");
-    // WILL CHANGE NEXT COMMIT: This is one of several possible behaviors here.
-    // The user might expect `b` and `d` to have empty diffs, which is not the
-    // case. We will forbid squashing in this case in the next commit..
-    insta::assert_snapshot!(run_log(), @r"
-    @    b7a0c1f57f33 f
-    ├─╮  A b
-    │ │  A d
-    │ │  A f
-    │ ○  ec212e80dcd7 c
-    │ │  A b
-    │ │  A c
-    │ ○  6b7ecfcb7195 b
-    │ │  D b
-    │ │  D d
-    ○ │  b26366b44ef5 e
-    │ │  A d
-    │ │  A e
-    ○ │  11ce896ba6fa d
-    ├─╯  D b
-    │    D d
-    ○  a92a7b2bca0b a
-    │  A a
-    │  A b
-    │  A d
-    ◆  000000000000 (empty)
-    [EOF]
+    [exit status: 1]
     ");
 
     // Let's take a break from the confusing cases. `squash --restore-descendants
@@ -1674,25 +1622,25 @@ fn test_squash_from_to_restore_descendants() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits (while preserving their content)
-    Working copy  (@) now at: kpqxywon 0b2d5c8b f | (no description set)
-    Parent commit (@-)      : yostqsxw de0638e5 e | (no description set)
-    Parent commit (@-)      : mzvwutvl 77303a4f c | (no description set)
+    Working copy  (@) now at: kpqxywon 929c8e08 f | (no description set)
+    Parent commit (@-)      : yostqsxw 300414fc e | (no description set)
+    Parent commit (@-)      : mzvwutvl 77d1f9ba c | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(run_log(), @r"
-    @    0b2d5c8b0a2f f
+    @    929c8e0867d0 f
     ├─╮  A f
-    │ ○  77303a4f5f80 c
+    │ ○  77d1f9ba6045 c
     │ │  A c
-    │ ○  b51e7a9d2e11 b
+    │ ○  7d0896ee0896 b
     │ │  A a
     │ │  A b
-    ○ │  de0638e59243 e
+    ○ │  300414fcc37e e
     │ │  A e
-    ○ │  4f58f74d8f6b d
+    ○ │  6c5cc8583d6c d
     ├─╯  A a
     │    A d
-    ○  705b75c84a2f a (empty)
+    ○  8f4586fb90e3 a (empty)
     ◆  000000000000 (empty)
     [EOF]
     ");
