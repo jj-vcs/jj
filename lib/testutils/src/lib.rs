@@ -83,15 +83,17 @@ pub mod test_backend;
 // somewhat tricky because `gix` looks at system and user configuration, and
 // `GitBackend` also calls into `git(1)` for things like garbage collection.
 pub fn hermetic_git() {
-    // Prevent GitBackend from loading user and system configurations. For
-    // gitoxide API use in tests, Config::isolated() is probably better.
-    env::set_var("GIT_CONFIG_SYSTEM", "/dev/null");
-    env::set_var("GIT_CONFIG_GLOBAL", "/dev/null");
-    // gitoxide uses "main" as the default branch name, whereas git
-    // uses "master".
-    env::set_var("GIT_CONFIG_KEY_0", "init.defaultBranch");
-    env::set_var("GIT_CONFIG_VALUE_0", "master");
-    env::set_var("GIT_CONFIG_COUNT", "1");
+    unsafe {
+        // Prevent GitBackend from loading user and system configurations. For
+        // gitoxide API use in tests, Config::isolated() is probably better.
+        env::set_var("GIT_CONFIG_SYSTEM", "/dev/null");
+        env::set_var("GIT_CONFIG_GLOBAL", "/dev/null");
+        // gitoxide uses "main" as the default branch name, whereas git
+        // uses "master".
+        env::set_var("GIT_CONFIG_KEY_0", "init.defaultBranch");
+        env::set_var("GIT_CONFIG_VALUE_0", "master");
+        env::set_var("GIT_CONFIG_COUNT", "1");
+    }
 }
 
 pub fn new_temp_dir() -> TempDir {
