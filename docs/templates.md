@@ -96,6 +96,8 @@ The following functions are defined.
 
 ### `AnnotationLine` type
 
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
+
 The following methods are defined.
 
 * `.commit() -> Commit`: Commit responsible for changing the relevant line.
@@ -106,9 +108,13 @@ The following methods are defined.
 
 ### `Boolean` type
 
+_Conversion: `Boolean`: yes, `Serialize`: yes, `Template`: yes_
+
 No methods are defined. Can be constructed with `false` or `true` literal.
 
 ### `Commit` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: no_
 
 This type cannot be printed. The following methods are defined.
 
@@ -151,6 +157,8 @@ This type cannot be printed. The following methods are defined.
 
 ### `ChangeId` type
 
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+
 The following methods are defined.
 
 * `.normal_hex() -> String`: Normal hex representation (0-9a-f) instead of the
@@ -160,12 +168,16 @@ The following methods are defined.
 
 ### `CommitId` type
 
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+
 The following methods are defined.
 
 * `.short([len: Integer]) -> String`
 * `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Shortest unique prefix.
 
 ### `CommitRef` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 
 The following methods are defined.
 
@@ -190,6 +202,8 @@ The following methods are defined.
 
 ### `ConfigValue` type
 
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
+
 This type can be printed in TOML syntax. The following methods are defined.
 
 * `.as_boolean() -> Boolean`: Extract boolean.
@@ -199,6 +213,8 @@ This type can be printed in TOML syntax. The following methods are defined.
 * `.as_string_list() -> List<String>`: Extract list of strings.
 
 ### `CryptographicSignature` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
 
 The following methods are defined.
 
@@ -223,6 +239,8 @@ The following methods are defined.
 
 ### `DiffStats` type
 
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
+
 This type can be printed as a histogram of the changes. The following methods
 are defined.
 
@@ -230,6 +248,8 @@ are defined.
 * `.total_removed() -> Integer`: Total number of deletions.
 
 ### `Email` type
+
+_Conversion: `Boolean`: yes, `Serialize`: yes, `Template`: yes_
 
 The email field of a signature may or may not look like an email address. It may
 be empty, may not contain the symbol `@`, and could in principle contain
@@ -244,9 +264,13 @@ The following methods are defined.
 
 ### `Integer` type
 
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+
 No methods are defined.
 
 ### `List` type
+
+_Conversion: `Boolean`: yes, `Serialize`: maybe, `Template`: maybe_
 
 A list can be implicitly converted to `Boolean`. The following methods are
 defined.
@@ -268,11 +292,15 @@ The following methods are defined. See also the `List` type.
 
 ### `ListTemplate` type
 
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
+
 The following methods are defined. See also the `List` type.
 
 * `.join(separator: Template) -> Template`
 
 ### `Operation` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: no_
 
 This type cannot be printed. The following methods are defined.
 
@@ -287,11 +315,15 @@ This type cannot be printed. The following methods are defined.
 
 ### `OperationId` type
 
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+
 The following methods are defined.
 
 * `.short([len: Integer]) -> String`
 
 ### `Option` type
+
+_Conversion: `Boolean`: yes, `Serialize`: maybe, `Template`: maybe_
 
 An option can be implicitly converted to `Boolean` denoting whether the
 contained value is set. If set, all methods of the contained value can be
@@ -306,11 +338,15 @@ A `String`, or any expression that can be converted to `Template`.
 
 ### `RefSymbol` type
 
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+
 [A `String` type](#string-type), but is formatted as revset symbol by quoting
 and escaping if necessary. Unlike strings, this cannot be implicitly converted
 to `Boolean`.
 
 ### `RepoPath` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 
 A slash-separated path relative to the repository root. The following methods
 are defined.
@@ -331,6 +367,8 @@ An expression that can be serialized in machine-readable format such as JSON.
 
 ### `ShortestIdPrefix` type
 
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+
 The following methods are defined.
 
 * `.prefix() -> String`
@@ -340,6 +378,8 @@ The following methods are defined.
 
 ### `Signature` type
 
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+
 The following methods are defined.
 
 * `.name() -> String`
@@ -347,6 +387,8 @@ The following methods are defined.
 * `.timestamp() -> Timestamp`
 
 ### `SizeHint` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: no_
 
 This type cannot be printed. The following methods are defined.
 
@@ -358,6 +400,8 @@ This type cannot be printed. The following methods are defined.
   `.upper() == 0`.
 
 ### `String` type
+
+_Conversion: `Boolean`: yes, `Serialize`: yes, `Template`: yes_
 
 A string can be implicitly converted to `Boolean`. The following methods are
 defined.
@@ -408,9 +452,13 @@ inside a single-quoted string literal.
 
 ### `Template` type
 
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
+
 Most types can be implicitly converted to `Template`. No methods are defined.
 
 ### `Timestamp` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 
 The following methods are defined.
 
@@ -424,6 +472,8 @@ The following methods are defined.
 
 ### `TimestampRange` type
 
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+
 The following methods are defined.
 
 * `.start() -> Timestamp`
@@ -432,12 +482,16 @@ The following methods are defined.
 
 ### `Trailer` type
 
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
+
 The following methods are defined.
 
 * `.key() -> String`
 * `.value() -> String`
 
 ### `TreeDiff` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
 
 This type cannot be printed. The following methods are defined.
 
@@ -450,6 +504,8 @@ This type cannot be printed. The following methods are defined.
 
 ### `TreeDiffEntry` type
 
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
+
 This type cannot be printed. The following methods are defined.
 
 * `.path() -> RepoPath`: Path to the entry. If the entry is a copy/rename, this
@@ -460,6 +516,8 @@ This type cannot be printed. The following methods are defined.
 * `.target() -> TreeEntry`: The target (or right) entry.
 
 ### `TreeEntry` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
 
 This type cannot be printed. The following methods are defined.
 
