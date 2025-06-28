@@ -133,9 +133,8 @@ pub(crate) fn cmd_squash(
         .try_collect()?;
         destination = workspace_command
             .resolve_single_rev(ui, args.into.as_ref().unwrap_or(&RevisionArg::AT))?;
-        if sources.iter().any(|source| source.id() == destination.id()) {
-            return Err(user_error("Source and destination cannot be the same"));
-        }
+        // remove the destination from the sources
+        sources.retain(|source| source.id() != destination.id());
         // Reverse the set so we apply the oldest commits first. It shouldn't affect the
         // result, but it avoids creating transient conflicts and is therefore probably
         // a little faster.

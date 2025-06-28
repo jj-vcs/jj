@@ -473,13 +473,12 @@ fn test_squash_from_to() {
     [EOF]
     ");
 
-    // Errors out if source and destination are the same
+    // No-op if source and destination are the same
     let output = work_dir.run_jj(["squash", "--into", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Source and destination cannot be the same
+    Nothing changed.
     [EOF]
-    [exit status: 1]
     ");
 
     // Can squash from sibling, which results in the source being abandoned
@@ -569,6 +568,34 @@ fn test_squash_from_to() {
     let output = work_dir.run_jj(["file", "show", "file2", "-r", "d"]);
     insta::assert_snapshot!(output, @r"
     e
+    [EOF]
+    ");
+
+    // Can squash into the sources
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["squash", "--from", "e::f", "--into", "d"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: pkstwlsy 76baa567 (empty) (no description set)
+    Parent commit (@-)      : vruxwmqv 415e4069 d e f | (no description set)
+    [EOF]
+    ");
+    // The change has been removed from the source (the change pointed to by 'e'
+    // became empty and was abandoned)
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  76baa567ed0a (empty)
+    ○  415e40694e88 d e f
+    │ ○  ee0b260ffc44 c
+    │ ○  e31bf988d7c9 b
+    ├─╯
+    ○  e3e04beaf7d3 a
+    ◆  000000000000 (empty)
+    [EOF]
+    ");
+    // The change from the source has been applied
+    let output = work_dir.run_jj(["file", "show", "file2", "-r", "d"]);
+    insta::assert_snapshot!(output, @r"
+    f
     [EOF]
     ");
 }
