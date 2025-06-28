@@ -475,7 +475,7 @@ pub fn compute_move_commits(
 ) -> BackendResult<ComputedMoveCommits> {
     let target_commit_ids: IndexSet<CommitId>;
     let connected_target_commits: Vec<Commit>;
-    let connected_target_commits_internal_parents: HashMap<CommitId, Vec<CommitId>>;
+    let connected_target_commits_internal_parents: HashMap<CommitId, IndexSet<CommitId>>;
     let target_roots: HashSet<CommitId>;
 
     match &loc.target {
@@ -1030,15 +1030,15 @@ pub fn duplicate_commits_onto_parents(
 fn compute_internal_parents_within(
     target_commit_ids: &IndexSet<CommitId>,
     graph_commits: &[Commit],
-) -> HashMap<CommitId, Vec<CommitId>> {
-    let mut internal_parents: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
+) -> HashMap<CommitId, IndexSet<CommitId>> {
+    let mut internal_parents: HashMap<CommitId, IndexSet<CommitId>> = HashMap::new();
     for commit in graph_commits.iter().rev() {
         // The roots of the set will not have any parents found in `internal_parents`,
         // and will be stored as an empty vector.
-        let mut new_parents = vec![];
+        let mut new_parents = IndexSet::new();
         for old_parent in commit.parent_ids() {
             if target_commit_ids.contains(old_parent) {
-                new_parents.push(old_parent.clone());
+                new_parents.insert(old_parent.clone());
             } else if let Some(parents) = internal_parents.get(old_parent) {
                 new_parents.extend(parents.iter().cloned());
             }
