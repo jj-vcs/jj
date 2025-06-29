@@ -23,7 +23,9 @@ use tracing::instrument;
 
 use crate::cli_util::print_conflicted_paths;
 use crate::cli_util::print_snapshot_stats;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::cli_util::CommandHelper;
+use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
 use crate::diff_util::get_copy_records;
 use crate::diff_util::DiffFormat;
@@ -65,9 +67,9 @@ pub(crate) fn cmd_status(
         .get_wc_commit_id()
         .map(|id| repo.store().get_commit(id))
         .transpose()?;
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+    let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
+    let matcher = fileset_expression.to_matcher();
+
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
@@ -160,6 +162,32 @@ pub(crate) fn cmd_status(
                     )?;
                     break;
                 }
+            }
+        }
+
+        print_unmatched_explicit_paths(
+            ui,
+            &workspace_command,
+            &fileset_expression,
+            [&parent_tree, &tree],
+        )?;
+
+        if let [only_path] = args.paths.as_slice() {
+            let is_unmatched_path = fileset_expression
+                .explicit_paths()
+                .next()
+                .is_some_and(|repo_path| tree.path_value(repo_path).is_ok_and(|p| p.is_absent()));
+
+            if is_unmatched_path
+                && workspace_command
+                    .parse_revset(ui, &RevisionArg::from(only_path.to_owned()))
+                    .is_ok()
+            {
+                writeln!(
+                    ui.hint_default(),
+                    "To show changes in a given revision, use `jj diff --summary -r \
+                     {only_path:?}`.",
+                )?;
             }
         }
     } else {
