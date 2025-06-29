@@ -128,8 +128,7 @@ This type cannot be printed. The following methods are defined.
 * `.signature() -> Option<CryptographicSignature>`
 * `.mine() -> Boolean`: Commits where the author's email matches the email of
   the current user.
-* `.working_copies() -> String`: For multi-workspace repository, indicate
-  working-copy commit as `<workspace name>@`.
+* `.working_copies() -> List<WorkspaceRef>`: For multi-workspace repositories, returns a list of workspace references for each workspace whose working-copy commit matches the current commit.
 * `.current_working_copy() -> Boolean`: True for the working-copy commit of the
   current workspace.
 * `.bookmarks() -> List<CommitRef>`: Local and remote bookmarks pointing to the
@@ -529,6 +528,15 @@ This type cannot be printed. The following methods are defined.
 * `.file_type() -> String`: One of `"file"`, `"symlink"`, `"tree"`,
   `"git-submodule"`, or `"conflict"`.
 * `.executable() -> Boolean`: True if the entry is an executable file.
+
+### `WorkspaceRef` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+
+The following methods are defined.
+
+* `.name() -> RefSymbol`: Returns the workspace name as a symbol.
+* `.target() -> Commit`: Returns the working-copy commit of this workspace.
 
 ## Color labels
 

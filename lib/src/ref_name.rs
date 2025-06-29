@@ -95,14 +95,18 @@ pub struct RemoteName(str);
 /// Use `.as_str()` or `.as_symbol()` for displaying. Other than that, this can
 /// be considered an immutable `String`.
 // Eq, Hash, and Ord must be compatible with WorkspaceName.
-#[derive(Clone, ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, serde::Serialize)]
+#[serde(transparent)]
 pub struct WorkspaceNameBuf(String);
 
 /// Borrowed workspace name.
 ///
 /// Use `.as_str()` or `.as_symbol()` for displaying. Other than that, this can
 /// be considered an immutable `str`.
-#[derive(ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, RefCastCustom)]
+#[derive(
+    ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, RefCastCustom, serde::Serialize,
+)]
+#[serde(transparent)]
 #[repr(transparent)]
 pub struct WorkspaceName(str);
 

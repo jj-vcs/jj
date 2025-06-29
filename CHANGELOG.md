@@ -19,9 +19,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Once `jj op abandon` and `jj util gc` are run in a repository, old versions of
   `jj` might get "commit not found" error on `jj evolog`.
 
+* `commit.working_copies()` template method now returns `List<WorkspaceRef>`
+
 ### Deprecations
 
 ### New features
+
+* `jj workspace list` now accepts `-T`/`--template` option to customize its output via templates.
+
+* Added `templates.workspace_list` template to customize the output of `jj workspace list`.
 
 ### Fixed bugs
 
