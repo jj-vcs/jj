@@ -1945,11 +1945,7 @@ impl DiffStats {
                 let (left, right) = values?;
                 let left_content = diff_content(path.source(), left, conflict_marker_style)?;
                 let right_content = diff_content(path.target(), right, conflict_marker_style)?;
-                let stat = get_diff_stat_entry(
-                    path,
-                    [&left_content.contents, &right_content.contents].map(BStr::new),
-                    options,
-                );
+                let stat = get_diff_stat_entry(path, [&left_content, &right_content], options);
                 BackendResult::Ok(stat)
             })
             .try_collect()
@@ -1962,49 +1958,65 @@ impl DiffStats {
         &self.entries
     }
 
-    /// Total number of insertions.
+    /// Total number of inserted lines.
     pub fn count_total_added(&self) -> usize {
-        self.entries.iter().map(|stat| stat.added).sum()
+        self.entries
+            .iter()
+            .filter_map(|stat| stat.added_removed.map(|(added, _)| added))
+            .sum()
     }
 
-    /// Total number of deletions.
+    /// Total number of deleted lines.
     pub fn count_total_removed(&self) -> usize {
-        self.entries.iter().map(|stat| stat.removed).sum()
+        self.entries
+            .iter()
+            .filter_map(|stat| stat.added_removed.map(|(_, removed)| removed))
+            .sum()
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct DiffStatEntry {
     pub path: CopiesTreeDiffEntryPath,
-    pub added: usize,
-    pub removed: usize,
+    /// Lines added and removed; None for binary files.
+    pub added_removed: Option<(usize, usize)>,
+    pub before_bytes: usize,
+    pub after_bytes: usize,
 }
 
 fn get_diff_stat_entry(
     path: CopiesTreeDiffEntryPath,
-    contents: [&BStr; 2],
+    contents: [&FileContent<BString>; 2],
     options: &DiffStatOptions,
 ) -> DiffStatEntry {
-    // TODO: this matches git's behavior, which is to count the number of newlines
-    // in the file. but that behavior seems unhelpful; no one really cares how
-    // many `0x0a` characters are in an image.
-    let diff = diff_by_line(contents, &options.line_diff);
-    let mut added = 0;
-    let mut removed = 0;
-    for hunk in diff.hunks() {
-        match hunk.kind {
-            DiffHunkKind::Matching => {}
-            DiffHunkKind::Different => {
-                let [left, right] = hunk.contents[..].try_into().unwrap();
-                removed += left.split_inclusive(|b| *b == b'\n').count();
-                added += right.split_inclusive(|b| *b == b'\n').count();
+    let [left_content, right_content] = contents;
+    let added_removed = if left_content.is_binary || right_content.is_binary {
+        None
+    } else {
+        let diff = diff_by_line(
+            contents.map(|content| &content.contents),
+            &options.line_diff,
+        );
+        let mut added = 0;
+        let mut removed = 0;
+        for hunk in diff.hunks() {
+            match hunk.kind {
+                DiffHunkKind::Matching => {}
+                DiffHunkKind::Different => {
+                    let [left, right] = hunk.contents[..].try_into().unwrap();
+                    removed += left.split_inclusive(|b| *b == b'\n').count();
+                    added += right.split_inclusive(|b| *b == b'\n').count();
+                }
             }
         }
-    }
+        Some((added, removed))
+    };
+
     DiffStatEntry {
         path,
-        added,
-        removed,
+        added_removed,
+        before_bytes: left_content.contents.len(),
+        after_bytes: right_content.contents.len(),
     }
 }
 
@@ -2029,7 +2041,7 @@ pub fn show_diff_stats(
     let max_diffs = stats
         .entries()
         .iter()
-        .map(|stat| stat.added + stat.removed)
+        .filter_map(|stat| stat.added_removed.map(|(added, removed)| added + removed))
         .max()
         .unwrap_or(0);
 
@@ -2047,20 +2059,31 @@ pub fn show_diff_stats(
     };
 
     for (stat, ui_path) in iter::zip(stats.entries(), &ui_paths) {
-        let bar_added = (stat.added as f64 * factor).ceil() as usize;
-        let bar_removed = (stat.removed as f64 * factor).ceil() as usize;
         // replace start of path with ellipsis if the path is too long
         let (path, path_width) = text_util::elide_start(ui_path, "...", max_path_width);
         let path_pad_width = max_path_width - path_width;
         write!(
             formatter,
-            "{path}{:path_pad_width$} | {:>number_padding$}{}",
+            "{path}{:path_pad_width$} | ",
             "", // pad to max_path_width
-            stat.added + stat.removed,
-            if bar_added + bar_removed > 0 { " " } else { "" },
         )?;
-        write!(formatter.labeled("added"), "{}", "+".repeat(bar_added))?;
-        writeln!(formatter.labeled("removed"), "{}", "-".repeat(bar_removed))?;
+        if let Some((added, removed)) = stat.added_removed {
+            let bar_added = (added as f64 * factor).ceil() as usize;
+            let bar_removed = (removed as f64 * factor).ceil() as usize;
+            write!(
+                formatter,
+                "{:>number_padding$}{}",
+                added + removed,
+                if bar_added + bar_removed > 0 { " " } else { "" },
+            )?;
+            write!(formatter.labeled("added"), "{}", "+".repeat(bar_added))?;
+            writeln!(formatter.labeled("removed"), "{}", "-".repeat(bar_removed))?;
+        } else {
+            write!(formatter.labeled("removed"), "{}", stat.before_bytes)?;
+            write!(formatter, " -> ")?;
+            write!(formatter.labeled("added"), "{}", stat.after_bytes)?;
+            writeln!(formatter, " bytes")?;
+        }
     }
 
     let total_added = stats.count_total_added();
