@@ -2883,7 +2883,18 @@ The workspace will not be touched on disk. It can be deleted from disk before or
 
 List workspaces
 
-**Usage:** `jj workspace list`
+**Usage:** `jj workspace list [OPTIONS]`
+
+###### **Options:**
+
+* `-T`, `--template <TEMPLATE>` — Render each workspace using the given template
+
+   You can specify arbitrary template expressions using the
+   [built-in keywords]. See [`jj help -k templates`] for more information.
+
+   [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
+
+   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
 
 
 
