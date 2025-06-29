@@ -61,6 +61,7 @@ use crate::working_copy::LockedWorkingCopy;
 use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
+use crate::workspace_store::WorkspaceStoreError;
 
 #[derive(Error, Debug)]
 pub enum WorkspaceInitError {
@@ -76,6 +77,8 @@ pub enum WorkspaceInitError {
     Path(#[from] PathError),
     #[error(transparent)]
     OpHeadsStore(OpHeadsStoreError),
+    #[error(transparent)]
+    WorkspaceStore(#[from] WorkspaceStoreError),
     #[error(transparent)]
     Backend(#[from] BackendInitError),
     #[error(transparent)]
@@ -299,6 +302,7 @@ impl Workspace {
             std::fs::create_dir(&repo_dir).context(&repo_dir)?;
             let repo = ReadonlyRepo::init(
                 user_settings,
+                workspace_root,
                 &repo_dir,
                 backend_initializer,
                 signer,
@@ -310,6 +314,7 @@ impl Workspace {
             .map_err(|repo_init_err| match repo_init_err {
                 RepoInitError::Backend(err) => WorkspaceInitError::Backend(err),
                 RepoInitError::OpHeadsStore(err) => WorkspaceInitError::OpHeadsStore(err),
+                RepoInitError::WorkspaceStore(err) => WorkspaceInitError::WorkspaceStore(err),
                 RepoInitError::Path(err) => WorkspaceInitError::Path(err),
             })?;
             let (working_copy, repo) = init_working_copy(

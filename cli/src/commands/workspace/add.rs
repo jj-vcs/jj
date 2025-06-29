@@ -22,6 +22,8 @@ use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::workspace::Workspace;
+use jj_lib::workspace_store::get_workspace_store_dir;
+use jj_lib::workspace_store::workspace_store_add;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
@@ -192,6 +194,11 @@ pub fn cmd_workspace_add(
     let new_wc_commit = tx.repo_mut().new_commit(parent_ids, tree).write()?;
 
     tx.edit(&new_wc_commit)?;
+
+    let workspace_store_dir = get_workspace_store_dir(repo_path)?;
+
+    workspace_store_add(&workspace_store_dir, &workspace_name, &destination_path)?;
+
     tx.finish(
         ui,
         format!(

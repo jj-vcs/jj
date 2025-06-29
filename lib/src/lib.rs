@@ -113,6 +113,7 @@ pub mod union_find;
 pub mod view;
 pub mod working_copy;
 pub mod workspace;
+pub mod workspace_store;
 
 #[cfg(test)]
 mod tests {

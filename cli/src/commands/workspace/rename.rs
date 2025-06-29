@@ -12,7 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fs;
+
+use jj_lib::file_util::IoResultExt as _;
 use jj_lib::ref_name::WorkspaceNameBuf;
+use jj_lib::workspace_store::get_workspace_store_dir;
+use jj_lib::workspace_store::workspace_store_add;
+use jj_lib::workspace_store::workspace_store_read;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -38,6 +44,7 @@ pub fn cmd_workspace_rename(
     }
 
     let mut workspace_command = command.workspace_helper(ui)?;
+    let repo_path = workspace_command.repo_path().to_path_buf();
 
     let old_name = workspace_command.working_copy().workspace_name().to_owned();
     let new_name = &*args.new_workspace_name;
@@ -65,6 +72,25 @@ pub fn cmd_workspace_rename(
 
     tx.repo_mut()
         .rename_workspace(&old_name, new_name.to_owned())?;
+
+    let workspace_store_dir = get_workspace_store_dir(&repo_path)?;
+
+    let old_workspace_file = workspace_store_dir.join(old_name.as_str());
+
+    // This is to make sure not to throw error for workspaces created before this
+    // change.
+    if old_workspace_file.exists() {
+        let workspace_proto = workspace_store_read(&workspace_store_dir, &old_name)?;
+
+        fs::remove_file(&old_workspace_file).context(&old_workspace_file)?;
+
+        workspace_store_add(
+            &workspace_store_dir,
+            &new_name.to_owned(),
+            &dunce::canonicalize(workspace_proto.path)?,
+        )?;
+    }
+
     let repo = tx.commit(format!(
         "Renamed workspace '{old}' to '{new}'",
         old = old_name.as_symbol(),

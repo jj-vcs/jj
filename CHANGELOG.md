@@ -31,6 +31,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `RepoPath` template type now has a `absolute() -> String` method that returns
   the absolute path as a string.
 
+* `jj workspace root` now accepts an optional `--workspace` argument to show
+  the root path of the specified workspace (defaults to the current one). When
+  given a workspace that was created before this release, it errors out.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.

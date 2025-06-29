@@ -12,9 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fs;
+
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
+use jj_lib::file_util::IoResultExt as _;
 use jj_lib::ref_name::WorkspaceNameBuf;
+use jj_lib::workspace_store::get_workspace_store_dir;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -42,6 +46,7 @@ pub fn cmd_workspace_forget(
     args: &WorkspaceForgetArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
+    let repo_path = workspace_command.repo_path().to_path_buf();
 
     let wss = if args.workspaces.is_empty() {
         vec![workspace_command.workspace_name().to_owned()]
@@ -63,8 +68,23 @@ pub fn cmd_workspace_forget(
     // bundle every workspace forget into a single transaction, so that e.g.
     // undo correctly restores all of them at once.
     let mut tx = workspace_command.start_transaction();
-    wss.iter()
-        .try_for_each(|ws| tx.repo_mut().remove_wc_commit(ws))?;
+
+    let workspace_store_dir = get_workspace_store_dir(&repo_path)?;
+
+    wss.iter().try_for_each(|ws| {
+        tx.repo_mut().remove_wc_commit(ws)?;
+
+        let workspace_file = workspace_store_dir.join(ws.as_str());
+
+        // This is to make sure not to throw error for workspaces created before this
+        // change.
+        if workspace_file.exists() {
+            fs::remove_file(&workspace_file).context(&workspace_file)?;
+        }
+
+        Ok::<(), CommandError>(())
+    })?;
+
     let description = if let [ws] = wss.as_slice() {
         format!("forget workspace {}", ws.as_symbol())
     } else {
