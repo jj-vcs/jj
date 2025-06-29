@@ -3722,12 +3722,12 @@ fn test_diff_binary() {
 
     let output = work_dir.run_jj(["diff", "--stat"]);
     insta::assert_snapshot!(output, @r"
-    binary_added.png            | 3 +++
-    binary_modified.png         | 6 +++---
-    binary_modified_to_text.png | 5 ++---
-    binary_removed.png          | 3 ---
-    binary_valid_utf8.png       | 1 +
-    5 files changed, 9 insertions(+), 9 deletions(-)
+    binary_added.png            | 0 -> 12 bytes
+    binary_modified.png         | 16 -> 9 bytes
+    binary_modified_to_text.png | 16 -> 8 bytes
+    binary_removed.png          | 16 -> 0 bytes
+    binary_valid_utf8.png       | 0 -> 3 bytes
+    5 files changed, 0 insertions(+), 0 deletions(-)
     [EOF]
     ");
 }

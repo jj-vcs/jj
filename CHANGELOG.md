@@ -40,6 +40,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `depth` argument. For instance, `parents(x, 3)` is equivalent to `x---`, and
   `children(x, 3)` is equivalent to `x+++`.
 
+* `jj diff --stat` now shows the sizes of binary files in bytes.
+
 ### Fixed bugs
 
 * `jj file annotate` can now process files at a hidden revision.
