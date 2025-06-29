@@ -25,6 +25,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj git remote add` and `jj git clone` now support `--fetch-tags` to control
   when tags are fetched
 
+* `jj diff --stat` now shows the change in size to binary files.
+
 ### Fixed bugs
 
 ### Packaging changes

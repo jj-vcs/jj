@@ -1984,11 +1984,7 @@ impl DiffStats {
                 let (left, right) = values?;
                 let left_content = diff_content(path.source(), left, conflict_marker_style)?;
                 let right_content = diff_content(path.target(), right, conflict_marker_style)?;
-                let stat = get_diff_stat_entry(
-                    path,
-                    [&left_content.contents, &right_content.contents].map(BStr::new),
-                    options,
-                );
+                let stat = get_diff_stat_entry(path, [&left_content, &right_content], options);
                 BackendResult::Ok(stat)
             })
             .try_collect()
@@ -2001,49 +1997,64 @@ impl DiffStats {
         &self.entries
     }
 
-    /// Total number of insertions.
+    /// Total number of inserted lines.
     pub fn count_total_added(&self) -> usize {
-        self.entries.iter().map(|stat| stat.added).sum()
+        self.entries
+            .iter()
+            .filter_map(|stat| stat.added_removed.map(|(added, _)| added))
+            .sum()
     }
 
-    /// Total number of deletions.
+    /// Total number of deleted lines.
     pub fn count_total_removed(&self) -> usize {
-        self.entries.iter().map(|stat| stat.removed).sum()
+        self.entries
+            .iter()
+            .filter_map(|stat| stat.added_removed.map(|(_, removed)| removed))
+            .sum()
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct DiffStatEntry {
     pub path: CopiesTreeDiffEntryPath,
-    pub added: usize,
-    pub removed: usize,
+    /// Lines added and removed; None for binary files.
+    pub added_removed: Option<(usize, usize)>,
+    /// Change in file size in bytes.
+    pub bytes_delta: isize,
 }
 
 fn get_diff_stat_entry(
     path: CopiesTreeDiffEntryPath,
-    contents: [&BStr; 2],
+    contents: [&FileContent<BString>; 2],
     options: &DiffStatOptions,
 ) -> DiffStatEntry {
-    // TODO: this matches git's behavior, which is to count the number of newlines
-    // in the file. but that behavior seems unhelpful; no one really cares how
-    // many `0x0a` characters are in an image.
-    let diff = diff_by_line(contents, &options.line_diff);
-    let mut added = 0;
-    let mut removed = 0;
-    for hunk in diff.hunks() {
-        match hunk.kind {
-            DiffHunkKind::Matching => {}
-            DiffHunkKind::Different => {
-                let [left, right] = hunk.contents[..].try_into().unwrap();
-                removed += left.split_inclusive(|b| *b == b'\n').count();
-                added += right.split_inclusive(|b| *b == b'\n').count();
+    let [left_content, right_content] = contents;
+    let added_removed = if left_content.is_binary || right_content.is_binary {
+        None
+    } else {
+        let diff = diff_by_line(
+            contents.map(|content| &content.contents),
+            &options.line_diff,
+        );
+        let mut added = 0;
+        let mut removed = 0;
+        for hunk in diff.hunks() {
+            match hunk.kind {
+                DiffHunkKind::Matching => {}
+                DiffHunkKind::Different => {
+                    let [left, right] = hunk.contents[..].try_into().unwrap();
+                    removed += left.split_inclusive(|b| *b == b'\n').count();
+                    added += right.split_inclusive(|b| *b == b'\n').count();
+                }
             }
         }
-    }
+        Some((added, removed))
+    };
+
     DiffStatEntry {
         path,
-        added,
-        removed,
+        added_removed,
+        bytes_delta: right_content.contents.len() as isize - left_content.contents.len() as isize,
     }
 }
 
@@ -2067,60 +2078,110 @@ pub fn show_diff_stats(
 
     // Entries format like:
     //   path/to/file | 123 ++--
+    // or, for binary files:
+    //   path/to/file | (binary) +1234 bytes
     //
     // Depending on display widths, we can elide part of the path,
     // and the the ++-- bar will adjust its scale to fill the rest.
 
-    let max_path_width = ui_paths.iter().map(|s| s.width()).max().unwrap_or(0);
+    // Choose how many columns to use for the path.  The right side will use the
+    // rest. Start with the longest path.  The code below might shorten it.
+    let mut max_path_width = ui_paths.iter().map(|s| s.width()).max().unwrap_or(0);
+
+    // Fit to the available display width, but always assume at least a tiny bit of
+    // room.
+    let available_width = max(display_width.saturating_sub(" | ".len()), 8);
+
+    // Measure the widest right side for line diffs and reduce max_path_width if
+    // needed.
     let max_diffs = stats
         .entries()
         .iter()
-        .map(|stat| stat.added + stat.removed)
-        .max()
-        .unwrap_or(0);
+        .filter_map(|stat| {
+            let (added, removed) = stat.added_removed?;
+            Some(added + removed)
+        })
+        .max();
+    let diff_number_width = max_diffs.map_or(0, |n| n.to_string().len());
+    if max_diffs.is_some() {
+        let width = diff_number_width + " ".len();
+        // Ensure 30% of the space for displaying the ++-- graph:
+        max_path_width =
+            max_path_width.min((0.7 * available_width.saturating_sub(width) as f64) as usize);
+    };
 
-    let number_width = max_diffs.to_string().len();
-    // Available width to distribute between path and bar:
-    let available_width = display_width.saturating_sub(" | ".len() + number_width + " ".len());
-    // Always use at least a tiny bit of room
-    let available_width = max(available_width, 5);
+    // Measure widest right side for binary diffs and reduce max_path_width if
+    // needed.
+    let max_bytes = stats
+        .entries
+        .iter()
+        .filter(|stat| stat.added_removed.is_none())
+        .map(|stat| stat.bytes_delta.abs())
+        .max();
+    if let Some(max) = max_bytes {
+        let width = if max > 0 {
+            format!("(binary) {max:+} bytes").len()
+        } else {
+            "(binary)".len()
+        };
+        max_path_width = max_path_width.min(available_width.saturating_sub(width));
+    }
 
-    let max_path_width = max_path_width.min((0.7 * available_width as f64) as usize);
-    let max_bar_length = available_width.saturating_sub(max_path_width);
-    let factor = if max_diffs < max_bar_length {
-        1.0
-    } else {
-        max_bar_length as f64 / max_diffs as f64
+    // Now that we've chosen the path width, use the rest of the space for the ++--
+    // bar.
+    let max_bar_width =
+        available_width.saturating_sub(max_path_width + diff_number_width + " ".len());
+    let factor = match max_diffs {
+        Some(max) if max > max_bar_width => max_bar_width as f64 / max as f64,
+        _ => 1.0,
     };
 
     for (stat, ui_path) in iter::zip(stats.entries(), &ui_paths) {
-        let bar_length = ((stat.added + stat.removed) as f64 * factor) as usize;
-        // If neither adds nor removes are present, bar length should be zero.
-        // If only one is present, bar length should be at least 1.
-        // If both are present, bar length should be at least 2.
-        //
-        // Fractional space after scaling is given to whichever of adds/removes is
-        // smaller, to show at least one tick for small (but nonzero) counts.
-        let bar_length = bar_length.max((stat.added > 0) as usize + (stat.removed > 0) as usize);
-        let (bar_added, bar_removed) = if stat.added < stat.removed {
-            let len = (stat.added as f64 * factor).ceil() as usize;
-            (len, bar_length - len)
-        } else {
-            let len = (stat.removed as f64 * factor).ceil() as usize;
-            (bar_length - len, len)
-        };
         // replace start of path with ellipsis if the path is too long
         let (path, path_width) = text_util::elide_start(ui_path, "...", max_path_width);
         let path_pad_width = max_path_width - path_width;
         write!(
             formatter,
-            "{path}{:path_pad_width$} | {:>number_width$}{}",
+            "{path}{:path_pad_width$} | ",
             "", // pad to max_path_width
-            stat.added + stat.removed,
-            if bar_added + bar_removed > 0 { " " } else { "" },
         )?;
-        write!(formatter.labeled("added"), "{}", "+".repeat(bar_added))?;
-        writeln!(formatter.labeled("removed"), "{}", "-".repeat(bar_removed))?;
+        if let Some((added, removed)) = stat.added_removed {
+            let bar_length = ((added + removed) as f64 * factor) as usize;
+            // If neither adds nor removes are present, bar length should be zero.
+            // If only one is present, bar length should be at least 1.
+            // If both are present, bar length should be at least 2.
+            //
+            // Fractional space after scaling is given to whichever of adds/removes is
+            // smaller, to show at least one tick for small (but nonzero) counts.
+            let bar_length = bar_length.max((added > 0) as usize + (removed > 0) as usize);
+            let (bar_added, bar_removed) = if added < removed {
+                let len = (added as f64 * factor).ceil() as usize;
+                (len, bar_length - len)
+            } else {
+                let len = (removed as f64 * factor).ceil() as usize;
+                (bar_length - len, len)
+            };
+            write!(
+                formatter,
+                "{:>diff_number_width$}{}",
+                added + removed,
+                if bar_added + bar_removed > 0 { " " } else { "" },
+            )?;
+            write!(formatter.labeled("added"), "{}", "+".repeat(bar_added))?;
+            writeln!(formatter.labeled("removed"), "{}", "-".repeat(bar_removed))?;
+        } else {
+            write!(formatter.labeled("binary"), "(binary)")?;
+            if stat.bytes_delta != 0 {
+                let label = if stat.bytes_delta < 0 {
+                    "removed"
+                } else {
+                    "added"
+                };
+                write!(formatter.labeled(label), " {:+}", stat.bytes_delta)?;
+                write!(formatter, " bytes")?;
+            }
+            writeln!(formatter)?;
+        }
     }
 
     let total_added = stats.count_total_added();
