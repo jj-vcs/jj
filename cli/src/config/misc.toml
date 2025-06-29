@@ -18,6 +18,7 @@ private-commits = "none()"
 push-bookmark-prefix = "push-"
 push-new-bookmarks = false
 sign-on-push = false
+timeout-notification = { secs = 5, message = "The Git command hasn't reported any progress yet. Perhaps you need to activate your security key?" }
 track-default-bookmark-on-clone = true
 
 [ui]
