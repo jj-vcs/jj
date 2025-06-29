@@ -515,6 +515,27 @@ by `jj rebase` to rebase the changes in a commit. It's used in `jj log` to
 indicate which commits are empty. It's used in the `files()` revset function
 (and by `jj log <path>`) to find commits that modify a certain path. And so on.
 
+## How do I revert a merge commit? `jj revert <merge>` does nothing
+
+Instead use `jj restore --from <first parent>` to revert the changes merged
+from the second parent.
+
+Example:
+```text
+@
+|
+C
+| \
+B D
+|/
+A
+```
+To revert the merge in `C`, create a new commit with `jj new` and
+then `jj restore --from B` and then describe the message
+with something like `jj desc -m "Revert the merge of B into D`. Now, commit `@`
+undoes the merge of `D` into  C`. If necessary, you can now rebase it
+elsewhere, e.g. `jj rebase -r @ -d main`.
+
 ### How do I deal with divergent changes ('??' after the [change ID])?
 
 A [divergent change][glossary_divergent_change] represents a change that has two
