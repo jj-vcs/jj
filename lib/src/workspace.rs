@@ -61,6 +61,9 @@ use crate::working_copy::LockedWorkingCopy;
 use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
+use crate::workspace_store::SimpleWorkspaceStore;
+use crate::workspace_store::WorkspaceStore as _;
+use crate::workspace_store::WorkspaceStoreError;
 
 #[derive(Error, Debug)]
 pub enum WorkspaceInitError {
@@ -76,6 +79,8 @@ pub enum WorkspaceInitError {
     Path(#[from] PathError),
     #[error(transparent)]
     OpHeadsStore(OpHeadsStoreError),
+    #[error(transparent)]
+    WorkspaceStore(#[from] WorkspaceStoreError),
     #[error(transparent)]
     Backend(#[from] BackendInitError),
     #[error(transparent)]
@@ -312,6 +317,7 @@ impl Workspace {
                 RepoInitError::OpHeadsStore(err) => WorkspaceInitError::OpHeadsStore(err),
                 RepoInitError::Path(err) => WorkspaceInitError::Path(err),
             })?;
+            let workspace_store = SimpleWorkspaceStore::load(&repo_dir)?;
             let (working_copy, repo) = init_working_copy(
                 &repo,
                 workspace_root,
@@ -321,6 +327,7 @@ impl Workspace {
             )?;
             let repo_loader = repo.loader().clone();
             let workspace = Self::new(workspace_root, repo_dir, working_copy, repo_loader)?;
+            workspace_store.add(workspace.workspace_name(), workspace.workspace_root())?;
             Ok((workspace, repo))
         })()
         .inspect_err(|_err| {
@@ -363,6 +370,7 @@ impl Workspace {
         let repo_file_path = jj_dir.join("repo");
         fs::write(&repo_file_path, repo_dir_bytes).context(&repo_file_path)?;
 
+        let workspace_store = SimpleWorkspaceStore::load(repo_path)?;
         let (working_copy, repo) = init_working_copy(
             repo,
             workspace_root,
@@ -376,6 +384,7 @@ impl Workspace {
             working_copy,
             repo.loader().clone(),
         )?;
+        workspace_store.add(workspace.workspace_name(), workspace.workspace_root())?;
         Ok((workspace, repo))
     }
 
