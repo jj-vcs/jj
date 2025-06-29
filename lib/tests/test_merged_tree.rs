@@ -1508,7 +1508,7 @@ fn test_merge_simplify_file_conflict() {
   'ancestors(@, 5)` to view the last 5 commits.
 
 * Support for the Watchman filesystem monitor is now bundled by default. Set
-  `core.fsmonitor = "watchman"` in your repo to enable.
+  `fsmonitor.backend = "watchman"` in your repo to enable.
 "#;
     let suffix = r#"
 ### Fixed bugs 

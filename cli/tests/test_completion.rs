@@ -1012,27 +1012,26 @@ fn test_workspaces() {
 fn test_config() {
     let test_env = TestEnvironment::default();
 
-    let output = test_env.complete_fish(["config", "get", "c"]);
+    let output = test_env.complete_fish(["config", "get", "f"]);
     insta::assert_snapshot!(output, @r"
-    core.fsmonitor	Whether to use an external filesystem monitor, useful for large repos
-    core.watchman.register-snapshot-trigger	Whether to use triggers to monitor for changes in the background.
+    fsmonitor.backend	Whether to use an external filesystem monitor, useful for large repos
+    fsmonitor.watchman.register-snapshot-trigger	Whether to use triggers to monitor for changes in the background.
     [EOF]
     ");
 
-    let output = test_env.complete_fish(["config", "list", "c"]);
+    let output = test_env.complete_fish(["config", "list", "fs"]);
     insta::assert_snapshot!(output, @r"
-    colors	Mapping from jj formatter labels to colors
-    core
-    core.fsmonitor	Whether to use an external filesystem monitor, useful for large repos
-    core.watchman
-    core.watchman.register-snapshot-trigger	Whether to use triggers to monitor for changes in the background.
+    fsmonitor	External filesystem monitor settings, useful for large repos
+    fsmonitor.backend	Whether to use an external filesystem monitor, useful for large repos
+    fsmonitor.watchman
+    fsmonitor.watchman.register-snapshot-trigger	Whether to use triggers to monitor for changes in the background.
     [EOF]
     ");
 
-    let output = test_env.complete_fish(["log", "--config", "c"]);
+    let output = test_env.complete_fish(["log", "--config", "f"]);
     insta::assert_snapshot!(output, @r"
-    core.fsmonitor=	Whether to use an external filesystem monitor, useful for large repos
-    core.watchman.register-snapshot-trigger=	Whether to use triggers to monitor for changes in the background.
+    fsmonitor.backend=	Whether to use an external filesystem monitor, useful for large repos
+    fsmonitor.watchman.register-snapshot-trigger=	Whether to use triggers to monitor for changes in the background.
     [EOF]
     ");
 
