@@ -752,6 +752,10 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
                 Ok(format!(r#""{escaped}" ++ change_id.short()"#).into())
             },
         ),
+        // TODO: Delete in jj 0.38.0+
+        ConfigMigrationRule::rename_value("core.fsmonitor", "fsmonitor.backend"),
+        // TODO: Delete in jj 0.38.0+
+        ConfigMigrationRule::rename_value("core.watchman", "fsmonitor.watchman"),
     ]
 }
 

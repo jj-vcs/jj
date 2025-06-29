@@ -276,10 +276,11 @@
                 }
             }
         },
-        "core": {
+        "fsmonitor": {
             "type": "object",
+            "description": "External filesystem monitor settings, useful for large repos",
             "properties": {
-                "fsmonitor": {
+                "backend": {
                     "type": "string",
                     "enum": ["none", "watchman"],
                     "default": "none",
