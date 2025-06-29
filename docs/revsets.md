@@ -208,6 +208,11 @@ revsets (expressions) as arguments.
   `descendants(x, depth)` returns the descendants of `x` limited to the given
   `depth`.
 
+* `first_ancestors(x[, depth])`: Similar to `ancestors(x[, depth])`, but only
+  traverses the first parent of each commit. In Git, the first parent of a merge
+  commit is conventionally the branch into which changes are being merged, so
+  `first_ancestors()` can be used to exclude changes made on other branches.
+
 * `reachable(srcs, domain)`: All commits reachable from `srcs` within
   `domain`, traversing all parent and child edges.
 

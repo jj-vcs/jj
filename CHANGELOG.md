@@ -75,6 +75,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The new `bisect(x)` revset function can help bisect a range of commits to
   find when a bug was introduced.
 
+* New `first_ancestors()` revset function which is similar to `ancestors()`, but
+  only traverses the first parent of each commit (similar to Git's
+  `--first-parent` option).
+
 ### Fixed bugs
 
 * Fixed an error in `jj util gc` caused by the empty blob being missing from
