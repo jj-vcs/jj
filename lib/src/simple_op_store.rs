@@ -841,6 +841,9 @@ mod tests {
                 WorkspaceName::DEFAULT.to_owned() => default_wc_commit_id,
                 "test".into() => test_wc_commit_id,
             },
+            workspace_roots: btreemap! {
+                WorkspaceName::DEFAULT.to_owned() => "/home/user/workspace".into(),
+            },
         }
     }
 

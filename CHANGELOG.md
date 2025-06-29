@@ -40,6 +40,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `depth` argument. For instance, `parents(x, 3)` is equivalent to `x---`, and
   `children(x, 3)` is equivalent to `x+++`.
 
+* `jj workspace root` now accepts a `<WORKSPACE>` argument to show the root path of the specified workspace (defaults to the current one).
+
 ### Fixed bugs
 
 * `jj file annotate` can now process files at a hidden revision.

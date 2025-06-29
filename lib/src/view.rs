@@ -16,11 +16,13 @@
 
 use std::collections::BTreeMap;
 use std::collections::HashSet;
+use std::path::PathBuf;
 
 use itertools::Itertools as _;
 use thiserror::Error;
 
 use crate::backend::CommitId;
+use crate::file_util;
 use crate::op_store;
 use crate::op_store::BookmarkTarget;
 use crate::op_store::RefTarget;
@@ -119,6 +121,47 @@ impl View {
         })?;
         self.data.wc_commit_ids.insert(new_name, wc_commit_id);
         Ok(())
+    }
+
+    /// Set the root path for a workspace.
+    pub fn set_workspace_root(&mut self, name: WorkspaceNameBuf, root: Vec<u8>) {
+        self.data.workspace_roots.insert(name, root);
+    }
+
+    /// Remove the root path record for a workspace.
+    pub fn remove_workspace_root(&mut self, name: &WorkspaceName) {
+        self.data.workspace_roots.remove(name);
+    }
+
+    /// Rename a workspace root record when workspace name changes.
+    pub fn rename_workspace_root(
+        &mut self,
+        old_name: &WorkspaceName,
+        new_name: WorkspaceNameBuf,
+    ) -> Result<(), RenameWorkspaceError> {
+        // Not sure when this can happen, but let's be safe.
+        if self.data.workspace_roots.contains_key(&new_name) {
+            return Err(RenameWorkspaceError::WorkspaceAlreadyExists {
+                name: new_name.clone(),
+            });
+        }
+
+        let root_path = self.data.workspace_roots.remove(old_name).ok_or_else(|| {
+            RenameWorkspaceError::WorkspaceDoesNotExist {
+                name: old_name.to_owned(),
+            }
+        })?;
+
+        self.set_workspace_root(new_name, root_path);
+        Ok(())
+    }
+
+    /// Get the root path for a workspace, if recorded.
+    pub fn get_workspace_root(&self, name: &WorkspaceName) -> Option<PathBuf> {
+        self.data
+            .workspace_roots
+            .get(name)
+            .and_then(|bytes| file_util::path_from_bytes(bytes).ok().map(PathBuf::from))
     }
 
     pub fn add_head(&mut self, head_id: &CommitId) {
@@ -381,6 +424,7 @@ impl View {
             git_refs,
             git_head,
             wc_commit_ids,
+            ..
         } = &self.data;
         itertools::chain!(
             head_ids,

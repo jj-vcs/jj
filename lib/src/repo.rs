@@ -1483,6 +1483,25 @@ impl MutableRepo {
         self.view_mut().rename_workspace(old_name, new_name)
     }
 
+    /// Set the recorded root path for a workspace.
+    pub fn set_workspace_root(&mut self, name: WorkspaceNameBuf, root: Vec<u8>) {
+        self.view_mut().set_workspace_root(name, root);
+    }
+
+    /// Remove the recorded root path for a workspace.
+    pub fn remove_workspace_root(&mut self, name: &WorkspaceName) {
+        self.view_mut().remove_workspace_root(name);
+    }
+
+    /// Rename a recorded workspace root entry when workspace name changes.
+    pub fn rename_workspace_root(
+        &mut self,
+        old_name: &WorkspaceName,
+        new_name: WorkspaceNameBuf,
+    ) -> Result<(), RenameWorkspaceError> {
+        self.view_mut().rename_workspace_root(old_name, new_name)
+    }
+
     pub fn check_out(
         &mut self,
         name: WorkspaceNameBuf,

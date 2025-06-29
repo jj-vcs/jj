@@ -80,6 +80,8 @@ message View {
   reserved 4;
   bytes wc_commit_id = 2 [deprecated = true];
   map<string, bytes> wc_commit_ids = 8;
+  // Mapping from workspace name to workspace root path.
+  map<string, bytes> workspace_roots = 11;
   repeated Bookmark bookmarks = 5;
   repeated Tag tags = 6;
   // Only a subset of the refs. For example, does not include refs/notes/.
