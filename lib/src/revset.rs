@@ -128,6 +128,8 @@ impl RevsetEvaluationError {
 pub const GENERATION_RANGE_FULL: Range<u64> = 0..u64::MAX;
 pub const GENERATION_RANGE_EMPTY: Range<u64> = 0..0;
 
+pub const PARENTS_RANGE_FULL: Range<u32> = 0..u32::MAX;
+
 /// Global flag applied to the entire expression.
 ///
 /// The core revset engine doesn't use this value. It's up to caller to

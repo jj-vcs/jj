@@ -30,6 +30,7 @@ use super::entry::GlobalCommitPosition;
 use super::entry::SmallGlobalCommitPositionsVec;
 use super::rev_walk_queue::RevWalkQueue;
 use super::rev_walk_queue::RevWalkWorkItem;
+use crate::revset::PARENTS_RANGE_FULL;
 
 /// Like `Iterator`, but doesn't borrow the `index` internally.
 pub(super) trait RevWalk<I: ?Sized> {
@@ -245,7 +246,7 @@ impl<I, W: RevWalk<I>> FusedIterator for RevWalkOwnedIndexIter<I, W> {}
 
 pub(super) trait RevWalkIndex {
     type Position: Copy + Ord;
-    type AdjacentPositions: IntoIterator<Item = Self::Position>;
+    type AdjacentPositions: IntoIterator<Item = Self::Position> + AsRef<[Self::Position]>;
 
     fn adjacent_positions(&self, pos: Self::Position) -> Self::AdjacentPositions;
 }
@@ -306,6 +307,7 @@ pub(super) struct RevWalkBuilder<'a> {
     index: &'a CompositeIndex,
     wanted: Vec<GlobalCommitPosition>,
     unwanted: Vec<GlobalCommitPosition>,
+    wanted_parents_range: Range<u32>,
 }
 
 impl<'a> RevWalkBuilder<'a> {
@@ -314,12 +316,20 @@ impl<'a> RevWalkBuilder<'a> {
             index,
             wanted: Vec::new(),
             unwanted: Vec::new(),
+            wanted_parents_range: PARENTS_RANGE_FULL,
         }
     }
 
     /// Sets head positions to be included.
     pub fn wanted_heads(mut self, positions: Vec<GlobalCommitPosition>) -> Self {
         self.wanted = positions;
+        self
+    }
+
+    /// Sets range of parents to iterate over for wanted heads.
+    pub fn wanted_parents_range(mut self, wanted_parents_range: Range<u32>) -> Self {
+        assert!(wanted_parents_range.start <= wanted_parents_range.end);
+        self.wanted_parents_range = wanted_parents_range;
         self
     }
 
@@ -336,6 +346,7 @@ impl<'a> RevWalkBuilder<'a> {
 
     fn ancestors_with_min_pos(self, min_pos: GlobalCommitPosition) -> RevWalkAncestors<'a> {
         let index = self.index;
+        let wanted_parents_range = self.wanted_parents_range;
         let mut wanted_queue = RevWalkQueue::with_min_pos(min_pos);
         let mut unwanted_queue = RevWalkQueue::with_min_pos(min_pos);
         wanted_queue.extend(self.wanted, ());
@@ -345,6 +356,7 @@ impl<'a> RevWalkBuilder<'a> {
             walk: RevWalkImpl {
                 wanted_queue,
                 unwanted_queue,
+                wanted_parents_range,
             },
         }
     }
@@ -357,6 +369,7 @@ impl<'a> RevWalkBuilder<'a> {
         generation_range: Range<u32>,
     ) -> RevWalkAncestorsGenerationRange<'a> {
         let index = self.index;
+        let wanted_parents_range = self.wanted_parents_range;
         let mut wanted_queue = RevWalkQueue::with_min_pos(GlobalCommitPosition::MIN);
         let mut unwanted_queue = RevWalkQueue::with_min_pos(GlobalCommitPosition::MIN);
         let item_range = RevWalkItemGenerationRange::from_filter_range(generation_range.clone());
@@ -367,6 +380,7 @@ impl<'a> RevWalkBuilder<'a> {
             walk: RevWalkGenerationRangeImpl {
                 wanted_queue,
                 unwanted_queue,
+                wanted_parents_range,
                 generation_end: generation_range.end,
             },
         }
@@ -443,6 +457,9 @@ impl<'a> RevWalkBuilder<'a> {
             walk: RevWalkGenerationRangeImpl {
                 wanted_queue,
                 unwanted_queue,
+                // Since we're using the descendants index, this actually is a range for the
+                // children instead of the parents.
+                wanted_parents_range: PARENTS_RANGE_FULL,
                 generation_end: generation_range.end,
             },
         }
@@ -457,6 +474,7 @@ pub(super) type RevWalkAncestors<'a> =
 pub(super) struct RevWalkImpl<P> {
     wanted_queue: RevWalkQueue<P, ()>,
     unwanted_queue: RevWalkQueue<P, ()>,
+    wanted_parents_range: Range<u32>,
 }
 
 impl<I: RevWalkIndex + ?Sized> RevWalk<I> for RevWalkImpl<I::Position> {
@@ -468,8 +486,13 @@ impl<I: RevWalkIndex + ?Sized> RevWalk<I> for RevWalkImpl<I::Position> {
             if flush_queue_until(&mut self.unwanted_queue, index, item.pos).is_some() {
                 continue;
             }
-            self.wanted_queue
-                .extend(index.adjacent_positions(item.pos), ());
+            let parents = index.adjacent_positions(item.pos);
+            self.wanted_queue.extend(
+                filter_slice_by_range(parents.as_ref(), &self.wanted_parents_range)
+                    .iter()
+                    .copied(),
+                (),
+            );
             return Some(item.pos);
         }
         None
@@ -489,10 +512,11 @@ pub(super) struct RevWalkGenerationRangeImpl<P> {
     // Sort item generations in ascending order
     wanted_queue: RevWalkQueue<P, Reverse<RevWalkItemGenerationRange>>,
     unwanted_queue: RevWalkQueue<P, ()>,
+    wanted_parents_range: Range<u32>,
     generation_end: u32,
 }
 
-impl<P: Ord> RevWalkGenerationRangeImpl<P> {
+impl<P: Copy + Ord> RevWalkGenerationRangeImpl<P> {
     fn enqueue_wanted_adjacents<I>(
         &mut self,
         index: &I,
@@ -509,8 +533,13 @@ impl<P: Ord> RevWalkGenerationRangeImpl<P> {
             start: generation.start + 1,
             end: generation.end.saturating_add(1),
         };
-        self.wanted_queue
-            .extend(index.adjacent_positions(pos), Reverse(succ_generation));
+        let parents = index.adjacent_positions(pos);
+        self.wanted_queue.extend(
+            filter_slice_by_range(parents.as_ref(), &self.wanted_parents_range)
+                .iter()
+                .copied(),
+            Reverse(succ_generation),
+        );
     }
 }
 
@@ -645,6 +674,13 @@ impl RevWalk<CompositeIndex> for RevWalkDescendantsImpl {
         }
         None
     }
+}
+
+/// Filter a slice by a range, clamping the range to the length of the slice.
+fn filter_slice_by_range<'a, T: Copy>(slice: &'a [T], range: &Range<u32>) -> &'a [T] {
+    let start = (range.start as usize).min(slice.len());
+    let end = (range.end as usize).min(slice.len());
+    &slice[start..end]
 }
 
 #[cfg(test)]
