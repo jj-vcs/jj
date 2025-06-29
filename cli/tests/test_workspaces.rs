@@ -522,6 +522,75 @@ fn test_workspaces_add_workspace_in_current_workspace() {
     ");
 }
 
+#[test]
+fn test_workspace_add_override_path_in_store() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    let output = main_dir.run_jj(["workspace", "add", "--name", "second", "../secondary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created workspace in "../secondary"
+    Working copy  (@) now at: pmmvwywv 058f604d (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 7b22a8cb initial
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+
+    // Both workspaces show up when we list them
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output, @r"
+    default: rlvkpnrz 504e3d8c (empty) (no description set)
+    second: pmmvwywv 058f604d (empty) (no description set)
+    [EOF]
+    ");
+
+    // Undoing workspace addition
+    let output = main_dir.run_jj(["operation", "restore", "@--"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Restored to operation: aa2f9df55a11 (2001-02-03 08:05:08) commit 006bd1130b84e90ab082adeabd7409270d5a86da
+    [EOF]
+    ");
+
+    // Only default workspace show up when we list them
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output, @r"
+    default: rlvkpnrz 504e3d8c (empty) (no description set)
+    [EOF]
+    ");
+
+    // Re-creating the same workspace with different path
+    let output = main_dir.run_jj(["workspace", "add", "--name", "second", "../tertiary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created workspace in "../tertiary"
+    Working copy  (@) now at: spxsnpux 96ef6c50 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 7b22a8cb initial
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+
+    // Both workspaces show up when we list them
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output, @r"
+    default: rlvkpnrz 504e3d8c (empty) (no description set)
+    second: spxsnpux 96ef6c50 (empty) (no description set)
+    [EOF]
+    ");
+
+    // The 'second' workspace points to the new path
+    let output = main_dir.run_jj(["workspace", "root", "--name", "second"]);
+    insta::assert_snapshot!(output, @r"
+    $TEST_ENV/tertiary
+    [EOF]
+    ");
+}
+
 /// Test making changes to the working copy in a workspace as it gets rewritten
 /// from another workspace
 #[test]
@@ -1206,6 +1275,21 @@ fn test_workspaces_forget() {
     [EOF]
     ");
 
+    // After forgetting the default, secondary root is still recorded, default no
+    // longer exists
+    let output = main_dir.run_jj(["workspace", "root", "--name", "secondary"]);
+    insta::assert_snapshot!(output, @r#"
+    $TEST_ENV/secondary
+    [EOF]
+    "#);
+    let output = main_dir.run_jj(["workspace", "root", "--name", "default"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: No such workspace: default
+    [EOF]
+    [exit status: 1]
+    "#);
+
     // The old working copy doesn't get an "@" in the log output
     // TODO: It seems useful to still have the "secondary@" marker here even though
     // there's only one workspace. We should show it when the command is not run
@@ -1245,6 +1329,23 @@ fn test_workspaces_forget() {
     Warning: No such workspace: nonexistent
     [EOF]
     ");
+    // No workspaces left
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output, @"");
+}
+
+/// Test forgetting workspace created before workspace store
+#[test]
+fn test_workspaces_forget_from_before_workspace_store() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.remove_dir_all(".jj/repo/workspace_store");
+
+    let output = main_dir.run_jj(["workspace", "forget"]);
+    insta::assert_snapshot!(output, @"");
+
     // No workspaces left
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output, @"");
@@ -1455,6 +1556,12 @@ fn test_workspaces_root() {
     main_dir
         .run_jj(["workspace", "add", "--name", "secondary", "../secondary"])
         .success();
+    // Explicitly request root of 'secondary' workspace from main workspace
+    let output = main_dir.run_jj(["workspace", "root", "--name", "secondary"]);
+    insta::assert_snapshot!(output, @r"
+    $TEST_ENV/secondary
+    [EOF]
+    ");
     let output = secondary_dir.run_jj(["workspace", "root"]);
     insta::assert_snapshot!(output, @r"
     $TEST_ENV/secondary
@@ -1595,6 +1702,47 @@ fn test_workspaces_rename_workspace() {
     ◆  000000000000
     [EOF]
     ");
+
+    // The new workspace root is recorded and accessible
+    let output = main_dir.run_jj(["workspace", "root", "--name", "secondary"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: No such workspace: secondary
+    [EOF]
+    [exit status: 1]
+    "#);
+    let output = main_dir.run_jj(["workspace", "root", "--name", "third"]);
+    insta::assert_snapshot!(output, @r#"
+    $TEST_ENV/secondary
+    [EOF]
+    "#);
+}
+
+#[test]
+fn test_workspaces_rename_workspace_from_before_workspace_store() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.remove_dir_all(".jj/repo/workspace_store");
+
+    let output = main_dir.run_jj(["workspace", "rename", "third"]);
+    insta::assert_snapshot!(output, @"");
+
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output, @r"
+    third: qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    ");
+
+    // The workspace root is not in the store
+    let output = main_dir.run_jj(["workspace", "root", "--name", "third"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Workspace has no recorded path: third
+    [EOF]
+    [exit status: 1]
+    "#);
 }
 
 #[must_use]

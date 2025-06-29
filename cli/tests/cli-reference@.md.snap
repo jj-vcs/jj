@@ -3406,7 +3406,7 @@ Each workspace also has own sparse patterns.
 * `forget` — Stop tracking a workspace's working-copy commit in the repo
 * `list` — List workspaces
 * `rename` — Renames the current workspace
-* `root` — Show the current workspace root directory
+* `root` — Show the workspace root directory
 * `update-stale` — Update a workspace that has become stale
 
 
@@ -3494,9 +3494,13 @@ Renames the current workspace
 
 ## `jj workspace root`
 
-Show the current workspace root directory
+Show the workspace root directory
 
-**Usage:** `jj workspace root`
+**Usage:** `jj workspace root [OPTIONS]`
+
+###### **Options:**
+
+* `--name <NAME>` — Name of the workspace (defaults to current)
 
 
 

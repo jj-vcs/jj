@@ -38,6 +38,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   descriptions) by default, matching the `jj abandon` output format.
   [#3081](https://github.com/jj-vcs/jj/issues/3081)
 
+* `jj workspace root` now accepts an optional `--name` argument to show
+  the root path of the specified workspace (defaults to the current one). When
+  given a workspace that was created before this release, it errors out.
+
 * `jj git push --bookmark <name>` will now automatically track the bookmark if
   it isn't tracked with any remote already.
 
