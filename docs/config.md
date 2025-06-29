@@ -16,6 +16,10 @@ config path --user`.
 
 - The repo settings. These can be edited with `jj config edit --repo` and are
 located in `.jj/repo/config.toml`.
+- The workspace root mappings. These are stored in the repo config under the
+  `[workspaces]` table, mapping workspace names to on-disk workspace root
+  paths. They are managed automatically by `jj workspace add`,
+  `jj workspace forget`, and `jj workspace rename`.
 
 - Settings [specified in the command-line](#specifying-config-on-the-command-line).
 
@@ -70,6 +74,17 @@ then use whichever suits you in your config. If you mix dotted keys and headings
 That's probably enough TOML to keep you out of trouble but the [syntax guide] is
 very short if you ever need to check.
 
+## Workspace root mappings
+
+The `[workspaces]` table maps workspace names to on-disk workspace root paths.
+It is stored in the repo config file (`.jj/repo/config.toml`) under the
+`[workspaces]` heading, and is managed automatically by the workspace commands:
+
+```toml
+[workspaces]
+default = "/home/user/my-repo"
+test = "/tmp/test-workspace"
+```
 
 ## User settings
 

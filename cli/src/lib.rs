@@ -18,6 +18,7 @@ pub mod cleanup_guard;
 pub mod cli_util;
 pub mod command_error;
 pub mod commands;
+pub mod workspace_loader_table;
 pub mod commit_templater;
 pub mod complete;
 pub mod config;

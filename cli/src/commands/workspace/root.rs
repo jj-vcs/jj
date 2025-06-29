@@ -14,26 +14,43 @@
 
 use std::io::Write as _;
 
+use clap_complete::ArgValueCandidates;
 use jj_lib::file_util;
+use jj_lib::ref_name::WorkspaceNameBuf;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::complete;
 use crate::ui::Ui;
 
-/// Show the current workspace root directory
+/// Show the workspace root directory
 #[derive(clap::Args, Clone, Debug)]
-pub struct WorkspaceRootArgs {}
+pub struct WorkspaceRootArgs {
+    /// Name of the workspace to show the root directory for (defaults to
+    /// current)
+    #[arg(value_name = "WORKSPACE", add = ArgValueCandidates::new(complete::workspaces))]
+    workspace: Option<WorkspaceNameBuf>,
+}
 
 #[instrument(skip_all)]
 pub fn cmd_workspace_root(
     ui: &mut Ui,
     command: &CommandHelper,
-    _args: &WorkspaceRootArgs,
+    args: &WorkspaceRootArgs,
 ) -> Result<(), CommandError> {
-    let loader = command.workspace_loader()?;
-    let path_bytes = file_util::path_to_bytes(loader.workspace_root()).map_err(user_error)?;
+    let path = if let Some(ws_name) = &args.workspace {
+        command
+            .workspace_helper(ui)?
+            .get_workspace_root(ws_name)
+            .ok_or_else(|| user_error(format!("No such workspace: {}", ws_name.as_symbol())))?
+    } else {
+        let loader = command.workspace_loader()?;
+        loader.workspace_root().to_path_buf()
+    };
+
+    let path_bytes = file_util::path_to_bytes(&path).map_err(user_error)?;
     ui.stdout().write_all(path_bytes)?;
     writeln!(ui.stdout())?;
     Ok(())

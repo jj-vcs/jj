@@ -1483,6 +1483,9 @@ impl MutableRepo {
         self.view_mut().rename_workspace(old_name, new_name)
     }
 
+
+
+
     pub fn check_out(
         &mut self,
         name: WorkspaceNameBuf,

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use std::borrow::Cow;
-use std::cell::OnceCell;
+use std::cell::{OnceCell, RefCell};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -183,6 +183,7 @@ use crate::templater::WrapTemplateProperty;
 use crate::text_util;
 use crate::ui::ColorChoice;
 use crate::ui::Ui;
+use crate::workspace_loader_table::WorkspaceLoaderTable;
 
 const SHORT_CHANGE_ID_TEMPLATE_TEXT: &str = "format_short_change_id(self.change_id())";
 
@@ -304,6 +305,7 @@ struct CommandHelperData {
     store_factories: StoreFactories,
     working_copy_factories: WorkingCopyFactories,
     workspace_loader_factory: Box<dyn WorkspaceLoaderFactory>,
+    workspace_loader_table: Rc<RefCell<WorkspaceLoaderTable>>,
 }
 
 impl CommandHelper {
@@ -1309,6 +1311,47 @@ to the current parents may contain changes from multiple commits.
 
     pub fn get_wc_commit_id(&self) -> Option<&CommitId> {
         self.repo().view().get_wc_commit_id(self.workspace_name())
+    }
+
+    /// Record a new named workspace root in the loader table.
+    pub fn set_workspace_root(&self, name: WorkspaceNameBuf, root: PathBuf) {
+        self.env
+            .command
+            .data
+            .workspace_loader_table
+            .borrow_mut()
+            .set_root(name, root);
+    }
+
+    /// Remove a workspace root entry from the loader table.
+    pub fn remove_workspace_root(&self, name: &WorkspaceName) {
+        self.env
+            .command
+            .data
+            .workspace_loader_table
+            .borrow_mut()
+            .remove_root(name);
+    }
+
+    /// Rename a workspace root entry in the loader table.
+    pub fn rename_workspace_root(&self, old: &WorkspaceName, new: WorkspaceNameBuf) {
+        self.env
+            .command
+            .data
+            .workspace_loader_table
+            .borrow_mut()
+            .rename(old, new);
+    }
+
+    /// Get the root path for a named workspace from the loader table.
+    pub fn get_workspace_root(&self, name: &WorkspaceName) -> Option<PathBuf> {
+        self.env
+            .command
+            .data
+            .workspace_loader_table
+            .borrow()
+            .get_root(name)
+            .cloned()
     }
 
     pub fn working_copy_shared_with_git(&self) -> bool {
@@ -3660,6 +3703,7 @@ pub struct CliRunner<'a> {
     store_factories: StoreFactories,
     working_copy_factories: WorkingCopyFactories,
     workspace_loader_factory: Box<dyn WorkspaceLoaderFactory>,
+    workspace_loader_table: Rc<RefCell<WorkspaceLoaderTable>>,
     revset_extensions: RevsetExtensions,
     commit_template_extensions: Vec<Arc<dyn CommitTemplateLanguageExtension>>,
     operation_template_extensions: Vec<Arc<dyn OperationTemplateLanguageExtension>>,
@@ -3691,6 +3735,9 @@ impl<'a> CliRunner<'a> {
             store_factories: StoreFactories::default(),
             working_copy_factories: default_working_copy_factories(),
             workspace_loader_factory: Box::new(DefaultWorkspaceLoaderFactory),
+            workspace_loader_table: Rc::new(RefCell::new(WorkspaceLoaderTable::new(Box::new(
+                DefaultWorkspaceLoaderFactory,
+            )))),
             revset_extensions: Default::default(),
             commit_template_extensions: vec![],
             operation_template_extensions: vec![],
@@ -3965,6 +4012,7 @@ impl<'a> CliRunner<'a> {
             store_factories: self.store_factories,
             working_copy_factories: self.working_copy_factories,
             workspace_loader_factory: self.workspace_loader_factory,
+            workspace_loader_table: self.workspace_loader_table.clone(),
         };
         let command_helper = CommandHelper {
             data: Rc::new(command_helper_data),

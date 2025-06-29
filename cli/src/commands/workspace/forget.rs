@@ -20,8 +20,11 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::commands::config::unset::{cmd_config_unset, ConfigUnsetArgs};
+use crate::commands::config::ConfigLevelArgs;
 use crate::complete;
 use crate::ui::Ui;
+use jj_lib::config::ConfigNamePathBuf;
 
 /// Stop tracking a workspace's working-copy commit in the repo
 ///
@@ -63,8 +66,28 @@ pub fn cmd_workspace_forget(
     // bundle every workspace forget into a single transaction, so that e.g.
     // undo correctly restores all of them at once.
     let mut tx = workspace_command.start_transaction();
-    wss.iter()
-        .try_for_each(|ws| tx.repo_mut().remove_wc_commit(ws))?;
+
+    wss.iter().try_for_each(|ws| {
+        workspace_command.remove_workspace_root(ws);
+        tx.repo_mut().remove_wc_commit(ws)?;
+
+        // Remove from repo config [workspaces]
+        let key = ConfigNamePathBuf::from_iter(vec![
+            "workspaces".to_string(),
+            ws.as_symbol().to_string(),
+        ]);
+        let unset_args = ConfigUnsetArgs {
+            name: key,
+            level: ConfigLevelArgs {
+                user: false,
+                repo: true,
+            },
+        };
+        cmd_config_unset(ui, command, &unset_args)?;
+
+        Ok(())
+    })?;
+
     let description = if let [ws] = wss.as_slice() {
         format!("forget workspace {}", ws.as_symbol())
     } else {

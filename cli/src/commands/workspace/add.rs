@@ -29,7 +29,10 @@ use crate::cli_util::RevisionArg;
 use crate::command_error::internal_error_with_message;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::commands::config::set::{cmd_config_set, ConfigSetArgs};
+use crate::commands::config::ConfigLevelArgs;
 use crate::ui::Ui;
+use jj_lib::config::{ConfigNamePathBuf, ConfigValue};
 
 /// How to handle sparse patterns when creating a new workspace.
 #[derive(clap::ValueEnum, Clone, Debug, Eq, PartialEq)]
@@ -190,6 +193,26 @@ pub fn cmd_workspace_add(
     let new_wc_commit = tx.repo_mut().new_commit(parent_ids, tree.id()).write()?;
 
     tx.edit(&new_wc_commit)?;
+
+    // Record the workspace root path for later lookup by name.
+    new_workspace_command.set_workspace_root(workspace_name.clone(), destination_path.clone());
+
+    // Persist the mapping in repo config under [workspaces]
+    let key = ConfigNamePathBuf::from_iter(vec![
+        "workspaces".to_string(),
+        workspace_name.as_symbol().to_string(),
+    ]);
+    let value = ConfigValue::from(destination_path.to_string_lossy().to_string());
+    let set_args = ConfigSetArgs {
+        name: key,
+        value,
+        level: ConfigLevelArgs {
+            user: false,
+            repo: true,
+        },
+    };
+    cmd_config_set(ui, command, &set_args)?;
+
     tx.finish(
         ui,
         format!(

@@ -18,7 +18,12 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::commands::config::set::{cmd_config_set, ConfigSetArgs};
+use crate::commands::config::unset::{cmd_config_unset, ConfigUnsetArgs};
+use crate::commands::config::ConfigLevelArgs;
 use crate::ui::Ui;
+use jj_lib::config::ConfigNamePathBuf;
+use jj_lib::config::ConfigValue;
 
 /// Renames the current workspace
 #[derive(clap::Args, Clone, Debug)]
@@ -65,6 +70,40 @@ pub fn cmd_workspace_rename(
 
     tx.repo_mut()
         .rename_workspace(&old_name, new_name.to_owned())?;
+
+    // Also update recorded workspace root entry to match new name.
+    workspace_command.rename_workspace_root(&old_name, new_name.to_owned());
+
+    // Persist rename in repo config under [workspaces]
+    let old_key = ConfigNamePathBuf::from_iter(vec![
+        "workspaces".to_string(),
+        old_name.as_symbol().to_string(),
+    ]);
+    let new_key = ConfigNamePathBuf::from_iter(vec![
+        "workspaces".to_string(),
+        new_name.as_symbol().to_string(),
+    ]);
+    let root = workspace_command
+        .get_workspace_root(new_name)
+        .expect("workspace root missing");
+    let set_args = ConfigSetArgs {
+        name: new_key,
+        value: ConfigValue::from(root.to_string_lossy().to_string()),
+        level: ConfigLevelArgs {
+            user: false,
+            repo: true,
+        },
+    };
+    cmd_config_set(ui, command, &set_args)?;
+    let unset_args = ConfigUnsetArgs {
+        name: old_key,
+        level: ConfigLevelArgs {
+            user: false,
+            repo: true,
+        },
+    };
+    cmd_config_unset(ui, command, &unset_args)?;
+
     let repo = tx.commit(format!(
         "Renamed workspace '{old}' to '{new}'",
         old = old_name.as_symbol(),

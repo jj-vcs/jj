@@ -381,6 +381,7 @@ impl View {
             git_refs,
             git_head,
             wc_commit_ids,
+            ..
         } = &self.data;
         itertools::chain!(
             head_ids,

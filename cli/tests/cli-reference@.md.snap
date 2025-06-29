@@ -2901,9 +2901,13 @@ Renames the current workspace
 
 ## `jj workspace root`
 
-Show the current workspace root directory
+Show the workspace root directory
 
-**Usage:** `jj workspace root`
+**Usage:** `jj workspace root [<WORKSPACE>]`
+
+###### **Arguments:**
+
+* `<WORKSPACE>` — Name of the workspace to show the root directory for (defaults to the current one)
 
 
 
