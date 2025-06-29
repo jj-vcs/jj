@@ -140,6 +140,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Evolution history is now stored in the operation log. `jj evolog` can show
   associated operations for commits created by new jj versions.
 
+* The `git.sign-on-push` config option has been changed from a boolean to a
+  string containing the revset of commits to be signed when `jj git push` is
+  run. The default value is `none()`. If `git.sign-on-push` was previously set
+  to `true`, it will be set to `~signed() & mine()`.
+
 ### Fixed bugs
 
 * Work around a git issue that could cause subprocess operations to hang if the
