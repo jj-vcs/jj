@@ -283,7 +283,7 @@
                     "type": "string",
                     "enum": ["none", "watchman"],
                     "default": "none",
-                    "description": "Whether to use an external filesystem monitor, useful for large repos"
+                    "description": "Whether to use an external filesystem monitor, useful for large repos. (deprecated; use `working-copy.fsmonitor` instead, will be removed in jj 0.37.0+)"
                 },
                 "watchman": {
                     "type": "object",
@@ -291,7 +291,7 @@
                       "register-snapshot-trigger": {
                         "type": "boolean",
                         "default": false,
-                        "description": "Whether to use triggers to monitor for changes in the background."
+                        "description": "Whether to use triggers to monitor for changes in the background. (deprecated; use `working-copy.fsmonitor` instead, will be removed in jj 0.37.0+)"
                       }
                     }
                 }
@@ -858,6 +858,28 @@
             },
             "additionalProperties": {
                 "type": "string"
+            }
+        },
+        "working-copy": {
+            "type": "object",
+            "description": "Working copy settings",
+            "properties": {
+                "fsmonitor": {
+                    "type": "string",
+                    "enum": ["none", "watchman"],
+                    "default": "none",
+                    "description": "Whether to use an external filesystem monitor, useful for large repos"
+                },
+                "watchman": {
+                    "type": "object",
+                    "properties": {
+                      "register-snapshot-trigger": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Whether to use triggers to monitor for changes in the background."
+                      }
+                    }
+                }
             }
         }
     }
