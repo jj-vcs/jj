@@ -3726,9 +3726,9 @@ fn test_diff_stat_rounding() {
     let work_dir = test_env.work_dir("repo");
     let output = work_dir.run_jj(["diff", "--stat"]);
     insta::assert_snapshot!(output, @r"
-    ... | 101 +-
-    ... | 301 +-
-    ... |  10 +
+    .. | 101 +-
+    .. | 301 +-
+    .. |  10 +
     3 files changed, 111 insertions(+), 301 deletions(-)
     [EOF]
     ");
@@ -3736,7 +3736,8 @@ fn test_diff_stat_rounding() {
 
 #[test]
 fn test_diff_binary() {
-    let test_env = TestEnvironment::default();
+    let mut test_env = TestEnvironment::default();
+    test_env.add_env_var("COLUMNS", "40");
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
@@ -3745,7 +3746,7 @@ fn test_diff_binary() {
     work_dir.write_file("binary_modified_to_text.png", b"\x89PNG\r\n\x1a\n0123456\0");
     work_dir.run_jj(["new"]).success();
     work_dir.remove_file("binary_removed.png");
-    work_dir.write_file("binary_modified.png", "foo\nbar\n\0");
+    work_dir.write_file("binary_modified.png", b"\x89PNG\r\n\x1a\n012345x\0");
     // this file's contents became a valid text file
     work_dir.write_file("binary_modified_to_text.png", "foo\nbar\n");
     work_dir.write_file("binary_added.png", b"\x89PNG\r\n\x1a\nxyz\0");
@@ -3774,7 +3775,7 @@ fn test_diff_binary() {
     index 0000000000..deacfbc286
     Binary files /dev/null and b/binary_added.png differ
     diff --git a/binary_modified.png b/binary_modified.png
-    index 7f036ce788..8d4f840f34 100644
+    index 7f036ce788..f666e11aeb 100644
     Binary files a/binary_modified.png and b/binary_modified.png differ
     diff --git a/binary_modified_to_text.png b/binary_modified_to_text.png
     index 7f036ce788..3bd1f0e297 100644
@@ -3791,13 +3792,61 @@ fn test_diff_binary() {
     ");
 
     let output = work_dir.run_jj(["diff", "--stat"]);
+    // Rightmost display column          ->|
     insta::assert_snapshot!(output, @r"
-    binary_added.png            | 3 +++
-    binary_modified.png         | 6 +++---
-    binary_modified_to_text.png | 5 ++---
-    binary_removed.png          | 3 ---
-    binary_valid_utf8.png       | 1 +
-    5 files changed, 9 insertions(+), 9 deletions(-)
+    binary_added.png    | (binary) +12 bytes
+    binary_modified.png | (binary)
+    ...fied_to_text.png | (binary) -8 bytes
+    binary_removed.png  | (binary) -16 bytes
+    ...y_valid_utf8.png | (binary) +3 bytes
+    5 files changed, 0 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+}
+
+/// Test diff --stat output width for diffs that have different cases of right
+/// side text: solely "(binary)", a mixture of text and binary diffs, and binary
+/// size changes.
+#[test]
+fn test_diff_stat_binary_and_text() {
+    let mut test_env = TestEnvironment::default();
+    test_env.add_env_var("COLUMNS", "40");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("binary_with_elided_long_file_name.png", b"\x001");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("binary_with_elided_long_file_name.png", b"\x002");
+
+    // Diff with a modified binary file with no change in size.
+    let output = work_dir.run_jj(["diff", "--stat"]);
+    // Rightmost display column          ->|
+    insta::assert_snapshot!(output, @r"
+    ..._elided_long_file_name.png | (binary)
+    1 file changed, 0 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+
+    // With a text file included, more space is used for the +++ part.
+    work_dir.write_file("text_with_elided_long_file_name.txt", b"a\n".repeat(100));
+    let output = work_dir.run_jj(["diff", "--stat"]);
+    // Rightmost display column          ->|
+    insta::assert_snapshot!(output, @r"
+    ...d_long_file_name.png | (binary)
+    ...d_long_file_name.txt | 100 ++++++++++
+    2 files changed, 100 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+
+    // If the binary file size changed, the right side must be wide enough for that
+    // text.
+    work_dir.write_file("binary_with_elided_long_file_name.png", b"\x0033");
+    let output = work_dir.run_jj(["diff", "--stat"]);
+    // Rightmost display column          ->|
+    insta::assert_snapshot!(output, @r"
+    ...ong_file_name.png | (binary) +1 bytes
+    ...ong_file_name.txt | 100 +++++++++++++
+    2 files changed, 100 insertions(+), 0 deletions(-)
     [EOF]
     ");
 }
