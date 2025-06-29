@@ -805,11 +805,16 @@ impl EvaluationContext<'_> {
             ResolvedExpression::Commits(commit_ids) => {
                 Ok(Box::new(self.revset_for_commit_ids(commit_ids)?))
             }
-            ResolvedExpression::Ancestors { heads, generation } => {
+            ResolvedExpression::Ancestors {
+                heads,
+                generation,
+                parents_range,
+            } => {
                 let head_set = self.evaluate(heads)?;
                 let head_positions = head_set.positions().attach(index);
-                let builder =
-                    RevWalkBuilder::new(index).wanted_heads(head_positions.try_collect()?);
+                let builder = RevWalkBuilder::new(index)
+                    .wanted_heads(head_positions.try_collect()?)
+                    .wanted_parents_range(parents_range.clone());
                 if generation == &GENERATION_RANGE_FULL {
                     let walk = builder.ancestors().detach();
                     Ok(Box::new(RevWalkRevset { walk }))
@@ -825,6 +830,7 @@ impl EvaluationContext<'_> {
                 roots,
                 heads,
                 generation,
+                parents_range,
             } => {
                 let root_set = self.evaluate(roots)?;
                 let root_positions: Vec<_> = root_set.positions().attach(index).try_collect()?;
@@ -840,6 +846,7 @@ impl EvaluationContext<'_> {
                 .attach(index);
                 let builder = RevWalkBuilder::new(index)
                     .wanted_heads(head_positions.try_collect()?)
+                    .wanted_parents_range(parents_range.clone())
                     .unwanted_roots(root_positions);
                 if generation == &GENERATION_RANGE_FULL {
                     let walk = builder.ancestors().detach();

@@ -38,6 +38,7 @@ use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::GENERATION_RANGE_FULL;
+use jj_lib::revset::PARENTS_RANGE_FULL;
 use jj_lib::revset::ResolvedExpression;
 use maplit::hashset;
 use testutils::CommitGraphBuilder;
@@ -237,6 +238,7 @@ fn test_index_commits_criss_cross() {
             roots: ResolvedExpression::Commits(unwanted.to_vec()).into(),
             heads: ResolvedExpression::Commits(wanted.to_vec()).into(),
             generation,
+            parents_range: PARENTS_RANGE_FULL,
         };
         let revset = index.evaluate_revset(&expression, repo.store()).unwrap();
         // Don't switch to more efficient .count() implementation. Here we're

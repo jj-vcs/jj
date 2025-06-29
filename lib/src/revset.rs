@@ -255,6 +255,7 @@ pub enum RevsetExpression<St: ExpressionState> {
     Ancestors {
         heads: Rc<Self>,
         generation: Range<u64>,
+        parents_range: Range<u32>,
     },
     Descendants {
         roots: Rc<Self>,
@@ -265,6 +266,8 @@ pub enum RevsetExpression<St: ExpressionState> {
         roots: Rc<Self>,
         heads: Rc<Self>,
         generation: Range<u64>,
+        // Parents range is only used for traversing heads, not roots
+        parents_range: Range<u32>,
     },
     // Commits that are descendants of "roots" and ancestors of "heads"
     DagRange {
@@ -283,6 +286,7 @@ pub enum RevsetExpression<St: ExpressionState> {
     HeadsRange {
         roots: Rc<Self>,
         heads: Rc<Self>,
+        // TODO: maybe add parents_range?
         filter: Rc<Self>,
     },
     Roots(Rc<Self>),
@@ -462,6 +466,7 @@ impl<St: ExpressionState> RevsetExpression<St> {
         Rc::new(Self::Ancestors {
             heads: self.clone(),
             generation: generation_range,
+            parents_range: PARENTS_RANGE_FULL,
         })
     }
 
@@ -534,6 +539,7 @@ impl<St: ExpressionState> RevsetExpression<St> {
             roots: self.clone(),
             heads: heads.clone(),
             generation: GENERATION_RANGE_FULL,
+            parents_range: PARENTS_RANGE_FULL,
         })
     }
 
@@ -659,12 +665,15 @@ pub enum ResolvedExpression {
     Ancestors {
         heads: Box<Self>,
         generation: Range<u64>,
+        parents_range: Range<u32>,
     },
     /// Commits that are ancestors of `heads` but not ancestors of `roots`.
     Range {
         roots: Box<Self>,
         heads: Box<Self>,
         generation: Range<u64>,
+        // Parents range is only used for traversing heads, not roots
+        parents_range: Range<u32>,
     },
     /// Commits that are descendants of `roots` and ancestors of `heads`.
     DagRange {
@@ -1329,11 +1338,15 @@ fn try_transform_expression<St: ExpressionState, E>(
             RevsetExpression::Root => None,
             RevsetExpression::Commits(_) => None,
             RevsetExpression::CommitRef(_) => None,
-            RevsetExpression::Ancestors { heads, generation } => transform_rec(heads, pre, post)?
-                .map(|heads| RevsetExpression::Ancestors {
-                    heads,
-                    generation: generation.clone(),
-                }),
+            RevsetExpression::Ancestors {
+                heads,
+                generation,
+                parents_range,
+            } => transform_rec(heads, pre, post)?.map(|heads| RevsetExpression::Ancestors {
+                heads,
+                generation: generation.clone(),
+                parents_range: parents_range.clone(),
+            }),
             RevsetExpression::Descendants { roots, generation } => transform_rec(roots, pre, post)?
                 .map(|roots| RevsetExpression::Descendants {
                     roots,
@@ -1343,11 +1356,13 @@ fn try_transform_expression<St: ExpressionState, E>(
                 roots,
                 heads,
                 generation,
+                parents_range,
             } => transform_rec_pair((roots, heads), pre, post)?.map(|(roots, heads)| {
                 RevsetExpression::Range {
                     roots,
                     heads,
                     generation: generation.clone(),
+                    parents_range: parents_range.clone(),
                 }
             }),
             RevsetExpression::DagRange { roots, heads } => {
@@ -1546,10 +1561,20 @@ where
         RevsetExpression::Root => RevsetExpression::Root.into(),
         RevsetExpression::Commits(ids) => RevsetExpression::Commits(ids.clone()).into(),
         RevsetExpression::CommitRef(commit_ref) => folder.fold_commit_ref(commit_ref)?,
-        RevsetExpression::Ancestors { heads, generation } => {
+        RevsetExpression::Ancestors {
+            heads,
+            generation,
+            parents_range,
+        } => {
             let heads = folder.fold_expression(heads)?;
             let generation = generation.clone();
-            RevsetExpression::Ancestors { heads, generation }.into()
+            let parents_range = parents_range.clone();
+            RevsetExpression::Ancestors {
+                heads,
+                generation,
+                parents_range,
+            }
+            .into()
         }
         RevsetExpression::Descendants { roots, generation } => {
             let roots = folder.fold_expression(roots)?;
@@ -1560,14 +1585,17 @@ where
             roots,
             heads,
             generation,
+            parents_range,
         } => {
             let roots = folder.fold_expression(roots)?;
             let heads = folder.fold_expression(heads)?;
             let generation = generation.clone();
+            let parents_range = parents_range.clone();
             RevsetExpression::Range {
                 roots,
                 heads,
                 generation,
+                parents_range,
             }
             .into()
         }
@@ -1961,6 +1989,7 @@ fn ancestors_to_heads<St: ExpressionState>(
         RevsetExpression::Ancestors {
             heads,
             generation: GENERATION_RANGE_FULL,
+            parents_range: PARENTS_RANGE_FULL,
         } => Ok(heads.clone()),
         RevsetExpression::Ancestors {
             heads,
@@ -1968,6 +1997,7 @@ fn ancestors_to_heads<St: ExpressionState>(
                 start,
                 end: u64::MAX,
             },
+            parents_range: PARENTS_RANGE_FULL,
         } => Ok(heads.ancestors_at(*start)),
         _ => Err(()),
     }
@@ -2112,7 +2142,12 @@ fn to_difference_range<St: ExpressionState>(
     expression: &Rc<RevsetExpression<St>>,
     complement: &Rc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
-    let RevsetExpression::Ancestors { heads, generation } = expression.as_ref() else {
+    let RevsetExpression::Ancestors {
+        heads,
+        generation,
+        parents_range,
+    } = expression.as_ref()
+    else {
         return None;
     };
     let roots = ancestors_to_heads(complement).ok()?;
@@ -2122,6 +2157,7 @@ fn to_difference_range<St: ExpressionState>(
         roots,
         heads: heads.clone(),
         generation: generation.clone(),
+        parents_range: parents_range.clone(),
     }))
 }
 
@@ -2189,11 +2225,13 @@ fn unfold_difference<St: ExpressionState>(
         RevsetExpression::Range {
             roots,
             heads,
+            parents_range,
             generation,
         } => {
             let heads_ancestors = Rc::new(RevsetExpression::Ancestors {
                 heads: heads.clone(),
                 generation: generation.clone(),
+                parents_range: parents_range.clone(),
             });
             Some(heads_ancestors.intersection(&roots.ancestors().negated()))
         }
@@ -2224,6 +2262,7 @@ fn fold_generation<St: ExpressionState>(
         RevsetExpression::Ancestors {
             heads,
             generation: generation1,
+            parents_range: parents1,
         } => {
             match heads.as_ref() {
                 // (h-)- -> ancestors(ancestors(h, 1), 1) -> ancestors(h, 2)
@@ -2232,9 +2271,11 @@ fn fold_generation<St: ExpressionState>(
                 RevsetExpression::Ancestors {
                     heads,
                     generation: generation2,
-                } => Some(Rc::new(RevsetExpression::Ancestors {
+                    parents_range: parents2,
+                } if parents2 == parents1 => Some(Rc::new(RevsetExpression::Ancestors {
                     heads: heads.clone(),
                     generation: add_generation(generation1, generation2),
+                    parents_range: parents1.clone(),
                 })),
                 _ => None,
             }
@@ -2812,9 +2853,14 @@ impl VisibilityResolutionContext<'_> {
                 ResolvedExpression::Commits(commit_ids.clone())
             }
             RevsetExpression::CommitRef(commit_ref) => match *commit_ref {},
-            RevsetExpression::Ancestors { heads, generation } => ResolvedExpression::Ancestors {
+            RevsetExpression::Ancestors {
+                heads,
+                generation,
+                parents_range,
+            } => ResolvedExpression::Ancestors {
                 heads: self.resolve(heads).into(),
                 generation: generation.clone(),
+                parents_range: parents_range.clone(),
             },
             RevsetExpression::Descendants { roots, generation } => ResolvedExpression::DagRange {
                 roots: self.resolve(roots).into(),
@@ -2825,10 +2871,12 @@ impl VisibilityResolutionContext<'_> {
                 roots,
                 heads,
                 generation,
+                parents_range,
             } => ResolvedExpression::Range {
                 roots: self.resolve(roots).into(),
                 heads: self.resolve(heads).into(),
                 generation: generation.clone(),
+                parents_range: parents_range.clone(),
             },
             RevsetExpression::DagRange { roots, heads } => ResolvedExpression::DagRange {
                 roots: self.resolve(roots).into(),
@@ -2937,6 +2985,7 @@ impl VisibilityResolutionContext<'_> {
         ResolvedExpression::Ancestors {
             heads: self.resolve_visible_heads_or_referenced().into(),
             generation: GENERATION_RANGE_FULL,
+            parents_range: PARENTS_RANGE_FULL,
         }
     }
 
@@ -3359,6 +3408,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(WorkingCopy(WorkspaceNameBuf("default"))),
             generation: 1..2,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -3366,6 +3416,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(WorkingCopy(WorkspaceNameBuf("default"))),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -3402,6 +3453,7 @@ mod tests {
             roots: CommitRef(Symbol("foo")),
             heads: CommitRef(WorkingCopy(WorkspaceNameBuf("default"))),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -3582,6 +3634,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(Symbol("foo")),
             generation: 1..2,
+            parents_range: 0..4294967295,
         }
         "#);
         // Parse the "children" operator
@@ -3596,6 +3649,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(Symbol("foo")),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         // Parse the "descendants" operator
@@ -3620,6 +3674,7 @@ mod tests {
             roots: Root,
             heads: CommitRef(Symbol("foo")),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(parse("foo..").unwrap(), @r#"
@@ -3627,6 +3682,7 @@ mod tests {
             Ancestors {
                 heads: CommitRef(Symbol("foo")),
                 generation: 0..18446744073709551615,
+                parents_range: 0..4294967295,
             },
         )
         "#);
@@ -3635,6 +3691,7 @@ mod tests {
             roots: CommitRef(Symbol("foo")),
             heads: CommitRef(Symbol("bar")),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         // Parse the nullary "range" operator
@@ -3745,6 +3802,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(Symbol("foo")),
             generation: 1..2,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -3752,6 +3810,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(Symbol("foo")),
             generation: 1..2,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -3760,8 +3819,10 @@ mod tests {
             heads: Ancestors {
                 heads: CommitRef(Symbol("foo")),
                 generation: 1..2,
+                parents_range: 0..4294967295,
             },
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -3776,6 +3837,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(Symbol("foo")),
             generation: 2..3,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -4313,6 +4375,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(Bookmarks(Substring(""))),
             generation: 1..2,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -4327,6 +4390,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(Bookmarks(Substring(""))),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -4343,6 +4407,7 @@ mod tests {
             roots: CommitRef(Bookmarks(Substring(""))),
             heads: CommitRef(Tags(Substring(""))),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -4573,6 +4638,7 @@ mod tests {
             roots: CommitRef(Symbol("bar")),
             heads: CommitRef(Symbol("foo")),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("~::foo & ::bar").unwrap()), @r#"
@@ -4580,6 +4646,7 @@ mod tests {
             roots: CommitRef(Symbol("foo")),
             heads: CommitRef(Symbol("bar")),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("foo..").unwrap()), @r#"
@@ -4587,6 +4654,7 @@ mod tests {
             roots: CommitRef(Symbol("foo")),
             heads: VisibleHeadsOrReferenced,
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("foo..bar").unwrap()), @r#"
@@ -4594,6 +4662,7 @@ mod tests {
             roots: CommitRef(Symbol("foo")),
             heads: CommitRef(Symbol("bar")),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("foo.. & ::bar").unwrap()), @r#"
@@ -4601,6 +4670,7 @@ mod tests {
             roots: CommitRef(Symbol("foo")),
             heads: CommitRef(Symbol("bar")),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
 
@@ -4642,10 +4712,12 @@ mod tests {
                 ),
                 heads: CommitRef(Symbol("b")),
                 generation: 0..18446744073709551615,
+                parents_range: 0..4294967295,
             },
             Ancestors {
                 heads: CommitRef(Symbol("d")),
                 generation: 0..18446744073709551615,
+                parents_range: 0..4294967295,
             },
         )
         "#);
@@ -4664,10 +4736,12 @@ mod tests {
                             ),
                             heads: CommitRef(Symbol("b")),
                             generation: 0..18446744073709551615,
+                            parents_range: 0..4294967295,
                         },
                         Ancestors {
                             heads: CommitRef(Symbol("c")),
                             generation: 0..18446744073709551615,
+                            parents_range: 0..4294967295,
                         },
                     ),
                     CommitRef(Symbol("foo")),
@@ -4690,6 +4764,7 @@ mod tests {
             roots: CommitRef(Symbol("foo")),
             heads: VisibleHeadsOrReferenced,
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
 
@@ -4699,9 +4774,11 @@ mod tests {
             roots: Ancestors {
                 heads: CommitRef(Symbol("foo")),
                 generation: 1..2,
+                parents_range: 0..4294967295,
             },
             heads: VisibleHeadsOrReferenced,
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("~(::foo--)").unwrap()), @r#"
@@ -4709,9 +4786,11 @@ mod tests {
             roots: Ancestors {
                 heads: CommitRef(Symbol("foo")),
                 generation: 2..3,
+                parents_range: 0..4294967295,
             },
             heads: VisibleHeadsOrReferenced,
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
 
@@ -4721,6 +4800,7 @@ mod tests {
             Ancestors {
                 heads: CommitRef(Symbol("foo")),
                 generation: 0..1,
+                parents_range: 0..4294967295,
             },
         )
         "#);
@@ -4729,6 +4809,7 @@ mod tests {
             Ancestors {
                 heads: CommitRef(Symbol("foo")),
                 generation: 1..2,
+                parents_range: 0..4294967295,
             },
         )
         "#);
@@ -4909,6 +4990,7 @@ mod tests {
                     Ancestors {
                         heads: Filter(AuthorName(Substring("baz"))),
                         generation: 1..2,
+                        parents_range: 0..4294967295,
                     },
                 ),
                 CommitRef(Symbol("qux")),
@@ -4928,6 +5010,7 @@ mod tests {
                         Filter(AuthorName(Substring("baz"))),
                     ),
                     generation: 1..2,
+                    parents_range: 0..4294967295,
                 },
             ),
             Filter(Description(Substring("bar"))),
@@ -5159,18 +5242,21 @@ mod tests {
         Ancestors {
             heads: CommitRef(Symbol("foo")),
             generation: 2..3,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("::(foo---)").unwrap()), @r#"
         Ancestors {
             heads: CommitRef(Symbol("foo")),
             generation: 3..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("(::foo)---").unwrap()), @r#"
         Ancestors {
             heads: CommitRef(Symbol("foo")),
             generation: 3..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
 
@@ -5180,6 +5266,7 @@ mod tests {
             roots: Ancestors {
                 heads: CommitRef(Symbol("foo")),
                 generation: 3..4,
+                parents_range: 0..4294967295,
             },
             generation: 1..2,
         }
@@ -5191,6 +5278,7 @@ mod tests {
             roots: CommitRef(Symbol("foo")),
             heads: CommitRef(Symbol("bar")),
             generation: 2..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         // roots can also be folded, and the range expression is reconstructed.
@@ -5199,9 +5287,11 @@ mod tests {
             roots: Ancestors {
                 heads: CommitRef(Symbol("foo")),
                 generation: 2..3,
+                parents_range: 0..4294967295,
             },
             heads: CommitRef(Symbol("bar")),
             generation: 3..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         // Bounded ancestors shouldn't be substituted to range.
@@ -5211,10 +5301,12 @@ mod tests {
             Ancestors {
                 heads: CommitRef(Symbol("bar")),
                 generation: 0..18446744073709551615,
+                parents_range: 0..4294967295,
             },
             Ancestors {
                 heads: CommitRef(Symbol("foo")),
                 generation: 0..2,
+                parents_range: 0..4294967295,
             },
         )
         "#);
@@ -5227,8 +5319,10 @@ mod tests {
                 roots: CommitRef(Symbol("foo")),
                 heads: CommitRef(Symbol("bar")),
                 generation: 0..18446744073709551615,
+                parents_range: 0..4294967295,
             },
             generation: 2..3,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("foo..(bar..baz)").unwrap()), @r#"
@@ -5238,8 +5332,10 @@ mod tests {
                 roots: CommitRef(Symbol("bar")),
                 heads: CommitRef(Symbol("baz")),
                 generation: 0..18446744073709551615,
+                parents_range: 0..4294967295,
             },
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
 
@@ -5249,6 +5345,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(Symbol("foo")),
             generation: 0..0,
+            parents_range: 0..4294967295,
         }
         "#
         );
@@ -5257,6 +5354,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(Symbol("foo")),
             generation: 0..0,
+            parents_range: 0..4294967295,
         }
         "#
         );
@@ -5295,6 +5393,7 @@ mod tests {
                 generation: 3..4,
             },
             generation: 1..2,
+            parents_range: 0..4294967295,
         }
         "#);
 
@@ -5354,6 +5453,7 @@ mod tests {
                 ),
             ),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("ancestors(a-) | ancestors(b)").unwrap()), @r#"
@@ -5362,10 +5462,12 @@ mod tests {
                 Ancestors {
                     heads: CommitRef(Symbol("a")),
                     generation: 1..2,
+                    parents_range: 0..4294967295,
                 },
                 CommitRef(Symbol("b")),
             ),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
 
@@ -5377,6 +5479,7 @@ mod tests {
                     Ancestors {
                         heads: CommitRef(Symbol("a")),
                         generation: 1..2,
+                        parents_range: 0..4294967295,
                     },
                     CommitRef(Symbol("b")),
                 ),
@@ -5384,6 +5487,7 @@ mod tests {
             ),
             heads: CommitRef(Symbol("d")),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("a..b ~ ::c- ~ ::d").unwrap()), @r#"
@@ -5394,12 +5498,14 @@ mod tests {
                     Ancestors {
                         heads: CommitRef(Symbol("c")),
                         generation: 1..2,
+                        parents_range: 0..4294967295,
                     },
                 ),
                 CommitRef(Symbol("d")),
             ),
             heads: CommitRef(Symbol("b")),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
 
@@ -5409,10 +5515,12 @@ mod tests {
             Ancestors {
                 heads: CommitRef(Symbol("a")),
                 generation: 0..2,
+                parents_range: 0..4294967295,
             },
             Ancestors {
                 heads: CommitRef(Symbol("b")),
                 generation: 0..18446744073709551615,
+                parents_range: 0..4294967295,
             },
         )
         "#);
@@ -5438,10 +5546,12 @@ mod tests {
                                 ),
                                 heads: CommitRef(Symbol("b")),
                                 generation: 0..18446744073709551615,
+                                parents_range: 0..4294967295,
                             },
                             Ancestors {
                                 heads: CommitRef(Symbol("g")),
                                 generation: 0..18446744073709551615,
+                                parents_range: 0..4294967295,
                             },
                         ),
                         CommitRef(Symbol("d")),
@@ -5529,6 +5639,7 @@ mod tests {
             filter: Ancestors {
                 heads: CommitRef(Symbol("d")),
                 generation: 0..18446744073709551615,
+                parents_range: 0..4294967295,
             },
         }
         "#);
@@ -5539,6 +5650,7 @@ mod tests {
             Ancestors {
                 heads: CommitRef(Symbol("foo")),
                 generation: 0..2,
+                parents_range: 0..4294967295,
             },
         )
         "#);
@@ -5550,6 +5662,7 @@ mod tests {
             heads: Ancestors {
                 heads: CommitRef(Symbol("foo")),
                 generation: 2..3,
+                parents_range: 0..4294967295,
             },
             filter: All,
         }
