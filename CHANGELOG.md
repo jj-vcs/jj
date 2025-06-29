@@ -21,6 +21,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+* The `git.push-bookmark-prefix` setting is deprecated in favor of
+  `templates.git_push_bookmark`, which supports templating. The old setting can
+  be expressed in template as `"<prefix>" ++ change_id.short()`.
+
 ### New features
 
 * `jj diff` now accepts `-T`/`--template` option to customize summary output.

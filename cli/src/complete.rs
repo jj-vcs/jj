@@ -101,7 +101,7 @@ pub fn tracked_bookmarks() -> Vec<CompletionCandidate> {
 }
 
 pub fn untracked_bookmarks() -> Vec<CompletionCandidate> {
-    with_jj(|jj, settings| {
+    with_jj(|jj, _settings| {
         let output = jj
             .build()
             .arg("bookmark")
@@ -118,28 +118,18 @@ pub fn untracked_bookmarks() -> Vec<CompletionCandidate> {
             .output()
             .map_err(user_error)?;
 
-        let prefix = settings.get_string("git.push-bookmark-prefix").ok();
-
         Ok(String::from_utf8_lossy(&output.stdout)
             .lines()
             .map(|line| {
                 let (name, help) = split_help_text(line);
-
-                let display_order = match prefix.as_ref() {
-                    // own bookmarks are more interesting
-                    Some(prefix) if name.starts_with(prefix) => 0,
-                    _ => 1,
-                };
-                CompletionCandidate::new(name)
-                    .help(help)
-                    .display_order(Some(display_order))
+                CompletionCandidate::new(name).help(help)
             })
             .collect())
     })
 }
 
 pub fn bookmarks() -> Vec<CompletionCandidate> {
-    with_jj(|jj, settings| {
+    with_jj(|jj, _settings| {
         let output = jj
             .build()
             .arg("bookmark")
@@ -156,8 +146,6 @@ pub fn bookmarks() -> Vec<CompletionCandidate> {
             .map_err(user_error)?;
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        let prefix = settings.get_string("git.push-bookmark-prefix").ok();
-
         Ok((&stdout
             .lines()
             .map(split_help_text)
@@ -165,15 +153,10 @@ pub fn bookmarks() -> Vec<CompletionCandidate> {
             .into_iter()
             .map(|(bookmark, mut refs)| {
                 let help = refs.find_map(|(_, help)| help);
-
                 let local = help.is_some();
-                let mine = prefix.as_ref().is_some_and(|p| bookmark.starts_with(p));
-
-                let display_order = match (local, mine) {
-                    (true, true) => 0,
-                    (true, false) => 1,
-                    (false, true) => 2,
-                    (false, false) => 3,
+                let display_order = match local {
+                    true => 0,
+                    false => 1,
                 };
                 CompletionCandidate::new(bookmark)
                     .help(help)
@@ -233,19 +216,15 @@ pub fn aliases() -> Vec<CompletionCandidate> {
 fn revisions(match_prefix: &str, revset_filter: Option<&str>) -> Vec<CompletionCandidate> {
     with_jj(|jj, settings| {
         // display order
-        const LOCAL_BOOKMARK_MINE: usize = 0;
-        const LOCAL_BOOKMARK: usize = 1;
-        const TAG: usize = 2;
-        const CHANGE_ID: usize = 3;
-        const REMOTE_BOOKMARK_MINE: usize = 4;
-        const REMOTE_BOOKMARK: usize = 5;
-        const REVSET_ALIAS: usize = 6;
+        const LOCAL_BOOKMARK: usize = 0;
+        const TAG: usize = 1;
+        const CHANGE_ID: usize = 2;
+        const REMOTE_BOOKMARK: usize = 3;
+        const REVSET_ALIAS: usize = 4;
 
         let mut candidates = Vec::new();
 
         // bookmarks
-
-        let prefix = settings.get_string("git.push-bookmark-prefix").ok();
 
         let mut cmd = jj.build();
         cmd.arg("bookmark")
@@ -270,13 +249,9 @@ fn revisions(match_prefix: &str, revset_filter: Option<&str>) -> Vec<CompletionC
                 .filter(|(bookmark, _)| bookmark.starts_with(match_prefix))
                 .map(|(bookmark, help)| {
                     let local = !bookmark.contains('@');
-                    let mine = prefix.as_ref().is_some_and(|p| bookmark.starts_with(p));
-
-                    let display_order = match (local, mine) {
-                        (true, true) => LOCAL_BOOKMARK_MINE,
-                        (true, false) => LOCAL_BOOKMARK,
-                        (false, true) => REMOTE_BOOKMARK_MINE,
-                        (false, false) => REMOTE_BOOKMARK,
+                    let display_order = match local {
+                        true => LOCAL_BOOKMARK,
+                        false => REMOTE_BOOKMARK,
                     };
                     CompletionCandidate::new(bookmark)
                         .help(help)

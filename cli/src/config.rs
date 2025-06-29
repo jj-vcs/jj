@@ -741,6 +741,16 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
                 Ok(format!(":{value}").into())
             },
         ),
+        // TODO: Delete in jj 0.37+
+        ConfigMigrationRule::rename_update_value(
+            "git.push-bookmark-prefix",
+            "templates.git_push_bookmark",
+            |old_value| {
+                let value = old_value.as_str().ok_or("expected a string")?;
+                let escaped = dsl_util::escape_string(value);
+                Ok(format!(r#""{escaped}" ++ change_id.short()"#).into())
+            },
+        ),
     ]
 }
 

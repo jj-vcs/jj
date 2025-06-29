@@ -43,6 +43,8 @@ file_list = '''
 path.display() ++ "\n"
 '''
 
+git_push_bookmark = '"push-" ++ change_id.short()'
+
 log = 'builtin_log_compact'
 op_log = 'builtin_op_log_compact'
 show = 'builtin_log_detailed'

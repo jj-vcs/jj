@@ -1499,16 +1499,19 @@ abandon-unreachable-commits = false
 
 [reachable]: https://git-scm.com/docs/gitglossary/#Documentation/gitglossary.txt-aiddefreachableareachable
 
-### Prefix for generated bookmarks on push
+### Generated bookmark names on push
 
 `jj git push --change` generates bookmark names with a prefix of "push-" by
-default. You can pick a different prefix by setting `git.push-bookmark-prefix`. For
-example:
+default. You can pick a different prefix and formatting by setting the
+`templates.git_push_bookmark` template. For example:
 
 ```toml
-[git]
-push-bookmark-prefix = "martinvonz/push-"
+[templates]
+git_push_bookmark = '"martinvonz/push-" ++ change_id.short()'
 ```
+
+This template should include expressions like `change_id` to generate unique and
+stable bookmark.
 
 ### Set of private commits
 

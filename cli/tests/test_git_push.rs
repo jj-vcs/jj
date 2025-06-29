@@ -14,6 +14,7 @@
 
 use testutils::git;
 
+use crate::common::to_toml_value;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
@@ -873,11 +874,14 @@ fn test_git_push_changes() {
     [EOF]
     ");
 
-    // Test changing `git.push-bookmark-prefix`. It causes us to push again.
+    // Test changing `git_push_bookmark` template. It causes us to push again.
     let output = work_dir.run_jj([
         "git",
         "push",
-        "--config=git.push-bookmark-prefix=test-",
+        &format!(
+            "--config=templates.git_push_bookmark={}",
+            to_toml_value("'test-' ++ change_id.short()")
+        ),
         "--change=@",
     ]);
     insta::assert_snapshot!(output, @r"
@@ -886,6 +890,35 @@ fn test_git_push_changes() {
     Changes to push to origin:
       Add bookmark test-yostqsxwqrlt to 4b18f5ea2994
     [EOF]
+    ");
+
+    // Try again with the deprecated config
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--config=git.push-bookmark-prefix=test-",
+        "--change=@",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: Deprecated CLI-provided config: git.push-bookmark-prefix is updated to templates.git_push_bookmark = '"test-" ++ change_id.short()'
+    Bookmark test-yostqsxwqrlt@origin already matches test-yostqsxwqrlt
+    Nothing changed.
+    [EOF]
+    "#);
+
+    // Bad `git_push_bookmark` templates
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        r#"--config=templates.git_push_bookmark='""'"#,
+        "--change=@",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Empty bookmark name generated
+    [EOF]
+    [exit status: 1]
     ");
 }
 

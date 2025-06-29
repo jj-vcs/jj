@@ -432,11 +432,6 @@
                     "description": "Whether jj should abandon commits that became unreachable in Git.",
                     "default": true
                 },
-                "push-bookmark-prefix": {
-                    "type": "string",
-                    "description": "Prefix used when pushing a bookmark based on a change ID",
-                    "default": "push-"
-                },
                 "push-new-bookmarks": {
                     "type": "boolean",
                     "description": "Allow pushing new bookmarks without --allow-new",
@@ -830,6 +825,10 @@
                 "file_list": {
                     "type": "string",
                     "description": "`jj file list`'s output"
+                },
+                "git_push_bookmark": {
+                    "type": "string",
+                    "description": "Bookmark name to be assigned when pushing a change to Git remote"
                 },
                 "log": {
                     "type": "string",
