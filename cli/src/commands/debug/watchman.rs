@@ -59,10 +59,13 @@ pub fn cmd_debug_watchman(
             // TODO(ilyagr): It would be nice to add colors here
             let config = match workspace_command.settings().fsmonitor_settings()? {
                 FsmonitorSettings::Watchman(config) => {
-                    writeln!(ui.stdout(), "Watchman is enabled via `core.fsmonitor`.")?;
                     writeln!(
                         ui.stdout(),
-                        r"Background snapshotting is {}. Use `core.watchman.register-snapshot-trigger` to control it.",
+                        "Watchman is enabled via `working-copy.fsmonitor`."
+                    )?;
+                    writeln!(
+                        ui.stdout(),
+                        r"Background snapshotting is {}. Use `working-copy.watchman.register-snapshot-trigger` to control it.",
                         if config.register_trigger {
                             "enabled"
                         } else {
@@ -74,7 +77,7 @@ pub fn cmd_debug_watchman(
                 FsmonitorSettings::None => {
                     writeln!(
                         ui.stdout(),
-                        r#"Watchman is disabled. Set `core.fsmonitor="watchman"` to enable."#
+                        r#"Watchman is disabled. Set `working-copy.fsmonitor="watchman"` to enable."#
                     )?;
                     writeln!(
                         ui.stdout(),

@@ -1540,33 +1540,6 @@ you can:
 executable-path = "/path/to/git"
 ```
 
-## Filesystem monitor
-
-In large repositories, it may be beneficial to use a "filesystem monitor" to
-track changes to the working copy. This allows `jj` to take working copy
-snapshots without having to rescan the entire working copy.
-
-This is governed by the `core.fsmonitor` option. Currently, the valid values are
-`"none"` or `"watchman"`.
-
-### Watchman
-
-To configure the Watchman filesystem monitor, set
-`core.fsmonitor = "watchman"`. Ensure that you have [installed the Watchman
-executable on your system](https://facebook.github.io/watchman/docs/install).
-
-You can configure `jj` to use watchman triggers to automatically create
-snapshots on filesystem changes by setting
-`core.watchman.register-snapshot-trigger = true`.
-
-You can check whether Watchman is enabled and whether it is installed correctly
-using `jj debug watchman status`.
-
-Note: `watchman` heavily uses `inotify` and sets up a user watch per-file. On
-large repositories, this may cause `watchman` to fail and commands like
-`jj status` to take longer than expected. If you experience this run
-`jj debug watchman status` and tune your `inotify` limits.
-
 ## Snapshot settings
 
 ### Paths to automatically track
@@ -1801,3 +1774,33 @@ wip = ["log", "-r", "work"]
   --when.commands = ["file show"]   # matches `jj file show` but *NOT* `jj file list`
   --when.commands = ["file", "log"] # matches `jj file` *OR* `jj log` (or subcommand of either)
   ```
+
+## Working copy settings
+
+### Filesystem monitor
+
+In large repositories, it may be beneficial to use a "filesystem monitor" to
+track changes to the working copy. This allows `jj` to take working copy
+snapshots without having to rescan the entire working copy.
+
+This is governed by the `working-copy.fsmonitor` option. Currently, the valid
+values are `"none"` or `"watchman"`.
+
+#### Watchman
+
+To configure the Watchman filesystem monitor, set
+`working-copy.fsmonitor = "watchman"`. Ensure that you have [installed the
+Watchman executable on your
+system](https://facebook.github.io/watchman/docs/install).
+
+You can configure `jj` to use watchman triggers to automatically create
+snapshots on filesystem changes by setting
+`working-copy.watchman.register-snapshot-trigger = true`.
+
+You can check whether Watchman is enabled and whether it is installed correctly
+using `jj debug watchman status`.
+
+Note: `watchman` heavily uses `inotify` and sets up a user watch per-file. On
+large repositories, this may cause `watchman` to fail and commands like
+`jj status` to take longer than expected. If you experience this run
+`jj debug watchman status` and tune your `inotify` limits.
