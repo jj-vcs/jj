@@ -38,7 +38,6 @@ use crate::fileset;
 use crate::fileset::FilesetDiagnostics;
 use crate::fileset::FilesetExpression;
 use crate::graph::GraphNode;
-use crate::hex_util::to_forward_hex;
 use crate::id_prefix::IdPrefixContext;
 use crate::id_prefix::IdPrefixIndex;
 use crate::object_id::HexPrefix;
@@ -135,6 +134,8 @@ pub enum RevsetCommitRef {
     WorkingCopies,
     Symbol(String),
     RemoteSymbol(RemoteRefSymbolBuf),
+    ChangeId(HexPrefix),
+    CommitId(HexPrefix),
     Bookmarks(StringPattern),
     RemoteBookmarks {
         bookmark_pattern: StringPattern,
@@ -364,6 +365,16 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
 
     pub fn remote_symbol(value: RemoteRefSymbolBuf) -> Rc<Self> {
         let commit_ref = RevsetCommitRef::RemoteSymbol(value);
+        Rc::new(Self::CommitRef(commit_ref))
+    }
+
+    pub fn change_id_prefix(prefix: HexPrefix) -> Rc<Self> {
+        let commit_ref = RevsetCommitRef::ChangeId(prefix);
+        Rc::new(Self::CommitRef(commit_ref))
+    }
+
+    pub fn commit_id_prefix(prefix: HexPrefix) -> Rc<Self> {
+        let commit_ref = RevsetCommitRef::CommitId(prefix);
         Rc::new(Self::CommitRef(commit_ref))
     }
 
@@ -764,6 +775,24 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
     map.insert("root", |_diagnostics, function, _context| {
         function.expect_no_arguments()?;
         Ok(RevsetExpression::root())
+    });
+    map.insert("change_id", |diagnostics, function, _context| {
+        let [arg] = function.expect_exact_arguments()?;
+        let prefix = revset_parser::catch_aliases(diagnostics, arg, |_diagnostics, arg| {
+            let value = revset_parser::expect_string_literal("change ID prefix", arg)?;
+            HexPrefix::try_from_reverse_hex(value)
+                .ok_or_else(|| RevsetParseError::expression("Invalid change ID prefix", arg.span))
+        })?;
+        Ok(RevsetExpression::change_id_prefix(prefix))
+    });
+    map.insert("commit_id", |diagnostics, function, _context| {
+        let [arg] = function.expect_exact_arguments()?;
+        let prefix = revset_parser::catch_aliases(diagnostics, arg, |_diagnostics, arg| {
+            let value = revset_parser::expect_string_literal("commit ID prefix", arg)?;
+            HexPrefix::new(value)
+                .ok_or_else(|| RevsetParseError::expression("Invalid commit ID prefix", arg.span))
+        })?;
+        Ok(RevsetExpression::commit_id_prefix(prefix))
     });
     map.insert("bookmarks", |diagnostics, function, _context| {
         let ([], [opt_arg]) = function.expect_arguments()?;
@@ -2353,6 +2382,28 @@ struct CommitPrefixResolver<'a> {
     context: Option<&'a IdPrefixContext>,
 }
 
+impl CommitPrefixResolver<'_> {
+    fn try_resolve(
+        &self,
+        repo: &dyn Repo,
+        prefix: &HexPrefix,
+    ) -> Result<Option<CommitId>, RevsetResolutionError> {
+        let index = self
+            .context
+            .map(|ctx| ctx.populate(self.context_repo))
+            .transpose()
+            .map_err(|err| RevsetResolutionError::Other(err.into()))?
+            .unwrap_or(IdPrefixIndex::empty());
+        match index.resolve_commit_prefix(repo, prefix) {
+            PrefixResolution::AmbiguousMatch => {
+                Err(RevsetResolutionError::AmbiguousCommitIdPrefix(prefix.hex()))
+            }
+            PrefixResolution::SingleMatch(id) => Ok(Some(id)),
+            PrefixResolution::NoMatch => Ok(None),
+        }
+    }
+}
+
 impl PartialSymbolResolver for CommitPrefixResolver<'_> {
     fn resolve_symbol(
         &self,
@@ -2360,19 +2411,7 @@ impl PartialSymbolResolver for CommitPrefixResolver<'_> {
         symbol: &str,
     ) -> Result<Option<Vec<CommitId>>, RevsetResolutionError> {
         if let Some(prefix) = HexPrefix::new(symbol) {
-            let index = self
-                .context
-                .map(|ctx| ctx.populate(self.context_repo))
-                .transpose()
-                .map_err(|err| RevsetResolutionError::Other(err.into()))?
-                .unwrap_or(IdPrefixIndex::empty());
-            match index.resolve_commit_prefix(repo, &prefix) {
-                PrefixResolution::AmbiguousMatch => Err(
-                    RevsetResolutionError::AmbiguousCommitIdPrefix(symbol.to_owned()),
-                ),
-                PrefixResolution::SingleMatch(id) => Ok(Some(vec![id])),
-                PrefixResolution::NoMatch => Ok(None),
-            }
+            Ok(self.try_resolve(repo, &prefix)?.map(|id| vec![id]))
         } else {
             Ok(None)
         }
@@ -2384,26 +2423,36 @@ struct ChangePrefixResolver<'a> {
     context: Option<&'a IdPrefixContext>,
 }
 
+impl ChangePrefixResolver<'_> {
+    fn try_resolve(
+        &self,
+        repo: &dyn Repo,
+        prefix: &HexPrefix,
+    ) -> Result<Option<Vec<CommitId>>, RevsetResolutionError> {
+        let index = self
+            .context
+            .map(|ctx| ctx.populate(self.context_repo))
+            .transpose()
+            .map_err(|err| RevsetResolutionError::Other(err.into()))?
+            .unwrap_or(IdPrefixIndex::empty());
+        match index.resolve_change_prefix(repo, prefix) {
+            PrefixResolution::AmbiguousMatch => Err(
+                RevsetResolutionError::AmbiguousChangeIdPrefix(prefix.reverse_hex()),
+            ),
+            PrefixResolution::SingleMatch(ids) => Ok(Some(ids)),
+            PrefixResolution::NoMatch => Ok(None),
+        }
+    }
+}
+
 impl PartialSymbolResolver for ChangePrefixResolver<'_> {
     fn resolve_symbol(
         &self,
         repo: &dyn Repo,
         symbol: &str,
     ) -> Result<Option<Vec<CommitId>>, RevsetResolutionError> {
-        if let Some(prefix) = to_forward_hex(symbol).as_deref().and_then(HexPrefix::new) {
-            let index = self
-                .context
-                .map(|ctx| ctx.populate(self.context_repo))
-                .transpose()
-                .map_err(|err| RevsetResolutionError::Other(err.into()))?
-                .unwrap_or(IdPrefixIndex::empty());
-            match index.resolve_change_prefix(repo, &prefix) {
-                PrefixResolution::AmbiguousMatch => Err(
-                    RevsetResolutionError::AmbiguousChangeIdPrefix(symbol.to_owned()),
-                ),
-                PrefixResolution::SingleMatch(ids) => Ok(Some(ids)),
-                PrefixResolution::NoMatch => Ok(None),
-            }
+        if let Some(prefix) = HexPrefix::try_from_reverse_hex(symbol) {
+            self.try_resolve(repo, &prefix)
         } else {
             Ok(None)
         }
@@ -2513,6 +2562,14 @@ fn resolve_commit_ref(
         RevsetCommitRef::WorkingCopies => {
             let wc_commits = repo.view().wc_commit_ids().values().cloned().collect_vec();
             Ok(wc_commits)
+        }
+        RevsetCommitRef::ChangeId(prefix) => {
+            let resolver = &symbol_resolver.change_id_resolver;
+            Ok(resolver.try_resolve(repo, prefix)?.unwrap_or_else(Vec::new))
+        }
+        RevsetCommitRef::CommitId(prefix) => {
+            let resolver = &symbol_resolver.commit_id_resolver;
+            Ok(resolver.try_resolve(repo, prefix)?.into_iter().collect())
         }
         RevsetCommitRef::Bookmarks(pattern) => {
             let commit_ids = repo
@@ -3699,6 +3756,32 @@ mod tests {
         )
         "#);
         insta::assert_debug_snapshot!(parse("signed()").unwrap(), @"Filter(Signed)");
+    }
+
+    #[test]
+    fn test_parse_revset_change_commit_id_functions() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+
+        insta::assert_debug_snapshot!(
+            parse("change_id(z)").unwrap(),
+            @r#"CommitRef(ChangeId(HexPrefix("0")))"#);
+        insta::assert_debug_snapshot!(
+            parse("change_id('zk')").unwrap(),
+            @r#"CommitRef(ChangeId(HexPrefix("0f")))"#);
+        insta::assert_debug_snapshot!(
+            parse("change_id(01234)").unwrap_err().kind(),
+            @r#"Expression("Invalid change ID prefix")"#);
+
+        insta::assert_debug_snapshot!(
+            parse("commit_id(0)").unwrap(),
+            @r#"CommitRef(CommitId(HexPrefix("0")))"#);
+        insta::assert_debug_snapshot!(
+            parse("commit_id('0f')").unwrap(),
+            @r#"CommitRef(CommitId(HexPrefix("0f")))"#);
+        insta::assert_debug_snapshot!(
+            parse("commit_id(xyzzy)").unwrap_err().kind(),
+            @r#"Expression("Invalid commit ID prefix")"#);
     }
 
     #[test]

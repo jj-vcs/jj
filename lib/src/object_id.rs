@@ -14,6 +14,11 @@
 
 #![allow(missing_docs)]
 
+use std::fmt;
+use std::fmt::Debug;
+
+use crate::hex_util;
+
 pub trait ObjectId {
     fn object_type(&self) -> String;
     fn as_bytes(&self) -> &[u8];
@@ -126,7 +131,7 @@ pub(crate) use impl_id_type;
 
 /// An identifier prefix (typically from a type implementing the [`ObjectId`]
 /// trait) with facilities for converting between bytes and a hex string.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct HexPrefix {
     // For odd-length prefixes, the lower 4 bits of the last byte are
     // zero-filled (e.g. the prefix "abc" is stored in two bytes as "abc0").
@@ -150,6 +155,16 @@ impl HexPrefix {
         })
     }
 
+    /// Returns a new `HexPrefix` or `None` if `prefix` cannot be decoded from
+    /// "reverse" hex to bytes.
+    pub fn try_from_reverse_hex(prefix: &str) -> Option<HexPrefix> {
+        let (min_prefix_bytes, has_odd_byte) = hex_util::decode_reverse_hex_prefix(prefix)?;
+        Some(HexPrefix {
+            min_prefix_bytes,
+            has_odd_byte,
+        })
+    }
+
     pub fn from_bytes(bytes: &[u8]) -> Self {
         HexPrefix {
             min_prefix_bytes: bytes.to_owned(),
@@ -157,8 +172,18 @@ impl HexPrefix {
         }
     }
 
+    /// Returns string representation of this prefix using hex digits.
     pub fn hex(&self) -> String {
         let mut hex_string = hex::encode(&self.min_prefix_bytes);
+        if self.has_odd_byte {
+            hex_string.pop().unwrap();
+        }
+        hex_string
+    }
+
+    /// Returns string representation of this prefix using `z-k` "digits".
+    pub fn reverse_hex(&self) -> String {
+        let mut hex_string = hex_util::encode_reverse_hex(&self.min_prefix_bytes);
         if self.has_odd_byte {
             hex_string.pop().unwrap();
         }
@@ -199,6 +224,12 @@ impl HexPrefix {
         } else {
             false
         }
+    }
+}
+
+impl Debug for HexPrefix {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        f.debug_tuple("HexPrefix").field(&self.hex()).finish()
     }
 }
 

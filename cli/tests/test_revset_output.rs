@@ -172,6 +172,34 @@ fn test_bad_function_call() {
     [exit status: 1]
     ");
 
+    let output = work_dir.run_jj(["log", "-r", "change_id(glob:a)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Failed to parse revset: Expected change ID prefix
+    Caused by:  --> 1:11
+      |
+    1 | change_id(glob:a)
+      |           ^----^
+      |
+      = Expected change ID prefix
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["log", "-r", "commit_id(xyzzy)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Failed to parse revset: Invalid commit ID prefix
+    Caused by:  --> 1:11
+      |
+    1 | commit_id(xyzzy)
+      |           ^---^
+      |
+      = Invalid commit ID prefix
+    [EOF]
+    [exit status: 1]
+    ");
+
     let output = work_dir.run_jj(["log", "-r", "files(not::a-fileset)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------

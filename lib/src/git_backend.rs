@@ -79,7 +79,6 @@ use crate::file_util;
 use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
-use crate::hex_util::to_forward_hex;
 use crate::index::Index;
 use crate::lock::FileLock;
 use crate::merge::Merge;
@@ -555,8 +554,7 @@ fn commit_from_git_without_root_parent(
     let change_id = commit
         .extra_headers()
         .find(CHANGE_ID_COMMIT_HEADER)
-        .and_then(to_forward_hex)
-        .and_then(|change_id_hex| ChangeId::try_from_hex(change_id_hex.as_str()).ok())
+        .and_then(ChangeId::try_from_reverse_hex)
         .filter(|val| val.as_bytes().len() == CHANGE_ID_LENGTH)
         .unwrap_or_else(|| change_id_from_git_commit_id(id));
 

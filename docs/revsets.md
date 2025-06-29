@@ -211,6 +211,12 @@ revsets (expressions) as arguments.
 * `none()`: No commits. This function is rarely useful; it is provided for
   completeness.
 
+* `change_id(prefix)`: Commits with the given change ID prefix. It is an error
+  to use a non-unique prefix. Unmatched prefix isn't an error.
+
+* `commit_id(prefix)`: Commits with the given commit ID prefix. It is an error
+  to use a non-unique prefix. Unmatched prefix isn't an error.
+
 * `bookmarks([pattern])`: All local bookmark targets. If `pattern` is specified,
   this selects the bookmarks whose name match the given [string
   pattern](#string-patterns). For example, `bookmarks(push)` would match the
