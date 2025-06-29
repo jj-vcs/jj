@@ -21,6 +21,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+* Rename the `core.fsmonitor` and `core.watchman` settings to
+  `working-copy.fsmonitor` and `working-copy.watchman` settings respectively.
+
 ### New features
 
 ### Fixed bugs
