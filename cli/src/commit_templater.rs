@@ -1032,8 +1032,10 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             let [revset_node] = function.expect_exact_arguments()?;
 
             let is_contained =
-                template_parser::expect_string_literal_with(revset_node, |revset, span| {
-                    Ok(evaluate_user_revset(language, diagnostics, span, revset)?.containing_fn())
+                template_parser::catch_aliases(diagnostics, revset_node, |diagnostics, node| {
+                    let text = template_parser::expect_string_literal(node)?;
+                    let revset = evaluate_user_revset(language, diagnostics, node.span, text)?;
+                    Ok(revset.containing_fn())
                 })?;
 
             let out_property = self_property.and_then(move |commit| Ok(is_contained(commit.id())?));
@@ -1108,14 +1110,15 @@ fn expect_fileset_literal(
     node: &ExpressionNode,
     path_converter: &RepoPathUiConverter,
 ) -> Result<FilesetExpression, TemplateParseError> {
-    template_parser::expect_string_literal_with(node, |text, span| {
+    template_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
+        let text = template_parser::expect_string_literal(node)?;
         let mut inner_diagnostics = FilesetDiagnostics::new();
         let expression =
             fileset::parse(&mut inner_diagnostics, text, path_converter).map_err(|err| {
-                TemplateParseError::expression("In fileset expression", span).with_source(err)
+                TemplateParseError::expression("In fileset expression", node.span).with_source(err)
             })?;
         diagnostics.extend_with(inner_diagnostics, |diag| {
-            TemplateParseError::expression("In fileset expression", span).with_source(diag)
+            TemplateParseError::expression("In fileset expression", node.span).with_source(diag)
         });
         Ok(expression)
     })

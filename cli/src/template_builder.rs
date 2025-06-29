@@ -22,7 +22,6 @@ use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigValue;
-use jj_lib::dsl_util::AliasExpandError as _;
 use jj_lib::op_store::TimestampRange;
 use jj_lib::settings::UserSettings;
 use jj_lib::time_util::DatePattern;
@@ -1242,13 +1241,15 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
     );
     map.insert(
         "format",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |_language, diagnostics, _build_ctx, self_property, function| {
             // No dynamic string is allowed as the templater has no runtime error type.
             let [format_node] = function.expect_exact_arguments()?;
             let format =
-                template_parser::expect_string_literal_with(format_node, |format, span| {
-                    time_util::FormattingItems::parse(format)
-                        .ok_or_else(|| TemplateParseError::expression("Invalid time format", span))
+                template_parser::catch_aliases(diagnostics, format_node, |_diagnostics, node| {
+                    let format = template_parser::expect_string_literal(node)?;
+                    time_util::FormattingItems::parse(format).ok_or_else(|| {
+                        TemplateParseError::expression("Invalid time format", node.span)
+                    })
                 })?
                 .into_owned();
             let out_property = self_property.and_then(move |timestamp| {
@@ -1287,14 +1288,16 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
     );
     map.insert(
         "after",
-        |_language, _diagnostics, _build_ctx, self_property, function| {
+        |_language, diagnostics, _build_ctx, self_property, function| {
             let [date_pattern_node] = function.expect_exact_arguments()?;
             let now = chrono::Local::now();
-            let date_pattern = template_parser::expect_string_literal_with(
+            let date_pattern = template_parser::catch_aliases(
+                diagnostics,
                 date_pattern_node,
-                |date_pattern, span| {
+                |_diagnostics, node| {
+                    let date_pattern = template_parser::expect_string_literal(node)?;
                     DatePattern::from_str_kind(date_pattern, function.name, now).map_err(|err| {
-                        TemplateParseError::expression("Invalid date pattern", span)
+                        TemplateParseError::expression("Invalid date pattern", node.span)
                             .with_source(err)
                     })
                 },
@@ -1445,14 +1448,16 @@ where
 {
     let [lambda_node] = function.expect_exact_arguments()?;
     let item_placeholder = PropertyPlaceholder::new();
-    let item_predicate = template_parser::expect_lambda_with(lambda_node, |lambda, _span| {
-        build_lambda_expression(
-            build_ctx,
-            lambda,
-            &[&|| item_placeholder.clone().into_dyn_wrapped()],
-            |build_ctx, body| expect_boolean_expression(language, diagnostics, build_ctx, body),
-        )
-    })?;
+    let item_predicate =
+        template_parser::catch_aliases(diagnostics, lambda_node, |diagnostics, node| {
+            let lambda = template_parser::expect_lambda(node)?;
+            build_lambda_expression(
+                build_ctx,
+                lambda,
+                &[&|| item_placeholder.clone().into_dyn_wrapped()],
+                |build_ctx, body| expect_boolean_expression(language, diagnostics, build_ctx, body),
+            )
+        })?;
     let out_property = self_property.and_then(move |items| {
         items
             .into_iter()
@@ -1486,14 +1491,18 @@ where
 {
     let [lambda_node] = function.expect_exact_arguments()?;
     let item_placeholder = PropertyPlaceholder::new();
-    let item_template = template_parser::expect_lambda_with(lambda_node, |lambda, _span| {
-        build_lambda_expression(
-            build_ctx,
-            lambda,
-            &[&|| item_placeholder.clone().into_dyn_wrapped()],
-            |build_ctx, body| expect_template_expression(language, diagnostics, build_ctx, body),
-        )
-    })?;
+    let item_template =
+        template_parser::catch_aliases(diagnostics, lambda_node, |diagnostics, node| {
+            let lambda = template_parser::expect_lambda(node)?;
+            build_lambda_expression(
+                build_ctx,
+                lambda,
+                &[&|| item_placeholder.clone().into_dyn_wrapped()],
+                |build_ctx, body| {
+                    expect_template_expression(language, diagnostics, build_ctx, body)
+                },
+            )
+        })?;
     let list_template = ListPropertyTemplate::new(
         self_property,
         Literal(" "), // separator
@@ -1720,14 +1729,15 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         });
         Ok(L::Property::wrap_template(Box::new(template)))
     });
-    map.insert("config", |language, _diagnostics, _build_ctx, function| {
+    map.insert("config", |language, diagnostics, _build_ctx, function| {
         // Dynamic lookup can be implemented if needed. The name is literal
         // string for now so the error can be reported early.
         let [name_node] = function.expect_exact_arguments()?;
         let name: ConfigNamePathBuf =
-            template_parser::expect_string_literal_with(name_node, |name, span| {
+            template_parser::catch_aliases(diagnostics, name_node, |_diagnostics, node| {
+                let name = template_parser::expect_string_literal(node)?;
                 name.parse().map_err(|err| {
-                    TemplateParseError::expression("Failed to parse config name", span)
+                    TemplateParseError::expression("Failed to parse config name", node.span)
                         .with_source(err)
                 })
             })?;
@@ -1807,7 +1817,7 @@ pub fn build_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     build_ctx: &BuildContext<L::Property>,
     node: &ExpressionNode,
 ) -> TemplateParseResult<Expression<L::Property>> {
-    match &node.kind {
+    template_parser::catch_aliases(diagnostics, node, |diagnostics, node| match &node.kind {
         ExpressionKind::Identifier(name) => {
             if let Some(make) = build_ctx.local_variables.get(name) {
                 // Don't label a local variable with its name
@@ -1883,16 +1893,8 @@ pub fn build_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
             "Lambda cannot be defined here",
             node.span,
         )),
-        ExpressionKind::AliasExpanded(id, subst) => {
-            let mut inner_diagnostics = TemplateDiagnostics::new();
-            let expression = build_expression(language, &mut inner_diagnostics, build_ctx, subst)
-                .map_err(|e| e.within_alias_expansion(*id, node.span))?;
-            diagnostics.extend_with(inner_diagnostics, |diag| {
-                diag.within_alias_expansion(*id, node.span)
-            });
-            Ok(expression)
-        }
-    }
+        ExpressionKind::AliasExpanded(..) => unreachable!(),
+    })
 }
 
 /// Builds template evaluation tree from AST nodes, with fresh build context.
@@ -2045,27 +2047,12 @@ fn expect_expression_of_type<'a, L: TemplateLanguage<'a> + ?Sized, T>(
     expected_type: &str,
     f: impl FnOnce(Expression<L::Property>) -> Option<T>,
 ) -> TemplateParseResult<T> {
-    if let ExpressionKind::AliasExpanded(id, subst) = &node.kind {
-        let mut inner_diagnostics = TemplateDiagnostics::new();
-        let expression = expect_expression_of_type(
-            language,
-            &mut inner_diagnostics,
-            build_ctx,
-            subst,
-            expected_type,
-            f,
-        )
-        .map_err(|e| e.within_alias_expansion(*id, node.span))?;
-        diagnostics.extend_with(inner_diagnostics, |diag| {
-            diag.within_alias_expansion(*id, node.span)
-        });
-        Ok(expression)
-    } else {
+    template_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
         let expression = build_expression(language, diagnostics, build_ctx, node)?;
         let actual_type = expression.type_name();
         f(expression)
             .ok_or_else(|| TemplateParseError::expected_type(expected_type, actual_type, node.span))
-    }
+    })
 }
 
 #[cfg(test)]
