@@ -20,6 +20,7 @@ use std::fmt::Error;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::iter;
 use std::sync::Arc;
 
 use crate::backend::CommitId;
@@ -131,6 +132,21 @@ impl Operation {
     pub fn predecessors_for_commit(&self, commit_id: &CommitId) -> Option<&[CommitId]> {
         let map = self.data.commit_predecessors.as_ref()?;
         Some(map.get(commit_id)?)
+    }
+
+    /// Iterates all commit ids referenced by this operation ignoring the view.
+    ///
+    /// Use this in addition to [`View::all_referenced_commit_ids()`] to build
+    /// commit index from scratch. The predecessor commit ids are also included,
+    /// which ensures that the old commits to be returned by
+    /// [`Self::predecessors_for_commit()`] are still reachable.
+    ///
+    /// The iteration order is unspecified.
+    pub fn all_referenced_commit_ids(&self) -> impl Iterator<Item = &CommitId> {
+        self.data.commit_predecessors.iter().flat_map(|map| {
+            map.iter()
+                .flat_map(|(new_id, old_ids)| iter::once(new_id).chain(old_ids))
+        })
     }
 
     pub fn store_operation(&self) -> &op_store::Operation {
