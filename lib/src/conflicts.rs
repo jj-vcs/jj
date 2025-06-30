@@ -156,7 +156,7 @@ pub struct MaterializedFileValue {
     pub id: FileId,
     pub executable: bool,
     pub copy_id: CopyId,
-    pub reader: Pin<Box<dyn AsyncRead>>,
+    pub reader: Pin<Box<dyn AsyncRead + Send>>,
 }
 
 impl MaterializedFileValue {
