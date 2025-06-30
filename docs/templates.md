@@ -70,14 +70,14 @@ The following functions are defined.
   Truncate `content` by removing trailing characters. The `content` shouldn't
   have newline character. If `ellipsis` is provided and `content` was truncated,
   append the `ellipsis` to the result.
-* `label(label: PlainText, content: Template) -> Template`: Apply label to
+* `label(label: Stringify, content: Template) -> Template`: Apply label to
   the content. The `label` is evaluated as a space-separated string.
 * `raw_escape_sequence(content: Template) -> Template`: Preserves any escape
   sequences in `content` (i.e., bypasses sanitization) and strips labels.
   Note: This function is intended for escape sequences and as such, its output
   is expected to be invisible / of no display width. Outputting content with
   nonzero display width may break wrapping, indentation etc.
-* `stringify(content: PlainText) -> String`: Format `content` to string. This
+* `stringify(content: Stringify) -> String`: Format `content` to string. This
   effectively removes color labels.
 * `json(value: Serialize) -> String`: Serialize `value` in JSON format.
 * `if(condition: Boolean, then: Template[, else: Template]) -> Template`:
@@ -287,7 +287,7 @@ defined.
 
 The following methods are defined. See also the `List` type.
 
-* `.contains_key(key: PlainText) -> Boolean`: True if the commit description
+* `.contains_key(key: Stringify) -> Boolean`: True if the commit description
   contains at least one trailer with the key `key`.
 
 ### `ListTemplate` type
@@ -331,10 +331,6 @@ invoked. If not set, an error will be reported inline on method call.
 
 On comparison between two optional values or optional and non-optional values,
 unset value is not an error. Unset value is considered less than any set values.
-
-### `PlainText` type
-
-A `String`, or any expression that can be converted to `Template`.
 
 ### `RefSymbol` type
 
@@ -407,16 +403,16 @@ A string can be implicitly converted to `Boolean`. The following methods are
 defined.
 
 * `.len() -> Integer`: Length in UTF-8 bytes.
-* `.contains(needle: PlainText) -> Boolean`
+* `.contains(needle: Stringify) -> Boolean`
 * `.first_line() -> String`
 * `.lines() -> List<String>`: Split into lines excluding newline characters.
 * `.upper() -> String`
 * `.lower() -> String`
-* `.starts_with(needle: PlainText) -> Boolean`
-* `.ends_with(needle: PlainText) -> Boolean`
-* `.remove_prefix(needle: PlainText) -> String`: Removes the passed prefix, if
+* `.starts_with(needle: Stringify) -> Boolean`
+* `.ends_with(needle: Stringify) -> Boolean`
+* `.remove_prefix(needle: Stringify) -> String`: Removes the passed prefix, if
   present.
-* `.remove_suffix(needle: PlainText) -> String`: Removes the passed suffix, if
+* `.remove_suffix(needle: Stringify) -> String`: Removes the passed suffix, if
   present.
 * `.trim() -> String`: Removes leading and trailing whitespace
 * `.trim_start() -> String`: Removes leading whitespace
@@ -449,6 +445,13 @@ that don't form a valid escape sequence.
 
 A single-quoted string literal has no escape syntax. `'` can't be expressed
 inside a single-quoted string literal.
+
+### `Stringify` type
+
+An expression that can be converted to a `String`.
+
+Any types that can be converted to `Template` can also be `Stringify`. Unlike
+`Template`, color labels are stripped.
 
 ### `Template` type
 

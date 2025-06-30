@@ -191,9 +191,9 @@ impl<'a, C> CoreTemplatePropertyVar<'a> for GenericTemplatePropertyKind<'a, C> {
         }
     }
 
-    fn try_into_plain_text(self) -> Option<BoxedTemplateProperty<'a, String>> {
+    fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'a, String>> {
         match self {
-            Self::Core(property) => property.try_into_plain_text(),
+            Self::Core(property) => property.try_into_stringify(),
             Self::Self_(_) => None,
         }
     }

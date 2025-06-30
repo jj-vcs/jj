@@ -77,7 +77,7 @@ use crate::diff_util::DiffStats;
 use crate::formatter::Formatter;
 use crate::revset_util;
 use crate::template_builder;
-use crate::template_builder::expect_plain_text_expression;
+use crate::template_builder::expect_stringify_expression;
 use crate::template_builder::merge_fn_map;
 use crate::template_builder::BuildContext;
 use crate::template_builder::CoreTemplateBuildFnTable;
@@ -475,9 +475,9 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         }
     }
 
-    fn try_into_plain_text(self) -> Option<BoxedTemplateProperty<'repo, String>> {
+    fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'repo, String>> {
         match self {
-            Self::Core(property) => property.try_into_plain_text(),
+            Self::Core(property) => property.try_into_stringify(),
             Self::RefSymbol(property) => Some(property.map(|RefSymbolBuf(s)| s).into_dyn()),
             Self::RefSymbolOpt(property) => Some(
                 property
@@ -2381,7 +2381,7 @@ fn builtin_trailer_list_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo
         |language, diagnostics, build_ctx, self_property, function| {
             let [key_node] = function.expect_exact_arguments()?;
             let key_property =
-                expect_plain_text_expression(language, diagnostics, build_ctx, key_node)?;
+                expect_stringify_expression(language, diagnostics, build_ctx, key_node)?;
             let out_property = (self_property, key_property)
                 .map(|(trailers, key)| trailers.iter().any(|t| t.key == key));
             Ok(out_property.into_dyn_wrapped())
@@ -2536,7 +2536,7 @@ mod tests {
         let mut env = CommitTemplateTestEnv::init();
         env.add_function("sym", |language, diagnostics, build_ctx, function| {
             let [value_node] = function.expect_exact_arguments()?;
-            let value = expect_plain_text_expression(language, diagnostics, build_ctx, value_node)?;
+            let value = expect_stringify_expression(language, diagnostics, build_ctx, value_node)?;
             let out_property = value.map(RefSymbolBuf);
             Ok(out_property.into_dyn_wrapped())
         });

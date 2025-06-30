@@ -180,9 +180,9 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
         }
     }
 
-    fn try_into_plain_text(self) -> Option<BoxedTemplateProperty<'static, String>> {
+    fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'static, String>> {
         match self {
-            Self::Core(property) => property.try_into_plain_text(),
+            Self::Core(property) => property.try_into_stringify(),
             _ => {
                 let template = self.try_into_template()?;
                 Some(PlainTextFormattedProperty::new(template).into_dyn())
