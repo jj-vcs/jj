@@ -15,8 +15,8 @@
 //! A lazily merged view of a set of trees.
 
 use std::borrow::Borrow;
-use std::cmp::max;
 use std::cmp::Ordering;
+use std::cmp::max;
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
 use std::iter;
@@ -28,9 +28,9 @@ use std::task::Poll;
 use std::vec;
 
 use either::Either;
+use futures::Stream;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
-use futures::Stream;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
@@ -53,8 +53,8 @@ use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;
 use crate::store::Store;
-use crate::tree::try_resolve_file_conflict;
 use crate::tree::Tree;
+use crate::tree::try_resolve_file_conflict;
 use crate::tree_builder::TreeBuilder;
 
 /// Presents a view of a merged set of trees.
@@ -74,10 +74,12 @@ impl MergedTree {
     pub fn new(trees: Merge<Tree>) -> Self {
         debug_assert!(!trees.iter().any(|t| t.has_conflict()));
         debug_assert!(trees.iter().map(|tree| tree.dir()).all_equal());
-        debug_assert!(trees
-            .iter()
-            .map(|tree| Arc::as_ptr(tree.store()))
-            .all_equal());
+        debug_assert!(
+            trees
+                .iter()
+                .map(|tree| Arc::as_ptr(tree.store()))
+                .all_equal()
+        );
         MergedTree { trees }
     }
 
@@ -1139,10 +1141,12 @@ impl MergedTreeBuilder {
     /// value or as a resolved `Merge` value using `TreeValue::Conflict`.
     pub fn set_or_remove(&mut self, path: RepoPathBuf, values: MergedTreeValue) {
         if let MergedTreeId::Merge(_) = &self.base_tree_id {
-            assert!(!values
-                .iter()
-                .flatten()
-                .any(|value| matches!(value, TreeValue::Conflict(_))));
+            assert!(
+                !values
+                    .iter()
+                    .flatten()
+                    .any(|value| matches!(value, TreeValue::Conflict(_)))
+            );
         }
         self.overrides.insert(path, values);
     }

@@ -24,24 +24,24 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
-use jj_lib::rewrite::compute_move_commits;
-use jj_lib::rewrite::find_duplicate_divergent_commits;
 use jj_lib::rewrite::EmptyBehaviour;
 use jj_lib::rewrite::MoveCommitsLocation;
 use jj_lib::rewrite::MoveCommitsStats;
 use jj_lib::rewrite::MoveCommitsTarget;
 use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RewriteRefsOptions;
+use jj_lib::rewrite::compute_move_commits;
+use jj_lib::rewrite::find_duplicate_divergent_commits;
 use tracing::instrument;
 
-use crate::cli_util::compute_commit_location;
-use crate::cli_util::print_updated_commits;
-use crate::cli_util::short_commit_hash;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::WorkspaceCommandHelper;
-use crate::command_error::user_error;
+use crate::cli_util::compute_commit_location;
+use crate::cli_util::print_updated_commits;
+use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -398,8 +398,8 @@ pub(crate) fn cmd_rebase(
         let abandoned_divergent =
             find_duplicate_divergent_commits(tx.repo(), &loc.new_parent_ids, &loc.target)?;
         computed_move.record_to_abandon(abandoned_divergent.iter().map(Commit::id).cloned());
-        if !abandoned_divergent.is_empty() {
-            if let Some(mut formatter) = ui.status_formatter() {
+        if !abandoned_divergent.is_empty()
+            && let Some(mut formatter) = ui.status_formatter() {
                 writeln!(
                     formatter,
                     "Abandoned {} divergent commits that were already present in the destination:",
@@ -411,7 +411,6 @@ pub(crate) fn cmd_rebase(
                     &abandoned_divergent,
                 )?;
             }
-        }
     };
     let stats = computed_move.apply(tx.repo_mut(), &rebase_options)?;
     print_move_commits_stats(ui, &stats)?;
@@ -496,10 +495,12 @@ fn plan_rebase_branch(
     rebase_destination: &RebaseDestinationArgs,
 ) -> Result<MoveCommitsLocation, CommandError> {
     let branch_commit_ids: Vec<_> = if branch.is_empty() {
-        vec![workspace_command
-            .resolve_single_rev(ui, &RevisionArg::AT)?
-            .id()
-            .clone()]
+        vec![
+            workspace_command
+                .resolve_single_rev(ui, &RevisionArg::AT)?
+                .id()
+                .clone(),
+        ]
     } else {
         workspace_command
             .resolve_some_revsets_default_single(ui, branch)?

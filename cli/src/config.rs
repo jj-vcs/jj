@@ -39,9 +39,9 @@ use regex::Captures;
 use regex::Regex;
 use tracing::instrument;
 
+use crate::command_error::CommandError;
 use crate::command_error::config_error;
 use crate::command_error::config_error_with_message;
-use crate::command_error::CommandError;
 use crate::text_util;
 use crate::ui::Ui;
 
@@ -260,13 +260,12 @@ impl UnresolvedConfigEnv {
             ConfigPath::new(config_dir)
         });
 
-        if let Some(path) = home_config_path {
-            if path.exists()
-                || (platform_config_path.is_none() && legacy_platform_config_path.is_none())
+        if let Some(path) = home_config_path
+            && (path.exists()
+                || (platform_config_path.is_none() && legacy_platform_config_path.is_none()))
             {
                 paths.push(path);
             }
-        }
 
         // This should be the default config created if there's
         // no user config and `jj config edit` is executed.
@@ -276,14 +275,13 @@ impl UnresolvedConfigEnv {
 
         // theoretically these should be an `if let Some(...) = ... && ..., but that
         // isn't stable
-        if let Some(path) = platform_config_dir {
-            if path.exists() {
+        if let Some(path) = platform_config_dir
+            && path.exists() {
                 paths.push(path);
             }
-        }
 
-        if let Some(path) = legacy_platform_config_path {
-            if path.exists() {
+        if let Some(path) = legacy_platform_config_path
+            && path.exists() {
                 Self::warn_for_deprecated_path(
                     ui,
                     path.as_path(),
@@ -292,9 +290,8 @@ impl UnresolvedConfigEnv {
                 );
                 paths.push(path);
             }
-        }
-        if let Some(path) = legacy_platform_config_dir {
-            if path.exists() {
+        if let Some(path) = legacy_platform_config_dir
+            && path.exists() {
                 Self::warn_for_deprecated_path(
                     ui,
                     path.as_path(),
@@ -303,7 +300,6 @@ impl UnresolvedConfigEnv {
                 );
                 paths.push(path);
             }
-        }
 
         paths
     }

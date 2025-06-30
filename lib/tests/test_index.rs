@@ -39,15 +39,15 @@ use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
-use jj_lib::revset::ResolvedExpression;
 use jj_lib::revset::GENERATION_RANGE_FULL;
+use jj_lib::revset::ResolvedExpression;
 use maplit::hashset;
+use testutils::CommitGraphBuilder;
+use testutils::TestRepo;
 use testutils::commit_transactions;
 use testutils::create_random_commit;
 use testutils::test_backend::TestBackend;
 use testutils::write_random_commit;
-use testutils::CommitGraphBuilder;
-use testutils::TestRepo;
 
 fn child_commit<'repo>(mut_repo: &'repo mut MutableRepo, commit: &Commit) -> CommitBuilder<'repo> {
     create_random_commit(mut_repo).set_parents(vec![commit.id().clone()])
@@ -162,11 +162,15 @@ fn test_index_commits_criss_cross() {
     let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
     let mut left_commits = vec![graph_builder.initial_commit()];
     let mut right_commits = vec![graph_builder.initial_commit()];
-    for gen in 1..num_generations {
-        let new_left =
-            graph_builder.commit_with_parents(&[&left_commits[gen - 1], &right_commits[gen - 1]]);
-        let new_right =
-            graph_builder.commit_with_parents(&[&left_commits[gen - 1], &right_commits[gen - 1]]);
+    for generation in 1..num_generations {
+        let new_left = graph_builder.commit_with_parents(&[
+            &left_commits[generation - 1],
+            &right_commits[generation - 1],
+        ]);
+        let new_right = graph_builder.commit_with_parents(&[
+            &left_commits[generation - 1],
+            &right_commits[generation - 1],
+        ]);
         left_commits.push(new_left);
         right_commits.push(new_right);
     }
@@ -183,32 +187,44 @@ fn test_index_commits_criss_cross() {
     assert_eq!(stats.max_generation_number, num_generations as u32);
 
     // Check generation numbers
-    for gen in 0..num_generations {
+    for generation in 0..num_generations {
         assert_eq!(
-            generation_number(index, left_commits[gen].id()),
-            (gen as u32) + 1
+            generation_number(index, left_commits[generation].id()),
+            (generation as u32) + 1
         );
         assert_eq!(
-            generation_number(index, right_commits[gen].id()),
-            (gen as u32) + 1
+            generation_number(index, right_commits[generation].id()),
+            (generation as u32) + 1
         );
     }
 
     // The left and right commits of the same generation should not be ancestors of
     // each other
-    for gen in 0..num_generations {
-        assert!(!index.is_ancestor(left_commits[gen].id(), right_commits[gen].id()));
-        assert!(!index.is_ancestor(right_commits[gen].id(), left_commits[gen].id()));
+    for generation in 0..num_generations {
+        assert!(!index.is_ancestor(
+            left_commits[generation].id(),
+            right_commits[generation].id()
+        ));
+        assert!(!index.is_ancestor(
+            right_commits[generation].id(),
+            left_commits[generation].id()
+        ));
     }
 
     // Both sides of earlier generations should be ancestors. Check a few different
     // earlier generations.
-    for gen in 1..num_generations {
+    for generation in 1..num_generations {
         for ancestor_side in &[&left_commits, &right_commits] {
             for descendant_side in &[&left_commits, &right_commits] {
-                assert!(index.is_ancestor(ancestor_side[0].id(), descendant_side[gen].id()));
-                assert!(index.is_ancestor(ancestor_side[gen - 1].id(), descendant_side[gen].id()));
-                assert!(index.is_ancestor(ancestor_side[gen / 2].id(), descendant_side[gen].id()));
+                assert!(index.is_ancestor(ancestor_side[0].id(), descendant_side[generation].id()));
+                assert!(index.is_ancestor(
+                    ancestor_side[generation - 1].id(),
+                    descendant_side[generation].id()
+                ));
+                assert!(index.is_ancestor(
+                    ancestor_side[generation / 2].id(),
+                    descendant_side[generation].id()
+                ));
             }
         }
     }

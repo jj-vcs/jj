@@ -20,9 +20,9 @@ use std::fmt;
 use std::slice;
 
 use itertools::Itertools as _;
+use pest::RuleType;
 use pest::iterators::Pair;
 use pest::iterators::Pairs;
-use pest::RuleType;
 
 /// Manages diagnostic messages emitted during parsing.
 ///

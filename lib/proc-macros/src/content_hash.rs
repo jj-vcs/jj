@@ -3,8 +3,6 @@ use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote;
 use quote::quote_spanned;
-use syn::parse_quote;
-use syn::spanned::Spanned as _;
 use syn::Data;
 use syn::Field;
 use syn::Fields;
@@ -12,6 +10,8 @@ use syn::GenericParam;
 use syn::Generics;
 use syn::Index;
 use syn::Type;
+use syn::parse_quote;
+use syn::spanned::Spanned as _;
 
 pub fn add_trait_bounds(mut generics: Generics) -> Generics {
     for param in &mut generics.params {

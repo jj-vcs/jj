@@ -21,19 +21,19 @@ use clap::Subcommand;
 use jj_lib::repo_path::RepoPathBuf;
 use tracing::instrument;
 
-use self::edit::cmd_sparse_edit;
 use self::edit::SparseEditArgs;
-use self::list::cmd_sparse_list;
+use self::edit::cmd_sparse_edit;
 use self::list::SparseListArgs;
-use self::reset::cmd_sparse_reset;
+use self::list::cmd_sparse_list;
 use self::reset::SparseResetArgs;
-use self::set::cmd_sparse_set;
+use self::reset::cmd_sparse_reset;
 use self::set::SparseSetArgs;
-use crate::cli_util::print_checkout_stats;
+use self::set::cmd_sparse_set;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
-use crate::command_error::internal_error_with_message;
+use crate::cli_util::print_checkout_stats;
 use crate::command_error::CommandError;
+use crate::command_error::internal_error_with_message;
 use crate::ui::Ui;
 
 /// Manage which paths from the working-copy commit are present in the working

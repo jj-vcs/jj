@@ -23,8 +23,8 @@ use std::iter;
 use std::mem;
 
 use itertools::Itertools as _;
-use smallvec::smallvec_inline;
 use smallvec::SmallVec;
+use smallvec::smallvec_inline;
 
 /// Traverses nodes from `start` in depth-first order.
 pub fn dfs<T, ID, II, NI>(
@@ -57,20 +57,22 @@ where
 {
     let mut work: Vec<Result<T, E>> = start.into_iter().collect();
     let mut visited: HashSet<ID> = HashSet::new();
-    iter::from_fn(move || loop {
-        let c = match work.pop() {
-            Some(Ok(c)) => c,
-            r @ (Some(Err(_)) | None) => return r,
-        };
-        let id = id_fn(&c);
-        if visited.contains(&id) {
-            continue;
+    iter::from_fn(move || {
+        loop {
+            let c = match work.pop() {
+                Some(Ok(c)) => c,
+                r @ (Some(Err(_)) | None) => return r,
+            };
+            let id = id_fn(&c);
+            if visited.contains(&id) {
+                continue;
+            }
+            for p in neighbors_fn(&c) {
+                work.push(p);
+            }
+            visited.insert(id);
+            return Some(Ok(c));
         }
-        for p in neighbors_fn(&c) {
-            work.push(p);
-        }
-        visited.insert(id);
-        return Some(Ok(c));
     })
 }
 
@@ -521,9 +523,11 @@ where
         neighbor_ids_map.insert(node_id, neighbor_ids);
     }
 
-    debug_assert!(head_node_map
-        .keys()
-        .all(|id| !inner_node_map.contains_key(id)));
+    debug_assert!(
+        head_node_map
+            .keys()
+            .all(|id| !inner_node_map.contains_key(id))
+    );
     debug_assert!(inner_node_map.values().all(|inner| inner.node.is_some()));
     debug_assert!(inner_node_map.values().all(|inner| inner.indegree > 0));
 

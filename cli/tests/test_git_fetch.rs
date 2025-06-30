@@ -14,10 +14,10 @@
 
 use testutils::git;
 
-use crate::common::create_commit;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::create_commit;
 
 fn add_commit_to_branch(git_repo: &gix::Repository, branch: &str) -> gix::ObjectId {
     git::add_commit(

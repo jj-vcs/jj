@@ -31,9 +31,9 @@ use jj_lib::operation::Operation;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::settings::UserSettings;
+use testutils::TestRepo;
 use testutils::create_random_commit;
 use testutils::write_random_commit;
-use testutils::TestRepo;
 
 fn list_dir(dir: &Path) -> Vec<String> {
     std::fs::read_dir(dir)

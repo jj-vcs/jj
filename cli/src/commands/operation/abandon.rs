@@ -20,11 +20,11 @@ use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::op_walk;
 
-use crate::cli_util::short_operation_hash;
 use crate::cli_util::CommandHelper;
+use crate::cli_util::short_operation_hash;
+use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::user_error;
-use crate::command_error::CommandError;
 use crate::complete;
 use crate::ui::Ui;
 

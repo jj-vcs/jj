@@ -15,9 +15,9 @@
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
-use jj_lib::default_index::revset_engine::evaluate;
-use jj_lib::default_index::revset_engine::RevsetImpl;
 use jj_lib::default_index::DefaultReadonlyIndex;
+use jj_lib::default_index::revset_engine::RevsetImpl;
+use jj_lib::default_index::revset_engine::evaluate;
 use jj_lib::graph::GraphEdge;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;

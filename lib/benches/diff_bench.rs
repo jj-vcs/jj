@@ -1,7 +1,7 @@
-use criterion::criterion_group;
-use criterion::criterion_main;
 use criterion::BenchmarkId;
 use criterion::Criterion;
+use criterion::criterion_group;
+use criterion::criterion_main;
 use jj_lib::diff;
 
 fn unchanged_lines(count: usize) -> (String, String) {

@@ -15,9 +15,9 @@
 use clap_complete::ArgValueCandidates;
 use jj_lib::object_id::ObjectId as _;
 
-use super::view_with_desired_portions_restored;
-use super::UndoWhatToRestore;
 use super::DEFAULT_UNDO_WHAT;
+use super::UndoWhatToRestore;
+use super::view_with_desired_portions_restored;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::complete;

@@ -17,10 +17,10 @@ use std::thread;
 use assert_matches::assert_matches;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
-use jj_lib::workspace::default_working_copy_factories;
-use jj_lib::workspace::default_working_copy_factory;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceLoadError;
+use jj_lib::workspace::default_working_copy_factories;
+use jj_lib::workspace::default_working_copy_factory;
 use testutils::TestEnvironment;
 use testutils::TestWorkspace;
 

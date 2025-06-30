@@ -32,28 +32,28 @@ use jj_lib::repo::Repo;
 use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
 
-use self::create::cmd_bookmark_create;
 use self::create::BookmarkCreateArgs;
-use self::delete::cmd_bookmark_delete;
+use self::create::cmd_bookmark_create;
 use self::delete::BookmarkDeleteArgs;
-use self::forget::cmd_bookmark_forget;
+use self::delete::cmd_bookmark_delete;
 use self::forget::BookmarkForgetArgs;
-use self::list::cmd_bookmark_list;
+use self::forget::cmd_bookmark_forget;
 use self::list::BookmarkListArgs;
-use self::r#move::cmd_bookmark_move;
+use self::list::cmd_bookmark_list;
 use self::r#move::BookmarkMoveArgs;
-use self::rename::cmd_bookmark_rename;
+use self::r#move::cmd_bookmark_move;
 use self::rename::BookmarkRenameArgs;
-use self::set::cmd_bookmark_set;
+use self::rename::cmd_bookmark_rename;
 use self::set::BookmarkSetArgs;
-use self::track::cmd_bookmark_track;
+use self::set::cmd_bookmark_set;
 use self::track::BookmarkTrackArgs;
-use self::untrack::cmd_bookmark_untrack;
+use self::track::cmd_bookmark_track;
 use self::untrack::BookmarkUntrackArgs;
+use self::untrack::cmd_bookmark_untrack;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RemoteBookmarkNamePattern;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::ui::Ui;
 
 // Unlike most other aliases, `b` is defined in the config and can be overridden

@@ -30,10 +30,10 @@ use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetExpression;
+use testutils::TestRepo;
 use testutils::create_tree;
 use testutils::read_file;
 use testutils::repo_path;
-use testutils::TestRepo;
 
 fn create_commit_fn(
     mut_repo: &mut MutableRepo,

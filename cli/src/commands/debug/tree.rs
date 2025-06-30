@@ -22,8 +22,8 @@ use jj_lib::repo_path::RepoPathBuf;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::ui::Ui;
 
 /// List the recursive entries of a tree.

@@ -16,10 +16,10 @@ use clap_complete::ArgValueCandidates;
 use jj_lib::op_store::RefTarget;
 use jj_lib::ref_name::RefNameBuf;
 
-use crate::cli_util::has_tracked_remote_bookmarks;
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error;
+use crate::cli_util::has_tracked_remote_bookmarks;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::revset_util;
 use crate::ui::Ui;

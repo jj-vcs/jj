@@ -22,10 +22,10 @@ use jj_lib::trailer::parse_description_trailers;
 use jj_lib::trailer::parse_trailers;
 use thiserror::Error;
 
-use crate::cli_util::short_commit_hash;
 use crate::cli_util::WorkspaceCommandTransaction;
-use crate::command_error::user_error;
+use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::config::CommandNameAndArgs;
 use crate::formatter::PlainTextFormatter;
 use crate::templater::TemplateRenderer;

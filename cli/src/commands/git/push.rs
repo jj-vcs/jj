@@ -36,10 +36,10 @@ use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::ref_name::RemoteRefSymbol;
-use jj_lib::refs::classify_bookmark_push_action;
 use jj_lib::refs::BookmarkPushAction;
 use jj_lib::refs::BookmarkPushUpdate;
 use jj_lib::refs::LocalAndRemoteRef;
+use jj_lib::refs::classify_bookmark_push_action;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::settings::UserSettings;
@@ -47,18 +47,18 @@ use jj_lib::signing::SignBehavior;
 use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
 
-use crate::cli_util::has_tracked_remote_bookmarks;
-use crate::cli_util::short_change_hash;
-use crate::cli_util::short_commit_hash;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
+use crate::cli_util::has_tracked_remote_bookmarks;
+use crate::cli_util::short_change_hash;
+use crate::cli_util::short_commit_hash;
+use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::cli_error_with_message;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
-use crate::command_error::CommandError;
 use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::formatter::Formatter;
@@ -402,8 +402,8 @@ pub fn cmd_git_push(
     };
     let commits_to_sign =
         validate_commits_ready_to_push(ui, &bookmark_updates, remote, &tx, args, sign_behavior)?;
-    if !args.dry_run && !commits_to_sign.is_empty() {
-        if let Some(sign_behavior) = sign_behavior {
+    if !args.dry_run && !commits_to_sign.is_empty()
+        && let Some(sign_behavior) = sign_behavior {
             let num_updated_signatures = commits_to_sign.len();
             let num_rebased_descendants;
             (num_rebased_descendants, bookmark_updates) = sign_commits_before_push(
@@ -425,7 +425,6 @@ pub fn cmd_git_push(
                 }
             }
         }
-    }
 
     if let Some(mut formatter) = ui.status_formatter() {
         writeln!(
@@ -586,11 +585,10 @@ fn validate_commits_ready_to_push(
             }
             return Err(error);
         }
-        if let Some(sign_settings) = &sign_settings {
-            if !commit.is_signed() && sign_settings.should_sign(commit.store_commit()) {
+        if let Some(sign_settings) = &sign_settings
+            && !commit.is_signed() && sign_settings.should_sign(commit.store_commit()) {
                 commits_to_sign.push(commit);
             }
-        }
     }
     Ok(commits_to_sign)
 }

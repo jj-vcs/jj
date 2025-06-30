@@ -23,8 +23,8 @@ use super::find_bookmarks_with;
 use super::is_fast_forward;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
-use crate::command_error::user_error_with_hint;
 use crate::command_error::CommandError;
+use crate::command_error::user_error_with_hint;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -145,8 +145,8 @@ pub fn cmd_bookmark_move(
         return Ok(());
     }
 
-    if !args.allow_backwards {
-        if let Some((name, _)) = matched_bookmarks
+    if !args.allow_backwards
+        && let Some((name, _)) = matched_bookmarks
             .iter()
             .find(|(_, old_target)| !is_fast_forward(repo.as_ref(), old_target, target_commit.id()))
         {
@@ -158,7 +158,6 @@ pub fn cmd_bookmark_move(
                 "Use --allow-backwards to allow it.",
             ));
         }
-    }
 
     let mut tx = workspace_command.start_transaction();
     for (name, _) in &matched_bookmarks {

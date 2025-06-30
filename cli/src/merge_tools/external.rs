@@ -13,10 +13,10 @@ use jj_lib::backend::CopyId;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::conflicts;
-use jj_lib::conflicts::choose_materialized_conflict_marker_len;
-use jj_lib::conflicts::materialize_merge_result_to_bytes_with_marker_len;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN;
+use jj_lib::conflicts::choose_materialized_conflict_marker_len;
+use jj_lib::conflicts::materialize_merge_result_to_bytes_with_marker_len;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Merge;
@@ -28,19 +28,19 @@ use jj_lib::working_copy::CheckoutOptions;
 use pollster::FutureExt as _;
 use thiserror::Error;
 
-use super::diff_working_copies::check_out_trees;
-use super::diff_working_copies::new_utf8_temp_dir;
-use super::diff_working_copies::set_readonly_recursively;
-use super::diff_working_copies::DiffEditWorkingCopies;
-use super::diff_working_copies::DiffSide;
 use super::ConflictResolveError;
 use super::DiffEditError;
 use super::DiffGenerateError;
 use super::MergeToolFile;
 use super::MergeToolPartialResolutionError;
+use super::diff_working_copies::DiffEditWorkingCopies;
+use super::diff_working_copies::DiffSide;
+use super::diff_working_copies::check_out_trees;
+use super::diff_working_copies::new_utf8_temp_dir;
+use super::diff_working_copies::set_readonly_recursively;
+use crate::config::CommandNameAndArgs;
 use crate::config::find_all_variables;
 use crate::config::interpolate_variables;
-use crate::config::CommandNameAndArgs;
 use crate::ui::Ui;
 
 /// Merge/diff tool loaded from the settings.

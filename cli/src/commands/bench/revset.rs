@@ -15,16 +15,16 @@
 use std::rc::Rc;
 use std::time::Instant;
 
-use criterion::measurement::Measurement;
 use criterion::BatchSize;
 use criterion::BenchmarkGroup;
 use criterion::BenchmarkId;
+use criterion::measurement::Measurement;
 use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
 
-use super::new_criterion;
 use super::CriterionArgs;
+use super::new_criterion;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::WorkspaceCommandHelper;

@@ -14,20 +14,20 @@
 
 #![allow(missing_docs)]
 
-use std::cmp::max;
 use std::cmp::Ordering;
 use std::cmp::Reverse;
-use std::collections::binary_heap;
+use std::cmp::max;
 use std::collections::BinaryHeap;
 use std::collections::HashSet;
+use std::collections::binary_heap;
 use std::iter;
 use std::mem;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use itertools::Itertools as _;
-use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
+use ref_cast::ref_cast_custom;
 
 use super::entry::IndexEntry;
 use super::entry::IndexPosition;
@@ -366,10 +366,12 @@ impl CompositeIndex {
     /// no duplicates. The returned head positions are also sorted in descending
     /// order.
     pub fn heads_pos(&self, candidate_positions: Vec<IndexPosition>) -> Vec<IndexPosition> {
-        debug_assert!(candidate_positions
-            .iter()
-            .tuple_windows()
-            .all(|(a, b)| a > b));
+        debug_assert!(
+            candidate_positions
+                .iter()
+                .tuple_windows()
+                .all(|(a, b)| a > b)
+        );
         let Some(min_generation) = candidate_positions
             .iter()
             .map(|&pos| self.entry_by_pos(pos).generation_number())

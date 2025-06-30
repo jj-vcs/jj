@@ -18,8 +18,8 @@ use jj_lib::git;
 use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
+use crate::command_error::user_error_with_message;
 use crate::ui::Ui;
 
 /// List Git remotes
@@ -40,7 +40,7 @@ pub fn cmd_git_remote_list(
                 return Err(user_error_with_message(
                     format!("Failed to load configured remote {remote_name}"),
                     err,
-                ))
+                ));
             }
             None => continue, // ignore empty [remote "<name>"] section
         };

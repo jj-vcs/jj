@@ -88,7 +88,7 @@ impl FileLock {
                         message: "Failed to create lock file",
                         path,
                         err,
-                    })
+                    });
                 }
             }
         }

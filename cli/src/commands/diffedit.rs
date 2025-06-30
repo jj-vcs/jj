@@ -101,8 +101,10 @@ pub(crate) fn cmd_diffedit(
     if args.from.is_some() || args.to.is_some() {
         target_commit = workspace_command
             .resolve_single_rev(ui, args.to.as_ref().unwrap_or(&RevisionArg::AT))?;
-        base_commits = vec![workspace_command
-            .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))?];
+        base_commits = vec![
+            workspace_command
+                .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))?,
+        ];
         diff_description = format!(
             "The diff initially shows the commit's changes relative to:\n{}",
             workspace_command.format_commit_summary(&base_commits[0])
@@ -149,14 +151,13 @@ don't make any changes, then the operation will be aborted.",
         } else {
             (tx.repo_mut().rebase_descendants()?, "")
         };
-        if let Some(mut formatter) = ui.status_formatter() {
-            if num_rebased > 0 {
+        if let Some(mut formatter) = ui.status_formatter()
+            && num_rebased > 0 {
                 writeln!(
                     formatter,
                     "Rebased {num_rebased} descendant commits{extra_msg}"
                 )?;
             }
-        }
         tx.finish(ui, format!("edit commit {}", target_commit.id().hex()))?;
     }
     Ok(())

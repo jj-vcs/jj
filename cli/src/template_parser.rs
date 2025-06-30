@@ -18,7 +18,6 @@ use std::mem;
 
 use itertools::Itertools as _;
 use jj_lib::dsl_util;
-use jj_lib::dsl_util::collect_similar;
 use jj_lib::dsl_util::AliasDeclaration;
 use jj_lib::dsl_util::AliasDeclarationParser;
 use jj_lib::dsl_util::AliasDefinitionParser;
@@ -32,13 +31,14 @@ use jj_lib::dsl_util::FoldableExpression;
 use jj_lib::dsl_util::FunctionCallParser;
 use jj_lib::dsl_util::InvalidArguments;
 use jj_lib::dsl_util::StringLiteralParser;
+use jj_lib::dsl_util::collect_similar;
 use once_cell::sync::Lazy;
+use pest::Parser as _;
 use pest::iterators::Pair;
 use pest::iterators::Pairs;
 use pest::pratt_parser::Assoc;
 use pest::pratt_parser::Op;
 use pest::pratt_parser::PrattParser;
-use pest::Parser as _;
 use pest_derive::Parser;
 use thiserror::Error;
 

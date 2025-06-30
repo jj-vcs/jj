@@ -19,11 +19,11 @@ use indoc::indoc;
 use itertools::Itertools as _;
 use regex::Regex;
 
+use crate::common::TestEnvironment;
 use crate::common::default_toml_from_schema;
 use crate::common::fake_editor_path;
 use crate::common::force_interactive;
 use crate::common::to_toml_value;
-use crate::common::TestEnvironment;
 
 #[test]
 fn test_config_list_single() {

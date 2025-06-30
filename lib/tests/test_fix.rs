@@ -18,21 +18,21 @@ use std::collections::HashSet;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeId;
-use jj_lib::fix::fix_files;
 use jj_lib::fix::FileFixer;
 use jj_lib::fix::FileToFix;
 use jj_lib::fix::FixError;
 use jj_lib::fix::ParallelFileFixer;
+use jj_lib::fix::fix_files;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::repo::Repo as _;
 use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use pollster::FutureExt as _;
+use testutils::TestRepo;
 use testutils::create_tree;
 use testutils::create_tree_with;
 use testutils::read_file;
 use testutils::repo_path;
-use testutils::TestRepo;
 use thiserror::Error;
 
 struct TestFileFixer {}

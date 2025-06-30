@@ -37,7 +37,6 @@ use tempfile::NamedTempFile;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt as _;
 
-use crate::backend::make_root_commit;
 use crate::backend::Backend;
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
@@ -61,6 +60,7 @@ use crate::backend::Timestamp;
 use crate::backend::Tree;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
+use crate::backend::make_root_commit;
 use crate::content_hash::blake2b_hash;
 use crate::file_util::persist_content_addressed_temp_file;
 use crate::index::Index;

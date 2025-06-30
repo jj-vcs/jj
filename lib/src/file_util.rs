@@ -109,11 +109,10 @@ pub fn path_to_bytes(path: &Path) -> Result<&[u8], BadPathEncoding> {
 
 /// Expands "~/" to "$HOME/".
 pub fn expand_home_path(path_str: &str) -> PathBuf {
-    if let Some(remainder) = path_str.strip_prefix("~/") {
-        if let Ok(home_dir_str) = std::env::var("HOME") {
+    if let Some(remainder) = path_str.strip_prefix("~/")
+        && let Ok(home_dir_str) = std::env::var("HOME") {
             return PathBuf::from(home_dir_str).join(remainder);
         }
-    }
     PathBuf::from(path_str)
 }
 
@@ -303,12 +302,12 @@ mod platform {
     use std::os::windows::fs::symlink_file;
     use std::path::Path;
 
-    use winreg::enums::HKEY_LOCAL_MACHINE;
     use winreg::RegKey;
+    use winreg::enums::HKEY_LOCAL_MACHINE;
 
+    pub use super::fallback::BadOsStrEncoding;
     pub use super::fallback::os_str_from_bytes;
     pub use super::fallback::os_str_to_bytes;
-    pub use super::fallback::BadOsStrEncoding;
 
     /// Symlinks may or may not be enabled on Windows. They require the
     /// Developer Mode setting, which is stored in the registry key below.

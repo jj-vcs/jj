@@ -19,8 +19,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
-use serde::de::IntoDeserializer as _;
 use serde::Deserialize as _;
+use serde::de::IntoDeserializer as _;
 use thiserror::Error;
 use toml_edit::DocumentMut;
 

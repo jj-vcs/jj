@@ -1919,7 +1919,7 @@ pub fn rename_remote(
         _ => {
             return Err(GitRemoteManagementError::NonstandardConfiguration(
                 old_remote_name.to_owned(),
-            ))
+            ));
         }
     }
 

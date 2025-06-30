@@ -28,8 +28,8 @@ use std::sync::Arc;
 
 use futures::future::try_join_all;
 use itertools::Itertools as _;
-use smallvec::smallvec_inline;
 use smallvec::SmallVec;
+use smallvec::smallvec_inline;
 
 use crate::backend;
 use crate::backend::BackendResult;

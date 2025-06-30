@@ -45,9 +45,9 @@ use jj_lib::workspace::Workspace;
 use unicode_width::UnicodeWidthStr as _;
 
 use crate::cleanup_guard::CleanupGuard;
+use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::user_error;
-use crate::command_error::CommandError;
 use crate::formatter::Formatter;
 use crate::ui::ProgressOutput;
 use crate::ui::Ui;

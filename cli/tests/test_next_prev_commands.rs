@@ -13,10 +13,10 @@
 // limitations under the License.
 //
 
-use crate::common::force_interactive;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::force_interactive;
 
 #[test]
 fn test_next_simple() {
