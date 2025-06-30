@@ -34,6 +34,9 @@ use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use maplit::hashmap;
 use maplit::hashset;
+use testutils::CommitGraphBuilder;
+use testutils::TestRepo;
+use testutils::TestRepoBackend;
 use testutils::commit_with_tree;
 use testutils::create_random_commit;
 use testutils::create_single_tree;
@@ -41,9 +44,6 @@ use testutils::create_tree;
 use testutils::is_external_tool_installed;
 use testutils::repo_path;
 use testutils::repo_path_buf;
-use testutils::CommitGraphBuilder;
-use testutils::TestRepo;
-use testutils::TestRepoBackend;
 
 fn get_git_backend(repo: &Arc<ReadonlyRepo>) -> &GitBackend {
     repo.store()

@@ -13,16 +13,16 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCompleter;
+use jj_lib::absorb::AbsorbSource;
 use jj_lib::absorb::absorb_hunks;
 use jj_lib::absorb::split_hunks_to_trees;
-use jj_lib::absorb::AbsorbSource;
 use jj_lib::matchers::EverythingMatcher;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
-use crate::cli_util::print_updated_commits;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::diff_util::DiffFormat;
@@ -126,8 +126,8 @@ pub(crate) fn cmd_absorb(
         ),
     )?;
 
-    if let Some(mut formatter) = ui.status_formatter() {
-        if let Some(commit) = &stats.rewritten_source {
+    if let Some(mut formatter) = ui.status_formatter()
+        && let Some(commit) = &stats.rewritten_source {
             let repo = workspace_command.repo().as_ref();
             if !commit.is_empty(repo)? {
                 writeln!(formatter, "Remaining changes:")?;
@@ -137,6 +137,5 @@ pub(crate) fn cmd_absorb(
                 diff_renderer.show_patch(ui, formatter.as_mut(), commit, matcher, width)?;
             }
         }
-    }
     Ok(())
 }

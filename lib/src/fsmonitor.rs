@@ -126,8 +126,8 @@ pub mod watchman {
 
     impl From<Clock> for crate::protos::working_copy::WatchmanClock {
         fn from(clock: Clock) -> Self {
-            use crate::protos::working_copy::watchman_clock;
             use crate::protos::working_copy::WatchmanClock;
+            use crate::protos::working_copy::watchman_clock;
             let Clock(clock) = clock;
             let watchman_clock = match clock {
                 InnerClock::Spec(ClockSpec::StringClock(string_clock)) => {

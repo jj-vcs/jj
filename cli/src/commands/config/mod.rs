@@ -26,21 +26,21 @@ use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
 use tracing::instrument;
 
-use self::edit::cmd_config_edit;
 use self::edit::ConfigEditArgs;
-use self::get::cmd_config_get;
+use self::edit::cmd_config_edit;
 use self::get::ConfigGetArgs;
-use self::list::cmd_config_list;
+use self::get::cmd_config_get;
 use self::list::ConfigListArgs;
-use self::path::cmd_config_path;
+use self::list::cmd_config_list;
 use self::path::ConfigPathArgs;
-use self::set::cmd_config_set;
+use self::path::cmd_config_path;
 use self::set::ConfigSetArgs;
-use self::unset::cmd_config_unset;
+use self::set::cmd_config_set;
 use self::unset::ConfigUnsetArgs;
+use self::unset::cmd_config_unset;
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::config::ConfigEnv;
 use crate::ui::Ui;
 

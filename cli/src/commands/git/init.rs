@@ -23,22 +23,22 @@ use indoc::writedoc;
 use itertools::Itertools as _;
 use jj_lib::file_util;
 use jj_lib::git;
-use jj_lib::git::parse_git_ref;
 use jj_lib::git::GitRefKind;
+use jj_lib::git::parse_git_ref;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::view::View;
 use jj_lib::workspace::Workspace;
 
 use super::write_repository_level_trunk_alias;
-use crate::cli_util::start_repo_transaction;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
+use crate::cli_util::start_repo_transaction;
+use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::internal_error;
 use crate::command_error::user_error_with_hint;
 use crate::command_error::user_error_with_message;
-use crate::command_error::CommandError;
 use crate::commands::git::maybe_add_gitignore;
 use crate::git_util::is_colocated_git_workspace;
 use crate::git_util::print_git_export_stats;
@@ -239,17 +239,14 @@ pub fn maybe_set_repository_level_trunk_alias(
     if let Some(reference) = git_repo
         .try_find_reference("refs/remotes/origin/HEAD")
         .map_err(internal_error)?
+        && let Some(reference_name) = reference.target().try_name()
+        && let Some((GitRefKind::Bookmark, symbol)) = str::from_utf8(reference_name.as_bstr())
+            .ok()
+            .and_then(|name| parse_git_ref(name.as_ref()))
     {
-        if let Some(reference_name) = reference.target().try_name() {
-            if let Some((GitRefKind::Bookmark, symbol)) = str::from_utf8(reference_name.as_bstr())
-                .ok()
-                .and_then(|name| parse_git_ref(name.as_ref()))
-            {
-                // TODO: Can we assume the symbolic target points to the same remote?
-                let symbol = symbol.name.to_remote_symbol("origin".as_ref());
-                write_repository_level_trunk_alias(ui, workspace_command.repo_path(), symbol)?;
-            }
-        };
+        // TODO: Can we assume the symbolic target points to the same remote?
+        let symbol = symbol.name.to_remote_symbol("origin".as_ref());
+        write_repository_level_trunk_alias(ui, workspace_command.repo_path(), symbol)?;
     };
 
     Ok(())

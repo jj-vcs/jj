@@ -24,11 +24,11 @@ use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetIteratorExt as _;
 
-use crate::cli_util::short_commit_hash;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
-use crate::command_error::user_error;
+use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::ui::Ui;
 
 #[derive(Clone, Debug, Eq, PartialEq)]

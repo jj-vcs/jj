@@ -16,9 +16,9 @@ use std::io::Write as _;
 
 use clap_complete::ArgValueCompleter;
 use jj_lib::backend::BackendResult;
+use jj_lib::conflicts::MaterializedTreeValue;
 use jj_lib::conflicts::materialize_merge_result;
 use jj_lib::conflicts::materialize_tree_value;
-use jj_lib::conflicts::MaterializedTreeValue;
 use jj_lib::file_util::copy_async_to_sync;
 use jj_lib::fileset::FilePattern;
 use jj_lib::fileset::FilesetExpression;
@@ -28,12 +28,12 @@ use jj_lib::repo_path::RepoPath;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
-use crate::cli_util::print_unmatched_explicit_paths;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::WorkspaceCommandHelper;
-use crate::command_error::user_error;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::ui::Ui;
 

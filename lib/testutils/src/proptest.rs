@@ -127,7 +127,7 @@ impl WorkingCopyReferenceStateMachine {
 }
 
 impl WorkingCopyReferenceStateMachine {
-    fn arb_extant_directory(&self) -> impl Strategy<Value = RepoPathBuf> {
+    fn arb_transition_create(&self) -> BoxedStrategy<Transition> {
         let extant_directories = if self.entries.is_empty() {
             vec![RepoPathBuf::root()]
         } else {
@@ -139,24 +139,8 @@ impl WorkingCopyReferenceStateMachine {
                 .collect_vec()
         };
 
-        proptest::sample::select(extant_directories)
-    }
-
-    fn arb_extant_path(&self) -> impl Strategy<Value = RepoPathBuf> {
-        proptest::sample::select(
-            self.entries
-                .keys()
-                .flat_map(|file_path| file_path.ancestors())
-                .filter(|path| !path.is_root())
-                .map(|path| path.to_owned())
-                .unique()
-                .collect_vec(),
-        )
-    }
-
-    fn arb_transition_create(&self) -> impl Strategy<Value = Transition> {
         (
-            self.arb_extant_directory(),
+            proptest::sample::select(extant_directories),
             proptest::collection::vec(arb_path_component(), 1..3),
             any::<DirEntry>(),
         )
@@ -172,15 +156,28 @@ impl WorkingCopyReferenceStateMachine {
                     dir_entry: Some(dir_entry),
                 }
             })
+            .boxed()
     }
 
-    fn arb_transition_modify(&self) -> impl Strategy<Value = Transition> {
-        (self.arb_extant_path(), any::<Option<DirEntry>>()).prop_map(|(path, new_dir_entry)| {
-            Transition::SetDirEntry {
+    fn arb_transition_modify(&self) -> BoxedStrategy<Transition> {
+        let extant_paths = self
+            .entries
+            .keys()
+            .flat_map(|file_path| file_path.ancestors())
+            .filter(|path| !path.is_root())
+            .map(|path| path.to_owned())
+            .unique()
+            .collect_vec();
+
+        (
+            proptest::sample::select(extant_paths),
+            any::<Option<DirEntry>>(),
+        )
+            .prop_map(|(path, new_dir_entry)| Transition::SetDirEntry {
                 path,
                 dir_entry: new_dir_entry,
-            }
-        })
+            })
+            .boxed()
     }
 }
 

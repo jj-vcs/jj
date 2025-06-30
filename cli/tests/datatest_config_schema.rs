@@ -45,21 +45,19 @@ fn taplo_check_config(file: &Path) -> datatest_stable::Result<Option<Output>> {
 }
 
 pub(crate) fn taplo_check_config_valid(file: &Path) -> datatest_stable::Result<()> {
-    if let Some(taplo_res) = taplo_check_config(file)? {
-        if !taplo_res.status.success() {
+    if let Some(taplo_res) = taplo_check_config(file)?
+        && !taplo_res.status.success() {
             eprintln!("Failed to validate {}:", file.display());
             eprintln!("{}", String::from_utf8_lossy(&taplo_res.stderr));
             return Err("Validation failed".into());
         }
-    }
     Ok(())
 }
 
 pub(crate) fn taplo_check_config_invalid(file: &Path) -> datatest_stable::Result<()> {
-    if let Some(taplo_res) = taplo_check_config(file)? {
-        if taplo_res.status.success() {
+    if let Some(taplo_res) = taplo_check_config(file)?
+        && taplo_res.status.success() {
             return Err("Validation unexpectedly passed".into());
         }
-    }
     Ok(())
 }

@@ -16,8 +16,8 @@ use jj_lib::ref_name::WorkspaceNameBuf;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::ui::Ui;
 
 /// Renames the current workspace

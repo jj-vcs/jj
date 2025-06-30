@@ -20,17 +20,17 @@ use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::CommitId;
 use jj_lib::repo::Repo as _;
+use jj_lib::rewrite::DuplicateCommitsStats;
 use jj_lib::rewrite::duplicate_commits;
 use jj_lib::rewrite::duplicate_commits_onto_parents;
-use jj_lib::rewrite::DuplicateCommitsStats;
 use tracing::instrument;
 
-use crate::cli_util::compute_commit_location;
-use crate::cli_util::short_commit_hash;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
-use crate::command_error::user_error;
+use crate::cli_util::compute_commit_location;
+use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -140,8 +140,8 @@ pub(crate) fn cmd_duplicate(
 
     let mut tx = workspace_command.start_transaction();
 
-    if let Some((parent_commit_ids, children_commit_ids)) = &location {
-        if !parent_commit_ids.is_empty() {
+    if let Some((parent_commit_ids, children_commit_ids)) = &location
+        && !parent_commit_ids.is_empty() {
             for commit_id in &to_duplicate {
                 for parent_commit_id in parent_commit_ids {
                     if tx.repo().index().is_ancestor(commit_id, parent_commit_id) {
@@ -168,7 +168,6 @@ pub(crate) fn cmd_duplicate(
                 }
             }
         }
-    }
 
     let new_descs = {
         let template = tx

@@ -25,8 +25,8 @@ use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::backend::MergedTreeId;
 use crate::backend::Signature;
-use crate::commit::is_backend_commit_empty;
 use crate::commit::Commit;
+use crate::commit::is_backend_commit_empty;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::settings::JJRng;
@@ -363,11 +363,10 @@ impl DetachedCommitBuilder {
         }
         mut_repo.add_head(&commit)?;
         mut_repo.set_predecessors(commit.id().clone(), predecessors);
-        if let Some(rewrite_source) = self.rewrite_source {
-            if rewrite_source.change_id() == commit.change_id() {
+        if let Some(rewrite_source) = self.rewrite_source
+            && rewrite_source.change_id() == commit.change_id() {
                 mut_repo.set_rewritten_commit(rewrite_source.id().clone(), commit.id().clone());
             }
-        }
         Ok(commit)
     }
 
@@ -385,14 +384,13 @@ impl DetachedCommitBuilder {
     /// commit by `write()`.
     pub fn abandon(self, mut_repo: &mut MutableRepo) {
         let commit = self.commit;
-        if let Some(rewrite_source) = &self.rewrite_source {
-            if rewrite_source.change_id() == &commit.change_id {
+        if let Some(rewrite_source) = &self.rewrite_source
+            && rewrite_source.change_id() == &commit.change_id {
                 mut_repo.record_abandoned_commit_with_parents(
                     rewrite_source.id().clone(),
                     commit.parents,
                 );
             }
-        }
     }
 }
 

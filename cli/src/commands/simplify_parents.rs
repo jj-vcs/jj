@@ -109,8 +109,8 @@ pub(crate) fn cmd_simplify_parents(
             Ok(())
         })?;
 
-    if let Some(mut formatter) = ui.status_formatter() {
-        if simplified_commits > 0 {
+    if let Some(mut formatter) = ui.status_formatter()
+        && simplified_commits > 0 {
             writeln!(
                 formatter,
                 "Removed {edges} edges from {simplified_commits} out of {num_orig_commits} \
@@ -123,7 +123,6 @@ pub(crate) fn cmd_simplify_parents(
                 )?;
             }
         }
-    }
     tx.finish(ui, format!("simplify {num_orig_commits} commits"))?;
 
     Ok(())

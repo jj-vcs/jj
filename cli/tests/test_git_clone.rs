@@ -18,10 +18,10 @@ use indoc::formatdoc;
 use indoc::indoc;
 use testutils::git;
 
-use crate::common::to_toml_value;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::to_toml_value;
 
 fn set_up_non_empty_git_repo(git_repo: &gix::Repository) {
     set_up_git_repo_with_file(git_repo, "file");

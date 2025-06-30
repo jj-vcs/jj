@@ -14,8 +14,8 @@
 
 use std::io::BufRead as _;
 
-use clap::builder::StyledStr;
 use clap::FromArgMatches as _;
+use clap::builder::StyledStr;
 use clap_complete::CompletionCandidate;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigNamePathBuf;
@@ -23,17 +23,17 @@ use jj_lib::settings::UserSettings;
 use jj_lib::workspace::DefaultWorkspaceLoaderFactory;
 use jj_lib::workspace::WorkspaceLoaderFactory as _;
 
+use crate::cli_util::GlobalArgs;
 use crate::cli_util::expand_args;
 use crate::cli_util::find_workspace_dir;
 use crate::cli_util::load_template_aliases;
-use crate::cli_util::GlobalArgs;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
-use crate::config::config_from_environment;
-use crate::config::default_config_layers;
+use crate::command_error::user_error;
+use crate::config::CONFIG_SCHEMA;
 use crate::config::ConfigArgKind;
 use crate::config::ConfigEnv;
-use crate::config::CONFIG_SCHEMA;
+use crate::config::config_from_environment;
+use crate::config::default_config_layers;
 use crate::revset_util::load_revset_aliases;
 use crate::ui::Ui;
 

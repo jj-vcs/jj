@@ -15,21 +15,21 @@
 use indoc::indoc;
 use itertools::Itertools as _;
 use jj_lib::backend::FileId;
+use jj_lib::conflicts::ConflictMarkerStyle;
+use jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN;
 use jj_lib::conflicts::choose_materialized_conflict_marker_len;
 use jj_lib::conflicts::extract_as_single_hunk;
 use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::conflicts::parse_conflict;
 use jj_lib::conflicts::update_from_content;
-use jj_lib::conflicts::ConflictMarkerStyle;
-use jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN;
 use jj_lib::merge::Merge;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::store::Store;
 use pollster::FutureExt as _;
+use testutils::TestRepo;
 use testutils::read_file;
 use testutils::repo_path;
-use testutils::TestRepo;
 
 #[test]
 fn test_materialize_conflict_basic() {

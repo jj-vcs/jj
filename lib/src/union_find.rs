@@ -121,14 +121,16 @@ mod tests {
 
         // Unioning the pairs gives everything the same root.
         union_find.union(1, 3);
-        assert!([
-            union_find.find(1),
-            union_find.find(2),
-            union_find.find(3),
-            union_find.find(4),
-        ]
-        .iter()
-        .all_equal());
+        assert!(
+            [
+                union_find.find(1),
+                union_find.find(2),
+                union_find.find(3),
+                union_find.find(4),
+            ]
+            .iter()
+            .all_equal()
+        );
     }
 
     #[test]

@@ -15,8 +15,8 @@
 use jj_lib::object_id::HexPrefix;
 use jj_lib::repo::Repo as _;
 
-use super::run_bench;
 use super::CriterionArgs;
+use super::run_bench;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::ui::Ui;

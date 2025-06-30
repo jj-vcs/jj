@@ -20,18 +20,18 @@ use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
-use jj_lib::evolution::accumulate_predecessors;
-use jj_lib::evolution::walk_predecessors;
 use jj_lib::evolution::CommitEvolutionEntry;
 use jj_lib::evolution::WalkPredecessorsError;
+use jj_lib::evolution::accumulate_predecessors;
+use jj_lib::evolution::walk_predecessors;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::settings::UserSettings;
 use maplit::btreemap;
+use testutils::TestRepo;
 use testutils::commit_transactions;
 use testutils::write_random_commit;
-use testutils::TestRepo;
 
 fn collect_predecessors(repo: &ReadonlyRepo, start_commit: &CommitId) -> Vec<CommitEvolutionEntry> {
     walk_predecessors(repo, slice::from_ref(start_commit))

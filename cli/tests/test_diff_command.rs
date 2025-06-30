@@ -15,13 +15,13 @@
 use indoc::indoc;
 use itertools::Itertools as _;
 
+use crate::common::CommandOutput;
+use crate::common::TestEnvironment;
+use crate::common::TestWorkDir;
 use crate::common::create_commit;
 use crate::common::create_commit_with_files;
 use crate::common::fake_diff_editor_path;
 use crate::common::to_toml_value;
-use crate::common::CommandOutput;
-use crate::common::TestEnvironment;
-use crate::common::TestWorkDir;
 
 #[test]
 fn test_diff_basic() {

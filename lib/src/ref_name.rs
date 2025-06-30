@@ -36,8 +36,8 @@ use std::fmt;
 use std::fmt::Display;
 use std::ops::Deref;
 
-use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
+use ref_cast::ref_cast_custom;
 
 use crate::content_hash::ContentHash;
 use crate::revset;

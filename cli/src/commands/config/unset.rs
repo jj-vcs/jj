@@ -18,9 +18,9 @@ use tracing::instrument;
 
 use super::ConfigLevelArgs;
 use crate::cli_util::CommandHelper;
+use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
-use crate::command_error::CommandError;
 use crate::complete;
 use crate::ui::Ui;
 

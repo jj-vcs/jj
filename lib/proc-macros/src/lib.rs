@@ -3,8 +3,8 @@ mod content_hash;
 extern crate proc_macro;
 
 use quote::quote;
-use syn::parse_macro_input;
 use syn::DeriveInput;
+use syn::parse_macro_input;
 
 /// Derive macro generating an impl of the trait `ContentHash`.
 ///

@@ -917,8 +917,10 @@ Done";
         let (output, sideband, progress) = read(sample.as_bytes());
         assert_eq!(
             sideband,
-            ["line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"]
-                .map(|s| s.as_bytes().to_owned())
+            [
+                "line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"
+            ]
+            .map(|s| s.as_bytes().to_owned())
         );
         assert_eq!(output, b"blah blah\nsome error message\n");
         insta::assert_debug_snapshot!(progress, @r"
@@ -934,8 +936,10 @@ Done";
         let (output, sideband, _progress) = read(sample.as_bytes().trim_end());
         assert_eq!(
             sideband,
-            ["line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"]
-                .map(|s| s.as_bytes().to_owned())
+            [
+                "line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"
+            ]
+            .map(|s| s.as_bytes().to_owned())
         );
         assert_eq!(output, b"blah blah\nsome error message");
     }

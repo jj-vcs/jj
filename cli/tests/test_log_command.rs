@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::common::to_toml_value;
 use crate::common::TestEnvironment;
+use crate::common::to_toml_value;
 
 #[test]
 fn test_log_with_empty_revision() {

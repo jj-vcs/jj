@@ -64,18 +64,15 @@ fn get_git_hash() -> Option<String> {
             "-T=commit_id",
         ])
         .output()
-    {
-        if output.status.success() {
+        && output.status.success() {
             return Some(String::from_utf8(output.stdout).unwrap());
         }
-    }
 
-    if let Ok(output) = Command::new("git").args(["rev-parse", "HEAD"]).output() {
-        if output.status.success() {
+    if let Ok(output) = Command::new("git").args(["rev-parse", "HEAD"]).output()
+        && output.status.success() {
             let line = str::from_utf8(&output.stdout).unwrap();
             return Some(line.trim_end().to_owned());
         }
-    }
 
     None
 }

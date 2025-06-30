@@ -19,21 +19,21 @@ use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::evolution::walk_predecessors;
-use jj_lib::graph::reverse_graph;
 use jj_lib::graph::GraphEdge;
 use jj_lib::graph::TopoGroupedGraphIterator;
+use jj_lib::graph::reverse_graph;
 use jj_lib::matchers::EverythingMatcher;
 use tracing::instrument;
 
-use crate::cli_util::format_template;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::format_template;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
-use crate::graphlog::get_graphlog;
 use crate::graphlog::GraphStyle;
+use crate::graphlog::get_graphlog;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 

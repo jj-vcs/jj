@@ -18,8 +18,8 @@ use jj_lib::file_util;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::ui::Ui;
 
 /// Show the current workspace root directory (shortcut for `jj workspace root`)

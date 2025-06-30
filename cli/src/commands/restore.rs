@@ -22,8 +22,8 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -174,14 +174,13 @@ pub(crate) fn cmd_restore(
         } else {
             (tx.repo_mut().rebase_descendants()?, "")
         };
-        if let Some(mut formatter) = ui.status_formatter() {
-            if num_rebased > 0 {
+        if let Some(mut formatter) = ui.status_formatter()
+            && num_rebased > 0 {
                 writeln!(
                     formatter,
                     "Rebased {num_rebased} descendant commits{extra_msg}"
                 )?;
             }
-        }
         tx.finish(ui, format!("restore into commit {}", to_commit.id().hex()))?;
     }
     Ok(())

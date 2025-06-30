@@ -19,10 +19,10 @@ use itertools::Itertools as _;
 use regex::Regex;
 use testutils::git;
 
-use crate::common::to_toml_value;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::to_toml_value;
 
 #[test]
 fn test_op_log() {

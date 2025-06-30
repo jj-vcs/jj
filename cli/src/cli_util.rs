@@ -35,16 +35,16 @@ use std::time::SystemTime;
 
 use bstr::ByteVec as _;
 use chrono::TimeZone as _;
+use clap::ArgAction;
+use clap::ArgMatches;
+use clap::Command;
+use clap::FromArgMatches as _;
 use clap::builder::MapValueParser;
 use clap::builder::NonEmptyStringValueParser;
 use clap::builder::TypedValueParser as _;
 use clap::builder::ValueParserFactory;
 use clap::error::ContextKind;
 use clap::error::ContextValue;
-use clap::ArgAction;
-use clap::ArgMatches;
-use clap::Command;
-use clap::FromArgMatches as _;
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indexmap::IndexMap;
@@ -87,7 +87,6 @@ use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
-use jj_lib::repo::merge_factories_map;
 use jj_lib::repo::CheckOutCommitError;
 use jj_lib::repo::EditCommitError;
 use jj_lib::repo::MutableRepo;
@@ -96,6 +95,7 @@ use jj_lib::repo::Repo;
 use jj_lib::repo::RepoLoader;
 use jj_lib::repo::StoreFactories;
 use jj_lib::repo::StoreLoadError;
+use jj_lib::repo::merge_factories_map;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathUiConverter;
@@ -129,8 +129,6 @@ use jj_lib::working_copy::UntrackedReason;
 use jj_lib::working_copy::WorkingCopy;
 use jj_lib::working_copy::WorkingCopyFactory;
 use jj_lib::working_copy::WorkingCopyFreshness;
-use jj_lib::workspace::default_working_copy_factories;
-use jj_lib::workspace::get_working_copy_factory;
 use jj_lib::workspace::DefaultWorkspaceLoaderFactory;
 use jj_lib::workspace::LockedWorkspace;
 use jj_lib::workspace::WorkingCopyFactories;
@@ -138,11 +136,14 @@ use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceLoadError;
 use jj_lib::workspace::WorkspaceLoader;
 use jj_lib::workspace::WorkspaceLoaderFactory;
+use jj_lib::workspace::default_working_copy_factories;
+use jj_lib::workspace::get_working_copy_factory;
 use pollster::FutureExt as _;
 use tracing::instrument;
 use tracing_chrome::ChromeLayerBuilder;
 use tracing_subscriber::prelude::*;
 
+use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::config_error_with_message;
 use crate::command_error::handle_command_result;
@@ -151,15 +152,14 @@ use crate::command_error::internal_error_with_message;
 use crate::command_error::print_parse_diagnostics;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
-use crate::command_error::CommandError;
 use crate::commit_templater::CommitTemplateLanguage;
 use crate::commit_templater::CommitTemplateLanguageExtension;
 use crate::complete;
-use crate::config::config_from_environment;
-use crate::config::parse_config_args;
 use crate::config::ConfigArgKind;
 use crate::config::ConfigEnv;
 use crate::config::RawConfig;
+use crate::config::config_from_environment;
+use crate::config::parse_config_args;
 use crate::description_util::TextEditor;
 use crate::diff_util;
 use crate::diff_util::DiffFormat;
@@ -1422,11 +1422,10 @@ to the current parents may contain changes from multiple commits.
         };
 
         fn xdg_config_home() -> Result<PathBuf, std::env::VarError> {
-            if let Ok(x) = std::env::var("XDG_CONFIG_HOME") {
-                if !x.is_empty() {
+            if let Ok(x) = std::env::var("XDG_CONFIG_HOME")
+                && !x.is_empty() {
                     return Ok(PathBuf::from(x));
                 }
-            }
             std::env::var("HOME").map(|x| Path::new(&x).join(".config"))
         }
 
@@ -1438,11 +1437,10 @@ to the current parents may contain changes from multiple commits.
             }
             git_ignores = git_ignores
                 .chain_with_file("", git_backend.git_repo_path().join("info").join("exclude"))?;
-        } else if let Ok(git_config) = gix::config::File::from_globals() {
-            if let Some(excludes_file_path) = get_excludes_file_path(&git_config) {
+        } else if let Ok(git_config) = gix::config::File::from_globals()
+            && let Some(excludes_file_path) = get_excludes_file_path(&git_config) {
                 git_ignores = git_ignores.chain_with_file("", excludes_file_path)?;
             }
-        }
         Ok(git_ignores)
     }
 
@@ -2010,8 +2008,8 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         new_commit: &Commit,
         stats: &CheckoutStats,
     ) -> Result<(), CommandError> {
-        if Some(new_commit) != maybe_old_commit {
-            if let Some(mut formatter) = ui.status_formatter() {
+        if Some(new_commit) != maybe_old_commit
+            && let Some(mut formatter) = ui.status_formatter() {
                 let template = self.commit_summary_template();
                 write!(formatter, "Working copy  (@) now at: ")?;
                 template.format(new_commit, formatter.as_mut())?;
@@ -2024,11 +2022,10 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                     writeln!(formatter)?;
                 }
             }
-        }
         print_checkout_stats(ui, stats, new_commit)?;
-        if Some(new_commit) != maybe_old_commit {
-            if let Some(mut formatter) = ui.status_formatter() {
-                if new_commit.has_conflict()? {
+        if Some(new_commit) != maybe_old_commit
+            && let Some(mut formatter) = ui.status_formatter()
+                && new_commit.has_conflict()? {
                     let conflicts = new_commit.tree()?.conflicts().collect_vec();
                     writeln!(
                         formatter.labeled("warning").with_heading("Warning: "),
@@ -2036,8 +2033,6 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                     )?;
                     print_conflicted_paths(conflicts, formatter.as_mut(), self)?;
                 }
-            }
-        }
         Ok(())
     }
 
@@ -3401,8 +3396,8 @@ fn resolve_default_command(
         .ignore_errors(true);
     let matches = app_clone.try_get_matches_from(&string_args).ok();
 
-    if let Some(matches) = matches {
-        if matches.subcommand_name().is_none() {
+    if let Some(matches) = matches
+        && matches.subcommand_name().is_none() {
             let args = get_string_or_array(config, "ui.default-command").optional()?;
             if args.is_none() {
                 writeln!(
@@ -3419,7 +3414,6 @@ fn resolve_default_command(
             // Insert the default command directly after the path to the binary.
             string_args.splice(1..1, default_command);
         }
-    }
     Ok(string_args)
 }
 
@@ -3448,8 +3442,8 @@ fn resolve_aliases(
     loop {
         let app_clone = app.clone().allow_external_subcommands(true);
         let matches = app_clone.try_get_matches_from(&string_args).ok();
-        if let Some((command_name, submatches)) = matches.as_ref().and_then(|m| m.subcommand()) {
-            if !real_commands.contains(command_name) {
+        if let Some((command_name, submatches)) = matches.as_ref().and_then(|m| m.subcommand())
+            && !real_commands.contains(command_name) {
                 let alias_name = command_name.to_string();
                 let alias_args = submatches
                     .get_many::<OsString>("")
@@ -3474,7 +3468,6 @@ fn resolve_aliases(
                     return Ok(string_args);
                 }
             }
-        }
         // No more alias commands, or hit unknown option
         return Ok(string_args);
     }
@@ -4023,15 +4016,14 @@ fn map_clap_cli_error(err: clap::Error, ui: &Ui, config: &StackedConfig) -> Comm
     if let (Some(ContextValue::String(arg)), Some(ContextValue::String(value))) = (
         err.get(ContextKind::InvalidArg),
         err.get(ContextKind::InvalidValue),
-    ) {
-        if arg.as_str() == "--template <TEMPLATE>" && value.is_empty() {
+    )
+        && arg.as_str() == "--template <TEMPLATE>" && value.is_empty() {
             // Suppress the error, it's less important than the original error.
             if let Ok(template_aliases) = load_template_aliases(ui, config) {
                 return CommandError::from(err)
                     .hinted(format_template_aliases_hint(&template_aliases));
             }
         }
-    }
     CommandError::from(err)
 }
 
