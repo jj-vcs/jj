@@ -190,6 +190,14 @@ pub fn cmd_workspace_add(
     let new_wc_commit = tx.repo_mut().new_commit(parent_ids, tree.id()).write()?;
 
     tx.edit(&new_wc_commit)?;
+
+    // Record the workspace root path for later lookup by name.
+    let root_bytes = file_util::path_to_bytes(&destination_path)
+        .map_err(user_error)?
+        .to_vec();
+    tx.repo_mut()
+        .set_workspace_root(workspace_name.clone(), root_bytes);
+
     tx.finish(
         ui,
         format!(

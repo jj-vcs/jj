@@ -65,6 +65,11 @@ pub fn cmd_workspace_rename(
 
     tx.repo_mut()
         .rename_workspace(&old_name, new_name.to_owned())?;
+
+    // Also update recorded workspace root entry to match new name.
+    tx.repo_mut()
+        .rename_workspace_root(&old_name, new_name.to_owned())?;
+
     let repo = tx.commit(format!(
         "Renamed workspace '{old}' to '{new}'",
         old = old_name.as_symbol(),

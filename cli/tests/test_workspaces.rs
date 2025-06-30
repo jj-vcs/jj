@@ -1008,6 +1008,21 @@ fn test_workspaces_forget() {
     [EOF]
     ");
 
+    // After forgetting the default, secondary root is still recorded, default no
+    // longer exists
+    let output = main_dir.run_jj(["workspace", "root", "secondary"]);
+    insta::assert_snapshot!(output, @r#"
+    $TEST_ENV/secondary
+    [EOF]
+    "#);
+    let output = main_dir.run_jj(["workspace", "root", "default"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: No such workspace: default
+    [EOF]
+    [exit status: 1]
+    "#);
+
     // The old working copy doesn't get an "@" in the log output
     // TODO: It seems useful to still have the "secondary@" marker here even though
     // there's only one workspace. We should show it when the command is not run
@@ -1193,7 +1208,7 @@ fn test_list_workspaces_template() {
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output, @r"
     default: 504e3d8c1bcd  (current)
-    second: 058f604dffcd 
+    second: 058f604dffcd
     [EOF]
     ");
 
@@ -1228,6 +1243,12 @@ fn test_workspaces_root() {
     main_dir
         .run_jj(["workspace", "add", "--name", "secondary", "../secondary"])
         .success();
+    // Explicitly request root of 'secondary' workspace from main workspace
+    let output = main_dir.run_jj(["workspace", "root", "secondary"]);
+    insta::assert_snapshot!(output, @r"
+    $TEST_ENV/secondary
+    [EOF]
+    ");
     let output = secondary_dir.run_jj(["workspace", "root"]);
     insta::assert_snapshot!(output, @r"
     $TEST_ENV/secondary
@@ -1368,6 +1389,13 @@ fn test_workspaces_rename_workspace() {
     ◆  000000000000
     [EOF]
     ");
+
+    // The new workspace root is recorded and accessible
+    let output = main_dir.run_jj(["workspace", "root", "third"]);
+    insta::assert_snapshot!(output, @r#"
+    $TEST_ENV/secondary
+    [EOF]
+    "#);
 }
 
 #[must_use]

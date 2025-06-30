@@ -104,5 +104,6 @@ fn view_with_desired_portions_restored(
         git_refs: current_view.git_refs.clone(),
         git_head: current_view.git_head.clone(),
         wc_commit_ids: repo_source.wc_commit_ids.clone(),
+        workspace_roots: repo_source.workspace_roots.clone(),
     }
 }

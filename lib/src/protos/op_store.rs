@@ -97,6 +97,12 @@ pub struct View {
         ::prost::alloc::string::String,
         ::prost::alloc::vec::Vec<u8>,
     >,
+    /// Mapping from workspace name to workspace root path.
+    #[prost(map = "string, bytes", tag = "11")]
+    pub workspace_roots: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::vec::Vec<u8>,
+    >,
     #[prost(message, repeated, tag = "5")]
     pub bookmarks: ::prost::alloc::vec::Vec<Bookmark>,
     #[prost(message, repeated, tag = "6")]

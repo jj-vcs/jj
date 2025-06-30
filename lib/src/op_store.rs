@@ -261,6 +261,7 @@ pub struct View {
     // (.jj/working_copy/) has the source of truth about which commit *is* checked out (to be
     // precise: the commit to which we most recently completed an update to).
     pub wc_commit_ids: BTreeMap<WorkspaceNameBuf, CommitId>,
+    pub workspace_roots: BTreeMap<WorkspaceNameBuf, Vec<u8>>,
 }
 
 impl View {
@@ -277,6 +278,7 @@ impl View {
             git_refs: BTreeMap::new(),
             git_head: RefTarget::absent(),
             wc_commit_ids: BTreeMap::new(),
+            workspace_roots: BTreeMap::new(),
         }
     }
 
@@ -290,6 +292,7 @@ impl View {
             git_refs: BTreeMap::new(),
             git_head: RefTarget::absent(),
             wc_commit_ids: BTreeMap::new(),
+            workspace_roots: BTreeMap::new(),
         }
     }
 }
