@@ -69,7 +69,6 @@ mod tests {
     use crate::default_index::entry::SmallLocalPositionsVec;
     use crate::index::Index as _;
     use crate::object_id::HexPrefix;
-    use crate::object_id::ObjectId as _;
     use crate::object_id::PrefixResolution;
     use crate::tests::new_temp_dir;
 
@@ -376,15 +375,15 @@ mod tests {
 
         // Can find commits given the full hex number
         assert_eq!(
-            index.resolve_commit_id_prefix(&HexPrefix::new(&id_0.hex()).unwrap()),
+            index.resolve_commit_id_prefix(&HexPrefix::from_id(&id_0)),
             PrefixResolution::SingleMatch(id_0)
         );
         assert_eq!(
-            index.resolve_commit_id_prefix(&HexPrefix::new(&id_1.hex()).unwrap()),
+            index.resolve_commit_id_prefix(&HexPrefix::from_id(&id_1)),
             PrefixResolution::SingleMatch(id_1)
         );
         assert_eq!(
-            index.resolve_commit_id_prefix(&HexPrefix::new(&id_2.hex()).unwrap()),
+            index.resolve_commit_id_prefix(&HexPrefix::from_id(&id_2)),
             PrefixResolution::SingleMatch(id_2)
         );
         // Test nonexistent commits
@@ -640,33 +639,33 @@ mod tests {
 
         // Local lookup in readonly index with the full hex digits
         assert_eq!(
-            initial_file.resolve_change_id_prefix(&HexPrefix::new(&id_0.hex()).unwrap()),
+            initial_file.resolve_change_id_prefix(&HexPrefix::from_id(&id_0)),
             PrefixResolution::SingleMatch((id_0.clone(), local_positions_vec(&[0])))
         );
         assert_eq!(
-            initial_file.resolve_change_id_prefix(&HexPrefix::new(&id_1.hex()).unwrap()),
+            initial_file.resolve_change_id_prefix(&HexPrefix::from_id(&id_1)),
             PrefixResolution::SingleMatch((id_1.clone(), local_positions_vec(&[1, 3])))
         );
         assert_eq!(
-            initial_file.resolve_change_id_prefix(&HexPrefix::new(&id_2.hex()).unwrap()),
+            initial_file.resolve_change_id_prefix(&HexPrefix::from_id(&id_2)),
             PrefixResolution::SingleMatch((id_2.clone(), local_positions_vec(&[2, 4, 5])))
         );
 
         // Local lookup in mutable index with the full hex digits
         assert_eq!(
-            mutable_segment.resolve_change_id_prefix(&HexPrefix::new(&id_1.hex()).unwrap()),
+            mutable_segment.resolve_change_id_prefix(&HexPrefix::from_id(&id_1)),
             PrefixResolution::SingleMatch((id_1.clone(), local_positions_vec(&[3])))
         );
         assert_eq!(
-            mutable_segment.resolve_change_id_prefix(&HexPrefix::new(&id_3.hex()).unwrap()),
+            mutable_segment.resolve_change_id_prefix(&HexPrefix::from_id(&id_3)),
             PrefixResolution::SingleMatch((id_3.clone(), local_positions_vec(&[0, 1])))
         );
         assert_eq!(
-            mutable_segment.resolve_change_id_prefix(&HexPrefix::new(&id_4.hex()).unwrap()),
+            mutable_segment.resolve_change_id_prefix(&HexPrefix::from_id(&id_4)),
             PrefixResolution::SingleMatch((id_4.clone(), local_positions_vec(&[2])))
         );
         assert_eq!(
-            mutable_segment.resolve_change_id_prefix(&HexPrefix::new(&id_5.hex()).unwrap()),
+            mutable_segment.resolve_change_id_prefix(&HexPrefix::from_id(&id_5)),
             PrefixResolution::SingleMatch((id_5.clone(), local_positions_vec(&[4])))
         );
 
@@ -704,27 +703,27 @@ mod tests {
 
         // Global lookup with the full hex digits
         assert_eq!(
-            index.resolve_change_id_prefix(&HexPrefix::new(&id_0.hex()).unwrap()),
+            index.resolve_change_id_prefix(&HexPrefix::from_id(&id_0)),
             PrefixResolution::SingleMatch((id_0.clone(), index_positions_vec(&[0])))
         );
         assert_eq!(
-            index.resolve_change_id_prefix(&HexPrefix::new(&id_1.hex()).unwrap()),
+            index.resolve_change_id_prefix(&HexPrefix::from_id(&id_1)),
             PrefixResolution::SingleMatch((id_1.clone(), index_positions_vec(&[1, 3, 9])))
         );
         assert_eq!(
-            index.resolve_change_id_prefix(&HexPrefix::new(&id_2.hex()).unwrap()),
+            index.resolve_change_id_prefix(&HexPrefix::from_id(&id_2)),
             PrefixResolution::SingleMatch((id_2.clone(), index_positions_vec(&[2, 4, 5])))
         );
         assert_eq!(
-            index.resolve_change_id_prefix(&HexPrefix::new(&id_3.hex()).unwrap()),
+            index.resolve_change_id_prefix(&HexPrefix::from_id(&id_3)),
             PrefixResolution::SingleMatch((id_3.clone(), index_positions_vec(&[6, 7])))
         );
         assert_eq!(
-            index.resolve_change_id_prefix(&HexPrefix::new(&id_4.hex()).unwrap()),
+            index.resolve_change_id_prefix(&HexPrefix::from_id(&id_4)),
             PrefixResolution::SingleMatch((id_4.clone(), index_positions_vec(&[8])))
         );
         assert_eq!(
-            index.resolve_change_id_prefix(&HexPrefix::new(&id_5.hex()).unwrap()),
+            index.resolve_change_id_prefix(&HexPrefix::from_id(&id_5)),
             PrefixResolution::SingleMatch((id_5.clone(), index_positions_vec(&[10])))
         );
 

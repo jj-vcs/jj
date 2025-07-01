@@ -172,6 +172,11 @@ impl HexPrefix {
         }
     }
 
+    /// Returns a new `HexPrefix` representing the given `id`.
+    pub fn from_id<T: ObjectId + ?Sized>(id: &T) -> Self {
+        Self::from_bytes(id.as_bytes())
+    }
+
     /// Returns string representation of this prefix using hex digits.
     pub fn hex(&self) -> String {
         let mut hex_string = hex::encode(&self.min_prefix_bytes);

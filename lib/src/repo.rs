@@ -58,7 +58,6 @@ use crate::index::ReadonlyIndex;
 use crate::merge::trivial_merge;
 use crate::merge::MergeBuilder;
 use crate::object_id::HexPrefix;
-use crate::object_id::ObjectId as _;
 use crate::object_id::PrefixResolution;
 use crate::op_heads_store;
 use crate::op_heads_store::OpHeadResolutionError;
@@ -125,7 +124,7 @@ pub trait Repo {
 
     fn resolve_change_id(&self, change_id: &ChangeId) -> Option<Vec<CommitId>> {
         // Replace this if we added more efficient lookup method.
-        let prefix = HexPrefix::from_bytes(change_id.as_bytes());
+        let prefix = HexPrefix::from_id(change_id);
         match self.resolve_change_id_prefix(&prefix) {
             PrefixResolution::NoMatch => None,
             PrefixResolution::SingleMatch(entries) => Some(entries),
