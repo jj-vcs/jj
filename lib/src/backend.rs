@@ -478,7 +478,7 @@ pub trait Backend: Send + Sync + Debug {
     fn as_any(&self) -> &dyn Any;
 
     /// A unique name that identifies this backend. Written to
-    /// `.jj/repo/store/backend` when the repo is created.
+    /// `.jj/repo/store/type` when the repo is created.
     fn name(&self) -> &str;
 
     /// The length of commit IDs in bytes.
