@@ -3553,82 +3553,86 @@ fn test_diff_stat_long_name_or_stat() {
     };
 
     insta::assert_snapshot!(get_stat(&work_dir, 1, 1), @r"
-    1   | 1 +
-    一  | 1 +
+    1  | 1 +
+    一 | 1 +
     2 files changed, 2 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 1, 10), @r"
-    1   | 10 ++++++++++
-    一  | 10 ++++++++++
+    1  | 10 ++++++++++
+    一 | 10 ++++++++++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
+    // 30 column display width means right edge is
+    //                ... here ->|
     insta::assert_snapshot!(get_stat(&work_dir, 1, 100), @r"
-    1   | 100 +++++++++++++++++
-    一  | 100 +++++++++++++++++
+    1  | 100 +++++++++++++++++++++
+    一 | 100 +++++++++++++++++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 10, 1), @r"
-    1234567890      | 1 +
-    ...五六七八九十 | 1 +
+    1234567890        | 1 +
+    ...四五六七八九十 | 1 +
     2 files changed, 2 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 10, 10), @r"
-    1234567890     | 10 +++++++
-    ...六七八九十  | 10 +++++++
+    1234567890       | 10 ++++++++
+    ...五六七八九十  | 10 ++++++++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 10, 100), @r"
-    1234567890     | 100 ++++++
-    ...六七八九十  | 100 ++++++
+    1234567890       | 100 +++++++
+    ...五六七八九十  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 50, 1), @r"
-    ...901234567890 | 1 +
-    ...五六七八九十 | 1 +
+    ...78901234567890 | 1 +
+    ...四五六七八九十 | 1 +
     2 files changed, 2 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 50, 10), @r"
-    ...01234567890 | 10 +++++++
-    ...六七八九十  | 10 +++++++
+    ...8901234567890 | 10 ++++++++
+    ...五六七八九十  | 10 ++++++++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 50, 100), @r"
-    ...01234567890 | 100 ++++++
-    ...六七八九十  | 100 ++++++
+    ...8901234567890 | 100 +++++++
+    ...五六七八九十  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
 
     // Lengths around where we introduce the ellipsis
+    // 30 column display width means right edge is
+    //                ... here ->|
     insta::assert_snapshot!(get_stat(&work_dir, 13, 100), @r"
-    1234567890123  | 100 ++++++
-    ...九十一二三  | 100 ++++++
+    1234567890123    | 100 +++++++
+    ...八九十一二三  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 14, 100), @r"
-    12345678901234 | 100 ++++++
-    ...十一二三四  | 100 ++++++
+    12345678901234   | 100 +++++++
+    ...九十一二三四  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 15, 100), @r"
-    ...56789012345 | 100 ++++++
-    ...一二三四五  | 100 ++++++
+    123456789012345  | 100 +++++++
+    ...十一二三四五  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 16, 100), @r"
-    ...67890123456 | 100 ++++++
-    ...二三四五六  | 100 ++++++
+    1234567890123456 | 100 +++++++
+    ...一二三四五六  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
@@ -3657,8 +3661,8 @@ fn test_diff_stat_long_name_or_stat() {
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 1, 10), @r"
-    1   | 10 ++
-    一  | 10 ++
+    1  | 10 +++
+    一 | 10 +++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
