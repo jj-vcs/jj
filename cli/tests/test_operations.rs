@@ -560,7 +560,7 @@ fn test_op_log_word_wrap() {
     │     description set)
     │     - qpvuntsm hidden e8849ae1 (empty)
     │     (no description set)
-    │     file1 | 100 +++++++++++++++++++
+    │     file1 | 100 ++++++++++++++++++++++
     │     1 file changed, 100 insertions(+), 0 deletions(-)
     │
     │  Changed working copy default@:
@@ -582,7 +582,7 @@ fn test_op_log_word_wrap() {
     + qpvuntsm 79f0968d (no description set)
     - qpvuntsm hidden e8849ae1 (empty) (no
     description set)
-    file1 | 100 +++++++++++++++++++++++++
+    file1 | 100 ++++++++++++++++++++++++++++
     1 file changed, 100 insertions(+), 0 deletions(-)
 
     Changed working copy default@:
@@ -2080,7 +2080,7 @@ fn test_op_diff_word_wrap() {
     Changed commits:
     ○  + sqpuoqvx f6f32c19 (no description
     │  set)
-    │  file1 | 100 ++++++++++++++++++++++
+    │  file1 | 100 +++++++++++++++++++++++++
     │  1 file changed, 100 insertions(+), 0 deletions(-)
     ○  + pukowqtp 0cb7e07e bookmark-1 |
        Commit 1

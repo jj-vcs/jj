@@ -2025,6 +2025,13 @@ pub fn show_diff_stats(
             }
         })
         .collect_vec();
+
+    // Entries format like:
+    //   path/to/file | 123 ++--
+    //
+    // Depending on display widths, we can elide part of the path,
+    // and the the ++-- bar will adjust its scale to fill the rest.
+
     let max_path_width = ui_paths.iter().map(|s| s.width()).max().unwrap_or(0);
     let max_diffs = stats
         .entries()
@@ -2033,12 +2040,13 @@ pub fn show_diff_stats(
         .max()
         .unwrap_or(0);
 
-    let number_padding = max_diffs.to_string().len();
-    // 4 characters padding for the graph
-    let available_width = display_width.saturating_sub(4 + " | ".len() + number_padding);
-    // Always give at least a tiny bit of room
+    let number_width = max_diffs.to_string().len();
+    // Available width to distribute between path and bar:
+    let available_width = display_width.saturating_sub(" | ".len() + number_width + " ".len());
+    // Always use at least a tiny bit of room
     let available_width = max(available_width, 5);
-    let max_path_width = max_path_width.clamp(3, (0.7 * available_width as f64) as usize);
+
+    let max_path_width = max_path_width.min((0.7 * available_width as f64) as usize);
     let max_bar_length = available_width.saturating_sub(max_path_width);
     let factor = if max_diffs < max_bar_length {
         1.0
@@ -2047,14 +2055,23 @@ pub fn show_diff_stats(
     };
 
     for (stat, ui_path) in iter::zip(stats.entries(), &ui_paths) {
-        let bar_added = (stat.added as f64 * factor).ceil() as usize;
-        let bar_removed = (stat.removed as f64 * factor).ceil() as usize;
+        let bar_length = ((stat.added + stat.removed) as f64 * factor) as usize;
+        // Ensure that any fractional space after scaling is given to whichever
+        // of adds/removes is smaller.  This ensures we always show at least one
+        // tick even for small counts.
+        let (bar_added, bar_removed) = if stat.added < stat.removed {
+            let len = (stat.added as f64 * factor).ceil() as usize;
+            (len, bar_length - len)
+        } else {
+            let len = (stat.removed as f64 * factor).ceil() as usize;
+            (bar_length - len, len)
+        };
         // replace start of path with ellipsis if the path is too long
         let (path, path_width) = text_util::elide_start(ui_path, "...", max_path_width);
         let path_pad_width = max_path_width - path_width;
         write!(
             formatter,
-            "{path}{:path_pad_width$} | {:>number_padding$}{}",
+            "{path}{:path_pad_width$} | {:>number_width$}{}",
             "", // pad to max_path_width
             stat.added + stat.removed,
             if bar_added + bar_removed > 0 { " " } else { "" },
