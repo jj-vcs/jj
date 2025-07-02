@@ -45,6 +45,11 @@
 "elided" = "bright black"
 "root" = "green"
 
+"help heading" = { fg = "yellow", bold = true }
+"help usage" = { fg = "yellow", bold = true }
+"help literal" = { fg = "green", bold = true }
+"help placeholder" = "green"
+
 "working_copy" = { bold = true }
 "working_copy commit_id" = "bright blue"
 "working_copy change_id" = "bright magenta"

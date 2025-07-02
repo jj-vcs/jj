@@ -461,7 +461,7 @@ fn rules_from_config(config: &StackedConfig) -> Result<Rules, ConfigGetError> {
         .collect()
 }
 
-fn deserialize_color<'de, D>(deserializer: D) -> Result<Color, D::Error>
+pub fn deserialize_color<'de, D>(deserializer: D) -> Result<Color, D::Error>
 where
     D: serde::Deserializer<'de>,
 {

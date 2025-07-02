@@ -16,6 +16,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Help text colors are now configurable. You can customize the colors used in
+  `jj help` output by setting `colors."help heading"`, `colors."help usage"`,
+  `colors."help literal"`, and `colors."help placeholder"` in your config.
+  Only the 16 standard ANSI colors are supported for help text.
+
 ### Fixed bugs
 
 ### Packaging changes

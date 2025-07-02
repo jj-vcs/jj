@@ -68,9 +68,11 @@ pub(crate) fn cmd_help(
 
     // TODO: `help log -- -r` will give a cryptic error, ideally, it should state
     // that the subcommand `log -r` doesn't exist.
-    let help_err = command
-        .app()
-        .clone()
+
+    // Use the app with styled help text from config
+    let app = command.app().clone();
+    let styled_app = crate::commands::app_with_styles(app, ui, command.settings().config());
+    let help_err = styled_app
         .subcommand_required(true)
         .try_get_matches_from(args_to_show_help)
         .expect_err("Clap library should return a DisplayHelp error in this context");

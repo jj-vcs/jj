@@ -61,27 +61,150 @@ mod workspace;
 use std::fmt::Debug;
 
 use clap::builder::styling::AnsiColor;
+use clap::builder::styling::Style as ClapStyle;
 use clap::builder::Styles;
 use clap::CommandFactory as _;
 use clap::FromArgMatches as _;
 use clap::Subcommand as _;
 use clap_complete::engine::SubcommandCandidates;
+use crossterm::style::Color as CrosstermColor;
+use jj_lib::config::ConfigGetError;
+use jj_lib::config::StackedConfig;
+use serde::de::Deserialize as _;
+use serde::de::IntoDeserializer as _;
 use tracing::instrument;
 
 use crate::cli_util::Args;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::complete;
+use crate::formatter::deserialize_color;
+use crate::formatter::Style;
 use crate::ui::Ui;
 
-const STYLES: Styles = Styles::styled()
-    .header(AnsiColor::Yellow.on_default().bold())
-    .usage(AnsiColor::Yellow.on_default().bold())
-    .literal(AnsiColor::Green.on_default().bold())
-    .placeholder(AnsiColor::Green.on_default());
+fn get_help_styles(ui: &Ui, config: &StackedConfig) -> Styles {
+    let mut styles = Styles::styled();
+
+    // Default styles
+    let default_header = AnsiColor::Yellow.on_default().bold();
+    let default_usage = AnsiColor::Yellow.on_default().bold();
+    let default_literal = AnsiColor::Green.on_default().bold();
+    let default_placeholder = AnsiColor::Green.on_default();
+
+    // Helper function to convert our Style to clap's Style
+    let to_clap_style = |style: &Style| -> Result<ClapStyle, String> {
+        let mut clap_style = ClapStyle::new();
+
+        // Set foreground color
+        if let Some(fg) = &style.fg {
+            clap_style = match fg {
+                CrosstermColor::Black => clap_style.fg_color(Some(AnsiColor::Black.into())),
+                CrosstermColor::DarkRed => clap_style.fg_color(Some(AnsiColor::Red.into())),
+                CrosstermColor::DarkGreen => clap_style.fg_color(Some(AnsiColor::Green.into())),
+                CrosstermColor::DarkYellow => clap_style.fg_color(Some(AnsiColor::Yellow.into())),
+                CrosstermColor::DarkBlue => clap_style.fg_color(Some(AnsiColor::Blue.into())),
+                CrosstermColor::DarkMagenta => clap_style.fg_color(Some(AnsiColor::Magenta.into())),
+                CrosstermColor::DarkCyan => clap_style.fg_color(Some(AnsiColor::Cyan.into())),
+                CrosstermColor::Grey => clap_style.fg_color(Some(AnsiColor::White.into())),
+                CrosstermColor::DarkGrey => {
+                    clap_style.fg_color(Some(AnsiColor::BrightBlack.into()))
+                }
+                CrosstermColor::Red => clap_style.fg_color(Some(AnsiColor::BrightRed.into())),
+                CrosstermColor::Green => clap_style.fg_color(Some(AnsiColor::BrightGreen.into())),
+                CrosstermColor::Yellow => clap_style.fg_color(Some(AnsiColor::BrightYellow.into())),
+                CrosstermColor::Blue => clap_style.fg_color(Some(AnsiColor::BrightBlue.into())),
+                CrosstermColor::Magenta => {
+                    clap_style.fg_color(Some(AnsiColor::BrightMagenta.into()))
+                }
+                CrosstermColor::Cyan => clap_style.fg_color(Some(AnsiColor::BrightCyan.into())),
+                CrosstermColor::White => clap_style.fg_color(Some(AnsiColor::BrightWhite.into())),
+                CrosstermColor::Rgb { r, g, b } => {
+                    return Err(format!(
+                        "Hex color #{r:02x}{g:02x}{b:02x} is not supported for help text. Only \
+                         ANSI colors are supported."
+                    ));
+                }
+                CrosstermColor::AnsiValue(n) => {
+                    return Err(format!(
+                        "ANSI 256 color (ansi-color-{n}) is not supported for help text. Only \
+                         ANSI colors are supported."
+                    ));
+                }
+                _ => clap_style,
+            };
+        }
+
+        // Set attributes
+        if style.bold == Some(true) {
+            clap_style = clap_style.bold();
+        }
+        if style.italic == Some(true) {
+            clap_style = clap_style.italic();
+        }
+        if style.underline == Some(true) {
+            clap_style = clap_style.underline();
+        }
+
+        Ok(clap_style)
+    };
+
+    // Helper to parse a style from config
+    let parse_style_config = |key: &str| -> Result<Style, ConfigGetError> {
+        config.get_value_with(["colors", key], |value| {
+            if value.is_str() {
+                Ok(Style {
+                    fg: Some(deserialize_color(value.into_deserializer())?),
+                    bg: None,
+                    bold: None,
+                    italic: None,
+                    underline: None,
+                    reverse: None,
+                })
+            } else if value.is_inline_table() {
+                Style::deserialize(value.into_deserializer())
+            } else {
+                Err(serde::de::Error::custom(format!(
+                    "invalid type: {}, expected a color name or a table of styles",
+                    value.type_name()
+                )))
+            }
+        })
+    };
+
+    // Helper to apply a style or fall back to default
+    let apply_style = |styles: Styles,
+                       config_key: &str,
+                       default: ClapStyle,
+                       setter: fn(Styles, ClapStyle) -> Styles|
+     -> Styles {
+        let style = if let Ok(style) = parse_style_config(config_key) {
+            match to_clap_style(&style) {
+                Ok(clap_style) => clap_style,
+                Err(err) => {
+                    _ = writeln!(ui.warning_default(), "{err}");
+                    default
+                }
+            }
+        } else {
+            default
+        };
+        setter(styles, style)
+    };
+
+    styles = apply_style(styles, "help heading", default_header, Styles::header);
+    styles = apply_style(styles, "help usage", default_usage, Styles::usage);
+    styles = apply_style(styles, "help literal", default_literal, Styles::literal);
+    styles = apply_style(
+        styles,
+        "help placeholder",
+        default_placeholder,
+        Styles::placeholder,
+    );
+
+    styles
+}
 
 #[derive(clap::Parser, Clone, Debug)]
-#[command(styles = STYLES)]
 #[command(disable_help_subcommand = true)]
 #[command(after_long_help = help::show_keyword_hint_after_help())]
 #[command(add = SubcommandCandidates::new(complete::aliases))]
@@ -153,6 +276,11 @@ enum Command {
 
 pub fn default_app() -> clap::Command {
     Command::augment_subcommands(Args::command())
+}
+
+pub fn app_with_styles(app: clap::Command, ui: &Ui, config: &StackedConfig) -> clap::Command {
+    let styles = get_help_styles(ui, config);
+    app.styles(styles)
 }
 
 #[instrument(skip_all)]

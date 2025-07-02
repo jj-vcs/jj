@@ -3896,7 +3896,9 @@ impl<'a> CliRunner<'a> {
             warn_if_args_mismatch(ui, &self.app, &config, &string_args)?;
         }
 
-        let (matches, args) = parse_args(&self.app, &string_args)
+        // Apply styled help text from config to the existing app
+        let styled_app = crate::commands::app_with_styles(self.app.clone(), ui, &config);
+        let (matches, args) = parse_args(&styled_app, &string_args)
             .map_err(|err| map_clap_cli_error(err, ui, &config))?;
         if args.global_args.debug {
             // TODO: set up debug logging as early as possible
