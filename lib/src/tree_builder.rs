@@ -110,14 +110,15 @@ impl TreeBuilder {
                         // Entry would have been replaced with file (see above)
                     }
                 } else {
-                    let data = backend::Tree::from_entries(cur_entries);
+                    let data =
+                        backend::Tree::from_sorted_entries(cur_entries.into_iter().collect());
                     let tree = store.write_tree(&dir, data).block_on()?;
                     parent_entries.insert(basename.to_owned(), TreeValue::Tree(tree.id().clone()));
                 }
             } else {
                 // We're writing the root tree. Write it even if empty. Return its id.
                 assert!(trees_to_write.is_empty());
-                let data = backend::Tree::from_entries(cur_entries);
+                let data = backend::Tree::from_sorted_entries(cur_entries.into_iter().collect());
                 let written_tree = store.write_tree(&dir, data).block_on()?;
                 return Ok(written_tree.id().clone());
             }
