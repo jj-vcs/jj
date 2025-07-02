@@ -12,12 +12,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
-* Commit templates no longer normalize `description` by appending final newline
-  character. Use `description.trim_end() ++ "\n"` if needed.
+### Deprecations
+
+### New features
+
+### Fixed bugs
+
+### Packaging changes
+
+
+## [0.31.0] - 2025-07-02
+
+### Breaking changes
 
 * Revset expressions like `hidden_id | description(x)` now [search the specified
   hidden revision and its ancestors](docs/revsets.md#hidden-revisions) as well
   as all visible revisions.
+
+* Commit templates no longer normalize `description` by appending final newline
+  character. Use `description.trim_end() ++ "\n"` if needed.
 
 ### Deprecations
 
@@ -27,25 +40,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
-* `jj diff` now accepts `-T`/`--template` option to customize summary output.
+* New `change_id(prefix)`/`commit_id(prefix)` revset functions to explicitly
+  query commits by change/commit ID prefix.
+
+* The `parents()` and `children()` revset functions now accept an optional
+  `depth` argument. For instance, `parents(x, 3)` is equivalent to `x---`, and
+  `children(x, 3)` is equivalent to `x+++`.
 
 * `jj evolog` can now follow changes from multiple revisions such as divergent
   revisions.
+
+* `jj diff` now accepts `-T`/`--template` option to customize summary output.
+
+* Log node templates are now specified in toml rather than hardcoded.
 
 * Templates now support `json(x)` function to serialize values in JSON format.
 
 * The ANSI 256-color palette can be used when configuring colors. For example,
   `colors."diff removed token" = { bg = "ansi-color-52", underline = false }`
   will apply a dark red background on removed words in diffs.
-
-* Log node templates are now specified in toml rather than hardcoded.
-
-* The `parents()` and `children()` revset functions now accept an optional
-  `depth` argument. For instance, `parents(x, 3)` is equivalent to `x---`, and
-  `children(x, 3)` is equivalent to `x+++`.
-
-* New `change_id(prefix)`/`commit_id(prefix)` revset functions to explicitly
-  query commits by change/commit ID prefix.
 
 ### Fixed bugs
 
@@ -65,6 +78,35 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Packaging changes
 
 * `aarch64-windows` builds (release binaries and `main` snapshots) are now provided.
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Anton Älgmyr (@algmyr)
+* Austin Seipp (@thoughtpolice)
+* Benjamin Brittain (@benbrittain)
+* Cyril Plisko (@imp)
+* Daniel Luz (@mernen)
+* Gaëtan Lehmann (@glehmann)
+* Gilad Woloch (@giladwo)
+* Greg Morenz (@gmorenz)
+* Igor Velkov (@iav)
+* Ilya Grigoriev (@ilyagr)
+* Jade Lovelace (@lf-)
+* Jonas Greitemann (@jgreitemann)
+* Josh Steadmon (@steadmon)
+* juemrami (@juemrami)
+* Kaiyi Li (@06393993)
+* Lars Francke (@lfrancke)
+* Martin von Zweigbergk (@martinvonz)
+* Osama Qarem (@osamaqarem)
+* Philip Metzger (@PhilipMetzger)
+* raylu (@raylu)
+* Scott Taylor (@scott2000)
+* Vincent Ging Ho Yim (@cenviity)
+* Yuya Nishihara (@yuja)
+
 
 ## [0.30.0] - 2025-06-04
 
