@@ -458,7 +458,7 @@ async fn merge_trees(merge: &Merge<Tree>) -> BackendResult<Merge<Tree>> {
     // Keep resolved entries in `new_tree` and conflicted entries in `conflicts` to
     // start with. Then we'll create the full trees later, and only if there are
     // any conflicts.
-    let mut new_tree_entries = BTreeMap::new();
+    let mut new_tree_entries = Vec::new();
     let mut conflicts = vec![];
     // TODO: Merge values concurrently
     for (basename, path_merge) in all_merged_tree_entries(merge) {
@@ -466,7 +466,7 @@ async fn merge_trees(merge: &Merge<Tree>) -> BackendResult<Merge<Tree>> {
         let path_merge = merge_tree_values(store, &path, &path_merge).await?;
         match path_merge.into_resolved() {
             Ok(Some(value)) => {
-                new_tree_entries.insert(basename.to_owned(), value);
+                new_tree_entries.push((basename.to_owned(), value));
             }
             Ok(None) => {}
             Err(path_merge) => {
@@ -475,7 +475,7 @@ async fn merge_trees(merge: &Merge<Tree>) -> BackendResult<Merge<Tree>> {
         };
     }
     if conflicts.is_empty() {
-        let data = backend::Tree::from_entries(new_tree_entries);
+        let data = backend::Tree::from_sorted_entries(new_tree_entries);
         let new_tree_id = store.write_tree(dir, data).await?;
         Ok(Merge::resolved(new_tree_id))
     } else {
@@ -484,6 +484,8 @@ async fn merge_trees(merge: &Merge<Tree>) -> BackendResult<Merge<Tree>> {
         // unchanged and will be reused for each side.
         let tree_count = merge.iter().len();
         let mut new_trees = Vec::with_capacity(tree_count);
+        // TODO: can merge-join common tree entries with conflicting ones
+        let new_tree_entries = BTreeMap::from_iter(new_tree_entries);
         for _ in 0..tree_count {
             let mut new_tree_entries = new_tree_entries.clone();
             for (basename, path_conflict) in &mut conflicts {
@@ -491,7 +493,7 @@ async fn merge_trees(merge: &Merge<Tree>) -> BackendResult<Merge<Tree>> {
                     new_tree_entries.insert(basename.to_owned(), value);
                 }
             }
-            let data = backend::Tree::from_entries(new_tree_entries);
+            let data = backend::Tree::from_sorted_entries(new_tree_entries.into_iter().collect());
             let tree = store.write_tree(dir, data).await?;
             new_trees.push(tree);
         }

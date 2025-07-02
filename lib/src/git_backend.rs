@@ -1065,7 +1065,7 @@ impl Backend for GitBackend {
             .map_err(|err| map_not_found_err(err, id))?
             .try_into_tree()
             .map_err(|err| to_read_object_err(err, id))?;
-        let entries = git_tree
+        let mut entries: Vec<_> = git_tree
             .iter()
             .map(|entry| -> BackendResult<_> {
                 let entry = entry.map_err(|err| to_read_object_err(err, id))?;
@@ -1117,7 +1117,12 @@ impl Backend for GitBackend {
                 Ok((RepoPathComponentBuf::new(name).unwrap(), value))
             })
             .try_collect()?;
-        Ok(Tree::from_entries(entries))
+        // While Git tree entries are sorted, the rule is slightly different.
+        // Directory names are sorted as if they had trailing "/".
+        if !entries.is_sorted_by_key(|(name, _)| name) {
+            entries.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
+        }
+        Ok(Tree::from_sorted_entries(entries))
     }
 
     async fn write_tree(&self, _path: &RepoPath, contents: &Tree) -> BackendResult<TreeId> {

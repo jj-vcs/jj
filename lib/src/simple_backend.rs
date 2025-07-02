@@ -456,6 +456,7 @@ fn tree_to_proto(tree: &Tree) -> crate::protos::simple_store::Tree {
 }
 
 fn tree_from_proto(proto: crate::protos::simple_store::Tree) -> Tree {
+    // Serialized data should be sorted
     let entries = proto
         .entries
         .into_iter()
@@ -464,7 +465,7 @@ fn tree_from_proto(proto: crate::protos::simple_store::Tree) -> Tree {
             (RepoPathComponentBuf::new(proto_entry.name).unwrap(), value)
         })
         .collect();
-    Tree::from_entries(entries)
+    Tree::from_sorted_entries(entries)
 }
 
 fn tree_value_to_proto(value: &TreeValue) -> crate::protos::simple_store::TreeValue {
