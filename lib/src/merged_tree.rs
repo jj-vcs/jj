@@ -491,9 +491,10 @@ async fn merge_trees(merge: &Merge<Tree>) -> BackendResult<Merge<Tree>> {
         let path = dir.join(basename);
         let path_merge = merge_tree_values(store, &path, &path_merge).await?;
         match path_merge.into_resolved() {
-            Ok(value) => {
-                new_tree.set_or_remove(basename, value);
+            Ok(Some(value)) => {
+                new_tree.set(basename.to_owned(), value);
             }
+            Ok(None) => {}
             Err(path_merge) => {
                 conflicts.push((basename, path_merge.into_iter()));
             }
@@ -509,10 +510,13 @@ async fn merge_trees(merge: &Merge<Tree>) -> BackendResult<Merge<Tree>> {
         let tree_count = merge.iter().len();
         let mut new_trees = Vec::with_capacity(tree_count);
         for _ in 0..tree_count {
+            let mut new_tree = new_tree.clone();
             for (basename, path_conflict) in &mut conflicts {
-                new_tree.set_or_remove(basename, path_conflict.next().unwrap());
+                if let Some(value) = path_conflict.next().unwrap() {
+                    new_tree.set(basename.to_owned(), value);
+                }
             }
-            let tree = store.write_tree(dir, new_tree.clone()).await?;
+            let tree = store.write_tree(dir, new_tree).await?;
             new_trees.push(tree);
         }
         Ok(Merge::from_vec(new_trees))
