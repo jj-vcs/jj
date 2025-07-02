@@ -428,17 +428,6 @@ impl Tree {
         self.entries.remove(name);
     }
 
-    pub fn set_or_remove(&mut self, name: &RepoPathComponent, value: Option<TreeValue>) {
-        match value {
-            None => {
-                self.entries.remove(name);
-            }
-            Some(value) => {
-                self.entries.insert(name.to_owned(), value);
-            }
-        }
-    }
-
     pub fn entry(&self, name: &RepoPathComponent) -> Option<TreeEntry<'_>> {
         self.entries
             .get_key_value(name)
