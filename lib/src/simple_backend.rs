@@ -456,12 +456,15 @@ fn tree_to_proto(tree: &Tree) -> crate::protos::simple_store::Tree {
 }
 
 fn tree_from_proto(proto: crate::protos::simple_store::Tree) -> Tree {
-    let mut tree = Tree::default();
-    for proto_entry in proto.entries {
-        let value = tree_value_from_proto(proto_entry.value.unwrap());
-        tree.set(RepoPathComponentBuf::new(proto_entry.name).unwrap(), value);
-    }
-    tree
+    let entries = proto
+        .entries
+        .into_iter()
+        .map(|proto_entry| {
+            let value = tree_value_from_proto(proto_entry.value.unwrap());
+            (RepoPathComponentBuf::new(proto_entry.name).unwrap(), value)
+        })
+        .collect();
+    Tree::from_entries(entries)
 }
 
 fn tree_value_to_proto(value: &TreeValue) -> crate::protos::simple_store::TreeValue {

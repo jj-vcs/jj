@@ -25,6 +25,7 @@ use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
+use crate::repo_path::RepoPathComponentBuf;
 use crate::store::Store;
 use crate::tree::Tree;
 
@@ -84,13 +85,13 @@ impl TreeBuilder {
         // Update entries in parent trees for file overrides
         for (path, file_override) in self.overrides {
             let (dir, basename) = path.split().unwrap();
-            let tree = trees_to_write.get_mut(dir).unwrap();
+            let tree_entries = trees_to_write.get_mut(dir).unwrap();
             match file_override {
                 Override::Replace(value) => {
-                    tree.set(basename.to_owned(), value);
+                    tree_entries.insert(basename.to_owned(), value);
                 }
                 Override::Tombstone => {
-                    tree.remove(basename);
+                    tree_entries.remove(basename);
                 }
             }
         }
@@ -99,23 +100,25 @@ impl TreeBuilder {
         // children.
         // TODO: Writing trees concurrently should help on high-latency backends
         let store = &self.store;
-        while let Some((dir, tree)) = trees_to_write.pop_last() {
+        while let Some((dir, cur_entries)) = trees_to_write.pop_last() {
             if let Some((parent, basename)) = dir.split() {
-                let parent_tree = trees_to_write.get_mut(parent).unwrap();
-                if tree.is_empty() {
-                    if let Some(TreeValue::Tree(_)) = parent_tree.value(basename) {
-                        parent_tree.remove(basename);
+                let parent_entries = trees_to_write.get_mut(parent).unwrap();
+                if cur_entries.is_empty() {
+                    if let Some(TreeValue::Tree(_)) = parent_entries.get(basename) {
+                        parent_entries.remove(basename);
                     } else {
                         // Entry would have been replaced with file (see above)
                     }
                 } else {
-                    let tree = store.write_tree(&dir, tree).block_on()?;
-                    parent_tree.set(basename.to_owned(), TreeValue::Tree(tree.id().clone()));
+                    let data = backend::Tree::from_entries(cur_entries);
+                    let tree = store.write_tree(&dir, data).block_on()?;
+                    parent_entries.insert(basename.to_owned(), TreeValue::Tree(tree.id().clone()));
                 }
             } else {
                 // We're writing the root tree. Write it even if empty. Return its id.
                 assert!(trees_to_write.is_empty());
-                let written_tree = store.write_tree(&dir, tree).block_on()?;
+                let data = backend::Tree::from_entries(cur_entries);
+                let written_tree = store.write_tree(&dir, data).block_on()?;
                 return Ok(written_tree.id().clone());
             }
         }
@@ -123,7 +126,9 @@ impl TreeBuilder {
         unreachable!("trees_to_write must contain the root tree");
     }
 
-    fn get_base_trees(&self) -> BackendResult<BTreeMap<RepoPathBuf, backend::Tree>> {
+    fn get_base_trees(
+        &self,
+    ) -> BackendResult<BTreeMap<RepoPathBuf, BTreeMap<RepoPathComponentBuf, TreeValue>>> {
         let store = &self.store;
         let mut tree_cache = {
             let dir = RepoPathBuf::root();
@@ -154,7 +159,14 @@ impl TreeBuilder {
 
         Ok(tree_cache
             .into_iter()
-            .map(|(dir, tree)| (dir, tree.data().clone()))
+            .map(|(dir, tree)| {
+                let entries = tree
+                    .data()
+                    .entries()
+                    .map(|entry| (entry.name().to_owned(), entry.value().clone()))
+                    .collect();
+                (dir, entries)
+            })
             .collect())
     }
 }

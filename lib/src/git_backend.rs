@@ -1065,57 +1065,59 @@ impl Backend for GitBackend {
             .map_err(|err| map_not_found_err(err, id))?
             .try_into_tree()
             .map_err(|err| to_read_object_err(err, id))?;
-        let mut tree = Tree::default();
-        for entry in git_tree.iter() {
-            let entry = entry.map_err(|err| to_read_object_err(err, id))?;
-            let name =
-                str::from_utf8(entry.filename()).map_err(|err| to_invalid_utf8_err(err, id))?;
-            let (name, value) = match entry.mode().kind() {
-                gix::object::tree::EntryKind::Tree => {
-                    let id = TreeId::from_bytes(entry.oid().as_bytes());
-                    (name, TreeValue::Tree(id))
-                }
-                gix::object::tree::EntryKind::Blob => {
-                    let id = FileId::from_bytes(entry.oid().as_bytes());
-                    if let Some(basename) = name.strip_suffix(CONFLICT_SUFFIX) {
-                        (
-                            basename,
-                            TreeValue::Conflict(ConflictId::from_bytes(entry.oid().as_bytes())),
-                        )
-                    } else {
+        let entries = git_tree
+            .iter()
+            .map(|entry| -> BackendResult<_> {
+                let entry = entry.map_err(|err| to_read_object_err(err, id))?;
+                let name =
+                    str::from_utf8(entry.filename()).map_err(|err| to_invalid_utf8_err(err, id))?;
+                let (name, value) = match entry.mode().kind() {
+                    gix::object::tree::EntryKind::Tree => {
+                        let id = TreeId::from_bytes(entry.oid().as_bytes());
+                        (name, TreeValue::Tree(id))
+                    }
+                    gix::object::tree::EntryKind::Blob => {
+                        let id = FileId::from_bytes(entry.oid().as_bytes());
+                        if let Some(basename) = name.strip_suffix(CONFLICT_SUFFIX) {
+                            (
+                                basename,
+                                TreeValue::Conflict(ConflictId::from_bytes(entry.oid().as_bytes())),
+                            )
+                        } else {
+                            (
+                                name,
+                                TreeValue::File {
+                                    id,
+                                    executable: false,
+                                    copy_id: CopyId::placeholder(),
+                                },
+                            )
+                        }
+                    }
+                    gix::object::tree::EntryKind::BlobExecutable => {
+                        let id = FileId::from_bytes(entry.oid().as_bytes());
                         (
                             name,
                             TreeValue::File {
                                 id,
-                                executable: false,
+                                executable: true,
                                 copy_id: CopyId::placeholder(),
                             },
                         )
                     }
-                }
-                gix::object::tree::EntryKind::BlobExecutable => {
-                    let id = FileId::from_bytes(entry.oid().as_bytes());
-                    (
-                        name,
-                        TreeValue::File {
-                            id,
-                            executable: true,
-                            copy_id: CopyId::placeholder(),
-                        },
-                    )
-                }
-                gix::object::tree::EntryKind::Link => {
-                    let id = SymlinkId::from_bytes(entry.oid().as_bytes());
-                    (name, TreeValue::Symlink(id))
-                }
-                gix::object::tree::EntryKind::Commit => {
-                    let id = CommitId::from_bytes(entry.oid().as_bytes());
-                    (name, TreeValue::GitSubmodule(id))
-                }
-            };
-            tree.set(RepoPathComponentBuf::new(name).unwrap(), value);
-        }
-        Ok(tree)
+                    gix::object::tree::EntryKind::Link => {
+                        let id = SymlinkId::from_bytes(entry.oid().as_bytes());
+                        (name, TreeValue::Symlink(id))
+                    }
+                    gix::object::tree::EntryKind::Commit => {
+                        let id = CommitId::from_bytes(entry.oid().as_bytes());
+                        (name, TreeValue::GitSubmodule(id))
+                    }
+                };
+                Ok((RepoPathComponentBuf::new(name).unwrap(), value))
+            })
+            .try_collect()?;
+        Ok(Tree::from_entries(entries))
     }
 
     async fn write_tree(&self, _path: &RepoPath, contents: &Tree) -> BackendResult<TreeId> {

@@ -406,6 +406,10 @@ pub struct Tree {
 }
 
 impl Tree {
+    pub fn from_entries(entries: BTreeMap<RepoPathComponentBuf, TreeValue>) -> Self {
+        Tree { entries }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
@@ -418,14 +422,6 @@ impl Tree {
         TreeEntriesNonRecursiveIterator {
             iter: self.entries.iter(),
         }
-    }
-
-    pub fn set(&mut self, name: RepoPathComponentBuf, value: TreeValue) {
-        self.entries.insert(name, value);
-    }
-
-    pub fn remove(&mut self, name: &RepoPathComponent) {
-        self.entries.remove(name);
     }
 
     pub fn entry(&self, name: &RepoPathComponent) -> Option<TreeEntry<'_>> {
