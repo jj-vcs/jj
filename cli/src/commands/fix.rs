@@ -129,6 +129,7 @@ pub(crate) fn cmd_fix(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let workspace_root = workspace_command.workspace_root().to_owned();
+    let path_converter = workspace_command.path_converter().to_owned();
     let tools_config = get_tools_config(ui, workspace_command.settings())?;
     let root_commits: Vec<CommitId> = if args.source.is_empty() {
         let revs = workspace_command.settings().get_string("revsets.fix")?;
@@ -145,7 +146,15 @@ pub(crate) fn cmd_fix(
 
     let mut tx = workspace_command.start_transaction();
     let mut parallel_fixer = ParallelFileFixer::new(|store, file_to_fix| {
-        fix_one_file(ui, &workspace_root, &tools_config, store, file_to_fix).block_on()
+        fix_one_file(
+            ui,
+            &workspace_root,
+            &path_converter,
+            &tools_config,
+            store,
+            file_to_fix,
+        )
+        .block_on()
     });
     let summary = fix_files(
         root_commits,
@@ -179,6 +188,7 @@ pub(crate) fn cmd_fix(
 async fn fix_one_file(
     ui: &Ui,
     workspace_root: &Path,
+    path_converter: &RepoPathUiConverter,
     tools_config: &ToolsConfig,
     store: &Store,
     file_to_fix: &FileToFix,
@@ -201,6 +211,7 @@ async fn fix_one_file(
             match run_tool(
                 ui,
                 workspace_root,
+                path_converter,
                 &tool_config.command,
                 file_to_fix,
                 &prev_content,
@@ -234,6 +245,7 @@ async fn fix_one_file(
 fn run_tool(
     ui: &Ui,
     workspace_root: &Path,
+    path_converter: &RepoPathUiConverter,
     tool_command: &CommandNameAndArgs,
     file_to_fix: &FileToFix,
     old_content: &[u8],
@@ -262,6 +274,12 @@ fn run_tool(
     tracing::debug!(?command, ?output.status, "fix tool exited:");
     if !output.stderr.is_empty() {
         let mut stderr = ui.stderr();
+        writeln!(
+            stderr,
+            "{}:",
+            path_converter.format_file_path(&file_to_fix.repo_path)
+        )
+        .ok();
         stderr.write_all(&output.stderr).ok();
         writeln!(stderr).ok();
     }

@@ -1029,6 +1029,7 @@ fn test_stderr_success() {
     let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    file:
     error
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: qpvuntsm cb75cbcb (no description set)
@@ -1054,6 +1055,7 @@ fn test_stderr_failure() {
     let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    file:
     error
     Fixed 0 commits of 1 checked.
     Nothing changed.
