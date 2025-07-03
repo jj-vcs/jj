@@ -145,7 +145,7 @@ pub(crate) fn cmd_fix(
 
     let mut tx = workspace_command.start_transaction();
     let mut parallel_fixer = ParallelFileFixer::new(|store, file_to_fix| {
-        fix_one_file(&workspace_root, &tools_config, store, file_to_fix).block_on()
+        fix_one_file(ui, &workspace_root, &tools_config, store, file_to_fix).block_on()
     });
     let summary = fix_files(
         root_commits,
@@ -177,6 +177,7 @@ pub(crate) fn cmd_fix(
 /// TODO: Better error handling so we can tell the user what went wrong with
 /// each failed input.
 async fn fix_one_file(
+    ui: &Ui,
     workspace_root: &Path,
     tools_config: &ToolsConfig,
     store: &Store,
@@ -198,6 +199,7 @@ async fn fix_one_file(
         read.read_to_end(&mut old_content).await?;
         let new_content = matching_tools.fold(old_content.clone(), |prev_content, tool_config| {
             match run_tool(
+                ui,
                 workspace_root,
                 &tool_config.command,
                 file_to_fix,
@@ -230,6 +232,7 @@ async fn fix_one_file(
 /// unless the command introduced changes. Returns `None` if there were any
 /// failures when starting, stopping, or communicating with the subprocess.
 fn run_tool(
+    ui: &Ui,
     workspace_root: &Path,
     tool_command: &CommandNameAndArgs,
     file_to_fix: &FileToFix,
@@ -245,6 +248,7 @@ fn run_tool(
         .current_dir(workspace_root)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()
         .or(Err(()))?;
     let mut stdin = child.stdin.take().unwrap();
@@ -256,6 +260,11 @@ fn run_tool(
     })
     .unwrap()?;
     tracing::debug!(?command, ?output.status, "fix tool exited:");
+    if !output.stderr.is_empty() {
+        let mut stderr = ui.stderr();
+        stderr.write_all(&output.stderr).ok();
+        writeln!(stderr).ok();
+    }
     if output.status.success() {
         Ok(output.stdout)
     } else {

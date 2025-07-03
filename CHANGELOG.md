@@ -39,6 +39,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Added `templates.workspace_list` template to customize the output of `jj workspace list`.
 
+* `jj fix` now buffers lines from subprocesses' stderr streams and emits them a
+  complete line at a time. Each line is prepended with the file name.
+
 ### Fixed bugs
 
 ### Packaging changes
