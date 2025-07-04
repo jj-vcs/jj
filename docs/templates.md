@@ -214,7 +214,7 @@ This type can be printed in TOML syntax. The following methods are defined.
 
 ### `CryptographicSignature` type
 
-_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
+_Conversion: `Boolean`: yes, `Serialize`: no, `Template`: no_
 
 The following methods are defined.
 
