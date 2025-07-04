@@ -28,6 +28,7 @@ use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigValue;
 use jj_lib::op_store::TimestampRange;
+use jj_lib::str_util::StringPattern;
 
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
@@ -87,6 +88,12 @@ impl Template for BString {
 impl Template for &BStr {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
         formatter.as_mut().write_all(self)
+    }
+}
+
+impl Template for StringPattern {
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        write!(formatter, "{self}")
     }
 }
 

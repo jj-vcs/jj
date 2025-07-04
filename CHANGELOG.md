@@ -23,6 +23,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* The template language now supports the same string pattern system as revsets
+  (e.g. as used in the `diff_contains` revset).
+
+  This has been wired up to `string.contains` such that
+  `"foo".contains(regex:'[a-f]o+')` now works. Regular strings have the same
+  substring semantics as before.
+
 ### Fixed bugs
 
 ### Packaging changes

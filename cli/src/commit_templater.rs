@@ -70,6 +70,7 @@ use jj_lib::signing::SignError;
 use jj_lib::signing::SignResult;
 use jj_lib::signing::Verification;
 use jj_lib::store::Store;
+use jj_lib::str_util::StringPattern;
 use jj_lib::trailer;
 use jj_lib::trailer::Trailer;
 use once_cell::unsync::OnceCell;
@@ -494,6 +495,17 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
                 let template = self.try_into_template()?;
                 Some(PlainTextFormattedProperty::new(template).into_dyn())
             }
+        }
+    }
+
+    fn try_into_string_pattern(
+        self,
+    ) -> Option<BoxedTemplateProperty<'repo, jj_lib::str_util::StringPattern>> {
+        match self {
+            Self::Core(property) => property.try_into_string_pattern(),
+            other => other
+                .try_into_stringify()
+                .map(|stringified| stringified.map(StringPattern::Substring).into_dyn()),
         }
     }
 
