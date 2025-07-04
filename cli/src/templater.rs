@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Tools for lazily evaluating templates that produce text in a fallible
+//! manner.
+
 use std::cell::RefCell;
 use std::error;
 use std::fmt;
@@ -34,7 +37,11 @@ use crate::formatter::PlainTextFormatter;
 use crate::text_util;
 use crate::time_util;
 
-/// Represents printable type or compiled template containing placeholder value.
+/// Represents a printable type or a compiled template containing a placeholder
+/// value.
+///
+/// This is analogous to [`std::fmt::Display`], but with customized error
+/// handling.
 pub trait Template {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()>;
 }
@@ -315,7 +322,7 @@ pub struct TemplatePropertyError(pub Box<dyn error::Error + Send + Sync>);
 
 // Implements conversion from any error type to support `expr?` in function
 // binding. This type doesn't implement `std::error::Error` instead.
-// https://github.com/dtolnay/anyhow/issues/25#issuecomment-544140480
+// <https://github.com/dtolnay/anyhow/issues/25#issuecomment-544140480>
 impl<E> From<E> for TemplatePropertyError
 where
     E: error::Error + Send + Sync + 'static,
@@ -325,6 +332,7 @@ where
     }
 }
 
+/// Lazily evaluated value which can fail to evaluate.
 pub trait TemplateProperty {
     type Output;
 
@@ -369,11 +377,12 @@ tuple_impls! {
     (0 T0, 1 T1, 2 T2, 3 T3)
 }
 
+/// Type-erased [`TemplateProperty`].
 pub type BoxedTemplateProperty<'a, O> = Box<dyn TemplateProperty<Output = O> + 'a>;
 pub type BoxedSerializeProperty<'a> =
     BoxedTemplateProperty<'a, Box<dyn erased_serde::Serialize + 'a>>;
 
-/// `TemplateProperty` adapters that are useful when implementing methods.
+/// [`TemplateProperty`] adapters that are useful when implementing methods.
 pub trait TemplatePropertyExt: TemplateProperty {
     /// Translates to a property that will apply fallible `function` to an
     /// extracted value.
@@ -448,8 +457,8 @@ impl<P: TemplateProperty + ?Sized> TemplatePropertyExt for P {}
 
 /// Wraps template property of type `O` in tagged type.
 ///
-/// This is basically `From<BoxedTemplateProperty<'a, O>>`, but is restricted to
-/// property types.
+/// This is basically [`From<BoxedTemplateProperty<'a, O>>`], but is restricted
+/// to property types.
 #[diagnostic::on_unimplemented(
     message = "the template property of type `{O}` cannot be wrapped in `{Self}`"
 )]
@@ -594,6 +603,10 @@ where
     }
 }
 
+/// Template which selects an output based on a boolean condition.
+///
+/// When `None` is specified for the false template and the condition is false,
+/// this writes nothing.
 pub struct ConditionalTemplate<P, T, U> {
     pub condition: P,
     pub true_template: T,

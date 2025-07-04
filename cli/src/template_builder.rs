@@ -70,7 +70,11 @@ use crate::templater::WrapTemplateProperty;
 use crate::text_util;
 use crate::time_util;
 
-/// Callbacks to build language-specific evaluation objects from AST nodes.
+/// Callbacks to build usage-context-specific evaluation objects from AST nodes.
+///
+/// This is used to implement different meanings of `self` or different
+/// globally available functions in the template language depending on the
+/// context in which it is invoked.
 pub trait TemplateLanguage<'a> {
     type Property: CoreTemplatePropertyVar<'a>;
 
@@ -87,6 +91,8 @@ pub trait TemplateLanguage<'a> {
         function: &FunctionCallNode,
     ) -> TemplateParseResult<Self::Property>;
 
+    /// Creates a method call thunk for the given `function` of the given
+    /// `property`.
     fn build_method(
         &self,
         diagnostics: &mut TemplateDiagnostics,
@@ -713,6 +719,7 @@ impl<'a, P: CoreTemplatePropertyVar<'a>> Expression<P> {
     }
 }
 
+/// Environment (locals and self) in a stack frame.
 pub struct BuildContext<'i, P> {
     /// Map of functions to create `L::Property`.
     local_variables: HashMap<&'i str, &'i dyn Fn() -> P>,
