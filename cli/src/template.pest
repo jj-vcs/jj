@@ -33,6 +33,8 @@ string_literal = ${ "\"" ~ (string_content | string_escape)* ~ "\"" }
 raw_string_content = @{ (!"'" ~ ANY)* }
 raw_string_literal = ${ "'" ~ raw_string_content ~ "'" }
 
+any_string_literal = _{ string_literal | raw_string_literal }
+
 integer_literal = @{
   ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*
   | "0"
@@ -56,6 +58,7 @@ div_op = { "/" }
 rem_op = { "%" }
 logical_not_op = { "!" }
 negate_op = { "-" }
+pattern_kind_op = { ":" }
 prefix_ops = _{ logical_not_op | negate_op }
 infix_ops = _{
   logical_or_op
@@ -88,10 +91,21 @@ formal_parameters = {
   | ""
 }
 
+// NOTE: string pattern identifiers additionally allow "-" in them, which
+// results in some oddness with the `-` operator, though does not yet cause
+// ambiguity. This may prove annoying at some future point.
+string_pattern_identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_" | "-")* }
+string_pattern = ${
+    // Unlike the revset language, we're not allowing bare words here because
+    // templates are generally not written on-the-fly.
+    string_pattern_identifier ~ pattern_kind_op ~ any_string_literal
+}
+
 primary = _{
   ("(" ~ template ~ ")")
   | function
   | lambda
+  | string_pattern
   | identifier
   | string_literal
   | raw_string_literal

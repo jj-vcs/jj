@@ -33,6 +33,7 @@ use jj_lib::dsl_util::FunctionCallParser;
 use jj_lib::dsl_util::InvalidArguments;
 use jj_lib::dsl_util::StringLiteralParser;
 use jj_lib::dsl_util::collect_similar;
+use jj_lib::str_util::StringPattern;
 use pest::Parser as _;
 use pest::iterators::Pair;
 use pest::iterators::Pairs;
@@ -69,6 +70,7 @@ impl Rule {
             Self::string_literal => None,
             Self::raw_string_content => None,
             Self::raw_string_literal => None,
+            Self::any_string_literal => None,
             Self::integer_literal => None,
             Self::identifier => None,
             Self::concat_op => Some("++"),
@@ -87,6 +89,7 @@ impl Rule {
             Self::rem_op => Some("%"),
             Self::logical_not_op => Some("!"),
             Self::negate_op => Some("-"),
+            Self::pattern_kind_op => Some(":"),
             Self::prefix_ops => None,
             Self::infix_ops => None,
             Self::function => None,
@@ -95,6 +98,8 @@ impl Rule {
             Self::function_arguments => None,
             Self::lambda => None,
             Self::formal_parameters => None,
+            Self::string_pattern_identifier => None,
+            Self::string_pattern => None,
             Self::primary => None,
             Self::term => None,
             Self::expression => None,
@@ -285,6 +290,11 @@ pub enum ExpressionKind<'i> {
     Boolean(bool),
     Integer(i64),
     String(String),
+    /// `<kind>:"<value>"`
+    StringPattern {
+        kind: &'i str,
+        value: String,
+    },
     Unary(UnaryOp, Box<ExpressionNode<'i>>),
     Binary(BinaryOp, Box<ExpressionNode<'i>>, Box<ExpressionNode<'i>>),
     Concat(Vec<ExpressionNode<'i>>),
@@ -302,7 +312,10 @@ impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
     {
         match self {
             Self::Identifier(name) => folder.fold_identifier(name, span),
-            Self::Boolean(_) | Self::Integer(_) | Self::String(_) => Ok(self),
+            ExpressionKind::Boolean(_)
+            | ExpressionKind::Integer(_)
+            | ExpressionKind::String(_)
+            | ExpressionKind::StringPattern { .. } => Ok(self),
             Self::Unary(op, arg) => {
                 let arg = Box::new(folder.fold_expression(*arg)?);
                 Ok(Self::Unary(op, arg))
@@ -458,6 +471,12 @@ fn parse_lambda_node(pair: Pair<Rule>) -> TemplateParseResult<LambdaNode> {
     })
 }
 
+fn parse_raw_string_literal(pair: Pair<Rule>) -> String {
+    let [content] = pair.into_inner().collect_array().unwrap();
+    assert_eq!(content.as_rule(), Rule::raw_string_content);
+    content.as_str().to_owned()
+}
+
 fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
     assert_eq!(pair.as_rule(), Rule::term);
     let mut inner = pair.into_inner();
@@ -469,9 +488,7 @@ fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
             ExpressionNode::new(ExpressionKind::String(text), span)
         }
         Rule::raw_string_literal => {
-            let [content] = expr.into_inner().collect_array().unwrap();
-            assert_eq!(content.as_rule(), Rule::raw_string_content);
-            let text = content.as_str().to_owned();
+            let text = parse_raw_string_literal(expr);
             ExpressionNode::new(ExpressionKind::String(text), span)
         }
         Rule::integer_literal => {
@@ -479,6 +496,21 @@ fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
                 TemplateParseError::expression("Invalid integer literal", span).with_source(err)
             })?;
             ExpressionNode::new(ExpressionKind::Integer(value), span)
+        }
+        Rule::string_pattern => {
+            let [kind, op, literal] = expr.into_inner().collect_array().unwrap();
+            assert_eq!(kind.as_rule(), Rule::string_pattern_identifier);
+            assert_eq!(op.as_rule(), Rule::pattern_kind_op);
+            let kind = kind.as_str();
+            let text = match literal.as_rule() {
+                Rule::string_literal => STRING_LITERAL_PARSER.parse(literal.into_inner()),
+                Rule::raw_string_literal => parse_raw_string_literal(literal),
+                other => {
+                    panic!("Unexpected literal rule in string pattern: {other:?}")
+                }
+            };
+            // The actual parsing and construction of the pattern is deferred to later.
+            ExpressionNode::new(ExpressionKind::StringPattern { kind, value: text }, span)
         }
         Rule::identifier => ExpressionNode::new(parse_identifier_or_literal(expr), span),
         Rule::function => {
@@ -663,6 +695,23 @@ pub fn expect_string_literal<'a>(node: &'a ExpressionNode<'_>) -> TemplateParseR
     })
 }
 
+/// Unwraps inner value if the given `node` is a string pattern
+///
+/// This forces it to be static so that it need not be part of the type system.
+pub fn expect_string_pattern(node: &ExpressionNode<'_>) -> TemplateParseResult<StringPattern> {
+    catch_aliases_no_diagnostics(node, |node| match &node.kind {
+        ExpressionKind::StringPattern { kind, value } => StringPattern::from_str_kind(value, kind)
+            .map_err(|err| {
+                TemplateParseError::expression("Bad string pattern", node.span).with_source(err)
+            }),
+        ExpressionKind::String(string) => Ok(StringPattern::Substring(string.clone())),
+        _ => Err(TemplateParseError::expression(
+            "Expected string pattern",
+            node.span,
+        )),
+    })
+}
+
 /// Unwraps inner node if the given `node` is a lambda.
 pub fn expect_lambda<'a, 'i>(
     node: &'a ExpressionNode<'i>,
@@ -835,6 +884,7 @@ mod tests {
             | ExpressionKind::Boolean(_)
             | ExpressionKind::Integer(_)
             | ExpressionKind::String(_) => node.kind,
+            ExpressionKind::StringPattern { .. } => node.kind,
             ExpressionKind::Unary(op, arg) => {
                 let arg = Box::new(normalize_tree(*arg));
                 ExpressionKind::Unary(op, arg)
@@ -1136,6 +1186,51 @@ mod tests {
         assert_eq!(
             parse_into_kind(r#""\xgg""#),
             Err(TemplateParseErrorKind::SyntaxError),
+        );
+    }
+
+    #[test]
+    fn test_string_pattern() {
+        assert_eq!(
+            parse_into_kind(r#"regex:"meow""#),
+            Ok(ExpressionKind::StringPattern {
+                kind: "regex",
+                value: "meow".to_owned()
+            }),
+        );
+        assert_eq!(
+            parse_into_kind(r#"regex:'\r\n'"#),
+            Ok(ExpressionKind::StringPattern {
+                kind: "regex",
+                value: r#"\r\n"#.to_owned()
+            })
+        );
+        assert_eq!(
+            parse_into_kind(r#"regex-i:'\r\n'"#),
+            Ok(ExpressionKind::StringPattern {
+                kind: "regex-i",
+                value: r#"\r\n"#.to_owned()
+            })
+        );
+        assert_eq!(
+            parse_into_kind("regex:meow"),
+            Err(TemplateParseErrorKind::SyntaxError),
+            "no bare words in string patterns in templates"
+        );
+        assert_eq!(
+            parse_into_kind("regex: 'with spaces'"),
+            Err(TemplateParseErrorKind::SyntaxError),
+            "no spaces after"
+        );
+        assert_eq!(
+            parse_into_kind("regex :'with spaces'"),
+            Err(TemplateParseErrorKind::SyntaxError),
+            "no spaces before either"
+        );
+        assert_eq!(
+            parse_into_kind("regex : 'with spaces'"),
+            Err(TemplateParseErrorKind::SyntaxError),
+            "certainly not both"
         );
     }
 
