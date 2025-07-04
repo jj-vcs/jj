@@ -1946,6 +1946,10 @@ pub fn build_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
             let property = Literal(value.clone()).into_dyn_wrapped();
             Ok(Expression::unlabeled(property))
         }
+        ExpressionKind::StringPattern { .. } => Err(TemplateParseError::expression(
+            "String patterns may not be used as expression values",
+            node.span,
+        )),
         ExpressionKind::Unary(op, arg_node) => {
             let property = build_unary_operation(language, diagnostics, build_ctx, *op, arg_node)?;
             Ok(Expression::unlabeled(property))
@@ -2968,6 +2972,16 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok(r#""description 123".contains(description.first_line())"#),
             @"true");
+
+        // String patterns are not stringifiable
+        insta::assert_snapshot!(env.parse_err(r#""fa".starts_with(regex:'[a-f]o+')"#), @r#"
+         --> 1:18
+          |
+        1 | "fa".starts_with(regex:'[a-f]o+')
+          |                  ^-------------^
+          |
+          = String patterns may not be used as expression values
+        "#);
 
         // inner template error should propagate
         insta::assert_snapshot!(env.render_ok(r#""foo".contains(bad_string)"#), @"<Error: Bad>");

@@ -424,7 +424,8 @@ A string can be implicitly converted to `Boolean`. The following methods are
 defined.
 
 * `.len() -> Integer`: Length in UTF-8 bytes.
-* `.contains(needle: Stringify) -> Boolean`
+* `.contains(needle: Stringify) -> Boolean`: Whether the string contains the
+  provided stringifiable value as a substring.
 * `.first_line() -> String`
 * `.lines() -> List<String>`: Split into lines excluding newline characters.
 * `.upper() -> String`
@@ -473,6 +474,21 @@ An expression that can be converted to a `String`.
 
 Any types that can be converted to `Template` can also be `Stringify`. Unlike
 `Template`, color labels are stripped.
+
+### `StringPattern` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
+
+These are the exact same as the [String pattern type] in revsets, except that
+quotes are mandatory.
+
+Literal strings may be used, which are interpreted as case-sensitive substring
+matching.
+
+Currently `StringPattern` values cannot be passed around as values and may
+only occur directly in the call site they are used in.
+
+[String pattern type]: revsets.md#string-patterns
 
 ### `Template` type
 
