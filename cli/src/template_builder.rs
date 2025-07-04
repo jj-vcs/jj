@@ -708,12 +708,12 @@ impl<'a, P: CoreTemplatePropertyVar<'a>> Expression<P> {
 
 pub struct BuildContext<'i, P> {
     /// Map of functions to create `L::Property`.
-    local_variables: HashMap<&'i str, &'i (dyn Fn() -> P)>,
+    local_variables: HashMap<&'i str, &'i dyn Fn() -> P>,
     /// Function to create `L::Property` representing `self`.
     ///
     /// This could be `local_variables["self"]`, but keyword lookup shouldn't be
     /// overridden by a user-defined `self` variable.
-    self_variable: &'i (dyn Fn() -> P),
+    self_variable: &'i dyn Fn() -> P,
 }
 
 fn build_keyword<'a, L: TemplateLanguage<'a> + ?Sized>(
