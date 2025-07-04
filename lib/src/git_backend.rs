@@ -41,6 +41,7 @@ use gix::bstr::BString;
 use gix::objs::CommitRefIter;
 use gix::objs::WriteTo as _;
 use itertools::Itertools as _;
+use once_cell::sync::OnceCell as OnceLock;
 use pollster::FutureExt as _;
 use prost::Message as _;
 use smallvec::SmallVec;
@@ -176,6 +177,7 @@ pub struct GitBackend {
     root_commit_id: CommitId,
     root_change_id: ChangeId,
     empty_tree_id: TreeId,
+    shallow_root_ids: OnceLock<Vec<CommitId>>,
     extra_metadata_store: TableStore,
     cached_extra_metadata: Mutex<Option<Arc<ReadonlyTable>>>,
     git_executable: PathBuf,
@@ -202,6 +204,7 @@ impl GitBackend {
             root_commit_id,
             root_change_id,
             empty_tree_id,
+            shallow_root_ids: OnceLock::new(),
             extra_metadata_store,
             cached_extra_metadata: Mutex::new(None),
             git_executable: git_settings.executable_path,
@@ -355,6 +358,25 @@ impl GitBackend {
         self.base_repo.work_dir()
     }
 
+    fn shallow_root_ids(&self, git_repo: &gix::Repository) -> BackendResult<&[CommitId]> {
+        // The list of shallow roots is cached by gix, but it's still expensive
+        // to stat file on every read_object() call. Refreshing shallow roots is
+        // also bad for consistency reasons.
+        self.shallow_root_ids
+            .get_or_try_init(|| {
+                let maybe_oids = git_repo
+                    .shallow_commits()
+                    .map_err(|err| BackendError::Other(err.into()))?;
+                let commit_ids = maybe_oids.map_or(vec![], |oids| {
+                    oids.iter()
+                        .map(|oid| CommitId::from_bytes(oid.as_bytes()))
+                        .collect()
+                });
+                Ok(commit_ids)
+            })
+            .map(AsRef::as_ref)
+    }
+
     fn cached_extra_metadata_table(&self) -> BackendResult<Arc<ReadonlyTable>> {
         let mut locked_head = self.cached_extra_metadata.lock().unwrap();
         match locked_head.as_ref() {
@@ -430,6 +452,7 @@ impl GitBackend {
             &mut mut_table,
             &table_lock,
             &head_ids,
+            self.shallow_root_ids(&locked_repo)?,
         )?;
         self.save_extra_metadata_table(mut_table, &table_lock)
     }
@@ -910,11 +933,8 @@ fn import_extra_metadata_entries_from_heads(
     mut_table: &mut MutableTable,
     _table_lock: &FileLock,
     head_ids: &HashSet<&CommitId>,
+    shallow_roots: &[CommitId],
 ) -> BackendResult<()> {
-    let shallow_commits = git_repo
-        .shallow_commits()
-        .map_err(|e| BackendError::Other(Box::new(e)))?;
-
     let mut work_ids = head_ids
         .iter()
         .filter(|&id| mut_table.get_value(id.as_bytes()).is_none())
@@ -924,9 +944,7 @@ fn import_extra_metadata_entries_from_heads(
         let git_object = git_repo
             .find_object(validate_git_object_id(&id)?)
             .map_err(|err| map_not_found_err(err, &id))?;
-        let is_shallow = shallow_commits
-            .as_ref()
-            .is_some_and(|shallow| shallow.contains(&git_object.id));
+        let is_shallow = shallow_roots.contains(&id);
         // TODO(#1624): Should we read the root tree here and check if it has a
         // `.jjconflict-...` entries? That could happen if the user used `git` to e.g.
         // change the description of a commit with tree-level conflicts.
@@ -1219,11 +1237,7 @@ impl Backend for GitBackend {
             let git_object = locked_repo
                 .find_object(git_commit_id)
                 .map_err(|err| map_not_found_err(err, id))?;
-            let is_shallow = locked_repo
-                .shallow_commits()
-                .ok()
-                .flatten()
-                .is_some_and(|shallow| shallow.contains(&git_object.id));
+            let is_shallow = self.shallow_root_ids(&locked_repo)?.contains(id);
             commit_from_git_without_root_parent(id, &git_object, false, is_shallow)?
         };
         if commit.parents.is_empty() {
