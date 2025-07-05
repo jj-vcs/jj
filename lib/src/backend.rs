@@ -15,14 +15,15 @@
 #![allow(missing_docs)]
 
 use std::any::Any;
-use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::pin::Pin;
+use std::slice;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
 use chrono::TimeZone as _;
 use futures::stream::BoxStream;
+use itertools::Itertools as _;
 use thiserror::Error;
 use tokio::io::AsyncRead;
 
@@ -387,7 +388,7 @@ impl<'a> TreeEntry<'a> {
 }
 
 pub struct TreeEntriesNonRecursiveIterator<'a> {
-    iter: std::collections::btree_map::Iter<'a, RepoPathComponentBuf, TreeValue>,
+    iter: slice::Iter<'a, (RepoPathComponentBuf, TreeValue)>,
 }
 
 impl<'a> Iterator for TreeEntriesNonRecursiveIterator<'a> {
@@ -402,16 +403,21 @@ impl<'a> Iterator for TreeEntriesNonRecursiveIterator<'a> {
 
 #[derive(ContentHash, Default, PartialEq, Eq, Debug, Clone)]
 pub struct Tree {
-    entries: BTreeMap<RepoPathComponentBuf, TreeValue>,
+    entries: Vec<(RepoPathComponentBuf, TreeValue)>,
 }
 
 impl Tree {
+    pub fn from_sorted_entries(entries: Vec<(RepoPathComponentBuf, TreeValue)>) -> Self {
+        debug_assert!(entries.iter().tuple_windows().all(|((a, _), (b, _))| a < b));
+        Tree { entries }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
 
     pub fn names(&self) -> impl Iterator<Item = &RepoPathComponent> {
-        self.entries.keys().map(|name| name.as_ref())
+        self.entries.iter().map(|(name, _)| name.as_ref())
     }
 
     pub fn entries(&self) -> TreeEntriesNonRecursiveIterator<'_> {
@@ -420,33 +426,17 @@ impl Tree {
         }
     }
 
-    pub fn set(&mut self, name: RepoPathComponentBuf, value: TreeValue) {
-        self.entries.insert(name, value);
-    }
-
-    pub fn remove(&mut self, name: &RepoPathComponent) {
-        self.entries.remove(name);
-    }
-
-    pub fn set_or_remove(&mut self, name: &RepoPathComponent, value: Option<TreeValue>) {
-        match value {
-            None => {
-                self.entries.remove(name);
-            }
-            Some(value) => {
-                self.entries.insert(name.to_owned(), value);
-            }
-        }
-    }
-
     pub fn entry(&self, name: &RepoPathComponent) -> Option<TreeEntry<'_>> {
-        self.entries
-            .get_key_value(name)
-            .map(|(name, value)| TreeEntry { name, value })
+        let index = self
+            .entries
+            .binary_search_by_key(&name, |(name, _)| name)
+            .ok()?;
+        let (name, value) = &self.entries[index];
+        Some(TreeEntry { name, value })
     }
 
     pub fn value(&self, name: &RepoPathComponent) -> Option<&TreeValue> {
-        self.entries.get(name)
+        self.entry(name).map(|entry| entry.value)
     }
 }
 
