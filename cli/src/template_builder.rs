@@ -24,6 +24,7 @@ use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigValue;
 use jj_lib::op_store::TimestampRange;
 use jj_lib::settings::UserSettings;
+use jj_lib::str_util::StringPattern;
 use jj_lib::time_util::DatePattern;
 use serde::de::IntoDeserializer as _;
 use serde::Deserialize;
@@ -67,7 +68,11 @@ use crate::templater::WrapTemplateProperty;
 use crate::text_util;
 use crate::time_util;
 
-/// Callbacks to build language-specific evaluation objects from AST nodes.
+/// Callbacks to build usage-context-specific evaluation objects from AST nodes.
+///
+/// This is used to implement different meanings of `self` or different
+/// globally available functions in the template language depending on the
+/// context in which it is invoked.
 pub trait TemplateLanguage<'a> {
     type Property: CoreTemplatePropertyVar<'a>;
 
@@ -84,6 +89,8 @@ pub trait TemplateLanguage<'a> {
         function: &FunctionCallNode,
     ) -> TemplateParseResult<Self::Property>;
 
+    /// Creates a method call thunk for the given `function` of the given
+    /// `property`.
     fn build_method(
         &self,
         diagnostics: &mut TemplateDiagnostics,
@@ -154,6 +161,7 @@ where
     Self: WrapTemplateProperty<'a, bool>,
     Self: WrapTemplateProperty<'a, i64>,
     Self: WrapTemplateProperty<'a, Option<i64>>,
+    Self: WrapTemplateProperty<'a, StringPattern>,
     Self: WrapTemplateProperty<'a, ConfigValue>,
     Self: WrapTemplateProperty<'a, Signature>,
     Self: WrapTemplateProperty<'a, Email>,
@@ -161,6 +169,12 @@ where
     Self: WrapTemplateProperty<'a, Timestamp>,
     Self: WrapTemplateProperty<'a, TimestampRange>,
 {
+    // Don't write default implementations on these (and certainly not ones
+    // using another function on self): wrapper types that contain a sum type
+    // of a CoreTemplatePropertyKind or a custom type will hit the default case
+    // every time rather than the implementation on CoreTemplatePropertyKind if
+    // a custom implementation is omitted.
+
     fn wrap_template(template: Box<dyn Template + 'a>) -> Self;
     fn wrap_list_template(template: Box<dyn ListTemplate + 'a>) -> Self;
 
@@ -175,6 +189,8 @@ where
     fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>>;
     fn try_into_template(self) -> Option<Box<dyn Template + 'a>>;
 
+    fn try_into_string_pattern(self) -> Option<BoxedTemplateProperty<'a, StringPattern>>;
+
     /// Transforms into a property that will evaluate to `self == other`.
     fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'a, bool>>;
 
@@ -188,6 +204,7 @@ pub enum CoreTemplatePropertyKind<'a> {
     Boolean(BoxedTemplateProperty<'a, bool>),
     Integer(BoxedTemplateProperty<'a, i64>),
     IntegerOpt(BoxedTemplateProperty<'a, Option<i64>>),
+    StringPattern(BoxedTemplateProperty<'a, StringPattern>),
     ConfigValue(BoxedTemplateProperty<'a, ConfigValue>),
     Signature(BoxedTemplateProperty<'a, Signature>),
     Email(BoxedTemplateProperty<'a, Email>),
@@ -221,6 +238,7 @@ macro_rules! impl_core_property_wrappers {
             Boolean(bool),
             Integer(i64),
             IntegerOpt(Option<i64>),
+            StringPattern(jj_lib::str_util::StringPattern),
             ConfigValue(jj_lib::config::ConfigValue),
             Signature(jj_lib::backend::Signature),
             Email($crate::templater::Email),
@@ -251,6 +269,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Boolean(_) => "Boolean",
             Self::Integer(_) => "Integer",
             Self::IntegerOpt(_) => "Option<Integer>",
+            Self::StringPattern(_) => "StringPattern",
             Self::ConfigValue(_) => "ConfigValue",
             Self::Signature(_) => "Signature",
             Self::Email(_) => "Email",
@@ -269,6 +288,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Boolean(property) => Some(property),
             Self::Integer(_) => None,
             Self::IntegerOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::StringPattern(_) => None,
             Self::ConfigValue(_) => None,
             Self::Signature(_) => None,
             Self::Email(property) => Some(property.map(|e| !e.0.is_empty()).into_dyn()),
@@ -301,6 +321,15 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
         }
     }
 
+    fn try_into_string_pattern(self) -> Option<BoxedTemplateProperty<'a, StringPattern>> {
+        match self {
+            Self::StringPattern(property) => Some(property),
+            other => other
+                .try_into_stringify()
+                .map(|stringified| stringified.map(StringPattern::Substring).into_dyn()),
+        }
+    }
+
     fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
         match self {
             Self::String(property) => Some(property.into_serialize()),
@@ -308,6 +337,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Boolean(property) => Some(property.into_serialize()),
             Self::Integer(property) => Some(property.into_serialize()),
             Self::IntegerOpt(property) => Some(property.into_serialize()),
+            Self::StringPattern(_) => None,
             Self::ConfigValue(_) => None,
             Self::Signature(property) => Some(property.into_serialize()),
             Self::Email(property) => Some(property.into_serialize()),
@@ -326,6 +356,9 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Boolean(property) => Some(property.into_template()),
             Self::Integer(property) => Some(property.into_template()),
             Self::IntegerOpt(property) => Some(property.into_template()),
+            // We want this to not be a template, since if it were, it would
+            // admit these being given in Stringify contexts.
+            Self::StringPattern(_) => None,
             Self::ConfigValue(property) => Some(property.into_template()),
             Self::Signature(property) => Some(property.into_template()),
             Self::Email(property) => Some(property.into_template()),
@@ -371,6 +404,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::Boolean(_), _) => None,
             (Self::Integer(_), _) => None,
             (Self::IntegerOpt(_), _) => None,
+            (Self::StringPattern(_), _) => None,
             (Self::ConfigValue(_), _) => None,
             (Self::Signature(_), _) => None,
             (Self::Email(_), _) => None,
@@ -401,6 +435,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::Boolean(_), _) => None,
             (Self::Integer(_), _) => None,
             (Self::IntegerOpt(_), _) => None,
+            (Self::StringPattern(_), _) => None,
             (Self::ConfigValue(_), _) => None,
             (Self::Signature(_), _) => None,
             (Self::Email(_), _) => None,
@@ -465,6 +500,7 @@ pub struct CoreTemplateBuildFnTable<'a, L: TemplateLanguage<'a> + ?Sized> {
     pub string_list_methods: TemplateBuildMethodFnMap<'a, L, Vec<String>>,
     pub boolean_methods: TemplateBuildMethodFnMap<'a, L, bool>,
     pub integer_methods: TemplateBuildMethodFnMap<'a, L, i64>,
+    pub string_pattern_methods: TemplateBuildMethodFnMap<'a, L, StringPattern>,
     pub config_value_methods: TemplateBuildMethodFnMap<'a, L, ConfigValue>,
     pub email_methods: TemplateBuildMethodFnMap<'a, L, Email>,
     pub signature_methods: TemplateBuildMethodFnMap<'a, L, Signature>,
@@ -492,6 +528,7 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
             string_list_methods: builtin_formattable_list_methods(),
             boolean_methods: HashMap::new(),
             integer_methods: HashMap::new(),
+            string_pattern_methods: HashMap::new(),
             config_value_methods: builtin_config_value_methods(),
             signature_methods: builtin_signature_methods(),
             email_methods: builtin_email_methods(),
@@ -510,6 +547,7 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
             string_list_methods: HashMap::new(),
             boolean_methods: HashMap::new(),
             integer_methods: HashMap::new(),
+            string_pattern_methods: HashMap::new(),
             config_value_methods: HashMap::new(),
             signature_methods: HashMap::new(),
             email_methods: HashMap::new(),
@@ -528,6 +566,7 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
             string_list_methods,
             boolean_methods,
             integer_methods,
+            string_pattern_methods,
             config_value_methods,
             signature_methods,
             email_methods,
@@ -543,6 +582,7 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
         merge_fn_map(&mut self.string_list_methods, string_list_methods);
         merge_fn_map(&mut self.boolean_methods, boolean_methods);
         merge_fn_map(&mut self.integer_methods, integer_methods);
+        merge_fn_map(&mut self.string_pattern_methods, string_pattern_methods);
         merge_fn_map(&mut self.config_value_methods, config_value_methods);
         merge_fn_map(&mut self.signature_methods, signature_methods);
         merge_fn_map(&mut self.email_methods, email_methods);
@@ -604,6 +644,11 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 let inner_property = property.try_unwrap(type_name).into_dyn();
                 build(language, diagnostics, build_ctx, inner_property, function)
+            }
+            CoreTemplatePropertyKind::StringPattern(property) => {
+                let table = &self.string_pattern_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(language, diagnostics, build_ctx, property, function)
             }
             CoreTemplatePropertyKind::ConfigValue(property) => {
                 let table = &self.config_value_methods;
@@ -684,6 +729,10 @@ impl<'a, P: CoreTemplatePropertyVar<'a>> Expression<P> {
         self.property.try_into_stringify()
     }
 
+    pub fn try_into_string_pattern(self) -> Option<BoxedTemplateProperty<'a, StringPattern>> {
+        self.property.try_into_string_pattern()
+    }
+
     pub fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
         self.property.try_into_serialize()
     }
@@ -706,6 +755,7 @@ impl<'a, P: CoreTemplatePropertyVar<'a>> Expression<P> {
     }
 }
 
+/// Environment (locals and self) in a stack frame.
 pub struct BuildContext<'i, P> {
     /// Map of functions to create `L::Property`.
     local_variables: HashMap<&'i str, &'i dyn Fn() -> P>,
@@ -888,10 +938,10 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         |language, diagnostics, build_ctx, self_property, function| {
             let [needle_node] = function.expect_exact_arguments()?;
             // TODO: or .try_into_string() to disable implicit type cast?
-            let needle_property =
-                expect_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
-            let out_property = (self_property, needle_property)
-                .map(|(haystack, needle)| haystack.contains(&needle));
+            let needle_pattern =
+                expect_string_pattern(language, diagnostics, build_ctx, needle_node)?;
+            let out_property =
+                (self_property, needle_pattern).map(|(haystack, needle)| needle.matches(&haystack));
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1850,6 +1900,16 @@ pub fn build_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
             let property = Literal(value.clone()).into_dyn_wrapped();
             Ok(Expression::unlabeled(property))
         }
+        ExpressionKind::StringPattern { kind, value } => {
+            let property = Literal(StringPattern::from_str_kind(value, kind).map_err(|err| {
+                TemplateParseError::with_span(
+                    TemplateParseErrorKind::StringPattern(format!("{err}")),
+                    node.span,
+                )
+            })?)
+            .into_dyn_wrapped();
+            Ok(Expression::unlabeled(property))
+        }
         ExpressionKind::Unary(op, arg_node) => {
             let property = build_unary_operation(language, diagnostics, build_ctx, *op, arg_node)?;
             Ok(Expression::unlabeled(property))
@@ -2005,6 +2065,22 @@ pub fn expect_stringify_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
         node,
         "Stringify",
         |expression| expression.try_into_stringify(),
+    )
+}
+
+pub fn expect_string_pattern<'a, L: TemplateLanguage<'a> + ?Sized>(
+    language: &L,
+    diagnostics: &mut TemplateDiagnostics,
+    build_ctx: &BuildContext<L::Property>,
+    node: &ExpressionNode,
+) -> TemplateParseResult<BoxedTemplateProperty<'a, StringPattern>> {
+    expect_expression_of_type(
+        language,
+        diagnostics,
+        build_ctx,
+        node,
+        "StringPattern",
+        |expression| expression.try_into_string_pattern(),
     )
 }
 
@@ -2775,6 +2851,18 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok(r#""description 123".contains(description.first_line())"#),
             @"true");
+        insta::assert_snapshot!(env.render_ok(r#""fooo".contains(regex:'[a-f]o+')"#), @"true");
+        insta::assert_snapshot!(env.render_ok(r#""fa".contains(regex:'[a-f]o+')"#), @"false");
+
+        // String patterns are not stringifiable
+        insta::assert_snapshot!(env.parse_err(r#""fa".starts_with(regex:'[a-f]o+')"#), @r#"
+         --> 1:18
+          |
+        1 | "fa".starts_with(regex:'[a-f]o+')
+          |                  ^-------------^
+          |
+          = Expected expression of type `Stringify`, but actual type is `StringPattern`
+        "#);
 
         // inner template error should propagate
         insta::assert_snapshot!(env.render_ok(r#""foo".contains(bad_string)"#), @"<Error: Bad>");

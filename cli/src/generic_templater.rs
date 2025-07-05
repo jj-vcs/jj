@@ -198,6 +198,15 @@ impl<'a, C> CoreTemplatePropertyVar<'a> for GenericTemplatePropertyKind<'a, C> {
         }
     }
 
+    fn try_into_string_pattern(
+        self,
+    ) -> Option<BoxedTemplateProperty<'a, jj_lib::str_util::StringPattern>> {
+        match self {
+            Self::Core(property) => property.try_into_string_pattern(),
+            Self::Self_(_) => None,
+        }
+    }
+
     fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
         match self {
             Self::Core(property) => property.try_into_serialize(),

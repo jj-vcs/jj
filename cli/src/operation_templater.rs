@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Templates for `jj op log`.
+//!
+//! See <https://jj-vcs.github.io/jj/latest/templates/#operation-keywords>.
+
 use std::any::Any;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -24,6 +28,7 @@ use jj_lib::op_store::OperationId;
 use jj_lib::operation::Operation;
 use jj_lib::repo::RepoLoader;
 use jj_lib::settings::UserSettings;
+use jj_lib::str_util::StringPattern;
 
 use crate::template_builder;
 use crate::template_builder::merge_fn_map;
@@ -51,6 +56,7 @@ pub trait OperationTemplateLanguageExtension {
     fn build_cache_extensions(&self, extensions: &mut ExtensionsMap);
 }
 
+/// Templates for `jj op log`.
 pub struct OperationTemplateLanguage {
     repo_loader: RepoLoader,
     current_op_id: Option<OperationId>,
@@ -187,6 +193,17 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
                 let template = self.try_into_template()?;
                 Some(PlainTextFormattedProperty::new(template).into_dyn())
             }
+        }
+    }
+
+    fn try_into_string_pattern(
+        self,
+    ) -> Option<BoxedTemplateProperty<'static, jj_lib::str_util::StringPattern>> {
+        match self {
+            Self::Core(property) => property.try_into_string_pattern(),
+            other => other
+                .try_into_stringify()
+                .map(|stringified| stringified.map(StringPattern::Substring).into_dyn()),
         }
     }
 
