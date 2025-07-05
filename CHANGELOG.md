@@ -34,6 +34,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Added `templates.workspace_list` template to customize the output of `jj workspace list`.
 
+* `jj status` now collapses fully untracked directories into one line.
+  It still fully traverses them while snapshotting but they won't clutter up
+  the output with all of their contents.
+
 ### Fixed bugs
 
 ### Packaging changes
