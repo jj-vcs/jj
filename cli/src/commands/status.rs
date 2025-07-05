@@ -12,13 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::io;
 
 use itertools::Itertools as _;
 use jj_lib::copies::CopyRecords;
+use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo as _;
+use jj_lib::repo_path::RepoPathBuf;
+use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
+use jj_lib::working_copy::UntrackedReason;
 use tracing::instrument;
 
 use crate::cli_util::print_conflicted_paths;
@@ -27,6 +33,7 @@ use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::diff_util::get_copy_records;
 use crate::diff_util::DiffFormat;
+use crate::formatter::Formatter;
 use crate::ui::Ui;
 
 /// Show high-level repo status
@@ -103,13 +110,12 @@ pub(crate) fn cmd_status(
 
             if wc_has_untracked {
                 writeln!(formatter, "Untracked paths:")?;
-                formatter.with_label("diff", |formatter| {
-                    for path in snapshot_stats.untracked_paths.keys() {
-                        let ui_path = workspace_command.path_converter().format_file_path(path);
-                        writeln!(formatter.labeled("untracked"), "? {ui_path}")?;
-                    }
-                    io::Result::Ok(())
-                })?;
+                print_collapsed_untracked_files(
+                    formatter,
+                    &snapshot_stats.untracked_paths,
+                    &tree,
+                    workspace_command.path_converter(),
+                )?;
             }
         }
 
@@ -211,4 +217,61 @@ pub(crate) fn cmd_status(
     }
 
     Ok(())
+}
+
+fn print_collapsed_untracked_files(
+    formatter: &mut dyn Formatter,
+    untracked_paths: &BTreeMap<RepoPathBuf, UntrackedReason>,
+    tree: &MergedTree,
+    path_converter: &RepoPathUiConverter,
+) -> io::Result<()> {
+    formatter.with_label("diff", |formatter| {
+        let tracked = tree
+            .entries()
+            .map(|entry| entry.0.into_internal_string())
+            .collect::<BTreeSet<String>>();
+
+        // TODO: This loop can be improved with BTreeSet cursors once that's stable,
+        // would remove the need for the whole `skip_prefixed_by` thing and turn it
+        // into a BTree lookup.
+        let mut skip_prefixed_by_dir = None;
+        for original_path in untracked_paths.keys() {
+            if skip_prefixed_by_dir
+                .as_ref()
+                .is_some_and(|p| original_path.as_internal_file_string().starts_with(p))
+            {
+                continue;
+            }
+
+            let mut path = original_path.as_ref();
+            let mut path_is_dir = false;
+            while let Some(parent_dir) = path.parent().filter(|p| !p.is_root()) {
+                let internal_dir_string = parent_dir.to_internal_dir_string();
+                if tracked
+                    .range(internal_dir_string.clone()..)
+                    .next()
+                    .is_none_or(|p| !p.starts_with(&internal_dir_string))
+                {
+                    path = parent_dir;
+                    path_is_dir = true;
+                    skip_prefixed_by_dir = Some(internal_dir_string);
+                } else {
+                    break;
+                }
+            }
+
+            let ui_path = path_converter.format_file_path(path);
+            writeln!(
+                formatter.labeled("untracked"),
+                "? {ui_path}{}",
+                if path_is_dir {
+                    std::path::MAIN_SEPARATOR_STR
+                } else {
+                    ""
+                }
+            )?;
+        }
+
+        io::Result::Ok(())
+    })
 }
