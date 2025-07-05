@@ -392,8 +392,7 @@ fn test_status_untracked_files() {
     Untracked paths:
     ? always-untracked-file
     ? initially-untracked-file
-    ? sub/always-untracked
-    ? sub/initially-untracked
+    ? sub/
     Working copy  (@) : qpvuntsm e8849ae1 (empty) (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -449,8 +448,7 @@ fn test_status_untracked_files() {
     Untracked paths:
     ? always-untracked-file
     ? initially-untracked-file
-    ? sub/always-untracked
-    ? sub/initially-untracked
+    ? sub/
     Working copy  (@) : mzvwutvl 240f261a (no description set)
     Parent commit (@-): qpvuntsm b8c1286d (no description set)
     [EOF]
@@ -463,8 +461,18 @@ fn test_status_untracked_files() {
     Untracked paths:
     ? always-untracked-file
     ? initially-untracked-file
-    ? sub/always-untracked
-    ? sub/initially-untracked
+    ? sub/
+    Working copy  (@) : yostqsxw 50beac0d (empty) (no description set)
+    Parent commit (@-): mzvwutvl 240f261a (no description set)
+    [EOF]
+    ");
+
+    let output = work_dir.dir("sub").run_jj(["status"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    Untracked paths:
+    ? ../always-untracked-file
+    ? ../initially-untracked-file
+    ? ./
     Working copy  (@) : yostqsxw 50beac0d (empty) (no description set)
     Parent commit (@-): mzvwutvl 240f261a (no description set)
     [EOF]
