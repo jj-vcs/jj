@@ -1,9 +1,3 @@
-[core]
-fsmonitor = "none"
-
-[core.watchman]
-register-snapshot-trigger = false
-
 [debug]
 # commit-timestamp = <now>
 # operation-timestamp = <now>
@@ -39,3 +33,9 @@ program = "ssh-keygen"
 [user]
 email = ""
 name = ""
+
+[working-copy]
+fsmonitor = "none"
+
+[working-copy.watchman]
+register-snapshot-trigger = false
