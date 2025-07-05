@@ -49,8 +49,9 @@ use crate::ui::Ui;
 ///
 /// Starts a [diff editor] on the changes in the revision. Edit the right side
 /// of the diff until it has the content you want in the new revision. Once
-/// you close the editor, your edited content will replace the previous
-/// revision. The remaining changes will be put in a new revision on top.
+/// you close the editor, your edited content will be put in a new revision
+/// before the original revision, while the remaining changes will replace the
+/// original revision.
 ///
 /// [diff editor]:
 ///     https://jj-vcs.github.io/jj/latest/config/#editing-diffs
@@ -219,11 +220,14 @@ pub(crate) fn cmd_split(
     // Prompt the user to select the changes they want for the first commit.
     let target = select_diff(ui, &tx, &target_commit, &matcher, &diff_selector)?;
 
+    let legacy_bookmark_behavior =
+        !use_move_flags && tx.settings().get_bool("split.legacy-bookmark-behavior")?;
+
     // Create the first commit, which includes the changes selected by the user.
     let first_commit = {
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder.set_tree_id(target.selected_tree.id());
-        if use_move_flags {
+        if !legacy_bookmark_behavior {
             commit_builder
                 // Generate a new change id so that the commit being split doesn't
                 // become divergent.
@@ -270,7 +274,7 @@ pub(crate) fn cmd_split(
         commit_builder
             .set_parents(parents)
             .set_tree_id(new_tree.id());
-        if !use_move_flags {
+        if legacy_bookmark_behavior {
             commit_builder
                 // Generate a new change id so that the commit being split doesn't
                 // become divergent.
@@ -407,14 +411,9 @@ fn rewrite_descendants(
     tx.repo_mut()
         .transform_descendants(vec![target.commit.id().clone()], |mut rewriter| {
             num_rebased += 1;
-            if parallel && legacy_bookmark_behavior {
-                // The old_parent is the second commit due to the rewrite above.
+            if parallel {
                 rewriter
                     .replace_parent(second_commit.id(), [first_commit.id(), second_commit.id()]);
-            } else if parallel {
-                rewriter.replace_parent(first_commit.id(), [first_commit.id(), second_commit.id()]);
-            } else {
-                rewriter.replace_parent(first_commit.id(), [second_commit.id()]);
             }
             rewriter.rebase()?.write()?;
             Ok(())
