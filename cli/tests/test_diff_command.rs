@@ -3553,82 +3553,86 @@ fn test_diff_stat_long_name_or_stat() {
     };
 
     insta::assert_snapshot!(get_stat(&work_dir, 1, 1), @r"
-    1   | 1 +
-    一  | 1 +
+    1  | 1 +
+    一 | 1 +
     2 files changed, 2 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 1, 10), @r"
-    1   | 10 ++++++++++
-    一  | 10 ++++++++++
+    1  | 10 ++++++++++
+    一 | 10 ++++++++++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
+    // 30 column display width means right edge is
+    //                ... here ->|
     insta::assert_snapshot!(get_stat(&work_dir, 1, 100), @r"
-    1   | 100 +++++++++++++++++
-    一  | 100 +++++++++++++++++
+    1  | 100 +++++++++++++++++++++
+    一 | 100 +++++++++++++++++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 10, 1), @r"
-    1234567890      | 1 +
-    ...五六七八九十 | 1 +
+    1234567890        | 1 +
+    ...四五六七八九十 | 1 +
     2 files changed, 2 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 10, 10), @r"
-    1234567890     | 10 +++++++
-    ...六七八九十  | 10 +++++++
+    1234567890       | 10 ++++++++
+    ...五六七八九十  | 10 ++++++++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 10, 100), @r"
-    1234567890     | 100 ++++++
-    ...六七八九十  | 100 ++++++
+    1234567890       | 100 +++++++
+    ...五六七八九十  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 50, 1), @r"
-    ...901234567890 | 1 +
-    ...五六七八九十 | 1 +
+    ...78901234567890 | 1 +
+    ...四五六七八九十 | 1 +
     2 files changed, 2 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 50, 10), @r"
-    ...01234567890 | 10 +++++++
-    ...六七八九十  | 10 +++++++
+    ...8901234567890 | 10 ++++++++
+    ...五六七八九十  | 10 ++++++++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 50, 100), @r"
-    ...01234567890 | 100 ++++++
-    ...六七八九十  | 100 ++++++
+    ...8901234567890 | 100 +++++++
+    ...五六七八九十  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
 
     // Lengths around where we introduce the ellipsis
+    // 30 column display width means right edge is
+    //                ... here ->|
     insta::assert_snapshot!(get_stat(&work_dir, 13, 100), @r"
-    1234567890123  | 100 ++++++
-    ...九十一二三  | 100 ++++++
+    1234567890123    | 100 +++++++
+    ...八九十一二三  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 14, 100), @r"
-    12345678901234 | 100 ++++++
-    ...十一二三四  | 100 ++++++
+    12345678901234   | 100 +++++++
+    ...九十一二三四  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 15, 100), @r"
-    ...56789012345 | 100 ++++++
-    ...一二三四五  | 100 ++++++
+    123456789012345  | 100 +++++++
+    ...十一二三四五  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 16, 100), @r"
-    ...67890123456 | 100 ++++++
-    ...二三四五六  | 100 ++++++
+    1234567890123456 | 100 +++++++
+    ...一二三四五六  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
@@ -3657,8 +3661,8 @@ fn test_diff_stat_long_name_or_stat() {
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 1, 10), @r"
-    1   | 10 ++
-    一  | 10 ++
+    1  | 10 +++
+    一 | 10 +++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
@@ -3670,55 +3674,64 @@ fn test_diff_binary() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    work_dir.write_file("file1.png", b"\x89PNG\r\n\x1a\nabcdefg\0");
-    work_dir.write_file("file2.png", b"\x89PNG\r\n\x1a\n0123456\0");
+    work_dir.write_file("binary_removed.png", b"\x89PNG\r\n\x1a\nabcdefg\0");
+    work_dir.write_file("binary_modified.png", b"\x89PNG\r\n\x1a\n0123456\0");
+    work_dir.write_file("binary_modified_to_text.png", b"\x89PNG\r\n\x1a\n0123456\0");
     work_dir.run_jj(["new"]).success();
-    work_dir.remove_file("file1.png");
-    work_dir.write_file("file2.png", "foo\nbar\n");
-    work_dir.write_file("file3.png", b"\x89PNG\r\n\x1a\nxyz\0");
+    work_dir.remove_file("binary_removed.png");
+    work_dir.write_file("binary_modified.png", "foo\nbar\n\0");
+    // this file's contents became a valid text file
+    work_dir.write_file("binary_modified_to_text.png", "foo\nbar\n");
+    work_dir.write_file("binary_added.png", b"\x89PNG\r\n\x1a\nxyz\0");
     // try a file that's valid UTF-8 but contains control characters
-    work_dir.write_file("file4.png", b"\0\0\0");
+    work_dir.write_file("binary_valid_utf8.png", b"\0\0\0");
 
     let output = work_dir.run_jj(["diff"]);
     insta::assert_snapshot!(output, @r"
-    Removed regular file file1.png:
+    Added regular file binary_added.png:
         (binary)
-    Modified regular file file2.png:
+    Modified regular file binary_modified.png:
         (binary)
-    Added regular file file3.png:
+    Modified regular file binary_modified_to_text.png:
         (binary)
-    Added regular file file4.png:
+    Removed regular file binary_removed.png:
+        (binary)
+    Added regular file binary_valid_utf8.png:
         (binary)
     [EOF]
     ");
 
     let output = work_dir.run_jj(["diff", "--git"]);
     insta::assert_snapshot!(output, @r"
-    diff --git a/file1.png b/file1.png
-    deleted file mode 100644
-    index 2b65b23c22..0000000000
-    Binary files a/file1.png and /dev/null differ
-    diff --git a/file2.png b/file2.png
-    index 7f036ce788..3bd1f0e297 100644
-    Binary files a/file2.png and b/file2.png differ
-    diff --git a/file3.png b/file3.png
+    diff --git a/binary_added.png b/binary_added.png
     new file mode 100644
     index 0000000000..deacfbc286
-    Binary files /dev/null and b/file3.png differ
-    diff --git a/file4.png b/file4.png
+    Binary files /dev/null and b/binary_added.png differ
+    diff --git a/binary_modified.png b/binary_modified.png
+    index 7f036ce788..8d4f840f34 100644
+    Binary files a/binary_modified.png and b/binary_modified.png differ
+    diff --git a/binary_modified_to_text.png b/binary_modified_to_text.png
+    index 7f036ce788..3bd1f0e297 100644
+    Binary files a/binary_modified_to_text.png and b/binary_modified_to_text.png differ
+    diff --git a/binary_removed.png b/binary_removed.png
+    deleted file mode 100644
+    index 2b65b23c22..0000000000
+    Binary files a/binary_removed.png and /dev/null differ
+    diff --git a/binary_valid_utf8.png b/binary_valid_utf8.png
     new file mode 100644
     index 0000000000..4227ca4e87
-    Binary files /dev/null and b/file4.png differ
+    Binary files /dev/null and b/binary_valid_utf8.png differ
     [EOF]
     ");
 
     let output = work_dir.run_jj(["diff", "--stat"]);
     insta::assert_snapshot!(output, @r"
-    file1.png | 3 ---
-    file2.png | 5 ++---
-    file3.png | 3 +++
-    file4.png | 1 +
-    4 files changed, 6 insertions(+), 6 deletions(-)
+    binary_added.png            | 3 +++
+    binary_modified.png         | 6 +++---
+    binary_modified_to_text.png | 5 ++---
+    binary_removed.png          | 3 ---
+    binary_valid_utf8.png       | 1 +
+    5 files changed, 9 insertions(+), 9 deletions(-)
     [EOF]
     ");
 }
