@@ -10,6 +10,17 @@
     # For installing non-standard rustc versions
     rust-overlay.url = "github:oxalica/rust-overlay";
     rust-overlay.inputs.nixpkgs.follows = "nixpkgs";
+
+    # For building the docs
+    pyproject-nix.url = "github:pyproject-nix/pyproject.nix";
+    pyproject-nix.inputs.nixpkgs.follows = "nixpkgs";
+    uv2nix.url = "github:pyproject-nix/uv2nix";
+    uv2nix.inputs.pyproject-nix.follows = "pyproject-nix";
+    uv2nix.inputs.nixpkgs.follows = "nixpkgs";
+    pyproject-build-systems.url = "github:pyproject-nix/build-system-pkgs";
+    pyproject-build-systems.inputs.pyproject-nix.follows = "pyproject-nix";
+    pyproject-build-systems.inputs.uv2nix.follows = "uv2nix";
+    pyproject-build-systems.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs = {
@@ -17,6 +28,9 @@
     nixpkgs,
     flake-utils,
     rust-overlay,
+    pyproject-nix,
+    uv2nix,
+    pyproject-build-systems,
   }:
     {
       overlays.default = final: prev: {
@@ -158,6 +172,16 @@
       });
 
       devShells.default = let
+        uvWorkspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = pkgs.lib.fileset.toSource { root = ./.; fileset = pkgs.lib.fileset.unions [ ./pyproject.toml ./uv.lock ]; }; };
+        python = pkgs.python3;
+        pythonSet = (pkgs.callPackage pyproject-nix.build.packages { inherit python; }).overrideScope (
+          pkgs.lib.composeManyExtensions [
+            (uvWorkspace.mkPyprojectOverlay { sourcePreference = "wheel"; })
+            pyproject-build-systems.overlays.default
+          ]
+        );
+        venv = pythonSet.mkVirtualEnv "jj-venv" uvWorkspace.deps.all;
+
         packages = with pkgs; [
           rustShellToolchain
 
@@ -175,9 +199,19 @@
 
           # For building the documentation website
           uv
-          # nixos does not work with uv-installed python
-          python3
+          venv
         ];
+
+        env' = env // {
+          # Don't create venv using uv.
+          UV_NO_SYNC = 1;
+
+          # Force uv to use Python interpreter from venv.
+          UV_PYTHON = pkgs.lib.getExe python;
+
+          # Prevent uv from downloading managed Pythons
+          UV_PYTHON_DOWNLOADS = "never";
+        };
 
         # on macOS and Linux, use faster parallel linkers that are much more
         # efficient than the defaults. these noticeably improve link time even for
@@ -205,12 +239,16 @@
         # to allow the `xcrun` command above to be interpreted by the shell.
         shellHook = ''
           export RUSTFLAGS="-Zthreads=0 ${rustLinkFlagsString}"
+
+          # Undo dependency propagation by Nixpkgs.
+          unset PYTHONPATH
         '';
       in
         pkgs.mkShell {
           name = "jujutsu";
           packages = packages ++ nativeBuildInputs ++ buildInputs ++ nativeCheckInputs;
-          inherit env shellHook;
+          env = env';
+          inherit shellHook;
         };
     }));
 }
