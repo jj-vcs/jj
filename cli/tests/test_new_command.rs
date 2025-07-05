@@ -28,7 +28,7 @@ fn test_new() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  22aec45f30a36a2d244c70e131e369d79e400962 a new commit
     ○  55eabcc47301440da7a71d5610d3db021d1925ca add a file
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
 
@@ -41,7 +41,7 @@ fn test_new() {
     │ ○  22aec45f30a36a2d244c70e131e369d79e400962 a new commit
     │ ○  55eabcc47301440da7a71d5610d3db021d1925ca add a file
     ├─╯
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
 
@@ -55,7 +55,7 @@ fn test_new() {
     │ ○  22aec45f30a36a2d244c70e131e369d79e400962 a new commit
     │ ○  55eabcc47301440da7a71d5610d3db021d1925ca add a file
     ├─╯
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
 
@@ -97,7 +97,7 @@ fn test_new_merge() {
     │ ○  5bf404a038660799fae348cc31b9891349c128c1 add file2
     ○ │  96ab002e5b86c39a661adc0524df211a3dac3f1b add file1
     ├─╯
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file1"]);
@@ -119,7 +119,7 @@ fn test_new_merge() {
     │ @  5bf404a038660799fae348cc31b9891349c128c1 add file2
     ○ │  96ab002e5b86c39a661adc0524df211a3dac3f1b add file1
     ├─╯
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
 
@@ -132,7 +132,7 @@ fn test_new_merge() {
     │ ○  5bf404a038660799fae348cc31b9891349c128c1 add file2
     ○ │  96ab002e5b86c39a661adc0524df211a3dac3f1b add file1
     ├─╯
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
 
@@ -179,7 +179,7 @@ fn test_new_insert_after() {
     │ ○  B
     │ ○  A
     ├─╯
-    ◆  root
+    ♦  root
     [EOF]
     ");
 
@@ -205,7 +205,7 @@ fn test_new_insert_after() {
     ├───╯
     │ ○  E
     ├─╯
-    ◆  root
+    ♦  root
     [EOF]
     ");
 
@@ -230,7 +230,7 @@ fn test_new_insert_after() {
     ├───╯
     │ ○  E
     ├─╯
-    ◆  root
+    ♦  root
     [EOF]
     ");
 
@@ -264,7 +264,7 @@ fn test_new_insert_after_children() {
     │ ○  B
     │ ○  A
     ├─╯
-    ◆  root
+    ♦  root
     [EOF]
     ");
 
@@ -303,7 +303,7 @@ fn test_new_insert_before() {
     │ ○  B
     │ ○  A
     ├─╯
-    ◆  root
+    ♦  root
     [EOF]
     ");
 
@@ -337,7 +337,7 @@ fn test_new_insert_before() {
     ○ │  B
     ○ │  A
     ├─╯
-    ◆  root
+    ♦  root
     [EOF]
     ");
 
@@ -371,7 +371,7 @@ fn test_new_insert_before_root_successors() {
     │ ○  B
     │ ○  A
     ├─╯
-    ◆  root
+    ♦  root
     [EOF]
     ");
 
@@ -402,7 +402,7 @@ fn test_new_insert_before_root_successors() {
     ├───╯
     @ │  G
     ├─╯
-    ◆  root
+    ♦  root
     [EOF]
     ");
 }
@@ -425,7 +425,7 @@ fn test_new_insert_before_no_loop() {
     │ ○  bb98b0102ef5 B
     │ ○  515354d01f1b A
     ├─╯
-    ◆  000000000000 root
+    ♦  000000000000 root
     [EOF]
     ");
 
@@ -462,7 +462,7 @@ fn test_new_insert_before_no_root_merge() {
     │ ○  B
     │ ○  A
     ├─╯
-    ◆  root
+    ♦  root
     [EOF]
     ");
 
@@ -499,7 +499,7 @@ fn test_new_insert_before_root() {
     │ ○  B
     │ ○  A
     ├─╯
-    ◆  root
+    ♦  root
     [EOF]
     ");
 
@@ -528,7 +528,7 @@ fn test_new_insert_after_before() {
     │ ○  B
     │ ○  A
     ├─╯
-    ◆  root
+    ♦  root
     [EOF]
     ");
 
@@ -551,7 +551,7 @@ fn test_new_insert_after_before() {
     │ ├─╯
     ○ │  D
     ├─╯
-    ◆  root
+    ♦  root
     [EOF]
     ");
 
@@ -577,7 +577,7 @@ fn test_new_insert_after_before() {
     ├───╯
     │ ○  E
     ├─╯
-    ◆  root
+    ♦  root
     [EOF]
     ");
 }
@@ -600,7 +600,7 @@ fn test_new_insert_after_before_no_loop() {
     │ ○  bb98b0102ef5 B
     │ ○  515354d01f1b A
     ├─╯
-    ◆  000000000000 root
+    ♦  000000000000 root
     [EOF]
     ");
 

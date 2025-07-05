@@ -772,7 +772,7 @@ fn test_git_push_multiple() {
     ├─╯  (empty) description 2
     │ ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 9b2e76de
     ├─╯  (empty) description 1
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 }
@@ -1171,7 +1171,7 @@ fn test_git_push_changes_with_name_untracked_or_forgotten() {
     ○  9a0 child
     @  767 b1@origin pushed_to_remote
     ○  aa9 parent
-    ◆  000
+    ♦  000
     [EOF]
     ");
     let output = work_dir
@@ -1714,7 +1714,7 @@ fn test_git_push_deleted() {
     ├─╯  (empty) description 2
     │ ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 9b2e76de
     ├─╯  (empty) description 1
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "push", "--deleted"]);
@@ -2083,7 +2083,7 @@ fn test_git_push_sign_on_push() {
     ○  description 2
     │ ○  description 1
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
     test_env.add_config(
@@ -2111,7 +2111,7 @@ fn test_git_push_sign_on_push() {
     ○  description 2
     │ ○  description 1
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "push"]);
@@ -2137,7 +2137,7 @@ fn test_git_push_sign_on_push() {
     ○  description 2
     │ ○  description 1
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -2173,15 +2173,15 @@ fn test_git_push_sign_on_push() {
     let output = work_dir.run_jj(["log", "-T", template, "-r", "::"]);
     insta::assert_snapshot!(output, @r"
     @  commit which should not be signed 2
-    ◆  commit which should not be signed 1
-    ◆  commit to be signed 2
+    ♦  commit which should not be signed 1
+    ♦  commit to be signed 2
     │  Signature: test-display, Status: good, Key: impeccable
-    ◆  commit to be signed 1
+    ♦  commit to be signed 1
     │  Signature: test-display, Status: good, Key: impeccable
-    ◆  description 2
+    ♦  description 2
     │ ○  description 1
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 }
