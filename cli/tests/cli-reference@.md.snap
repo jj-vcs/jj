@@ -2881,7 +2881,17 @@ The workspace will not be touched on disk. It can be deleted from disk before or
 
 List workspaces
 
-**Usage:** `jj workspace list`
+**Usage:** `jj workspace list [OPTIONS]`
+
+###### **Options:**
+
+* `-T`, `--template <TEMPLATE>` — Render each workspace using the given template
+
+   All 0-argument methods of the [`WorkspaceRef` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
+
+   [`WorkspaceRef` type]: https://jj-vcs.github.io/jj/latest/templates/#workspaceref-type
+
+   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
 
 
 

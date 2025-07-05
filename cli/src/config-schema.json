@@ -838,6 +838,10 @@
                     "type": "string",
                     "description": "`jj op log`'s output"
                 },
+                "op_summary": {
+                    "type": "string",
+                    "description": "The operation summary used by many commands"
+                },
                 "show": {
                     "type": "string",
                     "description": "`jj show`'s output"
@@ -850,9 +854,9 @@
                     "type": "string",
                     "description": "`jj tag list`'s output"
                 },
-                "op_summary": {
+                "workspace_list": {
                     "type": "string",
-                    "description": "The operation summary used by many commands"
+                    "description": "`jj workspace list`'s output"
                 }
             },
             "additionalProperties": {

@@ -1176,8 +1176,9 @@ fn test_list_workspaces_template() {
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
     test_env.add_config(
         r#"
-        templates.commit_summary = """commit_id.short() ++ " " ++ description.first_line() ++
-                                      if(current_working_copy, " (current)")"""
+        templates.workspace_list = """name ++ ": " ++ target.commit_id().short() ++ " " ++
+                                      target.description().first_line() ++
+                                      if(target.current_working_copy(), " (current)") ++ "\n""""
         "#,
     );
     let main_dir = test_env.work_dir("main");
@@ -1201,6 +1202,15 @@ fn test_list_workspaces_template() {
     insta::assert_snapshot!(output, @r"
     default: 504e3d8c1bcd 
     second: 058f604dffcd  (current)
+    [EOF]
+    ");
+
+    // Using template option
+    let template = r#"name ++ ": " ++ target.commit_id().short() ++ "\n""#;
+    let output = main_dir.run_jj(["workspace", "list", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    default: 504e3d8c1bcd
+    second: 058f604dffcd
     [EOF]
     ");
 }

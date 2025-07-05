@@ -432,10 +432,10 @@ pub fn workspaces() -> Vec<CompletionCandidate> {
     with_jj(|jj, _| {
         let output = jj
             .build()
-            .arg("--config")
-            .arg(r#"templates.commit_summary='if(description, description.first_line(), "(no description set)")'"#)
             .arg("workspace")
             .arg("list")
+            .arg("-T")
+            .arg(r#"name ++ "\t" ++ if(target.description(), target.description().first_line(), "(no description set)") ++ "\n""#)
             .output()
             .map_err(user_error)?;
         let stdout = String::from_utf8_lossy(&output.stdout);

@@ -61,6 +61,10 @@ tag_list = '''
 label("tag", name) ++ format_ref_targets(self) ++ "\n"
 '''
 
+workspace_list = '''
+name ++ ": " ++ format_commit_summary_with_refs(target, target.bookmarks()) ++ "\n"
+'''
+
 op_summary = '''
 separate(" ",
   self.id().short(),
