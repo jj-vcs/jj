@@ -64,8 +64,8 @@ impl FileAnnotation {
     ///
     /// For each line, `Ok(commit_id)` points to the originator commit of the
     /// line. If no originator commit was found within the domain,
-    /// `Err(commit_id)` should be set. It points to the root (or boundary)
-    /// commit where the line exists.
+    /// `Err(commit_id)` should be set. It points to the commit outside of the
+    /// domain where the search stopped.
     ///
     /// The `line` includes newline character.
     pub fn lines(&self) -> impl Iterator<Item = (Result<&CommitId, &CommitId>, &BStr)> {
@@ -339,9 +339,9 @@ fn process_commit(
         } else if parent_edge.edge_type == GraphEdgeType::Missing {
             // If an omitted parent had the file, leave these lines unresolved.
             // The origin of the unresolved lines is represented as
-            // Err(root_commit_id).
+            // Err(parent_commit_id).
             for &(_, original_line_number) in &parent_source.line_map {
-                state.original_line_map[original_line_number] = Err(current_commit_id.clone());
+                state.original_line_map[original_line_number] = Err(parent_commit_id.clone());
             }
             state.num_unresolved_roots += 1;
         }

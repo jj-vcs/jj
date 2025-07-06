@@ -178,7 +178,7 @@ fn test_annotate_merge_simple() {
         .negated();
     insta::assert_snapshot!(annotate_within(tx.repo(), &commit4, &domain, file_path), @r"
     commit2 : 2
-    commit2*: 1
+    commit1*: 1
     commit3 : 3
     ");
 
@@ -187,17 +187,17 @@ fn test_annotate_merge_simple() {
         .ancestors()
         .negated();
     insta::assert_snapshot!(annotate_within(tx.repo(), &commit4, &domain, file_path), @r"
-    commit4*: 2
-    commit4*: 1
+    commit2*: 2
+    commit2*: 1
     commit3 : 3
     ");
 
     // Exclude both sides of the merge and their ancestors.
     let domain = RevsetExpression::commit(commit4.id().clone());
     insta::assert_snapshot!(annotate_within(tx.repo(), &commit4, &domain, file_path), @r"
-    commit4*: 2
-    commit4*: 1
-    commit4*: 3
+    commit2*: 2
+    commit2*: 1
+    commit3*: 3
     ");
 
     // Exclude intermediate commit, which is useless but works.
@@ -229,7 +229,7 @@ fn test_annotate_merge_simple() {
     assert_eq!(annotator.pending_commits().collect_vec(), [commit1.id()]);
     insta::assert_snapshot!(format_annotation(tx.repo(), &annotator.to_annotation()), @r"
     commit2 : 2
-    commit2*: 1
+    commit1*: 1
     commit3 : 3
     ");
     annotator
