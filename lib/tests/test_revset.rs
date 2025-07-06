@@ -395,6 +395,33 @@ fn test_resolve_symbol_change_id(readonly: bool) {
 }
 
 #[test]
+fn test_resolve_symbol_divergent_change_id() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = create_random_commit(tx.repo_mut())
+        .set_change_id(commit1.change_id().clone())
+        .write()
+        .unwrap();
+
+    let change_id = commit1.change_id();
+    assert_matches!(
+        resolve_symbol(tx.repo(), &format!("{change_id}")),
+        Err(RevsetResolutionError::DivergentChangeId { symbol, targets })
+            if symbol == change_id.to_string()
+                && targets == vec![commit1.id().clone(), commit2.id().clone()]
+    );
+    assert_eq!(
+        resolve_symbol(tx.repo(), &format!("change_id({change_id})")).unwrap(),
+        // The order is unspecified at resolution stage, but the current index
+        // implementation returns commit ids in ascending position order.
+        vec![commit1.id().clone(), commit2.id().clone()]
+    );
+}
+
+#[test]
 fn test_resolve_symbol_in_different_disambiguation_context() {
     let test_repo = TestRepo::init();
     let repo0 = &test_repo.repo;
@@ -424,13 +451,13 @@ fn test_resolve_symbol_in_different_disambiguation_context() {
         symbol_resolver
             .resolve_symbol(repo2.as_ref(), &change_hex[0..1])
             .unwrap(),
-        vec![commit2.id().clone()]
+        commit2.id().clone()
     );
     assert_eq!(
         symbol_resolver
             .resolve_symbol(repo2.as_ref(), &commit2.id().hex()[0..1])
             .unwrap(),
-        vec![commit2.id().clone()]
+        commit2.id().clone()
     );
 
     // Change ID is disambiguated within repo2, then resolved in repo1.
@@ -438,7 +465,7 @@ fn test_resolve_symbol_in_different_disambiguation_context() {
         symbol_resolver
             .resolve_symbol(repo1.as_ref(), &change_hex[0..1])
             .unwrap(),
-        vec![commit1.id().clone()]
+        commit1.id().clone()
     );
 
     // Commit ID can be found in the disambiguation index, but doesn't exist in
@@ -673,12 +700,28 @@ fn test_resolve_symbol_bookmarks() {
     );
 
     // Conflicted
+    assert_matches!(
+        resolve_symbol(mut_repo, "local-conflicted"),
+        Err(RevsetResolutionError::ConflictedRef { kind: "bookmark", symbol, targets })
+            if symbol == "local-conflicted"
+                && targets == vec![commit3.id().clone(), commit2.id().clone()]
+    );
+    assert_matches!(
+        resolve_symbol(mut_repo, "remote-conflicted@origin"),
+        Err(RevsetResolutionError::ConflictedRef { kind: "remote_bookmark", symbol, targets })
+            if symbol == "remote-conflicted@origin"
+                && targets == vec![commit5.id().clone(), commit4.id().clone()]
+    );
     assert_eq!(
-        resolve_symbol(mut_repo, "local-conflicted").unwrap(),
+        resolve_symbol(mut_repo, "bookmarks(exact:local-conflicted)").unwrap(),
         vec![commit3.id().clone(), commit2.id().clone()],
     );
     assert_eq!(
-        resolve_symbol(mut_repo, "remote-conflicted@origin").unwrap(),
+        resolve_symbol(
+            mut_repo,
+            "remote_bookmarks(exact:remote-conflicted, exact:origin)"
+        )
+        .unwrap(),
         vec![commit5.id().clone(), commit4.id().clone()],
     );
 
@@ -935,10 +978,12 @@ fn test_resolve_symbol_git_refs() {
         Err(RevsetResolutionError::NoSuchRevision { .. })
     );
 
-    // Conflicted ref resolves to its "adds"
-    assert_eq!(
-        resolve_symbol(mut_repo, "refs/heads/conflicted").unwrap(),
-        vec![commit1.id().clone(), commit3.id().clone()]
+    // Conflicted ref is an error
+    assert_matches!(
+        resolve_symbol(mut_repo, "refs/heads/conflicted"),
+        Err(RevsetResolutionError::ConflictedRef { kind: "git_ref", symbol, targets })
+            if symbol == "refs/heads/conflicted"
+                && targets == vec![commit1.id().clone(), commit3.id().clone()]
     );
 }
 

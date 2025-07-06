@@ -32,15 +32,16 @@ workspace. Use `<name>@<remote>` to refer to a remote-tracking bookmark.
 A full commit ID refers to a single commit. A unique prefix of the full commit
 ID can also be used. It is an error to use a non-unique prefix.
 
-A full change ID refers to all visible commits with that change ID (there is
-typically only one visible commit with a given change ID). A unique prefix of
-the full change ID can also be used. It is an error to use a non-unique prefix.
+A full change ID refers to a visible commit with that change ID. A unique prefix
+of the full change ID can also be used. It is an error to use a non-unique
+prefix or [a divergent change ID][divergent-change].
 
 Use [single or double quotes][string-literals] to prevent a symbol from being
 interpreted as an expression. For example, `"x-"` is the symbol `x-`, not the
 parents of symbol `x`. Taking shell quoting into account, you may need to use
 something like `jj log -r '"x-"'`.
 
+[divergent-change]: glossary.md#divergent-change
 [string-literals]: templates.md#string-literals
 
 ### Priority
@@ -211,8 +212,9 @@ revsets (expressions) as arguments.
 * `none()`: No commits. This function is rarely useful; it is provided for
   completeness.
 
-* `change_id(prefix)`: Commits with the given change ID prefix. It is an error
-  to use a non-unique prefix. Unmatched prefix isn't an error.
+* `change_id(prefix)`: Commits with the given change ID prefix. If the specified
+  change is divergent, this resolves to multiple commits. It is an error to use a
+  non-unique prefix. Unmatched prefix isn't an error.
 
 * `commit_id(prefix)`: Commits with the given commit ID prefix. It is an error
   to use a non-unique prefix. Unmatched prefix isn't an error.

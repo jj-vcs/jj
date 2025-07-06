@@ -15,7 +15,6 @@
 use std::any::Any;
 use std::rc::Rc;
 
-use itertools::Itertools as _;
 use jj_cli::cli_util::CliRunner;
 use jj_cli::commit_templater::CommitTemplateBuildFnTable;
 use jj_cli::commit_templater::CommitTemplateLanguageExtension;
@@ -92,20 +91,17 @@ impl PartialSymbolResolver for TheDigitestResolver {
         &self,
         repo: &dyn Repo,
         symbol: &str,
-    ) -> Result<Option<Vec<CommitId>>, RevsetResolutionError> {
+    ) -> Result<Option<CommitId>, RevsetResolutionError> {
         if symbol != "thedigitest" {
             return Ok(None);
         }
 
-        Ok(Some(
-            RevsetExpression::all()
-                .evaluate(repo)
-                .map_err(|err| RevsetResolutionError::Other(err.into()))?
-                .iter()
-                .map(Result::unwrap)
-                .filter(|id| num_digits_in_id(id) == self.cache.count(repo))
-                .collect_vec(),
-        ))
+        Ok(RevsetExpression::all()
+            .evaluate(repo)
+            .map_err(|err| RevsetResolutionError::Other(err.into()))?
+            .iter()
+            .map(Result::unwrap)
+            .find(|id| num_digits_in_id(id) == self.cache.count(repo)))
     }
 }
 

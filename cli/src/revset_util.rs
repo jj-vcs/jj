@@ -276,7 +276,6 @@ pub(super) fn evaluate_revset_to_single_commit<'a>(
             let elided = iter.next().is_some();
             Err(format_multiple_revisions_error(
                 revision_str,
-                expression.expression(),
                 &commits,
                 elided,
                 &commit_summary_template(),
@@ -288,7 +287,6 @@ pub(super) fn evaluate_revset_to_single_commit<'a>(
 
 fn format_multiple_revisions_error(
     revision_str: &str,
-    expression: &UserRevsetExpression,
     commits: &[Commit],
     elided: bool,
     template: &TemplateRenderer<'_, Commit>,
@@ -309,48 +307,19 @@ fn format_multiple_revisions_error(
         }
         Ok(())
     };
-    if commits[0].change_id() == commits[1].change_id() {
-        // Separate hint if there's commits with same change id
-        cmd_err.add_formatted_hint_with(|formatter| {
-            writeln!(
-                formatter,
-                "The revset `{revision_str}` resolved to these revisions:"
-            )?;
-            write_commits_summary(formatter)
-        });
-        cmd_err.add_hint(
-            "Some of these commits have the same change id. Abandon the unneeded commits with `jj \
-             abandon <commit_id>`.",
-        );
-    } else if let Some(bookmark_name) = expression.as_symbol() {
-        // Separate hint if there's a conflicted bookmark
-        cmd_err.add_formatted_hint_with(|formatter| {
-            writeln!(
-                formatter,
-                "Bookmark {bookmark_name} resolved to multiple revisions because it's conflicted."
-            )?;
-            writeln!(formatter, "It resolved to these revisions:")?;
-            write_commits_summary(formatter)
-        });
+    cmd_err.add_formatted_hint_with(|formatter| {
+        writeln!(
+            formatter,
+            "The revset `{revision_str}` resolved to these revisions:"
+        )?;
+        write_commits_summary(formatter)
+    });
+    if should_hint_about_all_prefix {
         cmd_err.add_hint(format!(
-            "Set which revision the bookmark points to with `jj bookmark set {bookmark_name} -r \
-             <REVISION>`.",
+            "Prefix the expression with `all:` to allow any number of revisions (i.e. \
+             `all:{revision_str}`)."
         ));
-    } else {
-        cmd_err.add_formatted_hint_with(|formatter| {
-            writeln!(
-                formatter,
-                "The revset `{revision_str}` resolved to these revisions:"
-            )?;
-            write_commits_summary(formatter)
-        });
-        if should_hint_about_all_prefix {
-            cmd_err.add_hint(format!(
-                "Prefix the expression with `all:` to allow any number of revisions (i.e. \
-                 `all:{revision_str}`)."
-            ));
-        }
-    };
+    }
     cmd_err
 }
 

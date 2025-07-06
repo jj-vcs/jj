@@ -649,12 +649,10 @@ fn test_new_conflicting_bookmarks() {
     let output = work_dir.run_jj(["new", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Revset `foo` resolved to more than one revision
-    Hint: Bookmark foo resolved to multiple revisions because it's conflicted.
-    It resolved to these revisions:
-      kkmpptxz 96948328 foo?? | (empty) two
-      qpvuntsm 401ea16f foo?? | (empty) one
-    Hint: Set which revision the bookmark points to with `jj bookmark set foo -r <REVISION>`.
+    Error: Name `foo` is conflicted
+    Hint: Use commit ID to select single revision from: 96948328bc42, 401ea16fc3fe
+    Hint: Use `bookmarks(exact:foo)` to select all revisions
+    Hint: To set which revision the bookmark points to, run `jj bookmark set foo -r <REVISION>`
     [EOF]
     [exit status: 1]
     ");
@@ -677,11 +675,10 @@ fn test_new_conflicting_change_ids() {
     let output = work_dir.run_jj(["new", "qpvuntsm"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Revset `qpvuntsm` resolved to more than one revision
-    Hint: The revset `qpvuntsm` resolved to these revisions:
-      qpvuntsm?? 2f175dfc (empty) two
-      qpvuntsm?? 401ea16f (empty) one
-    Hint: Some of these commits have the same change id. Abandon the unneeded commits with `jj abandon <commit_id>`.
+    Error: Change ID `qpvuntsm` is divergent
+    Hint: Use commit ID to select single revision from: 401ea16fc3fe, 2f175dfc5e0e
+    Hint: Use `change_id(qpvuntsm)` to select all revisions
+    Hint: To abandon unneeded revisions, run `jj abandon <commit_id>`
     [EOF]
     [exit status: 1]
     ");

@@ -23,6 +23,7 @@ use std::sync::Arc;
 use itertools::Itertools as _;
 use jj_lib::absorb::AbsorbError;
 use jj_lib::backend::BackendError;
+use jj_lib::backend::CommitId;
 use jj_lib::config::ConfigFileSaveError;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigLoadError;
@@ -650,9 +651,9 @@ impl From<RevsetParseError> for CommandError {
 
 impl From<RevsetResolutionError> for CommandError {
     fn from(err: RevsetResolutionError) -> Self {
-        let hint = revset_resolution_error_hint(&err);
+        let hints = revset_resolution_error_hints(&err);
         let mut cmd_err = user_error(err);
-        cmd_err.extend_hints(hint);
+        cmd_err.extend_hints(hints);
         cmd_err
     }
 }
@@ -745,9 +746,11 @@ fn find_source_parse_error_hint(err: &dyn error::Error) -> Option<String> {
     } else if let Some(source) = source.downcast_ref() {
         revset_parse_error_hint(source)
     } else if let Some(source) = source.downcast_ref() {
-        revset_resolution_error_hint(source)
+        // TODO: propagate all hints?
+        revset_resolution_error_hints(source).into_iter().next()
     } else if let Some(UserRevsetEvaluationError::Resolution(source)) = source.downcast_ref() {
-        revset_resolution_error_hint(source)
+        // TODO: propagate all hints?
+        revset_resolution_error_hints(source).into_iter().next()
     } else if let Some(source) = source.downcast_ref() {
         string_pattern_parse_error_hint(source)
     } else if let Some(source) = source.downcast_ref() {
@@ -863,18 +866,46 @@ fn revset_parse_error_hint(err: &RevsetParseError) -> Option<String> {
     }
 }
 
-fn revset_resolution_error_hint(err: &RevsetResolutionError) -> Option<String> {
+fn revset_resolution_error_hints(err: &RevsetResolutionError) -> Vec<String> {
+    let multiple_targets_hint = |targets: &[CommitId]| {
+        format!(
+            "Use commit ID to select single revision from: {}",
+            targets.iter().map(|id| format!("{id:.12}")).join(", ")
+        )
+    };
     match err {
         RevsetResolutionError::NoSuchRevision {
             name: _,
             candidates,
-        } => format_similarity_hint(candidates),
+        } => format_similarity_hint(candidates).into_iter().collect(),
+        RevsetResolutionError::DivergentChangeId { symbol, targets } => vec![
+            multiple_targets_hint(targets),
+            format!("Use `change_id({symbol})` to select all revisions"),
+            "To abandon unneeded revisions, run `jj abandon <commit_id>`".to_owned(),
+        ],
+        RevsetResolutionError::ConflictedRef {
+            kind: "bookmark",
+            symbol,
+            targets,
+        } => vec![
+            multiple_targets_hint(targets),
+            format!("Use `bookmarks(exact:{symbol})` to select all revisions"),
+            format!(
+                "To set which revision the bookmark points to, run `jj bookmark set {symbol} -r \
+                 <REVISION>`"
+            ),
+        ],
+        RevsetResolutionError::ConflictedRef {
+            kind: _,
+            symbol: _,
+            targets,
+        } => vec![multiple_targets_hint(targets)],
         RevsetResolutionError::EmptyString
         | RevsetResolutionError::WorkspaceMissingWorkingCopy { .. }
         | RevsetResolutionError::AmbiguousCommitIdPrefix(_)
         | RevsetResolutionError::AmbiguousChangeIdPrefix(_)
         | RevsetResolutionError::Backend(_)
-        | RevsetResolutionError::Other(_) => None,
+        | RevsetResolutionError::Other(_) => vec![],
     }
 }
 
