@@ -15,8 +15,11 @@
 #![allow(missing_docs)]
 
 use std::collections::BTreeMap;
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::Arc;
 
+use futures::future::try_join_all;
 use pollster::FutureExt as _;
 
 use crate::backend;
@@ -95,29 +98,68 @@ impl TreeBuilder {
             }
         }
 
-        // Write trees in reverse lexicographical order, starting with trees without
+        // All directories to write, for other collections to have references into.
+        let dirs: HashSet<RepoPathBuf> = trees_to_write.keys().cloned().collect();
+        // Directories we cannot write yet because we need to first write their
         // children.
-        // TODO: Writing trees concurrently should help on high-latency backends
+        let mut blocked_by: HashMap<&RepoPath, HashSet<&RepoPath>> = HashMap::new();
+        // Directories we can write next.
+        let mut unblocked: HashSet<_> = dirs.iter().map(AsRef::as_ref).collect();
+        for dir in &dirs {
+            if let Some((parent, _)) = dir.split() {
+                blocked_by.entry(parent).or_default().insert(dir);
+                unblocked.remove(parent);
+            }
+        }
+
         let store = &self.store;
-        while let Some((dir, tree)) = trees_to_write.pop_last() {
-            if let Some((parent, basename)) = dir.split() {
-                let parent_tree = trees_to_write.get_mut(parent).unwrap();
-                if tree.is_empty() {
-                    if let Some(TreeValue::Tree(_)) = parent_tree.value(basename) {
-                        parent_tree.remove(basename);
-                    } else {
-                        // Entry would have been replaced with file (see above)
-                    }
-                } else {
-                    let tree = store.write_tree(&dir, tree).block_on()?;
-                    parent_tree.set(basename.to_owned(), TreeValue::Tree(tree.id().clone()));
-                }
-            } else {
+        // On each iteration, write all unblocked trees and find the next set of
+        // unblocked directories among the parents of the trees we just wrote.
+        while !unblocked.is_empty() {
+            if blocked_by.is_empty() {
                 // We're writing the root tree. Write it even if empty. Return its id.
-                assert!(trees_to_write.is_empty());
+                assert_eq!(unblocked.len(), 1);
+                let dir = RepoPath::root();
+                let tree = trees_to_write.remove(dir).unwrap();
                 let written_tree = store.write_tree(&dir, tree).block_on()?;
                 return Ok(written_tree.id().clone());
             }
+
+            let mut new_unblocked = HashSet::new();
+            let mut writes = vec![];
+            let mut dir_writes = vec![];
+            for dir in unblocked {
+                let tree = trees_to_write.remove(dir).unwrap();
+                let (parent, basename) = dir.split().unwrap();
+                if tree.is_empty() {
+                    let parent_tree = trees_to_write.get_mut(parent).unwrap();
+                    if let Some(TreeValue::Tree(_)) = parent_tree.value(basename) {
+                        parent_tree.remove(basename);
+                    } else {
+                        // Entry would have been replaced with file (see
+                        // above)
+                    }
+                } else {
+                    writes.push(store.write_tree(&dir, tree));
+                    dir_writes.push(dir);
+                }
+
+                let parent_blocked_by = blocked_by.get_mut(parent).unwrap();
+                parent_blocked_by.remove(dir);
+                if parent_blocked_by.is_empty() {
+                    blocked_by.remove(parent);
+                    new_unblocked.insert(parent);
+                }
+            }
+
+            let written = try_join_all(writes).block_on()?;
+            for (dir, tree) in dir_writes.iter().zip(written) {
+                let (parent, basename) = dir.split().unwrap();
+                let parent_tree = trees_to_write.get_mut(parent).unwrap();
+                parent_tree.set(basename.to_owned(), TreeValue::Tree(tree.id().clone()));
+            }
+
+            unblocked = new_unblocked;
         }
 
         unreachable!("trees_to_write must contain the root tree");
