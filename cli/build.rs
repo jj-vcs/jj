@@ -61,6 +61,7 @@ fn get_git_hash() -> Option<String> {
             "log",
             "--no-graph",
             "-r=@-",
+            "-n=1",
             "-T=commit_id",
         ])
         .output()
