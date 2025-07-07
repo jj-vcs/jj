@@ -218,12 +218,12 @@ fn test_annotate_with_template() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    work_dir.write_file("file.txt", "line1\n");
+    work_dir.write_file("file.txt", "initial 1\ninitial 2\ninitial 3\n");
     work_dir.run_jj(["commit", "-m=initial"]).success();
 
-    append_to_file(
-        &work_dir.root().join("file.txt"),
-        "new text from new commit 1\nthat splits into multiple lines",
+    work_dir.write_file(
+        work_dir.root().join("file.txt"),
+        "initial 2\nnew text from new commit 1\nthat splits into multiple lines\n",
     );
     work_dir.run_jj(["commit", "-m=commit1"]).success();
 
@@ -241,25 +241,25 @@ fn test_annotate_with_template() {
         commit_timestamp(commit).local().format('%Y-%m-%d %H:%M:%S')
             ++ " "
             ++ commit.author(),
-    ) ++ "\n") ++ pad_start(4, line_number) ++ ": " ++ content
+    ) ++ "\n") ++ pad_start(4, original_line_number) ++ " ->" ++ pad_start(4, line_number) ++ ": " ++ content
     "#};
 
     let output = work_dir.run_jj(["file", "annotate", "file.txt", "-T", template]);
     insta::assert_snapshot!(output, @r"
     qpvuntsm initial
     2001-02-03 08:05:08 Test User <test.user@example.com>
-       1: line1
+       2 ->   1: initial 2
 
     rlvkpnrz commit1
     2001-02-03 08:05:09 Test User <test.user@example.com>
-       2: new text from new commit 1
-       3: that splits into multiple lines
+       2 ->   2: new text from new commit 1
+       3 ->   3: that splits into multiple lines
 
     kkmpptxz commit2
     2001-02-03 08:05:10 Test User <test.user@example.com>
-       4: new text from new commit 2
-       5: also continuing on a second line
-       6: and a third!
+       4 ->   4: new text from new commit 2
+       5 ->   5: also continuing on a second line
+       6 ->   6: and a third!
     [EOF]
     ");
 }

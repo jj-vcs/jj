@@ -60,17 +60,34 @@ pub struct FileAnnotation {
 }
 
 impl FileAnnotation {
+    /// Returns iterator over `(line_origin, line)`s.
+    ///
+    /// For each line, `Ok(line_origin)` returns information about the
+    /// originator commit of the line. If no originator commit was found
+    /// within the domain, `Err(line_origin)` should be set. It points to the
+    /// commit outside of the domain where the search stopped.
+    ///
+    /// The `line` includes newline character.
+    pub fn line_origins(&self) -> impl Iterator<Item = (Result<&LineOrigin, &LineOrigin>, &BStr)> {
+        itertools::zip_eq(&self.line_map, self.text.split_inclusive(|b| *b == b'\n'))
+            .map(|(line_origin, line)| (line_origin.as_ref(), line.as_ref()))
+    }
+
     /// Returns iterator over `(commit_id, line)`s.
     ///
     /// For each line, `Ok(commit_id)` points to the originator commit of the
     /// line. If no originator commit was found within the domain,
-    /// `Err(commit_id)` should be set. It points to the root (or boundary)
-    /// commit where the line exists.
+    /// `Err(commit_id)` should be set. It points to the commit outside of the
+    /// domain where the search stopped.
     ///
     /// The `line` includes newline character.
     pub fn lines(&self) -> impl Iterator<Item = (Result<&CommitId, &CommitId>, &BStr)> {
-        itertools::zip_eq(&self.line_map, self.text.split_inclusive(|b| *b == b'\n'))
-            .map(|(commit_id, line)| (commit_id.as_ref(), line.as_ref()))
+        itertools::zip_eq(
+            self.commit_ids(),
+            self.text
+                .split_inclusive(|b| *b == b'\n')
+                .map(AsRef::as_ref),
+        )
     }
 
     /// Returns iterator over `(commit_id, line_range)`s.
@@ -90,8 +107,7 @@ impl FileAnnotation {
                 *total += line.len();
                 Some(start..*total)
             });
-        itertools::zip_eq(&self.line_map, ranges)
-            .map(|(commit_id, range)| (commit_id.as_ref(), range))
+        itertools::zip_eq(self.commit_ids(), ranges)
     }
 
     /// Returns iterator over compacted `(commit_id, line_range)`s.
@@ -119,6 +135,15 @@ impl FileAnnotation {
     pub fn text(&self) -> &BStr {
         self.text.as_ref()
     }
+
+    fn commit_ids(&self) -> impl Iterator<Item = Result<&CommitId, &CommitId>> {
+        self.line_map.iter().map(|line_origin| {
+            line_origin
+                .as_ref()
+                .map(|origin| &origin.commit_id)
+                .map_err(|origin| &origin.commit_id)
+        })
+    }
 }
 
 /// Annotation process for a specific file.
@@ -126,7 +151,7 @@ impl FileAnnotation {
 pub struct FileAnnotator {
     // If we add copy-tracing support, file_path might be tracked by state.
     file_path: RepoPathBuf,
-    original_text: BString,
+    starting_text: BString,
     state: AnnotationState,
 }
 
@@ -160,15 +185,22 @@ impl FileAnnotator {
         mut source: Source,
     ) -> Self {
         source.fill_line_map();
-        let original_text = source.text.clone();
+        let starting_text = source.text.clone();
         let state = AnnotationState {
-            original_line_map: vec![Err(starting_commit_id.clone()); source.line_map.len()],
+            original_line_map: (0..source.line_map.len())
+                .map(|line_number| {
+                    Err(LineOrigin {
+                        commit_id: starting_commit_id.clone(),
+                        line_number,
+                    })
+                })
+                .collect(),
             commit_source_map: HashMap::from([(starting_commit_id.clone(), source)]),
             num_unresolved_roots: 0,
         };
         FileAnnotator {
             file_path: file_path.to_owned(),
-            original_text,
+            starting_text,
             state,
         }
     }
@@ -198,7 +230,7 @@ impl FileAnnotator {
         // at a certain ancestor commit without recomputing.
         FileAnnotation {
             line_map: self.state.original_line_map.clone(),
-            text: self.original_text.clone(),
+            text: self.starting_text.clone(),
         }
     }
 }
@@ -217,7 +249,7 @@ struct AnnotationState {
 #[derive(Clone, Debug)]
 struct Source {
     /// Mapping of line numbers in the file at the current commit to the
-    /// original file, sorted by the line numbers at the current commit.
+    /// starting file, sorted by the line numbers at the current commit.
     line_map: Vec<(usize, usize)>,
     /// File content at the current commit.
     text: BString,
@@ -243,9 +275,18 @@ impl Source {
     }
 }
 
-/// List of commit IDs that originated lines, indexed by line numbers in the
-/// original file.
-type OriginalLineMap = Vec<Result<CommitId, CommitId>>;
+/// List of origins for each line, indexed by line numbers in the
+/// starting file.
+type OriginalLineMap = Vec<Result<LineOrigin, LineOrigin>>;
+
+/// Information about the origin of an annotated line.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LineOrigin {
+    /// Commit ID where the line was introduced.
+    pub commit_id: CommitId,
+    /// 0-based line number of the line in the origin commit.
+    pub line_number: usize,
+}
 
 /// Starting from the source commits, compute changes at that commit relative to
 /// its direct parents, updating the mappings as we go.
@@ -306,9 +347,9 @@ fn process_commit(
         // overwrite the new mapping in the results for the new commit. Let's
         // say I have a file in commit A and commit B. We know that according to
         // local line_map, in commit A, line 3 corresponds to line 7 of the
-        // original file. Now, line 3 in Commit A corresponds to line 6 in
+        // starting file. Now, line 3 in Commit A corresponds to line 6 in
         // commit B. Then, we update local line_map to say that "Commit B line 6
-        // goes to line 7 of the original file". We repeat this for all lines in
+        // goes to line 7 of the starting file". We repeat this for all lines in
         // common in the two commits.
         let mut current_lines = current_source.line_map.iter().copied().peekable();
         let mut new_current_line_map = Vec::new();
@@ -319,11 +360,11 @@ fn process_commit(
             |current_start, parent_start, count| {
                 new_current_line_map
                     .extend(current_lines.peeking_take_while(|&(cur, _)| cur < current_start));
-                while let Some((current, original)) =
+                while let Some((current, starting)) =
                     current_lines.next_if(|&(cur, _)| cur < current_start + count)
                 {
                     let parent = parent_start + (current - current_start);
-                    new_parent_line_map.push((parent, original));
+                    new_parent_line_map.push((parent, starting));
                 }
             },
         );
@@ -339,9 +380,12 @@ fn process_commit(
         } else if parent_edge.edge_type == GraphEdgeType::Missing {
             // If an omitted parent had the file, leave these lines unresolved.
             // The origin of the unresolved lines is represented as
-            // Err(root_commit_id).
-            for &(_, original_line_number) in &parent_source.line_map {
-                state.original_line_map[original_line_number] = Err(current_commit_id.clone());
+            // Err(LineOrigin { parent_commit_id, parent_line_number }).
+            for &(parent_line_number, starting_line_number) in &parent_source.line_map {
+                state.original_line_map[starting_line_number] = Err(LineOrigin {
+                    commit_id: parent_commit_id.clone(),
+                    line_number: parent_line_number,
+                });
             }
             state.num_unresolved_roots += 1;
         }
@@ -350,8 +394,11 @@ fn process_commit(
     // Once we've looked at all parents of a commit, any leftover lines must be
     // original to the current commit, so we save this information in
     // original_line_map.
-    for (_, original_line_number) in current_source.line_map {
-        state.original_line_map[original_line_number] = Ok(current_commit_id.clone());
+    for (current_line_number, starting_line_number) in current_source.line_map {
+        state.original_line_map[starting_line_number] = Ok(LineOrigin {
+            commit_id: current_commit_id.clone(),
+            line_number: current_line_number,
+        });
     }
 
     Ok(())
@@ -406,12 +453,20 @@ async fn get_file_contents(
 mod tests {
     use super::*;
 
+    fn make_line_origin(commit_id: &CommitId, line_number: usize) -> LineOrigin {
+        LineOrigin {
+            commit_id: commit_id.clone(),
+            line_number,
+        }
+    }
+
     #[test]
     fn test_lines_iterator_empty() {
         let annotation = FileAnnotation {
             line_map: vec![],
             text: "".into(),
         };
+        assert_eq!(annotation.line_origins().collect_vec(), vec![]);
         assert_eq!(annotation.lines().collect_vec(), vec![]);
         assert_eq!(annotation.line_ranges().collect_vec(), vec![]);
         assert_eq!(annotation.compact_line_ranges().collect_vec(), vec![]);
@@ -424,12 +479,20 @@ mod tests {
         let commit_id3 = CommitId::from_hex("333333");
         let annotation = FileAnnotation {
             line_map: vec![
-                Ok(commit_id1.clone()),
-                Ok(commit_id2.clone()),
-                Ok(commit_id3.clone()),
+                Ok(make_line_origin(&commit_id1, 0)),
+                Ok(make_line_origin(&commit_id2, 1)),
+                Ok(make_line_origin(&commit_id3, 2)),
             ],
             text: "foo\n\nbar\n".into(),
         };
+        assert_eq!(
+            annotation.line_origins().collect_vec(),
+            vec![
+                (Ok(&make_line_origin(&commit_id1, 0)), "foo\n".as_ref()),
+                (Ok(&make_line_origin(&commit_id2, 1)), "\n".as_ref()),
+                (Ok(&make_line_origin(&commit_id3, 2)), "bar\n".as_ref()),
+            ]
+        );
         assert_eq!(
             annotation.lines().collect_vec(),
             vec![
@@ -463,13 +526,13 @@ mod tests {
         let commit_id3 = CommitId::from_hex("333333");
         let annotation = FileAnnotation {
             line_map: vec![
-                Ok(commit_id1.clone()),
-                Ok(commit_id1.clone()),
-                Ok(commit_id2.clone()),
-                Ok(commit_id1.clone()),
-                Ok(commit_id3.clone()),
-                Ok(commit_id3.clone()),
-                Ok(commit_id3.clone()),
+                Ok(make_line_origin(&commit_id1, 0)),
+                Ok(make_line_origin(&commit_id1, 1)),
+                Ok(make_line_origin(&commit_id2, 2)),
+                Ok(make_line_origin(&commit_id1, 3)),
+                Ok(make_line_origin(&commit_id3, 4)),
+                Ok(make_line_origin(&commit_id3, 5)),
+                Ok(make_line_origin(&commit_id3, 6)),
             ],
             text: "\n".repeat(7).into(),
         };
