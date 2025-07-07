@@ -810,6 +810,10 @@
                     "type": "string",
                     "description": "The short commit summary used by many commands"
                 },
+                "commit_trailers": {
+                    "type": "string",
+                    "description": "Trailers that will be appended to a commit's description"
+                },
                 "file_annotate": {
                     "type": "string",
                     "description": "`jj file annotate`'s output"
