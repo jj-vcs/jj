@@ -366,10 +366,7 @@ impl CompositeIndex {
     /// no duplicates. The returned head positions are also sorted in descending
     /// order.
     pub fn heads_pos(&self, candidate_positions: Vec<IndexPosition>) -> Vec<IndexPosition> {
-        debug_assert!(candidate_positions
-            .iter()
-            .tuple_windows()
-            .all(|(a, b)| a > b));
+        debug_assert!(candidate_positions.is_sorted_by(|a, b| a > b));
         let Some(min_generation) = candidate_positions
             .iter()
             .map(|&pos| self.entry_by_pos(pos).generation_number())
@@ -568,7 +565,7 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
         match index.resolve_change_id_prefix(prefix) {
             PrefixResolution::NoMatch => PrefixResolution::NoMatch,
             PrefixResolution::SingleMatch((_change_id, positions)) => {
-                debug_assert!(positions.iter().tuple_windows().all(|(a, b)| a < b));
+                debug_assert!(positions.is_sorted_by(|a, b| a < b));
                 let mut reachable_set = self.reachable_set.lock().unwrap();
                 reachable_set.visit_until(index, *positions.first().unwrap());
                 let reachable_commit_ids = positions

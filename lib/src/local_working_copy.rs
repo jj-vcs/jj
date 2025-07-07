@@ -267,10 +267,7 @@ impl FileStatesMap {
             return;
         }
         debug_assert!(
-            changed_file_states
-                .iter()
-                .tuple_windows()
-                .all(|((path1, _), (path2, _))| path1 < path2),
+            changed_file_states.is_sorted_by(|(path1, _), (path2, _)| path1 < path2),
             "changed_file_states must be sorted and have no duplicates"
         );
         self.data = itertools::merge_join_by(
@@ -529,8 +526,7 @@ fn is_file_state_entries_proto_unique_and_sorted(
 ) -> bool {
     data.iter()
         .map(|entry| RepoPath::from_internal_string(&entry.path).unwrap())
-        .tuple_windows()
-        .all(|(path1, path2)| path1 < path2)
+        .is_sorted_by(|path1, path2| path1 < path2)
 }
 
 fn sparse_patterns_from_proto(
