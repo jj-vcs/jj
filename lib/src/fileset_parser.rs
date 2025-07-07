@@ -15,9 +15,9 @@
 //! Parser for the fileset language.
 
 use std::error;
+use std::sync::LazyLock;
 
 use itertools::Itertools as _;
-use once_cell::sync::Lazy;
 use pest::iterators::Pair;
 use pest::pratt_parser::Assoc;
 use pest::pratt_parser::Op;
@@ -278,7 +278,7 @@ fn parse_primary_node(pair: Pair<Rule>) -> FilesetParseResult<ExpressionNode> {
 
 fn parse_expression_node(pair: Pair<Rule>) -> FilesetParseResult<ExpressionNode> {
     assert_eq!(pair.as_rule(), Rule::expression);
-    static PRATT: Lazy<PrattParser<Rule>> = Lazy::new(|| {
+    static PRATT: LazyLock<PrattParser<Rule>> = LazyLock::new(|| {
         PrattParser::new()
             .op(Op::infix(Rule::union_op, Assoc::Left))
             .op(Op::infix(Rule::intersection_op, Assoc::Left)

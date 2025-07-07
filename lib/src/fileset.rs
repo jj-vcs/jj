@@ -18,9 +18,9 @@ use std::collections::HashMap;
 use std::iter;
 use std::path;
 use std::slice;
+use std::sync::LazyLock;
 
 use itertools::Itertools as _;
-use once_cell::sync::Lazy;
 use thiserror::Error;
 
 use crate::dsl_util::collect_similar;
@@ -385,20 +385,21 @@ type FilesetFunction = fn(
     &FunctionCallNode,
 ) -> FilesetParseResult<FilesetExpression>;
 
-static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, FilesetFunction>> = Lazy::new(|| {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map: HashMap<&'static str, FilesetFunction> = HashMap::new();
-    map.insert("none", |_diagnostics, _path_converter, function| {
-        function.expect_no_arguments()?;
-        Ok(FilesetExpression::none())
+static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&'static str, FilesetFunction>> =
+    LazyLock::new(|| {
+        // Not using maplit::hashmap!{} or custom declarative macro here because
+        // code completion inside macro is quite restricted.
+        let mut map: HashMap<&'static str, FilesetFunction> = HashMap::new();
+        map.insert("none", |_diagnostics, _path_converter, function| {
+            function.expect_no_arguments()?;
+            Ok(FilesetExpression::none())
+        });
+        map.insert("all", |_diagnostics, _path_converter, function| {
+            function.expect_no_arguments()?;
+            Ok(FilesetExpression::all())
+        });
+        map
     });
-    map.insert("all", |_diagnostics, _path_converter, function| {
-        function.expect_no_arguments()?;
-        Ok(FilesetExpression::all())
-    });
-    map
-});
 
 fn resolve_function(
     diagnostics: &mut FilesetDiagnostics,

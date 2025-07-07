@@ -15,6 +15,7 @@
 use std::collections::HashMap;
 use std::error;
 use std::mem;
+use std::sync::LazyLock;
 
 use itertools::Itertools as _;
 use jj_lib::dsl_util;
@@ -32,7 +33,6 @@ use jj_lib::dsl_util::FoldableExpression;
 use jj_lib::dsl_util::FunctionCallParser;
 use jj_lib::dsl_util::InvalidArguments;
 use jj_lib::dsl_util::StringLiteralParser;
-use once_cell::sync::Lazy;
 use pest::iterators::Pair;
 use pest::iterators::Pairs;
 use pest::pratt_parser::Assoc;
@@ -518,7 +518,7 @@ fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
 
 fn parse_expression_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
     assert_eq!(pair.as_rule(), Rule::expression);
-    static PRATT: Lazy<PrattParser<Rule>> = Lazy::new(|| {
+    static PRATT: LazyLock<PrattParser<Rule>> = LazyLock::new(|| {
         PrattParser::new()
             .op(Op::infix(Rule::logical_or_op, Assoc::Left))
             .op(Op::infix(Rule::logical_and_op, Assoc::Left))

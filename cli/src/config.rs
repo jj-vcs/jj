@@ -21,6 +21,7 @@ use std::fmt;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::LazyLock;
 
 use etcetera::BaseStrategy as _;
 use itertools::Itertools as _;
@@ -849,8 +850,7 @@ impl fmt::Display for CommandNameAndArgs {
 }
 
 // Not interested in $UPPER_CASE_VARIABLES
-static VARIABLE_REGEX: once_cell::sync::Lazy<Regex> =
-    once_cell::sync::Lazy::new(|| Regex::new(r"\$([a-z0-9_]+)\b").unwrap());
+static VARIABLE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\$([a-z0-9_]+)\b").unwrap());
 
 pub fn interpolate_variables<V: AsRef<str>>(
     args: &[String],

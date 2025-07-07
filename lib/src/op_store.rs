@@ -20,10 +20,10 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::iter;
+use std::sync::LazyLock;
 use std::time::SystemTime;
 
 use itertools::Itertools as _;
-use once_cell::sync::Lazy;
 use thiserror::Error;
 
 use crate::backend::CommitId;
@@ -68,7 +68,7 @@ impl RefTarget {
     ///
     /// This will typically be used in place of `None` returned by map lookup.
     pub fn absent_ref() -> &'static Self {
-        static TARGET: Lazy<RefTarget> = Lazy::new(RefTarget::absent);
+        static TARGET: LazyLock<RefTarget> = LazyLock::new(RefTarget::absent);
         &TARGET
     }
 
@@ -153,7 +153,7 @@ impl RemoteRef {
     ///
     /// This will typically be used in place of `None` returned by map lookup.
     pub fn absent_ref() -> &'static Self {
-        static TARGET: Lazy<RemoteRef> = Lazy::new(RemoteRef::absent);
+        static TARGET: LazyLock<RemoteRef> = LazyLock::new(RemoteRef::absent);
         &TARGET
     }
 
@@ -584,7 +584,7 @@ mod tests {
                 "bookmark1".as_ref(),
                 BookmarkTarget {
                     local_target: &local_bookmark1_target,
-                    remote_refs: vec![],
+                    remote_refs: vec![]
                 },
             )],
         );

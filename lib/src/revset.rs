@@ -23,9 +23,9 @@ use std::ops::ControlFlow;
 use std::ops::Range;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use itertools::Itertools as _;
-use once_cell::sync::Lazy;
 use thiserror::Error;
 
 use crate::backend::BackendError;
@@ -689,320 +689,328 @@ pub type RevsetFunction = fn(
     &LoweringContext,
 ) -> Result<Rc<UserRevsetExpression>, RevsetParseError>;
 
-static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy::new(|| {
-    // Not using maplit::hashmap!{} or custom declarative macro here because
-    // code completion inside macro is quite restricted.
-    let mut map: HashMap<&'static str, RevsetFunction> = HashMap::new();
-    map.insert("parents", |diagnostics, function, context| {
-        let ([arg], [depth_opt_arg]) = function.expect_arguments()?;
-        let expression = lower_expression(diagnostics, arg, context)?;
-        if let Some(depth_arg) = depth_opt_arg {
-            let depth = expect_literal("integer", depth_arg)?;
-            Ok(expression.ancestors_at(depth))
-        } else {
-            Ok(expression.parents())
-        }
-    });
-    map.insert("children", |diagnostics, function, context| {
-        let ([arg], [depth_opt_arg]) = function.expect_arguments()?;
-        let expression = lower_expression(diagnostics, arg, context)?;
-        if let Some(depth_arg) = depth_opt_arg {
-            let depth = expect_literal("integer", depth_arg)?;
-            Ok(expression.descendants_at(depth))
-        } else {
-            Ok(expression.children())
-        }
-    });
-    map.insert("ancestors", |diagnostics, function, context| {
-        let ([heads_arg], [depth_opt_arg]) = function.expect_arguments()?;
-        let heads = lower_expression(diagnostics, heads_arg, context)?;
-        let generation = if let Some(depth_arg) = depth_opt_arg {
-            let depth = expect_literal("integer", depth_arg)?;
-            0..depth
-        } else {
-            GENERATION_RANGE_FULL
-        };
-        Ok(heads.ancestors_range(generation))
-    });
-    map.insert("descendants", |diagnostics, function, context| {
-        let ([roots_arg], [depth_opt_arg]) = function.expect_arguments()?;
-        let roots = lower_expression(diagnostics, roots_arg, context)?;
-        let generation = if let Some(depth_arg) = depth_opt_arg {
-            let depth = expect_literal("integer", depth_arg)?;
-            0..depth
-        } else {
-            GENERATION_RANGE_FULL
-        };
-        Ok(roots.descendants_range(generation))
-    });
-    map.insert("connected", |diagnostics, function, context| {
-        let [arg] = function.expect_exact_arguments()?;
-        let candidates = lower_expression(diagnostics, arg, context)?;
-        Ok(candidates.connected())
-    });
-    map.insert("reachable", |diagnostics, function, context| {
-        let [source_arg, domain_arg] = function.expect_exact_arguments()?;
-        let sources = lower_expression(diagnostics, source_arg, context)?;
-        let domain = lower_expression(diagnostics, domain_arg, context)?;
-        Ok(sources.reachable(&domain))
-    });
-    map.insert("none", |_diagnostics, function, _context| {
-        function.expect_no_arguments()?;
-        Ok(RevsetExpression::none())
-    });
-    map.insert("all", |_diagnostics, function, _context| {
-        function.expect_no_arguments()?;
-        Ok(RevsetExpression::all())
-    });
-    map.insert("working_copies", |_diagnostics, function, _context| {
-        function.expect_no_arguments()?;
-        Ok(RevsetExpression::working_copies())
-    });
-    map.insert("heads", |diagnostics, function, context| {
-        let [arg] = function.expect_exact_arguments()?;
-        let candidates = lower_expression(diagnostics, arg, context)?;
-        Ok(candidates.heads())
-    });
-    map.insert("roots", |diagnostics, function, context| {
-        let [arg] = function.expect_exact_arguments()?;
-        let candidates = lower_expression(diagnostics, arg, context)?;
-        Ok(candidates.roots())
-    });
-    map.insert("visible_heads", |_diagnostics, function, _context| {
-        function.expect_no_arguments()?;
-        Ok(RevsetExpression::visible_heads())
-    });
-    map.insert("root", |_diagnostics, function, _context| {
-        function.expect_no_arguments()?;
-        Ok(RevsetExpression::root())
-    });
-    map.insert("change_id", |diagnostics, function, _context| {
-        let [arg] = function.expect_exact_arguments()?;
-        let prefix = revset_parser::catch_aliases(diagnostics, arg, |_diagnostics, arg| {
-            let value = revset_parser::expect_string_literal("change ID prefix", arg)?;
-            HexPrefix::try_from_reverse_hex(value)
-                .ok_or_else(|| RevsetParseError::expression("Invalid change ID prefix", arg.span))
-        })?;
-        Ok(RevsetExpression::change_id_prefix(prefix))
-    });
-    map.insert("commit_id", |diagnostics, function, _context| {
-        let [arg] = function.expect_exact_arguments()?;
-        let prefix = revset_parser::catch_aliases(diagnostics, arg, |_diagnostics, arg| {
-            let value = revset_parser::expect_string_literal("commit ID prefix", arg)?;
-            HexPrefix::try_from_hex(value)
-                .ok_or_else(|| RevsetParseError::expression("Invalid commit ID prefix", arg.span))
-        })?;
-        Ok(RevsetExpression::commit_id_prefix(prefix))
-    });
-    map.insert("bookmarks", |diagnostics, function, _context| {
-        let ([], [opt_arg]) = function.expect_arguments()?;
-        let pattern = if let Some(arg) = opt_arg {
-            expect_string_pattern(diagnostics, arg)?
-        } else {
-            StringPattern::everything()
-        };
-        Ok(RevsetExpression::bookmarks(pattern))
-    });
-    map.insert("remote_bookmarks", |diagnostics, function, _context| {
-        parse_remote_bookmarks_arguments(diagnostics, function, None)
-    });
-    map.insert(
-        "tracked_remote_bookmarks",
-        |diagnostics, function, _context| {
-            parse_remote_bookmarks_arguments(diagnostics, function, Some(RemoteRefState::Tracked))
-        },
-    );
-    map.insert(
-        "untracked_remote_bookmarks",
-        |diagnostics, function, _context| {
-            parse_remote_bookmarks_arguments(diagnostics, function, Some(RemoteRefState::New))
-        },
-    );
-    map.insert("tags", |diagnostics, function, _context| {
-        let ([], [opt_arg]) = function.expect_arguments()?;
-        let pattern = if let Some(arg) = opt_arg {
-            expect_string_pattern(diagnostics, arg)?
-        } else {
-            StringPattern::everything()
-        };
-        Ok(RevsetExpression::tags(pattern))
-    });
-    map.insert("git_refs", |_diagnostics, function, _context| {
-        function.expect_no_arguments()?;
-        Ok(RevsetExpression::git_refs())
-    });
-    map.insert("git_head", |_diagnostics, function, _context| {
-        function.expect_no_arguments()?;
-        Ok(RevsetExpression::git_head())
-    });
-    map.insert("latest", |diagnostics, function, context| {
-        let ([candidates_arg], [count_opt_arg]) = function.expect_arguments()?;
-        let candidates = lower_expression(diagnostics, candidates_arg, context)?;
-        let count = if let Some(count_arg) = count_opt_arg {
-            expect_literal("integer", count_arg)?
-        } else {
-            1
-        };
-        Ok(candidates.latest(count))
-    });
-    map.insert("fork_point", |diagnostics, function, context| {
-        let [expression_arg] = function.expect_exact_arguments()?;
-        let expression = lower_expression(diagnostics, expression_arg, context)?;
-        Ok(RevsetExpression::fork_point(&expression))
-    });
-    map.insert("merges", |_diagnostics, function, _context| {
-        function.expect_no_arguments()?;
-        Ok(RevsetExpression::filter(
-            RevsetFilterPredicate::ParentCount(2..u32::MAX),
-        ))
-    });
-    map.insert("description", |diagnostics, function, _context| {
-        let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_string_pattern(diagnostics, arg)?;
-        Ok(RevsetExpression::filter(
-            RevsetFilterPredicate::Description(pattern),
-        ))
-    });
-    map.insert("subject", |diagnostics, function, _context| {
-        let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_string_pattern(diagnostics, arg)?;
-        let predicate = RevsetFilterPredicate::Subject(pattern);
-        Ok(RevsetExpression::filter(predicate))
-    });
-    map.insert("author", |diagnostics, function, _context| {
-        let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_string_pattern(diagnostics, arg)?;
-        let name_predicate = RevsetFilterPredicate::AuthorName(pattern.clone());
-        let email_predicate = RevsetFilterPredicate::AuthorEmail(pattern);
-        Ok(RevsetExpression::filter(name_predicate)
-            .union(&RevsetExpression::filter(email_predicate)))
-    });
-    map.insert("author_name", |diagnostics, function, _context| {
-        let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_string_pattern(diagnostics, arg)?;
-        let predicate = RevsetFilterPredicate::AuthorName(pattern);
-        Ok(RevsetExpression::filter(predicate))
-    });
-    map.insert("author_email", |diagnostics, function, _context| {
-        let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_string_pattern(diagnostics, arg)?;
-        let predicate = RevsetFilterPredicate::AuthorEmail(pattern);
-        Ok(RevsetExpression::filter(predicate))
-    });
-    map.insert("author_date", |diagnostics, function, context| {
-        let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_date_pattern(diagnostics, arg, context.date_pattern_context())?;
-        Ok(RevsetExpression::filter(RevsetFilterPredicate::AuthorDate(
-            pattern,
-        )))
-    });
-    map.insert("signed", |_diagnostics, function, _context| {
-        function.expect_no_arguments()?;
-        let predicate = RevsetFilterPredicate::Signed;
-        Ok(RevsetExpression::filter(predicate))
-    });
-    map.insert("mine", |_diagnostics, function, context| {
-        function.expect_no_arguments()?;
-        // Email address domains are inherently case‐insensitive, and the local‐parts
-        // are generally (although not universally) treated as case‐insensitive too, so
-        // we use a case‐insensitive match here.
-        let predicate =
-            RevsetFilterPredicate::AuthorEmail(StringPattern::exact_i(context.user_email));
-        Ok(RevsetExpression::filter(predicate))
-    });
-    map.insert("committer", |diagnostics, function, _context| {
-        let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_string_pattern(diagnostics, arg)?;
-        let name_predicate = RevsetFilterPredicate::CommitterName(pattern.clone());
-        let email_predicate = RevsetFilterPredicate::CommitterEmail(pattern);
-        Ok(RevsetExpression::filter(name_predicate)
-            .union(&RevsetExpression::filter(email_predicate)))
-    });
-    map.insert("committer_name", |diagnostics, function, _context| {
-        let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_string_pattern(diagnostics, arg)?;
-        let predicate = RevsetFilterPredicate::CommitterName(pattern);
-        Ok(RevsetExpression::filter(predicate))
-    });
-    map.insert("committer_email", |diagnostics, function, _context| {
-        let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_string_pattern(diagnostics, arg)?;
-        let predicate = RevsetFilterPredicate::CommitterEmail(pattern);
-        Ok(RevsetExpression::filter(predicate))
-    });
-    map.insert("committer_date", |diagnostics, function, context| {
-        let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_date_pattern(diagnostics, arg, context.date_pattern_context())?;
-        Ok(RevsetExpression::filter(
-            RevsetFilterPredicate::CommitterDate(pattern),
-        ))
-    });
-    map.insert("empty", |_diagnostics, function, _context| {
-        function.expect_no_arguments()?;
-        Ok(RevsetExpression::is_empty())
-    });
-    map.insert("files", |diagnostics, function, context| {
-        let ctx = context.workspace.as_ref().ok_or_else(|| {
-            RevsetParseError::with_span(
-                RevsetParseErrorKind::FsPathWithoutWorkspace,
-                function.args_span, // TODO: better to use name_span?
-            )
-        })?;
-        let [arg] = function.expect_exact_arguments()?;
-        let expr = expect_fileset_expression(diagnostics, arg, ctx.path_converter)?;
-        Ok(RevsetExpression::filter(RevsetFilterPredicate::File(expr)))
-    });
-    map.insert("diff_contains", |diagnostics, function, context| {
-        let ([text_arg], [files_opt_arg]) = function.expect_arguments()?;
-        let text = expect_string_pattern(diagnostics, text_arg)?;
-        let files = if let Some(files_arg) = files_opt_arg {
+static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&'static str, RevsetFunction>> =
+    LazyLock::new(|| {
+        // Not using maplit::hashmap!{} or custom declarative macro here because
+        // code completion inside macro is quite restricted.
+        let mut map: HashMap<&'static str, RevsetFunction> = HashMap::new();
+        map.insert("parents", |diagnostics, function, context| {
+            let ([arg], [depth_opt_arg]) = function.expect_arguments()?;
+            let expression = lower_expression(diagnostics, arg, context)?;
+            if let Some(depth_arg) = depth_opt_arg {
+                let depth = expect_literal("integer", depth_arg)?;
+                Ok(expression.ancestors_at(depth))
+            } else {
+                Ok(expression.parents())
+            }
+        });
+        map.insert("children", |diagnostics, function, context| {
+            let ([arg], [depth_opt_arg]) = function.expect_arguments()?;
+            let expression = lower_expression(diagnostics, arg, context)?;
+            if let Some(depth_arg) = depth_opt_arg {
+                let depth = expect_literal("integer", depth_arg)?;
+                Ok(expression.descendants_at(depth))
+            } else {
+                Ok(expression.children())
+            }
+        });
+        map.insert("ancestors", |diagnostics, function, context| {
+            let ([heads_arg], [depth_opt_arg]) = function.expect_arguments()?;
+            let heads = lower_expression(diagnostics, heads_arg, context)?;
+            let generation = if let Some(depth_arg) = depth_opt_arg {
+                let depth = expect_literal("integer", depth_arg)?;
+                0..depth
+            } else {
+                GENERATION_RANGE_FULL
+            };
+            Ok(heads.ancestors_range(generation))
+        });
+        map.insert("descendants", |diagnostics, function, context| {
+            let ([roots_arg], [depth_opt_arg]) = function.expect_arguments()?;
+            let roots = lower_expression(diagnostics, roots_arg, context)?;
+            let generation = if let Some(depth_arg) = depth_opt_arg {
+                let depth = expect_literal("integer", depth_arg)?;
+                0..depth
+            } else {
+                GENERATION_RANGE_FULL
+            };
+            Ok(roots.descendants_range(generation))
+        });
+        map.insert("connected", |diagnostics, function, context| {
+            let [arg] = function.expect_exact_arguments()?;
+            let candidates = lower_expression(diagnostics, arg, context)?;
+            Ok(candidates.connected())
+        });
+        map.insert("reachable", |diagnostics, function, context| {
+            let [source_arg, domain_arg] = function.expect_exact_arguments()?;
+            let sources = lower_expression(diagnostics, source_arg, context)?;
+            let domain = lower_expression(diagnostics, domain_arg, context)?;
+            Ok(sources.reachable(&domain))
+        });
+        map.insert("none", |_diagnostics, function, _context| {
+            function.expect_no_arguments()?;
+            Ok(RevsetExpression::none())
+        });
+        map.insert("all", |_diagnostics, function, _context| {
+            function.expect_no_arguments()?;
+            Ok(RevsetExpression::all())
+        });
+        map.insert("working_copies", |_diagnostics, function, _context| {
+            function.expect_no_arguments()?;
+            Ok(RevsetExpression::working_copies())
+        });
+        map.insert("heads", |diagnostics, function, context| {
+            let [arg] = function.expect_exact_arguments()?;
+            let candidates = lower_expression(diagnostics, arg, context)?;
+            Ok(candidates.heads())
+        });
+        map.insert("roots", |diagnostics, function, context| {
+            let [arg] = function.expect_exact_arguments()?;
+            let candidates = lower_expression(diagnostics, arg, context)?;
+            Ok(candidates.roots())
+        });
+        map.insert("visible_heads", |_diagnostics, function, _context| {
+            function.expect_no_arguments()?;
+            Ok(RevsetExpression::visible_heads())
+        });
+        map.insert("root", |_diagnostics, function, _context| {
+            function.expect_no_arguments()?;
+            Ok(RevsetExpression::root())
+        });
+        map.insert("change_id", |diagnostics, function, _context| {
+            let [arg] = function.expect_exact_arguments()?;
+            let prefix = revset_parser::catch_aliases(diagnostics, arg, |_diagnostics, arg| {
+                let value = revset_parser::expect_string_literal("change ID prefix", arg)?;
+                HexPrefix::try_from_reverse_hex(value).ok_or_else(|| {
+                    RevsetParseError::expression("Invalid change ID prefix", arg.span)
+                })
+            })?;
+            Ok(RevsetExpression::change_id_prefix(prefix))
+        });
+        map.insert("commit_id", |diagnostics, function, _context| {
+            let [arg] = function.expect_exact_arguments()?;
+            let prefix = revset_parser::catch_aliases(diagnostics, arg, |_diagnostics, arg| {
+                let value = revset_parser::expect_string_literal("commit ID prefix", arg)?;
+                HexPrefix::try_from_hex(value).ok_or_else(|| {
+                    RevsetParseError::expression("Invalid commit ID prefix", arg.span)
+                })
+            })?;
+            Ok(RevsetExpression::commit_id_prefix(prefix))
+        });
+        map.insert("bookmarks", |diagnostics, function, _context| {
+            let ([], [opt_arg]) = function.expect_arguments()?;
+            let pattern = if let Some(arg) = opt_arg {
+                expect_string_pattern(diagnostics, arg)?
+            } else {
+                StringPattern::everything()
+            };
+            Ok(RevsetExpression::bookmarks(pattern))
+        });
+        map.insert("remote_bookmarks", |diagnostics, function, _context| {
+            parse_remote_bookmarks_arguments(diagnostics, function, None)
+        });
+        map.insert(
+            "tracked_remote_bookmarks",
+            |diagnostics, function, _context| {
+                parse_remote_bookmarks_arguments(
+                    diagnostics,
+                    function,
+                    Some(RemoteRefState::Tracked),
+                )
+            },
+        );
+        map.insert(
+            "untracked_remote_bookmarks",
+            |diagnostics, function, _context| {
+                parse_remote_bookmarks_arguments(diagnostics, function, Some(RemoteRefState::New))
+            },
+        );
+        map.insert("tags", |diagnostics, function, _context| {
+            let ([], [opt_arg]) = function.expect_arguments()?;
+            let pattern = if let Some(arg) = opt_arg {
+                expect_string_pattern(diagnostics, arg)?
+            } else {
+                StringPattern::everything()
+            };
+            Ok(RevsetExpression::tags(pattern))
+        });
+        map.insert("git_refs", |_diagnostics, function, _context| {
+            function.expect_no_arguments()?;
+            Ok(RevsetExpression::git_refs())
+        });
+        map.insert("git_head", |_diagnostics, function, _context| {
+            function.expect_no_arguments()?;
+            Ok(RevsetExpression::git_head())
+        });
+        map.insert("latest", |diagnostics, function, context| {
+            let ([candidates_arg], [count_opt_arg]) = function.expect_arguments()?;
+            let candidates = lower_expression(diagnostics, candidates_arg, context)?;
+            let count = if let Some(count_arg) = count_opt_arg {
+                expect_literal("integer", count_arg)?
+            } else {
+                1
+            };
+            Ok(candidates.latest(count))
+        });
+        map.insert("fork_point", |diagnostics, function, context| {
+            let [expression_arg] = function.expect_exact_arguments()?;
+            let expression = lower_expression(diagnostics, expression_arg, context)?;
+            Ok(RevsetExpression::fork_point(&expression))
+        });
+        map.insert("merges", |_diagnostics, function, _context| {
+            function.expect_no_arguments()?;
+            Ok(RevsetExpression::filter(
+                RevsetFilterPredicate::ParentCount(2..u32::MAX),
+            ))
+        });
+        map.insert("description", |diagnostics, function, _context| {
+            let [arg] = function.expect_exact_arguments()?;
+            let pattern = expect_string_pattern(diagnostics, arg)?;
+            Ok(RevsetExpression::filter(
+                RevsetFilterPredicate::Description(pattern),
+            ))
+        });
+        map.insert("subject", |diagnostics, function, _context| {
+            let [arg] = function.expect_exact_arguments()?;
+            let pattern = expect_string_pattern(diagnostics, arg)?;
+            let predicate = RevsetFilterPredicate::Subject(pattern);
+            Ok(RevsetExpression::filter(predicate))
+        });
+        map.insert("author", |diagnostics, function, _context| {
+            let [arg] = function.expect_exact_arguments()?;
+            let pattern = expect_string_pattern(diagnostics, arg)?;
+            let name_predicate = RevsetFilterPredicate::AuthorName(pattern.clone());
+            let email_predicate = RevsetFilterPredicate::AuthorEmail(pattern);
+            Ok(RevsetExpression::filter(name_predicate)
+                .union(&RevsetExpression::filter(email_predicate)))
+        });
+        map.insert("author_name", |diagnostics, function, _context| {
+            let [arg] = function.expect_exact_arguments()?;
+            let pattern = expect_string_pattern(diagnostics, arg)?;
+            let predicate = RevsetFilterPredicate::AuthorName(pattern);
+            Ok(RevsetExpression::filter(predicate))
+        });
+        map.insert("author_email", |diagnostics, function, _context| {
+            let [arg] = function.expect_exact_arguments()?;
+            let pattern = expect_string_pattern(diagnostics, arg)?;
+            let predicate = RevsetFilterPredicate::AuthorEmail(pattern);
+            Ok(RevsetExpression::filter(predicate))
+        });
+        map.insert("author_date", |diagnostics, function, context| {
+            let [arg] = function.expect_exact_arguments()?;
+            let pattern = expect_date_pattern(diagnostics, arg, context.date_pattern_context())?;
+            Ok(RevsetExpression::filter(RevsetFilterPredicate::AuthorDate(
+                pattern,
+            )))
+        });
+        map.insert("signed", |_diagnostics, function, _context| {
+            function.expect_no_arguments()?;
+            let predicate = RevsetFilterPredicate::Signed;
+            Ok(RevsetExpression::filter(predicate))
+        });
+        map.insert("mine", |_diagnostics, function, context| {
+            function.expect_no_arguments()?;
+            // Email address domains are inherently case‐insensitive, and the local‐parts
+            // are generally (although not universally) treated as case‐insensitive too, so
+            // we use a case‐insensitive match here.
+            let predicate =
+                RevsetFilterPredicate::AuthorEmail(StringPattern::exact_i(context.user_email));
+            Ok(RevsetExpression::filter(predicate))
+        });
+        map.insert("committer", |diagnostics, function, _context| {
+            let [arg] = function.expect_exact_arguments()?;
+            let pattern = expect_string_pattern(diagnostics, arg)?;
+            let name_predicate = RevsetFilterPredicate::CommitterName(pattern.clone());
+            let email_predicate = RevsetFilterPredicate::CommitterEmail(pattern);
+            Ok(RevsetExpression::filter(name_predicate)
+                .union(&RevsetExpression::filter(email_predicate)))
+        });
+        map.insert("committer_name", |diagnostics, function, _context| {
+            let [arg] = function.expect_exact_arguments()?;
+            let pattern = expect_string_pattern(diagnostics, arg)?;
+            let predicate = RevsetFilterPredicate::CommitterName(pattern);
+            Ok(RevsetExpression::filter(predicate))
+        });
+        map.insert("committer_email", |diagnostics, function, _context| {
+            let [arg] = function.expect_exact_arguments()?;
+            let pattern = expect_string_pattern(diagnostics, arg)?;
+            let predicate = RevsetFilterPredicate::CommitterEmail(pattern);
+            Ok(RevsetExpression::filter(predicate))
+        });
+        map.insert("committer_date", |diagnostics, function, context| {
+            let [arg] = function.expect_exact_arguments()?;
+            let pattern = expect_date_pattern(diagnostics, arg, context.date_pattern_context())?;
+            Ok(RevsetExpression::filter(
+                RevsetFilterPredicate::CommitterDate(pattern),
+            ))
+        });
+        map.insert("empty", |_diagnostics, function, _context| {
+            function.expect_no_arguments()?;
+            Ok(RevsetExpression::is_empty())
+        });
+        map.insert("files", |diagnostics, function, context| {
             let ctx = context.workspace.as_ref().ok_or_else(|| {
                 RevsetParseError::with_span(
                     RevsetParseErrorKind::FsPathWithoutWorkspace,
-                    files_arg.span,
+                    function.args_span, // TODO: better to use name_span?
                 )
             })?;
-            expect_fileset_expression(diagnostics, files_arg, ctx.path_converter)?
-        } else {
-            // TODO: defaults to CLI path arguments?
-            // https://github.com/jj-vcs/jj/issues/2933#issuecomment-1925870731
-            FilesetExpression::all()
-        };
-        Ok(RevsetExpression::filter(
-            RevsetFilterPredicate::DiffContains { text, files },
-        ))
+            let [arg] = function.expect_exact_arguments()?;
+            let expr = expect_fileset_expression(diagnostics, arg, ctx.path_converter)?;
+            Ok(RevsetExpression::filter(RevsetFilterPredicate::File(expr)))
+        });
+        map.insert("diff_contains", |diagnostics, function, context| {
+            let ([text_arg], [files_opt_arg]) = function.expect_arguments()?;
+            let text = expect_string_pattern(diagnostics, text_arg)?;
+            let files = if let Some(files_arg) = files_opt_arg {
+                let ctx = context.workspace.as_ref().ok_or_else(|| {
+                    RevsetParseError::with_span(
+                        RevsetParseErrorKind::FsPathWithoutWorkspace,
+                        files_arg.span,
+                    )
+                })?;
+                expect_fileset_expression(diagnostics, files_arg, ctx.path_converter)?
+            } else {
+                // TODO: defaults to CLI path arguments?
+                // https://github.com/jj-vcs/jj/issues/2933#issuecomment-1925870731
+                FilesetExpression::all()
+            };
+            Ok(RevsetExpression::filter(
+                RevsetFilterPredicate::DiffContains { text, files },
+            ))
+        });
+        map.insert("conflicts", |_diagnostics, function, _context| {
+            function.expect_no_arguments()?;
+            Ok(RevsetExpression::filter(RevsetFilterPredicate::HasConflict))
+        });
+        map.insert("present", |diagnostics, function, context| {
+            let [arg] = function.expect_exact_arguments()?;
+            let expression = lower_expression(diagnostics, arg, context)?;
+            Ok(expression.present())
+        });
+        map.insert("at_operation", |diagnostics, function, context| {
+            let [op_arg, cand_arg] = function.expect_exact_arguments()?;
+            // TODO: Parse "opset" here if we add proper language support.
+            let operation =
+                revset_parser::catch_aliases(diagnostics, op_arg, |_diagnostics, node| {
+                    Ok(node.span.as_str().to_owned())
+                })?;
+            let candidates = lower_expression(diagnostics, cand_arg, context)?;
+            Ok(Rc::new(RevsetExpression::AtOperation {
+                operation,
+                candidates,
+            }))
+        });
+        map.insert("coalesce", |diagnostics, function, context| {
+            let ([], args) = function.expect_some_arguments()?;
+            let expressions: Vec<_> = args
+                .iter()
+                .map(|arg| lower_expression(diagnostics, arg, context))
+                .try_collect()?;
+            Ok(RevsetExpression::coalesce(&expressions))
+        });
+        map
     });
-    map.insert("conflicts", |_diagnostics, function, _context| {
-        function.expect_no_arguments()?;
-        Ok(RevsetExpression::filter(RevsetFilterPredicate::HasConflict))
-    });
-    map.insert("present", |diagnostics, function, context| {
-        let [arg] = function.expect_exact_arguments()?;
-        let expression = lower_expression(diagnostics, arg, context)?;
-        Ok(expression.present())
-    });
-    map.insert("at_operation", |diagnostics, function, context| {
-        let [op_arg, cand_arg] = function.expect_exact_arguments()?;
-        // TODO: Parse "opset" here if we add proper language support.
-        let operation = revset_parser::catch_aliases(diagnostics, op_arg, |_diagnostics, node| {
-            Ok(node.span.as_str().to_owned())
-        })?;
-        let candidates = lower_expression(diagnostics, cand_arg, context)?;
-        Ok(Rc::new(RevsetExpression::AtOperation {
-            operation,
-            candidates,
-        }))
-    });
-    map.insert("coalesce", |diagnostics, function, context| {
-        let ([], args) = function.expect_some_arguments()?;
-        let expressions: Vec<_> = args
-            .iter()
-            .map(|arg| lower_expression(diagnostics, arg, context))
-            .try_collect()?;
-        Ok(RevsetExpression::coalesce(&expressions))
-    });
-    map
-});
 
 /// Parses the given `node` as a fileset expression.
 pub fn expect_fileset_expression(

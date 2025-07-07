@@ -18,9 +18,9 @@ use std::collections::HashSet;
 use std::error;
 use std::mem;
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 use itertools::Itertools as _;
-use once_cell::sync::Lazy;
 use pest::iterators::Pair;
 use pest::iterators::Pairs;
 use pest::pratt_parser::Assoc;
@@ -535,7 +535,7 @@ fn parse_expression_node(pairs: Pairs<Rule>) -> Result<ExpressionNode, RevsetPar
         )
     }
 
-    static PRATT: Lazy<PrattParser<Rule>> = Lazy::new(|| {
+    static PRATT: LazyLock<PrattParser<Rule>> = LazyLock::new(|| {
         PrattParser::new()
             .op(Op::infix(Rule::union_op, Assoc::Left)
                 | Op::infix(Rule::compat_add_op, Assoc::Left))

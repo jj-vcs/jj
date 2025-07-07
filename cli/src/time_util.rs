@@ -1,7 +1,8 @@
+use std::sync::LazyLock;
+
 use chrono::format::StrftimeItems;
 use jj_lib::backend::Timestamp;
 use jj_lib::backend::TimestampOutOfRange;
-use once_cell::sync::Lazy;
 
 /// Parsed formatting items which should never contain an error.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -42,8 +43,8 @@ impl<'a> FormattingItems<'a> {
 }
 
 pub fn format_absolute_timestamp(timestamp: &Timestamp) -> Result<String, TimestampOutOfRange> {
-    static DEFAULT_FORMAT: Lazy<FormattingItems> =
-        Lazy::new(|| FormattingItems::parse("%Y-%m-%d %H:%M:%S.%3f %:z").unwrap());
+    static DEFAULT_FORMAT: LazyLock<FormattingItems> =
+        LazyLock::new(|| FormattingItems::parse("%Y-%m-%d %H:%M:%S.%3f %:z").unwrap());
     format_absolute_timestamp_with(timestamp, &DEFAULT_FORMAT)
 }
 

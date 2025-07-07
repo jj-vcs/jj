@@ -26,9 +26,9 @@ use std::path::PathBuf;
 use std::slice;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use itertools::Itertools as _;
-use once_cell::sync::Lazy;
 use serde::de::IntoDeserializer as _;
 use serde::Deserialize;
 use thiserror::Error;
@@ -897,7 +897,7 @@ fn merge_items(lower_item: &mut ConfigItem, upper_item: &ConfigItem) {
     }
 }
 
-static DEFAULT_CONFIG_LAYERS: Lazy<[Arc<ConfigLayer>; 1]> = Lazy::new(|| {
+static DEFAULT_CONFIG_LAYERS: LazyLock<[Arc<ConfigLayer>; 1]> = LazyLock::new(|| {
     let parse = |text: &str| Arc::new(ConfigLayer::parse(ConfigSource::Default, text).unwrap());
     [parse(include_str!("config/misc.toml"))]
 });
