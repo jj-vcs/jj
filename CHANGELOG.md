@@ -23,6 +23,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* New `first_ancestors()` revset function which is similar to `ancestors()`, but
+  only traverses the first parent of each commit (similar to Git's
+  `--first-parent` option).
+
 ### Fixed bugs
 
 ### Packaging changes
