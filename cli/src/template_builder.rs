@@ -67,7 +67,11 @@ use crate::templater::WrapTemplateProperty;
 use crate::text_util;
 use crate::time_util;
 
-/// Callbacks to build language-specific evaluation objects from AST nodes.
+/// Callbacks to build usage-context-specific evaluation objects from AST nodes.
+///
+/// This is used to implement different meanings of `self` or different
+/// globally available functions in the template language depending on the
+/// context in which it is invoked.
 pub trait TemplateLanguage<'a> {
     type Property: CoreTemplatePropertyVar<'a>;
 
@@ -84,6 +88,8 @@ pub trait TemplateLanguage<'a> {
         function: &FunctionCallNode,
     ) -> TemplateParseResult<Self::Property>;
 
+    /// Creates a method call thunk for the given `function` of the given
+    /// `property`.
     fn build_method(
         &self,
         diagnostics: &mut TemplateDiagnostics,
@@ -161,6 +167,12 @@ where
     Self: WrapTemplateProperty<'a, Timestamp>,
     Self: WrapTemplateProperty<'a, TimestampRange>,
 {
+    // Don't write default implementations on these (and certainly not ones
+    // using another function on self): wrapper types that contain a sum type
+    // of a CoreTemplatePropertyKind or a custom type will hit the default case
+    // every time rather than the implementation on CoreTemplatePropertyKind if
+    // a custom implementation is omitted.
+
     fn wrap_template(template: Box<dyn Template + 'a>) -> Self;
     fn wrap_list_template(template: Box<dyn ListTemplate + 'a>) -> Self;
 
@@ -706,6 +718,7 @@ impl<'a, P: CoreTemplatePropertyVar<'a>> Expression<P> {
     }
 }
 
+/// Environment (locals and self) in a stack frame.
 pub struct BuildContext<'i, P> {
     /// Map of functions to create `L::Property`.
     local_variables: HashMap<&'i str, &'i dyn Fn() -> P>,
@@ -892,6 +905,15 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
                 expect_stringify_expression(language, diagnostics, build_ctx, needle_node)?;
             let out_property = (self_property, needle_property)
                 .map(|(haystack, needle)| haystack.contains(&needle));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "matches",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            let [needle_node] = function.expect_exact_arguments()?;
+            let needle = template_parser::expect_string_pattern(needle_node)?;
+            let out_property = self_property.map(move |haystack| needle.matches(&haystack));
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1850,6 +1872,10 @@ pub fn build_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
             let property = Literal(value.clone()).into_dyn_wrapped();
             Ok(Expression::unlabeled(property))
         }
+        ExpressionKind::StringPattern { .. } => Err(TemplateParseError::expression(
+            "String patterns may not be used as expression values",
+            node.span,
+        )),
         ExpressionKind::Unary(op, arg_node) => {
             let property = build_unary_operation(language, diagnostics, build_ctx, *op, arg_node)?;
             Ok(Expression::unlabeled(property))
@@ -2775,6 +2801,18 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok(r#""description 123".contains(description.first_line())"#),
             @"true");
+        insta::assert_snapshot!(env.render_ok(r#""fooo".matches(regex:'[a-f]o+')"#), @"true");
+        insta::assert_snapshot!(env.render_ok(r#""fa".matches(regex:'[a-f]o+')"#), @"false");
+
+        // String patterns are not stringifiable
+        insta::assert_snapshot!(env.parse_err(r#""fa".starts_with(regex:'[a-f]o+')"#), @r#"
+         --> 1:18
+          |
+        1 | "fa".starts_with(regex:'[a-f]o+')
+          |                  ^-------------^
+          |
+          = String patterns may not be used as expression values
+        "#);
 
         // inner template error should propagate
         insta::assert_snapshot!(env.render_ok(r#""foo".contains(bad_string)"#), @"<Error: Bad>");

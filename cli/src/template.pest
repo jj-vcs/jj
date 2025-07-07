@@ -30,6 +30,8 @@ string_literal = ${ "\"" ~ (string_content | string_escape)* ~ "\"" }
 raw_string_content = @{ (!"'" ~ ANY)* }
 raw_string_literal = ${ "'" ~ raw_string_content ~ "'" }
 
+any_string_literal = _{ string_literal | raw_string_literal }
+
 integer_literal = @{
   ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*
   | "0"
@@ -53,6 +55,7 @@ div_op = { "/" }
 rem_op = { "%" }
 logical_not_op = { "!" }
 negate_op = { "-" }
+pattern_kind_op = { ":" }
 prefix_ops = _{ logical_not_op | negate_op }
 infix_ops = _{
   logical_or_op
@@ -85,11 +88,17 @@ formal_parameters = {
   identifier ~ (whitespace* ~ "," ~ whitespace* ~ identifier)* ~ (whitespace* ~ ",")?
   | ""
 }
+string_pattern = {
+    // Unlike the revset language, we're not allowing bare words here because
+    // templates are generally not written on-the-fly.
+    identifier ~ pattern_kind_op ~ any_string_literal
+}
 
 primary = _{
   ("(" ~ whitespace* ~ template ~ whitespace* ~ ")")
   | function
   | lambda
+  | string_pattern
   | identifier
   | string_literal
   | raw_string_literal
