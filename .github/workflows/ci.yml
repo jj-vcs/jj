@@ -64,7 +64,7 @@ jobs:
       uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
       with:
         toolchain: 1.84
-    - uses: taiki-e/install-action@e70e8600a521fd81c7c717d28234cfd968bbef1a
+    - uses: taiki-e/install-action@f3a27926ea13d7be3ee2f4cbb925883cf9442b56
       with:
         tool: nextest,taplo-cli
     - name: Install mold
@@ -120,7 +120,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: DeterminateSystems/nix-installer-action@21a544727d0c62386e78b4befe52d19ad12692e3
+      - uses: DeterminateSystems/nix-installer-action@c723f3a885e3f1d866d91f4f0c33dd44b1fc7c60
       - run: nix flake check -L --show-trace
 
   check-protos:
