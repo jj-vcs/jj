@@ -34,6 +34,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Added `templates.workspace_list` template to customize the output of `jj workspace list`.
 
+* `jj diff -r multiple_revisions` will warn if `multiple_revisions` do not form
+  a line in the ancestry graph. Such calls are often accidental, e.g. `jj diff
+  -r @-` where the user doesn't realize they are on a merge commit.
+
 ### Fixed bugs
 
 ### Packaging changes
