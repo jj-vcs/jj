@@ -111,14 +111,6 @@ impl MutableIndexSegment {
         CompositeIndex::new(self)
     }
 
-    pub(super) fn add_commit(&mut self, commit: &Commit) {
-        self.add_commit_data(
-            commit.id().clone(),
-            commit.change_id().clone(),
-            commit.parent_ids(),
-        );
-    }
-
     pub(super) fn add_commit_data(
         &mut self,
         commit_id: CommitId,
@@ -467,7 +459,6 @@ impl DefaultMutableIndex {
         self.0.as_composite().num_commits()
     }
 
-    #[cfg(test)]
     pub(super) fn add_commit_data(
         &mut self,
         commit_id: CommitId,
@@ -553,7 +544,11 @@ impl MutableIndex for DefaultMutableIndex {
     }
 
     fn add_commit(&mut self, commit: &Commit) {
-        self.0.add_commit(commit);
+        self.add_commit_data(
+            commit.id().clone(),
+            commit.change_id().clone(),
+            commit.parent_ids(),
+        );
     }
 
     fn merge_in(&mut self, other: &dyn ReadonlyIndex) {
