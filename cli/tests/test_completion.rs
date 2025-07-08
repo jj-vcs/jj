@@ -1129,7 +1129,10 @@ fn test_files() {
         &[
             ("f_unchanged", Some("unchanged\n")),
             ("f_modified", Some("not_yet_modified\n")),
+            ("f_not_yet_copied", Some("copied\n")),
             ("f_not_yet_renamed", Some("renamed\n")),
+            ("f_not_yet_renamed_2", Some("renamed_2\n")),
+            ("f_not_yet_renamed_3", Some("renamed_3\n")),
             ("f_deleted", Some("not_yet_deleted\n")),
             // not yet: "added" file
         ],
@@ -1141,13 +1144,21 @@ fn test_files() {
         &[
             // "unchanged" file
             ("f_modified", Some("modified\n")),
+            ("f_not_yet_copied", Some("copied\n\n")),
             ("f_not_yet_renamed", None),
+            ("f_not_yet_renamed_2", None),
+            ("f_not_yet_renamed_3", None),
+            ("f_copied", Some("copied\n")),
+            // f_not_yet_renamed < f_renamed
             ("f_renamed", Some("renamed\n")),
+            // f_another_renamed_2 < f_not_yet_renamed_2
+            ("f_another_renamed_2", Some("renamed_2\n")),
             ("f_deleted", None),
             ("f_added", Some("added\n")),
             ("f_dir/dir_file_1", Some("foo\n")),
             ("f_dir/dir_file_2", Some("foo\n")),
             ("f_dir/dir_file_3", Some("foo\n")),
+            ("f_dir/f_renamed_3", Some("renamed_3\n")),
         ],
     );
 
@@ -1199,31 +1210,38 @@ fn test_files() {
 
     let output = work_dir.run_jj(["log", "-r", "all()", "--summary"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
-    @  wqnwkozp test.user@example.com 2001-02-03 08:05:20 working_copy 440dd927
+    @  wqnwkozp test.user@example.com 2001-02-03 08:05:20 working_copy 5e0882cf
     │  working_copy
     │  A f_added_2
     │  M f_modified
-    ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 second 90bb4e13
+    ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 second 5d65dc93
     │  second
     │  A f_added
+    │  R {f_not_yet_renamed_2 => f_another_renamed_2}
+    │  C {f_not_yet_copied => f_copied}
     │  D f_deleted
     │  A f_dir/dir_file_1
     │  A f_dir/dir_file_2
     │  A f_dir/dir_file_3
+    │  R {f_not_yet_renamed_3 => f_dir/f_renamed_3}
     │  M f_modified
+    │  M f_not_yet_copied
     │  R {f_not_yet_renamed => f_renamed}
-    │ ×  royxmykx test.user@example.com 2001-02-03 08:05:14 conflicted b259cb83 conflict
+    │ ×  royxmykx test.user@example.com 2001-02-03 08:05:14 conflicted cf10549a conflict
     ├─╯  conflicted
     │    A f_added_2
     │    A f_dir/dir_file_1
     │    A f_dir/dir_file_2
     │    A f_dir/dir_file_3
     │    M f_modified
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 first 0600c83e
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 first 221854a7
     │  first
     │  A f_deleted
     │  A f_modified
+    │  A f_not_yet_copied
     │  A f_not_yet_renamed
+    │  A f_not_yet_renamed_2
+    │  A f_not_yet_renamed_3
     │  A f_unchanged
     │ ○  kpqxywon test.user@example.com 2001-02-03 08:05:18 interdiff_to 5e448a34
     ├─╯  interdiff_to
@@ -1243,8 +1261,11 @@ fn test_files() {
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_added
     f_added_2
+    f_another_renamed_2
+    f_copied
     f_dir/
     f_modified
+    f_not_yet_copied
     f_renamed
     f_unchanged
     [EOF]
@@ -1253,8 +1274,11 @@ fn test_files() {
     let output = work_dir.complete_fish(["file", "annotate", "-r@-", "f_"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_added
+    f_another_renamed_2
+    f_copied
     f_dir/
     f_modified
+    f_not_yet_copied
     f_renamed
     f_unchanged
     [EOF]
@@ -1263,10 +1287,16 @@ fn test_files() {
     let output = work_dir.complete_fish(["diff", "-r", "@-", "f_"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_added	Added
+    f_not_yet_renamed_2	Renamed
+    {f_not_yet_copied => f_copied}	Copied
     f_deleted	Deleted
     f_dir/
+    f_not_yet_renamed_3	Renamed
     f_modified	Modified
+    f_not_yet_copied	Modified
     f_not_yet_renamed	Renamed
+    f_another_renamed_2	Renamed
+    f_dir/
     f_renamed	Renamed
     [EOF]
     ");
@@ -1281,14 +1311,19 @@ fn test_files() {
     f_dir/dir_file_1	Added
     f_dir/dir_file_2	Added
     f_dir/dir_file_3	Added
+    f_not_yet_renamed_3	Renamed
+    f_dir/f_renamed_3	Renamed
     [EOF]
     ");
 
     let output = work_dir.complete_fish(["diff", "--from", "root()", "--to", "@-", "f_"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_added	Added
+    f_another_renamed_2	Added
+    f_copied	Added
     f_dir/
     f_modified	Added
+    f_not_yet_copied	Added
     f_renamed	Added
     f_unchanged	Added
     [EOF]
@@ -1314,7 +1349,10 @@ fn test_files() {
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_deleted	Added
     f_modified	Added
+    f_not_yet_copied	Added
     f_not_yet_renamed	Added
+    f_not_yet_renamed_2	Added
+    f_not_yet_renamed_3	Added
     f_unchanged	Added
     [EOF]
     ");
@@ -1330,8 +1368,11 @@ fn test_files() {
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_added
     f_added_2
+    f_another_renamed_2
+    f_copied
     f_dir/
     f_modified
+    f_not_yet_copied
     f_renamed
     f_unchanged
     [EOF]
@@ -1343,7 +1384,10 @@ fn test_files() {
     f_deleted
     f_dir/
     f_modified
+    f_not_yet_copied
     f_not_yet_renamed
+    f_not_yet_renamed_2
+    f_not_yet_renamed_3
     f_unchanged
     [EOF]
     ");
