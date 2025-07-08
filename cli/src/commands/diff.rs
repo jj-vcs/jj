@@ -124,6 +124,7 @@ pub(crate) async fn cmd_diff(
 
     let from_tree;
     let to_tree;
+    let mut multiple_revision_revset = false;
     let mut copy_records = CopyRecords::default();
     if args.from.is_some() || args.to.is_some() {
         let resolve_revision = |r: &Option<RevisionArg>| {
@@ -143,6 +144,16 @@ pub(crate) async fn cmd_diff(
             .unwrap_or(std::slice::from_ref(&RevisionArg::AT));
         let revisions_evaluator = workspace_command.parse_union_revsets(ui, revision_args)?;
         let target_expression = revisions_evaluator.expression();
+        if workspace_command
+            .attach_revset_evaluator(target_expression.clone())
+            .evaluate_to_commit_ids()?
+            .take(2)
+            .count()
+            > 1
+        {
+            multiple_revision_revset = true;
+        }
+
         let mut gaps_revset = workspace_command
             .attach_revset_evaluator(
                 target_expression
@@ -200,6 +211,27 @@ pub(crate) async fn cmd_diff(
     }
 
     ui.request_pager();
+    // The warnings are printed here since they must be passed to the pager.
+    // Otherwise, warnings would be very easy to miss when the pager is used.
+    if let Some([single_revset]) = args.revisions.as_deref()
+        && multiple_revision_revset
+        && !single_revset.as_ref().contains("::")
+        && !single_revset.as_ref().contains("..")
+    {
+        // The primary goal of this warning is to notify the user if they are doing e.g.
+        // `jj diff -r @-`, and `@-` unexpectedly expands to multiple revisions.
+        writeln!(
+            ui.warning_default(),
+            "Showing combined diff of potentially unrelated revisions. The revset expanded to \
+             multiple revisions and is not of the form `a::b` or `a..b`."
+        )?;
+        // TODO(ilyagr, martinvonz): The behavior of `jj diff -r a::b`
+        // should change if `a::b` contains merge commits, but not all the
+        // parents of those merge commits. Once that happens, `jj diff -r
+        // a::b` will be wrong and `jj diff -r a..b` will be correct. A
+        // warning should be introduced to explain that when `a::b` is used.
+    }
+
     if let Some(template) = &maybe_template {
         let tree_diff = from_tree.diff_stream_with_copies(&to_tree, &matcher, &copy_records);
         show_templated(ui.stdout_formatter().as_mut(), tree_diff, template).await?;
