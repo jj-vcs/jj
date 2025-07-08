@@ -97,7 +97,7 @@ pub(super) type DynIndexSegment = dyn IndexSegment;
 
 /// Abstraction over owned and borrowed types that can be cheaply converted to
 /// a `CompositeIndex` reference.
-pub trait AsCompositeIndex {
+pub(super) trait AsCompositeIndex {
     /// Returns reference wrapper that provides global access to this index.
     fn as_composite(&self) -> &CompositeIndex;
 }
@@ -123,7 +123,7 @@ impl<T: AsCompositeIndex + ?Sized> AsCompositeIndex for &mut T {
 // Reference wrapper that provides global access to nested index segments.
 #[derive(RefCastCustom)]
 #[repr(transparent)]
-pub struct CompositeIndex(DynIndexSegment);
+pub(super) struct CompositeIndex(DynIndexSegment);
 
 impl CompositeIndex {
     #[ref_cast_custom]

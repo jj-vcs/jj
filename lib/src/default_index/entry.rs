@@ -29,7 +29,7 @@ use crate::object_id::ObjectId as _;
 
 /// Global index position.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
-pub struct IndexPosition(pub(super) u32);
+pub(super) struct IndexPosition(pub(super) u32);
 
 impl IndexPosition {
     pub const MIN: Self = IndexPosition(u32::MIN);
@@ -46,7 +46,7 @@ pub(super) type SmallIndexPositionsVec = SmallVec<[IndexPosition; 4]>;
 pub(super) type SmallLocalPositionsVec = SmallVec<[LocalPosition; 4]>;
 
 #[derive(Clone)]
-pub struct IndexEntry<'a> {
+pub(super) struct IndexEntry<'a> {
     source: &'a DynIndexSegment,
     pos: IndexPosition,
     /// Position within the source segment

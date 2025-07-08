@@ -31,12 +31,8 @@ mod revset_engine;
 mod revset_graph_iterator;
 mod store;
 
-pub use self::composite::AsCompositeIndex;
-pub use self::composite::CompositeIndex;
 pub use self::composite::IndexLevelStats;
 pub use self::composite::IndexStats;
-pub use self::entry::IndexEntry;
-pub use self::entry::IndexPosition;
 pub use self::mutable::DefaultMutableIndex;
 pub use self::readonly::DefaultReadonlyIndex;
 pub use self::readonly::DefaultReadonlyIndexRevset;
@@ -59,8 +55,11 @@ mod tests {
     use smallvec::smallvec_inline;
     use test_case::test_case;
 
+    use super::composite::AsCompositeIndex as _;
+    use super::composite::CompositeIndex;
     use super::composite::DynIndexSegment;
     use super::composite::IndexSegment as _;
+    use super::entry::IndexPosition;
     use super::entry::SmallIndexPositionsVec;
     use super::mutable::MutableIndexSegment;
     use super::*;
