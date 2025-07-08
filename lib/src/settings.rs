@@ -182,7 +182,7 @@ impl UserSettings {
     }
 
     // Must not be changed to avoid git pushing older commits with no set name
-    pub const USER_NAME_PLACEHOLDER: &'static str = "(no name configured)";
+    pub const USER_NAME_PLACEHOLDER: &str = "(no name configured)";
 
     pub fn user_email(&self) -> &str {
         &self.data.user_email
@@ -194,7 +194,7 @@ impl UserSettings {
 
     // Must not be changed to avoid git pushing older commits with no set email
     // address
-    pub const USER_EMAIL_PLACEHOLDER: &'static str = "(no email configured)";
+    pub const USER_EMAIL_PLACEHOLDER: &str = "(no email configured)";
 
     pub fn commit_timestamp(&self) -> Option<Timestamp> {
         self.data.commit_timestamp
