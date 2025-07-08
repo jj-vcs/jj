@@ -42,6 +42,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj fix` now buffers lines from subprocesses' stderr streams and emits them a
   complete line at a time. Each line is prepended with the file name.
 
+* `jj diff -r multiple_revisions` will warn if `multiple_revisions` do not form
+  a line in the ancestry graph. Such calls are often accidental, e.g. `jj diff
+  -r @-` where the user doesn't realize they are on a merge commit.
+
 ### Fixed bugs
 
 ### Packaging changes
