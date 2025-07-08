@@ -119,7 +119,7 @@ impl<T: InternalRevset + ?Sized> InternalRevset for Box<T> {
     }
 }
 
-pub struct RevsetImpl<I> {
+pub(super) struct RevsetImpl<I> {
     inner: Box<dyn InternalRevset>,
     index: I,
 }
@@ -765,7 +765,7 @@ where
     }
 }
 
-pub fn evaluate<I: AsCompositeIndex + Clone>(
+pub(super) fn evaluate<I: AsCompositeIndex + Clone>(
     expression: &ResolvedExpression,
     store: &Arc<Store>,
     index: I,

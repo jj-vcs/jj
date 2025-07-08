@@ -15,9 +15,8 @@
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
-use jj_lib::default_index::revset_engine::evaluate;
-use jj_lib::default_index::revset_engine::RevsetImpl;
 use jj_lib::default_index::DefaultReadonlyIndex;
+use jj_lib::default_index::DefaultReadonlyIndexRevset;
 use jj_lib::graph::GraphEdge;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
@@ -26,10 +25,7 @@ use test_case::test_case;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 
-fn revset_for_commits(
-    repo: &ReadonlyRepo,
-    commits: &[&Commit],
-) -> RevsetImpl<DefaultReadonlyIndex> {
+fn revset_for_commits(repo: &ReadonlyRepo, commits: &[&Commit]) -> DefaultReadonlyIndexRevset {
     let index = repo
         .readonly_index()
         .as_any()
@@ -37,7 +33,9 @@ fn revset_for_commits(
         .unwrap();
     let expression =
         ResolvedExpression::Commits(commits.iter().map(|commit| commit.id().clone()).collect());
-    evaluate(&expression, repo.store(), index.clone()).unwrap()
+    index
+        .evaluate_revset_impl(&expression, repo.store())
+        .unwrap()
 }
 
 fn direct(commit: &Commit) -> GraphEdge<CommitId> {

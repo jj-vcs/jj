@@ -37,8 +37,11 @@ use super::entry::LocalPosition;
 use super::entry::SmallIndexPositionsVec;
 use super::entry::SmallLocalPositionsVec;
 use super::mutable::DefaultMutableIndex;
+use super::revset_engine;
+use super::revset_engine::RevsetImpl;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
+use crate::graph::GraphNode;
 use crate::index::AllHeadsForGcUnsupported;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
@@ -605,6 +608,16 @@ impl DefaultReadonlyIndex {
         let entry = self.0.as_composite().entry_by_id(commit_id)?;
         Some(entry.generation_number())
     }
+
+    #[doc(hidden)] // for tests
+    pub fn evaluate_revset_impl(
+        &self,
+        expression: &ResolvedExpression,
+        store: &Arc<Store>,
+    ) -> Result<DefaultReadonlyIndexRevset, RevsetEvaluationError> {
+        let inner = revset_engine::evaluate(expression, store, self.clone())?;
+        Ok(DefaultReadonlyIndexRevset { inner })
+    }
 }
 
 impl AsCompositeIndex for DefaultReadonlyIndex {
@@ -675,6 +688,25 @@ impl ReadonlyIndex for DefaultReadonlyIndex {
 
     fn start_modification(&self) -> Box<dyn MutableIndex> {
         Box::new(DefaultMutableIndex::incremental(self.0.clone()))
+    }
+}
+
+#[derive(Debug)]
+#[doc(hidden)] // for tests
+pub struct DefaultReadonlyIndexRevset {
+    inner: RevsetImpl<DefaultReadonlyIndex>,
+}
+
+impl DefaultReadonlyIndexRevset {
+    pub fn iter_graph_impl(
+        &self,
+        skip_transitive_edges: bool,
+    ) -> impl Iterator<Item = Result<GraphNode<CommitId>, RevsetEvaluationError>> {
+        self.inner.iter_graph_impl(skip_transitive_edges)
+    }
+
+    pub fn into_inner(self) -> Box<dyn Revset> {
+        Box::new(self.inner)
     }
 }
 
