@@ -1287,16 +1287,15 @@ fn test_files() {
     let output = work_dir.complete_fish(["diff", "-r", "@-", "f_"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_added	Added
-    f_not_yet_renamed_2	Renamed
-    {f_not_yet_copied => f_copied}	Copied
+    f_another_renamed_2	Renamed
+    f_copied	Copied
     f_deleted	Deleted
     f_dir/
-    f_not_yet_renamed_3	Renamed
     f_modified	Modified
     f_not_yet_copied	Modified
     f_not_yet_renamed	Renamed
-    f_another_renamed_2	Renamed
-    f_dir/
+    f_not_yet_renamed_2	Renamed
+    f_not_yet_renamed_3	Renamed
     f_renamed	Renamed
     [EOF]
     ");
@@ -1311,7 +1310,6 @@ fn test_files() {
     f_dir/dir_file_1	Added
     f_dir/dir_file_2	Added
     f_dir/dir_file_3	Added
-    f_not_yet_renamed_3	Renamed
     f_dir/f_renamed_3	Renamed
     [EOF]
     ");
