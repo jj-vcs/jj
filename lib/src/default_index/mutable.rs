@@ -462,6 +462,11 @@ impl DefaultMutableIndex {
         DefaultMutableIndex(mutable_segment)
     }
 
+    /// Returns the number of all indexed commits.
+    pub fn num_commits(&self) -> u32 {
+        self.0.as_composite().num_commits()
+    }
+
     #[cfg(test)]
     pub(super) fn add_commit_data(
         &mut self,

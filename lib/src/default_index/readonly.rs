@@ -31,6 +31,7 @@ use super::composite::AsCompositeIndex;
 use super::composite::ChangeIdIndexImpl;
 use super::composite::CompositeIndex;
 use super::composite::IndexSegment;
+use super::composite::IndexStats;
 use super::entry::IndexPosition;
 use super::entry::LocalPosition;
 use super::entry::SmallIndexPositionsVec;
@@ -587,6 +588,22 @@ impl DefaultReadonlyIndex {
 
     pub(super) fn as_segment(&self) -> &Arc<ReadonlyIndexSegment> {
         &self.0
+    }
+
+    /// Returns the number of all indexed commits.
+    pub fn num_commits(&self) -> u32 {
+        self.0.as_composite().num_commits()
+    }
+
+    /// Collects statistics of indexed commits and segments.
+    pub fn stats(&self) -> IndexStats {
+        self.0.as_composite().stats()
+    }
+
+    /// Looks up generation of the specified commit.
+    pub fn generation_number(&self, commit_id: &CommitId) -> Option<u32> {
+        let entry = self.0.as_composite().entry_by_id(commit_id)?;
+        Some(entry.generation_number())
     }
 }
 

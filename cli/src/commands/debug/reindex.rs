@@ -15,7 +15,6 @@
 use std::fmt::Debug;
 use std::io::Write as _;
 
-use jj_lib::default_index::AsCompositeIndex as _;
 use jj_lib::default_index::DefaultIndexStore;
 
 use crate::cli_util::CommandHelper;
@@ -46,8 +45,8 @@ pub fn cmd_debug_reindex(
             .map_err(internal_error)?;
         writeln!(
             ui.status(),
-            "Finished indexing {:?} commits.",
-            default_index.as_composite().stats().num_commits
+            "Finished indexing {} commits.",
+            default_index.num_commits()
         )?;
     } else {
         return Err(user_error(format!(

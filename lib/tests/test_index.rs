@@ -21,8 +21,6 @@ use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::commit_builder::CommitBuilder;
-use jj_lib::default_index::AsCompositeIndex as _;
-use jj_lib::default_index::CompositeIndex;
 use jj_lib::default_index::DefaultIndexStore;
 use jj_lib::default_index::DefaultIndexStoreError;
 use jj_lib::default_index::DefaultMutableIndex;
@@ -53,11 +51,6 @@ fn child_commit<'repo>(mut_repo: &'repo mut MutableRepo, commit: &Commit) -> Com
     create_random_commit(mut_repo).set_parents(vec![commit.id().clone()])
 }
 
-// Helper just to reduce line wrapping
-fn generation_number(index: &CompositeIndex, commit_id: &CommitId) -> u32 {
-    index.entry_by_id(commit_id).unwrap().generation_number()
-}
-
 fn remote_symbol<'a, N, M>(name: &'a N, remote: &'a M) -> RemoteRefSymbol<'a>
 where
     N: AsRef<RefName> + ?Sized,
@@ -74,12 +67,17 @@ fn test_index_commits_empty_repo() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    let index = as_readonly_composite(repo);
+    let index = as_readonly_index(repo);
     // There should be just the root commit
     assert_eq!(index.num_commits(), 1);
 
     // Check the generation numbers of the root and the working copy
-    assert_eq!(generation_number(index, repo.store().root_commit_id()), 0);
+    assert_eq!(
+        index
+            .generation_number(repo.store().root_commit_id())
+            .unwrap(),
+        0
+    );
 }
 
 #[test]
@@ -114,7 +112,7 @@ fn test_index_commits_standard_cases() {
     let commit_h = graph_builder.commit_with_parents(&[&commit_e]);
     let repo = tx.commit("test").unwrap();
 
-    let index = as_readonly_composite(&repo);
+    let index = as_readonly_index(&repo);
     // There should be the root commit, plus 8 more
     assert_eq!(index.num_commits(), 1 + 8);
 
@@ -123,15 +121,15 @@ fn test_index_commits_standard_cases() {
     assert_eq!(stats.num_merges, 1);
     assert_eq!(stats.max_generation_number, 6);
 
-    assert_eq!(generation_number(index, root_commit_id), 0);
-    assert_eq!(generation_number(index, commit_a.id()), 1);
-    assert_eq!(generation_number(index, commit_b.id()), 2);
-    assert_eq!(generation_number(index, commit_c.id()), 2);
-    assert_eq!(generation_number(index, commit_d.id()), 3);
-    assert_eq!(generation_number(index, commit_e.id()), 4);
-    assert_eq!(generation_number(index, commit_f.id()), 5);
-    assert_eq!(generation_number(index, commit_g.id()), 6);
-    assert_eq!(generation_number(index, commit_h.id()), 5);
+    assert_eq!(index.generation_number(root_commit_id).unwrap(), 0);
+    assert_eq!(index.generation_number(commit_a.id()).unwrap(), 1);
+    assert_eq!(index.generation_number(commit_b.id()).unwrap(), 2);
+    assert_eq!(index.generation_number(commit_c.id()).unwrap(), 2);
+    assert_eq!(index.generation_number(commit_d.id()).unwrap(), 3);
+    assert_eq!(index.generation_number(commit_e.id()).unwrap(), 4);
+    assert_eq!(index.generation_number(commit_f.id()).unwrap(), 5);
+    assert_eq!(index.generation_number(commit_g.id()).unwrap(), 6);
+    assert_eq!(index.generation_number(commit_h.id()).unwrap(), 5);
 
     assert!(index.is_ancestor(root_commit_id, commit_a.id()));
     assert!(!index.is_ancestor(commit_a.id(), root_commit_id));
@@ -172,7 +170,7 @@ fn test_index_commits_criss_cross() {
     }
     let repo = tx.commit("test").unwrap();
 
-    let index = as_readonly_composite(&repo);
+    let index = as_readonly_index(&repo);
     // There should the root commit, plus 2 for each generation
     assert_eq!(index.num_commits(), 1 + 2 * (num_generations as u32));
 
@@ -185,11 +183,11 @@ fn test_index_commits_criss_cross() {
     // Check generation numbers
     for gen in 0..num_generations {
         assert_eq!(
-            generation_number(index, left_commits[gen].id()),
+            index.generation_number(left_commits[gen].id()).unwrap(),
             (gen as u32) + 1
         );
         assert_eq!(
-            generation_number(index, right_commits[gen].id()),
+            index.generation_number(right_commits[gen].id()).unwrap(),
             (gen as u32) + 1
         );
     }
@@ -330,7 +328,7 @@ fn test_index_commits_previous_operations() {
     default_index_store.reinit().unwrap();
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
-    let index = as_readonly_composite(&repo);
+    let index = as_readonly_index(&repo);
     // There should be the root commit, plus 3 more
     assert_eq!(index.num_commits(), 1 + 3);
 
@@ -339,9 +337,9 @@ fn test_index_commits_previous_operations() {
     assert_eq!(stats.num_merges, 0);
     assert_eq!(stats.max_generation_number, 3);
 
-    assert_eq!(generation_number(index, commit_a.id()), 1);
-    assert_eq!(generation_number(index, commit_b.id()), 2);
-    assert_eq!(generation_number(index, commit_c.id()), 3);
+    assert_eq!(index.generation_number(commit_a.id()).unwrap(), 1);
+    assert_eq!(index.generation_number(commit_b.id()).unwrap(), 2);
+    assert_eq!(index.generation_number(commit_c.id()).unwrap(), 3);
 }
 
 #[test]
@@ -413,7 +411,7 @@ fn test_index_commits_incremental() {
     let commit_a = child_commit(tx.repo_mut(), &root_commit).write().unwrap();
     let repo = tx.commit("test").unwrap();
 
-    let index = as_readonly_composite(&repo);
+    let index = as_readonly_index(&repo);
     // There should be the root commit, plus 1 more
     assert_eq!(index.num_commits(), 1 + 1);
 
@@ -423,7 +421,7 @@ fn test_index_commits_incremental() {
     tx.commit("test").unwrap();
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
-    let index = as_readonly_composite(&repo);
+    let index = as_readonly_index(&repo);
     // There should be the root commit, plus 3 more
     assert_eq!(index.num_commits(), 1 + 3);
 
@@ -434,10 +432,10 @@ fn test_index_commits_incremental() {
     assert_eq!(stats.levels.len(), 1);
     assert_eq!(stats.levels[0].num_commits, 4);
 
-    assert_eq!(generation_number(index, root_commit.id()), 0);
-    assert_eq!(generation_number(index, commit_a.id()), 1);
-    assert_eq!(generation_number(index, commit_b.id()), 2);
-    assert_eq!(generation_number(index, commit_c.id()), 3);
+    assert_eq!(index.generation_number(root_commit.id()).unwrap(), 0);
+    assert_eq!(index.generation_number(commit_a.id()).unwrap(), 1);
+    assert_eq!(index.generation_number(commit_b.id()).unwrap(), 2);
+    assert_eq!(index.generation_number(commit_c.id()).unwrap(), 3);
 }
 
 #[test]
@@ -459,14 +457,14 @@ fn test_index_commits_incremental_empty_transaction() {
     let commit_a = child_commit(tx.repo_mut(), &root_commit).write().unwrap();
     let repo = tx.commit("test").unwrap();
 
-    let index = as_readonly_composite(&repo);
+    let index = as_readonly_index(&repo);
     // There should be the root commit, plus 1 more
     assert_eq!(index.num_commits(), 1 + 1);
 
     repo.start_transaction().commit("test").unwrap();
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
-    let index = as_readonly_composite(&repo);
+    let index = as_readonly_index(&repo);
     // There should be the root commit, plus 1 more
     assert_eq!(index.num_commits(), 1 + 1);
 
@@ -477,8 +475,8 @@ fn test_index_commits_incremental_empty_transaction() {
     assert_eq!(stats.levels.len(), 1);
     assert_eq!(stats.levels[0].num_commits, 2);
 
-    assert_eq!(generation_number(index, root_commit.id()), 0);
-    assert_eq!(generation_number(index, commit_a.id()), 1);
+    assert_eq!(index.generation_number(root_commit.id()).unwrap(), 0);
+    assert_eq!(index.generation_number(commit_a.id()).unwrap(), 1);
 }
 
 #[test]
@@ -499,11 +497,11 @@ fn test_index_commits_incremental_already_indexed() {
     let repo = tx.commit("test").unwrap();
 
     assert!(repo.index().has_id(commit_a.id()));
-    assert_eq!(as_readonly_composite(&repo).num_commits(), 1 + 1);
+    assert_eq!(as_readonly_index(&repo).num_commits(), 1 + 1);
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     mut_repo.add_head(&commit_a).unwrap();
-    assert_eq!(as_mutable_composite(mut_repo).num_commits(), 1 + 1);
+    assert_eq!(as_mutable_index(mut_repo).num_commits(), 1 + 1);
 }
 
 #[must_use]
@@ -515,24 +513,16 @@ fn create_n_commits(repo: &Arc<ReadonlyRepo>, num_commits: i32) -> Arc<ReadonlyR
     tx.commit("test").unwrap()
 }
 
-fn as_readonly_composite(repo: &Arc<ReadonlyRepo>) -> &CompositeIndex {
-    repo.readonly_index()
-        .as_any()
-        .downcast_ref::<DefaultReadonlyIndex>()
-        .unwrap()
-        .as_composite()
+fn as_readonly_index(repo: &Arc<ReadonlyRepo>) -> &DefaultReadonlyIndex {
+    repo.readonly_index().as_any().downcast_ref().unwrap()
 }
 
-fn as_mutable_composite(repo: &MutableRepo) -> &CompositeIndex {
-    repo.mutable_index()
-        .as_any()
-        .downcast_ref::<DefaultMutableIndex>()
-        .unwrap()
-        .as_composite()
+fn as_mutable_index(repo: &MutableRepo) -> &DefaultMutableIndex {
+    repo.mutable_index().as_any().downcast_ref().unwrap()
 }
 
 fn commits_by_level(repo: &Arc<ReadonlyRepo>) -> Vec<u32> {
-    as_readonly_composite(repo)
+    as_readonly_index(repo)
         .stats()
         .levels
         .iter()
@@ -683,7 +673,7 @@ fn test_reindex_from_merged_operation() {
     let operation_to_reload = repo.operation();
 
     // Sanity check before corrupting the index store
-    let index = as_readonly_composite(&repo);
+    let index = as_readonly_index(&repo);
     assert_eq!(index.num_commits(), 4);
 
     let index_operations_dir = test_repo.repo_path().join("index").join("operations");
@@ -695,7 +685,7 @@ fn test_reindex_from_merged_operation() {
     // the parent index segment. The commits in the other side should still be
     // reachable.
     let repo = repo.reload_at(operation_to_reload).unwrap();
-    let index = as_readonly_composite(&repo);
+    let index = as_readonly_index(&repo);
     assert_eq!(index.num_commits(), 4);
 }
 
@@ -738,7 +728,7 @@ fn test_index_store_type() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    assert_eq!(as_readonly_composite(repo).num_commits(), 1);
+    assert_eq!(as_readonly_index(repo).num_commits(), 1);
     let index_store_type_path = test_repo.repo_path().join("index").join("type");
     assert_eq!(
         std::fs::read_to_string(index_store_type_path).unwrap(),
