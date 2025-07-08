@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use tracing::instrument;
 
@@ -46,7 +47,7 @@ pub(crate) struct FileListArgs {
     ///
     /// [`jj help -k templates`]:
     ///     https://jj-vcs.github.io/jj/latest/templates/
-    #[arg(long, short = 'T')]
+    #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
 
     /// Only list files matching these prefixes (instead of all files)

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
@@ -116,6 +117,7 @@ pub(crate) struct DiffArgs {
         short = 'T',
         conflicts_with_all = ["short-format", "long-format", "tool"],
         help_heading = "Diff Formatting Options",
+        add = ArgValueCandidates::new(complete::template_aliases)
     )]
     template: Option<String>,
     #[command(flatten)]
