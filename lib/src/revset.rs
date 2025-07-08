@@ -1213,7 +1213,13 @@ pub fn parse_with_modifier(
     revset_parser::catch_aliases(diagnostics, &node, |diagnostics, node| match &node.kind {
         ExpressionKind::Modifier(modifier) => {
             let parsed_modifier = match modifier.name {
-                "all" => RevsetModifier::All,
+                "all" => {
+                    diagnostics.add_warning(RevsetParseError::expression(
+                        "Multiple revisions are allowed by default; `all:` is planned for removal",
+                        modifier.name_span,
+                    ));
+                    RevsetModifier::All
+                }
                 _ => {
                     return Err(RevsetParseError::with_span(
                         RevsetParseErrorKind::NoSuchModifier(modifier.name.to_owned()),

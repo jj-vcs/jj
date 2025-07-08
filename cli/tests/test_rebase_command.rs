@@ -777,7 +777,6 @@ fn test_rebase_multiple_destinations() {
     Hint: The revset `b|c` resolved to these revisions:
       royxmykx c12952d9 c | c
       zsuskuln d18ca3e8 b | b
-    Hint: Prefix the expression with `all:` to allow any number of revisions (i.e. `all:b|c`).
     [EOF]
     [exit status: 1]
     ");
@@ -793,6 +792,13 @@ fn test_rebase_multiple_destinations() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: In revset expression
+     --> 1:1
+      |
+    1 | all:b|c
+      | ^-^
+      |
+      = Multiple revisions are allowed by default; `all:` is planned for removal
     Rebased 1 commits to destination
     [EOF]
     ");

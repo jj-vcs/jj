@@ -540,7 +540,7 @@ each of these may resolve to one-or-many revisions.
 If you set the `ui.always-allow-large-revsets` option to `false`, `jj` will not
 allow revsets that resolve to more than one revision &mdash; a so-called "large
 revset" &mdash; and will ask you to confirm that you want to proceed by
-prefixing it with the `all:` modifier.
+prefixing it with the `all:` modifier. *This option is planned to be removed.*
 
 An `all:` modifier before a revset expression does not otherwise change its
 meaning. Strictly speaking, it is not part of the revset language. The notation

@@ -744,13 +744,19 @@ fn test_all_modifier() {
     Hint: The revset `all()` resolved to these revisions:
       qpvuntsm e8849ae1 (empty) (no description set)
       zzzzzzzz 00000000 (empty) (no description set)
-    Hint: Prefix the expression with `all:` to allow any number of revisions (i.e. `all:all()`).
     [EOF]
     [exit status: 1]
     ");
     let output = work_dir.run_jj(["new", "all:all()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: In revset expression
+     --> 1:1
+      |
+    1 | all:all()
+      | ^-^
+      |
+      = Multiple revisions are allowed by default; `all:` is planned for removal
     Error: The Git backend does not support creating merge commits with the root commit as one of the parents.
     [EOF]
     [exit status: 1]
@@ -763,18 +769,41 @@ fn test_all_modifier() {
     │  (empty) (no description set)
     ◆  zzzzzzzz root() 00000000
     [EOF]
+    ------- stderr -------
+    Warning: In revset expression
+     --> 1:1
+      |
+    1 | all:all()
+      | ^-^
+      |
+      = Multiple revisions are allowed by default; `all:` is planned for removal
+    [EOF]
     ");
 
     // Command that accepts only single revision
     let output = work_dir.run_jj(["bookmark", "create", "-rall:@", "x"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: In revset expression
+     --> 1:1
+      |
+    1 | all:@
+      | ^-^
+      |
+      = Multiple revisions are allowed by default; `all:` is planned for removal
     Created 1 bookmarks pointing to qpvuntsm e8849ae1 x | (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["bookmark", "set", "-rall:all()", "x"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: In revset expression
+     --> 1:1
+      |
+    1 | all:all()
+      | ^-^
+      |
+      = Multiple revisions are allowed by default; `all:` is planned for removal
     Error: Revset `all:all()` resolved to more than one revision
     Hint: The revset `all:all()` resolved to these revisions:
       qpvuntsm e8849ae1 x | (empty) (no description set)
@@ -788,6 +817,21 @@ fn test_all_modifier() {
     insta::assert_snapshot!(output, @r"
     @  true
     ◆  true
+    [EOF]
+    ------- stderr -------
+    Warning: In template expression
+     --> 1:19
+      |
+    1 | self.contained_in('all:all()')
+      |                   ^---------^
+      |
+      = In revset expression
+     --> 1:1
+      |
+    1 | all:all()
+      | ^-^
+      |
+      = Multiple revisions are allowed by default; `all:` is planned for removal
     [EOF]
     ");
 

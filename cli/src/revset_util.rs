@@ -262,7 +262,6 @@ pub(super) fn evaluate_revset_to_single_commit<'a>(
     revision_str: &str,
     expression: &RevsetExpressionEvaluator<'_>,
     commit_summary_template: impl FnOnce() -> TemplateRenderer<'a, Commit>,
-    should_hint_about_all_prefix: bool,
 ) -> Result<Commit, CommandError> {
     let mut iter = expression.evaluate_to_commits()?.fuse();
     match (iter.next(), iter.next()) {
@@ -279,7 +278,6 @@ pub(super) fn evaluate_revset_to_single_commit<'a>(
                 &commits,
                 elided,
                 &commit_summary_template(),
-                should_hint_about_all_prefix,
             ))
         }
     }
@@ -290,7 +288,6 @@ fn format_multiple_revisions_error(
     commits: &[Commit],
     elided: bool,
     template: &TemplateRenderer<'_, Commit>,
-    should_hint_about_all_prefix: bool,
 ) -> CommandError {
     assert!(commits.len() >= 2);
     let mut cmd_err = user_error(format!(
@@ -314,12 +311,6 @@ fn format_multiple_revisions_error(
         )?;
         write_commits_summary(formatter)
     });
-    if should_hint_about_all_prefix {
-        cmd_err.add_hint(format!(
-            "Prefix the expression with `all:` to allow any number of revisions (i.e. \
-             `all:{revision_str}`)."
-        ));
-    }
     cmd_err
 }
 

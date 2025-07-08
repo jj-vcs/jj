@@ -1563,13 +1563,9 @@ to the current parents may contain changes from multiple commits.
         revision_arg: &RevisionArg,
     ) -> Result<Commit, CommandError> {
         let expression = self.parse_revset(ui, revision_arg)?;
-        let should_hint_about_all_prefix = false;
-        revset_util::evaluate_revset_to_single_commit(
-            revision_arg.as_ref(),
-            &expression,
-            || self.commit_summary_template(),
-            should_hint_about_all_prefix,
-        )
+        revset_util::evaluate_revset_to_single_commit(revision_arg.as_ref(), &expression, || {
+            self.commit_summary_template()
+        })
     }
 
     /// Evaluates revset expressions to non-empty set of commit IDs. The
@@ -1591,12 +1587,10 @@ to the current parents may contain changes from multiple commits.
                     all_commits.insert(commit_id?);
                 }
             } else {
-                let should_hint_about_all_prefix = true;
                 let commit = revset_util::evaluate_revset_to_single_commit(
                     revision_arg.as_ref(),
                     &expression,
                     || self.commit_summary_template(),
-                    should_hint_about_all_prefix,
                 )?;
                 if !all_commits.insert(commit.id().clone()) {
                     let commit_hash = short_commit_hash(commit.id());
