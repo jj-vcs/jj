@@ -836,7 +836,7 @@ fn test_squash_from_multiple() {
         .run_jj(["bookmark", "create", "-r@", "d"])
         .success();
     work_dir.write_file("file", "d\n");
-    work_dir.run_jj(["new", "all:visible_heads()"]).success();
+    work_dir.run_jj(["new", "visible_heads()"]).success();
     work_dir
         .run_jj(["bookmark", "create", "-r@", "e"])
         .success();
@@ -977,7 +977,7 @@ fn test_squash_from_multiple_partial() {
         .success();
     work_dir.write_file("file1", "d\n");
     work_dir.write_file("file2", "d\n");
-    work_dir.run_jj(["new", "all:visible_heads()"]).success();
+    work_dir.run_jj(["new", "visible_heads()"]).success();
     work_dir
         .run_jj(["bookmark", "create", "-r@", "e"])
         .success();

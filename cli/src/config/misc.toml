@@ -20,7 +20,7 @@ sign-on-push = false
 track-default-bookmark-on-clone = true
 
 [ui]
-always-allow-large-revsets = false
+always-allow-large-revsets = true
 color = "auto"
 diff-formatter = ":color-words"
 diff-instructions = true

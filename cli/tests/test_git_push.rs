@@ -800,18 +800,6 @@ fn test_git_push_changes() {
     let output = work_dir.run_jj(["git", "push", "-c=(@|@-)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Revset `(@|@-)` resolved to more than one revision
-    Hint: The revset `(@|@-)` resolved to these revisions:
-      yostqsxw 2723f611 push-yostqsxwqrlt* | bar
-      yqosqzyt 0f8164cd foo
-    Hint: Prefix the expression with `all:` to allow any number of revisions (i.e. `all:(@|@-)`).
-    [EOF]
-    [exit status: 1]
-    ");
-    // test pushing two changes at once, part 2
-    let output = work_dir.run_jj(["git", "push", "-c=all:(@|@-)"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
     Creating bookmark push-yqosqzytrlsw for revision yqosqzytrlsw
     Changes to push to origin:
       Move sideways bookmark push-yostqsxwqrlt from 916414184c47 to 2723f6111cb9
@@ -820,11 +808,11 @@ fn test_git_push_changes() {
     ");
     // specifying the same change twice doesn't break things
     work_dir.write_file("file", "modified3");
-    let output = work_dir.run_jj(["git", "push", "-c=all:(@|@)"]);
+    let output = work_dir.run_jj(["git", "push", "-c=(@|@)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
-      Move sideways bookmark push-yostqsxwqrlt from 2723f6111cb9 to 7436a8a600a4
+      Move sideways bookmark push-yostqsxwqrlt from 2723f6111cb9 to ee4011999491
     [EOF]
     ");
 
@@ -834,7 +822,7 @@ fn test_git_push_changes() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
-      Move sideways bookmark push-yostqsxwqrlt from 7436a8a600a4 to a8b93bdd0f68
+      Move sideways bookmark push-yostqsxwqrlt from ee4011999491 to 1b393e646dec
     [EOF]
     ");
 
@@ -853,7 +841,7 @@ fn test_git_push_changes() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
-    Working copy  (@) : yostqsxw 4b18f5ea bar
+    Working copy  (@) : yostqsxw 41aca6a2 bar
     Parent commit (@-): yqosqzyt 0f8164cd push-yostqsxwqrlt* push-yqosqzytrlsw | foo
     [EOF]
     ");
@@ -869,7 +857,7 @@ fn test_git_push_changes() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
-    Working copy  (@) : yostqsxw 4b18f5ea bar
+    Working copy  (@) : yostqsxw 41aca6a2 bar
     Parent commit (@-): yqosqzyt 0f8164cd push-yostqsxwqrlt* push-yqosqzytrlsw | foo
     [EOF]
     ");
@@ -888,7 +876,7 @@ fn test_git_push_changes() {
     ------- stderr -------
     Creating bookmark test-yostqsxwqrlt for revision yostqsxwqrlt
     Changes to push to origin:
-      Add bookmark test-yostqsxwqrlt to 4b18f5ea2994
+      Add bookmark test-yostqsxwqrlt to 41aca6a29460
     [EOF]
     ");
 
@@ -1014,11 +1002,11 @@ fn test_git_push_changes_with_name() {
     ");
     // test pushing two changes at once
     work_dir.write_file("file", "modified2");
-    let output = work_dir.run_jj(["git", "push", "--named=b2=all:(@|@-)"]);
+    let output = work_dir.run_jj(["git", "push", "--named=b2=(@|@-)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Revset `all:(@|@-)` resolved to more than one revision
-    Hint: The revset `all:(@|@-)` resolved to these revisions:
+    Error: Revset `(@|@-)` resolved to more than one revision
+    Hint: The revset `(@|@-)` resolved to these revisions:
       yostqsxw 1b2bd869 b1* | pushed
       yqosqzyt 0f8164cd foo
     [EOF]

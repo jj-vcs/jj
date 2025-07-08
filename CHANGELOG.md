@@ -15,7 +15,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * In revsets, symbol expressions (such as change ID prefix) no longer resolve to
   multiple revisions, and error out if resolved to more than one revisions. Use
   `change_id(prefix)` or `bookmarks(exact:name)` to query divergent changes or
-  conflicted bookmarks.
+  conflicted bookmarks. Commands like `jj rebase` no longer require `all:` to
+  specify multiple destination revisions.
 
 * `jj op abandon` now discards previous versions of a change (or predecessors)
   if they become unreachable from the operation history. The evolution history

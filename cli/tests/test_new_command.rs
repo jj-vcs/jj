@@ -144,8 +144,8 @@ fn test_new_merge() {
     [EOF]
     [exit status: 1]
     ");
-    // if prefixed with all:, duplicates are allowed
-    let output = work_dir.run_jj(["new", "@", "all:visible_heads()"]);
+    // duplicates are allowed
+    let output = work_dir.run_jj(["new", "@", "visible_heads()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: nkmrtpmo 24484bf7 (empty) (no description set)

@@ -97,9 +97,8 @@ use crate::ui::Ui;
 /// ```
 ///
 /// Each revision passed to `-s` will become a direct child of the destination,
-/// so if you instead run `jj rebase -s M -s N -d O` (or
-/// `jj rebase -s 'all:M|N' -d O`) in the example above, then N' would instead
-/// be a direct child of O.
+/// so if you instead run `jj rebase -s M -s N -d O` (or `jj rebase -s 'M|N' -d
+/// O`) in the example above, then N' would instead be a direct child of O.
 ///
 /// With `--branch/-b`, the command rebases the whole "branch" containing the
 /// specified revision. A "branch" is the set of revisions that includes:

@@ -1424,7 +1424,7 @@ fn test_file_list_entries() {
         .run_jj(["file", "chmod", "x", "conflict-exec-file"])
         .success();
 
-    work_dir.run_jj(["new", "all:visible_heads()"]).success();
+    work_dir.run_jj(["new", "visible_heads()"]).success();
 
     let template = indoc! {r#"
         separate(" ",

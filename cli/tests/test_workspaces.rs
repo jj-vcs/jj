@@ -137,7 +137,7 @@ fn test_workspaces_add_second_workspace_on_merge() {
 
     main_dir.run_jj(["describe", "-m=left"]).success();
     main_dir.run_jj(["new", "@-", "-m=right"]).success();
-    main_dir.run_jj(["new", "all:@-+", "-m=merge"]).success();
+    main_dir.run_jj(["new", "@-+", "-m=merge"]).success();
 
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output, @r"

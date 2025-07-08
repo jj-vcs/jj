@@ -143,7 +143,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
 
     // CONFLICT: New commit that is conflicted by merging <CHILD1> and <CHILD2>
     work_dir
-        .run_jj(["new", "--message", "boom", "all:(@-)+"])
+        .run_jj(["new", "--message", "boom", "(@-)+"])
         .success();
     // Adding more descendants to ensure we correctly find the root ancestors with
     // conflicts, not just the parents.

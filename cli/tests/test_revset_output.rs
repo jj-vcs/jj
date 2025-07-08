@@ -732,6 +732,7 @@ fn test_bad_alias_decl() {
 #[test]
 fn test_all_modifier() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("ui.always-allow-large-revsets=false");
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 

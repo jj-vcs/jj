@@ -1574,9 +1574,6 @@ to the current parents may contain changes from multiple commits.
 
     /// Evaluates revset expressions to non-empty set of commit IDs. The
     /// returned set preserves the order of the input expressions.
-    ///
-    /// If an input expression is prefixed with `all:`, it may be evaluated to
-    /// any number of revisions (including 0.)
     pub fn resolve_some_revsets_default_single(
         &self,
         ui: &Ui,

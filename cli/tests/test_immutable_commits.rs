@@ -229,7 +229,7 @@ fn test_rewrite_immutable_commands() {
     work_dir.run_jj(["new", "@-", "-m=c"]).success();
     work_dir.write_file("file", "c");
     work_dir
-        .run_jj(["new", "all:visible_heads()", "-m=merge"])
+        .run_jj(["new", "visible_heads()", "-m=merge"])
         .success();
     // Create another file to make sure the merge commit isn't empty (to satisfy `jj
     // split`) and still has a conflict (to satisfy `jj resolve`).

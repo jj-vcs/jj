@@ -679,24 +679,6 @@ show-cryptographic-signatures = true
 '''
 ```
 
-## Allow "large" revsets by default
-
-Certain commands (such as `jj rebase`) can take multiple revset arguments, but
-default to requiring each of those revsets to expand to a *single* revision.
-This restriction can be overridden by prefixing a revset that the user wants to
-be able to expand to more than one revision with the [`all:`
-modifier](revsets.md#the-all-modifier).
-
-Another way you can override this check is by setting
-`ui.always-allow-large-revsets` to `true`. Then, `jj` will allow every one of
-the revset arguments of such commands to expand to any number of revisions.
-
-```toml
-[ui]
-# Assume `all:` prefix before revsets whenever it would make a difference
-always-allow-large-revsets = true
-```
-
 ## Pager
 
 The default pager is can be set via `ui.pager` or the `PAGER` environment

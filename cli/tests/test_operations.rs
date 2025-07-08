@@ -1653,7 +1653,7 @@ fn test_op_diff_sibling() {
     work_dir.write_file("file1", "a\n");
     work_dir.run_jj(["new", "root()", "-mA.2"]).success();
     work_dir.write_file("file2", "a\n");
-    work_dir.run_jj(["new", "all:@-+", "-mA"]).success();
+    work_dir.run_jj(["new", "@-+", "-mA"]).success();
 
     // Create another operation diverged from the base operation.
     work_dir
@@ -1662,15 +1662,15 @@ fn test_op_diff_sibling() {
 
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @r"
-    @    0fce99d88f9f test-username@host.example.com 2001-02-03 04:05:13.000 +07:00 - 2001-02-03 04:05:13.000 +07:00
+    @    d566adf20e48 test-username@host.example.com 2001-02-03 04:05:13.000 +07:00 - 2001-02-03 04:05:13.000 +07:00
     ├─╮  reconcile divergent operations
     │ │  args: jj op log
-    ○ │  9f1e89c03a5b test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    ○ │  7bba3a63b73b test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     │ │  new empty commit
-    │ │  args: jj new 'all:@-+' -mA
-    ○ │  1f3ff302e831 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    │ │  args: jj new '@-+' -mA
+    ○ │  613137e2652f test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     │ │  snapshot working copy
-    │ │  args: jj new 'all:@-+' -mA
+    │ │  args: jj new '@-+' -mA
     ○ │  a625f0ff4f09 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     │ │  new empty commit
     │ │  args: jj new 'root()' -mA.2
@@ -1696,8 +1696,8 @@ fn test_op_diff_sibling() {
         .success();
     let [head_op_id, p1_op_id, _, _, _, _, p2_op_id] =
         output.stdout.raw().lines().next_array().unwrap();
-    insta::assert_snapshot!(head_op_id, @"0fce99d88f9f");
-    insta::assert_snapshot!(p1_op_id, @"9f1e89c03a5b");
+    insta::assert_snapshot!(head_op_id, @"d566adf20e48");
+    insta::assert_snapshot!(p1_op_id, @"7bba3a63b73b");
     insta::assert_snapshot!(p2_op_id, @"252ff3a5a0e6");
 
     // Diff between p1 and p2 operations should work no matter if p2 is chosen
@@ -1714,7 +1714,7 @@ fn test_op_diff_sibling() {
         "--summary",
     ]);
     insta::assert_snapshot!(output, @r"
-    From operation: 9f1e89c03a5b (2001-02-03 08:05:11) new empty commit
+    From operation: 7bba3a63b73b (2001-02-03 08:05:11) new empty commit
       To operation: 252ff3a5a0e6 (2001-02-03 08:05:12) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
 
     Changed commits:
@@ -1745,7 +1745,7 @@ fn test_op_diff_sibling() {
     ]);
     insta::assert_snapshot!(output, @r"
     From operation: 252ff3a5a0e6 (2001-02-03 08:05:12) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
-      To operation: 9f1e89c03a5b (2001-02-03 08:05:11) new empty commit
+      To operation: 7bba3a63b73b (2001-02-03 08:05:11) new empty commit
 
     Changed commits:
     ○  - qpvuntsm hidden b1ca67e2 (empty) B

@@ -78,7 +78,7 @@
                 "always-allow-large-revsets": {
                     "type": "boolean",
                     "description": "Whether to allow large revsets to be used in all commands without the `all:` modifier",
-                    "default": false
+                    "default": true
                 },
                 "default-command": {
                     "description": "Default command to run when no explicit command is given",

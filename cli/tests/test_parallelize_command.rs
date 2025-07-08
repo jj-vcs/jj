@@ -607,7 +607,7 @@ fn test_parallelize_complex_nonlinear_target() {
     work_dir.run_jj(["new", "-m=1", "description(0)"]).success();
     work_dir.run_jj(["new", "-m=2", "description(0)"]).success();
     work_dir.run_jj(["new", "-m=3", "description(0)"]).success();
-    work_dir.run_jj(["new", "-m=4", "all:heads(..)"]).success();
+    work_dir.run_jj(["new", "-m=4", "heads(..)"]).success();
     work_dir
         .run_jj(["new", "-m=1c", "description(1)"])
         .success();

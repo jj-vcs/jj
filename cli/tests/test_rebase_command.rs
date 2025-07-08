@@ -140,14 +140,14 @@ fn test_rebase_empty_sets() {
     let output = work_dir.run_jj(["rebase", "-s=none()", "-d=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Revset `none()` didn't resolve to any revisions
+    Error: Empty revision set
     [EOF]
     [exit status: 1]
     ");
     let output = work_dir.run_jj(["rebase", "-b=none()", "-d=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Revset `none()` didn't resolve to any revisions
+    Error: Empty revision set
     [EOF]
     [exit status: 1]
     ");
@@ -230,20 +230,9 @@ fn test_rebase_bookmark() {
     let output = work_dir.run_jj(["rebase", "-b=e|d", "-d=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Revset `e|d` resolved to more than one revision
-    Hint: The revset `e|d` resolved to these revisions:
-      znkkpsqq 03affc89 e | e
-      vruxwmqv 01a5f35e d | d
-    Hint: Prefix the expression with `all:` to allow any number of revisions (i.e. `all:e|d`).
-    [EOF]
-    [exit status: 1]
-    ");
-    let output = work_dir.run_jj(["rebase", "-b=all:e|d", "-d=b"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
     Skipped rebase of 1 commits that were already in place
     Rebased 1 commits to destination
-    Working copy  (@) now at: znkkpsqq 4ab6a2d1 e | e
+    Working copy  (@) now at: znkkpsqq 1ffd7890 e | e
     Parent commit (@-)      : zsuskuln 123b4d91 b | b
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
@@ -774,7 +763,14 @@ fn test_rebase_multiple_destinations() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-r", "a", "-d", "b|c"]);
+    let output = work_dir.run_jj([
+        "rebase",
+        "--config=ui.always-allow-large-revsets=false",
+        "-r",
+        "a",
+        "-d",
+        "b|c",
+    ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Revset `b|c` resolved to more than one revision
@@ -787,7 +783,14 @@ fn test_rebase_multiple_destinations() {
     ");
 
     // try with 'all:' and succeed
-    let output = work_dir.run_jj(["rebase", "-r", "a", "-d", "all:b|c"]);
+    let output = work_dir.run_jj([
+        "rebase",
+        "--config=ui.always-allow-large-revsets=false",
+        "-r",
+        "a",
+        "-d",
+        "all:b|c",
+    ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -803,16 +806,9 @@ fn test_rebase_multiple_destinations() {
     [EOF]
     ");
 
-    // undo and do it again, but with 'ui.always-allow-large-revsets'
+    // undo and do it again, but without 'ui.always-allow-large-revsets=false'
     work_dir.run_jj(["undo"]).success();
-    work_dir
-        .run_jj([
-            "rebase",
-            "--config=ui.always-allow-large-revsets=true",
-            "-r=a",
-            "-d=b|c",
-        ])
-        .success();
+    work_dir.run_jj(["rebase", "-r=a", "-d=b|c"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○    a: c b
     ├─╮
@@ -826,18 +822,15 @@ fn test_rebase_multiple_destinations() {
     let output = work_dir.run_jj(["rebase", "-r", "a", "-d", "b", "-d", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: More than one revset resolved to revision d18ca3e87135
+    Rebased 1 commits to destination
     [EOF]
-    [exit status: 1]
     ");
 
-    // Same error with 'all:' if there is overlap.
-    let output = work_dir.run_jj(["rebase", "-r", "a", "-d", "all:b|c", "-d", "b"]);
+    let output = work_dir.run_jj(["rebase", "-r", "a", "-d", "b|c", "-d", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: More than one revset resolved to revision d18ca3e87135
+    Rebased 1 commits to destination
     [EOF]
-    [exit status: 1]
     ");
 
     let output = work_dir.run_jj(["rebase", "-r", "a", "-d", "b", "-d", "root()"]);
@@ -952,19 +945,8 @@ fn test_rebase_with_descendants() {
     let output = work_dir.run_jj(["rebase", "-s=b|d", "-d=a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Revset `b|d` resolved to more than one revision
-    Hint: The revset `b|d` resolved to these revisions:
-      vruxwmqv 2619e864 d | d
-      zsuskuln d18ca3e8 b | b
-    Hint: Prefix the expression with `all:` to allow any number of revisions (i.e. `all:b|d`).
-    [EOF]
-    [exit status: 1]
-    ");
-    let output = work_dir.run_jj(["rebase", "-s=all:b|d", "-d=a"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
     Rebased 3 commits to destination
-    Working copy  (@) now at: vruxwmqv 743c3f26 d | d
+    Working copy  (@) now at: vruxwmqv f6c6224e d | d
     Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
