@@ -20,6 +20,7 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::io;
 use std::io::Write as _;
+use std::iter;
 use std::ops::Bound;
 use std::path::Path;
 use std::sync::Arc;
@@ -164,35 +165,27 @@ impl MutableIndexSegment {
         }
     }
 
-    pub(super) fn merge_in(&mut self, other: Arc<ReadonlyIndexSegment>) {
-        let mut maybe_own_ancestor = self.parent_file.clone();
-        let mut maybe_other_ancestor = Some(other);
-        let mut files_to_add = vec![];
-        loop {
-            if maybe_other_ancestor.is_none() {
-                break;
-            }
-            let other_ancestor = maybe_other_ancestor.as_ref().unwrap();
-            if maybe_own_ancestor.is_none() {
-                files_to_add.push(other_ancestor.clone());
-                maybe_other_ancestor = other_ancestor.parent_file().cloned();
-                continue;
-            }
-            let own_ancestor = maybe_own_ancestor.as_ref().unwrap();
-            if own_ancestor.name() == other_ancestor.name() {
-                break;
-            }
-            if own_ancestor.as_composite().num_commits()
-                < other_ancestor.as_composite().num_commits()
-            {
-                files_to_add.push(other_ancestor.clone());
-                maybe_other_ancestor = other_ancestor.parent_file().cloned();
-            } else {
-                maybe_own_ancestor = own_ancestor.parent_file().cloned();
-            }
-        }
+    pub(super) fn merge_in(&mut self, other: &Arc<ReadonlyIndexSegment>) {
+        // Collect other segments down to the common ancestor segment
+        let files_to_add = itertools::merge_join_by(
+            self.as_composite().ancestor_files_without_local(),
+            iter::once(other).chain(other.as_composite().ancestor_files_without_local()),
+            |own, other| {
+                let own_num_commits = own.as_composite().num_commits();
+                let other_num_commits = other.as_composite().num_commits();
+                own_num_commits.cmp(&other_num_commits).reverse()
+            },
+        )
+        .take_while(|own_other| {
+            own_other
+                .as_ref()
+                .both()
+                .is_none_or(|(own, other)| own.name() != other.name())
+        })
+        .filter_map(|own_other| own_other.right())
+        .collect_vec();
 
-        for file in files_to_add.iter().rev() {
+        for &file in files_to_add.iter().rev() {
             self.add_commits_from(file.as_ref());
         }
     }
@@ -563,7 +556,7 @@ impl MutableIndex for DefaultMutableIndex {
             .as_any()
             .downcast_ref::<DefaultReadonlyIndex>()
             .expect("index to merge in must be a DefaultReadonlyIndex");
-        self.0.merge_in(other.as_segment().clone());
+        self.0.merge_in(other.as_segment());
     }
 }
 
