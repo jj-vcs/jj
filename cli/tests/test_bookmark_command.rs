@@ -627,7 +627,7 @@ fn test_bookmark_rename() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Tracked remote bookmarks for bookmark bremote were not renamed.
-    Hint: To rename the bookmark on the remote, you can `jj git push --bookmark bremote` first (to delete it on the remote), and then `jj git push --bookmark bremote2`. `jj git push --all` would also be sufficient.
+    Hint: To rename the bookmark on the remote, you can `jj git push --bookmark bremote` first (to delete it on the remote), and then `jj git push --bookmark bremote2`. `jj git push --all --deleted` would also be sufficient.
     [EOF]
     ");
     let output = work_dir.run_jj(["bookmark", "rename", "bremote2", "bremote"]);
