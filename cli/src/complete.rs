@@ -20,6 +20,7 @@ use clap::FromArgMatches as _;
 use clap::builder::StyledStr;
 use clap_complete::CompletionCandidate;
 use indoc::indoc;
+use indexmap::IndexMap;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::file_util::normalize_path;
@@ -300,8 +301,6 @@ fn revisions(match_prefix: &str, revset_filter: Option<&str>) -> Vec<CompletionC
         const REMOTE_BOOKMARK: usize = 3;
         const REVSET_ALIAS: usize = 4;
 
-        let mut candidates = Vec::new();
-
         // bookmarks
 
         let mut cmd = jj.build();
@@ -312,7 +311,7 @@ fn revisions(match_prefix: &str, revset_filter: Option<&str>) -> Vec<CompletionC
             .arg(BOOKMARK_HELP_TEMPLATE)
             .arg("--template")
             .arg(
-                r#"if(remote != "git", name ++ if(remote, "@" ++ remote) ++ bookmark_help() ++ "\n")"#,
+                r#"if(remote != "git", format_short_id(normal_target.commit_id()) ++ " " ++ name ++ if(remote, "@" ++ remote) ++ bookmark_help() ++ "\n")"#,
             );
         if let Some(revs) = revset_filter {
             cmd.arg("--revisions").arg(revs);
@@ -320,22 +319,45 @@ fn revisions(match_prefix: &str, revset_filter: Option<&str>) -> Vec<CompletionC
         let output = cmd.output().map_err(user_error)?;
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        candidates.extend(
-            stdout
-                .lines()
-                .map(split_help_text)
-                .filter(|(bookmark, _)| bookmark.starts_with(match_prefix))
-                .map(|(bookmark, help)| {
-                    let local = !bookmark.contains('@');
-                    let display_order = match local {
-                        true => LOCAL_BOOKMARK,
-                        false => REMOTE_BOOKMARK,
-                    };
+        let mut bookmarks = IndexMap::<_, Vec<_>>::new();
+        for line in stdout.lines() {
+            let (commit_id, line) = line.split_once(' ').unwrap();
+            let (bookmark, help) = split_help_text(line);
+            let bookmark_name = bookmark.split('@').next().unwrap_or(bookmark);
+
+            bookmarks
+                .entry(bookmark_name)
+                .or_default()
+                .push((commit_id, bookmark, help));
+        }
+
+        let mut candidates = Vec::with_capacity(bookmarks.len());
+
+        for (_, bookmarks) in bookmarks {
+            let (first, rest) = bookmarks.split_first().unwrap();
+            let all_same_commit = rest.iter().all(|&(commit_id, _, _)| commit_id == first.0);
+
+            for (_, bookmark, help) in bookmarks {
+                if !bookmark.starts_with(match_prefix) {
+                    continue;
+                }
+
+                let local = !bookmark.contains('@');
+                let display_order = match local {
+                    true => LOCAL_BOOKMARK,
+                    false => REMOTE_BOOKMARK,
+                };
+                candidates.push(
                     CompletionCandidate::new(bookmark)
                         .help(help)
-                        .display_order(Some(display_order))
-                }),
-        );
+                        .display_order(Some(display_order)),
+                );
+
+                if all_same_commit {
+                    break;
+                }
+            }
+        }
 
         // tags
 
