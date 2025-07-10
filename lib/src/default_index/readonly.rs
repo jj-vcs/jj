@@ -30,6 +30,7 @@ use thiserror::Error;
 use super::composite::AsCompositeIndex;
 use super::composite::ChangeIdIndexImpl;
 use super::composite::CommitIndexSegment;
+use super::composite::CommitIndexSegmentId;
 use super::composite::CompositeCommitIndex;
 use super::composite::CompositeIndex;
 use super::composite::IndexStats;
@@ -233,7 +234,7 @@ impl CommitGraphEntry<'_> {
 pub(super) struct ReadonlyCommitIndexSegment {
     parent_file: Option<Arc<ReadonlyCommitIndexSegment>>,
     num_parent_commits: u32,
-    name: String,
+    id: CommitIndexSegmentId,
     field_lengths: FieldLengths,
     // Number of commits not counting the parent file
     num_local_commits: u32,
@@ -251,7 +252,7 @@ pub(super) struct ReadonlyCommitIndexSegment {
 impl Debug for ReadonlyCommitIndexSegment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         f.debug_struct("ReadonlyCommitIndexSegment")
-            .field("name", &self.name)
+            .field("id", &self.id)
             .field("parent_file", &self.parent_file)
             .finish_non_exhaustive()
     }
@@ -261,22 +262,22 @@ impl ReadonlyCommitIndexSegment {
     /// Loads both parent segments and local entries from the given file `name`.
     pub(super) fn load(
         dir: &Path,
-        name: String,
+        id: CommitIndexSegmentId,
         lengths: FieldLengths,
     ) -> Result<Arc<Self>, ReadonlyIndexLoadError> {
-        let mut file = File::open(dir.join(&name))
-            .map_err(|err| ReadonlyIndexLoadError::from_io_err(&name, err))?;
-        Self::load_from(&mut file, dir, name, lengths)
+        let mut file = File::open(dir.join(id.hex()))
+            .map_err(|err| ReadonlyIndexLoadError::from_io_err(id.hex(), err))?;
+        Self::load_from(&mut file, dir, id, lengths)
     }
 
     /// Loads both parent segments and local entries from the given `file`.
     pub(super) fn load_from(
         file: &mut dyn Read,
         dir: &Path,
-        name: String,
+        id: CommitIndexSegmentId,
         lengths: FieldLengths,
     ) -> Result<Arc<Self>, ReadonlyIndexLoadError> {
-        let from_io_err = |err| ReadonlyIndexLoadError::from_io_err(&name, err);
+        let from_io_err = |err| ReadonlyIndexLoadError::from_io_err(id.hex(), err);
         let read_u32 = |file: &mut dyn Read| {
             let mut buf = [0; 4];
             file.read_exact(&mut buf).map_err(from_io_err)?;
@@ -294,26 +295,30 @@ impl ReadonlyCommitIndexSegment {
             let mut parent_filename_bytes = vec![0; parent_filename_len as usize];
             file.read_exact(&mut parent_filename_bytes)
                 .map_err(from_io_err)?;
-            let parent_filename = String::from_utf8(parent_filename_bytes).map_err(|_| {
-                ReadonlyIndexLoadError::invalid_data(&name, "parent file name is not valid UTF-8")
-            })?;
-            let parent_file = Self::load(dir, parent_filename, lengths)?;
+            let parent_file_id = CommitIndexSegmentId::try_from_hex(parent_filename_bytes)
+                .ok_or_else(|| {
+                    ReadonlyIndexLoadError::invalid_data(
+                        id.hex(),
+                        "parent file name is not valid hex",
+                    )
+                })?;
+            let parent_file = Self::load(dir, parent_file_id, lengths)?;
             Some(parent_file)
         } else {
             None
         };
-        Self::load_with_parent_file(file, name, maybe_parent_file, lengths)
+        Self::load_with_parent_file(file, id, maybe_parent_file, lengths)
     }
 
     /// Loads local entries from the given `file`, returns new segment linked to
     /// the given `parent_file`.
     pub(super) fn load_with_parent_file(
         file: &mut dyn Read,
-        name: String,
+        id: CommitIndexSegmentId,
         parent_file: Option<Arc<Self>>,
         lengths: FieldLengths,
     ) -> Result<Arc<Self>, ReadonlyIndexLoadError> {
-        let from_io_err = |err| ReadonlyIndexLoadError::from_io_err(&name, err);
+        let from_io_err = |err| ReadonlyIndexLoadError::from_io_err(id.hex(), err);
         let read_u32 = |file: &mut dyn Read| {
             let mut buf = [0; 4];
             file.read_exact(&mut buf).map_err(from_io_err)?;
@@ -347,7 +352,7 @@ impl ReadonlyCommitIndexSegment {
 
         if data.len() != expected_size {
             return Err(ReadonlyIndexLoadError::invalid_data(
-                name,
+                id.hex(),
                 "unexpected data length",
             ));
         }
@@ -355,7 +360,7 @@ impl ReadonlyCommitIndexSegment {
         Ok(Arc::new(ReadonlyCommitIndexSegment {
             parent_file,
             num_parent_commits,
-            name,
+            id,
             field_lengths: lengths,
             num_local_commits,
             num_local_change_ids,
@@ -373,8 +378,8 @@ impl ReadonlyCommitIndexSegment {
         CompositeCommitIndex::new(self)
     }
 
-    pub(super) fn name(&self) -> &str {
-        &self.name
+    pub(super) fn id(&self) -> &CommitIndexSegmentId {
+        &self.id
     }
 
     pub(super) fn field_lengths(&self) -> FieldLengths {
@@ -470,8 +475,8 @@ impl CommitIndexSegment for ReadonlyCommitIndexSegment {
         self.parent_file.as_ref()
     }
 
-    fn name(&self) -> Option<String> {
-        Some(self.name.clone())
+    fn id(&self) -> Option<&CommitIndexSegmentId> {
+        Some(&self.id)
     }
 
     fn commit_id_to_pos(&self, commit_id: &CommitId) -> Option<LocalCommitPosition> {

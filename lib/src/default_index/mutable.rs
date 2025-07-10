@@ -37,6 +37,7 @@ use tempfile::NamedTempFile;
 use super::composite::AsCompositeIndex;
 use super::composite::ChangeIdIndexImpl;
 use super::composite::CommitIndexSegment;
+use super::composite::CommitIndexSegmentId;
 use super::composite::CompositeCommitIndex;
 use super::composite::CompositeIndex;
 use super::composite::DynCommitIndexSegment;
@@ -53,7 +54,6 @@ use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::file_util::persist_content_addressed_temp_file;
-use crate::hex_util;
 use crate::index::AllHeadsForGcUnsupported;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
@@ -184,7 +184,7 @@ impl MutableCommitIndexSegment {
             own_other
                 .as_ref()
                 .both()
-                .is_none_or(|(own, other)| own.name() != other.name())
+                .is_none_or(|(own, other)| own.id() != other.id())
         })
         .filter_map(|own_other| own_other.right())
         .collect_vec();
@@ -196,12 +196,9 @@ impl MutableCommitIndexSegment {
 
     fn serialize_parent_filename(&self, buf: &mut Vec<u8>) {
         if let Some(parent_file) = &self.parent_file {
-            buf.extend(
-                u32::try_from(parent_file.name().len())
-                    .unwrap()
-                    .to_le_bytes(),
-            );
-            buf.extend_from_slice(parent_file.name().as_bytes());
+            let hex = parent_file.id().hex();
+            buf.extend(u32::try_from(hex.len()).unwrap().to_le_bytes());
+            buf.extend_from_slice(hex.as_bytes());
         } else {
             buf.extend(0_u32.to_le_bytes());
         }
@@ -358,8 +355,8 @@ impl MutableCommitIndexSegment {
         self.serialize_local_entries(&mut buf);
         let mut hasher = Blake2b512::new();
         hasher.update(&buf);
-        let index_file_id_hex = hex_util::encode_hex(&hasher.finalize());
-        let index_file_path = dir.join(&index_file_id_hex);
+        let index_file_id = CommitIndexSegmentId::from_bytes(&hasher.finalize());
+        let index_file_path = dir.join(index_file_id.hex());
 
         let mut temp_file = NamedTempFile::new_in(dir)?;
         let file = temp_file.as_file_mut();
@@ -368,7 +365,7 @@ impl MutableCommitIndexSegment {
 
         Ok(ReadonlyCommitIndexSegment::load_with_parent_file(
             &mut &buf[local_entries_offset..],
-            index_file_id_hex,
+            index_file_id,
             self.parent_file,
             self.field_lengths,
         )
@@ -389,7 +386,7 @@ impl CommitIndexSegment for MutableCommitIndexSegment {
         self.parent_file.as_ref()
     }
 
-    fn name(&self) -> Option<String> {
+    fn id(&self) -> Option<&CommitIndexSegmentId> {
         None
     }
 
