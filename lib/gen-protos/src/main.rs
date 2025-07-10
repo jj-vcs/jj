@@ -17,9 +17,10 @@ use std::path::Path;
 
 fn main() -> Result<()> {
     let input = [
+        "default_index.proto",
         "git_store.proto",
-        "simple_store.proto",
         "op_store.proto",
+        "simple_store.proto",
         "working_copy.proto",
     ];
 

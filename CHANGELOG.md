@@ -12,6 +12,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+* The on-disk index format has changed. `jj` will write index files in both old
+  and new formats, so old `jj` versions should be able to read these index
+  files. This compatibility layer will be removed in a future release.
+
 ### New features
 
 * `jj file show` now accepts `-T`/`--template` option to insert file metadata.

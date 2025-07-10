@@ -26,6 +26,7 @@ use std::slice;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
+use prost::Message as _;
 use tempfile::NamedTempFile;
 use tempfile::PersistError;
 use thiserror::Error;
@@ -74,12 +75,12 @@ impl From<DefaultIndexStoreInitError> for BackendInitError {
 
 #[derive(Debug, Error)]
 pub enum DefaultIndexStoreError {
-    #[error("Failed to associate commit index file with an operation {op_id}")]
+    #[error("Failed to associate index files with an operation {op_id}")]
     AssociateIndex {
         op_id: OperationId,
         source: PathError,
     },
-    #[error("Failed to load associated commit index file name")]
+    #[error("Failed to load associated index file names")]
     LoadAssociation(#[source] PathError),
     #[error(transparent)]
     LoadIndex(ReadonlyIndexLoadError),
@@ -122,7 +123,8 @@ impl DefaultIndexStore {
         // Create base directories in case the store was initialized by old jj.
         self.ensure_base_dirs()?;
         // Remove all operation links to trigger rebuilding.
-        file_util::remove_dir_contents(&self.operations_dir())?;
+        file_util::remove_dir_contents(&self.op_links_dir())?;
+        file_util::remove_dir_contents(&self.legacy_operations_dir())?;
         // Remove index segments to save disk space. If raced, new segment file
         // will be created by the other process.
         file_util::remove_dir_contents(&self.commit_segments_dir())?;
@@ -140,13 +142,23 @@ impl DefaultIndexStore {
     }
 
     fn ensure_base_dirs(&self) -> Result<(), PathError> {
-        for dir in [self.operations_dir(), self.commit_segments_dir()] {
+        for dir in [
+            self.op_links_dir(),
+            self.legacy_operations_dir(),
+            self.commit_segments_dir(),
+        ] {
             file_util::create_or_reuse_dir(&dir).context(&dir)?;
         }
         Ok(())
     }
 
-    fn operations_dir(&self) -> PathBuf {
+    /// Directory for mapping from operations to segments. (jj >= 0.33)
+    fn op_links_dir(&self) -> PathBuf {
+        self.dir.join("op_links")
+    }
+
+    /// Directory for mapping from operations to commit segments. (jj < 0.33)
+    fn legacy_operations_dir(&self) -> PathBuf {
         self.dir.join("operations")
     }
 
@@ -160,14 +172,30 @@ impl DefaultIndexStore {
         op_id: &OperationId,
         lengths: FieldLengths,
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
-        let op_id_file = self.operations_dir().join(op_id.hex());
-        let index_file_id_hex = fs::read(&op_id_file)
-            .context(&op_id_file)
-            .map_err(DefaultIndexStoreError::LoadAssociation)?;
-        let index_file_id = CommitIndexSegmentId::try_from_hex(&index_file_id_hex)
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "file name is not valid hex"))
-            .context(&op_id_file)
-            .map_err(DefaultIndexStoreError::LoadAssociation)?;
+        let op_link_file = self.op_links_dir().join(op_id.hex());
+        let index_file_id = match fs::read(&op_link_file).context(&op_link_file) {
+            Ok(data) => {
+                let proto = crate::protos::default_index::SegmentControl::decode(&*data)
+                    .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))
+                    .context(&op_link_file)
+                    .map_err(DefaultIndexStoreError::LoadAssociation)?;
+                CommitIndexSegmentId::new(proto.commit_segment_id)
+            }
+            // TODO: drop support for legacy operation link file in jj 0.39 or so
+            Err(PathError { error, .. }) if error.kind() == io::ErrorKind::NotFound => {
+                let op_id_file = self.legacy_operations_dir().join(op_id.hex());
+                let data = fs::read(&op_id_file)
+                    .context(&op_id_file)
+                    .map_err(DefaultIndexStoreError::LoadAssociation)?;
+                CommitIndexSegmentId::try_from_hex(&data)
+                    .ok_or_else(|| {
+                        io::Error::new(io::ErrorKind::InvalidData, "file name is not valid hex")
+                    })
+                    .context(&op_id_file)
+                    .map_err(DefaultIndexStoreError::LoadAssociation)?
+            }
+            Err(err) => return Err(DefaultIndexStoreError::LoadAssociation(err)),
+        };
         let commits =
             ReadonlyCommitIndexSegment::load(&self.commit_segments_dir(), index_file_id, lengths)
                 .map_err(DefaultIndexStoreError::LoadIndex)?;
@@ -186,7 +214,8 @@ impl DefaultIndexStore {
         store: &Arc<Store>,
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
         tracing::info!("scanning operations to index");
-        let operations_dir = self.operations_dir();
+        let op_links_dir = self.op_links_dir();
+        let legacy_operations_dir = self.legacy_operations_dir();
         let field_lengths = FieldLengths {
             commit_id: store.commit_id_length(),
             change_id: store.change_id_length(),
@@ -196,7 +225,9 @@ impl DefaultIndexStore {
         let mut parent_op = None;
         for op in op_walk::walk_ancestors(slice::from_ref(operation)) {
             let op = op?;
-            if operations_dir.join(op.id().hex()).is_file() {
+            if op_links_dir.join(op.id().hex()).is_file()
+                || legacy_operations_dir.join(op.id().hex()).is_file()
+            {
                 parent_op = Some(op);
                 break;
             } else {
@@ -322,6 +353,9 @@ impl DefaultIndexStore {
         index: DefaultMutableIndex,
         op_id: &OperationId,
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
+        // Create directories in case the store was initialized by jj < 0.33.
+        self.ensure_base_dirs()
+            .map_err(DefaultIndexStoreError::SaveIndex)?;
         let (commits, changed_paths) = index.into_segment();
         let commits = commits
             .maybe_squash_with_ancestors()
@@ -343,7 +377,22 @@ impl DefaultIndexStore {
         index: &DefaultReadonlyIndex,
         op_id: &OperationId,
     ) -> Result<(), PathError> {
-        let dir = self.operations_dir();
+        let proto = crate::protos::default_index::SegmentControl {
+            commit_segment_id: index.readonly_commits().id().to_bytes(),
+        };
+        let dir = self.op_links_dir();
+        let mut temp_file = NamedTempFile::new_in(&dir).context(&dir)?;
+        let file = temp_file.as_file_mut();
+        file.write_all(&proto.encode_to_vec())
+            .context(temp_file.path())?;
+        let path = dir.join(op_id.hex());
+        temp_file
+            .persist(&path)
+            .map_err(|PersistError { error, file: _ }| error)
+            .context(&path)?;
+
+        // TODO: drop support for legacy operation link file in jj 0.39 or so
+        let dir = self.legacy_operations_dir();
         let mut temp_file = NamedTempFile::new_in(&dir).context(&dir)?;
         let file = temp_file.as_file_mut();
         file.write_all(index.readonly_commits().id().hex().as_bytes())

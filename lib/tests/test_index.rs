@@ -695,9 +695,11 @@ fn test_reindex_from_merged_operation() {
     let index = as_readonly_index(&repo);
     assert_eq!(index.num_commits(), 4);
 
-    let index_operations_dir = test_repo.repo_path().join("index").join("operations");
+    let op_links_dir = test_repo.repo_path().join("index").join("op_links");
+    let legacy_operations_dir = test_repo.repo_path().join("index").join("operations");
     for &op_id in &op_ids_to_delete {
-        fs::remove_file(index_operations_dir.join(op_id.hex())).unwrap();
+        fs::remove_file(op_links_dir.join(op_id.hex())).unwrap();
+        fs::remove_file(legacy_operations_dir.join(op_id.hex())).unwrap();
     }
 
     // When re-indexing, one of the merge parent operations will be selected as
@@ -753,6 +755,29 @@ fn test_index_store_type() {
         std::fs::read_to_string(index_store_type_path).unwrap(),
         "default"
     );
+}
+
+#[test]
+fn test_read_legacy_operation_link_file() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    // Delete new operation link files and directory
+    let op_links_dir = test_repo.repo_path().join("index").join("op_links");
+    fs::remove_dir_all(&op_links_dir).unwrap();
+
+    // Reload repo and index
+    let repo = repo.reload_at(repo.operation()).unwrap();
+    let _ = repo.readonly_index();
+    // Existing index should still be readable, so new operation link file won't
+    // be created
+    assert!(!op_links_dir.join(repo.op_id().hex()).exists());
+
+    // New operation link file and directory can be created
+    let mut tx = repo.start_transaction();
+    write_random_commit(tx.repo_mut());
+    let repo = tx.commit("test").unwrap();
+    assert!(op_links_dir.join(repo.op_id().hex()).exists());
 }
 
 #[test]
