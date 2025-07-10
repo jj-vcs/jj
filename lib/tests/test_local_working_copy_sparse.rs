@@ -72,6 +72,7 @@ fn test_sparse_checkout() {
     let stats = locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns.clone())
+        .block_on()
         .unwrap();
     assert_eq!(
         stats,
@@ -145,6 +146,7 @@ fn test_sparse_checkout() {
     let sparse_patterns = to_owned_path_vec(&[root_file1_path, dir1_subdir1_path, dir2_path]);
     let stats = locked_wc
         .set_sparse_patterns(sparse_patterns.clone())
+        .block_on()
         .unwrap();
     assert_eq!(
         stats,
@@ -186,7 +188,7 @@ fn test_sparse_checkout() {
             .to_fs_path_unchecked(&working_copy_path)
             .exists()
     );
-    let wc = locked_wc.finish(repo.op_id().clone()).unwrap();
+    let wc = locked_wc.finish(repo.op_id().clone()).block_on().unwrap();
     let wc: &LocalWorkingCopy = wc.downcast_ref().unwrap();
     assert_eq!(
         wc.file_states().unwrap().paths().collect_vec(),
@@ -232,6 +234,7 @@ fn test_sparse_commit() {
     locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns)
+        .block_on()
         .unwrap();
     locked_ws.finish(repo.op_id().clone()).unwrap();
 
@@ -273,6 +276,7 @@ fn test_sparse_commit() {
     locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns)
+        .block_on()
         .unwrap();
     locked_ws.finish(op_id).unwrap();
 
@@ -308,6 +312,7 @@ fn test_sparse_commit_gitignore() {
     locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns)
+        .block_on()
         .unwrap();
     locked_ws.finish(repo.op_id().clone()).unwrap();
 

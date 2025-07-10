@@ -153,6 +153,7 @@ pub fn cmd_workspace_add(
         locked_ws
             .locked_wc()
             .set_sparse_patterns(sparse_patterns)
+            .block_on()
             .map_err(|err| internal_error_with_message("Failed to set sparse patterns", err))?;
         let operation_id = locked_ws.locked_wc().old_operation_id().clone();
         locked_ws.finish(operation_id)?;

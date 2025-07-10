@@ -19,6 +19,7 @@ use itertools::Itertools as _;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::repo::Repo as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -77,10 +78,10 @@ pub(crate) fn cmd_file_untrack(
         .set_tree_id(new_tree_id)
         .write()?;
     // Reset the working copy to the new commit
-    locked_ws.locked_wc().reset(&new_commit)?;
+    locked_ws.locked_wc().reset(&new_commit).block_on()?;
     // Commit the working copy again so we can inform the user if paths couldn't be
     // untracked because they're not ignored.
-    let (wc_tree_id, stats) = locked_ws.locked_wc().snapshot(&options)?;
+    let (wc_tree_id, stats) = locked_ws.locked_wc().snapshot(&options).block_on()?;
     if wc_tree_id != *new_commit.tree_id() {
         let wc_tree = store.get_root_tree(&wc_tree_id)?;
         let added_back = wc_tree.entries_matching(matcher.as_ref()).collect_vec();
@@ -105,7 +106,7 @@ Make sure they're ignored, then try again.",
         } else {
             // This means there were some concurrent changes made in the working copy. We
             // don't want to mix those in, so reset the working copy again.
-            locked_ws.locked_wc().reset(&new_commit)?;
+            locked_ws.locked_wc().reset(&new_commit).block_on()?;
         }
     }
     let num_rebased = tx.repo_mut().rebase_descendants()?;

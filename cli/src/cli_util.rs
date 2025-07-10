@@ -1159,7 +1159,7 @@ impl WorkspaceCommandHelper {
             // The working copy was presumably updated by the git command that updated
             // HEAD, so we just need to reset our working copy
             // state to it without updating working copy files.
-            locked_ws.locked_wc().reset(&wc_commit)?;
+            locked_ws.locked_wc().reset(&wc_commit).block_on()?;
             tx.repo_mut().rebase_descendants()?;
             self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head")?);
             locked_ws.finish(self.user_repo.repo.op_id().clone())?;
@@ -1911,6 +1911,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             locked_ws
                 .locked_wc()
                 .snapshot(&options)
+                .block_on()
                 .map_err(snapshot_command_error)?
         };
         if new_tree_id != *wc_commit.tree_id() {
@@ -2564,7 +2565,7 @@ pub fn start_repo_transaction(repo: &Arc<ReadonlyRepo>, string_args: &[String]) 
 }
 
 fn update_stale_working_copy(
-    mut locked_ws: LockedWorkspace,
+    mut locked_ws: LockedWorkspace<'_>,
     op_id: OperationId,
     stale_commit: &Commit,
     new_commit: &Commit,
@@ -2574,12 +2575,16 @@ fn update_stale_working_copy(
     if stale_commit.tree_id() != locked_ws.locked_wc().old_tree_id() {
         return Err(user_error("Concurrent working copy operation. Try again."));
     }
-    let stats = locked_ws.locked_wc().check_out(new_commit).map_err(|err| {
-        internal_error_with_message(
-            format!("Failed to check out commit {}", new_commit.id().hex()),
-            err,
-        )
-    })?;
+    let stats = locked_ws
+        .locked_wc()
+        .check_out(new_commit)
+        .block_on()
+        .map_err(|err| {
+            internal_error_with_message(
+                format!("Failed to check out commit {}", new_commit.id().hex()),
+                err,
+            )
+        })?;
     locked_ws.finish(op_id)?;
 
     Ok(stats)

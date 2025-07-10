@@ -39,6 +39,7 @@ use std::sync::mpsc::Sender;
 use std::sync::mpsc::channel;
 use std::time::UNIX_EPOCH;
 
+use async_trait::async_trait;
 use either::Either;
 use futures::StreamExt as _;
 use itertools::EitherOrBoth;
@@ -2348,6 +2349,7 @@ pub struct LockedLocalWorkingCopy {
     _lock: FileLock,
 }
 
+#[async_trait]
 impl LockedWorkingCopy for LockedLocalWorkingCopy {
     fn old_operation_id(&self) -> &OperationId {
         &self.old_operation_id
@@ -2357,7 +2359,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         &self.old_tree_id
     }
 
-    fn snapshot(
+    async fn snapshot(
         &mut self,
         options: &SnapshotOptions,
     ) -> Result<(MergedTreeId, SnapshotStats), SnapshotError> {
@@ -2367,7 +2369,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         Ok((tree_state.current_tree_id().clone(), stats))
     }
 
-    fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError> {
+    async fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError> {
         // TODO: Write a "pending_checkout" file with the new TreeId so we can
         // continue an interrupted update if we find such a file.
         let new_tree = commit.tree()?;
@@ -2385,16 +2387,16 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         self.new_workspace_name = Some(new_name);
     }
 
-    fn reset(&mut self, commit: &Commit) -> Result<(), ResetError> {
+    async fn reset(&mut self, commit: &Commit) -> Result<(), ResetError> {
         let new_tree = commit.tree()?;
-        self.wc.tree_state_mut()?.reset(&new_tree).block_on()?;
+        self.wc.tree_state_mut()?.reset(&new_tree).await?;
         self.tree_state_dirty = true;
         Ok(())
     }
 
-    fn recover(&mut self, commit: &Commit) -> Result<(), ResetError> {
+    async fn recover(&mut self, commit: &Commit) -> Result<(), ResetError> {
         let new_tree = commit.tree()?;
-        self.wc.tree_state_mut()?.recover(&new_tree).block_on()?;
+        self.wc.tree_state_mut()?.recover(&new_tree).await?;
         self.tree_state_dirty = true;
         Ok(())
     }
@@ -2403,7 +2405,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         self.wc.sparse_patterns()
     }
 
-    fn set_sparse_patterns(
+    async fn set_sparse_patterns(
         &mut self,
         new_sparse_patterns: Vec<RepoPathBuf>,
     ) -> Result<CheckoutStats, CheckoutError> {
@@ -2418,7 +2420,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
     }
 
     #[instrument(skip_all)]
-    fn finish(
+    async fn finish(
         mut self: Box<Self>,
         operation_id: OperationId,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
