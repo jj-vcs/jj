@@ -17,6 +17,9 @@
 // predecessors.map(|p| "predecessor: " ++ p.commit_id)
 // parents.map(|p| p.commit_id ++ " is a parent of " ++ commit_id)
 
+// If making significant changes to this grammar, consider also updating the
+// tree-sitter grammar: https://github.com/bryceberger/tree-sitter-jjtemplate
+
 whitespace = _{ " " | "\t" | "\r" | "\n" | "\x0c" }
 
 string_escape = @{
