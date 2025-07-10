@@ -45,6 +45,7 @@ use crate::index::AllHeadsForGcUnsupported;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
 use crate::index::IndexError;
+use crate::object_id::id_type;
 use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId as _;
 use crate::object_id::PrefixResolution;
@@ -53,6 +54,8 @@ use crate::revset::Revset;
 use crate::revset::RevsetEvaluationError;
 use crate::store::Store;
 
+id_type!(pub(super) CommitIndexSegmentId { hex() });
+
 pub(super) trait CommitIndexSegment: Send + Sync {
     fn num_parent_commits(&self) -> u32;
 
@@ -60,7 +63,7 @@ pub(super) trait CommitIndexSegment: Send + Sync {
 
     fn parent_file(&self) -> Option<&Arc<ReadonlyCommitIndexSegment>>;
 
-    fn name(&self) -> Option<String>;
+    fn id(&self) -> Option<&CommitIndexSegmentId>;
 
     fn commit_id_to_pos(&self, commit_id: &CommitId) -> Option<LocalCommitPosition>;
 
@@ -168,7 +171,7 @@ impl CompositeCommitIndex {
             .ancestor_index_segments()
             .map(|segment| CommitIndexLevelStats {
                 num_commits: segment.num_local_commits(),
-                name: segment.name(),
+                name: segment.id().map(|id| id.hex()),
             })
             .collect_vec();
         commit_levels.reverse();

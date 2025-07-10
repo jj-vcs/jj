@@ -29,6 +29,7 @@ use itertools::Itertools as _;
 use tempfile::NamedTempFile;
 use thiserror::Error;
 
+use super::composite::CommitIndexSegmentId;
 use super::mutable::DefaultMutableIndex;
 use super::readonly::DefaultReadonlyIndex;
 use super::readonly::FieldLengths;
@@ -158,8 +159,15 @@ impl DefaultIndexStore {
     ) -> Result<Arc<ReadonlyCommitIndexSegment>, DefaultIndexStoreError> {
         let op_id_file = self.operations_dir().join(op_id.hex());
         let index_file_id_hex =
-            fs::read_to_string(op_id_file).map_err(DefaultIndexStoreError::LoadAssociation)?;
-        ReadonlyCommitIndexSegment::load(&self.segments_dir(), index_file_id_hex, lengths)
+            fs::read(op_id_file).map_err(DefaultIndexStoreError::LoadAssociation)?;
+        let index_file_id =
+            CommitIndexSegmentId::try_from_hex(&index_file_id_hex).ok_or_else(|| {
+                DefaultIndexStoreError::LoadAssociation(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "file name is not valid hex",
+                ))
+            })?;
+        ReadonlyCommitIndexSegment::load(&self.segments_dir(), index_file_id, lengths)
             .map_err(DefaultIndexStoreError::LoadIndex)
     }
 
@@ -343,7 +351,7 @@ impl DefaultIndexStore {
         let dir = self.operations_dir();
         let mut temp_file = NamedTempFile::new_in(&dir)?;
         let file = temp_file.as_file_mut();
-        file.write_all(index.name().as_bytes())?;
+        file.write_all(index.id().hex().as_bytes())?;
         persist_content_addressed_temp_file(temp_file, dir.join(op_id.hex()))?;
         Ok(())
     }
