@@ -165,6 +165,7 @@ You can use parentheses to control evaluation order, such as `(x & y) | z` or
 
     * `D::D` ⇒ `{D}`
     * `B::D` ⇒ `{D,B}` (note that, unlike `B..D`, this includes `B` and excludes `C`)
+    * `B::C` ⇒ `{}` (empty set) (note that, unlike `B..C`, this excludes `C`)
     * `A::D` ⇒ `{D,C,B,A}`
     * `root()::D` ⇒ `{D,C,B,A,root()}`
     * `none()::D` ⇒ `{}` (empty set)
@@ -175,6 +176,7 @@ You can use parentheses to control evaluation order, such as `(x & y) | z` or
 
     * `D..D` ⇒ `{}` (empty set)
     * `B..D` ⇒ `{D,C}` (note that, unlike `B::D`, this includes `C` and excludes `B`)
+    * `B..C` ⇒ `{C}` (note that, unlike `B::C`, this includes `C`)
     * `A..D` ⇒ `{D,C,B}`
     * `root()..D` ⇒ `{D,C,B,A}`
     * `none()..D` ⇒ `{D,C,B,A,root()}`
