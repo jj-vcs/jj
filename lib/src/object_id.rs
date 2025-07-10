@@ -71,7 +71,7 @@ macro_rules! impl_id_type {
             }
 
             /// Parses the given hex string into an ObjectId.
-            pub fn try_from_hex(hex: &str) -> Option<Self> {
+            pub fn try_from_hex(hex: impl AsRef<[u8]>) -> Option<Self> {
                 $crate::hex_util::decode_hex(hex).map(Self)
             }
         }
@@ -142,7 +142,7 @@ pub struct HexPrefix {
 impl HexPrefix {
     /// Returns a new `HexPrefix` or `None` if `prefix` cannot be decoded from
     /// hex to bytes.
-    pub fn try_from_hex(prefix: &str) -> Option<HexPrefix> {
+    pub fn try_from_hex(prefix: impl AsRef<[u8]>) -> Option<HexPrefix> {
         let (min_prefix_bytes, has_odd_byte) = hex_util::decode_hex_prefix(prefix)?;
         Some(HexPrefix {
             min_prefix_bytes,
@@ -152,7 +152,7 @@ impl HexPrefix {
 
     /// Returns a new `HexPrefix` or `None` if `prefix` cannot be decoded from
     /// "reverse" hex to bytes.
-    pub fn try_from_reverse_hex(prefix: &str) -> Option<HexPrefix> {
+    pub fn try_from_reverse_hex(prefix: impl AsRef<[u8]>) -> Option<HexPrefix> {
         let (min_prefix_bytes, has_odd_byte) = hex_util::decode_reverse_hex_prefix(prefix)?;
         Some(HexPrefix {
             min_prefix_bytes,

@@ -547,7 +547,7 @@ fn gix_open_opts_from_settings(settings: &UserSettings) -> gix::open::Options {
 /// Parses the `jj:trees` header value.
 fn root_tree_from_git_extra_header(value: &BStr) -> Result<MergedTreeId, ()> {
     let mut tree_ids = SmallVec::new();
-    for hex in str::from_utf8(value.as_ref()).or(Err(()))?.split(' ') {
+    for hex in value.split(|b| *b == b' ') {
         let tree_id = TreeId::try_from_hex(hex).ok_or(())?;
         if tree_id.as_bytes().len() != HASH_LENGTH {
             return Err(());

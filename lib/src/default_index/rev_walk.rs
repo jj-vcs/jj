@@ -1027,7 +1027,7 @@ mod tests {
         let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // Long linear history with some short branches
         let ids = (0..11)
-            .map(|n| CommitId::try_from_hex(&format!("{n:06x}")).unwrap())
+            .map(|n| CommitId::try_from_hex(format!("{n:06x}")).unwrap())
             .collect_vec();
         index.add_commit_data(ids[0].clone(), new_change_id(), &[]);
         for i in 1..ids.len() {

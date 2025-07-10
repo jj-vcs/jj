@@ -57,7 +57,7 @@ id_type!(pub CopyId { hex() });
 impl ChangeId {
     /// Parses the given "reverse" hex string into a `ChangeId`.
     pub fn try_from_reverse_hex(hex: impl AsRef<[u8]>) -> Option<Self> {
-        hex_util::decode_reverse_hex(hex.as_ref()).map(Self)
+        hex_util::decode_reverse_hex(hex).map(Self)
     }
 
     /// Returns the hex string representation of this ID, which uses `z-k`
