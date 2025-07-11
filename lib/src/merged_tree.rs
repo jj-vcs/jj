@@ -860,7 +860,8 @@ pub struct TreeDiffStreamImpl<'matcher> {
     matcher: &'matcher dyn Matcher,
     /// Pairs of tree values that may or may not be ready to emit, sorted in the
     /// order we want to emit them. If either side is a tree, there will be
-    /// a corresponding entry in `pending_trees`.
+    /// a corresponding entry in `pending_trees`. The item is ready to emit
+    /// unless there's a smaller or equal path in `pending_trees`.
     items: BTreeMap<RepoPathBuf, BackendResult<(MergedTreeValue, MergedTreeValue)>>,
     // TODO: Is it better to combine this and `items` into a single map?
     #[expect(clippy::type_complexity)]
@@ -1019,8 +1020,16 @@ impl Stream for TreeDiffStreamImpl<'_> {
         self.poll_tree_futures(cx);
 
         // Now emit the first file, or the first tree that completed with an error
-        if let Some(entry) = self.items.first_entry() {
-            let (path, values) = entry.remove_entry();
+        if let Some((path, _)) = self.items.first_key_value() {
+            // Check if there are any pending trees before this item that we need to finish
+            // polling before we can emit this item.
+            if let Some((dir, _)) = self.pending_trees.first_key_value() {
+                if dir < path {
+                    return Poll::Pending;
+                }
+            }
+
+            let (path, values) = self.items.pop_first().unwrap();
             Poll::Ready(Some(TreeDiffEntry { path, values }))
         } else if self.pending_trees.is_empty() {
             Poll::Ready(None)
