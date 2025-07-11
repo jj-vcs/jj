@@ -447,7 +447,7 @@ quotes are optional):
 * `"string"` or `substring:"string"`: Matches strings that contain `string`.
 * `exact:"string"`: Matches strings exactly equal to `string`.
 * `glob:"pattern"`: Matches strings with Unix-style shell [wildcard
-  `pattern`](https://docs.rs/glob/latest/glob/struct.Pattern.html).
+  `pattern`](https://docs.rs/globset/latest/globset/#syntax).
 * `regex:"pattern"`: Matches substrings with [regular
   expression `pattern`](https://docs.rs/regex/latest/regex/#syntax).
 

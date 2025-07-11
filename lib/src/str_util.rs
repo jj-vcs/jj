@@ -22,6 +22,8 @@ use std::fmt::Debug;
 use std::ops::Deref;
 
 use either::Either;
+use globset::Glob;
+use globset::GlobBuilder;
 use thiserror::Error;
 
 /// Error occurred during pattern string parsing.
@@ -32,19 +34,30 @@ pub enum StringPatternParseError {
     InvalidKind(String),
     /// Failed to parse glob pattern.
     #[error(transparent)]
-    GlobPattern(glob::PatternError),
+    GlobPattern(globset::Error),
     /// Failed to parse regular expression.
     #[error(transparent)]
     Regex(regex::Error),
 }
 
-/// A wrapper for [`glob::Pattern`] with a more concise Debug impl
+/// A wrapper for [`Glob`] and its matcher with a more concise `Debug` impl.
 #[derive(Clone)]
-pub struct GlobPattern(pub glob::Pattern);
+pub struct GlobPattern {
+    glob: Glob,
+    // TODO: Maybe better to add StringPattern::to_matcher(), and move regex
+    // compilation there.
+    regex: regex::bytes::Regex,
+}
 
 impl GlobPattern {
-    fn as_str(&self) -> &str {
-        self.0.as_str()
+    /// Returns true if this pattern matches `haystack`.
+    pub fn is_match(&self, haystack: &[u8]) -> bool {
+        self.regex.is_match(haystack)
+    }
+
+    /// Returns the original glob pattern.
+    pub fn as_str(&self) -> &str {
+        self.glob.glob()
     }
 }
 
@@ -54,10 +67,22 @@ impl Debug for GlobPattern {
     }
 }
 
-fn parse_glob(src: &str) -> Result<GlobPattern, StringPatternParseError> {
-    glob::Pattern::new(src)
-        .map(GlobPattern)
-        .map_err(StringPatternParseError::GlobPattern)
+fn parse_glob(src: &str, icase: bool) -> Result<GlobPattern, StringPatternParseError> {
+    let glob = GlobBuilder::new(src)
+        .case_insensitive(icase)
+        // Don't use platform-dependent default. This pattern isn't meant for
+        // testing file-system paths. If backslash escape were disabled, "\" in
+        // pattern would be normalized to "/" on Windows.
+        .backslash_escape(true)
+        .build()
+        .map_err(StringPatternParseError::GlobPattern)?;
+    // Based on new_regex() in globset. We don't use GlobMatcher::is_match(path)
+    // because the input string shouldn't be normalized as path.
+    let regex = regex::bytes::RegexBuilder::new(glob.regex())
+        .dot_matches_new_line(true)
+        .build()
+        .expect("glob regex should be valid");
+    Ok(GlobPattern { glob, regex })
 }
 
 /// Pattern to be tested against string property like commit description or
@@ -73,9 +98,9 @@ pub enum StringPattern {
     /// Matches strings that case‐insensitively contain a substring.
     SubstringI(String),
     /// Matches with a Unix‐style shell wildcard pattern.
-    Glob(GlobPattern),
+    Glob(Box<GlobPattern>),
     /// Matches with a case‐insensitive Unix‐style shell wildcard pattern.
-    GlobI(GlobPattern),
+    GlobI(Box<GlobPattern>),
     /// Matches substrings with a regular expression.
     Regex(regex::Regex),
     /// Matches substrings with a case‐insensitive regular expression.
@@ -124,15 +149,13 @@ impl StringPattern {
 
     /// Parses the given string as a glob pattern.
     pub fn glob(src: &str) -> Result<Self, StringPatternParseError> {
-        // TODO: might be better to do parsing and compilation separately since
-        // not all backends would use the compiled pattern object.
         // TODO: if no meta character found, it can be mapped to Exact.
-        Ok(StringPattern::Glob(parse_glob(src)?))
+        Ok(StringPattern::Glob(Box::new(parse_glob(src, false)?)))
     }
 
     /// Parses the given string as a case‐insensitive glob pattern.
     pub fn glob_i(src: &str) -> Result<Self, StringPatternParseError> {
-        Ok(StringPattern::GlobI(parse_glob(src)?))
+        Ok(StringPattern::GlobI(Box::new(parse_glob(src, true)?)))
     }
 
     /// Parses the given string as a regular expression.
@@ -204,12 +227,12 @@ impl StringPattern {
         // expect they can use case‐insensitive patterns in contexts where they
         // generally can’t.
         match self {
-            StringPattern::Exact(literal) => Some(glob::Pattern::escape(literal).into()),
+            StringPattern::Exact(literal) => Some(globset::escape(literal).into()),
             StringPattern::Substring(needle) => {
                 if needle.is_empty() {
                     Some("*".into())
                 } else {
-                    Some(format!("*{}*", glob::Pattern::escape(needle)).into())
+                    Some(format!("*{}*", globset::escape(needle)).into())
                 }
             }
             StringPattern::Glob(pattern) => Some(pattern.as_str().into()),
@@ -227,10 +250,10 @@ impl StringPattern {
     /// differences are currently folded. This may change in the future.
     pub fn is_match(&self, haystack: &str) -> bool {
         // TODO: Unicode case folding is complicated and can be
-        // locale‐specific. The `glob` crate and Gitoxide only deal with ASCII
-        // case folding, so we do the same here; a more elaborate case folding
-        // system will require making sure those behave in a matching manner
-        // where relevant. That said, regex patterns are unicode-aware by
+        // locale‐specific. The `globset` crate and Gitoxide only deal with
+        // ASCII case folding, so we do the same here; a more elaborate case
+        // folding system will require making sure those behave in a matching
+        // manner where relevant. That said, regex patterns are unicode-aware by
         // default, so we already have some inconsistencies.
         //
         // Care will need to be taken regarding normalization and the choice of an
@@ -250,16 +273,11 @@ impl StringPattern {
             StringPattern::SubstringI(needle) => haystack
                 .to_ascii_lowercase()
                 .contains(&needle.to_ascii_lowercase()),
-            StringPattern::Glob(pattern) => pattern.0.matches(haystack),
-            StringPattern::GlobI(pattern) => pattern.0.matches_with(
-                haystack,
-                glob::MatchOptions {
-                    case_sensitive: false,
-                    ..glob::MatchOptions::new()
-                },
-            ),
-            // Regex and RegexI are identical here, but callers might want to
-            // translate these to backend-specific query differently.
+            // (Glob, GlobI) and (Regex, RegexI) pairs are identical here, but
+            // callers might want to translate these to backend-specific query
+            // differently.
+            StringPattern::Glob(pattern) => pattern.is_match(haystack.as_bytes()),
+            StringPattern::GlobI(pattern) => pattern.is_match(haystack.as_bytes()),
             StringPattern::Regex(pattern) => pattern.is_match(haystack),
             StringPattern::RegexI(pattern) => pattern.is_match(haystack),
         }
@@ -418,5 +436,30 @@ mod tests {
             StringPattern::parse("unknown-prefix:foo"),
             Err(StringPatternParseError::InvalidKind(_))
         );
+    }
+
+    #[test]
+    fn test_glob_is_match() {
+        assert!(StringPattern::glob("foo").unwrap().is_match("foo"));
+        assert!(!StringPattern::glob("foo").unwrap().is_match("foobar"));
+
+        // "." in string isn't any special
+        assert!(StringPattern::glob("*").unwrap().is_match(".foo"));
+
+        // "/" in string isn't any special
+        assert!(StringPattern::glob("*").unwrap().is_match("foo/bar"));
+        assert!(StringPattern::glob(r"*/*").unwrap().is_match("foo/bar"));
+        assert!(!StringPattern::glob(r"*/*").unwrap().is_match(r"foo\bar"));
+
+        // "\" is an escape character
+        assert!(!StringPattern::glob(r"*\*").unwrap().is_match("foo/bar"));
+        assert!(StringPattern::glob(r"*\*").unwrap().is_match("foo*"));
+        assert!(StringPattern::glob(r"\\").unwrap().is_match(r"\"));
+
+        // "*" matches newline
+        assert!(StringPattern::glob(r"*").unwrap().is_match("foo\nbar"));
+
+        assert!(!StringPattern::glob("f?O").unwrap().is_match("Foo"));
+        assert!(StringPattern::glob_i("f?O").unwrap().is_match("Foo"));
     }
 }
