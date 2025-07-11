@@ -67,7 +67,6 @@ erased-serde = { workspace = true }
 etcetera = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true, optional = true }
-glob = { workspace = true }
 globset = { workspace = true }
 indexmap = { workspace = true }
 indoc = { workspace = true }
