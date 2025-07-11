@@ -21,6 +21,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::ops::Deref;
 
+use bstr::ByteSlice as _;
 use either::Either;
 use globset::Glob;
 use globset::GlobBuilder;
@@ -244,11 +245,16 @@ impl StringPattern {
         }
     }
 
-    /// Returns true if this pattern matches the `haystack`.
+    /// Returns true if this pattern matches the `haystack` string.
     ///
     /// When matching against a case‐insensitive pattern, only ASCII case
     /// differences are currently folded. This may change in the future.
     pub fn is_match(&self, haystack: &str) -> bool {
+        self.is_match_bytes(haystack.as_bytes())
+    }
+
+    /// Returns true if this pattern matches the `haystack` bytes.
+    pub fn is_match_bytes(&self, haystack: &[u8]) -> bool {
         // TODO: Unicode case folding is complicated and can be
         // locale‐specific. The `globset` crate and Gitoxide only deal with
         // ASCII case folding, so we do the same here; a more elaborate case
@@ -267,19 +273,19 @@ impl StringPattern {
         // For some discussion of this topic, see:
         // <https://github.com/unicode-org/icu4x/issues/3151>
         match self {
-            StringPattern::Exact(literal) => haystack == literal,
-            StringPattern::ExactI(literal) => haystack.eq_ignore_ascii_case(literal),
-            StringPattern::Substring(needle) => haystack.contains(needle),
+            StringPattern::Exact(literal) => haystack == literal.as_bytes(),
+            StringPattern::ExactI(literal) => haystack.eq_ignore_ascii_case(literal.as_bytes()),
+            StringPattern::Substring(needle) => haystack.contains_str(needle),
             StringPattern::SubstringI(needle) => haystack
                 .to_ascii_lowercase()
-                .contains(&needle.to_ascii_lowercase()),
+                .contains_str(needle.to_ascii_lowercase()),
             // (Glob, GlobI) and (Regex, RegexI) pairs are identical here, but
             // callers might want to translate these to backend-specific query
             // differently.
-            StringPattern::Glob(pattern) => pattern.is_match(haystack.as_bytes()),
-            StringPattern::GlobI(pattern) => pattern.is_match(haystack.as_bytes()),
-            StringPattern::Regex(pattern) => pattern.is_match(haystack.as_bytes()),
-            StringPattern::RegexI(pattern) => pattern.is_match(haystack.as_bytes()),
+            StringPattern::Glob(pattern) => pattern.is_match(haystack),
+            StringPattern::GlobI(pattern) => pattern.is_match(haystack),
+            StringPattern::Regex(pattern) => pattern.is_match(haystack),
+            StringPattern::RegexI(pattern) => pattern.is_match(haystack),
         }
     }
 

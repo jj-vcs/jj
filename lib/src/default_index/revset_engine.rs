@@ -24,7 +24,6 @@ use std::fmt;
 use std::iter;
 use std::ops::Range;
 use std::rc::Rc;
-use std::str;
 use std::sync::Arc;
 
 use bstr::BString;
@@ -1415,8 +1414,7 @@ fn match_lines<'a, 'b>(
     // start/end. For example, exact:"" will match blank lines.
     text.split_inclusive(|b| *b == b'\n').filter(|line| {
         let line = line.strip_suffix(b"\n").unwrap_or(line);
-        // TODO: add .matches_bytes() or .to_bytes_matcher()
-        str::from_utf8(line).is_ok_and(|line| pattern.is_match(line))
+        pattern.is_match_bytes(line)
     })
 }
 

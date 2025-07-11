@@ -61,6 +61,7 @@ use jj_lib::workspace::Workspace;
 use test_case::test_case;
 use testutils::create_random_commit;
 use testutils::create_tree;
+use testutils::create_tree_with;
 use testutils::repo_path;
 use testutils::write_random_commit;
 use testutils::CommitGraphBuilder;
@@ -4160,6 +4161,31 @@ fn test_evaluate_expression_diff_contains() {
         )),
         vec![commit3.id().clone(), commit1.id().clone()]
     );
+}
+
+#[test]
+fn test_evaluate_expression_diff_contains_non_utf8() {
+    let test_workspace = TestWorkspace::init();
+    let repo = &test_workspace.repo;
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let tree1 = create_tree_with(repo, |builder| {
+        builder.file(repo_path("file"), b"\x81\x40");
+    });
+    let commit1 = mut_repo
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree1.id())
+        .write()
+        .unwrap();
+
+    let query = |revset_str: &str| resolve_commit_ids(mut_repo, revset_str);
+
+    // non-utf-8 line shouldn't be ignored
+    assert_eq!(
+        query("diff_contains(regex:'(?-u)^.{2}$')"),
+        vec![commit1.id().clone()]
+    );
+    assert_eq!(query("diff_contains(regex:'(?-u)^.$')"), vec![]);
 }
 
 #[test]
