@@ -6,9 +6,9 @@ Expressions in this language are called "revsets" (the idea comes from
 consists of symbols, operators, and functions.
 
 Most `jj` commands accept a revset (or multiple). Many commands, such as
-`jj diff -r <revset>` expect the revset to resolve to a single commit; it is
-an error to pass a revset that resolves to more than one commit (or zero
-commits) to such commands.
+`jj edit <revset>` expect the revset to resolve to a single commit; it is an
+error to pass a revset that resolves to more than one commit (or zero commits)
+to such commands.
 
 The words "revisions" and "commits" are used interchangeably in this document.
 
