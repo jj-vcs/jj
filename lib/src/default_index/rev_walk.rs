@@ -1203,7 +1203,7 @@ mod tests {
         let id_a0 = new_commit_id();
         mutable_index.add_commit_data(id_a0.clone(), new_change_id(), &[]);
         let id_a64 = (1..=64).fold(id_a0.clone(), |parent_id, i| {
-            assert_eq!(mutable_index.as_composite().num_commits(), i);
+            assert_eq!(mutable_index.num_commits(), i);
             let id = new_commit_id();
             mutable_index.add_commit_data(id.clone(), new_change_id(), &[parent_id]);
             id
@@ -1211,7 +1211,7 @@ mod tests {
         let (id_b189, id_c190) = (65..=190).step_by(2).fold(
             (id_a64.clone(), id_a64.clone()),
             |(parent_id_b, parent_id_c), i| {
-                assert_eq!(mutable_index.as_composite().num_commits(), i);
+                assert_eq!(mutable_index.num_commits(), i);
                 let id_b = new_commit_id();
                 let id_c = new_commit_id();
                 mutable_index.add_commit_data(id_b.clone(), new_change_id(), &[parent_id_b]);
@@ -1224,7 +1224,7 @@ mod tests {
         let id_d192 = new_commit_id();
         mutable_index.add_commit_data(id_d192.clone(), new_change_id(), &[id_c190.clone()]);
         let id_e254 = (193..=254).fold(id_b191.clone(), |parent_id, i| {
-            assert_eq!(mutable_index.as_composite().num_commits(), i);
+            assert_eq!(mutable_index.num_commits(), i);
             let id = new_commit_id();
             mutable_index.add_commit_data(id.clone(), new_change_id(), &[parent_id]);
             id
@@ -1237,7 +1237,7 @@ mod tests {
             new_change_id(),
             &[id_c190.clone(), id_e254.clone()],
         );
-        assert_eq!(mutable_index.as_composite().num_commits(), 257);
+        assert_eq!(mutable_index.num_commits(), 257);
 
         let index = mutable_index.as_composite();
         let to_pos = |id: &CommitId| index.commit_id_to_pos(id).unwrap();
