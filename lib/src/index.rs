@@ -128,11 +128,11 @@ pub trait Index: Send + Sync {
 
     /// Resolves the revset `expression` against the index and corresponding
     /// `store`.
-    fn evaluate_revset<'index>(
-        &'index self,
+    fn evaluate_revset(
+        &self,
         expression: &ResolvedExpression,
         store: &Arc<Store>,
-    ) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError>;
+    ) -> Result<Box<dyn Revset + '_>, RevsetEvaluationError>;
 }
 
 #[expect(missing_docs)]

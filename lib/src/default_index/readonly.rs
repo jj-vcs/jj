@@ -661,11 +661,11 @@ impl Index for DefaultReadonlyIndex {
         self.as_composite().heads(candidates)
     }
 
-    fn evaluate_revset<'index>(
-        &'index self,
+    fn evaluate_revset(
+        &self,
         expression: &ResolvedExpression,
         store: &Arc<Store>,
-    ) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError> {
+    ) -> Result<Box<dyn Revset + '_>, RevsetEvaluationError> {
         self.as_composite().evaluate_revset(expression, store)
     }
 }
