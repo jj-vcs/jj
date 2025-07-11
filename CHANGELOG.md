@@ -54,6 +54,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [`Operation`](docs/templates.md#operation-type) type in the templating
   language.
 
+* Glob patterns now support `{foo,bar}` syntax. There may be subtle behavior
+  changes as we use the [globset](https://crates.io/crates/globset) library now.
+
 ### Fixed bugs
 
 ### Packaging changes
