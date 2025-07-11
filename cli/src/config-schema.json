@@ -276,27 +276,6 @@
                 }
             }
         },
-        "core": {
-            "type": "object",
-            "properties": {
-                "fsmonitor": {
-                    "type": "string",
-                    "enum": ["none", "watchman"],
-                    "default": "none",
-                    "description": "Whether to use an external filesystem monitor, useful for large repos"
-                },
-                "watchman": {
-                    "type": "object",
-                    "properties": {
-                      "register-snapshot-trigger": {
-                        "type": "boolean",
-                        "default": false,
-                        "description": "Whether to use triggers to monitor for changes in the background."
-                      }
-                    }
-                }
-            }
-        },
         "colors": {
             "type": "object",
             "description": "Mapping from jj formatter labels to colors",
@@ -865,6 +844,28 @@
             },
             "additionalProperties": {
                 "type": "string"
+            }
+        },
+        "working-copy": {
+            "type": "object",
+            "description": "Working copy settings",
+            "properties": {
+                "fsmonitor": {
+                    "type": "string",
+                    "enum": ["none", "watchman"],
+                    "default": "none",
+                    "description": "Whether to use an external filesystem monitor, useful for large repos"
+                },
+                "watchman": {
+                    "type": "object",
+                    "properties": {
+                      "register-snapshot-trigger": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Whether to use triggers to monitor for changes in the background."
+                      }
+                    }
+                }
             }
         }
     }
