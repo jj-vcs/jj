@@ -293,4 +293,10 @@ impl Store {
     pub fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()> {
         self.backend.gc(index, keep_newer)
     }
+
+    /// Clear cached objects. Mainly intended for testing.
+    pub fn clear_caches(&self) {
+        self.commit_cache.lock().unwrap().clear();
+        self.tree_cache.lock().unwrap().clear();
+    }
 }
