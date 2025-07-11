@@ -111,7 +111,8 @@ jobs:
     strategy:
       fail-fast: ${{ github.event_name == 'merge_group' }}
       matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-14]
+        # TODO: add back macos-14 here (currently disabled because of issues with gpg-agent)
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
 
