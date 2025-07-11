@@ -34,6 +34,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Added `templates.workspace_list` template to customize the output of `jj workspace list`.
 
+* `jj workspace list` now accepts `-T`/`--template` option to customize its output via templates.
+
+* Added `templates.workspace_list` template to customize the output of `jj workspace list`.
+
+* Add the `working-copy.eol-conversion` config which is similar to the git
+  `core.autocrlf` config. A heuristics is used to detect if a file is a binary
+  file to prevent the EOL conversion from changing binary files unexpectedly.
+
 ### Fixed bugs
 
 ### Packaging changes

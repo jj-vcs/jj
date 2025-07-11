@@ -39,3 +39,6 @@ program = "ssh-keygen"
 [user]
 email = ""
 name = ""
+
+[working-copy]
+eol-conversion = "none"

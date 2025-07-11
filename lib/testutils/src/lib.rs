@@ -602,7 +602,7 @@ pub fn write_random_commit(mut_repo: &mut MutableRepo) -> Commit {
     create_random_commit(mut_repo).write().unwrap()
 }
 
-pub fn write_working_copy_file(workspace_root: &Path, path: &RepoPath, contents: &str) {
+pub fn write_working_copy_file(workspace_root: &Path, path: &RepoPath, contents: impl AsRef<[u8]>) {
     let path = path.to_fs_path(workspace_root).unwrap();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).unwrap();
@@ -613,7 +613,7 @@ pub fn write_working_copy_file(workspace_root: &Path, path: &RepoPath, contents:
         .truncate(true)
         .open(path)
         .unwrap();
-    file.write_all(contents.as_bytes()).unwrap();
+    file.write_all(contents.as_ref()).unwrap();
 }
 
 pub struct CommitGraphBuilder<'repo> {
