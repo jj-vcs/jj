@@ -36,8 +36,8 @@ use tempfile::NamedTempFile;
 
 use super::composite::AsCompositeIndex;
 use super::composite::ChangeIdIndexImpl;
+use super::composite::CompositeCommitIndex;
 use super::composite::CompositeIndex;
-use super::composite::CompositeIndexBuf;
 use super::composite::DynIndexSegment;
 use super::composite::IndexSegment;
 use super::entry::IndexPosition;
@@ -119,8 +119,8 @@ impl MutableIndexSegment {
         }
     }
 
-    pub(super) fn as_composite(&self) -> &CompositeIndex {
-        CompositeIndex::new(self)
+    pub(super) fn as_composite(&self) -> &CompositeCommitIndex {
+        CompositeCommitIndex::new(self)
     }
 
     pub(super) fn add_commit_data(
@@ -161,7 +161,7 @@ impl MutableIndexSegment {
     }
 
     pub(super) fn add_commits_from(&mut self, other_segment: &DynIndexSegment) {
-        let other = CompositeIndex::new(other_segment);
+        let other = CompositeCommitIndex::new(other_segment);
         for pos in other_segment.num_parent_commits()..other.num_commits() {
             let entry = other.entry_by_pos(IndexPosition(pos));
             let parent_ids = entry.parents().map(|entry| entry.commit_id()).collect_vec();
@@ -453,17 +453,17 @@ impl IndexSegment for MutableIndexSegment {
 }
 
 /// In-memory mutable records for the on-disk commit index backend.
-pub struct DefaultMutableIndex(CompositeIndexBuf);
+pub struct DefaultMutableIndex(CompositeIndex);
 
 impl DefaultMutableIndex {
     pub(super) fn full(lengths: FieldLengths) -> Self {
         let commits = Box::new(MutableIndexSegment::full(lengths));
-        DefaultMutableIndex(CompositeIndexBuf::from_mutable(commits))
+        DefaultMutableIndex(CompositeIndex::from_mutable(commits))
     }
 
     pub(super) fn incremental(parent_file: Arc<ReadonlyIndexSegment>) -> Self {
         let commits = Box::new(MutableIndexSegment::incremental(parent_file));
-        DefaultMutableIndex(CompositeIndexBuf::from_mutable(commits))
+        DefaultMutableIndex(CompositeIndex::from_mutable(commits))
     }
 
     fn mutable_commits(&mut self) -> &mut MutableIndexSegment {
@@ -493,43 +493,42 @@ impl DefaultMutableIndex {
 
 impl AsCompositeIndex for DefaultMutableIndex {
     fn as_composite(&self) -> &CompositeIndex {
-        self.0.commits()
+        &self.0
     }
 }
 
 impl Index for DefaultMutableIndex {
     fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> usize {
-        self.as_composite()
-            .shortest_unique_commit_id_prefix_len(commit_id)
+        self.0.shortest_unique_commit_id_prefix_len(commit_id)
     }
 
     fn resolve_commit_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<CommitId> {
-        self.as_composite().resolve_commit_id_prefix(prefix)
+        self.0.resolve_commit_id_prefix(prefix)
     }
 
     fn has_id(&self, commit_id: &CommitId) -> bool {
-        self.as_composite().has_id(commit_id)
+        self.0.has_id(commit_id)
     }
 
     fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> bool {
-        self.as_composite().is_ancestor(ancestor_id, descendant_id)
+        self.0.is_ancestor(ancestor_id, descendant_id)
     }
 
     fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> Vec<CommitId> {
-        self.as_composite().common_ancestors(set1, set2)
+        self.0.common_ancestors(set1, set2)
     }
 
     fn all_heads_for_gc(
         &self,
     ) -> Result<Box<dyn Iterator<Item = CommitId> + '_>, AllHeadsForGcUnsupported> {
-        Ok(Box::new(self.as_composite().all_heads()))
+        self.0.all_heads_for_gc()
     }
 
     fn heads(
         &self,
         candidates: &mut dyn Iterator<Item = &CommitId>,
     ) -> Result<Vec<CommitId>, IndexError> {
-        Ok(self.as_composite().heads(candidates))
+        self.0.heads(candidates)
     }
 
     fn evaluate_revset(
@@ -537,7 +536,7 @@ impl Index for DefaultMutableIndex {
         expression: &ResolvedExpression,
         store: &Arc<Store>,
     ) -> Result<Box<dyn Revset + '_>, RevsetEvaluationError> {
-        self.as_composite().evaluate_revset(expression, store)
+        self.0.evaluate_revset(expression, store)
     }
 }
 

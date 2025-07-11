@@ -56,7 +56,7 @@ mod tests {
     use test_case::test_case;
 
     use super::composite::AsCompositeIndex as _;
-    use super::composite::CompositeIndex;
+    use super::composite::CompositeCommitIndex;
     use super::composite::DynIndexSegment;
     use super::composite::IndexSegment as _;
     use super::entry::IndexPosition;
@@ -102,7 +102,7 @@ mod tests {
         } else {
             Box::new(mutable_segment)
         };
-        let index = CompositeIndex::new(index_segment.as_ref());
+        let index = CompositeCommitIndex::new(index_segment.as_ref());
 
         // Stats are as expected
         let stats = index.stats();
@@ -133,7 +133,7 @@ mod tests {
         } else {
             Box::new(mutable_segment)
         };
-        let index = CompositeIndex::new(index_segment.as_ref());
+        let index = CompositeCommitIndex::new(index_segment.as_ref());
 
         // Stats are as expected
         let stats = index.stats();
@@ -215,7 +215,7 @@ mod tests {
         } else {
             Box::new(mutable_segment)
         };
-        let index = CompositeIndex::new(index_segment.as_ref());
+        let index = CompositeCommitIndex::new(index_segment.as_ref());
 
         // Stats are as expected
         let stats = index.stats();
@@ -327,7 +327,7 @@ mod tests {
         } else {
             Box::new(mutable_segment)
         };
-        let index = CompositeIndex::new(index_segment.as_ref());
+        let index = CompositeCommitIndex::new(index_segment.as_ref());
 
         // Stats are as expected
         let stats = index.stats();
@@ -507,7 +507,7 @@ mod tests {
         );
 
         // Global lookup, commit_id exists. id_0 < id_1 < id_5 < id_3 < id_2 < id_4
-        let composite_index = CompositeIndex::new(&mutable_segment);
+        let composite_index = CompositeCommitIndex::new(&mutable_segment);
         assert_eq!(
             composite_index.resolve_neighbor_commit_ids(&id_0),
             (None, Some(id_1.clone())),
@@ -1281,22 +1281,25 @@ mod tests {
          -> Vec<CommitId> {
             let roots = roots
                 .iter()
-                .map(|id| index.as_composite().commit_id_to_pos(id).unwrap())
+                .map(|id| index.as_composite().commits().commit_id_to_pos(id).unwrap())
                 .sorted_by_key(|&pos| Reverse(pos))
                 .collect_vec();
             let heads = heads
                 .iter()
-                .map(|id| index.as_composite().commit_id_to_pos(id).unwrap())
+                .map(|id| index.as_composite().commits().commit_id_to_pos(id).unwrap())
                 .sorted_by_key(|&pos| Reverse(pos))
                 .collect_vec();
             index
                 .as_composite()
+                .commits()
                 .heads_from_range_and_filter::<Infallible>(roots, heads, |pos| {
-                    Ok(filter(index.as_composite().entry_by_pos(pos).commit_id()))
+                    Ok(filter(
+                        index.as_composite().commits().entry_by_pos(pos).commit_id(),
+                    ))
                 })
                 .unwrap()
                 .into_iter()
-                .map(|pos| index.as_composite().entry_by_pos(pos).commit_id())
+                .map(|pos| index.as_composite().commits().entry_by_pos(pos).commit_id())
                 .collect_vec()
         };
 

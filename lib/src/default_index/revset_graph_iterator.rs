@@ -268,7 +268,7 @@ impl<'a> RevsetGraphWalk<'a> {
             initial_targets.insert(edge.target);
             if edge.edge_type != GraphEdgeType::Missing {
                 assert!(self.look_ahead.binary_search(&edge.target).is_ok());
-                let entry = index.entry_by_pos(edge.target);
+                let entry = index.commits().entry_by_pos(edge.target);
                 min_generation = min(min_generation, entry.generation_number());
                 work.extend_from_slice(self.edges_from_internal_commit(index, &entry)?);
             }
@@ -288,7 +288,7 @@ impl<'a> RevsetGraphWalk<'a> {
                 continue;
             }
             assert!(self.look_ahead.binary_search(&edge.target).is_ok());
-            let entry = index.entry_by_pos(edge.target);
+            let entry = index.commits().entry_by_pos(edge.target);
             if entry.generation_number() < min_generation {
                 continue;
             }
@@ -324,14 +324,14 @@ impl<'a> RevsetGraphWalk<'a> {
         let Some(position) = self.next_index_position(index)? else {
             return Ok(None);
         };
-        let entry = index.entry_by_pos(position);
+        let entry = index.commits().entry_by_pos(position);
         let mut edges = self.pop_edges_from_internal_commit(index, &entry)?;
         if self.skip_transitive_edges {
             edges = self.remove_transitive_edges(index, edges)?;
         }
         let edges = edges
             .iter()
-            .map(|edge| edge.map(|pos| index.entry_by_pos(pos).commit_id()))
+            .map(|edge| edge.map(|pos| index.commits().entry_by_pos(pos).commit_id()))
             .collect();
         Ok(Some((entry.commit_id(), edges)))
     }

@@ -24,6 +24,7 @@ use std::ops::Range;
 
 use smallvec::SmallVec;
 
+use super::composite::CompositeCommitIndex;
 use super::composite::CompositeIndex;
 use super::entry::IndexPosition;
 use super::entry::SmallIndexPositionsVec;
@@ -254,7 +255,7 @@ impl RevWalkIndex for CompositeIndex {
     type AdjacentPositions = SmallIndexPositionsVec;
 
     fn adjacent_positions(&self, pos: Self::Position) -> Self::AdjacentPositions {
-        self.entry_by_pos(pos).parent_positions()
+        self.commits().entry_by_pos(pos).parent_positions()
     }
 }
 
@@ -267,7 +268,10 @@ pub(super) struct RevWalkDescendantsIndex {
 type DescendantIndexPositionsVec = SmallVec<[Reverse<IndexPosition>; 4]>;
 
 impl RevWalkDescendantsIndex {
-    fn build(index: &CompositeIndex, positions: impl IntoIterator<Item = IndexPosition>) -> Self {
+    fn build(
+        index: &CompositeCommitIndex,
+        positions: impl IntoIterator<Item = IndexPosition>,
+    ) -> Self {
         // For dense set, it's probably cheaper to use `Vec` instead of `HashMap`.
         let mut children_map: HashMap<IndexPosition, DescendantIndexPositionsVec> = HashMap::new();
         for pos in positions {
@@ -419,7 +423,7 @@ impl<'a> RevWalkBuilder<'a> {
     ) -> RevWalkDescendantsGenerationRange {
         let index = self.index;
         let positions = self.ancestors_until_roots(root_positions.iter().copied());
-        let descendants_index = RevWalkDescendantsIndex::build(index, positions);
+        let descendants_index = RevWalkDescendantsIndex::build(index.commits(), positions);
 
         let mut wanted_queue = RevWalkQueue::with_min_pos(Reverse(IndexPosition::MAX));
         let unwanted_queue = RevWalkQueue::with_min_pos(Reverse(IndexPosition::MAX));
@@ -618,6 +622,7 @@ impl RevWalk<CompositeIndex> for RevWalkDescendantsImpl {
     type Item = IndexPosition;
 
     fn next(&mut self, index: &CompositeIndex) -> Option<Self::Item> {
+        let index = index.commits();
         while let Some(candidate_pos) = self.candidate_positions.pop() {
             if self.root_positions.contains(&candidate_pos)
                 || index
@@ -679,7 +684,7 @@ impl AncestorsBitSet {
     }
 
     /// Updates set by visiting ancestors until the given `to_visit_pos`.
-    pub fn visit_until(&mut self, index: &CompositeIndex, to_visit_pos: IndexPosition) {
+    pub fn visit_until(&mut self, index: &CompositeCommitIndex, to_visit_pos: IndexPosition) {
         let to_visit_bitset_pos = to_visit_pos.0 / u64::BITS;
         if to_visit_bitset_pos >= self.last_visited_bitset_pos {
             return;
@@ -741,7 +746,7 @@ mod tests {
     fn to_positions_vec(index: &CompositeIndex, commit_ids: &[CommitId]) -> Vec<IndexPosition> {
         commit_ids
             .iter()
-            .map(|id| index.commit_id_to_pos(id).unwrap())
+            .map(|id| index.commits().commit_id_to_pos(id).unwrap())
             .collect()
     }
 
@@ -821,7 +826,7 @@ mod tests {
                 .wanted_heads(to_positions_vec(index, wanted))
                 .unwanted_roots(to_positions_vec(index, unwanted))
                 .ancestors()
-                .map(|pos| index.entry_by_pos(pos).commit_id())
+                .map(|pos| index.commits().entry_by_pos(pos).commit_id())
                 .collect_vec()
         };
 
@@ -909,7 +914,7 @@ mod tests {
                 .wanted_heads(to_positions_vec(index, heads))
                 .ancestors_until_roots(to_positions_vec(index, roots))
         };
-        let to_commit_id = |pos| index.entry_by_pos(pos).commit_id();
+        let to_commit_id = |pos| index.commits().entry_by_pos(pos).commit_id();
 
         let mut iter = make_iter(&[id_6.clone(), id_7.clone()], &[id_3.clone()]);
         assert_eq!(iter.walk.wanted_queue.len(), 2);
@@ -970,7 +975,7 @@ mod tests {
                 .wanted_heads(to_positions_vec(index, wanted))
                 .unwanted_roots(to_positions_vec(index, unwanted))
                 .ancestors_filtered_by_generation(range)
-                .map(|pos| index.entry_by_pos(pos).commit_id())
+                .map(|pos| index.commits().entry_by_pos(pos).commit_id())
                 .collect_vec()
         };
 
@@ -1047,7 +1052,7 @@ mod tests {
             RevWalkBuilder::new(index)
                 .wanted_heads(to_positions_vec(index, wanted))
                 .ancestors_filtered_by_generation(range)
-                .map(|pos| index.entry_by_pos(pos).commit_id())
+                .map(|pos| index.commits().entry_by_pos(pos).commit_id())
                 .collect_vec()
         };
 
@@ -1117,7 +1122,7 @@ mod tests {
             RevWalkBuilder::new(index)
                 .wanted_heads(to_positions_vec(index, heads))
                 .descendants_filtered_by_generation(to_positions_vec(index, roots), range)
-                .map(|Reverse(pos)| index.entry_by_pos(pos).commit_id())
+                .map(|Reverse(pos)| index.commits().entry_by_pos(pos).commit_id())
                 .collect_vec()
         };
 
@@ -1239,7 +1244,7 @@ mod tests {
         );
         assert_eq!(mutable_index.num_commits(), 257);
 
-        let index = mutable_index.as_composite();
+        let index = mutable_index.as_composite().commits();
         let to_pos = |id: &CommitId| index.commit_id_to_pos(id).unwrap();
         let new_ancestors_set = |heads: &[&CommitId]| {
             let mut set = AncestorsBitSet::with_capacity(index.num_commits());

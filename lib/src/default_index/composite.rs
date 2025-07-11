@@ -115,19 +115,17 @@ impl<T: AsCompositeIndex + ?Sized> AsCompositeIndex for &mut T {
     }
 }
 
-/// `CompositeIndex` provides an index of both commit IDs and change IDs.
+/// Provides an index of both commit IDs and change IDs.
 ///
 /// We refer to this as a composite index because it's a composite of multiple
 /// nested index segments where each parent segment is roughly twice as large
 /// its child. segment. This provides a good balance between read and write
 /// performance.
-// Reference wrapper that provides global access to nested index segments.
 #[derive(RefCastCustom)]
 #[repr(transparent)]
-// TODO: rename to CompositeCommitIndex
-pub(super) struct CompositeIndex(DynIndexSegment);
+pub(super) struct CompositeCommitIndex(DynIndexSegment);
 
-impl CompositeIndex {
+impl CompositeCommitIndex {
     #[ref_cast_custom]
     pub(super) const fn new(segment: &DynIndexSegment) -> &Self;
 
@@ -501,15 +499,6 @@ impl CompositeIndex {
         }
         Ok(found_heads)
     }
-
-    pub(super) fn evaluate_revset(
-        &self,
-        expression: &ResolvedExpression,
-        store: &Arc<Store>,
-    ) -> Result<Box<dyn Revset + '_>, RevsetEvaluationError> {
-        let revset_impl = revset_engine::evaluate(expression, store, self)?;
-        Ok(Box::new(revset_impl))
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -518,22 +507,21 @@ enum CompositeCommitIndexSegment {
     Mutable(Box<MutableIndexSegment>),
 }
 
-// TODO: rename to CompositeIndex
 #[derive(Clone, Debug)]
-pub(super) struct CompositeIndexBuf {
+pub(super) struct CompositeIndex {
     commits: CompositeCommitIndexSegment,
     // TODO: add changed-paths index
 }
 
-impl CompositeIndexBuf {
+impl CompositeIndex {
     pub(super) fn from_readonly(commits: Arc<ReadonlyIndexSegment>) -> Self {
-        CompositeIndexBuf {
+        CompositeIndex {
             commits: CompositeCommitIndexSegment::Readonly(commits),
         }
     }
 
     pub(super) fn from_mutable(commits: Box<MutableIndexSegment>) -> Self {
-        CompositeIndexBuf {
+        CompositeIndex {
             commits: CompositeCommitIndexSegment::Mutable(commits),
         }
     }
@@ -545,7 +533,7 @@ impl CompositeIndexBuf {
         }
     }
 
-    pub(super) fn commits(&self) -> &CompositeIndex {
+    pub(super) fn commits(&self) -> &CompositeCommitIndex {
         match &self.commits {
             CompositeCommitIndexSegment::Readonly(segment) => segment.as_composite(),
             CompositeCommitIndexSegment::Mutable(segment) => segment.as_composite(),
@@ -565,6 +553,15 @@ impl CompositeIndexBuf {
             CompositeCommitIndexSegment::Mutable(segment) => Some(segment),
         }
     }
+
+    pub(super) fn evaluate_revset(
+        &self,
+        expression: &ResolvedExpression,
+        store: &Arc<Store>,
+    ) -> Result<Box<dyn Revset + '_>, RevsetEvaluationError> {
+        let revset_impl = revset_engine::evaluate(expression, store, self)?;
+        Ok(Box::new(revset_impl))
+    }
 }
 
 impl AsCompositeIndex for CompositeIndex {
@@ -574,38 +571,39 @@ impl AsCompositeIndex for CompositeIndex {
 }
 
 // In revset engine, we need to convert &CompositeIndex to &dyn Index.
-impl Index for &CompositeIndex {
+impl Index for CompositeIndex {
     fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> usize {
-        CompositeIndex::shortest_unique_commit_id_prefix_len(self, commit_id)
+        self.commits()
+            .shortest_unique_commit_id_prefix_len(commit_id)
     }
 
     fn resolve_commit_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<CommitId> {
-        CompositeIndex::resolve_commit_id_prefix(self, prefix)
+        self.commits().resolve_commit_id_prefix(prefix)
     }
 
     fn has_id(&self, commit_id: &CommitId) -> bool {
-        CompositeIndex::has_id(self, commit_id)
+        self.commits().has_id(commit_id)
     }
 
     fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> bool {
-        CompositeIndex::is_ancestor(self, ancestor_id, descendant_id)
+        self.commits().is_ancestor(ancestor_id, descendant_id)
     }
 
     fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> Vec<CommitId> {
-        CompositeIndex::common_ancestors(self, set1, set2)
+        self.commits().common_ancestors(set1, set2)
     }
 
     fn all_heads_for_gc(
         &self,
     ) -> Result<Box<dyn Iterator<Item = CommitId> + '_>, AllHeadsForGcUnsupported> {
-        Ok(Box::new(self.all_heads()))
+        Ok(Box::new(self.commits().all_heads()))
     }
 
     fn heads(
         &self,
         candidate_ids: &mut dyn Iterator<Item = &CommitId>,
     ) -> Result<Vec<CommitId>, IndexError> {
-        Ok(CompositeIndex::heads(self, candidate_ids))
+        Ok(self.commits().heads(candidate_ids))
     }
 
     fn evaluate_revset(
@@ -624,7 +622,7 @@ pub(super) struct ChangeIdIndexImpl<I> {
 
 impl<I: AsCompositeIndex> ChangeIdIndexImpl<I> {
     pub fn new(index: I, heads: &mut dyn Iterator<Item = &CommitId>) -> ChangeIdIndexImpl<I> {
-        let composite = index.as_composite();
+        let composite = index.as_composite().commits();
         let mut reachable_set = AncestorsBitSet::with_capacity(composite.num_commits());
         for id in heads {
             reachable_set.add_head(composite.commit_id_to_pos(id).unwrap());
@@ -644,7 +642,7 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
     // visible. `AmbiguousMatch` may be returned even if the prefix is unique
     // within the visible entries.
     fn resolve_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<Vec<CommitId>> {
-        let index = self.index.as_composite();
+        let index = self.index.as_composite().commits();
         match index.resolve_change_id_prefix(prefix) {
             PrefixResolution::NoMatch => PrefixResolution::NoMatch,
             PrefixResolution::SingleMatch((_change_id, positions)) => {
@@ -673,9 +671,8 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
     // length necessary to disambiguate within the visible entries since hidden
     // entries are also considered when determining the prefix length.
     fn shortest_unique_prefix_len(&self, change_id: &ChangeId) -> usize {
-        self.index
-            .as_composite()
-            .shortest_unique_change_id_prefix_len(change_id)
+        let index = self.index.as_composite().commits();
+        index.shortest_unique_change_id_prefix_len(change_id)
     }
 }
 
@@ -697,7 +694,7 @@ pub struct IndexStats {
 /// if the target position matched a position in the queue.
 fn shift_to_parents_until(
     queue: &mut BinaryHeap<IndexPosition>,
-    index: &CompositeIndex,
+    index: &CompositeCommitIndex,
     target_pos: IndexPosition,
 ) -> bool {
     while let Some(&pos) = queue.peek().filter(|&&pos| pos >= target_pos) {

@@ -21,7 +21,7 @@ use std::hash::Hasher;
 
 use smallvec::SmallVec;
 
-use super::composite::CompositeIndex;
+use super::composite::CompositeCommitIndex;
 use super::composite::DynIndexSegment;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
@@ -115,7 +115,7 @@ impl<'a> IndexEntry<'a> {
     }
 
     pub fn parents(&self) -> impl ExactSizeIterator<Item = IndexEntry<'a>> + use<'a> {
-        let composite = CompositeIndex::new(self.source);
+        let composite = CompositeCommitIndex::new(self.source);
         self.parent_positions()
             .into_iter()
             .map(move |pos| composite.entry_by_pos(pos))
