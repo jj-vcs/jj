@@ -102,9 +102,9 @@ pub enum StringPattern {
     /// Matches with a case‐insensitive Unix‐style shell wildcard pattern.
     GlobI(Box<GlobPattern>),
     /// Matches substrings with a regular expression.
-    Regex(regex::Regex),
+    Regex(regex::bytes::Regex),
     /// Matches substrings with a case‐insensitive regular expression.
-    RegexI(regex::Regex),
+    RegexI(regex::bytes::Regex),
 }
 
 impl StringPattern {
@@ -160,13 +160,13 @@ impl StringPattern {
 
     /// Parses the given string as a regular expression.
     pub fn regex(src: &str) -> Result<Self, StringPatternParseError> {
-        let pattern = regex::Regex::new(src).map_err(StringPatternParseError::Regex)?;
+        let pattern = regex::bytes::Regex::new(src).map_err(StringPatternParseError::Regex)?;
         Ok(StringPattern::Regex(pattern))
     }
 
     /// Parses the given string as a case-insensitive regular expression.
     pub fn regex_i(src: &str) -> Result<Self, StringPatternParseError> {
-        let pattern = regex::RegexBuilder::new(src)
+        let pattern = regex::bytes::RegexBuilder::new(src)
             .case_insensitive(true)
             .build()
             .map_err(StringPatternParseError::Regex)?;
@@ -278,8 +278,8 @@ impl StringPattern {
             // differently.
             StringPattern::Glob(pattern) => pattern.is_match(haystack.as_bytes()),
             StringPattern::GlobI(pattern) => pattern.is_match(haystack.as_bytes()),
-            StringPattern::Regex(pattern) => pattern.is_match(haystack),
-            StringPattern::RegexI(pattern) => pattern.is_match(haystack),
+            StringPattern::Regex(pattern) => pattern.is_match(haystack.as_bytes()),
+            StringPattern::RegexI(pattern) => pattern.is_match(haystack.as_bytes()),
         }
     }
 
@@ -461,5 +461,20 @@ mod tests {
 
         assert!(!StringPattern::glob("f?O").unwrap().is_match("Foo"));
         assert!(StringPattern::glob_i("f?O").unwrap().is_match("Foo"));
+    }
+
+    #[test]
+    fn test_regex_is_match() {
+        // Unicode mode is enabled by default
+        assert!(StringPattern::regex(r"^\w$").unwrap().is_match("\u{c0}"));
+        assert!(StringPattern::regex(r"^.$").unwrap().is_match("\u{c0}"));
+        // ASCII-compatible mode should also work
+        assert!(StringPattern::regex(r"^(?-u)\w$").unwrap().is_match("a"));
+        assert!(!StringPattern::regex(r"^(?-u)\w$")
+            .unwrap()
+            .is_match("\u{c0}"));
+        assert!(StringPattern::regex(r"^(?-u).{2}$")
+            .unwrap()
+            .is_match("\u{c0}"));
     }
 }
