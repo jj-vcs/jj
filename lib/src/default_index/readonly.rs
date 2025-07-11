@@ -16,8 +16,8 @@
 
 use std::any::Any;
 use std::cmp::Ordering;
+use std::fmt;
 use std::fmt::Debug;
-use std::fmt::Formatter;
 use std::fs::File;
 use std::io;
 use std::io::Read;
@@ -248,11 +248,11 @@ pub(super) struct ReadonlyIndexSegment {
 }
 
 impl Debug for ReadonlyIndexSegment {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         f.debug_struct("ReadonlyIndexSegment")
             .field("name", &self.name)
             .field("parent_file", &self.parent_file)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 

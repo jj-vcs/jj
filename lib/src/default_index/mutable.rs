@@ -18,6 +18,8 @@ use std::any::Any;
 use std::cmp::max;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Debug;
 use std::io;
 use std::io::Write as _;
 use std::iter;
@@ -65,7 +67,7 @@ use crate::revset::Revset;
 use crate::revset::RevsetEvaluationError;
 use crate::store::Store;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct MutableGraphEntry {
     commit_id: CommitId,
     change_id: ChangeId,
@@ -73,6 +75,7 @@ struct MutableGraphEntry {
     parent_positions: SmallIndexPositionsVec,
 }
 
+#[derive(Clone)]
 pub(super) struct MutableIndexSegment {
     parent_file: Option<Arc<ReadonlyIndexSegment>>,
     num_parent_commits: u32,
@@ -80,6 +83,14 @@ pub(super) struct MutableIndexSegment {
     graph: Vec<MutableGraphEntry>,
     commit_lookup: BTreeMap<CommitId, LocalPosition>,
     change_lookup: BTreeMap<ChangeId, SmallLocalPositionsVec>,
+}
+
+impl Debug for MutableIndexSegment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        f.debug_struct("MutableIndexSegment")
+            .field("parent_file", &self.parent_file)
+            .finish_non_exhaustive()
+    }
 }
 
 impl MutableIndexSegment {
