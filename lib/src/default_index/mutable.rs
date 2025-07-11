@@ -511,7 +511,7 @@ impl Index for DefaultMutableIndex {
         &self,
         candidates: &mut dyn Iterator<Item = &CommitId>,
     ) -> Result<Vec<CommitId>, IndexError> {
-        self.as_composite().heads(candidates)
+        Ok(self.as_composite().heads(candidates))
     }
 
     fn evaluate_revset(

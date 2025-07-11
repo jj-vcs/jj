@@ -43,7 +43,6 @@ use crate::file_util;
 use crate::file_util::persist_content_addressed_temp_file;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
-use crate::index::Index as _;
 use crate::index::IndexReadError;
 use crate::index::IndexStore;
 use crate::index::IndexWriteError;
