@@ -34,6 +34,7 @@ use super::entry::IndexPosition;
 use super::entry::LocalPosition;
 use super::entry::SmallIndexPositionsVec;
 use super::entry::SmallLocalPositionsVec;
+use super::mutable::MutableIndexSegment;
 use super::readonly::ReadonlyIndexSegment;
 use super::rev_walk::AncestorsBitSet;
 use super::revset_engine;
@@ -123,6 +124,7 @@ impl<T: AsCompositeIndex + ?Sized> AsCompositeIndex for &mut T {
 // Reference wrapper that provides global access to nested index segments.
 #[derive(RefCastCustom)]
 #[repr(transparent)]
+// TODO: rename to CompositeCommitIndex
 pub(super) struct CompositeIndex(DynIndexSegment);
 
 impl CompositeIndex {
@@ -507,6 +509,61 @@ impl CompositeIndex {
     ) -> Result<Box<dyn Revset + '_>, RevsetEvaluationError> {
         let revset_impl = revset_engine::evaluate(expression, store, self)?;
         Ok(Box::new(revset_impl))
+    }
+}
+
+#[derive(Clone, Debug)]
+enum CompositeCommitIndexSegment {
+    Readonly(Arc<ReadonlyIndexSegment>),
+    Mutable(Box<MutableIndexSegment>),
+}
+
+// TODO: rename to CompositeIndex
+#[derive(Clone, Debug)]
+pub(super) struct CompositeIndexBuf {
+    commits: CompositeCommitIndexSegment,
+    // TODO: add changed-paths index
+}
+
+impl CompositeIndexBuf {
+    pub(super) fn from_readonly(commits: Arc<ReadonlyIndexSegment>) -> Self {
+        CompositeIndexBuf {
+            commits: CompositeCommitIndexSegment::Readonly(commits),
+        }
+    }
+
+    pub(super) fn from_mutable(commits: Box<MutableIndexSegment>) -> Self {
+        CompositeIndexBuf {
+            commits: CompositeCommitIndexSegment::Mutable(commits),
+        }
+    }
+
+    pub(super) fn into_mutable(self) -> Option<Box<MutableIndexSegment>> {
+        match self.commits {
+            CompositeCommitIndexSegment::Readonly(_) => None,
+            CompositeCommitIndexSegment::Mutable(segment) => Some(segment),
+        }
+    }
+
+    pub(super) fn commits(&self) -> &CompositeIndex {
+        match &self.commits {
+            CompositeCommitIndexSegment::Readonly(segment) => segment.as_composite(),
+            CompositeCommitIndexSegment::Mutable(segment) => segment.as_composite(),
+        }
+    }
+
+    pub(super) fn readonly_commits(&self) -> Option<&Arc<ReadonlyIndexSegment>> {
+        match &self.commits {
+            CompositeCommitIndexSegment::Readonly(segment) => Some(segment),
+            CompositeCommitIndexSegment::Mutable(_) => None,
+        }
+    }
+
+    pub(super) fn mutable_commits(&mut self) -> Option<&mut MutableIndexSegment> {
+        match &mut self.commits {
+            CompositeCommitIndexSegment::Readonly(_) => None,
+            CompositeCommitIndexSegment::Mutable(segment) => Some(segment),
+        }
     }
 }
 

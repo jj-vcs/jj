@@ -30,6 +30,7 @@ use thiserror::Error;
 use super::composite::AsCompositeIndex;
 use super::composite::ChangeIdIndexImpl;
 use super::composite::CompositeIndex;
+use super::composite::CompositeIndexBuf;
 use super::composite::IndexSegment;
 use super::composite::IndexStats;
 use super::entry::IndexPosition;
@@ -582,30 +583,30 @@ impl IndexSegment for ReadonlyIndexSegment {
 
 /// Commit index backend which stores data on local disk.
 #[derive(Clone, Debug)]
-pub struct DefaultReadonlyIndex(Arc<ReadonlyIndexSegment>);
+pub struct DefaultReadonlyIndex(CompositeIndexBuf);
 
 impl DefaultReadonlyIndex {
-    pub(super) fn from_segment(segment: Arc<ReadonlyIndexSegment>) -> Self {
-        DefaultReadonlyIndex(segment)
+    pub(super) fn from_segment(commits: Arc<ReadonlyIndexSegment>) -> Self {
+        DefaultReadonlyIndex(CompositeIndexBuf::from_readonly(commits))
     }
 
-    pub(super) fn as_segment(&self) -> &Arc<ReadonlyIndexSegment> {
-        &self.0
+    pub(super) fn readonly_commits(&self) -> &Arc<ReadonlyIndexSegment> {
+        self.0.readonly_commits().expect("must have readonly")
     }
 
     /// Returns the number of all indexed commits.
     pub fn num_commits(&self) -> u32 {
-        self.0.as_composite().num_commits()
+        self.0.commits().num_commits()
     }
 
     /// Collects statistics of indexed commits and segments.
     pub fn stats(&self) -> IndexStats {
-        self.0.as_composite().stats()
+        self.0.commits().stats()
     }
 
     /// Looks up generation of the specified commit.
     pub fn generation_number(&self, commit_id: &CommitId) -> Option<u32> {
-        let entry = self.0.as_composite().entry_by_id(commit_id)?;
+        let entry = self.0.commits().entry_by_id(commit_id)?;
         Some(entry.generation_number())
     }
 
@@ -622,7 +623,7 @@ impl DefaultReadonlyIndex {
 
 impl AsCompositeIndex for DefaultReadonlyIndex {
     fn as_composite(&self) -> &CompositeIndex {
-        self.0.as_composite()
+        self.0.commits()
     }
 }
 
@@ -687,7 +688,9 @@ impl ReadonlyIndex for DefaultReadonlyIndex {
     }
 
     fn start_modification(&self) -> Box<dyn MutableIndex> {
-        Box::new(DefaultMutableIndex::incremental(self.0.clone()))
+        Box::new(DefaultMutableIndex::incremental(
+            self.readonly_commits().clone(),
+        ))
     }
 }
 

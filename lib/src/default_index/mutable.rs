@@ -37,6 +37,7 @@ use tempfile::NamedTempFile;
 use super::composite::AsCompositeIndex;
 use super::composite::ChangeIdIndexImpl;
 use super::composite::CompositeIndex;
+use super::composite::CompositeIndexBuf;
 use super::composite::DynIndexSegment;
 use super::composite::IndexSegment;
 use super::entry::IndexPosition;
@@ -452,22 +453,26 @@ impl IndexSegment for MutableIndexSegment {
 }
 
 /// In-memory mutable records for the on-disk commit index backend.
-pub struct DefaultMutableIndex(MutableIndexSegment);
+pub struct DefaultMutableIndex(CompositeIndexBuf);
 
 impl DefaultMutableIndex {
     pub(super) fn full(lengths: FieldLengths) -> Self {
-        let mutable_segment = MutableIndexSegment::full(lengths);
-        DefaultMutableIndex(mutable_segment)
+        let commits = Box::new(MutableIndexSegment::full(lengths));
+        DefaultMutableIndex(CompositeIndexBuf::from_mutable(commits))
     }
 
     pub(super) fn incremental(parent_file: Arc<ReadonlyIndexSegment>) -> Self {
-        let mutable_segment = MutableIndexSegment::incremental(parent_file);
-        DefaultMutableIndex(mutable_segment)
+        let commits = Box::new(MutableIndexSegment::incremental(parent_file));
+        DefaultMutableIndex(CompositeIndexBuf::from_mutable(commits))
+    }
+
+    fn mutable_commits(&mut self) -> &mut MutableIndexSegment {
+        self.0.mutable_commits().expect("must have mutable")
     }
 
     /// Returns the number of all indexed commits.
     pub fn num_commits(&self) -> u32 {
-        self.0.as_composite().num_commits()
+        self.0.commits().num_commits()
     }
 
     pub(super) fn add_commit_data(
@@ -476,17 +481,19 @@ impl DefaultMutableIndex {
         change_id: ChangeId,
         parent_ids: &[CommitId],
     ) {
-        self.0.add_commit_data(commit_id, change_id, parent_ids);
+        self.mutable_commits()
+            .add_commit_data(commit_id, change_id, parent_ids);
     }
 
     pub(super) fn squash_and_save_in(self, dir: &Path) -> io::Result<Arc<ReadonlyIndexSegment>> {
-        self.0.maybe_squash_with_ancestors().save_in(dir)
+        let commits = self.0.into_mutable().expect("must have mutable");
+        commits.maybe_squash_with_ancestors().save_in(dir)
     }
 }
 
 impl AsCompositeIndex for DefaultMutableIndex {
     fn as_composite(&self) -> &CompositeIndex {
-        self.0.as_composite()
+        self.0.commits()
     }
 }
 
@@ -567,7 +574,7 @@ impl MutableIndex for DefaultMutableIndex {
             .as_any()
             .downcast_ref::<DefaultReadonlyIndex>()
             .expect("index to merge in must be a DefaultReadonlyIndex");
-        self.0.merge_in(other.as_segment());
+        self.mutable_commits().merge_in(other.readonly_commits());
     }
 }
 
