@@ -2417,7 +2417,6 @@ dependencies = [
  "either",
  "futures 0.3.31",
  "gix",
- "glob",
  "globset",
  "hashbrown 0.15.4",
  "ignore",

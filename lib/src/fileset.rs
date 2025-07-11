@@ -20,6 +20,8 @@ use std::path;
 use std::slice;
 use std::sync::LazyLock;
 
+use globset::Glob;
+use globset::GlobBuilder;
 use itertools::Itertools as _;
 use thiserror::Error;
 
@@ -63,7 +65,7 @@ pub enum FilePatternParseError {
     RelativePath(#[from] RelativePathParseError),
     /// Failed to parse glob pattern.
     #[error(transparent)]
-    GlobPattern(#[from] glob::PatternError),
+    GlobPattern(#[from] globset::Error),
 }
 
 /// Basic pattern to match `RepoPath`.
@@ -78,7 +80,7 @@ pub enum FilePattern {
         /// Prefix directory path where the `pattern` will be evaluated.
         dir: RepoPathBuf,
         /// Glob pattern relative to `dir`.
-        pattern: glob::Pattern,
+        pattern: Box<Glob>,
     },
     // TODO: add more patterns:
     // - FilesInPath: files in directory, non-recursively?
@@ -171,7 +173,7 @@ impl FilePattern {
         }
         // Normalize separator to '/', reject ".." which will never match
         let normalized = RepoPathBuf::from_relative_path(input)?;
-        let pattern = glob::Pattern::new(normalized.as_internal_file_string())?;
+        let pattern = Box::new(parse_file_glob(normalized.as_internal_file_string())?);
         Ok(FilePattern::FileGlob { dir, pattern })
     }
 
@@ -186,9 +188,19 @@ impl FilePattern {
     }
 }
 
+pub(super) fn parse_file_glob(input: &str) -> Result<Glob, globset::Error> {
+    GlobBuilder::new(input).literal_separator(true).build()
+}
+
 /// Splits `input` path into literal directory path and glob pattern.
 fn split_glob_path(input: &str) -> (&str, &str) {
-    const GLOB_CHARS: &[char] = &['?', '*', '[', ']']; // see glob::Pattern::escape()
+    // See globset::escape(). In addition to that, backslash is parsed as an
+    // escape sequence on Unix.
+    const GLOB_CHARS: &[char] = if cfg!(windows) {
+        &['?', '*', '[', ']', '{', '}']
+    } else {
+        &['?', '*', '[', ']', '{', '}', '\\']
+    };
     let prefix_len = input
         .split_inclusive(path::is_separator)
         .take_while(|component| !component.contains(GLOB_CHARS))
@@ -505,8 +517,15 @@ mod tests {
 
     fn insta_settings() -> insta::Settings {
         let mut settings = insta::Settings::clone_current();
-        // Elide parsed glob tokens, which aren't interesting.
-        settings.add_filter(r"\b(tokens): \[[^]]*\],", "$1: _,");
+        // Elide parsed glob options and tokens, which aren't interesting.
+        settings.add_filter(
+            r"(?m)^(\s{12}opts):\s*GlobOptions\s*\{\n(\s{16}.*\n)*\s{12}\},",
+            "$1: _,",
+        );
+        settings.add_filter(
+            r"(?m)^(\s{12}tokens):\s*Tokens\(\n(\s{16}.*\n)*\s{12}\),",
+            "$1: _,",
+        );
         // Collapse short "Thing(_,)" repeatedly to save vertical space and make
         // the output more readable.
         for _ in 0..4 {
@@ -598,10 +617,11 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "cur*",
-                pattern: Pattern {
-                    original: "*",
+                pattern: Glob {
+                    glob: "*",
+                    re: "(?-u)^[^/]*$",
+                    opts: _,
                     tokens: _,
-                    is_recursive: false,
                 },
             },
         )
@@ -611,10 +631,11 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "cur*",
-                pattern: Pattern {
-                    original: "*",
+                pattern: Glob {
+                    glob: "*",
+                    re: "(?-u)^[^/]*$",
+                    opts: _,
                     tokens: _,
-                    is_recursive: false,
                 },
             },
         )
@@ -624,10 +645,11 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "",
-                pattern: Pattern {
-                    original: "*",
+                pattern: Glob {
+                    glob: "*",
+                    re: "(?-u)^[^/]*$",
+                    opts: _,
                     tokens: _,
-                    is_recursive: false,
                 },
             },
         )
@@ -638,10 +660,11 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "cur*",
-                pattern: Pattern {
-                    original: "**",
+                pattern: Glob {
+                    glob: "**",
+                    re: "(?-u)^.*$",
+                    opts: _,
                     tokens: _,
-                    is_recursive: true,
                 },
             },
         )
@@ -651,10 +674,11 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "foo",
-                pattern: Pattern {
-                    original: "b?r/baz",
+                pattern: Glob {
+                    glob: "b?r/baz",
+                    re: "(?-u)^b[^/]r/baz$",
+                    opts: _,
                     tokens: _,
-                    is_recursive: false,
                 },
             },
         )
@@ -664,31 +688,34 @@ mod tests {
         // no support for relative path component after glob meta character
         assert!(parse(r#"glob:"*/..""#).is_err());
 
-        // cwd-relative, with Windows path separators
         if cfg!(windows) {
+            // cwd-relative, with Windows path separators
             insta::assert_debug_snapshot!(
                 parse(r#"glob:"..\\foo\\*\\bar""#).unwrap(), @r#"
             Pattern(
                 FileGlob {
                     dir: "foo",
-                    pattern: Pattern {
-                        original: "*/bar",
+                    pattern: Glob {
+                        glob: "*/bar",
+                        re: "(?-u)^[^/]*/bar$",
+                        opts: _,
                         tokens: _,
-                        is_recursive: false,
                     },
                 },
             )
             "#);
         } else {
+            // backslash is an escape character on Unix
             insta::assert_debug_snapshot!(
                 parse(r#"glob:"..\\foo\\*\\bar""#).unwrap(), @r#"
             Pattern(
                 FileGlob {
                     dir: "cur*",
-                    pattern: Pattern {
-                        original: "..\\foo\\*\\bar",
+                    pattern: Glob {
+                        glob: "..\\foo\\*\\bar",
+                        re: "(?-u)^\\.\\.foo\\*bar$",
+                        opts: _,
                         tokens: _,
-                        is_recursive: false,
                     },
                 },
             )
@@ -712,10 +739,11 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "",
-                pattern: Pattern {
-                    original: "*",
+                pattern: Glob {
+                    glob: "*",
+                    re: "(?-u)^[^/]*$",
+                    opts: _,
                     tokens: _,
-                    is_recursive: false,
                 },
             },
         )
@@ -725,18 +753,49 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "foo/bar",
-                pattern: Pattern {
-                    original: "b[az]",
+                pattern: Glob {
+                    glob: "b[az]",
+                    re: "(?-u)^b[az]$",
+                    opts: _,
                     tokens: _,
-                        ),
-                    ],
-                    is_recursive: false,
+                },
+            },
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            parse(r#"root-glob:"foo/bar/b{ar,az}""#).unwrap(), @r#"
+        Pattern(
+            FileGlob {
+                dir: "foo/bar",
+                pattern: Glob {
+                    glob: "b{ar,az}",
+                    re: "(?-u)^b(?:az|ar)$",
+                    opts: _,
+                    tokens: _,
                 },
             },
         )
         "#);
         assert!(parse(r#"root-glob:"../*""#).is_err());
         assert!(parse(r#"root-glob:"/*""#).is_err());
+
+        // workspace-relative, backslash escape without meta characters
+        if cfg!(not(windows)) {
+            insta::assert_debug_snapshot!(
+                parse(r#"root-glob:'foo/bar\baz'"#).unwrap(), @r#"
+            Pattern(
+                FileGlob {
+                    dir: "foo",
+                    pattern: Glob {
+                        glob: "bar\\baz",
+                        re: "(?-u)^barbaz$",
+                        opts: _,
+                        tokens: _,
+                    },
+                },
+            )
+            "#);
+        }
     }
 
     #[test]
@@ -872,18 +931,14 @@ mod tests {
         let glob_expr = |dir: &str, pattern: &str| {
             FilesetExpression::pattern(FilePattern::FileGlob {
                 dir: repo_path_buf(dir),
-                pattern: glob::Pattern::new(pattern).unwrap(),
+                pattern: Box::new(parse_file_glob(pattern).unwrap()),
             })
         };
 
         insta::assert_debug_snapshot!(glob_expr("", "*").to_matcher(), @r#"
         FileGlobsMatcher {
             tree: [
-                Pattern {
-                    original: "*",
-                    tokens: _,
-                    is_recursive: false,
-                },
+                Regex("(?-u)^[^/]*$"),
             ] {},
         }
         "#);
@@ -894,18 +949,10 @@ mod tests {
         FileGlobsMatcher {
             tree: [] {
                 "foo": [
-                    Pattern {
-                        original: "*",
-                        tokens: _,
-                        is_recursive: false,
-                    },
+                    Regex("(?-u)^[^/]*$"),
                 ] {
                     "bar": [
-                        Pattern {
-                            original: "*",
-                            tokens: _,
-                            is_recursive: false,
-                        },
+                        Regex("(?-u)^[^/]*$"),
                     ] {},
                 },
             },
