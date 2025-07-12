@@ -973,7 +973,7 @@ changes. Two select improvements:
 * `jj config list` now prints inline tables `{ key = value, .. }` literally.
   Inner items of inline tables are no longer merged across configuration files.
   See [the table syntax
-  documentation](docs/config.md#dotted-style-headings-and-inline-tables) for
+  documentation](docs/config.md#dotted-style-and-headings) for
   details.
 
 * `jj config edit --user` now opens a file even if `$JJ_CONFIG` points to a
@@ -2505,7 +2505,7 @@ Thanks to the people who made this release happen!
   If the deduced tracking flags are wrong, use `jj branch track`/`untrack`
   commands to fix them up.
 
-  See [automatic local branch creation](docs/config.md#automatic-local-branch-creation)
+  See [automatic local branch creation](docs/config.md#automatic-local-bookmark-creation)
   for details.
 
 * Non-tracking remote branches aren't listed by default. Use `jj branch list
@@ -2583,7 +2583,7 @@ Thanks to the people who made this release happen!
 * A default revset-alias function `trunk()` now exists. If you previously
   defined
   your own `trunk()` alias it will continue to overwrite the built-in one.
-  Check [revsets.toml](cli/src/config/revsets.toml)
+  Check [revsets.toml](../cli/src/config/revsets.toml)
   and [revsets.md](docs/revsets.md)
   to understand how the function can be adapted.
 
