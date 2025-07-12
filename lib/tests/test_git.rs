@@ -139,12 +139,14 @@ fn git_fetch(
     mut_repo: &mut MutableRepo,
     remote_name: &RemoteName,
     branch_names: &[StringPattern],
+    tags: bool,
     git_settings: &GitSettings,
 ) -> Result<GitFetchStats, GitFetchError> {
     let mut git_fetch = GitFetch::new(mut_repo, git_settings).unwrap();
     git_fetch.fetch(
         remote_name,
         branch_names,
+        tags,
         git::RemoteCallbacks::default(),
         None,
     )?;
@@ -2797,6 +2799,7 @@ fn test_fetch_empty_repo() {
         tx.repo_mut(),
         "origin".as_ref(),
         &[StringPattern::everything()],
+        true,
         &git_settings,
     )
     .unwrap();
@@ -2821,6 +2824,7 @@ fn test_fetch_initial_commit_head_is_not_set() {
         tx.repo_mut(),
         "origin".as_ref(),
         &[StringPattern::everything()],
+        true,
         &git_settings,
     )
     .unwrap();
@@ -2884,6 +2888,7 @@ fn test_fetch_initial_commit_head_is_set() {
         tx.repo_mut(),
         "origin".as_ref(),
         &[StringPattern::everything()],
+        true,
         &git_settings,
     )
     .unwrap();
@@ -2906,6 +2911,7 @@ fn test_fetch_success() {
         tx.repo_mut(),
         "origin".as_ref(),
         &[StringPattern::everything()],
+        true,
         &git_settings,
     )
     .unwrap();
@@ -2932,6 +2938,7 @@ fn test_fetch_success() {
         tx.repo_mut(),
         "origin".as_ref(),
         &[StringPattern::everything()],
+        true,
         &git_settings,
     )
     .unwrap();
@@ -2987,6 +2994,7 @@ fn test_fetch_prune_deleted_ref() {
         tx.repo_mut(),
         "origin".as_ref(),
         &[StringPattern::everything()],
+        true,
         &git_settings,
     )
     .unwrap();
@@ -3008,6 +3016,7 @@ fn test_fetch_prune_deleted_ref() {
         tx.repo_mut(),
         "origin".as_ref(),
         &[StringPattern::everything()],
+        true,
         &git_settings,
     )
     .unwrap();
@@ -3033,6 +3042,7 @@ fn test_fetch_no_default_branch() {
         tx.repo_mut(),
         "origin".as_ref(),
         &[StringPattern::everything()],
+        true,
         &git_settings,
     )
     .unwrap();
@@ -3051,6 +3061,7 @@ fn test_fetch_no_default_branch() {
         tx.repo_mut(),
         "origin".as_ref(),
         &[StringPattern::everything()],
+        true,
         &git_settings,
     )
     .unwrap();
@@ -3066,7 +3077,7 @@ fn test_fetch_empty_refspecs() {
 
     // Base refspecs shouldn't be respected
     let mut tx = test_data.repo.start_transaction();
-    git_fetch(tx.repo_mut(), "origin".as_ref(), &[], &git_settings).unwrap();
+    git_fetch(tx.repo_mut(), "origin".as_ref(), &[], false, &git_settings).unwrap();
     assert!(tx
         .repo_mut()
         .get_remote_bookmark(remote_symbol("main", "origin"))
@@ -3088,6 +3099,7 @@ fn test_fetch_no_such_remote() {
         tx.repo_mut(),
         "invalid-remote".as_ref(),
         &[StringPattern::everything()],
+        true,
         &git_settings,
     );
     assert!(matches!(result, Err(GitFetchError::NoSuchRemote(_))));
@@ -3111,6 +3123,7 @@ fn test_fetch_multiple_branches() {
             StringPattern::Exact("noexist1".to_string()),
             StringPattern::Exact("noexist2".to_string()),
         ],
+        true,
         &git_settings,
     )
     .unwrap();

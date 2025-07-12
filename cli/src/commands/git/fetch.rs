@@ -54,6 +54,18 @@ pub struct GitFetchArgs {
         add = ArgValueCandidates::new(complete::bookmarks),
     )]
     branch: Vec<StringPattern>,
+    /// Enable fetching of tags
+    ///
+    /// By default tags are fetched. This flag overrides the config option
+    /// `git.fetch-tags`
+    #[arg(long)]
+    tags: bool,
+    /// Disable fetching of tags
+    ///
+    /// By default, tags are fetched. This can be disabled either with this
+    /// flag, or by setting the `git.fetch-tags` config option.
+    #[arg(long, conflicts_with = "tags")]
+    no_tags: bool,
     /// The remote to fetch from (only named remotes are supported, can be
     /// repeated)
     ///
@@ -95,6 +107,9 @@ pub fn cmd_git_fetch(
 
     let all_remotes = git::get_all_remote_names(workspace_command.repo().store())?;
 
+    let fetch_tags =
+        args.tags || (!args.no_tags && workspace_command.settings().get_bool("git.fetch-tags")?);
+
     let mut matching_remotes = HashSet::new();
     for pattern in remote_patterns {
         let remotes = all_remotes
@@ -119,7 +134,7 @@ pub fn cmd_git_fetch(
         .collect_vec();
 
     let mut tx = workspace_command.start_transaction();
-    do_git_fetch(ui, &mut tx, &remotes, &args.branch)?;
+    do_git_fetch(ui, &mut tx, &remotes, &args.branch, fetch_tags)?;
     tx.finish(
         ui,
         format!(
@@ -169,13 +184,14 @@ fn do_git_fetch(
     tx: &mut WorkspaceCommandTransaction,
     remotes: &[&RemoteName],
     branch_names: &[StringPattern],
+    tags: bool,
 ) -> Result<(), CommandError> {
     let git_settings = tx.settings().git_settings()?;
     let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
 
     for remote_name in remotes {
         with_remote_git_callbacks(ui, |callbacks| {
-            git_fetch.fetch(remote_name, branch_names, callbacks, None)
+            git_fetch.fetch(remote_name, branch_names, tags, callbacks, None)
         })?;
     }
     let import_stats = git_fetch.import_refs()?;

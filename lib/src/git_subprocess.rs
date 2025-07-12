@@ -159,6 +159,7 @@ impl<'a> GitSubprocessContext<'a> {
         &self,
         remote_name: &RemoteName,
         refspecs: &[RefSpec],
+        tags: bool,
         callbacks: &mut RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
     ) -> Result<Option<String>, GitSubprocessError> {
@@ -170,6 +171,7 @@ impl<'a> GitSubprocessContext<'a> {
         // attempt to prune stale refs with --prune
         // --no-write-fetch-head ensures our request is invisible to other parties
         command.args(["fetch", "--prune", "--no-write-fetch-head"]);
+        command.arg(if tags { "--tags" } else { "--no-tags" });
         if callbacks.progress.is_some() {
             command.arg("--progress");
         }

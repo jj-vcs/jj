@@ -14,6 +14,7 @@ context = 3
 context = 3
 
 [git]
+fetch-tags = true
 private-commits = "none()"
 push-new-bookmarks = false
 sign-on-push = false

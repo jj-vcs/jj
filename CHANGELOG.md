@@ -39,6 +39,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Added `templates.workspace_list` template to customize the output of `jj workspace list`.
 
+* `jj git fetch` now accepts `--tags` and `--no-tags` options, to enable or
+  disable fetching of tags. The default is to fetch tags, controllable with the
+  `git.fetch-tags` config option.
+
 ### Fixed bugs
 
 ### Packaging changes

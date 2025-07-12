@@ -2160,6 +2160,7 @@ impl<'a> GitFetch<'a> {
         &mut self,
         remote_name: &RemoteName,
         branch_names: &[StringPattern],
+        tags: bool,
         mut callbacks: RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
     ) -> Result<(), GitFetchError> {
@@ -2189,10 +2190,13 @@ impl<'a> GitFetch<'a> {
         //
         // even more unfortunately, git errors out one refspec at a time,
         // meaning that the below cycle runs in O(#failed refspecs)
-        while let Some(failing_refspec) =
-            self.git_ctx
-                .spawn_fetch(remote_name, &remaining_refspecs, &mut callbacks, depth)?
-        {
+        while let Some(failing_refspec) = self.git_ctx.spawn_fetch(
+            remote_name,
+            &remaining_refspecs,
+            tags,
+            &mut callbacks,
+            depth,
+        )? {
             tracing::debug!(failing_refspec, "failed to fetch ref");
             remaining_refspecs.retain(|r| r.source.as_ref() != Some(&failing_refspec));
 
