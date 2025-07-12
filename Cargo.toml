@@ -56,7 +56,7 @@ gix = { version = "0.72.1", default-features = false, features = [
     "max-performance-safe",
     "zlib-rs",
 ] }
-glob = "0.3.2"
+globset = "0.4.16"
 hashbrown = { version = "0.15.4", default-features = false, features = ["inline-more"] }
 ignore = "0.4.23"
 indexmap = { version = "2.10.0", features = ["serde"] }
