@@ -1451,11 +1451,11 @@ fn test_log_diff_stat_width() {
     insta::assert_snapshot!(render(&["log", "--stat", "--no-graph"], 30), @r"
     rlvkpnrz test.user@example.com 2001-02-03 08:05:09 9490cfd3
     (no description set)
-    file2 | 100 +++++++++++++++
+    file2 | 100 ++++++++++++++++++
     1 file changed, 100 insertions(+), 0 deletions(-)
     qpvuntsm test.user@example.com 2001-02-03 08:05:08 79f0968d
     (no description set)
-    file1 | 100 +++++++++++++++
+    file1 | 100 ++++++++++++++++++
     1 file changed, 100 insertions(+), 0 deletions(-)
     zzzzzzzz root() 00000000
     0 files changed, 0 insertions(+), 0 deletions(-)
@@ -1466,11 +1466,11 @@ fn test_log_diff_stat_width() {
     insta::assert_snapshot!(render(&["log", "--stat"], 30), @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 9490cfd3
     │  (no description set)
-    │  file2 | 100 ++++++++++++
+    │  file2 | 100 +++++++++++++++
     │  1 file changed, 100 insertions(+), 0 deletions(-)
     │ ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 79f0968d
     ├─╯  (no description set)
-    │    file1 | 100 ++++++++++
+    │    file1 | 100 +++++++++++++
     │    1 file changed, 100 insertions(+), 0 deletions(-)
     ◆  zzzzzzzz root() 00000000
        0 files changed, 0 insertions(+), 0 deletions(-)
