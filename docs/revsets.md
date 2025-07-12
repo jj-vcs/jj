@@ -218,8 +218,10 @@ revsets (expressions) as arguments.
   change is divergent, this resolves to multiple commits. It is an error to use a
   non-unique prefix. Unmatched prefix isn't an error.
 
-* `commit_id(prefix)`: Commits with the given commit ID prefix. It is an error
-  to use a non-unique prefix. Unmatched prefix isn't an error.
+* `commit_id(prefix)`: Commit with the given commit ID prefix. It is an error
+  to use a non-unique prefix. Unmatched prefix isn't an error. For example,
+  `commit_id(abc)` will refer to a commit with prefix `abc` even if there also
+  exists a bookmark named `abc`.
 
 * `bookmarks([pattern])`: All local bookmark targets. If `pattern` is specified,
   this selects the bookmarks whose name match the given [string
