@@ -89,10 +89,18 @@ formal_parameters = {
   | ""
 }
 
+map = { "{" ~ whitespace* ~ map_entries ~ whitespace* ~ "}" }
+map_entries = _{
+  map_entry ~ (whitespace* ~ "," ~ whitespace* ~ map_entry)* ~ (whitespace* ~ ",")?
+  | ""
+}
+map_entry = { template ~ whitespace* ~ "=>" ~ whitespace* ~ template }
+
 primary = _{
   ("(" ~ whitespace* ~ template ~ whitespace* ~ ")")
   | function
   | lambda
+  | map
   | identifier
   | string_literal
   | raw_string_literal
