@@ -54,7 +54,7 @@ use crate::ui::Ui;
 /// rendered as a synthetic node labeled "(elided revisions)".
 ///
 /// The working-copy commit is indicated by a `@` symbol in the graph.
-/// [Immutable revisions] have a `◆` symbol. Other commits have a `○` symbol.
+/// [Immutable revisions] have a `♦` symbol. Other commits have a `○` symbol.
 /// All of these symbols can be [customized].
 ///
 /// [Immutable revisions]:
