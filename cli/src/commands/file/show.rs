@@ -51,6 +51,8 @@ pub(crate) struct FileShowArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revision: RevisionArg,
+    #[arg(long, short, default_value = "")]
+    separator: String,
     /// Paths to print
     #[arg(
         required = true,
@@ -83,7 +85,7 @@ pub(crate) fn cmd_file_show(
         }
         if !value.is_tree() {
             ui.request_pager();
-            write_tree_entries(ui, &workspace_command, [(path, Ok(value))])?;
+            write_tree_entries(ui, &workspace_command, &args.separator, [(path, Ok(value))])?;
             return Ok(());
         }
     }
@@ -93,6 +95,7 @@ pub(crate) fn cmd_file_show(
     write_tree_entries(
         ui,
         &workspace_command,
+        &args.separator,
         tree.entries_matching(matcher.as_ref()),
     )?;
     print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
@@ -114,9 +117,11 @@ fn get_single_path(expression: &FilesetExpression) -> Option<&RepoPath> {
 fn write_tree_entries<P: AsRef<RepoPath>>(
     ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
+    separator: &str,
     entries: impl IntoIterator<Item = (P, BackendResult<MergedTreeValue>)>,
 ) -> Result<(), CommandError> {
     let repo = workspace_command.repo();
+    let mut first = true;
     for (path, result) in entries {
         let value = result?;
         let materialized = materialize_tree_value(repo.store(), path.as_ref(), value).block_on()?;
@@ -130,7 +135,11 @@ fn write_tree_entries<P: AsRef<RepoPath>>(
                 )?;
             }
             MaterializedTreeValue::File(file) => {
+                if !first {
+                    write!(ui.stdout_formatter().as_mut(), "{separator}")?;
+                }
                 copy_async_to_sync(file.reader, ui.stdout_formatter().as_mut()).block_on()?;
+                first = false;
             }
             MaterializedTreeValue::FileConflict(file) => {
                 materialize_merge_result(
