@@ -108,6 +108,46 @@ fn test_status_filtered() {
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
+
+    // The filtered output should emit a warning and a suggestion when given a
+    // single path that looks like a revset
+    let output = work_dir.run_jj(["status", "file_nonexistent"]);
+    insta::assert_snapshot!(output, @r#"
+    Working copy changes:
+    Working copy  (@) : qpvuntsm 2f169edb (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ------- stderr -------
+    Warning: No matching entries for paths: file_nonexistent
+    Hint: To show changes in a given revision, use `jj diff --summary -r "file_nonexistent"`.
+    [EOF]
+    "#);
+
+    // The filtered output should emit a warning but no suggestion when given a path
+    // that doesn't look like a revset
+    let output = work_dir.run_jj(["status", "not a revset"]);
+    insta::assert_snapshot!(output, @r"
+    Working copy changes:
+    Working copy  (@) : qpvuntsm 2f169edb (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ------- stderr -------
+    Warning: No matching entries for paths: not a revset
+    [EOF]
+    ");
+
+    // The filtered output should emit a warning but no suggestion when given
+    // multiple paths
+    let output = work_dir.run_jj(["status", "abcdef", "ghijkl"]);
+    insta::assert_snapshot!(output, @r"
+    Working copy changes:
+    Working copy  (@) : qpvuntsm 2f169edb (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ------- stderr -------
+    Warning: No matching entries for paths: abcdef, ghijkl
+    [EOF]
+    ");
 }
 
 // See <https://github.com/jj-vcs/jj/issues/3108>
