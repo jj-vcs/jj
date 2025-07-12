@@ -195,6 +195,10 @@ impl<W> PlainTextFormatter<W> {
     pub fn new(output: W) -> PlainTextFormatter<W> {
         Self { output }
     }
+
+    pub fn into_inner(self) -> W {
+        self.output
+    }
 }
 
 impl<W: Write> Write for PlainTextFormatter<W> {

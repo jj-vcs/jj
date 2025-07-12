@@ -79,6 +79,7 @@ use crate::command_error::CommandError;
 use crate::commit_templater;
 use crate::config::CommandNameAndArgs;
 use crate::formatter::Formatter;
+use crate::formatter::PlainTextFormatter;
 use crate::merge_tools;
 use crate::merge_tools::generate_diff;
 use crate::merge_tools::invoke_external_diff;
@@ -1945,11 +1946,7 @@ impl DiffStats {
                 let (left, right) = values?;
                 let left_content = diff_content(path.source(), left, conflict_marker_style)?;
                 let right_content = diff_content(path.target(), right, conflict_marker_style)?;
-                let stat = get_diff_stat_entry(
-                    path,
-                    [&left_content.contents, &right_content.contents].map(BStr::new),
-                    options,
-                );
+                let stat = get_diff_stat_entry(path, [&left_content, &right_content], options);
                 BackendResult::Ok(stat)
             })
             .try_collect()
@@ -1962,49 +1959,64 @@ impl DiffStats {
         &self.entries
     }
 
-    /// Total number of insertions.
+    /// Total number of inserted lines.
     pub fn count_total_added(&self) -> usize {
-        self.entries.iter().map(|stat| stat.added).sum()
+        self.entries
+            .iter()
+            .filter_map(|stat| stat.added_removed.map(|(added, _)| added))
+            .sum()
     }
 
-    /// Total number of deletions.
+    /// Total number of deleted lines.
     pub fn count_total_removed(&self) -> usize {
-        self.entries.iter().map(|stat| stat.removed).sum()
+        self.entries
+            .iter()
+            .filter_map(|stat| stat.added_removed.map(|(_, removed)| removed))
+            .sum()
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct DiffStatEntry {
     pub path: CopiesTreeDiffEntryPath,
-    pub added: usize,
-    pub removed: usize,
+    /// Lines added and removed; None for binary files.
+    pub added_removed: Option<(usize, usize)>,
+    /// Change in file size in bytes.
+    pub bytes_delta: isize,
 }
 
 fn get_diff_stat_entry(
     path: CopiesTreeDiffEntryPath,
-    contents: [&BStr; 2],
+    contents: [&FileContent<BString>; 2],
     options: &DiffStatOptions,
 ) -> DiffStatEntry {
-    // TODO: this matches git's behavior, which is to count the number of newlines
-    // in the file. but that behavior seems unhelpful; no one really cares how
-    // many `0x0a` characters are in an image.
-    let diff = diff_by_line(contents, &options.line_diff);
-    let mut added = 0;
-    let mut removed = 0;
-    for hunk in diff.hunks() {
-        match hunk.kind {
-            DiffHunkKind::Matching => {}
-            DiffHunkKind::Different => {
-                let [left, right] = hunk.contents[..].try_into().unwrap();
-                removed += left.split_inclusive(|b| *b == b'\n').count();
-                added += right.split_inclusive(|b| *b == b'\n').count();
+    let [left_content, right_content] = contents;
+    let added_removed = if left_content.is_binary || right_content.is_binary {
+        None
+    } else {
+        let diff = diff_by_line(
+            contents.map(|content| &content.contents),
+            &options.line_diff,
+        );
+        let mut added = 0;
+        let mut removed = 0;
+        for hunk in diff.hunks() {
+            match hunk.kind {
+                DiffHunkKind::Matching => {}
+                DiffHunkKind::Different => {
+                    let [left, right] = hunk.contents[..].try_into().unwrap();
+                    removed += left.split_inclusive(|b| *b == b'\n').count();
+                    added += right.split_inclusive(|b| *b == b'\n').count();
+                }
             }
         }
-    }
+        Some((added, removed))
+    };
+
     DiffStatEntry {
         path,
-        added,
-        removed,
+        added_removed,
+        bytes_delta: right_content.contents.len() as isize - left_content.contents.len() as isize,
     }
 }
 
@@ -2025,21 +2037,51 @@ pub fn show_diff_stats(
             }
         })
         .collect_vec();
-    let max_path_width = ui_paths.iter().map(|s| s.width()).max().unwrap_or(0);
-    let max_diffs = stats
-        .entries()
-        .iter()
-        .map(|stat| stat.added + stat.removed)
-        .max()
-        .unwrap_or(0);
 
-    let number_padding = max_diffs.to_string().len();
-    // 4 characters padding for the graph
-    let available_width = display_width.saturating_sub(4 + " | ".len() + number_padding);
-    // Always give at least a tiny bit of room
-    let available_width = max(available_width, 5);
-    let max_path_width = max_path_width.clamp(3, (0.7 * available_width as f64) as usize);
-    let max_bar_length = available_width.saturating_sub(max_path_width);
+    // Entries format like:
+    //   path/to/file | 123 ++--
+    // or, for binary files:
+    //   path/to/file | (binary) +1234
+    //
+    // Depending on display widths, we can elide part of the path,
+    // and the the ++-- bar will adjust its scale to fill the rest.
+
+    fn format_binary_entry(formatter: &mut dyn Formatter, bytes_delta: isize) -> io::Result<()> {
+        write!(formatter, "(binary)")?;
+        if bytes_delta != 0 {
+            if bytes_delta < 0 {
+                write!(formatter.labeled("removed"), " {}", bytes_delta)?;
+            } else if bytes_delta > 0 {
+                write!(formatter.labeled("added"), " +{}", bytes_delta)?;
+            }
+            write!(formatter, " bytes")?;
+        }
+        writeln!(formatter)?;
+        Ok(())
+    }
+
+    let max_path_width = ui_paths.iter().map(|s| s.width()).max().unwrap_or(0);
+    let mut max_diffs = 0;
+    let mut max_binary_output_width = 0;
+    for stat in stats.entries() {
+        if let Some((added, removed)) = stat.added_removed {
+            max_diffs = max_diffs.max(added + removed);
+        } else {
+            let mut formatter = PlainTextFormatter::new(Vec::new());
+            format_binary_entry(&mut formatter, stat.bytes_delta).ok();
+            max_binary_output_width = max_binary_output_width.max(formatter.into_inner().len() - 1);
+        }
+    }
+
+    // Choose how many columns to use for the path.  The bar will use the rest.
+    // Always assume at least a tiny bit of room:
+    let available_width = max(display_width.saturating_sub(" | ".len()), 5);
+    let max_path_width = max_path_width
+        .min(available_width.saturating_sub(max_binary_output_width))
+        .min((0.7 * available_width as f64) as usize);
+
+    let number_width = max_diffs.to_string().len();
+    let max_bar_length = available_width.saturating_sub(max_path_width + number_width + " ".len());
     let factor = if max_diffs < max_bar_length {
         1.0
     } else {
@@ -2047,20 +2089,37 @@ pub fn show_diff_stats(
     };
 
     for (stat, ui_path) in iter::zip(stats.entries(), &ui_paths) {
-        let bar_added = (stat.added as f64 * factor).ceil() as usize;
-        let bar_removed = (stat.removed as f64 * factor).ceil() as usize;
         // replace start of path with ellipsis if the path is too long
         let (path, path_width) = text_util::elide_start(ui_path, "...", max_path_width);
         let path_pad_width = max_path_width - path_width;
         write!(
             formatter,
-            "{path}{:path_pad_width$} | {:>number_padding$}{}",
+            "{path}{:path_pad_width$} | ",
             "", // pad to max_path_width
-            stat.added + stat.removed,
-            if bar_added + bar_removed > 0 { " " } else { "" },
         )?;
-        write!(formatter.labeled("added"), "{}", "+".repeat(bar_added))?;
-        writeln!(formatter.labeled("removed"), "{}", "-".repeat(bar_removed))?;
+        if let Some((added, removed)) = stat.added_removed {
+            let bar_length = ((added + removed) as f64 * factor) as usize;
+            // Ensure that any fractional space after scaling is given to whichever
+            // of adds/removes is smaller.  This ensures we always show at least one
+            // tick even for small counts.
+            let (bar_added, bar_removed) = if added < removed {
+                let len = (added as f64 * factor).ceil() as usize;
+                (len, bar_length - len)
+            } else {
+                let len = (removed as f64 * factor).ceil() as usize;
+                (bar_length - len, len)
+            };
+            write!(
+                formatter,
+                "{:>number_width$}{}",
+                added + removed,
+                if bar_added + bar_removed > 0 { " " } else { "" },
+            )?;
+            write!(formatter.labeled("added"), "{}", "+".repeat(bar_added))?;
+            writeln!(formatter.labeled("removed"), "{}", "-".repeat(bar_removed))?;
+        } else {
+            format_binary_entry(formatter, stat.bytes_delta)?;
+        }
     }
 
     let total_added = stats.count_total_added();
