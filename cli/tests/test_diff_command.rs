@@ -18,6 +18,7 @@ use itertools::Itertools as _;
 use crate::common::create_commit;
 use crate::common::create_commit_with_files;
 use crate::common::fake_diff_editor_path;
+use crate::common::force_human_output;
 use crate::common::to_toml_value;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
@@ -3494,6 +3495,59 @@ fn test_diff_external_tool_conflict_marker_style() {
     line 4.3
     >>>>>>> Conflict 1 of 1 ends
     line 5
+    ");
+}
+
+#[test]
+fn test_human_diff_formatter() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.write_file("file2", "foo\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.remove_file("file1");
+    work_dir.write_file("file2", "foo\nbar\n");
+    work_dir.write_file("file3", "foo\n");
+
+    std::fs::write(
+        &edit_script,
+        "print-files-before\0print --\0print-files-after",
+    )
+    .unwrap();
+
+    // non-human output
+    let output = work_dir.run_jj([
+        "diff",
+        "--config=ui.diff-formatter=fake-diff-editor",
+        "--config=ui.human-diff-formatter=invalid-formatter",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    file1
+    file2
+    --
+    file2
+    file3
+    [EOF]
+    ");
+
+    // forced human output
+    let output = work_dir.run_jj_with(|cmd| {
+        force_human_output(cmd).args([
+            "diff",
+            "--config=ui.diff-formatter=invalid-formatter",
+            "--config=ui.human-diff-formatter=fake-diff-editor",
+        ])
+    });
+    insta::assert_snapshot!(output, @r"
+    file1
+    file2
+    --
+    file2
+    file3
+    [EOF]
     ");
 }
 

@@ -143,7 +143,12 @@ fn do_op_log(
             .labeled(["op_log", "operation", "node"]);
     }
 
-    let diff_formats = diff_formats_for_log(settings, &args.diff_format, args.patch)?;
+    let diff_formats = diff_formats_for_log(
+        ui.use_human_output(),
+        settings,
+        &args.diff_format,
+        args.patch,
+    )?;
     let maybe_show_op_diff = if args.op_diff || !diff_formats.is_empty() {
         let template_text = settings.get_string("templates.commit_summary")?;
         let show = move |ui: &Ui,

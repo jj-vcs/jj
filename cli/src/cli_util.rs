@@ -1459,9 +1459,10 @@ to the current parents may contain changes from multiple commits.
     /// Loads textual diff renderer from the settings and command arguments.
     pub fn diff_renderer_for(
         &self,
+        ui: &Ui,
         args: &DiffFormatArgs,
     ) -> Result<DiffRenderer<'_>, CommandError> {
-        let formats = diff_util::diff_formats_for(self.settings(), args)?;
+        let formats = diff_util::diff_formats_for(ui.use_human_output(), self.settings(), args)?;
         Ok(self.diff_renderer(formats))
     }
 
@@ -1470,10 +1471,12 @@ to the current parents may contain changes from multiple commits.
     /// enable patch output.
     pub fn diff_renderer_for_log(
         &self,
+        ui: &Ui,
         args: &DiffFormatArgs,
         patch: bool,
     ) -> Result<Option<DiffRenderer<'_>>, CommandError> {
-        let formats = diff_util::diff_formats_for_log(self.settings(), args, patch)?;
+        let formats =
+            diff_util::diff_formats_for_log(ui.use_human_output(), self.settings(), args, patch)?;
         Ok((!formats.is_empty()).then(|| self.diff_renderer(formats)))
     }
 

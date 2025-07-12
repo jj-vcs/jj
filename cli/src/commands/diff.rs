@@ -203,7 +203,7 @@ pub(crate) fn cmd_diff(
         diff_renderer = workspace_command.diff_renderer(vec![]);
     } else {
         maybe_template = None;
-        diff_renderer = workspace_command.diff_renderer_for(&args.format)?;
+        diff_renderer = workspace_command.diff_renderer_for(ui, &args.format)?;
     }
 
     ui.request_pager();

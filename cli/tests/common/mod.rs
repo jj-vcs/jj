@@ -38,6 +38,11 @@ pub fn force_interactive(cmd: &mut assert_cmd::Command) -> &mut assert_cmd::Comm
     cmd.env("JJ_INTERACTIVE", "1")
 }
 
+/// Forcibly enable human output.
+pub fn force_human_output(cmd: &mut assert_cmd::Command) -> &mut assert_cmd::Command {
+    cmd.env("JJ_HUMAN_OUTPUT", "1")
+}
+
 /// Coerces the value type to serialize it as TOML.
 pub fn to_toml_value(value: impl Into<toml_edit::Value>) -> toml_edit::Value {
     value.into()

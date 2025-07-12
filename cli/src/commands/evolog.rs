@@ -103,7 +103,8 @@ pub(crate) fn cmd_evolog(
         .evaluate_to_commit_ids()?
         .try_collect()?;
 
-    let diff_renderer = workspace_command.diff_renderer_for_log(&args.diff_format, args.patch)?;
+    let diff_renderer =
+        workspace_command.diff_renderer_for_log(ui, &args.diff_format, args.patch)?;
     let graph_style = GraphStyle::from_settings(workspace_command.settings())?;
     let with_content_format = LogContentFormat::new(ui, workspace_command.settings())?;
 
