@@ -112,7 +112,7 @@ fn test_git_push_current_bookmark() {
     [EOF]
     ");
     // First dry-run. `bookmark1` should not get pushed.
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "--dry-run"]);
+    let output = work_dir.run_jj(["git", "push", "--dry-run"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -121,7 +121,7 @@ fn test_git_push_current_bookmark() {
     Dry-run requested, not pushing.
     [EOF]
     ");
-    let output = work_dir.run_jj(["git", "push", "--allow-new"]);
+    let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -554,7 +554,7 @@ fn test_git_push_creation_unexpectedly_already_exists() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["git", "push", "--allow-new"]);
+    let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -584,37 +584,19 @@ fn test_git_push_locally_created_and_rewritten() {
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: Refusing to create new remote bookmark my@origin
-    Hint: Use --allow-new to push new bookmark. Use --remote to specify the remote to push to.
-    Nothing changed.
-    [EOF]
-    ");
-    // Either --allow-new or git.push-new-bookmarks=true should work
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "--dry-run"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Changes to push to origin:
-      Add bookmark my to e0cba5e497ee
-    Dry-run requested, not pushing.
-    [EOF]
-    ");
-    let output = work_dir.run_jj(["git", "push", "--config=git.push-new-bookmarks=true"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
     Changes to push to origin:
       Add bookmark my to e0cba5e497ee
     [EOF]
     ");
 
-    // Rewrite it and push again, which would fail if the pushed bookmark weren't
-    // set to "tracking"
+    // Rewrite it and push again
     work_dir.run_jj(["describe", "-mlocal 2"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     bookmark1: qpvuntsm 9b2e76de (empty) description 1
       @origin: qpvuntsm 9b2e76de (empty) description 1
     bookmark2: zsuskuln 38a20473 (empty) description 2
       @origin: zsuskuln 38a20473 (empty) description 2
-    my: vruxwmqv 5eb416c1 (empty) local 2
+    my: vruxwmqv ed54f0c0 (empty) local 2
       @origin (ahead by 1 commits, behind by 1 commits): vruxwmqv hidden e0cba5e4 (empty) local 1
     [EOF]
     ");
@@ -622,7 +604,7 @@ fn test_git_push_locally_created_and_rewritten() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
-      Move sideways bookmark my from e0cba5e497ee to 5eb416c1ff97
+      Move sideways bookmark my from e0cba5e497ee to ed54f0c02acd
     [EOF]
     ");
 }
@@ -663,14 +645,7 @@ fn test_git_push_multiple() {
     [EOF]
     ");
     // Dry run requesting two specific bookmarks
-    let output = work_dir.run_jj([
-        "git",
-        "push",
-        "--allow-new",
-        "-b=bookmark1",
-        "-b=my-bookmark",
-        "--dry-run",
-    ]);
+    let output = work_dir.run_jj(["git", "push", "-b=bookmark1", "-b=my-bookmark", "--dry-run"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -683,7 +658,6 @@ fn test_git_push_multiple() {
     let output = work_dir.run_jj([
         "git",
         "push",
-        "--allow-new",
         "-b=bookmark1",
         "-b=my-bookmark",
         "-b=bookmark1",
@@ -1262,7 +1236,7 @@ fn test_git_push_revisions() {
     work_dir.write_file("file", "modified again");
 
     // Push an empty set
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "-r=none()"]);
+    let output = work_dir.run_jj(["git", "push", "-r=none()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No bookmarks point to the specified revisions: none()
@@ -1270,7 +1244,7 @@ fn test_git_push_revisions() {
     [EOF]
     ");
     // Push a revision with no bookmarks
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "-r=@--"]);
+    let output = work_dir.run_jj(["git", "push", "-r=@--"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No bookmarks point to the specified revisions: @--
@@ -1278,7 +1252,7 @@ fn test_git_push_revisions() {
     [EOF]
     ");
     // Push a revision with a single bookmark
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "-r=@-", "--dry-run"]);
+    let output = work_dir.run_jj(["git", "push", "-r=@-", "--dry-run"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -1287,7 +1261,7 @@ fn test_git_push_revisions() {
     [EOF]
     ");
     // Push multiple revisions of which some have bookmarks
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "-r=@--", "-r=@-", "--dry-run"]);
+    let output = work_dir.run_jj(["git", "push", "-r=@--", "-r=@-", "--dry-run"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No bookmarks point to the specified revisions: @--
@@ -1297,7 +1271,7 @@ fn test_git_push_revisions() {
     [EOF]
     ");
     // Push a revision with a multiple bookmarks
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "-r=@", "--dry-run"]);
+    let output = work_dir.run_jj(["git", "push", "-r=@", "--dry-run"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -1307,7 +1281,7 @@ fn test_git_push_revisions() {
     [EOF]
     ");
     // Repeating a commit doesn't result in repeated messages about the bookmark
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "-r=@-", "-r=@-", "--dry-run"]);
+    let output = work_dir.run_jj(["git", "push", "-r=@-", "-r=@-", "--dry-run"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -1338,27 +1312,9 @@ fn test_git_push_mixed() {
         .success();
     work_dir.write_file("file", "modified again");
 
-    // --allow-new is not implied for --bookmark=.. and -r=..
     let output = work_dir.run_jj([
         "git",
         "push",
-        "--change=@--",
-        "--bookmark=bookmark-1",
-        "-r=@",
-    ]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Creating bookmark push-yqosqzytrlsw for revision yqosqzytrlsw
-    Error: Refusing to create new remote bookmark bookmark-1@origin
-    Hint: Use --allow-new to push new bookmark. Use --remote to specify the remote to push to.
-    [EOF]
-    [exit status: 1]
-    ");
-
-    let output = work_dir.run_jj([
-        "git",
-        "push",
-        "--allow-new",
         "--change=@--",
         "--bookmark=bookmark-1",
         "-r=@",
@@ -1423,7 +1379,7 @@ fn test_git_push_no_description() {
         .run_jj(["bookmark", "create", "-r@", "my-bookmark"])
         .success();
     work_dir.run_jj(["describe", "-m="]).success();
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "--bookmark", "my-bookmark"]);
+    let output = work_dir.run_jj(["git", "push", "--bookmark", "my-bookmark"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit 8d23abddc924 since it has no description
@@ -1435,7 +1391,6 @@ fn test_git_push_no_description() {
         .run_jj([
             "git",
             "push",
-            "--allow-new",
             "--bookmark",
             "my-bookmark",
             "--allow-empty-description",
@@ -1458,13 +1413,7 @@ fn test_git_push_no_description_in_immutable() {
         .run_jj(["bookmark", "create", "-r@", "my-bookmark"])
         .success();
 
-    let output = work_dir.run_jj([
-        "git",
-        "push",
-        "--allow-new",
-        "--bookmark=my-bookmark",
-        "--dry-run",
-    ]);
+    let output = work_dir.run_jj(["git", "push", "--bookmark=my-bookmark", "--dry-run"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit 8d23abddc924 since it has no description
@@ -1474,13 +1423,7 @@ fn test_git_push_no_description_in_immutable() {
     ");
 
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "imm""#);
-    let output = work_dir.run_jj([
-        "git",
-        "push",
-        "--allow-new",
-        "--bookmark=my-bookmark",
-        "--dry-run",
-    ]);
+    let output = work_dir.run_jj(["git", "push", "--bookmark=my-bookmark", "--dry-run"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -1502,7 +1445,7 @@ fn test_git_push_missing_author() {
     };
     run_without_var("JJ_USER", &["new", "root()", "-m=initial"]);
     run_without_var("JJ_USER", &["bookmark", "create", "-r@", "missing-name"]);
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "--bookmark", "missing-name"]);
+    let output = work_dir.run_jj(["git", "push", "--bookmark", "missing-name"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit 613adaba9d49 since it has no author and/or committer set
@@ -1512,7 +1455,7 @@ fn test_git_push_missing_author() {
     ");
     run_without_var("JJ_EMAIL", &["new", "root()", "-m=initial"]);
     run_without_var("JJ_EMAIL", &["bookmark", "create", "-r@", "missing-email"]);
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "--bookmark=missing-email"]);
+    let output = work_dir.run_jj(["git", "push", "--bookmark=missing-email"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit bb4ea60fc9ba since it has no author and/or committer set
@@ -1543,13 +1486,7 @@ fn test_git_push_missing_author_in_immutable() {
         .run_jj(["bookmark", "create", "-r@", "my-bookmark"])
         .success();
 
-    let output = work_dir.run_jj([
-        "git",
-        "push",
-        "--allow-new",
-        "--bookmark=my-bookmark",
-        "--dry-run",
-    ]);
+    let output = work_dir.run_jj(["git", "push", "--bookmark=my-bookmark", "--dry-run"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit 5c3cc711907f since it has no author and/or committer set
@@ -1559,13 +1496,7 @@ fn test_git_push_missing_author_in_immutable() {
     ");
 
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "imm""#);
-    let output = work_dir.run_jj([
-        "git",
-        "push",
-        "--allow-new",
-        "--bookmark=my-bookmark",
-        "--dry-run",
-    ]);
+    let output = work_dir.run_jj(["git", "push", "--bookmark=my-bookmark", "--dry-run"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -1589,7 +1520,7 @@ fn test_git_push_missing_committer() {
         .run_jj(["bookmark", "create", "-r@", "missing-name"])
         .success();
     run_without_var("JJ_USER", &["describe", "-m=no committer name"]);
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "--bookmark=missing-name"]);
+    let output = work_dir.run_jj(["git", "push", "--bookmark=missing-name"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit e8a77cb24da9 since it has no author and/or committer set
@@ -1602,7 +1533,7 @@ fn test_git_push_missing_committer() {
         .run_jj(["bookmark", "create", "-r@", "missing-email"])
         .success();
     run_without_var("JJ_EMAIL", &["describe", "-m=no committer email"]);
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "--bookmark=missing-email"]);
+    let output = work_dir.run_jj(["git", "push", "--bookmark=missing-email"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit 971c50fd8d1d since it has no author and/or committer set
@@ -1614,7 +1545,7 @@ fn test_git_push_missing_committer() {
     // Test message when there are multiple reasons (missing committer and
     // description)
     run_without_var("JJ_EMAIL", &["describe", "-m=", "missing-email"]);
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "--bookmark=missing-email"]);
+    let output = work_dir.run_jj(["git", "push", "--bookmark=missing-email"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit 4bd3b55c7759 since it has no description and it has no author and/or committer set
@@ -1646,13 +1577,7 @@ fn test_git_push_missing_committer_in_immutable() {
         .run_jj(["bookmark", "create", "-r@", "my-bookmark"])
         .success();
 
-    let output = work_dir.run_jj([
-        "git",
-        "push",
-        "--allow-new",
-        "--bookmark=my-bookmark",
-        "--dry-run",
-    ]);
+    let output = work_dir.run_jj(["git", "push", "--bookmark=my-bookmark", "--dry-run"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit ab230f98c812 since it has no author and/or committer set
@@ -1662,13 +1587,7 @@ fn test_git_push_missing_committer_in_immutable() {
     ");
 
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "imm""#);
-    let output = work_dir.run_jj([
-        "git",
-        "push",
-        "--allow-new",
-        "--bookmark=my-bookmark",
-        "--dry-run",
-    ]);
+    let output = work_dir.run_jj(["git", "push", "--bookmark=my-bookmark", "--dry-run"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -1757,7 +1676,7 @@ fn test_git_push_conflicting_bookmarks() {
     };
 
     // Conflicting bookmark at @
-    let output = work_dir.run_jj(["git", "push", "--allow-new"]);
+    let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Bookmark bookmark2 is conflicted
@@ -1767,7 +1686,7 @@ fn test_git_push_conflicting_bookmarks() {
     ");
 
     // --bookmark should be blocked by conflicting bookmark
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "--bookmark", "bookmark2"]);
+    let output = work_dir.run_jj(["git", "push", "--bookmark", "bookmark2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Bookmark bookmark2 is conflicted
@@ -1790,7 +1709,7 @@ fn test_git_push_conflicting_bookmarks() {
 
     // --revisions shouldn't be blocked by conflicting bookmark
     bump_bookmark1();
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "-rall()"]);
+    let output = work_dir.run_jj(["git", "push", "-rall()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Bookmark bookmark2 is conflicted
@@ -1944,7 +1863,7 @@ fn test_git_push_moved_forward_untracked() {
     work_dir
         .run_jj(["bookmark", "untrack", "bookmark1@origin"])
         .success();
-    let output = work_dir.run_jj(["git", "push", "--allow-new"]);
+    let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Non-tracking remote bookmark bookmark1@origin exists
@@ -1969,7 +1888,7 @@ fn test_git_push_moved_sideways_untracked() {
     work_dir
         .run_jj(["bookmark", "untrack", "bookmark1@origin"])
         .success();
-    let output = work_dir.run_jj(["git", "push", "--allow-new"]);
+    let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Non-tracking remote bookmark bookmark1@origin exists
@@ -2152,10 +2071,9 @@ fn test_git_push_sign_on_push() {
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: Refusing to create new remote bookmark bookmark3@origin
-    Hint: Use --allow-new to push new bookmark. Use --remote to specify the remote to push to.
     Changes to push to origin:
       Move forward bookmark bookmark2 from d45e2adce0ad to 48ea83e9499c
+      Add bookmark bookmark3 to 48ea83e9499c
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-T", template, "-r", "::"]);
@@ -2242,6 +2160,57 @@ fn test_git_push_rejected_by_remote() {
         [exit status: 1]
         ");
     });
+}
+
+#[test]
+fn test_git_push_to_ambiguous_remote() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    // Create another remote (but actually the same)
+    let other_remote_path = test_env
+        .env_root()
+        .join("origin")
+        .join(".jj")
+        .join("repo")
+        .join("store")
+        .join("git");
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "add",
+            "other",
+            other_remote_path.to_str().unwrap(),
+        ])
+        .success();
+    // Create new local-only bookmark, untracked by either remote
+    work_dir
+        .run_jj(["bookmark", "create", "bookmark3", "-rbookmark1"])
+        .success();
+    // This doesn't work because jj doesn't know which remote to push to.
+    let output = work_dir.run_jj(["git", "push", "-bbookmark3"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Refusing to create new remote bookmark bookmark3@origin
+    Hint: Use --allow-new to push new bookmark. Use --remote to specify the remote to push to.
+    [EOF]
+    [exit status: 1]
+    ");
+    // This works because the remote and --allow-new is specified.
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "-bbookmark3",
+        "--remote=other",
+        "--allow-new",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to other:
+      Add bookmark bookmark3 to 9b2e76de3920
+    [EOF]
+    ");
 }
 
 #[must_use]

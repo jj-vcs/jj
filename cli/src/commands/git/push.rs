@@ -180,8 +180,6 @@ pub struct GitPushArgs {
     change: Vec<RevisionArg>,
     /// Specify a new bookmark name and a revision to push under that name, e.g.
     /// '--named myfeature=@'
-    ///
-    /// Does not require --allow-new.
     #[arg(
         long,
         value_name = "NAME=REVISION",
@@ -223,6 +221,10 @@ pub fn cmd_git_push(
         default_remote = get_default_push_remote(ui, &workspace_command)?;
         &default_remote
     };
+    let only_one_remote_exists = matches!(
+        get_single_remote(workspace_command.repo().store()),
+        Ok(Some(_))
+    );
 
     let mut tx = workspace_command.start_transaction();
     let view = tx.repo().view();
@@ -330,7 +332,9 @@ pub fn cmd_git_push(
         }
 
         let view = tx.repo().view();
-        let allow_new = args.allow_new || tx.settings().get("git.push-new-bookmarks")?;
+        let allow_new = only_one_remote_exists
+            || args.allow_new
+            || tx.settings().get("git.push-new-bookmarks")?;
         let bookmarks_by_name = find_bookmarks_to_push(view, &args.bookmark, remote)?;
         for &(name, targets) in &bookmarks_by_name {
             if !seen_bookmarks.insert(name) {

@@ -1321,8 +1321,6 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
 
    The created bookmark will be tracked automatically. Use the `templates.git_push_bookmark` setting to customize the generated bookmark name. The default is `"push-" ++ change_id.short()`.
 * `--named <NAME=REVISION>` — Specify a new bookmark name and a revision to push under that name, e.g. '--named myfeature=@'
-
-   Does not require --allow-new.
 * `--dry-run` — Only display what will change on the remote
 
 

@@ -42,6 +42,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj fix` now buffers lines from subprocesses' stderr streams and emits them a
   complete line at a time. Each line is prepended with the file name.
 
+* Pushing new bookmarks is now allowed by default if there is only one remote,
+  i.e. the flag `--allow-new` is not required anymore
+
 ### Fixed bugs
 
 ### Packaging changes
