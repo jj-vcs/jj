@@ -19,6 +19,7 @@ use std::any::Any;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::error::Error;
+use std::ffi::OsStr;
 use std::fs;
 use std::fs::DirEntry;
 use std::fs::File;
@@ -1619,13 +1620,17 @@ impl FileSnapshotter<'_> {
                 message: format!("Failed to read symlink {}", disk_path.display()),
                 err: err.into(),
             })?;
-            let str_target =
-                target
-                    .to_str()
-                    .ok_or_else(|| SnapshotError::InvalidUtf8SymlinkTarget {
-                        path: disk_path.to_path_buf(),
-                    })?;
-            Ok(self.store().write_symlink(path, str_target).await?)
+
+            // Convert from platform-specific PathBuf to a string.
+            let str_target = target
+                .iter()
+                .map(OsStr::to_str)
+                .collect::<Option<Vec<_>>>()
+                .ok_or_else(|| SnapshotError::InvalidUtf8SymlinkTarget {
+                    path: disk_path.to_path_buf(),
+                })?
+                .join("/");
+            Ok(self.store().write_symlink(path, &str_target).await?)
         } else {
             let target = fs::read(disk_path).map_err(|err| SnapshotError::Other {
                 message: format!("Failed to read file {}", disk_path.display()),
@@ -1679,7 +1684,8 @@ impl TreeState {
     }
 
     fn write_symlink(&self, disk_path: &Path, target: String) -> Result<FileState, CheckoutError> {
-        let target = PathBuf::from(&target);
+        // Convert the target to a platform-specific PathBuf.
+        let target = target.split('/').collect::<PathBuf>();
         try_symlink(&target, disk_path).map_err(|err| CheckoutError::Other {
             message: format!(
                 "Failed to create symlink from {} to {}",
