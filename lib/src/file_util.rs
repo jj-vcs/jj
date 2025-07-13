@@ -299,12 +299,44 @@ mod platform {
 
 #[cfg(windows)]
 mod platform {
+    use std::ffi::c_void;
     use std::io;
+    use std::mem;
     use std::os::windows::fs::symlink_file;
     use std::path::Path;
+    use std::ptr;
 
-    use winreg::enums::HKEY_LOCAL_MACHINE;
-    use winreg::RegKey;
+    type HKEY = *mut c_void;
+    type LSTATUS = i32;
+    type DWORD = u32;
+    type REGSAM = u32;
+
+    const HKEY_LOCAL_MACHINE: HKEY = 0x80000002 as HKEY;
+    const KEY_READ: REGSAM = 0x20019;
+    const REG_DWORD: DWORD = 4;
+    const ERROR_SUCCESS: LSTATUS = 0;
+
+    #[link(name = "advapi32")]
+    extern "system" {
+        fn RegOpenKeyExA(
+            hKey: HKEY,
+            lpSubKey: *const u8,
+            ulOptions: DWORD,
+            samDesired: REGSAM,
+            phkResult: *mut HKEY,
+        ) -> LSTATUS;
+
+        fn RegQueryValueExA(
+            hKey: HKEY,
+            lpValueName: *const u8,
+            lpReserved: *mut DWORD,
+            lpType: *mut DWORD,
+            lpData: *mut u8,
+            lpcbData: *mut DWORD,
+        ) -> LSTATUS;
+
+        fn RegCloseKey(hKey: HKEY) -> LSTATUS;
+    }
 
     pub use super::fallback::os_str_from_bytes;
     pub use super::fallback::os_str_to_bytes;
@@ -313,10 +345,55 @@ mod platform {
     /// Symlinks may or may not be enabled on Windows. They require the
     /// Developer Mode setting, which is stored in the registry key below.
     pub fn check_symlink_support() -> io::Result<bool> {
-        let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
-        let sideloading =
-            hklm.open_subkey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock")?;
-        let developer_mode: u32 = sideloading.get_value("AllowDevelopmentWithoutDevLicense")?;
+        // Registry subkey containing the developer mode setting
+        let subkey = b"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock\0";
+        // Value name for developer mode setting
+        let value_name = b"AllowDevelopmentWithoutDevLicense\0";
+
+        // Return value from registry operations
+        let mut key_handle: HKEY = ptr::null_mut();
+        let mut developer_mode: DWORD = 0;
+        let mut value_type: DWORD = 0;
+        let mut data_size: DWORD = mem::size_of::<DWORD>() as DWORD;
+
+        #[allow(unsafe_code)]
+        unsafe {
+            // Open the registry key
+            let result = RegOpenKeyExA(
+                HKEY_LOCAL_MACHINE,
+                subkey.as_ptr(),
+                0,
+                KEY_READ,
+                &mut key_handle,
+            );
+
+            if result != ERROR_SUCCESS {
+                return Err(io::Error::from_raw_os_error(result));
+            }
+
+            let result = RegQueryValueExA(
+                key_handle,
+                value_name.as_ptr(),
+                ptr::null_mut(),
+                &mut value_type,
+                &mut developer_mode as *mut DWORD as *mut u8,
+                &mut data_size,
+            );
+
+            RegCloseKey(key_handle);
+
+            if result != ERROR_SUCCESS {
+                return Err(io::Error::from_raw_os_error(result));
+            }
+
+            if value_type != REG_DWORD {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Registry value is not a DWORD",
+                ));
+            }
+        }
+
         Ok(developer_mode == 1)
     }
 
