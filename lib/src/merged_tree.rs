@@ -1007,36 +1007,8 @@ impl Stream for TreeDiffStreamImpl<'_> {
 
         // Now emit the first file, or the first tree that completed with an error
         if let Some(entry) = self.items.first_entry() {
-            match entry.get() {
-                Err(_) => {
-                    // File or tree with error
-                    let (path, result) = entry.remove_entry();
-                    Poll::Ready(Some(match result {
-                        Err(err) => TreeDiffEntry {
-                            path,
-                            values: Err(err),
-                        },
-                        Ok((before, after)) => TreeDiffEntry {
-                            path,
-                            values: Ok((before, after)),
-                        },
-                    }))
-                }
-                Ok(_) => {
-                    // A diff with a file on at least one side
-                    let (path, result) = entry.remove_entry();
-                    Poll::Ready(Some(match result {
-                        Err(err) => TreeDiffEntry {
-                            path,
-                            values: Err(err),
-                        },
-                        Ok((before, after)) => TreeDiffEntry {
-                            path,
-                            values: Ok((before, after)),
-                        },
-                    }))
-                }
-            }
+            let (path, values) = entry.remove_entry();
+            Poll::Ready(Some(TreeDiffEntry { path, values }))
         } else if self.pending_trees.is_empty() {
             Poll::Ready(None)
         } else {
