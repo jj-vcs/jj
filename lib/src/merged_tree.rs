@@ -17,7 +17,6 @@
 use std::borrow::Borrow;
 use std::cmp::max;
 use std::collections::BTreeMap;
-use std::collections::VecDeque;
 use std::iter;
 use std::iter::zip;
 use std::pin::Pin;
@@ -865,12 +864,10 @@ pub struct TreeDiffStreamImpl<'matcher> {
     items: BTreeMap<RepoPathBuf, BackendResult<(MergedTreeValue, MergedTreeValue)>>,
     // TODO: Is it better to combine this and `items` into a single map?
     #[expect(clippy::type_complexity)]
-    pending_trees: VecDeque<(
-        RepoPathBuf,
-        BoxFuture<'matcher, BackendResult<(Merge<Tree>, Merge<Tree>)>>,
-    )>,
+    pending_trees:
+        BTreeMap<RepoPathBuf, BoxFuture<'matcher, BackendResult<(Merge<Tree>, Merge<Tree>)>>>,
     /// The maximum number of trees to request concurrently. However, we do the
-    /// accounting per path, so for there will often be twice as many pending
+    /// accounting per path, so there will often be twice as many pending
     /// `Backend::read_tree()` calls - for the "before" and "after" sides. For
     /// conflicts, there will be even more.
     max_concurrent_reads: usize,
@@ -896,7 +893,7 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
             store: trees1.first().store().clone(),
             matcher,
             items: BTreeMap::new(),
-            pending_trees: VecDeque::new(),
+            pending_trees: BTreeMap::new(),
             max_concurrent_reads,
             max_queued_items: 10000,
         };
@@ -964,7 +961,7 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
                     Self::trees(self.store.clone(), path.clone(), after.cloned());
                 let both_trees_future = try_join(before_tree_future, after_tree_future);
                 self.pending_trees
-                    .push_back((path.clone(), Box::pin(both_trees_future)));
+                    .insert(path.clone(), Box::pin(both_trees_future));
             }
 
             if before.is_file_like() || after.is_file_like() {
@@ -975,14 +972,25 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
     }
 
     fn poll_tree_futures(&mut self, cx: &mut Context<'_>) {
-        let mut pending_index = 0;
-        while pending_index < self.pending_trees.len()
-            && (pending_index < self.max_concurrent_reads
-                || self.items.len() < self.max_queued_items)
-        {
-            let (_, future) = &mut self.pending_trees[pending_index];
-            if let Poll::Ready(tree_diff) = future.as_mut().poll(cx) {
-                let (dir, _) = self.pending_trees.remove(pending_index).unwrap();
+        loop {
+            let mut tree_diffs = vec![];
+            let mut some_pending = false;
+            let mut all_pending = true;
+            for (dir, future) in self
+                .pending_trees
+                .iter_mut()
+                .take(self.max_concurrent_reads)
+            {
+                if let Poll::Ready(tree_diff) = future.as_mut().poll(cx) {
+                    all_pending = false;
+                    tree_diffs.push((dir.clone(), tree_diff));
+                } else {
+                    some_pending = true;
+                }
+            }
+
+            for (dir, tree_diff) in tree_diffs {
+                let _ = self.pending_trees.remove_entry(&dir).unwrap();
                 match tree_diff {
                     Ok((trees1, trees2)) => {
                         self.add_dir_diff_items(&dir, &trees1, &trees2);
@@ -991,8 +999,13 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
                         self.items.insert(dir, Err(err));
                     }
                 }
-            } else {
-                pending_index += 1;
+            }
+
+            // If none of the futures have been polled and returned `Poll::Pending`, we must
+            // not return. If we did, nothing would call the waker so we might never get
+            // polled again.
+            if all_pending || (some_pending && self.items.len() >= self.max_queued_items) {
+                return;
             }
         }
     }
