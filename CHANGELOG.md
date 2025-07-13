@@ -46,6 +46,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   It still fully traverses them while snapshotting but they won't clutter up
   the output with all of their contents.
 
+* `jj diffedit` now accepts filesets to restrict the diff to specific paths.
+
 ### Fixed bugs
 
 ### Packaging changes

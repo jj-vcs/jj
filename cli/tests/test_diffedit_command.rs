@@ -171,6 +171,35 @@ fn test_diffedit() {
     D file2
     [EOF]
     ");
+
+    // Test with path restriction
+    work_dir.run_jj(["undo"]).success();
+    work_dir.write_file("file3", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file1", "modified\n");
+    work_dir.write_file("file2", "modified\n");
+    work_dir.write_file("file3", "modified\n");
+
+    // Edit only file2 with path argument
+    std::fs::write(
+        &edit_script,
+        "files-before file2\0files-after JJ-INSTRUCTIONS file2\0reset file2",
+    )
+    .unwrap();
+    let output = work_dir.run_jj(["diffedit", "file2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: nmzmmopx 06497532 (no description set)
+    Parent commit (@-)      : kkmpptxz e4245972 (no description set)
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
+    C {file3 => file1}
+    M file3
+    [EOF]
+    ");
 }
 
 #[test]

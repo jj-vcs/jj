@@ -821,7 +821,11 @@ Edit the right side of the diff until it looks the way you want. Once you close 
 
 See `jj restore` if you want to move entire files from one revision to another. For moving changes between revisions, see `jj squash -i`.
 
-**Usage:** `jj diffedit [OPTIONS]`
+**Usage:** `jj diffedit [OPTIONS] [FILESETS]...`
+
+###### **Arguments:**
+
+* `<FILESETS>` — Restrict the diff to these paths
 
 ###### **Options:**
 
