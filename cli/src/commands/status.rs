@@ -19,6 +19,7 @@ use jj_lib::copies::CopyRecords;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
+use jj_lib::working_copy::UntrackedReason;
 use tracing::instrument;
 
 use crate::cli_util::print_conflicted_paths;
@@ -77,7 +78,15 @@ pub(crate) fn cmd_status(
         let tree = wc_commit.tree()?;
 
         let wc_has_changes = tree.id() != parent_tree.id();
-        let wc_has_untracked = !snapshot_stats.untracked_paths.is_empty();
+        let untracked_paths = snapshot_stats
+            .untracked_paths
+            .into_iter()
+            .filter_map(|(path, reason)| match reason {
+                UntrackedReason::FileInTrackMatcherButIgnored => None,
+                _ => Some(path),
+            })
+            .collect_vec();
+        let wc_has_untracked = !untracked_paths.is_empty();
         if !wc_has_changes && !wc_has_untracked {
             writeln!(formatter, "The working copy has no changes.")?;
         } else {
@@ -104,8 +113,8 @@ pub(crate) fn cmd_status(
             if wc_has_untracked {
                 writeln!(formatter, "Untracked paths:")?;
                 formatter.with_label("diff", |formatter| {
-                    for path in snapshot_stats.untracked_paths.keys() {
-                        let ui_path = workspace_command.path_converter().format_file_path(path);
+                    for path in untracked_paths {
+                        let ui_path = workspace_command.path_converter().format_file_path(&path);
                         writeln!(formatter.labeled("untracked"), "? {ui_path}")?;
                     }
                     io::Result::Ok(())

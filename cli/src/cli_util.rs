@@ -73,6 +73,7 @@ use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::matchers::Matcher;
+use jj_lib::matchers::Visit;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
@@ -2701,7 +2702,11 @@ pub fn print_conflicted_paths(
 }
 
 /// Build human-readable messages explaining why the file was not tracked
-fn build_untracked_reason_message(reason: &UntrackedReason) -> Option<String> {
+fn build_untracked_reason_message(
+    reason: &UntrackedReason,
+    path: &RepoPathBuf,
+    explicit_track_matcher: Option<&dyn Matcher>,
+) -> Option<String> {
     match reason {
         UntrackedReason::FileTooLarge { size, max_size } => {
             // Show both exact and human bytes sizes to avoid something
@@ -2713,6 +2718,14 @@ fn build_untracked_reason_message(reason: &UntrackedReason) -> Option<String> {
                  ({max_size} bytes)",
             ))
         }
+        UntrackedReason::FileInTrackMatcherButIgnored => match explicit_track_matcher {
+            // Only show warning for ignored files if the user explicitly asked to track them with
+            // `jj file track`
+            Some(matcher) if !matches!(matcher.visit(path), Visit::Nothing) => {
+                Some("the path matches an ignored pattern".to_owned())
+            }
+            _ => None,
+        },
         // Paths with UntrackedReason::FileNotAutoTracked shouldn't be warned about
         // every time we make a snapshot. These paths will be printed by
         // "jj status" instead.
@@ -2725,10 +2738,13 @@ pub fn print_untracked_files(
     ui: &Ui,
     untracked_paths: &BTreeMap<RepoPathBuf, UntrackedReason>,
     path_converter: &RepoPathUiConverter,
+    explicit_track_matcher: Option<&dyn Matcher>,
 ) -> io::Result<()> {
     let mut untracked_paths = untracked_paths
         .iter()
-        .filter_map(|(path, reason)| build_untracked_reason_message(reason).map(|m| (path, m)))
+        .filter_map(|(path, reason)| {
+            build_untracked_reason_message(reason, path, explicit_track_matcher).map(|m| (path, m))
+        })
         .peekable();
 
     if untracked_paths.peek().is_some() {
@@ -2748,14 +2764,16 @@ pub fn print_snapshot_stats(
     stats: &SnapshotStats,
     path_converter: &RepoPathUiConverter,
 ) -> io::Result<()> {
-    print_untracked_files(ui, &stats.untracked_paths, path_converter)?;
+    print_untracked_files(ui, &stats.untracked_paths, path_converter, None)?;
 
     let large_files_sizes = stats
         .untracked_paths
         .values()
         .filter_map(|reason| match reason {
             UntrackedReason::FileTooLarge { size, .. } => Some(size),
-            UntrackedReason::FileNotAutoTracked => None,
+            UntrackedReason::FileNotAutoTracked | UntrackedReason::FileInTrackMatcherButIgnored => {
+                None
+            }
         });
     if let Some(size) = large_files_sizes.max() {
         writedoc!(

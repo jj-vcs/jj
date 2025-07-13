@@ -91,6 +91,7 @@ use crate::matchers::FilesMatcher;
 use crate::matchers::IntersectionMatcher;
 use crate::matchers::Matcher;
 use crate::matchers::PrefixMatcher;
+use crate::matchers::Visit;
 use crate::merge::Merge;
 use crate::merge::MergeBuilder;
 use crate::merge::MergedTreeValue;
@@ -1272,8 +1273,15 @@ impl FileSnapshotter<'_> {
                 // If the whole directory is ignored by .gitignore, visit only
                 // paths we're already tracking. This is because .gitignore in
                 // ignored directory must be ignored. It's also more efficient.
-                // start_tracking_matcher is NOT tested here because we need to
-                // scan directory entries to report untracked paths.
+                // start_tracking_matcher is only tested here to signal that the
+                // directory has been ignored, but we would need to scan
+                // directory entries to report untracked paths inside the
+                // directory.
+                if !matches!(self.start_tracking_matcher.visit(&path), Visit::Nothing) {
+                    self.untracked_paths_tx
+                        .send((path, UntrackedReason::FileInTrackMatcherButIgnored))
+                        .ok();
+                }
                 self.spawn_ok(scope, move |_| self.visit_tracked_files(file_states));
             } else if !self.matcher.visit(&path).is_nothing() {
                 let directory_to_visit = DirectoryToVisit {
@@ -1296,8 +1304,14 @@ impl FileSnapshotter<'_> {
             if maybe_current_file_state.is_none()
                 && git_ignore.matches(path.as_internal_file_string())
             {
-                // If it wasn't already tracked and it matches
-                // the ignored paths, then ignore it.
+                // If it wasn't already tracked and it matches the ignored paths, then ignore
+                // it. If the user asked to track it explicitly, mention the
+                // file in stats.
+                if self.start_tracking_matcher.matches(&path) {
+                    self.untracked_paths_tx
+                        .send((path, UntrackedReason::FileInTrackMatcherButIgnored))
+                        .ok();
+                }
                 Ok(None)
             } else if maybe_current_file_state.is_none()
                 && !self.start_tracking_matcher.matches(&path)

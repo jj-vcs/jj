@@ -17,6 +17,7 @@ use std::io::Write as _;
 
 use indoc::writedoc;
 use itertools::Itertools as _;
+use jj_lib::matchers::Matcher;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::working_copy::UntrackedReason;
@@ -69,6 +70,7 @@ pub(crate) fn cmd_file_track(
         auto_stats,
         track_stats,
         workspace_command.env().path_converter(),
+        &matcher,
     )?;
     Ok(())
 }
@@ -78,6 +80,7 @@ pub fn print_track_snapshot_stats(
     auto_stats: SnapshotStats,
     track_stats: SnapshotStats,
     path_converter: &RepoPathUiConverter,
+    explicit_track_matcher: &dyn Matcher,
 ) -> io::Result<()> {
     let mut merged_untracked_paths = auto_stats.untracked_paths;
     for (path, reason) in track_stats
@@ -91,13 +94,21 @@ pub fn print_track_snapshot_stats(
         merged_untracked_paths.insert(path, reason);
     }
 
-    print_untracked_files(ui, &merged_untracked_paths, path_converter)?;
+    print_untracked_files(
+        ui,
+        &merged_untracked_paths,
+        path_converter,
+        Some(explicit_track_matcher),
+    )?;
 
+    // Print hint about large files if needed
     let (large_files, sizes): (Vec<_>, Vec<_>) = merged_untracked_paths
         .iter()
         .filter_map(|(path, reason)| match reason {
             UntrackedReason::FileTooLarge { size, .. } => Some((path, *size)),
-            UntrackedReason::FileNotAutoTracked => None,
+            UntrackedReason::FileNotAutoTracked | UntrackedReason::FileInTrackMatcherButIgnored => {
+                None
+            }
         })
         .unzip();
     if let Some(size) = sizes.iter().max() {
@@ -115,6 +126,23 @@ pub fn print_track_snapshot_stats(
               - Run `jj --config snapshot.max-new-file-size={size} file track {large_files_list}`
                 This will increase the maximum file size allowed for new files, for this command only.
             "
+        )?;
+    }
+
+    // Print hint about ignored files if needed
+    if merged_untracked_paths
+        .iter()
+        .filter(|(_, reason)| matches!(reason, UntrackedReason::FileInTrackMatcherButIgnored))
+        .peekable()
+        .peek()
+        .is_some()
+    {
+        writedoc!(
+            ui.hint_default(),
+            "It appears at least one of the files you tried to track is matched by a pattern in \
+             one of the .gitignore files in this repo; this is a current limitation of jj, please \
+             try removing the pattern from your gitignore file temporarily then start tracking \
+             that file.\n"
         )?;
     }
     Ok(())
