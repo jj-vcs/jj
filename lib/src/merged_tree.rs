@@ -28,6 +28,7 @@ use std::task::Poll;
 use std::vec;
 
 use either::Either;
+use futures::future::try_join;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
 use futures::Stream;
@@ -961,8 +962,7 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
                     Self::trees(self.store.clone(), path.clone(), before.cloned());
                 let after_tree_future =
                     Self::trees(self.store.clone(), path.clone(), after.cloned());
-                let both_trees_future =
-                    async { futures::try_join!(before_tree_future, after_tree_future) };
+                let both_trees_future = try_join(before_tree_future, after_tree_future);
                 self.pending_trees
                     .push_back((path.clone(), Box::pin(both_trees_future)));
             }
