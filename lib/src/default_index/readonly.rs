@@ -29,14 +29,14 @@ use thiserror::Error;
 
 use super::composite::AsCompositeIndex;
 use super::composite::ChangeIdIndexImpl;
+use super::composite::CommitIndexSegment;
 use super::composite::CompositeCommitIndex;
 use super::composite::CompositeIndex;
-use super::composite::IndexSegment;
 use super::composite::IndexStats;
-use super::entry::IndexPosition;
-use super::entry::LocalPosition;
-use super::entry::SmallIndexPositionsVec;
-use super::entry::SmallLocalPositionsVec;
+use super::entry::GlobalCommitPosition;
+use super::entry::LocalCommitPosition;
+use super::entry::SmallGlobalCommitPositionsVec;
+use super::entry::SmallLocalCommitPositionsVec;
 use super::mutable::DefaultMutableIndex;
 use super::revset_engine;
 use super::revset_engine::RevsetImpl;
@@ -108,8 +108,8 @@ impl ReadonlyIndexLoadError {
     }
 }
 
-/// Current format version of the index segment file.
-pub(super) const INDEX_SEGMENT_FILE_FORMAT_VERSION: u32 = 6;
+/// Current format version of the commit index segment file.
+pub(super) const COMMIT_INDEX_SEGMENT_FILE_FORMAT_VERSION: u32 = 6;
 
 /// If set, the value is stored in the overflow table.
 pub(super) const OVERFLOW_FLAG: u32 = 0x8000_0000;
@@ -119,8 +119,8 @@ pub(super) const OVERFLOW_FLAG: u32 = 0x8000_0000;
 struct ParentIndexPosition(u32);
 
 impl ParentIndexPosition {
-    fn as_inlined(self) -> Option<IndexPosition> {
-        (self.0 & OVERFLOW_FLAG == 0).then_some(IndexPosition(self.0))
+    fn as_inlined(self) -> Option<GlobalCommitPosition> {
+        (self.0 & OVERFLOW_FLAG == 0).then_some(GlobalCommitPosition(self.0))
     }
 
     fn as_overflow(self) -> Option<u32> {
@@ -133,8 +133,8 @@ impl ParentIndexPosition {
 struct ChangeLocalPosition(u32);
 
 impl ChangeLocalPosition {
-    fn as_inlined(self) -> Option<LocalPosition> {
-        (self.0 & OVERFLOW_FLAG == 0).then_some(LocalPosition(self.0))
+    fn as_inlined(self) -> Option<LocalCommitPosition> {
+        (self.0 & OVERFLOW_FLAG == 0).then_some(LocalCommitPosition(self.0))
     }
 
     fn as_overflow(self) -> Option<u32> {
@@ -230,8 +230,8 @@ impl CommitGraphEntry<'_> {
 // TODO: replace the table by a trie so we don't have to repeat the full commit
 //       ids
 // TODO: add a fanout table like git's commit graph has?
-pub(super) struct ReadonlyIndexSegment {
-    parent_file: Option<Arc<ReadonlyIndexSegment>>,
+pub(super) struct ReadonlyCommitIndexSegment {
+    parent_file: Option<Arc<ReadonlyCommitIndexSegment>>,
     num_parent_commits: u32,
     name: String,
     field_lengths: FieldLengths,
@@ -248,22 +248,22 @@ pub(super) struct ReadonlyIndexSegment {
     data: Vec<u8>,
 }
 
-impl Debug for ReadonlyIndexSegment {
+impl Debug for ReadonlyCommitIndexSegment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        f.debug_struct("ReadonlyIndexSegment")
+        f.debug_struct("ReadonlyCommitIndexSegment")
             .field("name", &self.name)
             .field("parent_file", &self.parent_file)
             .finish_non_exhaustive()
     }
 }
 
-impl ReadonlyIndexSegment {
+impl ReadonlyCommitIndexSegment {
     /// Loads both parent segments and local entries from the given file `name`.
     pub(super) fn load(
         dir: &Path,
         name: String,
         lengths: FieldLengths,
-    ) -> Result<Arc<ReadonlyIndexSegment>, ReadonlyIndexLoadError> {
+    ) -> Result<Arc<Self>, ReadonlyIndexLoadError> {
         let mut file = File::open(dir.join(&name))
             .map_err(|err| ReadonlyIndexLoadError::from_io_err(&name, err))?;
         Self::load_from(&mut file, dir, name, lengths)
@@ -275,7 +275,7 @@ impl ReadonlyIndexSegment {
         dir: &Path,
         name: String,
         lengths: FieldLengths,
-    ) -> Result<Arc<ReadonlyIndexSegment>, ReadonlyIndexLoadError> {
+    ) -> Result<Arc<Self>, ReadonlyIndexLoadError> {
         let from_io_err = |err| ReadonlyIndexLoadError::from_io_err(&name, err);
         let read_u32 = |file: &mut dyn Read| {
             let mut buf = [0; 4];
@@ -283,10 +283,10 @@ impl ReadonlyIndexSegment {
             Ok(u32::from_le_bytes(buf))
         };
         let format_version = read_u32(file)?;
-        if format_version != INDEX_SEGMENT_FILE_FORMAT_VERSION {
+        if format_version != COMMIT_INDEX_SEGMENT_FILE_FORMAT_VERSION {
             return Err(ReadonlyIndexLoadError::UnexpectedVersion {
                 found_version: format_version,
-                expected_version: INDEX_SEGMENT_FILE_FORMAT_VERSION,
+                expected_version: COMMIT_INDEX_SEGMENT_FILE_FORMAT_VERSION,
             });
         }
         let parent_filename_len = read_u32(file)?;
@@ -297,7 +297,7 @@ impl ReadonlyIndexSegment {
             let parent_filename = String::from_utf8(parent_filename_bytes).map_err(|_| {
                 ReadonlyIndexLoadError::invalid_data(&name, "parent file name is not valid UTF-8")
             })?;
-            let parent_file = ReadonlyIndexSegment::load(dir, parent_filename, lengths)?;
+            let parent_file = Self::load(dir, parent_filename, lengths)?;
             Some(parent_file)
         } else {
             None
@@ -310,9 +310,9 @@ impl ReadonlyIndexSegment {
     pub(super) fn load_with_parent_file(
         file: &mut dyn Read,
         name: String,
-        parent_file: Option<Arc<ReadonlyIndexSegment>>,
+        parent_file: Option<Arc<Self>>,
         lengths: FieldLengths,
-    ) -> Result<Arc<ReadonlyIndexSegment>, ReadonlyIndexLoadError> {
+    ) -> Result<Arc<Self>, ReadonlyIndexLoadError> {
         let from_io_err = |err| ReadonlyIndexLoadError::from_io_err(&name, err);
         let read_u32 = |file: &mut dyn Read| {
             let mut buf = [0; 4];
@@ -352,7 +352,7 @@ impl ReadonlyIndexSegment {
             ));
         }
 
-        Ok(Arc::new(ReadonlyIndexSegment {
+        Ok(Arc::new(ReadonlyCommitIndexSegment {
             parent_file,
             num_parent_commits,
             name,
@@ -381,7 +381,7 @@ impl ReadonlyIndexSegment {
         self.field_lengths
     }
 
-    fn graph_entry(&self, local_pos: LocalPosition) -> CommitGraphEntry<'_> {
+    fn graph_entry(&self, local_pos: LocalCommitPosition) -> CommitGraphEntry<'_> {
         let table = &self.data[..self.commit_lookup_base];
         let entry_size = CommitGraphEntry::size(self.field_lengths.commit_id);
         let offset = (local_pos.0 as usize) * entry_size;
@@ -390,10 +390,10 @@ impl ReadonlyIndexSegment {
         }
     }
 
-    fn commit_lookup_pos(&self, lookup_pos: u32) -> LocalPosition {
+    fn commit_lookup_pos(&self, lookup_pos: u32) -> LocalCommitPosition {
         let table = &self.data[self.commit_lookup_base..self.change_id_table_base];
         let offset = (lookup_pos as usize) * 4;
-        LocalPosition(u32::from_le_bytes(table[offset..][..4].try_into().unwrap()))
+        LocalCommitPosition(u32::from_le_bytes(table[offset..][..4].try_into().unwrap()))
     }
 
     fn change_lookup_id(&self, lookup_pos: u32) -> ChangeId {
@@ -413,13 +413,17 @@ impl ReadonlyIndexSegment {
         ChangeLocalPosition(u32::from_le_bytes(table[offset..][..4].try_into().unwrap()))
     }
 
-    fn overflow_parents(&self, overflow_pos: u32, num_parents: u32) -> SmallIndexPositionsVec {
+    fn overflow_parents(
+        &self,
+        overflow_pos: u32,
+        num_parents: u32,
+    ) -> SmallGlobalCommitPositionsVec {
         let table = &self.data[self.parent_overflow_base..self.change_overflow_base];
         let offset = (overflow_pos as usize) * 4;
         let size = (num_parents as usize) * 4;
         table[offset..][..size]
             .chunks_exact(4)
-            .map(|chunk| IndexPosition(u32::from_le_bytes(chunk.try_into().unwrap())))
+            .map(|chunk| GlobalCommitPosition(u32::from_le_bytes(chunk.try_into().unwrap())))
             .collect()
     }
 
@@ -427,12 +431,12 @@ impl ReadonlyIndexSegment {
     fn overflow_changes_from(
         &self,
         overflow_pos: u32,
-    ) -> impl Iterator<Item = LocalPosition> + use<'_> {
+    ) -> impl Iterator<Item = LocalCommitPosition> + use<'_> {
         let table = &self.data[self.change_overflow_base..];
         let offset = (overflow_pos as usize) * 4;
         table[offset..]
             .chunks_exact(4)
-            .map(|chunk| LocalPosition(u32::from_le_bytes(chunk.try_into().unwrap())))
+            .map(|chunk| LocalCommitPosition(u32::from_le_bytes(chunk.try_into().unwrap())))
     }
 
     /// Binary searches commit id by `prefix`. Returns the lookup position.
@@ -453,7 +457,7 @@ impl ReadonlyIndexSegment {
     }
 }
 
-impl IndexSegment for ReadonlyIndexSegment {
+impl CommitIndexSegment for ReadonlyCommitIndexSegment {
     fn num_parent_commits(&self) -> u32 {
         self.num_parent_commits
     }
@@ -462,7 +466,7 @@ impl IndexSegment for ReadonlyIndexSegment {
         self.num_local_commits
     }
 
-    fn parent_file(&self) -> Option<&Arc<ReadonlyIndexSegment>> {
+    fn parent_file(&self) -> Option<&Arc<ReadonlyCommitIndexSegment>> {
         self.parent_file.as_ref()
     }
 
@@ -470,7 +474,7 @@ impl IndexSegment for ReadonlyIndexSegment {
         Some(self.name.clone())
     }
 
-    fn commit_id_to_pos(&self, commit_id: &CommitId) -> Option<LocalPosition> {
+    fn commit_id_to_pos(&self, commit_id: &CommitId) -> Option<LocalCommitPosition> {
         self.commit_id_byte_prefix_to_lookup_pos(commit_id.as_bytes())
             .ok()
             .map(|pos| self.commit_lookup_pos(pos))
@@ -509,7 +513,7 @@ impl IndexSegment for ReadonlyIndexSegment {
     fn resolve_change_id_prefix(
         &self,
         prefix: &HexPrefix,
-    ) -> PrefixResolution<(ChangeId, SmallLocalPositionsVec)> {
+    ) -> PrefixResolution<(ChangeId, SmallLocalCommitPositionsVec)> {
         self.change_id_byte_prefix_to_lookup_pos(prefix.min_prefix_bytes())
             .prefix_matches(prefix, |pos| self.change_lookup_id(pos))
             .map(|(id, lookup_pos)| {
@@ -521,7 +525,7 @@ impl IndexSegment for ReadonlyIndexSegment {
                     // Collect commits having the same change id. For cache
                     // locality, it might be better to look for the next few
                     // change id positions to determine the size.
-                    let positions: SmallLocalPositionsVec = self
+                    let positions: SmallLocalCommitPositionsVec = self
                         .overflow_changes_from(overflow_pos)
                         .take_while(|&local_pos| {
                             let entry = self.graph_entry(local_pos);
@@ -540,20 +544,20 @@ impl IndexSegment for ReadonlyIndexSegment {
             })
     }
 
-    fn generation_number(&self, local_pos: LocalPosition) -> u32 {
+    fn generation_number(&self, local_pos: LocalCommitPosition) -> u32 {
         self.graph_entry(local_pos).generation_number()
     }
 
-    fn commit_id(&self, local_pos: LocalPosition) -> CommitId {
+    fn commit_id(&self, local_pos: LocalCommitPosition) -> CommitId {
         self.graph_entry(local_pos).commit_id()
     }
 
-    fn change_id(&self, local_pos: LocalPosition) -> ChangeId {
+    fn change_id(&self, local_pos: LocalCommitPosition) -> ChangeId {
         let entry = self.graph_entry(local_pos);
         self.change_lookup_id(entry.change_id_lookup_pos())
     }
 
-    fn num_parents(&self, local_pos: LocalPosition) -> u32 {
+    fn num_parents(&self, local_pos: LocalCommitPosition) -> u32 {
         let graph_entry = self.graph_entry(local_pos);
         let pos1_or_overflow_pos = graph_entry.parent1_pos_or_overflow_pos();
         let pos2_or_overflow_len = graph_entry.parent2_pos_or_overflow_len();
@@ -563,7 +567,7 @@ impl IndexSegment for ReadonlyIndexSegment {
         inlined_len1 + inlined_len2 + overflow_len
     }
 
-    fn parent_positions(&self, local_pos: LocalPosition) -> SmallIndexPositionsVec {
+    fn parent_positions(&self, local_pos: LocalCommitPosition) -> SmallGlobalCommitPositionsVec {
         let graph_entry = self.graph_entry(local_pos);
         let pos1_or_overflow_pos = graph_entry.parent1_pos_or_overflow_pos();
         let pos2_or_overflow_len = graph_entry.parent2_pos_or_overflow_len();
@@ -586,11 +590,11 @@ impl IndexSegment for ReadonlyIndexSegment {
 pub struct DefaultReadonlyIndex(CompositeIndex);
 
 impl DefaultReadonlyIndex {
-    pub(super) fn from_segment(commits: Arc<ReadonlyIndexSegment>) -> Self {
+    pub(super) fn from_segment(commits: Arc<ReadonlyCommitIndexSegment>) -> Self {
         DefaultReadonlyIndex(CompositeIndex::from_readonly(commits))
     }
 
-    pub(super) fn readonly_commits(&self) -> &Arc<ReadonlyIndexSegment> {
+    pub(super) fn readonly_commits(&self) -> &Arc<ReadonlyCommitIndexSegment> {
         self.0.readonly_commits().expect("must have readonly")
     }
 

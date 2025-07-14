@@ -21,8 +21,8 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 
 use super::composite::CompositeIndex;
-use super::entry::IndexEntry;
-use super::entry::IndexPosition;
+use super::entry::CommitIndexEntry;
+use super::entry::GlobalCommitPosition;
 use super::rev_walk::RevWalk;
 use super::revset_engine::BoxedRevWalk;
 use crate::backend::CommitId;
@@ -32,7 +32,7 @@ use crate::graph::GraphNode;
 use crate::revset::RevsetEvaluationError;
 
 // This can be cheaply allocated and hashed compared to `CommitId`-based type.
-type IndexGraphEdge = GraphEdge<IndexPosition>;
+type CommitGraphEdge = GraphEdge<GlobalCommitPosition>;
 
 /// Given a `RevWalk` over some set of revisions, yields the same revisions with
 /// associated edge types.
@@ -105,12 +105,12 @@ pub(super) struct RevsetGraphWalk<'a> {
     /// Commits in the input set we had to take out of the `RevWalk` while
     /// walking external edges. Does not necessarily include the commit
     /// we're currently about to emit.
-    look_ahead: VecDeque<IndexPosition>,
+    look_ahead: VecDeque<GlobalCommitPosition>,
     /// The last consumed position. This is always the smallest key in the
     /// look_ahead set, but it's faster to keep a separate field for it.
-    min_position: IndexPosition,
+    min_position: GlobalCommitPosition,
     /// Edges for commits not in the input set.
-    edges: BTreeMap<IndexPosition, Vec<IndexGraphEdge>>,
+    edges: BTreeMap<GlobalCommitPosition, Vec<CommitGraphEdge>>,
     skip_transitive_edges: bool,
 }
 
@@ -119,7 +119,7 @@ impl<'a> RevsetGraphWalk<'a> {
         RevsetGraphWalk {
             input_set_walk,
             look_ahead: VecDeque::new(),
-            min_position: IndexPosition::MAX,
+            min_position: GlobalCommitPosition::MAX,
             edges: Default::default(),
             skip_transitive_edges,
         }
@@ -128,7 +128,7 @@ impl<'a> RevsetGraphWalk<'a> {
     fn next_index_position(
         &mut self,
         index: &CompositeIndex,
-    ) -> Result<Option<IndexPosition>, RevsetEvaluationError> {
+    ) -> Result<Option<GlobalCommitPosition>, RevsetEvaluationError> {
         match self.look_ahead.pop_back() {
             Some(position) => Ok(Some(position)),
             None => self.input_set_walk.next(index).transpose(),
@@ -138,8 +138,8 @@ impl<'a> RevsetGraphWalk<'a> {
     fn edges_from_internal_commit(
         &mut self,
         index: &CompositeIndex,
-        index_entry: &IndexEntry,
-    ) -> Result<&[IndexGraphEdge], RevsetEvaluationError> {
+        index_entry: &CommitIndexEntry,
+    ) -> Result<&[CommitGraphEdge], RevsetEvaluationError> {
         let position = index_entry.position();
         // `if let Some(edges) = ...` doesn't pass lifetime check as of Rust 1.84.0
         if self.edges.contains_key(&position) {
@@ -152,8 +152,8 @@ impl<'a> RevsetGraphWalk<'a> {
     fn pop_edges_from_internal_commit(
         &mut self,
         index: &CompositeIndex,
-        index_entry: &IndexEntry,
-    ) -> Result<Vec<IndexGraphEdge>, RevsetEvaluationError> {
+        index_entry: &CommitIndexEntry,
+    ) -> Result<Vec<CommitGraphEdge>, RevsetEvaluationError> {
         let position = index_entry.position();
         while let Some(entry) = self.edges.last_entry() {
             match entry.key().cmp(&position) {
@@ -168,22 +168,22 @@ impl<'a> RevsetGraphWalk<'a> {
     fn new_edges_from_internal_commit(
         &mut self,
         index: &CompositeIndex,
-        index_entry: &IndexEntry,
-    ) -> Result<Vec<IndexGraphEdge>, RevsetEvaluationError> {
+        index_entry: &CommitIndexEntry,
+    ) -> Result<Vec<CommitGraphEdge>, RevsetEvaluationError> {
         let mut edges = Vec::new();
         let mut known_ancestors = HashSet::new();
         for parent in index_entry.parents() {
             let parent_position = parent.position();
             self.consume_to(index, parent_position)?;
             if self.look_ahead.binary_search(&parent_position).is_ok() {
-                edges.push(IndexGraphEdge::direct(parent_position));
+                edges.push(CommitGraphEdge::direct(parent_position));
             } else {
                 let parent_edges = self.edges_from_external_commit(index, parent)?;
                 if parent_edges
                     .iter()
                     .all(|edge| edge.edge_type == GraphEdgeType::Missing)
                 {
-                    edges.push(IndexGraphEdge::missing(parent_position));
+                    edges.push(CommitGraphEdge::missing(parent_position));
                 } else {
                     edges.extend(
                         parent_edges
@@ -199,8 +199,8 @@ impl<'a> RevsetGraphWalk<'a> {
     fn edges_from_external_commit(
         &mut self,
         index: &CompositeIndex,
-        index_entry: IndexEntry<'_>,
-    ) -> Result<&[IndexGraphEdge], RevsetEvaluationError> {
+        index_entry: CommitIndexEntry<'_>,
+    ) -> Result<&[CommitGraphEdge], RevsetEvaluationError> {
         let position = index_entry.position();
         let mut stack = vec![index_entry];
         while let Some(entry) = stack.last() {
@@ -217,13 +217,13 @@ impl<'a> RevsetGraphWalk<'a> {
                 self.consume_to(index, parent_position)?;
                 if self.look_ahead.binary_search(&parent_position).is_ok() {
                     // We have found a path back into the input set
-                    edges.push(IndexGraphEdge::indirect(parent_position));
+                    edges.push(CommitGraphEdge::indirect(parent_position));
                 } else if let Some(parent_edges) = self.edges.get(&parent_position) {
                     if parent_edges
                         .iter()
                         .all(|edge| edge.edge_type == GraphEdgeType::Missing)
                     {
-                        edges.push(IndexGraphEdge::missing(parent_position));
+                        edges.push(CommitGraphEdge::missing(parent_position));
                     } else {
                         edges.extend(
                             parent_edges
@@ -233,7 +233,7 @@ impl<'a> RevsetGraphWalk<'a> {
                     }
                 } else if parent_position < self.min_position {
                     // The parent is not in the input set
-                    edges.push(IndexGraphEdge::missing(parent_position));
+                    edges.push(CommitGraphEdge::missing(parent_position));
                 } else {
                     // The parent is not in the input set but it's somewhere in the range
                     // where we have commits in the input set, so continue searching.
@@ -252,8 +252,8 @@ impl<'a> RevsetGraphWalk<'a> {
     fn remove_transitive_edges(
         &mut self,
         index: &CompositeIndex,
-        edges: Vec<IndexGraphEdge>,
-    ) -> Result<Vec<IndexGraphEdge>, RevsetEvaluationError> {
+        edges: Vec<CommitGraphEdge>,
+    ) -> Result<Vec<CommitGraphEdge>, RevsetEvaluationError> {
         if !edges
             .iter()
             .any(|edge| edge.edge_type == GraphEdgeType::Indirect)
@@ -304,7 +304,7 @@ impl<'a> RevsetGraphWalk<'a> {
     fn consume_to(
         &mut self,
         index: &CompositeIndex,
-        pos: IndexPosition,
+        pos: GlobalCommitPosition,
     ) -> Result<(), RevsetEvaluationError> {
         while pos < self.min_position {
             if let Some(next_position) = self.input_set_walk.next(index).transpose()? {

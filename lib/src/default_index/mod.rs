@@ -31,7 +31,7 @@ mod revset_engine;
 mod revset_graph_iterator;
 mod store;
 
-pub use self::composite::IndexLevelStats;
+pub use self::composite::CommitIndexLevelStats;
 pub use self::composite::IndexStats;
 pub use self::mutable::DefaultMutableIndex;
 pub use self::readonly::DefaultReadonlyIndex;
@@ -56,17 +56,17 @@ mod tests {
     use test_case::test_case;
 
     use super::composite::AsCompositeIndex as _;
+    use super::composite::CommitIndexSegment as _;
     use super::composite::CompositeCommitIndex;
-    use super::composite::DynIndexSegment;
-    use super::composite::IndexSegment as _;
-    use super::entry::IndexPosition;
-    use super::entry::SmallIndexPositionsVec;
-    use super::mutable::MutableIndexSegment;
+    use super::composite::DynCommitIndexSegment;
+    use super::entry::GlobalCommitPosition;
+    use super::entry::SmallGlobalCommitPositionsVec;
+    use super::mutable::MutableCommitIndexSegment;
     use super::*;
     use crate::backend::ChangeId;
     use crate::backend::CommitId;
-    use crate::default_index::entry::LocalPosition;
-    use crate::default_index::entry::SmallLocalPositionsVec;
+    use crate::default_index::entry::LocalCommitPosition;
+    use crate::default_index::entry::SmallLocalCommitPositionsVec;
     use crate::default_index::readonly::FieldLengths;
     use crate::index::Index as _;
     use crate::object_id::HexPrefix;
@@ -95,8 +95,8 @@ mod tests {
     #[test_case(true; "file")]
     fn index_empty(on_disk: bool) {
         let temp_dir = new_temp_dir();
-        let mutable_segment = MutableIndexSegment::full(TEST_FIELD_LENGTHS);
-        let index_segment: Box<DynIndexSegment> = if on_disk {
+        let mutable_segment = MutableCommitIndexSegment::full(TEST_FIELD_LENGTHS);
+        let index_segment: Box<DynCommitIndexSegment> = if on_disk {
             let saved_index = mutable_segment.save_in(temp_dir.path()).unwrap();
             Box::new(Arc::try_unwrap(saved_index).unwrap())
         } else {
@@ -123,11 +123,11 @@ mod tests {
     fn index_root_commit(on_disk: bool) {
         let temp_dir = new_temp_dir();
         let mut new_change_id = change_id_generator();
-        let mut mutable_segment = MutableIndexSegment::full(TEST_FIELD_LENGTHS);
+        let mut mutable_segment = MutableCommitIndexSegment::full(TEST_FIELD_LENGTHS);
         let id_0 = CommitId::from_hex("000000");
         let change_id0 = new_change_id();
         mutable_segment.add_commit_data(id_0.clone(), change_id0.clone(), &[]);
-        let index_segment: Box<DynIndexSegment> = if on_disk {
+        let index_segment: Box<DynCommitIndexSegment> = if on_disk {
             let saved_index = mutable_segment.save_in(temp_dir.path()).unwrap();
             Box::new(Arc::try_unwrap(saved_index).unwrap())
         } else {
@@ -144,17 +144,20 @@ mod tests {
         assert_eq!(stats.num_changes, 1);
         assert_eq!(index.num_commits(), 1);
         // Can find only the root commit
-        assert_eq!(index.commit_id_to_pos(&id_0), Some(IndexPosition(0)));
+        assert_eq!(index.commit_id_to_pos(&id_0), Some(GlobalCommitPosition(0)));
         assert_eq!(index.commit_id_to_pos(&CommitId::from_hex("aaaaaa")), None);
         assert_eq!(index.commit_id_to_pos(&CommitId::from_hex("ffffff")), None);
         // Check properties of root entry
         let entry = index.entry_by_id(&id_0).unwrap();
-        assert_eq!(entry.position(), IndexPosition(0));
+        assert_eq!(entry.position(), GlobalCommitPosition(0));
         assert_eq!(entry.commit_id(), id_0);
         assert_eq!(entry.change_id(), change_id0);
         assert_eq!(entry.generation_number(), 0);
         assert_eq!(entry.num_parents(), 0);
-        assert_eq!(entry.parent_positions(), SmallIndexPositionsVec::new());
+        assert_eq!(
+            entry.parent_positions(),
+            SmallGlobalCommitPositionsVec::new()
+        );
         assert_eq!(entry.parents().len(), 0);
     }
 
@@ -175,7 +178,7 @@ mod tests {
     fn index_multiple_commits(incremental: bool, on_disk: bool) {
         let temp_dir = new_temp_dir();
         let mut new_change_id = change_id_generator();
-        let mut mutable_segment = MutableIndexSegment::full(TEST_FIELD_LENGTHS);
+        let mut mutable_segment = MutableCommitIndexSegment::full(TEST_FIELD_LENGTHS);
         // 5
         // |\
         // 4 | 3
@@ -197,7 +200,7 @@ mod tests {
         // now and build the remainder as another segment on top.
         if incremental {
             let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
-            mutable_segment = MutableIndexSegment::incremental(initial_file);
+            mutable_segment = MutableCommitIndexSegment::incremental(initial_file);
         }
 
         let id_3 = CommitId::from_hex("333333");
@@ -209,7 +212,7 @@ mod tests {
         mutable_segment.add_commit_data(id_3.clone(), change_id3.clone(), &[id_2.clone()]);
         mutable_segment.add_commit_data(id_4.clone(), change_id4, &[id_1.clone()]);
         mutable_segment.add_commit_data(id_5.clone(), change_id5, &[id_4.clone(), id_2.clone()]);
-        let index_segment: Box<DynIndexSegment> = if on_disk {
+        let index_segment: Box<DynCommitIndexSegment> = if on_disk {
             let saved_index = mutable_segment.save_in(temp_dir.path()).unwrap();
             Box::new(Arc::try_unwrap(saved_index).unwrap())
         } else {
@@ -233,58 +236,58 @@ mod tests {
         let entry_4 = index.entry_by_id(&id_4).unwrap();
         let entry_5 = index.entry_by_id(&id_5).unwrap();
         // Check properties of some entries
-        assert_eq!(entry_0.position(), IndexPosition(0));
+        assert_eq!(entry_0.position(), GlobalCommitPosition(0));
         assert_eq!(entry_0.commit_id(), id_0);
-        assert_eq!(entry_1.position(), IndexPosition(1));
+        assert_eq!(entry_1.position(), GlobalCommitPosition(1));
         assert_eq!(entry_1.commit_id(), id_1);
         assert_eq!(entry_1.change_id(), change_id1);
         assert_eq!(entry_1.generation_number(), 1);
         assert_eq!(entry_1.num_parents(), 1);
         assert_eq!(
             entry_1.parent_positions(),
-            smallvec_inline![IndexPosition(0)]
+            smallvec_inline![GlobalCommitPosition(0)]
         );
         assert_eq!(entry_1.parents().len(), 1);
         assert_eq!(
             entry_1.parents().next().unwrap().position(),
-            IndexPosition(0)
+            GlobalCommitPosition(0)
         );
-        assert_eq!(entry_2.position(), IndexPosition(2));
+        assert_eq!(entry_2.position(), GlobalCommitPosition(2));
         assert_eq!(entry_2.commit_id(), id_2);
         assert_eq!(entry_2.change_id(), change_id2);
         assert_eq!(entry_2.generation_number(), 1);
         assert_eq!(entry_2.num_parents(), 1);
         assert_eq!(
             entry_2.parent_positions(),
-            smallvec_inline![IndexPosition(0)]
+            smallvec_inline![GlobalCommitPosition(0)]
         );
         assert_eq!(entry_3.change_id(), change_id3);
         assert_eq!(entry_3.generation_number(), 2);
         assert_eq!(
             entry_3.parent_positions(),
-            smallvec_inline![IndexPosition(2)]
+            smallvec_inline![GlobalCommitPosition(2)]
         );
-        assert_eq!(entry_4.position(), IndexPosition(4));
+        assert_eq!(entry_4.position(), GlobalCommitPosition(4));
         assert_eq!(entry_4.generation_number(), 2);
         assert_eq!(entry_4.num_parents(), 1);
         assert_eq!(
             entry_4.parent_positions(),
-            smallvec_inline![IndexPosition(1)]
+            smallvec_inline![GlobalCommitPosition(1)]
         );
         assert_eq!(entry_5.generation_number(), 3);
         assert_eq!(entry_5.num_parents(), 2);
         assert_eq!(
             entry_5.parent_positions(),
-            smallvec_inline![IndexPosition(4), IndexPosition(2)]
+            smallvec_inline![GlobalCommitPosition(4), GlobalCommitPosition(2)]
         );
         assert_eq!(entry_5.parents().len(), 2);
         assert_eq!(
             entry_5.parents().next().unwrap().position(),
-            IndexPosition(4)
+            GlobalCommitPosition(4)
         );
         assert_eq!(
             entry_5.parents().nth(1).unwrap().position(),
-            IndexPosition(2)
+            GlobalCommitPosition(2)
         );
     }
 
@@ -293,7 +296,7 @@ mod tests {
     fn index_many_parents(on_disk: bool) {
         let temp_dir = new_temp_dir();
         let mut new_change_id = change_id_generator();
-        let mut mutable_segment = MutableIndexSegment::full(TEST_FIELD_LENGTHS);
+        let mut mutable_segment = MutableCommitIndexSegment::full(TEST_FIELD_LENGTHS);
         //     6
         //    /|\
         //   / | \
@@ -321,7 +324,7 @@ mod tests {
             new_change_id(),
             &[id_1, id_2, id_3, id_4, id_5],
         );
-        let index_segment: Box<DynIndexSegment> = if on_disk {
+        let index_segment: Box<DynCommitIndexSegment> = if on_disk {
             let saved_index = mutable_segment.save_in(temp_dir.path()).unwrap();
             Box::new(Arc::try_unwrap(saved_index).unwrap())
         } else {
@@ -343,11 +346,11 @@ mod tests {
         assert_eq!(
             entry_6.parent_positions(),
             smallvec_inline![
-                IndexPosition(1),
-                IndexPosition(2),
-                IndexPosition(3),
-                IndexPosition(4),
-                IndexPosition(5),
+                GlobalCommitPosition(1),
+                GlobalCommitPosition(2),
+                GlobalCommitPosition(3),
+                GlobalCommitPosition(4),
+                GlobalCommitPosition(5),
             ]
         );
         assert_eq!(entry_6.generation_number(), 2);
@@ -357,7 +360,7 @@ mod tests {
     fn resolve_commit_id_prefix() {
         let temp_dir = new_temp_dir();
         let mut new_change_id = change_id_generator();
-        let mut mutable_segment = MutableIndexSegment::full(TEST_FIELD_LENGTHS);
+        let mut mutable_segment = MutableCommitIndexSegment::full(TEST_FIELD_LENGTHS);
 
         // Create some commits with different various common prefixes.
         let id_0 = CommitId::from_hex("000000");
@@ -369,7 +372,7 @@ mod tests {
 
         // Write the first three commits to one file and build the remainder on top.
         let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
-        mutable_segment = MutableIndexSegment::incremental(initial_file);
+        mutable_segment = MutableCommitIndexSegment::incremental(initial_file);
 
         let id_3 = CommitId::from_hex("055444");
         let id_4 = CommitId::from_hex("055555");
@@ -429,7 +432,7 @@ mod tests {
     fn neighbor_commit_ids() {
         let temp_dir = new_temp_dir();
         let mut new_change_id = change_id_generator();
-        let mut mutable_segment = MutableIndexSegment::full(TEST_FIELD_LENGTHS);
+        let mut mutable_segment = MutableCommitIndexSegment::full(TEST_FIELD_LENGTHS);
 
         // Create some commits with different various common prefixes.
         let id_0 = CommitId::from_hex("000001");
@@ -441,7 +444,7 @@ mod tests {
 
         // Write the first three commits to one file and build the remainder on top.
         let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
-        mutable_segment = MutableIndexSegment::incremental(initial_file.clone());
+        mutable_segment = MutableCommitIndexSegment::incremental(initial_file.clone());
 
         let id_3 = CommitId::from_hex("055444");
         let id_4 = CommitId::from_hex("055555");
@@ -557,7 +560,7 @@ mod tests {
     fn shortest_unique_commit_id_prefix() {
         let temp_dir = new_temp_dir();
         let mut new_change_id = change_id_generator();
-        let mut mutable_segment = MutableIndexSegment::full(TEST_FIELD_LENGTHS);
+        let mut mutable_segment = MutableCommitIndexSegment::full(TEST_FIELD_LENGTHS);
 
         // Create some commits with different various common prefixes.
         let id_0 = CommitId::from_hex("000001");
@@ -569,7 +572,7 @@ mod tests {
 
         // Write the first three commits to one file and build the remainder on top.
         let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
-        mutable_segment = MutableIndexSegment::incremental(initial_file);
+        mutable_segment = MutableCommitIndexSegment::incremental(initial_file);
 
         let id_3 = CommitId::from_hex("055444");
         let id_4 = CommitId::from_hex("055555");
@@ -611,11 +614,15 @@ mod tests {
     fn resolve_change_id_prefix() {
         let temp_dir = new_temp_dir();
         let mut new_commit_id = commit_id_generator();
-        let local_positions_vec = |positions: &[u32]| -> SmallLocalPositionsVec {
-            positions.iter().copied().map(LocalPosition).collect()
+        let local_positions_vec = |positions: &[u32]| -> SmallLocalCommitPositionsVec {
+            positions.iter().copied().map(LocalCommitPosition).collect()
         };
-        let index_positions_vec = |positions: &[u32]| -> SmallIndexPositionsVec {
-            positions.iter().copied().map(IndexPosition).collect()
+        let index_positions_vec = |positions: &[u32]| -> SmallGlobalCommitPositionsVec {
+            positions
+                .iter()
+                .copied()
+                .map(GlobalCommitPosition)
+                .collect()
         };
 
         let id_0 = ChangeId::from_hex("00000001");
@@ -626,7 +633,7 @@ mod tests {
         let id_5 = ChangeId::from_hex("05555333");
 
         // Create some commits with different various common prefixes.
-        let mut mutable_segment = MutableIndexSegment::full(FieldLengths {
+        let mut mutable_segment = MutableCommitIndexSegment::full(FieldLengths {
             commit_id: 16,
             change_id: 4,
         });
@@ -639,7 +646,7 @@ mod tests {
 
         // Write these commits to one file and build the remainder on top.
         let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
-        mutable_segment = MutableIndexSegment::incremental(initial_file.clone());
+        mutable_segment = MutableCommitIndexSegment::incremental(initial_file.clone());
 
         mutable_segment.add_commit_data(new_commit_id(), id_3.clone(), &[]);
         mutable_segment.add_commit_data(new_commit_id(), id_3.clone(), &[]);
@@ -793,7 +800,7 @@ mod tests {
         let id_5 = ChangeId::from_hex("05555333");
 
         // Create some commits with different various common prefixes.
-        let mut mutable_segment = MutableIndexSegment::full(FieldLengths {
+        let mut mutable_segment = MutableCommitIndexSegment::full(FieldLengths {
             commit_id: 16,
             change_id: 4,
         });
@@ -806,7 +813,7 @@ mod tests {
 
         // Write these commits to one file and build the remainder on top.
         let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
-        mutable_segment = MutableIndexSegment::incremental(initial_file.clone());
+        mutable_segment = MutableCommitIndexSegment::incremental(initial_file.clone());
 
         mutable_segment.add_commit_data(new_commit_id(), id_3.clone(), &[]);
         mutable_segment.add_commit_data(new_commit_id(), id_3.clone(), &[]);
@@ -942,7 +949,7 @@ mod tests {
         let id_5 = ChangeId::from_hex("05555333");
 
         // Create some commits with different various common prefixes.
-        let mut mutable_segment = MutableIndexSegment::full(FieldLengths {
+        let mut mutable_segment = MutableCommitIndexSegment::full(FieldLengths {
             commit_id: 16,
             change_id: 4,
         });
@@ -955,7 +962,7 @@ mod tests {
 
         // Write these commits to one file and build the remainder on top.
         let initial_file = mutable_segment.save_in(temp_dir.path()).unwrap();
-        mutable_segment = MutableIndexSegment::incremental(initial_file.clone());
+        mutable_segment = MutableCommitIndexSegment::incremental(initial_file.clone());
 
         mutable_segment.add_commit_data(new_commit_id(), id_3.clone(), &[]);
         mutable_segment.add_commit_data(new_commit_id(), id_3.clone(), &[]);

@@ -34,7 +34,7 @@ use pollster::FutureExt as _;
 
 use super::composite::AsCompositeIndex;
 use super::composite::CompositeIndex;
-use super::entry::IndexPosition;
+use super::entry::GlobalCommitPosition;
 use super::rev_walk::EagerRevWalk;
 use super::rev_walk::PeekableRevWalk;
 use super::rev_walk::RevWalk;
@@ -69,10 +69,12 @@ use crate::store::Store;
 use crate::str_util::StringPattern;
 use crate::union_find;
 
-type BoxedPredicateFn<'a> =
-    Box<dyn FnMut(&CompositeIndex, IndexPosition) -> Result<bool, RevsetEvaluationError> + 'a>;
-pub(super) type BoxedRevWalk<'a> =
-    Box<dyn RevWalk<CompositeIndex, Item = Result<IndexPosition, RevsetEvaluationError>> + 'a>;
+type BoxedPredicateFn<'a> = Box<
+    dyn FnMut(&CompositeIndex, GlobalCommitPosition) -> Result<bool, RevsetEvaluationError> + 'a,
+>;
+pub(super) type BoxedRevWalk<'a> = Box<
+    dyn RevWalk<CompositeIndex, Item = Result<GlobalCommitPosition, RevsetEvaluationError>> + 'a,
+>;
 
 trait ToPredicateFn: fmt::Debug {
     /// Creates function that tests if the given entry is included in the set.
@@ -131,7 +133,8 @@ impl<I: AsCompositeIndex + Clone> RevsetImpl<I> {
 
     fn positions(
         &self,
-    ) -> impl Iterator<Item = Result<IndexPosition, RevsetEvaluationError>> + use<'_, I> {
+    ) -> impl Iterator<Item = Result<GlobalCommitPosition, RevsetEvaluationError>> + use<'_, I>
+    {
         self.inner.positions().attach(self.index.as_composite())
     }
 
@@ -264,7 +267,7 @@ impl<'a, I: AsCompositeIndex> PositionsAccumulator<'a, I> {
 /// Helper struct for [`PositionsAccumulator`] to simplify interior mutability.
 struct PositionsAccumulatorInner<'a> {
     walk: BoxedRevWalk<'a>,
-    consumed_positions: Vec<IndexPosition>,
+    consumed_positions: Vec<GlobalCommitPosition>,
 }
 
 impl PositionsAccumulatorInner<'_> {
@@ -272,7 +275,7 @@ impl PositionsAccumulatorInner<'_> {
     fn consume_to(
         &mut self,
         index: &CompositeIndex,
-        desired_position: IndexPosition,
+        desired_position: GlobalCommitPosition,
     ) -> Result<(), RevsetEvaluationError> {
         let last_position = self.consumed_positions.last();
         if last_position.is_some_and(|&pos| pos <= desired_position) {
@@ -288,10 +291,10 @@ impl PositionsAccumulatorInner<'_> {
     }
 }
 
-/// Adapter for precomputed `IndexPosition`s.
+/// Adapter for precomputed `GlobalCommitPosition`s.
 #[derive(Debug)]
 struct EagerRevset {
-    positions: Vec<IndexPosition>,
+    positions: Vec<GlobalCommitPosition>,
 }
 
 impl EagerRevset {
@@ -329,7 +332,7 @@ impl ToPredicateFn for EagerRevset {
     }
 }
 
-/// Adapter for infallible `RevWalk` of `IndexPosition`s.
+/// Adapter for infallible `RevWalk` of `GlobalCommitPosition`s.
 struct RevWalkRevset<W> {
     walk: W,
 }
@@ -342,7 +345,7 @@ impl<W> fmt::Debug for RevWalkRevset<W> {
 
 impl<W> InternalRevset for RevWalkRevset<W>
 where
-    W: RevWalk<CompositeIndex, Item = IndexPosition> + Clone,
+    W: RevWalk<CompositeIndex, Item = GlobalCommitPosition> + Clone,
 {
     fn positions<'a>(&self) -> BoxedRevWalk<'a>
     where
@@ -361,7 +364,7 @@ where
 
 impl<W> ToPredicateFn for RevWalkRevset<W>
 where
-    W: RevWalk<CompositeIndex, Item = IndexPosition> + Clone,
+    W: RevWalk<CompositeIndex, Item = GlobalCommitPosition> + Clone,
 {
     fn to_predicate_fn<'a>(&self) -> BoxedPredicateFn<'a>
     where
@@ -373,7 +376,7 @@ where
 
 fn predicate_fn_from_rev_walk<'a, W>(walk: W) -> BoxedPredicateFn<'a>
 where
-    W: RevWalk<CompositeIndex, Item = IndexPosition> + 'a,
+    W: RevWalk<CompositeIndex, Item = GlobalCommitPosition> + 'a,
 {
     let mut walk = walk.peekable();
     Box::new(move |index, entry_pos| {
@@ -903,7 +906,7 @@ impl EvaluationContext<'_> {
                 }
             }
             ResolvedExpression::Reachable { sources, domain } => {
-                let mut sets = union_find::UnionFind::<IndexPosition>::new();
+                let mut sets = union_find::UnionFind::<GlobalCommitPosition>::new();
 
                 // Compute all reachable subgraphs.
                 let domain_revset = self.evaluate(domain)?;
@@ -1113,7 +1116,7 @@ impl EvaluationContext<'_> {
         #[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
         struct Item {
             timestamp: MillisSinceEpoch,
-            pos: IndexPosition, // tie-breaker
+            pos: GlobalCommitPosition, // tie-breaker
         }
 
         let make_rev_item = |pos| -> Result<_, RevsetEvaluationError> {
@@ -1162,7 +1165,7 @@ impl<F> fmt::Debug for PurePredicateFn<F> {
 
 impl<F> ToPredicateFn for PurePredicateFn<F>
 where
-    F: Fn(&CompositeIndex, IndexPosition) -> Result<bool, RevsetEvaluationError> + Clone,
+    F: Fn(&CompositeIndex, GlobalCommitPosition) -> Result<bool, RevsetEvaluationError> + Clone,
 {
     fn to_predicate_fn<'a>(&self) -> BoxedPredicateFn<'a>
     where
@@ -1174,14 +1177,17 @@ where
 
 fn as_pure_predicate_fn<F>(f: F) -> PurePredicateFn<F>
 where
-    F: Fn(&CompositeIndex, IndexPosition) -> Result<bool, RevsetEvaluationError> + Clone,
+    F: Fn(&CompositeIndex, GlobalCommitPosition) -> Result<bool, RevsetEvaluationError> + Clone,
 {
     PurePredicateFn(f)
 }
 
-fn box_pure_predicate_fn<'a>(
-    f: impl Fn(&CompositeIndex, IndexPosition) -> Result<bool, RevsetEvaluationError> + Clone + 'a,
-) -> Box<dyn ToPredicateFn + 'a> {
+fn box_pure_predicate_fn<'a, F>(f: F) -> Box<dyn ToPredicateFn + 'a>
+where
+    F: Fn(&CompositeIndex, GlobalCommitPosition) -> Result<bool, RevsetEvaluationError>
+        + Clone
+        + 'a,
+{
     Box::new(PurePredicateFn(f))
 }
 
