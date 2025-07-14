@@ -22,14 +22,14 @@ assert_matches = "1.5.0"
 async-trait = "0.1.88"
 blake2 = "0.10.6"
 bstr = "1.11.3"
-clap = { version = "4.5.40", features = [
+clap = { version = "4.5.41", features = [
     "derive",
     "deprecated",
     "wrap_help",
     "string",
 ] }
-clap_complete = { version = "4.5.54", features = ["unstable-dynamic"] }
-clap_complete_nushell = "4.5.7"
+clap_complete = { version = "4.5.55", features = ["unstable-dynamic"] }
+clap_complete_nushell = "4.5.8"
 # Update clap-markdown manually since test_generate_md_cli_help snapshot
 # will need regenerating.
 clap-markdown = "=0.1.5"
