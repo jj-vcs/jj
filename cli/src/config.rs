@@ -752,6 +752,11 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
                 Ok(format!(r#""{escaped}" ++ change_id.short()"#).into())
             },
         ),
+        // TODO: Delete in jj 0.38+
+        ConfigMigrationRule::custom(
+            |layer| matches!(layer.look_up_item("git.push-new-bookmarks"), Ok(Some(_))),
+            |_| Ok("git.push-new-bookmarks is ignored".into()),
+        ),
     ]
 }
 

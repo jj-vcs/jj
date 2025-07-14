@@ -15,7 +15,6 @@ context = 3
 
 [git]
 private-commits = "none()"
-push-new-bookmarks = false
 sign-on-push = false
 track-default-bookmark-on-clone = true
 

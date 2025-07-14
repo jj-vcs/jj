@@ -35,6 +35,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The `--allow-new` flag on `jj git push` is deprecated in favor of `--remote origin`.
 
+* The `git.push-new-bookmarks` config option is deprecated without replacement.
+  If there is only one remote, new bookmark can now be pushed by default without
+  this configuration option. If there is more than one remote, you must specify
+  `--remote` to push new bookmarks.
+
 ### New features
 
 * `jj workspace list` now accepts `-T`/`--template` option to customize its output via templates.
