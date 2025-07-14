@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use std::env;
 use std::env::split_paths;
 use std::fmt;
+use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -36,6 +37,8 @@ use jj_lib::config::ConfigSource;
 use jj_lib::config::ConfigValue;
 use jj_lib::config::StackedConfig;
 use jj_lib::dsl_util;
+use jj_lib::file_util::IoResultExt as _;
+use jj_lib::file_util::PathError;
 use regex::Captures;
 use regex::Regex;
 use tracing::instrument;
@@ -326,9 +329,29 @@ impl UnresolvedConfigEnv {
 pub struct ConfigEnv {
     home_dir: Option<PathBuf>,
     repo_path: Option<PathBuf>,
+    workspace_root: Option<PathBuf>,
     user_config_paths: Vec<ConfigPath>,
     repo_config_path: Option<ConfigPath>,
     command: Option<String>,
+}
+
+pub struct RepoManagedConfigPaths {
+    /// The path to the file managed by the repo.
+    pub managed: PathBuf,
+    /// The path to the managed config that is actually in use.
+    pub config: PathBuf,
+    /// The path to the content of the file that was last reviewed.
+    pub last_reviewed: PathBuf,
+}
+
+// The same as std::fs::read_to_string, but returns None if the file was not
+// found.
+pub fn maybe_read_to_string(path: &Path) -> io::Result<Option<String>> {
+    match std::fs::read_to_string(path) {
+        Ok(val) => Ok(Some(val)),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e),
+    }
 }
 
 impl ConfigEnv {
@@ -371,6 +394,7 @@ impl ConfigEnv {
         ConfigEnv {
             home_dir,
             repo_path: None,
+            workspace_root: None,
             user_config_paths: env.resolve(ui),
             repo_config_path: None,
             command: None,
@@ -441,9 +465,22 @@ impl ConfigEnv {
 
     /// Sets the directory where repo-specific config file is stored. The path
     /// is usually `.jj/repo`.
-    pub fn reset_repo_path(&mut self, path: &Path) {
-        self.repo_path = Some(path.to_owned());
-        self.repo_config_path = Some(ConfigPath::new(path.join("config.toml")));
+    pub fn reset_repo_path(&mut self, repo_path: &Path, workspace_root: &Path) {
+        self.repo_path = Some(repo_path.to_owned());
+        self.workspace_root = Some(workspace_root.to_owned());
+        self.repo_config_path = Some(ConfigPath::new(repo_path.join("config.toml")));
+    }
+
+    /// Returns all paths associated with the repo-managed configuration.
+    pub fn repo_managed_config_paths(&self) -> Option<RepoManagedConfigPaths> {
+        match (&self.repo_path, &self.workspace_root) {
+            (Some(repo_path), Some(workspace_root)) => Some(RepoManagedConfigPaths {
+                config: repo_path.join("generated_repo_config.toml"),
+                last_reviewed: repo_path.join("last_reviewed_repo_config.toml"),
+                managed: workspace_root.join(".config/jj/config.toml"),
+            }),
+            _ => None,
+        }
     }
 
     /// Returns a path to the repo-specific config file.
@@ -480,6 +517,55 @@ impl ConfigEnv {
             .transpose()
     }
 
+    /// Loads repo-managed config file for the user into the given `config`.
+    /// The old repo-managed config layer will be replaced if any.
+    fn reload_repo_managed_config(
+        &self,
+        ui: &Ui,
+        config: &mut RawConfig,
+    ) -> Result<(), ConfigLoadError> {
+        if !self.reload_repo_managed_config_internal(config)? {
+            writeln!(
+                ui.warning_default(),
+                "Your repo-managed config is out of date"
+            )
+            .context(PathBuf::from("stderr"))
+            .map_err(ConfigLoadError::Read)?;
+            writeln!(ui.hint_default(), "Run `jj config review-managed`")
+                .context(PathBuf::from("stderr"))
+                .map_err(ConfigLoadError::Read)?;
+        }
+        Ok(())
+    }
+
+    // When we pass UI it can't be instrumented (since it doesn't implement
+    // std::fmt::Debug), so we split this up into two functions.
+    #[instrument]
+    fn reload_repo_managed_config_internal(
+        &self,
+        config: &mut RawConfig,
+    ) -> Result<bool, ConfigLoadError> {
+        let mut_config = config.as_mut();
+        mut_config.remove_layers(ConfigSource::RepoManaged);
+        Ok(if let Some(paths) = self.repo_managed_config_paths() {
+            match mut_config.load_file(ConfigSource::RepoManaged, paths.config) {
+                Ok(()) => {}
+                Err(ConfigLoadError::Read(PathError { error, .. }))
+                    if error.kind() == io::ErrorKind::NotFound => {}
+                e => e?,
+            }
+            let vcs_content = maybe_read_to_string(&paths.managed)
+                .context(paths.managed)
+                .map_err(ConfigLoadError::Read)?;
+            let last_reviewed_content = maybe_read_to_string(&paths.last_reviewed)
+                .context(paths.last_reviewed)
+                .map_err(ConfigLoadError::Read)?;
+            vcs_content == last_reviewed_content
+        } else {
+            true
+        })
+    }
+
     /// Loads repo-specific config file into the given `config`. The old
     /// repo-config layer will be replaced if any.
     #[instrument]
@@ -487,6 +573,23 @@ impl ConfigEnv {
         config.as_mut().remove_layers(ConfigSource::Repo);
         if let Some(path) = self.existing_repo_config_path() {
             config.as_mut().load_file(ConfigSource::Repo, path)?;
+        }
+        Ok(())
+    }
+
+    /// Reloads both the repo-config and the repo-managed config.
+    pub fn reload_all_repo_config(
+        &self,
+        ui: &Ui,
+        config: &mut RawConfig,
+    ) -> Result<(), ConfigLoadError> {
+        self.reload_repo_config(config)?;
+        let enabled: bool = config
+            .as_ref()
+            .get("repo-managed-config.enabled")
+            .map_err(|error| ConfigLoadError::Get { error })?;
+        if enabled {
+            self.reload_repo_managed_config(ui, config)?;
         }
         Ok(())
     }
@@ -1767,6 +1870,7 @@ mod tests {
         ConfigEnv {
             home_dir,
             repo_path: None,
+            workspace_root: None,
             user_config_paths: env.resolve(&Ui::null()),
             repo_config_path: None,
             command: None,
