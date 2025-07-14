@@ -1307,11 +1307,13 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
 * `--deleted` — Push all deleted bookmarks
 
    Only tracked bookmarks can be successfully deleted on the remote. A warning will be printed if any untracked bookmarks on the remote correspond to missing local bookmarks.
-* `-N`, `--allow-new` — Allow pushing new bookmarks
+* `-N`, `--allow-new` — Allow pushing new bookmarks (DEPRECATED)
 
    Newly-created remote bookmarks will be tracked automatically.
 
-   This can also be turned on by the `git.push-new-bookmarks` setting. If it's set to `true`, `--allow-new` is no-op.
+   This is now the default behavior, `--allow-new` is a no-op.
+
+   Newly-created remote bookmarks still won't be tracked automatically if there are multiple remotes, to prevent accidentally pushing changes to the wrong remote. Use `--remote` to resolve the ambiguity.
 * `--allow-empty-description` — Allow pushing commits with empty descriptions
 * `--allow-private` — Allow pushing commits that are private
 

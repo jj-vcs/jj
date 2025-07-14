@@ -321,9 +321,7 @@ fn test_bookmark_move() {
 
     // Delete bookmark locally, but is still tracking remote
     work_dir.run_jj(["describe", "@-", "-mcommit"]).success();
-    work_dir
-        .run_jj(["git", "push", "--allow-new", "-r@-"])
-        .success();
+    work_dir.run_jj(["git", "push", "-r@-"]).success();
     work_dir.run_jj(["bookmark", "delete", "foo"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     foo (deleted)
@@ -620,9 +618,7 @@ fn test_bookmark_rename() {
     work_dir
         .run_jj(["bookmark", "create", "-r@", "bremote"])
         .success();
-    work_dir
-        .run_jj(["git", "push", "--allow-new", "-b=bremote"])
-        .success();
+    work_dir.run_jj(["git", "push", "-b=bremote"]).success();
     let output = work_dir.run_jj(["bookmark", "rename", "bremote", "bremote2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1332,9 +1328,7 @@ fn test_bookmark_track_conflict() {
         .run_jj(["bookmark", "create", "-r@", "main"])
         .success();
     work_dir.run_jj(["describe", "-m", "a"]).success();
-    work_dir
-        .run_jj(["git", "push", "--allow-new", "-b", "main"])
-        .success();
+    work_dir.run_jj(["git", "push", "-b", "main"]).success();
     work_dir
         .run_jj(["bookmark", "untrack", "main@origin"])
         .success();
@@ -2139,7 +2133,6 @@ fn test_bookmark_list_tracked() {
         .run_jj([
             "git",
             "push",
-            "--allow-new",
             "--remote",
             "upstream",
             "--bookmark",

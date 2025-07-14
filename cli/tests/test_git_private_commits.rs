@@ -66,14 +66,7 @@ fn set_up_remote_at_main(test_env: &TestEnvironment, work_dir: &TestWorkDir, rem
         ])
         .success();
     work_dir
-        .run_jj([
-            "git",
-            "push",
-            "--allow-new",
-            "--remote",
-            remote_name,
-            "-b=main",
-        ])
+        .run_jj(["git", "push", "--remote", remote_name, "-b=main"])
         .success();
 }
 
@@ -192,7 +185,7 @@ fn test_git_private_commits_not_directly_in_line_block_pushing() {
         .success();
 
     test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "-b=bookmark1"]);
+    let output = work_dir.run_jj(["git", "push", "-b=bookmark1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit 613114f44bdd since it is private
@@ -243,7 +236,7 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     work_dir
         .run_jj(["bookmark", "set", "main", "-r@"])
         .success();
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "-b=main", "-b=bookmark1"]);
+    let output = work_dir.run_jj(["git", "push", "-b=main", "-b=bookmark1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -277,7 +270,7 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     work_dir
         .run_jj(["bookmark", "create", "-r@", "bookmark2"])
         .success();
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "-b=bookmark2"]);
+    let output = work_dir.run_jj(["git", "push", "-b=bookmark2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:

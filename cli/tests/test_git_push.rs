@@ -273,7 +273,7 @@ fn test_git_push_other_remote_has_bookmark() {
     // as it is on the remote. This would also work for a descendant.
     //
     // TODO: Saner test?
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "--remote=other"]);
+    let output = work_dir.run_jj(["git", "push", "--remote=other"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to other:
@@ -823,7 +823,7 @@ fn test_git_push_changes() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Bookmark already exists: push-yostqsxwqrlt
-    Hint: Use 'jj bookmark move' to move it, and 'jj git push -b push-yostqsxwqrlt [--allow-new]' to push it
+    Hint: Use 'jj bookmark move' to move it, and 'jj git push -b push-yostqsxwqrlt' to push it
     [EOF]
     [exit status: 1]
     ");
@@ -970,7 +970,7 @@ fn test_git_push_changes_with_name() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Bookmark already exists: b1
-    Hint: Use 'jj bookmark move' to move it, and 'jj git push -b b1 [--allow-new]' to push it
+    Hint: Use 'jj bookmark move' to move it, and 'jj git push -b b1' to push it
     [EOF]
     [exit status: 1]
     ");
@@ -2192,19 +2192,13 @@ fn test_git_push_to_ambiguous_remote() {
     let output = work_dir.run_jj(["git", "push", "-bbookmark3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Refusing to create new remote bookmark bookmark3@origin
-    Hint: Use --allow-new to push new bookmark. Use --remote to specify the remote to push to.
+    Error: Refusing to create new remote bookmark bookmark3@origin; remote is ambiguous
+    Hint: Use --remote to specify the remote to push to.
     [EOF]
     [exit status: 1]
     ");
-    // This works because the remote and --allow-new is specified.
-    let output = work_dir.run_jj([
-        "git",
-        "push",
-        "-bbookmark3",
-        "--remote=other",
-        "--allow-new",
-    ]);
+    // This works because the remote is specified.
+    let output = work_dir.run_jj(["git", "push", "-bbookmark3", "--remote=other"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to other:

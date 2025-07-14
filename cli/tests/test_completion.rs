@@ -175,7 +175,7 @@ fn test_bookmark_names() {
         .run_jj(["desc", "-r", "bbb-tracked", "-m", "x"])
         .success();
     work_dir
-        .run_jj(["git", "push", "--allow-new", "--bookmark", "glob:*-tracked"])
+        .run_jj(["git", "push", "--bookmark", "glob:*-tracked"])
         .success();
 
     origin_dir

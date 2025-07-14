@@ -33,6 +33,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   planned to be removed in a future release.
   [#6016](https://github.com/jj-vcs/jj/issues/6016)
 
+* The `--allow-new` flag on `jj git push` is deprecated in favor of `--remote origin`.
+
 ### New features
 
 * `jj workspace list` now accepts `-T`/`--template` option to customize its output via templates.
