@@ -29,7 +29,7 @@ use crate::diff_util::get_copy_records;
 use crate::diff_util::DiffFormat;
 use crate::ui::Ui;
 
-/// Show high-level repo status
+/// Show high-level repo status [default alias: st]
 ///
 /// This includes:
 ///
@@ -41,7 +41,6 @@ use crate::ui::Ui;
 /// [Conflicted bookmarks]:
 ///     https://jj-vcs.github.io/jj/latest/bookmarks/#conflicts
 #[derive(clap::Args, Clone, Debug)]
-#[command(visible_alias = "st")]
 pub(crate) struct StatusArgs {
     /// Restrict the status display to these paths
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]

@@ -4,6 +4,8 @@
 amend = ["squash"]
 b = ["bookmark"]
 ci = ["commit"]
+desc = ["describe"]
+st = ["status"]
 
 [diff.color-words]
 conflict = "materialize"

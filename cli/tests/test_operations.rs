@@ -1817,7 +1817,7 @@ fn test_op_diff_divergent_change() {
     ]);
     insta::assert_snapshot!(output, @r"
     From operation: ef75d88dd5fe (2001-02-03 08:05:08) commit 5d86d4b609080a15077fcd723e537582d5ea6559
-      To operation: 80381a6750a7 (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+      To operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
 
     Changed commits:
     ○  + rlvkpnrz?? 82ad1ba9 2b
@@ -1841,8 +1841,8 @@ fn test_op_diff_divergent_change() {
         &resolved_op_id,
     ]);
     insta::assert_snapshot!(output, @r"
-    From operation: 80381a6750a7 (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
-      To operation: 366c90c8bc44 (2001-02-03 08:05:15) squash commits into 82ad1ba9ded407bab6fea1524b207f49a02779a0
+    From operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+      To operation: 6a444a3d42e6 (2001-02-03 08:05:15) squash commits into 82ad1ba9ded407bab6fea1524b207f49a02779a0
 
     Changed commits:
     ○  + rlvkpnrz da3f472d 2ab
@@ -1867,7 +1867,7 @@ fn test_op_diff_divergent_change() {
     ]);
     insta::assert_snapshot!(output, @r"
     From operation: ef75d88dd5fe (2001-02-03 08:05:08) commit 5d86d4b609080a15077fcd723e537582d5ea6559
-      To operation: 80381a6750a7 (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+      To operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
 
     Changed commits:
     ○  + rlvkpnrz?? 82ad1ba9 2b
@@ -1906,8 +1906,8 @@ fn test_op_diff_divergent_change() {
         &resolved_op_id,
     ]);
     insta::assert_snapshot!(output, @r"
-    From operation: 80381a6750a7 (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
-      To operation: 366c90c8bc44 (2001-02-03 08:05:15) squash commits into 82ad1ba9ded407bab6fea1524b207f49a02779a0
+    From operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+      To operation: 6a444a3d42e6 (2001-02-03 08:05:15) squash commits into 82ad1ba9ded407bab6fea1524b207f49a02779a0
 
     Changed commits:
     ○  + rlvkpnrz da3f472d 2ab
@@ -1930,8 +1930,8 @@ fn test_op_diff_divergent_change() {
         &divergent_op_id,
     ]);
     insta::assert_snapshot!(output, @r"
-    From operation: 366c90c8bc44 (2001-02-03 08:05:15) squash commits into 82ad1ba9ded407bab6fea1524b207f49a02779a0
-      To operation: 80381a6750a7 (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+    From operation: 6a444a3d42e6 (2001-02-03 08:05:15) squash commits into 82ad1ba9ded407bab6fea1524b207f49a02779a0
+      To operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
 
     Changed commits:
     ○  + rlvkpnrz?? 82ad1ba9 2b
@@ -1955,7 +1955,7 @@ fn test_op_diff_divergent_change() {
         &initial_op_id,
     ]);
     insta::assert_snapshot!(output, @r"
-    From operation: 80381a6750a7 (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+    From operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
       To operation: ef75d88dd5fe (2001-02-03 08:05:08) commit 5d86d4b609080a15077fcd723e537582d5ea6559
 
     Changed commits:
@@ -1999,9 +1999,9 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
     // FIXME: the diff should be empty
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @r"
-    From operation: e6d8f40ac61c (2001-02-03 08:05:09) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
-    From operation: 2842b640d1cb (2001-02-03 08:05:10) describe commit ab92d1a87bebb4300165a16a753c5403bd7bc578
-      To operation: 1b4a05d4dd99 (2001-02-03 08:05:11) reconcile divergent operations
+    From operation: 69ec49158b0e (2001-02-03 08:05:09) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    From operation: 0c5076ddf77d (2001-02-03 08:05:10) describe commit ab92d1a87bebb4300165a16a753c5403bd7bc578
+      To operation: ac3c7e679e31 (2001-02-03 08:05:11) reconcile divergent operations
 
     Changed commits:
     ○  + rlvkpnrz?? 8f35f6a6 (empty) 2b
@@ -2011,7 +2011,7 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
 
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @r"
-    1b4a05d4dd99 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    ac3c7e679e31 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     reconcile divergent operations
     args: jj log
     [EOF]
@@ -2019,12 +2019,12 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
 
     let output = work_dir.run_jj(["op", "log", "--op-diff", "--limit=3"]);
     insta::assert_snapshot!(output, @r"
-    @    1b4a05d4dd99 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    @    ac3c7e679e31 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     ├─╮  reconcile divergent operations
     │ │  args: jj log
-    ○ │  e6d8f40ac61c test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    ○ │  69ec49158b0e test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │ │  describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
-    │ │  args: jj desc -r@- -m1
+    │ │  args: jj describe -r@- -m1
     │ │
     │ │  Changed commits:
     │ │  ○  + rlvkpnrz 7ed5a610 (empty) 2a
@@ -2035,9 +2035,9 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
     │ │  Changed working copy default@:
     │ │  + rlvkpnrz 7ed5a610 (empty) 2a
     │ │  - rlvkpnrz hidden ab92d1a8 (empty) 2a
-    │ ○  2842b640d1cb test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    │ ○  0c5076ddf77d test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     ├─╯  describe commit ab92d1a87bebb4300165a16a753c5403bd7bc578
-    │    args: jj desc '--at-op=@-' -m2b
+    │    args: jj describe '--at-op=@-' -m2b
     │
     │    Changed commits:
     │    ○  + rlvkpnrz 50ec12eb (empty) 2b

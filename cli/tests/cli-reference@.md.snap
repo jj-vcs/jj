@@ -129,7 +129,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `bookmark` — Manage bookmarks [default alias: b]
 * `commit` — Update the description and create a new change on top
 * `config` — Manage config options
-* `describe` — Update the change description or other metadata
+* `describe` — Update the change description or other metadata [default alias: desc]
 * `diff` — Compare file contents between two revisions
 * `diffedit` — Touch up the content changes in a revision with a diff editor
 * `duplicate` — Create new changes with the same content as existing ones
@@ -157,7 +157,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `sparse` — Manage which paths from the working-copy commit are present in the working copy
 * `split` — Split a revision in two
 * `squash` — Move changes from a revision into another revision
-* `status` — Show high-level repo status
+* `status` — Show high-level repo status [default alias: st]
 * `tag` — Manage tags
 * `undo` — Undo an operation (shortcut for `jj op undo`)
 * `unsign` — Drop a cryptographic signature
@@ -711,13 +711,11 @@ Update a config file to unset the given option
 
 ## `jj describe`
 
-Update the change description or other metadata
+Update the change description or other metadata [default alias: desc]
 
 Starts an editor to let you edit the description of changes. The editor will be $EDITOR, or `pico` if that's not defined (`Notepad` on Windows).
 
 **Usage:** `jj describe [OPTIONS] [REVSETS]...`
-
-**Command Alias:** `desc`
 
 ###### **Arguments:**
 
@@ -2535,7 +2533,7 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 
 ## `jj status`
 
-Show high-level repo status
+Show high-level repo status [default alias: st]
 
 This includes:
 
@@ -2544,8 +2542,6 @@ This includes:
 [Conflicted bookmarks]: https://jj-vcs.github.io/jj/latest/bookmarks/#conflicts
 
 **Usage:** `jj status [FILESETS]...`
-
-**Command Alias:** `st`
 
 ###### **Arguments:**
 
