@@ -59,6 +59,15 @@ pub enum ConfigLoadError {
     /// Config file or directory cannot be read.
     #[error("Failed to read configuration file")]
     Read(#[source] PathError),
+
+    /// Meta-config cannot be retrieved (config about repo config).
+    #[error("Failed to retrieve config setting")]
+    Get {
+        /// Source error
+        #[source]
+        error: ConfigGetError,
+    },
+
     /// TOML file or text cannot be parsed.
     #[error("Configuration cannot be parsed as TOML document")]
     Parse {
@@ -286,6 +295,8 @@ pub enum ConfigSource {
     EnvBase,
     /// User configuration files.
     User,
+    /// Checked in to version control and managed by repo owners.
+    RepoManaged,
     /// Repo configuration files.
     Repo,
     /// Override environment variables.
@@ -300,6 +311,7 @@ impl Display for ConfigSource {
         let c = match self {
             Default => "default",
             User => "user",
+            RepoManaged => "repo-managed",
             Repo => "repo",
             CommandArg => "cli",
             EnvBase | EnvOverrides => "env",
