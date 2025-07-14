@@ -179,6 +179,13 @@ via winget:
 winget install jj-vcs.jj
 ```
 
+via scoop:
+
+```shell
+# To install the latest release via scoop
+scoop install main/jj
+```
+
 
 ## Initial configuration
 
