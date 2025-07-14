@@ -31,6 +31,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj config path`↴](#jj-config-path)
 * [`jj config set`↴](#jj-config-set)
 * [`jj config unset`↴](#jj-config-unset)
+* [`jj config review-managed`↴](#jj-config-review-managed)
 * [`jj describe`↴](#jj-describe)
 * [`jj diff`↴](#jj-diff)
 * [`jj diffedit`↴](#jj-diffedit)
@@ -576,6 +577,7 @@ See [`jj help -k config`] to know more about file locations, supported config op
 * `path` — Print the paths to the config files
 * `set` — Update a config file to set the given option to a given value
 * `unset` — Update a config file to unset the given option
+* `review-managed` — Reviews and updates configuration stored in version control. You should never need to run this command unless jj tells you to. This command needs to be run when the config checked in to the repo is changed, and allows you to approve or reject said changes on a line-by-line basis
 
 
 
@@ -716,6 +718,18 @@ Update a config file to unset the given option
 
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
+
+
+
+## `jj config review-managed`
+
+Reviews and updates configuration stored in version control. You should never need to run this command unless jj tells you to. This command needs to be run when the config checked in to the repo is changed, and allows you to approve or reject said changes on a line-by-line basis
+
+**Usage:** `jj config review-managed [OPTIONS]`
+
+###### **Options:**
+
+* `--trust` — Trust the repository's config and skip review of it. Use this when you absolutely trust the repo config (eg. you're the only contributor)
 
 
 
