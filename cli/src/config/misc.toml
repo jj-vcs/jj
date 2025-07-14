@@ -59,4 +59,4 @@ auto-update-stale = false
 legacy-bookmark-behavior = true
 
 [repo-managed-config]
-enabled = false
+enabled = true

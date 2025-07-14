@@ -148,6 +148,7 @@ impl TestEnvironment {
             if let Ok(tmp_var) = std::env::var("TEMP") {
                 cmd.env("TEMP", tmp_var);
             }
+            cmd.env("USERPROFILE", self.home_dir.to_str().unwrap());
         }
 
         cmd

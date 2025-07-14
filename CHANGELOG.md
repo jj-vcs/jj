@@ -72,6 +72,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj util exec` sets the environment variable `JJ_WORKSPACE_ROOT`
 
+* Introduced an additional config layer `repo-managed` between `user` and
+  `repo`. This layer is stored in version control, and if it ever changes,
+  we recommend to the user to review the changes (for security reasons) by
+  running the new command `jj config review-managed`. This can be used to
+  create config shared between all users who use a repository (eg.
+  [fix commands](https://chromium-review.googlesource.com/c/chromium/src/+/6703030))
+
 ### Fixed bugs
 
 * Fetching repositories that have submodules no longer errors even if

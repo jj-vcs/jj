@@ -950,7 +950,7 @@
                 "enabled": {
                     "type": "boolean",
                     "description": "Whether to enable this feature",
-                    "default": false
+                    "default": true
                 }
             }
         },

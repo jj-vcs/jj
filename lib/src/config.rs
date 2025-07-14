@@ -286,6 +286,8 @@ pub enum ConfigSource {
     EnvBase,
     /// User configuration files.
     User,
+    /// Checked in to version control and managed by repo owners.
+    RepoManaged,
     /// Repo configuration files.
     Repo,
     /// Override environment variables.
@@ -300,6 +302,7 @@ impl Display for ConfigSource {
         let c = match self {
             Default => "default",
             User => "user",
+            RepoManaged => "repo-managed",
             Repo => "repo",
             CommandArg => "cli",
             EnvBase | EnvOverrides => "env",

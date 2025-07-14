@@ -47,6 +47,7 @@ use thiserror::Error;
 use self::builtin::BuiltinToolError;
 use self::builtin::edit_diff_builtin;
 use self::builtin::edit_merge_builtin;
+pub use self::builtin::make_diff_sections;
 use self::diff_working_copies::DiffCheckoutError;
 pub(crate) use self::diff_working_copies::new_utf8_temp_dir;
 pub use self::external::DiffToolMode;

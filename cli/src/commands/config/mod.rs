@@ -16,6 +16,7 @@ mod edit;
 mod get;
 mod list;
 mod path;
+mod review_managed;
 mod set;
 mod unset;
 
@@ -34,6 +35,8 @@ use self::list::ConfigListArgs;
 use self::list::cmd_config_list;
 use self::path::ConfigPathArgs;
 use self::path::cmd_config_path;
+use self::review_managed::ConfigReviewManagedArgs;
+use self::review_managed::cmd_review_managed;
 use self::set::ConfigSetArgs;
 use self::set::cmd_config_set;
 use self::unset::ConfigUnsetArgs;
@@ -146,6 +149,8 @@ pub(crate) enum ConfigCommand {
     Set(ConfigSetArgs),
     #[command(visible_alias("u"))]
     Unset(ConfigUnsetArgs),
+    #[command()]
+    ReviewManaged(ConfigReviewManagedArgs),
 }
 
 #[instrument(skip_all)]
@@ -161,5 +166,6 @@ pub(crate) fn cmd_config(
         ConfigCommand::Path(args) => cmd_config_path(ui, command, args),
         ConfigCommand::Set(args) => cmd_config_set(ui, command, args),
         ConfigCommand::Unset(args) => cmd_config_unset(ui, command, args),
+        ConfigCommand::ReviewManaged(args) => cmd_review_managed(ui, command, args),
     }
 }
