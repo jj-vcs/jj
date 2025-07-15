@@ -802,15 +802,24 @@ fn test_changed_path_segments() {
         entries.process_results(|entries| entries.count()).unwrap()
     };
     assert_eq!(count_segment_files(), 0);
+    let stats = as_readonly_index(repo).stats();
+    assert_eq!(stats.changed_path_commits_range, None);
+    assert_eq!(stats.changed_path_levels.len(), 0);
 
     let repo = enable_changed_path_index(repo);
+    let stats = as_readonly_index(&repo).stats();
+    assert_eq!(stats.changed_path_commits_range, Some(1..1));
+    assert_eq!(stats.changed_path_levels.len(), 0);
 
     // Add new commit with changed-path index enabled
     let mut tx = repo.start_transaction();
     write_random_commit(tx.repo_mut());
-    let _repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").unwrap();
+    let stats = as_readonly_index(&repo).stats();
     // TODO: index segment isn't written yet because it's empty
     assert_eq!(count_segment_files(), 0);
+    assert_eq!(stats.changed_path_commits_range, Some(1..1));
+    assert_eq!(stats.changed_path_levels.len(), 0);
 }
 
 #[test]

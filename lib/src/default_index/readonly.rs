@@ -23,6 +23,7 @@ use std::fs::File;
 use std::io;
 use std::io::Read;
 use std::iter;
+use std::ops::Range;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -655,6 +656,21 @@ impl DefaultReadonlyIndex {
             .collect_vec();
         commit_levels.reverse();
 
+        let changed_paths = self.changed_paths();
+        let changed_path_commits_range = changed_paths
+            .start_commit_pos()
+            .map(|GlobalCommitPosition(start)| start..(start + changed_paths.num_commits()));
+        let changed_path_levels = changed_paths
+            .readonly_segments()
+            .iter()
+            .map(|segment| ChangedPathIndexLevelStats {
+                num_commits: segment.num_local_commits(),
+                num_changed_paths: segment.num_changed_paths(),
+                num_paths: segment.num_paths(),
+                name: segment.id().hex(),
+            })
+            .collect_vec();
+
         IndexStats {
             num_commits,
             num_merges,
@@ -662,6 +678,8 @@ impl DefaultReadonlyIndex {
             num_heads,
             num_changes: change_ids.len().try_into().unwrap(),
             commit_levels,
+            changed_path_commits_range,
+            changed_path_levels,
         }
     }
 
@@ -783,11 +801,25 @@ pub struct IndexStats {
     pub num_heads: u32,
     pub num_changes: u32,
     pub commit_levels: Vec<CommitIndexLevelStats>,
+    pub changed_path_commits_range: Option<Range<u32>>,
+    pub changed_path_levels: Vec<ChangedPathIndexLevelStats>,
 }
 
 #[derive(Clone, Debug)]
 pub struct CommitIndexLevelStats {
     pub num_commits: u32,
+    pub name: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct ChangedPathIndexLevelStats {
+    /// Number of commits.
+    pub num_commits: u32,
+    /// Sum of number of per-commit changed paths.
+    pub num_changed_paths: u32,
+    /// Number of unique paths.
+    pub num_paths: u32,
+    /// Index file name.
     pub name: String,
 }
 

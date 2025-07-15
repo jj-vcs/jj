@@ -34,6 +34,7 @@ mod revset_graph_iterator;
 mod store;
 
 pub use self::mutable::DefaultMutableIndex;
+pub use self::readonly::ChangedPathIndexLevelStats;
 pub use self::readonly::CommitIndexLevelStats;
 pub use self::readonly::DefaultReadonlyIndex;
 pub use self::readonly::DefaultReadonlyIndexRevset;

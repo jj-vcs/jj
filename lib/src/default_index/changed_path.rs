@@ -193,12 +193,10 @@ impl ReadonlyChangedPathIndexSegment {
         self.num_local_commits
     }
 
-    #[cfg_attr(not(test), expect(dead_code))] // TODO
     pub(super) fn num_changed_paths(&self) -> u32 {
         self.num_changed_paths
     }
 
-    #[cfg_attr(not(test), expect(dead_code))] // TODO
     pub(super) fn num_paths(&self) -> u32 {
         self.num_paths
     }
@@ -423,7 +421,6 @@ impl CompositeChangedPathIndex {
         }
     }
 
-    #[cfg_attr(not(test), expect(dead_code))] // TODO
     pub(super) fn num_commits(&self) -> u32 {
         self.num_commits
     }

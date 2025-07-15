@@ -43,6 +43,7 @@ pub fn cmd_debug_index(
         .map_err(internal_error)?;
     if let Some(default_index) = index.as_any().downcast_ref::<DefaultReadonlyIndex>() {
         let stats = default_index.stats();
+        writeln!(ui.stdout(), "=== Commits ===")?;
         writeln!(ui.stdout(), "Number of commits: {}", stats.num_commits)?;
         writeln!(ui.stdout(), "Number of merges: {}", stats.num_merges)?;
         writeln!(
@@ -56,6 +57,25 @@ pub fn cmd_debug_index(
         for (i, level) in stats.commit_levels.iter().enumerate() {
             writeln!(ui.stdout(), "  Level {i}:")?;
             writeln!(ui.stdout(), "    Number of commits: {}", level.num_commits)?;
+            writeln!(ui.stdout(), "    Name: {}", level.name)?;
+        }
+
+        writeln!(ui.stdout(), "=== Changed paths ===")?;
+        if let Some(range) = &stats.changed_path_commits_range {
+            writeln!(ui.stdout(), "Indexed commits: {range:?}")?;
+        } else {
+            writeln!(ui.stdout(), "Indexed commits: none")?;
+        }
+        writeln!(ui.stdout(), "Stats per level:")?;
+        for (i, level) in stats.changed_path_levels.iter().enumerate() {
+            writeln!(ui.stdout(), "  Level {i}:")?;
+            writeln!(ui.stdout(), "    Number of commits: {}", level.num_commits)?;
+            writeln!(
+                ui.stdout(),
+                "    Number of changed paths: {}",
+                level.num_changed_paths
+            )?;
+            writeln!(ui.stdout(), "    Number of paths: {}", level.num_paths)?;
             writeln!(ui.stdout(), "    Name: {}", level.name)?;
         }
     } else {
