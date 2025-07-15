@@ -41,8 +41,11 @@ use jj_lib::revset::GENERATION_RANGE_FULL;
 use jj_lib::revset::PARENTS_RANGE_FULL;
 use jj_lib::revset::ResolvedExpression;
 use maplit::hashset;
+use pollster::FutureExt as _;
 use testutils::TestRepo;
 use testutils::commit_transactions;
+use testutils::create_tree;
+use testutils::repo_path;
 use testutils::test_backend::TestBackend;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
@@ -749,6 +752,7 @@ fn test_reindex_missing_commit() {
     default_index_store.reinit().unwrap();
     let err = default_index_store
         .build_index_at_operation(repo.operation(), repo.store())
+        .block_on()
         .unwrap_err();
     assert_matches!(err, DefaultIndexStoreError::IndexCommits { op_id, .. } if op_id == *bad_op_id);
 }
@@ -794,6 +798,7 @@ fn test_read_legacy_operation_link_file() {
 fn test_changed_path_segments() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
+    let root_commit_id = repo.store().root_commit_id();
 
     // Changed-path index should be disabled by default
     let segments_dir = test_repo.repo_path().join("index").join("changed_paths");
@@ -811,15 +816,41 @@ fn test_changed_path_segments() {
     assert_eq!(stats.changed_path_commits_range, Some(1..1));
     assert_eq!(stats.changed_path_levels.len(), 0);
 
+    let tree1 = create_tree(&repo, &[(repo_path("a"), "")]);
+    let tree2 = create_tree(&repo, &[(repo_path("a"), ""), (repo_path("b"), "")]);
+
     // Add new commit with changed-path index enabled
     let mut tx = repo.start_transaction();
-    write_random_commit(tx.repo_mut());
+    tx.repo_mut()
+        .new_commit(vec![root_commit_id.clone()], tree1.id())
+        .write()
+        .unwrap();
     let repo = tx.commit("test").unwrap();
     let stats = as_readonly_index(&repo).stats();
-    // TODO: index segment isn't written yet because it's empty
-    assert_eq!(count_segment_files(), 0);
-    assert_eq!(stats.changed_path_commits_range, Some(1..1));
-    assert_eq!(stats.changed_path_levels.len(), 0);
+    assert_eq!(count_segment_files(), 1);
+    assert_eq!(stats.changed_path_commits_range, Some(1..2));
+    assert_eq!(stats.changed_path_levels.len(), 1);
+    assert_eq!(stats.changed_path_levels[0].num_commits, 1);
+    assert_eq!(stats.changed_path_levels[0].num_changed_paths, 1);
+    assert_eq!(stats.changed_path_levels[0].num_paths, 1);
+
+    // Add one more commit
+    let mut tx = repo.start_transaction();
+    tx.repo_mut()
+        .new_commit(vec![root_commit_id.clone()], tree2.id())
+        .write()
+        .unwrap();
+    let repo = tx.commit("test").unwrap();
+    let stats = as_readonly_index(&repo).stats();
+    assert_eq!(count_segment_files(), 2);
+    assert_eq!(stats.changed_path_commits_range, Some(1..3));
+    assert_eq!(stats.changed_path_levels.len(), 2);
+    assert_eq!(stats.changed_path_levels[0].num_commits, 1);
+    assert_eq!(stats.changed_path_levels[0].num_changed_paths, 1);
+    assert_eq!(stats.changed_path_levels[0].num_paths, 1);
+    assert_eq!(stats.changed_path_levels[1].num_commits, 1);
+    assert_eq!(stats.changed_path_levels[1].num_changed_paths, 2);
+    assert_eq!(stats.changed_path_levels[1].num_paths, 2);
 }
 
 #[test]

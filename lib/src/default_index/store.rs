@@ -26,6 +26,7 @@ use std::slice;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 use prost::Message as _;
 use tempfile::NamedTempFile;
 use tempfile::PersistError;
@@ -244,7 +245,7 @@ impl DefaultIndexStore {
     /// The index to be built will be calculated from one of the ancestor
     /// operations if exists. Use `reinit()` to rebuild index from scratch.
     #[tracing::instrument(skip(self, store))]
-    pub fn build_index_at_operation(
+    pub async fn build_index_at_operation(
         &self,
         operation: &Operation,
         store: &Arc<Store>,
@@ -374,8 +375,13 @@ impl DefaultIndexStore {
             },
             |_| panic!("graph has cycle"),
         )?;
-        for (CommitByCommitterTimestamp(commit), _) in commits.iter().rev() {
-            mutable_index.add_commit(commit);
+        for (CommitByCommitterTimestamp(commit), op_id) in commits.iter().rev() {
+            mutable_index.add_commit(commit).await.map_err(|source| {
+                DefaultIndexStoreError::IndexCommits {
+                    op_id: op_id.clone(),
+                    source,
+                }
+            })?;
         }
 
         let index = self.save_mutable_index(mutable_index, operation.id())?;
@@ -506,7 +512,7 @@ impl IndexStore for DefaultIndexStore {
             Err(DefaultIndexStoreError::LoadAssociation(PathError { error, .. }))
                 if error.kind() == io::ErrorKind::NotFound =>
             {
-                self.build_index_at_operation(op, store)
+                self.build_index_at_operation(op, store).block_on()
             }
             Err(DefaultIndexStoreError::LoadIndex(err)) if err.is_corrupt_or_not_found() => {
                 // If the index was corrupt (maybe it was written in a different format),
@@ -527,7 +533,7 @@ impl IndexStore for DefaultIndexStore {
                     }
                 }
                 self.reinit().map_err(|err| IndexReadError(err.into()))?;
-                self.build_index_at_operation(op, store)
+                self.build_index_at_operation(op, store).block_on()
             }
             result => result,
         }

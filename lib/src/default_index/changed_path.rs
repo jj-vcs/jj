@@ -27,18 +27,26 @@ use std::sync::Arc;
 use blake2::Blake2b512;
 use digest::Digest as _;
 use either::Either;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use tempfile::NamedTempFile;
 
 use super::entry::GlobalCommitPosition;
 use super::readonly::ReadonlyIndexLoadError;
+use crate::backend::BackendResult;
+use crate::commit::Commit;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::file_util::persist_content_addressed_temp_file;
+use crate::index::Index;
+use crate::matchers::EverythingMatcher;
+use crate::merged_tree::resolve_file_values;
 use crate::object_id::ObjectId as _;
 use crate::object_id::id_type;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
+use crate::rewrite::merge_commit_trees_no_resolve_without_repo;
 
 /// Current format version of the changed-path index segment file.
 const FILE_FORMAT_VERSION: u32 = 0;
@@ -411,7 +419,6 @@ impl CompositeChangedPathIndex {
     }
 
     /// New commit index position which can be added to this index.
-    #[cfg_attr(not(test), expect(dead_code))] // TODO
     pub(super) fn next_mutable_commit_pos(&self) -> Option<GlobalCommitPosition> {
         if self.mutable_segment.is_some() {
             self.start_commit_pos
@@ -470,7 +477,6 @@ impl CompositeChangedPathIndex {
     /// Caller must ensure that the commit matches `next_mutable_commit_pos()`.
     /// Panics if this index isn't mutable (i.e. `next_mutable_commit_pos()` is
     /// `None`.)
-    #[cfg_attr(not(test), expect(dead_code))] // TODO
     pub(super) fn add_changed_paths(&mut self, paths: Vec<RepoPathBuf>) {
         let segment = self
             .mutable_segment
@@ -492,6 +498,34 @@ impl CompositeChangedPathIndex {
         self.readonly_segments.push(segment);
         Ok(())
     }
+}
+
+/// Calculates the parent tree of the given `commit`, and builds a sorted list
+/// of changed paths compared to the parent tree.
+pub(super) async fn collect_changed_paths(
+    index: &dyn Index,
+    commit: &Commit,
+) -> BackendResult<Vec<RepoPathBuf>> {
+    let parents: Vec<_> = commit.parents_async().await?;
+    if matches!(parents.as_slice(), [p] if commit.tree_id() == p.tree_id()) {
+        return Ok(vec![]);
+    }
+    // Don't resolve the entire tree. It's cheaper to resolve each conflict file
+    // even if we have to visit all files.
+    tracing::trace!(?commit, parents_count = parents.len(), "calculating diffs");
+    let store = commit.store();
+    let from_tree = merge_commit_trees_no_resolve_without_repo(store, index, &parents).await?;
+    let to_tree = commit.tree_async().await?;
+    let tree_diff = from_tree.diff_stream(&to_tree, &EverythingMatcher);
+    let paths = tree_diff
+        .map(|entry| entry.values.map(|values| (entry.path, values)))
+        .try_filter_map(async |(path, (from_value, to_value))| {
+            let from_value = resolve_file_values(store, &path, from_value).await?;
+            Ok((from_value != to_value).then_some(path))
+        })
+        .try_collect()
+        .await?;
+    Ok(paths)
 }
 
 #[cfg(test)]
