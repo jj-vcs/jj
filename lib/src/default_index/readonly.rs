@@ -63,13 +63,17 @@ use crate::store::Store;
 /// Error while loading index segment file.
 #[derive(Debug, Error)]
 pub enum ReadonlyIndexLoadError {
-    #[error("Unexpected index version")]
+    #[error("Unexpected {kind} index version")]
     UnexpectedVersion {
+        /// Index type.
+        kind: &'static str,
         found_version: u32,
         expected_version: u32,
     },
-    #[error("Failed to load commit index file '{name}'")]
+    #[error("Failed to load {kind} index file '{name}'")]
     Other {
+        /// Index type.
+        kind: &'static str,
         /// Index file name.
         name: String,
         /// Underlying error.
@@ -79,15 +83,25 @@ pub enum ReadonlyIndexLoadError {
 }
 
 impl ReadonlyIndexLoadError {
-    fn invalid_data(
+    pub(super) fn invalid_data(
+        kind: &'static str,
         name: impl Into<String>,
         error: impl Into<Box<dyn std::error::Error + Send + Sync>>,
     ) -> Self {
-        Self::from_io_err(name, io::Error::new(io::ErrorKind::InvalidData, error))
+        Self::from_io_err(
+            kind,
+            name,
+            io::Error::new(io::ErrorKind::InvalidData, error),
+        )
     }
 
-    fn from_io_err(name: impl Into<String>, error: io::Error) -> Self {
+    pub(super) fn from_io_err(
+        kind: &'static str,
+        name: impl Into<String>,
+        error: io::Error,
+    ) -> Self {
         Self::Other {
+            kind,
             name: name.into(),
             error,
         }
@@ -97,7 +111,7 @@ impl ReadonlyIndexLoadError {
     pub(super) fn is_corrupt_or_not_found(&self) -> bool {
         match self {
             Self::UnexpectedVersion { .. } => true,
-            Self::Other { name: _, error } => {
+            Self::Other { error, .. } => {
                 // If the parent file name field is corrupt, the file wouldn't be found.
                 // And there's no need to distinguish it from an empty file.
                 matches!(
@@ -268,7 +282,7 @@ impl ReadonlyCommitIndexSegment {
         lengths: FieldLengths,
     ) -> Result<Arc<Self>, ReadonlyIndexLoadError> {
         let mut file = File::open(dir.join(id.hex()))
-            .map_err(|err| ReadonlyIndexLoadError::from_io_err(id.hex(), err))?;
+            .map_err(|err| ReadonlyIndexLoadError::from_io_err("commit", id.hex(), err))?;
         Self::load_from(&mut file, dir, id, lengths)
     }
 
@@ -279,7 +293,7 @@ impl ReadonlyCommitIndexSegment {
         id: CommitIndexSegmentId,
         lengths: FieldLengths,
     ) -> Result<Arc<Self>, ReadonlyIndexLoadError> {
-        let from_io_err = |err| ReadonlyIndexLoadError::from_io_err(id.hex(), err);
+        let from_io_err = |err| ReadonlyIndexLoadError::from_io_err("commit", id.hex(), err);
         let read_u32 = |file: &mut dyn Read| {
             let mut buf = [0; 4];
             file.read_exact(&mut buf).map_err(from_io_err)?;
@@ -288,6 +302,7 @@ impl ReadonlyCommitIndexSegment {
         let format_version = read_u32(file)?;
         if format_version != COMMIT_INDEX_SEGMENT_FILE_FORMAT_VERSION {
             return Err(ReadonlyIndexLoadError::UnexpectedVersion {
+                kind: "commit",
                 found_version: format_version,
                 expected_version: COMMIT_INDEX_SEGMENT_FILE_FORMAT_VERSION,
             });
@@ -300,6 +315,7 @@ impl ReadonlyCommitIndexSegment {
             let parent_file_id = CommitIndexSegmentId::try_from_hex(parent_filename_bytes)
                 .ok_or_else(|| {
                     ReadonlyIndexLoadError::invalid_data(
+                        "commit",
                         id.hex(),
                         "parent file name is not valid hex",
                     )
@@ -320,7 +336,7 @@ impl ReadonlyCommitIndexSegment {
         parent_file: Option<Arc<Self>>,
         lengths: FieldLengths,
     ) -> Result<Arc<Self>, ReadonlyIndexLoadError> {
-        let from_io_err = |err| ReadonlyIndexLoadError::from_io_err(id.hex(), err);
+        let from_io_err = |err| ReadonlyIndexLoadError::from_io_err("commit", id.hex(), err);
         let read_u32 = |file: &mut dyn Read| {
             let mut buf = [0; 4];
             file.read_exact(&mut buf).map_err(from_io_err)?;
@@ -354,6 +370,7 @@ impl ReadonlyCommitIndexSegment {
 
         if data.len() != expected_size {
             return Err(ReadonlyIndexLoadError::invalid_data(
+                "commit",
                 id.hex(),
                 "unexpected data length",
             ));

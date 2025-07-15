@@ -380,15 +380,16 @@ impl IndexStore for DefaultIndexStore {
                 // we just reindex.
                 match &err {
                     ReadonlyIndexLoadError::UnexpectedVersion {
+                        kind,
                         found_version,
                         expected_version,
                     } => {
                         eprintln!(
-                            "Found index format version {found_version}, expected version \
+                            "Found {kind} index format version {found_version}, expected version \
                              {expected_version}. Reindexing..."
                         );
                     }
-                    ReadonlyIndexLoadError::Other { name: _, error } => {
+                    ReadonlyIndexLoadError::Other { error, .. } => {
                         eprintln!("{err} (maybe the format has changed): {error}. Reindexing...");
                     }
                 }
