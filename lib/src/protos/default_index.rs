@@ -5,4 +5,11 @@ pub struct SegmentControl {
     /// Hash (or file name) of the commit index segment.
     #[prost(bytes = "vec", tag = "1")]
     pub commit_segment_id: ::prost::alloc::vec::Vec<u8>,
+    /// First commit stored in the changed-path index segments. Unset if
+    /// changed-path index is disabled.
+    #[prost(uint32, optional, tag = "2")]
+    pub changed_path_start_commit_pos: ::core::option::Option<u32>,
+    /// Hashes (or file names) of the changed-path index segments.
+    #[prost(bytes = "vec", repeated, tag = "3")]
+    pub changed_path_segment_ids: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
 }

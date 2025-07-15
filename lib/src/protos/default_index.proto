@@ -20,4 +20,9 @@ package default_index;
 message SegmentControl {
   // Hash (or file name) of the commit index segment.
   bytes commit_segment_id = 1;
+  // First commit stored in the changed-path index segments. Unset if
+  // changed-path index is disabled.
+  optional uint32 changed_path_start_commit_pos = 2;
+  // Hashes (or file names) of the changed-path index segments.
+  repeated bytes changed_path_segment_ids = 3;
 }

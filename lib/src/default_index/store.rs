@@ -31,8 +31,10 @@ use tempfile::NamedTempFile;
 use tempfile::PersistError;
 use thiserror::Error;
 
+use super::changed_path::ChangedPathIndexSegmentId;
 use super::changed_path::CompositeChangedPathIndex;
 use super::composite::CommitIndexSegmentId;
+use super::entry::GlobalCommitPosition;
 use super::mutable::DefaultMutableIndex;
 use super::readonly::DefaultReadonlyIndex;
 use super::readonly::FieldLengths;
@@ -84,7 +86,7 @@ pub enum DefaultIndexStoreError {
     LoadAssociation(#[source] PathError),
     #[error(transparent)]
     LoadIndex(ReadonlyIndexLoadError),
-    #[error("Failed to write commit index file")]
+    #[error("Failed to write index file")]
     SaveIndex(#[source] PathError),
     #[error("Failed to index commits at operation {op_id}")]
     IndexCommits {
@@ -128,6 +130,7 @@ impl DefaultIndexStore {
         // Remove index segments to save disk space. If raced, new segment file
         // will be created by the other process.
         file_util::remove_dir_contents(&self.commit_segments_dir())?;
+        file_util::remove_dir_contents(&self.changed_path_segments_dir())?;
         // jj <= 0.14 created segment files in the top directory
         for entry in self.dir.read_dir().context(&self.dir)? {
             let entry = entry.context(&self.dir)?;
@@ -146,6 +149,7 @@ impl DefaultIndexStore {
             self.op_links_dir(),
             self.legacy_operations_dir(),
             self.commit_segments_dir(),
+            self.changed_path_segments_dir(),
         ] {
             file_util::create_or_reuse_dir(&dir).context(&dir)?;
         }
@@ -167,19 +171,35 @@ impl DefaultIndexStore {
         self.dir.join("segments")
     }
 
+    /// Directory for changed-path segment files.
+    fn changed_path_segments_dir(&self) -> PathBuf {
+        self.dir.join("changed_paths")
+    }
+
     fn load_index_at_operation(
         &self,
         op_id: &OperationId,
         lengths: FieldLengths,
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
+        let commit_segment_id;
+        let changed_path_start_commit_pos;
+        let changed_path_segment_ids;
         let op_link_file = self.op_links_dir().join(op_id.hex());
-        let index_file_id = match fs::read(&op_link_file).context(&op_link_file) {
+        match fs::read(&op_link_file).context(&op_link_file) {
             Ok(data) => {
                 let proto = crate::protos::default_index::SegmentControl::decode(&*data)
                     .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))
                     .context(&op_link_file)
                     .map_err(DefaultIndexStoreError::LoadAssociation)?;
-                CommitIndexSegmentId::new(proto.commit_segment_id)
+                commit_segment_id = CommitIndexSegmentId::new(proto.commit_segment_id);
+                changed_path_start_commit_pos = proto
+                    .changed_path_start_commit_pos
+                    .map(GlobalCommitPosition);
+                changed_path_segment_ids = proto
+                    .changed_path_segment_ids
+                    .into_iter()
+                    .map(ChangedPathIndexSegmentId::new)
+                    .collect_vec();
             }
             // TODO: drop support for legacy operation link file in jj 0.39 or so
             Err(PathError { error, .. }) if error.kind() == io::ErrorKind::NotFound => {
@@ -187,19 +207,35 @@ impl DefaultIndexStore {
                 let data = fs::read(&op_id_file)
                     .context(&op_id_file)
                     .map_err(DefaultIndexStoreError::LoadAssociation)?;
-                CommitIndexSegmentId::try_from_hex(&data)
+                commit_segment_id = CommitIndexSegmentId::try_from_hex(&data)
                     .ok_or_else(|| {
                         io::Error::new(io::ErrorKind::InvalidData, "file name is not valid hex")
                     })
                     .context(&op_id_file)
-                    .map_err(DefaultIndexStoreError::LoadAssociation)?
+                    .map_err(DefaultIndexStoreError::LoadAssociation)?;
+                changed_path_start_commit_pos = None;
+                changed_path_segment_ids = vec![];
             }
             Err(err) => return Err(DefaultIndexStoreError::LoadAssociation(err)),
         };
-        let commits =
-            ReadonlyCommitIndexSegment::load(&self.commit_segments_dir(), index_file_id, lengths)
-                .map_err(DefaultIndexStoreError::LoadIndex)?;
-        let changed_paths = CompositeChangedPathIndex::null(); // TODO
+
+        let commits = ReadonlyCommitIndexSegment::load(
+            &self.commit_segments_dir(),
+            commit_segment_id,
+            lengths,
+        )
+        .map_err(DefaultIndexStoreError::LoadIndex)?;
+        // TODO: lazy load or mmap?
+        let changed_paths = if let Some(start_commit_pos) = changed_path_start_commit_pos {
+            CompositeChangedPathIndex::load(
+                &self.changed_path_segments_dir(),
+                start_commit_pos,
+                &changed_path_segment_ids,
+            )
+            .map_err(DefaultIndexStoreError::LoadIndex)?
+        } else {
+            CompositeChangedPathIndex::null()
+        };
         Ok(DefaultReadonlyIndex::from_segment(commits, changed_paths))
     }
 
@@ -348,6 +384,35 @@ impl DefaultIndexStore {
         Ok(index)
     }
 
+    // TODO: for testing; replace with "build" function
+    pub fn enable_changed_path_index_at_operation(
+        &self,
+        op_id: &OperationId,
+        store: &Arc<Store>,
+    ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
+        // Create directories in case the store was initialized by jj < 0.33.
+        self.ensure_base_dirs()
+            .map_err(DefaultIndexStoreError::SaveIndex)?;
+        let field_lengths = FieldLengths {
+            commit_id: store.commit_id_length(),
+            change_id: store.change_id_length(),
+        };
+        let index = self.load_index_at_operation(op_id, field_lengths)?;
+        if index.changed_paths().start_commit_pos().is_some() {
+            return Ok(index);
+        }
+        let changed_paths =
+            CompositeChangedPathIndex::empty(GlobalCommitPosition(index.num_commits()));
+        let commits = index.readonly_commits().clone();
+        let index = DefaultReadonlyIndex::from_segment(commits, changed_paths);
+        self.associate_index_with_operation(&index, op_id)
+            .map_err(|source| DefaultIndexStoreError::AssociateIndex {
+                op_id: op_id.to_owned(),
+                source,
+            })?;
+        Ok(index)
+    }
+
     fn save_mutable_index(
         &self,
         index: DefaultMutableIndex,
@@ -356,12 +421,15 @@ impl DefaultIndexStore {
         // Create directories in case the store was initialized by jj < 0.33.
         self.ensure_base_dirs()
             .map_err(DefaultIndexStoreError::SaveIndex)?;
-        let (commits, changed_paths) = index.into_segment();
+        let (commits, mut changed_paths) = index.into_segment();
         let commits = commits
             .maybe_squash_with_ancestors()
             .save_in(&self.commit_segments_dir())
             .map_err(DefaultIndexStoreError::SaveIndex)?;
-        // TODO: changed_paths
+        // TODO: changed_paths.maybe_squash_with_ancestors()
+        changed_paths
+            .save_in(&self.changed_path_segments_dir())
+            .map_err(DefaultIndexStoreError::SaveIndex)?;
         let index = DefaultReadonlyIndex::from_segment(commits, changed_paths);
         self.associate_index_with_operation(&index, op_id)
             .map_err(|source| DefaultIndexStoreError::AssociateIndex {
@@ -379,6 +447,16 @@ impl DefaultIndexStore {
     ) -> Result<(), PathError> {
         let proto = crate::protos::default_index::SegmentControl {
             commit_segment_id: index.readonly_commits().id().to_bytes(),
+            changed_path_start_commit_pos: index
+                .changed_paths()
+                .start_commit_pos()
+                .map(|GlobalCommitPosition(start)| start),
+            changed_path_segment_ids: index
+                .changed_paths()
+                .readonly_segments()
+                .iter()
+                .map(|segment| segment.id().to_bytes())
+                .collect(),
         };
         let dir = self.op_links_dir();
         let mut temp_file = NamedTempFile::new_in(&dir).context(&dir)?;

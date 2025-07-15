@@ -185,7 +185,6 @@ impl ReadonlyChangedPathIndexSegment {
         }))
     }
 
-    #[cfg_attr(not(test), expect(dead_code))] // TODO
     pub(super) fn id(&self) -> &ChangedPathIndexSegmentId {
         &self.id
     }
@@ -370,7 +369,6 @@ impl CompositeChangedPathIndex {
 
     /// Creates empty changed-path index which will store entries from
     /// `start_commit_pos`.
-    #[cfg_attr(not(test), expect(dead_code))] // TODO
     pub(super) fn empty(start_commit_pos: GlobalCommitPosition) -> Self {
         Self {
             start_commit_pos: Some(start_commit_pos),
@@ -380,7 +378,6 @@ impl CompositeChangedPathIndex {
         }
     }
 
-    #[cfg_attr(not(test), expect(dead_code))] // TODO
     pub(super) fn load(
         dir: &Path,
         start_commit_pos: GlobalCommitPosition,
@@ -411,7 +408,6 @@ impl CompositeChangedPathIndex {
     }
 
     /// Position of the first indexed (or to-be-indexed) commit.
-    #[cfg_attr(not(test), expect(dead_code))] // TODO
     pub(super) fn start_commit_pos(&self) -> Option<GlobalCommitPosition> {
         self.start_commit_pos
     }
@@ -432,7 +428,6 @@ impl CompositeChangedPathIndex {
         self.num_commits
     }
 
-    #[cfg_attr(not(test), expect(dead_code))] // TODO
     pub(super) fn readonly_segments(&self) -> &[Arc<ReadonlyChangedPathIndexSegment>] {
         &self.readonly_segments
     }
@@ -489,7 +484,6 @@ impl CompositeChangedPathIndex {
     }
 
     /// Writes mutable segment if exists, turns it into readonly segment.
-    #[cfg_attr(not(test), expect(dead_code))] // TODO
     pub(super) fn save_in(&mut self, dir: &Path) -> Result<(), PathError> {
         let Some(segment) = self.mutable_segment.take() else {
             return Ok(());

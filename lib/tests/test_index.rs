@@ -17,6 +17,7 @@ use std::fs;
 use std::sync::Arc;
 
 use assert_matches::assert_matches;
+use itertools::Itertools as _;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -55,6 +56,15 @@ where
         name: name.as_ref(),
         remote: remote.as_ref(),
     }
+}
+
+fn enable_changed_path_index(repo: &ReadonlyRepo) -> Arc<ReadonlyRepo> {
+    let default_index_store: &DefaultIndexStore =
+        repo.index_store().as_any().downcast_ref().unwrap();
+    default_index_store
+        .enable_changed_path_index_at_operation(repo.op_id(), repo.store())
+        .unwrap();
+    repo.reload_at(repo.operation()).unwrap()
 }
 
 #[test]
@@ -778,6 +788,29 @@ fn test_read_legacy_operation_link_file() {
     write_random_commit(tx.repo_mut());
     let repo = tx.commit("test").unwrap();
     assert!(op_links_dir.join(repo.op_id().hex()).exists());
+}
+
+#[test]
+fn test_changed_path_segments() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    // Changed-path index should be disabled by default
+    let segments_dir = test_repo.repo_path().join("index").join("changed_paths");
+    let count_segment_files = || {
+        let entries = segments_dir.read_dir().unwrap();
+        entries.process_results(|entries| entries.count()).unwrap()
+    };
+    assert_eq!(count_segment_files(), 0);
+
+    let repo = enable_changed_path_index(repo);
+
+    // Add new commit with changed-path index enabled
+    let mut tx = repo.start_transaction();
+    write_random_commit(tx.repo_mut());
+    let _repo = tx.commit("test").unwrap();
+    // TODO: index segment isn't written yet because it's empty
+    assert_eq!(count_segment_files(), 0);
 }
 
 #[test]
