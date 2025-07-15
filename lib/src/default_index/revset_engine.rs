@@ -50,6 +50,7 @@ use crate::diff::Diff;
 use crate::diff::DiffHunkKind;
 use crate::files;
 use crate::graph::GraphNode;
+use crate::matchers::FilesMatcher;
 use crate::matchers::Matcher;
 use crate::matchers::Visit;
 use crate::merge::Merge;
@@ -1303,6 +1304,9 @@ fn build_predicate_fn(
         RevsetFilterPredicate::File(expr) => {
             let matcher: Rc<dyn Matcher> = expr.to_matcher().into();
             box_pure_predicate_fn(move |index, pos| {
+                if let Some(mut paths) = index.changed_paths().changed_paths(pos) {
+                    return Ok(paths.any(|path| matcher.matches(path)));
+                }
                 let entry = index.commits().entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
                 Ok(has_diff_from_parent(&store, index, &commit, &*matcher).block_on()?)
@@ -1312,17 +1316,24 @@ fn build_predicate_fn(
             let text_pattern = text.clone();
             let files_matcher: Rc<dyn Matcher> = files.to_matcher().into();
             box_pure_predicate_fn(move |index, pos| {
+                let narrowed_files_matcher;
+                let files_matcher = if let Some(paths) = index.changed_paths().changed_paths(pos) {
+                    let matched_paths = paths
+                        .filter(|path| files_matcher.matches(path))
+                        .collect_vec();
+                    if matched_paths.is_empty() {
+                        return Ok(false);
+                    }
+                    narrowed_files_matcher = FilesMatcher::new(matched_paths);
+                    &narrowed_files_matcher
+                } else {
+                    &*files_matcher
+                };
                 let entry = index.commits().entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
                 Ok(
-                    matches_diff_from_parent(
-                        &store,
-                        index,
-                        &commit,
-                        &text_pattern,
-                        &*files_matcher,
-                    )
-                    .block_on()?,
+                    matches_diff_from_parent(&store, index, &commit, &text_pattern, files_matcher)
+                        .block_on()?,
                 )
             })
         }

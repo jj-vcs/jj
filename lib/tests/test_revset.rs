@@ -15,6 +15,7 @@
 use std::collections::HashMap;
 use std::iter;
 use std::path::Path;
+use std::sync::Arc;
 
 use assert_matches::assert_matches;
 use chrono::DateTime;
@@ -25,6 +26,7 @@ use jj_lib::backend::MillisSinceEpoch;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::commit::Commit;
+use jj_lib::default_index::DefaultIndexStore;
 use jj_lib::fileset::FilesetExpression;
 use jj_lib::git;
 use jj_lib::graph::GraphEdge;
@@ -39,6 +41,7 @@ use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
+use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathUiConverter;
@@ -116,6 +119,16 @@ fn revset_for_commits<'index>(
         .unwrap()
         .evaluate(repo)
         .unwrap()
+}
+
+fn build_changed_path_index(repo: &ReadonlyRepo) -> Arc<ReadonlyRepo> {
+    let default_index_store: &DefaultIndexStore =
+        repo.index_store().as_any().downcast_ref().unwrap();
+    default_index_store
+        .build_changed_path_index_at_operation(repo.op_id(), repo.store(), u32::MAX)
+        .block_on()
+        .unwrap();
+    repo.reload_at(repo.operation()).unwrap()
 }
 
 #[test]
@@ -4163,10 +4176,15 @@ fn test_evaluate_expression_filter_combinator() {
     );
 }
 
-#[test]
-fn test_evaluate_expression_file() {
+#[test_case(false; "without changed-path index")]
+#[test_case(true; "with changed-path index")]
+fn test_evaluate_expression_file(indexed: bool) {
     let test_workspace = TestWorkspace::init();
-    let repo = &test_workspace.repo;
+    let repo = if indexed {
+        build_changed_path_index(&test_workspace.repo)
+    } else {
+        test_workspace.repo.clone()
+    };
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -4175,7 +4193,7 @@ fn test_evaluate_expression_file() {
     let added_modified_clean = repo_path("added_modified_clean");
     let added_modified_removed = repo_path("added_modified_removed");
     let tree1 = create_tree(
-        repo,
+        &repo,
         &[
             (added_clean_clean, "1"),
             (added_modified_clean, "1"),
@@ -4183,7 +4201,7 @@ fn test_evaluate_expression_file() {
         ],
     );
     let tree2 = create_tree(
-        repo,
+        &repo,
         &[
             (added_clean_clean, "1"),
             (added_modified_clean, "2"),
@@ -4191,7 +4209,7 @@ fn test_evaluate_expression_file() {
         ],
     );
     let tree3 = create_tree(
-        repo,
+        &repo,
         &[
             (added_clean_clean, "1"),
             (added_modified_clean, "2"),
@@ -4274,10 +4292,15 @@ fn test_evaluate_expression_file() {
     );
 }
 
-#[test]
-fn test_evaluate_expression_diff_contains() {
+#[test_case(false; "without changed-path index")]
+#[test_case(true; "with changed-path index")]
+fn test_evaluate_expression_diff_contains(indexed: bool) {
     let test_workspace = TestWorkspace::init();
-    let repo = &test_workspace.repo;
+    let repo = if indexed {
+        build_changed_path_index(&test_workspace.repo)
+    } else {
+        test_workspace.repo.clone()
+    };
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -4287,7 +4310,7 @@ fn test_evaluate_expression_diff_contains() {
     let noeol_modified_modified_clean = repo_path("noeol_modified_modified_clean");
     let normal_inserted_modified_removed = repo_path("normal_inserted_modified_removed");
     let tree1 = create_tree(
-        repo,
+        &repo,
         &[
             (empty_clean_inserted_deleted, ""),
             (blank_clean_inserted_clean, "\n"),
@@ -4296,7 +4319,7 @@ fn test_evaluate_expression_diff_contains() {
         ],
     );
     let tree2 = create_tree(
-        repo,
+        &repo,
         &[
             (empty_clean_inserted_deleted, ""),
             (blank_clean_inserted_clean, "\n"),
@@ -4305,7 +4328,7 @@ fn test_evaluate_expression_diff_contains() {
         ],
     );
     let tree3 = create_tree(
-        repo,
+        &repo,
         &[
             (empty_clean_inserted_deleted, "3"),
             (blank_clean_inserted_clean, "\n3\n"),
@@ -4314,7 +4337,7 @@ fn test_evaluate_expression_diff_contains() {
         ],
     );
     let tree4 = create_tree(
-        repo,
+        &repo,
         &[
             (empty_clean_inserted_deleted, ""),
             (blank_clean_inserted_clean, "\n3\n"),
@@ -4437,10 +4460,15 @@ fn test_evaluate_expression_diff_contains_non_utf8() {
     assert_eq!(query("diff_contains(regex:'(?-u)^.$')"), vec![]);
 }
 
-#[test]
-fn test_evaluate_expression_diff_contains_conflict() {
+#[test_case(false; "without changed-path index")]
+#[test_case(true; "with changed-path index")]
+fn test_evaluate_expression_diff_contains_conflict(indexed: bool) {
     let test_workspace = TestWorkspace::init();
-    let repo = &test_workspace.repo;
+    let repo = if indexed {
+        build_changed_path_index(&test_workspace.repo)
+    } else {
+        test_workspace.repo.clone()
+    };
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -4449,10 +4477,10 @@ fn test_evaluate_expression_diff_contains_conflict() {
         |parent_ids, tree_id| mut_repo.new_commit(parent_ids, tree_id).write().unwrap();
 
     let file_path = repo_path("file");
-    let tree1 = create_tree(repo, &[(file_path, "0\n1\n")]);
+    let tree1 = create_tree(&repo, &[(file_path, "0\n1\n")]);
     let commit1 = create_commit(vec![repo.store().root_commit_id().clone()], tree1.id());
-    let tree2 = create_tree(repo, &[(file_path, "0\n2\n")]);
-    let tree3 = create_tree(repo, &[(file_path, "0\n3\n")]);
+    let tree2 = create_tree(&repo, &[(file_path, "0\n2\n")]);
+    let tree3 = create_tree(&repo, &[(file_path, "0\n3\n")]);
     let tree4 = tree2.merge(tree1, tree3).block_on().unwrap();
     let commit2 = create_commit(vec![commit1.id().clone()], tree4.id());
 
@@ -4470,10 +4498,15 @@ fn test_evaluate_expression_diff_contains_conflict() {
     );
 }
 
-#[test]
-fn test_evaluate_expression_file_merged_parents() {
+#[test_case(false; "without changed-path index")]
+#[test_case(true; "with changed-path index")]
+fn test_evaluate_expression_file_merged_parents(indexed: bool) {
     let test_workspace = TestWorkspace::init();
-    let repo = &test_workspace.repo;
+    let repo = if indexed {
+        build_changed_path_index(&test_workspace.repo)
+    } else {
+        test_workspace.repo.clone()
+    };
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -4481,10 +4514,10 @@ fn test_evaluate_expression_file_merged_parents() {
     // file2 can be merged automatically, file1 can't.
     let file_path1 = repo_path("file1");
     let file_path2 = repo_path("file2");
-    let tree1 = create_tree(repo, &[(file_path1, "1\n"), (file_path2, "1\n")]);
-    let tree2 = create_tree(repo, &[(file_path1, "1\n2\n"), (file_path2, "2\n1\n")]);
-    let tree3 = create_tree(repo, &[(file_path1, "1\n3\n"), (file_path2, "1\n3\n")]);
-    let tree4 = create_tree(repo, &[(file_path1, "1\n4\n"), (file_path2, "2\n1\n3\n")]);
+    let tree1 = create_tree(&repo, &[(file_path1, "1\n"), (file_path2, "1\n")]);
+    let tree2 = create_tree(&repo, &[(file_path1, "1\n2\n"), (file_path2, "2\n1\n")]);
+    let tree3 = create_tree(&repo, &[(file_path1, "1\n3\n"), (file_path2, "1\n3\n")]);
+    let tree4 = create_tree(&repo, &[(file_path1, "1\n4\n"), (file_path2, "2\n1\n3\n")]);
 
     let mut create_commit =
         |parent_ids, tree_id| mut_repo.new_commit(parent_ids, tree_id).write().unwrap();
