@@ -33,6 +33,7 @@ use smallvec::SmallVec;
 use smallvec::smallvec;
 use tempfile::NamedTempFile;
 
+use super::changed_path::CompositeChangedPathIndex;
 use super::composite::AsCompositeIndex;
 use super::composite::ChangeIdIndexImpl;
 use super::composite::CommitIndexSegment;
@@ -453,17 +454,24 @@ pub struct DefaultMutableIndex(CompositeIndex);
 impl DefaultMutableIndex {
     pub(super) fn full(lengths: FieldLengths) -> Self {
         let commits = Box::new(MutableCommitIndexSegment::full(lengths));
-        Self(CompositeIndex::from_mutable(commits))
+        // Changed-path index isn't enabled by default.
+        let mut changed_paths = CompositeChangedPathIndex::null();
+        changed_paths.make_mutable();
+        Self(CompositeIndex::from_mutable(commits, changed_paths))
     }
 
     pub(super) fn incremental(parent_index: &DefaultReadonlyIndex) -> Self {
         let commits = Box::new(MutableCommitIndexSegment::incremental(
             parent_index.readonly_commits().clone(),
         ));
-        Self(CompositeIndex::from_mutable(commits))
+        let mut changed_paths = parent_index.changed_paths().clone();
+        changed_paths.make_mutable();
+        Self(CompositeIndex::from_mutable(commits, changed_paths))
     }
 
-    pub(super) fn into_segment(self) -> Box<MutableCommitIndexSegment> {
+    pub(super) fn into_segment(
+        self,
+    ) -> (Box<MutableCommitIndexSegment>, CompositeChangedPathIndex) {
         self.0.into_mutable().expect("must have mutable")
     }
 
@@ -482,6 +490,7 @@ impl DefaultMutableIndex {
             commit.change_id().clone(),
             commit.parent_ids(),
         );
+        // TODO: index changed paths if enabled
     }
 
     pub(super) fn add_commit_data(
@@ -575,6 +584,7 @@ impl MutableIndex for DefaultMutableIndex {
             .downcast_ref::<DefaultReadonlyIndex>()
             .expect("index to merge in must be a DefaultReadonlyIndex");
         self.mutable_commits().merge_in(other.readonly_commits());
+        // TODO: merge changed-path index segments
     }
 }
 

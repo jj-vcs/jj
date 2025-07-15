@@ -30,6 +30,7 @@ use itertools::Itertools as _;
 use smallvec::smallvec;
 use thiserror::Error;
 
+use super::changed_path::CompositeChangedPathIndex;
 use super::composite::AsCompositeIndex;
 use super::composite::ChangeIdIndexImpl;
 use super::composite::CommitIndexSegment;
@@ -610,12 +611,19 @@ impl CommitIndexSegment for ReadonlyCommitIndexSegment {
 pub struct DefaultReadonlyIndex(CompositeIndex);
 
 impl DefaultReadonlyIndex {
-    pub(super) fn from_segment(commits: Arc<ReadonlyCommitIndexSegment>) -> Self {
-        Self(CompositeIndex::from_readonly(commits))
+    pub(super) fn from_segment(
+        commits: Arc<ReadonlyCommitIndexSegment>,
+        changed_paths: CompositeChangedPathIndex,
+    ) -> Self {
+        Self(CompositeIndex::from_readonly(commits, changed_paths))
     }
 
     pub(super) fn readonly_commits(&self) -> &Arc<ReadonlyCommitIndexSegment> {
         self.0.readonly_commits().expect("must have readonly")
+    }
+
+    pub(super) fn changed_paths(&self) -> &CompositeChangedPathIndex {
+        self.0.changed_paths()
     }
 
     /// Returns the number of all indexed commits.
