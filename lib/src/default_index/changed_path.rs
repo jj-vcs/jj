@@ -474,7 +474,6 @@ impl CompositeChangedPathIndex {
 
     /// Returns iterator over paths changed at the specified commit. The paths
     /// are sorted. Returns `None` if the commit wasn't indexed.
-    #[cfg_attr(not(test), expect(dead_code))] // TODO
     pub(super) fn changed_paths(
         &self,
         global_pos: GlobalCommitPosition,

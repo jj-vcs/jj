@@ -521,6 +521,23 @@ impl DefaultMutableIndex {
         self.0.changed_paths_mut().add_changed_paths(paths);
         Ok(())
     }
+
+    pub(super) fn merge_in(&mut self, other: &DefaultReadonlyIndex) {
+        let start_commit_pos = GlobalCommitPosition(self.num_commits());
+        self.mutable_commits().merge_in(other.readonly_commits());
+        if self.0.changed_paths().next_mutable_commit_pos() == Some(start_commit_pos) {
+            let other_commits = other.as_composite().commits();
+            for self_pos in (start_commit_pos.0..self.num_commits()).map(GlobalCommitPosition) {
+                let entry = self.0.commits().entry_by_pos(self_pos);
+                let other_pos = other_commits.commit_id_to_pos(&entry.commit_id()).unwrap();
+                let Some(paths) = other.changed_paths().changed_paths(other_pos) else {
+                    break; // no more indexed paths in other index
+                };
+                let paths = paths.map(|path| path.to_owned()).collect();
+                self.0.changed_paths_mut().add_changed_paths(paths);
+            }
+        }
+    }
 }
 
 impl AsCompositeIndex for DefaultMutableIndex {
@@ -603,8 +620,7 @@ impl MutableIndex for DefaultMutableIndex {
             .as_any()
             .downcast_ref::<DefaultReadonlyIndex>()
             .expect("index to merge in must be a DefaultReadonlyIndex");
-        self.mutable_commits().merge_in(other.readonly_commits());
-        // TODO: merge changed-path index segments
+        Self::merge_in(self, other);
     }
 }
 

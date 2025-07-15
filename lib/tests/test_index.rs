@@ -851,6 +851,94 @@ fn test_changed_path_segments() {
 }
 
 #[test]
+fn test_merge_changed_path_segments_both_enabled() {
+    let test_repo = TestRepo::init();
+    let repo = enable_changed_path_index(&test_repo.repo);
+    let root_commit_id = repo.store().root_commit_id();
+
+    let tree1 = create_tree(&repo, &[(repo_path("a"), "")]);
+    let tree2 = create_tree(&repo, &[(repo_path("a"), ""), (repo_path("b"), "")]);
+    let tree3 = create_tree(&repo, &[(repo_path("c"), ""), (repo_path("d"), "")]);
+
+    // Add index segment that will be squashed
+    let mut tx = repo.start_transaction();
+    tx.repo_mut()
+        .new_commit(vec![root_commit_id.clone()], tree1.id())
+        .write()
+        .unwrap();
+    let repo = tx.commit("test").unwrap();
+
+    // Merge concurrent index segments without the common base segment
+    let mut tx1 = repo.start_transaction();
+    tx1.repo_mut()
+        .new_commit(vec![root_commit_id.clone()], tree2.id())
+        .write()
+        .unwrap();
+    let mut tx2 = repo.start_transaction();
+    tx2.repo_mut()
+        .new_commit(vec![root_commit_id.clone()], tree3.id())
+        .write()
+        .unwrap();
+    let repo = commit_transactions(vec![tx1, tx2]);
+    let stats = as_readonly_index(&repo).stats();
+    assert_eq!(stats.num_commits, 4);
+    assert_eq!(stats.changed_path_commits_range, Some(1..4));
+    assert_eq!(stats.changed_path_levels.len(), 1);
+    assert_eq!(stats.changed_path_levels[0].num_commits, 3);
+    assert_eq!(stats.changed_path_levels[0].num_changed_paths, 5);
+    assert_eq!(stats.changed_path_levels[0].num_paths, 4);
+}
+
+#[test]
+fn test_merge_changed_path_segments_enabled_and_disabled() {
+    let test_repo = TestRepo::init();
+    let repo = test_repo.repo;
+    let root_commit_id = repo.store().root_commit_id();
+
+    let tree1 = create_tree(&repo, &[(repo_path("a"), "")]);
+    let tree2 = create_tree(&repo, &[(repo_path("b"), "")]);
+    let tree3 = create_tree(&repo, &[(repo_path("c"), "")]);
+
+    // Enable changed-path index only in tx1
+    let tx1 = {
+        let mut tx = repo.start_transaction();
+        tx.repo_mut()
+            .new_commit(vec![root_commit_id.clone()], tree1.id())
+            .write()
+            .unwrap();
+        let repo = tx.commit("test").unwrap();
+        let repo = enable_changed_path_index(&repo);
+        let mut tx = repo.start_transaction();
+        tx.repo_mut()
+            .new_commit(vec![root_commit_id.clone()], tree2.id())
+            .write()
+            .unwrap();
+        tx
+    };
+    let mut tx2 = repo.start_transaction();
+    tx2.repo_mut()
+        .new_commit(vec![root_commit_id.clone()], tree3.id())
+        .write()
+        .unwrap();
+    let repo = commit_transactions(vec![tx1, tx2]);
+    let stats = as_readonly_index(&repo).stats();
+    assert_eq!(stats.num_commits, 4);
+    assert_eq!(stats.changed_path_commits_range, Some(2..3));
+    assert_eq!(stats.changed_path_levels.len(), 1);
+    assert_eq!(stats.changed_path_levels[0].num_commits, 1);
+    assert_eq!(stats.changed_path_levels[0].num_changed_paths, 1);
+    assert_eq!(stats.changed_path_levels[0].num_paths, 1);
+
+    // Changed paths in new commit can no longer be indexed
+    let mut tx = repo.start_transaction();
+    write_random_commit(tx.repo_mut());
+    let repo = tx.commit("test").unwrap();
+    let stats = as_readonly_index(&repo).stats();
+    assert_eq!(stats.num_commits, 5);
+    assert_eq!(stats.changed_path_commits_range, Some(2..3));
+}
+
+#[test]
 fn test_change_id_index() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
