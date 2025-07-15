@@ -17,11 +17,11 @@ use std::io::Write as _;
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
-use jj_lib::matchers::EverythingMatcher;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::rewrite::merge_commit_trees;
 use tracing::instrument;
 
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
@@ -77,6 +77,13 @@ pub(crate) struct DiffeditArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     to: Option<RevisionArg>,
+    /// Edit only these paths (unmatched paths will remain unchanged)
+    #[arg(
+        value_name = "FILESETS",
+        value_hint = clap::ValueHint::AnyPath,
+        add = ArgValueCompleter::new(complete::modified_revision_or_range_files),
+    )]
+    paths: Vec<String>,
     /// Specify diff editor to be used
     #[arg(
         long,
@@ -101,6 +108,8 @@ pub(crate) fn cmd_diffedit(
     args: &DiffeditArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
+    let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
+    let matcher = fileset_expression.to_matcher();
 
     let (target_commit, base_commits, diff_description);
     if args.from.is_some() || args.to.is_some() {
@@ -136,7 +145,7 @@ don't make any changes, then the operation will be aborted.",
     };
     let base_tree = merge_commit_trees(tx.repo(), base_commits.as_slice())?;
     let tree = target_commit.tree()?;
-    let tree_id = diff_editor.edit(&base_tree, &tree, &EverythingMatcher, format_instructions)?;
+    let tree_id = diff_editor.edit(&base_tree, &tree, &matcher, format_instructions)?;
     if tree_id == *target_commit.tree_id() {
         writeln!(ui.status(), "Nothing changed.")?;
     } else {
@@ -164,5 +173,11 @@ don't make any changes, then the operation will be aborted.",
         }
         tx.finish(ui, format!("edit commit {}", target_commit.id().hex()))?;
     }
+    print_unmatched_explicit_paths(
+        ui,
+        &workspace_command,
+        &fileset_expression,
+        [&base_tree, &tree],
+    )?;
     Ok(())
 }

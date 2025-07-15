@@ -1061,7 +1061,10 @@ fn test_help() {
     insta::assert_snapshot!(output, @r"
     Touch up the content changes in a revision with a diff editor
 
-    Usage: jj diffedit [OPTIONS]
+    Usage: jj diffedit [OPTIONS] [FILESETS]...
+
+    Arguments:
+      [FILESETS]...  Edit only these paths (unmatched paths will remain unchanged)
 
     Options:
       -r, --revision <REVSET>    The revision to touch up
