@@ -929,6 +929,8 @@ edit-args = ["--newtab", "$left", "$right"]
 
 - If no `edit-args` are specified, `["$left", "$right"]` are set by default.
 
+- If `edit-args = []`, `jj` will refuse to use this tool for diff editing. This is a way to explicitly state that a certain tool (e.g. `mergiraf`) does not work for diff editing.
+
 Finally, `ui.diff-editor` can be a list that specifies a command and its arguments.
 
 Some examples:

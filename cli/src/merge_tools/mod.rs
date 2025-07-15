@@ -130,6 +130,8 @@ pub enum MergeToolConfigError {
     Config(#[from] ConfigGetError),
     #[error("The tool `{tool_name}` cannot be used as a merge tool with `jj resolve`")]
     MergeArgsNotConfigured { tool_name: String },
+    #[error("The tool `{tool_name}` cannot be used as a diff editor")]
+    EditArgsNotConfigured { tool_name: String },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -248,7 +250,7 @@ impl DiffEditor {
     ) -> Result<Self, MergeToolConfigError> {
         let tool = DiffEditTool::get_tool_config(settings, name)?
             .unwrap_or_else(|| DiffEditTool::external(ExternalMergeTool::with_program(name)));
-        Self::new_inner(tool, settings, base_ignores, conflict_marker_style)
+        Self::new_inner(name, tool, settings, base_ignores, conflict_marker_style)
     }
 
     /// Loads the default diff editor from the settings.
@@ -265,15 +267,21 @@ impl DiffEditor {
             None
         }
         .unwrap_or_else(|| DiffEditTool::external(ExternalMergeTool::with_edit_args(&args)));
-        Self::new_inner(tool, settings, base_ignores, conflict_marker_style)
+        Self::new_inner(&args, tool, settings, base_ignores, conflict_marker_style)
     }
 
     fn new_inner(
+        name: impl ToString,
         tool: DiffEditTool,
         settings: &UserSettings,
         base_ignores: Arc<GitIgnoreFile>,
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, MergeToolConfigError> {
+        if matches!(&tool, DiffEditTool::External(mergetool) if mergetool.edit_args.is_empty()) {
+            return Err(MergeToolConfigError::EditArgsNotConfigured {
+                tool_name: name.to_string(),
+            });
+        }
         Ok(DiffEditor {
             tool,
             base_ignores,
@@ -679,15 +687,13 @@ mod tests {
         ui.diff-editor = "foo bar"
         [merge-tools."foo bar"]
         edit-args = ["--edit", "args", "$left", "$right"]
+        diff-args = []  # Should not cause an error, since we're getting the diff *editor*
         "#,
         ).unwrap(), @r#"
         External(
             ExternalMergeTool {
                 program: "foo bar",
-                diff_args: [
-                    "$left",
-                    "$right",
-                ],
+                diff_args: [],
                 diff_expected_exit_codes: [
                     0,
                 ],
@@ -767,6 +773,22 @@ mod tests {
 
         // Invalid type
         assert!(get(r#"ui.diff-editor.k = 0"#).is_err());
+
+        // Explicitly empty edit-args cause an error
+        insta::assert_debug_snapshot!(get(
+        r#"
+        ui.diff-editor = "my-diff"
+        [merge-tools.my-diff]
+        program = "MyDiff"
+        edit-args = []
+        "#,
+        ), @r#"
+        Err(
+            EditArgsNotConfigured {
+                tool_name: "my-diff",
+            },
+        )
+        "#);
     }
 
     #[test]

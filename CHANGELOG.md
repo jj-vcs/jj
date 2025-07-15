@@ -54,6 +54,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [`Operation`](docs/templates.md#operation-type) type in the templating
   language.
 
+* Merge tools config can now explicitly forbid using them as diff editors.
+
 ### Fixed bugs
 
 ### Packaging changes
