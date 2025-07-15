@@ -286,6 +286,22 @@ impl MutableChangedPathIndexSegment {
         self.entries.push(paths);
     }
 
+    fn extend_from_readonly_segment(&mut self, other_segment: &ReadonlyChangedPathIndexSegment) {
+        self.entries
+            .reserve(usize::try_from(other_segment.num_local_commits()).unwrap());
+        for pos in (0..other_segment.num_local_commits()).map(CommitPosition) {
+            let paths = other_segment
+                .changed_paths(pos)
+                .map(|path| path.to_owned())
+                .collect();
+            self.add_changed_paths(paths);
+        }
+    }
+
+    fn extend_from_mutable_segment(&mut self, other_segment: Self) {
+        self.entries.extend(other_segment.entries);
+    }
+
     fn serialize_into(&self, buf: &mut Vec<u8>) {
         let mut paths = self.entries.iter().flatten().unique().collect_vec();
         paths.sort_unstable();
@@ -484,6 +500,36 @@ impl CompositeChangedPathIndex {
             .expect("should have mutable");
         segment.add_changed_paths(paths);
         self.num_commits += 1;
+    }
+
+    /// Squashes parent segments if the mutable segment has more than half the
+    /// commits of its parent segment. This is done recursively, so the stack of
+    /// index segments has O(log n) files.
+    pub(super) fn maybe_squash_with_ancestors(&mut self) {
+        let Some(mutable_segment) = self.mutable_segment.as_deref() else {
+            return;
+        };
+        let mut num_new_commits = mutable_segment.num_local_commits();
+        let mut squash_start = self.readonly_segments.len();
+        for segment in self.readonly_segments.iter().rev() {
+            // TODO: We should probably also squash if the parent segment has
+            // less than N commits, regardless of how many (few) are in
+            // `mutable_segment`.
+            if 2 * num_new_commits < segment.num_local_commits() {
+                break;
+            }
+            num_new_commits += segment.num_local_commits();
+            squash_start -= 1;
+        }
+        if squash_start == self.readonly_segments.len() {
+            return;
+        }
+        let mut squashed_segment = Box::new(MutableChangedPathIndexSegment::empty());
+        for segment in self.readonly_segments.drain(squash_start..) {
+            squashed_segment.extend_from_readonly_segment(&segment);
+        }
+        squashed_segment.extend_from_mutable_segment(*self.mutable_segment.take().unwrap());
+        self.mutable_segment = Some(squashed_segment);
     }
 
     /// Writes mutable segment if exists, turns it into readonly segment.
@@ -741,5 +787,73 @@ mod tests {
             Some(vec![repo_path("a/c"), repo_path("c")])
         );
         assert_eq!(collect_changed_paths(&index, GlobalCommitPosition(6)), None);
+    }
+
+    #[test]
+    fn test_composite_squash_segments() {
+        let temp_dir = new_temp_dir();
+        let mut index = CompositeChangedPathIndex::empty(GlobalCommitPosition(0));
+        index.make_mutable();
+        index.add_changed_paths(vec![repo_path_buf("0")]);
+        index.maybe_squash_with_ancestors();
+        index.save_in(temp_dir.path()).unwrap();
+        assert_eq!(index.readonly_segments.len(), 1);
+        assert_eq!(index.readonly_segments[0].num_local_commits(), 1);
+
+        index.make_mutable();
+        index.add_changed_paths(vec![repo_path_buf("1")]);
+        index.maybe_squash_with_ancestors();
+        index.save_in(temp_dir.path()).unwrap();
+        assert_eq!(index.readonly_segments.len(), 1);
+        assert_eq!(index.readonly_segments[0].num_local_commits(), 2);
+
+        index.make_mutable();
+        index.add_changed_paths(vec![repo_path_buf("2")]);
+        index.maybe_squash_with_ancestors();
+        index.save_in(temp_dir.path()).unwrap();
+        assert_eq!(index.readonly_segments.len(), 1);
+        assert_eq!(index.readonly_segments[0].num_local_commits(), 3);
+
+        index.make_mutable();
+        index.add_changed_paths(vec![repo_path_buf("3")]);
+        index.maybe_squash_with_ancestors();
+        index.save_in(temp_dir.path()).unwrap();
+        assert_eq!(index.readonly_segments.len(), 2);
+        assert_eq!(index.readonly_segments[0].num_local_commits(), 3);
+        assert_eq!(index.readonly_segments[1].num_local_commits(), 1);
+
+        index.make_mutable();
+        index.add_changed_paths(vec![repo_path_buf("4")]);
+        index.add_changed_paths(vec![repo_path_buf("5")]);
+        index.maybe_squash_with_ancestors();
+        index.save_in(temp_dir.path()).unwrap();
+        assert_eq!(index.readonly_segments.len(), 1);
+        assert_eq!(index.readonly_segments[0].num_local_commits(), 6);
+
+        // Squashed segments should preserve the original entries.
+        assert_eq!(
+            collect_changed_paths(&index, GlobalCommitPosition(0)),
+            Some(vec![repo_path("0")])
+        );
+        assert_eq!(
+            collect_changed_paths(&index, GlobalCommitPosition(1)),
+            Some(vec![repo_path("1")])
+        );
+        assert_eq!(
+            collect_changed_paths(&index, GlobalCommitPosition(2)),
+            Some(vec![repo_path("2")])
+        );
+        assert_eq!(
+            collect_changed_paths(&index, GlobalCommitPosition(3)),
+            Some(vec![repo_path("3")])
+        );
+        assert_eq!(
+            collect_changed_paths(&index, GlobalCommitPosition(4)),
+            Some(vec![repo_path("4")])
+        );
+        assert_eq!(
+            collect_changed_paths(&index, GlobalCommitPosition(5)),
+            Some(vec![repo_path("5")])
+        );
     }
 }

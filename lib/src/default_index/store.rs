@@ -432,7 +432,7 @@ impl DefaultIndexStore {
             .maybe_squash_with_ancestors()
             .save_in(&self.commit_segments_dir())
             .map_err(DefaultIndexStoreError::SaveIndex)?;
-        // TODO: changed_paths.maybe_squash_with_ancestors()
+        changed_paths.maybe_squash_with_ancestors();
         changed_paths
             .save_in(&self.changed_path_segments_dir())
             .map_err(DefaultIndexStoreError::SaveIndex)?;

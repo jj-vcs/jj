@@ -834,7 +834,7 @@ fn test_changed_path_segments() {
     assert_eq!(stats.changed_path_levels[0].num_changed_paths, 1);
     assert_eq!(stats.changed_path_levels[0].num_paths, 1);
 
-    // Add one more commit
+    // Add one more commit, segment files should be squashed
     let mut tx = repo.start_transaction();
     tx.repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree2.id())
@@ -844,13 +844,10 @@ fn test_changed_path_segments() {
     let stats = as_readonly_index(&repo).stats();
     assert_eq!(count_segment_files(), 2);
     assert_eq!(stats.changed_path_commits_range, Some(1..3));
-    assert_eq!(stats.changed_path_levels.len(), 2);
-    assert_eq!(stats.changed_path_levels[0].num_commits, 1);
-    assert_eq!(stats.changed_path_levels[0].num_changed_paths, 1);
-    assert_eq!(stats.changed_path_levels[0].num_paths, 1);
-    assert_eq!(stats.changed_path_levels[1].num_commits, 1);
-    assert_eq!(stats.changed_path_levels[1].num_changed_paths, 2);
-    assert_eq!(stats.changed_path_levels[1].num_paths, 2);
+    assert_eq!(stats.changed_path_levels.len(), 1);
+    assert_eq!(stats.changed_path_levels[0].num_commits, 2);
+    assert_eq!(stats.changed_path_levels[0].num_changed_paths, 3);
+    assert_eq!(stats.changed_path_levels[0].num_paths, 2);
 }
 
 #[test]
