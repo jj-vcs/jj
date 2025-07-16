@@ -175,21 +175,12 @@ impl DefaultIndexStore {
     ///
     /// The index to be built will be calculated from one of the ancestor
     /// operations if exists. Use `reinit()` to rebuild index from scratch.
+    #[tracing::instrument(skip(self, store))]
     pub fn build_index_at_operation(
         &self,
         operation: &Operation,
         store: &Arc<Store>,
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
-        let index_segment = self.build_index_segments_at_operation(operation, store)?;
-        Ok(DefaultReadonlyIndex::from_segment(index_segment))
-    }
-
-    #[tracing::instrument(skip(self, store))]
-    fn build_index_segments_at_operation(
-        &self,
-        operation: &Operation,
-        store: &Arc<Store>,
-    ) -> Result<Arc<ReadonlyCommitIndexSegment>, DefaultIndexStoreError> {
         tracing::info!("scanning operations to index");
         let operations_dir = self.operations_dir();
         let field_lengths = FieldLengths {
@@ -316,42 +307,38 @@ impl DefaultIndexStore {
             mutable_index.add_commit(commit);
         }
 
-        let index_file = self.save_mutable_index(mutable_index, operation.id())?;
-        tracing::info!(
-            ?index_file,
-            commits_count = commits.len(),
-            "saved new index file"
-        );
+        let index = self.save_mutable_index(mutable_index, operation.id())?;
+        tracing::info!(?index, commits_count = commits.len(), "saved new index");
 
-        Ok(index_file)
+        Ok(index)
     }
 
     fn save_mutable_index(
         &self,
-        mutable_index: DefaultMutableIndex,
+        index: DefaultMutableIndex,
         op_id: &OperationId,
-    ) -> Result<Arc<ReadonlyCommitIndexSegment>, DefaultIndexStoreError> {
-        let index_segment = mutable_index
+    ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
+        let index = index
             .squash_and_save_in(&self.segments_dir())
             .map_err(DefaultIndexStoreError::SaveIndex)?;
-        self.associate_file_with_operation(&index_segment, op_id)
+        self.associate_index_with_operation(&index, op_id)
             .map_err(|source| DefaultIndexStoreError::AssociateIndex {
                 op_id: op_id.to_owned(),
                 source,
             })?;
-        Ok(index_segment)
+        Ok(index)
     }
 
     /// Records a link from the given operation to the this index version.
-    fn associate_file_with_operation(
+    fn associate_index_with_operation(
         &self,
-        index: &ReadonlyCommitIndexSegment,
+        index: &DefaultReadonlyIndex,
         op_id: &OperationId,
     ) -> io::Result<()> {
         let dir = self.operations_dir();
         let mut temp_file = NamedTempFile::new_in(&dir)?;
         let file = temp_file.as_file_mut();
-        file.write_all(index.id().hex().as_bytes())?;
+        file.write_all(index.readonly_commits().id().hex().as_bytes())?;
         persist_content_addressed_temp_file(temp_file, dir.join(op_id.hex()))?;
         Ok(())
     }
@@ -375,11 +362,12 @@ impl IndexStore for DefaultIndexStore {
             commit_id: store.commit_id_length(),
             change_id: store.change_id_length(),
         };
-        let index_segment = match self.load_index_segments_at_operation(op.id(), field_lengths) {
+        let index = match self.load_index_segments_at_operation(op.id(), field_lengths) {
+            Ok(segment) => Ok(DefaultReadonlyIndex::from_segment(segment)),
             Err(DefaultIndexStoreError::LoadAssociation(err))
                 if err.kind() == io::ErrorKind::NotFound =>
             {
-                self.build_index_segments_at_operation(op, store)
+                self.build_index_at_operation(op, store)
             }
             Err(DefaultIndexStoreError::LoadIndex(err)) if err.is_corrupt_or_not_found() => {
                 // If the index was corrupt (maybe it was written in a different format),
@@ -399,12 +387,12 @@ impl IndexStore for DefaultIndexStore {
                     }
                 }
                 self.reinit().map_err(|err| IndexReadError(err.into()))?;
-                self.build_index_segments_at_operation(op, store)
+                self.build_index_at_operation(op, store)
             }
-            result => result,
+            Err(err) => Err(err),
         }
         .map_err(|err| IndexReadError(err.into()))?;
-        Ok(Box::new(DefaultReadonlyIndex::from_segment(index_segment)))
+        Ok(Box::new(index))
     }
 
     fn write_index(
@@ -416,9 +404,9 @@ impl IndexStore for DefaultIndexStore {
             .into_any()
             .downcast::<DefaultMutableIndex>()
             .expect("index to merge in must be a DefaultMutableIndex");
-        let index_segment = self
+        let index = self
             .save_mutable_index(*index, op.id())
             .map_err(|err| IndexWriteError(err.into()))?;
-        Ok(Box::new(DefaultReadonlyIndex::from_segment(index_segment)))
+        Ok(Box::new(index))
     }
 }
