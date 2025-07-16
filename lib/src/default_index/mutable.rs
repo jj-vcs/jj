@@ -458,8 +458,10 @@ impl DefaultMutableIndex {
         DefaultMutableIndex(CompositeIndex::from_mutable(commits))
     }
 
-    pub(super) fn incremental(parent_file: Arc<ReadonlyCommitIndexSegment>) -> Self {
-        let commits = Box::new(MutableCommitIndexSegment::incremental(parent_file));
+    pub(super) fn incremental(parent_index: &DefaultReadonlyIndex) -> Self {
+        let commits = Box::new(MutableCommitIndexSegment::incremental(
+            parent_index.readonly_commits().clone(),
+        ));
         DefaultMutableIndex(CompositeIndex::from_mutable(commits))
     }
 

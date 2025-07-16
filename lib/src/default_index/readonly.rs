@@ -630,7 +630,7 @@ impl DefaultReadonlyIndex {
     }
 
     pub(super) fn start_modification(&self) -> DefaultMutableIndex {
-        DefaultMutableIndex::incremental(self.readonly_commits().clone())
+        DefaultMutableIndex::incremental(self)
     }
 }
 
