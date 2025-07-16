@@ -14,15 +14,15 @@ object can be referenced as `self`.
 
 ### Commit keywords
 
-In `jj log`/`jj evolog` templates, all 0-argument methods of [the `Commit`
-type](#commit-type) are available as keywords. For example, `commit_id` is
-equivalent to `self.commit_id()`.
+In `jj log`/`jj evolog` templates, all 0-argument methods of <code><a href="#commit-type">Commit</a></code> type are
+available as keywords. For example, `commit_id` is equivalent to
+`self.commit_id()`.
 
 ### Operation keywords
 
-In `jj op log` templates, all 0-argument methods of [the `Operation`
-type](#operation-type) are available as keywords. For example,
-`current_operation` is equivalent to `self.current_operation()`.
+In `jj op log` templates, all 0-argument methods of the <code><a href="#operation-type">Operation</a></code> type are
+available as keywords. For example, `current_operation` is equivalent to
+`self.current_operation()`.
 
 ## Operators
 
@@ -32,12 +32,12 @@ The following operators are supported.
 * `-x`: Negate integer value.
 * `!x`: Logical not.
 * `x * y`, `x / y`, `x % y`: Multiplication/division/remainder. Operands must
-  be `Integer`s.
-* `x + y`, `x - y`: Addition/subtraction. Operands must be `Integer`s.
+  be <code><a href="#integer-type">Integer</a></code>s.
+* `x + y`, `x - y`: Addition/subtraction. Operands must be <code><a href="#integer-type">Integer</a></code>s.
 * `x >= y`, `x > y`, `x <= y`, `x < y`: Greater than or equal/greater than/
-  lesser than or equal/lesser than. Operands must be `Integer`s.
-* `x == y`, `x != y`: Equal/not equal. Operands must be either `Boolean`,
-  `Integer`, or `String`.
+  lesser than or equal/lesser than. Operands must be <code><a href="#integer-type">Integer</a></code>s.
+* `x == y`, `x != y`: Equal/not equal. Operands must be either <code><a href="#boolean-type">Boolean</a></code>,
+  <code><a href="#integer-type">Integer</a></code>, or <code><a href="#string-type">String</a></code>.
 * `x && y`: Logical and, short-circuiting.
 * `x || y`: Logical or, short-circuiting.
 * `x ++ y`: Concatenate `x` and `y` templates.
@@ -48,179 +48,179 @@ The following operators are supported.
 
 The following functions are defined.
 
-* `fill(width: Integer, content: Template) -> Template`: Fill lines at
+* <code>fill(width: <a href="#integer-type">Integer</a>, content: <a href="#template-type">Template</a>) -&gt; <a href="#template-type">Template</a></code>: Fill lines at
   the given `width`.
-* `indent(prefix: Template, content: Template) -> Template`: Indent
+* <code>indent(prefix: <a href="#template-type">Template</a>, content: <a href="#template-type">Template</a>) -&gt; <a href="#template-type">Template</a></code>: Indent
   non-empty lines by the given `prefix`.
-* `pad_start(width: Integer, content: Template[, fill_char: Template])`: Pad (or
+* <code>pad_start(width: <a href="#integer-type">Integer</a>, content: <a href="#template-type">Template</a>[, fill_char: <a href="#template-type">Template</a>])</code>: Pad (or
   right-justify) content by adding leading fill characters. The `content`
   shouldn't have newline character.
-* `pad_end(width: Integer, content: Template[, fill_char: Template])`: Pad (or
+* <code>pad_end(width: <a href="#integer-type">Integer</a>, content: <a href="#template-type">Template</a>[, fill_char: <a href="#template-type">Template</a>])</code>: Pad (or
   left-justify) content by adding trailing fill characters. The `content`
   shouldn't have newline character.
-* `pad_centered(width: Integer, content: Template[, fill_char: Template])`: Pad
+* <code>pad_centered(width: <a href="#integer-type">Integer</a>, content: <a href="#template-type">Template</a>[, fill_char: <a href="#template-type">Template</a>])</code>: Pad
   content by adding both leading and trailing fill characters. If an odd number
   of fill characters are needed, the trailing fill will be one longer than the
   leading fill. The `content` shouldn't have newline characters.
-* `truncate_start(width: Integer, content: Template[, ellipsis: Template])`:
+* <code>truncate_start(width: <a href="#integer-type">Integer</a>, content: <a href="#template-type">Template</a>[, ellipsis: <a href="#template-type">Template</a>])</code>:
   Truncate `content` by removing leading characters. The `content` shouldn't
   have newline character. If `ellipsis` is provided and `content` was truncated,
   prepend the `ellipsis` to the result.
-* `truncate_end(width: Integer, content: Template[, ellipsis: Template])`:
+* <code>truncate_end(width: <a href="#integer-type">Integer</a>, content: <a href="#template-type">Template</a>[, ellipsis: <a href="#template-type">Template</a>])</code>:
   Truncate `content` by removing trailing characters. The `content` shouldn't
   have newline character. If `ellipsis` is provided and `content` was truncated,
   append the `ellipsis` to the result.
-* `label(label: Stringify, content: Template) -> Template`: Apply label to
+* <code>label(label: <a href="#stringify-type">Stringify</a>, content: <a href="#template-type">Template</a>) -&gt; <a href="#template-type">Template</a></code>: Apply label to
   the content. The `label` is evaluated as a space-separated string.
-* `raw_escape_sequence(content: Template) -> Template`: Preserves any escape
+* <code>raw_escape_sequence(content: <a href="#template-type">Template</a>) -&gt; <a href="#template-type">Template</a></code>: Preserves any escape
   sequences in `content` (i.e., bypasses sanitization) and strips labels.
   Note: This function is intended for escape sequences and as such, its output
   is expected to be invisible / of no display width. Outputting content with
   nonzero display width may break wrapping, indentation etc.
-* `stringify(content: Stringify) -> String`: Format `content` to string. This
+* <code>stringify(content: <a href="#stringify-type">Stringify</a>) -&gt; <a href="#string-type">String</a></code>: Format `content` to string. This
   effectively removes color labels.
-* `json(value: Serialize) -> String`: Serialize `value` in JSON format.
-* `if(condition: Boolean, then: Template[, else: Template]) -> Template`:
+* <code>json(value: <a href="#serialize-type">Serialize</a>) -&gt; <a href="#string-type">String</a></code>: Serialize `value` in JSON format.
+* <code>if(condition: <a href="#boolean-type">Boolean</a>, then: <a href="#template-type">Template</a>[, else: <a href="#template-type">Template</a>]) -&gt; <a href="#template-type">Template</a></code>:
   Conditionally evaluate `then`/`else` template content.
-* `coalesce(content: Template...) -> Template`: Returns the first **non-empty**
+* <code>coalesce(content: <a href="#template-type">Template</a>...) -&gt; <a href="#template-type">Template</a></code>: Returns the first **non-empty**
   content.
-* `concat(content: Template...) -> Template`:
+* <code>concat(content: <a href="#template-type">Template</a>...) -&gt; <a href="#template-type">Template</a></code>:
   Same as `content_1 ++ ... ++ content_n`.
-* `separate(separator: Template, content: Template...) -> Template`:
+* <code>separate(separator: <a href="#template-type">Template</a>, content: <a href="#template-type">Template</a>...) -&gt; <a href="#template-type">Template</a></code>:
   Insert separator between **non-empty** contents.
-* `surround(prefix: Template, suffix: Template, content: Template) -> Template`:
+* <code>surround(prefix: <a href="#template-type">Template</a>, suffix: <a href="#template-type">Template</a>, content: <a href="#template-type">Template</a>) -&gt; <a href="#template-type">Template</a></code>:
   Surround **non-empty** content with texts such as parentheses.
-* `config(name: String) -> ConfigValue`: Look up configuration value by `name`.
+* <code>config(name: <a href="#string-type">String</a>) -&gt; <a href="#configvalue-type">ConfigValue</a></code>: Look up configuration value by `name`.
 
 ## Types
 
 ### `AnnotationLine` type
 
-_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: no, <code><a href="#template-type">Template</a></code>: no_
 
 The following methods are defined.
 
-* `.commit() -> Commit`: Commit responsible for changing the relevant line.
-* `.content() -> Template`: Line content including newline character.
-* `.line_number() -> Integer`: 1-based line number.
-* `.first_line_in_hunk() -> Boolean`: False when the directly preceding line
+* <code>.commit() -&gt; <a href="#commit-type">Commit</a></code>: Commit responsible for changing the relevant line.
+* <code>.content() -&gt; <a href="#template-type">Template</a></code>: Line content including newline character.
+* <code>.line_number() -&gt; <a href="#integer-type">Integer</a></code>: 1-based line number.
+* <code>.first_line_in_hunk() -&gt; <a href="#boolean-type">Boolean</a></code>: False when the directly preceding line
   references the same commit.
 
 ### `Boolean` type
 
-_Conversion: `Boolean`: yes, `Serialize`: yes, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: yes, <code><a href="#serialize-type">Serialize</a></code>: yes, <code><a href="#template-type">Template</a></code>: yes_
 
 No methods are defined. Can be constructed with `false` or `true` literal.
 
 ### `Commit` type
 
-_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: no_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: yes, <code><a href="#template-type">Template</a></code>: no_
 
 This type cannot be printed. The following methods are defined.
 
-* `.description() -> String`
-* `.trailers() -> List<Trailer>`
-* `.change_id() -> ChangeId`
-* `.commit_id() -> CommitId`
-* `.parents() -> List<Commit>`
-* `.author() -> Signature`
-* `.committer() -> Signature`
-* `.signature() -> Option<CryptographicSignature>`: Cryptographic signature if the
+* <code>.description() -&gt; <a href="#string-type">String</a></code>
+* <code>.trailers() -&gt; <a href="#listtrailer-type">List&lt;Trailer&gt;</a></code>
+* <code>.change_id() -&gt; <a href="#changeid-type">ChangeId</a></code>
+* <code>.commit_id() -&gt; <a href="#commitid-type">CommitId</a></code>
+* <code>.parents() -&gt; <a href="#list-type">List</a>&lt;<a href="#commit-type">Commit</a>&gt;</code>
+* <code>.author() -&gt; <a href="#signature-type">Signature</a></code>
+* <code>.committer() -&gt; <a href="#signature-type">Signature</a></code>
+* <code>.signature() -&gt; <a href="#option-type">Option</a>&lt;<a href="#cryptographicsignature-type">CryptographicSignature</a>&gt;</code>: Cryptographic signature if the
   commit was signed.
-* `.mine() -> Boolean`: Commits where the author's email matches the email of
+* <code>.mine() -&gt; <a href="#boolean-type">Boolean</a></code>: Commits where the author's email matches the email of
   the current user.
-* `.working_copies() -> List<WorkspaceRef>`: For multi-workspace repositories, returns a list of workspace references for each workspace whose working-copy commit matches the current commit.
-* `.current_working_copy() -> Boolean`: True for the working-copy commit of the
+* <code>.working_copies() -&gt; <a href="#list-type">List</a>&lt;WorkspaceRef&gt;</code>: For multi-workspace repositories, returns a list of workspace references for each workspace whose working-copy commit matches the current commit.
+* <code>.current_working_copy() -&gt; <a href="#boolean-type">Boolean</a></code>: True for the working-copy commit of the
   current workspace.
-* `.bookmarks() -> List<CommitRef>`: Local and remote bookmarks pointing to the
+* <code>.bookmarks() -&gt; <a href="#list-type">List</a>&lt;<a href="#commitref-type">CommitRef</a>&gt;</code>: Local and remote bookmarks pointing to the
   commit. A tracking remote bookmark will be included only if its target is
   different from the local one.
-* `.local_bookmarks() -> List<CommitRef>`: All local bookmarks pointing to the
+* <code>.local_bookmarks() -&gt; <a href="#list-type">List</a>&lt;<a href="#commitref-type">CommitRef</a>&gt;</code>: All local bookmarks pointing to the
   commit.
-* `.remote_bookmarks() -> List<CommitRef>`: All remote bookmarks pointing to the
+* <code>.remote_bookmarks() -&gt; <a href="#list-type">List</a>&lt;<a href="#commitref-type">CommitRef</a>&gt;</code>: All remote bookmarks pointing to the
   commit.
-* `.tags() -> List<CommitRef>`
-* `.git_refs() -> List<CommitRef>`
-* `.git_head() -> Boolean`: True for the Git `HEAD` commit.
-* `.divergent() -> Boolean`: True if the commit's change id corresponds to multiple
+* <code>.tags() -&gt; <a href="#list-type">List</a>&lt;<a href="#commitref-type">CommitRef</a>&gt;</code>
+* <code>.git_refs() -&gt; <a href="#list-type">List</a>&lt;<a href="#commitref-type">CommitRef</a>&gt;</code>
+* <code>.git_head() -&gt; <a href="#boolean-type">Boolean</a></code>: True for the Git `HEAD` commit.
+* <code>.divergent() -&gt; <a href="#boolean-type">Boolean</a></code>: True if the commit's change id corresponds to multiple
   visible commits.
-* `.hidden() -> Boolean`: True if the commit is not visible (a.k.a. abandoned).
-* `.immutable() -> Boolean`: True if the commit is included in [the set of
+* <code>.hidden() -&gt; <a href="#boolean-type">Boolean</a></code>: True if the commit is not visible (a.k.a. abandoned).
+* <code>.immutable() -&gt; <a href="#boolean-type">Boolean</a></code>: True if the commit is included in [the set of
   immutable commits](config.md#set-of-immutable-commits).
-* `.contained_in(revset: String) -> Boolean`: True if the commit is included in [the provided revset](revsets.md).
-* `.conflict() -> Boolean`: True if the commit contains merge conflicts.
-* `.empty() -> Boolean`: True if the commit modifies no files.
-* `.diff([files: String]) -> TreeDiff`: Changes from the parents within [the
+* <code>.contained_in(revset: <a href="#string-type">String</a>) -&gt; <a href="#boolean-type">Boolean</a></code>: True if the commit is included in [the provided revset](revsets.md).
+* <code>.conflict() -&gt; <a href="#boolean-type">Boolean</a></code>: True if the commit contains merge conflicts.
+* <code>.empty() -&gt; <a href="#boolean-type">Boolean</a></code>: True if the commit modifies no files.
+* <code>.diff([files: <a href="#string-type">String</a>]) -&gt; <a href="#treediff-type">TreeDiff</a></code>: Changes from the parents within [the
   `files` expression](filesets.md). All files are compared by default, but it is
   likely to change in future version to respect the command line path arguments.
-* `.root() -> Boolean`: True if the commit is the root commit.
+* <code>.root() -&gt; <a href="#boolean-type">Boolean</a></code>: True if the commit is the root commit.
 
 ### `ChangeId` type
 
-_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: yes, <code><a href="#template-type">Template</a></code>: yes_
 
 The following methods are defined.
 
-* `.normal_hex() -> String`: Normal hex representation (0-9a-f) instead of the
+* <code>.normal_hex() -&gt; <a href="#string-type">String</a></code>: Normal hex representation (0-9a-f) instead of the
   canonical "reversed" (z-k) representation.
-* `.short([len: Integer]) -> String`
-* `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Shortest unique prefix.
+* <code>.short([len: <a href="#integer-type">Integer</a>]) -&gt; <a href="#string-type">String</a></code>
+* <code>.shortest([min_len: <a href="#integer-type">Integer</a>]) -&gt; <a href="#shortestidprefix-type">ShortestIdPrefix</a></code>: Shortest unique prefix.
 
 ### `CommitId` type
 
-_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: yes, <code><a href="#template-type">Template</a></code>: yes_
 
 The following methods are defined.
 
-* `.short([len: Integer]) -> String`
-* `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Shortest unique prefix.
+* <code>.short([len: <a href="#integer-type">Integer</a>]) -&gt; <a href="#string-type">String</a></code>
+* <code>.shortest([min_len: <a href="#integer-type">Integer</a>]) -&gt; <a href="#shortestidprefix-type">ShortestIdPrefix</a></code>: Shortest unique prefix.
 
 ### `CommitRef` type
 
-_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: yes, <code><a href="#template-type">Template</a></code>: yes_
 
 The following methods are defined.
 
-* `.name() -> RefSymbol`: Local bookmark or tag name.
-* `.remote() -> Option<RefSymbol>`: Remote name if this is a remote ref.
-* `.present() -> Boolean`: True if the ref points to any commit.
-* `.conflict() -> Boolean`: True if [the bookmark or tag is
+* <code>.name() -&gt; <a href="#refsymbol-type">RefSymbol</a></code>: Local bookmark or tag name.
+* <code>.remote() -&gt; <a href="#option-type">Option</a>&lt;<a href="#refsymbol-type">RefSymbol</a>&gt;</code>: Remote name if this is a remote ref.
+* <code>.present() -&gt; <a href="#boolean-type">Boolean</a></code>: True if the ref points to any commit.
+* <code>.conflict() -&gt; <a href="#boolean-type">Boolean</a></code>: True if [the bookmark or tag is
   conflicted](bookmarks.md#conflicts).
-* `.normal_target() -> Option<Commit>`: Target commit if the ref is not
+* <code>.normal_target() -&gt; <a href="#option-type">Option</a>&lt;<a href="#commit-type">Commit</a>&gt;</code>: Target commit if the ref is not
   conflicted and points to a commit.
-* `.removed_targets() -> List<Commit>`: Old target commits if conflicted.
-* `.added_targets() -> List<Commit>`: New target commits. The list usually
+* <code>.removed_targets() -&gt; <a href="#list-type">List</a>&lt;<a href="#commit-type">Commit</a>&gt;</code>: Old target commits if conflicted.
+* <code>.added_targets() -&gt; <a href="#list-type">List</a>&lt;<a href="#commit-type">Commit</a>&gt;</code>: New target commits. The list usually
   contains one "normal" target.
-* `.tracked() -> Boolean`: True if the ref is tracked by a local ref. The local
+* <code>.tracked() -&gt; <a href="#boolean-type">Boolean</a></code>: True if the ref is tracked by a local ref. The local
   ref might have been deleted (but not pushed yet.)
-* `.tracking_present() -> Boolean`: True if the ref is tracked by a local ref,
+* <code>.tracking_present() -&gt; <a href="#boolean-type">Boolean</a></code>: True if the ref is tracked by a local ref,
     and if the local ref points to any commit.
-* `.tracking_ahead_count() -> SizeHint`: Number of commits ahead of the tracking
+* <code>.tracking_ahead_count() -&gt; <a href="#sizehint-type">SizeHint</a></code>: Number of commits ahead of the tracking
   local ref.
-* `.tracking_behind_count() -> SizeHint`: Number of commits behind of the
+* <code>.tracking_behind_count() -&gt; <a href="#sizehint-type">SizeHint</a></code>: Number of commits behind of the
   tracking local ref.
 
 ### `ConfigValue` type
 
-_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: no, <code><a href="#template-type">Template</a></code>: yes_
 
 This type can be printed in TOML syntax. The following methods are defined.
 
-* `.as_boolean() -> Boolean`: Extract boolean.
-* `.as_integer() -> Integer`: Extract integer.
-* `.as_string() -> String`: Extract string. This does not convert non-string
+* <code>.as_boolean() -&gt; <a href="#boolean-type">Boolean</a></code>: Extract boolean.
+* <code>.as_integer() -&gt; <a href="#integer-type">Integer</a></code>: Extract integer.
+* <code>.as_string() -&gt; <a href="#string-type">String</a></code>: Extract string. This does not convert non-string
   value (e.g. integer) to string.
-* `.as_string_list() -> List<String>`: Extract list of strings.
+* <code>.as_string_list() -&gt; <a href="#list-type">List</a>&lt;<a href="#string-type">String</a>&gt;</code>: Extract list of strings.
 
 ### `CryptographicSignature` type
 
-_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: no, <code><a href="#template-type">Template</a></code>: no_
 
 The following methods are defined.
 
-* `.status() -> String`: The signature's status (`"good"`, `"bad"`, `"unknown"`, `"invalid"`).
-* `.key() -> String`: The signature's key id representation (for GPG, this is the key fingerprint).
-* `.display() -> String`: The signature's display string (for GPG this is the formatted primary user ID).
+* <code>.status() -&gt; <a href="#string-type">String</a></code>: The signature's status (`"good"`, `"bad"`, `"unknown"`, `"invalid"`).
+* <code>.key() -&gt; <a href="#string-type">String</a></code>: The signature's key id representation (for GPG, this is the key fingerprint).
+* <code>.display() -&gt; <a href="#string-type">String</a></code>: The signature's display string (for GPG this is the formatted primary user ID).
 
 !!! warning
 
@@ -239,17 +239,17 @@ The following methods are defined.
 
 ### `DiffStats` type
 
-_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: no, <code><a href="#template-type">Template</a></code>: yes_
 
 This type can be printed as a histogram of the changes. The following methods
 are defined.
 
-* `.total_added() -> Integer`: Total number of insertions.
-* `.total_removed() -> Integer`: Total number of deletions.
+* <code>.total_added() -&gt; <a href="#integer-type">Integer</a></code>: Total number of insertions.
+* <code>.total_removed() -&gt; <a href="#integer-type">Integer</a></code>: Total number of deletions.
 
 ### `Email` type
 
-_Conversion: `Boolean`: yes, `Serialize`: yes, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: yes, <code><a href="#serialize-type">Serialize</a></code>: yes, <code><a href="#template-type">Template</a></code>: yes_
 
 The email field of a signature may or may not look like an email address. It may
 be empty, may not contain the symbol `@`, and could in principle contain
@@ -257,75 +257,75 @@ multiple `@`s.
 
 The following methods are defined.
 
-* `.local() -> String`: the part of the email before the first `@`, usually the
+* <code>.local() -&gt; <a href="#string-type">String</a></code>: the part of the email before the first `@`, usually the
   username.
-* `.domain() -> String`: the part of the email after the first `@` or the empty
+* <code>.domain() -&gt; <a href="#string-type">String</a></code>: the part of the email after the first `@` or the empty
   string.
 
 ### `Integer` type
 
-_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: yes, <code><a href="#template-type">Template</a></code>: yes_
 
 No methods are defined.
 
 ### `List` type
 
-_Conversion: `Boolean`: yes, `Serialize`: maybe, `Template`: maybe_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: yes, <code><a href="#serialize-type">Serialize</a></code>: maybe, <code><a href="#template-type">Template</a></code>: maybe_
 
-A list can be implicitly converted to `Boolean`. The following methods are
+A list can be implicitly converted to <code><a href="#boolean-type">Boolean</a></code>. The following methods are
 defined.
 
-* `.len() -> Integer`: Number of elements in the list.
-* `.join(separator: Template) -> Template`: Concatenate elements with
+* <code>.len() -&gt; <a href="#integer-type">Integer</a></code>: Number of elements in the list.
+* <code>.join(separator: <a href="#template-type">Template</a>) -&gt; <a href="#template-type">Template</a></code>: Concatenate elements with
   the given `separator`.
-* `.filter(|item| expression) -> List`: Filter list elements by predicate
+* <code>.filter(|item| expression) -&gt; <a href="#list-type">List</a></code>: Filter list elements by predicate
   `expression`. Example: `description.lines().filter(|s| s.contains("#"))`
-* `.map(|item| expression) -> ListTemplate`: Apply template `expression`
+* <code>.map(|item| expression) -&gt; <a href="#listtemplate-type">ListTemplate</a></code>: Apply template `expression`
   to each element. Example: `parents.map(|c| c.commit_id().short())`
 
 ### `List<Trailer>` type
 
-The following methods are defined. See also the `List` type.
+The following methods are defined. See also the <code><a href="#list-type">List</a></code> type.
 
-* `.contains_key(key: Stringify) -> Boolean`: True if the commit description
+* <code>.contains_key(key: <a href="#stringify-type">Stringify</a>) -&gt; <a href="#boolean-type">Boolean</a></code>: True if the commit description
   contains at least one trailer with the key `key`.
 
 ### `ListTemplate` type
 
-_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: no, <code><a href="#template-type">Template</a></code>: yes_
 
-The following methods are defined. See also the `List` type.
+The following methods are defined. See also the <code><a href="#list-type">List</a></code> type.
 
-* `.join(separator: Template) -> Template`
+* <code>.join(separator: <a href="#template-type">Template</a>) -&gt; <a href="#template-type">Template</a></code>
 
 ### `Operation` type
 
-_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: no_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: yes, <code><a href="#template-type">Template</a></code>: no_
 
 This type cannot be printed. The following methods are defined.
 
-* `.current_operation() -> Boolean`
-* `.description() -> String`
-* `.id() -> OperationId`
-* `.tags() -> String`
-* `.time() -> TimestampRange`
-* `.user() -> String`
-* `.snapshot() -> Boolean`: True if the operation is a snapshot operation.
-* `.root() -> Boolean`: True if the operation is the root operation.
+* <code>.current_operation() -&gt; <a href="#boolean-type">Boolean</a></code>
+* <code>.description() -&gt; <a href="#string-type">String</a></code>
+* <code>.id() -&gt; <a href="#operationid-type">OperationId</a></code>
+* <code>.tags() -&gt; <a href="#string-type">String</a></code>
+* <code>.time() -&gt; <a href="#timestamprange-type">TimestampRange</a></code>
+* <code>.user() -&gt; <a href="#string-type">String</a></code>
+* <code>.snapshot() -&gt; <a href="#boolean-type">Boolean</a></code>: True if the operation is a snapshot operation.
+* <code>.root() -&gt; <a href="#boolean-type">Boolean</a></code>: True if the operation is the root operation.
 
 ### `OperationId` type
 
-_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: yes, <code><a href="#template-type">Template</a></code>: yes_
 
 The following methods are defined.
 
-* `.short([len: Integer]) -> String`
+* <code>.short([len: <a href="#integer-type">Integer</a>]) -&gt; <a href="#string-type">String</a></code>
 
 ### `Option` type
 
-_Conversion: `Boolean`: yes, `Serialize`: maybe, `Template`: maybe_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: yes, <code><a href="#serialize-type">Serialize</a></code>: maybe, <code><a href="#template-type">Template</a></code>: maybe_
 
-An option can be implicitly converted to `Boolean` denoting whether the
+An option can be implicitly converted to <code><a href="#boolean-type">Boolean</a></code> denoting whether the
 contained value is set. If set, all methods of the contained value can be
 invoked. If not set, an error will be reported inline on method call.
 
@@ -334,22 +334,22 @@ unset value is not an error. Unset value is considered less than any set values.
 
 ### `RefSymbol` type
 
-_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: yes, <code><a href="#template-type">Template</a></code>: yes_
 
-[A `String` type](#string-type), but is formatted as revset symbol by quoting
+A <code><a href="#string-type">String</a></code> type, but is formatted as revset symbol by quoting
 and escaping if necessary. Unlike strings, this cannot be implicitly converted
-to `Boolean`.
+to <code><a href="#boolean-type">Boolean</a></code>.
 
 ### `RepoPath` type
 
-_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: yes, <code><a href="#template-type">Template</a></code>: yes_
 
 A slash-separated path relative to the repository root. The following methods
 are defined.
 
-* `.display() -> String`: Format path for display. The formatted path uses
+* <code>.display() -&gt; <a href="#string-type">String</a></code>: Format path for display. The formatted path uses
   platform-native separator, and is relative to the current working directory.
-* `.parent() -> Option<RepoPath>`: Parent directory path.
+* <code>.parent() -&gt; <a href="#option-type">Option</a>&lt;<a href="#repopath-type">RepoPath</a>&gt;</code>: Parent directory path.
 
 ### `Serialize` type
 
@@ -363,64 +363,64 @@ An expression that can be serialized in machine-readable format such as JSON.
 
 ### `ShortestIdPrefix` type
 
-_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: yes, <code><a href="#template-type">Template</a></code>: yes_
 
 The following methods are defined.
 
-* `.prefix() -> String`
-* `.rest() -> String`
-* `.upper() -> ShortestIdPrefix`
-* `.lower() -> ShortestIdPrefix`
+* <code>.prefix() -&gt; <a href="#string-type">String</a></code>
+* <code>.rest() -&gt; <a href="#string-type">String</a></code>
+* <code>.upper() -&gt; <a href="#shortestidprefix-type">ShortestIdPrefix</a></code>
+* <code>.lower() -&gt; <a href="#shortestidprefix-type">ShortestIdPrefix</a></code>
 
 ### `Signature` type
 
-_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: yes, <code><a href="#template-type">Template</a></code>: yes_
 
 The following methods are defined.
 
-* `.name() -> String`
-* `.email() -> Email`
-* `.timestamp() -> Timestamp`
+* <code>.name() -&gt; <a href="#string-type">String</a></code>
+* <code>.email() -&gt; <a href="#email-type">Email</a></code>
+* <code>.timestamp() -&gt; <a href="#timestamp-type">Timestamp</a></code>
 
 ### `SizeHint` type
 
-_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: no_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: yes, <code><a href="#template-type">Template</a></code>: no_
 
 This type cannot be printed. The following methods are defined.
 
-* `.lower() -> Integer`: Lower bound.
-* `.upper() -> Option<Integer>`: Upper bound if known.
-* `.exact() -> Option<Integer>`: Exact value if upper bound is known and it
+* <code>.lower() -&gt; <a href="#integer-type">Integer</a></code>: Lower bound.
+* <code>.upper() -&gt; <a href="#option-type">Option</a>&lt;<a href="#integer-type">Integer</a>&gt;</code>: Upper bound if known.
+* <code>.exact() -&gt; <a href="#option-type">Option</a>&lt;<a href="#integer-type">Integer</a>&gt;</code>: Exact value if upper bound is known and it
   equals to the lower bound.
-* `.zero() -> Boolean`: True if upper bound is known and is `0`. Equivalent to
+* <code>.zero() -&gt; <a href="#boolean-type">Boolean</a></code>: True if upper bound is known and is `0`. Equivalent to
   `.upper() == 0`.
 
 ### `String` type
 
-_Conversion: `Boolean`: yes, `Serialize`: yes, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: yes, <code><a href="#serialize-type">Serialize</a></code>: yes, <code><a href="#template-type">Template</a></code>: yes_
 
-A string can be implicitly converted to `Boolean`. The following methods are
+A string can be implicitly converted to <code><a href="#boolean-type">Boolean</a></code>. The following methods are
 defined.
 
-* `.len() -> Integer`: Length in UTF-8 bytes.
-* `.contains(needle: Stringify) -> Boolean`
-* `.first_line() -> String`
-* `.lines() -> List<String>`: Split into lines excluding newline characters.
-* `.upper() -> String`
-* `.lower() -> String`
-* `.starts_with(needle: Stringify) -> Boolean`
-* `.ends_with(needle: Stringify) -> Boolean`
-* `.remove_prefix(needle: Stringify) -> String`: Removes the passed prefix, if
+* <code>.len() -&gt; <a href="#integer-type">Integer</a></code>: Length in UTF-8 bytes.
+* <code>.contains(needle: <a href="#stringify-type">Stringify</a>) -&gt; <a href="#boolean-type">Boolean</a></code>
+* <code>.first_line() -&gt; <a href="#string-type">String</a></code>
+* <code>.lines() -&gt; <a href="#list-type">List</a>&lt;<a href="#string-type">String</a>&gt;</code>: Split into lines excluding newline characters.
+* <code>.upper() -&gt; <a href="#string-type">String</a></code>
+* <code>.lower() -&gt; <a href="#string-type">String</a></code>
+* <code>.starts_with(needle: <a href="#stringify-type">Stringify</a>) -&gt; <a href="#boolean-type">Boolean</a></code>
+* <code>.ends_with(needle: <a href="#stringify-type">Stringify</a>) -&gt; <a href="#boolean-type">Boolean</a></code>
+* <code>.remove_prefix(needle: <a href="#stringify-type">Stringify</a>) -&gt; <a href="#string-type">String</a></code>: Removes the passed prefix, if
   present.
-* `.remove_suffix(needle: Stringify) -> String`: Removes the passed suffix, if
+* <code>.remove_suffix(needle: <a href="#stringify-type">Stringify</a>) -&gt; <a href="#string-type">String</a></code>: Removes the passed suffix, if
   present.
-* `.trim() -> String`: Removes leading and trailing whitespace
-* `.trim_start() -> String`: Removes leading whitespace
-* `.trim_end() -> String`: Removes trailing whitespace
-* `.substr(start: Integer, end: Integer) -> String`: Extract substring. The
+* <code>.trim() -&gt; <a href="#string-type">String</a></code>: Removes leading and trailing whitespace
+* <code>.trim_start() -&gt; <a href="#string-type">String</a></code>: Removes leading whitespace
+* <code>.trim_end() -&gt; <a href="#string-type">String</a></code>: Removes trailing whitespace
+* <code>.substr(start: <a href="#integer-type">Integer</a>, end: <a href="#integer-type">Integer</a>) -&gt; <a href="#string-type">String</a></code>: Extract substring. The
   `start`/`end` indices should be specified in UTF-8 bytes. Negative values
   count from the end of the string.
-* `.escape_json() -> String`: Serializes the string in JSON format. This
+* <code>.escape_json() -&gt; <a href="#string-type">String</a></code>: Serializes the string in JSON format. This
   function is useful for making machine-readable templates. For example, you
   can use it in a template like `'{ "foo": ' ++ foo.escape_json() ++ ' }'` to
   return a JSON/JSONL.
@@ -448,96 +448,96 @@ inside a single-quoted string literal.
 
 ### `Stringify` type
 
-An expression that can be converted to a `String`.
+An expression that can be converted to a <code><a href="#string-type">String</a></code>.
 
-Any types that can be converted to `Template` can also be `Stringify`. Unlike
-`Template`, color labels are stripped.
+Any types that can be converted to <code><a href="#template-type">Template</a></code> can also be <code><a href="#stringify-type">Stringify</a></code>. Unlike
+<code><a href="#template-type">Template</a></code>, color labels are stripped.
 
 ### `Template` type
 
-_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: no, <code><a href="#template-type">Template</a></code>: yes_
 
-Most types can be implicitly converted to `Template`. No methods are defined.
+Most types can be implicitly converted to <code><a href="#template-type">Template</a></code>. No methods are defined.
 
 ### `Timestamp` type
 
-_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: yes, <code><a href="#template-type">Template</a></code>: yes_
 
 The following methods are defined.
 
-* `.ago() -> String`: Format as relative timestamp.
-* `.format(format: String) -> String`: Format with [the specified strftime-like
+* <code>.ago() -&gt; <a href="#string-type">String</a></code>: Format as relative timestamp.
+* <code>.format(format: <a href="#string-type">String</a>) -&gt; <a href="#string-type">String</a></code>: Format with [the specified strftime-like
   format string](https://docs.rs/chrono/latest/chrono/format/strftime/).
-* `.utc() -> Timestamp`: Convert timestamp into UTC timezone.
-* `.local() -> Timestamp`: Convert timestamp into local timezone.
-* `.after(date: String) -> Boolean`: True if the timestamp is exactly at or after the given date.
-* `.before(date: String) -> Boolean`: True if the timestamp is before, but not including, the given date.
+* <code>.utc() -&gt; <a href="#timestamp-type">Timestamp</a></code>: Convert timestamp into UTC timezone.
+* <code>.local() -&gt; <a href="#timestamp-type">Timestamp</a></code>: Convert timestamp into local timezone.
+* <code>.after(date: <a href="#string-type">String</a>) -&gt; <a href="#boolean-type">Boolean</a></code>: True if the timestamp is exactly at or after the given date.
+* <code>.before(date: <a href="#string-type">String</a>) -&gt; <a href="#boolean-type">Boolean</a></code>: True if the timestamp is before, but not including, the given date.
 
 ### `TimestampRange` type
 
-_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: yes, <code><a href="#template-type">Template</a></code>: yes_
 
 The following methods are defined.
 
-* `.start() -> Timestamp`
-* `.end() -> Timestamp`
-* `.duration() -> String`
+* <code>.start() -&gt; <a href="#timestamp-type">Timestamp</a></code>
+* <code>.end() -&gt; <a href="#timestamp-type">Timestamp</a></code>
+* <code>.duration() -&gt; <a href="#string-type">String</a></code>
 
 ### `Trailer` type
 
-_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: no, <code><a href="#template-type">Template</a></code>: yes_
 
 The following methods are defined.
 
-* `.key() -> String`
-* `.value() -> String`
+* <code>.key() -&gt; <a href="#string-type">String</a></code>
+* <code>.value() -&gt; <a href="#string-type">String</a></code>
 
 ### `TreeDiff` type
 
-_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: no, <code><a href="#template-type">Template</a></code>: no_
 
 This type cannot be printed. The following methods are defined.
 
-* `.files() -> List<TreeDiffEntry>`: Changed files.
-* `.color_words([context: Integer]) -> Template`: Format as a word-level diff
+* <code>.files() -&gt; <a href="#list-type">List</a>&lt;<a href="#treediffentry-type">TreeDiffEntry</a>&gt;</code>: Changed files.
+* <code>.color_words([context: <a href="#integer-type">Integer</a>]) -&gt; <a href="#template-type">Template</a></code>: Format as a word-level diff
   with changes indicated only by color.
-* `.git([context: Integer]) -> Template`: Format as a Git diff.
-* `.stat([width: Integer]) -> DiffStats`: Calculate stats of changed lines.
-* `.summary() -> Template`: Format as a list of status code and path pairs.
+* <code>.git([context: <a href="#integer-type">Integer</a>]) -&gt; <a href="#template-type">Template</a></code>: Format as a Git diff.
+* <code>.stat([width: <a href="#integer-type">Integer</a>]) -&gt; <a href="#diffstats-type">DiffStats</a></code>: Calculate stats of changed lines.
+* <code>.summary() -&gt; <a href="#template-type">Template</a></code>: Format as a list of status code and path pairs.
 
 ### `TreeDiffEntry` type
 
-_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: no, <code><a href="#template-type">Template</a></code>: no_
 
 This type cannot be printed. The following methods are defined.
 
-* `.path() -> RepoPath`: Path to the entry. If the entry is a copy/rename, this
+* <code>.path() -&gt; <a href="#repopath-type">RepoPath</a></code>: Path to the entry. If the entry is a copy/rename, this
   points to the target (or right) entry.
-* `.status() -> String`: One of `"modified"`, `"added"`, `"removed"`,
+* <code>.status() -&gt; <a href="#string-type">String</a></code>: One of `"modified"`, `"added"`, `"removed"`,
   `"copied"`, or `"renamed"`.
-* `.source() -> TreeEntry`: The source (or left) entry.
-* `.target() -> TreeEntry`: The target (or right) entry.
+* <code>.source() -&gt; <a href="#treeentry-type">TreeEntry</a></code>: The source (or left) entry.
+* <code>.target() -&gt; <a href="#treeentry-type">TreeEntry</a></code>: The target (or right) entry.
 
 ### `TreeEntry` type
 
-_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: no, <code><a href="#template-type">Template</a></code>: no_
 
 This type cannot be printed. The following methods are defined.
 
-* `.path() -> RepoPath`: Path to the entry.
-* `.conflict() -> Boolean`: True if the entry is a merge conflict.
-* `.file_type() -> String`: One of `"file"`, `"symlink"`, `"tree"`,
+* <code>.path() -&gt; <a href="#repopath-type">RepoPath</a></code>: Path to the entry.
+* <code>.conflict() -&gt; <a href="#boolean-type">Boolean</a></code>: True if the entry is a merge conflict.
+* <code>.file_type() -&gt; <a href="#string-type">String</a></code>: One of `"file"`, `"symlink"`, `"tree"`,
   `"git-submodule"`, or `"conflict"`.
-* `.executable() -> Boolean`: True if the entry is an executable file.
+* <code>.executable() -&gt; <a href="#boolean-type">Boolean</a></code>: True if the entry is an executable file.
 
 ### `WorkspaceRef` type
 
-_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+_Conversion: <code><a href="#boolean-type">Boolean</a></code>: no, <code><a href="#serialize-type">Serialize</a></code>: yes, <code><a href="#template-type">Template</a></code>: yes_
 
 The following methods are defined.
 
-* `.name() -> RefSymbol`: Returns the workspace name as a symbol.
-* `.target() -> Commit`: Returns the working-copy commit of this workspace.
+* <code>.name() -&gt; <a href="#refsymbol-type">RefSymbol</a></code>: Returns the workspace name as a symbol.
+* <code>.target() -&gt; <a href="#commit-type">Commit</a></code>: Returns the working-copy commit of this workspace.
 
 ## Color labels
 
