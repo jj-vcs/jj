@@ -44,6 +44,7 @@ use crate::file_util;
 use crate::file_util::persist_content_addressed_temp_file;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::index::Index as _;
 use crate::index::IndexReadError;
 use crate::index::IndexStore;
 use crate::index::IndexWriteError;
@@ -152,11 +153,11 @@ impl DefaultIndexStore {
         self.dir.join("segments")
     }
 
-    fn load_index_segments_at_operation(
+    fn load_index_at_operation(
         &self,
         op_id: &OperationId,
         lengths: FieldLengths,
-    ) -> Result<Arc<ReadonlyCommitIndexSegment>, DefaultIndexStoreError> {
+    ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
         let op_id_file = self.operations_dir().join(op_id.hex());
         let index_file_id_hex =
             fs::read(op_id_file).map_err(DefaultIndexStoreError::LoadAssociation)?;
@@ -167,8 +168,10 @@ impl DefaultIndexStore {
                     "file name is not valid hex",
                 ))
             })?;
-        ReadonlyCommitIndexSegment::load(&self.segments_dir(), index_file_id, lengths)
-            .map_err(DefaultIndexStoreError::LoadIndex)
+        let commits =
+            ReadonlyCommitIndexSegment::load(&self.segments_dir(), index_file_id, lengths)
+                .map_err(DefaultIndexStoreError::LoadIndex)?;
+        Ok(DefaultReadonlyIndex::from_segment(commits))
     }
 
     /// Rebuilds index for the given `operation`.
@@ -222,31 +225,31 @@ impl DefaultIndexStore {
                 }
             }
         }
-        let maybe_parent_file;
         let mut mutable_index;
+        let maybe_parent_index;
         match &parent_op {
             None => {
-                maybe_parent_file = None;
                 mutable_index = DefaultMutableIndex::full(field_lengths);
+                maybe_parent_index = None;
             }
             Some(op) => {
-                let parent_file = self.load_index_segments_at_operation(op.id(), field_lengths)?;
-                maybe_parent_file = Some(parent_file.clone());
-                mutable_index = DefaultMutableIndex::incremental(parent_file);
+                let parent_index = self.load_index_at_operation(op.id(), field_lengths)?;
+                mutable_index = parent_index.start_modification();
+                maybe_parent_index = Some(parent_index);
             }
         }
 
         tracing::info!(
-            ?maybe_parent_file,
+            ?maybe_parent_index,
             heads_count = historical_heads.len(),
             "indexing commits reachable from historical heads"
         );
         // Build a list of ancestors of heads where parents come after the
         // commit itself.
-        let parent_file_has_id = |id: &CommitId| {
-            maybe_parent_file
+        let parent_index_has_id = |id: &CommitId| {
+            maybe_parent_index
                 .as_ref()
-                .is_some_and(|segment| segment.as_composite().has_id(id))
+                .is_some_and(|index| index.has_id(id))
         };
         let get_commit_with_op = |commit_id: &CommitId, op_id: &OperationId| {
             let op_id = op_id.clone();
@@ -269,7 +272,7 @@ impl DefaultIndexStore {
             let mut ancestors = HashSet::new();
             let mut work = historical_heads.keys().cloned().collect_vec();
             while let Some(commit_id) = work.pop() {
-                if ancestors.contains(&commit_id) || parent_file_has_id(&commit_id) {
+                if ancestors.contains(&commit_id) || parent_index_has_id(&commit_id) {
                     continue;
                 }
                 if let Ok(commit) = store.get_commit(&commit_id) {
@@ -284,7 +287,7 @@ impl DefaultIndexStore {
         let commits = dag_walk::topo_order_reverse_ord_ok(
             historical_heads
                 .iter()
-                .filter(|&(commit_id, _)| !parent_file_has_id(commit_id))
+                .filter(|&(commit_id, _)| !parent_index_has_id(commit_id))
                 .map(|(commit_id, op_id)| get_commit_with_op(commit_id, op_id)),
             |(CommitByCommitterTimestamp(commit), _)| commit.id().clone(),
             |(CommitByCommitterTimestamp(commit), op_id)| {
@@ -297,7 +300,7 @@ impl DefaultIndexStore {
                         .into_iter()
                         .flatten(),
                 )
-                .filter(|&id| !parent_file_has_id(id))
+                .filter(|&id| !parent_index_has_id(id))
                 .map(|commit_id| get_commit_with_op(commit_id, op_id))
                 .collect_vec()
             },
@@ -362,8 +365,7 @@ impl IndexStore for DefaultIndexStore {
             commit_id: store.commit_id_length(),
             change_id: store.change_id_length(),
         };
-        let index = match self.load_index_segments_at_operation(op.id(), field_lengths) {
-            Ok(segment) => Ok(DefaultReadonlyIndex::from_segment(segment)),
+        let index = match self.load_index_at_operation(op.id(), field_lengths) {
             Err(DefaultIndexStoreError::LoadAssociation(err))
                 if err.kind() == io::ErrorKind::NotFound =>
             {
@@ -389,7 +391,7 @@ impl IndexStore for DefaultIndexStore {
                 self.reinit().map_err(|err| IndexReadError(err.into()))?;
                 self.build_index_at_operation(op, store)
             }
-            Err(err) => Err(err),
+            result => result,
         }
         .map_err(|err| IndexReadError(err.into()))?;
         Ok(Box::new(index))

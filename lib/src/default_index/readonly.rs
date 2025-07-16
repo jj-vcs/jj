@@ -628,6 +628,10 @@ impl DefaultReadonlyIndex {
         let inner = revset_engine::evaluate(expression, store, self.clone())?;
         Ok(DefaultReadonlyIndexRevset { inner })
     }
+
+    pub(super) fn start_modification(&self) -> DefaultMutableIndex {
+        DefaultMutableIndex::incremental(self.readonly_commits().clone())
+    }
 }
 
 impl AsCompositeIndex for DefaultReadonlyIndex {
@@ -696,9 +700,7 @@ impl ReadonlyIndex for DefaultReadonlyIndex {
     }
 
     fn start_modification(&self) -> Box<dyn MutableIndex> {
-        Box::new(DefaultMutableIndex::incremental(
-            self.readonly_commits().clone(),
-        ))
+        Box::new(DefaultReadonlyIndex::start_modification(self))
     }
 }
 
