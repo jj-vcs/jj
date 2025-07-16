@@ -50,6 +50,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `core.autocrlf` config. A heuristics is used to detect if a file is a binary
   file to prevent the EOL conversion from changing binary files unexpectedly.
 
+* Add a `.parents()` method to the
+  [`Operation`](docs/templates.md#operation-type) type in the templating
+  language.
+
 ### Fixed bugs
 
 ### Packaging changes

@@ -312,6 +312,7 @@ This type cannot be printed. The following methods are defined.
 * `.user() -> String`
 * `.snapshot() -> Boolean`: True if the operation is a snapshot operation.
 * `.root() -> Boolean`: True if the operation is the root operation.
+* `.parents() -> List<Operation>`
 
 ### `OperationId` type
 

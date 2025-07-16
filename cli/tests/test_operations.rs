@@ -2710,6 +2710,38 @@ fn test_op_show_patch() {
     ");
 }
 
+#[test]
+fn test_op_log_parents() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir
+        .run_jj(["describe", "-m", "description 0"])
+        .success();
+
+    work_dir
+        .run_jj(["describe", "-m", "description 1", "--at-op", "@-"])
+        .success();
+    let template = r#"id.short() ++ "\nP: " ++ parents.len() ++ " " ++ parents.map(|o| o.id().short()) ++ "\n""#;
+    let output = work_dir.run_jj(["op", "log", "-T", template]);
+    insta::assert_snapshot!(output, @r###"
+    @    ea1c99c7c4a9
+    ├─╮  P: 2 12f7cbba4278 dd1534c4b064
+    ○ │  12f7cbba4278
+    │ │  P: 1 8f47435a3990
+    │ ○  dd1534c4b064
+    ├─╯  P: 1 8f47435a3990
+    ○  8f47435a3990
+    │  P: 1 000000000000
+    ○  000000000000
+       P: 0
+    [EOF]
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    [EOF]
+    "###);
+}
+
 fn init_bare_git_repo(git_repo_path: &Path) -> gix::Repository {
     let git_repo = git::init_bare(git_repo_path);
     let commit_result = git::add_commit(

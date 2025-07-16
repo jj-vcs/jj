@@ -126,6 +126,11 @@ impl TemplateLanguage<'static> for OperationTemplateLanguage {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
+            OperationTemplatePropertyKind::OperationList(property) => {
+                let table = &self.build_fn_table.operation_list_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
+            }
         }
     }
 }
@@ -139,6 +144,7 @@ impl OperationTemplateLanguage {
 pub enum OperationTemplatePropertyKind {
     Core(CoreTemplatePropertyKind<'static>),
     Operation(BoxedTemplateProperty<'static, Operation>),
+    OperationList(BoxedTemplateProperty<'static, Vec<Operation>>),
     OperationId(BoxedTemplateProperty<'static, OperationId>),
 }
 
@@ -146,6 +152,7 @@ template_builder::impl_core_property_wrappers!(OperationTemplatePropertyKind => 
 template_builder::impl_property_wrappers!(OperationTemplatePropertyKind {
     Operation(Operation),
     OperationId(OperationId),
+    OperationList(Vec<Operation>),
 });
 
 impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
@@ -162,6 +169,7 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
             Self::Core(property) => property.type_name(),
             Self::Operation(_) => "Operation",
             Self::OperationId(_) => "OperationId",
+            Self::OperationList(_) => "List<Operation>",
         }
     }
 
@@ -170,6 +178,7 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
             Self::Core(property) => property.try_into_boolean(),
             Self::Operation(_) => None,
             Self::OperationId(_) => None,
+            Self::OperationList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
         }
     }
 
@@ -195,6 +204,7 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
             Self::Core(property) => property.try_into_serialize(),
             Self::Operation(property) => Some(property.into_serialize()),
             Self::OperationId(property) => Some(property.into_serialize()),
+            Self::OperationList(property) => Some(property.into_serialize()),
         }
     }
 
@@ -203,6 +213,7 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
             Self::Core(property) => property.try_into_template(),
             Self::Operation(_) => None,
             Self::OperationId(property) => Some(property.into_template()),
+            Self::OperationList(_) => None,
         }
     }
 
@@ -212,6 +223,7 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
             (Self::Core(_), _) => None,
             (Self::Operation(_), _) => None,
             (Self::OperationId(_), _) => None,
+            (Self::OperationList(_), _) => None,
         }
     }
 
@@ -221,6 +233,7 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
             (Self::Core(_), _) => None,
             (Self::Operation(_), _) => None,
             (Self::OperationId(_), _) => None,
+            (Self::OperationList(_), _) => None,
         }
     }
 }
@@ -234,6 +247,7 @@ pub struct OperationTemplateBuildFnTable {
     pub core: CoreTemplateBuildFnTable<'static, OperationTemplateLanguage>,
     pub operation_methods: OperationTemplateBuildMethodFnMap<Operation>,
     pub operation_id_methods: OperationTemplateBuildMethodFnMap<OperationId>,
+    pub operation_list_methods: OperationTemplateBuildMethodFnMap<Vec<Operation>>,
 }
 
 impl OperationTemplateBuildFnTable {
@@ -243,6 +257,7 @@ impl OperationTemplateBuildFnTable {
             core: CoreTemplateBuildFnTable::builtin(),
             operation_methods: builtin_operation_methods(),
             operation_id_methods: builtin_operation_id_methods(),
+            operation_list_methods: template_builder::builtin_unformattable_list_methods(),
         }
     }
 
@@ -251,6 +266,7 @@ impl OperationTemplateBuildFnTable {
             core: CoreTemplateBuildFnTable::empty(),
             operation_methods: HashMap::new(),
             operation_id_methods: HashMap::new(),
+            operation_list_methods: HashMap::new(),
         }
     }
 
@@ -259,11 +275,13 @@ impl OperationTemplateBuildFnTable {
             core,
             operation_methods,
             operation_id_methods,
+            operation_list_methods,
         } = other;
 
         self.core.merge(core);
         merge_fn_map(&mut self.operation_methods, operation_methods);
         merge_fn_map(&mut self.operation_id_methods, operation_id_methods);
+        merge_fn_map(&mut self.operation_list_methods, operation_list_methods);
     }
 }
 
@@ -344,6 +362,17 @@ fn builtin_operation_methods() -> OperationTemplateBuildMethodFnMap<Operation> {
             function.expect_no_arguments()?;
             let root_op_id = language.repo_loader.op_store().root_operation_id().clone();
             let out_property = self_property.map(move |op| op.id() == &root_op_id);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "parents",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|op| {
+                let ops: Vec<_> = op.parents().try_collect()?;
+                Ok(ops)
+            });
             Ok(out_property.into_dyn_wrapped())
         },
     );
