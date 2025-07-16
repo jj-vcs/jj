@@ -482,12 +482,10 @@ impl DefaultMutableIndex {
             .add_commit_data(commit_id, change_id, parent_ids);
     }
 
-    pub(super) fn squash_and_save_in(
-        self,
-        dir: &Path,
-    ) -> io::Result<Arc<ReadonlyCommitIndexSegment>> {
+    pub(super) fn squash_and_save_in(self, dir: &Path) -> io::Result<DefaultReadonlyIndex> {
         let commits = self.0.into_mutable().expect("must have mutable");
-        commits.maybe_squash_with_ancestors().save_in(dir)
+        let commits = commits.maybe_squash_with_ancestors().save_in(dir)?;
+        Ok(DefaultReadonlyIndex::from_segment(commits))
     }
 }
 
