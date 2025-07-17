@@ -386,10 +386,6 @@ impl CommitIndexSegment for MutableCommitIndexSegment {
         self.parent_file.as_ref()
     }
 
-    fn id(&self) -> Option<&CommitIndexSegmentId> {
-        None
-    }
-
     fn commit_id_to_pos(&self, commit_id: &CommitId) -> Option<LocalCommitPosition> {
         self.commit_lookup.get(commit_id).copied()
     }

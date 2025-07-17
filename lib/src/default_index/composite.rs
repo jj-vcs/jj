@@ -16,9 +16,7 @@
 
 use std::cmp::Ordering;
 use std::cmp::Reverse;
-use std::cmp::max;
 use std::collections::BinaryHeap;
-use std::collections::HashSet;
 use std::collections::binary_heap;
 use std::iter;
 use std::mem;
@@ -65,8 +63,6 @@ pub(super) trait CommitIndexSegment: Send + Sync {
     fn num_local_commits(&self) -> u32;
 
     fn parent_file(&self) -> Option<&Arc<ReadonlyCommitIndexSegment>>;
-
-    fn id(&self) -> Option<&CommitIndexSegmentId>;
 
     fn commit_id_to_pos(&self, commit_id: &CommitId) -> Option<LocalCommitPosition>;
 
@@ -153,40 +149,6 @@ impl CompositeCommitIndex {
 
     pub fn num_commits(&self) -> u32 {
         self.0.num_parent_commits() + self.0.num_local_commits()
-    }
-
-    pub fn stats(&self) -> IndexStats {
-        let num_commits = self.num_commits();
-        let mut num_merges = 0;
-        let mut max_generation_number = 0;
-        let mut change_ids = HashSet::new();
-        for pos in 0..num_commits {
-            let entry = self.entry_by_pos(GlobalCommitPosition(pos));
-            max_generation_number = max(max_generation_number, entry.generation_number());
-            if entry.num_parents() > 1 {
-                num_merges += 1;
-            }
-            change_ids.insert(entry.change_id());
-        }
-        let num_heads = u32::try_from(self.all_heads_pos().count()).unwrap();
-
-        let mut commit_levels = self
-            .ancestor_index_segments()
-            .map(|segment| CommitIndexLevelStats {
-                num_commits: segment.num_local_commits(),
-                name: segment.id().map(|id| id.hex()),
-            })
-            .collect_vec();
-        commit_levels.reverse();
-
-        IndexStats {
-            num_commits,
-            num_merges,
-            max_generation_number,
-            num_heads,
-            num_changes: change_ids.len().try_into().unwrap(),
-            commit_levels,
-        }
     }
 
     pub fn has_id(&self, commit_id: &CommitId) -> bool {
@@ -699,20 +661,6 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
         let index = self.index.as_composite().commits();
         index.shortest_unique_change_id_prefix_len(change_id)
     }
-}
-
-pub struct CommitIndexLevelStats {
-    pub num_commits: u32,
-    pub name: Option<String>,
-}
-
-pub struct IndexStats {
-    pub num_commits: u32,
-    pub num_merges: u32,
-    pub max_generation_number: u32,
-    pub num_heads: u32,
-    pub num_changes: u32,
-    pub commit_levels: Vec<CommitIndexLevelStats>,
 }
 
 /// Repeatedly `shift_to_parents` until reaching a target position. Returns true

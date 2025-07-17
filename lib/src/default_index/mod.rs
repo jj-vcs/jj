@@ -32,11 +32,11 @@ mod revset_engine;
 mod revset_graph_iterator;
 mod store;
 
-pub use self::composite::CommitIndexLevelStats;
-pub use self::composite::IndexStats;
 pub use self::mutable::DefaultMutableIndex;
+pub use self::readonly::CommitIndexLevelStats;
 pub use self::readonly::DefaultReadonlyIndex;
 pub use self::readonly::DefaultReadonlyIndexRevset;
+pub use self::readonly::IndexStats;
 pub use self::readonly::ReadonlyIndexLoadError;
 pub use self::store::DefaultIndexStore;
 pub use self::store::DefaultIndexStoreError;
@@ -64,6 +64,7 @@ mod tests {
     use super::entry::GlobalCommitPosition;
     use super::entry::SmallGlobalCommitPositionsVec;
     use super::mutable::MutableCommitIndexSegment;
+    use super::readonly::ReadonlyCommitIndexSegment;
     use super::*;
     use crate::backend::ChangeId;
     use crate::backend::CommitId;
@@ -94,6 +95,11 @@ mod tests {
         move || iter.next().unwrap()
     }
 
+    fn get_commit_index_stats(commits: &Arc<ReadonlyCommitIndexSegment>) -> IndexStats {
+        let index = DefaultReadonlyIndex::from_segment(commits.clone());
+        index.stats()
+    }
+
     #[test_case(false; "memory")]
     #[test_case(true; "file")]
     fn index_empty(on_disk: bool) {
@@ -101,20 +107,20 @@ mod tests {
         let mutable_segment = MutableCommitIndexSegment::full(TEST_FIELD_LENGTHS);
         let index_segment: Box<DynCommitIndexSegment> = if on_disk {
             let saved_index = mutable_segment.save_in(temp_dir.path()).unwrap();
+            // Stats are as expected
+            let stats = get_commit_index_stats(&saved_index);
+            assert_eq!(stats.num_commits, 0);
+            assert_eq!(stats.num_heads, 0);
+            assert_eq!(stats.max_generation_number, 0);
+            assert_eq!(stats.num_merges, 0);
+            assert_eq!(stats.num_changes, 0);
             Box::new(Arc::try_unwrap(saved_index).unwrap())
         } else {
             Box::new(mutable_segment)
         };
         let index = CompositeCommitIndex::new(index_segment.as_ref());
-
-        // Stats are as expected
-        let stats = index.stats();
-        assert_eq!(stats.num_commits, 0);
-        assert_eq!(stats.num_heads, 0);
-        assert_eq!(stats.max_generation_number, 0);
-        assert_eq!(stats.num_merges, 0);
-        assert_eq!(stats.num_changes, 0);
         assert_eq!(index.num_commits(), 0);
+
         // Cannot find any commits
         assert!(index.entry_by_id(&CommitId::from_hex("000000")).is_none());
         assert!(index.entry_by_id(&CommitId::from_hex("aaa111")).is_none());
@@ -132,20 +138,20 @@ mod tests {
         mutable_segment.add_commit_data(id_0.clone(), change_id0.clone(), &[]);
         let index_segment: Box<DynCommitIndexSegment> = if on_disk {
             let saved_index = mutable_segment.save_in(temp_dir.path()).unwrap();
+            // Stats are as expected
+            let stats = get_commit_index_stats(&saved_index);
+            assert_eq!(stats.num_commits, 1);
+            assert_eq!(stats.num_heads, 1);
+            assert_eq!(stats.max_generation_number, 0);
+            assert_eq!(stats.num_merges, 0);
+            assert_eq!(stats.num_changes, 1);
             Box::new(Arc::try_unwrap(saved_index).unwrap())
         } else {
             Box::new(mutable_segment)
         };
         let index = CompositeCommitIndex::new(index_segment.as_ref());
-
-        // Stats are as expected
-        let stats = index.stats();
-        assert_eq!(stats.num_commits, 1);
-        assert_eq!(stats.num_heads, 1);
-        assert_eq!(stats.max_generation_number, 0);
-        assert_eq!(stats.num_merges, 0);
-        assert_eq!(stats.num_changes, 1);
         assert_eq!(index.num_commits(), 1);
+
         // Can find only the root commit
         assert_eq!(index.commit_id_to_pos(&id_0), Some(GlobalCommitPosition(0)));
         assert_eq!(index.commit_id_to_pos(&CommitId::from_hex("aaaaaa")), None);
@@ -217,20 +223,20 @@ mod tests {
         mutable_segment.add_commit_data(id_5.clone(), change_id5, &[id_4.clone(), id_2.clone()]);
         let index_segment: Box<DynCommitIndexSegment> = if on_disk {
             let saved_index = mutable_segment.save_in(temp_dir.path()).unwrap();
+            // Stats are as expected
+            let stats = get_commit_index_stats(&saved_index);
+            assert_eq!(stats.num_commits, 6);
+            assert_eq!(stats.num_heads, 2);
+            assert_eq!(stats.max_generation_number, 3);
+            assert_eq!(stats.num_merges, 1);
+            assert_eq!(stats.num_changes, 4);
             Box::new(Arc::try_unwrap(saved_index).unwrap())
         } else {
             Box::new(mutable_segment)
         };
         let index = CompositeCommitIndex::new(index_segment.as_ref());
-
-        // Stats are as expected
-        let stats = index.stats();
-        assert_eq!(stats.num_commits, 6);
-        assert_eq!(stats.num_heads, 2);
-        assert_eq!(stats.max_generation_number, 3);
-        assert_eq!(stats.num_merges, 1);
-        assert_eq!(stats.num_changes, 4);
         assert_eq!(index.num_commits(), 6);
+
         // Can find all the commits
         let entry_0 = index.entry_by_id(&id_0).unwrap();
         let entry_1 = index.entry_by_id(&id_1).unwrap();
@@ -329,18 +335,18 @@ mod tests {
         );
         let index_segment: Box<DynCommitIndexSegment> = if on_disk {
             let saved_index = mutable_segment.save_in(temp_dir.path()).unwrap();
+            // Stats are as expected
+            let stats = get_commit_index_stats(&saved_index);
+            assert_eq!(stats.num_commits, 7);
+            assert_eq!(stats.num_heads, 1);
+            assert_eq!(stats.max_generation_number, 2);
+            assert_eq!(stats.num_merges, 1);
             Box::new(Arc::try_unwrap(saved_index).unwrap())
         } else {
             Box::new(mutable_segment)
         };
         let index = CompositeCommitIndex::new(index_segment.as_ref());
-
-        // Stats are as expected
-        let stats = index.stats();
-        assert_eq!(stats.num_commits, 7);
-        assert_eq!(stats.num_heads, 1);
-        assert_eq!(stats.max_generation_number, 2);
-        assert_eq!(stats.num_merges, 1);
+        assert_eq!(index.num_commits(), 7);
 
         // The octopus merge has the right parents
         let entry_6 = index.entry_by_id(&id_6).unwrap();

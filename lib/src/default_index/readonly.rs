@@ -16,14 +16,17 @@
 
 use std::any::Any;
 use std::cmp::Ordering;
+use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io;
 use std::io::Read;
+use std::iter;
 use std::path::Path;
 use std::sync::Arc;
 
+use itertools::Itertools as _;
 use smallvec::smallvec;
 use thiserror::Error;
 
@@ -33,7 +36,6 @@ use super::composite::CommitIndexSegment;
 use super::composite::CommitIndexSegmentId;
 use super::composite::CompositeCommitIndex;
 use super::composite::CompositeIndex;
-use super::composite::IndexStats;
 use super::entry::GlobalCommitPosition;
 use super::entry::LocalCommitPosition;
 use super::entry::SmallGlobalCommitPositionsVec;
@@ -475,10 +477,6 @@ impl CommitIndexSegment for ReadonlyCommitIndexSegment {
         self.parent_file.as_ref()
     }
 
-    fn id(&self) -> Option<&CommitIndexSegmentId> {
-        Some(&self.id)
-    }
-
     fn commit_id_to_pos(&self, commit_id: &CommitId) -> Option<LocalCommitPosition> {
         self.commit_id_byte_prefix_to_lookup_pos(commit_id.as_bytes())
             .ok()
@@ -610,7 +608,36 @@ impl DefaultReadonlyIndex {
 
     /// Collects statistics of indexed commits and segments.
     pub fn stats(&self) -> IndexStats {
-        self.0.commits().stats()
+        let commits = self.readonly_commits();
+        let num_commits = commits.as_composite().num_commits();
+        let mut num_merges = 0;
+        let mut max_generation_number = 0;
+        let mut change_ids = HashSet::new();
+        for pos in (0..num_commits).map(GlobalCommitPosition) {
+            let entry = commits.as_composite().entry_by_pos(pos);
+            max_generation_number = max_generation_number.max(entry.generation_number());
+            if entry.num_parents() > 1 {
+                num_merges += 1;
+            }
+            change_ids.insert(entry.change_id());
+        }
+        let num_heads = u32::try_from(commits.as_composite().all_heads_pos().count()).unwrap();
+        let mut commit_levels = iter::successors(Some(commits), |segment| segment.parent_file())
+            .map(|segment| CommitIndexLevelStats {
+                num_commits: segment.num_local_commits(),
+                name: segment.id().hex(),
+            })
+            .collect_vec();
+        commit_levels.reverse();
+
+        IndexStats {
+            num_commits,
+            num_merges,
+            max_generation_number,
+            num_heads,
+            num_changes: change_ids.len().try_into().unwrap(),
+            commit_levels,
+        }
     }
 
     /// Looks up generation of the specified commit.
@@ -721,6 +748,22 @@ impl DefaultReadonlyIndexRevset {
     pub fn into_inner(self) -> Box<dyn Revset> {
         Box::new(self.inner)
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct IndexStats {
+    pub num_commits: u32,
+    pub num_merges: u32,
+    pub max_generation_number: u32,
+    pub num_heads: u32,
+    pub num_changes: u32,
+    pub commit_levels: Vec<CommitIndexLevelStats>,
+}
+
+#[derive(Clone, Debug)]
+pub struct CommitIndexLevelStats {
+    pub num_commits: u32,
+    pub name: String,
 }
 
 /// Binary search result in a sorted lookup table.

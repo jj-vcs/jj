@@ -56,7 +56,7 @@ pub fn cmd_debug_index(
         for (i, level) in stats.commit_levels.iter().enumerate() {
             writeln!(ui.stdout(), "  Level {i}:")?;
             writeln!(ui.stdout(), "    Number of commits: {}", level.num_commits)?;
-            writeln!(ui.stdout(), "    Name: {}", level.name.as_ref().unwrap())?;
+            writeln!(ui.stdout(), "    Name: {}", level.name)?;
         }
     } else {
         return Err(user_error(format!(
