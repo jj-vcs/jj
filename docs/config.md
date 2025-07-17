@@ -1734,6 +1734,16 @@ paginate = "never"
 --when.commands = ["diff", "show"]
 [--scope.ui]
 pager = "delta"
+
+# override user.email based on a custom config value,
+# ..which can be set per-repository
+[[--scope]]
+--when.config.org = 'work'
+user.email = "YOUR_WORK_EMAIL@example.org"
+
+[[--scope]]
+--when.config.org = 'oss'
+user.email = "YOUR_OSS_EMAIL@example.org"
 ```
 
 #### Using multiple files
@@ -1785,4 +1795,21 @@ wip = ["log", "-r", "work"]
   --when.commands = ["file"]        # matches `jj file show`, `jj file list`, etc
   --when.commands = ["file show"]   # matches `jj file show` but *NOT* `jj file list`
   --when.commands = ["file", "log"] # matches `jj file` *OR* `jj log` (or subcommand of either)
+  ```
+
+
+* `--when.config`: Table of config values to match.
+
+  Only matches values from previous scopes/layers.
+
+  ```toml
+  foo = 'bar'
+
+  [[--scope]]
+  --when.config.foo = 'bar'
+  foo = 'baz'
+
+  [[--scope]]
+  --when.config.foo = 'bar'
+  # this never runs because the condition applies after the previous scope
   ```

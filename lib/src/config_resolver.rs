@@ -14,6 +14,7 @@
 
 //! Post-processing functions for [`StackedConfig`].
 
+use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -21,6 +22,7 @@ use std::sync::Arc;
 use itertools::Itertools as _;
 use serde::de::IntoDeserializer as _;
 use serde::Deserialize as _;
+use serde_json::Value;
 use thiserror::Error;
 use toml_edit::DocumentMut;
 
@@ -67,6 +69,8 @@ struct ScopeCondition {
     /// - `--when.commands = ["foo bar"]` -> matches "foo bar", "foo bar baz",
     ///   NOT "foo"
     pub commands: Option<Vec<String>>,
+    /// Config values to match. Only matches previous scopes/layers.
+    pub config: Option<HashMap<String, Value>>,
     // TODO: maybe add "workspaces"?
 }
 
@@ -92,9 +96,10 @@ impl ScopeCondition {
         Ok(self)
     }
 
-    fn matches(&self, context: &ConfigResolutionContext) -> bool {
+    fn matches(&self, context: &ConfigResolutionContext, previous_layers: &StackedConfig) -> bool {
         matches_path_prefix(self.repositories.as_deref(), context.repo_path)
             && matches_command(self.commands.as_deref(), context.command)
+            && matches_config(&self.config, previous_layers)
     }
 }
 
@@ -128,6 +133,26 @@ fn matches_command(candidates: Option<&[String]>, actual: Option<&str>) -> bool 
     }
 }
 
+fn matches_config(values: &Option<HashMap<String, Value>>, actual: &StackedConfig) -> bool {
+    let Some(values) = values else {
+        return true;
+    };
+
+    for (key, expected_value) in values {
+        let Ok(key_path) = key.parse::<ConfigNamePathBuf>() else {
+            return false;
+        };
+        let Ok(actual_value) = actual.get::<Value>(key_path) else {
+            return false;
+        };
+        if format!("{actual_value:?}") != format!("{expected_value:?}") {
+            return false;
+        }
+    }
+
+    true
+}
+
 /// Evaluates condition for each layer and scope, flattens scoped tables.
 /// Returns new config that only contains enabled layers and tables.
 pub fn resolve(
@@ -136,18 +161,18 @@ pub fn resolve(
 ) -> Result<StackedConfig, ConfigGetError> {
     let mut source_layers_stack: Vec<Arc<ConfigLayer>> =
         source_config.layers().iter().rev().cloned().collect();
-    let mut resolved_layers: Vec<Arc<ConfigLayer>> = Vec::new();
+    let mut resolved_layers = StackedConfig::empty();
     while let Some(mut source_layer) = source_layers_stack.pop() {
         if !source_layer.data.contains_key(SCOPE_CONDITION_KEY)
             && !source_layer.data.contains_key(SCOPE_TABLE_KEY)
         {
-            resolved_layers.push(source_layer); // reuse original table
+            resolved_layers.add_layer(source_layer); // reuse original table
             continue;
         }
 
         let layer_mut = Arc::make_mut(&mut source_layer);
         let condition = pop_scope_condition(layer_mut, context)?;
-        if !condition.matches(context) {
+        if !condition.matches(context, &resolved_layers) {
             continue;
         }
         let tables = pop_scope_tables(layer_mut)?;
@@ -163,11 +188,9 @@ pub fn resolve(
             source_layers_stack.push(Arc::new(layer));
         }
         source_layers_stack[frame..].reverse();
-        resolved_layers.push(source_layer);
+        resolved_layers.add_layer(source_layer);
     }
-    let mut resolved_config = StackedConfig::empty();
-    resolved_config.extend_layers(resolved_layers);
-    Ok(resolved_config)
+    Ok(resolved_layers)
 }
 
 fn pop_scope_condition(
@@ -430,13 +453,13 @@ mod tests {
             repo_path: None,
             command: None,
         };
-        assert!(condition.matches(&context));
+        assert!(condition.matches(&context, &StackedConfig::empty()));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new("/foo")),
             command: None,
         };
-        assert!(condition.matches(&context));
+        assert!(condition.matches(&context, &StackedConfig::empty()));
     }
 
     #[test]
@@ -444,6 +467,7 @@ mod tests {
         let condition = ScopeCondition {
             repositories: Some(["/foo", "/bar"].map(PathBuf::from).into()),
             commands: None,
+            config: None,
         };
 
         let context = ConfigResolutionContext {
@@ -451,31 +475,31 @@ mod tests {
             repo_path: None,
             command: None,
         };
-        assert!(!condition.matches(&context));
+        assert!(!condition.matches(&context, &StackedConfig::empty()));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new("/foo")),
             command: None,
         };
-        assert!(condition.matches(&context));
+        assert!(condition.matches(&context, &StackedConfig::empty()));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new("/fooo")),
             command: None,
         };
-        assert!(!condition.matches(&context));
+        assert!(!condition.matches(&context, &StackedConfig::empty()));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new("/foo/baz")),
             command: None,
         };
-        assert!(condition.matches(&context));
+        assert!(condition.matches(&context, &StackedConfig::empty()));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new("/bar")),
             command: None,
         };
-        assert!(condition.matches(&context));
+        assert!(condition.matches(&context, &StackedConfig::empty()));
     }
 
     #[test]
@@ -483,6 +507,7 @@ mod tests {
         let condition = ScopeCondition {
             repositories: Some(["c:/foo", r"d:\bar/baz"].map(PathBuf::from).into()),
             commands: None,
+            config: None,
         };
 
         let context = ConfigResolutionContext {
@@ -490,25 +515,34 @@ mod tests {
             repo_path: Some(Path::new(r"c:\foo")),
             command: None,
         };
-        assert_eq!(condition.matches(&context), cfg!(windows));
+        assert_eq!(
+            condition.matches(&context, &StackedConfig::empty()),
+            cfg!(windows)
+        );
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new(r"c:\foo\baz")),
             command: None,
         };
-        assert_eq!(condition.matches(&context), cfg!(windows));
+        assert_eq!(
+            condition.matches(&context, &StackedConfig::empty()),
+            cfg!(windows)
+        );
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new(r"d:\foo")),
             command: None,
         };
-        assert!(!condition.matches(&context));
+        assert!(!condition.matches(&context, &StackedConfig::empty()));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new(r"d:/bar\baz")),
             command: None,
         };
-        assert_eq!(condition.matches(&context), cfg!(windows));
+        assert_eq!(
+            condition.matches(&context, &StackedConfig::empty()),
+            cfg!(windows)
+        );
     }
 
     fn new_user_layer(text: &str) -> ConfigLayer {
@@ -636,6 +670,72 @@ mod tests {
         assert_eq!(resolved_config.layers().len(), 2);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #1 baz'");
+    }
+
+    #[test]
+    fn test_resolve_config_layers() {
+        let mut source_config = StackedConfig::empty();
+        source_config.add_layer(new_user_layer(indoc! {"
+            a = 'a #0'
+            [[--scope]]
+            --when.config.a = 'a #0'
+            a = 'a #1'
+            [[--scope]]
+            --when.config.a = 'a #0'  # should never be enabled
+            a = 'a #2'
+
+            b = 'b #0'
+            [[--scope]]
+            --when.config.b = 'b #1'  # should never be enabled
+            b = 'b #2'
+        "}));
+        source_config.add_layer(new_user_layer(indoc! {"
+            b = 'b #1'
+        "}));
+
+        let context = ConfigResolutionContext {
+            home_dir: None,
+            repo_path: None,
+            command: None,
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 3);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #1'");
+        insta::assert_snapshot!(resolved_config.layers()[2].data, @"b = 'b #1'");
+    }
+
+    #[test]
+    fn test_resolve_config_types() {
+        let mut source_config = StackedConfig::empty();
+        source_config.add_layer(new_user_layer(indoc! {"
+            string = 'foo'
+            integer = 42
+            float = 3.14
+            boolean = true
+            datetime = 1979-05-27T07:32:00Z
+            array = [1, true, 'three']
+            table = { key = 'value' }
+
+            [[--scope]]
+            --when.config.string = 'foo'
+            --when.config.integer = 42
+            --when.config.float = 3.14
+            --when.config.boolean = true
+            --when.config.datetime = 1979-05-27T07:32:00Z
+            --when.config.array = [1, true, 'three']
+            --when.config.table = { key = 'value' }
+            matched = true
+        "}));
+
+        let context = ConfigResolutionContext {
+            home_dir: None,
+            repo_path: None,
+            command: None,
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 2);
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @"matched = true");
     }
 
     #[test]
