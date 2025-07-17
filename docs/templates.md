@@ -426,6 +426,10 @@ defined.
 * `.len() -> Integer`: Length in UTF-8 bytes.
 * `.contains(needle: Stringify) -> Boolean`: Whether the string contains the
   provided stringifiable value as a substring.
+* `.match(needle: StringPattern) -> String`: Extracts
+  the first matching part of the string for the given pattern.
+
+  An empty string is returned if there is no match.
 * `.first_line() -> String`
 * `.lines() -> List<String>`: Split into lines excluding newline characters.
 * `.upper() -> String`

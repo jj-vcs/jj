@@ -60,6 +60,11 @@ impl GlobPattern {
     pub fn as_str(&self) -> &str {
         self.glob.glob()
     }
+
+    /// Converts this glob pattern to a bytes regex.
+    pub fn to_regex(&self) -> regex::bytes::Regex {
+        self.regex.clone()
+    }
 }
 
 impl Debug for GlobPattern {
@@ -289,6 +294,35 @@ impl StringPattern {
         }
     }
 
+    /// Converts the pattern into a bytes regex.
+    pub fn to_regex(&self) -> regex::bytes::Regex {
+        match self {
+            Self::Exact(literal) => {
+                regex::bytes::RegexBuilder::new(&format!("^{}$", regex::escape(literal)))
+                    .build()
+                    .expect("impossible to fail to compile regex of literal")
+            }
+            Self::ExactI(literal) => {
+                regex::bytes::RegexBuilder::new(&format!("^{}$", regex::escape(literal)))
+                    .case_insensitive(true)
+                    .build()
+                    .expect("impossible to fail to compile regex of literal")
+            }
+            Self::Substring(literal) => regex::bytes::RegexBuilder::new(&regex::escape(literal))
+                .build()
+                .expect("impossible to fail to compile regex of literal"),
+            Self::SubstringI(literal) => regex::bytes::RegexBuilder::new(&regex::escape(literal))
+                .case_insensitive(true)
+                .build()
+                .expect("impossible to fail to compile regex of literal"),
+            Self::Glob(glob_pattern) => glob_pattern.to_regex(),
+            // The regex generated represents the case insensitivity itself
+            Self::GlobI(glob_pattern) => glob_pattern.to_regex(),
+            Self::Regex(regex) => regex.clone(),
+            Self::RegexI(regex) => regex.clone(),
+        }
+    }
+
     /// Iterates entries of the given `map` whose string keys match this
     /// pattern.
     pub fn filter_btree_map<'a, 'b, K: Borrow<str> + Ord, V>(
@@ -486,5 +520,26 @@ mod tests {
                 .unwrap()
                 .is_match("\u{c0}")
         );
+    }
+
+    #[test]
+    fn test_string_pattern_to_regex() {
+        let check = |pattern: StringPattern, match_to: &str| {
+            let regex = pattern.to_regex();
+            regex.is_match(match_to.as_bytes())
+        };
+        assert!(check(StringPattern::exact("$a"), "$a"));
+        assert!(!check(StringPattern::exact("$a"), "$A"));
+        assert!(!check(StringPattern::exact("a"), "aa"));
+        assert!(!check(StringPattern::exact("a"), "aa"));
+        assert!(check(StringPattern::exact_i("a"), "A"));
+        assert!(check(StringPattern::substring("$a"), "$abc"));
+        assert!(!check(StringPattern::substring("$a"), "$Abc"));
+        assert!(check(StringPattern::substring_i("$a"), "$Abc"));
+        assert!(!check(StringPattern::glob("a").unwrap(), "A"));
+        assert!(check(StringPattern::glob_i("a").unwrap(), "A"));
+        assert!(check(StringPattern::regex("^a{1,3}").unwrap(), "abcde"));
+        assert!(!check(StringPattern::regex("^a{1,3}").unwrap(), "Abcde"));
+        assert!(check(StringPattern::regex_i("^a{1,3}").unwrap(), "Abcde"));
     }
 }
