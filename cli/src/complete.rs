@@ -821,6 +821,12 @@ pub fn modified_range_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidat
     }
 }
 
+/// Completes files in `@` *or* the `--from` revision (not the diff between
+/// `--from` and `@`)
+pub fn modified_from_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    modified_files_from_rev((parse::from_or_wc(), None), current)
+}
+
 pub fn modified_revision_or_range_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     if let Some(rev) = parse::revision() {
         return modified_files_from_rev((rev, None), current);
@@ -1055,6 +1061,12 @@ mod parse {
 
     pub fn revision_or_wc() -> String {
         revision().unwrap_or_else(|| "@".into())
+    }
+
+    pub fn from_or_wc() -> String {
+        parse_flag(&["-f", "--from"], std::env::args())
+            .next()
+            .unwrap_or_else(|| "@".into())
     }
 
     pub fn parse_range_impl<T>(args: impl Fn() -> T) -> Option<(String, String)>
