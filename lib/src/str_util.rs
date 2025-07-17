@@ -249,12 +249,12 @@ impl StringPattern {
     ///
     /// When matching against a case‐insensitive pattern, only ASCII case
     /// differences are currently folded. This may change in the future.
-    pub fn matches(&self, haystack: &str) -> bool {
-        self.matches_bytes(haystack.as_bytes())
+    pub fn is_match(&self, haystack: &str) -> bool {
+        self.is_match_bytes(haystack.as_bytes())
     }
 
     /// Returns true if this pattern matches the `haystack` bytes.
-    pub fn matches_bytes(&self, haystack: &[u8]) -> bool {
+    pub fn is_match_bytes(&self, haystack: &[u8]) -> bool {
         // TODO: Unicode case folding is complicated and can be
         // locale‐specific. The `globset` crate and Gitoxide only deal with
         // ASCII case folding, so we do the same here; a more elaborate case
@@ -335,7 +335,7 @@ impl StringPattern {
         } else {
             Either::Right(
                 map.iter()
-                    .filter(move |&(key, _)| self.matches(from_key(key.borrow()))),
+                    .filter(move |&(key, _)| self.is_match(from_key(key.borrow()))),
             )
         }
     }
@@ -445,42 +445,42 @@ mod tests {
     }
 
     #[test]
-    fn test_glob_matches() {
-        assert!(StringPattern::glob("foo").unwrap().matches("foo"));
-        assert!(!StringPattern::glob("foo").unwrap().matches("foobar"));
+    fn test_glob_is_match() {
+        assert!(StringPattern::glob("foo").unwrap().is_match("foo"));
+        assert!(!StringPattern::glob("foo").unwrap().is_match("foobar"));
 
         // "." in string isn't any special
-        assert!(StringPattern::glob("*").unwrap().matches(".foo"));
+        assert!(StringPattern::glob("*").unwrap().is_match(".foo"));
 
         // "/" in string isn't any special
-        assert!(StringPattern::glob("*").unwrap().matches("foo/bar"));
-        assert!(StringPattern::glob(r"*/*").unwrap().matches("foo/bar"));
-        assert!(!StringPattern::glob(r"*/*").unwrap().matches(r"foo\bar"));
+        assert!(StringPattern::glob("*").unwrap().is_match("foo/bar"));
+        assert!(StringPattern::glob(r"*/*").unwrap().is_match("foo/bar"));
+        assert!(!StringPattern::glob(r"*/*").unwrap().is_match(r"foo\bar"));
 
         // "\" is an escape character
-        assert!(!StringPattern::glob(r"*\*").unwrap().matches("foo/bar"));
-        assert!(StringPattern::glob(r"*\*").unwrap().matches("foo*"));
-        assert!(StringPattern::glob(r"\\").unwrap().matches(r"\"));
+        assert!(!StringPattern::glob(r"*\*").unwrap().is_match("foo/bar"));
+        assert!(StringPattern::glob(r"*\*").unwrap().is_match("foo*"));
+        assert!(StringPattern::glob(r"\\").unwrap().is_match(r"\"));
 
-        // "*" matches newline
-        assert!(StringPattern::glob(r"*").unwrap().matches("foo\nbar"));
+        // "*" is_match newline
+        assert!(StringPattern::glob(r"*").unwrap().is_match("foo\nbar"));
 
-        assert!(!StringPattern::glob("f?O").unwrap().matches("Foo"));
-        assert!(StringPattern::glob_i("f?O").unwrap().matches("Foo"));
+        assert!(!StringPattern::glob("f?O").unwrap().is_match("Foo"));
+        assert!(StringPattern::glob_i("f?O").unwrap().is_match("Foo"));
     }
 
     #[test]
-    fn test_regex_matches() {
+    fn test_regex_is_match() {
         // Unicode mode is enabled by default
-        assert!(StringPattern::regex(r"^\w$").unwrap().matches("\u{c0}"));
-        assert!(StringPattern::regex(r"^.$").unwrap().matches("\u{c0}"));
+        assert!(StringPattern::regex(r"^\w$").unwrap().is_match("\u{c0}"));
+        assert!(StringPattern::regex(r"^.$").unwrap().is_match("\u{c0}"));
         // ASCII-compatible mode should also work
-        assert!(StringPattern::regex(r"^(?-u)\w$").unwrap().matches("a"));
+        assert!(StringPattern::regex(r"^(?-u)\w$").unwrap().is_match("a"));
         assert!(!StringPattern::regex(r"^(?-u)\w$")
             .unwrap()
-            .matches("\u{c0}"));
+            .is_match("\u{c0}"));
         assert!(StringPattern::regex(r"^(?-u).{2}$")
             .unwrap()
-            .matches("\u{c0}"));
+            .is_match("\u{c0}"));
     }
 }

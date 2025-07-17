@@ -99,7 +99,7 @@ pub fn cmd_git_fetch(
     for pattern in remote_patterns {
         let remotes = all_remotes
             .iter()
-            .filter(|r| pattern.matches(r.as_str()))
+            .filter(|r| pattern.is_match(r.as_str()))
             .collect_vec();
         if remotes.is_empty() {
             writeln!(ui.warning_default(), "No git remotes matching '{pattern}'")?;
