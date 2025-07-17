@@ -22,6 +22,9 @@ tracked when they're added to the working copy. See the
 [fileset documentation](filesets.md) for the syntax. Files with paths matching
 [ignore files](#ignored-files) are never tracked automatically.
 
+If you set `snapshot.auto-track` to a non-default value, untracked files can be
+tracked with `jj file track`.
+
 You can use `jj file untrack` to untrack a file while keeping it in the working
 copy. However, first [ignore](#ignored-files) them or remove them from the
 `snapshot.auto-track` patterns; otherwise they will be immediately tracked again.
