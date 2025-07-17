@@ -909,6 +909,59 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         },
     );
     map.insert(
+        "match",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let ([needle_node], [match_group_opt_arg]) = function.expect_arguments()?;
+            let needle = template_parser::expect_string_pattern(needle_node)?;
+
+            let group = if let Some(group) = match_group_opt_arg {
+                Some(expect_integer_expression(
+                    language,
+                    diagnostics,
+                    build_ctx,
+                    group,
+                )?)
+            } else {
+                None
+            };
+
+            let out_property = (self_property, group).and_then(move |(haystack, group)| {
+                let regex = needle.to_regex();
+                let match_ = if let Some(group) = group {
+                    if let Some(captures) = regex.captures(&haystack) {
+                        Some(
+                            captures
+                                .get(group.try_into().expect(
+                                    "hope nobody has over 4 billion capture groups or we have a \
+                                     problem",
+                                ))
+                                .ok_or_else(|| {
+                                    TemplateParseError::expression(
+                                        format!(
+                                            "Nonexistent capture group: {group} in regex {regex:?}"
+                                        ),
+                                        todo!(
+                                            "how do I fix this? I can't keep the span here due to \
+                                             lifetimes. this error doesn't appear statically"
+                                        ),
+                                    )
+                                })?,
+                        )
+                    } else {
+                        None
+                    }
+                } else {
+                    regex.find(&haystack)
+                };
+                // FIXME(jade): maybe suboptimal to return string
+                // unconditionally but we don't have an Option<String> type
+                // yet.
+                Ok(match_.map(|m| m.as_str().to_owned()).unwrap_or_default())
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
         "starts_with",
         |language, diagnostics, build_ctx, self_property, function| {
             let [needle_node] = function.expect_exact_arguments()?;
@@ -2809,6 +2862,17 @@ mod tests {
             env.render_ok(r#""foo".contains("f" ++ bad_string) ++ "bar""#), @"<Error: Bad>bar");
         insta::assert_snapshot!(
             env.render_ok(r#""foo".contains(separate("o", "f", bad_string))"#), @"<Error: Bad>");
+
+        insta::assert_snapshot!(env.render_ok(r#""fooo".match(regex:'[a-f]o+')"#), @"fooo");
+        insta::assert_snapshot!(env.render_ok(r#""fa".match(regex:'[a-f]o+')"#), @"");
+        insta::assert_snapshot!(env.render_ok(r#""hello".match(regex:"h(ell)o", 1)"#), @"ell");
+        insta::assert_snapshot!(env.render_ok(r#""HEllo".match(regex-i:"h(ell)o", 1)"#), @"Ell");
+        insta::assert_snapshot!(env.render_ok(r#""hEllo".match(glob:"h*o")"#), @"hEllo");
+        insta::assert_snapshot!(env.render_ok(r#""Hello".match(glob:"h*o")"#), @"");
+        insta::assert_snapshot!(env.render_ok(r#""HEllo".match(glob-i:"h*o")"#), @"HEllo");
+        insta::assert_snapshot!(env.render_ok(r#""hello".match("he")"#), @"he");
+        insta::assert_snapshot!(env.render_ok(r#""hello".match(substring:"he")"#), @"he");
+        insta::assert_snapshot!(env.render_ok(r#""hello".match(exact:"he")"#), @"");
 
         insta::assert_snapshot!(env.render_ok(r#""".first_line()"#), @"");
         insta::assert_snapshot!(env.render_ok(r#""foo\nbar".first_line()"#), @"foo");

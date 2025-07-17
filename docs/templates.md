@@ -405,6 +405,11 @@ defined.
 * `.len() -> Integer`: Length in UTF-8 bytes.
 * `.contains(needle: Stringify) -> Boolean`: Whether the string contains the
   provided stringifiable value as a substring.
+* `.match(needle: StringPattern[, capture_group: Integer]) -> Boolean`: Extracts
+  the specified regex capture group from the string (if specified), otherwise
+  the whole match.
+
+  An empty string is returned if there is no match.
 * `.first_line() -> String`
 * `.lines() -> List<String>`: Split into lines excluding newline characters.
 * `.upper() -> String`

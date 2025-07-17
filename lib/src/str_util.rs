@@ -59,6 +59,21 @@ impl GlobPattern {
     pub fn as_str(&self) -> &str {
         self.glob.glob()
     }
+
+    /// Converts to a string regex. This should not be used to match filenames!
+    pub fn to_str_regex(&self) -> regex::Regex {
+        regex::RegexBuilder::new(
+            self.glob
+                .regex()
+                // XXX: eat the prefix because otherwise this won't compile due to
+                // `.*` being illegal in unicode-enabled mode. lmao.
+                .strip_prefix("(?-u)")
+                .unwrap(),
+        )
+        .dot_matches_new_line(true)
+        .build()
+        .expect("glob regex should be valid")
+    }
 }
 
 impl Debug for GlobPattern {
@@ -280,6 +295,38 @@ impl StringPattern {
             StringPattern::GlobI(pattern) => pattern.is_match(haystack.as_bytes()),
             StringPattern::Regex(pattern) => pattern.is_match(haystack),
             StringPattern::RegexI(pattern) => pattern.is_match(haystack),
+        }
+    }
+
+    /// Converts the pattern into a string regex.
+    ///
+    /// XXX: this is kind of problematic for byte regexes as would be created
+    /// by globs. I dunno what to do about that.
+    pub fn to_regex(&self) -> regex::Regex {
+        match self {
+            StringPattern::Exact(literal) => {
+                regex::RegexBuilder::new(&format!("^{}$", regex::escape(literal)))
+                    .build()
+                    .expect("impossible to fail to compile regex of literal")
+            }
+            StringPattern::ExactI(literal) => {
+                regex::RegexBuilder::new(&format!("^{}$", regex::escape(literal)))
+                    .case_insensitive(true)
+                    .build()
+                    .expect("impossible to fail to compile regex of literal")
+            }
+            StringPattern::Substring(literal) => regex::RegexBuilder::new(&regex::escape(literal))
+                .build()
+                .expect("impossible to fail to compile regex of literal"),
+            StringPattern::SubstringI(literal) => regex::RegexBuilder::new(&regex::escape(literal))
+                .case_insensitive(true)
+                .build()
+                .expect("impossible to fail to compile regex of literal"),
+            StringPattern::Glob(glob_pattern) => glob_pattern.to_str_regex(),
+            // The regex generated represents the case insensitivity itself
+            StringPattern::GlobI(glob_pattern) => glob_pattern.to_str_regex(),
+            StringPattern::Regex(regex) => regex.clone(),
+            StringPattern::RegexI(regex) => regex.clone(),
         }
     }
 
