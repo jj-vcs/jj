@@ -93,6 +93,10 @@ test-case = { workspace = true }
 testutils = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 
+[target.'cfg(unix)'.dev-dependencies]
+# TODO: Remove once `std::os::unix::fs::mkfifo` is stable.
+nix = { workspace = true }
+
 [features]
 default = ["git"]
 git = ["dep:gix"]
