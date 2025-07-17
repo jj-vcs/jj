@@ -1584,7 +1584,10 @@ impl MutableRepo {
                     .iter()
                     .all(|parent_id| current_heads.contains(parent_id)) =>
             {
-                self.index.add_commit(head);
+                self.index
+                    .add_commit(head)
+                    // TODO: indexing error shouldn't be a "BackendError"
+                    .map_err(|err| BackendError::Other(err.into()))?;
                 self.view.get_mut().add_head(head.id());
                 for parent_id in head.parent_ids() {
                     self.view.get_mut().remove_head(parent_id);
@@ -1610,7 +1613,10 @@ impl MutableRepo {
                     |_| panic!("graph has cycle"),
                 )?;
                 for CommitByCommitterTimestamp(missing_commit) in missing_commits.iter().rev() {
-                    self.index.add_commit(missing_commit);
+                    self.index
+                        .add_commit(missing_commit)
+                        // TODO: indexing error shouldn't be a "BackendError"
+                        .map_err(|err| BackendError::Other(err.into()))?;
                 }
                 for head in heads {
                     self.view.get_mut().add_head(head.id());

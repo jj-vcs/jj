@@ -474,6 +474,14 @@ impl DefaultMutableIndex {
         self.0.commits().num_commits()
     }
 
+    pub(super) fn add_commit(&mut self, commit: &Commit) {
+        self.add_commit_data(
+            commit.id().clone(),
+            commit.change_id().clone(),
+            commit.parent_ids(),
+        );
+    }
+
     pub(super) fn add_commit_data(
         &mut self,
         commit_id: CommitId,
@@ -560,12 +568,9 @@ impl MutableIndex for DefaultMutableIndex {
         Box::new(ChangeIdIndexImpl::new(self, heads))
     }
 
-    fn add_commit(&mut self, commit: &Commit) {
-        self.add_commit_data(
-            commit.id().clone(),
-            commit.change_id().clone(),
-            commit.parent_ids(),
-        );
+    fn add_commit(&mut self, commit: &Commit) -> Result<(), IndexError> {
+        Self::add_commit(self, commit);
+        Ok(())
     }
 
     fn merge_in(&mut self, other: &dyn ReadonlyIndex) {

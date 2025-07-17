@@ -160,7 +160,7 @@ pub trait MutableIndex {
         heads: &mut dyn Iterator<Item = &CommitId>,
     ) -> Box<dyn ChangeIdIndex + '_>;
 
-    fn add_commit(&mut self, commit: &Commit);
+    fn add_commit(&mut self, commit: &Commit) -> Result<(), IndexError>;
 
     fn merge_in(&mut self, other: &dyn ReadonlyIndex);
 }

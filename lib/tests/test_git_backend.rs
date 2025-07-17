@@ -193,13 +193,13 @@ fn test_gc() {
 
     // G is no longer reachable
     let mut mut_index = base_index.start_modification();
-    mut_index.add_commit(&commit_a);
-    mut_index.add_commit(&commit_b);
-    mut_index.add_commit(&commit_c);
-    mut_index.add_commit(&commit_d);
-    mut_index.add_commit(&commit_e);
-    mut_index.add_commit(&commit_f);
-    mut_index.add_commit(&commit_h);
+    mut_index.add_commit(&commit_a).unwrap();
+    mut_index.add_commit(&commit_b).unwrap();
+    mut_index.add_commit(&commit_c).unwrap();
+    mut_index.add_commit(&commit_d).unwrap();
+    mut_index.add_commit(&commit_e).unwrap();
+    mut_index.add_commit(&commit_f).unwrap();
+    mut_index.add_commit(&commit_h).unwrap();
     repo.store().gc(mut_index.as_index(), now()).unwrap();
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
@@ -212,10 +212,10 @@ fn test_gc() {
 
     // D|E|H are no longer reachable
     let mut mut_index = base_index.start_modification();
-    mut_index.add_commit(&commit_a);
-    mut_index.add_commit(&commit_b);
-    mut_index.add_commit(&commit_c);
-    mut_index.add_commit(&commit_f);
+    mut_index.add_commit(&commit_a).unwrap();
+    mut_index.add_commit(&commit_b).unwrap();
+    mut_index.add_commit(&commit_c).unwrap();
+    mut_index.add_commit(&commit_f).unwrap();
     repo.store().gc(mut_index.as_index(), now()).unwrap();
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
@@ -227,7 +227,7 @@ fn test_gc() {
 
     // B|C|F are no longer reachable
     let mut mut_index = base_index.start_modification();
-    mut_index.add_commit(&commit_a);
+    mut_index.add_commit(&commit_a).unwrap();
     repo.store().gc(mut_index.as_index(), now()).unwrap();
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
