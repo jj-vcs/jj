@@ -2256,7 +2256,7 @@ impl<'a> GitFetch<'a> {
                             fetched
                                 .branches
                                 .iter()
-                                .any(|pattern| pattern.matches(symbol.name.as_str()))
+                                .any(|pattern| pattern.is_match(symbol.name.as_str()))
                         }),
                     GitRefKind::Tag => true,
                 },

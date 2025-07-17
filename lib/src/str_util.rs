@@ -225,7 +225,7 @@ impl StringPattern {
     ///
     /// When matching against a case‐insensitive pattern, only ASCII case
     /// differences are currently folded. This may change in the future.
-    pub fn matches(&self, haystack: &str) -> bool {
+    pub fn is_match(&self, haystack: &str) -> bool {
         // TODO: Unicode case folding is complicated and can be
         // locale‐specific. The `glob` crate and Gitoxide only deal with ASCII
         // case folding, so we do the same here; a more elaborate case folding
@@ -311,7 +311,7 @@ impl StringPattern {
         } else {
             Either::Right(
                 map.iter()
-                    .filter(move |&(key, _)| self.matches(from_key(key.borrow()))),
+                    .filter(move |&(key, _)| self.is_match(from_key(key.borrow()))),
             )
         }
     }

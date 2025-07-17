@@ -145,7 +145,7 @@ pub fn cmd_bookmark_list(
                     .filter(|(name, _)| {
                         patterns
                             .iter()
-                            .any(|pattern| pattern.matches(name.as_str()))
+                            .any(|pattern| pattern.is_match(name.as_str()))
                     })
                     .map(|(name, _)| name),
             );
@@ -201,7 +201,7 @@ pub fn cmd_bookmark_list(
                 args.remotes.as_ref().is_none_or(|patterns| {
                     patterns
                         .iter()
-                        .any(|pattern| pattern.matches(remote_name.as_str()))
+                        .any(|pattern| pattern.is_match(remote_name.as_str()))
                 })
             })
             .partition::<Vec<_>, _>(|&(_, remote_ref)| remote_ref.is_tracked());
