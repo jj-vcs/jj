@@ -903,6 +903,28 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         },
     );
     map.insert(
+        "match",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            let [needle_node] = function.expect_exact_arguments()?;
+            let needle = template_parser::expect_string_pattern(needle_node)?;
+
+            let out_property = self_property.and_then(move |haystack| {
+                let regex = needle.to_regex();
+                let match_ = regex.find(haystack.as_bytes());
+
+                if let Some(m) = match_ {
+                    Ok(std::str::from_utf8(m.as_bytes())?.to_owned())
+                } else {
+                    // FIXME(jade): maybe suboptimal to return string
+                    // unconditionally but we don't have an Option<String> type
+                    // yet.
+                    Ok(String::new())
+                }
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
         "starts_with",
         |language, diagnostics, build_ctx, self_property, function| {
             let [needle_node] = function.expect_exact_arguments()?;
@@ -2813,6 +2835,32 @@ mod tests {
             env.render_ok(r#""foo".contains("f" ++ bad_string) ++ "bar""#), @"<Error: Bad>bar");
         insta::assert_snapshot!(
             env.render_ok(r#""foo".contains(separate("o", "f", bad_string))"#), @"<Error: Bad>");
+
+        insta::assert_snapshot!(env.render_ok(r#""fooo".match(regex:'[a-f]o+')"#), @"fooo");
+        insta::assert_snapshot!(env.render_ok(r#""fa".match(regex:'[a-f]o+')"#), @"");
+        insta::assert_snapshot!(env.render_ok(r#""hello".match(regex:"h(ell)o")"#), @"hello");
+        insta::assert_snapshot!(env.render_ok(r#""HEllo".match(regex-i:"h(ell)o")"#), @"HEllo");
+        insta::assert_snapshot!(env.render_ok(r#""hEllo".match(glob:"h*o")"#), @"hEllo");
+        insta::assert_snapshot!(env.render_ok(r#""Hello".match(glob:"h*o")"#), @"");
+        insta::assert_snapshot!(env.render_ok(r#""HEllo".match(glob-i:"h*o")"#), @"HEllo");
+        insta::assert_snapshot!(env.render_ok(r#""hello".match("he")"#), @"he");
+        insta::assert_snapshot!(env.render_ok(r#""hello".match(substring:"he")"#), @"he");
+        insta::assert_snapshot!(env.render_ok(r#""hello".match(exact:"he")"#), @"");
+
+        // Evil regexes can cause invalid UTF-8 output, which nothing can
+        // really be done about given we're matching against non-UTF-8 stuff a
+        // lot as well.
+        insta::assert_snapshot!(env.render_ok(r#""🥺".match(regex:'(?-u)^(?:.)')"#), @"<Error: incomplete utf-8 byte sequence from index 0>");
+
+        insta::assert_snapshot!(env.parse_err(r#""🥺".match(not-a-pattern:"abc")"#), @r#"
+         --> 1:11
+          |
+        1 | "🥺".match(not-a-pattern:"abc")
+          |           ^-----------------^
+          |
+          = Bad string pattern
+        Invalid string pattern kind `not-a-pattern:`
+        "#);
 
         insta::assert_snapshot!(env.render_ok(r#""".first_line()"#), @"");
         insta::assert_snapshot!(env.render_ok(r#""foo\nbar".first_line()"#), @"foo");
