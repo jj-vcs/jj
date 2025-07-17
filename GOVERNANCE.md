@@ -51,6 +51,8 @@ exclusively limited to):
   or long-term vision.
 - Ensuring the community remains a warm and welcoming place, to new and veteran
   members alike.
+- They strive for transparency in the project and communicate decisions in an
+  appropriate manner.
 
 This is not an exhaustive list, nor is it intended that every Maintainer does
 each and every one of these individual tasks to equal amounts. Rather this is
