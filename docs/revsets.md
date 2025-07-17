@@ -53,6 +53,10 @@ Jujutsu attempts to resolve a symbol in the following order:
 3. Git ref
 4. Commit ID or change ID
 
+To override the priority, use the appropriate [revset function](#functions). For
+example, to resolve `abc` as a commit ID even if there happens to be a bookmark
+by the same name, use `commit_id(abc)`. This is particularly useful in scripts.
+
 ## Operators
 
 The following operators are supported. `x` and `y` below can be any revset, not
