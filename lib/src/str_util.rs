@@ -248,7 +248,7 @@ impl StringPattern {
     ///
     /// When matching against a case‐insensitive pattern, only ASCII case
     /// differences are currently folded. This may change in the future.
-    pub fn matches(&self, haystack: &str) -> bool {
+    pub fn is_match(&self, haystack: &str) -> bool {
         // TODO: Unicode case folding is complicated and can be
         // locale‐specific. The `glob` crate and Gitoxide only deal with ASCII
         // case folding, so we do the same here; a more elaborate case folding
@@ -329,7 +329,7 @@ impl StringPattern {
         } else {
             Either::Right(
                 map.iter()
-                    .filter(move |&(key, _)| self.matches(from_key(key.borrow()))),
+                    .filter(move |&(key, _)| self.is_match(from_key(key.borrow()))),
             )
         }
     }
@@ -439,27 +439,47 @@ mod tests {
     }
 
     #[test]
-    fn test_glob_matches() {
-        assert!(StringPattern::glob("foo").unwrap().matches("foo"));
-        assert!(!StringPattern::glob("foo").unwrap().matches("foobar"));
+    fn test_glob_is_match() {
+        assert!(StringPattern::glob("foo").unwrap().is_match("foo"));
+        assert!(!StringPattern::glob("foo").unwrap().is_match("foobar"));
 
         // "." in string isn't any special
-        assert!(StringPattern::glob("*").unwrap().matches(".foo"));
+        assert!(StringPattern::glob("*").unwrap().is_match(".foo"));
 
         // "/" in string isn't any special
-        assert!(StringPattern::glob("*").unwrap().matches("foo/bar"));
-        assert!(StringPattern::glob(r"*/*").unwrap().matches("foo/bar"));
-        assert!(!StringPattern::glob(r"*/*").unwrap().matches(r"foo\bar"));
+        assert!(StringPattern::glob("*").unwrap().is_match("foo/bar"));
+        assert!(StringPattern::glob(r"*/*").unwrap().is_match("foo/bar"));
+        assert!(!StringPattern::glob(r"*/*").unwrap().is_match(r"foo\bar"));
 
         // "\" is an escape character
-        assert!(!StringPattern::glob(r"*\*").unwrap().matches("foo/bar"));
-        assert!(StringPattern::glob(r"*\*").unwrap().matches("foo*"));
-        assert!(StringPattern::glob(r"\\").unwrap().matches(r"\"));
+        assert!(!StringPattern::glob(r"*\*").unwrap().is_match("foo/bar"));
+        assert!(StringPattern::glob(r"*\*").unwrap().is_match("foo*"));
+        assert!(StringPattern::glob(r"\\").unwrap().is_match(r"\"));
 
-        // "*" matches newline
-        assert!(StringPattern::glob(r"*").unwrap().matches("foo\nbar"));
+        // "*" is_match newline
+        assert!(StringPattern::glob(r"*").unwrap().is_match("foo\nbar"));
 
-        assert!(!StringPattern::glob("f?O").unwrap().matches("Foo"));
-        assert!(StringPattern::glob_i("f?O").unwrap().matches("Foo"));
+        assert!(!StringPattern::glob("f?O").unwrap().is_match("Foo"));
+        assert!(StringPattern::glob_i("f?O").unwrap().is_match("Foo"));
+    }
+
+    #[test]
+    fn test_string_pattern_to_regex() {
+        let check = |pattern: StringPattern, match_to| {
+            let regex = pattern.to_regex();
+            regex.is_match(match_to)
+        };
+        assert!(check(StringPattern::exact("a"), "a"));
+        assert!(!check(StringPattern::exact("a"), "A"));
+        assert!(!check(StringPattern::exact("a"), "aa"));
+        assert!(check(StringPattern::exact_i("a"), "A"));
+        assert!(check(StringPattern::substring("a"), "abc"));
+        assert!(!check(StringPattern::substring("a"), "Abc"));
+        assert!(check(StringPattern::substring_i("a"), "Abc"));
+        assert!(!check(StringPattern::glob("a").unwrap(), "A"));
+        assert!(check(StringPattern::glob_i("a").unwrap(), "A"));
+        assert!(check(StringPattern::regex("^a{1,3}").unwrap(), "abcde"));
+        assert!(!check(StringPattern::regex("^a{1,3}").unwrap(), "Abcde"));
+        assert!(check(StringPattern::regex_i("^a{1,3}").unwrap(), "Abcde"));
     }
 }
