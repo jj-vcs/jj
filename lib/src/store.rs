@@ -48,7 +48,6 @@ use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::signing::Signer;
 use crate::tree::Tree;
-use crate::tree_builder::TreeBuilder;
 
 // There are more tree objects than commits, and trees are often shared across
 // commits.
@@ -284,10 +283,6 @@ impl Store {
     ) -> BackendResult<ConflictId> {
         self.backend
             .write_conflict(path, &contents.clone().into_backend_conflict())
-    }
-
-    pub fn tree_builder(self: &Arc<Self>, base_tree_id: TreeId) -> TreeBuilder {
-        TreeBuilder::new(self.clone(), base_tree_id)
     }
 
     pub fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()> {

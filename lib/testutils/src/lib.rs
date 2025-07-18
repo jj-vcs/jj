@@ -392,7 +392,7 @@ pub struct TestTreeBuilder {
 
 impl TestTreeBuilder {
     pub fn new(store: Arc<Store>) -> Self {
-        let tree_builder = store.tree_builder(store.empty_tree_id().clone());
+        let tree_builder = TreeBuilder::new(store.clone(), store.empty_tree_id().clone());
         Self {
             store,
             tree_builder,

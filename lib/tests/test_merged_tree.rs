@@ -39,6 +39,7 @@ use jj_lib::merged_tree::TreeDiffStreamImpl;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
+use jj_lib::tree_builder::TreeBuilder;
 use pollster::FutureExt as _;
 use pretty_assertions::assert_eq;
 use testutils::create_single_tree;
@@ -83,7 +84,7 @@ fn test_from_legacy_tree() {
     let repo = &test_repo.repo;
     let store = repo.store();
 
-    let mut tree_builder = store.tree_builder(repo.store().empty_tree_id().clone());
+    let mut tree_builder = TreeBuilder::new(store.clone(), repo.store().empty_tree_id().clone());
 
     // file1: regular file without conflicts
     let file1_path = repo_path("no_conflict");

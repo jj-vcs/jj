@@ -101,7 +101,9 @@ impl MergedTree {
             conflicts.push((path, conflict));
         }
         let mut tree_builders = Vec::new();
-        tree_builders.resize_with(max_tree_count, || store.tree_builder(tree.id().clone()));
+        tree_builders.resize_with(max_tree_count, || {
+            TreeBuilder::new(store.clone(), tree.id().clone())
+        });
         for (path, conflict) in conflicts {
             // If there are fewer terms in this conflict than in some other conflict, we can
             // add canceling removes and adds of any value. The simplest value is an absent
