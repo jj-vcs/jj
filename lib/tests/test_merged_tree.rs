@@ -12,9 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashMap;
+
 use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
+use jj_lib::backend::CopyHistory;
 use jj_lib::backend::CopyRecord;
 use jj_lib::backend::FileId;
 use jj_lib::backend::TreeValue;
@@ -29,6 +32,8 @@ use jj_lib::matchers::PrefixMatcher;
 use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
+use jj_lib::merged_tree::CopyHistoryDiffTerm;
+use jj_lib::merged_tree::CopyHistorySource;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::merged_tree::TreeDiffEntry;
@@ -40,12 +45,15 @@ use jj_lib::repo_path::RepoPathBuf;
 use pollster::FutureExt as _;
 use pretty_assertions::assert_eq;
 use testutils::TestRepo;
+use testutils::TestTreeBuilder;
 use testutils::assert_tree_eq;
 use testutils::create_single_tree;
 use testutils::create_tree;
+use testutils::create_tree_with_copy_history;
 use testutils::repo_path;
 use testutils::repo_path_buf;
 use testutils::repo_path_component;
+use testutils::write_copy_histories;
 
 fn diff_entry_tuple(diff: TreeDiffEntry) -> (RepoPathBuf, (MergedTreeValue, MergedTreeValue)) {
     let values = diff.values.unwrap();
@@ -1511,4 +1519,543 @@ fn test_merge_simplify_file_conflict_with_absent() {
         .block_on()
         .unwrap();
     assert_tree_eq!(merged, expected_merged);
+}
+
+fn expected_creation(
+    path: &RepoPath,
+    val: &MergedTreeValue,
+) -> (RepoPathBuf, Merge<CopyHistoryDiffTerm>) {
+    (
+        path.to_owned(),
+        Merge::resolved(CopyHistoryDiffTerm {
+            target_value: val.first().clone(),
+            sources: vec![],
+        }),
+    )
+}
+
+fn expected_deletion(
+    path: &RepoPath,
+    val: &MergedTreeValue,
+) -> (RepoPathBuf, Merge<CopyHistoryDiffTerm>) {
+    (
+        path.to_owned(),
+        Merge::resolved(CopyHistoryDiffTerm {
+            target_value: None,
+            sources: vec![(CopyHistorySource::Normal, val.clone())],
+        }),
+    )
+}
+
+fn expected_normal(
+    path: &RepoPath,
+    old_val: &MergedTreeValue,
+    new_val: &MergedTreeValue,
+) -> (RepoPathBuf, Merge<CopyHistoryDiffTerm>) {
+    (
+        path.to_owned(),
+        Merge::resolved(CopyHistoryDiffTerm {
+            target_value: new_val.first().clone(),
+            sources: vec![(CopyHistorySource::Normal, old_val.clone())],
+        }),
+    )
+}
+
+fn expected_copy(
+    old_path: &RepoPath,
+    old_val: &MergedTreeValue,
+    new_path: &RepoPath,
+    new_val: &MergedTreeValue,
+) -> (RepoPathBuf, Merge<CopyHistoryDiffTerm>) {
+    (
+        new_path.to_owned(),
+        Merge::resolved(CopyHistoryDiffTerm {
+            target_value: new_val.first().clone(),
+            sources: vec![(
+                CopyHistorySource::Copy(old_path.to_owned()),
+                old_val.clone(),
+            )],
+        }),
+    )
+}
+
+fn expected_rename(
+    old_path: &RepoPath,
+    old_val: &MergedTreeValue,
+    new_path: &RepoPath,
+    new_val: &MergedTreeValue,
+) -> (RepoPathBuf, Merge<CopyHistoryDiffTerm>) {
+    (
+        new_path.to_owned(),
+        Merge::resolved(CopyHistoryDiffTerm {
+            target_value: new_val.first().clone(),
+            sources: vec![(
+                CopyHistorySource::Rename(old_path.to_owned()),
+                old_val.clone(),
+            )],
+        }),
+    )
+}
+
+fn collect_diffs(
+    left: &MergedTree,
+    right: &MergedTree,
+) -> Vec<(RepoPathBuf, Merge<CopyHistoryDiffTerm>)> {
+    left.diff_stream_with_copy_history(right, &EverythingMatcher)
+        .map(|diff| (diff.target_path, diff.diffs.unwrap()))
+        .collect()
+        .block_on()
+}
+
+#[test]
+fn test_copy_diffstream_no_history_change() {
+    // CASE: edit foo.txt contents, no history changes
+    let test_repo = testutils::TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let foo = repo_path("foo.txt");
+    let bar = repo_path("bar.txt");
+    let (_ids, histories) = write_copy_histories(repo, &[(foo, vec![]), (bar, vec![foo])]);
+
+    let left = create_tree_with_copy_history(
+        repo,
+        &histories,
+        &[(foo, "foo or maybe bar"), (bar, "definitely bar")],
+    );
+    let foo_val_left = left.path_value(foo).unwrap();
+    let right = create_tree_with_copy_history(
+        repo,
+        &histories,
+        &[(foo, "definitely foo"), (bar, "definitely bar")],
+    );
+    let foo_val_right = right.path_value(foo).unwrap();
+    assert_eq!(
+        collect_diffs(&left, &right),
+        [expected_normal(foo, &foo_val_left, &foo_val_right)],
+    );
+}
+
+#[test]
+fn test_copy_diffstream_copy() {
+    // CASE: Copy foo.txt -> bar.txt
+    let test_repo = testutils::TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let foo = repo_path("foo.txt");
+    let bar = repo_path("bar.txt");
+    let (_ids, histories) = write_copy_histories(repo, &[(foo, vec![]), (bar, vec![foo])]);
+
+    let left = create_tree_with_copy_history(repo, &histories, &[(foo, "foo or maybe bar")]);
+    let foo_val = left.path_value(foo).unwrap();
+
+    let right = create_tree_with_copy_history(
+        repo,
+        &histories,
+        &[(foo, "foo or maybe bar"), (bar, "definitely bar")],
+    );
+    let bar_val = right.path_value(bar).unwrap();
+
+    assert_eq!(
+        collect_diffs(&left, &right),
+        [expected_copy(foo, &foo_val, bar, &bar_val)],
+    );
+
+    // also check reverse diff
+    assert_eq!(
+        collect_diffs(&right, &left),
+        [expected_deletion(bar, &bar_val)],
+    );
+}
+
+#[test]
+fn test_copy_diffstream_rename() {
+    // CASE: remove foo.txt; bar.txt should show up as a Rename
+    let test_repo = testutils::TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let foo = repo_path("foo.txt");
+    let bar = repo_path("bar.txt");
+    let (_ids, histories) = write_copy_histories(repo, &[(foo, vec![]), (bar, vec![foo])]);
+
+    let left = create_tree_with_copy_history(repo, &histories, &[(foo, "foo or maybe bar")]);
+    let foo_val = left.path_value(foo).unwrap();
+    let right = create_tree_with_copy_history(repo, &histories, &[(bar, "definitely bar")]);
+    let bar_val = right.path_value(bar).unwrap();
+    assert_eq!(
+        collect_diffs(&left, &right),
+        [
+            expected_rename(foo, &foo_val, bar, &bar_val),
+            expected_deletion(foo, &foo_val),
+        ],
+    );
+
+    // reverse diff
+    assert_eq!(
+        collect_diffs(&right, &left),
+        [
+            expected_deletion(bar, &bar_val),
+            expected_creation(foo, &foo_val),
+        ],
+    );
+}
+
+#[test]
+fn test_copy_diffstream_file_dir_mismatch() {
+    // CASE: file / dir mismatch
+    let test_repo = testutils::TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let file_dir_path = repo_path("file_or_dir");
+    let file_dir_subpath = repo_path("file_or_dir/file");
+    let (_ids, histories) =
+        write_copy_histories(repo, &[(file_dir_path, vec![]), (file_dir_subpath, vec![])]);
+    let left =
+        create_tree_with_copy_history(repo, &histories, &[(file_dir_path, "a file for now")]);
+    let file_val = left.path_value(file_dir_path).unwrap();
+    let right =
+        create_tree_with_copy_history(repo, &histories, &[(file_dir_subpath, "parent is a dir")]);
+    let subpath_val = right.path_value(file_dir_subpath).unwrap();
+    assert_eq!(
+        collect_diffs(&left, &right),
+        [
+            expected_deletion(file_dir_path, &file_val),
+            expected_creation(file_dir_subpath, &subpath_val),
+        ],
+    );
+
+    // backwards diff
+    assert_eq!(
+        collect_diffs(&right, &left),
+        [
+            expected_creation(file_dir_path, &file_val),
+            expected_deletion(file_dir_subpath, &subpath_val),
+        ],
+    );
+}
+
+#[test]
+fn test_copy_diffstream_symlink_mismatch() {
+    // CASE: file / symlink mismatch
+    let test_repo = testutils::TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let path = repo_path("file_or_symlink");
+    let (_ids, histories) = write_copy_histories(repo, &[(path, vec![])]);
+    let left = create_tree_with_copy_history(repo, &histories, &[(path, "a file for now")]);
+    let file_val = left.path_value(path).unwrap();
+
+    let mut builder = TestTreeBuilder::new(repo.store().clone());
+    builder.symlink(path, "./symlink_target");
+    let right = builder.write_merged_tree();
+    let symlink_val = right.path_value(path).unwrap();
+
+    assert_eq!(
+        collect_diffs(&left, &right),
+        [expected_normal(path, &file_val, &symlink_val)],
+    );
+
+    // N.B.: this case is asymmetric because of copy-history tracking when the right
+    // side is a file. If we address the TODO in CopyDiffStream::poll_next(), this
+    // would also be a single `expected_normal` entry.
+    assert_eq!(
+        collect_diffs(&right, &left),
+        [
+            expected_deletion(path, &symlink_val),
+            expected_creation(path, &file_val),
+        ],
+    );
+}
+
+#[test]
+fn test_copy_diffstream_symlink_with_history() {
+    let test_repo = testutils::TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let path = repo_path("file_or_symlink");
+    let other_path = repo_path("other_file");
+    let (_ids, histories) =
+        write_copy_histories(repo, &[(other_path, vec![]), (path, vec![other_path])]);
+    let left = create_tree_with_copy_history(
+        repo,
+        &histories,
+        &[(path, "a file for now"), (other_path, "other file")],
+    );
+    let file_val = left.path_value(path).unwrap();
+
+    let mut builder = TestTreeBuilder::new(repo.store().clone());
+    builder.symlink(path, "./symlink_target");
+    builder
+        .file(other_path, "other file")
+        .copy_history(&histories[other_path]);
+    let right = builder.write_merged_tree();
+    let symlink_val = right.path_value(path).unwrap();
+    let other_val = right.path_value(other_path).unwrap();
+
+    assert_eq!(
+        collect_diffs(&left, &right),
+        [expected_normal(path, &file_val, &symlink_val)],
+    );
+
+    assert_eq!(
+        collect_diffs(&right, &left),
+        [
+            expected_deletion(path, &symlink_val),
+            expected_copy(other_path, &other_val, path, &file_val),
+        ],
+    );
+}
+
+#[test]
+fn test_copy_diffstream_distinct_histories() {
+    // CASE: same path, unrelated ancestries; e.g. a path is created, then
+    // deleted, then recreated.
+    let test_repo = testutils::TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let foo = repo_path("foo.txt");
+    let histories1: HashMap<_, _> = [(
+        foo.to_owned(),
+        CopyHistory {
+            current_path: foo.to_owned(),
+            parents: vec![],
+            salt: vec![1], // Use a salt to create a distinct CopyHistory
+        },
+    )]
+    .into_iter()
+    .collect();
+    let histories2: HashMap<_, _> = [(
+        foo.to_owned(),
+        CopyHistory {
+            current_path: foo.to_owned(),
+            parents: vec![],
+            salt: vec![2], // Use a salt to create a distinct CopyHistory
+        },
+    )]
+    .into_iter()
+    .collect();
+
+    let left = create_tree_with_copy_history(repo, &histories1, &[(foo, "first foo")]);
+    let foo_val1 = left.path_value(foo).unwrap();
+
+    let right = create_tree_with_copy_history(repo, &histories2, &[(foo, "second foo")]);
+    let foo_val2 = right.path_value(foo).unwrap();
+    assert_eq!(
+        collect_diffs(&left, &right),
+        [
+            expected_deletion(foo, &foo_val1),
+            expected_creation(foo, &foo_val2),
+        ],
+    );
+}
+
+#[test]
+fn test_copy_diffstream_dest_conflict() {
+    let test_repo = testutils::TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let foo = repo_path("foo.txt");
+    let bar = repo_path("bar.txt");
+    let (_ids, histories) = write_copy_histories(repo, &[(foo, vec![]), (bar, vec![foo])]);
+
+    // CASE: skip rename detection when there are conflicts
+    let left = create_tree_with_copy_history(repo, &histories, &[(foo, "foo or maybe bar")]);
+    let foo_val = left.path_value(foo).unwrap();
+
+    let right1 = create_tree_with_copy_history(repo, &histories, &[(bar, "foobar")]);
+    let right2 = create_tree_with_copy_history(repo, &histories, &[(bar, "foobaz")]);
+    let right = right1
+        .clone()
+        .merge(left.clone(), right2.clone())
+        .block_on()
+        .expect("Expected successful merge");
+    let expected = [
+        // bar.txt is conflicted, and does not show copy-history sources despite being renamed from
+        // foo.txt
+        (
+            bar.to_owned(),
+            Merge::from_removes_adds(
+                [CopyHistoryDiffTerm {
+                    target_value: None,
+                    sources: vec![],
+                }],
+                [
+                    CopyHistoryDiffTerm {
+                        target_value: right1.path_value(bar).unwrap().first().clone(),
+                        sources: vec![],
+                    },
+                    CopyHistoryDiffTerm {
+                        target_value: right2.path_value(bar).unwrap().first().clone(),
+                        sources: vec![],
+                    },
+                ],
+            ),
+        ),
+        // foo.txt is deleted; it is not matched against a conflicted target, despite being renamed
+        // to bar.txt
+        expected_deletion(foo, &foo_val),
+    ];
+    assert_eq!(collect_diffs(&left, &right), expected);
+}
+
+#[test]
+fn test_copy_diffstream_source_conflict() {
+    let test_repo = testutils::TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let foo = repo_path("foo.txt");
+    let bar = repo_path("bar.txt");
+    let (_ids, histories) = write_copy_histories(repo, &[(foo, vec![]), (bar, vec![foo])]);
+
+    // CASE: conflict in source rather than target
+    let base_tree = create_tree_with_copy_history(repo, &histories, &[(foo, "foo or maybe bar")]);
+    let foo_val = base_tree.path_value(foo).unwrap();
+
+    let left1 = create_tree_with_copy_history(repo, &histories, &[(foo, "Foo V1")]);
+    let left2 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo vX")]);
+    let left = left1
+        .clone()
+        .merge(base_tree.clone(), left2.clone())
+        .block_on()
+        .expect("Expected successful merge");
+    // Rename foo.txt to bar.txt, with resolved contents
+    let right = create_tree_with_copy_history(repo, &histories, &[(bar, "Foo v1.X")]);
+    let expected = [
+        // bar.txt is not matched against a conflicted source, despite being renamed from foo.txt
+        expected_creation(bar, &right.path_value(bar).unwrap()),
+        // Conflicted foo.txt is deleted
+        (
+            foo.to_owned(),
+            Merge::resolved(CopyHistoryDiffTerm {
+                target_value: None,
+                sources: vec![(
+                    CopyHistorySource::Normal,
+                    Merge::from_removes_adds(
+                        [foo_val.first().clone()],
+                        [
+                            left1.path_value(foo).unwrap().first().clone(),
+                            left2.path_value(foo).unwrap().first().clone(),
+                        ],
+                    ),
+                )],
+            }),
+        ),
+    ];
+    assert_eq!(collect_diffs(&left, &right), expected);
+}
+
+#[test]
+fn test_copy_diffstream_source_and_dest_conflicts() {
+    let test_repo = testutils::TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let foo = repo_path("foo.txt");
+    let bar = repo_path("bar.txt");
+    let (_ids, histories) = write_copy_histories(repo, &[(foo, vec![]), (bar, vec![foo])]);
+
+    // CASE: conflict in both source and target
+    let base_tree = create_tree_with_copy_history(repo, &histories, &[(foo, "foo or maybe bar")]);
+    let foo_val = base_tree.path_value(foo).unwrap();
+
+    let left1 = create_tree_with_copy_history(repo, &histories, &[(foo, "Foo V1")]);
+    let left2 = create_tree_with_copy_history(repo, &histories, &[(foo, "foo vX")]);
+    let left = left1
+        .clone()
+        .merge(base_tree.clone(), left2.clone())
+        .block_on()
+        .expect("Expected successful merge");
+
+    let right1 = create_tree_with_copy_history(repo, &histories, &[(bar, "foobar")]);
+    let bar1_val = right1.path_value(bar).unwrap();
+    let right2 = create_tree_with_copy_history(repo, &histories, &[(bar, "foobaz")]);
+    let bar2_val = right2.path_value(bar).unwrap();
+    let right = right1
+        .clone()
+        .merge(base_tree.clone(), right2.clone())
+        .block_on()
+        .expect("Expected successful merge");
+    let expected = [
+        (
+            bar.to_owned(),
+            Merge::from_removes_adds(
+                [CopyHistoryDiffTerm {
+                    target_value: None,
+                    sources: vec![],
+                }],
+                [
+                    CopyHistoryDiffTerm {
+                        target_value: bar1_val.first().clone(),
+                        sources: vec![],
+                    },
+                    CopyHistoryDiffTerm {
+                        target_value: bar2_val.first().clone(),
+                        sources: vec![],
+                    },
+                ],
+            ),
+        ),
+        (
+            foo.to_owned(),
+            Merge::resolved(CopyHistoryDiffTerm {
+                target_value: None,
+                sources: vec![(
+                    CopyHistorySource::Normal,
+                    Merge::from_removes_adds(
+                        [foo_val.first().clone()],
+                        [
+                            left1.path_value(foo).unwrap().first().clone(),
+                            left2.path_value(foo).unwrap().first().clone(),
+                        ],
+                    ),
+                )],
+            }),
+        ),
+    ];
+    assert_eq!(collect_diffs(&left, &right), expected);
+}
+
+#[test]
+fn test_copy_diffstream_multiple_descendants() {
+    let test_repo = testutils::TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let foo = repo_path("foo.txt");
+    let bar = repo_path("bar.txt");
+    let qux = repo_path("qux.txt");
+    let gru = repo_path("gru.txt");
+    let (_ids, histories) = write_copy_histories(
+        repo,
+        &[
+            (foo, vec![]),
+            (bar, vec![foo]),
+            (qux, vec![bar]),
+            (gru, vec![foo]),
+        ],
+    );
+
+    // CASE: foo has multiple descendants, do we match against the nearest one?
+    let left = create_tree_with_copy_history(repo, &histories, &[(gru, "gru")]);
+    let gru_val = left.path_value(gru).unwrap();
+
+    let right = create_tree_with_copy_history(repo, &histories, &[(bar, "bar"), (qux, "qux")]);
+    let bar_val = right.path_value(bar).unwrap();
+    let qux_val = right.path_value(qux).unwrap();
+    assert_eq!(
+        collect_diffs(&left, &right),
+        [
+            expected_rename(gru, &gru_val, bar, &bar_val),
+            expected_deletion(gru, &gru_val),
+            expected_rename(gru, &gru_val, qux, &qux_val),
+        ],
+    );
+
+    // check reverse diff
+    assert_eq!(
+        collect_diffs(&right, &left),
+        [
+            expected_deletion(bar, &bar_val),
+            // TODO: should prefer bar as a nearer descendant of foo
+            expected_rename(qux, &qux_val, gru, &gru_val),
+            expected_deletion(qux, &qux_val),
+        ],
+    );
 }
