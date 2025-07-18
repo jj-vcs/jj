@@ -372,6 +372,8 @@ diff-args = ["--color=always", "$left", "$right"]
 - `$left` and `$right` are replaced with the paths to the left and right
   directories to diff respectively.
 
+- If `diff-args` is not specified, `["$left", "$right"]` will be used by default.
+
 By default `jj` will invoke external tools with a directory containing the left
 and right sides.  The `diff-invocation-mode` config can change this to file by file
 invocations as follows:
@@ -1118,6 +1120,10 @@ merge-tool-edits-conflict-markers = true    # See below for an explanation
   should be used for the file. This can be useful if the merge tool parses
   and/or generates conflict markers. Usually, `jj` uses conflict markers of
   length 7, but they can be longer if necessary to make parsing unambiguous.
+
+Unlike `diff-args` or `edit-args`, there is no default value for `merge-args`.
+If `merge-args` are not specified, the tool cannot be used for conflict
+resolution.
 
 ### Editing conflict markers with a tool or a text editor
 
