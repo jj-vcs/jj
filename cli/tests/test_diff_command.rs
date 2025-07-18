@@ -3041,9 +3041,12 @@ fn test_diff_external_tool() {
     // nonzero exit codes should print a warning
     std::fs::write(&edit_script, "fail").unwrap();
     let output = work_dir.run_jj(["diff", "--config=ui.diff-formatter=fake-diff-editor"]);
-    let mut insta_settings = insta::Settings::clone_current();
-    insta_settings.add_filter("exit (status|code)", "<exit status>");
-    insta_settings.bind(|| {
+    let insta_portable_exit_status = {
+        let mut settings = insta::Settings::clone_current();
+        settings.add_filter("exit (status|code)", "<exit status>");
+        settings
+    };
+    insta_portable_exit_status.bind(|| {
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Warning: Tool exited with <exit status>: 1 (run with --debug to see the exact invocation)
@@ -3076,6 +3079,31 @@ fn test_diff_external_tool() {
     file3
     [EOF]
     ");
+
+    // diff with unset edit-args
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=fake-diff-editor",
+        "--config=merge-tools.fake-diff-editor.edit-args=[]",
+    ]), @r"
+    file1
+    file2
+    --
+    file2
+    file3
+    [EOF]
+    ");
+
+    // diff with explicitly unset edit-args and diff-args
+    insta_portable_exit_status.bind(|| {
+        insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=fake-diff-editor",
+        "--config=merge-tools.fake-diff-editor.edit-args=[]",
+        "--config=merge-tools.fake-diff-editor.diff-args=[]",
+    ]), @r"
+        ------- stderr -------
+        Error: The tool `fake-diff-editor` cannot be used for diff formatting
+        [EOF]
+        [<exit status>: 2]
+        ");
+    });
 
     // diff with file patterns
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=fake-diff-editor", "file1"]), @r"

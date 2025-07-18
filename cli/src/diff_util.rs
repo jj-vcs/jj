@@ -270,6 +270,21 @@ pub fn all_builtin_diff_format_names() -> Vec<String> {
         .collect()
 }
 
+fn diff_formatter_tool(
+    settings: &UserSettings,
+    name: &str,
+) -> Result<Option<ExternalMergeTool>, CommandError> {
+    let maybe_tool = merge_tools::get_external_tool_config(settings, name)?;
+    if let Some(tool) = &maybe_tool {
+        if tool.diff_args.is_empty() {
+            return Err(cli_error(format!(
+                "The tool `{name}` cannot be used for diff formatting"
+            )));
+        };
+    };
+    Ok(maybe_tool)
+}
+
 /// Returns a list of requested diff formats, which will never be empty.
 pub fn diff_formats_for(
     settings: &UserSettings,
@@ -334,9 +349,9 @@ fn diff_formats_from_args(
                 long_format = Some(format);
             }
         } else {
-            let tool = merge_tools::get_external_tool_config(settings, name)?
-                .unwrap_or_else(|| ExternalMergeTool::with_program(name));
             ensure_new(long_kind)?;
+            let tool = diff_formatter_tool(settings, name)?
+                .unwrap_or_else(|| ExternalMergeTool::with_program(name));
             long_format = Some(DiffFormat::Tool(Box::new(tool)));
         }
     }
@@ -346,19 +361,19 @@ fn diff_formats_from_args(
 fn default_diff_format(
     settings: &UserSettings,
     args: &DiffFormatArgs,
-) -> Result<DiffFormat, ConfigGetError> {
+) -> Result<DiffFormat, CommandError> {
     let tool_args: CommandNameAndArgs = settings.get("ui.diff-formatter")?;
     if let Some(name) = tool_args.as_str().and_then(|s| s.strip_prefix(':')) {
-        BuiltinFormatKind::from_name(name)
+        Ok(BuiltinFormatKind::from_name(name)
             .map_err(|err| ConfigGetError::Type {
                 name: "ui.diff-formatter".to_owned(),
                 error: err.into(),
                 source_path: None,
             })?
-            .to_format(settings, args)
+            .to_format(settings, args)?)
     } else {
         let tool = if let Some(name) = tool_args.as_str() {
-            merge_tools::get_external_tool_config(settings, name)?
+            diff_formatter_tool(settings, name)?
         } else {
             None
         }

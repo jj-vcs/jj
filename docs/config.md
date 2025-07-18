@@ -374,6 +374,10 @@ diff-args = ["--color=always", "$left", "$right"]
 
 - If `diff-args` is not specified, `["$left", "$right"]` will be used by default.
 
+- If `diff-args = []`, `jj` will refuse to use this tool for diff formatting.
+  This is a way to explicitly state that a certain tool (e.g. `mergiraf`) does
+  not work for viewing diffs.
+
 By default `jj` will invoke external tools with a directory containing the left
 and right sides.  The `diff-invocation-mode` config can change this to file by file
 invocations as follows:
