@@ -166,7 +166,7 @@ impl View {
     /// absent, and if no associated remote bookmarks exist, the bookmark
     /// will be removed.
     pub fn set_local_bookmark_target(&mut self, name: &RefName, target: RefTarget) {
-        if target.is_present() {
+        if dbg!(target.is_present()) {
             self.data.local_bookmarks.insert(name.to_owned(), target);
         } else {
             self.data.local_bookmarks.remove(name);
@@ -228,18 +228,18 @@ impl View {
     /// Sets remote-tracking bookmark to the given target and state. If the
     /// target is absent, the bookmark will be removed.
     pub fn set_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>, remote_ref: RemoteRef) {
-        if remote_ref.is_present() {
-            let remote_view = self
-                .data
-                .remote_views
-                .entry(symbol.remote.to_owned())
-                .or_default();
-            remote_view
-                .bookmarks
-                .insert(symbol.name.to_owned(), remote_ref);
-        } else if let Some(remote_view) = self.data.remote_views.get_mut(symbol.remote) {
-            remote_view.bookmarks.remove(symbol.name);
-        }
+        // if dbg!(remote_ref.is_present()) {
+        let remote_view = self
+            .data
+            .remote_views
+            .entry(symbol.remote.to_owned())
+            .or_default();
+        remote_view
+            .bookmarks
+            .insert(symbol.name.to_owned(), remote_ref);
+        // } else if let Some(remote_view) = self.data.remote_views.get_mut(symbol.remote) {
+        //     remote_view.bookmarks.remove(symbol.name);
+        // }
     }
 
     /// Iterates over `(name, {local_ref, remote_ref})`s for every bookmark

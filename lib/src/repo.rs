@@ -1654,7 +1654,12 @@ impl MutableRepo {
         let view = self.view.get_mut();
         let index = self.index.as_index();
         let self_target = view.get_local_bookmark(name);
-        let new_target = merge_ref_targets(index, self_target, base_target, other_target);
+        let new_target = dbg!(merge_ref_targets(
+            index,
+            self_target,
+            base_target,
+            other_target
+        ));
         self.set_local_bookmark_target(name, new_target);
     }
 
@@ -1683,8 +1688,8 @@ impl MutableRepo {
     /// Merges the specified remote bookmark in to local bookmark, and starts
     /// tracking it.
     pub fn track_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>) {
-        let mut remote_ref = self.get_remote_bookmark(symbol);
-        let base_target = remote_ref.tracked_target();
+        let mut remote_ref = dbg!(self.get_remote_bookmark(symbol));
+        let base_target = dbg!(remote_ref.tracked_target());
         self.merge_local_bookmark(symbol.name, base_target, &remote_ref.target);
         remote_ref.state = RemoteRefState::Tracked;
         self.set_remote_bookmark(symbol, remote_ref);

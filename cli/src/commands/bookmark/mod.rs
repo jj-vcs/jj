@@ -22,11 +22,14 @@ mod set;
 mod track;
 mod untrack;
 
+use bstr::ByteSlice;
+use gix::remote;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::RefName;
+use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::Repo;
 use jj_lib::str_util::StringPattern;
@@ -146,7 +149,8 @@ where
 fn find_remote_bookmarks<'a>(
     view: &'a View,
     name_patterns: &[RemoteBookmarkNamePattern],
-) -> Result<Vec<(RemoteRefSymbol<'a>, &'a RemoteRef)>, CommandError> {
+    remote_names: &'a remote::Names<'_>,
+) -> Result<Vec<(RemoteRefSymbol<'a>, Option<&'a RemoteRef>)>, CommandError> {
     let mut matching_bookmarks = vec![];
     let mut unmatched_patterns = vec![];
     for pattern in name_patterns {
@@ -154,9 +158,29 @@ fn find_remote_bookmarks<'a>(
             .remote_bookmarks_matching(&pattern.bookmark, &pattern.remote)
             .peekable();
         if matches.peek().is_none() {
-            unmatched_patterns.push(pattern);
+            let mut matches = view.local_bookmarks_matching(&pattern.bookmark).peekable();
+            let mut remotes = remote_names
+                .iter()
+                .filter(|r| pattern.remote.matches(&r.to_str_lossy()))
+                .peekable();
+            if matches.peek().is_none() || remotes.peek().is_none() {
+                unmatched_patterns.push(pattern);
+            } else {
+                let remotes = remotes.collect::<Vec<_>>();
+                for (name, _) in matches {
+                    for &remote in &remotes {
+                        matching_bookmarks.push((
+                            RemoteRefSymbol {
+                                name,
+                                remote: RemoteName::new(remote.to_str().unwrap()),
+                            },
+                            None,
+                        ));
+                    }
+                }
+            }
         }
-        matching_bookmarks.extend(matches);
+        matching_bookmarks.extend(matches.map(|(symbol, remote_ref)| (symbol, Some(remote_ref))));
     }
     match &unmatched_patterns[..] {
         [] => {

@@ -17,6 +17,8 @@ use std::rc::Rc;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
+use jj_lib::git;
+use jj_lib::repo::Repo as _;
 
 use super::find_remote_bookmarks;
 use crate::cli_util::CommandHelper;
@@ -58,9 +60,11 @@ pub fn cmd_bookmark_track(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
+    let git_repo = git::get_git_repo(repo.store())?;
+    let remote_names = git_repo.remote_names();
     let mut symbols = Vec::new();
-    for (symbol, remote_ref) in find_remote_bookmarks(repo.view(), &args.names)? {
-        if remote_ref.is_tracked() {
+    for (symbol, remote_ref) in find_remote_bookmarks(repo.view(), &args.names, &remote_names)? {
+        if remote_ref.is_some_and(|r| r.is_tracked()) {
             writeln!(
                 ui.warning_default(),
                 "Remote bookmark already tracked: {symbol}"

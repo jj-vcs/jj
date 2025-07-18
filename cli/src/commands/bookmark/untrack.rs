@@ -14,6 +14,8 @@
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
+use jj_lib::git;
+use jj_lib::repo::Repo as _;
 
 use super::find_remote_bookmarks;
 use crate::cli_util::CommandHelper;
@@ -55,8 +57,10 @@ pub fn cmd_bookmark_untrack(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
+    let git_repo = git::get_git_repo(repo.store())?;
+    let remote_names = git_repo.remote_names();
     let mut symbols = Vec::new();
-    for (symbol, remote_ref) in find_remote_bookmarks(repo.view(), &args.names)? {
+    for (symbol, remote_ref) in find_remote_bookmarks(repo.view(), &args.names, &remote_names)? {
         if jj_lib::git::is_special_git_remote(symbol.remote) {
             // This restriction can be lifted if we want to support untracked @git
             // bookmarks.
@@ -64,7 +68,7 @@ pub fn cmd_bookmark_untrack(
                 ui.warning_default(),
                 "Git-tracking bookmark cannot be untracked: {symbol}"
             )?;
-        } else if !remote_ref.is_tracked() {
+        } else if !remote_ref.is_some_and(|r| r.is_tracked()) {
             writeln!(
                 ui.warning_default(),
                 "Remote bookmark not tracked yet: {symbol}"
