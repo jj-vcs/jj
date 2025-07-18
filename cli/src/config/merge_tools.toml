@@ -7,16 +7,17 @@ program="diffedit3"
 # We use a random port as a fallback if all 5 of the preferred port numbers are
 # busy.
 edit-args = ["$left", "$right", "$output", "--port", "17376-17380", "--port", "0"]
+# Not the best diff viewer, but functional. It's possible to hide the 3rd pane in the UI.
+diff-args = ["$left", "$right", "--port", "17376-17380", "--port", "0"]
 
 [merge-tools.diffedit3-ssh]
 program="diffedit3"
-# 17376 is a verified random number, as in https://xkcd.com/221/ :). I am trying
-# to avoid 8000 or 8080 in case those, more commonly used, port numbers are used
-# for something else.
+# See comments for `diffedit3` above.
 #
-# We do NOT use a random port as a fallback since we recommend that the user
-# configure SSH to forward these 5 ports
+# Unlike `diffedit3`, `diffedit3-ssh` does NOT use a random port as a fallback
+# since we recommend that the user configure SSH to forward these 5 ports
 edit-args = ["$left", "$right", "$output", "--port", "17376-17380", "--no-browser"]
+diff-args = ["$left", "$right", "--port", "17376-17380", "--no-browser"]
 
 [merge-tools.difft]
 diff-args = ["--color=always", "$left", "$right"]
@@ -70,10 +71,19 @@ merge-args = ["--wait", "--merge", "$left", "$right", "$base", "$output"]
 merge-tool-edits-conflict-markers = true
 # VS Code prefers Git-style conflict markers
 conflict-marker-style = "git"
+# Not recommended, but functional. Without `--wait`, the behavior may be more
+# convenient, but is also more confusing and brittle (all files get deleted).
+# TODO: We could consider a "file-by-file-keep-files" invocation mode to make it
+# work better.
+diff-args=["--diff", "$left", "$right", "--wait"]
+diff-invocation-mode="file-by-file"
 
 # free/libre distribution of vscode, functionally more or less the same
 [merge-tools.vscodium]
 program = "codium"
 merge-args = ["--wait", "--merge", "$left", "$right", "$base", "$output"]
+# See notes for vscode above
 merge-tool-edits-conflict-markers = true
 conflict-marker-style = "git"
+diff-args=["--diff", "$left", "$right", "--wait"]
+diff-invocation-mode="file-by-file"
