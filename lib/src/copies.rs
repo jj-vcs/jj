@@ -23,7 +23,10 @@ use std::task::ready;
 use futures::Stream;
 
 use crate::backend::BackendResult;
+use crate::backend::CopyHistory;
+use crate::backend::CopyId;
 use crate::backend::CopyRecord;
+use crate::dag_walk::topo_order_reverse;
 use crate::merge::Diff;
 use crate::merge::MergedTreeValue;
 use crate::merged_tree::MergedTree;
@@ -222,4 +225,28 @@ impl Stream for CopiesTreeDiffStream<'_> {
 
         Poll::Ready(None)
     }
+}
+
+/// Maps `CopyId`s to `CopyHistory`s
+pub type CopyGraph = HashMap<CopyId, CopyHistory>;
+
+/// Order a copy history (sub)graph with children before parents
+pub fn traverse_copy_history<'a>(copies: &'a CopyGraph, initial_id: &'a CopyId) -> Vec<&'a CopyId> {
+    topo_order_reverse(
+        [initial_id],
+        |id| *id,
+        |id| copies.get(id).unwrap().parents.iter(),
+        |_| panic!("CopyHistory cycle detected"),
+    )
+    .unwrap()
+}
+
+/// Returns whether `maybe_child` is a descendant of `parent`
+pub fn is_descendant(copies: &CopyGraph, parent: &CopyId, maybe_child: &CopyId) -> bool {
+    for ancestor in traverse_copy_history(copies, maybe_child) {
+        if ancestor == parent {
+            return true;
+        }
+    }
+    false
 }
