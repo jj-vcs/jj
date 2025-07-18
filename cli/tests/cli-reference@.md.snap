@@ -59,6 +59,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj git remote rename`↴](#jj-git-remote-rename)
 * [`jj git remote set-url`↴](#jj-git-remote-set-url)
 * [`jj git root`↴](#jj-git-root)
+* [`jj git sync`↴](#jj-git-sync)
 * [`jj help`↴](#jj-help)
 * [`jj interdiff`↴](#jj-interdiff)
 * [`jj log`↴](#jj-log)
@@ -1169,6 +1170,7 @@ See this [comparison], including a [table of commands].
 * `push` — Push to a Git remote
 * `remote` — Manage Git remotes
 * `root` — Show the underlying Git directory of a repository using the Git backend
+* `sync` — Fetch from remotes and rebase local changes
 
 
 
@@ -1411,6 +1413,32 @@ Set the URL of a Git remote
 Show the underlying Git directory of a repository using the Git backend
 
 **Usage:** `jj git root`
+
+
+
+## `jj git sync`
+
+Fetch from remotes and rebase local changes
+
+This command fetches from Git remotes and rebases local commits that were descendants of remote-tracking bookmarks onto the new remote heads. This provides a workflow similar to `git pull --rebase` but operates on all tracked remote bookmarks simultaneously.
+
+The rebase operation automatically drops any local commits that have been merged upstream.
+
+**Usage:** `jj git sync [OPTIONS]`
+
+###### **Options:**
+
+* `-r`, `--remote <REMOTE>` — The remotes to sync with
+
+   This defaults to the `git.fetch` setting. If that is not configured, and if there are multiple remotes, the remote named "origin" will be used.
+
+   By default, the specified remote names match exactly. Use a [string pattern], e.g. `--remote 'glob:*'`, to select remotes using patterns.
+
+   [string pattern]: https://jj-vcs.github.io/jj/latest/revsets#string-patterns
+* `-b`, `--bookmark <BOOKMARKS>` — Sync only these bookmarks, or bookmarks matching a pattern
+
+   By default, the specified name matches exactly. Use `glob:` prefix to expand `*` as a glob, e.g. `--branch 'glob:push-*'`. Other wildcard characters such as `?` are *not* supported.
+* `--all-remotes` — Sync with all remotes
 
 
 
