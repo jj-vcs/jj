@@ -31,6 +31,7 @@ use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefName;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteName;
+use crate::ref_name::RemoteNameBuf;
 use crate::ref_name::RemoteRefSymbol;
 use crate::ref_name::WorkspaceName;
 use crate::ref_name::WorkspaceNameBuf;
@@ -215,6 +216,17 @@ impl View {
                     .map(|(name, remote_ref)| (name.to_remote_symbol(remote), remote_ref))
             })
             .kmerge_by(|(symbol1, _), (symbol2, _)| symbol1 < symbol2)
+    }
+
+    /// Iterates over all remotes that match the given pattern.
+    pub fn remotes_matching<'a, 'b>(
+        &'a self,
+        remote_pattern: &'b StringPattern,
+    ) -> impl Iterator<Item = &'a RemoteNameBuf> + use<'a, 'b> {
+        // Use kmerge instead of flat_map for consistency with all_remote_bookmarks().
+        dbg!(remote_pattern)
+            .filter_btree_map_as_deref(dbg!(&self.data.remote_views))
+            .map(|(remote, _)| remote)
     }
 
     pub fn get_remote_bookmark(&self, symbol: RemoteRefSymbol<'_>) -> &RemoteRef {
