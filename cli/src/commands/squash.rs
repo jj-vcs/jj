@@ -41,7 +41,7 @@ use crate::description_util::join_message_paragraphs;
 use crate::description_util::try_combine_messages;
 use crate::ui::Ui;
 
-/// Move changes from a revision into another revision
+/// Move changes from a revision into another revision [default alias: amend]
 ///
 /// With the `-r` option, moves the changes from the specified revision to the
 /// parent revision. Fails if there are several parent revisions (i.e., the

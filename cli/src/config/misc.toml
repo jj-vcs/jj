@@ -1,3 +1,6 @@
+# When adding aliases here, also add `[default alias: blah]` to the first line
+# of the command's help text.
+#
 # The code assumes that this table exists, so don't delete it even if you remove
 # all aliases from here.
 [aliases]
