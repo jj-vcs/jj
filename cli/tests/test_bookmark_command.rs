@@ -1346,9 +1346,9 @@ fn test_bookmark_track_conflict() {
     ------- stderr -------
     Started tracking 1 remote bookmarks.
     main (conflicted):
-      + qpvuntsm?? 56b9f16b (empty) b
-      + qpvuntsm?? 7d5ca8e4 (empty) a
-      @origin (behind by 1 commits): qpvuntsm?? 7d5ca8e4 (empty) a
+      + qpvuntsm divergent 56b9f16b (empty) b
+      + qpvuntsm divergent 7d5ca8e4 (empty) a
+      @origin (behind by 1 commits): qpvuntsm divergent 7d5ca8e4 (empty) a
     [EOF]
     ");
 }

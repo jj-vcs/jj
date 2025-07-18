@@ -336,7 +336,10 @@ if(commit.hidden(),
     format_short_change_id(commit.change_id()) ++ " hidden"
   ),
   label(if(commit.divergent(), "divergent"),
-    format_short_change_id(commit.change_id()) ++ if(commit.divergent(), "??")
+    separate(" ",
+      format_short_change_id(commit.change_id()),
+      if(commit.divergent(), "divergent"),
+    )
   )
 )
 '''

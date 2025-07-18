@@ -762,9 +762,9 @@ fn test_git_fetch_all() {
       @origin: yqosqzyt baad96fe a2
     b (conflicted):
       - yostqsxw hidden bc83465a b
-      + yostqsxw?? 0fbbc495 new_descr_for_b_to_create_conflict
-      + yostqsxw?? 6fc6fe17 b
-      @origin (behind by 1 commits): yostqsxw?? 6fc6fe17 b
+      + yostqsxw divergent 0fbbc495 new_descr_for_b_to_create_conflict
+      + yostqsxw divergent 6fc6fe17 b
+      @origin (behind by 1 commits): yostqsxw divergent 6fc6fe17 b
     trunk1: kkmpptxz 38288177 trunk1
       @origin: kkmpptxz 38288177 trunk1
     trunk2: uyznsvlq e80d998a trunk2
@@ -968,9 +968,9 @@ fn test_git_fetch_some_of_many_bookmarks() {
       @origin: yqosqzyt d4d535f1 a2
     b (conflicted):
       - yostqsxw hidden bc83465a b
-      + yostqsxw?? c62db311 new_descr_for_b_to_create_conflict
-      + yostqsxw?? 2b30dbc9 b
-      @origin (behind by 1 commits): yostqsxw?? 2b30dbc9 b
+      + yostqsxw divergent c62db311 new_descr_for_b_to_create_conflict
+      + yostqsxw divergent 2b30dbc9 b
+      @origin (behind by 1 commits): yostqsxw divergent 2b30dbc9 b
     [EOF]
     ");
     // Now, let's fetch a2 and double-check that fetching a1 and b again doesn't do
@@ -1004,9 +1004,9 @@ fn test_git_fetch_some_of_many_bookmarks() {
       @origin: yqosqzyt 841140b1 a2
     b (conflicted):
       - yostqsxw hidden bc83465a b
-      + yostqsxw?? c62db311 new_descr_for_b_to_create_conflict
-      + yostqsxw?? 2b30dbc9 b
-      @origin (behind by 1 commits): yostqsxw?? 2b30dbc9 b
+      + yostqsxw divergent c62db311 new_descr_for_b_to_create_conflict
+      + yostqsxw divergent 2b30dbc9 b
+      @origin (behind by 1 commits): yostqsxw divergent 2b30dbc9 b
     [EOF]
     ");
 }

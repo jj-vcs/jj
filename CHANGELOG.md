@@ -54,6 +54,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [`Operation`](docs/templates.md#operation-type) type in the templating
   language.
 
+* Divergent changes are now shown as "divergent" instead of using "??".
+
 ### Fixed bugs
 
 ### Packaging changes

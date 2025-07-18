@@ -539,7 +539,7 @@ with something like `jj desc -m "Revert the merge of D into B`. Now, commit `@`
 undoes the merge of `D` into  `B`. If necessary, you can now rebase it
 elsewhere, e.g. `jj rebase -r @ -d main`.
 
-### How do I deal with divergent changes ('??' after the [change ID])?
+### How do I deal with divergent changes ('divergent' after the [change ID])?
 
 A [divergent change][glossary_divergent_change] represents a change that has two
 or more visible commits associated with it. To refer to such commits, you must
