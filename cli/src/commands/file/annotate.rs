@@ -120,18 +120,22 @@ fn render_file_annotation(
     let mut formatter = ui.stdout_formatter();
     let mut last_id = None;
     let default_id = repo.store().root_commit_id();
-    for (line_number, (commit_id, content)) in annotation.lines().enumerate() {
+    for (line_number, (line_origin, content)) in annotation.line_origins().enumerate() {
         /* At least in cases where the repository was jj-initialized shallowly,
         then unshallow'd with git, some changes will not have a commit id
         because jj does not import the unshallow'd commits. So we default
         to the root commit id for now. */
-        let commit_id = commit_id.unwrap_or(default_id);
+        let (commit_id, original_line_number) = match line_origin {
+            Ok(origin) => (&origin.commit_id, origin.line_number),
+            Err(_) => (default_id, 0),
+        };
         let commit = repo.store().get_commit(commit_id)?;
         let first_line_in_hunk = last_id != Some(commit_id);
         let annotation_line = AnnotationLine {
             commit,
             content: content.to_owned(),
             line_number: line_number + 1,
+            original_line_number: original_line_number + 1,
             first_line_in_hunk,
         };
         template_render.format(&annotation_line, formatter.as_mut())?;

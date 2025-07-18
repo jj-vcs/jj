@@ -50,6 +50,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `core.autocrlf` config. A heuristics is used to detect if a file is a binary
   file to prevent the EOL conversion from changing binary files unexpectedly.
 
+* AnnotationLine objects in templates now have a `original_line_number() ->
+  Integer` method.
+
 ### Fixed bugs
 
 ### Packaging changes
