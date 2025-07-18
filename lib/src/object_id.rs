@@ -53,6 +53,7 @@ macro_rules! id_type {
 
 macro_rules! impl_id_type {
     ($name:ident, $hex_method:ident) => {
+        #[allow(dead_code)]
         impl $name {
             pub fn new(value: Vec<u8>) -> Self {
                 Self(value)
