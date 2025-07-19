@@ -1092,10 +1092,14 @@ fn test_template_alias() {
 #[test]
 fn test_merge_tools() {
     let mut test_env = TestEnvironment::default();
+    // A tool without configured arguments is assumed to function as a diff
+    // editor and formatter, but not as a merge editor.
+    test_env.add_config("merge-tools.abracadabra={}");
     test_env.add_env_var("COMPLETE", "fish");
     let dir = test_env.env_root();
 
     let output = test_env.run_jj_in(dir, ["--", "jj", "diff", "--tool", ""]);
+    // Includes `difft`, excludes merge tools like `mergiraf`
     insta::assert_snapshot!(output, @r"
     :summary
     :stat
@@ -1109,31 +1113,25 @@ fn test_merge_tools() {
     kdiff3
     meld
     meld-3
-    mergiraf
-    smerge
-    vimdiff
     vscode
     vscodium
+    abracadabra
     [EOF]
     ");
-    // Includes :builtin
+    // Excludes `difft` and `mergiraf`
     let output = test_env.run_jj_in(dir, ["--", "jj", "diffedit", "--tool", ""]);
     insta::assert_snapshot!(output, @r"
     :builtin
     diffedit3
     diffedit3-ssh
-    difft
     kdiff3
     meld
     meld-3
-    mergiraf
-    smerge
     vimdiff
-    vscode
-    vscodium
+    abracadabra
     [EOF]
     ");
-    // Only includes configured merge editors
+    // Includes `mergiraf`, but not `difft` or `abracadabra`
     let output = test_env.run_jj_in(dir, ["--", "jj", "resolve", "--tool", ""]);
     insta::assert_snapshot!(output, @r"
     :builtin

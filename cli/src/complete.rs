@@ -38,6 +38,7 @@ use crate::config::ConfigEnv;
 use crate::config::CONFIG_SCHEMA;
 use crate::merge_tools::configured_merge_tools;
 use crate::merge_tools::get_external_tool_config;
+use crate::merge_tools::ExternalMergeTool;
 use crate::revset_util::load_revset_aliases;
 use crate::ui::Ui;
 
@@ -453,14 +454,24 @@ pub fn workspaces() -> Vec<CompletionCandidate> {
             .collect())
     })
 }
+
+fn merge_tools_filtered_by(
+    settings: &UserSettings,
+    condition: impl Fn(ExternalMergeTool) -> bool,
+) -> impl Iterator<Item = &str> {
+    configured_merge_tools(settings).filter(move |name| {
+        let Ok(Some(tool)) = get_external_tool_config(settings, name) else {
+            return false;
+        };
+        condition(tool)
+    })
+}
+
 pub fn merge_editors() -> Vec<CompletionCandidate> {
     with_jj(|_, settings| {
         Ok([":builtin", ":ours", ":theirs"]
             .into_iter()
-            .chain(configured_merge_tools(settings).filter(|name| {
-                let Ok(Some(tool)) = get_external_tool_config(settings, name) else {
-                    return false;
-                };
+            .chain(merge_tools_filtered_by(settings, |tool| {
                 !tool.merge_args.is_empty()
             }))
             .map(CompletionCandidate::new)
@@ -469,33 +480,35 @@ pub fn merge_editors() -> Vec<CompletionCandidate> {
 }
 
 /// Approximate list of known diff editors
-///
-/// Diff tools can be used without configuration. Some merge tools that are
-/// configured for 3-way merging may not work for diffing/diff editing, and we
-/// can't tell which these are. So, this not reliable, but probably good enough
-/// for command-line completion.
 pub fn diff_editors() -> Vec<CompletionCandidate> {
     with_jj(|_, settings| {
         Ok(std::iter::once(":builtin")
-            .chain(configured_merge_tools(settings))
+            .chain(merge_tools_filtered_by(
+                settings,
+                // The args are empty only if `edit-args` are explicitly set to
+                // `[]` in TOML. If they are not specified, the default
+                // `["$left", "$right"]` value would be used.
+                |tool| !tool.edit_args.is_empty(),
+            ))
             .map(CompletionCandidate::new)
             .collect())
     })
 }
 
 /// Approximate list of known diff tools
-///
-/// Diff tools can be used without configuration. Some merge tools that are
-/// configured for 3-way merging may not work for diffing/diff editing, and we
-/// can't tell which these are. So, this not reliable, but probably good enough
-/// for command-line completion.
 pub fn diff_formatters() -> Vec<CompletionCandidate> {
     let builtin_format_kinds = crate::diff_util::all_builtin_diff_format_names();
     with_jj(|_, settings| {
         Ok(builtin_format_kinds
             .iter()
             .map(|s| s.as_str())
-            .chain(configured_merge_tools(settings))
+            .chain(merge_tools_filtered_by(
+                settings,
+                // The args are empty only if `diff-args` are explicitly set to
+                // `[]` in TOML. If they are not specified, the default
+                // `["$left", "$right"]` value would be used.
+                |tool| !tool.diff_args.is_empty(),
+            ))
             .map(CompletionCandidate::new)
             .collect())
     })
