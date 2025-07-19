@@ -18,6 +18,8 @@ use std::any::Any;
 use std::cmp::max;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Debug;
 use std::io;
 use std::io::Write as _;
 use std::iter;
@@ -34,17 +36,18 @@ use tempfile::NamedTempFile;
 
 use super::composite::AsCompositeIndex;
 use super::composite::ChangeIdIndexImpl;
+use super::composite::CommitIndexSegment;
+use super::composite::CompositeCommitIndex;
 use super::composite::CompositeIndex;
-use super::composite::DynIndexSegment;
-use super::composite::IndexSegment;
-use super::entry::IndexPosition;
-use super::entry::LocalPosition;
-use super::entry::SmallIndexPositionsVec;
-use super::entry::SmallLocalPositionsVec;
+use super::composite::DynCommitIndexSegment;
+use super::entry::GlobalCommitPosition;
+use super::entry::LocalCommitPosition;
+use super::entry::SmallGlobalCommitPositionsVec;
+use super::entry::SmallLocalCommitPositionsVec;
 use super::readonly::DefaultReadonlyIndex;
 use super::readonly::FieldLengths;
-use super::readonly::ReadonlyIndexSegment;
-use super::readonly::INDEX_SEGMENT_FILE_FORMAT_VERSION;
+use super::readonly::ReadonlyCommitIndexSegment;
+use super::readonly::COMMIT_INDEX_SEGMENT_FILE_FORMAT_VERSION;
 use super::readonly::OVERFLOW_FLAG;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
@@ -65,24 +68,33 @@ use crate::revset::Revset;
 use crate::revset::RevsetEvaluationError;
 use crate::store::Store;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct MutableGraphEntry {
     commit_id: CommitId,
     change_id: ChangeId,
     generation_number: u32,
-    parent_positions: SmallIndexPositionsVec,
+    parent_positions: SmallGlobalCommitPositionsVec,
 }
 
-pub(super) struct MutableIndexSegment {
-    parent_file: Option<Arc<ReadonlyIndexSegment>>,
+#[derive(Clone)]
+pub(super) struct MutableCommitIndexSegment {
+    parent_file: Option<Arc<ReadonlyCommitIndexSegment>>,
     num_parent_commits: u32,
     field_lengths: FieldLengths,
     graph: Vec<MutableGraphEntry>,
-    commit_lookup: BTreeMap<CommitId, LocalPosition>,
-    change_lookup: BTreeMap<ChangeId, SmallLocalPositionsVec>,
+    commit_lookup: BTreeMap<CommitId, LocalCommitPosition>,
+    change_lookup: BTreeMap<ChangeId, SmallLocalCommitPositionsVec>,
 }
 
-impl MutableIndexSegment {
+impl Debug for MutableCommitIndexSegment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        f.debug_struct("MutableCommitIndexSegment")
+            .field("parent_file", &self.parent_file)
+            .finish_non_exhaustive()
+    }
+}
+
+impl MutableCommitIndexSegment {
     pub(super) fn full(field_lengths: FieldLengths) -> Self {
         Self {
             parent_file: None,
@@ -94,7 +106,7 @@ impl MutableIndexSegment {
         }
     }
 
-    pub(super) fn incremental(parent_file: Arc<ReadonlyIndexSegment>) -> Self {
+    pub(super) fn incremental(parent_file: Arc<ReadonlyCommitIndexSegment>) -> Self {
         let num_parent_commits = parent_file.as_composite().num_commits();
         let field_lengths = parent_file.field_lengths();
         Self {
@@ -107,8 +119,8 @@ impl MutableIndexSegment {
         }
     }
 
-    pub(super) fn as_composite(&self) -> &CompositeIndex {
-        CompositeIndex::new(self)
+    pub(super) fn as_composite(&self) -> &CompositeCommitIndex {
+        CompositeCommitIndex::new(self)
     }
 
     pub(super) fn add_commit_data(
@@ -137,7 +149,7 @@ impl MutableIndexSegment {
             );
             entry.parent_positions.push(parent_entry.position());
         }
-        let local_pos = LocalPosition(u32::try_from(self.graph.len()).unwrap());
+        let local_pos = LocalCommitPosition(u32::try_from(self.graph.len()).unwrap());
         self.commit_lookup
             .insert(entry.commit_id.clone(), local_pos);
         self.change_lookup
@@ -148,16 +160,16 @@ impl MutableIndexSegment {
         self.graph.push(entry);
     }
 
-    pub(super) fn add_commits_from(&mut self, other_segment: &DynIndexSegment) {
-        let other = CompositeIndex::new(other_segment);
+    pub(super) fn add_commits_from(&mut self, other_segment: &DynCommitIndexSegment) {
+        let other = CompositeCommitIndex::new(other_segment);
         for pos in other_segment.num_parent_commits()..other.num_commits() {
-            let entry = other.entry_by_pos(IndexPosition(pos));
+            let entry = other.entry_by_pos(GlobalCommitPosition(pos));
             let parent_ids = entry.parents().map(|entry| entry.commit_id()).collect_vec();
             self.add_commit_data(entry.commit_id(), entry.change_id(), &parent_ids);
         }
     }
 
-    pub(super) fn merge_in(&mut self, other: &Arc<ReadonlyIndexSegment>) {
+    pub(super) fn merge_in(&mut self, other: &Arc<ReadonlyCommitIndexSegment>) {
         // Collect other segments down to the common ancestor segment
         let files_to_add = itertools::merge_join_by(
             self.as_composite().ancestor_files_without_local(),
@@ -229,12 +241,12 @@ impl MutableIndexSegment {
                     buf.extend((!0_u32).to_le_bytes());
                     buf.extend((!0_u32).to_le_bytes());
                 }
-                [IndexPosition(pos1)] => {
+                [GlobalCommitPosition(pos1)] => {
                     assert!(*pos1 < OVERFLOW_FLAG);
                     buf.extend(pos1.to_le_bytes());
                     buf.extend((!0_u32).to_le_bytes());
                 }
-                [IndexPosition(pos1), IndexPosition(pos2)] => {
+                [GlobalCommitPosition(pos1), GlobalCommitPosition(pos2)] => {
                     assert!(*pos1 < OVERFLOW_FLAG);
                     assert!(*pos2 < OVERFLOW_FLAG);
                     buf.extend(pos1.to_le_bytes());
@@ -260,7 +272,7 @@ impl MutableIndexSegment {
             buf.extend_from_slice(entry.commit_id.as_bytes());
         }
 
-        for LocalPosition(pos) in self.commit_lookup.values() {
+        for LocalCommitPosition(pos) in self.commit_lookup.values() {
             buf.extend(pos.to_le_bytes());
         }
 
@@ -274,7 +286,7 @@ impl MutableIndexSegment {
             match positions.as_slice() {
                 [] => panic!("change id lookup entry must not be empty"),
                 // Optimize for imported commits
-                [LocalPosition(pos1)] => {
+                [LocalCommitPosition(pos1)] => {
                     assert!(*pos1 < OVERFLOW_FLAG);
                     buf.extend(pos1.to_le_bytes());
                 }
@@ -289,21 +301,21 @@ impl MutableIndexSegment {
 
         let num_parent_overflow = u32::try_from(parent_overflow.len()).unwrap();
         buf[parent_overflow_offset..][..4].copy_from_slice(&num_parent_overflow.to_le_bytes());
-        for IndexPosition(pos) in parent_overflow {
+        for GlobalCommitPosition(pos) in parent_overflow {
             buf.extend(pos.to_le_bytes());
         }
 
         let num_change_overflow = u32::try_from(change_overflow.len()).unwrap();
         buf[change_overflow_offset..][..4].copy_from_slice(&num_change_overflow.to_le_bytes());
-        for LocalPosition(pos) in change_overflow {
+        for LocalCommitPosition(pos) in change_overflow {
             buf.extend(pos.to_le_bytes());
         }
     }
 
-    /// If the MutableIndex has more than half the commits of its parent
-    /// ReadonlyIndex, return MutableIndex with the commits from both. This
-    /// is done recursively, so the stack of index files has O(log n) files.
-    fn maybe_squash_with_ancestors(self) -> MutableIndexSegment {
+    /// If the mutable segment has more than half the commits of its parent
+    /// segment, return mutable segment with the commits from both. This is done
+    /// recursively, so the stack of index segments has O(log n) files.
+    fn maybe_squash_with_ancestors(self) -> MutableCommitIndexSegment {
         let mut num_new_commits = self.num_local_commits();
         let mut files_to_squash = vec![];
         let mut base_parent_file = None;
@@ -323,9 +335,9 @@ impl MutableIndexSegment {
         }
 
         let mut squashed = if let Some(parent_file) = base_parent_file {
-            MutableIndexSegment::incremental(parent_file)
+            MutableCommitIndexSegment::incremental(parent_file)
         } else {
-            MutableIndexSegment::full(self.field_lengths)
+            MutableCommitIndexSegment::full(self.field_lengths)
         };
         for parent_file in files_to_squash.iter().rev() {
             squashed.add_commits_from(parent_file.as_ref());
@@ -334,13 +346,13 @@ impl MutableIndexSegment {
         squashed
     }
 
-    pub(super) fn save_in(self, dir: &Path) -> io::Result<Arc<ReadonlyIndexSegment>> {
+    pub(super) fn save_in(self, dir: &Path) -> io::Result<Arc<ReadonlyCommitIndexSegment>> {
         if self.num_local_commits() == 0 && self.parent_file.is_some() {
             return Ok(self.parent_file.unwrap());
         }
 
         let mut buf = Vec::new();
-        buf.extend(INDEX_SEGMENT_FILE_FORMAT_VERSION.to_le_bytes());
+        buf.extend(COMMIT_INDEX_SEGMENT_FILE_FORMAT_VERSION.to_le_bytes());
         self.serialize_parent_filename(&mut buf);
         let local_entries_offset = buf.len();
         self.serialize_local_entries(&mut buf);
@@ -354,7 +366,7 @@ impl MutableIndexSegment {
         file.write_all(&buf)?;
         persist_content_addressed_temp_file(temp_file, index_file_path)?;
 
-        Ok(ReadonlyIndexSegment::load_with_parent_file(
+        Ok(ReadonlyCommitIndexSegment::load_with_parent_file(
             &mut &buf[local_entries_offset..],
             index_file_id_hex,
             self.parent_file,
@@ -364,7 +376,7 @@ impl MutableIndexSegment {
     }
 }
 
-impl IndexSegment for MutableIndexSegment {
+impl CommitIndexSegment for MutableCommitIndexSegment {
     fn num_parent_commits(&self) -> u32 {
         self.num_parent_commits
     }
@@ -373,7 +385,7 @@ impl IndexSegment for MutableIndexSegment {
         self.graph.len().try_into().unwrap()
     }
 
-    fn parent_file(&self) -> Option<&Arc<ReadonlyIndexSegment>> {
+    fn parent_file(&self) -> Option<&Arc<ReadonlyCommitIndexSegment>> {
         self.parent_file.as_ref()
     }
 
@@ -381,7 +393,7 @@ impl IndexSegment for MutableIndexSegment {
         None
     }
 
-    fn commit_id_to_pos(&self, commit_id: &CommitId) -> Option<LocalPosition> {
+    fn commit_id_to_pos(&self, commit_id: &CommitId) -> Option<LocalCommitPosition> {
         self.commit_lookup.get(commit_id).copied()
     }
 
@@ -409,25 +421,25 @@ impl IndexSegment for MutableIndexSegment {
     fn resolve_change_id_prefix(
         &self,
         prefix: &HexPrefix,
-    ) -> PrefixResolution<(ChangeId, SmallLocalPositionsVec)> {
+    ) -> PrefixResolution<(ChangeId, SmallLocalCommitPositionsVec)> {
         let min_bytes_prefix = ChangeId::from_bytes(prefix.min_prefix_bytes());
         resolve_id_prefix(&self.change_lookup, prefix, &min_bytes_prefix)
             .map(|(id, positions)| (id.clone(), positions.clone()))
     }
 
-    fn generation_number(&self, local_pos: LocalPosition) -> u32 {
+    fn generation_number(&self, local_pos: LocalCommitPosition) -> u32 {
         self.graph[local_pos.0 as usize].generation_number
     }
 
-    fn commit_id(&self, local_pos: LocalPosition) -> CommitId {
+    fn commit_id(&self, local_pos: LocalCommitPosition) -> CommitId {
         self.graph[local_pos.0 as usize].commit_id.clone()
     }
 
-    fn change_id(&self, local_pos: LocalPosition) -> ChangeId {
+    fn change_id(&self, local_pos: LocalCommitPosition) -> ChangeId {
         self.graph[local_pos.0 as usize].change_id.clone()
     }
 
-    fn num_parents(&self, local_pos: LocalPosition) -> u32 {
+    fn num_parents(&self, local_pos: LocalCommitPosition) -> u32 {
         self.graph[local_pos.0 as usize]
             .parent_positions
             .len()
@@ -435,28 +447,32 @@ impl IndexSegment for MutableIndexSegment {
             .unwrap()
     }
 
-    fn parent_positions(&self, local_pos: LocalPosition) -> SmallIndexPositionsVec {
+    fn parent_positions(&self, local_pos: LocalCommitPosition) -> SmallGlobalCommitPositionsVec {
         self.graph[local_pos.0 as usize].parent_positions.clone()
     }
 }
 
 /// In-memory mutable records for the on-disk commit index backend.
-pub struct DefaultMutableIndex(MutableIndexSegment);
+pub struct DefaultMutableIndex(CompositeIndex);
 
 impl DefaultMutableIndex {
     pub(super) fn full(lengths: FieldLengths) -> Self {
-        let mutable_segment = MutableIndexSegment::full(lengths);
-        DefaultMutableIndex(mutable_segment)
+        let commits = Box::new(MutableCommitIndexSegment::full(lengths));
+        DefaultMutableIndex(CompositeIndex::from_mutable(commits))
     }
 
-    pub(super) fn incremental(parent_file: Arc<ReadonlyIndexSegment>) -> Self {
-        let mutable_segment = MutableIndexSegment::incremental(parent_file);
-        DefaultMutableIndex(mutable_segment)
+    pub(super) fn incremental(parent_file: Arc<ReadonlyCommitIndexSegment>) -> Self {
+        let commits = Box::new(MutableCommitIndexSegment::incremental(parent_file));
+        DefaultMutableIndex(CompositeIndex::from_mutable(commits))
+    }
+
+    fn mutable_commits(&mut self) -> &mut MutableCommitIndexSegment {
+        self.0.mutable_commits().expect("must have mutable")
     }
 
     /// Returns the number of all indexed commits.
     pub fn num_commits(&self) -> u32 {
-        self.0.as_composite().num_commits()
+        self.0.commits().num_commits()
     }
 
     pub(super) fn add_commit_data(
@@ -465,53 +481,57 @@ impl DefaultMutableIndex {
         change_id: ChangeId,
         parent_ids: &[CommitId],
     ) {
-        self.0.add_commit_data(commit_id, change_id, parent_ids);
+        self.mutable_commits()
+            .add_commit_data(commit_id, change_id, parent_ids);
     }
 
-    pub(super) fn squash_and_save_in(self, dir: &Path) -> io::Result<Arc<ReadonlyIndexSegment>> {
-        self.0.maybe_squash_with_ancestors().save_in(dir)
+    pub(super) fn squash_and_save_in(
+        self,
+        dir: &Path,
+    ) -> io::Result<Arc<ReadonlyCommitIndexSegment>> {
+        let commits = self.0.into_mutable().expect("must have mutable");
+        commits.maybe_squash_with_ancestors().save_in(dir)
     }
 }
 
 impl AsCompositeIndex for DefaultMutableIndex {
     fn as_composite(&self) -> &CompositeIndex {
-        self.0.as_composite()
+        &self.0
     }
 }
 
 impl Index for DefaultMutableIndex {
     fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> usize {
-        self.as_composite()
-            .shortest_unique_commit_id_prefix_len(commit_id)
+        self.0.shortest_unique_commit_id_prefix_len(commit_id)
     }
 
     fn resolve_commit_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<CommitId> {
-        self.as_composite().resolve_commit_id_prefix(prefix)
+        self.0.resolve_commit_id_prefix(prefix)
     }
 
     fn has_id(&self, commit_id: &CommitId) -> bool {
-        self.as_composite().has_id(commit_id)
+        self.0.has_id(commit_id)
     }
 
     fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> bool {
-        self.as_composite().is_ancestor(ancestor_id, descendant_id)
+        self.0.is_ancestor(ancestor_id, descendant_id)
     }
 
     fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> Vec<CommitId> {
-        self.as_composite().common_ancestors(set1, set2)
+        self.0.common_ancestors(set1, set2)
     }
 
     fn all_heads_for_gc(
         &self,
     ) -> Result<Box<dyn Iterator<Item = CommitId> + '_>, AllHeadsForGcUnsupported> {
-        Ok(Box::new(self.as_composite().all_heads()))
+        self.0.all_heads_for_gc()
     }
 
     fn heads(
         &self,
         candidates: &mut dyn Iterator<Item = &CommitId>,
     ) -> Result<Vec<CommitId>, IndexError> {
-        self.as_composite().heads(candidates)
+        self.0.heads(candidates)
     }
 
     fn evaluate_revset(
@@ -519,7 +539,7 @@ impl Index for DefaultMutableIndex {
         expression: &ResolvedExpression,
         store: &Arc<Store>,
     ) -> Result<Box<dyn Revset + '_>, RevsetEvaluationError> {
-        self.as_composite().evaluate_revset(expression, store)
+        self.0.evaluate_revset(expression, store)
     }
 }
 
@@ -556,7 +576,7 @@ impl MutableIndex for DefaultMutableIndex {
             .as_any()
             .downcast_ref::<DefaultReadonlyIndex>()
             .expect("index to merge in must be a DefaultReadonlyIndex");
-        self.0.merge_in(other.as_segment());
+        self.mutable_commits().merge_in(other.readonly_commits());
     }
 }
 

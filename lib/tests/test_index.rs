@@ -429,8 +429,8 @@ fn test_index_commits_incremental() {
     assert_eq!(stats.num_commits, 1 + 3);
     assert_eq!(stats.num_merges, 0);
     assert_eq!(stats.max_generation_number, 3);
-    assert_eq!(stats.levels.len(), 1);
-    assert_eq!(stats.levels[0].num_commits, 4);
+    assert_eq!(stats.commit_levels.len(), 1);
+    assert_eq!(stats.commit_levels[0].num_commits, 4);
 
     assert_eq!(index.generation_number(root_commit.id()).unwrap(), 0);
     assert_eq!(index.generation_number(commit_a.id()).unwrap(), 1);
@@ -472,8 +472,8 @@ fn test_index_commits_incremental_empty_transaction() {
     assert_eq!(stats.num_commits, 1 + 1);
     assert_eq!(stats.num_merges, 0);
     assert_eq!(stats.max_generation_number, 1);
-    assert_eq!(stats.levels.len(), 1);
-    assert_eq!(stats.levels[0].num_commits, 2);
+    assert_eq!(stats.commit_levels.len(), 1);
+    assert_eq!(stats.commit_levels[0].num_commits, 2);
 
     assert_eq!(index.generation_number(root_commit.id()).unwrap(), 0);
     assert_eq!(index.generation_number(commit_a.id()).unwrap(), 1);
@@ -524,7 +524,7 @@ fn as_mutable_index(repo: &MutableRepo) -> &DefaultMutableIndex {
 fn commits_by_level(repo: &Arc<ReadonlyRepo>) -> Vec<u32> {
     as_readonly_index(repo)
         .stats()
-        .levels
+        .commit_levels
         .iter()
         .map(|level| level.num_commits)
         .collect()

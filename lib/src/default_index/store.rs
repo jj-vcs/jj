@@ -32,8 +32,8 @@ use thiserror::Error;
 use super::mutable::DefaultMutableIndex;
 use super::readonly::DefaultReadonlyIndex;
 use super::readonly::FieldLengths;
+use super::readonly::ReadonlyCommitIndexSegment;
 use super::readonly::ReadonlyIndexLoadError;
-use super::readonly::ReadonlyIndexSegment;
 use crate::backend::BackendError;
 use crate::backend::BackendInitError;
 use crate::backend::CommitId;
@@ -43,7 +43,6 @@ use crate::file_util;
 use crate::file_util::persist_content_addressed_temp_file;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
-use crate::index::Index as _;
 use crate::index::IndexReadError;
 use crate::index::IndexStore;
 use crate::index::IndexWriteError;
@@ -156,11 +155,11 @@ impl DefaultIndexStore {
         &self,
         op_id: &OperationId,
         lengths: FieldLengths,
-    ) -> Result<Arc<ReadonlyIndexSegment>, DefaultIndexStoreError> {
+    ) -> Result<Arc<ReadonlyCommitIndexSegment>, DefaultIndexStoreError> {
         let op_id_file = self.operations_dir().join(op_id.hex());
         let index_file_id_hex =
             fs::read_to_string(op_id_file).map_err(DefaultIndexStoreError::LoadAssociation)?;
-        ReadonlyIndexSegment::load(&self.segments_dir(), index_file_id_hex, lengths)
+        ReadonlyCommitIndexSegment::load(&self.segments_dir(), index_file_id_hex, lengths)
             .map_err(DefaultIndexStoreError::LoadIndex)
     }
 
@@ -182,7 +181,7 @@ impl DefaultIndexStore {
         &self,
         operation: &Operation,
         store: &Arc<Store>,
-    ) -> Result<Arc<ReadonlyIndexSegment>, DefaultIndexStoreError> {
+    ) -> Result<Arc<ReadonlyCommitIndexSegment>, DefaultIndexStoreError> {
         tracing::info!("scanning operations to index");
         let operations_dir = self.operations_dir();
         let field_lengths = FieldLengths {
@@ -323,7 +322,7 @@ impl DefaultIndexStore {
         &self,
         mutable_index: DefaultMutableIndex,
         op_id: &OperationId,
-    ) -> Result<Arc<ReadonlyIndexSegment>, DefaultIndexStoreError> {
+    ) -> Result<Arc<ReadonlyCommitIndexSegment>, DefaultIndexStoreError> {
         let index_segment = mutable_index
             .squash_and_save_in(&self.segments_dir())
             .map_err(DefaultIndexStoreError::SaveIndex)?;
@@ -338,7 +337,7 @@ impl DefaultIndexStore {
     /// Records a link from the given operation to the this index version.
     fn associate_file_with_operation(
         &self,
-        index: &ReadonlyIndexSegment,
+        index: &ReadonlyCommitIndexSegment,
         op_id: &OperationId,
     ) -> io::Result<()> {
         let dir = self.operations_dir();
