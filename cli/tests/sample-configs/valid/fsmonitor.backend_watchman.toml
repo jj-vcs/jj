@@ -1,4 +1,4 @@
 #:schema ../../../src/config-schema.json
-[core]
-fsmonitor = "watchman"
+[fsmonitor]
+backend = "watchman"
 watchman = { register-snapshot-trigger = true }

@@ -49,7 +49,7 @@ pub enum FsmonitorSettings {
 
     /// No filesystem monitor. This is the default if nothing is configured, but
     /// also makes it possible to turn off the monitor on a case-by-case basis
-    /// when the user gives an option like `--config=core.fsmonitor=none`;
+    /// when the user gives an option like `--config=fsmonitor.backend=none`;
     /// useful when e.g. when doing analysis of snapshot performance.
     None,
 }
@@ -57,10 +57,11 @@ pub enum FsmonitorSettings {
 impl FsmonitorSettings {
     /// Creates an `FsmonitorSettings` from a `config`.
     pub fn from_settings(settings: &UserSettings) -> Result<FsmonitorSettings, ConfigGetError> {
-        let name = "core.fsmonitor";
+        let name = "fsmonitor.backend";
         match settings.get_string(name)?.as_ref() {
             "watchman" => Ok(Self::Watchman(WatchmanConfig {
-                register_trigger: settings.get_bool("core.watchman.register-snapshot-trigger")?,
+                register_trigger: settings
+                    .get_bool("fsmonitor.watchman.register-snapshot-trigger")?,
             })),
             "test" => Err(ConfigGetError::Type {
                 name: name.to_owned(),

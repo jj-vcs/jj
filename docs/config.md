@@ -1543,18 +1543,18 @@ In large repositories, it may be beneficial to use a "filesystem monitor" to
 track changes to the working copy. This allows `jj` to take working copy
 snapshots without having to rescan the entire working copy.
 
-This is governed by the `core.fsmonitor` option. Currently, the valid values are
-`"none"` or `"watchman"`.
+This is governed by the `fsmonitor.backend` option. Currently, the valid values
+are `"none"` or `"watchman"`.
 
 ### Watchman
 
 To configure the Watchman filesystem monitor, set
-`core.fsmonitor = "watchman"`. Ensure that you have [installed the Watchman
+`fsmonitor.backend = "watchman"`. Ensure that you have [installed the Watchman
 executable on your system](https://facebook.github.io/watchman/docs/install).
 
 You can configure `jj` to use watchman triggers to automatically create
 snapshots on filesystem changes by setting
-`core.watchman.register-snapshot-trigger = true`.
+`fsmonitor.watchman.register-snapshot-trigger = true`.
 
 You can check whether Watchman is enabled and whether it is installed correctly
 using `jj debug watchman status`.
