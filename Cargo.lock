@@ -2480,6 +2480,7 @@ dependencies = [
  "once_cell",
  "pest",
  "pest_derive",
+ "pin-project-lite",
  "pollster",
  "pretty_assertions",
  "proptest",

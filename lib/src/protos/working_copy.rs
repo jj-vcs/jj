@@ -19,6 +19,8 @@ pub struct FileState {
     pub conflict_id: ::prost::alloc::vec::Vec<u8>,
     #[prost(message, optional, tag = "5")]
     pub materialized_conflict_data: ::core::option::Option<MaterializedConflictData>,
+    #[prost(bool, tag = "6")]
+    pub has_crlf_in_store: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FileStateEntry {
