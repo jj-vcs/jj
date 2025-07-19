@@ -407,7 +407,7 @@ pub struct Tree {
 
 impl Tree {
     pub fn from_sorted_entries(entries: Vec<(RepoPathComponentBuf, TreeValue)>) -> Self {
-        debug_assert!(entries.is_sorted_by(|(a, _), (b, _)| a < b));
+        assert!(entries.is_sorted_by(|(a, _), (b, _)| a < b));
         Tree { entries }
     }
 
