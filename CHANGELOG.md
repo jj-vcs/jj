@@ -54,6 +54,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [`Operation`](docs/templates.md#operation-type) type in the templating
   language.
 
+* `jj diff -r multiple_revisions` will warn if `multiple_revisions` do not form
+  a line in the ancestry graph. Such calls are often accidental, e.g. `jj diff
+  -r @-` where the user doesn't realize they are on a merge commit.
+
 ### Fixed bugs
 
 ### Packaging changes
