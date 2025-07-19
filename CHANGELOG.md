@@ -231,6 +231,10 @@ Thanks to the people who made this release happen!
 * Evolution history is now stored in the operation log. `jj evolog` can show
   associated operations for commits created by new jj versions.
 
+* Added support `revsets.git-push` which allows you to customize the default
+  set of commits to push. See issue
+  [#3650](https://github.com/jj-vcs/jj/issues/3650).
+
 ### Fixed bugs
 
 * Work around a git issue that could cause subprocess operations to hang if the
