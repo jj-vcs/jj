@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Template environment for `jj log`, `jj evolog` and similar.
+//!
+//! See: <https://jj-vcs.github.io/jj/latest/templates/#commit-keywords>.
+
 use std::any::Any;
 use std::cmp::max;
 use std::cmp::Ordering;
@@ -108,6 +112,7 @@ pub trait CommitTemplateLanguageExtension {
     fn build_cache_extensions(&self, extensions: &mut ExtensionsMap);
 }
 
+/// Template environment for `jj log` and `jj evolog`.
 pub struct CommitTemplateLanguage<'repo> {
     repo: &'repo dyn Repo,
     path_converter: &'repo RepoPathUiConverter,

@@ -58,6 +58,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   diff formatters. Built-in tools that do not function well as diff editing
   tools or as diff formatters will now report an error when used as such.
 
+* Glob patterns now support `{foo,bar}` syntax. There may be subtle behavior
+  changes as we use the [globset](https://crates.io/crates/globset) library now.
+
+* An identical string pattern system as revsets is now supported in the
+  template language, and is exposed as `string.match(pattern[, capture_group])`.
+
 ### Fixed bugs
 
 ### Packaging changes
