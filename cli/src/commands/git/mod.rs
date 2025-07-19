@@ -67,9 +67,11 @@ use crate::ui::Ui;
 pub enum GitCommand {
     Clone(GitCloneArgs),
     Export(GitExportArgs),
+    #[command(visible_alias("f"))]
     Fetch(GitFetchArgs),
     Import(GitImportArgs),
     Init(GitInitArgs),
+    #[command(visible_alias("p"))]
     Push(GitPushArgs),
     #[command(subcommand)]
     Remote(RemoteCommand),
