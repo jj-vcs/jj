@@ -58,6 +58,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   diff formatters. Built-in tools that do not function well as diff editing
   tools or as diff formatters will now report an error when used as such.
 
+* commit trailers now respect `JJ:` prefixes and ignore them when not using an
+  editor.
+
 ### Fixed bugs
 
 ### Packaging changes
