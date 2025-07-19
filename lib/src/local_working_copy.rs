@@ -1545,7 +1545,19 @@ impl FileSnapshotter<'_> {
         materialized_conflict_data: Option<MaterializedConflictData>,
     ) -> Result<MergedTreeValue, SnapshotError> {
         if let Some(current_tree_value) = current_tree_values.as_resolved() {
-            let id = self.write_file_to_store(repo_path, disk_path).await?;
+            let id = self
+                .write_file_to_store(
+                    repo_path,
+                    current_tree_value.as_ref().and_then(|tree_value| {
+                        if let TreeValue::File { id, .. } = tree_value {
+                            Some(id)
+                        } else {
+                            None
+                        }
+                    }),
+                    disk_path,
+                )
+                .await?;
             // On Windows, we preserve the executable bit from the current tree.
             let executable = executable.unwrap_or_else(|| {
                 if let Some(TreeValue::File {
@@ -1591,7 +1603,19 @@ impl FileSnapshotter<'_> {
                 err: err.into(),
             })?;
             self.target_eol_strategy
-                .convert_eol_for_snapshot(BlockingAsyncReader::new(file))
+                .convert_eol_for_snapshot(BlockingAsyncReader::new(file), async || {
+                    old_file_ids
+                        .try_map_async(async |file_id| {
+                            let Some(file_id) = file_id else {
+                                return Ok(None);
+                            };
+                            self.store()
+                                .read_file(repo_path, file_id)
+                                .await
+                                .map(Option::Some)
+                        })
+                        .await
+                })
                 .await
                 .map_err(|err| SnapshotError::Other {
                     message: "Failed to convert the EOL".to_string(),
@@ -1649,6 +1673,7 @@ impl FileSnapshotter<'_> {
     async fn write_file_to_store(
         &self,
         path: &RepoPath,
+        file_id: Option<&FileId>,
         disk_path: &Path,
     ) -> Result<FileId, SnapshotError> {
         let file = File::open(disk_path).map_err(|err| SnapshotError::Other {
@@ -1657,7 +1682,13 @@ impl FileSnapshotter<'_> {
         })?;
         let mut contents = self
             .target_eol_strategy
-            .convert_eol_for_snapshot(BlockingAsyncReader::new(file))
+            .convert_eol_for_snapshot(BlockingAsyncReader::new(file), || async {
+                let Some(file_id) = file_id else {
+                    return Ok::<_, BackendError>(Merge::resolved(None));
+                };
+                let file_reader = self.store().read_file(path, file_id).await?;
+                Ok(Merge::resolved(Some(file_reader)))
+            })
             .await
             .map_err(|err| SnapshotError::Other {
                 message: "Failed to convert the EOL".to_string(),
