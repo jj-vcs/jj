@@ -291,13 +291,6 @@ impl DiffEditor {
     }
 
     /// Starts a diff editor on the two directories.
-    // FIXME: edit_diff_builtin() applies diff on left_tree to create new tree,
-    // whereas edit_diff_external() updates the right_tree. This means that the
-    // matcher argument is interpreted quite differently. For the builtin tool,
-    // it specifies the maximum set of files to be copied from the right tree.
-    // For the external tool, it specifies the files to be modified in the right
-    // tree. If we adopt the interpretation of the builtin tool,
-    // DiffSelector::select() should also be updated.
     pub fn edit(
         &self,
         left_tree: &MergedTree,
