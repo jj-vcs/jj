@@ -718,7 +718,7 @@ fn test_bookmark_forget_glob() {
     let output = work_dir.run_jj(["bookmark", "forget", "glob:foo-[1-3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    error: invalid value 'glob:foo-[1-3' for '<NAMES>...': Pattern syntax error near position 4: invalid range pattern
+    error: invalid value 'glob:foo-[1-3' for '<NAMES>...': error parsing glob 'foo-[1-3': unclosed character class; missing ']'
 
     For more information, try '--help'.
     [EOF]
@@ -836,7 +836,7 @@ fn test_bookmark_delete_glob() {
     let output = work_dir.run_jj(["bookmark", "delete", "glob:foo-[1-3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    error: invalid value 'glob:foo-[1-3' for '<NAMES>...': Pattern syntax error near position 4: invalid range pattern
+    error: invalid value 'glob:foo-[1-3' for '<NAMES>...': error parsing glob 'foo-[1-3': unclosed character class; missing ']'
 
     For more information, try '--help'.
     [EOF]
