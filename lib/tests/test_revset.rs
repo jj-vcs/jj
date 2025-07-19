@@ -1850,21 +1850,24 @@ fn test_evaluate_expression_reachable() {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
 
-    // Construct 3 separate subgraphs off the root commit.
+    // Construct 3 separate subgraphs off the root commit. The creation of subgraphs
+    // 1 and 2 is interleaved so that their index positions are also interleaved.
+    // This makes it more likely that the tests will fail if we evaluate the revset
+    // predicate in the wrong order (e.g. if we check all of subgraph 1 before 2).
     // 1 is a chain, 2 is a merge, 3 is a pyramidal monstrosity
     let graph1commit1 = write_random_commit(mut_repo);
+    let graph2commit1 = write_random_commit(mut_repo);
+    let graph2commit2 = write_random_commit(mut_repo);
+    let graph2commit3 = create_random_commit(mut_repo)
+        .set_parents(vec![graph2commit1.id().clone(), graph2commit2.id().clone()])
+        .write()
+        .unwrap();
     let graph1commit2 = create_random_commit(mut_repo)
         .set_parents(vec![graph1commit1.id().clone()])
         .write()
         .unwrap();
     let graph1commit3 = create_random_commit(mut_repo)
         .set_parents(vec![graph1commit2.id().clone()])
-        .write()
-        .unwrap();
-    let graph2commit1 = write_random_commit(mut_repo);
-    let graph2commit2 = write_random_commit(mut_repo);
-    let graph2commit3 = create_random_commit(mut_repo)
-        .set_parents(vec![graph2commit1.id().clone(), graph2commit2.id().clone()])
         .write()
         .unwrap();
     let graph3commit1 = write_random_commit(mut_repo);
@@ -1886,6 +1889,47 @@ fn test_evaluate_expression_reachable() {
         .set_parents(vec![graph3commit4.id().clone(), graph3commit5.id().clone()])
         .write()
         .unwrap();
+
+    // Test predicate involving ancestors, which can produce incorrect results if
+    // evaluated in the wrong order. The first example fails if subgraph 1 is
+    // evaluated before subgraph 2, and the second example fails if subgraph 2 is
+    // evaluated before subgraph 1.
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!(
+                "reachable(ancestors({} | {}), root()..)",
+                graph1commit1.id(),
+                graph2commit1.id(),
+            )
+        ),
+        vec![
+            graph1commit3.id().clone(),
+            graph1commit2.id().clone(),
+            graph2commit3.id().clone(),
+            graph2commit2.id().clone(),
+            graph2commit1.id().clone(),
+            graph1commit1.id().clone(),
+        ]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!(
+                "reachable(ancestors({} | {}), {}..)",
+                graph1commit2.id(),
+                graph2commit1.id(),
+                graph1commit1.id(),
+            )
+        ),
+        vec![
+            graph1commit3.id().clone(),
+            graph1commit2.id().clone(),
+            graph2commit3.id().clone(),
+            graph2commit2.id().clone(),
+            graph2commit1.id().clone(),
+        ]
+    );
 
     // Domain is respected.
     assert_eq!(

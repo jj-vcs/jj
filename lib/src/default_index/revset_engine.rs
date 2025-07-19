@@ -920,15 +920,18 @@ impl EvaluationContext<'_> {
                     }
                 }
 
-                // Identify disjoint sets reachable from sources.
-                let set_reps: HashSet<_> = intersection_by(
-                    self.evaluate(sources)?.positions(),
-                    EagerRevWalk::new(domain_vec.iter().copied().map(Ok)),
-                    |pos1, pos2| pos1.cmp(pos2).reverse(),
-                )
-                .attach(index)
-                .map_ok(|pos| sets.find(pos))
-                .try_collect()?;
+                // Identify disjoint sets reachable from sources. Using a predicate here can be
+                // significantly faster for cases like `reachable(filter, X)`, since the filter
+                // can be checked for only commits in `X` instead of for all visible commits,
+                // and the difference is usually negligible for non-filter revsets.
+                let sources_revset = self.evaluate(sources)?;
+                let mut sources_predicate = sources_revset.to_predicate_fn();
+                let mut set_reps = HashSet::new();
+                for &pos in &domain_vec {
+                    if sources_predicate(index, pos)? {
+                        set_reps.insert(sets.find(pos));
+                    }
+                }
 
                 let positions = domain_vec
                     .into_iter()
