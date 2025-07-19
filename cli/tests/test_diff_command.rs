@@ -3601,38 +3601,40 @@ fn test_diff_stat_long_name_or_stat() {
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 10, 1), @r"
-    1234567890        | 1 +
-    ...四五六七八九十 | 1 +
+    1234567890         | 1 +
+    ...四五六七八九十  | 1 +
     2 files changed, 2 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 10, 10), @r"
-    1234567890       | 10 ++++++++
-    ...五六七八九十  | 10 ++++++++
+    1234567890         | 10 ++++++
+    ...四五六七八九十  | 10 ++++++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
+    //                 ...here ->|
     insta::assert_snapshot!(get_stat(&work_dir, 10, 100), @r"
-    1234567890       | 100 +++++++
-    ...五六七八九十  | 100 +++++++
+    1234567890         | 100 +++++
+    ...四五六七八九十  | 100 +++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 50, 1), @r"
-    ...78901234567890 | 1 +
-    ...四五六七八九十 | 1 +
+    ...678901234567890 | 1 +
+    ...四五六七八九十  | 1 +
     2 files changed, 2 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 50, 10), @r"
-    ...8901234567890 | 10 ++++++++
-    ...五六七八九十  | 10 ++++++++
+    ...678901234567890 | 10 ++++++
+    ...四五六七八九十  | 10 ++++++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
+    //                 ...here ->|
     insta::assert_snapshot!(get_stat(&work_dir, 50, 100), @r"
-    ...8901234567890 | 100 +++++++
-    ...五六七八九十  | 100 +++++++
+    ...678901234567890 | 100 +++++
+    ...四五六七八九十  | 100 +++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
@@ -3641,26 +3643,26 @@ fn test_diff_stat_long_name_or_stat() {
     // 30 column display width means right edge is
     //                ... here ->|
     insta::assert_snapshot!(get_stat(&work_dir, 13, 100), @r"
-    1234567890123    | 100 +++++++
-    ...八九十一二三  | 100 +++++++
+    1234567890123      | 100 +++++
+    ...七八九十一二三  | 100 +++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 14, 100), @r"
-    12345678901234   | 100 +++++++
-    ...九十一二三四  | 100 +++++++
+    12345678901234     | 100 +++++
+    ...八九十一二三四  | 100 +++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 15, 100), @r"
-    123456789012345  | 100 +++++++
-    ...十一二三四五  | 100 +++++++
+    123456789012345    | 100 +++++
+    ...九十一二三四五  | 100 +++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 16, 100), @r"
-    1234567890123456 | 100 +++++++
-    ...一二三四五六  | 100 +++++++
+    1234567890123456   | 100 +++++
+    ...十一二三四五六  | 100 +++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
@@ -3669,28 +3671,28 @@ fn test_diff_stat_long_name_or_stat() {
     test_env.add_env_var("COLUMNS", "10");
     let work_dir = test_env.work_dir("repo");
     insta::assert_snapshot!(get_stat(&work_dir, 10, 10), @r"
-    ... | 10 ++
-    ... | 10 ++
+    ...0 | 10
+    ...  | 10
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
     test_env.add_env_var("COLUMNS", "3");
     let work_dir = test_env.work_dir("repo");
     insta::assert_snapshot!(get_stat(&work_dir, 10, 10), @r"
-    ... | 10 ++
-    ... | 10 ++
+    ... | 10
+    ... | 10
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 3, 10), @r"
-    123 | 10 ++
-    ... | 10 ++
+    123 | 10
+    ... | 10
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 1, 10), @r"
-    1  | 10 +++
-    一 | 10 +++
+    1  | 10
+    一 | 10
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
@@ -3722,7 +3724,8 @@ fn test_diff_stat_rounding() {
 
 #[test]
 fn test_diff_binary() {
-    let test_env = TestEnvironment::default();
+    let mut test_env = TestEnvironment::default();
+    test_env.add_env_var("COLUMNS", "40");
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
@@ -3731,7 +3734,7 @@ fn test_diff_binary() {
     work_dir.write_file("binary_modified_to_text.png", b"\x89PNG\r\n\x1a\n0123456\0");
     work_dir.run_jj(["new"]).success();
     work_dir.remove_file("binary_removed.png");
-    work_dir.write_file("binary_modified.png", "foo\nbar\n\0");
+    work_dir.write_file("binary_modified.png", b"\x89PNG\r\n\x1a\n012345x\0");
     // this file's contents became a valid text file
     work_dir.write_file("binary_modified_to_text.png", "foo\nbar\n");
     work_dir.write_file("binary_added.png", b"\x89PNG\r\n\x1a\nxyz\0");
@@ -3760,7 +3763,7 @@ fn test_diff_binary() {
     index 0000000000..deacfbc286
     Binary files /dev/null and b/binary_added.png differ
     diff --git a/binary_modified.png b/binary_modified.png
-    index 7f036ce788..8d4f840f34 100644
+    index 7f036ce788..f666e11aeb 100644
     Binary files a/binary_modified.png and b/binary_modified.png differ
     diff --git a/binary_modified_to_text.png b/binary_modified_to_text.png
     index 7f036ce788..3bd1f0e297 100644
@@ -3777,13 +3780,14 @@ fn test_diff_binary() {
     ");
 
     let output = work_dir.run_jj(["diff", "--stat"]);
+    // Rightmost display column          ->|
     insta::assert_snapshot!(output, @r"
-    binary_added.png            | 3 +++
-    binary_modified.png         | 6 +++---
-    binary_modified_to_text.png | 5 ++---
-    binary_removed.png          | 3 ---
-    binary_valid_utf8.png       | 1 +
-    5 files changed, 9 insertions(+), 9 deletions(-)
+    binary_added.png    | (binary) +12 bytes
+    binary_modified.png | (binary)
+    ...fied_to_text.png | (binary) -8 bytes
+    binary_removed.png  | (binary) -16 bytes
+    ...y_valid_utf8.png | (binary) +3 bytes
+    5 files changed, 0 insertions(+), 0 deletions(-)
     [EOF]
     ");
 }
