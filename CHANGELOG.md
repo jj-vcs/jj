@@ -27,6 +27,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `commit.working_copies()` template method now returns `List<WorkspaceRef>`
 
+* The previously predefined `amend` alias has been removed. You can restore it
+  by setting the config `aliases.amend = ["squash"]`.
+
 ### Deprecations
 
 * The `all:` revset modifier and `ui.always-allow-large-revsets` setting is

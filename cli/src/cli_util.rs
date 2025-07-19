@@ -3990,23 +3990,31 @@ impl<'a> CliRunner<'a> {
 
 fn map_clap_cli_error(err: clap::Error, ui: &Ui, config: &StackedConfig) -> CommandError {
     if let Some(ContextValue::String(cmd)) = err.get(ContextKind::InvalidSubcommand) {
+        let remove_useless_error_context = |mut err: clap::Error| {
+            // Clap suggests unhelpful subcommands, e.g. `config` for `clone`.
+            // We don't want suggestions when we know this isn't a misspelling.
+            err.remove(ContextKind::SuggestedSubcommand);
+            err.remove(ContextKind::Suggested); // Remove an empty line
+            err.remove(ContextKind::Usage); // Also unhelpful for these errors.
+            err
+        };
         match cmd.as_str() {
             // git commands that a brand-new user might type during their first
             // experiments with `jj`
             "clone" | "init" => {
                 let cmd = cmd.clone();
-                let mut err = err;
-                // Clap suggests an unhelpful subcommand, e.g. `config` for `clone`.
-                err.remove(ContextKind::SuggestedSubcommand);
-                err.remove(ContextKind::Suggested); // Remove an empty line
-                err.remove(ContextKind::Usage);
-                return CommandError::from(err)
+                return CommandError::from(remove_useless_error_context(err))
                     .hinted(format!(
                         "You probably want `jj git {cmd}`. See also `jj help git`."
                     ))
                     .hinted(format!(
                         r#"You can configure `aliases.{cmd} = ["git", "{cmd}"]` if you want `jj {cmd}` to work and always use the Git backend."#
                     ));
+            }
+            "amend" => {
+                return CommandError::from(remove_useless_error_context(err))
+                    .hinted(
+                        r#"You probably want `jj squash`. You can configure `aliases.amend = ["squash"]` if you want `jj amend` to work."#);
             }
             _ => {}
         }
