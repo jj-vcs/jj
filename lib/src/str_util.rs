@@ -21,6 +21,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::ops::Deref;
 
+use bstr::ByteSlice as _;
 use either::Either;
 use globset::Glob;
 use globset::GlobBuilder;
@@ -102,9 +103,9 @@ pub enum StringPattern {
     /// Matches with a case‐insensitive Unix‐style shell wildcard pattern.
     GlobI(Box<GlobPattern>),
     /// Matches substrings with a regular expression.
-    Regex(regex::Regex),
+    Regex(regex::bytes::Regex),
     /// Matches substrings with a case‐insensitive regular expression.
-    RegexI(regex::Regex),
+    RegexI(regex::bytes::Regex),
 }
 
 impl StringPattern {
@@ -160,13 +161,13 @@ impl StringPattern {
 
     /// Parses the given string as a regular expression.
     pub fn regex(src: &str) -> Result<Self, StringPatternParseError> {
-        let pattern = regex::Regex::new(src).map_err(StringPatternParseError::Regex)?;
+        let pattern = regex::bytes::Regex::new(src).map_err(StringPatternParseError::Regex)?;
         Ok(StringPattern::Regex(pattern))
     }
 
     /// Parses the given string as a case-insensitive regular expression.
     pub fn regex_i(src: &str) -> Result<Self, StringPatternParseError> {
-        let pattern = regex::RegexBuilder::new(src)
+        let pattern = regex::bytes::RegexBuilder::new(src)
             .case_insensitive(true)
             .build()
             .map_err(StringPatternParseError::Regex)?;
@@ -244,11 +245,16 @@ impl StringPattern {
         }
     }
 
-    /// Returns true if this pattern matches the `haystack`.
+    /// Returns true if this pattern matches the `haystack` string.
     ///
     /// When matching against a case‐insensitive pattern, only ASCII case
     /// differences are currently folded. This may change in the future.
     pub fn matches(&self, haystack: &str) -> bool {
+        self.matches_bytes(haystack.as_bytes())
+    }
+
+    /// Returns true if this pattern matches the `haystack` bytes.
+    pub fn matches_bytes(&self, haystack: &[u8]) -> bool {
         // TODO: Unicode case folding is complicated and can be
         // locale‐specific. The `globset` crate and Gitoxide only deal with
         // ASCII case folding, so we do the same here; a more elaborate case
@@ -267,17 +273,17 @@ impl StringPattern {
         // For some discussion of this topic, see:
         // <https://github.com/unicode-org/icu4x/issues/3151>
         match self {
-            StringPattern::Exact(literal) => haystack == literal,
-            StringPattern::ExactI(literal) => haystack.eq_ignore_ascii_case(literal),
-            StringPattern::Substring(needle) => haystack.contains(needle),
+            StringPattern::Exact(literal) => haystack == literal.as_bytes(),
+            StringPattern::ExactI(literal) => haystack.eq_ignore_ascii_case(literal.as_bytes()),
+            StringPattern::Substring(needle) => haystack.contains_str(needle),
             StringPattern::SubstringI(needle) => haystack
                 .to_ascii_lowercase()
-                .contains(&needle.to_ascii_lowercase()),
+                .contains_str(needle.to_ascii_lowercase()),
             // (Glob, GlobI) and (Regex, RegexI) pairs are identical here, but
             // callers might want to translate these to backend-specific query
             // differently.
-            StringPattern::Glob(pattern) => pattern.is_match(haystack.as_bytes()),
-            StringPattern::GlobI(pattern) => pattern.is_match(haystack.as_bytes()),
+            StringPattern::Glob(pattern) => pattern.is_match(haystack),
+            StringPattern::GlobI(pattern) => pattern.is_match(haystack),
             StringPattern::Regex(pattern) => pattern.is_match(haystack),
             StringPattern::RegexI(pattern) => pattern.is_match(haystack),
         }
@@ -461,5 +467,20 @@ mod tests {
 
         assert!(!StringPattern::glob("f?O").unwrap().matches("Foo"));
         assert!(StringPattern::glob_i("f?O").unwrap().matches("Foo"));
+    }
+
+    #[test]
+    fn test_regex_matches() {
+        // Unicode mode is enabled by default
+        assert!(StringPattern::regex(r"^\w$").unwrap().matches("\u{c0}"));
+        assert!(StringPattern::regex(r"^.$").unwrap().matches("\u{c0}"));
+        // ASCII-compatible mode should also work
+        assert!(StringPattern::regex(r"^(?-u)\w$").unwrap().matches("a"));
+        assert!(!StringPattern::regex(r"^(?-u)\w$")
+            .unwrap()
+            .matches("\u{c0}"));
+        assert!(StringPattern::regex(r"^(?-u).{2}$")
+            .unwrap()
+            .matches("\u{c0}"));
     }
 }
