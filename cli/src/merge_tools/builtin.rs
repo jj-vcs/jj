@@ -384,7 +384,17 @@ fn apply_diff_builtin(
     files: &[scm_record::File],
     conflict_marker_style: ConflictMarkerStyle,
 ) -> BackendResult<MergedTreeId> {
-    let mut tree_builder = MergedTreeBuilder::new(left_tree.id().clone());
+    // Start with the right tree to match external tool behavior.
+    // This ensures unmatched paths keep their values from the right tree.
+    let mut tree_builder = MergedTreeBuilder::new(right_tree.id().clone());
+
+    // First, revert all changed files to their left versions
+    for path in &changed_files {
+        let left_value = left_tree.path_value(path)?;
+        tree_builder.set_or_remove(path.clone(), left_value);
+    }
+
+    // Then apply only the selected changes
     apply_changes(
         &mut tree_builder,
         changed_files,
@@ -713,7 +723,7 @@ mod tests {
     use jj_lib::backend::FileId;
     use jj_lib::conflicts::extract_as_single_hunk;
     use jj_lib::matchers::EverythingMatcher;
-    use jj_lib::merge::MergedTreeValue;
+    use jj_lib::matchers::FilesMatcher;
     use jj_lib::repo::Repo as _;
     use proptest::prelude::*;
     use proptest_state_machine::prop_state_machine;
@@ -734,9 +744,17 @@ mod tests {
         left_tree: &MergedTree,
         right_tree: &MergedTree,
     ) -> (Vec<RepoPathBuf>, Vec<scm_record::File<'static>>) {
+        make_diff_with_matcher(store, left_tree, right_tree, &EverythingMatcher)
+    }
+
+    fn make_diff_with_matcher(
+        store: &Arc<Store>,
+        left_tree: &MergedTree,
+        right_tree: &MergedTree,
+        matcher: &dyn Matcher,
+    ) -> (Vec<RepoPathBuf>, Vec<scm_record::File<'static>>) {
         let copy_records = CopyRecords::default();
-        let tree_diff =
-            left_tree.diff_stream_with_copies(right_tree, &EverythingMatcher, &copy_records);
+        let tree_diff = left_tree.diff_stream_with_copies(right_tree, matcher, &copy_records);
         make_diff_files(store, tree_diff, ConflictMarkerStyle::Diff)
             .block_on()
             .unwrap()
@@ -1759,6 +1777,56 @@ mod tests {
     }
 
     #[test]
+    fn test_edit_diff_builtin_with_matcher() {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+
+        let matched_path = repo_path("matched");
+        let unmatched_path = repo_path("unmatched");
+        let left_tree = testutils::create_tree(
+            &test_repo.repo,
+            &[
+                (matched_path, "left matched\n"),
+                (unmatched_path, "left unmatched\n"),
+            ],
+        );
+        let right_tree = testutils::create_tree(
+            &test_repo.repo,
+            &[
+                (matched_path, "right matched\n"),
+                (unmatched_path, "right unmatched\n"),
+            ],
+        );
+
+        let matcher = FilesMatcher::new([matched_path]);
+
+        let (changed_files, files) =
+            make_diff_with_matcher(store, &left_tree, &right_tree, &matcher);
+
+        assert_eq!(changed_files, vec![matched_path.to_owned()]);
+
+        let result_tree_id = apply_diff_builtin(
+            store,
+            &left_tree,
+            &right_tree,
+            changed_files,
+            &files,
+            ConflictMarkerStyle::Diff,
+        )
+        .unwrap();
+        let result_tree = store.get_root_tree(&result_tree_id).unwrap();
+
+        assert_eq!(
+            result_tree.path_value(matched_path).unwrap(),
+            left_tree.path_value(matched_path).unwrap()
+        );
+        assert_eq!(
+            result_tree.path_value(unmatched_path).unwrap(),
+            right_tree.path_value(unmatched_path).unwrap()
+        );
+    }
+
+    #[test]
     fn test_make_merge_sections() {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
@@ -1789,6 +1857,7 @@ mod tests {
                 }
             }
         }
+
         let merge = Merge::from_vec(vec![
             to_file_id(left_tree.path_value(path).unwrap()),
             to_file_id(base_tree.path_value(path).unwrap()),
