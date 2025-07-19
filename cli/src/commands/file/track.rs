@@ -31,11 +31,12 @@ use crate::ui::Ui;
 ///
 /// Without arguments, all paths that are not ignored will be tracked.
 ///
-/// New files in the working copy can be automatically tracked.  
+/// By default, new files in the working copy are automatically tracked, so
+/// this command has no effect.
 /// You can configure which paths to automatically track by setting
 /// `snapshot.auto-track` (e.g. to `"none()"` or `"glob:**/*.rs"`). Files that
 /// don't match the pattern can be manually tracked using this command. The
-/// default pattern is `all()` and this command has no effect.
+/// default pattern is `all()`.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct FileTrackArgs {
     /// Paths to track

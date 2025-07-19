@@ -196,7 +196,8 @@ To squash or split commits, use `jj squash` and `jj split`.
 
 You can set `snapshot.auto-track` to only start tracking new files matching the
 configured pattern (e.g. `"none()"`). Changes to already tracked files will
-still be snapshotted by every command.
+still be snapshotted by every command. Files not matching the pattern can be
+tracked with `jj file track`.
 
 You can keep your notes and other scratch files in the repository, if you add
 a wildcard pattern to either the repo's `gitignore` or your global `gitignore`.
