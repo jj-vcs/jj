@@ -1023,6 +1023,16 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>(
         },
     );
     map.insert(
+        "replace",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [from, to] = function.expect_exact_arguments()?;
+            let from = expect_stringify_expression(language, diagnostics, build_ctx, from)?;
+            let to = expect_stringify_expression(language, diagnostics, build_ctx, to)?;
+            let out_property = (self_property, from, to).map(|(s, from, to)| s.replace(&from, &to));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
         "escape_json",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
@@ -2814,6 +2824,10 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok(r#""bar@other.example.com".remove_suffix("@other.example.com")"#),
             @"bar");
+
+        insta::assert_snapshot!(
+            env.render_ok(r#""abc abc def".replace("bc", "ghi")"#),
+            @"aghi aghi def");
 
         insta::assert_snapshot!(env.render_ok(r#"" \n \r    \t \r ".trim()"#), @"");
         insta::assert_snapshot!(env.render_ok(r#"" \n \r foo  bar \t \r ".trim()"#), @"foo  bar");
