@@ -31,7 +31,7 @@ use crate::description_util::join_message_paragraphs;
 use crate::text_util::parse_author;
 use crate::ui::Ui;
 
-/// Update the description and create a new change on top.
+/// Update the description and create a new change on top [default alias: ci]
 ///
 /// This command is very similar to `jj split`. Differences include:
 ///

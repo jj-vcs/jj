@@ -127,7 +127,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `abandon` — Abandon a revision
 * `absorb` — Move changes from a revision into the stack of mutable revisions
 * `bookmark` — Manage bookmarks [default alias: b]
-* `commit` — Update the description and create a new change on top
+* `commit` — Update the description and create a new change on top [default alias: ci]
 * `config` — Manage config options
 * `describe` — Update the change description or other metadata [default alias: desc]
 * `diff` — Compare file contents between two revisions
@@ -520,7 +520,7 @@ If you want to forget a local bookmark while also untracking the corresponding r
 
 ## `jj commit`
 
-Update the description and create a new change on top.
+Update the description and create a new change on top [default alias: ci]
 
 This command is very similar to `jj split`. Differences include:
 

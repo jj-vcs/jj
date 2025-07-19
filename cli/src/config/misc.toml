@@ -1,6 +1,8 @@
 # The code assumes that this table exists, so don't delete it even if you remove
 # all aliases from here.
 [aliases]
+# The aliases here should be kept in sync with the `[default alias: blah]` notes
+# in the first line of the relevant commands' help text.
 b = ["bookmark"]
 ci = ["commit"]
 desc = ["describe"]
