@@ -21,6 +21,7 @@ diff-args = ["$left", "$right", "--port", "17376-17380", "--no-browser"]
 
 [merge-tools.difft]
 diff-args = ["--color=always", "$left", "$right"]
+edit-args = []  # Non-interactive diff formatter
 
 [merge-tools.kdiff3]
 # --merge to open output pane, CreateBakFiles=0 to not include backup files in commit
@@ -33,6 +34,7 @@ merge-args = ["$left", "$base", "$right", "-o", "$output", "--auto-merge"]
 
 [merge-tools.meld-3]
 program="meld"
+diff-args = ["$left", "$right"]  # Same as the default value
 # If using this as a template, note that `$output` is repeated twice below
 edit-args = ["$left", "$output", "$right", "-o", "$output"]
 
@@ -43,10 +45,18 @@ edit-args = ["$left", "$output", "$right", "-o", "$output"]
 program = "mergiraf"
 merge-args = ["merge", "$base", "$left", "$right", "-o", "$output", "-l", "$marker_length", "--fast"]
 merge-conflict-exit-codes = [1]
+# Non-interactive merge tool
+edit-args = []
+diff-args = []
 
 [merge-tools.smerge]
 merge-args = ["mergetool", "$base", "$left", "$right", "-o", "$output"]
 conflict-marker-style = "git"
+# Does not support diff editing as of this writing. See also
+# https://github.com/sublimehq/sublime_merge/issues/1939
+# https://www.sublimemerge.com/docs/command_line
+edit-args = []
+diff-args = []
 
 [merge-tools.vimdiff]
 program = "vim"
@@ -56,10 +66,11 @@ merge-args = ["-f", "-d", "$output", "-M", "$left", "$base", "$right",
               "-c", "wincmd J", "-c", "set modifiable", "-c", "set write",
               "-c", "/<<<<<</+2"]
 merge-tool-edits-conflict-markers = true
-# Using vimdiff as a diff editor is not recommended. For instructions on configuring
-# the DirDiff Vim plugin for a better experience, see
-# https://gist.github.com/ilyagr/5d6339fb7dac5e7ab06fe1561ec62d45
+# Using vimdiff as a diff editor is possible but not recommended. For
+# instructions on configuring the DirDiff Vim plugin for a better experience,
+# see https://gist.github.com/ilyagr/5d6339fb7dac5e7ab06fe1561ec62d45
 edit-args = ["-f", "-d", "$left", "$right"]
+diff-args = []  # Corrupts terminal state, non-functional
 
 # if you change the settings for vscode, please do the same for vscodium
 [merge-tools.vscode]
@@ -77,6 +88,8 @@ conflict-marker-style = "git"
 # work better.
 diff-args=["--diff", "$left", "$right", "--wait"]
 diff-invocation-mode="file-by-file"
+# `code --diff` does not support dir-diff
+edit-args = []
 
 # free/libre distribution of vscode, functionally more or less the same
 [merge-tools.vscodium]
@@ -87,3 +100,4 @@ merge-tool-edits-conflict-markers = true
 conflict-marker-style = "git"
 diff-args=["--diff", "$left", "$right", "--wait"]
 diff-invocation-mode="file-by-file"
+edit-args = []
