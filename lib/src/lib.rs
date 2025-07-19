@@ -16,7 +16,7 @@
 
 #![warn(missing_docs)]
 #![deny(unused_must_use)]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
 // Needed so that proc macros can be used inside jj_lib and by external crates
 // that depend on it.
