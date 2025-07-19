@@ -1454,4 +1454,19 @@ fn test_files() {
     let outside_repo = test_env.env_root();
     let output = test_env.work_dir(outside_repo).complete_fish(["log", "f_"]);
     insta::assert_snapshot!(output, @"");
+
+    let output = work_dir.complete_fish(["absorb", "f_"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    f_added_2	Added
+    f_modified	Modified
+    [EOF]
+    ");
+
+    let output = work_dir.complete_fish(["absorb", "-f=conflicted", "f_"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    f_added_2	Added
+    f_dir/
+    f_modified	Modified
+    [EOF]
+    ");
 }
