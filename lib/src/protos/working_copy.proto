@@ -36,6 +36,7 @@ message FileState {
   // Set only if file_type is Conflict
   bytes conflict_id = 4 [deprecated = true];
   MaterializedConflictData materialized_conflict_data = 5;
+  bool has_crlf_in_store = 6;
 }
 
 message FileStateEntry {

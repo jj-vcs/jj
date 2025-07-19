@@ -43,6 +43,8 @@ use std::time::UNIX_EPOCH;
 
 use either::Either;
 use futures::StreamExt as _;
+use futures::TryStreamExt as _;
+use futures::stream::futures_unordered::FuturesUnordered;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
 use once_cell::unsync::OnceCell;
@@ -76,6 +78,7 @@ use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::choose_materialized_conflict_marker_len;
 use crate::conflicts::materialize_merge_result_to_bytes_with_marker_len;
 use crate::conflicts::materialize_tree_value;
+use crate::eol::AsyncReadExt as _;
 pub use crate::eol::EolConversionMode;
 use crate::eol::TargetEolStrategy;
 use crate::eol::create_target_eol_strategy;
@@ -157,7 +160,10 @@ impl FileExecutableFlag {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum FileType {
-    Normal { executable: FileExecutableFlag },
+    Normal {
+        executable: FileExecutableFlag,
+        has_crlf_in_store: bool,
+    },
     Symlink,
     GitSubmodule,
 }
@@ -192,7 +198,10 @@ impl FileState {
     fn placeholder() -> Self {
         let executable = FileExecutableFlag::from_bool_lossy(false);
         Self {
-            file_type: FileType::Normal { executable },
+            file_type: FileType::Normal {
+                executable,
+                has_crlf_in_store: false,
+            },
             mtime: MillisSinceEpoch(0),
             size: 0,
             materialized_conflict_data: None,
@@ -204,10 +213,14 @@ impl FileState {
         size: u64,
         metadata: &Metadata,
         materialized_conflict_data: Option<MaterializedConflictData>,
+        has_crlf_in_store: bool,
     ) -> Self {
         let executable = FileExecutableFlag::from_bool_lossy(executable);
         Self {
-            file_type: FileType::Normal { executable },
+            file_type: FileType::Normal {
+                executable,
+                has_crlf_in_store,
+            },
             mtime: mtime_from_metadata(metadata),
             size,
             materialized_conflict_data,
@@ -480,17 +493,23 @@ pub struct TreeState {
 
 fn file_state_from_proto(proto: &crate::protos::working_copy::FileState) -> FileState {
     let file_type = match proto.file_type() {
+        // In case we are missing the has_crlf_in_store field, the false default value should be the
+        // safest one: it prevents CRLF from being written into the Store. While this choice can
+        // make accidental CRLF to LF modification, it should be a rare case.
         crate::protos::working_copy::FileType::Normal => FileType::Normal {
             executable: FileExecutableFlag::from_bool_lossy(false),
+            has_crlf_in_store: proto.has_crlf_in_store,
         },
         // On Windows, FileType::Executable can exist in files written by older
         // versions of jj
         crate::protos::working_copy::FileType::Executable => FileType::Normal {
             executable: FileExecutableFlag::from_bool_lossy(true),
+            has_crlf_in_store: proto.has_crlf_in_store,
         },
         crate::protos::working_copy::FileType::Symlink => FileType::Symlink,
         crate::protos::working_copy::FileType::Conflict => FileType::Normal {
             executable: FileExecutableFlag::from_bool_lossy(false),
+            has_crlf_in_store: proto.has_crlf_in_store,
         },
         crate::protos::working_copy::FileType::GitSubmodule => FileType::GitSubmodule,
     };
@@ -509,7 +528,7 @@ fn file_state_from_proto(proto: &crate::protos::working_copy::FileState) -> File
 fn file_state_to_proto(file_state: &FileState) -> crate::protos::working_copy::FileState {
     let mut proto = crate::protos::working_copy::FileState::default();
     let file_type = match &file_state.file_type {
-        FileType::Normal { executable } => {
+        FileType::Normal { executable, .. } => {
             if executable.unwrap_or_else(Default::default) {
                 crate::protos::working_copy::FileType::Executable
             } else {
@@ -527,6 +546,12 @@ fn file_state_to_proto(file_state: &FileState) -> crate::protos::working_copy::F
             conflict_marker_len: data.conflict_marker_len,
         }
     });
+    if let FileType::Normal {
+        has_crlf_in_store, ..
+    } = &file_state.file_type
+    {
+        proto.has_crlf_in_store = *has_crlf_in_store;
+    };
     proto
 }
 
@@ -753,7 +778,11 @@ fn file_state(metadata: &Metadata) -> Option<FileState> {
         #[cfg(windows)]
         let executable = false;
         let executable = FileExecutableFlag::from_bool_lossy(executable);
-        Some(FileType::Normal { executable })
+        Some(FileType::Normal {
+            executable,
+            // Should be set by the caller.
+            has_crlf_in_store: false,
+        })
     } else {
         None
     };
@@ -1421,7 +1450,7 @@ impl FileSnapshotter<'_> {
             &path,
             disk_path,
             maybe_current_file_state,
-            &new_file_state,
+            &mut new_file_state,
         )?;
         // Preserve materialized conflict data for normal, non-resolved files
         if matches!(new_file_state.file_type, FileType::Normal { .. })
@@ -1477,7 +1506,7 @@ impl FileSnapshotter<'_> {
         repo_path: &RepoPath,
         disk_path: &Path,
         maybe_current_file_state: Option<&FileState>,
-        new_file_state: &FileState,
+        new_file_state: &mut FileState,
     ) -> Result<Option<MergedTreeValue>, SnapshotError> {
         let clean = match maybe_current_file_state {
             None => {
@@ -1496,24 +1525,38 @@ impl FileSnapshotter<'_> {
         } else {
             let current_tree_values = self.current_tree.path_value(repo_path)?;
             let new_file_type = if !self.tree_state.symlink_support {
-                let mut new_file_type = new_file_state.file_type.clone();
-                if matches!(new_file_type, FileType::Normal { .. })
+                if matches!(new_file_state.file_type, FileType::Normal { .. })
                     && matches!(current_tree_values.as_normal(), Some(TreeValue::Symlink(_)))
                 {
-                    new_file_type = FileType::Symlink;
+                    &mut FileType::Symlink
+                } else {
+                    &mut new_file_state.file_type
                 }
-                new_file_type
             } else {
-                new_file_state.file_type.clone()
+                &mut new_file_state.file_type
             };
             let new_tree_values = match new_file_type {
-                FileType::Normal { executable } => self
+                FileType::Normal {
+                    executable,
+                    has_crlf_in_store,
+                } => self
                     .write_path_to_store(
                         repo_path,
                         disk_path,
                         &current_tree_values,
-                        executable,
+                        *executable,
                         maybe_current_file_state.and_then(|state| state.materialized_conflict_data),
+                        match maybe_current_file_state {
+                            Some(FileState {
+                                file_type:
+                                    FileType::Normal {
+                                        has_crlf_in_store, ..
+                                    },
+                                ..
+                            }) => *has_crlf_in_store,
+                            _ => false,
+                        },
+                        has_crlf_in_store,
                     )
                     .block_on()?,
                 FileType::Symlink => {
@@ -1536,6 +1579,7 @@ impl FileSnapshotter<'_> {
         &self.tree_state.store
     }
 
+    #[expect(clippy::too_many_arguments)]
     async fn write_path_to_store(
         &self,
         repo_path: &RepoPath,
@@ -1543,9 +1587,13 @@ impl FileSnapshotter<'_> {
         current_tree_values: &MergedTreeValue,
         executable: FileExecutableFlag,
         materialized_conflict_data: Option<MaterializedConflictData>,
+        had_crlf: bool,
+        has_crlf_in_store: &mut bool,
     ) -> Result<MergedTreeValue, SnapshotError> {
         if let Some(current_tree_value) = current_tree_values.as_resolved() {
-            let id = self.write_file_to_store(repo_path, disk_path).await?;
+            let id = self
+                .write_file_to_store(repo_path, disk_path, had_crlf, has_crlf_in_store)
+                .await?;
             // On Windows, we preserve the executable bit from the current tree.
             let executable = executable.unwrap_or_else(|| {
                 if let Some(TreeValue::File {
@@ -1591,7 +1639,7 @@ impl FileSnapshotter<'_> {
                 err: err.into(),
             })?;
             self.target_eol_strategy
-                .convert_eol_for_snapshot(BlockingAsyncReader::new(file))
+                .convert_eol_for_snapshot(BlockingAsyncReader::new(file), had_crlf)
                 .await
                 .map_err(|err| SnapshotError::Other {
                     message: "Failed to convert the EOL".to_string(),
@@ -1603,6 +1651,8 @@ impl FileSnapshotter<'_> {
                     message: "Failed to read the EOL converted contents".to_string(),
                     err: err.into(),
                 })?;
+            let stats = crate::eol::Stats::from_bytes(&contents);
+            *has_crlf_in_store = stats.crlf > 0;
             // If the file contained a conflict before and is a normal file on
             // disk, we try to parse any conflict markers in the file into a
             // conflict.
@@ -1650,20 +1700,26 @@ impl FileSnapshotter<'_> {
         &self,
         path: &RepoPath,
         disk_path: &Path,
+        had_crlf: bool,
+        has_crlf_in_store: &mut bool,
     ) -> Result<FileId, SnapshotError> {
         let file = File::open(disk_path).map_err(|err| SnapshotError::Other {
             message: format!("Failed to open file {}", disk_path.display()),
             err: err.into(),
         })?;
-        let mut contents = self
+        let contents = self
             .target_eol_strategy
-            .convert_eol_for_snapshot(BlockingAsyncReader::new(file))
+            .convert_eol_for_snapshot(BlockingAsyncReader::new(file), had_crlf)
             .await
             .map_err(|err| SnapshotError::Other {
                 message: "Failed to convert the EOL".to_string(),
                 err: err.into(),
             })?;
-        Ok(self.store().write_file(path, &mut contents).await?)
+        let mut stats = crate::eol::Stats::default();
+        let mut contents = contents.with_stats(&mut stats);
+        let file_id = self.store().write_file(path, &mut contents).await?;
+        *has_crlf_in_store = stats.crlf > 0;
+        Ok(file_id)
     }
 
     async fn write_symlink_to_store(
@@ -1714,6 +1770,8 @@ impl TreeState {
                 message: format!("Failed to open file {} for writing", disk_path.display()),
                 err: err.into(),
             })?;
+        let mut stats = crate::eol::Stats::default();
+        let contents = contents.with_stats(&mut stats);
         let contents = if apply_eol_conversion {
             self.target_eol_strategy
                 .convert_eol_for_update(contents)
@@ -1747,6 +1805,7 @@ impl TreeState {
             size as u64,
             &metadata,
             None,
+            stats.crlf > 0,
         ))
     }
 
@@ -1773,6 +1832,7 @@ impl TreeState {
         executable: bool,
         materialized_conflict_data: Option<MaterializedConflictData>,
     ) -> Result<FileState, CheckoutError> {
+        let stats = crate::eol::Stats::from_bytes(&conflict_data);
         let conflict_data = self
             .target_eol_strategy
             .convert_eol_for_update(conflict_data.as_slice())
@@ -1804,6 +1864,7 @@ impl TreeState {
             size,
             &metadata,
             materialized_conflict_data,
+            stats.crlf > 0,
         ))
     }
 
@@ -2044,12 +2105,34 @@ impl TreeState {
                 let file_type = match after.into_resolved() {
                     Ok(value) => match value.unwrap() {
                         TreeValue::File {
-                            id: _,
+                            id,
                             executable,
                             copy_id: _,
-                        } => FileType::Normal {
-                            executable: FileExecutableFlag::from_bool_lossy(executable),
-                        },
+                        } => {
+                            let mut contents = vec![];
+                            self.store
+                                .read_file(&path, &id)
+                                .await
+                                .map_err(|err| ResetError::Other {
+                                    message: "Failed to read the file from Store to calculate the \
+                                              FileState"
+                                        .to_string(),
+                                    err: err.into(),
+                                })?
+                                .read_to_end(&mut contents)
+                                .await
+                                .map_err(|err| ResetError::Other {
+                                    message: "Failed to read the contents of the file when \
+                                              calculating the FileState"
+                                        .to_string(),
+                                    err: err.into(),
+                                })?;
+                            let stats = crate::eol::Stats::from_bytes(&contents);
+                            FileType::Normal {
+                                executable: FileExecutableFlag::from_bool_lossy(executable),
+                                has_crlf_in_store: stats.crlf > 0,
+                            }
+                        }
                         TreeValue::Symlink(_id) => FileType::Symlink,
                         TreeValue::Conflict(_id) => {
                             panic!("unexpected conflict entry in diff at {path:?}");
@@ -2062,10 +2145,44 @@ impl TreeState {
                             panic!("unexpected tree entry in diff at {path:?}");
                         }
                     },
-                    Err(_values) => {
+                    Err(values) => {
+                        let has_crlf_in_store = values
+                            .iter()
+                            .filter_map(|tree_value| {
+                                let Some(TreeValue::File { id, .. }) = tree_value.as_ref() else {
+                                    return None;
+                                };
+                                Some(id)
+                            })
+                            .map(async |file_id| -> Result<_, ResetError> {
+                                let mut contents = vec![];
+                                self.store
+                                    .read_file(&path, file_id)
+                                    .await
+                                    .map_err(|err| ResetError::Other {
+                                        message: "Failed to read one side of the conflict from \
+                                                  the Store when calculating the FileState"
+                                            .to_string(),
+                                        err: err.into(),
+                                    })?
+                                    .read_to_end(&mut contents)
+                                    .await
+                                    .map_err(|err| ResetError::Other {
+                                        message: "Failed to read the contents of one side of the \
+                                                  conflict when calculating the FileState"
+                                            .to_string(),
+                                        err: err.into(),
+                                    })?;
+                                let stats = crate::eol::Stats::from_bytes(&contents);
+                                Ok(stats)
+                            })
+                            .collect::<FuturesUnordered<_>>()
+                            .try_any(async |stats| stats.crlf > 0)
+                            .await?;
                         // TODO: Try to set the executable bit based on the conflict
                         FileType::Normal {
                             executable: FileExecutableFlag::from_bool_lossy(false),
+                            has_crlf_in_store,
                         }
                     }
                 };
@@ -2561,6 +2678,7 @@ mod tests {
         let new_state = |size| FileState {
             file_type: FileType::Normal {
                 executable: FileExecutableFlag::from_bool_lossy(false),
+                has_crlf_in_store: false,
             },
             mtime: MillisSinceEpoch(0),
             size,
@@ -2610,6 +2728,7 @@ mod tests {
         let new_state = |size| FileState {
             file_type: FileType::Normal {
                 executable: FileExecutableFlag::from_bool_lossy(false),
+                has_crlf_in_store: false,
             },
             mtime: MillisSinceEpoch(0),
             size,
@@ -2675,6 +2794,7 @@ mod tests {
         let new_state = |size| FileState {
             file_type: FileType::Normal {
                 executable: FileExecutableFlag::from_bool_lossy(false),
+                has_crlf_in_store: false,
             },
             mtime: MillisSinceEpoch(0),
             size,
