@@ -155,7 +155,8 @@ pub(crate) fn cmd_log(
     let revset = revset_expression.evaluate()?;
 
     let store = repo.store();
-    let diff_renderer = workspace_command.diff_renderer_for_log(&args.diff_format, args.patch)?;
+    let diff_renderer =
+        workspace_command.diff_renderer_for_log(ui, &args.diff_format, args.patch)?;
     let graph_style = GraphStyle::from_settings(settings)?;
 
     let use_elided_nodes = settings.get_bool("ui.log-synthetic-elided-nodes")?;

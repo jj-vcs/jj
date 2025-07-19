@@ -120,7 +120,12 @@ pub fn cmd_op_diff(
     let merged_repo = tx.repo();
 
     let diff_renderer = {
-        let formats = diff_formats_for_log(settings, &args.diff_format, args.patch)?;
+        let formats = diff_formats_for_log(
+            ui.use_human_output(),
+            settings,
+            &args.diff_format,
+            args.patch,
+        )?;
         let path_converter = workspace_env.path_converter();
         let conflict_marker_style = workspace_env.conflict_marker_style();
         (!formats.is_empty())

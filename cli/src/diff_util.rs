@@ -36,6 +36,7 @@ use jj_lib::backend::CopyRecord;
 use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
 use jj_lib::config::ConfigGetError;
+use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::conflicts::materialized_diff_stream;
 use jj_lib::conflicts::ConflictMarkerStyle;
@@ -272,12 +273,13 @@ pub fn all_builtin_diff_format_names() -> Vec<String> {
 
 /// Returns a list of requested diff formats, which will never be empty.
 pub fn diff_formats_for(
+    human: bool,
     settings: &UserSettings,
     args: &DiffFormatArgs,
 ) -> Result<Vec<DiffFormat>, CommandError> {
     let formats = diff_formats_from_args(settings, args)?;
     if formats.iter().all(|f| f.is_none()) {
-        Ok(vec![default_diff_format(settings, args)?])
+        Ok(vec![default_diff_format(human, settings, args)?])
     } else {
         Ok(formats.into_iter().flatten().collect())
     }
@@ -286,6 +288,7 @@ pub fn diff_formats_for(
 /// Returns a list of requested diff formats for log-like commands, which may be
 /// empty.
 pub fn diff_formats_for_log(
+    human: bool,
     settings: &UserSettings,
     args: &DiffFormatArgs,
     patch: bool,
@@ -295,7 +298,7 @@ pub fn diff_formats_for_log(
     if patch && long_format.is_none() {
         // TODO: maybe better to error out if the configured default isn't a
         // "long" format?
-        let default_format = default_diff_format(settings, args)?;
+        let default_format = default_diff_format(human, settings, args)?;
         if short_format.as_ref() != Some(&default_format) {
             long_format = Some(default_format);
         }
@@ -344,10 +347,19 @@ fn diff_formats_from_args(
 }
 
 fn default_diff_format(
+    human: bool,
     settings: &UserSettings,
     args: &DiffFormatArgs,
 ) -> Result<DiffFormat, ConfigGetError> {
-    let tool_args: CommandNameAndArgs = settings.get("ui.diff-formatter")?;
+    let tool_args: CommandNameAndArgs = if human {
+        settings
+            .get("ui.human-diff-formatter")
+            .optional()?
+            .unwrap_or(settings.get("ui.diff-formatter")?)
+    } else {
+        settings.get("ui.diff-formatter")?
+    };
+
     if let Some(name) = tool_args.as_str().and_then(|s| s.strip_prefix(':')) {
         BuiltinFormatKind::from_name(name)
             .map_err(|err| ConfigGetError::Type {

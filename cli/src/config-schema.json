@@ -221,6 +221,17 @@
                         }
                     ]
                 },
+                "human-diff-formatter": {
+                    "description": "Tool for displaying or generating diffs for human consumption",
+                    "oneOf": [
+                        {
+                            "$ref": "#/properties/ui/definitions/command"
+                        },
+                        {
+                            "$ref": "#/properties/ui/definitions/command-env"
+                        }
+                    ]
+                },
                 "merge-editor": {
                     "description": "Tool to use for resolving three-way merges. Behavior for a given tool name can be configured in merge-tools.TOOL tables",
                     "default": ":builtin",

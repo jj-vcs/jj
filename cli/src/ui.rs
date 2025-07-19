@@ -476,6 +476,28 @@ impl Ui {
         }
     }
 
+    /// Whether human-oriented output should be used.
+    ///
+    /// Humans may prefer a separate output format that is not optimized for
+    /// machine consumption. Note that this is distinct from the ability to
+    /// prompt the user as well as the choice to emit colors.
+    pub fn use_human_output(&self) -> bool {
+        let human_output_forced = env::var("JJ_HUMAN_OUTPUT")
+            .map(|v| v == "1")
+            .unwrap_or(false);
+
+        if human_output_forced {
+            return true;
+        }
+
+        match &self.output {
+            UiOutput::Terminal { stdout, .. } => stdout.is_terminal(),
+            UiOutput::Paged { .. } => true,
+            UiOutput::BuiltinPaged { .. } => true,
+            UiOutput::Null => false,
+        }
+    }
+
     pub fn progress_output(&self) -> Option<ProgressOutput<std::io::Stderr>> {
         self.use_progress_indicator()
             .then(ProgressOutput::for_stderr)
