@@ -127,7 +127,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `abandon` — Abandon a revision
 * `absorb` — Move changes from a revision into the stack of mutable revisions
 * `bookmark` — Manage bookmarks [default alias: b]
-* `commit` — Update the description and create a new change on top
+* `commit` — Update the description and create a new change on top [default alias: ci]
 * `config` — Manage config options
 * `describe` — Update the change description or other metadata [default alias: desc]
 * `diff` — Compare file contents between two revisions
@@ -156,7 +156,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `simplify-parents` — Simplify parent edges for the specified revision(s)
 * `sparse` — Manage which paths from the working-copy commit are present in the working copy
 * `split` — Split a revision in two
-* `squash` — Move changes from a revision into another revision
+* `squash` — Move changes from a revision into another revision [default alias: amend]
 * `status` — Show high-level repo status [default alias: st]
 * `tag` — Manage tags
 * `undo` — Undo an operation (shortcut for `jj op undo`)
@@ -520,7 +520,7 @@ If you want to forget a local bookmark while also untracking the corresponding r
 
 ## `jj commit`
 
-Update the description and create a new change on top
+Update the description and create a new change on top [default alias: ci]
 
 **Usage:** `jj commit [OPTIONS] [FILESETS]...`
 
@@ -2500,7 +2500,7 @@ Splitting an empty commit is not supported because the same effect can be achiev
 
 ## `jj squash`
 
-Move changes from a revision into another revision
+Move changes from a revision into another revision [default alias: amend]
 
 With the `-r` option, moves the changes from the specified revision to the parent revision. Fails if there are several parent revisions (i.e., the given revision is a merge).
 
