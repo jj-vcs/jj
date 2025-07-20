@@ -402,23 +402,28 @@ pub enum DiffRenderError {
 /// Configuration and environment to render textual diff.
 pub struct DiffRenderer<'a> {
     repo: &'a dyn Repo,
+    formats: Vec<DiffFormat>,
     path_converter: &'a RepoPathUiConverter,
     conflict_marker_style: ConflictMarkerStyle,
-    formats: Vec<DiffFormat>,
 }
 
 impl<'a> DiffRenderer<'a> {
-    pub fn new(
+    /// Create a new textual diff renderer if the formats vector is non-empty.
+    pub fn new_if_non_empty(
         repo: &'a dyn Repo,
+        formats: Vec<DiffFormat>,
         path_converter: &'a RepoPathUiConverter,
         conflict_marker_style: ConflictMarkerStyle,
-        formats: Vec<DiffFormat>,
-    ) -> Self {
-        DiffRenderer {
-            repo,
-            path_converter,
-            conflict_marker_style,
-            formats,
+    ) -> Option<Self> {
+        if formats.is_empty() {
+            None
+        } else {
+            Some(Self {
+                repo,
+                formats,
+                path_converter,
+                conflict_marker_style,
+            })
         }
     }
 

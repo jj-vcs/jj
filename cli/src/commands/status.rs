@@ -89,7 +89,7 @@ pub(crate) fn cmd_status(
                     let records = get_copy_records(repo.store(), parent, wc_commit.id(), &matcher)?;
                     copy_records.add_records(records)?;
                 }
-                let diff_renderer = workspace_command.diff_renderer(vec![DiffFormat::Summary]);
+                let diff_renderer = workspace_command.diff_renderer(DiffFormat::Summary);
                 let width = ui.term_width();
                 diff_renderer.show_diff(
                     ui,

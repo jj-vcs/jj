@@ -119,13 +119,8 @@ pub fn cmd_op_diff(
     tx.repo_mut().merge_index(&from_repo);
     let merged_repo = tx.repo();
 
-    let diff_renderer = {
-        let formats = diff_formats_for_log(settings, &args.diff_format, args.patch)?;
-        let path_converter = workspace_env.path_converter();
-        let conflict_marker_style = workspace_env.conflict_marker_style();
-        (!formats.is_empty())
-            .then(|| DiffRenderer::new(merged_repo, path_converter, conflict_marker_style, formats))
-    };
+    let formats = diff_formats_for_log(settings, &args.diff_format, args.patch)?;
+    let diff_renderer = workspace_env.maybe_diff_renderer(merged_repo, formats);
     let id_prefix_context = workspace_env.new_id_prefix_context();
     let commit_summary_template = {
         let language = workspace_env.commit_template_language(merged_repo, &id_prefix_context);

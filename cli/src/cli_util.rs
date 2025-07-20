@@ -992,6 +992,19 @@ impl WorkspaceCommandEnvironment {
     pub fn operation_template_extensions(&self) -> &[Arc<dyn OperationTemplateLanguageExtension>] {
         &self.command.data.operation_template_extensions
     }
+
+    pub fn maybe_diff_renderer<'a>(
+        &'a self,
+        repo: &'a dyn Repo,
+        formats: Vec<DiffFormat>,
+    ) -> Option<DiffRenderer<'a>> {
+        DiffRenderer::new_if_non_empty(
+            repo,
+            formats,
+            &self.path_converter,
+            self.conflict_marker_style,
+        )
+    }
 }
 
 /// Provides utilities for writing a command that works on a [`Workspace`]
@@ -1446,23 +1459,11 @@ to the current parents may contain changes from multiple commits.
         Ok(git_ignores)
     }
 
-    /// Creates textual diff renderer of the specified `formats`.
-    pub fn diff_renderer(&self, formats: Vec<DiffFormat>) -> DiffRenderer<'_> {
-        DiffRenderer::new(
-            self.repo().as_ref(),
-            self.path_converter(),
-            self.env.conflict_marker_style(),
-            formats,
-        )
-    }
-
-    /// Loads textual diff renderer from the settings and command arguments.
-    pub fn diff_renderer_for(
-        &self,
-        args: &DiffFormatArgs,
-    ) -> Result<DiffRenderer<'_>, CommandError> {
-        let formats = diff_util::diff_formats_for(self.settings(), args)?;
-        Ok(self.diff_renderer(formats))
+    /// Creates textual diff renderer for a single `format`.
+    pub fn diff_renderer(&self, format: DiffFormat) -> DiffRenderer<'_> {
+        self.env
+            .maybe_diff_renderer(self.repo().as_ref(), vec![format])
+            .unwrap()
     }
 
     /// Loads textual diff renderer from the settings and log-like command
@@ -1474,7 +1475,20 @@ to the current parents may contain changes from multiple commits.
         patch: bool,
     ) -> Result<Option<DiffRenderer<'_>>, CommandError> {
         let formats = diff_util::diff_formats_for_log(self.settings(), args, patch)?;
-        Ok((!formats.is_empty()).then(|| self.diff_renderer(formats)))
+        Ok(self.env.maybe_diff_renderer(self.repo().as_ref(), formats))
+    }
+
+    /// Loads textual diff renderer from the repo and command arguments.
+    pub fn diff_renderer_for(
+        &self,
+        args: &DiffFormatArgs,
+    ) -> Result<DiffRenderer<'_>, CommandError> {
+        let formats = diff_util::diff_formats_for(self.settings(), args)?;
+        // `diff_formats_for` sets a default value if args were empty.
+        Ok(self
+            .env
+            .maybe_diff_renderer(self.repo().as_ref(), formats)
+            .unwrap())
     }
 
     /// Loads diff editor from the settings.

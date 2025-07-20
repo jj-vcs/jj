@@ -23,7 +23,6 @@ use crate::command_error::CommandError;
 use crate::complete;
 use crate::diff_util::diff_formats_for_log;
 use crate::diff_util::DiffFormatArgs;
-use crate::diff_util::DiffRenderer;
 use crate::graphlog::GraphStyle;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
@@ -74,19 +73,8 @@ pub fn cmd_op_show(
 
     let graph_style = GraphStyle::from_settings(settings)?;
     let with_content_format = LogContentFormat::new(ui, settings)?;
-    let diff_renderer = {
-        let formats = diff_formats_for_log(settings, &args.diff_format, args.patch)?;
-        let path_converter = workspace_env.path_converter();
-        let conflict_marker_style = workspace_env.conflict_marker_style();
-        (!formats.is_empty()).then(|| {
-            DiffRenderer::new(
-                repo.as_ref(),
-                path_converter,
-                conflict_marker_style,
-                formats,
-            )
-        })
-    };
+    let formats = diff_formats_for_log(settings, &args.diff_format, args.patch)?;
+    let diff_renderer = workspace_env.maybe_diff_renderer(repo.as_ref(), formats);
 
     // TODO: Should we make this customizable via clap arg?
     let template: TemplateRenderer<Operation> = {
