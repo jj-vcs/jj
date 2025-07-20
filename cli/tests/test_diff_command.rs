@@ -3716,7 +3716,7 @@ fn test_diff_stat_rounding() {
     insta::assert_snapshot!(output, @r"
     mostly_adds.txt    | 101 ++++-
     mostly_removes.txt | 301 +--------------
-    only_adds.txt      |  10
+    only_adds.txt      |  10 +
     3 files changed, 111 insertions(+), 301 deletions(-)
     [EOF]
     ");
@@ -3726,33 +3726,11 @@ fn test_diff_stat_rounding() {
     let work_dir = test_env.work_dir("repo");
     let output = work_dir.run_jj(["diff", "--stat"]);
     insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-
-    thread 'main' panicked at cli/src/diff_util.rs:2106:14:
-    attempt to subtract with overflow
-    stack backtrace:
-       0: __rustc::rust_begin_unwind
-       1: core::panicking::panic_fmt
-       2: core::panicking::panic_const::panic_const_sub_overflow
-       3: jj_cli::diff_util::show_diff_stats
-       4: jj_cli::diff_util::DiffRenderer::show_diff_inner::{{closure}}
-       5: pollster::block_on
-       6: pollster::FutureExt::block_on
-       7: jj_cli::diff_util::DiffRenderer::show_diff::{{closure}}
-       8: <dyn jj_cli::formatter::Formatter>::with_label
-       9: jj_cli::diff_util::DiffRenderer::show_diff
-      10: jj_cli::commands::diff::cmd_diff
-      11: jj_cli::commands::run_command
-      12: core::ops::function::FnOnce::call_once
-      13: core::ops::function::FnOnce::call_once{{vtable.shim}}
-      14: <alloc::boxed::Box<F,A> as core::ops::function::FnOnce<Args>>::call_once
-      15: jj_cli::cli_util::CliRunner::run_internal
-      16: jj_cli::cli_util::CliRunner::run
-      17: jj::main
-      18: core::ops::function::FnOnce::call_once
-    note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+    ... | 101 +-
+    ... | 301 +-
+    ... |  10 +
+    3 files changed, 111 insertions(+), 301 deletions(-)
     [EOF]
-    [exit status: 101]
     ");
 }
 

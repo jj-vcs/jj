@@ -2095,9 +2095,13 @@ pub fn show_diff_stats(
 
     for (stat, ui_path) in iter::zip(stats.entries(), &ui_paths) {
         let bar_length = ((stat.added + stat.removed) as f64 * factor) as usize;
-        // Ensure that any fractional space after scaling is given to whichever
-        // of adds/removes is smaller.  This ensures we always show at least one
-        // tick even for small counts.
+        // If neither adds nor removes are present, bar length should be zero.
+        // If only one is present, bar length should be at least 1.
+        // If both are present, bar length should be at least 2.
+        //
+        // Fractional space after scaling is given to whichever of adds/removes is
+        // smaller, to show at least one tick for small (but nonzero) counts.
+        let bar_length = bar_length.max((stat.added > 0) as usize + (stat.removed > 0) as usize);
         let (bar_added, bar_removed) = if stat.added < stat.removed {
             let len = (stat.added as f64 * factor).ceil() as usize;
             (len, bar_length - len)
