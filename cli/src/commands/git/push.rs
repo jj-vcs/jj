@@ -443,7 +443,8 @@ pub fn cmd_git_push(
         branch_updates: bookmark_updates,
     };
     let git_settings = tx.settings().git_settings()?;
-    let push_stats = with_remote_git_callbacks(ui, |cb| {
+    let timeout_opts = tx.settings().get("git.timeout-notification").optional()?;
+    let push_stats = with_remote_git_callbacks(ui, timeout_opts, |cb| {
         git::push_branches(tx.repo_mut(), &git_settings, remote, &targets, cb)
     })?;
     process_push_stats(&push_stats)?;
