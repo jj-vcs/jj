@@ -1898,14 +1898,12 @@ impl TreeState {
         let mut deleted_files = HashSet::new();
         let mut diff_stream = old_tree
             .diff_stream_for_file_system(new_tree, matcher)
-            .map(|TreeDiffEntry { path, values }| async {
-                match values {
-                    Ok((before, after)) => {
-                        let result = materialize_tree_value(&self.store, &path, after).await;
-                        (path, result.map(|value| (before, value)))
-                    }
-                    Err(err) => (path, Err(err)),
+            .map(async |TreeDiffEntry { path, values }| match values {
+                Ok((before, after)) => {
+                    let result = materialize_tree_value(&self.store, &path, after).await;
+                    (path, result.map(|value| (before, value)))
                 }
+                Err(err) => (path, Err(err)),
             })
             .buffered(self.store.concurrency().max(1));
         while let Some((path, data)) = diff_stream.next().await {

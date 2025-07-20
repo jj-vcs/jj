@@ -643,7 +643,7 @@ where
         if let Ok(tree_id_merge) = tree_id_merge {
             Ok(Some(
                 tree_id_merge
-                    .try_map_async(|id| async move {
+                    .try_map_async(async |id| {
                         if let Some(id) = id {
                             store.get_tree_async(dir.to_owned(), id).await
                         } else {

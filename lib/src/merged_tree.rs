@@ -211,17 +211,15 @@ impl MergedTree {
                     return Ok(None);
                 }
                 let trees = merge
-                    .try_map_async(|value| async move {
-                        match value {
-                            Some(TreeValue::Tree(sub_tree_id)) => {
-                                let subdir = self.dir().join(name);
-                                self.store().get_tree_async(subdir, sub_tree_id).await
-                            }
-                            Some(_) => unreachable!(),
-                            None => {
-                                let subdir = self.dir().join(name);
-                                Ok(Tree::empty(self.store().clone(), subdir))
-                            }
+                    .try_map_async(async |value| match value {
+                        Some(TreeValue::Tree(sub_tree_id)) => {
+                            let subdir = self.dir().join(name);
+                            self.store().get_tree_async(subdir, sub_tree_id).await
+                        }
+                        Some(_) => unreachable!(),
+                        None => {
+                            let subdir = self.dir().join(name);
+                            Ok(Tree::empty(self.store().clone(), subdir))
                         }
                     })
                     .await?;
