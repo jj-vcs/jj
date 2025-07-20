@@ -122,7 +122,6 @@ unicode-width = "0.2.0"
 version_check = "0.9.5"
 watchman_client = { version = "0.9.0" }
 whoami = "1.6.0"
-winreg = "0.52"
 
 # put all inter-workspace libraries, i.e. those that use 'path = ...' here in
 # their own (alphabetically sorted) block
