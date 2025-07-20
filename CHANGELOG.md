@@ -204,6 +204,8 @@ Thanks to the people who made this release happen!
   but this will likely be removed in a future release. Please report any
   issues you run into.
 
+* The minimum supported Rust version (MSRV) is now 1.85.0.
+
 ### Deprecations
 
 * The `ui.diff.format` and `ui.diff.tool` config options have been merged as
