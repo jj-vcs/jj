@@ -3848,6 +3848,14 @@ fn test_diff_revisions() {
     [exit status: 1]
     ");
 
+    // TODO: A merge into the chain is not allowed
+    insta::assert_snapshot!(diff_revisions("C|E"), @r"
+    C
+    D
+    E
+    [EOF]
+    ");
+
     // Can diff a linear chain
     insta::assert_snapshot!(diff_revisions("A::C"), @r"
     A
