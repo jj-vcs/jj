@@ -919,6 +919,9 @@ impl EvaluationContext<'_> {
                         }
                     }
                 }
+                // `UnionFind::find` is somewhat slow, so it's faster to only do this once and
+                // then cache the result.
+                let domain_reps = domain_vec.iter().map(|&pos| sets.find(pos)).collect_vec();
 
                 // Identify disjoint sets reachable from sources. Using a predicate here can be
                 // significantly faster for cases like `reachable(filter, X)`, since the filter
@@ -927,15 +930,20 @@ impl EvaluationContext<'_> {
                 let sources_revset = self.evaluate(sources)?;
                 let mut sources_predicate = sources_revset.to_predicate_fn();
                 let mut set_reps = HashSet::new();
-                for &pos in &domain_vec {
+                for (&pos, &rep) in domain_vec.iter().zip(&domain_reps) {
+                    // Skip evaluating predicate if `rep` has already been added.
+                    if set_reps.contains(&rep) {
+                        continue;
+                    }
                     if sources_predicate(index, pos)? {
-                        set_reps.insert(sets.find(pos));
+                        set_reps.insert(rep);
                     }
                 }
 
                 let positions = domain_vec
                     .into_iter()
-                    .filter(|pos| set_reps.contains(&sets.find(*pos)))
+                    .zip(domain_reps)
+                    .filter_map(|(pos, rep)| set_reps.contains(&rep).then_some(pos))
                     .collect_vec();
                 Ok(Box::new(EagerRevset { positions }))
             }
