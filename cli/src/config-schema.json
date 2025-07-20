@@ -434,8 +434,7 @@
                 },
                 "push-new-bookmarks": {
                     "type": "boolean",
-                    "description": "Allow pushing new bookmarks without --allow-new",
-                    "default": false
+                    "description": "Allow pushing new bookmarks without --allow-new (deprecated: Pushing new bookmarks is now allowed by default if there is only one remote.)"
                 },
                 "fetch": {
                     "description": "The remote(s) from which commits are fetched",
