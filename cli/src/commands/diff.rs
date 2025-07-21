@@ -155,7 +155,12 @@ pub(crate) fn cmd_diff(
         let revisions_evaluator = workspace_command.parse_union_revsets(ui, revision_args)?;
         let target_expression = revisions_evaluator.expression();
         let mut gaps_revset = workspace_command
-            .attach_revset_evaluator(target_expression.connected().minus(target_expression))
+            .attach_revset_evaluator(
+                target_expression
+                    .roots()
+                    .range(&target_expression.heads())
+                    .minus(target_expression),
+            )
             .evaluate_to_commit_ids()?;
         if let Some(commit_id) = gaps_revset.next() {
             return Err(user_error_with_hint(

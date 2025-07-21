@@ -3848,12 +3848,14 @@ fn test_diff_revisions() {
     [exit status: 1]
     ");
 
-    // TODO: A merge into the chain is not allowed
+    // A merge into the chain is not allowed
+    // We could decide to support this case
     insta::assert_snapshot!(diff_revisions("C|E"), @r"
-    C
-    D
-    E
+    ------- stderr -------
+    Error: Cannot diff revsets with gaps in.
+    Hint: Revision a90b2fff19e9 would need to be in the set.
     [EOF]
+    [exit status: 1]
     ");
 
     // Can diff a linear chain
