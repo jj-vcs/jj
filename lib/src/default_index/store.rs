@@ -322,9 +322,12 @@ impl DefaultIndexStore {
         index: DefaultMutableIndex,
         op_id: &OperationId,
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
-        let index = index
-            .squash_and_save_in(&self.commit_segments_dir())
+        let commits = index.into_segment();
+        let commits = commits
+            .maybe_squash_with_ancestors()
+            .save_in(&self.commit_segments_dir())
             .map_err(DefaultIndexStoreError::SaveIndex)?;
+        let index = DefaultReadonlyIndex::from_segment(commits);
         self.associate_index_with_operation(&index, op_id)
             .map_err(|source| DefaultIndexStoreError::AssociateIndex {
                 op_id: op_id.to_owned(),

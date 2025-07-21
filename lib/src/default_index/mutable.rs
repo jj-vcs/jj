@@ -312,7 +312,7 @@ impl MutableCommitIndexSegment {
     /// If the mutable segment has more than half the commits of its parent
     /// segment, return mutable segment with the commits from both. This is done
     /// recursively, so the stack of index segments has O(log n) files.
-    fn maybe_squash_with_ancestors(self) -> Self {
+    pub(super) fn maybe_squash_with_ancestors(self) -> Self {
         let mut num_new_commits = self.num_local_commits();
         let mut files_to_squash = vec![];
         let mut base_parent_file = None;
@@ -461,6 +461,10 @@ impl DefaultMutableIndex {
         Self(CompositeIndex::from_mutable(commits))
     }
 
+    pub(super) fn into_segment(self) -> Box<MutableCommitIndexSegment> {
+        self.0.into_mutable().expect("must have mutable")
+    }
+
     fn mutable_commits(&mut self) -> &mut MutableCommitIndexSegment {
         self.0.mutable_commits().expect("must have mutable")
     }
@@ -486,12 +490,6 @@ impl DefaultMutableIndex {
     ) {
         self.mutable_commits()
             .add_commit_data(commit_id, change_id, parent_ids);
-    }
-
-    pub(super) fn squash_and_save_in(self, dir: &Path) -> io::Result<DefaultReadonlyIndex> {
-        let commits = self.0.into_mutable().expect("must have mutable");
-        let commits = commits.maybe_squash_with_ancestors().save_in(dir)?;
-        Ok(DefaultReadonlyIndex::from_segment(commits))
     }
 }
 
