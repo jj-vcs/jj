@@ -64,11 +64,11 @@ jobs:
       uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
       with:
         toolchain: 1.85
-    - uses: taiki-e/install-action@c07504cae06f832dc8de08911c9a9c5cddb0d2d3
+    - uses: taiki-e/install-action@c99cc51b309eee71a866715cfa08c922f11cf898
       with:
         tool: nextest,taplo-cli
     - name: Install mold
-      uses: rui314/setup-mold@85c79d00377f0d32cdbae595a46de6f7c2fa6599
+      uses: rui314/setup-mold@702b1908b5edf30d71a8d1666b724e0f0c6fa035
       with:
         make-default: false
     - name: Build
@@ -121,7 +121,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: DeterminateSystems/nix-installer-action@c723f3a885e3f1d866d91f4f0c33dd44b1fc7c60
+      - uses: DeterminateSystems/nix-installer-action@90bb610b90bf290cad97484ba341453bd1cbefea
       - run: nix flake check -L --show-trace
 
   check-protos:
@@ -201,7 +201,7 @@ jobs:
         with:
           python-version: 3.11
       - name: Install uv
-        uses: astral-sh/setup-uv@bd01e18f51369d5a26f1651c3cb451d3417e3bba
+        uses: astral-sh/setup-uv@7edac99f961f18b581bbd960d59d049f04c0002f
         with:
           # If you bump the version, also update docs/contributing.md
           # and all other workflows that install uv
@@ -242,7 +242,7 @@ jobs:
         with:
           python-version: 3.11
       - name: Install uv
-        uses: astral-sh/setup-uv@bd01e18f51369d5a26f1651c3cb451d3417e3bba
+        uses: astral-sh/setup-uv@7edac99f961f18b581bbd960d59d049f04c0002f
         with:
           # If you bump the version, also update docs/contributing.md
           # and all other workflows that install uv
@@ -259,7 +259,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install uv
-        uses: astral-sh/setup-uv@bd01e18f51369d5a26f1651c3cb451d3417e3bba
+        uses: astral-sh/setup-uv@7edac99f961f18b581bbd960d59d049f04c0002f
       # 'only-managed' means that uv will always download Python, even
       # if the runner happens to provide a compatible version
       - name: Check that `mkdocs` can build the docs
@@ -277,7 +277,7 @@ jobs:
           persist-credentials: false
 
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@bd01e18f51369d5a26f1651c3cb451d3417e3bba
+        uses: astral-sh/setup-uv@7edac99f961f18b581bbd960d59d049f04c0002f
 
       - name: Run zizmor
         run: uvx zizmor --format sarif . > results.sarif
@@ -285,7 +285,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b
+        uses: github/codeql-action/upload-sarif@d6bbdef45e766d081b84a2def353b0055f728d3e
         with:
           sarif_file: results.sarif
           category: zizmor
