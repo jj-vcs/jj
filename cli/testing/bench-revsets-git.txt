@@ -1,4 +1,4 @@
-# Revsets to pass to `jj bench revsets` on the Git 
+# Revsets to pass to `jj bench revsets` on the Git repo
 
 # Single tags
 v1.0.0
@@ -70,6 +70,6 @@ tags()+++::
 merges()
 ~merges()
 # These are unbearably slow, so only filter within small set
-file(root:"Makefile") & v1.0.0..v1.2.0
+files(root:"Makefile") & v1.0.0..v1.2.0
 empty() & v1.0.0..v1.2.0
-conflict() & v1.0.0..v1.2.0
+conflicts() & v1.0.0..v1.2.0
