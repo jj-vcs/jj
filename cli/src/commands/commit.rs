@@ -32,6 +32,19 @@ use crate::text_util::parse_author;
 use crate::ui::Ui;
 
 /// Update the description and create a new change on top.
+///
+/// This command is very similar to `jj split`. Differences include:
+///
+/// * `jj commit` is not interactive by default (it selects all changes).
+///
+/// * `jj commit` doesn't have a `-r` option. It always acts on the working-copy
+///   commit (@).
+///
+/// * `jj split` (without `-d/-A/-B`) will move bookmarks forward from the old
+///   change to the child change. `jj commit` doesn't move bookmarks forward.
+///
+/// * `jj split` allows you to move the selected changes to a different
+///   destination with `-d/-A/-B`.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct CommitArgs {
     /// Interactively choose which changes to include in the first commit
