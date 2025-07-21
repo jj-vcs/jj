@@ -124,7 +124,7 @@ impl DefaultIndexStore {
         file_util::remove_dir_contents(&self.operations_dir())?;
         // Remove index segments to save disk space. If raced, new segment file
         // will be created by the other process.
-        file_util::remove_dir_contents(&self.segments_dir())?;
+        file_util::remove_dir_contents(&self.commit_segments_dir())?;
         // jj <= 0.14 created segment files in the top directory
         for entry in self.dir.read_dir().context(&self.dir)? {
             let entry = entry.context(&self.dir)?;
@@ -139,7 +139,7 @@ impl DefaultIndexStore {
     }
 
     fn ensure_base_dirs(&self) -> Result<(), PathError> {
-        for dir in [self.operations_dir(), self.segments_dir()] {
+        for dir in [self.operations_dir(), self.commit_segments_dir()] {
             file_util::create_or_reuse_dir(&dir).context(&dir)?;
         }
         Ok(())
@@ -149,7 +149,8 @@ impl DefaultIndexStore {
         self.dir.join("operations")
     }
 
-    fn segments_dir(&self) -> PathBuf {
+    /// Directory for commit segment files.
+    fn commit_segments_dir(&self) -> PathBuf {
         self.dir.join("segments")
     }
 
@@ -169,7 +170,7 @@ impl DefaultIndexStore {
                 ))
             })?;
         let commits =
-            ReadonlyCommitIndexSegment::load(&self.segments_dir(), index_file_id, lengths)
+            ReadonlyCommitIndexSegment::load(&self.commit_segments_dir(), index_file_id, lengths)
                 .map_err(DefaultIndexStoreError::LoadIndex)?;
         Ok(DefaultReadonlyIndex::from_segment(commits))
     }
@@ -322,7 +323,7 @@ impl DefaultIndexStore {
         op_id: &OperationId,
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
         let index = index
-            .squash_and_save_in(&self.segments_dir())
+            .squash_and_save_in(&self.commit_segments_dir())
             .map_err(DefaultIndexStoreError::SaveIndex)?;
         self.associate_index_with_operation(&index, op_id)
             .map_err(|source| DefaultIndexStoreError::AssociateIndex {
