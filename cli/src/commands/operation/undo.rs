@@ -38,13 +38,13 @@ pub struct OperationUndoArgs {
     ///
     /// Use `jj op log` to find an operation to undo.
     #[arg(default_value = "@", add = ArgValueCandidates::new(complete::operations))]
-    operation: String,
+    pub(crate) operation: String, // pub for `jj undo`
 
     /// What portions of the local state to restore (can be repeated)
     ///
     /// This option is EXPERIMENTAL.
     #[arg(long, value_enum, default_values_t = DEFAULT_UNDO_WHAT)]
-    what: Vec<UndoWhatToRestore>,
+    pub(crate) what: Vec<UndoWhatToRestore>, // pub for `jj undo`
 }
 
 // Checks whether `op` resets the view of `parent_op` to the view of the
