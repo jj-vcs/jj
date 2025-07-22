@@ -474,7 +474,10 @@ pub trait Backend: Any + Send + Sync + Debug {
     ///
     /// Backends that don't support copy tracking may return
     /// `BackendError::Unsupported`.
-    async fn get_related_copies(&self, copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>>;
+    async fn get_related_copies(
+        &self,
+        copy_id: &CopyId,
+    ) -> BackendResult<Vec<(CopyId, CopyHistory)>>;
 
     async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> BackendResult<Tree>;
 
