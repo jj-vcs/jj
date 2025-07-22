@@ -65,7 +65,8 @@ fn enable_changed_path_index(repo: &ReadonlyRepo) -> Arc<ReadonlyRepo> {
     let default_index_store: &DefaultIndexStore =
         repo.index_store().as_any().downcast_ref().unwrap();
     default_index_store
-        .enable_changed_path_index_at_operation(repo.op_id(), repo.store())
+        .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 0)
+        .block_on()
         .unwrap();
     repo.reload_at(repo.operation()).unwrap()
 }
@@ -848,6 +849,126 @@ fn test_changed_path_segments() {
     assert_eq!(stats.changed_path_levels[0].num_commits, 2);
     assert_eq!(stats.changed_path_levels[0].num_changed_paths, 3);
     assert_eq!(stats.changed_path_levels[0].num_paths, 2);
+}
+
+#[test]
+fn test_build_changed_path_segments() {
+    let test_repo = TestRepo::init();
+    let repo = test_repo.repo;
+    let root_commit_id = repo.store().root_commit_id();
+    let default_index_store: &DefaultIndexStore =
+        repo.index_store().as_any().downcast_ref().unwrap();
+
+    let mut tx = repo.start_transaction();
+    for i in 1..10 {
+        let tree = create_tree(&repo, &[(repo_path(&i.to_string()), "")]);
+        tx.repo_mut()
+            .new_commit(vec![root_commit_id.clone()], tree.id())
+            .write()
+            .unwrap();
+    }
+    let repo = tx.commit("test").unwrap();
+
+    // Index the last 4 commits
+    default_index_store
+        .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 4)
+        .block_on()
+        .unwrap();
+    let repo = repo.reload_at(repo.operation()).unwrap();
+    let stats = as_readonly_index(&repo).stats();
+    assert_eq!(stats.changed_path_commits_range, Some(6..10));
+    assert_eq!(stats.changed_path_levels.len(), 1);
+    assert_eq!(stats.changed_path_levels[0].num_commits, 4);
+    assert_eq!(stats.changed_path_levels[0].num_changed_paths, 4);
+    assert_eq!(stats.changed_path_levels[0].num_paths, 4);
+
+    // Index remainders
+    default_index_store
+        .build_changed_path_index_at_operation(repo.op_id(), repo.store(), u32::MAX)
+        .block_on()
+        .unwrap();
+    let repo = repo.reload_at(repo.operation()).unwrap();
+    let stats = as_readonly_index(&repo).stats();
+    assert_eq!(stats.changed_path_commits_range, Some(0..10));
+    assert_eq!(stats.changed_path_levels.len(), 2);
+    assert_eq!(stats.changed_path_levels[0].num_commits, 6);
+    assert_eq!(stats.changed_path_levels[0].num_changed_paths, 5);
+    assert_eq!(stats.changed_path_levels[0].num_paths, 5);
+    assert_eq!(stats.changed_path_levels[1].num_commits, 4);
+    assert_eq!(stats.changed_path_levels[1].num_changed_paths, 4);
+    assert_eq!(stats.changed_path_levels[1].num_paths, 4);
+}
+
+#[test]
+fn test_build_changed_path_segments_partially_enabled() {
+    let test_repo = TestRepo::init();
+    let repo = test_repo.repo;
+    let root_commit_id = repo.store().root_commit_id();
+    let default_index_store: &DefaultIndexStore =
+        repo.index_store().as_any().downcast_ref().unwrap();
+
+    // Partially enable index by merging two operations
+    let tx1 = {
+        let mut tx = repo.start_transaction();
+        for i in 1..5 {
+            let tree = create_tree(&repo, &[(repo_path(&i.to_string()), "")]);
+            tx.repo_mut()
+                .new_commit(vec![root_commit_id.clone()], tree.id())
+                .write()
+                .unwrap();
+        }
+        let repo = tx.commit("test").unwrap();
+        let repo = enable_changed_path_index(&repo);
+        let mut tx = repo.start_transaction();
+        let tree = create_tree(&repo, &[(repo_path("5"), "")]);
+        tx.repo_mut()
+            .new_commit(vec![root_commit_id.clone()], tree.id())
+            .write()
+            .unwrap();
+        tx
+    };
+    let mut tx2 = repo.start_transaction();
+    for i in 6..10 {
+        let tree = create_tree(&repo, &[(repo_path(&i.to_string()), "")]);
+        tx2.repo_mut()
+            .new_commit(vec![root_commit_id.clone()], tree.id())
+            .write()
+            .unwrap();
+    }
+    let repo = commit_transactions(vec![tx1, tx2]);
+    let stats = as_readonly_index(&repo).stats();
+    assert_eq!(stats.num_commits, 10);
+    assert_eq!(stats.changed_path_commits_range, Some(5..6));
+    assert_eq!(stats.changed_path_levels.len(), 1);
+    assert_eq!(stats.changed_path_levels[0].num_commits, 1);
+    assert_eq!(stats.changed_path_levels[0].num_changed_paths, 1);
+    assert_eq!(stats.changed_path_levels[0].num_paths, 1);
+
+    // Index later commits from the mid point
+    default_index_store
+        .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 2)
+        .block_on()
+        .unwrap();
+    let repo = repo.reload_at(repo.operation()).unwrap();
+    let stats = as_readonly_index(&repo).stats();
+    assert_eq!(stats.changed_path_commits_range, Some(5..8));
+    assert_eq!(stats.changed_path_levels.len(), 1);
+    assert_eq!(stats.changed_path_levels[0].num_commits, 3);
+    assert_eq!(stats.changed_path_levels[0].num_changed_paths, 3);
+    assert_eq!(stats.changed_path_levels[0].num_paths, 3);
+
+    // Index later and earlier commits from the mid point
+    default_index_store
+        .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 3)
+        .block_on()
+        .unwrap();
+    let repo = repo.reload_at(repo.operation()).unwrap();
+    let stats = as_readonly_index(&repo).stats();
+    assert_eq!(stats.changed_path_commits_range, Some(4..10));
+    assert_eq!(stats.changed_path_levels.len(), 1);
+    assert_eq!(stats.changed_path_levels[0].num_commits, 6);
+    assert_eq!(stats.changed_path_levels[0].num_changed_paths, 6);
+    assert_eq!(stats.changed_path_levels[0].num_paths, 6);
 }
 
 #[test]

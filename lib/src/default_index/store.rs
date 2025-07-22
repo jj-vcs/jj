@@ -34,6 +34,8 @@ use thiserror::Error;
 
 use super::changed_path::ChangedPathIndexSegmentId;
 use super::changed_path::CompositeChangedPathIndex;
+use super::changed_path::collect_changed_paths;
+use super::composite::AsCompositeIndex as _;
 use super::composite::CommitIndexSegmentId;
 use super::entry::GlobalCommitPosition;
 use super::mutable::DefaultMutableIndex;
@@ -390,11 +392,17 @@ impl DefaultIndexStore {
         Ok(index)
     }
 
-    // TODO: for testing; replace with "build" function
-    pub fn enable_changed_path_index_at_operation(
+    /// Builds changed-path index for the specified operation.
+    ///
+    /// At most `max_commits` number of commits will be scanned from the latest
+    /// unindexed commit.
+    #[tracing::instrument(skip(self, store))]
+    pub async fn build_changed_path_index_at_operation(
         &self,
         op_id: &OperationId,
         store: &Arc<Store>,
+        max_commits: u32,
+        // TODO: add progress callback?
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
         // Create directories in case the store was initialized by jj < 0.33.
         self.ensure_base_dirs()
@@ -404,13 +412,75 @@ impl DefaultIndexStore {
             change_id: store.change_id_length(),
         };
         let index = self.load_index_at_operation(op_id, field_lengths)?;
-        if index.changed_paths().start_commit_pos().is_some() {
-            return Ok(index);
+        let old_changed_paths = index.changed_paths();
+
+        // Distribute max_commits to contiguous pre/post ranges:
+        //   ..|pre|old_changed_paths|post|
+        //   (where pre.len() + post.len() <= max_commits)
+        let pre_start;
+        let pre_end;
+        let post_start;
+        let post_end;
+        if let Some(GlobalCommitPosition(pos)) = old_changed_paths.start_commit_pos() {
+            post_start = pos + old_changed_paths.num_commits();
+            assert!(post_start <= index.num_commits());
+            post_end = u32::saturating_add(post_start, max_commits).min(index.num_commits());
+            pre_start = u32::saturating_sub(pos, max_commits - (post_end - post_start));
+            pre_end = pos;
+        } else {
+            pre_start = u32::saturating_sub(index.num_commits(), max_commits);
+            pre_end = index.num_commits();
+            post_start = pre_end;
+            post_end = pre_end;
         }
-        let changed_paths =
-            CompositeChangedPathIndex::empty(GlobalCommitPosition(index.num_commits()));
+
+        let to_index_err = |source| DefaultIndexStoreError::IndexCommits {
+            op_id: op_id.clone(),
+            source,
+        };
+        let index_commit = async |changed_paths: &mut CompositeChangedPathIndex,
+                                  pos: GlobalCommitPosition| {
+            assert_eq!(changed_paths.next_mutable_commit_pos(), Some(pos));
+            let commit_id = index.as_composite().commits().entry_by_pos(pos).commit_id();
+            let commit = store.get_commit_async(&commit_id).await?;
+            let paths = collect_changed_paths(&index, &commit).await?;
+            changed_paths.add_changed_paths(paths);
+            Ok(())
+        };
+
+        // Index pre range
+        let mut new_changed_paths =
+            CompositeChangedPathIndex::empty(GlobalCommitPosition(pre_start));
+        new_changed_paths.make_mutable();
+        tracing::info!(?pre_start, ?pre_end, "indexing changed paths in commits");
+        for pos in (pre_start..pre_end).map(GlobalCommitPosition) {
+            index_commit(&mut new_changed_paths, pos)
+                .await
+                .map_err(to_index_err)?;
+        }
+        new_changed_paths
+            .save_in(&self.changed_path_segments_dir())
+            .map_err(DefaultIndexStoreError::SaveIndex)?;
+
+        // Copy previously-indexed segments
+        new_changed_paths.append_segments(old_changed_paths);
+
+        // Index post range, which is usually empty
+        new_changed_paths.make_mutable();
+        tracing::info!(?post_start, ?post_end, "indexing changed paths in commits");
+        for pos in (post_start..post_end).map(GlobalCommitPosition) {
+            index_commit(&mut new_changed_paths, pos)
+                .await
+                .map_err(to_index_err)?;
+        }
+        new_changed_paths.maybe_squash_with_ancestors();
+        new_changed_paths
+            .save_in(&self.changed_path_segments_dir())
+            .map_err(DefaultIndexStoreError::SaveIndex)?;
+
+        // Update the operation link to point to the new segments
         let commits = index.readonly_commits().clone();
-        let index = DefaultReadonlyIndex::from_segment(commits, changed_paths);
+        let index = DefaultReadonlyIndex::from_segment(commits, new_changed_paths);
         self.associate_index_with_operation(&index, op_id)
             .map_err(|source| DefaultIndexStoreError::AssociateIndex {
                 op_id: op_id.to_owned(),

@@ -452,6 +452,22 @@ impl CompositeChangedPathIndex {
         &self.readonly_segments
     }
 
+    /// Appends segments from the `other` index. This and the other index should
+    /// be contiguous.
+    pub(super) fn append_segments(&mut self, other: &Self) {
+        assert!(self.mutable_segment.is_none());
+        let GlobalCommitPosition(self_start_pos) =
+            self.start_commit_pos.expect("should have start pos");
+        let Some(GlobalCommitPosition(other_start_pos)) = other.start_commit_pos else {
+            return;
+        };
+        assert_eq!(self_start_pos + self.num_commits, other_start_pos);
+        self.readonly_segments
+            .extend_from_slice(&other.readonly_segments);
+        self.mutable_segment = other.mutable_segment.clone();
+        self.num_commits += other.num_commits;
+    }
+
     /// Maps `global_pos` to segment and segment-local position.
     fn find_segment(
         &self,
