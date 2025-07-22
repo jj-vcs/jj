@@ -85,8 +85,8 @@ pub(crate) struct SplitArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     revision: RevisionArg,
-    /// The revision(s) to rebase onto (can be repeated to create a merge
-    /// commit)
+    /// The revision(s) to base the new revision onto (can be repeated to create
+    /// a merge commit)
     #[arg(
         long,
         short,
