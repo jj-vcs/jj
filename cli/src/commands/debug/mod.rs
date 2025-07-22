@@ -15,6 +15,7 @@
 mod copy_detection;
 mod fileset;
 mod index;
+mod index_changed_paths;
 mod init_simple;
 mod local_working_copy;
 mod object;
@@ -39,6 +40,8 @@ use self::fileset::DebugFilesetArgs;
 use self::fileset::cmd_debug_fileset;
 use self::index::DebugIndexArgs;
 use self::index::cmd_debug_index;
+use self::index_changed_paths::DebugIndexChangedPathsArgs;
+use self::index_changed_paths::cmd_debug_index_changed_paths;
 use self::init_simple::DebugInitSimpleArgs;
 use self::init_simple::cmd_debug_init_simple;
 use self::local_working_copy::DebugLocalWorkingCopyArgs;
@@ -73,6 +76,7 @@ pub enum DebugCommand {
     CopyDetection(CopyDetectionArgs),
     Fileset(DebugFilesetArgs),
     Index(DebugIndexArgs),
+    IndexChangedPaths(DebugIndexChangedPathsArgs),
     InitSimple(DebugInitSimpleArgs),
     LocalWorkingCopy(DebugLocalWorkingCopyArgs),
     #[command(subcommand)]
@@ -98,6 +102,7 @@ pub fn cmd_debug(
         DebugCommand::CopyDetection(args) => cmd_debug_copy_detection(ui, command, args),
         DebugCommand::Fileset(args) => cmd_debug_fileset(ui, command, args),
         DebugCommand::Index(args) => cmd_debug_index(ui, command, args),
+        DebugCommand::IndexChangedPaths(args) => cmd_debug_index_changed_paths(ui, command, args),
         DebugCommand::InitSimple(args) => cmd_debug_init_simple(ui, command, args),
         DebugCommand::LocalWorkingCopy(args) => cmd_debug_local_working_copy(ui, command, args),
         DebugCommand::Object(args) => cmd_debug_object(ui, command, args),

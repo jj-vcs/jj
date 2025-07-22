@@ -169,6 +169,36 @@ fn test_debug_index() {
     Stats per level:
     [EOF]
     ");
+
+    // Enable changed-path index, index one commit
+    let output = work_dir.run_jj(["debug", "index-changed-paths", "-n1"]);
+    assert_snapshot!(output, @r"
+    ------- stderr -------
+    Finished indexing 1..2 commits.
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["debug", "index"]);
+    assert_snapshot!(filter_index_stats(output), @r"
+    === Commits ===
+    Number of commits: 2
+    Number of merges: 0
+    Max generation number: 1
+    Number of heads: 1
+    Number of changes: 2
+    Stats per level:
+      Level 0:
+        Number of commits: 2
+        Name: [hash]
+    === Changed paths ===
+    Indexed commits: 1..2
+    Stats per level:
+      Level 0:
+        Number of commits: 1
+        Number of changed paths: 0
+        Number of paths: 0
+        Name: [hash]
+    [EOF]
+    ");
 }
 
 #[test]

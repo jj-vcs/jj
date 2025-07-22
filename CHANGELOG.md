@@ -18,6 +18,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Add experimental support for indexing changed paths, which will speed up `jj
+  log PATH` query, `jj file annotate`, etc. The changed-path index can be
+  enabled by `jj debug index-changed-paths` command. Indexing may take tens of
+  minutes depending on the number of merge commits. The indexing command UI is
+  subject to change. [#4674](https://github.com/jj-vcs/jj/issues/4674)
+
 * `jj file show` now accepts `-T`/`--template` option to insert file metadata.
 
 * The new configuration option `git.colocate=boolean` controls whether or not
