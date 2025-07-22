@@ -96,7 +96,7 @@ fn cmd_tag_list(
             && !args
                 .names
                 .iter()
-                .any(|pattern| pattern.matches(name.as_str()))
+                .any(|pattern| pattern.is_match(name.as_str()))
         {
             continue;
         }
