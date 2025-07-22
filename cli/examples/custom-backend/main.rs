@@ -33,6 +33,7 @@ use jj_lib::backend::CopyHistory;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::CopyRecord;
 use jj_lib::backend::FileId;
+use jj_lib::backend::RelatedCopy;
 use jj_lib::backend::SigningFn;
 use jj_lib::backend::SymlinkId;
 use jj_lib::backend::Tree;
@@ -176,7 +177,7 @@ impl Backend for JitBackend {
         self.inner.write_copy(contents).await
     }
 
-    async fn get_related_copies(&self, copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>> {
+    async fn get_related_copies(&self, copy_id: &CopyId) -> BackendResult<Vec<RelatedCopy>> {
         self.inner.get_related_copies(copy_id).await
     }
 
