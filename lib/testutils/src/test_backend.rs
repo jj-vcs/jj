@@ -38,6 +38,7 @@ use jj_lib::backend::CopyHistory;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::CopyRecord;
 use jj_lib::backend::FileId;
+use jj_lib::backend::RelatedCopy;
 use jj_lib::backend::SecureSig;
 use jj_lib::backend::SigningFn;
 use jj_lib::backend::SymlinkId;
@@ -306,7 +307,7 @@ impl Backend for TestBackend {
         .await
     }
 
-    async fn get_related_copies(&self, copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>> {
+    async fn get_related_copies(&self, copy_id: &CopyId) -> BackendResult<Vec<RelatedCopy>> {
         let copy_id = copy_id.clone();
         self.run_async(move |data| {
             let copies = &data.copies;
@@ -328,7 +329,10 @@ impl Backend for TestBackend {
             )
             .unwrap()
             {
-                histories.push(copies.get(id).unwrap().clone());
+                histories.push(RelatedCopy {
+                    id: id.clone(),
+                    history: copies.get(id).unwrap().clone(),
+                });
             }
             Ok(histories)
         })
@@ -466,8 +470,40 @@ mod tests {
         // Looking up by any id returns the related copies in the same order (children
         // before parents)
         let related = backend.get_related_copies(&copy1_id).block_on().unwrap();
-        assert_eq!(related, vec![copy3.clone(), copy2.clone(), copy1.clone()]);
-        let related: Vec<CopyHistory> = backend.get_related_copies(&copy3_id).block_on().unwrap();
-        assert_eq!(related, vec![copy3.clone(), copy2.clone(), copy1.clone()]);
+        assert_eq!(
+            related,
+            vec![
+                RelatedCopy {
+                    id: copy3_id.clone(),
+                    history: copy3.clone()
+                },
+                RelatedCopy {
+                    id: copy2_id.clone(),
+                    history: copy2.clone()
+                },
+                RelatedCopy {
+                    id: copy1_id.clone(),
+                    history: copy1.clone()
+                },
+            ]
+        );
+        let related = backend.get_related_copies(&copy3_id).block_on().unwrap();
+        assert_eq!(
+            related,
+            vec![
+                RelatedCopy {
+                    id: copy3_id.clone(),
+                    history: copy3.clone()
+                },
+                RelatedCopy {
+                    id: copy2_id.clone(),
+                    history: copy2.clone()
+                },
+                RelatedCopy {
+                    id: copy1_id.clone(),
+                    history: copy1.clone()
+                },
+            ]
+        );
     }
 }
