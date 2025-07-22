@@ -30,6 +30,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj fix` now prints a warning if a tool failed to run on a file.
   [#7971](https://github.com/jj-vcs/jj/issues/7971)
 
+* Shell completion now works with non‑normalized paths, fixing the previous
+  panic and allowing prefixes containing `.` or `..` to be completed correctly.
+  [#6861](https://github.com/jj-vcs/jj/issues/6861)
+
 ## [0.35.0] - 2025-11-05
 
 ### Release highlights

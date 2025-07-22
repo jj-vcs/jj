@@ -22,6 +22,7 @@ use clap_complete::CompletionCandidate;
 use indoc::indoc;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigNamePathBuf;
+use jj_lib::file_util::normalize_path;
 use jj_lib::settings::UserSettings;
 use jj_lib::workspace::DefaultWorkspaceLoaderFactory;
 use jj_lib::workspace::WorkspaceLoaderFactory as _;
@@ -739,10 +740,51 @@ pub fn branch_name_equals_any_revision(current: &std::ffi::OsStr) -> Vec<Complet
         .collect()
 }
 
-fn dir_prefix_from<'a>(path: &'a str, current: &str) -> Option<&'a str> {
-    path[current.len()..]
-        .split_once(std::path::MAIN_SEPARATOR)
-        .map(|(next, _)| path.split_at(current.len() + next.len() + 1).0)
+fn path_completion_candidate_from(
+    current_prefix: &str,
+    path: &str,
+    mode: Option<clap::builder::StyledStr>,
+) -> Option<CompletionCandidate> {
+    // The user-provided completion string might not prefix `path` unless cast in
+    // normal form.
+    let normalized_prefix_path = normalize_path(Path::new(current_prefix));
+    let normalized_prefix = match normalized_prefix_path.to_str() {
+        None => current_prefix,
+        Some(".") => "", // `.` cannot be normalized further, but doesn't prefix `path`.
+        Some(normalized_prefix) => normalized_prefix,
+    };
+
+    let mut remainder = path.strip_prefix(normalized_prefix)?;
+
+    // Trailing slash might have been normalized away in which case we need to strip
+    // the leading slash in the remainder away, or else the slash would appear
+    // twice.
+    if current_prefix.ends_with(std::path::is_separator) {
+        remainder = remainder
+            .strip_prefix(std::path::is_separator)
+            .unwrap_or(remainder);
+    }
+
+    match remainder
+        .split_inclusive(std::path::is_separator)
+        .at_most_one()
+    {
+        // Completed component is the final component in `path`, so we're completing the file to
+        // which `mode` refers.
+        Ok(file_completion) => Some(
+            CompletionCandidate::new(format!(
+                "{current_prefix}{}",
+                file_completion.unwrap_or_default()
+            ))
+            .help(mode),
+        ),
+
+        // Omit `mode` when completing only up to the next directory.
+        Err(mut components) => Some(CompletionCandidate::new(format!(
+            "{current_prefix}{}",
+            components.next().unwrap()
+        ))),
+    }
 }
 
 fn current_prefix_to_fileset(current: &str) -> String {
@@ -774,12 +816,7 @@ fn all_files_from_rev(rev: String, current: &std::ffi::OsStr) -> Vec<CompletionC
             .lines()
             .take(1_000)
             .map_while(Result::ok)
-            .map(|path| {
-                if let Some(dir_path) = dir_prefix_from(&path, current) {
-                    return CompletionCandidate::new(dir_path);
-                }
-                CompletionCandidate::new(path)
-            })
+            .filter_map(|path| path_completion_candidate_from(current, &path, None))
             .dedup() // directories may occur multiple times
             .collect())
     })
@@ -811,36 +848,27 @@ fn modified_files_from_rev_with_jj_cmd(
     let output = cmd.output().map_err(user_error)?;
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    let mut candidates = Vec::new();
     let mut include_renames = false;
-
-    for (mode, path) in stdout.lines().filter_map(|line| line.split_once(' ')) {
-        fn path_to_candidate(current: &str, mode: &str, path: &str) -> CompletionCandidate {
-            if let Some(dir_path) = dir_prefix_from(path, current) {
-                return CompletionCandidate::new(dir_path);
-            }
-
-            let help = match mode {
+    let mut candidates: Vec<_> = stdout
+        .lines()
+        .filter_map(|line| line.split_once(' '))
+        .filter_map(|(mode, path)| {
+            let mode = match mode {
                 "modified" => "Modified".into(),
                 "removed" => "Deleted".into(),
                 "added" => "Added".into(),
                 "renamed" => "Renamed".into(),
+                "renamed.source" => {
+                    include_renames = true;
+                    "Renamed".into()
+                }
                 "copied" => "Copied".into(),
-                _ => format!("unknown mode: '{mode}'"),
+                _ => format!("unknown mode: '{mode}'").into(),
             };
-            CompletionCandidate::new(path).help(Some(help.into()))
-        }
+            path_completion_candidate_from(current, path, Some(mode))
+        })
+        .collect();
 
-        if mode == "renamed.source" {
-            if !path.starts_with(current) {
-                continue;
-            }
-            candidates.push(path_to_candidate(current, "renamed", path));
-            include_renames |= true;
-        } else {
-            candidates.push(path_to_candidate(current, mode, path));
-        }
-    }
     if include_renames {
         candidates.sort_unstable_by(|a, b| Path::new(a.get_value()).cmp(Path::new(b.get_value())));
     }
@@ -874,16 +902,13 @@ fn conflicted_files_from_rev(rev: &str, current: &std::ffi::OsStr) -> Vec<Comple
 
         Ok(stdout
             .lines()
-            .map(|line| {
+            .filter_map(|line| {
                 let path = line
                     .split_whitespace()
                     .next()
                     .expect("resolve --list should contain whitespace after path");
 
-                if let Some(dir_path) = dir_prefix_from(path, current) {
-                    return CompletionCandidate::new(dir_path);
-                }
-                CompletionCandidate::new(path)
+                path_completion_candidate_from(current, path, None)
             })
             .dedup() // directories may occur multiple times
             .collect())
