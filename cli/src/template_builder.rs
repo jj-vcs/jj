@@ -2065,7 +2065,7 @@ fn expect_expression_of_type<'a, L: TemplateLanguage<'a> + ?Sized, T>(
 
 #[cfg(test)]
 mod tests {
-    use std::iter;
+    use std::fmt::Write;
 
     use jj_lib::backend::MillisSinceEpoch;
     use jj_lib::config::StackedConfig;
@@ -2137,8 +2137,17 @@ mod tests {
         }
 
         fn parse_err(&self, template: &str) -> String {
-            let err = self.parse(template).err().unwrap();
-            iter::successors(Some(&err), |e| e.origin()).join("\n")
+            let Err(orig_err) = self.parse(template) else {
+                panic!("Got unexpected successful template rendering");
+            };
+
+            let mut err: Option<&dyn std::error::Error> = Some(&orig_err);
+            let mut out = String::new();
+            while let Some(inner) = err {
+                writeln!(&mut out, "{inner}").unwrap();
+                err = std::error::Error::source(inner);
+            }
+            out
         }
 
         fn render_ok(&self, template: &str) -> String {
@@ -2351,6 +2360,7 @@ mod tests {
           | ^------------------^
           |
           = Invalid integer literal
+        number too large to fit in target type
         ");
         insta::assert_snapshot!(env.parse_err(r#"42.foo()"#), @r"
          --> 1:4
