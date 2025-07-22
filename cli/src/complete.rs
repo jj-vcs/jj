@@ -279,7 +279,7 @@ fn revisions(match_prefix: &str, revset_filter: Option<&str>) -> Vec<CompletionC
                 .arg(BOOKMARK_HELP_TEMPLATE)
                 .arg("--template")
                 .arg(r#"name ++ bookmark_help() ++ "\n""#)
-                .arg(format!("glob:{}*", glob::Pattern::escape(match_prefix)))
+                .arg(format!("glob:{}*", globset::escape(match_prefix)))
                 .output()
                 .map_err(user_error)?;
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -671,7 +671,7 @@ fn dir_prefix_from<'a>(path: &'a str, current: &str) -> Option<&'a str> {
 }
 
 fn current_prefix_to_fileset(current: &str) -> String {
-    let cur_esc = glob::Pattern::escape(current);
+    let cur_esc = globset::escape(current);
     let dir_pat = format!("{cur_esc}*/**");
     let path_pat = format!("{cur_esc}*");
     format!("glob:{dir_pat:?} | glob:{path_pat:?}")

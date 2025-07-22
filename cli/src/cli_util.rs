@@ -761,13 +761,13 @@ impl AdvanceBookmarksSettings {
         if self
             .disabled_bookmarks
             .iter()
-            .any(|d| d.matches(bookmark_name.as_str()))
+            .any(|d| d.is_match(bookmark_name.as_str()))
         {
             return false;
         }
         self.enabled_bookmarks
             .iter()
-            .any(|e| e.matches(bookmark_name.as_str()))
+            .any(|e| e.is_match(bookmark_name.as_str()))
     }
 
     /// Returns true if the config includes at least one "enabled-branches"
