@@ -542,12 +542,7 @@ elsewhere, e.g. `jj rebase -r @ -d main`.
 
 ### How do I deal with divergent changes ('??' after the [change ID])?
 
-A [divergent change][glossary_divergent_change] represents a change that has two
-or more visible commits associated with it. To refer to such commits, you must
-use their [commit ID]. Most commonly, the way to resolve
-this is to abandon the unneeded commits (using `jj abandon <commit ID>`). If you
-would like to keep both commits with this change ID, you can `jj duplicate` one
-of them before abandoning it.
+See: [Handling divergent commits](guides/divergence.md).
 
 ### How do I deal with conflicted bookmarks ('??' after bookmark name)?
 
@@ -643,8 +638,6 @@ detect custom backends and more).
 
 [gerrit-integration]: https://gist.github.com/thoughtpolice/8f2fd36ae17cd11b8e7bd93a70e31ad6
 [gitignore]: https://git-scm.com/docs/gitignore
-
-[glossary_divergent_change]: glossary.md#divergent-change
 
 [operator]: revsets.md#operators
 
