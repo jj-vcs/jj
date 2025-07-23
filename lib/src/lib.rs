@@ -93,6 +93,7 @@ pub mod ref_name;
 pub mod refs;
 pub mod repo;
 pub mod repo_path;
+pub mod resolution_cache;
 pub mod revset;
 mod revset_parser;
 pub mod rewrite;
