@@ -69,6 +69,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * AnnotationLine objects in templates now have a `original_line_number() ->
   Integer` method.
 
+* Added rerere (reuse recorded resolution) support to automatically record and
+  reuse conflict resolutions. Enable with `rerere.enabled = true` in your
+  config. When enabled, Jujutsu will automatically record how you resolve
+  conflicts and apply the same resolution when identical conflicts appear again.
+
 ### Fixed bugs
 
 ### Packaging changes
