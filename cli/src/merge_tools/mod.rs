@@ -465,12 +465,40 @@ fn pick_conflict_side(
     add_index: usize,
 ) -> Result<MergedTreeId, BackendError> {
     let mut tree_builder = MergedTreeBuilder::new(tree.id());
+    let resolution_cache = tree.store().resolution_cache();
+
     for merge_tool_file in merge_tool_files {
         // We use file IDs here to match the logic for the other external merge tools.
         // This ensures that the behavior is consistent.
         let file = &merge_tool_file.file;
         let file_id = file.ids.get_add(add_index).unwrap();
         let executable = file.executable.expect("should have been resolved");
+
+        // Record the resolution if we have a resolution cache
+        if let Some(cache) = &resolution_cache {
+            if cache.is_enabled() && file_id.is_some() {
+                // Read the content of the chosen side
+                use tokio::io::AsyncReadExt as _;
+                let mut content = tree
+                    .store()
+                    .read_file(&merge_tool_file.repo_path, file_id.as_ref().unwrap())
+                    .block_on()?;
+                let mut content_bytes = Vec::new();
+                if let Err(err) = content.read_to_end(&mut content_bytes).block_on() {
+                    // Log the error but continue - resolution recording is optional
+                    tracing::warn!("Failed to read file content for resolution cache: {}", err);
+                    continue;
+                }
+
+                // Record the resolution
+                let _ = cache.record_resolution(
+                    &merge_tool_file.repo_path,
+                    &merge_tool_file.file,
+                    &content_bytes,
+                );
+            }
+        }
+
         let new_tree_value = Merge::resolved(file_id.clone().map(|id| TreeValue::File {
             id,
             executable,
