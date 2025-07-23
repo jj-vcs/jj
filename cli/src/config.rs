@@ -715,7 +715,7 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
         // TODO: Delete in jj 0.34+
         ConfigMigrationRule::rename_value(
             "core.watchman.register_snapshot_trigger",
-            "core.watchman.register-snapshot-trigger",
+            "fsmonitor.watchman.register-snapshot-trigger",
         ),
         // TODO: Delete in jj 0.34+
         ConfigMigrationRule::rename_value("diff.format", "ui.diff.format"),
@@ -755,7 +755,10 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
         // TODO: Delete in jj 0.38.0+
         ConfigMigrationRule::rename_value("core.fsmonitor", "fsmonitor.backend"),
         // TODO: Delete in jj 0.38.0+
-        ConfigMigrationRule::rename_value("core.watchman", "fsmonitor.watchman"),
+        ConfigMigrationRule::rename_value(
+            "core.watchman.register-snapshot-trigger",
+            "fsmonitor.watchman.register-snapshot-trigger",
+        ),
     ]
 }
 
