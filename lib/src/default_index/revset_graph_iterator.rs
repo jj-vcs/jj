@@ -298,10 +298,9 @@ impl<'a> RevsetGraphWalk<'a> {
             work.extend_from_slice(self.edges_from_internal_commit(index, &entry)?);
         }
 
-        Ok(edges
-            .into_iter()
-            .filter(|edge| !unwanted.get(edge.target))
-            .collect())
+        let mut edges = edges;
+        edges.retain(|edge| !unwanted.get(edge.target));
+        Ok(edges)
     }
 
     fn consume_to(
