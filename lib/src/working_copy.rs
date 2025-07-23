@@ -46,6 +46,7 @@ use crate::repo::RewriteRootCommit;
 use crate::repo_path::InvalidRepoPathError;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
+use crate::resolution_cache::ResolutionCacheStats;
 use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::transaction::TransactionCommitError;
@@ -249,6 +250,8 @@ pub type SnapshotProgress<'a> = dyn Fn(&RepoPath) + 'a + Sync;
 pub struct SnapshotStats {
     /// List of new (previously untracked) files which are still untracked.
     pub untracked_paths: BTreeMap<RepoPathBuf, UntrackedReason>,
+    /// Resolution cache statistics.
+    pub resolution_cache_stats: ResolutionCacheStats,
 }
 
 /// Reason why the new path isn't tracked.

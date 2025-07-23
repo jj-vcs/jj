@@ -53,15 +53,36 @@ use crate::merge::MergedTreeValue;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;
+use crate::resolution_cache::ResolutionCacheResult;
+use crate::resolution_cache::ResolutionCacheStats;
 use crate::store::Store;
 use crate::tree::try_resolve_file_conflict;
 use crate::tree::Tree;
 use crate::tree_builder::TreeBuilder;
 
 /// Presents a view of a merged set of trees.
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(Clone)]
 pub struct MergedTree {
     trees: Merge<Tree>,
+    /// Statistics about resolution cache operations performed on this tree.
+    resolution_cache_stats: ResolutionCacheStats,
+}
+
+impl PartialEq for MergedTree {
+    fn eq(&self, other: &Self) -> bool {
+        self.trees == other.trees && self.resolution_cache_stats == other.resolution_cache_stats
+    }
+}
+
+impl Eq for MergedTree {}
+
+impl std::fmt::Debug for MergedTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MergedTree")
+            .field("trees", &self.trees)
+            .field("resolution_cache_stats", &self.resolution_cache_stats)
+            .finish()
+    }
 }
 
 impl MergedTree {
@@ -79,7 +100,10 @@ impl MergedTree {
             .iter()
             .map(|tree| Arc::as_ptr(tree.store()))
             .all_equal());
-        MergedTree { trees }
+        MergedTree {
+            trees,
+            resolution_cache_stats: ResolutionCacheStats::new(),
+        }
     }
 
     /// Takes a tree in the legacy format (with path-level conflicts in the
@@ -123,6 +147,7 @@ impl MergedTree {
             .try_collect()?;
         Ok(MergedTree {
             trees: Merge::from_vec(new_trees),
+            resolution_cache_stats: ResolutionCacheStats::new(),
         })
     }
 
@@ -146,6 +171,16 @@ impl MergedTree {
         self.trees.first().store()
     }
 
+    /// Returns the resolution cache statistics for this tree.
+    pub fn resolution_cache_stats(&self) -> &ResolutionCacheStats {
+        &self.resolution_cache_stats
+    }
+
+    /// Merges the resolution cache statistics from another tree into this one.
+    pub fn merge_stats(&mut self, other: &ResolutionCacheStats) {
+        self.resolution_cache_stats.merge(other);
+    }
+
     /// Base names of entries in this directory.
     pub fn names<'a>(&'a self) -> Box<dyn Iterator<Item = &'a RepoPathComponent> + 'a> {
         Box::new(all_tree_basenames(&self.trees))
@@ -160,9 +195,10 @@ impl MergedTree {
     }
 
     /// Tries to resolve any conflicts, resolving any conflicts that can be
-    /// automatically resolved and leaving the rest unresolved.
+    /// automatically resolved and leaving the rest unresolved. Uses the
+    /// internal resolution cache if set.
     pub fn resolve(&self) -> BackendResult<MergedTree> {
-        let merged = merge_trees(&self.trees).block_on()?;
+        let (merged, stats) = merge_trees(&self.trees).block_on()?;
         // If the result can be resolved, then `merge_trees()` above would have returned
         // a resolved merge. However, that function will always preserve the arity of
         // conflicts it cannot resolve. So we simplify the conflict again
@@ -172,10 +208,12 @@ impl MergedTree {
         // particular,  that this last simplification doesn't enable further automatic
         // resolutions
         if cfg!(debug_assertions) {
-            let re_merged = merge_trees(&simplified).block_on().unwrap();
+            let (re_merged, _) = merge_trees(&simplified).block_on().unwrap();
             debug_assert_eq!(re_merged, simplified);
         }
-        Ok(MergedTree { trees: simplified })
+        let mut result = MergedTree::new(simplified);
+        result.resolution_cache_stats = stats;
+        Ok(result)
     }
 
     /// An iterator over the conflicts in this tree, including subtrees.
@@ -223,7 +261,10 @@ impl MergedTree {
                         }
                     })
                     .await?;
-                Ok(Some(MergedTree { trees }))
+                Ok(Some(MergedTree {
+                    trees,
+                    resolution_cache_stats: ResolutionCacheStats::new(),
+                }))
             }
         }
     }
@@ -368,9 +409,15 @@ impl MergedTree {
             base.trees.clone(),
             other.trees.clone(),
         ]);
-        MergedTree {
+        let mut result = MergedTree {
             trees: nested.flatten().simplify(),
-        }
+            resolution_cache_stats: ResolutionCacheStats::new(),
+        };
+        // Merge stats from all three trees
+        result.merge_stats(&self.resolution_cache_stats);
+        result.merge_stats(&base.resolution_cache_stats);
+        result.merge_stats(&other.resolution_cache_stats);
+        result
     }
 }
 
@@ -472,10 +519,12 @@ fn trees_value<'a>(trees: &'a Merge<Tree>, basename: &RepoPathComponent) -> Merg
 }
 
 /// The returned conflict will either be resolved or have the same number of
-/// sides as the input.
-async fn merge_trees(merge: &Merge<Tree>) -> BackendResult<Merge<Tree>> {
+/// sides as the input. Uses the resolution cache from store if available.
+async fn merge_trees(merge: &Merge<Tree>) -> BackendResult<(Merge<Tree>, ResolutionCacheStats)> {
+    let mut stats = ResolutionCacheStats::new();
+
     if let Some(tree) = merge.resolve_trivial() {
-        return Ok(Merge::resolved(tree.clone()));
+        return Ok((Merge::resolved(tree.clone()), stats));
     }
 
     let base_tree = merge.first();
@@ -489,7 +538,8 @@ async fn merge_trees(merge: &Merge<Tree>) -> BackendResult<Merge<Tree>> {
     // TODO: Merge values concurrently
     for (basename, path_merge) in all_merged_tree_entries(merge) {
         let path = dir.join(basename);
-        let path_merge = merge_tree_values(store, &path, &path_merge).await?;
+        let (path_merge, merge_stats) = merge_tree_values(store, &path, &path_merge).await?;
+        stats.merge(&merge_stats);
         match path_merge.into_resolved() {
             Ok(Some(value)) => {
                 new_tree_entries.push((basename.to_owned(), value));
@@ -503,7 +553,7 @@ async fn merge_trees(merge: &Merge<Tree>) -> BackendResult<Merge<Tree>> {
     if conflicts.is_empty() {
         let data = backend::Tree::from_sorted_entries(new_tree_entries);
         let new_tree_id = store.write_tree(dir, data).await?;
-        Ok(Merge::resolved(new_tree_id))
+        Ok((Merge::resolved(new_tree_id), stats))
     } else {
         // For each side of the conflict, overwrite the entries in `new_tree` with the
         // values from  `conflicts`. Entries that are not in `conflicts` will remain
@@ -523,7 +573,7 @@ async fn merge_trees(merge: &Merge<Tree>) -> BackendResult<Merge<Tree>> {
             let tree = store.write_tree(dir, data).await?;
             new_trees.push(tree);
         }
-        Ok(Merge::from_vec(new_trees))
+        Ok((Merge::from_vec(new_trees), stats))
     }
 }
 
@@ -535,21 +585,29 @@ async fn merge_tree_values(
     store: &Arc<Store>,
     path: &RepoPath,
     values: &MergedTreeVal<'_>,
-) -> BackendResult<MergedTreeValue> {
+) -> BackendResult<(MergedTreeValue, ResolutionCacheStats)> {
+    let mut stats = ResolutionCacheStats::new();
+
     if let Some(resolved) = values.resolve_trivial() {
-        return Ok(Merge::resolved(resolved.cloned()));
+        return Ok((Merge::resolved(resolved.cloned()), stats));
     }
 
     if let Some(trees) = values.to_tree_merge(store, path).await? {
         // If all sides are trees or missing, merge the trees recursively, treating
         // missing trees as empty.
         let empty_tree_id = store.empty_tree_id();
-        let merged_tree = Box::pin(merge_trees(&trees)).await?;
-        Ok(merged_tree
-            .map(|tree| (tree.id() != empty_tree_id).then(|| TreeValue::Tree(tree.id().clone()))))
+        let (merged_tree, tree_stats) = Box::pin(merge_trees(&trees)).await?;
+        stats.merge(&tree_stats);
+        Ok((
+            merged_tree.map(|tree| {
+                (tree.id() != empty_tree_id).then(|| TreeValue::Tree(tree.id().clone()))
+            }),
+            stats,
+        ))
     } else {
-        let maybe_resolved = try_resolve_file_values(store, path, values).await?;
-        Ok(maybe_resolved.unwrap_or_else(|| values.cloned()))
+        let (maybe_resolved, file_stats) = try_resolve_file_values(store, path, values).await?;
+        stats.merge(&file_stats);
+        Ok((maybe_resolved.unwrap_or_else(|| values.cloned()), stats))
     }
 }
 
@@ -565,7 +623,7 @@ pub async fn resolve_file_values(
         return Ok(Merge::resolved(resolved.clone()));
     }
 
-    let maybe_resolved = try_resolve_file_values(store, path, &values).await?;
+    let (maybe_resolved, _) = try_resolve_file_values(store, path, &values).await?;
     Ok(maybe_resolved.unwrap_or(values))
 }
 
@@ -573,7 +631,9 @@ async fn try_resolve_file_values<T: Borrow<TreeValue>>(
     store: &Arc<Store>,
     path: &RepoPath,
     values: &Merge<Option<T>>,
-) -> BackendResult<Option<MergedTreeValue>> {
+) -> BackendResult<(Option<MergedTreeValue>, ResolutionCacheStats)> {
+    let mut stats = ResolutionCacheStats::new();
+
     // The values may contain trees canceling each other (notably padded absent
     // trees), so we need to simplify them first.
     let simplified = values
@@ -590,14 +650,18 @@ async fn try_resolve_file_values<T: Borrow<TreeValue>>(
         {
             if let Ok(Some(cached_resolution)) = cache.get_resolution(path, &conflict_value) {
                 // Apply the cached resolution
+                stats.add(ResolutionCacheResult::AppliedCachedResolution);
                 let file_id = store.write_file(path, &mut &cached_resolution[..]).await?;
-                return Ok(Some(Merge::normal(TreeValue::File {
-                    id: file_id,
-                    executable: conflict_value.executable.unwrap_or(false),
-                    copy_id: conflict_value
-                        .copy_id
-                        .unwrap_or(crate::backend::CopyId::placeholder()),
-                })));
+                return Ok((
+                    Some(Merge::normal(TreeValue::File {
+                        id: file_id,
+                        executable: conflict_value.executable.unwrap_or(false),
+                        copy_id: conflict_value
+                            .copy_id
+                            .unwrap_or(crate::backend::CopyId::placeholder()),
+                    })),
+                    stats,
+                ));
             }
         }
     }
@@ -605,10 +669,10 @@ async fn try_resolve_file_values<T: Borrow<TreeValue>>(
     // No fast path for simplified.is_resolved(). If it could be resolved, it would
     // have been caught by values.resolve_trivial() above.
     if let Some(resolved) = try_resolve_file_conflict(store, path, &simplified).await? {
-        Ok(Some(Merge::normal(resolved)))
+        Ok((Some(Merge::normal(resolved)), stats))
     } else {
         // Failed to merge the files, or the paths are not files
-        Ok(None)
+        Ok((None, stats))
     }
 }
 

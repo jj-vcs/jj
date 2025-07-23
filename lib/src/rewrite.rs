@@ -44,6 +44,7 @@ use crate::merged_tree::TreeDiffEntry;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
+use crate::resolution_cache::ResolutionCacheStats;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetIteratorExt as _;
 use crate::store::Store;
@@ -54,9 +55,10 @@ pub fn merge_commit_trees(repo: &dyn Repo, commits: &[Commit]) -> BackendResult<
     if let [commit] = commits {
         commit.tree()
     } else {
-        merge_commit_trees_no_resolve_without_repo(repo.store(), repo.index(), commits)
-            .block_on()?
-            .resolve()
+        let merged =
+            merge_commit_trees_no_resolve_without_repo(repo.store(), repo.index(), commits)
+                .block_on()?;
+        merged.resolve()
     }
 }
 
@@ -253,9 +255,13 @@ impl<'repo> CommitRewriter<'repo> {
             let old_base_tree = merge_commit_trees(self.mut_repo, &old_parents)?;
             let new_base_tree = merge_commit_trees(self.mut_repo, &new_parents)?;
             let old_tree = self.old_commit.tree()?;
+            let new_tree = new_base_tree
+                .merge_no_resolve(&old_base_tree, &old_tree)
+                .resolve()?;
+            let new_tree_id = new_tree.id();
             (
                 old_base_tree.id() == *self.old_commit.tree_id(),
-                new_base_tree.merge(&old_base_tree, &old_tree)?.id(),
+                new_tree_id,
             )
         };
         // Ensure we don't abandon commits with multiple parents (merge commits), even
@@ -346,7 +352,9 @@ pub fn rebase_to_dest_parent(
         |destination_tree, source| {
             let source_parent_tree = source.parent_tree(repo)?;
             let source_tree = source.tree()?;
-            destination_tree.merge(&source_parent_tree, &source_tree)
+            destination_tree
+                .merge_no_resolve(&source_parent_tree, &source_tree)
+                .resolve()
         },
     )
 }
@@ -403,6 +411,8 @@ pub struct MoveCommitsStats {
     pub num_abandoned_empty: u32,
     /// The rebased commits
     pub rebased_commits: HashMap<CommitId, RebasedCommit>,
+    /// Resolution cache statistics
+    pub resolution_cache_stats: ResolutionCacheStats,
 }
 
 /// Target and destination commits to be rebased by [`move_commits()`].
@@ -772,6 +782,7 @@ fn apply_move_commits(
     let mut num_rebased_descendants = 0;
     let mut num_skipped_rebases = 0;
     let mut num_abandoned_empty = 0;
+    let mut resolution_cache_stats = ResolutionCacheStats::new();
 
     // Always keep empty commits when rebasing descendants.
     let rebase_descendant_options = &RebaseOptions {
@@ -815,12 +826,22 @@ fn apply_move_commits(
         },
     )?;
 
+    // Collect resolution cache stats from all rebased commits
+    for rebased_commit in rebased_commits.values() {
+        if let RebasedCommit::Rewritten(commit) = rebased_commit {
+            if let Ok(tree) = commit.tree() {
+                resolution_cache_stats.merge(tree.resolution_cache_stats());
+            }
+        }
+    }
+
     Ok(MoveCommitsStats {
         num_rebased_targets,
         num_rebased_descendants,
         num_skipped_rebases,
         num_abandoned_empty,
         rebased_commits,
+        resolution_cache_stats,
     })
 }
 
@@ -1109,6 +1130,8 @@ pub struct SquashedCommit<'repo> {
     pub commit_builder: CommitBuilder<'repo>,
     /// List of abandoned source commits.
     pub abandoned_commits: Vec<Commit>,
+    /// Resolution cache statistics from the squash operation.
+    pub resolution_cache_stats: ResolutionCacheStats,
 }
 
 /// Squash `sources` into `destination` and return a [`SquashedCommit`] for the
@@ -1184,9 +1207,11 @@ pub fn squash_commits<'repo>(
     }
     // Apply the selected changes onto the destination
     let mut destination_tree = rewritten_destination.tree()?;
+    let mut resolution_cache_stats = ResolutionCacheStats::new();
     for source in &source_commits {
         destination_tree =
             destination_tree.merge(&source.commit.parent_tree, &source.commit.selected_tree)?;
+        resolution_cache_stats.merge(destination_tree.resolution_cache_stats());
     }
     let mut predecessors = vec![destination.id().clone()];
     predecessors.extend(
@@ -1202,6 +1227,7 @@ pub fn squash_commits<'repo>(
     Ok(Some(SquashedCommit {
         commit_builder,
         abandoned_commits,
+        resolution_cache_stats,
     }))
 }
 
