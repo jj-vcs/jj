@@ -1073,7 +1073,7 @@ impl<'a> DiffStreamForFileSystem<'a> {
     }
 }
 
-impl<'a> Stream for DiffStreamForFileSystem<'a> {
+impl Stream for DiffStreamForFileSystem<'_> {
     type Item = TreeDiffEntry;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
