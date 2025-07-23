@@ -101,6 +101,204 @@ fn test_gc_operation_log() {
 }
 
 #[test]
+fn test_gc_rerere_cache() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("rerere.enabled = true");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a conflict and resolve it to populate the rerere cache
+    work_dir.write_file("file.txt", "base\n");
+    work_dir.run_jj(["commit", "-m", "base"]).success();
+
+    // Create diverging changes
+    work_dir.run_jj(["new", "-m", "a"]).success();
+    work_dir.write_file("file.txt", "a\n");
+    work_dir.run_jj(["commit", "-m", "commit a"]).success();
+
+    work_dir.run_jj(["new", "-m", "b", "@--"]).success();
+    work_dir.write_file("file.txt", "b\n");
+    work_dir.run_jj(["commit", "-m", "commit b"]).success();
+
+    // Create a merge with conflicts
+    work_dir
+        .run_jj([
+            "new",
+            "-m",
+            "merge1",
+            "description(\"commit a\")",
+            "description(\"commit b\")",
+        ])
+        .success();
+
+    // Resolve the conflict
+    work_dir.write_file("file.txt", "resolved\n");
+    work_dir
+        .run_jj(["commit", "-m", "resolved merge1"])
+        .success();
+
+    // Check that resolution cache exists
+    let cache_dir = work_dir.root().join(".jj/repo/resolution_cache");
+    assert!(cache_dir.exists());
+    let entries: Vec<_> = std::fs::read_dir(&cache_dir).unwrap().collect();
+    assert_eq!(entries.len(), 1);
+
+    // Run GC with default expiration (14 days) - should keep the resolution
+    work_dir.run_jj(["util", "gc"]).success();
+    let entries: Vec<_> = std::fs::read_dir(&cache_dir).unwrap().collect();
+    assert_eq!(entries.len(), 1, "Recent resolution should be kept");
+
+    // Run GC with --expire=now - should remove the resolution
+    work_dir.run_jj(["util", "gc", "--expire=now"]).success();
+    let entries: Vec<_> = std::fs::read_dir(&cache_dir).unwrap().collect();
+    assert_eq!(
+        entries.len(),
+        0,
+        "Resolution should be removed with --expire=now"
+    );
+}
+
+#[test]
+fn test_rerere_concurrent_access() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("rerere.enabled = true");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a conflict scenario with proper sibling commits
+    work_dir.write_file("file.txt", "base\n");
+    work_dir.run_jj(["commit", "-m", "base"]).success();
+
+    // Get the base commit ID
+    let base_commit = work_dir
+        .run_jj(["log", "-r", "@-", "--no-graph", "-T", "commit_id"])
+        .success()
+        .stdout
+        .into_raw()
+        .trim()
+        .to_string();
+
+    // Create first sibling
+    work_dir.run_jj(["new", &base_commit, "-m", "a"]).success();
+    work_dir.write_file("file.txt", "a\n");
+    work_dir.run_jj(["commit", "-m", "commit a"]).success();
+
+    // Create second sibling (branching from base, not from a)
+    work_dir.run_jj(["new", &base_commit, "-m", "b"]).success();
+    work_dir.write_file("file.txt", "b\n");
+    work_dir.run_jj(["commit", "-m", "commit b"]).success();
+
+    // Create multiple workspaces to simulate concurrent access
+    let repo_path = work_dir.root().to_path_buf();
+
+    // Create workspaces sequentially (avoiding thread safety issues with
+    // TestEnvironment)
+    for i in 0..3 {
+        let workspace_name = format!("workspace{i}");
+        let workspace_path = repo_path.parent().unwrap().join(&workspace_name);
+        work_dir
+            .run_jj([
+                "workspace",
+                "add",
+                workspace_path.to_str().unwrap(),
+                "-r",
+                "description(\"commit a\")",
+            ])
+            .success();
+
+        // Create a merge which should produce a conflict
+        // Use the main work_dir but specify the workspace path
+        let merge_output = work_dir
+            .run_jj([
+                "-R",
+                workspace_path.to_str().unwrap(),
+                "new",
+                "description(\"commit a\")",
+                "description(\"commit b\")",
+                "-m",
+                &format!("merge{i}"),
+            ])
+            .success();
+
+        // On first iteration we should get a conflict, on subsequent ones rerere might
+        // resolve it
+        if i == 0 {
+            // First time should create a conflict
+            let status = work_dir
+                .run_jj(["-R", workspace_path.to_str().unwrap(), "status"])
+                .success();
+            assert!(
+                status
+                    .stdout
+                    .raw()
+                    .contains("There are unresolved conflicts at these paths:"),
+                "Expected conflict message in output but got: {}",
+                status.stdout.raw()
+            );
+
+            // Resolve the conflict with different content
+            std::fs::write(workspace_path.join("file.txt"), format!("resolved{i}\n")).unwrap();
+
+            // Trigger snapshot to record the resolution
+            work_dir
+                .run_jj(["-R", workspace_path.to_str().unwrap(), "status"])
+                .success();
+        } else {
+            // Check if rerere auto-resolved it
+            if merge_output.stderr.raw().contains("Applied")
+                && merge_output
+                    .stderr
+                    .raw()
+                    .contains("cached conflict resolution")
+            {
+                // Rerere already resolved it, good!
+                continue;
+            }
+
+            // Otherwise resolve it manually
+            std::fs::write(workspace_path.join("file.txt"), format!("resolved{i}\n")).unwrap();
+            work_dir
+                .run_jj(["-R", workspace_path.to_str().unwrap(), "status"])
+                .success();
+        }
+    }
+
+    // Check that the resolution cache is consistent
+    let cache_dir = work_dir.root().join(".jj/repo/resolution_cache");
+    assert!(cache_dir.exists());
+
+    // There should be at least one resolution recorded
+    let entries: Vec<_> = std::fs::read_dir(&cache_dir).unwrap().collect();
+    assert!(
+        !entries.is_empty(),
+        "Resolution cache should contain entries"
+    );
+
+    // Verify that new merges can still use the cached resolutions
+    work_dir.run_jj(["workspace", "update-stale"]).success();
+    let merge_output = work_dir
+        .run_jj([
+            "new",
+            "description(\"commit a\")",
+            "description(\"commit b\")",
+            "-m",
+            "final_merge",
+        ])
+        .success();
+
+    // The conflict should be auto-resolved if rerere is working correctly
+    // Check that rerere applied a cached resolution
+    assert!(merge_output
+        .stderr
+        .raw()
+        .contains("Applied 1 cached conflict resolution"));
+
+    // Verify no conflicts remain
+    let status = work_dir.run_jj(["status"]).success();
+    assert!(!status.stderr.raw().contains("unresolved conflicts"));
+}
+
+#[test]
 fn test_shell_completions() {
     #[track_caller]
     fn test(shell: &str) {

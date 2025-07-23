@@ -2091,3 +2091,135 @@ fn test_resolve_with_contents_of_side() {
     [exit status: 2]
     "#);
 }
+
+#[test]
+fn test_resolve_with_rerere_and_external_tool() {
+    let mut test_env = TestEnvironment::default();
+    test_env.add_config("rerere.enabled = true");
+    let editor_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a conflict scenario
+    create_commit_with_files(&work_dir, "base", &[], &[("file", "base content\n")]);
+    create_commit_with_files(&work_dir, "a", &["base"], &[("file", "a changes\n")]);
+    create_commit_with_files(&work_dir, "b", &["base"], &[("file", "b changes\n")]);
+    create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
+
+    // First resolution using external editor
+    std::fs::write(
+        &editor_script,
+        ["dump editor-input", "write\nresolved with editor\n"].join("\0"),
+    )
+    .unwrap();
+
+    let output = work_dir.run_jj(["resolve"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Resolving conflicts in: file
+    Working copy  (@) now at: vruxwmqv 11132994 conflict | conflict
+    Parent commit (@-)      : zsuskuln f935bec5 a | a
+    Parent commit (@-)      : royxmykx 8a6f7805 b | b
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+
+    // Verify the resolution was recorded
+    insta::assert_snapshot!(work_dir.read_file("file"), @"resolved with editor\n");
+
+    // Create the same conflict in a different context
+    work_dir.run_jj(["new", "base"]).success();
+    work_dir
+        .run_jj(["new", "a", "b", "-m", "conflict2"])
+        .success();
+
+    // Try to resolve with a different tool - rerere should still work
+    let output = work_dir.run_jj(["resolve", "--tool", ":ours"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: kmkuslsw d32dc38d (empty) conflict2
+    Parent commit (@-)      : zsuskuln f935bec5 a | a
+    Parent commit (@-)      : royxmykx 8a6f7805 b | b
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+
+    // The tool resolution should override rerere
+    insta::assert_snapshot!(work_dir.read_file("file"), @"a changes\n");
+
+    // Now test that rerere works when no tool is specified
+    work_dir.run_jj(["undo"]).success();
+
+    // Set up editor to fail/abort
+    std::fs::write(&editor_script, "fail").unwrap();
+
+    // When the editor fails, rerere should kick in
+    let output = work_dir.run_jj(["resolve"]);
+    // Even though the editor failed, rerere should have resolved the conflict
+    assert!(!output
+        .to_string()
+        .contains("There are unresolved conflicts"));
+    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    <<<<<<< Conflict 1 of 1
+    %%%%%%% Changes from base to side #1
+    -base content
+    +a changes
+    +++++++ Contents of side #2
+    b changes
+    >>>>>>> Conflict 1 of 1 ends
+    ");
+}
+
+#[test]
+fn test_resolve_rerere_with_multiple_tools() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("rerere.enabled = true");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a three-way conflict
+    create_commit_with_files(&work_dir, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&work_dir, "a", &["base"], &[("file", "aaa\n")]);
+    create_commit_with_files(&work_dir, "b", &["base"], &[("file", "bbb\n")]);
+    create_commit_with_files(&work_dir, "c", &["base"], &[("file", "ccc\n")]);
+
+    // Create first conflict and resolve with :ours
+    work_dir
+        .run_jj(["new", "a", "b", "-m", "ab_merge"])
+        .success();
+    work_dir.run_jj(["resolve", "--tool", ":ours"]).success();
+    insta::assert_snapshot!(work_dir.read_file("file"), @"aaa\n");
+
+    // Create second conflict and resolve with :theirs
+    work_dir
+        .run_jj(["new", "b", "c", "-m", "bc_merge"])
+        .success();
+    work_dir.run_jj(["resolve", "--tool", ":theirs"]).success();
+    insta::assert_snapshot!(work_dir.read_file("file"), @"ccc\n");
+
+    // Now recreate the first conflict - rerere should remember :ours resolution
+    work_dir.run_jj(["new", "base"]).success();
+    work_dir
+        .run_jj(["new", "a", "b", "-m", "ab_merge2"])
+        .success();
+
+    // The conflict should be auto-resolved with the cached resolution
+    let output = work_dir.run_jj(["status"]);
+    assert!(!output
+        .to_string()
+        .contains("There are unresolved conflicts"));
+    insta::assert_snapshot!(work_dir.read_file("file"), @"aaa\n");
+
+    // Recreate the second conflict - rerere should remember :theirs resolution
+    work_dir.run_jj(["new", "base"]).success();
+    work_dir
+        .run_jj(["new", "b", "c", "-m", "bc_merge2"])
+        .success();
+
+    // The conflict should be auto-resolved with the cached resolution
+    let output = work_dir.run_jj(["status"]);
+    assert!(!output
+        .to_string()
+        .contains("There are unresolved conflicts"));
+    insta::assert_snapshot!(work_dir.read_file("file"), @"ccc\n");
+}

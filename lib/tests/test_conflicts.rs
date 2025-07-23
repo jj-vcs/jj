@@ -602,7 +602,8 @@ fn test_materialize_parse_roundtrip_different_markers() {
                 MIN_CONFLICT_MARKER_LEN,
             )
             .block_on()
-            .unwrap();
+            .unwrap()
+            .0;
 
             assert_eq!(
                 parsed, conflict,
@@ -1667,19 +1668,19 @@ fn test_update_conflict_from_content() {
         .block_on()
         .unwrap()
     };
-    assert_eq!(parse(materialized.as_bytes()), conflict);
-
+    assert_eq!(parse(materialized.as_bytes()).0, conflict);
     // If the conflict is resolved, we get None back to indicate that.
     let expected_file_id = testutils::write_file(store, path, "resolved 1\nline 2\nresolved 3\n");
     assert_eq!(
-        parse(b"resolved 1\nline 2\nresolved 3\n"),
+        parse(b"resolved 1\nline 2\nresolved 3\n").0,
         Merge::normal(expected_file_id)
     );
 
     // If the conflict is partially resolved, we get a new conflict back.
     let new_conflict = parse(
         b"resolved 1\nline 2\n<<<<<<<\n%%%%%%%\n-line 3\n+left 3\n+++++++\nright 3\n>>>>>>>\n",
-    );
+    )
+    .0;
     assert_ne!(new_conflict, conflict);
     // Calculate expected new FileIds
     let new_base_file_id = testutils::write_file(store, path, "resolved 1\nline 2\nline 3\n");
@@ -1724,16 +1725,15 @@ fn test_update_conflict_from_content_modify_delete() {
         .block_on()
         .unwrap()
     };
-    assert_eq!(parse(materialized.as_bytes()), conflict);
-
+    assert_eq!(parse(materialized.as_bytes()).0, conflict);
     // If the conflict is resolved, we get None back to indicate that.
     let expected_file_id = testutils::write_file(store, path, "resolved\n");
-    assert_eq!(parse(b"resolved\n"), Merge::normal(expected_file_id));
+    assert_eq!(parse(b"resolved\n").0, Merge::normal(expected_file_id));
 
     // If the conflict is modified, we get a new conflict back.
     let new_conflict = parse(
         b"<<<<<<<\n%%%%%%%\n line 1\n-line 2 before\n+line 2 modified after\n line 3\n+++++++\n>>>>>>>\n",
-    );
+    ).0;
     // Calculate expected new FileIds
     let new_base_file_id = testutils::write_file(store, path, "line 1\nline 2 before\nline 3\n");
     let new_left_file_id =
@@ -1804,12 +1804,12 @@ fn test_update_conflict_from_content_simplified_conflict() {
     >>>>>>> Conflict 2 of 2 ends
     "
     );
-    assert_eq!(parse(materialized.as_bytes()), conflict);
+    assert_eq!(parse(materialized.as_bytes()).0, conflict);
 
     // If the conflict is resolved, we get a normal merge back to indicate that.
     let expected_file_id = testutils::write_file(store, path, "resolved 1\nline 2\nresolved 3\n");
     assert_eq!(
-        parse(b"resolved 1\nline 2\nresolved 3\n"),
+        parse(b"resolved 1\nline 2\nresolved 3\n").0,
         Merge::normal(expected_file_id)
     );
 
@@ -1824,7 +1824,8 @@ fn test_update_conflict_from_content_simplified_conflict() {
         +++++++ Contents of side #2
         edited right 3
         >>>>>>> Conflict 2 of 2 ends
-    "});
+    "})
+    .0;
     assert_ne!(new_conflict, conflict);
     // Calculate expected new FileIds
     let new_base_file_id =
@@ -1930,10 +1931,8 @@ fn test_update_conflict_from_content_with_long_markers() {
         .block_on()
         .unwrap()
     };
-    assert_eq!(parse(&conflict, materialized.as_bytes()), conflict);
-
-    // Test resolving the conflict, leaving some fake conflict markers which should
-    // not be parsed since they are too short
+    assert_eq!(parse(&conflict, materialized.as_bytes()).0, conflict); // Test resolving the conflict, leaving some fake conflict markers which should
+                                                                       // not be parsed since they are too short
     let resolved_file_contents = indoc! {"
         <<<<<<<<<<<< not a real conflict!
         ++++++++++++
@@ -1946,7 +1945,7 @@ fn test_update_conflict_from_content_with_long_markers() {
     "};
     let resolved_file_id = testutils::write_file(store, path, resolved_file_contents);
     assert_eq!(
-        parse(&conflict, resolved_file_contents.as_bytes()),
+        parse(&conflict, resolved_file_contents.as_bytes()).0,
         Merge::normal(resolved_file_id)
     );
 
@@ -1965,7 +1964,7 @@ fn test_update_conflict_from_content_with_long_markers() {
     "};
 
     // Confirm that the new conflict parsed correctly
-    let new_conflict = parse(&conflict, new_conflict_contents.as_bytes());
+    let new_conflict = parse(&conflict, new_conflict_contents.as_bytes()).0;
     assert_eq!(new_conflict.num_sides(), 2);
     let new_conflict_terms = new_conflict
         .iter()
@@ -1993,14 +1992,14 @@ fn test_update_conflict_from_content_with_long_markers() {
     // The conflict markers should still parse in future snapshots even though
     // they're now longer than necessary
     assert_eq!(
-        parse(&new_conflict, new_conflict_contents.as_bytes()),
+        parse(&new_conflict, new_conflict_contents.as_bytes()).0,
         new_conflict
     );
 
     // If we add back the second conflict, it should still be parsed correctly
     // (the fake conflict markers shouldn't be interpreted as conflict markers
     // still, since they aren't the longest ones in the file).
-    assert_eq!(parse(&new_conflict, materialized.as_bytes()), conflict);
+    assert_eq!(parse(&new_conflict, materialized.as_bytes()).0, conflict);
 
     // If the new conflict is materialized again, it should have shorter
     // conflict markers now
@@ -2071,10 +2070,10 @@ fn test_update_conflict_from_content_no_eol() {
             MIN_CONFLICT_MARKER_LEN,
         )
         .block_on()
-        .unwrap(),
+        .unwrap()
+        .0,
         conflict
     );
-
     let materialized =
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Snapshot);
     insta::assert_snapshot!(materialized,
@@ -2111,10 +2110,10 @@ fn test_update_conflict_from_content_no_eol() {
             MIN_CONFLICT_MARKER_LEN,
         )
         .block_on()
-        .unwrap(),
+        .unwrap()
+        .0,
         conflict
     );
-
     let materialized =
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Git);
     insta::assert_snapshot!(materialized,
@@ -2149,7 +2148,8 @@ fn test_update_conflict_from_content_no_eol() {
             MIN_CONFLICT_MARKER_LEN,
         )
         .block_on()
-        .unwrap(),
+        .unwrap()
+        .0,
         conflict
     );
 }
@@ -2224,7 +2224,8 @@ fn test_update_conflict_from_content_no_eol_in_diff_hunk() {
             MIN_CONFLICT_MARKER_LEN,
         )
         .block_on()
-        .unwrap(),
+        .unwrap()
+        .0,
         conflict
     );
 }
@@ -2268,7 +2269,8 @@ fn test_update_conflict_from_content_only_no_eol_change() {
             MIN_CONFLICT_MARKER_LEN,
         )
         .block_on()
-        .unwrap(),
+        .unwrap()
+        .0,
         conflict
     );
 }
@@ -2360,9 +2362,7 @@ fn test_update_from_content_malformed_conflict() {
         .block_on()
         .unwrap()
     };
-    assert_eq!(parse(&conflict, materialized.as_bytes()), conflict);
-
-    // Make a change to the second conflict that causes it to become invalid
+    assert_eq!(parse(&conflict, materialized.as_bytes()).0, conflict); // Make a change to the second conflict that causes it to become invalid
     let new_conflict_contents = indoc! {"
         line 1
         <<<<<<< Conflict 1 of 2
@@ -2383,7 +2383,7 @@ fn test_update_from_content_malformed_conflict() {
     "};
     // On the first snapshot, it will parse as a conflict containing conflict
     // markers as text
-    let new_conflict = parse(&conflict, new_conflict_contents.as_bytes());
+    let new_conflict = parse(&conflict, new_conflict_contents.as_bytes()).0;
     assert_eq!(new_conflict.num_sides(), 2);
     let new_conflict_terms = new_conflict
         .iter()
@@ -2432,7 +2432,7 @@ fn test_update_from_content_malformed_conflict() {
     // Even though the file now contains markers of length 7, the materialized
     // markers of length 7 are still parsed
     let second_snapshot = parse(&new_conflict, new_conflict_contents.as_bytes());
-    assert_eq!(second_snapshot, new_conflict);
+    assert_eq!(second_snapshot.0, new_conflict);
 }
 
 fn materialize_conflict_string(

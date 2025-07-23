@@ -773,3 +773,122 @@ fn get_short_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"if(description, description, "root")"#;
     work_dir.run_jj(["log", "-T", template])
 }
+
+#[test]
+fn test_new_merge_with_rerere() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("rerere.enabled = true");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a file that will have conflicts
+    std::fs::write(work_dir.root().join("file.txt"), "base\n").unwrap();
+    work_dir.run_jj(["commit", "-m", "base"]).success();
+
+    // Create diverging changes
+    work_dir.run_jj(["new", "-m", "a"]).success();
+    std::fs::write(work_dir.root().join("file.txt"), "a\n").unwrap();
+    work_dir.run_jj(["commit", "-m", "commit a"]).success();
+
+    work_dir.run_jj(["new", "-m", "b", "@--"]).success();
+    std::fs::write(work_dir.root().join("file.txt"), "b\n").unwrap();
+    work_dir.run_jj(["commit", "-m", "commit b"]).success();
+
+    // Create a merge with conflicts - merge the two divergent commits
+    work_dir
+        .run_jj([
+            "new",
+            "-m",
+            "merge1",
+            "description(\"commit a\")",
+            "description(\"commit b\")",
+        ])
+        .success();
+    let _merge1_id = work_dir
+        .run_jj(["log", "--no-graph", "-r@", "-T", "commit_id"])
+        .stdout;
+
+    // Check that we have a conflict
+    let conflicts = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(conflicts, @r###"
+    The working copy has no changes.
+    Working copy  (@) : yqosqzyt 1146f3f7 (conflict) (empty) merge1
+    Parent commit (@-): kkmpptxz 7a9bbfe3 commit a
+    Parent commit (@-): mzvwutvl 80e14a36 commit b
+    Warning: There are unresolved conflicts at these paths:
+    file.txt    2-sided conflict
+    [EOF]
+    "###);
+
+    // Resolve the conflict by writing resolved content (removing conflict markers)
+    std::fs::write(work_dir.root().join("file.txt"), "resolved\n").unwrap();
+
+    // Run status to trigger snapshot and record the resolution
+    let status_output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(status_output, @r###"
+    The working copy has no changes.
+    Working copy  (@) : yqosqzyt 87a36bf8 (empty) merge1
+    Parent commit (@-): kkmpptxz 7a9bbfe3 commit a
+    Parent commit (@-): mzvwutvl 80e14a36 commit b
+    [EOF]
+    ------- stderr -------
+    Recorded 1 new conflict resolution
+    [EOF]
+    "###);
+
+    work_dir
+        .run_jj(["commit", "-m", "resolved merge1"])
+        .success();
+
+    // Create another merge with the same conflict from different commits
+    // First, recreate the same logical conflict from new commits
+    work_dir
+        .run_jj(["new", "-m", "c", "description(base)"])
+        .success();
+    std::fs::write(work_dir.root().join("file.txt"), "a\n").unwrap();
+    work_dir
+        .run_jj(["commit", "-m", "commit c (same as a)"])
+        .success();
+
+    work_dir
+        .run_jj(["new", "-m", "d", "description(base)"])
+        .success();
+    std::fs::write(work_dir.root().join("file.txt"), "b\n").unwrap();
+    work_dir
+        .run_jj(["commit", "-m", "commit d (same as b)"])
+        .success();
+
+    // Create a new merge with the same conflict - merge the two commits c and d
+    let output = work_dir.run_jj([
+        "new",
+        "-m",
+        "merge2",
+        "description(\"commit c (same as a)\")",
+        "description(\"commit d (same as b)\")",
+    ]);
+
+    // The output should show that a cached resolution was applied
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Applied 1 cached conflict resolutions
+    Working copy  (@) now at: nkmrtpmo 7aa2d899 (empty) merge2
+    Parent commit (@-)      : kmkuslsw bdf77687 commit c (same as a)
+    Parent commit (@-)      : lylxulpl 683201ef commit d (same as b)
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    "###);
+
+    // The conflict should be automatically resolved using the cached resolution
+    let status = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(status, @r"
+    The working copy has no changes.
+    Working copy  (@) : nkmrtpmo 7aa2d899 (empty) merge2
+    Parent commit (@-): kmkuslsw bdf77687 commit c (same as a)
+    Parent commit (@-): lylxulpl 683201ef commit d (same as b)
+    [EOF]
+    ");
+
+    // Verify the file has the cached resolution
+    let file_content = std::fs::read_to_string(work_dir.root().join("file.txt")).unwrap();
+    assert_eq!(file_content, "resolved\n");
+}
