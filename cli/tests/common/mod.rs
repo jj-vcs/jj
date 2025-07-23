@@ -14,6 +14,7 @@
 
 mod command_output;
 mod config_schema_defaults;
+pub mod rerere_helpers;
 mod test_environment;
 
 pub use self::command_output::CommandOutput;

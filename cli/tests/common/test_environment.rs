@@ -341,6 +341,14 @@ impl TestWorkDir<'_> {
         }
         std::fs::write(self.root.join(path), contents).unwrap();
     }
+
+    /// Assert that a file contains the expected content
+    pub fn assert_file_content(&self, path: impl AsRef<Path>, expected: &str) {
+        let path = path.as_ref();
+        let actual = std::fs::read_to_string(self.root.join(path))
+            .unwrap_or_else(|e| panic!("Failed to read {}: {}", path.display(), e));
+        assert_eq!(actual, expected, "File {} content mismatch", path.display());
+    }
 }
 
 fn normalize_output(text: &str, env_root: &Path) -> String {
