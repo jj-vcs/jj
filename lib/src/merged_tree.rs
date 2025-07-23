@@ -579,6 +579,29 @@ async fn try_resolve_file_values<T: Borrow<TreeValue>>(
     let simplified = values
         .map(|value| value.as_ref().map(Borrow::borrow))
         .simplify();
+
+    // Check resolution cache first if available
+    if let Some(cache) = store.resolution_cache() {
+        // Convert simplified to owned values for try_materialize_file_conflict_value
+        let owned_simplified = simplified.map(|opt| opt.cloned());
+        if let Ok(Some(conflict_value)) =
+            crate::conflicts::try_materialize_file_conflict_value(store, path, &owned_simplified)
+                .await
+        {
+            if let Ok(Some(cached_resolution)) = cache.get_resolution(path, &conflict_value) {
+                // Apply the cached resolution
+                let file_id = store.write_file(path, &mut &cached_resolution[..]).await?;
+                return Ok(Some(Merge::normal(TreeValue::File {
+                    id: file_id,
+                    executable: conflict_value.executable.unwrap_or(false),
+                    copy_id: conflict_value
+                        .copy_id
+                        .unwrap_or(crate::backend::CopyId::placeholder()),
+                })));
+            }
+        }
+    }
+
     // No fast path for simplified.is_resolved(). If it could be resolved, it would
     // have been caught by values.resolve_trivial() above.
     if let Some(resolved) = try_resolve_file_conflict(store, path, &simplified).await? {

@@ -48,6 +48,7 @@ use crate::files::MergeResult;
 use crate::merge::Merge;
 use crate::merge::MergedTreeValue;
 use crate::repo_path::RepoPath;
+use crate::resolution_cache::ResolutionCacheResult;
 use crate::store::Store;
 
 /// Minimum length of conflict markers.
@@ -946,10 +947,10 @@ fn parse_git_style_conflict_hunk(input: &[u8], expected_marker_len: usize) -> Me
     }
 }
 
-/// Parses conflict markers in `content` and returns an updated version of
-/// `file_ids` with the new contents. If no (valid) conflict markers remain, a
-/// single resolves `FileId` will be returned.
-pub async fn update_from_content(
+/// Internal helper that parses conflict markers in `content` and returns an
+/// updated version of `file_ids` with the new contents. If no (valid) conflict
+/// markers remain, a single resolved `FileId` will be returned.
+async fn update_from_content_internal(
     file_ids: &Merge<Option<FileId>>,
     store: &Store,
     path: &RepoPath,
@@ -1051,6 +1052,91 @@ pub async fn update_from_content(
         Merge::from_vec(new_file_ids)
     };
     Ok(new_file_ids)
+}
+
+/// Parses conflict markers in `content` and returns an updated version of
+/// `file_ids` with the new contents. If no (valid) conflict markers remain, a
+/// single resolved `FileId` will be returned. Resolution caching is handled
+/// automatically if enabled.
+pub async fn update_from_content(
+    file_ids: &Merge<Option<FileId>>,
+    store: &Store,
+    path: &RepoPath,
+    content: &[u8],
+    conflict_marker_style: ConflictMarkerStyle,
+    conflict_marker_len: usize,
+) -> BackendResult<(Merge<Option<FileId>>, Option<ResolutionCacheResult>)> {
+    // Check if we have a cached resolution for this conflict
+    if let Some(cache) = store.resolution_cache() {
+        if let Ok(Some(conflict_value)) = try_materialize_file_conflict_value(
+            store,
+            path,
+            &file_ids
+                .clone()
+                .try_map(|id| {
+                    Ok::<_, std::convert::Infallible>(id.clone().map(|id| TreeValue::File {
+                        id,
+                        executable: false,
+                        copy_id: CopyId::placeholder(),
+                    }))
+                })
+                .unwrap(),
+        )
+        .await
+        {
+            if let Ok(Some(cached_resolution)) = cache.get_resolution(path, &conflict_value) {
+                // Apply the cached resolution
+                let file_id = store.write_file(path, &mut &cached_resolution[..]).await?;
+                return Ok((
+                    Merge::normal(file_id),
+                    Some(ResolutionCacheResult::AppliedCachedResolution),
+                ));
+            }
+        }
+    }
+
+    let result = update_from_content_internal(
+        file_ids,
+        store,
+        path,
+        content,
+        conflict_marker_style,
+        conflict_marker_len,
+    )
+    .await?;
+
+    let mut cache_result = None;
+
+    // If the conflict was resolved (result is a single file), record the resolution
+    // Also check that we started with a conflict (file_ids is not resolved)
+    if let (Some(cache), Some(Some(_file_id))) = (store.resolution_cache(), result.as_resolved()) {
+        if file_ids.as_resolved().is_none() {
+            // Get the original conflict content for caching
+            if let Ok(Some(conflict_value)) = try_materialize_file_conflict_value(
+                store,
+                path,
+                &file_ids
+                    .clone()
+                    .try_map(|id| {
+                        Ok::<_, std::convert::Infallible>(id.clone().map(|id| TreeValue::File {
+                            id,
+                            executable: false,
+                            copy_id: CopyId::placeholder(),
+                        }))
+                    })
+                    .unwrap(),
+            )
+            .await
+            {
+                // Record the resolution
+                if let Ok(res) = cache.record_resolution(path, &conflict_value, content) {
+                    cache_result = Some(res);
+                }
+            }
+        }
+    }
+
+    Ok((result, cache_result))
 }
 
 #[cfg(test)]
