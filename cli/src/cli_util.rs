@@ -100,6 +100,7 @@ use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::repo_path::UiPathParseError;
+use jj_lib::resolution_cache::ResolutionCacheStats;
 use jj_lib::revset;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetAliasesMap;
@@ -2750,6 +2751,11 @@ pub fn print_snapshot_stats(
 ) -> io::Result<()> {
     print_untracked_files(ui, &stats.untracked_paths, path_converter)?;
 
+    // Print resolution cache statistics
+    if let Some(mut formatter) = ui.status_formatter() {
+        print_resolution_cache_stats(formatter.as_mut(), &stats.resolution_cache_stats)?;
+    }
+
     let large_files_sizes = stats
         .untracked_paths
         .values()
@@ -2829,6 +2835,48 @@ pub fn print_unmatched_explicit_paths<'a>(
         ui.warning_default(),
         "No matching entries for paths: {ui_paths}"
     )?;
+    Ok(())
+}
+
+/// Prints resolution cache statistics if any resolutions were recorded or
+/// applied.
+pub fn print_resolution_cache_stats(
+    formatter: &mut dyn Formatter,
+    stats: &ResolutionCacheStats,
+) -> io::Result<()> {
+    if stats.applied_cached_resolutions > 0 {
+        writeln!(
+            formatter,
+            "Applied {} cached conflict resolutions",
+            stats.applied_cached_resolutions
+        )?;
+    }
+    if stats.recorded_preimages > 0 {
+        writeln!(
+            formatter,
+            "Recorded {} new conflict resolution{}",
+            stats.recorded_preimages,
+            if stats.recorded_preimages == 1 {
+                ""
+            } else {
+                "s"
+            }
+        )?;
+    }
+    // Only show this if a resolution actually changed (not just rewritten with same
+    // content)
+    if stats.recorded_resolutions > 0 {
+        writeln!(
+            formatter,
+            "Updated {} conflict resolution{}",
+            stats.recorded_resolutions,
+            if stats.recorded_resolutions == 1 {
+                ""
+            } else {
+                "s"
+            }
+        )?;
+    }
     Ok(())
 }
 

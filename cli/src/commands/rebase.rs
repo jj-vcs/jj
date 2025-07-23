@@ -35,6 +35,7 @@ use jj_lib::rewrite::RewriteRefsOptions;
 use tracing::instrument;
 
 use crate::cli_util::compute_commit_location;
+use crate::cli_util::print_resolution_cache_stats;
 use crate::cli_util::print_updated_commits;
 use crate::cli_util::short_commit_hash;
 use crate::cli_util::CommandHelper;
@@ -581,6 +582,7 @@ fn print_move_commits_stats(ui: &Ui, stats: &MoveCommitsStats) -> std::io::Resul
         num_skipped_rebases,
         num_abandoned_empty,
         rebased_commits: _,
+        ref resolution_cache_stats,
     } = stats;
     if num_skipped_rebases > 0 {
         writeln!(
@@ -606,5 +608,7 @@ fn print_move_commits_stats(ui: &Ui, stats: &MoveCommitsStats) -> std::io::Resul
             "Abandoned {num_abandoned_empty} newly emptied commits"
         )?;
     }
+    // Print resolution cache statistics
+    print_resolution_cache_stats(formatter.as_mut(), resolution_cache_stats)?;
     Ok(())
 }

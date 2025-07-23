@@ -24,6 +24,7 @@ use jj_lib::rewrite::rebase_commit;
 use tracing::instrument;
 
 use crate::cli_util::compute_commit_location;
+use crate::cli_util::print_resolution_cache_stats;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
@@ -185,6 +186,7 @@ pub(crate) fn cmd_new(
 
     let mut tx = workspace_command.start_transaction();
     let merged_tree = merge_commit_trees(tx.repo(), &parent_commits)?;
+    let resolution_cache_stats = merged_tree.resolution_cache_stats().clone();
     let mut commit_builder = tx
         .repo_mut()
         .new_commit(parent_commit_ids, merged_tree.id())
@@ -206,6 +208,7 @@ pub(crate) fn cmd_new(
         .map(|commit_id| tx.repo().store().get_commit(commit_id))
         .try_collect()?;
     let mut num_rebased = 0;
+    let total_resolution_cache_stats = resolution_cache_stats;
     for child_commit in child_commits {
         let new_parent_ids = child_commit
             .parent_ids()
@@ -231,6 +234,11 @@ pub(crate) fn cmd_new(
     }
     if num_rebased > 0 {
         writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
+    }
+
+    // Display resolution cache statistics
+    if let Some(mut formatter) = ui.status_formatter() {
+        print_resolution_cache_stats(formatter.as_mut(), &total_resolution_cache_stats)?;
     }
 
     // Does nothing if there's no bookmarks to advance.

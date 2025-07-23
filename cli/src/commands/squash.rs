@@ -21,10 +21,12 @@ use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::matchers::Matcher;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
+use jj_lib::resolution_cache::ResolutionCacheStats;
 use jj_lib::rewrite;
 use jj_lib::rewrite::CommitWithSelection;
 use tracing::instrument;
 
+use crate::cli_util::print_resolution_cache_stats;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::DiffSelector;
 use crate::cli_util::RevisionArg;
@@ -171,12 +173,14 @@ pub(crate) fn cmd_squash(
     let mut tx = workspace_command.start_transaction();
     let tx_description = format!("squash commits into {}", destination.id().hex());
     let source_commits = select_diff(&tx, &sources, &destination, &matcher, &diff_selector)?;
+    let mut resolution_cache_stats = ResolutionCacheStats::new();
     if let Some(squashed) = rewrite::squash_commits(
         tx.repo_mut(),
         &source_commits,
         &destination,
         args.keep_emptied,
     )? {
+        resolution_cache_stats = squashed.resolution_cache_stats.clone();
         let mut commit_builder = squashed.commit_builder.detach();
         let new_description = match description {
             SquashedDescription::Exact(description) => {
@@ -244,6 +248,12 @@ pub(crate) fn cmd_squash(
             }
         }
     }
+
+    // Display resolution cache statistics
+    if let Some(mut formatter) = ui.status_formatter() {
+        print_resolution_cache_stats(formatter.as_mut(), &resolution_cache_stats)?;
+    }
+
     tx.finish(ui, tx_description)?;
     Ok(())
 }
