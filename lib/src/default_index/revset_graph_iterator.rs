@@ -17,9 +17,9 @@
 use std::cmp::min;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
-use std::collections::HashSet;
 use std::collections::VecDeque;
 
+use super::bit_set::PositionsBitSet;
 use super::composite::CompositeIndex;
 use super::entry::CommitIndexEntry;
 use super::entry::GlobalCommitPosition;
@@ -171,7 +171,7 @@ impl<'a> RevsetGraphWalk<'a> {
         index_entry: &CommitIndexEntry,
     ) -> Result<Vec<CommitGraphEdge>, RevsetEvaluationError> {
         let mut edges = Vec::new();
-        let mut known_ancestors = HashSet::new();
+        let mut known_ancestors = PositionsBitSet::with_max_pos(index_entry.position());
         for parent in index_entry.parents() {
             let parent_position = parent.position();
             self.consume_to(index, parent_position)?;
@@ -188,7 +188,7 @@ impl<'a> RevsetGraphWalk<'a> {
                     edges.extend(
                         parent_edges
                             .iter()
-                            .filter(|edge| known_ancestors.insert(edge.target)),
+                            .filter(|edge| !known_ancestors.get_set(edge.target)),
                     );
                 }
             }
@@ -210,7 +210,7 @@ impl<'a> RevsetGraphWalk<'a> {
                 continue;
             }
             let mut edges = Vec::new();
-            let mut known_ancestors = HashSet::new();
+            let mut known_ancestors = PositionsBitSet::with_max_pos(position);
             let mut parents_complete = true;
             for parent in entry.parents() {
                 let parent_position = parent.position();
@@ -228,7 +228,7 @@ impl<'a> RevsetGraphWalk<'a> {
                         edges.extend(
                             parent_edges
                                 .iter()
-                                .filter(|edge| known_ancestors.insert(edge.target)),
+                                .filter(|edge| !known_ancestors.get_set(edge.target)),
                         );
                     }
                 } else if parent_position < self.min_position {
@@ -260,12 +260,15 @@ impl<'a> RevsetGraphWalk<'a> {
         {
             return Ok(edges);
         }
+        let Some(max_position) = edges.iter().map(|edge| edge.target).max() else {
+            return Ok(edges);
+        };
         let mut min_generation = u32::MAX;
-        let mut initial_targets = HashSet::new();
+        let mut initial_targets = PositionsBitSet::with_max_pos(max_position);
         let mut work = vec![];
         // To start with, add the edges one step after the input edges.
         for edge in &edges {
-            initial_targets.insert(edge.target);
+            initial_targets.set(edge.target);
             if edge.edge_type != GraphEdgeType::Missing {
                 assert!(self.look_ahead.binary_search(&edge.target).is_ok());
                 let entry = index.commits().entry_by_pos(edge.target);
@@ -274,16 +277,16 @@ impl<'a> RevsetGraphWalk<'a> {
             }
         }
         // Find commits reachable transitively and add them to the `unwanted` set.
-        let mut unwanted = HashSet::new();
+        let mut unwanted = PositionsBitSet::with_max_pos(max_position);
         while let Some(edge) = work.pop() {
             if edge.edge_type == GraphEdgeType::Missing || edge.target < self.min_position {
                 continue;
             }
-            if !unwanted.insert(edge.target) {
+            if unwanted.get_set(edge.target) {
                 // Already visited
                 continue;
             }
-            if initial_targets.contains(&edge.target) {
+            if initial_targets.get(edge.target) {
                 // Already visited
                 continue;
             }
@@ -297,7 +300,7 @@ impl<'a> RevsetGraphWalk<'a> {
 
         Ok(edges
             .into_iter()
-            .filter(|edge| !unwanted.contains(&edge.target))
+            .filter(|edge| !unwanted.get(edge.target))
             .collect())
     }
 

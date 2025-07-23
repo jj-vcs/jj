@@ -32,6 +32,12 @@ impl PositionsBitSet {
         }
     }
 
+    /// Creates bit set with the maximum position.
+    pub fn with_max_pos(max_pos: GlobalCommitPosition) -> Self {
+        assert_ne!(max_pos, GlobalCommitPosition::MAX);
+        Self::with_capacity(max_pos.0 + 1)
+    }
+
     fn to_global_pos(&self, (bitset_pos, bit_pos): (u32, u32)) -> GlobalCommitPosition {
         GlobalCommitPosition(bitset_pos * u64::BITS + bit_pos)
     }
@@ -43,7 +49,6 @@ impl PositionsBitSet {
     /// Returns `true` if the given `pos` is set.
     ///
     /// Panics if the `pos` exceeds the capacity.
-    #[cfg_attr(not(test), expect(dead_code))] // TODO
     pub fn get(&self, pos: GlobalCommitPosition) -> bool {
         self.get_bit(self.to_bitset_pos(pos))
     }
@@ -56,7 +61,6 @@ impl PositionsBitSet {
     /// Sets `pos` to true.
     ///
     /// Panics if the `pos` exceeds the capacity.
-    #[cfg_attr(not(test), expect(dead_code))] // TODO
     pub fn set(&mut self, pos: GlobalCommitPosition) {
         self.set_bit(self.to_bitset_pos(pos));
     }
@@ -69,7 +73,6 @@ impl PositionsBitSet {
     /// Sets `pos` to true. Returns `true` if the old value was set.
     ///
     /// Panics if the `pos` exceeds the capacity.
-    #[cfg_attr(not(test), expect(dead_code))] // TODO
     pub fn get_set(&mut self, pos: GlobalCommitPosition) -> bool {
         self.get_set_bit(self.to_bitset_pos(pos))
     }
