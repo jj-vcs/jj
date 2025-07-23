@@ -568,7 +568,7 @@ fn test_resolve_with_conflict_containing_empty_subtree() {
     let side2 = create_single_tree(repo, &[]);
 
     let tree = MergedTree::new(Merge::from_removes_adds(vec![base1], vec![side1, side2]));
-    let resolved_tree = tree.resolve().unwrap();
+    let resolved_tree = tree.clone().resolve().unwrap();
     assert_eq!(resolved_tree, tree);
 }
 
