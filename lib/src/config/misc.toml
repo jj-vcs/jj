@@ -40,5 +40,8 @@ program = "ssh-keygen"
 email = ""
 name = ""
 
+[rerere]
+enabled = false
+
 [working-copy]
 eol-conversion = "none"

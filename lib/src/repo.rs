@@ -22,6 +22,7 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
 use std::slice;
 use std::sync::Arc;
 
@@ -84,6 +85,7 @@ use crate::refs::diff_named_ref_targets;
 use crate::refs::diff_named_remote_refs;
 use crate::refs::merge_ref_targets;
 use crate::refs::merge_remote_refs;
+use crate::resolution_cache::ResolutionCache;
 use crate::revset;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
@@ -201,7 +203,13 @@ impl ReadonlyRepo {
         let backend = backend_initializer(settings, &store_path)?;
         let backend_path = store_path.join("type");
         fs::write(&backend_path, backend.name()).context(&backend_path)?;
-        let store = Store::new(backend, signer);
+        let resolution_cache_path = repo_path.join("resolution_cache");
+        let resolution_cache_enabled = settings.get_bool("rerere.enabled").unwrap_or(false);
+        let resolution_cache = Arc::new(ResolutionCache::new(
+            resolution_cache_path,
+            resolution_cache_enabled,
+        ));
+        let store = Store::new(backend, signer, Some(resolution_cache));
 
         let op_store_path = repo_path.join("op_store");
         fs::create_dir(&op_store_path).context(&op_store_path)?;
@@ -237,6 +245,7 @@ impl ReadonlyRepo {
         let submodule_store = Arc::from(submodule_store);
 
         let loader = RepoLoader {
+            repo_path: repo_path.clone(),
             settings: settings.clone(),
             store,
             op_store,
@@ -638,6 +647,7 @@ pub enum RepoLoaderError {
 /// a given operation.
 #[derive(Clone)]
 pub struct RepoLoader {
+    repo_path: PathBuf,
     settings: UserSettings,
     store: Arc<Store>,
     op_store: Arc<dyn OpStore>,
@@ -648,6 +658,7 @@ pub struct RepoLoader {
 
 impl RepoLoader {
     pub fn new(
+        repo_path: PathBuf,
         settings: UserSettings,
         store: Arc<Store>,
         op_store: Arc<dyn OpStore>,
@@ -656,6 +667,7 @@ impl RepoLoader {
         submodule_store: Arc<dyn SubmoduleStore>,
     ) -> Self {
         Self {
+            repo_path,
             settings,
             store,
             op_store,
@@ -673,9 +685,16 @@ impl RepoLoader {
         repo_path: &Path,
         store_factories: &StoreFactories,
     ) -> Result<Self, StoreLoadError> {
+        let resolution_cache_path = repo_path.join("resolution_cache");
+        let resolution_cache_enabled = settings.get_bool("rerere.enabled").unwrap_or(false);
+        let resolution_cache = Arc::new(ResolutionCache::new(
+            resolution_cache_path,
+            resolution_cache_enabled,
+        ));
         let store = Store::new(
             store_factories.load_backend(settings, &repo_path.join("store"))?,
             Signer::from_settings(settings)?,
+            Some(resolution_cache),
         );
         let root_op_data = RootOperationData {
             root_commit_id: store.root_commit_id().clone(),
@@ -693,6 +712,7 @@ impl RepoLoader {
             store_factories.load_submodule_store(settings, &repo_path.join("submodule_store"))?,
         );
         Ok(Self {
+            repo_path: repo_path.to_path_buf(),
             settings: settings.clone(),
             store,
             op_store,
@@ -724,6 +744,10 @@ impl RepoLoader {
 
     pub fn submodule_store(&self) -> &Arc<dyn SubmoduleStore> {
         &self.submodule_store
+    }
+
+    pub fn repo_path(&self) -> &Path {
+        &self.repo_path
     }
 
     pub fn load_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {

@@ -883,6 +883,17 @@
                     "default": "none"
                 }
             }
+        },
+        "rerere": {
+            "type": "object",
+            "description": "Rerere (reuse recorded resolution) settings for automatically reusing conflict resolutions",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable rerere to automatically record and reuse conflict resolutions",
+                    "default": false
+                }
+            }
         }
     }
 }

@@ -46,6 +46,7 @@ use crate::merge::MergedTreeValue;
 use crate::merged_tree::MergedTree;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
+use crate::resolution_cache::ResolutionCache;
 use crate::signing::Signer;
 use crate::tree::Tree;
 
@@ -61,6 +62,7 @@ pub struct Store {
     signer: Signer,
     commit_cache: Mutex<CLruCache<CommitId, Arc<backend::Commit>>>,
     tree_cache: Mutex<CLruCache<(RepoPathBuf, TreeId), Arc<backend::Tree>>>,
+    resolution_cache: Option<Arc<ResolutionCache>>,
 }
 
 impl Debug for Store {
@@ -72,12 +74,17 @@ impl Debug for Store {
 }
 
 impl Store {
-    pub fn new(backend: Box<dyn Backend>, signer: Signer) -> Arc<Self> {
+    pub fn new(
+        backend: Box<dyn Backend>,
+        signer: Signer,
+        resolution_cache: Option<Arc<ResolutionCache>>,
+    ) -> Arc<Self> {
         Arc::new(Store {
             backend,
             signer,
             commit_cache: Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY.try_into().unwrap())),
             tree_cache: Mutex::new(CLruCache::new(TREE_CACHE_CAPACITY.try_into().unwrap())),
+            resolution_cache,
         })
     }
 
@@ -91,6 +98,14 @@ impl Store {
 
     pub fn signer(&self) -> &Signer {
         &self.signer
+    }
+
+    /// Returns the resolution cache for this store, if enabled
+    pub fn resolution_cache(&self) -> Option<&ResolutionCache> {
+        self.resolution_cache
+            .as_ref()
+            .filter(|cache| cache.is_enabled())
+            .map(|arc| arc.as_ref())
     }
 
     pub fn get_copy_records(
