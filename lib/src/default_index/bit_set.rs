@@ -17,6 +17,10 @@ use std::cmp::min;
 use super::composite::CompositeCommitIndex;
 use super::entry::GlobalCommitPosition;
 
+/// Unit of buffer allocation, which is 4kB.
+const PAGE_SIZE_IN_BITS: u32 = 4096 * 8;
+const PAGE_SIZE_IN_WORDS: u32 = PAGE_SIZE_IN_BITS / u64::BITS;
+
 /// Bit set of [`GlobalCommitPosition`]s.
 #[derive(Clone, Debug)]
 pub(super) struct PositionsBitSet {
@@ -27,15 +31,36 @@ pub(super) struct PositionsBitSet {
 impl PositionsBitSet {
     /// Creates bit set of the specified capacity.
     pub fn with_capacity(len: u32) -> Self {
-        let bitset_len = u32::div_ceil(len, u64::BITS);
-        let data = vec![0; usize::try_from(bitset_len).unwrap()]; // request zeroed page
-        PositionsBitSet { data, bitset_len }
+        PositionsBitSet {
+            data: vec![],
+            bitset_len: u32::div_ceil(len, u64::BITS),
+        }
     }
 
     /// Creates bit set with the maximum position.
     pub fn with_max_pos(max_pos: GlobalCommitPosition) -> Self {
         assert_ne!(max_pos, GlobalCommitPosition::MAX);
         Self::with_capacity(max_pos.0 + 1)
+    }
+
+    fn ensure_data(&mut self, bitset_pos: u32) {
+        if usize::try_from(bitset_pos).unwrap() < self.data.len() {
+            return;
+        }
+
+        // Do not pre-allocate large buffer which might not be used. We could
+        // manage buffer chunks as Vec<Vec<u64>>, but the extra indirection
+        // appeared to make get() slow.
+        let new_len = usize::try_from(min(
+            u32::div_ceil(bitset_pos + 1, PAGE_SIZE_IN_WORDS) * PAGE_SIZE_IN_WORDS,
+            self.bitset_len,
+        ))
+        .unwrap();
+        if self.data.is_empty() {
+            self.data = vec![0; new_len]; // request zeroed page
+        } else {
+            self.data.resize(new_len, 0); // realloc + copy
+        }
     }
 
     fn to_global_pos(&self, (bitset_pos, bit_pos): (u32, u32)) -> GlobalCommitPosition {
@@ -59,7 +84,10 @@ impl PositionsBitSet {
 
     fn get_bit(&self, (bitset_pos, bit_pos): (u32, u32)) -> bool {
         let bit = 1_u64 << bit_pos;
-        self.data[usize::try_from(bitset_pos).unwrap()] & bit != 0
+        match self.data.get(usize::try_from(bitset_pos).unwrap()) {
+            Some(word) => *word & bit != 0,
+            None => false,
+        }
     }
 
     /// Sets `pos` to true.
@@ -70,6 +98,7 @@ impl PositionsBitSet {
     }
 
     fn set_bit(&mut self, (bitset_pos, bit_pos): (u32, u32)) {
+        self.ensure_data(bitset_pos);
         let bit = 1_u64 << bit_pos;
         self.data[usize::try_from(bitset_pos).unwrap()] |= bit;
     }
@@ -82,6 +111,7 @@ impl PositionsBitSet {
     }
 
     fn get_set_bit(&mut self, (bitset_pos, bit_pos): (u32, u32)) -> bool {
+        self.ensure_data(bitset_pos);
         let bit = 1_u64 << bit_pos;
         let word = &mut self.data[usize::try_from(bitset_pos).unwrap()];
         let old = *word & bit != 0;
@@ -143,6 +173,7 @@ impl AncestorsBitSet {
         if last_bitset_pos_to_visit < self.next_bitset_pos_to_visit {
             return;
         }
+        self.bitset.ensure_data(last_bitset_pos_to_visit);
         for visiting_bitset_pos in self.next_bitset_pos_to_visit..=last_bitset_pos_to_visit {
             let mut unvisited_bits =
                 self.bitset.data[usize::try_from(visiting_bitset_pos).unwrap()];
@@ -153,6 +184,7 @@ impl AncestorsBitSet {
                 for parent_pos in index.entry_by_pos(current_pos).parent_positions() {
                     assert!(parent_pos < current_pos);
                     let (parent_bitset_pos, parent_bit_pos) = self.bitset.to_bitset_pos(parent_pos);
+                    self.bitset.ensure_data(parent_bitset_pos);
                     let bit = 1_u64 << parent_bit_pos;
                     self.bitset.data[usize::try_from(parent_bitset_pos).unwrap()] |= bit;
                     if visiting_bitset_pos == parent_bitset_pos {
@@ -205,6 +237,57 @@ mod tests {
         assert!(set.get(GlobalCommitPosition(127)));
         let old = set.get_set(GlobalCommitPosition(127));
         assert!(old);
+    }
+
+    #[test]
+    fn test_positions_bit_set_allocation() {
+        // Exactly one page
+        let mut set = PositionsBitSet::with_capacity(PAGE_SIZE_IN_BITS);
+        assert!(set.data.is_empty());
+        assert!(!set.get(GlobalCommitPosition(0)));
+        assert!(!set.get(GlobalCommitPosition(PAGE_SIZE_IN_BITS - 1)));
+        assert!(set.data.is_empty());
+        set.set(GlobalCommitPosition(0));
+        assert_eq!(set.data.len(), usize::try_from(PAGE_SIZE_IN_WORDS).unwrap());
+        set.set(GlobalCommitPosition(PAGE_SIZE_IN_BITS - 1));
+        assert_eq!(set.data.len(), usize::try_from(PAGE_SIZE_IN_WORDS).unwrap());
+        assert!(set.get(GlobalCommitPosition(0)));
+        assert!(set.get(GlobalCommitPosition(PAGE_SIZE_IN_BITS - 1)));
+
+        // Two pages
+        let mut set = PositionsBitSet::with_capacity(PAGE_SIZE_IN_BITS + 1);
+        assert!(set.data.is_empty());
+        set.set(GlobalCommitPosition(u64::BITS));
+        set.set(GlobalCommitPosition(PAGE_SIZE_IN_BITS));
+        assert_eq!(set.data.len(), usize::try_from(PAGE_SIZE_IN_WORDS).unwrap());
+        let old = set.get_set(GlobalCommitPosition(u64::BITS - 1));
+        assert!(!old);
+        assert_eq!(
+            set.data.len(),
+            usize::try_from(PAGE_SIZE_IN_WORDS + 1).unwrap()
+        );
+        assert!(set.get(GlobalCommitPosition(u64::BITS - 1)));
+        assert!(set.get(GlobalCommitPosition(u64::BITS)));
+        assert!(set.get(GlobalCommitPosition(PAGE_SIZE_IN_BITS)));
+
+        // Exactly three pages
+        let mut set = PositionsBitSet::with_capacity(PAGE_SIZE_IN_BITS * 3);
+        assert!(set.data.is_empty());
+        set.set(GlobalCommitPosition(PAGE_SIZE_IN_BITS * 2));
+        assert_eq!(set.data.len(), usize::try_from(PAGE_SIZE_IN_WORDS).unwrap());
+        set.set(GlobalCommitPosition(PAGE_SIZE_IN_BITS));
+        assert_eq!(
+            set.data.len(),
+            usize::try_from(PAGE_SIZE_IN_WORDS * 2).unwrap()
+        );
+        set.set(GlobalCommitPosition(0));
+        assert_eq!(
+            set.data.len(),
+            usize::try_from(PAGE_SIZE_IN_WORDS * 3).unwrap()
+        );
+        assert!(set.get(GlobalCommitPosition(0)));
+        assert!(set.get(GlobalCommitPosition(PAGE_SIZE_IN_BITS)));
+        assert!(set.get(GlobalCommitPosition(PAGE_SIZE_IN_BITS * 2)));
     }
 
     #[test]
@@ -339,5 +422,69 @@ mod tests {
         assert_eq!(set.next_bitset_pos_to_visit, 5);
         assert!(set.contains(to_pos(&id_a64)));
         assert!(set.contains(to_pos(&id_a0)));
+    }
+
+    #[test]
+    fn test_ancestors_bit_set_allocation() {
+        let mut new_commit_id = commit_id_generator();
+        let mut new_change_id = change_id_generator();
+        let mut mutable_index = DefaultMutableIndex::full(FieldLengths {
+            commit_id: 16,
+            change_id: 16,
+        });
+        // Linear history of two-page size
+        let id_0 = new_commit_id();
+        mutable_index.add_commit_data(id_0.clone(), new_change_id(), &[]);
+        (1..=PAGE_SIZE_IN_BITS).fold(id_0.clone(), |parent_id, i| {
+            assert_eq!(mutable_index.num_commits(), i);
+            let id = new_commit_id();
+            mutable_index.add_commit_data(id.clone(), new_change_id(), &[parent_id]);
+            id
+        });
+        let index = mutable_index.as_composite().commits();
+
+        let mut set = AncestorsBitSet::with_capacity(index.num_commits());
+        assert_eq!(set.next_bitset_pos_to_visit, PAGE_SIZE_IN_WORDS + 1);
+
+        // Mark the head commit
+        set.add_head(GlobalCommitPosition(PAGE_SIZE_IN_BITS));
+        assert_eq!(set.next_bitset_pos_to_visit, 0);
+        assert_eq!(
+            set.bitset.data.len(),
+            usize::try_from(PAGE_SIZE_IN_WORDS).unwrap()
+        );
+
+        set.visit_until(index, GlobalCommitPosition(PAGE_SIZE_IN_BITS));
+        assert_eq!(set.next_bitset_pos_to_visit, 1);
+        assert_eq!(
+            set.bitset.data.len(),
+            usize::try_from(PAGE_SIZE_IN_WORDS).unwrap()
+        );
+        assert!(set.contains(GlobalCommitPosition(PAGE_SIZE_IN_BITS)));
+
+        set.visit_until(index, GlobalCommitPosition(PAGE_SIZE_IN_BITS - 1));
+        assert_eq!(set.next_bitset_pos_to_visit, 2);
+        assert_eq!(
+            set.bitset.data.len(),
+            usize::try_from(PAGE_SIZE_IN_WORDS).unwrap()
+        );
+        assert!(set.contains(GlobalCommitPosition(PAGE_SIZE_IN_BITS - 1)));
+
+        // Parent link across page boundary
+        set.visit_until(index, GlobalCommitPosition(u64::BITS));
+        assert_eq!(set.next_bitset_pos_to_visit, PAGE_SIZE_IN_WORDS);
+        assert_eq!(
+            set.bitset.data.len(),
+            usize::try_from(PAGE_SIZE_IN_WORDS + 1).unwrap()
+        );
+        assert!(set.contains(GlobalCommitPosition(u64::BITS)));
+
+        set.visit_until(index, GlobalCommitPosition(0));
+        assert_eq!(set.next_bitset_pos_to_visit, PAGE_SIZE_IN_WORDS + 1);
+        assert_eq!(
+            set.bitset.data.len(),
+            usize::try_from(PAGE_SIZE_IN_WORDS + 1).unwrap()
+        );
+        assert!(set.contains(GlobalCommitPosition(0)));
     }
 }
