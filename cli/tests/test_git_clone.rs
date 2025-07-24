@@ -197,6 +197,7 @@ fn test_git_clone_colocate() {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/empty"
     Nothing changed.
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
@@ -220,6 +221,7 @@ fn test_git_clone_colocate() {
     Working copy  (@) now at: uuqppmxq 3711b3b5 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     let clone_dir = test_env.work_dir("clone");
@@ -365,6 +367,7 @@ fn test_git_clone_colocate() {
     Working copy  (@) now at: vzqnnsmr fea36bca (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 }

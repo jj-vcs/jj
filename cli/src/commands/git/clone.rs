@@ -162,6 +162,14 @@ pub fn cmd_git_clone(
             tx.finish(ui, "check out git remote's default branch")?;
         }
     }
+
+    if args.colocate {
+        writeln!(
+            ui.hint_default(),
+            r"Running `git clean -xdf` will remove `.jj/`!",
+        )?;
+    }
+
     Ok(())
 }
 
