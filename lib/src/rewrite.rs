@@ -86,7 +86,7 @@ pub async fn merge_commit_trees_no_resolve_without_repo(
             ))
             .await?;
             let other_tree = other_commit.tree_async().await?;
-            new_tree = new_tree.merge_no_resolve(&ancestor_tree, &other_tree);
+            new_tree = new_tree.merge_no_resolve(ancestor_tree, other_tree);
         }
         Ok(new_tree)
     }
@@ -255,7 +255,7 @@ impl<'repo> CommitRewriter<'repo> {
             let old_tree = self.old_commit.tree()?;
             (
                 old_base_tree.id() == *self.old_commit.tree_id(),
-                new_base_tree.merge(&old_base_tree, &old_tree)?.id(),
+                new_base_tree.merge(old_base_tree, old_tree)?.id(),
             )
         };
         // Ensure we don't abandon commits with multiple parents (merge commits), even
@@ -346,7 +346,7 @@ pub fn rebase_to_dest_parent(
         |destination_tree, source| {
             let source_parent_tree = source.parent_tree(repo)?;
             let source_tree = source.tree()?;
-            destination_tree.merge(&source_parent_tree, &source_tree)
+            destination_tree.merge(source_parent_tree, source_tree)
         },
     )
 }
@@ -1154,8 +1154,10 @@ pub fn squash_commits<'repo>(
         } else {
             let source_tree = source.commit.commit.tree()?;
             // Apply the reverse of the selected changes onto the source
-            let new_source_tree =
-                source_tree.merge(&source.commit.selected_tree, &source.commit.parent_tree)?;
+            let new_source_tree = source_tree.merge(
+                source.commit.selected_tree.clone(),
+                source.commit.parent_tree.clone(),
+            )?;
             repo.rewrite_commit(&source.commit.commit)
                 .set_tree_id(new_source_tree.id().clone())
                 .write()?;
@@ -1185,8 +1187,10 @@ pub fn squash_commits<'repo>(
     // Apply the selected changes onto the destination
     let mut destination_tree = rewritten_destination.tree()?;
     for source in &source_commits {
-        destination_tree =
-            destination_tree.merge(&source.commit.parent_tree, &source.commit.selected_tree)?;
+        destination_tree = destination_tree.merge(
+            source.commit.parent_tree.clone(),
+            source.commit.selected_tree.clone(),
+        )?;
     }
     let mut predecessors = vec![destination.id().clone()];
     predecessors.extend(

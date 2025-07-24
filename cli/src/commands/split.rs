@@ -262,7 +262,7 @@ pub(crate) fn cmd_split(
             // Merge the original commit tree with its parent using the tree
             // containing the user selected changes as the base for the merge.
             // This results in a tree with the changes the user didn't select.
-            target_tree.merge(&target.selected_tree, &target.parent_tree)?
+            target_tree.merge(target.selected_tree.clone(), target.parent_tree.clone())?
         } else {
             target_tree
         };

@@ -148,7 +148,7 @@ fn test_edit_previous_empty_merge() {
     let old_parent_tree = old_parent1
         .tree()
         .unwrap()
-        .merge(&empty_tree, &old_parent2.tree().unwrap())
+        .merge(empty_tree, old_parent2.tree().unwrap())
         .unwrap();
     let old_wc_commit = mut_repo
         .new_commit(

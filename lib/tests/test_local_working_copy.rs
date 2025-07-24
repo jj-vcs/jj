@@ -440,9 +440,9 @@ fn test_conflict_subdirectory() {
     let path = repo_path("sub/file");
     let empty_tree = create_tree(repo, &[]);
     let tree1 = create_tree(repo, &[(path, "0")]);
-    let tree2 = create_tree(repo, &[(path, "1")]);
-    let merged_tree = tree1.merge(&empty_tree, &tree2).unwrap();
     let commit1 = commit_with_tree(repo.store(), tree1.id());
+    let tree2 = create_tree(repo, &[(path, "1")]);
+    let merged_tree = tree1.merge(empty_tree, tree2).unwrap();
     let merged_commit = commit_with_tree(repo.store(), merged_tree.id());
     let repo = &test_workspace.repo;
     let ws = &mut test_workspace.workspace;
@@ -898,9 +898,9 @@ fn test_materialize_snapshot_conflicted_files() {
     let base2_tree = create_tree(repo, &[(file1_path, "b\n"), (file2_path, "3\n")]);
     let side3_tree = create_tree(repo, &[(file1_path, "c\n"), (file2_path, "3\n")]);
     let merged_tree = side1_tree
-        .merge(&base1_tree, &side2_tree)
+        .merge(base1_tree, side2_tree)
         .unwrap()
-        .merge(&base2_tree, &side3_tree)
+        .merge(base2_tree, side3_tree)
         .unwrap();
     let commit = commit_with_tree(repo.store(), merged_tree.id());
 

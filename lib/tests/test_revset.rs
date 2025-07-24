@@ -4170,15 +4170,15 @@ fn test_evaluate_expression_diff_contains_conflict() {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
 
-    let file_path = repo_path("file");
-    let tree1 = create_tree(repo, &[(file_path, "0\n1\n")]);
-    let tree2 = create_tree(repo, &[(file_path, "0\n2\n")]);
-    let tree3 = create_tree(repo, &[(file_path, "0\n3\n")]);
-    let tree4 = tree2.merge(&tree1, &tree3).unwrap();
-
     let mut create_commit =
         |parent_ids, tree_id| mut_repo.new_commit(parent_ids, tree_id).write().unwrap();
+
+    let file_path = repo_path("file");
+    let tree1 = create_tree(repo, &[(file_path, "0\n1\n")]);
     let commit1 = create_commit(vec![repo.store().root_commit_id().clone()], tree1.id());
+    let tree2 = create_tree(repo, &[(file_path, "0\n2\n")]);
+    let tree3 = create_tree(repo, &[(file_path, "0\n3\n")]);
+    let tree4 = tree2.merge(tree1, tree3).unwrap();
     let commit2 = create_commit(vec![commit1.id().clone()], tree4.id());
 
     assert_eq!(
@@ -4272,19 +4272,19 @@ fn test_evaluate_expression_conflict() {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
 
+    let mut create_commit =
+        |parent_ids, tree_id| mut_repo.new_commit(parent_ids, tree_id).write().unwrap();
+
     // Create a few trees, including one with a conflict in `file1`
     let file_path1 = repo_path("file1");
     let file_path2 = repo_path("file2");
     let tree1 = create_tree(repo, &[(file_path1, "1"), (file_path2, "1")]);
-    let tree2 = create_tree(repo, &[(file_path1, "2"), (file_path2, "2")]);
-    let tree3 = create_tree(repo, &[(file_path1, "3"), (file_path2, "1")]);
-    let tree4 = tree2.merge(&tree1, &tree3).unwrap();
-
-    let mut create_commit =
-        |parent_ids, tree_id| mut_repo.new_commit(parent_ids, tree_id).write().unwrap();
     let commit1 = create_commit(vec![repo.store().root_commit_id().clone()], tree1.id());
+    let tree2 = create_tree(repo, &[(file_path1, "2"), (file_path2, "2")]);
     let commit2 = create_commit(vec![commit1.id().clone()], tree2.id());
+    let tree3 = create_tree(repo, &[(file_path1, "3"), (file_path2, "1")]);
     let commit3 = create_commit(vec![commit2.id().clone()], tree3.id());
+    let tree4 = tree2.merge(tree1.clone(), tree3.clone()).unwrap();
     let commit4 = create_commit(vec![commit3.id().clone()], tree4.id());
 
     // Only commit4 has a conflict
