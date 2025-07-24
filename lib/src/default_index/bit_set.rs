@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::cmp::max;
+use std::cmp::min;
 
 use super::composite::CompositeCommitIndex;
 use super::entry::GlobalCommitPosition;
@@ -21,15 +21,15 @@ use super::entry::GlobalCommitPosition;
 #[derive(Clone, Debug)]
 pub(super) struct PositionsBitSet {
     data: Vec<u64>,
+    bitset_len: u32,
 }
 
 impl PositionsBitSet {
     /// Creates bit set of the specified capacity.
     pub fn with_capacity(len: u32) -> Self {
-        let bitset_len = usize::try_from(u32::div_ceil(len, u64::BITS)).unwrap();
-        PositionsBitSet {
-            data: vec![0; bitset_len], // request zeroed page
-        }
+        let bitset_len = u32::div_ceil(len, u64::BITS);
+        let data = vec![0; usize::try_from(bitset_len).unwrap()]; // request zeroed page
+        PositionsBitSet { data, bitset_len }
     }
 
     /// Creates bit set with the maximum position.
@@ -39,11 +39,15 @@ impl PositionsBitSet {
     }
 
     fn to_global_pos(&self, (bitset_pos, bit_pos): (u32, u32)) -> GlobalCommitPosition {
-        GlobalCommitPosition(bitset_pos * u64::BITS + bit_pos)
+        let bitset_rev_pos = self.bitset_len - bitset_pos - 1;
+        GlobalCommitPosition(bitset_rev_pos * u64::BITS + bit_pos)
     }
 
     fn to_bitset_pos(&self, pos: GlobalCommitPosition) -> (u32, u32) {
-        (pos.0 / u64::BITS, pos.0 % u64::BITS)
+        let bitset_rev_pos = pos.0 / u64::BITS;
+        let bit_pos = pos.0 % u64::BITS;
+        let bitset_pos = self.bitset_len - bitset_rev_pos - 1;
+        (bitset_pos, bit_pos)
     }
 
     /// Returns `true` if the given `pos` is set.
@@ -97,15 +101,17 @@ impl PositionsBitSet {
 #[derive(Clone, Debug)]
 pub(super) struct AncestorsBitSet {
     bitset: PositionsBitSet,
-    last_visited_bitset_pos: u32,
+    next_bitset_pos_to_visit: u32,
 }
 
 impl AncestorsBitSet {
     /// Creates bit set of the specified capacity.
     pub fn with_capacity(len: u32) -> Self {
+        let bitset = PositionsBitSet::with_capacity(len);
+        let next_bitset_pos_to_visit = bitset.bitset_len;
         AncestorsBitSet {
-            bitset: PositionsBitSet::with_capacity(len),
-            last_visited_bitset_pos: 0,
+            bitset,
+            next_bitset_pos_to_visit,
         }
     }
 
@@ -115,7 +121,7 @@ impl AncestorsBitSet {
     pub fn add_head(&mut self, pos: GlobalCommitPosition) {
         let (bitset_pos, bit_pos) = self.bitset.to_bitset_pos(pos);
         self.bitset.set_bit((bitset_pos, bit_pos));
-        self.last_visited_bitset_pos = max(self.last_visited_bitset_pos, bitset_pos + 1);
+        self.next_bitset_pos_to_visit = min(self.next_bitset_pos_to_visit, bitset_pos);
     }
 
     /// Returns `true` if the given `pos` is ancestors of the heads.
@@ -123,7 +129,7 @@ impl AncestorsBitSet {
     /// Panics if the `pos` exceeds the capacity or has not been visited yet.
     pub fn contains(&self, pos: GlobalCommitPosition) -> bool {
         let (bitset_pos, bit_pos) = self.bitset.to_bitset_pos(pos);
-        assert!(bitset_pos >= self.last_visited_bitset_pos);
+        assert!(bitset_pos < self.next_bitset_pos_to_visit);
         self.bitset.get_bit((bitset_pos, bit_pos))
     }
 
@@ -133,11 +139,11 @@ impl AncestorsBitSet {
         index: &CompositeCommitIndex,
         to_visit_pos: GlobalCommitPosition,
     ) {
-        let (to_visit_bitset_pos, _) = self.bitset.to_bitset_pos(to_visit_pos);
-        if to_visit_bitset_pos >= self.last_visited_bitset_pos {
+        let (last_bitset_pos_to_visit, _) = self.bitset.to_bitset_pos(to_visit_pos);
+        if last_bitset_pos_to_visit < self.next_bitset_pos_to_visit {
             return;
         }
-        for visiting_bitset_pos in (to_visit_bitset_pos..self.last_visited_bitset_pos).rev() {
+        for visiting_bitset_pos in self.next_bitset_pos_to_visit..=last_bitset_pos_to_visit {
             let mut unvisited_bits =
                 self.bitset.data[usize::try_from(visiting_bitset_pos).unwrap()];
             while unvisited_bits != 0 {
@@ -155,7 +161,7 @@ impl AncestorsBitSet {
                 }
             }
         }
-        self.last_visited_bitset_pos = to_visit_bitset_pos;
+        self.next_bitset_pos_to_visit = last_bitset_pos_to_visit + 1;
     }
 }
 
@@ -268,69 +274,69 @@ mod tests {
 
         // Nothing reachable
         let set = new_ancestors_set(&[]);
-        assert_eq!(set.last_visited_bitset_pos, 0);
+        assert_eq!(set.next_bitset_pos_to_visit, 5);
         for pos in (0..=256).map(GlobalCommitPosition) {
             assert!(!set.contains(pos), "{pos:?} should be unreachable");
         }
 
         // All reachable
         let mut set = new_ancestors_set(&[&id_f256, &id_d255]);
-        assert_eq!(set.last_visited_bitset_pos, 5);
+        assert_eq!(set.next_bitset_pos_to_visit, 0);
         set.visit_until(index, to_pos(&id_f256));
-        assert_eq!(set.last_visited_bitset_pos, 4);
+        assert_eq!(set.next_bitset_pos_to_visit, 1);
         assert!(set.contains(to_pos(&id_f256)));
         set.visit_until(index, to_pos(&id_d192));
-        assert_eq!(set.last_visited_bitset_pos, 3);
+        assert_eq!(set.next_bitset_pos_to_visit, 2);
         assert!(set.contains(to_pos(&id_e254)));
         assert!(set.contains(to_pos(&id_d255)));
         assert!(set.contains(to_pos(&id_d192)));
         set.visit_until(index, to_pos(&id_a0));
-        assert_eq!(set.last_visited_bitset_pos, 0);
+        assert_eq!(set.next_bitset_pos_to_visit, 5);
         set.visit_until(index, to_pos(&id_f256)); // should be noop
-        assert_eq!(set.last_visited_bitset_pos, 0);
+        assert_eq!(set.next_bitset_pos_to_visit, 5);
         for pos in (0..=256).map(GlobalCommitPosition) {
             assert!(set.contains(pos), "{pos:?} should be reachable");
         }
 
         // A, B, C, E, F are reachable
         let mut set = new_ancestors_set(&[&id_f256]);
-        assert_eq!(set.last_visited_bitset_pos, 5);
+        assert_eq!(set.next_bitset_pos_to_visit, 0);
         set.visit_until(index, to_pos(&id_f256));
-        assert_eq!(set.last_visited_bitset_pos, 4);
+        assert_eq!(set.next_bitset_pos_to_visit, 1);
         assert!(set.contains(to_pos(&id_f256)));
         set.visit_until(index, to_pos(&id_d192));
-        assert_eq!(set.last_visited_bitset_pos, 3);
+        assert_eq!(set.next_bitset_pos_to_visit, 2);
         assert!(!set.contains(to_pos(&id_d255)));
         assert!(!set.contains(to_pos(&id_d192)));
         set.visit_until(index, to_pos(&id_c190));
-        assert_eq!(set.last_visited_bitset_pos, 2);
+        assert_eq!(set.next_bitset_pos_to_visit, 3);
         assert!(set.contains(to_pos(&id_c190)));
         set.visit_until(index, to_pos(&id_a64));
-        assert_eq!(set.last_visited_bitset_pos, 1);
+        assert_eq!(set.next_bitset_pos_to_visit, 4);
         assert!(set.contains(to_pos(&id_b191)));
         assert!(set.contains(to_pos(&id_a64)));
         set.visit_until(index, to_pos(&id_a0));
-        assert_eq!(set.last_visited_bitset_pos, 0);
+        assert_eq!(set.next_bitset_pos_to_visit, 5);
         assert!(set.contains(to_pos(&id_a0)));
 
         // A, C, D are reachable
         let mut set = new_ancestors_set(&[&id_d255]);
-        assert_eq!(set.last_visited_bitset_pos, 4);
+        assert_eq!(set.next_bitset_pos_to_visit, 1);
         assert!(!set.contains(to_pos(&id_f256)));
         set.visit_until(index, to_pos(&id_e254));
-        assert_eq!(set.last_visited_bitset_pos, 3);
+        assert_eq!(set.next_bitset_pos_to_visit, 2);
         assert!(!set.contains(to_pos(&id_e254)));
         set.visit_until(index, to_pos(&id_d255));
-        assert_eq!(set.last_visited_bitset_pos, 3);
+        assert_eq!(set.next_bitset_pos_to_visit, 2);
         assert!(set.contains(to_pos(&id_d255)));
         set.visit_until(index, to_pos(&id_b191));
-        assert_eq!(set.last_visited_bitset_pos, 2);
+        assert_eq!(set.next_bitset_pos_to_visit, 3);
         assert!(!set.contains(to_pos(&id_b191)));
         set.visit_until(index, to_pos(&id_c190));
-        assert_eq!(set.last_visited_bitset_pos, 2);
+        assert_eq!(set.next_bitset_pos_to_visit, 3);
         assert!(set.contains(to_pos(&id_c190)));
         set.visit_until(index, to_pos(&id_a0));
-        assert_eq!(set.last_visited_bitset_pos, 0);
+        assert_eq!(set.next_bitset_pos_to_visit, 5);
         assert!(set.contains(to_pos(&id_a64)));
         assert!(set.contains(to_pos(&id_a0)));
     }
