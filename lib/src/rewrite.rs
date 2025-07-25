@@ -20,6 +20,7 @@ use std::slice;
 use std::sync::Arc;
 
 use futures::future::try_join_all;
+use futures::try_join;
 use futures::StreamExt as _;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
@@ -227,17 +228,17 @@ impl<'repo> CommitRewriter<'repo> {
         self,
         empty: EmptyBehaviour,
     ) -> BackendResult<Option<CommitBuilder<'repo>>> {
-        let old_parents: Vec<_> = self.old_commit.parents_async().await?;
+        let old_parents_fut = self.old_commit.parents_async();
+        let new_parents_fut = try_join_all(
+            self.new_parents
+                .iter()
+                .map(|new_parent_id| self.mut_repo.store().get_commit_async(new_parent_id)),
+        );
+        let (old_parents, new_parents) = try_join!(old_parents_fut, new_parents_fut)?;
         let old_parent_trees = old_parents
             .iter()
             .map(|parent| parent.tree_id().clone())
             .collect_vec();
-        let new_parents: Vec<_> = try_join_all(
-            self.new_parents
-                .iter()
-                .map(|new_parent_id| self.mut_repo.store().get_commit_async(new_parent_id)),
-        )
-        .await?;
         let new_parent_trees = new_parents
             .iter()
             .map(|parent| parent.tree_id().clone())
@@ -252,9 +253,11 @@ impl<'repo> CommitRewriter<'repo> {
                 self.old_commit.tree_id().clone(),
             )
         } else {
-            let old_base_tree = merge_commit_trees(self.mut_repo, &old_parents).await?;
-            let new_base_tree = merge_commit_trees(self.mut_repo, &new_parents).await?;
-            let old_tree = self.old_commit.tree_async().await?;
+            let old_base_tree_fut = merge_commit_trees(self.mut_repo, &old_parents);
+            let new_base_tree_fut = merge_commit_trees(self.mut_repo, &new_parents);
+            let old_tree_fut = self.old_commit.tree_async();
+            let (old_base_tree, new_base_tree, old_tree) =
+                try_join!(old_base_tree_fut, new_base_tree_fut, old_tree_fut)?;
             (
                 old_base_tree.id() == *self.old_commit.tree_id(),
                 new_base_tree.merge(old_base_tree, old_tree).await?.id(),
