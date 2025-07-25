@@ -223,20 +223,21 @@ impl<'repo> CommitRewriter<'repo> {
 
     /// Rebase the old commit onto the new parents. Returns a `CommitBuilder`
     /// for the new commit. Returns `None` if the commit was abandoned.
-    pub fn rebase_with_empty_behavior(
+    pub async fn rebase_with_empty_behavior(
         self,
         empty: EmptyBehaviour,
     ) -> BackendResult<Option<CommitBuilder<'repo>>> {
-        let old_parents: Vec<_> = self.old_commit.parents().try_collect()?;
+        let old_parents: Vec<_> = self.old_commit.parents_async().await?;
         let old_parent_trees = old_parents
             .iter()
             .map(|parent| parent.tree_id().clone())
             .collect_vec();
-        let new_parents: Vec<_> = self
-            .new_parents
-            .iter()
-            .map(|new_parent_id| self.mut_repo.store().get_commit(new_parent_id))
-            .try_collect()?;
+        let new_parents: Vec<_> = try_join_all(
+            self.new_parents
+                .iter()
+                .map(|new_parent_id| self.mut_repo.store().get_commit_async(new_parent_id)),
+        )
+        .await?;
         let new_parent_trees = new_parents
             .iter()
             .map(|parent| parent.tree_id().clone())
@@ -251,15 +252,12 @@ impl<'repo> CommitRewriter<'repo> {
                 self.old_commit.tree_id().clone(),
             )
         } else {
-            let old_base_tree = merge_commit_trees(self.mut_repo, &old_parents).block_on()?;
-            let new_base_tree = merge_commit_trees(self.mut_repo, &new_parents).block_on()?;
-            let old_tree = self.old_commit.tree()?;
+            let old_base_tree = merge_commit_trees(self.mut_repo, &old_parents).await?;
+            let new_base_tree = merge_commit_trees(self.mut_repo, &new_parents).await?;
+            let old_tree = self.old_commit.tree_async().await?;
             (
                 old_base_tree.id() == *self.old_commit.tree_id(),
-                new_base_tree
-                    .merge(old_base_tree, old_tree)
-                    .block_on()?
-                    .id(),
+                new_base_tree.merge(old_base_tree, old_tree).await?.id(),
             )
         };
         // Ensure we don't abandon commits with multiple parents (merge commits), even
@@ -287,7 +285,9 @@ impl<'repo> CommitRewriter<'repo> {
     /// Rebase the old commit onto the new parents. Returns a `CommitBuilder`
     /// for the new commit.
     pub fn rebase(self) -> BackendResult<CommitBuilder<'repo>> {
-        let builder = self.rebase_with_empty_behavior(EmptyBehaviour::Keep)?;
+        let builder = self
+            .rebase_with_empty_behavior(EmptyBehaviour::Keep)
+            .block_on()?;
         Ok(builder.unwrap())
     }
 
@@ -323,7 +323,10 @@ pub fn rebase_commit_with_options(
         _ => None,
     };
     let new_parents_len = rewriter.new_parents.len();
-    if let Some(builder) = rewriter.rebase_with_empty_behavior(options.empty)? {
+    if let Some(builder) = rewriter
+        .rebase_with_empty_behavior(options.empty)
+        .block_on()?
+    {
         let new_commit = builder.write()?;
         Ok(RebasedCommit::Rewritten(new_commit))
     } else {
