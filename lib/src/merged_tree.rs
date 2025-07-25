@@ -161,8 +161,8 @@ impl MergedTree {
 
     /// Tries to resolve any conflicts, resolving any conflicts that can be
     /// automatically resolved and leaving the rest unresolved.
-    pub fn resolve(self) -> BackendResult<MergedTree> {
-        let merged = merge_trees(self.trees).block_on()?;
+    pub async fn resolve(self) -> BackendResult<MergedTree> {
+        let merged = merge_trees(self.trees).await?;
         // If the result can be resolved, then `merge_trees()` above would have returned
         // a resolved merge. However, that function will always preserve the arity of
         // conflicts it cannot resolve. So we simplify the conflict again
@@ -172,7 +172,7 @@ impl MergedTree {
         // particular,  that this last simplification doesn't enable further automatic
         // resolutions
         if cfg!(debug_assertions) {
-            let re_merged = merge_trees(simplified.clone()).block_on().unwrap();
+            let re_merged = merge_trees(simplified.clone()).await.unwrap();
             debug_assert_eq!(re_merged, simplified);
         }
         Ok(MergedTree { trees: simplified })
@@ -356,8 +356,8 @@ impl MergedTree {
 
     /// Merges this tree with `other`, using `base` as base. Any conflicts will
     /// be resolved recursively if possible.
-    pub fn merge(self, base: MergedTree, other: MergedTree) -> BackendResult<MergedTree> {
-        self.merge_no_resolve(base, other).resolve()
+    pub async fn merge(self, base: MergedTree, other: MergedTree) -> BackendResult<MergedTree> {
+        self.merge_no_resolve(base, other).resolve().await
     }
 
     /// Merges this tree with `other`, using `base` as base, without attempting
@@ -1166,7 +1166,7 @@ impl MergedTreeBuilder {
             Ok(single_tree_id) => Ok(MergedTreeId::resolved(single_tree_id)),
             Err(tree_id) => {
                 let tree = store.get_root_tree(&MergedTreeId::Merge(tree_id))?;
-                let resolved = tree.resolve()?;
+                let resolved = tree.resolve().block_on()?;
                 Ok(resolved.id())
             }
         }

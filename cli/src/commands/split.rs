@@ -29,6 +29,7 @@ use jj_lib::rewrite::MoveCommitsTarget;
 use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RebasedCommit;
 use jj_lib::rewrite::RewriteRefsOptions;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::compute_commit_location;
@@ -262,7 +263,9 @@ pub(crate) fn cmd_split(
             // Merge the original commit tree with its parent using the tree
             // containing the user selected changes as the base for the merge.
             // This results in a tree with the changes the user didn't select.
-            target_tree.merge(target.selected_tree.clone(), target.parent_tree.clone())?
+            target_tree
+                .merge(target.selected_tree.clone(), target.parent_tree.clone())
+                .block_on()?
         } else {
             target_tree
         };

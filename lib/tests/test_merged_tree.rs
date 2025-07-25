@@ -497,7 +497,7 @@ fn test_resolve_success() {
     );
 
     let tree = MergedTree::new(Merge::from_removes_adds(vec![base1], vec![side1, side2]));
-    let resolved_tree = tree.resolve().unwrap();
+    let resolved_tree = tree.resolve().block_on().unwrap();
     assert!(resolved_tree.as_merge().is_resolved());
     assert_eq!(
         resolved_tree,
@@ -521,7 +521,7 @@ fn test_resolve_root_becomes_empty() {
     let side2 = create_single_tree(repo, &[(path1, "base1")]);
 
     let tree = MergedTree::new(Merge::from_removes_adds(vec![base1], vec![side1, side2]));
-    let resolved = tree.resolve().unwrap();
+    let resolved = tree.resolve().block_on().unwrap();
     assert_eq!(resolved.id(), store.empty_merged_tree_id());
 }
 
@@ -545,7 +545,7 @@ fn test_resolve_with_conflict() {
         create_single_tree(repo, &[(trivial_path, "side1"), (conflict_path, "side2")]);
 
     let tree = MergedTree::new(Merge::from_removes_adds(vec![base1], vec![side1, side2]));
-    let resolved_tree = tree.resolve().unwrap();
+    let resolved_tree = tree.resolve().block_on().unwrap();
     assert_eq!(
         resolved_tree,
         MergedTree::new(Merge::from_removes_adds(
@@ -568,7 +568,7 @@ fn test_resolve_with_conflict_containing_empty_subtree() {
     let side2 = create_single_tree(repo, &[]);
 
     let tree = MergedTree::new(Merge::from_removes_adds(vec![base1], vec![side1, side2]));
-    let resolved_tree = tree.clone().resolve().unwrap();
+    let resolved_tree = tree.clone().resolve().block_on().unwrap();
     assert_eq!(resolved_tree, tree);
 }
 
@@ -679,7 +679,7 @@ fn test_conflict_iterator() {
     );
 
     // After we resolve conflicts, there are only non-trivial conflicts left
-    let tree = tree.resolve().unwrap();
+    let tree = tree.resolve().block_on().unwrap();
     let conflicts = tree
         .conflicts()
         .map(|(path, conflict)| (path, conflict.unwrap()))
@@ -1391,7 +1391,10 @@ fn test_merge_simple() {
     let side2_merged = MergedTree::new(Merge::resolved(side2));
     let expected_merged = MergedTree::new(Merge::resolved(expected));
 
-    let merged = side1_merged.merge(base1_merged, side2_merged).unwrap();
+    let merged = side1_merged
+        .merge(base1_merged, side2_merged)
+        .block_on()
+        .unwrap();
     assert_eq!(merged, expected_merged);
 }
 
@@ -1418,7 +1421,10 @@ fn test_merge_partial_resolution() {
         vec![expected_side1, expected_side2],
     ));
 
-    let merged = side1_merged.merge(base1_merged, side2_merged).unwrap();
+    let merged = side1_merged
+        .merge(base1_merged, side2_merged)
+        .block_on()
+        .unwrap();
     assert_eq!(merged, expected_merged);
 }
 
@@ -1450,7 +1456,10 @@ fn test_merge_simplify_only() {
     ));
     let expected_merged = MergedTree::new(Merge::resolved(expected));
 
-    let merged = side1_merged.merge(base1_merged, side2_merged).unwrap();
+    let merged = side1_merged
+        .merge(base1_merged, side2_merged)
+        .block_on()
+        .unwrap();
     assert_eq!(merged, expected_merged);
 }
 
@@ -1484,7 +1493,10 @@ fn test_merge_simplify_result() {
         vec![expected_side1, expected_side2],
     ));
 
-    let merged = side1_merged.merge(base1_merged, side2_merged).unwrap();
+    let merged = side1_merged
+        .merge(base1_merged, side2_merged)
+        .block_on()
+        .unwrap();
     assert_eq!(merged, expected_merged);
 }
 
@@ -1592,7 +1604,10 @@ fn test_merge_simplify_file_conflict() {
     );
     let expected_merged = MergedTree::resolved(expected);
 
-    let merged = child1_merged.merge(parent_merged, child2_merged).unwrap();
+    let merged = child1_merged
+        .merge(parent_merged, child2_merged)
+        .block_on()
+        .unwrap();
     assert_eq!(merged, expected_merged);
 
     // Also test the setup by checking that the unsimplified content conflict cannot
@@ -1642,6 +1657,9 @@ fn test_merge_simplify_file_conflict_with_absent() {
     let expected = create_single_tree(repo, &[(child2_path, ""), (conflict_path, "1\n0\n2\n")]);
     let expected_merged = MergedTree::resolved(expected);
 
-    let merged = child1_merged.merge(parent_merged, child2_merged).unwrap();
+    let merged = child1_merged
+        .merge(parent_merged, child2_merged)
+        .block_on()
+        .unwrap();
     assert_eq!(merged, expected_merged);
 }

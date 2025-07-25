@@ -23,6 +23,7 @@ use std::rc::Rc;
 use bstr::BString;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::annotate::FileAnnotator;
@@ -317,7 +318,9 @@ pub fn absorb_hunks(
         let commit_builder = rewriter.rebase()?;
         let destination_tree = store.get_root_tree(commit_builder.tree_id())?;
         let selected_tree = store.get_root_tree(&selected_tree_id)?;
-        let new_tree = destination_tree.merge(source.parent_tree.clone(), selected_tree)?;
+        let new_tree = destination_tree
+            .merge(source.parent_tree.clone(), selected_tree)
+            .block_on()?;
         let mut predecessors = commit_builder.predecessors().to_vec();
         predecessors.push(source.commit.id().clone());
         let new_commit = commit_builder
