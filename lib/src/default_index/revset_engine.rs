@@ -1322,7 +1322,7 @@ async fn has_diff_from_parent(
     commit: &Commit,
     matcher: &dyn Matcher,
 ) -> BackendResult<bool> {
-    let parents: Vec<_> = commit.parents().try_collect()?;
+    let parents: Vec<_> = commit.parents_async().await?;
     if let [parent] = parents.as_slice() {
         // Fast path: no need to load the root tree
         let unchanged = commit.tree_id() == parent.tree_id();
@@ -1358,7 +1358,7 @@ async fn matches_diff_from_parent(
     text_pattern: &StringPattern,
     files_matcher: &dyn Matcher,
 ) -> BackendResult<bool> {
-    let parents: Vec<_> = commit.parents().try_collect()?;
+    let parents: Vec<_> = commit.parents_async().await?;
     // Conflict resolution is expensive, try that only for matched files.
     let from_tree =
         rewrite::merge_commit_trees_no_resolve_without_repo(store, index, &parents).await?;

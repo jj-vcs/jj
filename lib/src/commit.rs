@@ -22,6 +22,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
+use futures::future::try_join_all;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 
@@ -99,6 +100,16 @@ impl Commit {
 
     pub fn parents(&self) -> impl Iterator<Item = BackendResult<Commit>> + use<'_> {
         self.data.parents.iter().map(|id| self.store.get_commit(id))
+    }
+
+    pub async fn parents_async(&self) -> BackendResult<Vec<Commit>> {
+        try_join_all(
+            self.data
+                .parents
+                .iter()
+                .map(|id| self.store.get_commit_async(id)),
+        )
+        .await
     }
 
     pub fn tree(&self) -> BackendResult<MergedTree> {
