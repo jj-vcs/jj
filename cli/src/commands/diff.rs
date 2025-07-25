@@ -125,6 +125,7 @@ pub(crate) async fn cmd_diff(
     let from_tree;
     let to_tree;
     let mut multiple_revision_revset = false;
+    let mut no_revision_revset = false;
     let mut copy_records = CopyRecords::default();
     if args.from.is_some() || args.to.is_some() {
         let resolve_revision = |r: &Option<RevisionArg>| {
@@ -144,15 +145,14 @@ pub(crate) async fn cmd_diff(
             .unwrap_or(std::slice::from_ref(&RevisionArg::AT));
         let revisions_evaluator = workspace_command.parse_union_revsets(ui, revision_args)?;
         let target_expression = revisions_evaluator.expression();
-        if workspace_command
+
+        let truncated_revision_count = workspace_command
             .attach_revset_evaluator(target_expression.clone())
             .evaluate_to_commit_ids()?
             .take(2)
-            .count()
-            > 1
-        {
-            multiple_revision_revset = true;
-        }
+            .count();
+        multiple_revision_revset = truncated_revision_count > 1;
+        no_revision_revset = truncated_revision_count == 0;
 
         let mut gaps_revset = workspace_command
             .attach_revset_evaluator(
@@ -213,6 +213,14 @@ pub(crate) async fn cmd_diff(
     ui.request_pager();
     // The warnings are printed here since they must be passed to the pager.
     // Otherwise, warnings would be very easy to miss when the pager is used.
+    if no_revision_revset {
+        // This should inform a user doing e.g. `jj diff -r abc+` if `abc+` unexpectedly
+        // contains no revsions, as opposed to being a revision with an empty diff.
+        writeln!(
+            ui.warning_default(),
+            "The diff revset expanded to 0 revisions. There is no diff to show."
+        )?;
+    }
     if let Some([single_revset]) = args.revisions.as_deref()
         && multiple_revision_revset
         && !single_revset.as_ref().contains("::")

@@ -3947,6 +3947,11 @@ fn test_diff_revisions() {
     [EOF]
     ");
 
+    insta::assert_snapshot!(diff_revisions("none()"), @r"
+    ------- stderr -------
+    Warning: The diff revset expanded to 0 revisions. There is no diff to show.
+    [EOF]
+    ");
     // A gap in the range is not allowed (yet at least)
     insta::assert_snapshot!(diff_revisions("A|C"), @"
     ------- stderr -------
