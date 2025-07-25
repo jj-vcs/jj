@@ -25,6 +25,7 @@ use jj_lib::settings::UserSettings;
 use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::workspace::default_working_copy_factories;
 use jj_lib::workspace::Workspace;
+use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::base_user_config;
 use testutils::commit_with_tree;
@@ -252,8 +253,9 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     // Reload the repo to pick up the new commits.
     test_workspace.repo = test_workspace.repo.reload_at_head().unwrap();
     // Create the merge commit.
-    let tree =
-        merge_commit_trees(&*test_workspace.repo, &[parent1_commit, parent2_commit]).unwrap();
+    let tree = merge_commit_trees(&*test_workspace.repo, &[parent1_commit, parent2_commit])
+        .block_on()
+        .unwrap();
     let merge_commit = commit_with_tree(test_workspace.repo.store(), tree.id());
     // Append new texts to the file with conflicts to make sure the last line is not
     // conflict markers.

@@ -134,7 +134,7 @@ pub(crate) fn cmd_revert(
         .iter()
         .map(|id| tx.repo().store().get_commit(id))
         .try_collect()?;
-    let mut new_base_tree = merge_commit_trees(tx.repo(), &new_parents)?;
+    let mut new_base_tree = merge_commit_trees(tx.repo(), &new_parents).block_on()?;
     let mut parent_ids = new_parent_ids;
 
     let mut reverted_commits = vec![];

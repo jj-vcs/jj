@@ -107,7 +107,7 @@ pub(crate) fn cmd_backout(
             .collect_vec()
     };
     let mut tx = workspace_command.start_transaction();
-    let mut new_base_tree = merge_commit_trees(tx.repo(), &parents)?;
+    let mut new_base_tree = merge_commit_trees(tx.repo(), &parents).block_on()?;
 
     for (commit_to_back_out, new_commit_description) in
         commits_to_back_out_with_new_commit_descriptions

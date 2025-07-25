@@ -21,6 +21,7 @@ use jj_lib::backend::CommitId;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::rewrite::rebase_commit;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::compute_commit_location;
@@ -184,7 +185,7 @@ pub(crate) fn cmd_new(
     let parent_commit_ids_set: HashSet<CommitId> = parent_commit_ids.iter().cloned().collect();
 
     let mut tx = workspace_command.start_transaction();
-    let merged_tree = merge_commit_trees(tx.repo(), &parent_commits)?;
+    let merged_tree = merge_commit_trees(tx.repo(), &parent_commits).block_on()?;
     let mut commit_builder = tx
         .repo_mut()
         .new_commit(parent_commit_ids, merged_tree.id())

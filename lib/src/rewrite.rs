@@ -50,14 +50,14 @@ use crate::store::Store;
 
 /// Merges `commits` and tries to resolve any conflicts recursively.
 #[instrument(skip(repo))]
-pub fn merge_commit_trees(repo: &dyn Repo, commits: &[Commit]) -> BackendResult<MergedTree> {
+pub async fn merge_commit_trees(repo: &dyn Repo, commits: &[Commit]) -> BackendResult<MergedTree> {
     if let [commit] = commits {
-        commit.tree()
+        commit.tree_async().await
     } else {
         merge_commit_trees_no_resolve_without_repo(repo.store(), repo.index(), commits)
-            .block_on()?
+            .await?
             .resolve()
-            .block_on()
+            .await
     }
 }
 
@@ -251,8 +251,8 @@ impl<'repo> CommitRewriter<'repo> {
                 self.old_commit.tree_id().clone(),
             )
         } else {
-            let old_base_tree = merge_commit_trees(self.mut_repo, &old_parents)?;
-            let new_base_tree = merge_commit_trees(self.mut_repo, &new_parents)?;
+            let old_base_tree = merge_commit_trees(self.mut_repo, &old_parents).block_on()?;
+            let new_base_tree = merge_commit_trees(self.mut_repo, &new_parents).block_on()?;
             let old_tree = self.old_commit.tree()?;
             (
                 old_base_tree.id() == *self.old_commit.tree_id(),

@@ -27,6 +27,7 @@ use std::sync::Arc;
 
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
+use pollster::FutureExt as _;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -1178,7 +1179,7 @@ impl MutableRepo {
                     .iter()
                     .map(|id| self.store().get_commit(id))
                     .try_collect()?;
-                let merged_parents_tree = merge_commit_trees(self, &new_commits)?;
+                let merged_parents_tree = merge_commit_trees(self, &new_commits).block_on()?;
                 let commit = self
                     .new_commit(new_commit_ids.clone(), merged_parents_tree.id().clone())
                     .write()?;

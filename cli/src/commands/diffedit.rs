@@ -19,6 +19,7 @@ use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::rewrite::merge_commit_trees;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::print_unmatched_explicit_paths;
@@ -143,7 +144,7 @@ don't make any changes, then the operation will be aborted.",
             tx.format_commit_summary(&target_commit),
         )
     };
-    let base_tree = merge_commit_trees(tx.repo(), base_commits.as_slice())?;
+    let base_tree = merge_commit_trees(tx.repo(), base_commits.as_slice()).block_on()?;
     let tree = target_commit.tree()?;
     let tree_id = diff_editor.edit(&base_tree, &tree, &matcher, format_instructions)?;
     if tree_id == *target_commit.tree_id() {

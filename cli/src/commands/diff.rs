@@ -178,8 +178,8 @@ pub(crate) fn cmd_diff(
         // Collect parents outside of revset to preserve parent order
         let parents: IndexSet<_> = roots.iter().flat_map(|c| c.parents()).try_collect()?;
         let parents = parents.into_iter().collect_vec();
-        from_tree = merge_commit_trees(repo.as_ref(), &parents)?;
-        to_tree = merge_commit_trees(repo.as_ref(), &heads)?;
+        from_tree = merge_commit_trees(repo.as_ref(), &parents).block_on()?;
+        to_tree = merge_commit_trees(repo.as_ref(), &heads).block_on()?;
 
         for p in &parents {
             for to in &heads {
