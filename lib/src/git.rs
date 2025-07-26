@@ -250,6 +250,14 @@ pub fn parse_git_ref(full_name: &GitRefName) -> Option<(GitRefKind, RemoteRefSym
         let name = RefName::new(name);
         let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
         Some((GitRefKind::Tag, RemoteRefSymbol { name, remote }))
+    } else if full_name.as_str().ends_with("HEAD") {
+        // HEAD we skip
+        if full_name == "HEAD" {
+            return None;
+        }
+        let name = RefName::new(full_name.as_str());
+        let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
+        Some((GitRefKind::Bookmark, RemoteRefSymbol { name, remote }))
     } else {
         None
     }
@@ -612,6 +620,16 @@ fn diff_refs_to_import(
     let mut changed_remote_tags = Vec::new();
     let mut failed_ref_names = Vec::new();
     let actual = git_repo.references().map_err(GitImportError::from_git)?;
+
+    collect_changed_refs_to_import(
+        actual.pseudo().map_err(GitImportError::from_git)?,
+        &mut known_git_refs,
+        &mut known_remote_bookmarks,
+        &mut changed_git_refs,
+        &mut changed_remote_bookmarks,
+        &mut failed_ref_names,
+        &git_ref_filter,
+    )?;
     collect_changed_refs_to_import(
         actual.local_branches().map_err(GitImportError::from_git)?,
         &mut known_git_refs,
