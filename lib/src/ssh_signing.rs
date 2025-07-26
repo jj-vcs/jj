@@ -88,9 +88,8 @@ fn run_command(command: &mut Command, stdin: &[u8]) -> SshResult<Vec<u8>> {
 // If the given data is actually already a filepath to a key on disk then the
 // key input is returned directly.
 fn ensure_key_as_file(key: &str) -> SshResult<Either<PathBuf, tempfile::TempPath>> {
-    let is_inlined_ssh_key = key.starts_with("ssh-");
-    if !is_inlined_ssh_key {
-        let key_path = crate::file_util::expand_home_path(key);
+    let key_path = crate::file_util::expand_home_path(key);
+    if key_path.is_absolute() {
         return Ok(either::Left(key_path));
     }
 
@@ -299,6 +298,21 @@ mod tests {
         file.read_to_end(&mut buf).unwrap();
 
         assert_eq!("ssh-ed25519 some-key-data", String::from_utf8(buf).unwrap());
+    }
+
+    #[test]
+    fn test_ssh_key_to_file_conversion_non_ssh_prefix() {
+        let keydata = "ecdsa-sha2-nistp256 some-key-data";
+        let path = ensure_key_as_file(keydata).unwrap();
+
+        let mut buf = vec![];
+        let mut file = File::open(path.right().unwrap()).unwrap();
+        file.read_to_end(&mut buf).unwrap();
+
+        assert_eq!(
+            "ecdsa-sha2-nistp256 some-key-data",
+            String::from_utf8(buf).unwrap()
+        );
     }
 
     #[test]
