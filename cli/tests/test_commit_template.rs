@@ -554,9 +554,9 @@ fn test_log_evolog_divergence() {
         .success();
     let output = work_dir.run_jj(["log"]);
     insta::assert_snapshot!(output, @r"
-    @  qpvuntsm?? test.user@example.com 2001-02-03 08:05:08 556daeb7
+    @  qpvuntsm divergent test.user@example.com 2001-02-03 08:05:08 556daeb7
     │  description 1
-    │ ○  qpvuntsm?? test.user@example.com 2001-02-03 08:05:10 5cea51a1
+    │ ○  qpvuntsm divergent test.user@example.com 2001-02-03 08:05:10 5cea51a1
     ├─╯  description 2
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -568,9 +568,9 @@ fn test_log_evolog_divergence() {
     // Color
     let output = work_dir.run_jj(["log", "--color=always"]);
     insta::assert_snapshot!(output, @r"
-    [1m[38;5;2m@[0m  [1m[4m[38;5;1mq[24mpvuntsm[38;5;9m??[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;12m55[38;5;8m6daeb7[39m[0m
+    [1m[38;5;2m@[0m  [1m[38;5;9mq[38;5;8mpvuntsm[38;5;9m divergent[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;12m55[38;5;8m6daeb7[39m[0m
     │  [1mdescription 1[0m
-    │ ○  [1m[4m[38;5;1mq[0m[38;5;1mpvuntsm??[39m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:10[39m [1m[38;5;4m5c[0m[38;5;8mea51a1[39m
+    │ ○  [1m[38;5;1mq[0m[38;5;8mpvuntsm[38;5;1m divergent[39m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:10[39m [1m[38;5;4m5c[0m[38;5;8mea51a1[39m
     ├─╯  description 2
     [1m[38;5;14m◆[0m  [1m[38;5;5mz[0m[38;5;8mzzzzzzz[39m [38;5;2mroot()[39m [1m[38;5;4m0[0m[38;5;8m0000000[39m
     [EOF]
@@ -579,7 +579,7 @@ fn test_log_evolog_divergence() {
     // Evolog and hidden divergent
     let output = work_dir.run_jj(["evolog"]);
     insta::assert_snapshot!(output, @r"
-    @  qpvuntsm?? test.user@example.com 2001-02-03 08:05:08 556daeb7
+    @  qpvuntsm divergent test.user@example.com 2001-02-03 08:05:08 556daeb7
     │  description 1
     │  -- operation fec5a045b947 (2001-02-03 08:05:08) describe commit d0c049cd993a8d3a2e69ba6df98788e264ea9fa1
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 d0c049cd
@@ -594,7 +594,7 @@ fn test_log_evolog_divergence() {
     // Colored evolog
     let output = work_dir.run_jj(["evolog", "--color=always"]);
     insta::assert_snapshot!(output, @r"
-    [1m[38;5;2m@[0m  [1m[4m[38;5;1mq[24mpvuntsm[38;5;9m??[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;12m55[38;5;8m6daeb7[39m[0m
+    [1m[38;5;2m@[0m  [1m[38;5;9mq[38;5;8mpvuntsm[38;5;9m divergent[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;12m55[38;5;8m6daeb7[39m[0m
     │  [1mdescription 1[0m
     │  [38;5;8m--[39m operation [38;5;4mfec5a045b947[39m ([38;5;6m2001-02-03 08:05:08[39m) describe commit d0c049cd993a8d3a2e69ba6df98788e264ea9fa1
     ○  [1m[39mq[0m[38;5;8mpvuntsm[39m hidden [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:08[39m [1m[38;5;4md[0m[38;5;8m0c049cd[39m
