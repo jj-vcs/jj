@@ -1608,6 +1608,81 @@ fn test_evaluate_expression_ancestors() {
 }
 
 #[test]
+fn test_evaluate_expression_first_ancestors() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let root_commit = repo.store().root_commit();
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
+    let commit1 = graph_builder.initial_commit();
+    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
+    let commit3 = graph_builder.commit_with_parents(&[&commit1, &commit2]);
+    let commit4 = graph_builder.commit_with_parents(&[&commit2, &commit3]);
+    let commit5 = graph_builder.commit_with_parents(&[&commit3, &commit4]);
+
+    // The first-parent ancestors of the root commit is just the root commit itself
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "first_ancestors(root())"),
+        vec![root_commit.id().clone()]
+    );
+
+    // Can find first-parent ancestors of a specific commit.
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_ancestors({})", commit5.id())),
+        vec![
+            commit5.id().clone(),
+            commit3.id().clone(),
+            commit1.id().clone(),
+            root_commit.id().clone(),
+        ]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_ancestors({})", commit4.id())),
+        vec![
+            commit4.id().clone(),
+            commit2.id().clone(),
+            commit1.id().clone(),
+            root_commit.id().clone(),
+        ]
+    );
+
+    // Can find first-parent ancestors of a revset with multiple commits.
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("first_ancestors({} | {})", commit5.id(), commit2.id())
+        ),
+        vec![
+            commit5.id().clone(),
+            commit3.id().clone(),
+            commit2.id().clone(),
+            commit1.id().clone(),
+            root_commit.id().clone(),
+        ]
+    );
+
+    // Can find last n first-parent ancestors of a commit
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_ancestors({}, 0)", commit5.id())),
+        vec![]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_ancestors({}, 1)", commit5.id())),
+        vec![commit5.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_ancestors({}, 3)", commit5.id())),
+        vec![
+            commit5.id().clone(),
+            commit3.id().clone(),
+            commit1.id().clone(),
+        ]
+    );
+}
+
+#[test]
 fn test_evaluate_expression_range() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;

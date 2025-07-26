@@ -30,6 +30,7 @@ use super::entry::GlobalCommitPosition;
 use super::entry::SmallGlobalCommitPositionsVec;
 use super::rev_walk_queue::RevWalkQueue;
 use super::rev_walk_queue::RevWalkWorkItem;
+use crate::revset::PARENTS_RANGE_FULL;
 
 /// Like `Iterator`, but doesn't borrow the `index` internally.
 pub(super) trait RevWalk<I: ?Sized> {
@@ -248,6 +249,17 @@ pub(super) trait RevWalkIndex {
     type AdjacentPositions: IntoIterator<Item = Self::Position>;
 
     fn adjacent_positions(&self, pos: Self::Position) -> Self::AdjacentPositions;
+
+    fn adjacent_positions_in_range(
+        &self,
+        pos: Self::Position,
+        parents_range: &Range<u32>,
+    ) -> impl IntoIterator<Item = Self::Position> {
+        self.adjacent_positions(pos)
+            .into_iter()
+            .skip(parents_range.start as usize)
+            .take(parents_range.end.saturating_sub(parents_range.start) as usize)
+    }
 }
 
 impl RevWalkIndex for CompositeIndex {
@@ -306,6 +318,7 @@ pub(super) struct RevWalkBuilder<'a> {
     index: &'a CompositeIndex,
     wanted: Vec<GlobalCommitPosition>,
     unwanted: Vec<GlobalCommitPosition>,
+    wanted_parents_range: Range<u32>,
 }
 
 impl<'a> RevWalkBuilder<'a> {
@@ -314,12 +327,19 @@ impl<'a> RevWalkBuilder<'a> {
             index,
             wanted: Vec::new(),
             unwanted: Vec::new(),
+            wanted_parents_range: PARENTS_RANGE_FULL,
         }
     }
 
     /// Sets head positions to be included.
     pub fn wanted_heads(mut self, positions: Vec<GlobalCommitPosition>) -> Self {
         self.wanted = positions;
+        self
+    }
+
+    /// Sets range of parents to iterate over for wanted heads.
+    pub fn wanted_parents_range(mut self, wanted_parents_range: Range<u32>) -> Self {
+        self.wanted_parents_range = wanted_parents_range;
         self
     }
 
@@ -336,6 +356,7 @@ impl<'a> RevWalkBuilder<'a> {
 
     fn ancestors_with_min_pos(self, min_pos: GlobalCommitPosition) -> RevWalkAncestors<'a> {
         let index = self.index;
+        let wanted_parents_range = self.wanted_parents_range;
         let mut wanted_queue = RevWalkQueue::with_min_pos(min_pos);
         let mut unwanted_queue = RevWalkQueue::with_min_pos(min_pos);
         wanted_queue.extend(self.wanted, ());
@@ -345,6 +366,7 @@ impl<'a> RevWalkBuilder<'a> {
             walk: RevWalkImpl {
                 wanted_queue,
                 unwanted_queue,
+                wanted_parents_range,
             },
         }
     }
@@ -357,6 +379,7 @@ impl<'a> RevWalkBuilder<'a> {
         generation_range: Range<u32>,
     ) -> RevWalkAncestorsGenerationRange<'a> {
         let index = self.index;
+        let wanted_parents_range = self.wanted_parents_range;
         let mut wanted_queue = RevWalkQueue::with_min_pos(GlobalCommitPosition::MIN);
         let mut unwanted_queue = RevWalkQueue::with_min_pos(GlobalCommitPosition::MIN);
         let item_range = RevWalkItemGenerationRange::from_filter_range(generation_range.clone());
@@ -367,6 +390,7 @@ impl<'a> RevWalkBuilder<'a> {
             walk: RevWalkGenerationRangeImpl {
                 wanted_queue,
                 unwanted_queue,
+                wanted_parents_range,
                 generation_end: generation_range.end,
             },
         }
@@ -399,6 +423,10 @@ impl<'a> RevWalkBuilder<'a> {
         self,
         root_positions: HashSet<GlobalCommitPosition>,
     ) -> RevWalkDescendants<'a> {
+        assert_eq!(
+            self.wanted_parents_range, PARENTS_RANGE_FULL,
+            "cannot use parents range with descendants"
+        );
         let index = self.index;
         let candidate_positions = self
             .ancestors_until_roots(root_positions.iter().copied())
@@ -425,6 +453,10 @@ impl<'a> RevWalkBuilder<'a> {
         root_positions: Vec<GlobalCommitPosition>,
         generation_range: Range<u32>,
     ) -> RevWalkDescendantsGenerationRange {
+        assert_eq!(
+            self.wanted_parents_range, PARENTS_RANGE_FULL,
+            "cannot use parents range with descendants"
+        );
         let index = self.index;
         let positions = self.ancestors_until_roots(root_positions.iter().copied());
         let descendants_index = RevWalkDescendantsIndex::build(index.commits(), positions);
@@ -443,6 +475,7 @@ impl<'a> RevWalkBuilder<'a> {
             walk: RevWalkGenerationRangeImpl {
                 wanted_queue,
                 unwanted_queue,
+                wanted_parents_range: PARENTS_RANGE_FULL,
                 generation_end: generation_range.end,
             },
         }
@@ -457,6 +490,7 @@ pub(super) type RevWalkAncestors<'a> =
 pub(super) struct RevWalkImpl<P> {
     wanted_queue: RevWalkQueue<P, ()>,
     unwanted_queue: RevWalkQueue<P, ()>,
+    wanted_parents_range: Range<u32>,
 }
 
 impl<I: RevWalkIndex + ?Sized> RevWalk<I> for RevWalkImpl<I::Position> {
@@ -468,8 +502,10 @@ impl<I: RevWalkIndex + ?Sized> RevWalk<I> for RevWalkImpl<I::Position> {
             if flush_queue_until(&mut self.unwanted_queue, index, item.pos).is_some() {
                 continue;
             }
-            self.wanted_queue
-                .extend(index.adjacent_positions(item.pos), ());
+            self.wanted_queue.extend(
+                index.adjacent_positions_in_range(item.pos, &self.wanted_parents_range),
+                (),
+            );
             return Some(item.pos);
         }
         None
@@ -489,6 +525,7 @@ pub(super) struct RevWalkGenerationRangeImpl<P> {
     // Sort item generations in ascending order
     wanted_queue: RevWalkQueue<P, Reverse<RevWalkItemGenerationRange>>,
     unwanted_queue: RevWalkQueue<P, ()>,
+    wanted_parents_range: Range<u32>,
     generation_end: u32,
 }
 
@@ -505,8 +542,10 @@ impl<P: Ord> RevWalkGenerationRangeImpl<P> {
             start: gen.start + 1,
             end: gen.end.saturating_add(1),
         };
-        self.wanted_queue
-            .extend(index.adjacent_positions(pos), Reverse(succ_gen));
+        self.wanted_queue.extend(
+            index.adjacent_positions_in_range(pos, &self.wanted_parents_range),
+            Reverse(succ_gen),
+        );
     }
 }
 
