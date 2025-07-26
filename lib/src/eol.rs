@@ -20,7 +20,16 @@ use tokio::io::AsyncReadExt as _;
 
 use crate::config::ConfigGetError;
 use crate::local_working_copy::TreeStateSettings;
+use crate::merge::Merge;
 use crate::settings::UserSettings;
+
+#[derive(Debug, thiserror::Error)]
+#[error("{message}")]
+struct EolError {
+    message: String,
+    #[source]
+    source: Box<dyn std::error::Error + Send + Sync + 'static>,
+}
 
 pub(crate) fn create_target_eol_strategy(
     tree_state_settings: &TreeStateSettings,
@@ -30,11 +39,36 @@ pub(crate) fn create_target_eol_strategy(
     }
 }
 
-fn is_binary(bytes: &[u8]) -> bool {
-    // TODO(06393993): align the algorithm with git so that the git config autocrlf
-    // users won't see different decisions on whether a file is binary and needs to
-    // perform EOL conversion.
-    bytes.contains(&b'\0')
+#[derive(Default)]
+struct Stats {
+    crlf: usize,
+    null: usize,
+}
+
+impl Stats {
+    fn from_bytes(bytes: &[u8]) -> Self {
+        let mut res = Self::default();
+        let mut bytes = bytes.iter().peekable();
+        while let Some(byte) = bytes.next() {
+            match byte {
+                b'\0' => res.null += 1,
+                b'\r' => {
+                    if bytes.peek() == Some(&&b'\n') {
+                        res.crlf += 1;
+                    }
+                }
+                _ => {}
+            }
+        }
+        res
+    }
+
+    fn is_binary(&self) -> bool {
+        // TODO(06393993): align the algorithm with git so that the git config autocrlf
+        // users won't see different decisions on whether a file is binary and needs to
+        // perform EOL conversion.
+        self.null > 0
+    }
 }
 
 #[derive(Clone)]
@@ -46,10 +80,18 @@ impl TargetEolStrategy {
     /// The limit is to probe whether the file is binary is 8KB.
     const PROBE_LIMIT: u64 = 8 << 10;
 
-    pub(crate) async fn convert_eol_for_snapshot<'a>(
+    pub(crate) async fn convert_eol_for_snapshot<'a, R, E>(
         &self,
         mut contents: impl AsyncRead + Send + Unpin + 'a,
-    ) -> Result<Box<dyn AsyncRead + Send + Unpin + 'a>, std::io::Error> {
+        read_old_contents: impl AsyncFnOnce() -> Result<Merge<Option<R>>, E>,
+    ) -> Result<
+        Box<dyn AsyncRead + Send + Unpin + 'a>,
+        impl std::error::Error + Send + Sync + 'static,
+    >
+    where
+        R: AsyncRead + Send + Unpin + 'a,
+        E: std::error::Error + Send + Sync + 'static,
+    {
         match self.eol_conversion_mode {
             EolConversionMode::None => Ok(Box::new(contents)),
             EolConversionMode::Input | EolConversionMode::InputOutput => {
@@ -57,15 +99,63 @@ impl TargetEolStrategy {
                 (&mut contents)
                     .take(Self::PROBE_LIMIT)
                     .read_to_end(&mut peek)
+                    .await
+                    .map_err(|e| EolError {
+                        message: "Failed to read the contents when probing whether the file is \
+                                  binary"
+                            .to_string(),
+                        source: Box::new(e),
+                    })?;
+                async fn any_merge_term_has_crlf(
+                    file_readers: Merge<Option<impl AsyncRead + Send + Unpin>>,
+                ) -> Result<bool, EolError> {
+                    for reader in file_readers.into_iter() {
+                        let Some(reader) = reader else {
+                            continue;
+                        };
+                        let mut contents = vec![];
+                        reader
+                            .take(TargetEolStrategy::PROBE_LIMIT)
+                            .read_to_end(&mut contents)
+                            .await
+                            .map_err(|source| EolError {
+                                message: "Failed to read from one of the file merge term"
+                                    .to_string(),
+                                source: Box::new(source),
+                            })?;
+                        let stats = Stats::from_bytes(&contents);
+                        if stats.crlf > 0 {
+                            return Ok(true);
+                        }
+                    }
+                    Ok(false)
+                }
+                let stats = Stats::from_bytes(&peek);
+                // We also don't convert EOLs if the original file contents contain CRLF to
+                // avoid unexpected EOL modification.
+                //
+                // See https://github.com/jj-vcs/jj/issues/7010 for details.
+                let will_convert = !stats.is_binary()
+                    && !any_merge_term_has_crlf(read_old_contents().await.map_err(|e| {
+                        EolError {
+                            message: "Failed to read the old contents".to_string(),
+                            source: Box::new(e),
+                        }
+                    })?)
                     .await?;
-                let target_eol = if is_binary(&peek) {
-                    TargetEol::PassThrough
-                } else {
+                let target_eol = if will_convert {
                     TargetEol::Lf
+                } else {
+                    TargetEol::PassThrough
                 };
                 let peek = Cursor::new(peek);
                 let contents = peek.chain(contents);
-                convert_eol(contents, target_eol).await
+                convert_eol(contents, target_eol)
+                    .await
+                    .map_err(|e| EolError {
+                        message: "Failed to convert the content to target EOL".to_string(),
+                        source: Box::new(e),
+                    })
             }
         }
     }
@@ -82,7 +172,12 @@ impl TargetEolStrategy {
                     .take(Self::PROBE_LIMIT)
                     .read_to_end(&mut peek)
                     .await?;
-                let target_eol = if is_binary(&peek) {
+                let stats = Stats::from_bytes(&peek);
+                // We also don't convert EOLs if the file contains CRLF to avoid unexpected EOL
+                // modification for the next snapshot.
+                //
+                // See https://github.com/jj-vcs/jj/issues/7010 for details.
+                let target_eol = if stats.is_binary() || stats.crlf > 0 {
                     TargetEol::PassThrough
                 } else {
                     TargetEol::Crlf
@@ -164,10 +259,12 @@ async fn convert_eol<'a>(
 
 #[cfg(test)]
 mod tests {
+    use std::convert::Infallible;
     use std::error::Error;
     use std::pin::Pin;
     use std::task::Poll;
 
+    use futures::TryFutureExt as _;
     use test_case::test_case;
 
     use super::*;
@@ -266,14 +363,16 @@ mod tests {
     #[test_case(TargetEolStrategy {
           eol_conversion_mode: EolConversionMode::Input,
       }, &[0; 20 << 10], &[0; 20 << 10]; "input settings long binary input")]
-    async fn test_eol_strategy_convert_eol_for_snapshot(
+    async fn test_eol_strategy_convert_eol_for_snapshot_without_old_contents(
         strategy: TargetEolStrategy,
         contents: &[u8],
         expected_output: &[u8],
     ) {
         let mut actual_output = vec![];
         strategy
-            .convert_eol_for_snapshot(contents)
+            .convert_eol_for_snapshot(contents, || async {
+                Ok::<_, Infallible>(Merge::resolved(None::<&[u8]>))
+            })
             .await
             .unwrap()
             .read_to_end(&mut actual_output)
@@ -296,6 +395,9 @@ mod tests {
           eol_conversion_mode: EolConversionMode::InputOutput,
       }, b"\0\n", b"\0\n"; "input output settings binary input")]
     #[test_case(TargetEolStrategy {
+          eol_conversion_mode: EolConversionMode::InputOutput,
+      }, b"\r\n\n", b"\r\n\n"; "input output settings mixed EOL text input")]
+    #[test_case(TargetEolStrategy {
           eol_conversion_mode: EolConversionMode::Input,
       }, &[0; 20 << 10], &[0; 20 << 10]; "input output settings long binary input")]
     async fn test_eol_strategy_convert_eol_for_update(
@@ -312,5 +414,100 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(actual_output, expected_output);
+    }
+
+    #[tokio::main(flavor = "current_thread")]
+    #[test_case(TargetEolStrategy {
+          eol_conversion_mode: EolConversionMode::None,
+      }, b"\r\n", vec![Some(b"\r\n")], b"\r\n";
+      "none settings with CRLF old contents")]
+    #[test_case(TargetEolStrategy {
+          eol_conversion_mode: EolConversionMode::Input,
+      }, b"\r\n", vec![Some(b"\r\n")], b"\r\n";
+      "input settings with CRLF old contents")]
+    #[test_case(TargetEolStrategy {
+          eol_conversion_mode: EolConversionMode::InputOutput,
+      }, b"\r\n", vec![Some(b"\r\n")], b"\r\n";
+      "input output settings with CRLF old contents")]
+    #[test_case(TargetEolStrategy {
+          eol_conversion_mode: EolConversionMode::None,
+      }, b"\r\n", vec![Some(b"\n"), Some(b"\n"), Some(b"\n")], b"\r\n";
+      "none settings with LF old contents")]
+    #[test_case(TargetEolStrategy {
+          eol_conversion_mode: EolConversionMode::Input,
+      }, b"\r\n", vec![Some(b"\n"), Some(b"\n"), Some(b"\n")], b"\n";
+      "input settings with LF old contents")]
+    #[test_case(TargetEolStrategy {
+          eol_conversion_mode: EolConversionMode::InputOutput,
+      }, b"\r\n", vec![Some(b"\n"), Some(b"\n"), Some(b"\n")], b"\n";
+      "input output settings with LF old contents")]
+    #[test_case(TargetEolStrategy {
+          eol_conversion_mode: EolConversionMode::None,
+      }, b"\r\n", vec![Some(b"\n"), Some(b"\n"), Some(b"\r\n")], b"\r\n";
+      "none settings with some CRLF old contents")]
+    #[test_case(TargetEolStrategy {
+          eol_conversion_mode: EolConversionMode::Input,
+      }, b"\r\n", vec![Some(b"\n"), Some(b"\n"), Some(b"\r\n")], b"\r\n";
+      "input settings with some CRLF old contents")]
+    #[test_case(TargetEolStrategy {
+          eol_conversion_mode: EolConversionMode::InputOutput,
+      }, b"\r\n", vec![Some(b"\n"), Some(b"\n"), Some(b"\r\n")], b"\r\n";
+      "input output settings with some CRLF old contents")]
+    #[test_case(TargetEolStrategy {
+          eol_conversion_mode: EolConversionMode::None,
+      }, b"\r\n", vec![Some(b"\n"), None, Some(b"\n")], b"\r\n";
+      "none settings with none-file old contents")]
+    #[test_case(TargetEolStrategy {
+          eol_conversion_mode: EolConversionMode::Input,
+      }, b"\r\n", vec![Some(b"\n"), None, Some(b"\n")], b"\n";
+      "input settings with none-file old contents")]
+    #[test_case(TargetEolStrategy {
+          eol_conversion_mode: EolConversionMode::InputOutput,
+      }, b"\r\n", vec![Some(b"\n"), None, Some(b"\n")], b"\n";
+      "input output settings with non-file old contents")]
+    async fn test_eol_strategy_convert_eol_for_snapshot_with_old_contents(
+        strategy: TargetEolStrategy,
+        contents: &[u8],
+        old_contents: Vec<Option<&[u8]>>,
+        expected_output: &[u8],
+    ) {
+        let mut actual_output = vec![];
+        strategy
+            .convert_eol_for_snapshot(contents, || async {
+                Ok::<_, Infallible>(Merge::from_vec(old_contents))
+            })
+            .await
+            .unwrap()
+            .read_to_end(&mut actual_output)
+            .await
+            .unwrap();
+        assert_eq!(actual_output, expected_output);
+    }
+
+    #[tokio::main(flavor = "current_thread")]
+    #[test_case(TargetEolStrategy {
+          eol_conversion_mode: EolConversionMode::InputOutput,
+      }, b"a\r\n" => None; "input output settings")]
+    #[test_case(TargetEolStrategy {
+          eol_conversion_mode: EolConversionMode::Input,
+      }, b"a\r\n" => None; "input settings")]
+    #[test_case(TargetEolStrategy {
+          eol_conversion_mode: EolConversionMode::None,
+      }, b"a\r\n" => Some(b"a\r\n".to_vec()); "none settings")]
+    async fn test_eol_strategy_convert_eol_for_snapshot_failed_to_read_old_contents(
+        strategy: TargetEolStrategy,
+        new_contents: &[u8],
+    ) -> Option<Vec<u8>> {
+        strategy
+            .convert_eol_for_snapshot(new_contents, || async {
+                Err::<Merge<Option<&[u8]>>, _>(std::io::Error::other("test error"))
+            })
+            .and_then(async |mut reader| {
+                let mut actual_output = vec![];
+                reader.read_to_end(&mut actual_output).await.unwrap();
+                Ok(actual_output)
+            })
+            .await
+            .ok()
     }
 }
