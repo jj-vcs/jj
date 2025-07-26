@@ -116,6 +116,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `colors."diff removed token" = { bg = "ansi-color-52", underline = false }`
   will apply a dark red background on removed words in diffs.
 
+* The `commit_trailers` template now generates trailers without modification, and
+  their separators are defined in the TOML configuration.
+
 ### Fixed bugs
 
 * `jj file annotate` can now process files at a hidden revision.

@@ -42,3 +42,6 @@ name = ""
 
 [working-copy]
 eol-conversion = "none"
+
+[trailer]
+separators = ":"
