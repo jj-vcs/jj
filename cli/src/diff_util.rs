@@ -171,7 +171,7 @@ impl BuiltinFormatKind {
     // Alternatively, we could use or vendor one of the crates `strum`,
     // `enum-iterator`, or `variant_count` (for a check that the length of the array
     // is correct). The latter is very simple and is also a nightly feature.
-    const ALL_VARIANTS: &[BuiltinFormatKind] = &[
+    const ALL_VARIANTS: &[Self] = &[
         Self::Summary,
         Self::Stat,
         Self::Types,
@@ -414,7 +414,7 @@ impl<'a> DiffRenderer<'a> {
         conflict_marker_style: ConflictMarkerStyle,
         formats: Vec<DiffFormat>,
     ) -> Self {
-        DiffRenderer {
+        Self {
             repo,
             path_converter,
             conflict_marker_style,
@@ -700,7 +700,7 @@ impl ColorWordsDiffOptions {
                 })?),
             }
         };
-        Ok(ColorWordsDiffOptions {
+        Ok(Self {
             conflict: settings.get("diff.color-words.conflict")?,
             context: settings.get("diff.color-words.context")?,
             line_diff: LineDiffOptions::default(),
@@ -1584,7 +1584,7 @@ pub struct UnifiedDiffOptions {
 
 impl UnifiedDiffOptions {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
-        Ok(UnifiedDiffOptions {
+        Ok(Self {
             context: settings.get("diff.git.context")?,
             line_diff: LineDiffOptions::default(),
         })
@@ -1993,7 +1993,7 @@ impl DiffStats {
             })
             .try_collect()
             .await?;
-        Ok(DiffStats { entries })
+        Ok(Self { entries })
     }
 
     /// List of stats per file.

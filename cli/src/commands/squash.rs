@@ -265,11 +265,11 @@ impl SquashedDescription {
 
         if !args.message_paragraphs.is_empty() {
             let desc = join_message_paragraphs(&args.message_paragraphs);
-            SquashedDescription::Exact(desc)
+            Self::Exact(desc)
         } else if args.use_destination_message {
-            SquashedDescription::UseDestination
+            Self::UseDestination
         } else {
-            SquashedDescription::Combine
+            Self::Combine
         }
     }
 }

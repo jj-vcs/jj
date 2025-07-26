@@ -91,7 +91,7 @@ impl RefTarget {
     }
 
     pub fn from_merge(merge: Merge<Option<CommitId>>) -> Self {
-        RefTarget { merge }
+        Self { merge }
     }
 
     /// Returns the underlying value if this target is non-conflicting.
@@ -143,7 +143,7 @@ pub struct RemoteRef {
 impl RemoteRef {
     /// Creates remote ref pointing to no commit.
     pub fn absent() -> Self {
-        RemoteRef {
+        Self {
             target: RefTarget::absent(),
             state: RemoteRefState::New,
         }
@@ -269,7 +269,7 @@ impl View {
     /// The caller should add at least one commit ID to `head_ids`. The other
     /// fields may be empty.
     pub fn empty() -> Self {
-        View {
+        Self {
             head_ids: HashSet::new(),
             local_bookmarks: BTreeMap::new(),
             tags: BTreeMap::new(),
@@ -282,7 +282,7 @@ impl View {
 
     /// Creates new (mostly empty) view containing the given commit as the head.
     pub fn make_root(root_commit_id: CommitId) -> Self {
-        View {
+        Self {
             head_ids: HashSet::from([root_commit_id]),
             local_bookmarks: BTreeMap::new(),
             tags: BTreeMap::new(),
@@ -399,7 +399,7 @@ pub struct Operation {
 }
 
 impl Operation {
-    pub fn make_root(root_view_id: ViewId) -> Operation {
+    pub fn make_root(root_view_id: ViewId) -> Self {
         let timestamp = Timestamp {
             timestamp: MillisSinceEpoch(0),
             tz_offset: 0,
@@ -415,7 +415,7 @@ impl Operation {
             is_snapshot: false,
             tags: HashMap::new(),
         };
-        Operation {
+        Self {
             view_id: root_view_id,
             parents: vec![],
             metadata,

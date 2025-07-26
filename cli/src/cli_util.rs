@@ -257,7 +257,7 @@ impl TracingSubscription {
             )
             .with(chrome_tracing_layer)
             .init();
-        TracingSubscription {
+        Self {
             reload_log_filter,
             _chrome_tracing_flush_guard: chrome_tracing_flush_guard,
         }
@@ -2916,7 +2916,7 @@ pub struct LogContentFormat {
 impl LogContentFormat {
     /// Creates new formatting helper for the terminal.
     pub fn new(ui: &Ui, settings: &UserSettings) -> Result<Self, ConfigGetError> {
-        Ok(LogContentFormat {
+        Ok(Self {
             width: ui.term_width(),
             word_wrap: settings.get_bool("ui.log-word-wrap")?,
         })
@@ -2925,7 +2925,7 @@ impl LogContentFormat {
     /// Subtracts the given `width` and returns new formatting helper.
     #[must_use]
     pub fn sub_width(&self, width: usize) -> Self {
-        LogContentFormat {
+        Self {
             width: self.width.saturating_sub(width),
             word_wrap: self.word_wrap,
         }
@@ -2974,7 +2974,7 @@ pub enum DiffSelector {
 
 impl DiffSelector {
     pub fn is_interactive(&self) -> bool {
-        matches!(self, DiffSelector::Interactive(_))
+        matches!(self, Self::Interactive(_))
     }
 
     /// Restores diffs from the `right_tree` to the `left_tree` by using an
@@ -2990,8 +2990,8 @@ impl DiffSelector {
     ) -> Result<MergedTreeId, CommandError> {
         let selected_tree_id = restore_tree(right_tree, left_tree, matcher).block_on()?;
         match self {
-            DiffSelector::NonInteractive => Ok(selected_tree_id),
-            DiffSelector::Interactive(editor) => {
+            Self::NonInteractive => Ok(selected_tree_id),
+            Self::Interactive(editor) => {
                 // edit_diff_external() is designed to edit the right tree,
                 // whereas we want to update the left tree. Unmatched paths
                 // shouldn't be based off the right tree.
@@ -3030,7 +3030,7 @@ impl FromStr for RemoteBookmarkNamePattern {
         let (bookmark, remote) = pat.rsplit_once('@').ok_or_else(|| {
             "remote bookmark must be specified in bookmark@remote form".to_owned()
         })?;
-        Ok(RemoteBookmarkNamePattern {
+        Ok(Self {
             bookmark: to_pattern(bookmark)?,
             remote: to_pattern(remote)?,
         })
@@ -3047,7 +3047,7 @@ impl fmt::Display for RemoteBookmarkNamePattern {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // TODO: use revset::format_remote_symbol() if FromStr is migrated to
         // the revset parser.
-        let RemoteBookmarkNamePattern { bookmark, remote } = self;
+        let Self { bookmark, remote } = self;
         write!(f, "{bookmark}@{remote}")
     }
 }
@@ -3309,12 +3309,12 @@ pub struct RevisionArg(Cow<'static, str>);
 
 impl RevisionArg {
     /// The working-copy symbol, which is the default of the most commands.
-    pub const AT: Self = RevisionArg(Cow::Borrowed("@"));
+    pub const AT: Self = Self(Cow::Borrowed("@"));
 }
 
 impl From<String> for RevisionArg {
     fn from(s: String) -> Self {
-        RevisionArg(s.into())
+        Self(s.into())
     }
 }
 
@@ -3331,10 +3331,10 @@ impl fmt::Display for RevisionArg {
 }
 
 impl ValueParserFactory for RevisionArg {
-    type Parser = MapValueParser<NonEmptyStringValueParser, fn(String) -> RevisionArg>;
+    type Parser = MapValueParser<NonEmptyStringValueParser, fn(String) -> Self>;
 
     fn value_parser() -> Self::Parser {
-        NonEmptyStringValueParser::new().map(RevisionArg::from)
+        NonEmptyStringValueParser::new().map(Self::from)
     }
 }
 
@@ -3674,7 +3674,7 @@ impl<'a> CliRunner<'a> {
     pub fn init() -> Self {
         let tracing_subscription = TracingSubscription::init();
         crate::cleanup_guard::init();
-        CliRunner {
+        Self {
             tracing_subscription,
             app: crate::commands::default_app(),
             config_layers: crate::config::default_config_layers(),

@@ -111,7 +111,7 @@ pub enum StringPattern {
 impl StringPattern {
     /// Pattern that matches any string.
     pub const fn everything() -> Self {
-        StringPattern::Substring(String::new())
+        Self::Substring(String::new())
     }
 
     /// Parses the given string as a [`StringPattern`]. Everything before the
@@ -120,49 +120,49 @@ impl StringPattern {
     /// specified kind is returned. Returns an error if the string has an
     /// unrecognized prefix. Otherwise, a `StringPattern::Exact` is
     /// returned.
-    pub fn parse(src: &str) -> Result<StringPattern, StringPatternParseError> {
+    pub fn parse(src: &str) -> Result<Self, StringPatternParseError> {
         if let Some((kind, pat)) = src.split_once(':') {
-            StringPattern::from_str_kind(pat, kind)
+            Self::from_str_kind(pat, kind)
         } else {
-            Ok(StringPattern::exact(src))
+            Ok(Self::exact(src))
         }
     }
 
     /// Constructs a pattern that matches exactly.
     pub fn exact(src: impl Into<String>) -> Self {
-        StringPattern::Exact(src.into())
+        Self::Exact(src.into())
     }
 
     /// Constructs a pattern that matches case‐insensitively.
     pub fn exact_i(src: impl Into<String>) -> Self {
-        StringPattern::ExactI(src.into())
+        Self::ExactI(src.into())
     }
 
     /// Constructs a pattern that matches a substring.
     pub fn substring(src: impl Into<String>) -> Self {
-        StringPattern::Substring(src.into())
+        Self::Substring(src.into())
     }
 
     /// Constructs a pattern that case‐insensitively matches a substring.
     pub fn substring_i(src: impl Into<String>) -> Self {
-        StringPattern::SubstringI(src.into())
+        Self::SubstringI(src.into())
     }
 
     /// Parses the given string as a glob pattern.
     pub fn glob(src: &str) -> Result<Self, StringPatternParseError> {
         // TODO: if no meta character found, it can be mapped to Exact.
-        Ok(StringPattern::Glob(Box::new(parse_glob(src, false)?)))
+        Ok(Self::Glob(Box::new(parse_glob(src, false)?)))
     }
 
     /// Parses the given string as a case‐insensitive glob pattern.
     pub fn glob_i(src: &str) -> Result<Self, StringPatternParseError> {
-        Ok(StringPattern::GlobI(Box::new(parse_glob(src, true)?)))
+        Ok(Self::GlobI(Box::new(parse_glob(src, true)?)))
     }
 
     /// Parses the given string as a regular expression.
     pub fn regex(src: &str) -> Result<Self, StringPatternParseError> {
         let pattern = regex::bytes::Regex::new(src).map_err(StringPatternParseError::Regex)?;
-        Ok(StringPattern::Regex(pattern))
+        Ok(Self::Regex(pattern))
     }
 
     /// Parses the given string as a case-insensitive regular expression.
@@ -171,20 +171,20 @@ impl StringPattern {
             .case_insensitive(true)
             .build()
             .map_err(StringPatternParseError::Regex)?;
-        Ok(StringPattern::RegexI(pattern))
+        Ok(Self::RegexI(pattern))
     }
 
     /// Parses the given string as a pattern of the specified `kind`.
     pub fn from_str_kind(src: &str, kind: &str) -> Result<Self, StringPatternParseError> {
         match kind {
-            "exact" => Ok(StringPattern::exact(src)),
-            "exact-i" => Ok(StringPattern::exact_i(src)),
-            "substring" => Ok(StringPattern::substring(src)),
-            "substring-i" => Ok(StringPattern::substring_i(src)),
-            "glob" => StringPattern::glob(src),
-            "glob-i" => StringPattern::glob_i(src),
-            "regex" => StringPattern::regex(src),
-            "regex-i" => StringPattern::regex_i(src),
+            "exact" => Ok(Self::exact(src)),
+            "exact-i" => Ok(Self::exact_i(src)),
+            "substring" => Ok(Self::substring(src)),
+            "substring-i" => Ok(Self::substring_i(src)),
+            "glob" => Self::glob(src),
+            "glob-i" => Self::glob_i(src),
+            "regex" => Self::regex(src),
+            "regex-i" => Self::regex_i(src),
             _ => Err(StringPatternParseError::InvalidKind(kind.to_owned())),
         }
     }
@@ -202,7 +202,7 @@ impl StringPattern {
         // expect they can use case‐insensitive patterns in contexts where they
         // generally can’t.
         match self {
-            StringPattern::Exact(literal) => Some(literal),
+            Self::Exact(literal) => Some(literal),
             _ => None,
         }
     }
@@ -210,14 +210,14 @@ impl StringPattern {
     /// Returns the original string of this pattern.
     pub fn as_str(&self) -> &str {
         match self {
-            StringPattern::Exact(literal) => literal,
-            StringPattern::ExactI(literal) => literal,
-            StringPattern::Substring(needle) => needle,
-            StringPattern::SubstringI(needle) => needle,
-            StringPattern::Glob(pattern) => pattern.as_str(),
-            StringPattern::GlobI(pattern) => pattern.as_str(),
-            StringPattern::Regex(pattern) => pattern.as_str(),
-            StringPattern::RegexI(pattern) => pattern.as_str(),
+            Self::Exact(literal) => literal,
+            Self::ExactI(literal) => literal,
+            Self::Substring(needle) => needle,
+            Self::SubstringI(needle) => needle,
+            Self::Glob(pattern) => pattern.as_str(),
+            Self::GlobI(pattern) => pattern.as_str(),
+            Self::Regex(pattern) => pattern.as_str(),
+            Self::RegexI(pattern) => pattern.as_str(),
         }
     }
 
@@ -228,20 +228,20 @@ impl StringPattern {
         // expect they can use case‐insensitive patterns in contexts where they
         // generally can’t.
         match self {
-            StringPattern::Exact(literal) => Some(globset::escape(literal).into()),
-            StringPattern::Substring(needle) => {
+            Self::Exact(literal) => Some(globset::escape(literal).into()),
+            Self::Substring(needle) => {
                 if needle.is_empty() {
                     Some("*".into())
                 } else {
                     Some(format!("*{}*", globset::escape(needle)).into())
                 }
             }
-            StringPattern::Glob(pattern) => Some(pattern.as_str().into()),
-            StringPattern::ExactI(_) => None,
-            StringPattern::SubstringI(_) => None,
-            StringPattern::GlobI(_) => None,
-            StringPattern::Regex(_) => None,
-            StringPattern::RegexI(_) => None,
+            Self::Glob(pattern) => Some(pattern.as_str().into()),
+            Self::ExactI(_) => None,
+            Self::SubstringI(_) => None,
+            Self::GlobI(_) => None,
+            Self::Regex(_) => None,
+            Self::RegexI(_) => None,
         }
     }
 
@@ -273,19 +273,19 @@ impl StringPattern {
         // For some discussion of this topic, see:
         // <https://github.com/unicode-org/icu4x/issues/3151>
         match self {
-            StringPattern::Exact(literal) => haystack == literal.as_bytes(),
-            StringPattern::ExactI(literal) => haystack.eq_ignore_ascii_case(literal.as_bytes()),
-            StringPattern::Substring(needle) => haystack.contains_str(needle),
-            StringPattern::SubstringI(needle) => haystack
+            Self::Exact(literal) => haystack == literal.as_bytes(),
+            Self::ExactI(literal) => haystack.eq_ignore_ascii_case(literal.as_bytes()),
+            Self::Substring(needle) => haystack.contains_str(needle),
+            Self::SubstringI(needle) => haystack
                 .to_ascii_lowercase()
                 .contains_str(needle.to_ascii_lowercase()),
             // (Glob, GlobI) and (Regex, RegexI) pairs are identical here, but
             // callers might want to translate these to backend-specific query
             // differently.
-            StringPattern::Glob(pattern) => pattern.is_match(haystack),
-            StringPattern::GlobI(pattern) => pattern.is_match(haystack),
-            StringPattern::Regex(pattern) => pattern.is_match(haystack),
-            StringPattern::RegexI(pattern) => pattern.is_match(haystack),
+            Self::Glob(pattern) => pattern.is_match(haystack),
+            Self::GlobI(pattern) => pattern.is_match(haystack),
+            Self::Regex(pattern) => pattern.is_match(haystack),
+            Self::RegexI(pattern) => pattern.is_match(haystack),
         }
     }
 

@@ -116,7 +116,7 @@ pub(super) struct RevsetGraphWalk<'a> {
 
 impl<'a> RevsetGraphWalk<'a> {
     pub fn new(input_set_walk: BoxedRevWalk<'a>, skip_transitive_edges: bool) -> Self {
-        RevsetGraphWalk {
+        Self {
             input_set_walk,
             look_ahead: VecDeque::new(),
             min_position: GlobalCommitPosition::MAX,

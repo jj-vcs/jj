@@ -29,7 +29,7 @@ impl CommandOutput {
     /// Normalizes Windows directory separator to slash.
     #[must_use]
     pub fn normalize_backslash(self) -> Self {
-        CommandOutput {
+        Self {
             stdout: self.stdout.normalize_backslash(),
             stderr: self.stderr.normalize_backslash(),
             status: self.status,
@@ -39,7 +39,7 @@ impl CommandOutput {
     /// Normalizes [`ExitStatus`] message in stderr text.
     #[must_use]
     pub fn normalize_stderr_exit_status(self) -> Self {
-        CommandOutput {
+        Self {
             stdout: self.stdout,
             stderr: self.stderr.normalize_exit_status(),
             status: self.status,
@@ -50,7 +50,7 @@ impl CommandOutput {
     /// normalized stderr text.
     #[must_use]
     pub fn strip_stderr_last_line(self) -> Self {
-        CommandOutput {
+        Self {
             stdout: self.stdout,
             stderr: self.stderr.strip_last_line(),
             status: self.status,
@@ -60,7 +60,7 @@ impl CommandOutput {
     /// Removes all but the first `n` lines from normalized stdout text.
     #[must_use]
     pub fn take_stdout_n_lines(self, n: usize) -> Self {
-        CommandOutput {
+        Self {
             stdout: self.stdout.take_n_lines(n),
             stderr: self.stderr,
             status: self.status,
@@ -69,7 +69,7 @@ impl CommandOutput {
 
     #[must_use]
     pub fn normalize_stdout_with(self, f: impl FnOnce(String) -> String) -> Self {
-        CommandOutput {
+        Self {
             stdout: self.stdout.normalize_with(f),
             stderr: self.stderr,
             status: self.status,
@@ -78,7 +78,7 @@ impl CommandOutput {
 
     #[must_use]
     pub fn normalize_stderr_with(self, f: impl FnOnce(String) -> String) -> Self {
-        CommandOutput {
+        Self {
             stdout: self.stdout,
             stderr: self.stderr.normalize_with(f),
             status: self.status,
@@ -95,7 +95,7 @@ impl CommandOutput {
 
 impl Display for CommandOutput {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let CommandOutput {
+        let Self {
             stdout,
             stderr,
             status,

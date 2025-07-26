@@ -419,7 +419,7 @@ impl<'a> ByteFragment<'a> {
     fn new(word: &'a [u8], whitespace_len: usize) -> Self {
         // We don't care about the width of non-UTF-8 bytes, but should not panic.
         let word_width = textwrap::core::display_width(&String::from_utf8_lossy(word));
-        ByteFragment {
+        Self {
             word,
             whitespace_len,
             word_width,

@@ -67,7 +67,7 @@ pub struct DefaultIndexStoreInitError(#[from] pub PathError);
 
 impl From<DefaultIndexStoreInitError> for BackendInitError {
     fn from(err: DefaultIndexStoreInitError) -> Self {
-        BackendInitError(err.into())
+        Self(err.into())
     }
 }
 
@@ -104,15 +104,15 @@ impl DefaultIndexStore {
     }
 
     pub fn init(dir: &Path) -> Result<Self, DefaultIndexStoreInitError> {
-        let store = DefaultIndexStore {
+        let store = Self {
             dir: dir.to_owned(),
         };
         store.ensure_base_dirs()?;
         Ok(store)
     }
 
-    pub fn load(dir: &Path) -> DefaultIndexStore {
-        DefaultIndexStore {
+    pub fn load(dir: &Path) -> Self {
+        Self {
             dir: dir.to_owned(),
         }
     }

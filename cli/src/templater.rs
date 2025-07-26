@@ -187,7 +187,7 @@ impl<T, L> LabelTemplate<T, L> {
         T: Template,
         L: TemplateProperty<Output = Vec<String>>,
     {
-        LabelTemplate { content, labels }
+        Self { content, labels }
     }
 }
 
@@ -254,7 +254,7 @@ impl<T, F> ReformatTemplate<T, F> {
         T: Template,
         F: Fn(&mut TemplateFormatter, &FormatRecorder) -> io::Result<()>,
     {
-        ReformatTemplate { content, reformat }
+        Self { content, reformat }
     }
 }
 
@@ -283,7 +283,7 @@ impl<S, T> SeparateTemplate<S, T> {
         S: Template,
         T: Template,
     {
-        SeparateTemplate {
+        Self {
             separator,
             contents,
         }
@@ -321,7 +321,7 @@ where
     E: error::Error + Send + Sync + 'static,
 {
     fn from(err: E) -> Self {
-        TemplatePropertyError(err.into())
+        Self(err.into())
     }
 }
 
@@ -485,7 +485,7 @@ impl<P> FormattablePropertyTemplate<P> {
         P: TemplateProperty,
         P::Output: Template,
     {
-        FormattablePropertyTemplate { property }
+        Self { property }
     }
 }
 
@@ -509,7 +509,7 @@ pub struct PlainTextFormattedProperty<T> {
 
 impl<T> PlainTextFormattedProperty<T> {
     pub fn new(template: T) -> Self {
-        PlainTextFormattedProperty { template }
+        Self { template }
     }
 }
 
@@ -542,7 +542,7 @@ impl<P, S, F> ListPropertyTemplate<P, S, F> {
         S: Template,
         F: Fn(&mut TemplateFormatter, O) -> io::Result<()>,
     {
-        ListPropertyTemplate {
+        Self {
             property,
             separator,
             format_item,
@@ -607,7 +607,7 @@ impl<P, T, U> ConditionalTemplate<P, T, U> {
         T: Template,
         U: Template,
     {
-        ConditionalTemplate {
+        Self {
             condition,
             true_template,
             false_template,
@@ -649,7 +649,7 @@ impl<P, F> TemplateFunction<P, F> {
         P: TemplateProperty,
         F: Fn(P::Output) -> Result<O, TemplatePropertyError>,
     {
-        TemplateFunction { property, function }
+        Self { property, function }
     }
 }
 
@@ -673,7 +673,7 @@ pub struct PropertyPlaceholder<O> {
 
 impl<O> PropertyPlaceholder<O> {
     pub fn new() -> Self {
-        PropertyPlaceholder {
+        Self {
             value: Rc::new(RefCell::new(None)),
         }
     }
@@ -721,7 +721,7 @@ pub struct TemplateRenderer<'a, C> {
 
 impl<'a, C: Clone> TemplateRenderer<'a, C> {
     pub fn new(template: Box<dyn Template + 'a>, placeholder: PropertyPlaceholder<C>) -> Self {
-        TemplateRenderer {
+        Self {
             template,
             placeholder,
             labels: Vec::new(),
@@ -766,7 +766,7 @@ pub struct TemplateFormatter<'a> {
 
 impl<'a> TemplateFormatter<'a> {
     fn new(formatter: &'a mut dyn Formatter, error_handler: PropertyErrorHandler) -> Self {
-        TemplateFormatter {
+        Self {
             formatter,
             error_handler,
         }

@@ -76,7 +76,7 @@ impl Hash for Tree {
 
 impl Tree {
     pub fn new(store: Arc<Store>, dir: RepoPathBuf, id: TreeId, data: Arc<backend::Tree>) -> Self {
-        Tree {
+        Self {
             store,
             dir,
             id,
@@ -86,7 +86,7 @@ impl Tree {
 
     pub fn empty(store: Arc<Store>, dir: RepoPathBuf) -> Self {
         let id = store.empty_tree_id().clone();
-        Tree {
+        Self {
             store,
             dir,
             id,
@@ -136,7 +136,7 @@ impl Tree {
         }
     }
 
-    pub fn sub_tree(&self, name: &RepoPathComponent) -> BackendResult<Option<Tree>> {
+    pub fn sub_tree(&self, name: &RepoPathComponent) -> BackendResult<Option<Self>> {
         if let Some(sub_tree) = self.data.value(name) {
             match sub_tree {
                 TreeValue::Tree(sub_tree_id) => {
@@ -151,12 +151,12 @@ impl Tree {
         }
     }
 
-    fn known_sub_tree(&self, subdir: RepoPathBuf, id: &TreeId) -> Tree {
+    fn known_sub_tree(&self, subdir: RepoPathBuf, id: &TreeId) -> Self {
         self.store.get_tree(subdir, id).unwrap()
     }
 
     /// Look up the tree at the given path.
-    pub fn sub_tree_recursive(&self, path: &RepoPath) -> BackendResult<Option<Tree>> {
+    pub fn sub_tree_recursive(&self, path: &RepoPath) -> BackendResult<Option<Self>> {
         let mut current_tree = self.clone();
         for name in path.components() {
             match current_tree.sub_tree(name)? {

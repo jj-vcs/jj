@@ -83,7 +83,7 @@ impl Hash for Commit {
 
 impl Commit {
     pub fn new(store: Arc<Store>, id: CommitId, data: Arc<backend::Commit>) -> Self {
-        Commit { store, id, data }
+        Self { store, id, data }
     }
 
     pub fn store(&self) -> &Arc<Store> {
@@ -98,11 +98,11 @@ impl Commit {
         &self.data.parents
     }
 
-    pub fn parents(&self) -> impl Iterator<Item = BackendResult<Commit>> + use<'_> {
+    pub fn parents(&self) -> impl Iterator<Item = BackendResult<Self>> + use<'_> {
         self.data.parents.iter().map(|id| self.store.get_commit(id))
     }
 
-    pub async fn parents_async(&self) -> BackendResult<Vec<Commit>> {
+    pub async fn parents_async(&self) -> BackendResult<Vec<Self>> {
         try_join_all(
             self.data
                 .parents

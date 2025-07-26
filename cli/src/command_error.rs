@@ -101,7 +101,7 @@ impl CommandError {
         kind: CommandErrorKind,
         err: impl Into<Box<dyn error::Error + Send + Sync>>,
     ) -> Self {
-        CommandError {
+        Self {
             kind,
             error: Arc::from(err.into()),
             hints: vec![],
@@ -168,7 +168,7 @@ impl ErrorWithMessage {
         message: impl Into<String>,
         source: impl Into<Box<dyn error::Error + Send + Sync>>,
     ) -> Self {
-        ErrorWithMessage {
+        Self {
             message: message.into(),
             source: source.into(),
         }
@@ -242,7 +242,7 @@ impl From<io::Error> for CommandError {
             io::ErrorKind::BrokenPipe => CommandErrorKind::BrokenPipe,
             _ => CommandErrorKind::User,
         };
-        CommandError::new(kind, err)
+        Self::new(kind, err)
     }
 }
 

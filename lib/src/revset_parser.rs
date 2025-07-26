@@ -71,71 +71,71 @@ impl Rule {
     fn is_compat(&self) -> bool {
         matches!(
             self,
-            Rule::compat_parents_op
-                | Rule::compat_dag_range_op
-                | Rule::compat_dag_range_pre_op
-                | Rule::compat_dag_range_post_op
-                | Rule::compat_add_op
-                | Rule::compat_sub_op
+            Self::compat_parents_op
+                | Self::compat_dag_range_op
+                | Self::compat_dag_range_pre_op
+                | Self::compat_dag_range_post_op
+                | Self::compat_add_op
+                | Self::compat_sub_op
         )
     }
 
     fn to_symbol(self) -> Option<&'static str> {
         match self {
-            Rule::EOI => None,
-            Rule::whitespace => None,
-            Rule::identifier_part => None,
-            Rule::identifier => None,
-            Rule::strict_identifier_part => None,
-            Rule::strict_identifier => None,
-            Rule::symbol => None,
-            Rule::string_escape => None,
-            Rule::string_content_char => None,
-            Rule::string_content => None,
-            Rule::string_literal => None,
-            Rule::raw_string_content => None,
-            Rule::raw_string_literal => None,
-            Rule::at_op => Some("@"),
-            Rule::pattern_kind_op => Some(":"),
-            Rule::parents_op => Some("-"),
-            Rule::children_op => Some("+"),
-            Rule::compat_parents_op => Some("^"),
-            Rule::dag_range_op
-            | Rule::dag_range_pre_op
-            | Rule::dag_range_post_op
-            | Rule::dag_range_all_op => Some("::"),
-            Rule::compat_dag_range_op
-            | Rule::compat_dag_range_pre_op
-            | Rule::compat_dag_range_post_op => Some(":"),
-            Rule::range_op => Some(".."),
-            Rule::range_pre_op | Rule::range_post_op | Rule::range_all_op => Some(".."),
-            Rule::range_ops => None,
-            Rule::range_pre_ops => None,
-            Rule::range_post_ops => None,
-            Rule::range_all_ops => None,
-            Rule::negate_op => Some("~"),
-            Rule::union_op => Some("|"),
-            Rule::intersection_op => Some("&"),
-            Rule::difference_op => Some("~"),
-            Rule::compat_add_op => Some("+"),
-            Rule::compat_sub_op => Some("-"),
-            Rule::infix_op => None,
-            Rule::function => None,
-            Rule::function_name => None,
-            Rule::keyword_argument => None,
-            Rule::argument => None,
-            Rule::function_arguments => None,
-            Rule::formal_parameters => None,
-            Rule::string_pattern => None,
-            Rule::primary => None,
-            Rule::neighbors_expression => None,
-            Rule::range_expression => None,
-            Rule::expression => None,
-            Rule::program_modifier => None,
-            Rule::program => None,
-            Rule::symbol_name => None,
-            Rule::function_alias_declaration => None,
-            Rule::alias_declaration => None,
+            Self::EOI => None,
+            Self::whitespace => None,
+            Self::identifier_part => None,
+            Self::identifier => None,
+            Self::strict_identifier_part => None,
+            Self::strict_identifier => None,
+            Self::symbol => None,
+            Self::string_escape => None,
+            Self::string_content_char => None,
+            Self::string_content => None,
+            Self::string_literal => None,
+            Self::raw_string_content => None,
+            Self::raw_string_literal => None,
+            Self::at_op => Some("@"),
+            Self::pattern_kind_op => Some(":"),
+            Self::parents_op => Some("-"),
+            Self::children_op => Some("+"),
+            Self::compat_parents_op => Some("^"),
+            Self::dag_range_op
+            | Self::dag_range_pre_op
+            | Self::dag_range_post_op
+            | Self::dag_range_all_op => Some("::"),
+            Self::compat_dag_range_op
+            | Self::compat_dag_range_pre_op
+            | Self::compat_dag_range_post_op => Some(":"),
+            Self::range_op => Some(".."),
+            Self::range_pre_op | Self::range_post_op | Self::range_all_op => Some(".."),
+            Self::range_ops => None,
+            Self::range_pre_ops => None,
+            Self::range_post_ops => None,
+            Self::range_all_ops => None,
+            Self::negate_op => Some("~"),
+            Self::union_op => Some("|"),
+            Self::intersection_op => Some("&"),
+            Self::difference_op => Some("~"),
+            Self::compat_add_op => Some("+"),
+            Self::compat_sub_op => Some("-"),
+            Self::infix_op => None,
+            Self::function => None,
+            Self::function_name => None,
+            Self::keyword_argument => None,
+            Self::argument => None,
+            Self::function_arguments => None,
+            Self::formal_parameters => None,
+            Self::string_pattern => None,
+            Self::primary => None,
+            Self::neighbors_expression => None,
+            Self::range_expression => None,
+            Self::expression => None,
+            Self::program_modifier => None,
+            Self::program => None,
+            Self::symbol_name => None,
+            Self::function_alias_declaration => None,
+            Self::alias_declaration => None,
         }
     }
 }
@@ -206,7 +206,7 @@ impl RevsetParseError {
             pest::error::ErrorVariant::CustomError { message },
             span,
         ));
-        RevsetParseError {
+        Self {
             kind: Box::new(kind),
             pest_error,
             source: None,
@@ -274,7 +274,7 @@ impl AliasExpandError for RevsetParseError {
 
 impl From<pest::error::Error<Rule>> for RevsetParseError {
     fn from(err: pest::error::Error<Rule>) -> Self {
-        RevsetParseError {
+        Self {
             kind: Box::new(RevsetParseErrorKind::SyntaxError),
             pest_error: Box::new(rename_rules_in_pest_error(err)),
             source: None,
@@ -354,39 +354,39 @@ impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
         F: ExpressionFolder<'i, Self> + ?Sized,
     {
         match self {
-            ExpressionKind::Identifier(name) => folder.fold_identifier(name, span),
-            ExpressionKind::String(_)
-            | ExpressionKind::StringPattern { .. }
-            | ExpressionKind::RemoteSymbol(_)
+            Self::Identifier(name) => folder.fold_identifier(name, span),
+            Self::String(_)
+            | Self::StringPattern { .. }
+            | Self::RemoteSymbol(_)
             | ExpressionKind::AtWorkspace(_)
-            | ExpressionKind::AtCurrentWorkspace
-            | ExpressionKind::DagRangeAll
-            | ExpressionKind::RangeAll => Ok(self),
-            ExpressionKind::Unary(op, arg) => {
+            | Self::AtCurrentWorkspace
+            | Self::DagRangeAll
+            | Self::RangeAll => Ok(self),
+            Self::Unary(op, arg) => {
                 let arg = Box::new(folder.fold_expression(*arg)?);
-                Ok(ExpressionKind::Unary(op, arg))
+                Ok(Self::Unary(op, arg))
             }
-            ExpressionKind::Binary(op, lhs, rhs) => {
+            Self::Binary(op, lhs, rhs) => {
                 let lhs = Box::new(folder.fold_expression(*lhs)?);
                 let rhs = Box::new(folder.fold_expression(*rhs)?);
-                Ok(ExpressionKind::Binary(op, lhs, rhs))
+                Ok(Self::Binary(op, lhs, rhs))
             }
-            ExpressionKind::UnionAll(nodes) => {
+            Self::UnionAll(nodes) => {
                 let nodes = dsl_util::fold_expression_nodes(folder, nodes)?;
-                Ok(ExpressionKind::UnionAll(nodes))
+                Ok(Self::UnionAll(nodes))
             }
-            ExpressionKind::FunctionCall(function) => folder.fold_function_call(function, span),
-            ExpressionKind::Modifier(modifier) => {
+            Self::FunctionCall(function) => folder.fold_function_call(function, span),
+            Self::Modifier(modifier) => {
                 let modifier = Box::new(ModifierNode {
                     name: modifier.name,
                     name_span: modifier.name_span,
                     body: folder.fold_expression(modifier.body)?,
                 });
-                Ok(ExpressionKind::Modifier(modifier))
+                Ok(Self::Modifier(modifier))
             }
-            ExpressionKind::AliasExpanded(id, subst) => {
+            Self::AliasExpanded(id, subst) => {
                 let subst = Box::new(folder.fold_expression(*subst)?);
-                Ok(ExpressionKind::AliasExpanded(id, subst))
+                Ok(Self::AliasExpanded(id, subst))
             }
         }
     }
@@ -394,15 +394,15 @@ impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
 
 impl<'i> AliasExpandableExpression<'i> for ExpressionKind<'i> {
     fn identifier(name: &'i str) -> Self {
-        ExpressionKind::Identifier(name)
+        Self::Identifier(name)
     }
 
     fn function_call(function: Box<FunctionCallNode<'i>>) -> Self {
-        ExpressionKind::FunctionCall(function)
+        Self::FunctionCall(function)
     }
 
     fn alias_expanded(id: AliasId<'i>, subst: Box<ExpressionNode<'i>>) -> Self {
-        ExpressionKind::AliasExpanded(id, subst)
+        Self::AliasExpanded(id, subst)
     }
 }
 

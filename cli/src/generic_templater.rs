@@ -56,7 +56,7 @@ impl<'a, C> GenericTemplateLanguage<'a, C> {
         keywords: GenericTemplateBuildKeywordFnMap<'a, C>,
         settings: &UserSettings,
     ) -> Self {
-        GenericTemplateLanguage {
+        Self {
             // Clone settings to keep lifetime simple. It's cheap.
             settings: settings.clone(),
             build_fn_table: GenericTemplateBuildFnTable {

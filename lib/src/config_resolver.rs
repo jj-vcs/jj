@@ -269,7 +269,7 @@ impl ConfigMigrationRule {
             old_name: old_name.into_name_path().into(),
             new_name: new_name.into_name_path().into(),
         };
-        ConfigMigrationRule { inner }
+        Self { inner }
     }
 
     /// Creates rule that moves value from `old_name` to `new_name`, and updates
@@ -287,7 +287,7 @@ impl ConfigMigrationRule {
             new_name: new_name.into_name_path().into(),
             new_value_fn: Box::new(new_value_fn),
         };
-        ConfigMigrationRule { inner }
+        Self { inner }
     }
 
     // TODO: update value, etc.
@@ -302,7 +302,7 @@ impl ConfigMigrationRule {
             matches_fn: Box::new(matches_fn),
             apply_fn: Box::new(apply_fn),
         };
-        ConfigMigrationRule { inner }
+        Self { inner }
     }
 
     /// Returns true if `layer` contains an item to be migrated.

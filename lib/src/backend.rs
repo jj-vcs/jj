@@ -179,14 +179,14 @@ impl Eq for MergedTreeId {}
 impl MergedTreeId {
     /// Create a resolved `MergedTreeId` from a single regular tree.
     pub fn resolved(tree_id: TreeId) -> Self {
-        MergedTreeId::Merge(Merge::resolved(tree_id))
+        Self::Merge(Merge::resolved(tree_id))
     }
 
     /// Return this id as `Merge<TreeId>`
     pub fn to_merge(&self) -> Merge<TreeId> {
         match self {
-            MergedTreeId::Legacy(tree_id) => Merge::resolved(tree_id.clone()),
-            MergedTreeId::Merge(tree_ids) => tree_ids.clone(),
+            Self::Legacy(tree_id) => Merge::resolved(tree_id.clone()),
+            Self::Merge(tree_ids) => tree_ids.clone(),
         }
     }
 }
@@ -357,11 +357,11 @@ pub enum TreeValue {
 impl TreeValue {
     pub fn hex(&self) -> String {
         match self {
-            TreeValue::File { id, .. } => id.hex(),
-            TreeValue::Symlink(id) => id.hex(),
-            TreeValue::Tree(id) => id.hex(),
-            TreeValue::GitSubmodule(id) => id.hex(),
-            TreeValue::Conflict(id) => id.hex(),
+            Self::File { id, .. } => id.hex(),
+            Self::Symlink(id) => id.hex(),
+            Self::Tree(id) => id.hex(),
+            Self::GitSubmodule(id) => id.hex(),
+            Self::Conflict(id) => id.hex(),
         }
     }
 }
@@ -374,7 +374,7 @@ pub struct TreeEntry<'a> {
 
 impl<'a> TreeEntry<'a> {
     pub fn new(name: &'a RepoPathComponent, value: &'a TreeValue) -> Self {
-        TreeEntry { name, value }
+        Self { name, value }
     }
 
     pub fn name(&self) -> &'a RepoPathComponent {
@@ -408,7 +408,7 @@ pub struct Tree {
 impl Tree {
     pub fn from_sorted_entries(entries: Vec<(RepoPathComponentBuf, TreeValue)>) -> Self {
         debug_assert!(entries.is_sorted_by(|(a, _), (b, _)| a < b));
-        Tree { entries }
+        Self { entries }
     }
 
     pub fn is_empty(&self) -> bool {

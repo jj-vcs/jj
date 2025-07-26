@@ -103,7 +103,7 @@ pub(super) struct EagerRevWalk<T> {
 
 impl<T: Iterator> EagerRevWalk<T> {
     pub fn new(iter: T) -> Self {
-        EagerRevWalk { iter: iter.fuse() }
+        Self { iter: iter.fuse() }
     }
 }
 
@@ -283,7 +283,7 @@ impl RevWalkDescendantsIndex {
             }
         }
 
-        RevWalkDescendantsIndex { children_map }
+        Self { children_map }
     }
 
     fn contains_pos(&self, pos: GlobalCommitPosition) -> bool {
@@ -310,7 +310,7 @@ pub(super) struct RevWalkBuilder<'a> {
 
 impl<'a> RevWalkBuilder<'a> {
     pub fn new(index: &'a CompositeIndex) -> Self {
-        RevWalkBuilder {
+        Self {
             index,
             wanted: Vec::new(),
             unwanted: Vec::new(),
@@ -562,7 +562,7 @@ impl RevWalkItemGenerationRange {
     ///     + :     :  item's generation     o=====* :  item's range
     /// ```
     fn from_filter_range(range: Range<u32>) -> Self {
-        RevWalkItemGenerationRange {
+        Self {
             start: 0,
             end: u32::saturating_sub(range.end, range.start),
         }
@@ -571,7 +571,7 @@ impl RevWalkItemGenerationRange {
     /// Suppose sorted ranges `self, other`, merges them if overlapped.
     #[must_use]
     fn try_merge_end(self, other: Self) -> Option<Self> {
-        (other.start <= self.end).then(|| RevWalkItemGenerationRange {
+        (other.start <= self.end).then(|| Self {
             start: self.start,
             end: max(self.end, other.end),
         })

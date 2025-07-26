@@ -42,7 +42,7 @@ pub struct SimpleOpHeadsStoreInitError(#[from] pub PathError);
 
 impl From<SimpleOpHeadsStoreInitError> for BackendInitError {
     fn from(err: SimpleOpHeadsStoreInitError) -> Self {
-        BackendInitError(err.into())
+        Self(err.into())
     }
 }
 

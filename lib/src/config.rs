@@ -146,7 +146,7 @@ impl ConfigNamePathBuf {
     ///
     /// This isn't a valid TOML key expression, but provided for convenience.
     pub fn root() -> Self {
-        ConfigNamePathBuf(vec![])
+        Self(vec![])
     }
 
     /// Returns true if the path is empty (i.e. pointing to the root table.)
@@ -172,8 +172,8 @@ impl ConfigNamePathBuf {
 
 // Help obtain owned value from ToConfigNamePath::Output. If we add a slice
 // type (like &Path for PathBuf), this will be From<&ConfigNamePath>.
-impl From<&ConfigNamePathBuf> for ConfigNamePathBuf {
-    fn from(value: &ConfigNamePathBuf) -> Self {
+impl From<&Self> for ConfigNamePathBuf {
+    fn from(value: &Self) -> Self {
         value.clone()
     }
 }
@@ -181,7 +181,7 @@ impl From<&ConfigNamePathBuf> for ConfigNamePathBuf {
 impl<K: Into<toml_edit::Key>> FromIterator<K> for ConfigNamePathBuf {
     fn from_iter<I: IntoIterator<Item = K>>(iter: I) -> Self {
         let keys = iter.into_iter().map(|k| k.into()).collect();
-        ConfigNamePathBuf(keys)
+        Self(keys)
     }
 }
 
@@ -327,7 +327,7 @@ impl ConfigLayer {
 
     /// Creates new layer with the configuration variables `data`.
     pub fn with_data(source: ConfigSource, data: DocumentMut) -> Self {
-        ConfigLayer {
+        Self {
             source,
             path: None,
             data,
@@ -352,7 +352,7 @@ impl ConfigLayer {
             error: Box::new(error),
             source_path: Some(path.clone()),
         })?;
-        Ok(ConfigLayer {
+        Ok(Self {
             source,
             path: Some(path),
             data: data.into_mut(),
@@ -575,14 +575,14 @@ impl ConfigFile {
             }
             Err(err) => return Err(err),
         };
-        Ok(ConfigFile { layer })
+        Ok(Self { layer })
     }
 
     /// Wraps file-based [`ConfigLayer`] for modification. Returns `Err(layer)`
     /// if the source `path` is unknown.
     pub fn from_layer(layer: Arc<ConfigLayer>) -> Result<Self, Arc<ConfigLayer>> {
         if layer.path.is_some() {
-            Ok(ConfigFile { layer })
+            Ok(Self { layer })
         } else {
             Err(layer)
         }
@@ -645,13 +645,13 @@ pub struct StackedConfig {
 impl StackedConfig {
     /// Creates an empty stack of configuration layers.
     pub fn empty() -> Self {
-        StackedConfig { layers: vec![] }
+        Self { layers: vec![] }
     }
 
     /// Creates a stack of configuration layers containing the default variables
     /// referred to by `jj-lib`.
     pub fn with_defaults() -> Self {
-        StackedConfig {
+        Self {
             layers: DEFAULT_CONFIG_LAYERS.to_vec(),
         }
     }

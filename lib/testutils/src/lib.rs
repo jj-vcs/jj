@@ -150,7 +150,7 @@ pub struct TestEnvironment {
 
 impl TestEnvironment {
     pub fn init() -> Self {
-        TestEnvironment {
+        Self {
             temp_dir: new_temp_dir(),
             test_backend_factory: TestBackendFactory::default(),
         }
@@ -208,9 +208,9 @@ impl TestRepoBackend {
         store_path: &Path,
     ) -> Result<Box<dyn Backend>, BackendInitError> {
         match self {
-            TestRepoBackend::Git => Ok(Box::new(GitBackend::init_internal(settings, store_path)?)),
-            TestRepoBackend::Simple => Ok(Box::new(SimpleBackend::init(store_path))),
-            TestRepoBackend::Test => Ok(Box::new(env.test_backend_factory.init(store_path))),
+            Self::Git => Ok(Box::new(GitBackend::init_internal(settings, store_path)?)),
+            Self::Simple => Ok(Box::new(SimpleBackend::init(store_path))),
+            Self::Test => Ok(Box::new(env.test_backend_factory.init(store_path))),
         }
     }
 }
@@ -622,7 +622,7 @@ pub struct CommitGraphBuilder<'repo> {
 
 impl<'repo> CommitGraphBuilder<'repo> {
     pub fn new(mut_repo: &'repo mut MutableRepo) -> Self {
-        CommitGraphBuilder { mut_repo }
+        Self { mut_repo }
     }
 
     pub fn initial_commit(&mut self) -> Commit {

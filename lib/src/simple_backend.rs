@@ -127,7 +127,7 @@ impl SimpleBackend {
         let empty_tree_id = TreeId::from_hex(
             "482ae5a29fbe856c7272f2071b8b0f0359ee2d89ff392b8a900643fbd0836eccd067b8bf41909e206c90d45d6e7d8b6686b93ecaee5fe1a9060d87b672101310",
         );
-        SimpleBackend {
+        Self {
             path: store_path.to_path_buf(),
             root_commit_id,
             root_change_id,

@@ -151,7 +151,7 @@ pub(crate) struct RefSpec {
 
 impl RefSpec {
     fn forced(source: impl Into<String>, destination: impl Into<String>) -> Self {
-        RefSpec {
+        Self {
             forced: true,
             source: Some(source.into()),
             destination: destination.into(),
@@ -160,7 +160,7 @@ impl RefSpec {
 
     fn delete(destination: impl Into<String>) -> Self {
         // We don't force push on branch deletion
-        RefSpec {
+        Self {
             forced: false,
             source: None,
             destination: destination.into(),
@@ -208,7 +208,7 @@ impl<'a> RefToPush<'a> {
                  source of truth. This means the lookup should always work.",
             );
 
-        RefToPush {
+        Self {
             refspec,
             expected_location,
         }
@@ -371,7 +371,7 @@ pub enum GitImportError {
 
 impl GitImportError {
     fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
-        GitImportError::Git(source.into())
+        Self::Git(source.into())
     }
 }
 
@@ -827,7 +827,7 @@ pub enum GitExportError {
 
 impl GitExportError {
     fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
-        GitExportError::Git(source.into())
+        Self::Git(source.into())
     }
 }
 
@@ -1241,7 +1241,7 @@ pub enum GitResetHeadError {
 
 impl GitResetHeadError {
     fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
-        GitResetHeadError::Git(source.into())
+        Self::Git(source.into())
     }
 }
 
@@ -1598,7 +1598,7 @@ pub enum GitRemoteManagementError {
 
 impl GitRemoteManagementError {
     fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
-        GitRemoteManagementError::InternalGitError(source.into())
+        Self::InternalGitError(source.into())
     }
 }
 
