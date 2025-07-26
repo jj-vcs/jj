@@ -72,6 +72,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Glob patterns now support `{foo,bar}` syntax. There may be subtle behavior
   changes as we use the [globset](https://crates.io/crates/globset) library now.
 
+* Added support `revsets.git-push` which allows you to customize the default
+  set of commits to push. See issue
+  [#3649](https://github.com/jj-vcs/jj/issues/3650).
+
 ### Fixed bugs
 
 ### Packaging changes
@@ -115,6 +119,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The ANSI 256-color palette can be used when configuring colors. For example,
   `colors."diff removed token" = { bg = "ansi-color-52", underline = false }`
   will apply a dark red background on removed words in diffs.
+
+* Log node templates are now specified in toml rather than hardcoded.
+
 
 ### Fixed bugs
 
@@ -186,7 +193,6 @@ Thanks to the people who made this release happen!
 
 * `jj evolog` can show associated operations for commits created by new jj
   versions.
-
 ### Breaking changes
 
 * The old `libgit2` code path for fetches and pushes has been removed,
