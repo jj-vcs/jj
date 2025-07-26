@@ -574,7 +574,7 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
     /// Returns symbol string if this expression is of that type.
     pub fn as_symbol(&self) -> Option<&str> {
         match self {
-            RevsetExpression::CommitRef(RevsetCommitRef::Symbol(name)) => Some(name),
+            Self::CommitRef(RevsetCommitRef::Symbol(name)) => Some(name),
             _ => None,
         }
     }
@@ -2022,12 +2022,12 @@ fn fold_heads_range<St: ExpressionState>(
         }
 
         fn add_filter(mut self, expression: &Rc<RevsetExpression<St>>) -> Self {
-            if let RevsetExpression::All = self.filter.as_ref() {
+            self.filter = if let RevsetExpression::All = self.filter.as_ref() {
                 // x..y & all() & f -> x..y & f
-                self.filter = expression.clone();
+                expression.clone()
             } else {
-                self.filter = self.filter.intersection(expression);
-            }
+                self.filter.intersection(expression)
+            };
             self
         }
     }
@@ -2670,7 +2670,7 @@ struct ExpressionSymbolResolver<'a, 'b> {
 
 impl<'a, 'b> ExpressionSymbolResolver<'a, 'b> {
     fn new(base_repo: &'a dyn Repo, symbol_resolver: &'a SymbolResolver<'b>) -> Self {
-        ExpressionSymbolResolver {
+        Self {
             base_repo,
             repo_stack: vec![],
             symbol_resolver,

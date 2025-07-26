@@ -185,7 +185,7 @@ struct ConfigPath {
 impl ConfigPath {
     fn new(path: PathBuf) -> Self {
         use ConfigPathState::*;
-        ConfigPath {
+        Self {
             state: if path.exists() { Exists } else { New },
             path,
         }
@@ -368,7 +368,7 @@ impl ConfigEnv {
             home_dir: home_dir.clone(),
             jj_config: env::var("JJ_CONFIG").ok(),
         };
-        ConfigEnv {
+        Self {
             home_dir,
             repo_path: None,
             user_config_paths: env.resolve(ui),
@@ -786,15 +786,13 @@ impl CommandNameAndArgs {
     /// The command name may be an empty string (as well as each argument.)
     pub fn split_name_and_args(&self) -> (Cow<'_, str>, Cow<'_, [String]>) {
         match self {
-            CommandNameAndArgs::String(s) => {
+            Self::String(s) => {
                 // Handle things like `EDITOR=emacs -nw` (TODO: parse shell escapes)
                 let mut args = s.split(' ').map(|s| s.to_owned());
                 (args.next().unwrap().into(), args.collect())
             }
-            CommandNameAndArgs::Vec(NonEmptyCommandArgsVec(a)) => {
-                (Cow::Borrowed(&a[0]), Cow::Borrowed(&a[1..]))
-            }
-            CommandNameAndArgs::Structured {
+            Self::Vec(NonEmptyCommandArgsVec(a)) => (Cow::Borrowed(&a[0]), Cow::Borrowed(&a[1..])),
+            Self::Structured {
                 env: _,
                 command: cmd,
             } => (Cow::Borrowed(&cmd.0[0]), Cow::Borrowed(&cmd.0[1..])),
@@ -807,8 +805,8 @@ impl CommandNameAndArgs {
     /// escaped as `[":builtin"]`.
     pub fn as_str(&self) -> Option<&str> {
         match self {
-            CommandNameAndArgs::String(s) => Some(s),
-            CommandNameAndArgs::Vec(_) | CommandNameAndArgs::Structured { .. } => None,
+            Self::String(s) => Some(s),
+            Self::Vec(_) | Self::Structured { .. } => None,
         }
     }
 
@@ -826,7 +824,7 @@ impl CommandNameAndArgs {
     ) -> Command {
         let (name, args) = self.split_name_and_args();
         let mut cmd = Command::new(name.as_ref());
-        if let CommandNameAndArgs::Structured { env, .. } = self {
+        if let Self::Structured { env, .. } = self {
             cmd.envs(env);
         }
         cmd.args(interpolate_variables(&args, variables));
@@ -836,17 +834,17 @@ impl CommandNameAndArgs {
 
 impl<T: AsRef<str> + ?Sized> From<&T> for CommandNameAndArgs {
     fn from(s: &T) -> Self {
-        CommandNameAndArgs::String(s.as_ref().to_owned())
+        Self::String(s.as_ref().to_owned())
     }
 }
 
 impl fmt::Display for CommandNameAndArgs {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CommandNameAndArgs::String(s) => write!(f, "{s}"),
+            Self::String(s) => write!(f, "{s}"),
             // TODO: format with shell escapes
-            CommandNameAndArgs::Vec(a) => write!(f, "{}", a.0.join(" ")),
-            CommandNameAndArgs::Structured { env, command } => {
+            Self::Vec(a) => write!(f, "{}", a.0.join(" ")),
+            Self::Structured { env, command } => {
                 for (k, v) in env {
                     write!(f, "{k}={v} ")?;
                 }
@@ -903,7 +901,7 @@ impl TryFrom<Vec<String>> for NonEmptyCommandArgsVec {
         if args.is_empty() {
             Err("command arguments should not be empty")
         } else {
-            Ok(NonEmptyCommandArgsVec(args))
+            Ok(Self(args))
         }
     }
 }
@@ -1387,15 +1385,15 @@ mod tests {
     }
 
     impl Want {
-        const fn new(path: &'static str) -> Want {
-            Want {
+        const fn new(path: &'static str) -> Self {
+            Self {
                 path,
                 state: WantState::New,
             }
         }
 
-        const fn existing(path: &'static str) -> Want {
-            Want {
+        const fn existing(path: &'static str) -> Self {
+            Self {
                 path,
                 state: WantState::Existing,
             }

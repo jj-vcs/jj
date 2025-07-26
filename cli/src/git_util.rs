@@ -176,7 +176,7 @@ impl GitSidebandProgressMessageWriter {
     pub fn new(ui: &Ui) -> Self {
         let is_terminal = ui.use_progress_indicator();
 
-        GitSidebandProgressMessageWriter {
+        Self {
             display_prefix: "remote: ".as_bytes(),
             suffix: if is_terminal { "\x1B[K" } else { "        " }.as_bytes(),
             scratch: Vec::new(),
@@ -447,7 +447,7 @@ struct RateEstimate {
 
 impl RateEstimate {
     pub fn new() -> Self {
-        RateEstimate { state: None }
+        Self { state: None }
     }
 
     /// Compute smoothed rate from an update

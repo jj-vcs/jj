@@ -43,21 +43,21 @@ impl DatePatternContext {
         kind: &str,
     ) -> Result<DatePattern, DatePatternParseError> {
         match *self {
-            DatePatternContext::Local(dt) => DatePattern::from_str_kind(s, kind, dt),
-            DatePatternContext::Fixed(dt) => DatePattern::from_str_kind(s, kind, dt),
+            Self::Local(dt) => DatePattern::from_str_kind(s, kind, dt),
+            Self::Fixed(dt) => DatePattern::from_str_kind(s, kind, dt),
         }
     }
 }
 
 impl From<DateTime<Local>> for DatePatternContext {
     fn from(value: DateTime<Local>) -> Self {
-        DatePatternContext::Local(value)
+        Self::Local(value)
     }
 }
 
 impl From<DateTime<FixedOffset>> for DatePatternContext {
     fn from(value: DateTime<FixedOffset>) -> Self {
-        DatePatternContext::Fixed(value)
+        Self::Fixed(value)
     }
 }
 
@@ -99,7 +99,7 @@ impl DatePattern {
         s: &str,
         kind: &str,
         now: DateTime<Tz>,
-    ) -> Result<DatePattern, DatePatternParseError>
+    ) -> Result<Self, DatePatternParseError>
     where
         Tz::Offset: Copy,
     {
@@ -107,8 +107,8 @@ impl DatePattern {
             parse_date_string(s, now, Dialect::Us).map_err(DatePatternParseError::ParseError)?;
         let millis_since_epoch = MillisSinceEpoch(d.timestamp_millis());
         match kind {
-            "after" => Ok(DatePattern::AtOrAfter(millis_since_epoch)),
-            "before" => Ok(DatePattern::Before(millis_since_epoch)),
+            "after" => Ok(Self::AtOrAfter(millis_since_epoch)),
+            "before" => Ok(Self::Before(millis_since_epoch)),
             kind => Err(DatePatternParseError::InvalidKind(kind.to_owned())),
         }
     }
@@ -116,8 +116,8 @@ impl DatePattern {
     /// Determines whether a given timestamp is matched by the pattern.
     pub fn matches(&self, timestamp: &Timestamp) -> bool {
         match self {
-            DatePattern::AtOrAfter(earliest) => *earliest <= timestamp.timestamp,
-            DatePattern::Before(latest) => timestamp.timestamp < *latest,
+            Self::AtOrAfter(earliest) => *earliest <= timestamp.timestamp,
+            Self::Before(latest) => timestamp.timestamp < *latest,
         }
     }
 }

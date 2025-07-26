@@ -81,7 +81,7 @@ impl Operation {
         id: OperationId,
         data: impl Into<Arc<op_store::Operation>>,
     ) -> Self {
-        Operation {
+        Self {
             op_store,
             id,
             data: data.into(),
@@ -104,11 +104,11 @@ impl Operation {
         &self.data.parents
     }
 
-    pub fn parents(&self) -> impl ExactSizeIterator<Item = OpStoreResult<Operation>> + use<'_> {
+    pub fn parents(&self) -> impl ExactSizeIterator<Item = OpStoreResult<Self>> + use<'_> {
         let op_store = &self.op_store;
         self.data.parents.iter().map(|parent_id| {
             let data = op_store.read_operation(parent_id)?;
-            Ok(Operation::new(op_store.clone(), parent_id.clone(), data))
+            Ok(Self::new(op_store.clone(), parent_id.clone(), data))
         })
     }
 

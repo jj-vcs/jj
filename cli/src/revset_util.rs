@@ -76,7 +76,7 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
         id_prefix_context: &'repo IdPrefixContext,
         expression: Rc<UserRevsetExpression>,
     ) -> Self {
-        RevsetExpressionEvaluator {
+        Self {
             repo,
             extensions,
             id_prefix_context,

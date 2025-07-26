@@ -77,7 +77,7 @@ pub struct SimpleOpStoreInitError(#[from] pub PathError);
 
 impl From<SimpleOpStoreInitError> for BackendInitError {
     fn from(err: SimpleOpStoreInitError) -> Self {
-        BackendInitError(err.into())
+        Self(err.into())
     }
 }
 
@@ -110,7 +110,7 @@ impl SimpleOpStore {
     }
 
     fn new(store_path: &Path, root_data: RootOperationData) -> Self {
-        SimpleOpStore {
+        Self {
             path: store_path.to_path_buf(),
             root_data,
             root_operation_id: OperationId::from_bytes(&[0; OPERATION_ID_LENGTH]),

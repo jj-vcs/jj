@@ -43,34 +43,34 @@ const STRING_LITERAL_PARSER: StringLiteralParser<Rule> = StringLiteralParser {
 impl Rule {
     fn to_symbol(self) -> Option<&'static str> {
         match self {
-            Rule::EOI => None,
-            Rule::whitespace => None,
-            Rule::identifier => None,
-            Rule::strict_identifier_part => None,
-            Rule::strict_identifier => None,
-            Rule::bare_string => None,
-            Rule::string_escape => None,
-            Rule::string_content_char => None,
-            Rule::string_content => None,
-            Rule::string_literal => None,
-            Rule::raw_string_content => None,
-            Rule::raw_string_literal => None,
-            Rule::pattern_kind_op => Some(":"),
-            Rule::negate_op => Some("~"),
-            Rule::union_op => Some("|"),
-            Rule::intersection_op => Some("&"),
-            Rule::difference_op => Some("~"),
-            Rule::prefix_ops => None,
-            Rule::infix_ops => None,
-            Rule::function => None,
-            Rule::function_name => None,
-            Rule::function_arguments => None,
-            Rule::string_pattern => None,
-            Rule::bare_string_pattern => None,
-            Rule::primary => None,
-            Rule::expression => None,
-            Rule::program => None,
-            Rule::program_or_bare_string => None,
+            Self::EOI => None,
+            Self::whitespace => None,
+            Self::identifier => None,
+            Self::strict_identifier_part => None,
+            Self::strict_identifier => None,
+            Self::bare_string => None,
+            Self::string_escape => None,
+            Self::string_content_char => None,
+            Self::string_content => None,
+            Self::string_literal => None,
+            Self::raw_string_content => None,
+            Self::raw_string_literal => None,
+            Self::pattern_kind_op => Some(":"),
+            Self::negate_op => Some("~"),
+            Self::union_op => Some("|"),
+            Self::intersection_op => Some("&"),
+            Self::difference_op => Some("~"),
+            Self::prefix_ops => None,
+            Self::infix_ops => None,
+            Self::function => None,
+            Self::function_name => None,
+            Self::function_arguments => None,
+            Self::string_pattern => None,
+            Self::bare_string_pattern => None,
+            Self::primary => None,
+            Self::expression => None,
+            Self::program => None,
+            Self::program_or_bare_string => None,
         }
     }
 }
@@ -115,7 +115,7 @@ impl FilesetParseError {
             pest::error::ErrorVariant::CustomError { message },
             span,
         ));
-        FilesetParseError {
+        Self {
             kind,
             pest_error,
             source: None,
@@ -132,7 +132,7 @@ impl FilesetParseError {
 
     /// Some other expression error.
     pub(super) fn expression(message: impl Into<String>, span: pest::Span<'_>) -> Self {
-        FilesetParseError::new(FilesetParseErrorKind::Expression(message.into()), span)
+        Self::new(FilesetParseErrorKind::Expression(message.into()), span)
     }
 
     /// Category of the underlying error.
@@ -143,7 +143,7 @@ impl FilesetParseError {
 
 impl From<pest::error::Error<Rule>> for FilesetParseError {
     fn from(err: pest::error::Error<Rule>) -> Self {
-        FilesetParseError {
+        Self {
             kind: FilesetParseErrorKind::SyntaxError,
             pest_error: Box::new(rename_rules_in_pest_error(err)),
             source: None,

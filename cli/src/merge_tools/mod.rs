@@ -145,7 +145,7 @@ pub enum MergeTool {
 
 impl MergeTool {
     fn external(tool: ExternalMergeTool) -> Self {
-        MergeTool::External(Box::new(tool))
+        Self::External(Box::new(tool))
     }
 
     /// Resolves builtin merge tool names or loads external tool options from
@@ -155,10 +155,10 @@ impl MergeTool {
         name: &str,
     ) -> Result<Option<Self>, MergeToolConfigError> {
         match name {
-            BUILTIN_EDITOR_NAME => Ok(Some(MergeTool::Builtin)),
-            OURS_TOOL_NAME => Ok(Some(MergeTool::Ours)),
-            THEIRS_TOOL_NAME => Ok(Some(MergeTool::Theirs)),
-            _ => Ok(get_external_tool_config(settings, name)?.map(MergeTool::external)),
+            BUILTIN_EDITOR_NAME => Ok(Some(Self::Builtin)),
+            OURS_TOOL_NAME => Ok(Some(Self::Ours)),
+            THEIRS_TOOL_NAME => Ok(Some(Self::Theirs)),
+            _ => Ok(get_external_tool_config(settings, name)?.map(Self::external)),
         }
     }
 }
@@ -172,7 +172,7 @@ pub enum DiffEditTool {
 
 impl DiffEditTool {
     fn external(tool: ExternalMergeTool) -> Self {
-        DiffEditTool::External(Box::new(tool))
+        Self::External(Box::new(tool))
     }
 
     /// Resolves builtin merge tool name or loads external tool options from
@@ -182,8 +182,8 @@ impl DiffEditTool {
         name: &str,
     ) -> Result<Option<Self>, MergeToolConfigError> {
         match name {
-            BUILTIN_EDITOR_NAME => Ok(Some(DiffEditTool::Builtin)),
-            _ => Ok(get_external_tool_config(settings, name)?.map(DiffEditTool::external)),
+            BUILTIN_EDITOR_NAME => Ok(Some(Self::Builtin)),
+            _ => Ok(get_external_tool_config(settings, name)?.map(Self::external)),
         }
     }
 }
@@ -282,7 +282,7 @@ impl DiffEditor {
                 tool_name: name.to_string(),
             });
         }
-        Ok(DiffEditor {
+        Ok(Self {
             tool,
             base_ignores,
             use_instructions: settings.get_bool("ui.diff-instructions")?,
@@ -357,7 +357,7 @@ impl MergeToolFile {
                 summary: conflict.describe(),
             });
         }
-        Ok(MergeToolFile {
+        Ok(Self {
             repo_path: repo_path.to_owned(),
             conflict,
             file,
@@ -415,7 +415,7 @@ impl MergeEditor {
                 tool_name: name.to_string(),
             });
         }
-        Ok(MergeEditor {
+        Ok(Self {
             tool,
             path_converter,
             conflict_marker_style,

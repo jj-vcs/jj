@@ -125,7 +125,7 @@ impl FilePattern {
         input: impl AsRef<str>,
     ) -> Result<Self, FilePatternParseError> {
         let path = path_converter.parse_file_path(input.as_ref())?;
-        Ok(FilePattern::FilePath(path))
+        Ok(Self::FilePath(path))
     }
 
     /// Pattern that matches cwd-relative path prefix.
@@ -134,7 +134,7 @@ impl FilePattern {
         input: impl AsRef<str>,
     ) -> Result<Self, FilePatternParseError> {
         let path = path_converter.parse_file_path(input.as_ref())?;
-        Ok(FilePattern::PrefixPath(path))
+        Ok(Self::PrefixPath(path))
     }
 
     /// Pattern that matches cwd-relative file path glob.
@@ -151,13 +151,13 @@ impl FilePattern {
     pub fn root_file_path(input: impl AsRef<str>) -> Result<Self, FilePatternParseError> {
         // TODO: Let caller pass in converter for root-relative paths too
         let path = RepoPathBuf::from_relative_path(input.as_ref())?;
-        Ok(FilePattern::FilePath(path))
+        Ok(Self::FilePath(path))
     }
 
     /// Pattern that matches workspace-relative path prefix.
     pub fn root_prefix_path(input: impl AsRef<str>) -> Result<Self, FilePatternParseError> {
         let path = RepoPathBuf::from_relative_path(input.as_ref())?;
-        Ok(FilePattern::PrefixPath(path))
+        Ok(Self::PrefixPath(path))
     }
 
     /// Pattern that matches workspace-relative file path glob.
@@ -169,21 +169,21 @@ impl FilePattern {
 
     fn file_glob_at(dir: RepoPathBuf, input: &str) -> Result<Self, FilePatternParseError> {
         if input.is_empty() {
-            return Ok(FilePattern::FilePath(dir));
+            return Ok(Self::FilePath(dir));
         }
         // Normalize separator to '/', reject ".." which will never match
         let normalized = RepoPathBuf::from_relative_path(input)?;
         let pattern = Box::new(parse_file_glob(normalized.as_internal_file_string())?);
-        Ok(FilePattern::FileGlob { dir, pattern })
+        Ok(Self::FileGlob { dir, pattern })
     }
 
     /// Returns path if this pattern represents a literal path in a workspace.
     /// Returns `None` if this is a glob pattern for example.
     pub fn as_path(&self) -> Option<&RepoPath> {
         match self {
-            FilePattern::FilePath(path) => Some(path),
-            FilePattern::PrefixPath(path) => Some(path),
-            FilePattern::FileGlob { .. } => None,
+            Self::FilePath(path) => Some(path),
+            Self::PrefixPath(path) => Some(path),
+            Self::FileGlob { .. } => None,
         }
     }
 }
@@ -232,53 +232,53 @@ pub enum FilesetExpression {
 impl FilesetExpression {
     /// Expression that matches nothing.
     pub fn none() -> Self {
-        FilesetExpression::None
+        Self::None
     }
 
     /// Expression that matches everything.
     pub fn all() -> Self {
-        FilesetExpression::All
+        Self::All
     }
 
     /// Expression that matches the given `pattern`.
     pub fn pattern(pattern: FilePattern) -> Self {
-        FilesetExpression::Pattern(pattern)
+        Self::Pattern(pattern)
     }
 
     /// Expression that matches file (or exact) path.
     pub fn file_path(path: RepoPathBuf) -> Self {
-        FilesetExpression::Pattern(FilePattern::FilePath(path))
+        Self::Pattern(FilePattern::FilePath(path))
     }
 
     /// Expression that matches path prefix.
     pub fn prefix_path(path: RepoPathBuf) -> Self {
-        FilesetExpression::Pattern(FilePattern::PrefixPath(path))
+        Self::Pattern(FilePattern::PrefixPath(path))
     }
 
     /// Expression that matches any of the given `expressions`.
-    pub fn union_all(expressions: Vec<FilesetExpression>) -> Self {
+    pub fn union_all(expressions: Vec<Self>) -> Self {
         match expressions.len() {
-            0 => FilesetExpression::none(),
+            0 => Self::none(),
             1 => expressions.into_iter().next().unwrap(),
-            _ => FilesetExpression::UnionAll(expressions),
+            _ => Self::UnionAll(expressions),
         }
     }
 
     /// Expression that matches both `self` and `other`.
     pub fn intersection(self, other: Self) -> Self {
-        FilesetExpression::Intersection(Box::new(self), Box::new(other))
+        Self::Intersection(Box::new(self), Box::new(other))
     }
 
     /// Expression that matches `self` but not `other`.
     pub fn difference(self, other: Self) -> Self {
-        FilesetExpression::Difference(Box::new(self), Box::new(other))
+        Self::Difference(Box::new(self), Box::new(other))
     }
 
     /// Flattens union expression at most one level.
     fn as_union_all(&self) -> &[Self] {
         match self {
-            FilesetExpression::None => &[],
-            FilesetExpression::UnionAll(exprs) => exprs,
+            Self::None => &[],
+            Self::UnionAll(exprs) => exprs,
             _ => slice::from_ref(self),
         }
     }
@@ -288,12 +288,9 @@ impl FilesetExpression {
         iter::from_fn(move || {
             let expr = stack.pop()?;
             match expr {
-                FilesetExpression::None
-                | FilesetExpression::All
-                | FilesetExpression::Pattern(_) => {}
-                FilesetExpression::UnionAll(exprs) => stack.extend(exprs.iter().rev()),
-                FilesetExpression::Intersection(expr1, expr2)
-                | FilesetExpression::Difference(expr1, expr2) => {
+                Self::None | Self::All | Self::Pattern(_) => {}
+                Self::UnionAll(exprs) => stack.extend(exprs.iter().rev()),
+                Self::Intersection(expr1, expr2) | Self::Difference(expr1, expr2) => {
                     stack.push(expr2);
                     stack.push(expr1);
                 }
@@ -310,7 +307,7 @@ impl FilesetExpression {
         // pre/post-ordering doesn't matter so long as children are visited from
         // left to right.
         self.dfs_pre().filter_map(|expr| match expr {
-            FilesetExpression::Pattern(pattern) => pattern.as_path(),
+            Self::Pattern(pattern) => pattern.as_path(),
             _ => None,
         })
     }

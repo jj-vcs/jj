@@ -31,7 +31,7 @@ pub(super) struct PositionsBitSet {
 impl PositionsBitSet {
     /// Creates bit set of the specified capacity.
     pub fn with_capacity(len: u32) -> Self {
-        PositionsBitSet {
+        Self {
             data: vec![],
             bitset_len: u32::div_ceil(len, u64::BITS),
         }
@@ -139,7 +139,7 @@ impl AncestorsBitSet {
     pub fn with_capacity(len: u32) -> Self {
         let bitset = PositionsBitSet::with_capacity(len);
         let next_bitset_pos_to_visit = bitset.bitset_len;
-        AncestorsBitSet {
+        Self {
             bitset,
             next_bitset_pos_to_visit,
         }
@@ -328,7 +328,11 @@ mod tests {
         let id_b191 = new_commit_id();
         mutable_index.add_commit_data(id_b191.clone(), new_change_id(), &[id_b189]);
         let id_d192 = new_commit_id();
-        mutable_index.add_commit_data(id_d192.clone(), new_change_id(), &[id_c190.clone()]);
+        mutable_index.add_commit_data(
+            id_d192.clone(),
+            new_change_id(),
+            std::slice::from_ref(&id_c190),
+        );
         let id_e254 = (193..=254).fold(id_b191.clone(), |parent_id, i| {
             assert_eq!(mutable_index.num_commits(), i);
             let id = new_commit_id();
@@ -336,7 +340,11 @@ mod tests {
             id
         });
         let id_d255 = new_commit_id();
-        mutable_index.add_commit_data(id_d255.clone(), new_change_id(), &[id_d192.clone()]);
+        mutable_index.add_commit_data(
+            id_d255.clone(),
+            new_change_id(),
+            std::slice::from_ref(&id_d192),
+        );
         let id_f256 = new_commit_id();
         mutable_index.add_commit_data(
             id_f256.clone(),

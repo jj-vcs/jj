@@ -238,7 +238,7 @@ impl<'a, I: AsCompositeIndex> PositionsAccumulator<'a, I> {
             walk,
             consumed_positions: Vec::new(),
         });
-        PositionsAccumulator { index, inner }
+        Self { index, inner }
     }
 
     /// Checks whether the commit is in the revset.
@@ -298,7 +298,7 @@ struct EagerRevset {
 
 impl EagerRevset {
     pub const fn empty() -> Self {
-        EagerRevset {
+        Self {
             positions: Vec::new(),
         }
     }

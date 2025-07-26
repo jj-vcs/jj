@@ -66,11 +66,11 @@ pub struct Transaction {
 }
 
 impl Transaction {
-    pub fn new(mut_repo: MutableRepo, user_settings: &UserSettings) -> Transaction {
+    pub fn new(mut_repo: MutableRepo, user_settings: &UserSettings) -> Self {
         let parent_ops = vec![mut_repo.base_repo().operation().clone()];
         let op_metadata = create_op_metadata(user_settings, "".to_string(), false);
         let end_time = user_settings.operation_timestamp();
-        Transaction {
+        Self {
             mut_repo,
             parent_ops,
             op_metadata,
@@ -204,7 +204,7 @@ impl UnpublishedOperation {
         view: View,
         index: Box<dyn ReadonlyIndex>,
     ) -> Self {
-        UnpublishedOperation {
+        Self {
             op_heads_store: repo_loader.op_heads_store().clone(),
             repo: repo_loader.create_from(operation, view, index),
         }

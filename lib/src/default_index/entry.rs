@@ -32,8 +32,8 @@ use crate::object_id::ObjectId as _;
 pub(super) struct GlobalCommitPosition(pub(super) u32);
 
 impl GlobalCommitPosition {
-    pub const MIN: Self = GlobalCommitPosition(u32::MIN);
-    pub const MAX: Self = GlobalCommitPosition(u32::MAX);
+    pub const MIN: Self = Self(u32::MIN);
+    pub const MAX: Self = Self(u32::MAX);
 }
 
 /// Local commit position within an index segment.
@@ -83,7 +83,7 @@ impl<'a> CommitIndexEntry<'a> {
         pos: GlobalCommitPosition,
         local_pos: LocalCommitPosition,
     ) -> Self {
-        CommitIndexEntry {
+        Self {
             source,
             pos,
             local_pos,

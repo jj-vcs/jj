@@ -140,6 +140,7 @@ semicolon_if_nothing_returned = "warn"
 uninlined_format_args = "warn"
 unused_trait_names = "warn"
 useless_conversion = "warn"
+use_self = "warn"
 
 [profile.dev.package]
 # Insta suggests compiling these packages in opt mode for faster testing.

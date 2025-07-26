@@ -236,7 +236,7 @@ struct TopoOrderReverseLazyInner<T, ID, E> {
 
 impl<T: Ord, ID: Hash + Eq + Clone, E> TopoOrderReverseLazyInner<T, ID, E> {
     fn empty() -> Self {
-        TopoOrderReverseLazyInner {
+        Self {
             start: Vec::new(),
             result: Vec::new(),
             emitted: HashSet::new(),

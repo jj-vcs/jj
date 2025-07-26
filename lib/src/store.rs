@@ -73,7 +73,7 @@ impl Debug for Store {
 
 impl Store {
     pub fn new(backend: Box<dyn Backend>, signer: Signer) -> Arc<Self> {
-        Arc::new(Store {
+        Arc::new(Self {
             backend,
             signer,
             commit_cache: Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY.try_into().unwrap())),

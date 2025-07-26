@@ -82,7 +82,7 @@ pub(crate) struct GitSubprocessContext<'a> {
 
 impl<'a> GitSubprocessContext<'a> {
     pub(crate) fn new(git_dir: impl Into<PathBuf>, git_executable_path: &'a Path) -> Self {
-        GitSubprocessContext {
+        Self {
             git_dir: git_dir.into(),
             git_executable_path,
         }

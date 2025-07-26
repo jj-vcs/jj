@@ -155,7 +155,7 @@ where
     /// Wraps the given iterator to group topological branches. The input
     /// iterator must be topologically ordered.
     pub fn new(input_iter: I, as_id: F) -> Self {
-        TopoGroupedGraphIterator {
+        Self {
             input_iter,
             as_id,
             nodes: HashMap::new(),

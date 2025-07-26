@@ -486,7 +486,7 @@ pub fn merge_fn_map<'s, F>(base: &mut HashMap<&'s str, F>, extension: HashMap<&'
 impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
     /// Creates new symbol table containing the builtin functions and methods.
     pub fn builtin() -> Self {
-        CoreTemplateBuildFnTable {
+        Self {
             functions: builtin_functions(),
             string_methods: builtin_string_methods(),
             string_list_methods: builtin_formattable_list_methods(),
@@ -504,7 +504,7 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
     }
 
     pub fn empty() -> Self {
-        CoreTemplateBuildFnTable {
+        Self {
             functions: HashMap::new(),
             string_methods: HashMap::new(),
             string_list_methods: HashMap::new(),
@@ -521,7 +521,7 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
         }
     }
 
-    pub fn merge(&mut self, extension: CoreTemplateBuildFnTable<'a, L>) {
+    pub fn merge(&mut self, extension: Self) {
         let CoreTemplateBuildFnTable {
             functions,
             string_methods,
@@ -658,12 +658,12 @@ pub struct Expression<P> {
 impl<P> Expression<P> {
     fn unlabeled(property: P) -> Self {
         let labels = vec![];
-        Expression { property, labels }
+        Self { property, labels }
     }
 
     fn with_label(property: P, label: impl Into<String>) -> Self {
         let labels = vec![label.into()];
-        Expression { property, labels }
+        Self { property, labels }
     }
 }
 
@@ -2089,7 +2089,7 @@ mod tests {
 
         fn with_config(config: StackedConfig) -> Self {
             let settings = UserSettings::from_config(config).unwrap();
-            TestTemplateEnv {
+            Self {
                 language: TestTemplateLanguage::new(&settings),
                 aliases_map: TemplateAliasesMap::new(),
                 color_rules: Vec::new(),

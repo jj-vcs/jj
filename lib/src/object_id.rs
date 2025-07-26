@@ -143,9 +143,9 @@ pub struct HexPrefix {
 impl HexPrefix {
     /// Returns a new `HexPrefix` or `None` if `prefix` cannot be decoded from
     /// hex to bytes.
-    pub fn try_from_hex(prefix: impl AsRef<[u8]>) -> Option<HexPrefix> {
+    pub fn try_from_hex(prefix: impl AsRef<[u8]>) -> Option<Self> {
         let (min_prefix_bytes, has_odd_byte) = hex_util::decode_hex_prefix(prefix)?;
-        Some(HexPrefix {
+        Some(Self {
             min_prefix_bytes,
             has_odd_byte,
         })
@@ -153,16 +153,16 @@ impl HexPrefix {
 
     /// Returns a new `HexPrefix` or `None` if `prefix` cannot be decoded from
     /// "reverse" hex to bytes.
-    pub fn try_from_reverse_hex(prefix: impl AsRef<[u8]>) -> Option<HexPrefix> {
+    pub fn try_from_reverse_hex(prefix: impl AsRef<[u8]>) -> Option<Self> {
         let (min_prefix_bytes, has_odd_byte) = hex_util::decode_reverse_hex_prefix(prefix)?;
-        Some(HexPrefix {
+        Some(Self {
             min_prefix_bytes,
             has_odd_byte,
         })
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Self {
-        HexPrefix {
+        Self {
             min_prefix_bytes: bytes.to_owned(),
             has_odd_byte: false,
         }
@@ -245,23 +245,21 @@ pub enum PrefixResolution<T> {
 impl<T> PrefixResolution<T> {
     pub fn map<U>(self, f: impl FnOnce(T) -> U) -> PrefixResolution<U> {
         match self {
-            PrefixResolution::NoMatch => PrefixResolution::NoMatch,
-            PrefixResolution::SingleMatch(x) => PrefixResolution::SingleMatch(f(x)),
-            PrefixResolution::AmbiguousMatch => PrefixResolution::AmbiguousMatch,
+            Self::NoMatch => PrefixResolution::NoMatch,
+            Self::SingleMatch(x) => PrefixResolution::SingleMatch(f(x)),
+            Self::AmbiguousMatch => PrefixResolution::AmbiguousMatch,
         }
     }
 }
 
 impl<T: Clone> PrefixResolution<T> {
-    pub fn plus(&self, other: &PrefixResolution<T>) -> PrefixResolution<T> {
+    pub fn plus(&self, other: &Self) -> Self {
         match (self, other) {
-            (PrefixResolution::NoMatch, other) => other.clone(),
-            (local, PrefixResolution::NoMatch) => local.clone(),
-            (PrefixResolution::AmbiguousMatch, _) => PrefixResolution::AmbiguousMatch,
-            (_, PrefixResolution::AmbiguousMatch) => PrefixResolution::AmbiguousMatch,
-            (PrefixResolution::SingleMatch(_), PrefixResolution::SingleMatch(_)) => {
-                PrefixResolution::AmbiguousMatch
-            }
+            (Self::NoMatch, other) => other.clone(),
+            (local, Self::NoMatch) => local.clone(),
+            (Self::AmbiguousMatch, _) => Self::AmbiguousMatch,
+            (_, Self::AmbiguousMatch) => Self::AmbiguousMatch,
+            (Self::SingleMatch(_), Self::SingleMatch(_)) => Self::AmbiguousMatch,
         }
     }
 }

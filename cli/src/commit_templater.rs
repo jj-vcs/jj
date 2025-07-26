@@ -709,7 +709,7 @@ pub struct CommitTemplateBuildFnTable<'repo> {
 impl<'repo> CommitTemplateBuildFnTable<'repo> {
     /// Creates new symbol table containing the builtin methods.
     fn builtin() -> Self {
-        CommitTemplateBuildFnTable {
+        Self {
             core: CoreTemplateBuildFnTable::builtin(),
             commit_methods: builtin_commit_methods(),
             commit_list_methods: template_builder::builtin_unformattable_list_methods(),
@@ -734,7 +734,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
     }
 
     pub fn empty() -> Self {
-        CommitTemplateBuildFnTable {
+        Self {
             core: CoreTemplateBuildFnTable::empty(),
             commit_methods: HashMap::new(),
             commit_list_methods: HashMap::new(),
@@ -758,7 +758,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
         }
     }
 
-    fn merge(&mut self, extension: CommitTemplateBuildFnTable<'repo>) {
+    fn merge(&mut self, extension: Self) {
         let CommitTemplateBuildFnTable {
             core,
             commit_methods,
@@ -1265,7 +1265,7 @@ impl CommitRef {
         let synced = remote_refs
             .into_iter()
             .all(|remote_ref| !remote_ref.is_tracked() || remote_ref.target == target);
-        Rc::new(CommitRef {
+        Rc::new(Self {
             name: RefSymbolBuf(name.into()),
             remote: None,
             target,
@@ -1300,7 +1300,7 @@ impl CommitRef {
                 behind_count: count,
             }
         });
-        Rc::new(CommitRef {
+        Rc::new(Self {
             name: RefSymbolBuf(name.into()),
             remote: Some(RefSymbolBuf(remote_name.into())),
             target: remote_ref.target,
@@ -1315,7 +1315,7 @@ impl CommitRef {
         remote_name: impl Into<String>,
         target: RefTarget,
     ) -> Rc<Self> {
-        Rc::new(CommitRef {
+        Rc::new(Self {
             name: RefSymbolBuf(name.into()),
             remote: Some(RefSymbolBuf(remote_name.into())),
             target,
@@ -1446,7 +1446,7 @@ pub struct WorkspaceRef {
 impl WorkspaceRef {
     /// Creates a new workspace reference from the workspace name and commit.
     pub fn new(name: WorkspaceNameBuf, target: Commit) -> Self {
-        WorkspaceRef { name, target }
+        Self { name, target }
     }
 
     /// Returns the workspace name symbol.
@@ -1944,7 +1944,7 @@ impl TreeDiff {
                 diff_util::get_copy_records(repo.store(), parent, commit.id(), &*matcher)?;
             copy_records.add_records(records)?;
         }
-        Ok(TreeDiff {
+        Ok(Self {
             from_tree: commit.parent_tree(repo)?,
             to_tree: commit.tree()?,
             matcher,
@@ -2156,7 +2156,7 @@ pub struct TreeDiffEntry {
 impl TreeDiffEntry {
     pub fn from_backend_entry_with_copies(entry: CopiesTreeDiffEntry) -> BackendResult<Self> {
         let (source_value, target_value) = entry.values?;
-        Ok(TreeDiffEntry {
+        Ok(Self {
             path: entry.path,
             source_value,
             target_value,
@@ -2568,7 +2568,7 @@ mod tests {
             #[expect(clippy::arc_with_non_send_sync)]
             let revset_extensions = Arc::new(RevsetExtensions::new());
             let id_prefix_context = IdPrefixContext::new(revset_extensions.clone());
-            CommitTemplateTestEnv {
+            Self {
                 test_workspace,
                 path_converter,
                 revset_extensions,

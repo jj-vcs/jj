@@ -28,7 +28,7 @@ pub struct FileLock {
 }
 
 impl FileLock {
-    pub fn lock(path: PathBuf) -> Result<FileLock, FileLockError> {
+    pub fn lock(path: PathBuf) -> Result<Self, FileLockError> {
         loop {
             // Create lockfile, or open pre-existing one
             let file = File::create(&path).map_err(|err| FileLockError {

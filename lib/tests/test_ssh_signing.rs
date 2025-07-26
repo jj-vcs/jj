@@ -57,7 +57,7 @@ impl SshEnvironment {
         #[cfg(unix)]
         std::fs::set_permissions(&private_key_path, Permissions::from_mode(0o600)).unwrap();
 
-        let mut env = SshEnvironment {
+        let mut env = Self {
             _keys: keys_dir,
             private_key_path,
             allowed_signers: None,

@@ -133,7 +133,7 @@ impl ConflictsWorkingCopy {
             workspace_name,
             user_settings,
         )?;
-        Ok(ConflictsWorkingCopy {
+        Ok(Self {
             inner: Box::new(inner),
             working_copy_path,
         })
@@ -147,7 +147,7 @@ impl ConflictsWorkingCopy {
     ) -> Result<Self, WorkingCopyStateError> {
         let inner =
             LocalWorkingCopy::load(store, working_copy_path.clone(), state_path, user_settings)?;
-        Ok(ConflictsWorkingCopy {
+        Ok(Self {
             inner: Box::new(inner),
             working_copy_path,
         })

@@ -43,9 +43,9 @@ pub struct TreeBuilder {
 }
 
 impl TreeBuilder {
-    pub fn new(store: Arc<Store>, base_tree_id: TreeId) -> TreeBuilder {
+    pub fn new(store: Arc<Store>, base_tree_id: TreeId) -> Self {
         let overrides = BTreeMap::new();
-        TreeBuilder {
+        Self {
             store,
             base_tree_id,
             overrides,

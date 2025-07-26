@@ -56,7 +56,7 @@ pub enum FsmonitorSettings {
 
 impl FsmonitorSettings {
     /// Creates an `FsmonitorSettings` from a `config`.
-    pub fn from_settings(settings: &UserSettings) -> Result<FsmonitorSettings, ConfigGetError> {
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         let name = "fsmonitor.backend";
         match settings.get_string(name)?.as_ref() {
             "watchman" => Ok(Self::Watchman(WatchmanConfig {
@@ -128,7 +128,6 @@ pub mod watchman {
     impl From<Clock> for crate::protos::working_copy::WatchmanClock {
         fn from(clock: Clock) -> Self {
             use crate::protos::working_copy::watchman_clock;
-            use crate::protos::working_copy::WatchmanClock;
             let Clock(clock) = clock;
             let watchman_clock = match clock {
                 InnerClock::Spec(ClockSpec::StringClock(string_clock)) => {
@@ -141,7 +140,7 @@ pub mod watchman {
                     unimplemented!("SCM-aware Watchman clocks not supported")
                 }
             };
-            WatchmanClock {
+            Self {
                 watchman_clock: Some(watchman_clock),
             }
         }

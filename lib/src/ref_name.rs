@@ -315,7 +315,7 @@ impl RefName {
 
 impl WorkspaceName {
     /// Default workspace name.
-    pub const DEFAULT: &WorkspaceName = WorkspaceName::new("default");
+    pub const DEFAULT: &Self = Self::new("default");
 }
 
 /// Symbol for displaying.

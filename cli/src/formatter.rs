@@ -75,7 +75,7 @@ pub struct LabeledWriter<T, S> {
 
 impl<T, S> LabeledWriter<T, S> {
     pub fn new(formatter: T, label: S) -> Self {
-        LabeledWriter { formatter, label }
+        Self { formatter, label }
     }
 
     /// Turns into writer that prints labeled message with the `heading`.
@@ -114,7 +114,7 @@ pub struct HeadingLabeledWriter<T, S, H> {
 
 impl<T, S, H> HeadingLabeledWriter<T, S, H> {
     pub fn new(writer: LabeledWriter<T, S>, heading: H) -> Self {
-        HeadingLabeledWriter {
+        Self {
             writer,
             heading: Some(heading),
         }
@@ -155,18 +155,18 @@ enum FormatterFactoryKind {
 impl FormatterFactory {
     pub fn plain_text() -> Self {
         let kind = FormatterFactoryKind::PlainText;
-        FormatterFactory { kind }
+        Self { kind }
     }
 
     pub fn sanitized() -> Self {
         let kind = FormatterFactoryKind::Sanitized;
-        FormatterFactory { kind }
+        Self { kind }
     }
 
     pub fn color(config: &StackedConfig, debug: bool) -> Result<Self, ConfigGetError> {
         let rules = Arc::new(rules_from_config(config)?);
         let kind = FormatterFactoryKind::Color { rules, debug };
-        Ok(FormatterFactory { kind })
+        Ok(Self { kind })
     }
 
     pub fn new_formatter<'output, W: Write + 'output>(
@@ -192,7 +192,7 @@ pub struct PlainTextFormatter<W> {
 }
 
 impl<W> PlainTextFormatter<W> {
-    pub fn new(output: W) -> PlainTextFormatter<W> {
+    pub fn new(output: W) -> Self {
         Self { output }
     }
 }
@@ -226,7 +226,7 @@ pub struct SanitizingFormatter<W> {
 }
 
 impl<W> SanitizingFormatter<W> {
-    pub fn new(output: W) -> SanitizingFormatter<W> {
+    pub fn new(output: W) -> Self {
         Self { output }
     }
 }
@@ -270,7 +270,7 @@ pub struct Style {
 }
 
 impl Style {
-    fn merge(&mut self, other: &Style) {
+    fn merge(&mut self, other: &Self) {
         self.fg = other.fg.or(self.fg);
         self.bg = other.bg.or(self.bg);
         self.bold = other.bold.or(self.bold);
@@ -296,8 +296,8 @@ pub struct ColorFormatter<W: Write> {
 }
 
 impl<W: Write> ColorFormatter<W> {
-    pub fn new(output: W, rules: Arc<Rules>, debug: bool) -> ColorFormatter<W> {
-        ColorFormatter {
+    pub fn new(output: W, rules: Arc<Rules>, debug: bool) -> Self {
+        Self {
             output,
             rules,
             labels: vec![],
@@ -625,12 +625,12 @@ enum FormatOp {
 
 impl FormatRecorder {
     pub fn new() -> Self {
-        FormatRecorder::default()
+        Self::default()
     }
 
     /// Creates new buffer containing the given `data`.
     pub fn with_data(data: impl Into<Vec<u8>>) -> Self {
-        FormatRecorder {
+        Self {
             data: data.into(),
             ops: vec![],
         }

@@ -160,7 +160,7 @@ impl Workspace {
         repo_path: PathBuf,
         working_copy: Box<dyn WorkingCopy>,
         repo_loader: RepoLoader,
-    ) -> Result<Workspace, PathError> {
+    ) -> Result<Self, PathError> {
         let workspace_root = dunce::canonicalize(workspace_root).context(workspace_root)?;
         Ok(Self::new_no_canonicalize(
             workspace_root,
@@ -320,7 +320,7 @@ impl Workspace {
                 workspace_name,
             )?;
             let repo_loader = repo.loader().clone();
-            let workspace = Workspace::new(workspace_root, repo_dir, working_copy, repo_loader)?;
+            let workspace = Self::new(workspace_root, repo_dir, working_copy, repo_loader)?;
             Ok((workspace, repo))
         })()
         .inspect_err(|_err| {
@@ -370,7 +370,7 @@ impl Workspace {
             working_copy_factory,
             workspace_name,
         )?;
-        let workspace = Workspace::new(
+        let workspace = Self::new(
             workspace_root,
             repo_dir,
             working_copy,

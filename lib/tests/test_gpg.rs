@@ -103,7 +103,7 @@ impl GpgEnvironment {
             return Err(res);
         }
 
-        Ok(GpgEnvironment { homedir: dir })
+        Ok(Self { homedir: dir })
     }
 }
 
@@ -159,7 +159,7 @@ impl GpgsmEnvironment {
             return Err(res);
         }
 
-        Ok(GpgsmEnvironment { homedir: dir })
+        Ok(Self { homedir: dir })
     }
 }
 

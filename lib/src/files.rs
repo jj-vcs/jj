@@ -55,7 +55,7 @@ impl DiffLine<'_> {
     }
 
     fn take(&mut self) -> Self {
-        DiffLine {
+        Self {
             line_number: self.line_number,
             hunks: mem::take(&mut self.hunks),
         }
@@ -100,7 +100,7 @@ where
             line_number,
             hunks: vec![],
         };
-        DiffLineIterator {
+        Self {
             diff_hunks: diff_hunks.fuse(),
             current_line,
             queued_lines: VecDeque::new(),

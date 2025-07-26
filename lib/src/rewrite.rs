@@ -444,7 +444,7 @@ pub struct ComputedMoveCommits {
 
 impl ComputedMoveCommits {
     fn empty() -> Self {
-        ComputedMoveCommits {
+        Self {
             target_commit_ids: IndexSet::new(),
             descendants: vec![],
             commit_new_parents_map: HashMap::new(),

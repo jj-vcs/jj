@@ -114,8 +114,8 @@ impl Debug for RepoPathComponentBuf {
     }
 }
 
-impl AsRef<RepoPathComponent> for RepoPathComponent {
-    fn as_ref(&self) -> &RepoPathComponent {
+impl AsRef<Self> for RepoPathComponent {
+    fn as_ref(&self) -> &Self {
         self
     }
 }
@@ -239,7 +239,7 @@ pub struct InvalidNewRepoPathError {
 impl RepoPathBuf {
     /// Creates owned repository path pointing to the root.
     pub const fn root() -> Self {
-        RepoPathBuf {
+        Self {
             value: String::new(),
         }
     }
@@ -248,7 +248,7 @@ impl RepoPathBuf {
     pub fn from_internal_string(value: impl Into<String>) -> Result<Self, InvalidNewRepoPathError> {
         let value: String = value.into();
         if is_valid_repo_path_str(&value) {
-            Ok(RepoPathBuf { value })
+            Ok(Self { value })
         } else {
             Err(InvalidNewRepoPathError { value })
         }
@@ -288,7 +288,7 @@ impl RepoPathBuf {
             value.push('/');
             value.push_str(name?);
         }
-        Ok(RepoPathBuf { value })
+        Ok(Self { value })
     }
 
     /// Parses an `input` path into a `RepoPathBuf` relative to `base`.
@@ -394,32 +394,32 @@ impl RepoPath {
     }
 
     /// Returns true if the `base` is a prefix of this path.
-    pub fn starts_with(&self, base: &RepoPath) -> bool {
+    pub fn starts_with(&self, base: &Self) -> bool {
         self.strip_prefix(base).is_some()
     }
 
     /// Returns the remaining path with the `base` path removed.
-    pub fn strip_prefix(&self, base: &RepoPath) -> Option<&RepoPath> {
+    pub fn strip_prefix(&self, base: &Self) -> Option<&Self> {
         if base.value.is_empty() {
             Some(self)
         } else {
             let tail = self.value.strip_prefix(&base.value)?;
             if tail.is_empty() {
-                Some(RepoPath::from_internal_string_unchecked(tail))
+                Some(Self::from_internal_string_unchecked(tail))
             } else {
                 tail.strip_prefix('/')
-                    .map(RepoPath::from_internal_string_unchecked)
+                    .map(Self::from_internal_string_unchecked)
             }
         }
     }
 
     /// Returns the parent path without the base name component.
-    pub fn parent(&self) -> Option<&RepoPath> {
+    pub fn parent(&self) -> Option<&Self> {
         self.split().map(|(parent, _)| parent)
     }
 
     /// Splits this into the parent path and base name component.
-    pub fn split(&self) -> Option<(&RepoPath, &RepoPathComponent)> {
+    pub fn split(&self) -> Option<(&Self, &RepoPathComponent)> {
         let mut components = self.components();
         let basename = components.next_back()?;
         Some((components.as_path(), basename))
@@ -429,7 +429,7 @@ impl RepoPath {
         RepoPathComponentsIter { value: &self.value }
     }
 
-    pub fn ancestors(&self) -> impl Iterator<Item = &RepoPath> {
+    pub fn ancestors(&self) -> impl Iterator<Item = &Self> {
         std::iter::successors(Some(self), |path| path.parent())
     }
 
@@ -443,8 +443,8 @@ impl RepoPath {
     }
 }
 
-impl AsRef<RepoPath> for RepoPath {
-    fn as_ref(&self) -> &RepoPath {
+impl AsRef<Self> for RepoPath {
+    fn as_ref(&self) -> &Self {
         self
     }
 }
@@ -602,7 +602,7 @@ impl RepoPathUiConverter {
     /// Format a path for display in the UI.
     pub fn format_file_path(&self, file: &RepoPath) -> String {
         match self {
-            RepoPathUiConverter::Fs { cwd, base } => {
+            Self::Fs { cwd, base } => {
                 file_util::relative_path(cwd, &file.to_fs_path_unchecked(base))
                     .display()
                     .to_string()
@@ -621,7 +621,7 @@ impl RepoPathUiConverter {
         }
         let mut formatted = String::new();
         match self {
-            RepoPathUiConverter::Fs { cwd, base } => {
+            Self::Fs { cwd, base } => {
                 let source_path = file_util::relative_path(cwd, &source.to_fs_path_unchecked(base));
                 let target_path = file_util::relative_path(cwd, &target.to_fs_path_unchecked(base));
 
@@ -685,7 +685,7 @@ impl RepoPathUiConverter {
     /// where relative paths are interpreted as relative to.
     pub fn parse_file_path(&self, input: &str) -> Result<RepoPathBuf, UiPathParseError> {
         match self {
-            RepoPathUiConverter::Fs { cwd, base } => {
+            Self::Fs { cwd, base } => {
                 RepoPathBuf::parse_fs_path(cwd, base, input).map_err(UiPathParseError::Fs)
             }
         }

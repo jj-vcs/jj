@@ -135,7 +135,7 @@ pub struct FileExecutableFlag(#[cfg(unix)] bool);
 #[cfg(unix)]
 impl FileExecutableFlag {
     pub const fn from_bool_lossy(executable: bool) -> Self {
-        FileExecutableFlag(executable)
+        Self(executable)
     }
 
     pub fn unwrap_or_else(self, _: impl FnOnce() -> bool) -> bool {
@@ -147,7 +147,7 @@ impl FileExecutableFlag {
 #[cfg(windows)]
 impl FileExecutableFlag {
     pub const fn from_bool_lossy(_executable: bool) -> Self {
-        FileExecutableFlag()
+        Self()
     }
 
     pub fn unwrap_or_else(self, f: impl FnOnce() -> bool) -> bool {
@@ -191,7 +191,7 @@ impl FileState {
     /// re-stat'ed on the next snapshot.
     fn placeholder() -> Self {
         let executable = FileExecutableFlag::from_bool_lossy(false);
-        FileState {
+        Self {
             file_type: FileType::Normal { executable },
             mtime: MillisSinceEpoch(0),
             size: 0,
@@ -206,7 +206,7 @@ impl FileState {
         materialized_conflict_data: Option<MaterializedConflictData>,
     ) -> Self {
         let executable = FileExecutableFlag::from_bool_lossy(executable);
-        FileState {
+        Self {
             file_type: FileType::Normal { executable },
             mtime: mtime_from_metadata(metadata),
             size,
@@ -218,7 +218,7 @@ impl FileState {
         // When using fscrypt, the reported size is not the content size. So if
         // we were to record the content size here (like we do for regular files), we
         // would end up thinking the file has changed every time we snapshot.
-        FileState {
+        Self {
             file_type: FileType::Symlink,
             mtime: mtime_from_metadata(metadata),
             size: metadata.len(),
@@ -227,7 +227,7 @@ impl FileState {
     }
 
     fn for_gitsubmodule() -> Self {
-        FileState {
+        Self {
             file_type: FileType::GitSubmodule,
             mtime: MillisSinceEpoch(0),
             size: 0,
@@ -244,7 +244,7 @@ struct FileStatesMap {
 
 impl FileStatesMap {
     fn new() -> Self {
-        FileStatesMap { data: Vec::new() }
+        Self { data: Vec::new() }
     }
 
     fn from_proto(
@@ -259,7 +259,7 @@ impl FileStatesMap {
             });
         }
         debug_assert!(is_file_state_entries_proto_unique_and_sorted(&data));
-        FileStatesMap { data }
+        Self { data }
     }
 
     /// Merges changed and deleted entries into this map. The changed entries
@@ -318,7 +318,7 @@ pub struct FileStates<'a> {
 impl<'a> FileStates<'a> {
     fn from_sorted(data: &'a [crate::protos::working_copy::FileStateEntry]) -> Self {
         debug_assert!(is_file_state_entries_proto_unique_and_sorted(data));
-        FileStates { data }
+        Self { data }
     }
 
     /// Returns file states under the given directory path.
@@ -817,9 +817,9 @@ impl TreeState {
         working_copy_path: PathBuf,
         state_path: PathBuf,
         tree_state_settings: &TreeStateSettings,
-    ) -> Result<TreeState, TreeStateError> {
+    ) -> Result<Self, TreeStateError> {
         let target_eol_strategy = create_target_eol_strategy(tree_state_settings);
-        let mut wc = TreeState::empty(store, working_copy_path, state_path, target_eol_strategy);
+        let mut wc = Self::empty(store, working_copy_path, state_path, target_eol_strategy);
         wc.save()?;
         Ok(wc)
     }
@@ -829,9 +829,9 @@ impl TreeState {
         working_copy_path: PathBuf,
         state_path: PathBuf,
         target_eol_strategy: TargetEolStrategy,
-    ) -> TreeState {
+    ) -> Self {
         let tree_id = store.empty_merged_tree_id();
-        TreeState {
+        Self {
             store,
             working_copy_path,
             state_path,
@@ -850,12 +850,12 @@ impl TreeState {
         working_copy_path: PathBuf,
         state_path: PathBuf,
         tree_state_settings: &TreeStateSettings,
-    ) -> Result<TreeState, TreeStateError> {
+    ) -> Result<Self, TreeStateError> {
         let target_eol_strategy = create_target_eol_strategy(tree_state_settings);
         let tree_state_path = state_path.join("tree_state");
         let file = match File::open(&tree_state_path) {
             Err(ref err) if err.kind() == io::ErrorKind::NotFound => {
-                return TreeState::init(store, working_copy_path, state_path, tree_state_settings);
+                return Self::init(store, working_copy_path, state_path, tree_state_settings);
             }
             Err(err) => {
                 return Err(TreeStateError::ReadTreeState {
@@ -866,7 +866,7 @@ impl TreeState {
             Ok(file) => file,
         };
 
-        let mut wc = TreeState::empty(store, working_copy_path, state_path, target_eol_strategy);
+        let mut wc = Self::empty(store, working_copy_path, state_path, target_eol_strategy);
         wc.read(&tree_state_path, file)?;
         Ok(wc)
     }
@@ -2136,7 +2136,7 @@ impl WorkingCopy for LocalWorkingCopy {
             err: err.into(),
         })?;
 
-        let wc = LocalWorkingCopy {
+        let wc = Self {
             store: self.store.clone(),
             working_copy_path: self.working_copy_path.clone(),
             state_path: self.state_path.clone(),
@@ -2175,7 +2175,7 @@ impl LocalWorkingCopy {
         operation_id: OperationId,
         workspace_name: WorkspaceNameBuf,
         user_settings: &UserSettings,
-    ) -> Result<LocalWorkingCopy, WorkingCopyStateError> {
+    ) -> Result<Self, WorkingCopyStateError> {
         let proto = crate::protos::working_copy::Checkout {
             operation_id: operation_id.to_bytes(),
             workspace_name: workspace_name.into(),
@@ -2201,7 +2201,7 @@ impl LocalWorkingCopy {
             message: "Failed to initialize working copy state".to_string(),
             err: err.into(),
         })?;
-        Ok(LocalWorkingCopy {
+        Ok(Self {
             store,
             working_copy_path,
             state_path,
@@ -2216,13 +2216,13 @@ impl LocalWorkingCopy {
         working_copy_path: PathBuf,
         state_path: PathBuf,
         user_settings: &UserSettings,
-    ) -> Result<LocalWorkingCopy, WorkingCopyStateError> {
+    ) -> Result<Self, WorkingCopyStateError> {
         let tree_state_settings = TreeStateSettings::try_from_user_settings(user_settings)
             .map_err(|err| WorkingCopyStateError {
                 message: "Failed to read the tree state settings".to_string(),
                 err: err.into(),
             })?;
-        Ok(LocalWorkingCopy {
+        Ok(Self {
             store,
             working_copy_path,
             state_path,

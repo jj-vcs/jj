@@ -67,13 +67,13 @@ enum FileContents {
 impl FileContents {
     fn describe(&self) -> Option<String> {
         match self {
-            FileContents::Absent => None,
-            FileContents::Text {
+            Self::Absent => None,
+            Self::Text {
                 contents: _,
                 hash,
                 num_bytes,
             }
-            | FileContents::Binary { hash, num_bytes } => match hash {
+            | Self::Binary { hash, num_bytes } => match hash {
                 Some(hash) => Some(format!("{hash} ({num_bytes}B)")),
                 None => Some(format!("({num_bytes}B)")),
             },
@@ -1940,7 +1940,7 @@ mod tests {
     }
 
     impl StateMachineTest for EditDiffBuiltinAllOrNothingPropTest {
-        type SystemUnderTest = EditDiffBuiltinAllOrNothingPropTest;
+        type SystemUnderTest = Self;
 
         type Reference = WorkingCopyReferenceStateMachine;
 
@@ -2042,7 +2042,7 @@ mod tests {
     }
 
     impl StateMachineTest for EditDiffBuiltinPartialSelectionPropTest {
-        type SystemUnderTest = EditDiffBuiltinPartialSelectionPropTest;
+        type SystemUnderTest = Self;
         type Reference = WorkingCopyWithSelectionStateMachine;
 
         fn init_test(ref_state: &WorkingCopyWithSelectionStateMachine) -> Self::SystemUnderTest {

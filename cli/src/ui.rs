@@ -64,22 +64,22 @@ enum UiOutput {
 }
 
 impl UiOutput {
-    fn new_terminal() -> UiOutput {
-        UiOutput::Terminal {
+    fn new_terminal() -> Self {
+        Self::Terminal {
             stdout: io::stdout(),
             stderr: io::stderr(),
         }
     }
 
-    fn new_paged(pager_cmd: &CommandNameAndArgs) -> io::Result<UiOutput> {
+    fn new_paged(pager_cmd: &CommandNameAndArgs) -> io::Result<Self> {
         let mut cmd = pager_cmd.to_command();
         tracing::info!(?cmd, "spawning pager");
         let mut child = cmd.stdin(Stdio::piped()).spawn()?;
         let child_stdin = child.stdin.take().unwrap();
-        Ok(UiOutput::Paged { child, child_stdin })
+        Ok(Self::Paged { child, child_stdin })
     }
 
-    fn new_builtin_paged(config: &StreampagerConfig) -> streampager::Result<UiOutput> {
+    fn new_builtin_paged(config: &StreampagerConfig) -> streampager::Result<Self> {
         let streampager_config = streampager::config::Config {
             wrapping_mode: config.wrapping.into(),
             interface_mode: config.streampager_interface_mode(),
@@ -101,7 +101,7 @@ impl UiOutput {
         pager.add_stream(out_rd, "")?;
         pager.add_error_stream(err_rd, "stderr")?;
 
-        Ok(UiOutput::BuiltinPaged {
+        Ok(Self::BuiltinPaged {
             out_wr,
             err_wr,
             pager_thread: thread::spawn(|| pager.run()),
@@ -110,8 +110,8 @@ impl UiOutput {
 
     fn finalize(self, ui: &Ui) {
         match self {
-            UiOutput::Terminal { .. } => { /* no-op */ }
-            UiOutput::Paged {
+            Self::Terminal { .. } => { /* no-op */ }
+            Self::Paged {
                 mut child,
                 child_stdin,
             } => {
@@ -128,7 +128,7 @@ impl UiOutput {
                     .ok();
                 }
             }
-            UiOutput::BuiltinPaged {
+            Self::BuiltinPaged {
                 out_wr,
                 err_wr,
                 pager_thread,
@@ -150,7 +150,7 @@ impl UiOutput {
                     }
                 }
             }
-            UiOutput::Null => {}
+            Self::Null => {}
         }
     }
 }
@@ -228,10 +228,10 @@ pub enum ColorChoice {
 impl fmt::Display for ColorChoice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
-            ColorChoice::Always => "always",
-            ColorChoice::Never => "never",
-            ColorChoice::Debug => "debug",
-            ColorChoice::Auto => "auto",
+            Self::Always => "always",
+            Self::Never => "never",
+            Self::Debug => "debug",
+            Self::Auto => "auto",
         };
         write!(f, "{s}")
     }
@@ -284,11 +284,10 @@ enum StreampagerWrappingMode {
 
 impl From<StreampagerWrappingMode> for streampager::config::WrappingMode {
     fn from(val: StreampagerWrappingMode) -> Self {
-        use streampager::config::WrappingMode;
         match val {
-            StreampagerWrappingMode::None => WrappingMode::Unwrapped,
-            StreampagerWrappingMode::Word => WrappingMode::WordBoundary,
-            StreampagerWrappingMode::Anywhere => WrappingMode::GraphemeBoundary,
+            StreampagerWrappingMode::None => Self::Unwrapped,
+            StreampagerWrappingMode::Word => Self::WordBoundary,
+            StreampagerWrappingMode::Anywhere => Self::GraphemeBoundary,
         }
     }
 }
@@ -324,22 +323,22 @@ enum PagerConfig {
 }
 
 impl PagerConfig {
-    fn from_config(config: &StackedConfig) -> Result<PagerConfig, ConfigGetError> {
+    fn from_config(config: &StackedConfig) -> Result<Self, ConfigGetError> {
         if matches!(config.get("ui.paginate")?, PaginationChoice::Never) {
-            return Ok(PagerConfig::Disabled);
+            return Ok(Self::Disabled);
         };
         let args: CommandNameAndArgs = config.get("ui.pager")?;
         if args.as_str() == Some(BUILTIN_PAGER_NAME) {
-            Ok(PagerConfig::Builtin(config.get("ui.streampager")?))
+            Ok(Self::Builtin(config.get("ui.streampager")?))
         } else {
-            Ok(PagerConfig::External(args))
+            Ok(Self::External(args))
         }
     }
 }
 
 impl Ui {
-    pub fn null() -> Ui {
-        Ui {
+    pub fn null() -> Self {
+        Self {
             quiet: true,
             pager: PagerConfig::Disabled,
             progress_indicator: false,
@@ -348,9 +347,9 @@ impl Ui {
         }
     }
 
-    pub fn with_config(config: &StackedConfig) -> Result<Ui, CommandError> {
+    pub fn with_config(config: &StackedConfig) -> Result<Self, CommandError> {
         let formatter_factory = prepare_formatter_factory(config, &io::stdout())?;
-        Ok(Ui {
+        Ok(Self {
             quiet: config.get("ui.quiet")?,
             formatter_factory,
             pager: PagerConfig::from_config(config)?,
@@ -700,8 +699,8 @@ pub struct ProgressOutput<W> {
 }
 
 impl ProgressOutput<io::Stderr> {
-    pub fn for_stderr() -> ProgressOutput<io::Stderr> {
-        ProgressOutput {
+    pub fn for_stderr() -> Self {
+        Self {
             output: io::stderr(),
             term_width: None,
         }

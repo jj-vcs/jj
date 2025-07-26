@@ -131,7 +131,7 @@ pub enum GpgError {
 
 impl From<GpgError> for SignError {
     fn from(e: GpgError) -> Self {
-        SignError::Backend(Box::new(e))
+        Self::Backend(Box::new(e))
     }
 }
 

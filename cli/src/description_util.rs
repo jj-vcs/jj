@@ -53,7 +53,7 @@ pub struct TempTextEditError {
 
 impl TempTextEditError {
     fn new(error: Box<dyn std::error::Error + Send + Sync>, path: Option<PathBuf>) -> Self {
-        TempTextEditError {
+        Self {
             error,
             name: None,
             path,
@@ -77,7 +77,7 @@ pub struct TextEditor {
 impl TextEditor {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         let editor = settings.get("ui.editor")?;
-        Ok(TextEditor { editor, dir: None })
+        Ok(Self { editor, dir: None })
     }
 
     pub fn with_temp_dir(mut self, dir: impl Into<PathBuf>) -> Self {

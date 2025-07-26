@@ -189,7 +189,7 @@ impl DetachedCommitBuilder {
             committer: signature,
             secure_sig: None,
         };
-        DetachedCommitBuilder {
+        Self {
             store,
             rng,
             commit,
@@ -232,7 +232,7 @@ impl DetachedCommitBuilder {
             commit.author.timestamp = commit.committer.timestamp;
         }
 
-        DetachedCommitBuilder {
+        Self {
             store,
             commit,
             rng: settings.get_rng(),

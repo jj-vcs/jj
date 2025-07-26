@@ -85,7 +85,7 @@ impl ReadonlyIndexLoadError {
     }
 
     fn from_io_err(name: impl Into<String>, error: io::Error) -> Self {
-        ReadonlyIndexLoadError::Other {
+        Self::Other {
             name: name.into(),
             error,
         }
@@ -94,8 +94,8 @@ impl ReadonlyIndexLoadError {
     /// Returns true if the underlying error suggests data corruption.
     pub(super) fn is_corrupt_or_not_found(&self) -> bool {
         match self {
-            ReadonlyIndexLoadError::UnexpectedVersion { .. } => true,
-            ReadonlyIndexLoadError::Other { name: _, error } => {
+            Self::UnexpectedVersion { .. } => true,
+            Self::Other { name: _, error } => {
                 // If the parent file name field is corrupt, the file wouldn't be found.
                 // And there's no need to distinguish it from an empty file.
                 matches!(
@@ -357,7 +357,7 @@ impl ReadonlyCommitIndexSegment {
             ));
         }
 
-        Ok(Arc::new(ReadonlyCommitIndexSegment {
+        Ok(Arc::new(Self {
             parent_file,
             num_parent_commits,
             id,
@@ -596,7 +596,7 @@ pub struct DefaultReadonlyIndex(CompositeIndex);
 
 impl DefaultReadonlyIndex {
     pub(super) fn from_segment(commits: Arc<ReadonlyCommitIndexSegment>) -> Self {
-        DefaultReadonlyIndex(CompositeIndex::from_readonly(commits))
+        Self(CompositeIndex::from_readonly(commits))
     }
 
     pub(super) fn readonly_commits(&self) -> &Arc<ReadonlyCommitIndexSegment> {
@@ -700,7 +700,7 @@ impl ReadonlyIndex for DefaultReadonlyIndex {
     }
 
     fn start_modification(&self) -> Box<dyn MutableIndex> {
-        Box::new(DefaultReadonlyIndex::start_modification(self))
+        Box::new(Self::start_modification(self))
     }
 }
 

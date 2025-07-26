@@ -230,7 +230,7 @@ pub struct SnapshotOptions<'a> {
 impl SnapshotOptions<'_> {
     /// Create an instance for use in tests.
     pub fn empty_for_test() -> Self {
-        SnapshotOptions {
+        Self {
             base_ignores: GitIgnoreFile::empty(),
             fsmonitor_settings: FsmonitorSettings::None,
             progress: None,
@@ -275,7 +275,7 @@ pub struct CheckoutOptions {
 impl CheckoutOptions {
     /// Create an instance for use in tests.
     pub fn empty_for_test() -> Self {
-        CheckoutOptions {
+        Self {
             conflict_marker_style: ConflictMarkerStyle::default(),
         }
     }

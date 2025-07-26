@@ -135,7 +135,7 @@ impl TestBackend {
         let empty_tree_id = TreeId::new(get_hash(&Tree::default()));
         let runtime = Runtime::new().unwrap();
 
-        TestBackend {
+        Self {
             root_commit_id,
             root_change_id,
             empty_tree_id,

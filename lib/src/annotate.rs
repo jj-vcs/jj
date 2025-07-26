@@ -198,7 +198,7 @@ impl FileAnnotator {
             commit_source_map: HashMap::from([(starting_commit_id.clone(), source)]),
             num_unresolved_roots: 0,
         };
-        FileAnnotator {
+        Self {
             file_path: file_path.to_owned(),
             starting_text,
             state,
@@ -257,7 +257,7 @@ struct Source {
 
 impl Source {
     fn new(text: BString) -> Self {
-        Source {
+        Self {
             line_map: Vec::new(),
             text,
         }

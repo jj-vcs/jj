@@ -67,7 +67,7 @@ pub struct GitSettings {
 
 impl GitSettings {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
-        Ok(GitSettings {
+        Ok(Self {
             auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
             abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
             executable_path: settings.get("git.executable-path")?,
@@ -78,7 +78,7 @@ impl GitSettings {
 
 impl Default for GitSettings {
     fn default() -> Self {
-        GitSettings {
+        Self {
             auto_local_bookmark: false,
             abandon_unreachable_commits: true,
             executable_path: PathBuf::from("git"),
@@ -158,7 +158,7 @@ impl UserSettings {
             signing_behavior,
             signing_key,
         };
-        Ok(UserSettings {
+        Ok(Self {
             config: Arc::new(config),
             data: Arc::new(data),
             rng,
@@ -316,7 +316,7 @@ impl JJRng {
     /// Creates a new RNGs. Could be made public, but we'd like to encourage all
     /// RNGs references to point to the same RNG.
     fn new(seed: Option<u64>) -> Self {
-        Self(Mutex::new(JJRng::internal_rng_from_seed(seed)))
+        Self(Mutex::new(Self::internal_rng_from_seed(seed)))
     }
 
     fn internal_rng_from_seed(seed: Option<u64>) -> ChaCha20Rng {
@@ -343,10 +343,10 @@ impl FromStr for HumanByteSize {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.parse() {
-            Ok(bytes) => Ok(HumanByteSize(bytes)),
+            Ok(bytes) => Ok(Self(bytes)),
             Err(_) => {
                 let bytes = parse_human_byte_size(s)?;
-                Ok(HumanByteSize(bytes))
+                Ok(Self(bytes))
             }
         }
     }
@@ -358,7 +358,7 @@ impl TryFrom<ConfigValue> for HumanByteSize {
     fn try_from(value: ConfigValue) -> Result<Self, Self::Error> {
         if let Some(n) = value.as_integer() {
             let n = u64::try_from(n).map_err(|_| "Integer out of range")?;
-            Ok(HumanByteSize(n))
+            Ok(Self(n))
         } else if let Some(s) = value.as_str() {
             s.parse()
         } else {

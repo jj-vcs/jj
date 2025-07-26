@@ -199,7 +199,7 @@ struct WordComparator<C, S> {
 
 impl<C: CompareBytes> WordComparator<C, RandomState> {
     fn new(compare: C) -> Self {
-        WordComparator {
+        Self {
             compare,
             // TODO: switch to ahash for better performance?
             hash_builder: RandomState::new(),
@@ -249,7 +249,7 @@ impl<'input, 'aux> DiffSource<'input, 'aux> {
             .iter()
             .map(|range| comp.hash_one(&text[range.clone()]))
             .collect();
-        DiffSource {
+        Self {
             text,
             ranges,
             hashes,
@@ -281,7 +281,7 @@ struct LocalDiffSource<'input, 'aux> {
 
 impl<'input> LocalDiffSource<'input, '_> {
     fn narrowed(&self, positions: Range<LocalWordPosition>) -> Self {
-        LocalDiffSource {
+        Self {
             text: self.text,
             ranges: &self.ranges[positions.start.0..positions.end.0],
             hashes: &self.hashes[positions.start.0..positions.end.0],
@@ -336,7 +336,7 @@ impl<'input> Histogram<'input> {
                 })
                 .or_insert_with(|| (word, smallvec![pos]));
         }
-        Histogram { word_to_positions }
+        Self { word_to_positions }
     }
 
     fn build_count_to_entries(&self) -> BTreeMap<usize, Vec<&HistogramEntry<'input>>> {
@@ -587,7 +587,7 @@ impl UnchangedRange {
         let others = iter::zip(other_sources, other_positions)
             .map(|(source, pos)| source.range_at(*pos))
             .collect();
-        UnchangedRange { base, others }
+        Self { base, others }
     }
 
     fn is_all_empty(&self) -> bool {
@@ -875,7 +875,7 @@ impl<'input> DiffHunk<'input> {
     pub fn matching<T: AsRef<[u8]> + ?Sized + 'input>(
         contents: impl IntoIterator<Item = &'input T>,
     ) -> Self {
-        DiffHunk {
+        Self {
             kind: DiffHunkKind::Matching,
             contents: contents.into_iter().map(BStr::new).collect(),
         }
@@ -884,7 +884,7 @@ impl<'input> DiffHunk<'input> {
     pub fn different<T: AsRef<[u8]> + ?Sized + 'input>(
         contents: impl IntoIterator<Item = &'input T>,
     ) -> Self {
-        DiffHunk {
+        Self {
             kind: DiffHunkKind::Different,
             contents: contents.into_iter().map(BStr::new).collect(),
         }
@@ -953,7 +953,7 @@ impl<'diff> DiffHunkRangeIterator<'diff> {
     fn new(diff: &'diff Diff) -> Self {
         let mut unchanged_iter = diff.unchanged_regions.iter();
         let previous = unchanged_iter.next().unwrap();
-        DiffHunkRangeIterator {
+        Self {
             previous,
             unchanged_emitted: previous.is_all_empty(),
             unchanged_iter,
