@@ -1022,6 +1022,17 @@ impl EvaluationContext<'_> {
                 }
                 Ok(Box::new(EagerRevset { positions }))
             }
+            ResolvedExpression::Bisect(candidates) => {
+                let set = self.evaluate(candidates)?;
+                // TODO: Make this more correct in non-linear history
+                let candidate_positions: Vec<_> = set.positions().attach(index).try_collect()?;
+                let positions = if candidate_positions.is_empty() {
+                    candidate_positions
+                } else {
+                    vec![candidate_positions[candidate_positions.len() / 2]]
+                };
+                Ok(Box::new(EagerRevset { positions }))
+            }
             ResolvedExpression::Latest { candidates, count } => {
                 let candidate_set = self.evaluate(candidates)?;
                 Ok(Box::new(self.take_latest_revset(&*candidate_set, *count)?))

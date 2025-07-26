@@ -289,6 +289,10 @@ revsets (expressions) as arguments.
   the revset `heads(::x_1 & ::x_2 & ... & ::x_N)`, where `x_{1..N}` are commits
   in `x`. If `x` resolves to a single commit, `fork_point(x)` resolves to `x`.
 
+* `bisect(x)`: Finds commits in the input set for which about half of the input
+  set are descendants. The current implementation deals somewhat poorly with
+  non-linear history.
+
 * `merges()`: Merge commits.
 
 * `description(pattern)`: Commits that have a description matching the given

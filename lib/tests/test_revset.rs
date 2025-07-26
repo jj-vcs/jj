@@ -2922,6 +2922,116 @@ fn test_evaluate_expression_fork_point_merge_with_ancestor() {
 }
 
 #[test]
+fn test_evaluate_expression_bisect_linear() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
+    let root_commit = repo.store().root_commit();
+    let commit1 = graph_builder.initial_commit();
+    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
+    let commit3 = graph_builder.commit_with_parents(&[&commit2]);
+    let commit4 = graph_builder.commit_with_parents(&[&commit3]);
+    let commit5 = graph_builder.commit_with_parents(&[&commit4]);
+    let commit6 = graph_builder.commit_with_parents(&[&commit5]);
+    let commit7 = graph_builder.commit_with_parents(&[&commit6]);
+
+    let resolve_ids = |input: &str| resolve_commit_ids(mut_repo, input);
+
+    // Empty input yields empty output
+    assert_eq!(resolve_ids("bisect(none())"), vec![]);
+
+    // When given a single commit, returns that commit
+    assert_eq!(
+        resolve_ids("bisect(root())"),
+        vec![root_commit.id().clone()]
+    );
+    assert_eq!(
+        resolve_ids(&format!("bisect({})", commit3.id())),
+        vec![commit3.id().clone()]
+    );
+
+    // When given two commits, arbitrarily picks the older one
+    assert_eq!(
+        resolve_ids(&format!("bisect({}|{})", commit3.id(), commit4.id())),
+        vec![commit3.id().clone()]
+    );
+
+    // Gaps are allowed
+    assert_eq!(
+        resolve_ids(&format!("bisect({}|{})", commit2.id(), commit7.id())),
+        vec![commit2.id().clone()]
+    );
+
+    // Finds a commit near the middle
+    assert_eq!(
+        resolve_ids(&format!("bisect({}::{})", root_commit.id(), commit7.id())),
+        vec![commit3.id().clone()]
+    );
+    assert_eq!(
+        resolve_ids(&format!("bisect({}::{})", commit3.id(), commit7.id())),
+        vec![commit5.id().clone()]
+    );
+}
+
+#[test]
+fn test_evaluate_expression_bisect_nonlinear() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    // 7
+    // |\
+    // 5 6
+    // | |
+    // 3 4
+    // | |
+    // 1 2
+    // |/
+    // 0
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
+    let root_commit = repo.store().root_commit();
+    let commit1 = graph_builder.initial_commit();
+    let commit2 = graph_builder.initial_commit();
+    let commit3 = graph_builder.commit_with_parents(&[&commit1]);
+    let commit4 = graph_builder.commit_with_parents(&[&commit2]);
+    let commit5 = graph_builder.commit_with_parents(&[&commit3]);
+    let commit6 = graph_builder.commit_with_parents(&[&commit4]);
+    let _commit7 = graph_builder.commit_with_parents(&[&commit5, &commit6]);
+
+    let resolve_ids = |input: &str| resolve_commit_ids(mut_repo, input);
+
+    // Range including two branches of a merge.
+    // TODO: Should ideally pick commit 5 or 6
+    assert_eq!(
+        resolve_ids(&format!("bisect({}::)", root_commit.id())),
+        vec![commit3.id().clone()]
+    );
+
+    // Chain of 3 commits plus unrelated commit
+    // TODO: Should ideally pick commit 3
+    assert_eq!(
+        resolve_ids(&format!(
+            "bisect({}::{} | {})",
+            commit1.id(),
+            commit5.id(),
+            commit2.id()
+        )),
+        vec![commit2.id().clone()]
+    );
+
+    // When given two unrelated commits, arbitrarily picks one.
+    // TODO: Should we return multiple here? They could be tested in parallel.
+    assert_eq!(
+        resolve_ids(&format!("bisect({}|{})", commit3.id(), commit4.id())),
+        vec![commit3.id().clone()]
+    );
+}
+
+#[test]
 fn test_evaluate_expression_merges() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;

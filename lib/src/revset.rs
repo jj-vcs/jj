@@ -285,6 +285,7 @@ pub enum RevsetExpression<St: ExpressionState> {
     },
     Roots(Rc<Self>),
     ForkPoint(Rc<Self>),
+    Bisect(Rc<Self>),
     Latest {
         candidates: Rc<Self>,
         count: usize,
@@ -491,6 +492,11 @@ impl<St: ExpressionState> RevsetExpression<St> {
         Rc::new(Self::ForkPoint(self.clone()))
     }
 
+    /// Commits with ~half of the descendants in `self`.
+    pub fn bisect(self: &Rc<Self>) -> Rc<Self> {
+        Rc::new(Self::Bisect(self.clone()))
+    }
+
     /// Filter all commits by `predicate` in `self`.
     pub fn filtered(self: &Rc<Self>, predicate: RevsetFilterPredicate) -> Rc<Self> {
         self.intersection(&Self::filter(predicate))
@@ -679,6 +685,7 @@ pub enum ResolvedExpression {
     },
     Roots(Box<Self>),
     ForkPoint(Box<Self>),
+    Bisect(Box<Self>),
     Latest {
         candidates: Box<Self>,
         count: usize,
@@ -861,6 +868,11 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         let [expression_arg] = function.expect_exact_arguments()?;
         let expression = lower_expression(diagnostics, expression_arg, context)?;
         Ok(RevsetExpression::fork_point(&expression))
+    });
+    map.insert("bisect", |diagnostics, function, context| {
+        let [expression_arg] = function.expect_exact_arguments()?;
+        let expression = lower_expression(diagnostics, expression_arg, context)?;
+        Ok(RevsetExpression::bisect(&expression))
     });
     map.insert("merges", |_diagnostics, function, _context| {
         function.expect_no_arguments()?;
@@ -1370,6 +1382,9 @@ fn try_transform_expression<St: ExpressionState, E>(
             RevsetExpression::ForkPoint(expression) => {
                 transform_rec(expression, pre, post)?.map(RevsetExpression::ForkPoint)
             }
+            RevsetExpression::Bisect(expression) => {
+                transform_rec(expression, pre, post)?.map(RevsetExpression::Bisect)
+            }
             RevsetExpression::Latest { candidates, count } => transform_rec(candidates, pre, post)?
                 .map(|candidates| RevsetExpression::Latest {
                     candidates,
@@ -1590,6 +1605,10 @@ where
         RevsetExpression::ForkPoint(expression) => {
             let expression = folder.fold_expression(expression)?;
             RevsetExpression::ForkPoint(expression).into()
+        }
+        RevsetExpression::Bisect(expression) => {
+            let expression = folder.fold_expression(expression)?;
+            RevsetExpression::Bisect(expression).into()
         }
         RevsetExpression::Latest { candidates, count } => {
             let candidates = folder.fold_expression(candidates)?;
@@ -2837,6 +2856,9 @@ impl VisibilityResolutionContext<'_> {
             RevsetExpression::ForkPoint(expression) => {
                 ResolvedExpression::ForkPoint(self.resolve(expression).into())
             }
+            RevsetExpression::Bisect(expression) => {
+                ResolvedExpression::Bisect(self.resolve(expression).into())
+            }
             RevsetExpression::Latest { candidates, count } => ResolvedExpression::Latest {
                 candidates: self.resolve(candidates).into(),
                 count: *count,
@@ -2960,6 +2982,7 @@ impl VisibilityResolutionContext<'_> {
             | RevsetExpression::HeadsRange { .. }
             | RevsetExpression::Roots(_)
             | RevsetExpression::ForkPoint(_)
+            | RevsetExpression::Bisect(_)
             | RevsetExpression::Latest { .. } => {
                 ResolvedPredicateExpression::Set(self.resolve(expression).into())
             }
