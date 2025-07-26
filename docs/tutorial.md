@@ -418,7 +418,7 @@ New conflicts appeared in 2 commits:
   puqltutt f7fb5943 (conflict) B2
 Hint: To resolve the conflicts, start by creating a commit on top of
 the first conflicted commit:
-  jj new nprznkxy
+  jj new puqltutt
 Then use `jj resolve`, or edit the conflict markers in the file directly.
 Once the conflicts are resolved, you can inspect the result with `jj diff`.
 Then run `jj squash` to move the resolution into the conflicted commit.
