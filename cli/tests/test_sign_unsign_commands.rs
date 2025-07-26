@@ -45,7 +45,7 @@ backend = "test"
     │  (empty) two
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 401ea16f
     │  (empty) one
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
@@ -72,7 +72,7 @@ backend = "test"
     │  (empty) two
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:12 7fb98da0 [✓︎]
     │  (empty) one
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
@@ -121,7 +121,7 @@ backend = "test"
     │  (empty) (no description set)
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 401ea16f
     │  (empty) one
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 }
@@ -228,7 +228,7 @@ backend = "test"
     │  (empty) two
     ○  qpvuntsm someone@else.com 2001-02-03 08:05:12 2c0b7924 [✓︎]
     │  (empty) one
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 }
@@ -274,7 +274,7 @@ backend = "test"
     │  (empty) B
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:11 0e149d92 [✓︎]
     │  (empty) A
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 }
@@ -337,7 +337,7 @@ backend = "test"
     │  (empty) two
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:11 fbef1f02 [✓︎]
     │  (empty) one
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
@@ -364,7 +364,7 @@ backend = "test"
     │  (empty) two
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:13 c08b67cb
     │  (empty) one
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 }
@@ -424,7 +424,7 @@ backend = "test"
     │  (empty) two
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:12 4430b844
     │  (empty) one
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 }

@@ -175,7 +175,7 @@ fn test_restore_conflicted_merge() {
     ○ │  a
     ├─╯
     ○  base
-    ◆
+    ♦
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.read_file("file"), @r"
@@ -288,7 +288,7 @@ fn test_restore_restore_descendants() {
     ○ │  a
     ├─╯
     ○  base
-    ◆
+    ♦
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.read_file("file"), @"ab");
@@ -361,7 +361,7 @@ fn test_restore_interactive() {
     │  a
     │  A file1
     │  A file2
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
@@ -402,7 +402,7 @@ fn test_restore_interactive() {
     │  a
     │  A file1
     │  A file2
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
@@ -426,7 +426,7 @@ fn test_restore_interactive() {
     │  a
     │  A file1
     │  A file2
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 }
@@ -459,7 +459,7 @@ fn test_restore_interactive_merge() {
     ○ │  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 78059355
     ├─╯  a
     │    A file1
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
@@ -504,7 +504,7 @@ fn test_restore_interactive_merge() {
     ○ │  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 78059355
     ├─╯  a
     │    A file1
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 }
@@ -534,7 +534,7 @@ fn test_restore_interactive_with_paths() {
     │  a
     │  A file1
     │  A file2
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
@@ -566,7 +566,7 @@ fn test_restore_interactive_with_paths() {
     │  a
     │  A file1
     │  A file2
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 }
