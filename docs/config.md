@@ -505,6 +505,20 @@ log = "main@origin.."
 The default value for `revsets.log` is
 `'present(@) | ancestors(immutable_heads().., 2) | present(trunk())'`.
 
+### Prioritize Revsets in the Log over @
+
+In some situations the default graph can be hard to read, for example when working with big merges.
+To improve this behavior you can configure which revset in the `jj log` graph is displayed on
+the left instead of `@`.
+
+The following example will prioritize the change with the description "megamerge" with a fallback
+to `trunk()` in case no such change exists:
+
+```toml
+[revsets]
+log-graph-prioritize = "coalesce(description("megamerge\n"), trunk())"
+```
+
 ### Default Template
 
 You can configure the template used when no `-T` is specified.
