@@ -133,6 +133,9 @@ nav: # This lists all the files that become part of the documentation
       - Operation log: 'operation-log.md'
       - Glossary: 'glossary.md'
 
+  - Guides:
+      - Divergent changes: 'guides/divergence.md'
+
   - Reference:
       - Settings: 'config.md'
       - Fileset language: 'filesets.md'
