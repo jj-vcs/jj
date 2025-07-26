@@ -71,7 +71,7 @@ pub(crate) struct PrevArgs {
 
 impl From<&PrevArgs> for MovementArgs {
     fn from(val: &PrevArgs) -> Self {
-        MovementArgs {
+        Self {
             offset: val.offset,
             edit: val.edit,
             no_edit: val.no_edit,

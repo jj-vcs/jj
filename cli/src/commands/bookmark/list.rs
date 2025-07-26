@@ -343,19 +343,19 @@ enum SortKey {
 impl SortKey {
     fn is_commit_dependant(&self) -> bool {
         match self {
-            SortKey::Name | SortKey::NameDesc => false,
-            SortKey::AuthorName
-            | SortKey::AuthorNameDesc
-            | SortKey::AuthorEmail
-            | SortKey::AuthorEmailDesc
-            | SortKey::AuthorDate
-            | SortKey::AuthorDateDesc
-            | SortKey::CommitterName
-            | SortKey::CommitterNameDesc
-            | SortKey::CommitterEmail
-            | SortKey::CommitterEmailDesc
-            | SortKey::CommitterDate
-            | SortKey::CommitterDateDesc => true,
+            Self::Name | Self::NameDesc => false,
+            Self::AuthorName
+            | Self::AuthorNameDesc
+            | Self::AuthorEmail
+            | Self::AuthorEmailDesc
+            | Self::AuthorDate
+            | Self::AuthorDateDesc
+            | Self::CommitterName
+            | Self::CommitterNameDesc
+            | Self::CommitterEmail
+            | Self::CommitterEmailDesc
+            | Self::CommitterDate
+            | Self::CommitterDateDesc => true,
         }
     }
 }

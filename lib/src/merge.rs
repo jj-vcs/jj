@@ -133,7 +133,7 @@ impl<T> Merge<T> {
     pub fn from_vec(values: impl Into<SmallVec<[T; 1]>>) -> Self {
         let values = values.into();
         assert!(values.len() % 2 != 0, "must have an odd number of terms");
-        Merge { values }
+        Self { values }
     }
 
     /// Creates a new merge object from the given removes and adds.
@@ -149,12 +149,12 @@ impl<T> Merge<T> {
             let (remove, add) = diff.both().expect("must have one more adds than removes");
             values.extend([remove, add]);
         }
-        Merge { values }
+        Self { values }
     }
 
     /// Creates a `Merge` with a single resolved value.
     pub const fn resolved(value: T) -> Self {
-        Merge {
+        Self {
             values: smallvec_inline![value],
         }
     }
@@ -234,7 +234,7 @@ impl<T> Merge<T> {
 
     /// Returns the resolved value, if this merge is resolved. Otherwise returns
     /// the merge itself as an `Err`. Does not resolve trivial merges.
-    pub fn into_resolved(mut self) -> Result<T, Merge<T>> {
+    pub fn into_resolved(mut self) -> Result<T, Self> {
         if self.values.len() == 1 {
             Ok(self.values.pop().unwrap())
         } else {
@@ -290,11 +290,11 @@ impl<T> Merge<T> {
             .iter()
             .map(|index| self.values[*index].clone())
             .collect();
-        Merge { values }
+        Self { values }
     }
 
     /// Updates the merge based on the given simplified merge.
-    pub fn update_from_simplified(mut self, simplified: Merge<T>) -> Self
+    pub fn update_from_simplified(mut self, simplified: Self) -> Self
     where
         T: PartialEq,
     {
@@ -419,7 +419,7 @@ impl<T> IntoIterator for Merge<T> {
 
 impl<T> FromIterator<T> for MergeBuilder<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let mut builder = MergeBuilder::default();
+        let mut builder = Self::default();
         builder.extend(iter);
         builder
     }

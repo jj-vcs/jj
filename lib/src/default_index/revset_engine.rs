@@ -298,7 +298,7 @@ struct EagerRevset {
 
 impl EagerRevset {
     pub const fn empty() -> Self {
-        EagerRevset {
+        Self {
             positions: Vec::new(),
         }
     }

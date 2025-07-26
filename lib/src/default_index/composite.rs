@@ -524,13 +524,13 @@ pub(super) struct CompositeIndex {
 
 impl CompositeIndex {
     pub(super) fn from_readonly(commits: Arc<ReadonlyCommitIndexSegment>) -> Self {
-        CompositeIndex {
+        Self {
             commits: CompositeCommitIndexSegment::Readonly(commits),
         }
     }
 
     pub(super) fn from_mutable(commits: Box<MutableCommitIndexSegment>) -> Self {
-        CompositeIndex {
+        Self {
             commits: CompositeCommitIndexSegment::Mutable(commits),
         }
     }
@@ -620,7 +620,7 @@ impl Index for CompositeIndex {
         expression: &ResolvedExpression,
         store: &Arc<Store>,
     ) -> Result<Box<dyn Revset + '_>, RevsetEvaluationError> {
-        CompositeIndex::evaluate_revset(self, expression, store)
+        Self::evaluate_revset(self, expression, store)
     }
 }
 
@@ -630,13 +630,13 @@ pub(super) struct ChangeIdIndexImpl<I> {
 }
 
 impl<I: AsCompositeIndex> ChangeIdIndexImpl<I> {
-    pub fn new(index: I, heads: &mut dyn Iterator<Item = &CommitId>) -> ChangeIdIndexImpl<I> {
+    pub fn new(index: I, heads: &mut dyn Iterator<Item = &CommitId>) -> Self {
         let composite = index.as_composite().commits();
         let mut reachable_set = AncestorsBitSet::with_capacity(composite.num_commits());
         for id in heads {
             reachable_set.add_head(composite.commit_id_to_pos(id).unwrap());
         }
-        ChangeIdIndexImpl {
+        Self {
             index,
             reachable_set: Mutex::new(reachable_set),
         }

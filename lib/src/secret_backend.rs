@@ -69,7 +69,7 @@ impl SecretBackend {
     /// Loads the backend from the given path.
     pub fn load(settings: &UserSettings, store_path: &Path) -> Result<Self, BackendLoadError> {
         let inner = GitBackend::load(settings, store_path)?;
-        Ok(SecretBackend { inner })
+        Ok(Self { inner })
     }
 
     /// Convert a git repo to using `SecretBackend`
@@ -94,7 +94,7 @@ impl Backend for SecretBackend {
     }
 
     fn name(&self) -> &str {
-        SecretBackend::name()
+        Self::name()
     }
 
     fn commit_id_length(&self) -> usize {

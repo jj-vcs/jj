@@ -46,9 +46,9 @@ pub enum SigStatus {
 impl Display for SigStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            SigStatus::Good => "good",
-            SigStatus::Unknown => "unknown",
-            SigStatus::Bad => "bad",
+            Self::Good => "good",
+            Self::Unknown => "unknown",
+            Self::Bad => "bad",
         };
         write!(f, "{s}")
     }

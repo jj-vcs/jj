@@ -194,7 +194,7 @@ impl ReadonlyRepo {
         op_heads_store_initializer: &OpHeadsStoreInitializer,
         index_store_initializer: &IndexStoreInitializer,
         submodule_store_initializer: &SubmoduleStoreInitializer,
-    ) -> Result<Arc<ReadonlyRepo>, RepoInitError> {
+    ) -> Result<Arc<Self>, RepoInitError> {
         let repo_path = dunce::canonicalize(repo_path).context(repo_path)?;
 
         let store_path = repo_path.join("store");
@@ -255,7 +255,7 @@ impl ReadonlyRepo {
             // If the root op index couldn't be read, the index backend wouldn't
             // be initialized properly.
             .map_err(|err| BackendInitError(err.into()))?;
-        Ok(Arc::new(ReadonlyRepo {
+        Ok(Arc::new(Self {
             loader,
             operation: root_operation,
             index,
@@ -305,12 +305,12 @@ impl ReadonlyRepo {
         self.loader.settings()
     }
 
-    pub fn start_transaction(self: &Arc<ReadonlyRepo>) -> Transaction {
+    pub fn start_transaction(self: &Arc<Self>) -> Transaction {
         let mut_repo = MutableRepo::new(self.clone(), self.readonly_index(), &self.view);
         Transaction::new(mut_repo, self.settings())
     }
 
-    pub fn reload_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+    pub fn reload_at_head(&self) -> Result<Arc<Self>, RepoLoaderError> {
         self.loader().load_at_head()
     }
 
@@ -402,7 +402,7 @@ pub struct StoreFactories {
 
 impl Default for StoreFactories {
     fn default() -> Self {
-        let mut factories = StoreFactories::empty();
+        let mut factories = Self::empty();
 
         // Backends
         factories.add_backend(
@@ -478,7 +478,7 @@ pub enum StoreLoadError {
 
 impl StoreFactories {
     pub fn empty() -> Self {
-        StoreFactories {
+        Self {
             backend_factories: HashMap::new(),
             op_store_factories: HashMap::new(),
             op_heads_store_factories: HashMap::new(),
@@ -487,8 +487,8 @@ impl StoreFactories {
         }
     }
 
-    pub fn merge(&mut self, ext: StoreFactories) {
-        let StoreFactories {
+    pub fn merge(&mut self, ext: Self) {
+        let Self {
             backend_factories,
             op_store_factories,
             op_heads_store_factories,
@@ -844,9 +844,9 @@ enum Rewrite {
 impl Rewrite {
     fn new_parent_ids(&self) -> &[CommitId] {
         match self {
-            Rewrite::Rewritten(new_parent_id) => std::slice::from_ref(new_parent_id),
-            Rewrite::Divergent(new_parent_ids) => new_parent_ids.as_slice(),
-            Rewrite::Abandoned(new_parent_ids) => new_parent_ids.as_slice(),
+            Self::Rewritten(new_parent_id) => std::slice::from_ref(new_parent_id),
+            Self::Divergent(new_parent_ids) => new_parent_ids.as_slice(),
+            Self::Abandoned(new_parent_ids) => new_parent_ids.as_slice(),
         }
     }
 }
@@ -872,14 +872,10 @@ pub struct MutableRepo {
 }
 
 impl MutableRepo {
-    pub fn new(
-        base_repo: Arc<ReadonlyRepo>,
-        index: &dyn ReadonlyIndex,
-        view: &View,
-    ) -> MutableRepo {
+    pub fn new(base_repo: Arc<ReadonlyRepo>, index: &dyn ReadonlyIndex, view: &View) -> Self {
         let mut_view = view.clone();
         let mut_index = index.start_modification();
-        MutableRepo {
+        Self {
             base_repo,
             index: mut_index,
             view: DirtyCell::with_clean(mut_view),
@@ -1980,7 +1976,7 @@ mod dirty_cell {
 
     impl<T> DirtyCell<T> {
         pub fn with_clean(value: T) -> Self {
-            DirtyCell {
+            Self {
                 clean: OnceCell::from(Box::new(value)),
                 dirty: RefCell::new(None),
             }

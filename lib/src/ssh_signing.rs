@@ -57,7 +57,7 @@ pub enum SshError {
 
 impl From<SshError> for SignError {
     fn from(e: SshError) -> Self {
-        SignError::Backend(Box::new(e))
+        Self::Backend(Box::new(e))
     }
 }
 

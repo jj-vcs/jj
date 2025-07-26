@@ -76,7 +76,7 @@ impl OperationTemplateLanguage {
                 .build_cache_extensions(&mut cache_extensions);
         }
 
-        OperationTemplateLanguage {
+        Self {
             // Clone these to keep lifetime simple
             repo_loader: repo_loader.clone(),
             current_op_id: current_op_id.cloned(),
@@ -253,7 +253,7 @@ pub struct OperationTemplateBuildFnTable {
 impl OperationTemplateBuildFnTable {
     /// Creates new symbol table containing the builtin methods.
     fn builtin() -> Self {
-        OperationTemplateBuildFnTable {
+        Self {
             core: CoreTemplateBuildFnTable::builtin(),
             operation_methods: builtin_operation_methods(),
             operation_list_methods: template_builder::builtin_unformattable_list_methods(),
@@ -262,7 +262,7 @@ impl OperationTemplateBuildFnTable {
     }
 
     pub fn empty() -> Self {
-        OperationTemplateBuildFnTable {
+        Self {
             core: CoreTemplateBuildFnTable::empty(),
             operation_methods: HashMap::new(),
             operation_list_methods: HashMap::new(),
@@ -270,8 +270,8 @@ impl OperationTemplateBuildFnTable {
         }
     }
 
-    fn merge(&mut self, other: OperationTemplateBuildFnTable) {
-        let OperationTemplateBuildFnTable {
+    fn merge(&mut self, other: Self) {
+        let Self {
             core,
             operation_methods,
             operation_list_methods,

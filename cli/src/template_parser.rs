@@ -61,47 +61,47 @@ const FUNCTION_CALL_PARSER: FunctionCallParser<Rule> = FunctionCallParser {
 impl Rule {
     fn to_symbol(self) -> Option<&'static str> {
         match self {
-            Rule::EOI => None,
-            Rule::whitespace => None,
-            Rule::string_escape => None,
-            Rule::string_content_char => None,
-            Rule::string_content => None,
-            Rule::string_literal => None,
-            Rule::raw_string_content => None,
-            Rule::raw_string_literal => None,
-            Rule::integer_literal => None,
-            Rule::identifier => None,
-            Rule::concat_op => Some("++"),
-            Rule::logical_or_op => Some("||"),
-            Rule::logical_and_op => Some("&&"),
-            Rule::eq_op => Some("=="),
-            Rule::ne_op => Some("!="),
-            Rule::ge_op => Some(">="),
-            Rule::gt_op => Some(">"),
-            Rule::le_op => Some("<="),
-            Rule::lt_op => Some("<"),
-            Rule::add_op => Some("+"),
-            Rule::sub_op => Some("-"),
-            Rule::mul_op => Some("*"),
-            Rule::div_op => Some("/"),
-            Rule::rem_op => Some("%"),
-            Rule::logical_not_op => Some("!"),
-            Rule::negate_op => Some("-"),
-            Rule::prefix_ops => None,
-            Rule::infix_ops => None,
-            Rule::function => None,
-            Rule::keyword_argument => None,
-            Rule::argument => None,
-            Rule::function_arguments => None,
-            Rule::lambda => None,
-            Rule::formal_parameters => None,
-            Rule::primary => None,
-            Rule::term => None,
-            Rule::expression => None,
-            Rule::template => None,
-            Rule::program => None,
-            Rule::function_alias_declaration => None,
-            Rule::alias_declaration => None,
+            Self::EOI => None,
+            Self::whitespace => None,
+            Self::string_escape => None,
+            Self::string_content_char => None,
+            Self::string_content => None,
+            Self::string_literal => None,
+            Self::raw_string_content => None,
+            Self::raw_string_literal => None,
+            Self::integer_literal => None,
+            Self::identifier => None,
+            Self::concat_op => Some("++"),
+            Self::logical_or_op => Some("||"),
+            Self::logical_and_op => Some("&&"),
+            Self::eq_op => Some("=="),
+            Self::ne_op => Some("!="),
+            Self::ge_op => Some(">="),
+            Self::gt_op => Some(">"),
+            Self::le_op => Some("<="),
+            Self::lt_op => Some("<"),
+            Self::add_op => Some("+"),
+            Self::sub_op => Some("-"),
+            Self::mul_op => Some("*"),
+            Self::div_op => Some("/"),
+            Self::rem_op => Some("%"),
+            Self::logical_not_op => Some("!"),
+            Self::negate_op => Some("-"),
+            Self::prefix_ops => None,
+            Self::infix_ops => None,
+            Self::function => None,
+            Self::keyword_argument => None,
+            Self::argument => None,
+            Self::function_arguments => None,
+            Self::lambda => None,
+            Self::formal_parameters => None,
+            Self::primary => None,
+            Self::term => None,
+            Self::expression => None,
+            Self::template => None,
+            Self::program => None,
+            Self::function_alias_declaration => None,
+            Self::alias_declaration => None,
         }
     }
 }
@@ -160,7 +160,7 @@ impl TemplateParseError {
             pest::error::ErrorVariant::CustomError { message },
             span,
         ));
-        TemplateParseError {
+        Self {
             kind,
             pest_error,
             source: None,
@@ -175,12 +175,12 @@ impl TemplateParseError {
     pub fn expected_type(expected: &str, actual: &str, span: pest::Span<'_>) -> Self {
         let message =
             format!("Expected expression of type `{expected}`, but actual type is `{actual}`");
-        TemplateParseError::expression(message, span)
+        Self::expression(message, span)
     }
 
     /// Some other expression error.
     pub fn expression(message: impl Into<String>, span: pest::Span<'_>) -> Self {
-        TemplateParseError::with_span(TemplateParseErrorKind::Expression(message.into()), span)
+        Self::with_span(TemplateParseErrorKind::Expression(message.into()), span)
     }
 
     /// If this is a `NoSuchKeyword` error, expands the candidates list with the
@@ -253,7 +253,7 @@ impl AliasExpandError for TemplateParseError {
 
 impl From<pest::error::Error<Rule>> for TemplateParseError {
     fn from(err: pest::error::Error<Rule>) -> Self {
-        TemplateParseError {
+        Self {
             kind: TemplateParseErrorKind::SyntaxError,
             pest_error: Box::new(rename_rules_in_pest_error(err)),
             source: None,
@@ -301,42 +301,40 @@ impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
         F: ExpressionFolder<'i, Self> + ?Sized,
     {
         match self {
-            ExpressionKind::Identifier(name) => folder.fold_identifier(name, span),
-            ExpressionKind::Boolean(_) | ExpressionKind::Integer(_) | ExpressionKind::String(_) => {
-                Ok(self)
-            }
-            ExpressionKind::Unary(op, arg) => {
+            Self::Identifier(name) => folder.fold_identifier(name, span),
+            Self::Boolean(_) | Self::Integer(_) | Self::String(_) => Ok(self),
+            Self::Unary(op, arg) => {
                 let arg = Box::new(folder.fold_expression(*arg)?);
-                Ok(ExpressionKind::Unary(op, arg))
+                Ok(Self::Unary(op, arg))
             }
-            ExpressionKind::Binary(op, lhs, rhs) => {
+            Self::Binary(op, lhs, rhs) => {
                 let lhs = Box::new(folder.fold_expression(*lhs)?);
                 let rhs = Box::new(folder.fold_expression(*rhs)?);
-                Ok(ExpressionKind::Binary(op, lhs, rhs))
+                Ok(Self::Binary(op, lhs, rhs))
             }
-            ExpressionKind::Concat(nodes) => Ok(ExpressionKind::Concat(
-                dsl_util::fold_expression_nodes(folder, nodes)?,
-            )),
-            ExpressionKind::FunctionCall(function) => folder.fold_function_call(function, span),
-            ExpressionKind::MethodCall(method) => {
+            Self::Concat(nodes) => Ok(Self::Concat(dsl_util::fold_expression_nodes(
+                folder, nodes,
+            )?)),
+            Self::FunctionCall(function) => folder.fold_function_call(function, span),
+            Self::MethodCall(method) => {
                 // Method call is syntactically different from function call.
                 let method = Box::new(MethodCallNode {
                     object: folder.fold_expression(method.object)?,
                     function: dsl_util::fold_function_call_args(folder, method.function)?,
                 });
-                Ok(ExpressionKind::MethodCall(method))
+                Ok(Self::MethodCall(method))
             }
-            ExpressionKind::Lambda(lambda) => {
+            Self::Lambda(lambda) => {
                 let lambda = Box::new(LambdaNode {
                     params: lambda.params,
                     params_span: lambda.params_span,
                     body: folder.fold_expression(lambda.body)?,
                 });
-                Ok(ExpressionKind::Lambda(lambda))
+                Ok(Self::Lambda(lambda))
             }
-            ExpressionKind::AliasExpanded(id, subst) => {
+            Self::AliasExpanded(id, subst) => {
                 let subst = Box::new(folder.fold_expression(*subst)?);
-                Ok(ExpressionKind::AliasExpanded(id, subst))
+                Ok(Self::AliasExpanded(id, subst))
             }
         }
     }

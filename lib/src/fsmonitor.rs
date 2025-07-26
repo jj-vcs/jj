@@ -56,7 +56,7 @@ pub enum FsmonitorSettings {
 
 impl FsmonitorSettings {
     /// Creates an `FsmonitorSettings` from a `config`.
-    pub fn from_settings(settings: &UserSettings) -> Result<FsmonitorSettings, ConfigGetError> {
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         let name = "fsmonitor.backend";
         match settings.get_string(name)?.as_ref() {
             "watchman" => Ok(Self::Watchman(WatchmanConfig {
@@ -141,7 +141,7 @@ pub mod watchman {
                     unimplemented!("SCM-aware Watchman clocks not supported")
                 }
             };
-            WatchmanClock {
+            Self {
                 watchman_clock: Some(watchman_clock),
             }
         }

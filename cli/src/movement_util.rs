@@ -55,8 +55,8 @@ pub(crate) enum Direction {
 impl Direction {
     fn cmd(&self) -> &'static str {
         match self {
-            Direction::Next => "next",
-            Direction::Prev => "prev",
+            Self::Next => "next",
+            Self::Prev => "prev",
         }
     }
 
@@ -69,33 +69,33 @@ impl Direction {
         let offset = args.offset;
         let err_msg = match (self, args.should_edit, args.conflict) {
             // in edit mode, start_revset is the WC, so we only look for direct descendants.
-            (Direction::Next, true, true) => {
+            (Self::Next, true, true) => {
                 String::from("The working copy has no descendants with conflicts")
             }
-            (Direction::Next, true, false) => {
+            (Self::Next, true, false) => {
                 format!("No descendant found {offset} commit(s) forward from the working copy",)
             }
             // in non-edit mode, start_revset is the parent of WC, so we look for other descendants
             // of start_revset.
-            (Direction::Next, false, true) => {
+            (Self::Next, false, true) => {
                 String::from("The working copy parent(s) have no other descendants with conflicts")
             }
-            (Direction::Next, false, false) => format!(
+            (Self::Next, false, false) => format!(
                 "No other descendant found {offset} commit(s) forward from the working copy \
                  parent(s)",
             ),
             // The WC can never be an ancestor of the start_revset since start_revset is either
             // itself or it's parent.
-            (Direction::Prev, true, true) => {
+            (Self::Prev, true, true) => {
                 String::from("The working copy has no ancestors with conflicts")
             }
-            (Direction::Prev, true, false) => {
+            (Self::Prev, true, false) => {
                 format!("No ancestor found {offset} commit(s) back from the working copy",)
             }
-            (Direction::Prev, false, true) => {
+            (Self::Prev, false, true) => {
                 String::from("The working copy parent(s) have no ancestors with conflicts")
             }
-            (Direction::Prev, false, false) => format!(
+            (Self::Prev, false, false) => format!(
                 "No ancestor found {offset} commit(s) back from the working copy parents(s)",
             ),
         };
@@ -123,23 +123,23 @@ impl Direction {
         args: &MovementArgsInternal,
     ) -> Result<Rc<ResolvedRevsetExpression>, CommandError> {
         let nth = match (self, args.should_edit) {
-            (Direction::Next, true) => start_revset.descendants_at(args.offset),
-            (Direction::Next, false) => start_revset
+            (Self::Next, true) => start_revset.descendants_at(args.offset),
+            (Self::Next, false) => start_revset
                 .children()
                 .minus(working_revset)
                 .descendants_at(args.offset - 1),
-            (Direction::Prev, _) => start_revset.ancestors_at(args.offset),
+            (Self::Prev, _) => start_revset.ancestors_at(args.offset),
         };
 
         let target_revset = match (self, args.conflict) {
             (_, false) => nth,
-            (Direction::Next, true) => nth
+            (Self::Next, true) => nth
                 .descendants()
                 .filtered(RevsetFilterPredicate::HasConflict)
                 .roots(),
             // If people desire to move to the root conflict, replace the `heads()` below
             // with `roots(). But let's wait for feedback.
-            (Direction::Prev, true) => nth
+            (Self::Prev, true) => nth
                 .ancestors()
                 .filtered(RevsetFilterPredicate::HasConflict)
                 .heads(),

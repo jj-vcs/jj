@@ -122,7 +122,7 @@ pub enum GitBackendInitError {
 
 impl From<Box<GitBackendInitError>> for BackendInitError {
     fn from(err: Box<GitBackendInitError>) -> Self {
-        BackendInitError(err)
+        Self(err)
     }
 }
 
@@ -140,7 +140,7 @@ pub enum GitBackendLoadError {
 
 impl From<Box<GitBackendLoadError>> for BackendLoadError {
     fn from(err: Box<GitBackendLoadError>) -> Self {
-        BackendLoadError(err)
+        Self(err)
     }
 }
 
@@ -155,7 +155,7 @@ pub enum GitBackendError {
 
 impl From<GitBackendError> for BackendError {
     fn from(err: GitBackendError) -> Self {
-        BackendError::Other(err.into())
+        Self::Other(err.into())
     }
 }
 
@@ -198,7 +198,7 @@ impl GitBackend {
         let root_commit_id = CommitId::from_bytes(&[0; HASH_LENGTH]);
         let root_change_id = ChangeId::from_bytes(&[0; CHANGE_ID_LENGTH]);
         let empty_tree_id = TreeId::from_hex("4b825dc642cb6eb9a060e54bf8d69288fbee4904");
-        GitBackend {
+        Self {
             base_repo,
             repo,
             root_commit_id,
@@ -308,7 +308,7 @@ impl GitBackend {
             .context(&target_path)
             .map_err(GitBackendInitError::Path)?;
         let extra_metadata_store = TableStore::init(extra_path, HASH_LENGTH);
-        Ok(GitBackend::new(repo, extra_metadata_store, git_settings))
+        Ok(Self::new(repo, extra_metadata_store, git_settings))
     }
 
     pub fn load(
@@ -336,7 +336,7 @@ impl GitBackend {
         let git_settings = settings
             .git_settings()
             .map_err(GitBackendLoadError::Config)?;
-        Ok(GitBackend::new(repo, extra_metadata_store, git_settings))
+        Ok(Self::new(repo, extra_metadata_store, git_settings))
     }
 
     fn lock_git_repo(&self) -> MutexGuard<'_, gix::Repository> {

@@ -31,7 +31,7 @@ pub(super) struct PositionsBitSet {
 impl PositionsBitSet {
     /// Creates bit set of the specified capacity.
     pub fn with_capacity(len: u32) -> Self {
-        PositionsBitSet {
+        Self {
             data: vec![],
             bitset_len: u32::div_ceil(len, u64::BITS),
         }
@@ -139,7 +139,7 @@ impl AncestorsBitSet {
     pub fn with_capacity(len: u32) -> Self {
         let bitset = PositionsBitSet::with_capacity(len);
         let next_bitset_pos_to_visit = bitset.bitset_len;
-        AncestorsBitSet {
+        Self {
             bitset,
             next_bitset_pos_to_visit,
         }

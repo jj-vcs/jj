@@ -28,13 +28,13 @@ pub struct DefaultSubmoduleStore {
 impl DefaultSubmoduleStore {
     /// Load an existing SubmoduleStore
     pub fn load(store_path: &Path) -> Self {
-        DefaultSubmoduleStore {
+        Self {
             path: store_path.to_path_buf(),
         }
     }
 
     pub fn init(store_path: &Path) -> Self {
-        DefaultSubmoduleStore {
+        Self {
             path: store_path.to_path_buf(),
         }
     }

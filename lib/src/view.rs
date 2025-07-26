@@ -46,7 +46,7 @@ pub struct View {
 
 impl View {
     pub fn new(op_store_view: op_store::View) -> Self {
-        View {
+        Self {
             data: op_store_view,
         }
     }

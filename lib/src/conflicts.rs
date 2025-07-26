@@ -143,7 +143,7 @@ pub enum MaterializedTreeValue {
 
 impl MaterializedTreeValue {
     pub fn is_absent(&self) -> bool {
-        matches!(self, MaterializedTreeValue::Absent)
+        matches!(self, Self::Absent)
     }
 
     pub fn is_present(&self) -> bool {

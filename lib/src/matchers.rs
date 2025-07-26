@@ -58,7 +58,7 @@ impl Visit {
     }
 
     pub fn is_nothing(&self) -> bool {
-        *self == Visit::Nothing
+        *self == Self::Nothing
     }
 }
 
@@ -136,7 +136,7 @@ impl FilesMatcher {
         for f in files {
             tree.add(f.as_ref()).value = FilesNodeKind::File;
         }
-        FilesMatcher { tree }
+        Self { tree }
     }
 }
 
@@ -190,7 +190,7 @@ impl PrefixMatcher {
         for prefix in prefixes {
             tree.add(prefix.as_ref()).value = PrefixNodeKind::Prefix;
         }
-        PrefixMatcher { tree }
+        Self { tree }
     }
 }
 
@@ -263,7 +263,7 @@ impl FileGlobsMatcher {
                 .expect("glob regex should be valid");
             tree.add(dir.as_ref()).value.push(regex);
         }
-        FileGlobsMatcher { tree }
+        Self { tree }
     }
 }
 
