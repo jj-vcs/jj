@@ -28,6 +28,7 @@ use std::sync::Arc;
 use bstr::BStr;
 use bstr::BString;
 use futures::StreamExt as _;
+use gix::config::parse::section::ValueName;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use thiserror::Error;
@@ -1599,6 +1600,16 @@ pub enum GitRemoteManagementError {
         fetch: Option<String>,
         push: Option<String>,
     },
+    #[error(
+        "Not removing remote section for '{remote}' due to unknown configuration values. This is a \
+        precaution to avoid unintended changes. values: {unknown_values:?}. Review your .git/config \
+        file for more details.",
+        remote = .remote.as_symbol()
+    )]
+    UnknownValues {
+        remote: RemoteNameBuf,
+        unknown_values: Vec<String>,
+    },
     #[error("Error saving Git configuration")]
     GitConfigSaveError(#[source] std::io::Error),
     #[error("Unexpected Git error when managing remotes")]
@@ -1776,12 +1787,15 @@ fn remove_remote_git_config_sections(
             section.header().subsection_name() == Some(BStr::new(remote_name.as_str()))
         })
         .map(|section| {
-            if section.value_names().any(|name| {
-                !name.eq_ignore_ascii_case(b"url") && !name.eq_ignore_ascii_case(b"fetch")
-            }) {
-                return Err(GitRemoteManagementError::NonstandardConfiguration(
-                    remote_name.to_owned(),
-                ));
+            let unknown_values = section
+                .value_names()
+                .filter_map(|value| (!is_known_key_for_remove(value)).then(|| value.to_string()))
+                .collect_vec();
+            if !unknown_values.is_empty() {
+                return Err(GitRemoteManagementError::UnknownValues {
+                    remote: remote_name.to_owned(),
+                    unknown_values,
+                });
             }
             Ok(section.id())
         })
@@ -1792,6 +1806,15 @@ fn remove_remote_git_config_sections(
             .expect("removed section to exist");
     }
     Ok(())
+}
+
+/// returns true only for keys that are safe to be removed when removing a
+/// remote
+fn is_known_key_for_remove(name: &ValueName) -> bool {
+    name.eq_ignore_ascii_case(b"url")
+        || name.eq_ignore_ascii_case(b"fetch")
+        || name.eq_ignore_ascii_case(b"push")
+        || name.eq_ignore_ascii_case(b"gh-resolved")
 }
 
 /// Returns a sorted list of configured remote names.
