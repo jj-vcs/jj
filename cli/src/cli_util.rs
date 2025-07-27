@@ -69,6 +69,7 @@ use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
+use jj_lib::gitattributes::GitAttributesFile;
 use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::id_prefix::IdPrefixContext;
@@ -1376,6 +1377,7 @@ to the current parents may contain changes from multiple commits.
         start_tracking_matcher: &'a dyn Matcher,
     ) -> Result<SnapshotOptions<'a>, CommandError> {
         let base_ignores = self.base_ignores()?;
+        let base_attributes = self.base_attributes()?;
         let fsmonitor_settings = self.settings().fsmonitor_settings()?;
         let HumanByteSize(mut max_new_file_size) = self
             .settings()
@@ -1386,6 +1388,7 @@ to the current parents may contain changes from multiple commits.
         let conflict_marker_style = self.env.conflict_marker_style();
         Ok(SnapshotOptions {
             base_ignores,
+            base_attributes,
             fsmonitor_settings,
             progress: None,
             start_tracking_matcher,
@@ -1446,6 +1449,19 @@ to the current parents may contain changes from multiple commits.
         Ok(git_ignores)
     }
 
+    #[cfg(not(feature = "git"))]
+    pub fn base_attributes(&self) -> Result<Arc<GitAttributesFile>, ConfigGetError> {
+        Ok(Arc::new(GitAttributesFile::default()))
+    }
+
+    #[cfg(feature = "git")]
+    #[instrument(skip_all)]
+    pub fn base_attributes(&self) -> Result<Arc<GitAttributesFile>, ConfigGetError> {
+        Ok(Arc::new(GitAttributesFile::new(
+            &self.settings().git_settings()?.ignore_filters,
+        )))
+    }
+
     /// Creates textual diff renderer of the specified `formats`.
     pub fn diff_renderer(&self, formats: Vec<DiffFormat>) -> DiffRenderer<'_> {
         DiffRenderer::new(
@@ -1486,12 +1502,14 @@ to the current parents may contain changes from multiple commits.
         tool_name: Option<&str>,
     ) -> Result<DiffEditor, CommandError> {
         let base_ignores = self.base_ignores()?;
+        let base_attributes = self.base_attributes()?;
         let conflict_marker_style = self.env.conflict_marker_style();
         if let Some(name) = tool_name {
             Ok(DiffEditor::with_name(
                 name,
                 self.settings(),
                 base_ignores,
+                base_attributes,
                 conflict_marker_style,
             )?)
         } else {
@@ -1499,6 +1517,7 @@ to the current parents may contain changes from multiple commits.
                 ui,
                 self.settings(),
                 base_ignores,
+                base_attributes,
                 conflict_marker_style,
             )?)
         }
