@@ -1588,6 +1588,17 @@ pub enum GitRemoteManagementError {
     RemoteName(#[from] GitRemoteNameError),
     #[error("Git remote named '{}' has nonstandard configuration", .0.as_symbol())]
     NonstandardConfiguration(RemoteNameBuf),
+    #[error(
+        "Not setting remote URL for '{remote}' due to mismatched fetch and push refspecs. This is \
+         a precaution to avoid unintended changes. fetch={fetch:?}, push={push:?}. \
+         Review your .git/config file for more details.",
+         remote = .remote.as_symbol(),
+    )]
+    MismatchedFetchAndPushRefspec {
+        remote: RemoteNameBuf,
+        fetch: Option<String>,
+        push: Option<String>,
+    },
     #[error("Error saving Git configuration")]
     GitConfigSaveError(#[source] std::io::Error),
     #[error("Unexpected Git error when managing remotes")]
@@ -2035,10 +2046,14 @@ pub fn set_remote_url(
     };
     let mut remote = result.map_err(GitRemoteManagementError::from_git)?;
 
-    if remote.url(gix::remote::Direction::Push) != remote.url(gix::remote::Direction::Fetch) {
-        return Err(GitRemoteManagementError::NonstandardConfiguration(
-            remote_name.to_owned(),
-        ));
+    let push_url = remote.url(gix::remote::Direction::Push);
+    let fetch_url = remote.url(gix::remote::Direction::Fetch);
+    if push_url != fetch_url {
+        return Err(GitRemoteManagementError::MismatchedFetchAndPushRefspec {
+            remote: remote_name.to_owned(),
+            fetch: fetch_url.map(ToString::to_string),
+            push: push_url.map(ToString::to_string),
+        });
     }
 
     remote = gix_remote_with_fetch_url(remote, new_remote_url)
