@@ -132,7 +132,7 @@ pub fn cmd_git_fetch(
 
 const DEFAULT_REMOTE: &RemoteName = RemoteName::new("origin");
 
-fn get_default_fetch_remotes(
+pub fn get_default_fetch_remotes(
     ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
 ) -> Result<Vec<StringPattern>, CommandError> {
@@ -164,7 +164,7 @@ fn parse_remote_pattern(remote: &str) -> Result<StringPattern, CommandError> {
     StringPattern::parse(remote).map_err(config_error)
 }
 
-fn do_git_fetch(
+pub fn do_git_fetch(
     ui: &mut Ui,
     tx: &mut WorkspaceCommandTransaction,
     remotes: &[&RemoteName],
