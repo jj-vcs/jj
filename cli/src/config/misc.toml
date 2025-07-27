@@ -26,6 +26,7 @@ disabled-branches = []
 
 [git]
 colocate = true
+ignore-filters = ["lfs"]
 private-commits = "none()"
 sign-on-push = false
 track-default-bookmark-on-clone = true
