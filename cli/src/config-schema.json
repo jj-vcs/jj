@@ -558,6 +558,14 @@
                     "enum": ["sha1", "sha256"],
                     "description": "Object hash algorithm used when initializing a new Git repository",
                     "default": "sha1"
+                },
+                "ignore-filters": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Names of `.gitattributes` filter attributes whose matching files should be excluded from snapshots in Git-backed repositories",
+                    "default": ["lfs"]
                 }
             }
         },

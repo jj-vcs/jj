@@ -331,7 +331,7 @@ jobs:
           fi
         env:
           # This limit *can* be raised, we just want to be aware if we exceed it
-          TOTAL_DEP_LIMIT: 550
+          TOTAL_DEP_LIMIT: 555
 
   # Block the merge if required checks fail, but only in the merge
   # queue. See also `required-checks-hack.yml`.
