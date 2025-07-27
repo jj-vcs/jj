@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #![expect(missing_docs)]
-#![allow(unused)]
 
 use std::collections::HashMap;
 use std::fs::File;
