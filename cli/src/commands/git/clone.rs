@@ -18,6 +18,7 @@ use std::io::Write as _;
 use std::num::NonZeroU32;
 use std::path::Path;
 
+use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitFetch;
 use jj_lib::ref_name::RefNameBuf;
@@ -35,6 +36,7 @@ use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
 use crate::commands::git::maybe_add_gitignore;
+use crate::config::TimeoutNotification;
 use crate::git_util::absolute_git_url;
 use crate::git_util::print_git_import_stats;
 use crate::git_util::with_remote_git_callbacks;
@@ -120,7 +122,18 @@ pub fn cmd_git_clone(
         let workspace_command = init_workspace(ui, command, &canonical_wc_path, args.colocate)?;
         let mut workspace_command =
             configure_remote(ui, command, workspace_command, remote_name, &source)?;
-        let default_branch = fetch_new_remote(ui, &mut workspace_command, remote_name, args.depth)?;
+
+        let default_branch = fetch_new_remote(
+            ui,
+            command
+                .settings()
+                .get("git.timeout-notification")
+                .optional()?,
+            &mut workspace_command,
+            remote_name,
+            args.depth,
+        )?;
+
         Ok((workspace_command, default_branch))
     })();
     if clone_result.is_err() {
@@ -205,6 +218,7 @@ fn configure_remote(
 
 fn fetch_new_remote(
     ui: &Ui,
+    timeout_opts: Option<TimeoutNotification>,
     workspace_command: &mut WorkspaceCommandHelper,
     remote_name: &RemoteName,
     depth: Option<NonZeroU32>,
@@ -219,10 +233,12 @@ fn fetch_new_remote(
     let track_default = settings.get_bool("git.track-default-bookmark-on-clone")?;
     let mut tx = workspace_command.start_transaction();
     let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
-    with_remote_git_callbacks(ui, |cb| {
+    with_remote_git_callbacks(ui, timeout_opts.clone(), |cb| {
         git_fetch.fetch(remote_name, &[StringPattern::everything()], cb, depth)
     })?;
-    let default_branch = git_fetch.get_default_branch(remote_name)?;
+    let default_branch = with_remote_git_callbacks(ui, timeout_opts.clone(), |cb| {
+        git_fetch.get_default_branch(remote_name, cb)
+    })?;
     let import_stats = git_fetch.import_refs()?;
     if let Some(name) = &default_branch {
         let remote_symbol = name.to_remote_symbol(remote_name);

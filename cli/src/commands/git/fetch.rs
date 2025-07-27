@@ -171,10 +171,11 @@ fn do_git_fetch(
     branch_names: &[StringPattern],
 ) -> Result<(), CommandError> {
     let git_settings = tx.settings().git_settings()?;
+    let timeout_settings = tx.settings().get("git.timeout-notification").optional()?;
     let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
 
     for remote_name in remotes {
-        with_remote_git_callbacks(ui, |callbacks| {
+        with_remote_git_callbacks(ui, timeout_settings.clone(), |callbacks| {
             git_fetch.fetch(remote_name, branch_names, callbacks, None)
         })?;
     }

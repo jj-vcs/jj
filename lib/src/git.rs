@@ -23,6 +23,7 @@ use std::fs::File;
 use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::str;
+use std::sync::mpsc;
 use std::sync::Arc;
 
 use bstr::BStr;
@@ -2222,10 +2223,11 @@ impl<'a> GitFetch<'a> {
     }
 
     /// Queries remote for the default branch name.
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, _callbacks))]
     pub fn get_default_branch(
         &self,
         remote_name: &RemoteName,
+        _callbacks: RemoteCallbacks<'_>,
     ) -> Result<Option<RefNameBuf>, GitFetchError> {
         if self
             .git_repo
@@ -2403,6 +2405,7 @@ pub fn push_updates(
 pub struct RemoteCallbacks<'a> {
     pub progress: Option<&'a mut dyn FnMut(&Progress)>,
     pub sideband_progress: Option<&'a mut dyn FnMut(&[u8])>,
+    pub first_progress: Option<mpsc::Sender<()>>,
     pub get_ssh_keys: Option<&'a mut dyn FnMut(&str) -> Vec<PathBuf>>,
     pub get_password: Option<&'a mut dyn FnMut(&str, &str) -> Option<String>>,
     pub get_username_password: Option<&'a mut dyn FnMut(&str) -> Option<(String, String)>>,

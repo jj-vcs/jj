@@ -906,6 +906,12 @@ impl TryFrom<Vec<String>> for NonEmptyCommandArgsVec {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize)]
+pub struct TimeoutNotification {
+    pub secs: u64,
+    pub message: String,
+}
+
 #[cfg(test)]
 mod tests {
     use std::env::join_paths;
