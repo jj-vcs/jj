@@ -135,6 +135,7 @@ async fn create_working_copy(
         eol_conversion_mode: EolConversionMode::None,
         exec_change_setting: ExecChangeSetting::Auto,
         fsmonitor_settings: FsmonitorSettings::None,
+        ignore_filters: std::collections::HashSet::new(),
     };
     let mut tree_state = TreeState::init(
         commit.store().clone(),

@@ -3117,3 +3117,58 @@ fn test_always_store_empty_tree() -> TestResult {
     assert!(empty_tree.data.is_empty());
     Ok(())
 }
+
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
+#[test_case(TestRepoBackend::Git ; "git backend")]
+fn test_gitattributes_ignore_only_on_git_backend(backend: TestRepoBackend) -> TestResult {
+    let mut test_workspace = TestWorkspace::init_with_backend(backend);
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+
+    // Write .gitattributes with LFS filter.
+    std::fs::write(workspace_root.join(".gitattributes"), "*.txt filter=lfs\n").unwrap();
+    // Write a matching file.
+    std::fs::write(workspace_root.join("file.txt"), "some content").unwrap();
+    // Write a non-matching file.
+    std::fs::write(workspace_root.join("file.dat"), "some other content").unwrap();
+
+    let new_tree = test_workspace.snapshot()?;
+
+    // "file.dat" should always be present
+    assert!(
+        new_tree
+            .path_value(repo_path("file.dat"))
+            .block_on()?
+            .is_present()
+    );
+
+    // ".gitattributes" should always be present
+    assert!(
+        new_tree
+            .path_value(repo_path(".gitattributes"))
+            .block_on()?
+            .is_present()
+    );
+
+    match backend {
+        TestRepoBackend::Git => {
+            // Under Git backend, "file.txt" should be ignored
+            assert!(
+                new_tree
+                    .path_value(repo_path("file.txt"))
+                    .block_on()?
+                    .is_absent()
+            );
+        }
+        TestRepoBackend::Simple | TestRepoBackend::Test => {
+            // Under non-Git backends, "file.txt" should NOT be ignored
+            assert!(
+                new_tree
+                    .path_value(repo_path("file.txt"))
+                    .block_on()?
+                    .is_present()
+            );
+        }
+    }
+
+    Ok(())
+}
