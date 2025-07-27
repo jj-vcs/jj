@@ -1256,10 +1256,7 @@ impl FileSnapshotter<'_> {
 
         let git_ignore = git_ignore
             .chain_with_file(&dir.to_internal_dir_string(), disk_dir.join(".gitignore"))?;
-        let git_attributes = git_attributes.chain_with_file(
-            &dir.to_internal_dir_string(),
-            disk_dir.join(".gitattributes"),
-        )?;
+        let git_attributes = git_attributes.chain_with_file(disk_dir.join(".gitattributes"))?;
         let dir_entries: Vec<_> = disk_dir
             .read_dir()
             .and_then(|entries| entries.try_collect())

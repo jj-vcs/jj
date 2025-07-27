@@ -14,14 +14,18 @@
 
 #![allow(missing_docs)]
 
+use std::borrow::Cow;
+use std::io;
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::Arc;
+
 use gix::attrs as gix_attrs;
 use gix::glob as gix_glob;
 use gix::path as gix_path;
-use std::borrow::Cow;
-use std::io;
-use std::path::PathBuf;
-use std::sync::Arc;
 use thiserror::Error;
+
+use crate::repo_path::RepoPath;
 
 #[derive(Debug, Error)]
 pub enum GitAttributesError {
@@ -49,17 +53,20 @@ impl GitAttributesFile {
 
     pub fn chain(
         self: &Arc<Self>,
-        prefix: PathBuf,
+        source_file: PathBuf,
         input: &[u8],
     ) -> Result<Arc<Self>, GitAttributesError> {
-        let mut source_file = prefix.clone();
-        source_file.push(".gitattributes");
-
         let mut search = self.search.clone();
         let mut collection = self.collection.clone();
         let ignore_filters = self.ignore_filters.clone();
 
-        search.add_patterns_buffer(input, source_file, Some(&prefix), &mut collection, true);
+        search.add_patterns_buffer(
+            input,
+            source_file,
+            Some(Path::new(&RepoPath::root().to_internal_dir_string())),
+            &mut collection,
+            true,
+        );
 
         Ok(Arc::new(Self {
             search,
@@ -69,12 +76,8 @@ impl GitAttributesFile {
     }
 
     /// Concatenates new `.gitattributes` file.
-    ///
-    /// The `prefix` should be a slash-separated path relative to the workspace
-    /// root.
     pub fn chain_with_file(
         self: &Arc<Self>,
-        prefix: &str,
         file: PathBuf,
     ) -> Result<Arc<Self>, GitAttributesError> {
         if file.is_file() {
@@ -82,7 +85,7 @@ impl GitAttributesFile {
                 path: file.clone(),
                 source: err,
             })?;
-            self.chain(PathBuf::from(prefix), &input)
+            self.chain(file, &input)
         } else {
             Ok(self.clone())
         }
@@ -154,7 +157,7 @@ mod tests {
 
     fn matches(input: &[u8], path: &str) -> bool {
         let file = Arc::new(GitAttributesFile::new(&["lfs".to_string()]))
-            .chain(PathBuf::new(), input)
+            .chain(PathBuf::from(".gitattributes"), input)
             .unwrap();
         file.matches(path)
     }
@@ -175,7 +178,10 @@ mod tests {
 
     #[test]
     fn test_gitattributes_directory_match() {
-        assert!(matches(b"dir/ filter=lfs\n", "dir/file.txt"));
+        // patterns that match a directory do not recursively match paths inside that
+        // directory (so using the trailing-slash path/ syntax is pointless in
+        // an attributes file; use path/** instead) https://git-scm.com/docs/gitattributes#_description
+        assert!(!matches(b"dir/ filter=lfs\n", "dir/file.txt"));
         assert!(matches(b"dir/ filter=lfs\n", "dir/"));
         assert!(!matches(b"dir/ filter=lfs\n", "other/file.txt"));
         assert!(!matches(b"dir/ filter=lfs\n", "dir"));
@@ -201,7 +207,8 @@ mod tests {
     fn test_gitattributes_multiple_attributes() {
         let input = b"*.bin filter=lfs diff=binary\n";
         assert!(matches(input, "file.bin"));
-        assert!(!matches(b"*.bin diff=binary\n", "file.bin")); // Only testing filter=lfs
+        assert!(!matches(b"*.bin diff=binary\n", "file.bin")); // Only testing
+                                                               // filter=lfs
     }
 
     #[test]
@@ -210,11 +217,15 @@ mod tests {
             "lfs".to_string(),
             "text".to_string(),
         ]));
-        let with_first = base.chain(PathBuf::new(), b"*.bin filter=lfs\n").unwrap();
-        let with_second = with_first
-            .chain(PathBuf::from("subdir"), b"*.txt filter=text\n")
+        let with_first = base
+            .chain(PathBuf::from(".gitattributes"), b"*.bin filter=lfs\n")
             .unwrap();
-        dbg!(&with_second);
+        let with_second = with_first
+            .chain(
+                PathBuf::from("subdir/.gitattributes"),
+                b"*.txt filter=text\n",
+            )
+            .unwrap();
 
         assert!(with_second.matches("file.bin"));
         assert!(with_second.matches("subdir/file.txt"));
@@ -225,7 +236,9 @@ mod tests {
     fn test_gitattributes_negated_pattern() {
         let input = b"*.bin filter=lfs\n!important.bin filter=lfs\n";
         assert!(matches(input, "file.bin"));
-        assert!(!matches(input, "important.bin"));
+        // negative patterns are forbidden
+        // https://git-scm.com/docs/gitattributes#_description
+        assert!(matches(input, "important.bin"));
     }
 
     #[test]
@@ -237,19 +250,24 @@ mod tests {
         ]));
 
         // Test with lfs filter
-        let with_lfs = file.chain(PathBuf::new(), b"*.bin filter=lfs\n").unwrap();
+        let with_lfs = file
+            .chain(PathBuf::from(".gitattributes"), b"*.bin filter=lfs\n")
+            .unwrap();
         assert!(with_lfs.matches("file.bin"));
 
         // Test with git-crypt filter
         let with_git_crypt = file
-            .chain(PathBuf::new(), b"*.secret filter=git-crypt\n")
+            .chain(
+                PathBuf::from(".gitattributes"),
+                b"*.secret filter=git-crypt\n",
+            )
             .unwrap();
         assert!(with_git_crypt.matches("credentials.secret"));
 
         // Test with both filters in the same file
         let with_both = file
             .chain(
-                PathBuf::new(),
+                PathBuf::from(".gitattributes"),
                 b"*.bin filter=lfs\n*.secret filter=git-crypt\n",
             )
             .unwrap();
@@ -258,7 +276,9 @@ mod tests {
         assert!(!with_both.matches("normal.txt"));
 
         // Test that other filters don't match
-        let with_other = file.chain(PathBuf::new(), b"*.txt filter=other\n").unwrap();
+        let with_other = file
+            .chain(PathBuf::from(".gitattributes"), b"*.txt filter=other\n")
+            .unwrap();
         assert!(!with_other.matches("file.txt"));
     }
 }
