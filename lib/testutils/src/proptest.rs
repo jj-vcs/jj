@@ -127,7 +127,7 @@ impl WorkingCopyReferenceStateMachine {
 }
 
 impl WorkingCopyReferenceStateMachine {
-    fn arb_extant_directory(&self) -> impl Strategy<Value = RepoPathBuf> {
+    fn arb_extant_directory(&self) -> impl Strategy<Value = RepoPathBuf> + use<> {
         let extant_directories = if self.entries.is_empty() {
             vec![RepoPathBuf::root()]
         } else {
@@ -142,7 +142,7 @@ impl WorkingCopyReferenceStateMachine {
         proptest::sample::select(extant_directories)
     }
 
-    fn arb_extant_path(&self) -> impl Strategy<Value = RepoPathBuf> {
+    fn arb_extant_path(&self) -> impl Strategy<Value = RepoPathBuf> + use<> {
         proptest::sample::select(
             self.entries
                 .keys()
@@ -154,7 +154,7 @@ impl WorkingCopyReferenceStateMachine {
         )
     }
 
-    fn arb_transition_create(&self) -> impl Strategy<Value = Transition> {
+    fn arb_transition_create(&self) -> impl Strategy<Value = Transition> + use<> {
         (
             self.arb_extant_directory(),
             proptest::collection::vec(arb_path_component(), 1..3),
@@ -174,7 +174,7 @@ impl WorkingCopyReferenceStateMachine {
             })
     }
 
-    fn arb_transition_modify(&self) -> impl Strategy<Value = Transition> {
+    fn arb_transition_modify(&self) -> impl Strategy<Value = Transition> + use<> {
         (self.arb_extant_path(), any::<Option<DirEntry>>()).prop_map(|(path, new_dir_entry)| {
             Transition::SetDirEntry {
                 path,
