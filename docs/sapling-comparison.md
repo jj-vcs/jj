@@ -60,8 +60,8 @@ Here is a list of some differences between jj and Sapling.
 * **Git interop:** Sapling supports cloning, pushing, and pulling from a remote
   Git repo. jj also does, and it also supports sharing a working copy with a Git
   repo, so you can use `jj` and `git` interchangeably in the same repo.
-* **Polish:** Sapling is more polished and feature-complete. For example, jj
-  has no `bisect` command. Sapling also has very nice built-in web UI called
+* **Polish:** Sapling is more polished and feature-complete. Sapling has very
+  nice built-in web UI called
   [Interactive Smartlog](https://sapling-scm.com/docs/addons/isl), which lets
   you drag and drop commits to rebase them, among other things.
 * **Forge workflow:** Sapling has `sl pr submit --stack`, which lets you

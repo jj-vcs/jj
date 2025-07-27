@@ -13,6 +13,8 @@ This document contains the help content for the `jj` command-line program.
 * [`jj`↴](#jj)
 * [`jj abandon`↴](#jj-abandon)
 * [`jj absorb`↴](#jj-absorb)
+* [`jj bisect`↴](#jj-bisect)
+* [`jj bisect run`↴](#jj-bisect-run)
 * [`jj bookmark`↴](#jj-bookmark)
 * [`jj bookmark create`↴](#jj-bookmark-create)
 * [`jj bookmark delete`↴](#jj-bookmark-delete)
@@ -128,6 +130,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 
 * `abandon` — Abandon a revision
 * `absorb` — Move changes from a revision into the stack of mutable revisions
+* `bisect` — Find a bad revision by bisection
 * `bookmark` — Manage bookmarks [default alias: b]
 * `commit` — Update the description and create a new change on top [default alias: ci]
 * `config` — Manage config options
@@ -262,6 +265,43 @@ The modification made by `jj absorb` can be reviewed by `jj op show -p`.
    Only ancestors of the source revision will be considered.
 
   Default value: `mutable()`
+
+
+
+## `jj bisect`
+
+Find a bad revision by bisection
+
+**Usage:** `jj bisect <COMMAND>`
+
+###### **Subcommands:**
+
+* `run` — Run a given command to find the first bad revision
+
+
+
+## `jj bisect run`
+
+Run a given command to find the first bad revision.
+
+Uses binary search to find the first bad revision. Revisions are evaluated by running a given command (see the documentation for `--command` for details).
+
+It is assumed that if a given revision is bad, then all its descendants in the input range are also bad.
+
+Hint: You can pass your shell as evaluation command. You can then run manual tests in the shell and make sure to exit the shell with appropriate error code depending on the outcome (e.g. `exit 0` to mark the revision as good in Bash or Fish).
+
+**Usage:** `jj bisect run --range <REVSETS> --command <COMMAND>`
+
+###### **Options:**
+
+* `-r`, `--range <REVSETS>` — Range of revisions to bisect
+
+   This is typically a range like `v1.0..main`. The heads of the range are assumed to be bad. Ancestors of the range that are not also in the range are assumed to be good.
+* `--command <COMMAND>` — Command to run to determine whether the bug is present
+
+   The command will be run from the workspace root. The exit status of the command will be used to mark revisions as good or bad: status 0 means good, 125 means to skip the revision, 127 (command not found) will abort the bisection, and any other non-zero exit status means the revision is bad.
+
+   The target's commit ID is available to the command in the `$JJ_BISECT_TARGET` environment variable.
 
 
 

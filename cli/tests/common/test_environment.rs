@@ -202,6 +202,15 @@ impl TestEnvironment {
         self.env_vars.insert(key.into(), val.into());
     }
 
+    /// Sets up the fake bisection test command to read a script from the
+    /// returned path
+    pub fn set_up_fake_bisector(&mut self) -> PathBuf {
+        let bisection_script = self.env_root().join("bisection_script");
+        std::fs::write(&bisection_script, "").unwrap();
+        self.add_env_var("BISECTION_SCRIPT", bisection_script.to_str().unwrap());
+        bisection_script
+    }
+
     /// Sets up the fake editor to read an edit script from the returned path
     /// Also sets up the fake editor as a merge tool named "fake-editor"
     pub fn set_up_fake_editor(&mut self) -> PathBuf {

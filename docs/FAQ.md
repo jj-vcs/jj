@@ -99,7 +99,7 @@ Co-locating a Jujutsu repository allows you to use both Jujutsu and Git in the
 same working copy. The benefits of doing so are:
 
 - You can use Git commands when you're not sure how to do something with
-  Jujutsu, Jujutsu hasn't yet implemented a feature (e.g., bisection), or you
+  Jujutsu, Jujutsu hasn't yet implemented a feature (e.g., tagging), or you
   simply prefer Git in some situations.
 
 - Tooling that expects a Git repository still works (IDEs, build tooling, etc.)

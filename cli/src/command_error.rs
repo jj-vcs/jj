@@ -24,6 +24,7 @@ use itertools::Itertools as _;
 use jj_lib::absorb::AbsorbError;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CommitId;
+use jj_lib::bisect::BisectionError;
 use jj_lib::config::ConfigFileSaveError;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigLoadError;
@@ -739,6 +740,14 @@ impl From<FixError> for CommandError {
                 "An error occurred while attempting to fix file content",
                 err,
             ),
+        }
+    }
+}
+
+impl From<BisectionError> for CommandError {
+    fn from(err: BisectionError) -> Self {
+        match err {
+            BisectionError::RevsetEvaluationError(_) => user_error(err),
         }
     }
 }

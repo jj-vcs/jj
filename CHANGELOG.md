@@ -17,6 +17,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* The new command `jj bisect run` uses binary search to find a commit that
+  introduced a bug.
+
 ### Fixed bugs
 
 ## [0.33.0] - 2025-09-03
