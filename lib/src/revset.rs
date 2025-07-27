@@ -475,6 +475,12 @@ impl<St: ExpressionState> RevsetExpression<St> {
         self.first_ancestors_range(GENERATION_RANGE_FULL)
     }
 
+    /// First-parent ancestors of `self` at an offset of `generation` behind
+    /// `self`. The `generation` offset is zero-based starting from `self`.
+    pub fn first_ancestors_at(self: &Rc<Self>, generation: u64) -> Rc<Self> {
+        self.first_ancestors_range(generation..generation.saturating_add(1))
+    }
+
     /// First-parent ancestors of `self` in the given range.
     pub fn first_ancestors_range(self: &Rc<Self>, generation_range: Range<u64>) -> Rc<Self> {
         Rc::new(Self::Ancestors {
@@ -779,6 +785,16 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
             GENERATION_RANGE_FULL
         };
         Ok(roots.descendants_range(generation))
+    });
+    map.insert("first_parent", |diagnostics, function, context| {
+        let ([arg], [depth_opt_arg]) = function.expect_arguments()?;
+        let expression = lower_expression(diagnostics, arg, context)?;
+        let depth = if let Some(depth_arg) = depth_opt_arg {
+            expect_literal("integer", depth_arg)?
+        } else {
+            1
+        };
+        Ok(expression.first_ancestors_at(depth))
     });
     map.insert("first_ancestors", |diagnostics, function, context| {
         let ([heads_arg], [depth_opt_arg]) = function.expect_arguments()?;
@@ -5456,6 +5472,15 @@ mod tests {
         "#
         );
         insta::assert_debug_snapshot!(
+            optimize(parse("first_ancestors(first_parent(foo), 5)").unwrap()), @r#"
+        Ancestors {
+            heads: CommitRef(Symbol("foo")),
+            generation: 1..6,
+            parents_range: 0..1,
+        }
+        "#
+        );
+        insta::assert_debug_snapshot!(
             optimize(parse("first_ancestors(ancestors(foo, 5), 5)").unwrap()), @r#"
         Ancestors {
             heads: Ancestors {
@@ -5839,13 +5864,7 @@ mod tests {
             filter: All,
         }
         "#);
-        // TODO: use `first_parent(x)` or `parents(x, nth=1)` syntax when added (#4579)
-        let revset_with_first_ancestors_range = UserRevsetExpression::symbol("foo".into())
-            .first_ancestors_range(1..2)
-            .first_ancestors_range(1..2)
-            .first_ancestors()
-            .heads();
-        insta::assert_debug_snapshot!(optimize(revset_with_first_ancestors_range), @r#"
+        insta::assert_debug_snapshot!(optimize(parse("heads(first_ancestors(first_parent(foo, 2)))").unwrap()), @r#"
         HeadsRange {
             roots: None,
             heads: Ancestors {

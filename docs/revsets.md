@@ -208,6 +208,11 @@ revsets (expressions) as arguments.
   `descendants(x, depth)` returns the descendants of `x` limited to the given
   `depth`.
 
+* `first_parent(x[, depth])`: `first_parent(x)` is similar to `parents(x)`, but
+  for merges, it only returns the first parent instead of returning all parents.
+  The `depth` argument also works similarly, so `first_parent(x, 2)` is
+  equivalent to `first_parent(first_parent(x))`.
+
 * `first_ancestors(x[, depth])`: Similar to `ancestors(x[, depth])`, but only
   traverses the first parent of each commit. In Git, the first parent of a merge
   commit is conventionally the branch into which changes are being merged, so

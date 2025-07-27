@@ -1612,6 +1612,70 @@ fn test_evaluate_expression_ancestors() {
 }
 
 #[test]
+fn test_evaluate_expression_first_parent() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit3]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit4, &commit2]);
+    let commit6 = write_random_commit_with_parents(mut_repo, &[&commit5, &commit4, &commit2]);
+
+    // The first parent of the root commit is nothing.
+    assert_eq!(resolve_commit_ids(mut_repo, "first_parent(root())"), vec![]);
+
+    // The first parent of a non-merge is the only parent.
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_parent({})", commit2.id().clone())),
+        vec![commit1.id().clone()]
+    );
+
+    // Can find the first parent of a commit with 2 parents.
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_parent({})", commit5.id().clone())),
+        vec![commit4.id().clone()]
+    );
+
+    // Can find the first parent of a commit with 3 parents.
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_parent({})", commit6.id().clone())),
+        vec![commit5.id().clone()]
+    );
+
+    // Can find first parent of a revset with multiple commits.
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("first_parent({} | {})", commit6.id(), commit5.id())
+        ),
+        vec![commit5.id().clone(), commit4.id().clone()]
+    );
+
+    // `first_parent(x, 0)` is equivalent to `x`
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_parent({}, 0)", commit6.id())),
+        vec![commit6.id().clone()]
+    );
+
+    // `first_parent(x, 2)` is equivalent to `first_parent(first_parent(x))`
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_parent({}, 2)", commit6.id())),
+        vec![commit4.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("first_parent({} | {}, 2)", commit6.id(), commit5.id())
+        ),
+        vec![commit4.id().clone(), commit3.id().clone()]
+    );
+}
+
+#[test]
 fn test_evaluate_expression_first_ancestors() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;

@@ -75,9 +75,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The new `bisect(x)` revset function can help bisect a range of commits to
   find when a bug was introduced.
 
-* New `first_ancestors()` revset function which is similar to `ancestors()`, but
-  only traverses the first parent of each commit (similar to Git's
-  `--first-parent` option).
+* New `first_parent()` and `first_ancestors()` revset functions which are
+  similar to `parents()` and `ancestors()`, but only traverse the first parent
+  of each commit (similar to Git's `--first-parent` option).
 
 * New `signing.backends.ssh.revocation-list` config for specifying a list of revoked
   public keys for commit signature verification.

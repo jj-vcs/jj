@@ -109,7 +109,7 @@ fn arb_expression(
                 expr.clone().prop_map(|x| x.descendants()),
                 (expr.clone(), 0..5_u64).prop_map(|(x, d)| x.descendants_range(0..d)),
                 // First ancestors
-                expr.clone().prop_map(|x| x.first_ancestors_range(1..2)),
+                expr.clone().prop_map(|x| x.first_ancestors_at(1)),
                 expr.clone().prop_map(|x| x.first_ancestors()),
                 (expr.clone(), 0..5_u64).prop_map(|(x, d)| x.first_ancestors_range(0..d)),
                 // Range
