@@ -53,6 +53,9 @@ pub(crate) struct GitAttributes {
     disk_file_loader: Arc<dyn FileLoader>,
     store_file_loader: Arc<dyn FileLoader>,
     node_cache: Mutex<HashMap<RepoPathBuf, Arc<GitAttributesNode>>>,
+
+    // used temporarily to ignore filters
+    ignore_filters: Vec<String>,
 }
 
 impl std::fmt::Debug for GitAttributes {
@@ -305,11 +308,13 @@ impl GitAttributes {
     pub fn new(
         store_file_loader: impl FileLoader + 'static,
         disk_file_loader: impl FileLoader + 'static,
+        ignore_filters: &[String],
     ) -> Self {
         Self {
             store_file_loader: Arc::new(store_file_loader),
             disk_file_loader: Arc::new(disk_file_loader),
             node_cache: Default::default(),
+            ignore_filters: ignore_filters.to_owned(),
         }
     }
 
@@ -381,6 +386,23 @@ impl GitAttributes {
         map.insert(path.to_owned(), new_node.clone());
         new_node
     }
+    /// Matches if the given `path` contains the `filter` value
+    /// in .gitattributes and if the value is contained in
+    /// the provided list of ignored filters
+    pub fn filter_matches(&self, path: &RepoPath) -> bool {
+        let Ok(result) = self
+            .search(path, ["filter"], SearchPriority::Disk)
+            .block_on()
+        else {
+            return false;
+        };
+
+        let Some(State::Value(value)) = result.get("filter") else {
+            return false;
+        };
+        let value = value.as_ref().as_bstr();
+        self.ignore_filters.iter().any(|state| value == state)
+    }
 }
 
 /// Errors for GitAttributes
@@ -435,7 +457,7 @@ mod tests {
             })
             .collect();
 
-        GitAttributes::new(HashMap::new(), data)
+        GitAttributes::new(HashMap::new(), data, &[])
     }
 
     // macros so tests fail on the right line
@@ -649,7 +671,7 @@ mod tests {
             })
             .collect();
 
-        let git_attributes = GitAttributes::new(store, disk);
+        let git_attributes = GitAttributes::new(store, disk, &[]);
         assert_search_output!(
             &git_attributes,
             "foo/bar.txt",
@@ -692,7 +714,7 @@ mod tests {
             })
             .collect();
 
-        let git_attributes = GitAttributes::new(store, HashMap::new());
+        let git_attributes = GitAttributes::new(store, HashMap::new(), &[]);
         let result = &git_attributes
             .search(repo_path("foo/bar.txt"), &["text"], SearchPriority::Disk)
             .block_on();
@@ -701,5 +723,130 @@ mod tests {
             &result.as_ref().unwrap_err().message,
             "There was an IO error",
         );
+    }
+
+    fn matches(input: &str, path: &str) -> bool {
+        let data: TestStore = [(
+            RepoPathBuf::from_internal_string(".gitattributes").unwrap(),
+            Ok(input.to_string()),
+        )]
+        .into_iter()
+        .collect();
+        let attributes = GitAttributes::new(HashMap::new(), data, &["lfs".to_string()]);
+
+        attributes.filter_matches(repo_path(path))
+    }
+
+    #[test]
+    fn test_gitattributes_empty_file() {
+        assert!(!matches("", "foo"));
+    }
+
+    #[test]
+    fn test_gitattributes_simple_match() {
+        assert!(matches("*.bin filter=lfs\n", "file.bin"));
+        assert!(!matches("*.bin filter=lfs\n", "file.txt"));
+        assert!(!matches("*.bin filter=other\n", "file.bin"));
+        assert!(!matches("*.bin filter=other\n", "path/to/file.bin"));
+    }
+
+    #[test]
+    fn test_gitattributes_directory_match() {
+        // patterns that match a directory do not recursively match paths inside that
+        // directory (so using the trailing-slash path/ syntax is pointless in
+        // an attributes file; use path/** instead)
+        // https://git-scm.com/docs/gitattributes#_description
+        assert!(!matches("dir/ filter=lfs\n", "dir/file.txt"));
+        assert!(!matches("dir/ filter=lfs\n", "other/file.txt"));
+        assert!(!matches("dir/ filter=lfs\n", "dir"));
+    }
+
+    #[test]
+    fn test_gitattributes_path_match() {
+        assert!(matches("path/to/file.bin filter=lfs\n", "path/to/file.bin"));
+        assert!(!matches("path/to/file.bin filter=lfs\n", "path/file.bin"));
+    }
+
+    #[test]
+    fn test_gitattributes_wildcard_match() {
+        assert!(matches("*.bin filter=lfs\n", "file.bin"));
+        assert!(matches("file.* filter=lfs\n", "file.bin"));
+        assert!(matches("**/file.bin filter=lfs\n", "path/to/file.bin"));
+    }
+
+    #[test]
+    fn test_gitattributes_multiple_attributes() {
+        let input = "*.bin filter=lfs diff=binary\n";
+        assert!(matches(input, "file.bin"));
+        assert!(!matches("*.bin diff=binary\n", "file.bin")); // Only testing filter=lfs
+    }
+
+    #[test]
+    fn test_gitattributes_chained_files() {
+        let data: TestStore = [
+            (
+                RepoPathBuf::from_internal_string(".gitattributes").unwrap(),
+                Ok("*.bin filter=lfs\n".to_string()),
+            ),
+            (
+                RepoPathBuf::from_internal_string("subdir/.gitattributes").unwrap(),
+                Ok("*.txt filter=text\n".to_string()),
+            ),
+        ]
+        .into_iter()
+        .collect();
+        let attributes = GitAttributes::new(
+            HashMap::new(),
+            data,
+            &["lfs".to_string(), "text".to_string()],
+        );
+
+        assert!(attributes.filter_matches(repo_path("file.bin")));
+        assert!(attributes.filter_matches(repo_path("subdir/file.txt")));
+        assert!(!attributes.filter_matches(repo_path("file.txt"))); // Not in subdir
+    }
+
+    #[test]
+    fn test_gitattributes_negated_pattern() {
+        let input = "*.bin filter=lfs\n!important.bin filter=lfs\n";
+        assert!(matches(input, "file.bin"));
+        // negative patterns are forbidden
+        // https://git-scm.com/docs/gitattributes#_description
+        assert!(matches(input, "important.bin"));
+    }
+
+    #[test]
+    fn test_gitattributes_multiple_filters() {
+        let data: TestStore = [
+            (
+                RepoPathBuf::from_internal_string(".gitattributes").unwrap(),
+                Ok("*.bin filter=lfs
+                    *.secret filter=git-crypt
+                    *.txt filter=other"
+                    .to_string()),
+            ),
+            (
+                RepoPathBuf::from_internal_string("subdir/.gitattributes").unwrap(),
+                Ok("*.txt filter=text\n".to_string()),
+            ),
+        ]
+        .into_iter()
+        .collect();
+
+        // Create a GitAttributesFile with both "lfs" and "git-crypt" as ignore filters
+        let attributes = GitAttributes::new(
+            HashMap::new(),
+            data,
+            &["lfs".to_string(), "git-crypt".to_string()],
+        );
+
+        // Test with lfs filter
+        assert!(attributes.filter_matches(repo_path("file.bin")));
+        // Test with git-crypt filter
+        assert!(attributes.filter_matches(repo_path("credentials.secret")));
+        // Not In the filter
+        assert!(!attributes.filter_matches(repo_path("file.bin2")));
+        // Test that other filters don't match
+        assert!(!attributes.filter_matches(repo_path("file.txt")));
     }
 }
