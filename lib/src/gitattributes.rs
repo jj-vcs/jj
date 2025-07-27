@@ -16,7 +16,6 @@
 
 use std::borrow::Cow;
 use std::io;
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -24,8 +23,6 @@ use gix::attrs as gix_attrs;
 use gix::glob as gix_glob;
 use gix::path as gix_path;
 use thiserror::Error;
-
-use crate::repo_path::RepoPath;
 
 #[derive(Debug, Error)]
 pub enum GitAttributesError {
@@ -39,14 +36,17 @@ pub struct GitAttributesFile {
     search: gix_attrs::Search,
     collection: gix_attrs::search::MetadataCollection,
     ignore_filters: Vec<String>,
+    /// root working path
+    working_path: PathBuf,
 }
 
 impl GitAttributesFile {
-    pub fn new(ignore_filters: &[String]) -> Self {
+    pub fn new(ignore_filters: &[String], working_path: PathBuf) -> Self {
         let base_attributes = Self::default();
 
         Self {
             ignore_filters: ignore_filters.to_vec(),
+            working_path,
             ..base_attributes
         }
     }
@@ -57,13 +57,14 @@ impl GitAttributesFile {
         input: &[u8],
     ) -> Result<Arc<Self>, GitAttributesError> {
         let mut search = self.search.clone();
+        let working_path = self.working_path.clone();
         let mut collection = self.collection.clone();
         let ignore_filters = self.ignore_filters.clone();
 
         search.add_patterns_buffer(
             input,
             source_file,
-            Some(Path::new(&RepoPath::root().to_internal_dir_string())),
+            Some(&self.working_path),
             &mut collection,
             true,
         );
@@ -72,6 +73,7 @@ impl GitAttributesFile {
             search,
             collection,
             ignore_filters,
+            working_path,
         }))
     }
 
@@ -147,6 +149,7 @@ impl Default for GitAttributesFile {
             search,
             collection,
             ignore_filters,
+            working_path: PathBuf::new(),
         }
     }
 }
@@ -156,7 +159,7 @@ mod tests {
     use super::*;
 
     fn matches(input: &[u8], path: &str) -> bool {
-        let file = Arc::new(GitAttributesFile::new(&["lfs".to_string()]))
+        let file = Arc::new(GitAttributesFile::new(&["lfs".to_string()], PathBuf::new()))
             .chain(PathBuf::from(".gitattributes"), input)
             .unwrap();
         file.matches(path)
@@ -164,7 +167,7 @@ mod tests {
 
     #[test]
     fn test_gitattributes_empty_file() {
-        let file = GitAttributesFile::new(&["lfs".to_string()]);
+        let file = GitAttributesFile::new(&["lfs".to_string()], PathBuf::new());
         assert!(!file.matches("foo"));
     }
 
@@ -213,10 +216,10 @@ mod tests {
 
     #[test]
     fn test_gitattributes_chained_files() {
-        let base = Arc::new(GitAttributesFile::new(&[
-            "lfs".to_string(),
-            "text".to_string(),
-        ]));
+        let base = Arc::new(GitAttributesFile::new(
+            &["lfs".to_string(), "text".to_string()],
+            PathBuf::new(),
+        ));
         let with_first = base
             .chain(PathBuf::from(".gitattributes"), b"*.bin filter=lfs\n")
             .unwrap();
@@ -244,10 +247,10 @@ mod tests {
     #[test]
     fn test_gitattributes_multiple_filters() {
         // Create a GitAttributesFile with both "lfs" and "git-crypt" as ignore filters
-        let file = Arc::new(GitAttributesFile::new(&[
-            "lfs".to_string(),
-            "git-crypt".to_string(),
-        ]));
+        let file = Arc::new(GitAttributesFile::new(
+            &["lfs".to_string(), "git-crypt".to_string()],
+            PathBuf::new(),
+        ));
 
         // Test with lfs filter
         let with_lfs = file

@@ -1459,6 +1459,7 @@ to the current parents may contain changes from multiple commits.
     pub fn base_attributes(&self) -> Result<Arc<GitAttributesFile>, ConfigGetError> {
         Ok(Arc::new(GitAttributesFile::new(
             &self.settings().git_settings()?.ignore_filters,
+            self.workspace_root().to_path_buf(),
         )))
     }
 
