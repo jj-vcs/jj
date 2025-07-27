@@ -103,6 +103,10 @@ fn test_git_colocated_intent_to_add() {
     work_dir.run_jj(["status"]).success();
     insta::assert_snapshot!(get_index_state(work_dir.root()), @"Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 file1.txt");
 
+    // Previously, this would fail due to the empty blob not being written to the
+    // store when marking files as intent-to-add.
+    work_dir.run_jj(["util", "gc"]).success();
+
     // Another new file should be marked as intent-to-add
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file2.txt", "contents");

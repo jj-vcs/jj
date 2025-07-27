@@ -1345,8 +1345,7 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
     };
 
     let wc_tree = wc_commit.tree()?;
-    update_intent_to_add_impl(&mut index, &parent_tree, &wc_tree, git_repo.object_hash())
-        .block_on()?;
+    update_intent_to_add_impl(&git_repo, &mut index, &parent_tree, &wc_tree).block_on()?;
 
     // Match entries in the new index with entries in the old index, and copy stat
     // information if the entry didn't change.
@@ -1503,7 +1502,7 @@ pub fn update_intent_to_add(
         .index_or_empty()
         .map_err(GitResetHeadError::from_git)?;
     let mut_index = Arc::make_mut(&mut index);
-    update_intent_to_add_impl(mut_index, old_tree, new_tree, git_repo.object_hash()).block_on()?;
+    update_intent_to_add_impl(&git_repo, mut_index, old_tree, new_tree).block_on()?;
     debug_assert!(mut_index.verify_entries().is_ok());
     mut_index
         .write(gix::index::write::Options::default())
@@ -1513,11 +1512,11 @@ pub fn update_intent_to_add(
 }
 
 async fn update_intent_to_add_impl(
+    git_repo: &gix::Repository,
     index: &mut gix::index::File,
     old_tree: &MergedTree,
     new_tree: &MergedTree,
-    hash_kind: gix::hash::Kind,
-) -> BackendResult<()> {
+) -> Result<(), GitResetHeadError> {
     let mut diff_stream = old_tree.diff_stream(new_tree, &EverythingMatcher);
     let mut added_paths = vec![];
     let mut removed_paths = HashSet::new();
@@ -1550,19 +1549,26 @@ async fn update_intent_to_add_impl(
         return Ok(());
     }
 
-    for (path, executable) in added_paths {
-        // We have checked that the index doesn't have this entry
-        index.dangerously_push_entry(
-            gix::index::entry::Stat::default(),
-            gix::ObjectId::empty_blob(hash_kind),
-            gix::index::entry::Flags::INTENT_TO_ADD | gix::index::entry::Flags::EXTENDED,
-            if executable {
-                gix::index::entry::Mode::FILE_EXECUTABLE
-            } else {
-                gix::index::entry::Mode::FILE
-            },
-            path.as_ref(),
-        );
+    if !added_paths.is_empty() {
+        // We need to write the empty blob, otherwise `jj util gc` will report an error.
+        let empty_blob = git_repo
+            .write_blob(b"")
+            .map_err(GitResetHeadError::from_git)?
+            .detach();
+        for (path, executable) in added_paths {
+            // We have checked that the index doesn't have this entry
+            index.dangerously_push_entry(
+                gix::index::entry::Stat::default(),
+                empty_blob,
+                gix::index::entry::Flags::INTENT_TO_ADD | gix::index::entry::Flags::EXTENDED,
+                if executable {
+                    gix::index::entry::Mode::FILE_EXECUTABLE
+                } else {
+                    gix::index::entry::Mode::FILE
+                },
+                path.as_ref(),
+            );
+        }
     }
     if !removed_paths.is_empty() {
         index.remove_entries(|_size, path, entry| {

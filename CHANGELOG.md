@@ -74,6 +74,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* Fixed an error in `jj util gc` caused by the empty blob being missing from
+  the Git store. [#7062](https://github.com/jj-vcs/jj/issues/7062)
+
 ### Packaging changes
 
 
