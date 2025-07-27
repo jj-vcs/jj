@@ -158,6 +158,22 @@ sudo port install jujutsu
 
 ### Windows
 
+#### Scoop
+
+```shell
+# To install the latest release via scoop
+scoop install main/jj
+```
+
+#### winget
+
+```shell
+# To install the latest release via winget
+winget install jj-vcs.jj
+```
+
+#### Build from source
+
 First make sure that you have a Rust version >= 1.85. Now run either:
 
 ```shell
@@ -172,19 +188,7 @@ or:
 cargo install --locked --bin jj jj-cli
 ```
 
-via winget:
 
-```shell
-# To install the latest release via winget
-winget install jj-vcs.jj
-```
-
-via scoop:
-
-```shell
-# To install the latest release via scoop
-scoop install main/jj
-```
 
 
 ## Initial configuration
