@@ -16,6 +16,9 @@ and this project adheres to
 
 ### New features
 
+* Added `git.ignore-filters` setting to specify what filtered files in
+  `.gitattributes` are ignored by `jj`. Defaults to `["lfs"]`.
+
 ### Fixed bugs
 
 ## [0.47.1] - 2026-11-04
