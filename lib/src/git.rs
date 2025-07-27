@@ -99,6 +99,7 @@ pub struct GitSettings {
     pub abandon_unreachable_commits: bool,
     pub executable_path: PathBuf,
     pub write_change_id_header: bool,
+    pub ignore_filters: Vec<String>,
 }
 
 impl GitSettings {
@@ -108,6 +109,10 @@ impl GitSettings {
             abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
             executable_path: settings.get("git.executable-path")?,
             write_change_id_header: settings.get("git.write-change-id-header")?,
+            ignore_filters: settings
+                .get("git.ignore-filters")
+                .optional()?
+                .unwrap_or_else(|| vec!["lfs".to_string()]),
         })
     }
 
