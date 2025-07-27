@@ -296,7 +296,7 @@ transition once we default to these new completions.
     (usually `$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1`):
 
     ```shell
-    Invoke-Expression (& { (jj util completion power-shell | Out-String) })
+    jj util completion power-shell | Out-String | Invoke-Expression
     ```
 
 [cargo-binstall]: https://github.com/cargo-bins/cargo-binstall
