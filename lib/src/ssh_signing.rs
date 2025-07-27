@@ -38,6 +38,7 @@ use crate::signing::Verification;
 pub struct SshBackend {
     program: OsString,
     allowed_signers: Option<OsString>,
+    revocation_list: Option<OsString>,
 }
 
 #[derive(Debug, Error)]
@@ -111,20 +112,36 @@ fn ensure_key_as_file(key: &str) -> SshResult<Either<PathBuf, tempfile::TempPath
 }
 
 impl SshBackend {
-    pub fn new(program: OsString, allowed_signers: Option<OsString>) -> Self {
+    pub fn new(
+        program: OsString,
+        allowed_signers: Option<OsString>,
+        revocation_list: Option<OsString>,
+    ) -> Self {
         Self {
             program,
             allowed_signers,
+            revocation_list,
         }
     }
 
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         let program = settings.get_string("signing.backends.ssh.program")?;
-        let allowed_signers = settings
-            .get_string("signing.backends.ssh.allowed-signers")
-            .optional()?
-            .map(|v| crate::file_util::expand_home_path(v.as_str()));
-        Ok(Self::new(program.into(), allowed_signers.map(|v| v.into())))
+
+        let get_expanded_path = |name| {
+            Ok(settings
+                .get_string(name)
+                .optional()?
+                .map(|v| crate::file_util::expand_home_path(v.as_str())))
+        };
+
+        let allowed_signers = get_expanded_path("signing.backends.ssh.allowed-signers")?;
+        let revocation_list = get_expanded_path("signing.backends.ssh.revocation-list")?;
+
+        Ok(Self::new(
+            program.into(),
+            allowed_signers.map(Into::into),
+            revocation_list.map(Into::into),
+        ))
     }
 
     fn create_command(&self) -> Command {
@@ -248,6 +265,10 @@ impl SigningBackend for SshBackend {
                     .arg(allowed_signers)
                     .arg("-n")
                     .arg("git");
+
+                if let Some(revocation_list) = self.revocation_list.as_ref() {
+                    command.arg("-r").arg(revocation_list);
+                }
 
                 let result = run_command(&mut command, data);
 

@@ -730,6 +730,10 @@
                                 "allowed-signers": {
                                     "type": "string",
                                     "description": "Path to an allowed signers file used for signature verification"
+                                },
+                                "revocation-list": {
+                                    "type": "string",
+                                    "description": "Path to a revocation list file used for revoking public keys"
                                 }
                             }
                         }

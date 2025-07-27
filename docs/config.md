@@ -1357,6 +1357,16 @@ as follows:
 backends.ssh.allowed-signers = "/path/to/allowed-signers"
 ```
 
+Additionally, an SSH KRL or list of revoked public keys (see
+[ssh-keygen man page](https://man.openbsd.org/ssh-keygen#KEY_REVOCATION_LISTS)) can be provided
+with the `revocation-list` option. If a public key is found in this file then any signature
+relating to it is marked as invalid.
+
+```toml
+[signing]
+backends.ssh.revocation-list = "/path/to/revocation-list"
+```
+
 ### Manually signing commits
 
 You can use [`jj sign`](./cli-reference.md#jj-sign)/[`jj unsign`](./cli-reference.md#jj-unsign)

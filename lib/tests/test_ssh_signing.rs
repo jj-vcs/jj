@@ -41,6 +41,7 @@ struct SshEnvironment {
     _keys: tempfile::TempDir,
     private_key_path: PathBuf,
     allowed_signers: Option<tempfile::TempPath>,
+    revocation_list: Option<tempfile::TempPath>,
 }
 
 impl SshEnvironment {
@@ -61,6 +62,7 @@ impl SshEnvironment {
             _keys: keys_dir,
             private_key_path,
             allowed_signers: None,
+            revocation_list: None,
         };
 
         env.with_good_public_key();
@@ -103,6 +105,20 @@ impl SshEnvironment {
 
         self.allowed_signers = Some(allowed_signers_path);
     }
+
+    fn with_revocation_list(&mut self, revoked_key: &[u8]) {
+        let mut revocation_list = tempfile::Builder::new()
+            .prefix("jj-test-revocation-list-")
+            .tempfile()
+            .unwrap();
+
+        revocation_list.write_all(revoked_key).unwrap();
+        revocation_list.flush().unwrap();
+
+        let revocation_list_path = revocation_list.into_temp_path();
+
+        self.revocation_list = Some(revocation_list_path);
+    }
 }
 
 fn backend(env: &SshEnvironment) -> SshBackend {
@@ -111,6 +127,9 @@ fn backend(env: &SshEnvironment) -> SshBackend {
         env.allowed_signers
             .as_ref()
             .map(|allowed_signers| allowed_signers.as_os_str().into()),
+        env.revocation_list
+            .as_ref()
+            .map(|revocation_list| revocation_list.as_os_str().into()),
     )
 }
 
@@ -166,4 +185,39 @@ fn ssh_signing_missing_allowed_signers() {
     let check = backend.verify(data, &signature).unwrap();
     assert_eq!(check.status, SigStatus::Unknown);
     assert_eq!(check.display.unwrap(), "Signature OK. Unknown principal");
+}
+
+#[test]
+fn ssh_signing_revocation_revoked() {
+    let mut env = SshEnvironment::new().unwrap();
+    env.with_revocation_list(PUBLIC_KEY.as_bytes());
+
+    let backend = backend(&env);
+    let data = b"hello world";
+
+    let signature = backend
+        .sign(data, Some(env.private_key_path.to_str().unwrap()))
+        .unwrap();
+
+    let check = backend.verify(data, &signature).unwrap();
+    assert_eq!(check.status, SigStatus::Bad);
+    assert_eq!(check.display.unwrap(), "test@example.com");
+}
+
+#[test]
+fn ssh_signing_revocation_unrevoked() {
+    let mut env = SshEnvironment::new().unwrap();
+    const ALT_PUB_KEY: &str =
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICrkiOk+QyRv87ahGdrxSin0DuNKezDDLE6lLkHxJpWU";
+    env.with_revocation_list(ALT_PUB_KEY.as_bytes());
+
+    let backend = backend(&env);
+    let data = b"hello world";
+
+    let signature = backend
+        .sign(data, Some(env.private_key_path.to_str().unwrap()))
+        .unwrap();
+
+    let check = backend.verify(data, &signature).unwrap();
+    assert_eq!(check.status, SigStatus::Good);
 }
