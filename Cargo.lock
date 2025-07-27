@@ -2496,6 +2496,7 @@ dependencies = [
  "etcetera",
  "futures 0.3.32",
  "gix",
+ "gix-attributes",
  "globset",
  "hashbrown 0.16.1",
  "ignore",
