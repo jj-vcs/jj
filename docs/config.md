@@ -2082,6 +2082,26 @@ you can:
 executable-path = "/path/to/git"
 ```
 
+### Ignoring files by `.gitattributes` filter
+
+In Git-backed repositories, `jj` can skip files during snapshot based on the
+`filter` attribute in `.gitattributes`. The `git.ignore-filters` setting lists
+the filter values to skip, and defaults to `["lfs"]`.
+
+```toml
+[git]
+ignore-filters = ["lfs", "git-crypt"]
+```
+
+This only affects snapshotting from disk to the store. Checkout still writes
+the files from the tree, so external tools such as `git lfs pull` or
+`git lfs checkout` can hydrate them afterward. Matching files are skipped even
+if they are already tracked, so the tree keeps whatever content it had before.
+If a commit already recorded the hydrated contents of such a file (e.g. from a
+snapshot taken before this setting was in effect), run `jj restore <path>` to
+restore the LFS pointer, then `git lfs checkout <path>` to hydrate the file on
+disk again.
+
 ## Gerrit settings
 
 ### Default remote
