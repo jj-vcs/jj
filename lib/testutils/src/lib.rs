@@ -557,11 +557,7 @@ pub fn dump_tree(store: &Arc<Store>, tree_id: &MergedTreeId) -> String {
     let tree = store.get_root_tree(tree_id).unwrap();
     for (path, result) in tree.entries() {
         match result.unwrap().into_resolved() {
-            Ok(Some(TreeValue::File {
-                id,
-                executable: _,
-                copy_id: _,
-            })) => {
+            Ok(Some(TreeValue::File { id, .. })) => {
                 let file_buf = read_file(store, &path, &id);
                 let file_contents = String::from_utf8_lossy(&file_buf);
                 writeln!(&mut buf, "  file {path:?} ({id}): {file_contents:?}").unwrap();

@@ -1590,11 +1590,7 @@ fn conflict_term_from_json(json: &serde_json::Value) -> ConflictTerm {
 
 fn tree_value_to_json(value: &TreeValue) -> serde_json::Value {
     match value {
-        TreeValue::File {
-            id,
-            executable,
-            copy_id: _,
-        } => serde_json::json!({
+        TreeValue::File { id, executable, .. } => serde_json::json!({
              "file": {
                  "id": id.hex(),
                  "executable": executable,

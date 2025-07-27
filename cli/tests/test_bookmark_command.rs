@@ -24,10 +24,8 @@ fn create_commit_with_refs(
     content: &[u8],
     ref_names: &[&str],
 ) {
-    let git::CommitResult {
-        tree_id: _,
-        commit_id,
-    } = git::add_commit(repo, "refs/heads/dummy", "file", content, message, &[]);
+    let git::CommitResult { commit_id, .. } =
+        git::add_commit(repo, "refs/heads/dummy", "file", content, message, &[]);
     repo.find_reference("dummy").unwrap().delete().unwrap();
 
     for name in ref_names {

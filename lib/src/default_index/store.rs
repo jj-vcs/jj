@@ -384,7 +384,7 @@ impl IndexStore for DefaultIndexStore {
                              {expected_version}. Reindexing..."
                         );
                     }
-                    ReadonlyIndexLoadError::Other { name: _, error } => {
+                    ReadonlyIndexLoadError::Other { error, .. } => {
                         eprintln!("{err} (maybe the format has changed): {error}. Reindexing...");
                     }
                 }

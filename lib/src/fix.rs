@@ -241,12 +241,7 @@ pub async fn fix_files(
             for term in after.into_iter().flatten() {
                 // We currently only support fixing the content of normal files, so we skip
                 // directories and symlinks, and we ignore the executable bit.
-                if let TreeValue::File {
-                    id,
-                    executable: _,
-                    copy_id: _,
-                } = term
-                {
+                if let TreeValue::File { id, .. } = term {
                     // TODO: Skip the file if its content is larger than some configured size,
                     // preferably without actually reading it yet.
                     let file_to_fix = FileToFix {

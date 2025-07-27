@@ -223,15 +223,10 @@ pub mod watchman {
             // shouldn't expose the underlying watchman API too much.
             info!("Querying Watchman for changed files...");
             let QueryResult {
-                version: _,
                 is_fresh_instance,
                 files,
                 clock,
-                state_enter: _,
-                state_leave: _,
-                state_metadata: _,
-                saved_state_info: _,
-                debug: _,
+                ..
             }: QueryResult<NameOnly> = self
                 .client
                 .query(

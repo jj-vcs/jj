@@ -792,10 +792,9 @@ impl CommandNameAndArgs {
                 (args.next().unwrap().into(), args.collect())
             }
             Self::Vec(NonEmptyCommandArgsVec(a)) => (Cow::Borrowed(&a[0]), Cow::Borrowed(&a[1..])),
-            Self::Structured {
-                env: _,
-                command: cmd,
-            } => (Cow::Borrowed(&cmd.0[0]), Cow::Borrowed(&cmd.0[1..])),
+            Self::Structured { command: cmd, .. } => {
+                (Cow::Borrowed(&cmd.0[0]), Cow::Borrowed(&cmd.0[1..]))
+            }
         }
     }
 

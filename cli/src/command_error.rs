@@ -806,10 +806,9 @@ fn fileset_parse_error_hint(err: &FilesetParseError) -> Option<String> {
             "See https://jj-vcs.github.io/jj/latest/filesets/ or use `jj help -k filesets` for \
              filesets syntax and how to match file paths.",
         )),
-        FilesetParseErrorKind::NoSuchFunction {
-            name: _,
-            candidates,
-        } => format_similarity_hint(candidates),
+        FilesetParseErrorKind::NoSuchFunction { candidates, .. } => {
+            format_similarity_hint(candidates)
+        }
         FilesetParseErrorKind::InvalidArguments { .. } | FilesetParseErrorKind::Expression(_) => {
             find_source_parse_error_hint(&err)
         }
@@ -818,10 +817,7 @@ fn fileset_parse_error_hint(err: &FilesetParseError) -> Option<String> {
 
 fn opset_resolution_error_hint(err: &OpsetResolutionError) -> Option<String> {
     match err {
-        OpsetResolutionError::MultipleOperations {
-            expr: _,
-            candidates,
-        } => Some(format!(
+        OpsetResolutionError::MultipleOperations { candidates, .. } => Some(format!(
             "Try specifying one of the operations by ID: {}",
             candidates.iter().map(short_operation_hash).join(", ")
         )),
@@ -842,24 +838,23 @@ fn revset_parse_error_hint(err: &RevsetParseError) -> Option<String> {
                 .into(),
         ),
         RevsetParseErrorKind::NotPrefixOperator {
-            op: _,
             similar_op,
             description,
+            ..
         }
         | RevsetParseErrorKind::NotPostfixOperator {
-            op: _,
             similar_op,
             description,
+            ..
         }
         | RevsetParseErrorKind::NotInfixOperator {
-            op: _,
             similar_op,
             description,
+            ..
         } => Some(format!("Did you mean `{similar_op}` for {description}?")),
-        RevsetParseErrorKind::NoSuchFunction {
-            name: _,
-            candidates,
-        } => format_similarity_hint(candidates),
+        RevsetParseErrorKind::NoSuchFunction { candidates, .. } => {
+            format_similarity_hint(candidates)
+        }
         RevsetParseErrorKind::InvalidFunctionArguments { .. }
         | RevsetParseErrorKind::Expression(_) => find_source_parse_error_hint(bottom_err),
         _ => None,
@@ -874,10 +869,9 @@ fn revset_resolution_error_hints(err: &RevsetResolutionError) -> Vec<String> {
         )
     };
     match err {
-        RevsetResolutionError::NoSuchRevision {
-            name: _,
-            candidates,
-        } => format_similarity_hint(candidates).into_iter().collect(),
+        RevsetResolutionError::NoSuchRevision { candidates, .. } => {
+            format_similarity_hint(candidates).into_iter().collect()
+        }
         RevsetResolutionError::DivergentChangeId { symbol, targets } => vec![
             multiple_targets_hint(targets),
             format!("Use `change_id({symbol})` to select all revisions"),
@@ -895,11 +889,9 @@ fn revset_resolution_error_hints(err: &RevsetResolutionError) -> Vec<String> {
                  <REVISION>`"
             ),
         ],
-        RevsetResolutionError::ConflictedRef {
-            kind: _,
-            symbol: _,
-            targets,
-        } => vec![multiple_targets_hint(targets)],
+        RevsetResolutionError::ConflictedRef { targets, .. } => {
+            vec![multiple_targets_hint(targets)]
+        }
         RevsetResolutionError::EmptyString
         | RevsetResolutionError::WorkspaceMissingWorkingCopy { .. }
         | RevsetResolutionError::AmbiguousCommitIdPrefix(_)

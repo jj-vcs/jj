@@ -69,9 +69,7 @@ impl FileContents {
         match self {
             Self::Absent => None,
             Self::Text {
-                contents: _,
-                hash,
-                num_bytes,
+                hash, num_bytes, ..
             }
             | Self::Binary { hash, num_bytes } => match hash {
                 Some(hash) => Some(format!("{hash} ({num_bytes}B)")),
@@ -289,54 +287,28 @@ async fn make_diff_files(
             // exists on one side, we will render a mode change section above.
             // The next two patterns are to avoid also rendering an empty
             // changed lines section that clutters the UI.
-            (
-                FileContents::Absent,
-                FileContents::Text {
-                    contents: _,
-                    hash: _,
-                    num_bytes: 0,
-                },
-            ) => {}
-            (
-                FileContents::Text {
-                    contents: _,
-                    hash: _,
-                    num_bytes: 0,
-                },
-                FileContents::Absent,
-            ) => {}
-            (
-                FileContents::Absent,
-                FileContents::Text {
-                    contents,
-                    hash: _,
-                    num_bytes: _,
-                },
-            ) => sections.push(scm_record::Section::Changed {
-                lines: make_section_changed_lines(&contents, scm_record::ChangeType::Added),
-            }),
+            (FileContents::Absent, FileContents::Text { num_bytes: 0, .. }) => {}
+            (FileContents::Text { num_bytes: 0, .. }, FileContents::Absent) => {}
+            (FileContents::Absent, FileContents::Text { contents, .. }) => {
+                sections.push(scm_record::Section::Changed {
+                    lines: make_section_changed_lines(&contents, scm_record::ChangeType::Added),
+                });
+            }
 
-            (
-                FileContents::Text {
-                    contents,
-                    hash: _,
-                    num_bytes: _,
-                },
-                FileContents::Absent,
-            ) => sections.push(scm_record::Section::Changed {
-                lines: make_section_changed_lines(&contents, scm_record::ChangeType::Removed),
-            }),
+            (FileContents::Text { contents, .. }, FileContents::Absent) => {
+                sections.push(scm_record::Section::Changed {
+                    lines: make_section_changed_lines(&contents, scm_record::ChangeType::Removed),
+                });
+            }
 
             (
                 FileContents::Text {
                     contents: old_contents,
-                    hash: _,
-                    num_bytes: _,
+                    ..
                 },
                 FileContents::Text {
                     contents: new_contents,
-                    hash: _,
-                    num_bytes: _,
+                    ..
                 },
             ) => {
                 sections.extend(make_diff_sections(&old_contents, &new_contents)?);
@@ -495,15 +467,15 @@ fn apply_changes(
                 }
             }
             scm_record::SelectedContents::Binary {
-                old_description: _,
                 new_description: Some(_),
+                ..
             } => {
                 let value = override_file_executable_bit(select_right(&path)?, executable);
                 tree_builder.set_or_remove(path, value);
             }
             scm_record::SelectedContents::Binary {
-                old_description: _,
                 new_description: None,
+                ..
             } => {
                 // File contents emptied out, but file mode is not absent => write empty file.
                 let copy_id = CopyId::placeholder();
@@ -576,11 +548,7 @@ fn make_merge_sections(
             let contents = buf_to_file_contents(None, buf.into());
             let section = match contents {
                 FileContents::Absent => None,
-                FileContents::Text {
-                    contents,
-                    hash: _,
-                    num_bytes: _,
-                } => Some(scm_record::Section::Unchanged {
+                FileContents::Text { contents, .. } => Some(scm_record::Section::Unchanged {
                     lines: contents
                         .split_inclusive('\n')
                         .map(|line| Cow::Owned(line.to_owned()))
@@ -1847,11 +1815,7 @@ mod tests {
 
         fn to_file_id(tree_value: MergedTreeValue) -> Option<FileId> {
             match tree_value.into_resolved() {
-                Ok(Some(TreeValue::File {
-                    id,
-                    executable: _,
-                    copy_id: _,
-                })) => Some(id.clone()),
+                Ok(Some(TreeValue::File { id, .. })) => Some(id.clone()),
                 other => {
                     panic!("merge should have been a FileId: {other:?}")
                 }
@@ -2194,7 +2158,7 @@ mod tests {
                                     SectionChangedLine {
                                         is_checked: true,
                                         change_type: Removed,
-                                        line: _,
+                                        ..
                                     } => None,
                                     SectionChangedLine {
                                         is_checked: false, ..

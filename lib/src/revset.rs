@@ -3127,12 +3127,11 @@ pub struct RevsetParseContext<'a> {
 impl<'a> RevsetParseContext<'a> {
     fn to_lowering_context(&self) -> LoweringContext<'a> {
         let RevsetParseContext {
-            aliases_map: _,
-            local_variables: _,
             user_email,
             date_pattern_context,
             extensions,
             workspace,
+            ..
         } = *self;
         LoweringContext {
             user_email,

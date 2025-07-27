@@ -270,10 +270,7 @@ mod tests {
             foo: 1
         "#};
         let res = parse_trailers(trailers);
-        assert!(matches!(
-            res,
-            Err(TrailerParseError::NonTrailerLine { line: _ })
-        ));
+        assert!(matches!(res, Err(TrailerParseError::NonTrailerLine { .. })));
     }
 
     #[test]

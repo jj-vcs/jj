@@ -203,7 +203,7 @@ pub fn persist_content_addressed_temp_file<P: AsRef<Path>>(
         // file already exists.
         match temp_file.persist_noclobber(&new_path) {
             Ok(file) => Ok(file),
-            Err(PersistError { error, file: _ }) => {
+            Err(PersistError { error, .. }) => {
                 if let Ok(existing_file) = File::open(new_path) {
                     // TODO: Update mtime to help GC keep this file
                     Ok(existing_file)
@@ -218,7 +218,7 @@ pub fn persist_content_addressed_temp_file<P: AsRef<Path>>(
         // non-atomic operation, so don't use persist_noclobber().
         temp_file
             .persist(new_path)
-            .map_err(|PersistError { error, file: _ }| error)
+            .map_err(|PersistError { error, .. }| error)
     }
 }
 

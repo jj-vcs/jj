@@ -1227,7 +1227,7 @@ fn diff_content_with<T>(
         MaterializedTreeValue::File(mut file) => {
             file_content_for_diff(path, &mut file, map_resolved)
         }
-        MaterializedTreeValue::Symlink { id: _, target } => Ok(FileContent {
+        MaterializedTreeValue::Symlink { target, .. } => Ok(FileContent {
             // Unix file paths can't contain null bytes.
             is_binary: false,
             contents: map_resolved(target.into()),

@@ -95,7 +95,7 @@ impl ReadonlyIndexLoadError {
     pub(super) fn is_corrupt_or_not_found(&self) -> bool {
         match self {
             Self::UnexpectedVersion { .. } => true,
-            Self::Other { name: _, error } => {
+            Self::Other { error, .. } => {
                 // If the parent file name field is corrupt, the file wouldn't be found.
                 // And there's no need to distinguish it from an empty file.
                 matches!(

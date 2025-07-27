@@ -1388,11 +1388,7 @@ fn build_index_from_merged_tree(
             };
 
             let (id, mode) = match entry {
-                TreeValue::File {
-                    id,
-                    executable,
-                    copy_id: _,
-                } => {
+                TreeValue::File { id, executable, .. } => {
                     if *executable {
                         (id.as_bytes(), gix::index::entry::Mode::FILE_EXECUTABLE)
                     } else {
@@ -1525,11 +1521,7 @@ async fn update_intent_to_add_impl(
         let (before, after) = values?;
         if before.is_absent() {
             let executable = match after.as_normal() {
-                Some(TreeValue::File {
-                    id: _,
-                    executable,
-                    copy_id: _,
-                }) => *executable,
+                Some(TreeValue::File { executable, .. }) => *executable,
                 Some(TreeValue::Symlink(_)) => false,
                 _ => {
                     continue;

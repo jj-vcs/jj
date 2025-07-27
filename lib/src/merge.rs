@@ -584,11 +584,7 @@ where
         let file_ids = self
             .try_map(|term| match borrow_tree_value(term.as_ref()) {
                 None => Ok(None),
-                Some(TreeValue::File {
-                    id,
-                    executable: _,
-                    copy_id: _,
-                }) => Ok(Some(id.clone())),
+                Some(TreeValue::File { id, .. }) => Ok(Some(id.clone())),
                 _ => Err(()),
             })
             .ok()?;
@@ -601,11 +597,7 @@ where
     pub fn to_executable_merge(&self) -> Option<Merge<Option<bool>>> {
         self.try_map(|term| match borrow_tree_value(term.as_ref()) {
             None => Ok(None),
-            Some(TreeValue::File {
-                id: _,
-                executable,
-                copy_id: _,
-            }) => Ok(Some(*executable)),
+            Some(TreeValue::File { executable, .. }) => Ok(Some(*executable)),
             _ => Err(()),
         })
         .ok()
@@ -616,11 +608,7 @@ where
     pub fn to_copy_id_merge(&self) -> Option<Merge<Option<CopyId>>> {
         self.try_map(|term| match borrow_tree_value(term.as_ref()) {
             None => Ok(None),
-            Some(TreeValue::File {
-                id: _,
-                executable: _,
-                copy_id,
-            }) => Ok(Some(copy_id.clone())),
+            Some(TreeValue::File { copy_id, .. }) => Ok(Some(copy_id.clone())),
             _ => Err(()),
         })
         .ok()
@@ -669,9 +657,9 @@ where
                 |(tree_value, file_id)| match (borrow_tree_value(tree_value.as_ref()), file_id) {
                     (
                         Some(TreeValue::File {
-                            id: _,
                             executable,
                             copy_id,
+                            ..
                         }),
                         Some(id),
                     ) => Some(TreeValue::File {
@@ -710,7 +698,7 @@ fn describe_conflict_term(value: &TreeValue) -> String {
         TreeValue::File {
             id,
             executable: false,
-            copy_id: _,
+            ..
         } => {
             // TODO: include the copy here once we start using it
             format!("file with id {id}")
@@ -718,7 +706,7 @@ fn describe_conflict_term(value: &TreeValue) -> String {
         TreeValue::File {
             id,
             executable: true,
-            copy_id: _,
+            ..
         } => {
             // TODO: include the copy here once we start using it
             format!("executable file with id {id}")

@@ -950,12 +950,12 @@ impl TreeState {
         let target_path = self.state_path.join("tree_state");
         temp_file
             .persist(&target_path)
-            .map_err(|tempfile::PersistError { error, file: _ }| {
-                TreeStateError::PersistTreeState {
+            .map_err(
+                |tempfile::PersistError { error, .. }| TreeStateError::PersistTreeState {
                     path: target_path.clone(),
                     source: error,
-                }
-            })?;
+                },
+            )?;
         Ok(())
     }
 
@@ -1548,12 +1548,7 @@ impl FileSnapshotter<'_> {
             let id = self.write_file_to_store(repo_path, disk_path).await?;
             // On Windows, we preserve the executable bit from the current tree.
             let executable = executable.unwrap_or_else(|| {
-                if let Some(TreeValue::File {
-                    id: _,
-                    executable,
-                    copy_id: _,
-                }) = current_tree_value
-                {
+                if let Some(TreeValue::File { executable, .. }) = current_tree_value {
                     *executable
                 } else {
                     false
@@ -1561,12 +1556,7 @@ impl FileSnapshotter<'_> {
             });
             // Preserve the copy id from the current tree
             let copy_id = {
-                if let Some(TreeValue::File {
-                    id: _,
-                    executable: _,
-                    copy_id,
-                }) = current_tree_value
-                {
+                if let Some(TreeValue::File { copy_id, .. }) = current_tree_value {
                     copy_id.clone()
                 } else {
                     CopyId::placeholder()
@@ -1965,7 +1955,7 @@ impl TreeState {
                     self.write_file(&disk_path, file.reader, file.executable, true)
                         .await?
                 }
-                MaterializedTreeValue::Symlink { id: _, target } => {
+                MaterializedTreeValue::Symlink { target, .. } => {
                     if self.symlink_support {
                         self.write_symlink(&disk_path, target)?
                     } else {
@@ -2033,11 +2023,7 @@ impl TreeState {
             } else {
                 let file_type = match after.into_resolved() {
                     Ok(value) => match value.unwrap() {
-                        TreeValue::File {
-                            id: _,
-                            executable,
-                            copy_id: _,
-                        } => FileType::Normal {
+                        TreeValue::File { executable, .. } => FileType::Normal {
                             executable: FileExecutableFlag::from_bool_lossy(executable),
                         },
                         TreeValue::Symlink(_id) => FileType::Symlink,

@@ -107,12 +107,7 @@ pub(crate) fn cmd_file_chmod(
             return Err(user_error_with_path(message));
         }
         for value in tree_value.iter_mut().flatten() {
-            if let TreeValue::File {
-                id: _,
-                executable,
-                copy_id: _,
-            } = value
-            {
+            if let TreeValue::File { executable, .. } = value {
                 *executable = executable_bit;
             }
         }

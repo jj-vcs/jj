@@ -93,7 +93,7 @@ fn test_simplify_conflict_after_resolving_parent() {
         Ok(Some(TreeValue::File {
             id,
             executable: false,
-            copy_id: _,
+            ..
         })) => {
             assert_eq!(
                 testutils::read_file(repo.store(), path, &id),
