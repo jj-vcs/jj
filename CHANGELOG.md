@@ -49,6 +49,9 @@ and this project adheres to
   middle of JSON output. Users should set the config option to `false` to avoid
   receiving invalid JSON objects on small terminals.
 
+* Added `git.ignore-filters` setting to specify what filtered files in
+  `.gitattributes` are ignored by `jj`. Defaults to `["lfs"]`.
+
 ### Fixed bugs
 
 * In colocated workspaces, `--ignore-working-copy` and `--at-op` now prevent
