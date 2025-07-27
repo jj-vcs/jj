@@ -71,7 +71,36 @@ pub mod git {
 pub mod git_backend;
 #[cfg(feature = "git")]
 mod git_subprocess;
+#[cfg(feature = "git")]
 pub mod gitattributes;
+#[cfg(not(feature = "git"))]
+/// A stub module that provides a no-op implementation of some of the functions
+/// in the `gitattributes` module.
+pub mod gitattributes {
+    #![allow(missing_docs)]
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    #[derive(Debug, Default)]
+    pub struct GitAttributesFile;
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("GitAttributesError")]
+    pub struct GitAttributesError;
+
+    impl GitAttributesFile {
+        pub fn chain_with_file(
+            self: &Arc<GitAttributesFile>,
+            _file: PathBuf,
+        ) -> Result<Arc<GitAttributesFile>, GitAttributesError> {
+            Ok(self.clone())
+        }
+
+        pub fn matches(&self, _path: &str) -> bool {
+            false
+        }
+    }
+}
 pub mod gitignore;
 pub mod gpg_signing;
 pub mod graph;
