@@ -108,7 +108,7 @@ test-case = "3.3.1"
 textwrap = "0.16.2"
 thiserror = "2.0.12"
 timeago = { version = "0.4.2", default-features = false }
-tokio = { version = "1.46.1", features = ["io-util"] }
+tokio = { version = "1.47.0", features = ["io-util"] }
 toml_edit = { version = "0.22.27", features = ["serde"] }
 tracing = "0.1.41"
 tracing-chrome = "0.7.2"
