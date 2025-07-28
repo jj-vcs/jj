@@ -126,7 +126,6 @@ fn test_split_by_paths() {
     let output = work_dir.run_jj(["split", "-r", "@-", "."]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: All changes have been selected, so the original revision will become empty
     Rebased 1 descendant commits
     Selected changes : qpvuntsm 9fd1c9e1 (no description set)
     Remaining changes: znkkpsqq 41e0da21 (empty) (no description set)
@@ -157,7 +156,6 @@ fn test_split_by_paths() {
     let output = work_dir.run_jj(["split", "-r", "@-", "nonexistent"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: No changes have been selected, so the new revision will be empty
     Rebased 1 descendant commits
     Selected changes : qpvuntsm 49416632 (empty) (no description set)
     Remaining changes: lylxulpl 718afbf5 (no description set)
@@ -732,24 +730,6 @@ fn test_split_parallel_with_merge_child() {
     ├─╯
     ◆  zzzzzzzzzzzz true
     [EOF]
-    ");
-}
-
-// Make sure `jj split` would refuse to split an empty commit.
-#[test]
-fn test_split_empty() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-    work_dir.run_jj(["describe", "--message", "abc"]).success();
-
-    let output = work_dir.run_jj(["split"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Error: Refusing to split empty commit 64eaeeb3e846248efc8b599a2b583b708104fc01.
-    Hint: Use `jj new` if you want to create another empty commit.
-    [EOF]
-    [exit status: 1]
     ");
 }
 
