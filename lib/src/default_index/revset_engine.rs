@@ -963,6 +963,7 @@ impl EvaluationContext<'_> {
             ResolvedExpression::HeadsRange {
                 roots,
                 heads,
+                parents_range,
                 filter,
             } => {
                 let root_set = self.evaluate(roots)?;
@@ -983,12 +984,14 @@ impl EvaluationContext<'_> {
                     index.commits().heads_from_range_and_filter(
                         root_positions,
                         head_positions,
+                        parents_range,
                         |pos| filter(index, pos),
                     )?
                 } else {
                     let Ok(positions) = index.commits().heads_from_range_and_filter::<Infallible>(
                         root_positions,
                         head_positions,
+                        parents_range,
                         |_| Ok(true),
                     );
                     positions

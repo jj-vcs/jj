@@ -1188,6 +1188,7 @@ fn test_evaluate_expression_heads() {
     let commit2 = graph_builder.commit_with_parents(&[&commit1]);
     let commit3 = graph_builder.commit_with_parents(&[&commit2]);
     let commit4 = graph_builder.commit_with_parents(&[&commit1]);
+    let commit5 = graph_builder.commit_with_parents(&[&commit3, &commit4]);
 
     // Heads of an empty set is an empty set
     assert_eq!(resolve_commit_ids(mut_repo, "heads(none())"), vec![]);
@@ -1259,6 +1260,28 @@ fn test_evaluate_expression_heads() {
             )
         ),
         vec![commit2.id().clone()]
+    );
+
+    // Heads of ancestors correct commit
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("heads(::{} ~ {})", commit5.id(), commit5.id())
+        ),
+        vec![commit4.id().clone(), commit3.id().clone()]
+    );
+
+    // Heads of first-parent ancestors correct commit
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!(
+                "heads(first_ancestors({}) ~ {})",
+                commit5.id(),
+                commit5.id()
+            )
+        ),
+        vec![commit3.id().clone()]
     );
 }
 

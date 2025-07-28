@@ -677,7 +677,7 @@ impl RevWalk<CompositeIndex> for RevWalkDescendantsImpl {
 }
 
 /// Filter a slice by a range, clamping the range to the length of the slice.
-fn filter_slice_by_range<'a, T: Copy>(slice: &'a [T], range: &Range<u32>) -> &'a [T] {
+pub(super) fn filter_slice_by_range<'a, T: Copy>(slice: &'a [T], range: &Range<u32>) -> &'a [T] {
     let start = (range.start as usize).min(slice.len());
     let end = (range.end as usize).min(slice.len());
     &slice[start..end]

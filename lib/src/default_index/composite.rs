@@ -22,6 +22,7 @@ use std::collections::HashSet;
 use std::collections::binary_heap;
 use std::iter;
 use std::mem;
+use std::ops::Range;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -38,6 +39,7 @@ use super::entry::SmallGlobalCommitPositionsVec;
 use super::entry::SmallLocalCommitPositionsVec;
 use super::mutable::MutableCommitIndexSegment;
 use super::readonly::ReadonlyCommitIndexSegment;
+use super::rev_walk::filter_slice_by_range;
 use super::revset_engine;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
@@ -492,6 +494,7 @@ impl CompositeCommitIndex {
         &self,
         roots: Vec<GlobalCommitPosition>,
         heads: Vec<GlobalCommitPosition>,
+        parents_range: &Range<u32>,
         mut filter: impl FnMut(GlobalCommitPosition) -> Result<bool, E>,
     ) -> Result<Vec<GlobalCommitPosition>, E> {
         if heads.is_empty() {
@@ -511,7 +514,12 @@ impl CompositeCommitIndex {
                 unwanted_queue.extend(entry.parent_positions());
                 found_heads.push(pos);
             } else {
-                shift_to_parents(&mut wanted_queue, pos, &entry.parent_positions());
+                let parent_positions = entry.parent_positions();
+                shift_to_parents(
+                    &mut wanted_queue,
+                    pos,
+                    filter_slice_by_range(&parent_positions, parents_range),
+                );
             }
         }
         Ok(found_heads)

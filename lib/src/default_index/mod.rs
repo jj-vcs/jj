@@ -50,6 +50,7 @@ pub use self::store::DefaultIndexStoreInitError;
 mod tests {
     use std::cmp::Reverse;
     use std::convert::Infallible;
+    use std::ops::Range;
     use std::sync::Arc;
 
     use itertools::Itertools as _;
@@ -72,6 +73,7 @@ mod tests {
     use crate::index::Index as _;
     use crate::object_id::HexPrefix;
     use crate::object_id::PrefixResolution;
+    use crate::revset::PARENTS_RANGE_FULL;
     use crate::tests::new_temp_dir;
 
     const TEST_FIELD_LENGTHS: FieldLengths = FieldLengths {
@@ -1285,6 +1287,7 @@ mod tests {
         // `heads_from_range_and_filter`.
         let heads_range = |roots: &[&CommitId],
                            heads: &[&CommitId],
+                           parents_range: &Range<u32>,
                            filter: &dyn Fn(CommitId) -> bool|
          -> Vec<CommitId> {
             let roots = roots
@@ -1300,7 +1303,7 @@ mod tests {
             index
                 .as_composite()
                 .commits()
-                .heads_from_range_and_filter::<Infallible>(roots, heads, |pos| {
+                .heads_from_range_and_filter::<Infallible>(roots, heads, parents_range, |pos| {
                     Ok(filter(
                         index.as_composite().commits().entry_by_pos(pos).commit_id(),
                     ))
@@ -1312,48 +1315,72 @@ mod tests {
         };
 
         // heads(::none())
-        assert!(heads_range(&[], &[], &|_| true).is_empty());
+        assert!(heads_range(&[], &[], &PARENTS_RANGE_FULL, &|_| true).is_empty());
         // heads(all())
         assert_eq!(
-            heads_range(&[], &[&id_5, &id_3], &|_| true),
+            heads_range(&[], &[&id_5, &id_3], &PARENTS_RANGE_FULL, &|_| true),
             vec![id_5.clone(), id_3.clone()]
         );
         // heads(~5)
         assert_eq!(
-            heads_range(&[], &[&id_5, &id_3], &|id| id != id_5),
+            heads_range(&[], &[&id_5, &id_3], &PARENTS_RANGE_FULL, &|id| id != id_5),
             vec![id_4.clone(), id_3.clone()]
         );
         // heads(5..)
         assert_eq!(
-            heads_range(&[&id_5], &[&id_5, &id_3], &|_| true),
+            heads_range(&[&id_5], &[&id_5, &id_3], &PARENTS_RANGE_FULL, &|_| true),
             vec![id_3.clone()]
         );
         // heads(5.. ~ 3)
-        assert!(heads_range(&[&id_5], &[&id_5, &id_3], &|id| id != id_3).is_empty());
+        assert!(
+            heads_range(&[&id_5], &[&id_5, &id_3], &PARENTS_RANGE_FULL, &|id| id
+                != id_3)
+            .is_empty()
+        );
         // heads(2..4)
         assert_eq!(
-            heads_range(&[&id_2], &[&id_4], &|_| true),
+            heads_range(&[&id_2], &[&id_4], &PARENTS_RANGE_FULL, &|_| true),
             vec![id_4.clone()]
         );
         // heads(2..4 ~ 4)
         assert_eq!(
-            heads_range(&[&id_2], &[&id_4], &|id| id != id_4),
+            heads_range(&[&id_2], &[&id_4], &PARENTS_RANGE_FULL, &|id| id != id_4),
             vec![id_1.clone()]
         );
         // heads((3 | 1).. ~ 5)
         assert_eq!(
-            heads_range(&[&id_3, &id_1], &[&id_5, &id_3], &|id| id != id_5),
+            heads_range(
+                &[&id_3, &id_1],
+                &[&id_5, &id_3],
+                &PARENTS_RANGE_FULL,
+                &|id| id != id_5
+            ),
             vec![id_4.clone()]
         );
         // heads(::(5 | 4) ~ 5)
         assert_eq!(
-            heads_range(&[], &[&id_5, &id_4], &|id| id != id_5),
+            heads_range(&[], &[&id_5, &id_4], &PARENTS_RANGE_FULL, &|id| id != id_5),
             vec![id_4.clone(), id_2.clone()]
         );
         // heads(::(5 | 5))
         assert_eq!(
-            heads_range(&[], &[&id_5, &id_5], &|_| true),
+            heads_range(&[], &[&id_5, &id_5], &PARENTS_RANGE_FULL, &|_| true),
             vec![id_5.clone()]
+        );
+        // heads(::5 ~ 5)
+        assert_eq!(
+            heads_range(&[], &[&id_5], &PARENTS_RANGE_FULL, &|id| id != id_5),
+            vec![id_4.clone(), id_2.clone()]
+        );
+        // heads(first_ancestors(5) ~ 5)
+        assert_eq!(
+            heads_range(&[], &[&id_5], &(0..1), &|id| id != id_5),
+            vec![id_4.clone()]
+        );
+        // heads(ancestors(5, parents_range=1..2) ~ 5)
+        assert_eq!(
+            heads_range(&[], &[&id_5], &(1..2), &|id| id != id_5),
+            vec![id_2.clone()]
         );
     }
 }
