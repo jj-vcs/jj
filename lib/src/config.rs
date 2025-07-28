@@ -523,21 +523,33 @@ fn look_up_item<'a>(
 /// Inserts tables recursively. Returns `Err(keys)` if middle node exists at the
 /// prefix name `keys` and wasn't a table.
 fn ensure_table<'a, 'b>(
-    root_table: &'a mut ConfigTableLike<'a>,
+    root_table: &'a mut ConfigTable,
     keys: &'b [toml_edit::Key],
 ) -> Result<&'a mut ConfigTableLike<'a>, &'b [toml_edit::Key]> {
-    keys.iter()
-        .enumerate()
-        .try_fold(root_table, |table, (i, key)| {
-            let sub_item = table.entry_format(key).or_insert_with(new_implicit_table);
-            sub_item.as_table_like_mut().ok_or(&keys[..=i])
-        })
+    let (table, _is_inline) = keys.iter().enumerate().try_fold(
+        (root_table as &mut ConfigTableLike, false),
+        |(table, is_inline), (i, key)| {
+            // As of toml_edit 0.22.27, InlineTable::entry_format() doesn't
+            // convert an Item to Value.
+            let sub_item = table
+                .entry_format(key)
+                .or_insert_with(|| new_implicit_table(is_inline));
+            let sub_is_inline = sub_item.is_inline_table();
+            let sub_table = sub_item.as_table_like_mut().ok_or(&keys[..=i])?;
+            Ok((sub_table, sub_is_inline))
+        },
+    )?;
+    Ok(table)
 }
 
-fn new_implicit_table() -> ConfigItem {
+fn new_implicit_table(is_inline: bool) -> ConfigItem {
     let mut table = ConfigTable::new();
     table.set_implicit(true);
-    ConfigItem::Table(table)
+    if is_inline {
+        ConfigItem::Value(ConfigValue::InlineTable(table.into_inline_table()))
+    } else {
+        ConfigItem::Table(table)
+    }
 }
 
 /// Wrapper for file-based [`ConfigLayer`], providing convenient methods for
@@ -997,6 +1009,19 @@ mod tests {
         'baz' = "new value"
         blah = 0
         "#);
+    }
+
+    #[test]
+    fn test_config_layer_set_value_inline_table() {
+        let mut layer = ConfigLayer::empty(ConfigSource::User);
+        layer
+            .set_value("a", ConfigValue::from_iter([("b", "a.b")]))
+            .unwrap();
+        insta::assert_snapshot!(layer.data, @r#"a = { b = "a.b" }"#);
+
+        // Should create nested inline tables
+        layer.set_value("a.c.d", "a.c.d").unwrap();
+        insta::assert_snapshot!(layer.data, @r#"a = { b = "a.b", c = { d = "a.c.d" } }"#);
     }
 
     #[test]
