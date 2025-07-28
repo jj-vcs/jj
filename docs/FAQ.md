@@ -495,7 +495,7 @@ your state without realising.
 
 To start, use `jj new <rev>` to create a change based on that earlier revision. Make
 your edits, then use `jj squash` to update the earlier revision with those edits.
-For when you would use git stashing, use `jj edit <rev>` for expected behaviour.
+For when you would use git stashing, use `jj edit <rev>` for expected behavior.
 Other workflows may prefer `jj edit` as well.
 
 ### Why are most merge commits marked as "(empty)"?

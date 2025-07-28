@@ -503,7 +503,7 @@ fn test_git_remote_with_global_git_remote_config() {
     // and `git push`, but `git remote rename`, `git remote remove`,
     // `git remote set-url`, etc., will ignore it.
     //
-    // This behaviour applies to `jj git remote remove` and
+    // This behavior applies to `jj git remote remove` and
     // `jj git remote set-url` as well. It would be hard to change due
     // to gitoxide’s model, but hopefully it’s relatively harmless.
     insta::assert_snapshot!(output, @"");

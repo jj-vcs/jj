@@ -1291,7 +1291,7 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
     if git_repo.state().is_some() {
         // Based on the files `git2::Repository::cleanup_state` deletes; when
         // upstreaming this logic should probably become more elaborate to match
-        // `git(1)` behaviour.
+        // `git(1)` behavior.
         const STATE_FILE_NAMES: &[&str] = &[
             "MERGE_HEAD",
             "MERGE_MODE",

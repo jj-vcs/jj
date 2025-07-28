@@ -1353,10 +1353,10 @@ impl MutableRepo {
     /// The descendants of the commits registered in `self.parent_mappings` will
     /// be recursively rebased onto the new version of their parents.
     ///
-    /// If `options.empty` is the default (`EmptyBehaviour::Keep`), all rebased
+    /// If `options.empty` is the default (`EmptyBehavior::Keep`), all rebased
     /// descendant commits will be preserved even if they were emptied following
     /// the rebase operation. Otherwise, this function may rebase some commits
-    /// and abandon others, based on the given `EmptyBehaviour`. The behavior is
+    /// and abandon others, based on the given `EmptyBehavior`. The behavior is
     /// such that only commits with a single parent will ever be abandoned. The
     /// parent will inherit the descendants and the bookmarks of the abandoned
     /// commit.

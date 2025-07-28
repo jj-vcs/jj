@@ -33,7 +33,7 @@ use jj_lib::rewrite::rebase_commit_with_options;
 use jj_lib::rewrite::restore_tree;
 use jj_lib::rewrite::CommitRewriter;
 use jj_lib::rewrite::CommitWithSelection;
-use jj_lib::rewrite::EmptyBehaviour;
+use jj_lib::rewrite::EmptyBehavior;
 use jj_lib::rewrite::MoveCommitsTarget;
 use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RewriteRefsOptions;
@@ -1644,10 +1644,10 @@ fn test_rebase_descendants_update_checkout_abandoned_merge() {
     );
 }
 
-#[test_case(EmptyBehaviour::Keep; "keep all commits")]
-#[test_case(EmptyBehaviour::AbandonNewlyEmpty; "abandon newly empty commits")]
-#[test_case(EmptyBehaviour::AbandonAllEmpty ; "abandon all empty commits")]
-fn test_empty_commit_option(empty_behavior: EmptyBehaviour) {
+#[test_case(EmptyBehavior::Keep; "keep all commits")]
+#[test_case(EmptyBehavior::AbandonNewlyEmpty; "abandon newly empty commits")]
+#[test_case(EmptyBehavior::AbandonAllEmpty ; "abandon all empty commits")]
+fn test_empty_commit_option(empty_behavior: EmptyBehavior) {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -1720,7 +1720,7 @@ fn test_empty_commit_option(empty_behavior: EmptyBehaviour) {
     );
 
     let new_head = match empty_behavior {
-        EmptyBehaviour::Keep => {
+        EmptyBehavior::Keep => {
             // The commit C isn't empty.
             let new_commit_c =
                 assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c, &[commit_bd.id()]);
@@ -1738,7 +1738,7 @@ fn test_empty_commit_option(empty_behavior: EmptyBehaviour) {
                 assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_g, &[new_commit_f.id()]);
             assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_h, &[new_commit_g.id()])
         }
-        EmptyBehaviour::AbandonAllEmpty => {
+        EmptyBehavior::AbandonAllEmpty => {
             // The commit C isn't empty.
             let new_commit_c =
                 assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c, &[commit_bd.id()]);
@@ -1751,7 +1751,7 @@ fn test_empty_commit_option(empty_behavior: EmptyBehaviour) {
                 assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_g, &[new_commit_c.id()]);
             assert_abandoned_with_parent(tx.repo_mut(), &rebase_map, &commit_h, new_commit_g.id())
         }
-        EmptyBehaviour::AbandonNewlyEmpty => {
+        EmptyBehavior::AbandonNewlyEmpty => {
             // The commit C isn't empty.
             let new_commit_c =
                 assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c, &[commit_bd.id()]);
@@ -1846,7 +1846,7 @@ fn test_rebase_abandoning_empty() {
         .unwrap();
 
     let rebase_options = RebaseOptions {
-        empty: EmptyBehaviour::AbandonAllEmpty,
+        empty: EmptyBehavior::AbandonAllEmpty,
         rewrite_refs: RewriteRefsOptions {
             delete_abandoned_bookmarks: false,
         },

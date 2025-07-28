@@ -226,7 +226,7 @@ impl<'repo> CommitRewriter<'repo> {
     /// for the new commit. Returns `None` if the commit was abandoned.
     pub async fn rebase_with_empty_behavior(
         self,
-        empty: EmptyBehaviour,
+        empty: EmptyBehavior,
     ) -> BackendResult<Option<CommitBuilder<'repo>>> {
         let old_parents_fut = self.old_commit.parents_async();
         let new_parents_fut = try_join_all(
@@ -267,9 +267,9 @@ impl<'repo> CommitRewriter<'repo> {
         // if they're empty.
         if let [parent] = &new_parents[..] {
             let should_abandon = match empty {
-                EmptyBehaviour::Keep => false,
-                EmptyBehaviour::AbandonNewlyEmpty => *parent.tree_id() == new_tree_id && !was_empty,
-                EmptyBehaviour::AbandonAllEmpty => *parent.tree_id() == new_tree_id,
+                EmptyBehavior::Keep => false,
+                EmptyBehavior::AbandonNewlyEmpty => *parent.tree_id() == new_tree_id && !was_empty,
+                EmptyBehavior::AbandonAllEmpty => *parent.tree_id() == new_tree_id,
             };
             if should_abandon {
                 self.abandon();
@@ -289,7 +289,7 @@ impl<'repo> CommitRewriter<'repo> {
     /// for the new commit.
     pub fn rebase(self) -> BackendResult<CommitBuilder<'repo>> {
         let builder = self
-            .rebase_with_empty_behavior(EmptyBehaviour::Keep)
+            .rebase_with_empty_behavior(EmptyBehavior::Keep)
             .block_on()?;
         Ok(builder.unwrap())
     }
@@ -364,7 +364,7 @@ pub fn rebase_to_dest_parent(
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
-pub enum EmptyBehaviour {
+pub enum EmptyBehavior {
     /// Always keep empty commits
     #[default]
     Keep,
@@ -386,7 +386,7 @@ pub enum EmptyBehaviour {
 // plumb it in.
 #[derive(Clone, Debug, Default)]
 pub struct RebaseOptions {
-    pub empty: EmptyBehaviour,
+    pub empty: EmptyBehavior,
     pub rewrite_refs: RewriteRefsOptions,
     /// If a merge commit would end up with one parent being an ancestor of the
     /// other, then filter out the ancestor.
@@ -787,7 +787,7 @@ fn apply_move_commits(
 
     // Always keep empty commits when rebasing descendants.
     let rebase_descendant_options = &RebaseOptions {
-        empty: EmptyBehaviour::Keep,
+        empty: EmptyBehavior::Keep,
         rewrite_refs: options.rewrite_refs.clone(),
         simplify_ancestor_merge: options.simplify_ancestor_merge,
     };

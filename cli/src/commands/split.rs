@@ -23,7 +23,7 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::move_commits;
 use jj_lib::rewrite::CommitWithSelection;
-use jj_lib::rewrite::EmptyBehaviour;
+use jj_lib::rewrite::EmptyBehavior;
 use jj_lib::rewrite::MoveCommitsLocation;
 use jj_lib::rewrite::MoveCommitsTarget;
 use jj_lib::rewrite::RebaseOptions;
@@ -365,7 +365,7 @@ fn move_first_commit(
             target: MoveCommitsTarget::Commits(vec![first_commit.id().clone()]),
         },
         &RebaseOptions {
-            empty: EmptyBehaviour::Keep,
+            empty: EmptyBehavior::Keep,
             rewrite_refs: RewriteRefsOptions {
                 delete_abandoned_bookmarks: false,
             },

@@ -26,7 +26,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::rewrite::compute_move_commits;
 use jj_lib::rewrite::find_duplicate_divergent_commits;
-use jj_lib::rewrite::EmptyBehaviour;
+use jj_lib::rewrite::EmptyBehavior;
 use jj_lib::rewrite::MoveCommitsLocation;
 use jj_lib::rewrite::MoveCommitsStats;
 use jj_lib::rewrite::MoveCommitsTarget;
@@ -374,8 +374,8 @@ pub(crate) fn cmd_rebase(
 ) -> Result<(), CommandError> {
     let rebase_options = RebaseOptions {
         empty: match args.skip_emptied {
-            true => EmptyBehaviour::AbandonNewlyEmpty,
-            false => EmptyBehaviour::Keep,
+            true => EmptyBehavior::AbandonNewlyEmpty,
+            false => EmptyBehavior::Keep,
         },
         rewrite_refs: RewriteRefsOptions {
             delete_abandoned_bookmarks: false,

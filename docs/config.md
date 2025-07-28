@@ -1551,7 +1551,7 @@ from the private set.
 Private commits prevent their descendants from being pushed, since doing so
 would require pushing the private commit as well.
 
-### Git subprocessing behaviour
+### Git subprocessing behavior
 
 Git remote interactions are handled by spawning a `git` subprocess.
 If `git` is not on your OS path, or you want to specify a particular binary,

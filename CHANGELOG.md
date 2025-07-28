@@ -1504,7 +1504,7 @@ Thanks to the people who made this release happen!
 
 ### New features
 
-* Add new boolean config knob, `ui.movement.edit` for controlling the behaviour
+* Add new boolean config knob, `ui.movement.edit` for controlling the behavior
   of `prev/next`. The flag turns `edit` mode `on` and `off` permanently when set
   respectively to `true` or `false`.
 
