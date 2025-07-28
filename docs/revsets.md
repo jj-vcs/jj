@@ -384,6 +384,10 @@ revsets (expressions) as arguments.
 
 [operation]: glossary.md#operation
 
+* `remote(x, [[remote=]remote_pattern]])`: returns the tracked
+  bookmarks tracked by x. Useful for diffing against the remote branch tracked
+  by the revset that you're editing: `jj diff --from remote(@) --to @`
+
 ??? examples
 
     Given this history:

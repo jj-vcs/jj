@@ -15,6 +15,7 @@
 #![allow(missing_docs)]
 
 use std::any::Any;
+use std::borrow::Borrow;
 use std::collections::hash_map;
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -157,6 +158,10 @@ pub enum RevsetCommitRef {
     Tags(StringPattern),
     GitRefs,
     GitHead,
+    Remote {
+        commit_ref: Box<RevsetCommitRef>,
+        remote_pattern: StringPattern,
+    },
 }
 
 /// A custom revset filter expression, defined by an extension.
@@ -417,6 +422,17 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
 
     pub fn git_head() -> Rc<Self> {
         Rc::new(Self::CommitRef(RevsetCommitRef::GitHead))
+    }
+
+    pub fn remote(commit_ref: Rc<Self>, remote_pattern: StringPattern) -> Option<Rc<Self>> {
+        if let Self::CommitRef(commit_ref) = commit_ref.borrow() {
+            Some(Rc::new(Self::CommitRef(RevsetCommitRef::Remote {
+                commit_ref: Box::new(commit_ref.clone()),
+                remote_pattern,
+            })))
+        } else {
+            None
+        }
     }
 }
 
@@ -1024,6 +1040,14 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
             .map(|arg| lower_expression(diagnostics, arg, context))
             .try_collect()?;
         Ok(RevsetExpression::coalesce(&expressions))
+    });
+    map.insert("remote", |diagnostics, function, context| {
+        let [commit_ref, remote_pattern] = function.expect_exact_arguments()?;
+        let sources = lower_expression(diagnostics, commit_ref, context)?;
+        Ok(
+            RevsetExpression::remote(sources, expect_string_pattern(diagnostics, remote_pattern)?)
+                .unwrap(),
+        )
     });
     map
 });
@@ -2677,6 +2701,30 @@ fn resolve_commit_ref(
             Ok(commit_ids)
         }
         RevsetCommitRef::GitHead => Ok(repo.view().git_head().added_ids().cloned().collect()),
+        RevsetCommitRef::Remote {
+            commit_ref,
+            remote_pattern,
+        } => {
+            let local_commits = resolve_commit_ref(repo, commit_ref, symbol_resolver)?;
+            let local_bookmarks = local_commits
+                .iter()
+                .flat_map(|c| repo.view().local_bookmarks_for_commit(c));
+
+            Ok(local_bookmarks
+                .flat_map(|(name, _)| {
+                    resolve_commit_ref(
+                        repo,
+                        &RevsetCommitRef::RemoteBookmarks {
+                            bookmark_pattern: StringPattern::exact(name),
+                            remote_pattern: remote_pattern.clone(),
+                            remote_ref_state: Some(RemoteRefState::Tracking),
+                        },
+                        symbol_resolver,
+                    )
+                })
+                .flatten()
+                .collect_vec())
+        }
     }
 }
 

@@ -4581,3 +4581,35 @@ fn test_revset_containing_fn() {
     assert!(!revset_has_commit(commit_c.id()).unwrap());
     assert!(revset_has_commit(commit_d.id()).unwrap());
 }
+
+#[test]
+fn test_evaluate_expression_remote() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let tracking_remote_ref = |target| RemoteRef {
+        target,
+        state: RemoteRefState::Tracking,
+    };
+    let normal_tracking_remote_ref =
+        |id: &CommitId| tracking_remote_ref(RefTarget::normal(id.clone()));
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+
+    let commit1 = write_random_commit(mut_repo);
+
+    mut_repo.set_remote_bookmark(
+        "bookmark1",
+        "origin",
+        normal_tracking_remote_ref(commit1.id()),
+    );
+    mut_repo.set_local_bookmark_target("bookmark1", RefTarget::normal(commit1.id().clone()));
+    mut_repo.track_remote_bookmark("bookmark1@origin", "bookmark1");
+
+    print!("{}", commit1.id());
+
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote(bookmark1, origin)"),
+        vec![commit1.id().clone()]
+    );
+}
