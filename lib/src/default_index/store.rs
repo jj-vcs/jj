@@ -76,14 +76,14 @@ pub enum DefaultIndexStoreError {
     #[error("Failed to associate commit index file with an operation {op_id}")]
     AssociateIndex {
         op_id: OperationId,
-        source: io::Error,
+        source: PathError,
     },
     #[error("Failed to load associated commit index file name")]
-    LoadAssociation(#[source] io::Error),
+    LoadAssociation(#[source] PathError),
     #[error(transparent)]
     LoadIndex(ReadonlyIndexLoadError),
     #[error("Failed to write commit index file")]
-    SaveIndex(#[source] io::Error),
+    SaveIndex(#[source] PathError),
     #[error("Failed to index commits at operation {op_id}")]
     IndexCommits {
         op_id: OperationId,
@@ -160,15 +160,13 @@ impl DefaultIndexStore {
         lengths: FieldLengths,
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
         let op_id_file = self.operations_dir().join(op_id.hex());
-        let index_file_id_hex =
-            fs::read(op_id_file).map_err(DefaultIndexStoreError::LoadAssociation)?;
-        let index_file_id =
-            CommitIndexSegmentId::try_from_hex(&index_file_id_hex).ok_or_else(|| {
-                DefaultIndexStoreError::LoadAssociation(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "file name is not valid hex",
-                ))
-            })?;
+        let index_file_id_hex = fs::read(&op_id_file)
+            .context(&op_id_file)
+            .map_err(DefaultIndexStoreError::LoadAssociation)?;
+        let index_file_id = CommitIndexSegmentId::try_from_hex(&index_file_id_hex)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "file name is not valid hex"))
+            .context(&op_id_file)
+            .map_err(DefaultIndexStoreError::LoadAssociation)?;
         let commits =
             ReadonlyCommitIndexSegment::load(&self.commit_segments_dir(), index_file_id, lengths)
                 .map_err(DefaultIndexStoreError::LoadIndex)?;
@@ -341,12 +339,14 @@ impl DefaultIndexStore {
         &self,
         index: &DefaultReadonlyIndex,
         op_id: &OperationId,
-    ) -> io::Result<()> {
+    ) -> Result<(), PathError> {
         let dir = self.operations_dir();
-        let mut temp_file = NamedTempFile::new_in(&dir)?;
+        let mut temp_file = NamedTempFile::new_in(&dir).context(&dir)?;
         let file = temp_file.as_file_mut();
-        file.write_all(index.readonly_commits().id().hex().as_bytes())?;
-        persist_content_addressed_temp_file(temp_file, dir.join(op_id.hex()))?;
+        file.write_all(index.readonly_commits().id().hex().as_bytes())
+            .context(temp_file.path())?;
+        let path = dir.join(op_id.hex());
+        persist_content_addressed_temp_file(temp_file, &path).context(&path)?;
         Ok(())
     }
 }
@@ -370,8 +370,8 @@ impl IndexStore for DefaultIndexStore {
             change_id: store.change_id_length(),
         };
         let index = match self.load_index_at_operation(op.id(), field_lengths) {
-            Err(DefaultIndexStoreError::LoadAssociation(err))
-                if err.kind() == io::ErrorKind::NotFound =>
+            Err(DefaultIndexStoreError::LoadAssociation(PathError { error, .. }))
+                if error.kind() == io::ErrorKind::NotFound =>
             {
                 self.build_index_at_operation(op, store)
             }

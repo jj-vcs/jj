@@ -20,7 +20,6 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
-use std::io;
 use std::io::Write as _;
 use std::iter;
 use std::ops::Bound;
@@ -53,6 +52,8 @@ use super::readonly::ReadonlyCommitIndexSegment;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::commit::Commit;
+use crate::file_util::IoResultExt as _;
+use crate::file_util::PathError;
 use crate::file_util::persist_content_addressed_temp_file;
 use crate::index::AllHeadsForGcUnsupported;
 use crate::index::ChangeIdIndex;
@@ -343,7 +344,7 @@ impl MutableCommitIndexSegment {
         squashed
     }
 
-    pub(super) fn save_in(self, dir: &Path) -> io::Result<Arc<ReadonlyCommitIndexSegment>> {
+    pub(super) fn save_in(self, dir: &Path) -> Result<Arc<ReadonlyCommitIndexSegment>, PathError> {
         if self.num_local_commits() == 0 && self.parent_file.is_some() {
             return Ok(self.parent_file.unwrap());
         }
@@ -358,10 +359,11 @@ impl MutableCommitIndexSegment {
         let index_file_id = CommitIndexSegmentId::from_bytes(&hasher.finalize());
         let index_file_path = dir.join(index_file_id.hex());
 
-        let mut temp_file = NamedTempFile::new_in(dir)?;
+        let mut temp_file = NamedTempFile::new_in(dir).context(dir)?;
         let file = temp_file.as_file_mut();
-        file.write_all(&buf)?;
-        persist_content_addressed_temp_file(temp_file, index_file_path)?;
+        file.write_all(&buf).context(temp_file.path())?;
+        persist_content_addressed_temp_file(temp_file, &index_file_path)
+            .context(&index_file_path)?;
 
         Ok(ReadonlyCommitIndexSegment::load_with_parent_file(
             &mut &buf[local_entries_offset..],
