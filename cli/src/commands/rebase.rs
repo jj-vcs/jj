@@ -543,6 +543,12 @@ fn check_rebase_destinations(
     commit: &Commit,
 ) -> Result<(), CommandError> {
     for parent_id in new_parents {
+        if parent_id == commit.id() {
+            return Err(user_error(format!(
+                "Cannot rebase {} onto itself",
+                short_commit_hash(commit.id()),
+            )));
+        }
         if repo.index().is_ancestor(commit.id(), parent_id) {
             return Err(user_error(format!(
                 "Cannot rebase {} onto descendant {}",
