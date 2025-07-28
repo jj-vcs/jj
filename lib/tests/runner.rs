@@ -8,6 +8,7 @@ fn test_no_forgotten_test_files() {
 
 mod test_annotate;
 mod test_bad_locking;
+mod test_bisect;
 mod test_commit_builder;
 mod test_commit_concurrent;
 mod test_conflicts;

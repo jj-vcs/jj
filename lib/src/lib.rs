@@ -31,6 +31,7 @@ pub mod content_hash;
 pub mod absorb;
 pub mod annotate;
 pub mod backend;
+pub mod bisect;
 pub mod commit;
 pub mod commit_builder;
 pub mod config;
