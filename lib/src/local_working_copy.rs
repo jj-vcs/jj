@@ -88,6 +88,7 @@ use crate::fsmonitor::watchman;
 use crate::fsmonitor::FsmonitorSettings;
 #[cfg(feature = "watchman")]
 use crate::fsmonitor::WatchmanConfig;
+use crate::gitattributes::GitAttributesFile;
 use crate::gitignore::GitIgnoreFile;
 use crate::lock::FileLock;
 use crate::matchers::DifferenceMatcher;
@@ -1013,6 +1014,7 @@ impl TreeState {
     ) -> Result<(bool, SnapshotStats), SnapshotError> {
         let &SnapshotOptions {
             ref base_ignores,
+            ref base_attributes,
             ref fsmonitor_settings,
             progress,
             start_tracking_matcher,
@@ -1066,6 +1068,7 @@ impl TreeState {
                 dir: RepoPathBuf::root(),
                 disk_dir: self.working_copy_path.clone(),
                 git_ignore: base_ignores.clone(),
+                git_attributes: base_attributes.clone(),
                 file_states: self.file_states.all(),
             };
             // Here we use scope as a queue of per-directory jobs.
@@ -1179,6 +1182,7 @@ struct DirectoryToVisit<'a> {
     dir: RepoPathBuf,
     disk_dir: PathBuf,
     git_ignore: Arc<GitIgnoreFile>,
+    git_attributes: Arc<GitAttributesFile>,
     file_states: FileStates<'a>,
 }
 
@@ -1246,11 +1250,13 @@ impl FileSnapshotter<'_> {
             dir,
             disk_dir,
             git_ignore,
+            git_attributes,
             file_states,
         } = directory_to_visit;
 
         let git_ignore = git_ignore
             .chain_with_file(&dir.to_internal_dir_string(), disk_dir.join(".gitignore"))?;
+        let git_attributes = git_attributes.chain_with_file(disk_dir.join(".gitattributes"))?;
         let dir_entries: Vec<_> = disk_dir
             .read_dir()
             .and_then(|entries| entries.try_collect())
@@ -1264,8 +1270,15 @@ impl FileSnapshotter<'_> {
             // sequential scan should be fast enough.
             .with_min_len(100)
             .filter_map(|entry| {
-                self.process_dir_entry(&dir, &git_ignore, file_states, &entry, scope)
-                    .transpose()
+                self.process_dir_entry(
+                    &dir,
+                    &git_ignore,
+                    &git_attributes,
+                    file_states,
+                    &entry,
+                    scope,
+                )
+                .transpose()
             })
             .map(|item| match item {
                 Ok((PresentDirEntryKind::Dir, name)) => Ok(Either::Left(name)),
@@ -1274,7 +1287,7 @@ impl FileSnapshotter<'_> {
             })
             .collect::<Result<_, _>>()?;
         let present_entries = PresentDirEntries { dirs, files };
-        self.emit_deleted_files(&dir, file_states, &present_entries);
+        self.emit_deleted_files(&dir, file_states, &present_entries, &git_attributes);
         Ok(())
     }
 
@@ -1282,6 +1295,7 @@ impl FileSnapshotter<'_> {
         &'scope self,
         dir: &RepoPath,
         git_ignore: &Arc<GitIgnoreFile>,
+        git_attributes: &Arc<GitAttributesFile>,
         file_states: FileStates<'scope>,
         entry: &DirEntry,
         scope: &rayon::Scope<'scope>,
@@ -1318,6 +1332,7 @@ impl FileSnapshotter<'_> {
                     dir: path,
                     disk_dir: entry.path(),
                     git_ignore: git_ignore.clone(),
+                    git_attributes: git_attributes.clone(),
                     file_states,
                 };
                 self.spawn_ok(scope, |scope| {
@@ -1331,7 +1346,12 @@ impl FileSnapshotter<'_> {
             if let Some(progress) = self.progress {
                 progress(&path);
             }
-            if maybe_current_file_state.is_none()
+            if git_attributes.matches(path.as_internal_file_string()) {
+                // Skip gitattributes files that we want to ignore - this
+                // would result in them showing up as deleted, but we also
+                // omit them in `emit_deleted_files` to avoid that.
+                Ok(None)
+            } else if maybe_current_file_state.is_none()
                 && git_ignore.matches(path.as_internal_file_string())
             {
                 // If it wasn't already tracked and it matches
@@ -1445,6 +1465,7 @@ impl FileSnapshotter<'_> {
         dir: &RepoPath,
         file_states: FileStates<'_>,
         present_entries: &PresentDirEntries,
+        git_attributes: &Arc<GitAttributesFile>,
     ) {
         let file_state_chunks = file_states.iter().chunk_by(|(path, _state)| {
             // Extract <name> from <dir>, <dir>/<name>, or <dir>/<name>/**.
@@ -1467,6 +1488,8 @@ impl FileSnapshotter<'_> {
             .flat_map(|(_, chunk)| chunk)
             // Whether or not the entry exists, submodule should be ignored
             .filter(|(_, state)| state.file_type != FileType::GitSubmodule)
+            // Whether or not the entry exists, ignored gitattributes files should be omitted
+            .filter(|(path, _)| !git_attributes.matches(path.as_internal_file_string()))
             .filter(|(path, _)| self.matcher.matches(path))
             .try_for_each(|(path, _)| self.deleted_files_tx.send(path.to_owned()))
             .ok();
