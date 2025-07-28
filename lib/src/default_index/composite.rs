@@ -384,8 +384,16 @@ impl CompositeCommitIndex {
         let mut result = Vec::new();
         while let (Some(&pos1), Some(&pos2)) = (items1.peek(), items2.peek()) {
             match pos1.cmp(&pos2) {
-                Ordering::Greater => shift_to_parents(&mut items1, &self.entry_by_pos(pos1)),
-                Ordering::Less => shift_to_parents(&mut items2, &self.entry_by_pos(pos2)),
+                Ordering::Greater => shift_to_parents(
+                    &mut items1,
+                    pos1,
+                    &self.entry_by_pos(pos1).parent_positions(),
+                ),
+                Ordering::Less => shift_to_parents(
+                    &mut items2,
+                    pos2,
+                    &self.entry_by_pos(pos2).parent_positions(),
+                ),
                 Ordering::Equal => {
                     result.push(pos1);
                     dedup_pop(&mut items1).unwrap();
@@ -462,7 +470,7 @@ impl CompositeCommitIndex {
                 if entry.generation_number() <= min_generation {
                     dedup_pop(&mut parents).unwrap();
                 } else {
-                    shift_to_parents(&mut parents, &entry);
+                    shift_to_parents(&mut parents, parent, &entry.parent_positions());
                 }
                 if parent == candidate {
                     // The candidate is an ancestor of an existing head, so we can skip it.
@@ -503,7 +511,7 @@ impl CompositeCommitIndex {
                 unwanted_queue.extend(entry.parent_positions());
                 found_heads.push(pos);
             } else {
-                shift_to_parents(&mut wanted_queue, &entry);
+                shift_to_parents(&mut wanted_queue, pos, &entry.parent_positions());
             }
         }
         Ok(found_heads)
@@ -707,7 +715,7 @@ fn shift_to_parents_until(
     target_pos: GlobalCommitPosition,
 ) -> bool {
     while let Some(&pos) = queue.peek().filter(|&&pos| pos >= target_pos) {
-        shift_to_parents(queue, &index.entry_by_pos(pos));
+        shift_to_parents(queue, pos, &index.entry_by_pos(pos).parent_positions());
         if pos == target_pos {
             return true;
         }
@@ -716,17 +724,21 @@ fn shift_to_parents_until(
 }
 
 /// Removes an entry from the queue and replace it with its parents.
-fn shift_to_parents(items: &mut BinaryHeap<GlobalCommitPosition>, entry: &CommitIndexEntry) {
-    let mut parent_positions = entry.parent_positions().into_iter();
-    if let Some(parent_pos) = parent_positions.next() {
-        assert!(parent_pos < entry.position());
+fn shift_to_parents(
+    items: &mut BinaryHeap<GlobalCommitPosition>,
+    pos: GlobalCommitPosition,
+    parent_positions: &[GlobalCommitPosition],
+) {
+    let mut parent_positions = parent_positions.iter();
+    if let Some(&parent_pos) = parent_positions.next() {
+        assert!(parent_pos < pos);
         dedup_replace(items, parent_pos).unwrap();
     } else {
         dedup_pop(items).unwrap();
         return;
     }
-    for parent_pos in parent_positions {
-        assert!(parent_pos < entry.position());
+    for &parent_pos in parent_positions {
+        assert!(parent_pos < pos);
         items.push(parent_pos);
     }
 }
