@@ -202,6 +202,8 @@ To get started, see the tutorial [`jj help -k tutorial`].
 
    Warnings and errors will still be printed.
 * `--no-pager` — Disable the pager
+* `--use-pager` — Enable the pager If the pager is disabled in the config, this will set it to auto. If the pager is enabled in the config, this will not change it.
+
 * `--config <NAME=VALUE>` — Additional configuration options (can be repeated)
 
    The name should be specified as TOML dotted keys. The value should be specified as a TOML expression. If string value isn't enclosed by any TOML constructs (such as array notation), quotes can be omitted.
