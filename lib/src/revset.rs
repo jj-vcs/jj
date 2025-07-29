@@ -1883,13 +1883,17 @@ fn sort_negations_and_ancestors<St: ExpressionState>(
         RevsetExpression::Intersection(expression1, expression2) => {
             sort_intersection_by_key(expression1, expression2, |expression| match expression {
                 RevsetExpression::Ancestors {
+                    heads: _,
                     generation: Range { end: u64::MAX, .. },
-                    ..
+                    parents_range: _,
                 } => AncestorsOrder::Ancestors,
                 RevsetExpression::NotIn(complement) => match complement.as_ref() {
                     RevsetExpression::Ancestors {
+                        heads: _,
                         generation: Range { end: u64::MAX, .. },
-                        ..
+                        // We only want to move negated ancestors with a full parents range, since
+                        // these are the only negated ancestors which can be converted to a range.
+                        parents_range: PARENTS_RANGE_FULL,
                     } => AncestorsOrder::NegatedAncestors,
                     _ => AncestorsOrder::NegatedOther,
                 },
@@ -4743,6 +4747,23 @@ mod tests {
                 heads: CommitRef(Symbol("d")),
                 generation: 0..18446744073709551615,
                 parents_range: 0..4294967295,
+            },
+        )
+        "#);
+
+        // Negated `first_ancestors()` doesn't prevent re-folding.
+        insta::assert_debug_snapshot!(optimize(parse("foo..bar ~ first_ancestors(baz)").unwrap()), @r#"
+        Difference(
+            Range {
+                roots: CommitRef(Symbol("foo")),
+                heads: CommitRef(Symbol("bar")),
+                generation: 0..18446744073709551615,
+                parents_range: 0..4294967295,
+            },
+            Ancestors {
+                heads: CommitRef(Symbol("baz")),
+                generation: 0..18446744073709551615,
+                parents_range: 0..1,
             },
         )
         "#);
