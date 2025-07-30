@@ -501,8 +501,8 @@ async fn merge_trees(merge: Merge<Tree>) -> BackendResult<Merge<Tree>> {
     }
     if conflicts.is_empty() {
         let data = backend::Tree::from_sorted_entries(new_tree_entries);
-        let new_tree_id = store.write_tree(dir, data).await?;
-        Ok(Merge::resolved(new_tree_id))
+        let new_tree = store.write_tree(dir, data).await?;
+        Ok(Merge::resolved(new_tree))
     } else {
         // For each side of the conflict, overwrite the entries in `new_tree` with the
         // values from  `conflicts`. Entries that are not in `conflicts` will remain
