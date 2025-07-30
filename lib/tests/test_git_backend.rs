@@ -34,7 +34,6 @@ use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use maplit::hashmap;
 use maplit::hashset;
-use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
 use testutils::commit_with_tree;
@@ -44,6 +43,8 @@ use testutils::create_tree;
 use testutils::is_external_tool_installed;
 use testutils::repo_path;
 use testutils::repo_path_buf;
+use testutils::write_random_commit;
+use testutils::write_random_commit_with_parents;
 
 fn get_git_backend(repo: &Arc<ReadonlyRepo>) -> &GitBackend {
     repo.store()
@@ -119,14 +120,13 @@ fn test_gc() {
     // B
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_c]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_g = graph_builder.commit_with_parents(&[&commit_e, &commit_f]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_c]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_g = write_random_commit_with_parents(tx.repo_mut(), &[&commit_e, &commit_f]);
     let commit_h = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_f.id().clone()])
         .set_predecessors(vec![commit_d.id().clone()])

@@ -60,7 +60,6 @@ use jj_lib::test_signing_backend::TestSigningBackend;
 use jj_lib::workspace::Workspace;
 use pollster::FutureExt as _;
 use test_case::test_case;
-use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
@@ -1066,11 +1065,11 @@ fn test_evaluate_expression_with_hidden_revisions() {
     // |/
     // 0
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.initial_commit();
-    let commit3 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit4 = graph_builder.commit_with_parents(&[&commit3]);
+    let mut_repo = tx.repo_mut();
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit(mut_repo);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit3]);
     let repo = tx.commit("test").unwrap();
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit3);
@@ -1184,12 +1183,11 @@ fn test_evaluate_expression_heads() {
     let root_commit = repo.store().root_commit();
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit2]);
-    let commit4 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit5 = graph_builder.commit_with_parents(&[&commit3, &commit4]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit2]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit3, &commit4]);
 
     // Heads of an empty set is an empty set
     assert_eq!(resolve_commit_ids(mut_repo, "heads(none())"), vec![]);
@@ -1294,10 +1292,9 @@ fn test_evaluate_expression_roots() {
     let root_commit = repo.store().root_commit();
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit2]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit2]);
 
     // Roots of an empty set is an empty set
     assert_eq!(resolve_commit_ids(mut_repo, "roots(none())"), vec![]);
@@ -1348,12 +1345,11 @@ fn test_evaluate_expression_parents() {
     let root_commit = repo.store().root_commit();
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.initial_commit();
-    let commit4 = graph_builder.commit_with_parents(&[&commit2, &commit3]);
-    let commit5 = graph_builder.commit_with_parents(&[&commit2]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit3 = write_random_commit(mut_repo);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit2, &commit3]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit2]);
 
     // The root commit has no parents
     assert_eq!(resolve_commit_ids(mut_repo, "root()-"), vec![]);
@@ -1538,11 +1534,10 @@ fn test_evaluate_expression_ancestors() {
     let root_commit = repo.store().root_commit();
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit2]);
-    let commit4 = graph_builder.commit_with_parents(&[&commit1, &commit3]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit2]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit1, &commit3]);
 
     // The ancestors of the root commit is just the root commit itself
     assert_eq!(
@@ -1624,12 +1619,11 @@ fn test_evaluate_expression_first_ancestors() {
     let root_commit = repo.store().root_commit();
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit1, &commit2]);
-    let commit4 = graph_builder.commit_with_parents(&[&commit2, &commit3]);
-    let commit5 = graph_builder.commit_with_parents(&[&commit3, &commit4]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit1, &commit2]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit2, &commit3]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit3, &commit4]);
 
     // The first-parent ancestors of the root commit is just the root commit itself
     assert_eq!(
@@ -1698,11 +1692,10 @@ fn test_evaluate_expression_range() {
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit2]);
-    let commit4 = graph_builder.commit_with_parents(&[&commit1, &commit3]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit2]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit1, &commit3]);
 
     // The range from the root to the root is empty (because the left side of the
     // range is exclusive)
@@ -1773,12 +1766,11 @@ fn test_evaluate_expression_dag_range() {
     let root_commit_id = repo.store().root_commit_id().clone();
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit2]);
-    let commit4 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit5 = graph_builder.commit_with_parents(&[&commit3, &commit4]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit2]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit3, &commit4]);
 
     // Can get DAG range of just the root commit
     assert_eq!(
@@ -1865,12 +1857,11 @@ fn test_evaluate_expression_connected() {
     let root_commit_id = repo.store().root_commit_id().clone();
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit2]);
-    let commit4 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit5 = graph_builder.commit_with_parents(&[&commit3, &commit4]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit2]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit3, &commit4]);
 
     // Connecting an empty set yields an empty set
     assert_eq!(resolve_commit_ids(mut_repo, "connected(none())"), vec![]);
@@ -2232,11 +2223,10 @@ fn test_evaluate_expression_all() {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let root_commit_id = repo.store().root_commit_id().clone();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit4 = graph_builder.commit_with_parents(&[&commit2, &commit3]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit2, &commit3]);
 
     assert_eq!(
         resolve_commit_ids(mut_repo, "all()"),
@@ -2257,10 +2247,9 @@ fn test_evaluate_expression_visible_heads() {
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit1]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit1]);
 
     assert_eq!(
         resolve_commit_ids(mut_repo, "visible_heads()"),
@@ -2810,14 +2799,13 @@ fn test_evaluate_expression_fork_point() {
     // 0
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
     let root_commit = repo.store().root_commit();
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.initial_commit();
-    let commit3 = graph_builder.initial_commit();
-    let commit4 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit5 = graph_builder.commit_with_parents(&[&commit4]);
-    let commit6 = graph_builder.commit_with_parents(&[&commit4, &commit2]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit(mut_repo);
+    let commit3 = write_random_commit(mut_repo);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit4]);
+    let commit6 = write_random_commit_with_parents(mut_repo, &[&commit4, &commit2]);
 
     assert_eq!(resolve_commit_ids(mut_repo, "fork_point(none())"), vec![]);
     assert_eq!(
@@ -2930,11 +2918,10 @@ fn test_evaluate_expression_fork_point_criss_cross() {
     // 0
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.initial_commit();
-    let commit3 = graph_builder.commit_with_parents(&[&commit1, &commit2]);
-    let commit4 = graph_builder.commit_with_parents(&[&commit1, &commit2]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit(mut_repo);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit1, &commit2]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit1, &commit2]);
 
     assert_eq!(
         resolve_commit_ids(
@@ -2957,12 +2944,11 @@ fn test_evaluate_expression_fork_point_merge_with_ancestor() {
     //   0
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.initial_commit();
-    let commit3 = graph_builder.initial_commit();
-    let commit4 = graph_builder.commit_with_parents(&[&commit1, &commit2]);
-    let commit5 = graph_builder.commit_with_parents(&[&commit2, &commit3]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit(mut_repo);
+    let commit3 = write_random_commit(mut_repo);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit1, &commit2]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit2, &commit3]);
 
     assert_eq!(
         resolve_commit_ids(
@@ -2980,15 +2966,14 @@ fn test_evaluate_expression_bisect_linear() {
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
     let root_commit = repo.store().root_commit();
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit2]);
-    let commit4 = graph_builder.commit_with_parents(&[&commit3]);
-    let commit5 = graph_builder.commit_with_parents(&[&commit4]);
-    let commit6 = graph_builder.commit_with_parents(&[&commit5]);
-    let commit7 = graph_builder.commit_with_parents(&[&commit6]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit2]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit3]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit4]);
+    let commit6 = write_random_commit_with_parents(mut_repo, &[&commit5]);
+    let commit7 = write_random_commit_with_parents(mut_repo, &[&commit6]);
 
     let resolve_ids = |input: &str| resolve_commit_ids(mut_repo, input);
 
@@ -3044,15 +3029,14 @@ fn test_evaluate_expression_bisect_nonlinear() {
     // 0
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
     let root_commit = repo.store().root_commit();
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.initial_commit();
-    let commit3 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit4 = graph_builder.commit_with_parents(&[&commit2]);
-    let commit5 = graph_builder.commit_with_parents(&[&commit3]);
-    let commit6 = graph_builder.commit_with_parents(&[&commit4]);
-    let _commit7 = graph_builder.commit_with_parents(&[&commit5, &commit6]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit(mut_repo);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit2]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit3]);
+    let commit6 = write_random_commit_with_parents(mut_repo, &[&commit4]);
+    let _commit7 = write_random_commit_with_parents(mut_repo, &[&commit5, &commit6]);
 
     let resolve_ids = |input: &str| resolve_commit_ids(mut_repo, input);
 
@@ -3090,12 +3074,11 @@ fn test_evaluate_expression_merges() {
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.initial_commit();
-    let commit3 = graph_builder.initial_commit();
-    let commit4 = graph_builder.commit_with_parents(&[&commit1, &commit2]);
-    let commit5 = graph_builder.commit_with_parents(&[&commit1, &commit2, &commit3]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit(mut_repo);
+    let commit3 = write_random_commit(mut_repo);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit1, &commit2]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit1, &commit2, &commit3]);
 
     // Finds all merges by default
     assert_eq!(
@@ -3772,9 +3755,8 @@ fn test_evaluate_expression_coalesce() {
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
     mut_repo.set_local_bookmark_target("commit1".as_ref(), RefTarget::normal(commit1.id().clone()));
     mut_repo.set_local_bookmark_target("commit2".as_ref(), RefTarget::normal(commit2.id().clone()));
 
@@ -3849,12 +3831,11 @@ fn test_evaluate_expression_union() {
     let root_commit = repo.store().root_commit();
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit2]);
-    let commit4 = graph_builder.commit_with_parents(&[&commit3]);
-    let commit5 = graph_builder.commit_with_parents(&[&commit2]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit2]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit3]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit2]);
 
     // Union between ancestors
     assert_eq!(
@@ -3919,9 +3900,8 @@ fn test_evaluate_expression_machine_generated_union() {
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
 
     // This query shouldn't trigger stack overflow. Here we use "x::y" in case
     // we had optimization path for trivial "commit_id|.." expression.
@@ -3941,12 +3921,11 @@ fn test_evaluate_expression_intersection() {
     let root_commit = repo.store().root_commit();
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit2]);
-    let commit4 = graph_builder.commit_with_parents(&[&commit3]);
-    let commit5 = graph_builder.commit_with_parents(&[&commit2]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit2]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit3]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit2]);
 
     // Intersection between ancestors
     assert_eq!(
@@ -3976,12 +3955,11 @@ fn test_evaluate_expression_difference() {
     let root_commit = repo.store().root_commit();
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit2]);
-    let commit4 = graph_builder.commit_with_parents(&[&commit3]);
-    let commit5 = graph_builder.commit_with_parents(&[&commit2]);
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit2]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit3]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit2]);
 
     // Difference from all
     assert_eq!(
@@ -4552,13 +4530,13 @@ fn test_reverse_graph() {
     //  |
     // root
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_c]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_c]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_d, &commit_e]);
+    let mut_repo = tx.repo_mut();
+    let commit_a = write_random_commit(mut_repo);
+    let commit_b = write_random_commit_with_parents(mut_repo, &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(mut_repo, &[&commit_b]);
+    let commit_d = write_random_commit_with_parents(mut_repo, &[&commit_c]);
+    let commit_e = write_random_commit_with_parents(mut_repo, &[&commit_c]);
+    let commit_f = write_random_commit_with_parents(mut_repo, &[&commit_d, &commit_e]);
     let repo = tx.commit("test").unwrap();
 
     let revset = revset_for_commits(

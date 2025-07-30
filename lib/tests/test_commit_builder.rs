@@ -33,13 +33,14 @@ use jj_lib::rewrite::RebaseOptions;
 use jj_lib::settings::UserSettings;
 use pollster::FutureExt as _;
 use test_case::test_case;
-use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
 use testutils::assert_rebased_onto;
 use testutils::create_tree;
 use testutils::rebase_descendants_with_options_return_map;
 use testutils::repo_path;
+use testutils::write_random_commit;
+use testutils::write_random_commit_with_parents;
 
 fn config_with_commit_timestamp(timestamp: &str) -> StackedConfig {
     let mut config = testutils::base_user_config();
@@ -427,10 +428,9 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
     let store = repo.store().clone();
 
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit2]);
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+    let commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
     let repo = tx.commit("test").unwrap();
 
     // Test with for_new_commit()

@@ -26,7 +26,6 @@ use jj_lib::repo::Repo as _;
 use maplit::btreemap;
 use maplit::hashset;
 use test_case::test_case;
-use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 use testutils::commit_transactions;
 use testutils::create_random_commit;
@@ -61,10 +60,9 @@ fn test_heads_fork() {
     let repo = &test_repo.repo;
     let mut tx = repo.start_transaction();
 
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let initial = graph_builder.initial_commit();
-    let child1 = graph_builder.commit_with_parents(&[&initial]);
-    let child2 = graph_builder.commit_with_parents(&[&initial]);
+    let initial = write_random_commit(tx.repo_mut());
+    let child1 = write_random_commit_with_parents(tx.repo_mut(), &[&initial]);
+    let child2 = write_random_commit_with_parents(tx.repo_mut(), &[&initial]);
     let repo = tx.commit("test").unwrap();
 
     assert_eq!(
@@ -82,11 +80,10 @@ fn test_heads_merge() {
     let repo = &test_repo.repo;
     let mut tx = repo.start_transaction();
 
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let initial = graph_builder.initial_commit();
-    let child1 = graph_builder.commit_with_parents(&[&initial]);
-    let child2 = graph_builder.commit_with_parents(&[&initial]);
-    let merge = graph_builder.commit_with_parents(&[&child1, &child2]);
+    let initial = write_random_commit(tx.repo_mut());
+    let child1 = write_random_commit_with_parents(tx.repo_mut(), &[&initial]);
+    let child2 = write_random_commit_with_parents(tx.repo_mut(), &[&initial]);
+    let merge = write_random_commit_with_parents(tx.repo_mut(), &[&child1, &child2]);
     let repo = tx.commit("test").unwrap();
 
     assert_eq!(*repo.view().heads(), hashset! {merge.id().clone()});

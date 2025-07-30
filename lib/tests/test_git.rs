@@ -72,7 +72,6 @@ use maplit::btreemap;
 use maplit::hashset;
 use tempfile::TempDir;
 use test_case::test_case;
-use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
 use testutils::base_user_config;
@@ -2462,12 +2461,11 @@ fn test_reset_head_detached_out_of_sync() {
     // 1 5
     // |/
     // root
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit4 = graph_builder.commit_with_parents(&[&commit3]);
-    let commit5 = graph_builder.initial_commit();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+    let commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+    let commit4 = write_random_commit_with_parents(tx.repo_mut(), &[&commit3]);
+    let commit5 = write_random_commit(tx.repo_mut());
 
     // unborn -> commit1 (= commit2's parent)
     git::reset_head(tx.repo_mut(), &commit2).unwrap();

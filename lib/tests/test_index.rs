@@ -40,7 +40,6 @@ use jj_lib::revset::GENERATION_RANGE_FULL;
 use jj_lib::revset::PARENTS_RANGE_FULL;
 use jj_lib::revset::ResolvedExpression;
 use maplit::hashset;
-use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 use testutils::commit_transactions;
 use testutils::test_backend::TestBackend;
@@ -97,15 +96,14 @@ fn test_index_commits_standard_cases() {
 
     let root_commit_id = repo.store().root_commit_id();
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_c]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_d]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_b, &commit_e]);
-    let commit_g = graph_builder.commit_with_parents(&[&commit_f]);
-    let commit_h = graph_builder.commit_with_parents(&[&commit_e]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_c]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_e]);
+    let commit_g = write_random_commit_with_parents(tx.repo_mut(), &[&commit_f]);
+    let commit_h = write_random_commit_with_parents(tx.repo_mut(), &[&commit_e]);
     let repo = tx.commit("test").unwrap();
 
     let index = as_readonly_index(&repo);
@@ -153,18 +151,23 @@ fn test_index_commits_criss_cross() {
     // keeping track of visited nodes, it would be 2^50 visits, so if this test
     // finishes in reasonable time, we know that we don't do a naive traversal.
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let mut left_commits = vec![graph_builder.initial_commit()];
-    let mut right_commits = vec![graph_builder.initial_commit()];
+    let mut left_commits = vec![write_random_commit(tx.repo_mut())];
+    let mut right_commits = vec![write_random_commit(tx.repo_mut())];
     for generation in 1..num_generations {
-        let new_left = graph_builder.commit_with_parents(&[
-            &left_commits[generation - 1],
-            &right_commits[generation - 1],
-        ]);
-        let new_right = graph_builder.commit_with_parents(&[
-            &left_commits[generation - 1],
-            &right_commits[generation - 1],
-        ]);
+        let new_left = write_random_commit_with_parents(
+            tx.repo_mut(),
+            &[
+                &left_commits[generation - 1],
+                &right_commits[generation - 1],
+            ],
+        );
+        let new_right = write_random_commit_with_parents(
+            tx.repo_mut(),
+            &[
+                &left_commits[generation - 1],
+                &right_commits[generation - 1],
+            ],
+        );
         left_commits.push(new_left);
         right_commits.push(new_right);
     }
@@ -329,10 +332,9 @@ fn test_index_commits_previous_operations() {
     // o root
 
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();

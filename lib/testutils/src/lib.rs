@@ -630,24 +630,6 @@ pub fn write_working_copy_file(workspace_root: &Path, path: &RepoPath, contents:
     file.write_all(contents.as_ref()).unwrap();
 }
 
-pub struct CommitGraphBuilder<'repo> {
-    mut_repo: &'repo mut MutableRepo,
-}
-
-impl<'repo> CommitGraphBuilder<'repo> {
-    pub fn new(mut_repo: &'repo mut MutableRepo) -> Self {
-        Self { mut_repo }
-    }
-
-    pub fn initial_commit(&mut self) -> Commit {
-        write_random_commit(self.mut_repo)
-    }
-
-    pub fn commit_with_parents(&mut self, parents: &[&Commit]) -> Commit {
-        write_random_commit_with_parents(self.mut_repo, parents)
-    }
-}
-
 /// Rebase descendants of the rewritten commits. Returns map of original commit
 /// ID to rebased (or abandoned parent) commit ID.
 pub fn rebase_descendants_with_options_return_map(

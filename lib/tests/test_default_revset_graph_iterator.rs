@@ -22,8 +22,9 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::ResolvedExpression;
 use test_case::test_case;
-use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
+use testutils::write_random_commit;
+use testutils::write_random_commit_with_parents;
 
 fn revset_for_commits(repo: &ReadonlyRepo, commits: &[&Commit]) -> DefaultReadonlyIndexRevset {
     let index = repo
@@ -65,11 +66,10 @@ fn test_graph_iterator_linearized(skip_transitive_edges: bool) {
     // |
     // root
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_b, &commit_c]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
     let repo = tx.commit("test").unwrap();
     let root_commit = repo.store().root_commit();
 
@@ -102,13 +102,12 @@ fn test_graph_iterator_virtual_octopus(skip_transitive_edges: bool) {
     //  \|/         ~ ~ ~
     //  root
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.initial_commit();
-    let commit_c = graph_builder.initial_commit();
-    let commit_d = graph_builder.commit_with_parents(&[&commit_a, &commit_b]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_b, &commit_c]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_d, &commit_e]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit(tx.repo_mut());
+    let commit_c = write_random_commit(tx.repo_mut());
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a, &commit_b]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d, &commit_e]);
     let repo = tx.commit("test").unwrap();
     let root_commit = repo.store().root_commit();
 
@@ -153,12 +152,11 @@ fn test_graph_iterator_simple_fork(skip_transitive_edges: bool) {
     // |
     // root
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_d]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d]);
     let repo = tx.commit("test").unwrap();
     let root_commit = repo.store().root_commit();
 
@@ -192,13 +190,12 @@ fn test_graph_iterator_multiple_missing(skip_transitive_edges: bool) {
     //  \|/
     //  root
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.initial_commit();
-    let commit_c = graph_builder.initial_commit();
-    let commit_d = graph_builder.commit_with_parents(&[&commit_a, &commit_b]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_b, &commit_c]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_d, &commit_e]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit(tx.repo_mut());
+    let commit_c = write_random_commit(tx.repo_mut());
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a, &commit_b]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d, &commit_e]);
     let repo = tx.commit("test").unwrap();
     let root_commit = repo.store().root_commit();
 
@@ -236,13 +233,12 @@ fn test_graph_iterator_edge_to_ancestor(skip_transitive_edges: bool) {
     //   |
     //  root
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.initial_commit();
-    let commit_c = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_b, &commit_c]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_c]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_d, &commit_e]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit(tx.repo_mut());
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_c]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d, &commit_e]);
     let repo = tx.commit("test").unwrap();
 
     let revset = revset_for_commits(repo.as_ref(), &[&commit_c, &commit_d, &commit_f]);
@@ -286,17 +282,16 @@ fn test_graph_iterator_edge_escapes_from_(skip_transitive_edges: bool) {
     //   |
     //  root
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_d]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_d, &commit_c]);
-    let commit_g = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_h = graph_builder.commit_with_parents(&[&commit_f]);
-    let commit_i = graph_builder.commit_with_parents(&[&commit_e, &commit_h]);
-    let commit_j = graph_builder.commit_with_parents(&[&commit_g, &commit_i]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d, &commit_c]);
+    let commit_g = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_h = write_random_commit_with_parents(tx.repo_mut(), &[&commit_f]);
+    let commit_i = write_random_commit_with_parents(tx.repo_mut(), &[&commit_e, &commit_h]);
+    let commit_j = write_random_commit_with_parents(tx.repo_mut(), &[&commit_g, &commit_i]);
     let repo = tx.commit("test").unwrap();
     let root_commit = repo.store().root_commit();
 

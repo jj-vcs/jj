@@ -33,7 +33,6 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::settings::UserSettings;
 use test_case::test_case;
-use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
@@ -486,9 +485,8 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
     //   |       |  |       |
     //   A0      A0 A1   A0 A1   A2
     let mut tx = repo_0.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a0 = graph_builder.initial_commit();
-    let commit_b0 = graph_builder.commit_with_parents(&[&commit_a0]);
+    let commit_a0 = write_random_commit(tx.repo_mut());
+    let commit_b0 = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a0]);
     let repo_1 = tx.commit("op1").unwrap();
 
     let mut tx = repo_1.start_transaction();

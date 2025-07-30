@@ -19,8 +19,9 @@ use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::RewriteRefsOptions;
 use maplit::hashmap;
 use maplit::hashset;
-use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
+use testutils::write_random_commit;
+use testutils::write_random_commit_with_parents;
 
 // Simulate some `jj sync` command that rebases B:: onto G while abandoning C
 // (because it's presumably already in G).
@@ -39,14 +40,13 @@ fn test_transform_descendants_sync() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_c]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_d]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_c]);
-    let commit_g = graph_builder.commit_with_parents(&[&commit_a]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_c]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_c]);
+    let commit_g = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
 
     let mut rebased = HashMap::new();
     tx.repo_mut()
@@ -96,10 +96,9 @@ fn test_transform_descendants_sync_linearize_merge() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_a, &commit_b]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a, &commit_b]);
 
     let mut rebased = HashMap::new();
     tx.repo_mut()
@@ -142,14 +141,13 @@ fn test_transform_descendants_new_parents_map() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_c]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_d]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_c]);
-    let commit_g = graph_builder.commit_with_parents(&[&commit_a]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_c]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_c]);
+    let commit_g = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
 
     let options = RewriteRefsOptions::default();
     let mut rebased = HashMap::new();
