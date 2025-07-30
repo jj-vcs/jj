@@ -2687,7 +2687,7 @@ Modify the metadata of a revision without changing its content
    This generates a new change-id for the revision.
 * `--update-author-timestamp` — Update the author timestamp
 
-   This update the author date to now, without modifying the author.
+   This updates the author date to now, without modifying the author.
 * `--update-author` — Update the author to the configured user
 
    This updates the author name and email. The author timestamp is not modified – use --update-author-timestamp to update the author timestamp.
@@ -2698,6 +2698,7 @@ Modify the metadata of a revision without changing its content
 * `--author <AUTHOR>` — Set author to the provided string
 
    This changes author name and email while retaining author timestamp for non-discardable commits.
+* `--author-timestamp <AUTHOR_TIMESTAMP>` — Set the author date to the given date either human readable, eg Sun, 23 Jan 2000 01:23:45 JST) or as a time stamp, eg 2000-01-23T01:23:45+09:00)
 
 
 

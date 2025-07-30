@@ -16,8 +16,10 @@ use std::collections::HashSet;
 
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
+use jj_lib::backend::Timestamp;
 use jj_lib::commit::Commit;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::time_util::parse_datetime;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -54,7 +56,7 @@ pub(crate) struct TouchArgs {
 
     /// Update the author timestamp
     ///
-    /// This update the author date to now, without modifying the author.
+    /// This updates the author date to now, without modifying the author.
     #[arg(long)]
     update_author_timestamp: bool,
 
@@ -81,6 +83,16 @@ pub(crate) struct TouchArgs {
         value_parser = parse_author
     )]
     author: Option<(String, String)>,
+
+    /// Set the author date to the given date either human
+    /// readable, eg Sun, 23 Jan 2000 01:23:45 JST) or as a time stamp, eg
+    /// 2000-01-23T01:23:45+09:00)
+    #[arg(
+        long,
+        conflicts_with = "update_author_timestamp",
+        value_parser = parse_datetime
+    )]
+    author_timestamp: Option<Timestamp>,
 }
 
 #[instrument(skip_all)]
@@ -141,6 +153,9 @@ pub(crate) fn cmd_touch(
                 }
                 if args.update_author_timestamp {
                     new_author.timestamp = commit_builder.committer().timestamp;
+                }
+                if let Some(author_date) = args.author_timestamp {
+                    new_author.timestamp = author_date;
                 }
                 commit_builder = commit_builder.set_author(new_author);
 

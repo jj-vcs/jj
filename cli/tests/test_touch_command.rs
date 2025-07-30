@@ -240,6 +240,59 @@ fn test_touch() {
 
     [EOF]
     ");
+
+    // new author date
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    work_dir
+        .run_jj(["touch", "--author-timestamp", "1995-12-19T16:39:57-08:00"])
+        .success();
+    insta::assert_snapshot!(get_log(&work_dir), @r"
+    @  Commit ID: a527219f85839d58ddb6115fbc4f0f8bc6649266
+    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    │  Bookmarks: c
+    │  Author   : Test User <test.user@example.com> (1995-12-19 16:39:57.000 -08:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:26.000 +07:00)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    │  Bookmarks: b
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
+    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    │  Bookmarks: a
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │
+    │      (no description set)
+    │
+    ◆  Commit ID: 0000000000000000000000000000000000000000
+       Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+       Author   : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+       Committer: (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+
+           (no description set)
+
+    [EOF]
+    ");
+
+    // invalid date gives an error
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    let command_result = work_dir.run_jj(["touch", "--author-timestamp", "aaaaaa"]);
+    assert!(!command_result.status.success());
+    insta::assert_snapshot!(command_result, @r"
+    ------- stderr -------
+    error: invalid value 'aaaaaa' for '--author-timestamp <AUTHOR_TIMESTAMP>': input contains invalid characters
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
 }
 
 #[test]
