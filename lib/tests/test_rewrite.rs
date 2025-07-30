@@ -1683,7 +1683,7 @@ fn test_empty_commit_option(empty_behavior: EmptyBehavior) {
     let tree_f = create_fixed_tree(&["B", "C", "D"]);
     let tree_g = create_fixed_tree(&["B", "C", "D", "G"]);
 
-    let commit_a = create_random_commit(mut_repo).write().unwrap();
+    let commit_a = write_random_commit(mut_repo);
 
     let mut create_commit = |parents: &[&Commit], tree: &MergedTree| {
         create_random_commit(mut_repo)
@@ -1884,7 +1884,7 @@ fn test_commit_with_selection() {
 
     let mut tx = repo.start_transaction();
     let root_tree = repo.store().root_commit().tree().unwrap();
-    let commit = create_random_commit(tx.repo_mut()).write().unwrap();
+    let commit = write_random_commit(tx.repo_mut());
     let commit_tree = commit.tree().unwrap();
     let empty_selection = CommitWithSelection {
         commit: commit.clone(),

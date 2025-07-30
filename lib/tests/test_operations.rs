@@ -232,7 +232,7 @@ fn test_stored_commit_predecessors() {
     let loader = repo.loader();
 
     let mut tx = repo.start_transaction();
-    let commit1 = create_random_commit(tx.repo_mut()).write().unwrap();
+    let commit1 = write_random_commit(tx.repo_mut());
     let commit2 = tx
         .repo_mut()
         .rewrite_commit(&commit1)

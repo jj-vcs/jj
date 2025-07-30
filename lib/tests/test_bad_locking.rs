@@ -23,6 +23,7 @@ use test_case::test_case;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
 use testutils::create_random_commit;
+use testutils::write_random_commit;
 
 fn copy_directory(src: &Path, dst: &Path) {
     std::fs::create_dir(dst).ok();
@@ -110,10 +111,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) {
     let workspace_root = test_workspace.workspace.workspace_root();
 
     let mut tx = repo.start_transaction();
-    let initial = create_random_commit(tx.repo_mut())
-        .set_parents(vec![repo.store().root_commit_id().clone()])
-        .write()
-        .unwrap();
+    let initial = write_random_commit(tx.repo_mut());
     tx.commit("test").unwrap();
 
     // Simulate a write of a commit that happens on one machine
@@ -183,10 +181,7 @@ fn test_bad_locking_interrupted(backend: TestRepoBackend) {
     let repo = &test_workspace.repo;
 
     let mut tx = repo.start_transaction();
-    let initial = create_random_commit(tx.repo_mut())
-        .set_parents(vec![repo.store().root_commit_id().clone()])
-        .write()
-        .unwrap();
+    let initial = write_random_commit(tx.repo_mut());
     let repo = tx.commit("test").unwrap();
 
     // Simulate a crash that resulted in the old op-head left in place. We simulate
