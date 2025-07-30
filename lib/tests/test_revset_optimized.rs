@@ -14,6 +14,10 @@
 
 //! Test that optimized revset evaluates to the same result as the original
 //! expression.
+//!
+//! Use `PROPTEST_CASES=10000` to increase the number of test cases to run.
+//! The default is `256`, which might be too small to catch edge-case bugs.
+//! <https://proptest-rs.github.io/proptest/proptest/tutorial/config.html>
 
 use std::rc::Rc;
 
