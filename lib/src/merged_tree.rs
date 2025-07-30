@@ -499,16 +499,14 @@ async fn merge_trees(merge: Merge<Tree>) -> BackendResult<Merge<Tree>> {
             }
         };
     }
-    if conflicts.is_empty() {
-        let data = backend::Tree::from_sorted_entries(new_tree_entries);
-        let new_tree = store.write_tree(dir, data).await?;
-        Ok(Merge::resolved(new_tree))
+    let backend_trees = if conflicts.is_empty() {
+        Merge::resolved(backend::Tree::from_sorted_entries(new_tree_entries))
     } else {
         // For each side of the conflict, overwrite the entries in `new_tree` with the
         // values from  `conflicts`. Entries that are not in `conflicts` will remain
         // unchanged and will be reused for each side.
         let tree_count = merge.iter().len();
-        let mut new_trees = Vec::with_capacity(tree_count);
+        let mut backend_trees = Vec::with_capacity(tree_count);
         // TODO: can merge-join common tree entries with conflicting ones
         let new_tree_entries = BTreeMap::from_iter(new_tree_entries);
         for _ in 0..tree_count {
@@ -518,12 +516,19 @@ async fn merge_trees(merge: Merge<Tree>) -> BackendResult<Merge<Tree>> {
                     new_tree_entries.insert(basename.to_owned(), value);
                 }
             }
-            let data = backend::Tree::from_sorted_entries(new_tree_entries.into_iter().collect());
-            let tree = store.write_tree(dir, data).await?;
-            new_trees.push(tree);
+            backend_trees.push(backend::Tree::from_sorted_entries(
+                new_tree_entries.into_iter().collect(),
+            ));
         }
-        Ok(Merge::from_vec(new_trees))
+        Merge::from_vec(backend_trees)
+    };
+
+    let mut new_trees = Vec::with_capacity(backend_trees.iter().count());
+    for backend_tree in backend_trees {
+        let new_tree = store.write_tree(dir, backend_tree).await?;
+        new_trees.push(new_tree);
     }
+    Ok(Merge::from_vec(new_trees))
 }
 
 /// Tries to resolve a conflict between tree values. Returns
