@@ -35,8 +35,8 @@ use jj_lib::settings::UserSettings;
 use test_case::test_case;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
-use testutils::create_random_commit;
 use testutils::write_random_commit;
+use testutils::write_random_commit_with_parents;
 
 fn get_predecessors(repo: &ReadonlyRepo, id: &CommitId) -> Vec<CommitId> {
     let entries: Vec<_> = walk_predecessors(repo, slice::from_ref(id))
@@ -178,10 +178,7 @@ fn test_isolation() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let initial = create_random_commit(tx.repo_mut())
-        .set_parents(vec![repo.store().root_commit_id().clone()])
-        .write()
-        .unwrap();
+    let initial = write_random_commit_with_parents(tx.repo_mut(), &[]);
     let repo = tx.commit("test").unwrap();
 
     let mut tx1 = repo.start_transaction();

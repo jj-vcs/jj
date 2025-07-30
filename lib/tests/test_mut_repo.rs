@@ -32,6 +32,7 @@ use testutils::create_random_commit;
 use testutils::create_random_tree;
 use testutils::rebase_descendants_with_options_return_map;
 use testutils::write_random_commit;
+use testutils::write_random_commit_with_parents;
 
 fn remote_symbol<'a, N, M>(name: &'a N, remote: &'a M) -> RemoteRefSymbol<'a>
 where
@@ -404,10 +405,7 @@ fn test_add_head_not_immediate_child() {
         .set_predecessors(vec![initial.id().clone()])
         .write()
         .unwrap();
-    let child = create_random_commit(tx.repo_mut())
-        .set_parents(vec![rewritten.id().clone()])
-        .write()
-        .unwrap();
+    let child = write_random_commit_with_parents(tx.repo_mut(), &[&rewritten]);
     drop(tx);
 
     assert_eq!(repo.view().heads(), &hashset! {initial.id().clone()});

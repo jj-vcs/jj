@@ -80,6 +80,7 @@ use testutils::commit_transactions;
 use testutils::create_random_commit;
 use testutils::repo_path;
 use testutils::write_random_commit;
+use testutils::write_random_commit_with_parents;
 
 /// Describes successful `fetch()` result.
 #[derive(Clone, Debug, Eq, PartialEq, Default)]
@@ -3227,10 +3228,7 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
         .unwrap();
     let mut tx = jj_repo.start_transaction();
     let sideways_commit = write_random_commit(tx.repo_mut());
-    let child_of_main_commit = create_random_commit(tx.repo_mut())
-        .set_parents(vec![main_commit.id().clone()])
-        .write()
-        .unwrap();
+    let child_of_main_commit = write_random_commit_with_parents(tx.repo_mut(), &[&main_commit]);
     tx.repo_mut().set_git_ref_target(
         "refs/remotes/origin/main".as_ref(),
         RefTarget::normal(main_commit.id().clone()),

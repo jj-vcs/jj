@@ -601,7 +601,19 @@ macro_rules! assert_tree_eq {
 }
 
 pub fn write_random_commit(mut_repo: &mut MutableRepo) -> Commit {
-    create_random_commit(mut_repo).write().unwrap()
+    write_random_commit_with_parents(mut_repo, &[])
+}
+
+pub fn write_random_commit_with_parents(mut_repo: &mut MutableRepo, parents: &[&Commit]) -> Commit {
+    let parents = if parents.is_empty() {
+        &[&mut_repo.store().root_commit()]
+    } else {
+        parents
+    };
+    create_random_commit(mut_repo)
+        .set_parents(parents.iter().map(|commit| commit.id().clone()).collect())
+        .write()
+        .unwrap()
 }
 
 pub fn write_working_copy_file(workspace_root: &Path, path: &RepoPath, contents: impl AsRef<[u8]>) {
@@ -632,14 +644,7 @@ impl<'repo> CommitGraphBuilder<'repo> {
     }
 
     pub fn commit_with_parents(&mut self, parents: &[&Commit]) -> Commit {
-        let parent_ids = parents
-            .iter()
-            .map(|commit| commit.id().clone())
-            .collect_vec();
-        create_random_commit(self.mut_repo)
-            .set_parents(parent_ids)
-            .write()
-            .unwrap()
+        write_random_commit_with_parents(self.mut_repo, parents)
     }
 }
 

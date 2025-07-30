@@ -20,7 +20,6 @@ use assert_matches::assert_matches;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
-use jj_lib::commit_builder::CommitBuilder;
 use jj_lib::default_index::DefaultIndexStore;
 use jj_lib::default_index::DefaultIndexStoreError;
 use jj_lib::default_index::DefaultMutableIndex;
@@ -44,13 +43,9 @@ use maplit::hashset;
 use testutils::CommitGraphBuilder;
 use testutils::TestRepo;
 use testutils::commit_transactions;
-use testutils::create_random_commit;
 use testutils::test_backend::TestBackend;
 use testutils::write_random_commit;
-
-fn child_commit<'repo>(mut_repo: &'repo mut MutableRepo, commit: &Commit) -> CommitBuilder<'repo> {
-    create_random_commit(mut_repo).set_parents(vec![commit.id().clone()])
-}
+use testutils::write_random_commit_with_parents;
 
 fn remote_symbol<'a, N, M>(name: &'a N, remote: &'a M) -> RemoteRefSymbol<'a>
 where
@@ -430,7 +425,7 @@ fn test_index_commits_incremental() {
 
     let root_commit = repo.store().root_commit();
     let mut tx = repo.start_transaction();
-    let commit_a = child_commit(tx.repo_mut(), &root_commit).write().unwrap();
+    let commit_a = write_random_commit_with_parents(tx.repo_mut(), &[]);
     let repo = tx.commit("test").unwrap();
 
     let index = as_readonly_index(&repo);
@@ -438,8 +433,8 @@ fn test_index_commits_incremental() {
     assert_eq!(index.num_commits(), 1 + 1);
 
     let mut tx = repo.start_transaction();
-    let commit_b = child_commit(tx.repo_mut(), &commit_a).write().unwrap();
-    let commit_c = child_commit(tx.repo_mut(), &commit_b).write().unwrap();
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
     tx.commit("test").unwrap();
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
@@ -476,7 +471,7 @@ fn test_index_commits_incremental_empty_transaction() {
 
     let root_commit = repo.store().root_commit();
     let mut tx = repo.start_transaction();
-    let commit_a = child_commit(tx.repo_mut(), &root_commit).write().unwrap();
+    let commit_a = write_random_commit_with_parents(tx.repo_mut(), &[&root_commit]);
     let repo = tx.commit("test").unwrap();
 
     let index = as_readonly_index(&repo);
@@ -515,7 +510,7 @@ fn test_index_commits_incremental_already_indexed() {
 
     let root_commit = repo.store().root_commit();
     let mut tx = repo.start_transaction();
-    let commit_a = child_commit(tx.repo_mut(), &root_commit).write().unwrap();
+    let commit_a = write_random_commit_with_parents(tx.repo_mut(), &[&root_commit]);
     let repo = tx.commit("test").unwrap();
 
     assert!(repo.index().has_id(commit_a.id()));

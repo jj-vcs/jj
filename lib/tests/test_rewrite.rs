@@ -51,6 +51,7 @@ use testutils::create_tree_with;
 use testutils::rebase_descendants_with_options_return_map;
 use testutils::repo_path;
 use testutils::write_random_commit;
+use testutils::write_random_commit_with_parents;
 
 fn remote_symbol<'a, N, M>(name: &'a N, remote: &'a M) -> RemoteRefSymbol<'a>
 where
@@ -1513,10 +1514,7 @@ fn test_rebase_descendants_update_checkout() {
     // A
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
-    let commit_b = create_random_commit(tx.repo_mut())
-        .set_parents(vec![commit_a.id().clone()])
-        .write()
-        .unwrap();
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     let ws1_name = WorkspaceNameBuf::from("ws1");
     let ws2_name = WorkspaceNameBuf::from("ws2");
     let ws3_name = WorkspaceNameBuf::from("ws3");
@@ -1561,10 +1559,7 @@ fn test_rebase_descendants_update_checkout_abandoned() {
     // A
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
-    let commit_b = create_random_commit(tx.repo_mut())
-        .set_parents(vec![commit_a.id().clone()])
-        .write()
-        .unwrap();
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     let ws1_name = WorkspaceNameBuf::from("ws1");
     let ws2_name = WorkspaceNameBuf::from("ws2");
     let ws3_name = WorkspaceNameBuf::from("ws3");
@@ -1613,18 +1608,9 @@ fn test_rebase_descendants_update_checkout_abandoned_merge() {
     // A
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
-    let commit_b = create_random_commit(tx.repo_mut())
-        .set_parents(vec![commit_a.id().clone()])
-        .write()
-        .unwrap();
-    let commit_c = create_random_commit(tx.repo_mut())
-        .set_parents(vec![commit_a.id().clone()])
-        .write()
-        .unwrap();
-    let commit_d = create_random_commit(tx.repo_mut())
-        .set_parents(vec![commit_b.id().clone(), commit_c.id().clone()])
-        .write()
-        .unwrap();
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     tx.repo_mut()
         .set_wc_commit(ws_name.clone(), commit_d.id().clone())
@@ -1807,14 +1793,8 @@ fn test_rebase_abandoning_empty() {
 
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
-    let commit_b = create_random_commit(tx.repo_mut())
-        .set_parents(vec![commit_a.id().clone()])
-        .write()
-        .unwrap();
-    let commit_c = create_random_commit(tx.repo_mut())
-        .set_parents(vec![commit_b.id().clone()])
-        .write()
-        .unwrap();
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
     let commit_d = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_c.id().clone()])
         .set_tree_id(commit_c.tree_id().clone())

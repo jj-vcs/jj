@@ -69,6 +69,7 @@ use testutils::create_tree;
 use testutils::create_tree_with;
 use testutils::repo_path;
 use testutils::write_random_commit;
+use testutils::write_random_commit_with_parents;
 
 fn remote_symbol<'a, N, M>(name: &'a N, remote: &'a M) -> RemoteRefSymbol<'a>
 where
@@ -1446,26 +1447,11 @@ fn test_evaluate_expression_children() {
     let mut_repo = tx.repo_mut();
 
     let commit1 = write_random_commit(mut_repo);
-    let commit2 = create_random_commit(mut_repo)
-        .set_parents(vec![commit1.id().clone()])
-        .write()
-        .unwrap();
-    let commit3 = create_random_commit(mut_repo)
-        .set_parents(vec![commit2.id().clone()])
-        .write()
-        .unwrap();
-    let commit4 = create_random_commit(mut_repo)
-        .set_parents(vec![commit1.id().clone()])
-        .write()
-        .unwrap();
-    let commit5 = create_random_commit(mut_repo)
-        .set_parents(vec![commit3.id().clone(), commit4.id().clone()])
-        .write()
-        .unwrap();
-    let commit6 = create_random_commit(mut_repo)
-        .set_parents(vec![commit5.id().clone()])
-        .write()
-        .unwrap();
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit2]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit3, &commit4]);
+    let commit6 = write_random_commit_with_parents(mut_repo, &[&commit5]);
 
     // Can find children of the root commit
     assert_eq!(
@@ -1958,37 +1944,20 @@ fn test_evaluate_expression_reachable() {
     let graph1commit1 = write_random_commit(mut_repo);
     let graph2commit1 = write_random_commit(mut_repo);
     let graph2commit2 = write_random_commit(mut_repo);
-    let graph2commit3 = create_random_commit(mut_repo)
-        .set_parents(vec![graph2commit1.id().clone(), graph2commit2.id().clone()])
-        .write()
-        .unwrap();
-    let graph1commit2 = create_random_commit(mut_repo)
-        .set_parents(vec![graph1commit1.id().clone()])
-        .write()
-        .unwrap();
-    let graph1commit3 = create_random_commit(mut_repo)
-        .set_parents(vec![graph1commit2.id().clone()])
-        .write()
-        .unwrap();
+    let graph2commit3 =
+        write_random_commit_with_parents(mut_repo, &[&graph2commit1, &graph2commit2]);
+    let graph1commit2 = write_random_commit_with_parents(mut_repo, &[&graph1commit1]);
+    let graph1commit3 = write_random_commit_with_parents(mut_repo, &[&graph1commit2]);
     let graph3commit1 = write_random_commit(mut_repo);
     let graph3commit2 = write_random_commit(mut_repo);
     let graph3commit3 = write_random_commit(mut_repo);
-    let graph3commit4 = create_random_commit(mut_repo)
-        .set_parents(vec![graph3commit1.id().clone(), graph3commit2.id().clone()])
-        .write()
-        .unwrap();
-    let graph3commit5 = create_random_commit(mut_repo)
-        .set_parents(vec![graph3commit2.id().clone(), graph3commit3.id().clone()])
-        .write()
-        .unwrap();
-    let graph3commit6 = create_random_commit(mut_repo)
-        .set_parents(vec![graph3commit3.id().clone()])
-        .write()
-        .unwrap();
-    let graph3commit7 = create_random_commit(mut_repo)
-        .set_parents(vec![graph3commit4.id().clone(), graph3commit5.id().clone()])
-        .write()
-        .unwrap();
+    let graph3commit4 =
+        write_random_commit_with_parents(mut_repo, &[&graph3commit1, &graph3commit2]);
+    let graph3commit5 =
+        write_random_commit_with_parents(mut_repo, &[&graph3commit2, &graph3commit3]);
+    let graph3commit6 = write_random_commit_with_parents(mut_repo, &[&graph3commit3]);
+    let graph3commit7 =
+        write_random_commit_with_parents(mut_repo, &[&graph3commit4, &graph3commit5]);
 
     // Test predicate involving ancestors, which can produce incorrect results if
     // evaluated in the wrong order. The first example fails if subgraph 1 is
@@ -2153,26 +2122,11 @@ fn test_evaluate_expression_descendants() {
 
     let root_commit_id = repo.store().root_commit_id().clone();
     let commit1 = write_random_commit(mut_repo);
-    let commit2 = create_random_commit(mut_repo)
-        .set_parents(vec![commit1.id().clone()])
-        .write()
-        .unwrap();
-    let commit3 = create_random_commit(mut_repo)
-        .set_parents(vec![commit2.id().clone()])
-        .write()
-        .unwrap();
-    let commit4 = create_random_commit(mut_repo)
-        .set_parents(vec![commit1.id().clone()])
-        .write()
-        .unwrap();
-    let commit5 = create_random_commit(mut_repo)
-        .set_parents(vec![commit3.id().clone(), commit4.id().clone()])
-        .write()
-        .unwrap();
-    let commit6 = create_random_commit(mut_repo)
-        .set_parents(vec![commit5.id().clone()])
-        .write()
-        .unwrap();
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit2]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit3, &commit4]);
+    let commit6 = write_random_commit_with_parents(mut_repo, &[&commit5]);
 
     // The descendants of the root commit are all the commits in the repo
     assert_eq!(
