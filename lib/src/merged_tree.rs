@@ -31,6 +31,7 @@ use futures::Stream;
 use futures::StreamExt as _;
 use futures::future::BoxFuture;
 use futures::future::try_join;
+use futures::future::try_join_all;
 use futures::stream::BoxStream;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
@@ -523,12 +524,15 @@ async fn merge_trees(merge: Merge<Tree>) -> BackendResult<Merge<Tree>> {
         Merge::from_vec(backend_trees)
     };
 
-    let mut new_trees = Vec::with_capacity(backend_trees.iter().count());
-    for backend_tree in backend_trees {
-        let new_tree = store.write_tree(dir, backend_tree).await?;
-        new_trees.push(new_tree);
-    }
-    Ok(Merge::from_vec(new_trees))
+    // TODO: Could use `backend_trees.try_map_async()` here if it took `self` by
+    // value or if `Backend::write_tree()` to an `Arc<backend::Tree>`.
+    let trees = try_join_all(
+        backend_trees
+            .into_iter()
+            .map(|backend_tree| store.write_tree(dir, backend_tree)),
+    )
+    .await?;
+    Ok(Merge::from_vec(trees))
 }
 
 /// Tries to resolve a conflict between tree values. Returns
