@@ -268,6 +268,86 @@ fn test_weird_merges() {
 }
 
 #[test]
+fn test_feature_branches() {
+    let settings = stable_settings();
+    let test_repo = TestRepo::init_with_settings(&settings);
+    let repo = test_repo.repo;
+
+    // 9
+    // |\
+    // 8 \
+    // |\ \
+    // | 7 |
+    // |/  |
+    // 6   |
+    // |\  5
+    // | | 4
+    // | | 3
+    // | 2 |
+    // | 1 |
+    // | |/
+    // |/
+    // 0
+
+    // Fetch branch 2 and 5
+    let mut tx = repo.start_transaction();
+    let commit0 = repo.store().root_commit();
+    let commit1 = write_new_commit(tx.repo_mut(), "1", [&commit0]);
+    let commit2 = write_new_commit(tx.repo_mut(), "2", [&commit1]);
+    let commit3 = write_new_commit(tx.repo_mut(), "3", [&commit0]);
+    let commit4 = write_new_commit(tx.repo_mut(), "4", [&commit3]);
+    let commit5 = write_new_commit(tx.repo_mut(), "5", [&commit4]);
+    let repo = tx.commit("a").unwrap();
+
+    // Merge branch 2
+    let mut tx = repo.start_transaction();
+    let commit6 = write_new_commit(tx.repo_mut(), "6", [&commit0, &commit2]);
+    let repo = tx.commit("a").unwrap();
+
+    // Fetch merged branch 7
+    let mut tx = repo.start_transaction();
+    let commit7 = write_new_commit(tx.repo_mut(), "7", [&commit6]);
+    let commit8 = write_new_commit(tx.repo_mut(), "8", [&commit6, &commit7]);
+    let repo = tx.commit("a").unwrap();
+
+    // Merge branch 5
+    let mut tx = repo.start_transaction();
+    let commit9 = write_new_commit(tx.repo_mut(), "9", [&commit8, &commit5]);
+    let commits = vec![
+        commit0, commit1, commit2, commit3, commit4, commit5, commit6, commit7, commit8, commit9,
+    ];
+    let repo = tx.commit("a").unwrap();
+
+    // Commit ids for reference
+    insta::assert_snapshot!(
+        commits.iter().map(|c| format!("{:<2} {}\n", c.description(), c.id())).join(""), @r"
+       00000000000000000000
+    1  b454727d1ac1243807d5
+    2  7550acbc09948087c024
+    3  8e6b4a4aa763e550916a
+    4  c4b7645a58d514040403
+    5  5dd33d2a7d5364d62825
+    6  b2b4c490c091aea33575
+    7  d35b7eb1ae4195a195b8
+    8  59707ff883b28584ec23
+    9  c482d0862bb841b200de
+    ");
+
+    let commit_ids = commits.iter().map(|c| c.id().clone()).collect_vec();
+    let visible_heads = vec![
+        vec![commit_ids[0].clone()],
+        vec![commit_ids[2].clone(), commit_ids[5].clone()],
+        vec![commit_ids[5].clone(), commit_ids[6].clone()],
+        vec![commit_ids[5].clone(), commit_ids[8].clone()],
+        vec![commit_ids[9].clone()],
+    ];
+
+    proptest!(|(expression in arb_expression(commit_ids, visible_heads))| {
+        verify_optimized(repo.as_ref(), &expression)?;
+    });
+}
+
+#[test]
 fn test_rewritten() {
     let settings = stable_settings();
     let test_repo = TestRepo::init_with_settings(&settings);
