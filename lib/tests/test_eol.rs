@@ -373,6 +373,121 @@ fn test_eol_conversion_none_snapshot_conflicts() {
     );
 }
 
+struct UpdateConflictsTestConfig {
+    parent1_contents: &'static str,
+    parent2_contents: &'static str,
+    extra_setting: &'static str,
+
+    expected_eol: &'static str,
+    expected_conflict_side1: &'static str,
+    expected_conflict_side2: &'static str,
+}
+
+#[test_case(UpdateConflictsTestConfig {
+    parent1_contents: "a\n",
+    parent2_contents: "b\n",
+    extra_setting: r#"working-copy.eol-conversion = "none""#,
+    expected_eol: "\n",
+    expected_conflict_side1: "a\n",
+    expected_conflict_side2: "b\n",
+}; "LF parents with none settings")]
+#[test_case(UpdateConflictsTestConfig {
+    parent1_contents: "a\n",
+    parent2_contents: "b\n",
+    extra_setting: r#"working-copy.eol-conversion = "input-output""#,
+    expected_eol: "\r\n",
+    expected_conflict_side1: "a\r\n",
+    expected_conflict_side2: "b\r\n",
+}; "LF parents with input-output settings")]
+#[test_case(UpdateConflictsTestConfig {
+    parent1_contents: "a\r\n",
+    parent2_contents: "b\r\n",
+    extra_setting: r#"working-copy.eol-conversion = "input-output""#,
+    expected_eol: "\r\n",
+    expected_conflict_side1: "a\r\n",
+    expected_conflict_side2: "b\r\n",
+}; "CRLF parents with input-output settings")]
+fn test_eol_conversion_update_conflicts(
+    UpdateConflictsTestConfig {
+        parent1_contents,
+        parent2_contents,
+        extra_setting,
+        expected_eol,
+        expected_conflict_side1,
+        expected_conflict_side2,
+    }: UpdateConflictsTestConfig,
+) {
+    // Create a conflict commit with 2 given contents on one file, checkout that
+    // conflict with the given EOL conversion settings, and test if the EOL matches.
+
+    let extra_setting = format!("{extra_setting}\n");
+    let user_settings = base_user_settings_with_extra_configs(&extra_setting);
+    let mut test_workspace =
+        TestWorkspace::init_with_backend_and_settings(TestRepoBackend::Git, &user_settings);
+    let file_repo_path = repo_path("test-eol-file");
+    let file_disk_path = file_repo_path
+        .to_fs_path(test_workspace.workspace.workspace_root())
+        .unwrap();
+
+    // The commit graph:
+    // C (conflict)
+    // |\
+    // A B
+    // |/
+    // (empty)
+    let root_commit = test_workspace.repo.store().root_commit();
+    let mut tx = test_workspace.repo.start_transaction();
+    let tree = testutils::create_tree(&test_workspace.repo, &[(file_repo_path, parent1_contents)]);
+    let parent1_commit = tx
+        .repo_mut()
+        .new_commit(vec![root_commit.id().clone()], tree.id())
+        .write()
+        .unwrap();
+    let tree = testutils::create_tree(&test_workspace.repo, &[(file_repo_path, parent2_contents)]);
+    let parent2_commit = tx
+        .repo_mut()
+        .new_commit(vec![root_commit.id().clone()], tree.id())
+        .write()
+        .unwrap();
+    tx.commit("commit parent 2").unwrap();
+
+    // Reload the repo to pick up the new commits.
+    test_workspace.repo = test_workspace.repo.reload_at_head().unwrap();
+    // Create the merge commit.
+    let tree = merge_commit_trees(&*test_workspace.repo, &[parent1_commit, parent2_commit])
+        .block_on()
+        .unwrap();
+    let merge_commit = commit_with_tree(test_workspace.repo.store(), tree.id());
+
+    // Checkout the merge commit.
+    test_workspace
+        .workspace
+        .check_out(
+            test_workspace.repo.op_id().clone(),
+            None,
+            &merge_commit,
+            &CheckoutOptions::empty_for_test(),
+        )
+        .unwrap();
+    let contents = std::fs::read(&file_disk_path).unwrap();
+    for line in contents.lines_with_terminator() {
+        assert!(
+            line.ends_with_str(expected_eol),
+            "{:?} should end with {:?}",
+            &*line.to_str_lossy(),
+            expected_eol
+        );
+    }
+    let hunks =
+        jj_lib::conflicts::parse_conflict(&contents, 2, jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN)
+            .unwrap();
+    let hunk = &hunks[0];
+    assert!(!hunk.is_resolved());
+    let sides = hunk.iter().collect::<Vec<_>>();
+    assert_eq!(sides[0], expected_conflict_side1);
+    assert_eq!(sides[2], expected_conflict_side2);
+}
+
 #[test_case(Config {
     extra_setting: r#"working-copy.eol-conversion = "input-output""#,
     file_content: LF_FILE_CONTENT,

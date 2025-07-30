@@ -1766,13 +1766,21 @@ impl TreeState {
         Ok(FileState::for_symlink(&metadata))
     }
 
-    fn write_conflict(
+    async fn write_conflict(
         &self,
         disk_path: &Path,
         conflict_data: Vec<u8>,
         executable: bool,
         materialized_conflict_data: Option<MaterializedConflictData>,
     ) -> Result<FileState, CheckoutError> {
+        let conflict_data = self
+            .target_eol_strategy
+            .convert_eol_for_update(conflict_data.as_slice())
+            .await
+            .map_err(|err| CheckoutError::Other {
+                message: "Failed to convert the EOL when writing a merge conflict".to_string(),
+                err: err.into(),
+            })?;
         let mut file = OpenOptions::new()
             .write(true)
             .create_new(true) // Don't overwrite un-ignored file. Don't follow symlink.
@@ -1781,12 +1789,12 @@ impl TreeState {
                 message: format!("Failed to open file {} for writing", disk_path.display()),
                 err: err.into(),
             })?;
-        file.write_all(&conflict_data)
+        let size = copy_async_to_sync(conflict_data, &mut file)
+            .await
             .map_err(|err| CheckoutError::Other {
                 message: format!("Failed to write conflict to file {}", disk_path.display()),
                 err: err.into(),
-            })?;
-        let size = conflict_data.len() as u64;
+            })? as u64;
         self.set_executable(disk_path, executable)?;
         let metadata = file
             .metadata()
@@ -1997,14 +2005,16 @@ impl TreeState {
                         data,
                         file.executable.unwrap_or(false),
                         Some(materialized_conflict_data),
-                    )?
+                    )
+                    .await?
                 }
                 MaterializedTreeValue::OtherConflict { id } => {
                     // Unless all terms are regular files, we can't do much
                     // better than trying to describe the merge.
                     let data = id.describe().into_bytes();
                     let executable = false;
-                    self.write_conflict(&disk_path, data, executable, None)?
+                    self.write_conflict(&disk_path, data, executable, None)
+                        .await?
                 }
             };
             changed_file_states.push((path, file_state));
