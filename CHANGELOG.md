@@ -87,6 +87,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Fixed an error in `jj util gc` caused by the empty blob being missing from
   the Git store. [#7062](https://github.com/jj-vcs/jj/issues/7062)
 
+* `jj op diff -p` and `jj op log -p` now show content diffs from the first
+  predecessor only. [#7090](https://github.com/jj-vcs/jj/issues/7090)
+
 ### Packaging changes
 
 

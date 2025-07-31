@@ -1602,6 +1602,13 @@ fn test_op_diff_patch() {
     ○  + qpvuntsm 7aa2ec5d (no description set)
        - qpvuntsm hidden 6b57e33c (no description set)
        - rlvkpnrz hidden 05a2969e (no description set)
+       diff --git a/file b/file
+       index 7898192261..6178079822 100644
+       --- a/file
+       +++ b/file
+       @@ -1,1 +1,1 @@
+       -a
+       +b
 
     Changed working copy default@:
     + mzvwutvl 6cbd01ae (empty) (no description set)
@@ -1913,6 +1920,14 @@ fn test_op_diff_divergent_change() {
     ○  + rlvkpnrz da3f472d 2ab
        - rlvkpnrz hidden 82ad1ba9 2b
        - rlvkpnrz hidden a7e9a63b 2a
+       diff --git a/file b/file
+       index 5e0f51b37b..60327514e0 100644
+       --- a/file
+       +++ b/file
+       @@ -1,2 +1,3 @@
+       +2a
+        1
+        2b
 
     Changed working copy default@:
     + rlvkpnrz da3f472d 2ab
@@ -2590,6 +2605,13 @@ fn test_op_show_patch() {
     ○  + qpvuntsm 7aa2ec5d (no description set)
        - qpvuntsm hidden 6b57e33c (no description set)
        - rlvkpnrz hidden 05a2969e (no description set)
+       diff --git a/file b/file
+       index 7898192261..6178079822 100644
+       --- a/file
+       +++ b/file
+       @@ -1,1 +1,1 @@
+       -a
+       +b
 
     Changed working copy default@:
     + mzvwutvl 6cbd01ae (empty) (no description set)
@@ -2646,6 +2668,13 @@ fn test_op_show_patch() {
     │  ○  + qpvuntsm 7aa2ec5d (no description set)
     │     - qpvuntsm hidden 6b57e33c (no description set)
     │     - rlvkpnrz hidden 05a2969e (no description set)
+    │     diff --git a/file b/file
+    │     index 7898192261..6178079822 100644
+    │     --- a/file
+    │     +++ b/file
+    │     @@ -1,1 +1,1 @@
+    │     -a
+    │     +b
     │
     │  Changed working copy default@:
     │  + mzvwutvl 6cbd01ae (empty) (no description set)

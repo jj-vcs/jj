@@ -583,7 +583,12 @@ fn show_change_diff(
             diff_renderer.show_inter_diff(
                 ui,
                 formatter,
-                predecessors,
+                // TODO: It's technically wrong to show diffs from the first
+                // predecessor, but diff of partial "squash" operation would be
+                // unreadable otherwise. We have the same problem in "evolog",
+                // but it's less of an issue there because "evolog" shows the
+                // predecessors recursively.
+                predecessors.get(..1).unwrap_or(&[]),
                 commit,
                 &EverythingMatcher,
                 width,
