@@ -42,6 +42,9 @@ heads(author(peff))
 # Roots and heads of range
 roots(::v2.40.0)
 heads(::v2.40.0)
+# Ancestors and ranges of large subsets
+::(v1.0.0..v2.40.0)
+author(peff)..
 # Parents and ancestors of old commit
 v1.0.0-
 v1.0.0---

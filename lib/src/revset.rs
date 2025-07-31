@@ -2105,9 +2105,11 @@ fn fold_ancestors_union<St: ExpressionState>(
 }
 
 /// Transforms expressions like `heads(roots..heads & filters)` into a combined
-/// operation where possible. Ancestors and negated ancestors should have
-/// already been moved to the left in intersections, and negated ancestors
-/// should have been combined already.
+/// operation where possible. Also optimizes the heads of ancestors expressions
+/// involving ranges or filters such as `::(foo..bar)` or `::mine()`.
+///
+/// Ancestors and negated ancestors should have already been moved to the left
+/// in intersections, and negated ancestors should have been combined already.
 fn fold_heads_range<St: ExpressionState>(
     expression: &Rc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
@@ -2212,6 +2214,17 @@ fn fold_heads_range<St: ExpressionState>(
     }
 
     transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
+        // ::(x..y & filter) -> ::heads_range(x, y, filter)
+        // ::filter -> ::heads_range(none(), visible_heads_or_referenced(), filter)
+        RevsetExpression::Ancestors {
+            heads,
+            // This optimization is only valid for full generation and parents ranges, since
+            // otherwise adding `heads()` would change the result.
+            generation: GENERATION_RANGE_FULL,
+            parents_range: PARENTS_RANGE_FULL,
+        } => to_heads_range(heads).map(|heads| heads.ancestors()),
+        // heads(x..y & filter) -> heads_range(x, y, filter)
+        // heads(filter) -> heads_range(none(), visible_heads_or_referenced(), filter)
         RevsetExpression::Heads(candidates) => to_heads_range(candidates),
         _ => None,
     })
@@ -5340,12 +5353,17 @@ mod tests {
         // Filters can be merged after ancestor unions are folded.
         insta::assert_debug_snapshot!(optimize(parse("::foo | ::author_name(bar)").unwrap()), @r#"
         Ancestors {
-            heads: AsFilter(
-                Union(
-                    CommitRef(Symbol("foo")),
-                    Filter(AuthorName(Substring("bar"))),
+            heads: HeadsRange {
+                roots: None,
+                heads: VisibleHeadsOrReferenced,
+                parents_range: 0..4294967295,
+                filter: AsFilter(
+                    Union(
+                        CommitRef(Symbol("foo")),
+                        Filter(AuthorName(Substring("bar"))),
+                    ),
                 ),
-            ),
+            },
             generation: 0..18446744073709551615,
             parents_range: 0..4294967295,
         }
@@ -5448,11 +5466,11 @@ mod tests {
         insta::assert_debug_snapshot!(optimize(parse("foo..(bar..baz)").unwrap()), @r#"
         Range {
             roots: CommitRef(Symbol("foo")),
-            heads: Range {
+            heads: HeadsRange {
                 roots: CommitRef(Symbol("bar")),
                 heads: CommitRef(Symbol("baz")),
-                generation: 0..18446744073709551615,
                 parents_range: 0..4294967295,
+                filter: All,
             },
             generation: 0..18446744073709551615,
             parents_range: 0..4294967295,
@@ -5953,6 +5971,98 @@ mod tests {
                 NotIn(CommitRef(Symbol("foo"))),
                 Roots(CommitRef(Symbol("bar"))),
             ),
+        }
+        "#);
+    }
+
+    #[test]
+    fn test_optimize_ancestors_heads_range() {
+        // Can use heads range to optimize ancestors of filter.
+        insta::assert_debug_snapshot!(optimize(parse("::description(bar)").unwrap()), @r#"
+        Ancestors {
+            heads: HeadsRange {
+                roots: None,
+                heads: VisibleHeadsOrReferenced,
+                parents_range: 0..4294967295,
+                filter: Filter(
+                    Description(
+                        Substring(
+                            "bar",
+                        ),
+                    ),
+                ),
+            },
+            generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("author_name(foo)..").unwrap()), @r#"
+        Range {
+            roots: HeadsRange {
+                roots: None,
+                heads: VisibleHeadsOrReferenced,
+                parents_range: 0..4294967295,
+                filter: Filter(
+                    AuthorName(
+                        Substring(
+                            "foo",
+                        ),
+                    ),
+                ),
+            },
+            heads: VisibleHeadsOrReferenced,
+            generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
+        }
+        "#);
+
+        // Can use heads range to optimize ancestors of range.
+        insta::assert_debug_snapshot!(optimize(parse("::(foo..bar)").unwrap()), @r#"
+        Ancestors {
+            heads: HeadsRange {
+                roots: CommitRef(
+                    Symbol(
+                        "foo",
+                    ),
+                ),
+                heads: CommitRef(
+                    Symbol(
+                        "bar",
+                    ),
+                ),
+                parents_range: 0..4294967295,
+                filter: All,
+            },
+            generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
+        }
+        "#);
+
+        // Can't optimize if not using full generation and parents ranges.
+        insta::assert_debug_snapshot!(optimize(parse("ancestors(author_name(foo), 5)").unwrap()), @r#"
+        Ancestors {
+            heads: Filter(
+                AuthorName(
+                    Substring(
+                        "foo",
+                    ),
+                ),
+            ),
+            generation: 0..5,
+            parents_range: 0..4294967295,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("first_ancestors(author_name(foo))").unwrap()), @r#"
+        Ancestors {
+            heads: Filter(
+                AuthorName(
+                    Substring(
+                        "foo",
+                    ),
+                ),
+            ),
+            generation: 0..18446744073709551615,
+            parents_range: 0..1,
         }
         "#);
     }
