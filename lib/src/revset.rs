@@ -2391,8 +2391,8 @@ pub fn optimize<St: ExpressionState>(
     let expression = fold_generation(&expression).unwrap_or(expression);
     let expression = flatten_intersections(&expression).unwrap_or(expression);
     let expression = sort_negations_and_ancestors(&expression).unwrap_or(expression);
-    let expression = internalize_filter(&expression).unwrap_or(expression);
     let expression = fold_ancestors_union(&expression).unwrap_or(expression);
+    let expression = internalize_filter(&expression).unwrap_or(expression);
     let expression = fold_heads_range(&expression).unwrap_or(expression);
     let expression = fold_difference(&expression).unwrap_or(expression);
     fold_not_in_ancestors(&expression).unwrap_or(expression)
@@ -5331,6 +5331,20 @@ mod tests {
                 ),
             ),
         )
+        "#);
+
+        // Filters can be merged after ancestor unions are folded.
+        insta::assert_debug_snapshot!(optimize(parse("::foo | ::author_name(bar)").unwrap()), @r#"
+        Ancestors {
+            heads: AsFilter(
+                Union(
+                    CommitRef(Symbol("foo")),
+                    Filter(AuthorName(Substring("bar"))),
+                ),
+            ),
+            generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
+        }
         "#);
     }
 
