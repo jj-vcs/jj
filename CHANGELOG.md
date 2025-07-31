@@ -56,6 +56,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* The new command `jj git colocate` can convert a non-colocated git repo into
+  a colocated repo and vice-versa (using the `--undo` flag).
+
 * The new command `jj redo` can progressively redo operations that were
   previously undone by multiple calls to `jj undo`.
 
