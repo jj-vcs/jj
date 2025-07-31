@@ -2190,25 +2190,29 @@ fn fold_heads_range<St: ExpressionState>(
         }
     }
 
+    fn to_heads_range<St: ExpressionState>(
+        candidates: &Rc<RevsetExpression<St>>,
+    ) -> Option<Rc<RevsetExpression<St>>> {
+        to_filtered_range(candidates).map(|filtered_range| {
+            let (heads, parents_range) =
+                filtered_range.heads_and_parents_range.unwrap_or_else(|| {
+                    (
+                        RevsetExpression::visible_heads_or_referenced(),
+                        PARENTS_RANGE_FULL,
+                    )
+                });
+            RevsetExpression::HeadsRange {
+                roots: filtered_range.roots,
+                heads,
+                parents_range,
+                filter: filtered_range.filter,
+            }
+            .into()
+        })
+    }
+
     transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
-        RevsetExpression::Heads(candidates) => {
-            to_filtered_range(candidates).map(|filtered_range| {
-                let (heads, parents_range) =
-                    filtered_range.heads_and_parents_range.unwrap_or_else(|| {
-                        (
-                            RevsetExpression::visible_heads_or_referenced(),
-                            PARENTS_RANGE_FULL,
-                        )
-                    });
-                RevsetExpression::HeadsRange {
-                    roots: filtered_range.roots,
-                    heads,
-                    parents_range,
-                    filter: filtered_range.filter,
-                }
-                .into()
-            })
-        }
+        RevsetExpression::Heads(candidates) => to_heads_range(candidates),
         _ => None,
     })
 }
