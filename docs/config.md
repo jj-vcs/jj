@@ -1216,6 +1216,23 @@ command = ["sort", "-u"]
 patterns = ["word_list.txt"]
 ```
 
+### Tools stored inside the workspace
+
+Some fix tools may be stored inside the workspace. For example, a binary may be
+stored inside `node_modules`.
+
+On Windows, [relative paths for commands are resolved using the parent process's
+working directory][win-relative-command], not the working directory of the new
+process. To define a fix tool stored inside the workspace on Windows, use the
+`$root` variable to create an absolute path:
+
+```toml
+[fix.tools.biome]
+command = ["$root\\node_modules\\@biomejs\\cli-win32-x64\\biome.exe"]
+```
+
+[win-relative-command]: https://github.com/rust-lang/rust/issues/37868
+
 ### Execution order of tools
 
 If two or more tools affect the same file, they are executed in the ascending
