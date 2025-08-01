@@ -82,6 +82,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New `signing.backends.ssh.revocation-list` config for specifying a list of revoked
   public keys for commit signature verification.
 
+* commit trailers now respect `JJ:` prefixes and ignore them when not using an
+  editor.
+
 ### Fixed bugs
 
 * Fixed an error in `jj util gc` caused by the empty blob being missing from
