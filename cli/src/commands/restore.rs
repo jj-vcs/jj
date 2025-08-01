@@ -117,11 +117,13 @@ pub(crate) fn cmd_restore(
     let mut workspace_command = command.workspace_helper(ui)?;
     let (from_commits, from_tree, to_commit);
     if args.revision.is_some() {
-        return Err(user_error(
-            "`jj restore` does not have a `--revision`/`-r` option. If you'd like to modify\nthe \
-             *current* revision, use `--from`. If you'd like to modify a *different* \
-             revision,\nuse `--into` or `--changes-in`.",
-        ));
+        return Err(
+            user_error("`jj restore` does not have a `--revision`/`-r` option.")
+                .hinted("To modify the current revision, use `--from`.")
+                .hinted(
+                    "To undo changes in a revision compared to its parents, use `--changes-in`.",
+                ),
+        );
     }
     if args.from.is_some() || args.into.is_some() {
         to_commit = workspace_command
