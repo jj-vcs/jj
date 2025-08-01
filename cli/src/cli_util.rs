@@ -3256,10 +3256,14 @@ pub struct EarlyArgs {
     // Option<bool>.
     pub quiet: Option<bool>,
     /// Disable the pager
-    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    #[arg(long, global = true, action = ArgAction::SetTrue, conflicts_with = "pager")]
     // Parsing with ignore_errors will crash if this is bool, so use
     // Option<bool>.
     pub no_pager: Option<bool>,
+    /// Sets the pager to auto. This is the default behavior unless configured
+    /// otherwise.
+    #[arg(long, global = true, action = ArgAction::SetTrue, conflicts_with = "no_pager")]
+    pub pager: Option<bool>,
     /// Additional configuration options (can be repeated)
     ///
     /// The name should be specified as TOML dotted keys. The value should be
@@ -3506,6 +3510,8 @@ fn parse_early_args(
     }
     if args.no_pager.unwrap_or_default() {
         layer.set_value("ui.paginate", "never").unwrap();
+    } else if args.pager.unwrap_or_default() {
+        layer.set_value("ui.paginate", "auto").unwrap();
     }
     if !layer.is_empty() {
         config_layers.push(layer);
