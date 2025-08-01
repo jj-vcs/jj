@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
@@ -102,28 +102,23 @@ pub fn cmd_git_fetch(
 
     let all_remotes = git::get_all_remote_names(workspace_command.repo().store())?;
 
-    let mut matching_remotes = HashSet::new();
+    let mut remotes = BTreeSet::new();
     for pattern in remote_patterns {
-        let remotes = all_remotes
+        let num_matched = all_remotes
             .iter()
             .filter(|r| pattern.is_match(r.as_str()))
-            .collect_vec();
-        if remotes.is_empty() {
+            .inspect(|&r| {
+                remotes.insert(r.as_ref());
+            })
+            .count();
+        if num_matched == 0 {
             writeln!(ui.warning_default(), "No git remotes matching '{pattern}'")?;
-        } else {
-            matching_remotes.extend(remotes);
         }
     }
 
-    if matching_remotes.is_empty() {
+    if remotes.is_empty() {
         return Err(user_error("No git remotes to fetch from"));
     }
-
-    let remotes = matching_remotes
-        .iter()
-        .map(|r| r.as_ref())
-        .sorted()
-        .collect_vec();
 
     let branches_by_remote: Vec<(&RemoteName, Vec<StringPattern>)> = if args.tracked {
         remotes
@@ -220,7 +215,7 @@ fn warn_if_branches_not_found(
     ui: &mut Ui,
     tx: &WorkspaceCommandTransaction,
     branches: &[StringPattern],
-    remotes: &[&RemoteName],
+    remotes: &BTreeSet<&RemoteName>,
 ) -> Result<(), CommandError> {
     let mut missing_branches = vec![];
     for branch in branches {
