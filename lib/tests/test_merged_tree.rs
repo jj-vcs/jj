@@ -560,8 +560,8 @@ fn test_resolve_with_conflict_containing_empty_subtree() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Since "dir" in side2 is absent, the root tree should be empty as well.
-    // If it were added to the root tree, side2.id() would differ.
+    // Since "dir" in side2 is absent, side2's root tree should be empty as
+    // well. If it were added to the root tree, side2.id() would differ.
     let conflict_path = repo_path("dir/file_conflict");
     let base1 = create_single_tree(repo, &[(conflict_path, "base1")]);
     let side1 = create_single_tree(repo, &[(conflict_path, "side1")]);
