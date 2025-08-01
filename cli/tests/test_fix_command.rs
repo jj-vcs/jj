@@ -514,6 +514,82 @@ fn test_relative_paths() {
 }
 
 #[test]
+fn test_relative_tool_path_from_subdirectory() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Copy the fake-formatter into the workspace as a relative tool
+    let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
+    let formatter_name = formatter_path.file_name().unwrap().to_str().unwrap();
+    let tool_dir = work_dir.create_dir("tools");
+    let workspace_formatter_path = tool_dir.root().join(formatter_name);
+    std::fs::copy(&formatter_path, &workspace_formatter_path).unwrap();
+    work_dir.write_file(".gitignore", "tools/\n");
+    let formatter_relative_path = PathBuf::from_iter(["$root", "tools", formatter_name]);
+    test_env.add_config(format!(
+        r###"
+        [fix.tools.a]
+        command = [{path}, "--uppercase"]
+        patterns = ['glob:"**/*.txt"']
+        "###,
+        path = to_toml_value(formatter_relative_path.to_str().unwrap())
+    ));
+
+    // Create a test file and subdirectory
+    work_dir.write_file("test.txt", "hello world\n");
+    let sub_dir = work_dir.create_dir("subdir");
+    work_dir.write_file("subdir/nested.txt", "nested content\n");
+
+    // Run fix from workspace root
+    let output = work_dir.run_jj(["fix"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Fixed 1 commits of 1 checked.
+    Working copy  (@) now at: qpvuntsm 58961e98 (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Added 0 files, modified 2 files, removed 0 files
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["file", "show", "test.txt", "-r", "@"]);
+    insta::assert_snapshot!(output, @r###"
+    HELLO WORLD
+    [EOF]
+    "###);
+    let output = work_dir.run_jj(["file", "show", "subdir/nested.txt", "-r", "@"]);
+    insta::assert_snapshot!(output, @r###"
+    NESTED CONTENT
+    [EOF]
+    "###);
+
+    // Reset so the fix tools should have an effect again
+    work_dir.run_jj(["undo"]).success();
+
+    // Run fix from the subdirectory
+    let output = sub_dir.run_jj(["fix"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Fixed 1 commits of 1 checked.
+    Working copy  (@) now at: qpvuntsm 380c1b78 (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Added 0 files, modified 2 files, removed 0 files
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["file", "show", "test.txt", "-r", "@"]);
+    insta::assert_snapshot!(output, @r###"
+    HELLO WORLD
+    [EOF]
+    "###);
+    let output = work_dir.run_jj(["file", "show", "subdir/nested.txt", "-r", "@"]);
+    insta::assert_snapshot!(output, @r###"
+    NESTED CONTENT
+    [EOF]
+    "###);
+}
+
+#[test]
 fn test_fix_empty_commit() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

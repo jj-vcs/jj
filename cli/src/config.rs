@@ -823,7 +823,7 @@ impl CommandNameAndArgs {
         variables: &HashMap<&str, V>,
     ) -> Command {
         let (name, args) = self.split_name_and_args();
-        let mut cmd = Command::new(name.as_ref());
+        let mut cmd = Command::new(interpolate_variables_single(name.as_ref(), variables));
         if let Self::Structured { env, .. } = self {
             cmd.envs(env);
         }
@@ -862,19 +862,21 @@ pub fn interpolate_variables<V: AsRef<str>>(
     variables: &HashMap<&str, V>,
 ) -> Vec<String> {
     args.iter()
-        .map(|arg| {
-            VARIABLE_REGEX
-                .replace_all(arg, |caps: &Captures| {
-                    let name = &caps[1];
-                    if let Some(subst) = variables.get(name) {
-                        subst.as_ref().to_owned()
-                    } else {
-                        caps[0].to_owned()
-                    }
-                })
-                .into_owned()
-        })
+        .map(|arg| interpolate_variables_single(arg, variables))
         .collect()
+}
+
+fn interpolate_variables_single<V: AsRef<str>>(arg: &str, variables: &HashMap<&str, V>) -> String {
+    VARIABLE_REGEX
+        .replace_all(arg, |caps: &Captures| {
+            let name = &caps[1];
+            if let Some(subst) = variables.get(name) {
+                subst.as_ref().to_owned()
+            } else {
+                caps[0].to_owned()
+            }
+        })
+        .into_owned()
 }
 
 /// Return all variable names found in the args, without the dollar sign

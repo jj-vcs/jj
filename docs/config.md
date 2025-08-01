@@ -1216,6 +1216,22 @@ command = ["sort", "-u"]
 patterns = ["word_list.txt"]
 ```
 
+### Tools stored inside the workspace
+
+Some fix tools may be stored inside the workspace. For example, a binary may be
+stored inside `node_modules`. Use the `$root` variable to create an absolute
+path to such a program:
+
+```toml
+[fix.tools.biome]
+
+# Linux and macOS
+command = ["$root/node_modules/@biomejs/cli-linux-x64/biome"]
+
+# Windows
+command = ["$root\\node_modules\\@biomejs\\cli-win32-x64\\biome.exe"]
+```
+
 ### Execution order of tools
 
 If two or more tools affect the same file, they are executed in the ascending

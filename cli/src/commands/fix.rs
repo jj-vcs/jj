@@ -67,11 +67,14 @@ use crate::ui::Ui;
 /// Tools are defined in a table where the keys are arbitrary identifiers and
 /// the values have the following properties:
 ///  - `command`: The arguments used to run the tool. The first argument is the
-///    path to an executable file. Arguments can contain the substring `$path`,
-///    which will be replaced with the repo-relative path of the file being
-///    fixed. It is useful to provide the path to tools that include the path in
-///    error messages, or behave differently based on the directory or file
-///    name.
+///    path to an executable file. Arguments can contain these variables that
+///    will be replaced:
+///    - `$root` will be replaced with the workspace root path (the directory
+///      containing the .jj directory).
+///    - `$path` will be replaced with the repo-relative path of the file being
+///      fixed. It is useful to provide the path to tools that include the path
+///      in error messages, or behave differently based on the directory or file
+///      name.
 ///  - `patterns`: Determines which files the tool will affect. If this list is
 ///    empty, no files will be affected by the tool. If there are multiple
 ///    patterns, the tool is applied only once to each file in the union of the
@@ -250,10 +253,15 @@ fn run_tool(
     file_to_fix: &FileToFix,
     old_content: &[u8],
 ) -> Result<Vec<u8>, ()> {
-    // TODO: Pipe stderr so we can tell the user which commit, file, and tool it is
-    // associated with.
     let mut vars: HashMap<&str, &str> = HashMap::new();
     vars.insert("path", file_to_fix.repo_path.as_internal_file_string());
+    // TODO: workspace_root.to_str() returns None if the workspace path is not
+    // UTF-8, but we ignore that failure so `jj fix` still runs in that
+    // situation. Maybe we should do something like substituting bytes instead
+    // of strings so we can handle any Path here.
+    if let Some(root) = workspace_root.to_str() {
+        vars.insert("root", root);
+    }
     let mut command = tool_command.to_command_with_variables(&vars);
     tracing::debug!(?command, ?file_to_fix.repo_path, "spawning fix tool");
     let mut child = command

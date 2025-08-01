@@ -85,6 +85,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New `signing.backends.ssh.revocation-list` config for specifying a list of revoked
   public keys for commit signature verification.
 
+* `jj fix` commands now replace `$root` with the workspace's root path. This is
+  useful for tools stored inside the workspace.
+
 ### Fixed bugs
 
 * Fixed an error in `jj util gc` caused by the empty blob being missing from
