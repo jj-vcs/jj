@@ -35,10 +35,10 @@ Added 1 files, modified 0 files, removed 0 files
 $ cd Hello-World
 ```
 
-Running `jj st` (short for `jj status`) now yields something like this:
+Running `jj status` now yields something like this:
 
 ```shell
-$ jj st
+$ jj status
 The working copy has no changes.
 Working copy  (@) : kntqzsqt d7439b06 (empty) (no description set)
 Parent commit (@-): orrkosyo 7fd1a60b master | (empty) Merge pull request #6 from Spaceghost/patch-1
@@ -99,7 +99,7 @@ Now make the change in the README:
 ```shell
 # Adjust as necessary for compatibility with your flavor of `sed`
 $ sed -i 's/Hello/Goodbye/' README
-$ jj st
+$ jj status
 Working copy changes:
 M README
 Working copy  (@) : kntqzsqt 5d39e19d Say goodbye
@@ -145,7 +145,7 @@ So, let's say we're now done with this change, so we create a new change:
 $ jj new
 Working copy  (@) now at: mpqrykyp aef4df99 (empty) (no description set)
 Parent commit (@-)      : kntqzsqt 5d39e19d Say goodbye
-$ jj st
+$ jj status
 The working copy has no changes.
 Working copy  (@) : mpqrykyp aef4df99 (empty) (no description set)
 Parent commit (@-): kntqzsqt 5d39e19d Say goodbye
@@ -320,7 +320,7 @@ Added 0 files, modified 0 files, removed 1 files
 Warning: There are unresolved conflicts at these paths:
 file1    2-sided conflict
 
-$ jj st
+$ jj status
 The working copy has no changes.
 Working copy  (@) : zxoosnnp c7068d1c (conflict) (empty) (no description set)
 Parent commit (@-): puqltutt f7fb5943 (conflict) B2
@@ -344,7 +344,7 @@ b2
 
 $ echo resolved > file1
 
-$ jj st
+$ jj status
 Working copy changes:
 M file1
 Working copy  (@) : zxoosnnp c2a31a06 (no description set)
