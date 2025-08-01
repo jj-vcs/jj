@@ -17,6 +17,7 @@
 use std::borrow::Borrow;
 use std::cmp::max;
 use std::collections::BTreeMap;
+use std::collections::HashSet;
 use std::iter;
 use std::iter::zip;
 use std::pin::Pin;
@@ -27,12 +28,14 @@ use std::task::ready;
 use std::vec;
 
 use either::Either;
+use futures::FutureExt as _;
 use futures::Stream;
 use futures::StreamExt as _;
 use futures::future::BoxFuture;
 use futures::future::try_join;
 use futures::future::try_join_all;
 use futures::stream::BoxStream;
+use futures::stream::FuturesUnordered;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
@@ -473,6 +476,9 @@ fn trees_value<'a>(trees: &'a Merge<Tree>, basename: &RepoPathComponent) -> Merg
 
 struct MergedTreeInput {
     resolved: BTreeMap<RepoPathComponentBuf, TreeValue>,
+    /// Entries that we're currently waiting for data for in order to resolve
+    /// them. When this set becomes empty, we're ready to write the tree(s).
+    pending_lookup: HashSet<RepoPathComponentBuf>,
     conflicts: BTreeMap<RepoPathComponentBuf, MergedTreeValue>,
 }
 
@@ -480,11 +486,14 @@ impl MergedTreeInput {
     fn new(resolved: BTreeMap<RepoPathComponentBuf, TreeValue>) -> Self {
         Self {
             resolved,
+            pending_lookup: HashSet::new(),
             conflicts: BTreeMap::new(),
         }
     }
 
     fn mark_completed(&mut self, basename: RepoPathComponentBuf, value: MergedTreeValue) {
+        let was_pending = self.pending_lookup.remove(&basename);
+        assert!(was_pending, "No pending lookup for {basename:?}");
         if let Some(resolved) = value.resolve_trivial() {
             if let Some(resolved) = resolved.as_ref() {
                 self.resolved.insert(basename, resolved.clone());
@@ -495,6 +504,8 @@ impl MergedTreeInput {
     }
 
     fn into_backend_trees(self) -> Merge<backend::Tree> {
+        assert!(self.pending_lookup.is_empty());
+
         fn by_name(
             (name1, _): &(RepoPathComponentBuf, TreeValue),
             (name2, _): &(RepoPathComponentBuf, TreeValue),
@@ -533,6 +544,171 @@ impl MergedTreeInput {
     }
 }
 
+/// The result from an asynchronously scheduled work item.
+enum TreeMergerWorkOutput {
+    /// Trees that have been read (i.e. `Read` is past tense)
+    ReadTrees {
+        dir: RepoPathBuf,
+        result: BackendResult<Merge<Tree>>,
+    },
+    WrittenTrees {
+        dir: RepoPathBuf,
+        result: BackendResult<Merge<Tree>>,
+    },
+    MergedFiles {
+        path: RepoPathBuf,
+        result: BackendResult<MergedTreeValue>,
+    },
+}
+
+struct TreeMerger {
+    store: Arc<Store>,
+    // Trees we're currently working on.
+    trees_to_resolve: BTreeMap<RepoPathBuf, MergedTreeInput>,
+    // TODO: Also keep one or more queues of not-yet-started work items, so we can respect the
+    // backend's concurrency limit.
+    work: FuturesUnordered<BoxFuture<'static, TreeMergerWorkOutput>>,
+}
+
+impl TreeMerger {
+    async fn merge(mut self) -> BackendResult<Merge<Tree>> {
+        while let Some(work_item) = self.work.next().await {
+            match work_item {
+                TreeMergerWorkOutput::ReadTrees { dir, result } => {
+                    let tree = result?;
+                    self.process_tree(dir, tree);
+                }
+                TreeMergerWorkOutput::WrittenTrees { dir, result } => {
+                    let tree = result?;
+                    if dir.is_root() {
+                        assert!(self.trees_to_resolve.is_empty());
+                        assert!(self.work.is_empty());
+                        return Ok(tree);
+                    }
+                    // Propagate the write to the parent tree, replacing empty trees by `None`.
+                    let new_value = tree.map(|tree| {
+                        (tree.id() != self.store.empty_tree_id())
+                            .then(|| TreeValue::Tree(tree.id().clone()))
+                    });
+                    self.mark_completed(&dir, new_value);
+                }
+                TreeMergerWorkOutput::MergedFiles { path, result } => {
+                    let value = result?;
+                    self.mark_completed(&path, value);
+                }
+            }
+        }
+
+        unreachable!("There was no work item for writing the root tree");
+    }
+
+    fn process_tree(&mut self, dir: RepoPathBuf, tree: Merge<Tree>) {
+        // First resolve trivial merges (those that we don't need to load any more data
+        // for)
+        let mut resolved = vec![];
+        let mut non_trivial = vec![];
+        for (basename, path_merge) in all_merged_tree_entries(&tree) {
+            if let Some(value) = path_merge.resolve_trivial() {
+                if let Some(value) = value.cloned() {
+                    resolved.push((basename.to_owned(), value));
+                }
+            } else {
+                non_trivial.push((basename.to_owned(), path_merge.cloned()));
+            }
+        }
+
+        // If there are no non-trivial merges, we can write the tree now.
+        if non_trivial.is_empty() {
+            let backend_trees = Merge::resolved(backend::Tree::from_sorted_entries(resolved));
+            self.enqueue_tree_write(dir, backend_trees);
+            return;
+        }
+
+        let mut unmerged_tree = MergedTreeInput::new(resolved.into_iter().collect());
+        for (basename, value) in non_trivial {
+            let path = dir.join(&basename);
+            unmerged_tree.pending_lookup.insert(basename);
+            if value.is_tree() {
+                self.enqueue_tree_read(path, value);
+            } else {
+                // TODO: If it's e.g. a dir/file conflict, there's no need to try to
+                // resolve it as a file. We should mark them to
+                // `unmerged_tree.conflicts` instead.
+                self.enqueue_file_merge(path, value);
+            }
+        }
+
+        self.trees_to_resolve.insert(dir, unmerged_tree);
+    }
+
+    fn enqueue_tree_read(&mut self, dir: RepoPathBuf, value: MergedTreeValue) {
+        let work_fut = read_trees(self.store.clone(), dir.clone(), value)
+            .map(|result| TreeMergerWorkOutput::ReadTrees { dir, result });
+        self.work.push(Box::pin(work_fut));
+    }
+
+    fn enqueue_tree_write(&mut self, dir: RepoPathBuf, backend_trees: Merge<backend::Tree>) {
+        let work_fut = write_trees(self.store.clone(), dir.clone(), backend_trees)
+            .map(|result| TreeMergerWorkOutput::WrittenTrees { dir, result });
+        self.work.push(Box::pin(work_fut));
+    }
+
+    fn enqueue_file_merge(&mut self, path: RepoPathBuf, value: MergedTreeValue) {
+        let work_fut = resolve_file_values_owned(self.store.clone(), path.clone(), value)
+            .map(|result| TreeMergerWorkOutput::MergedFiles { path, result });
+        self.work.push(Box::pin(work_fut));
+    }
+
+    fn mark_completed(&mut self, path: &RepoPath, value: MergedTreeValue) {
+        let (dir, basename) = path.split().unwrap();
+        let tree = self.trees_to_resolve.get_mut(dir).unwrap();
+        tree.mark_completed(basename.to_owned(), value);
+        // If all entries in this tree have been processed (either resolved or still a
+        // conflict), schedule the writing of the tree(s) to the backend.
+        if tree.pending_lookup.is_empty() {
+            let tree = self.trees_to_resolve.remove(dir).unwrap();
+            self.enqueue_tree_write(dir.to_owned(), tree.into_backend_trees());
+        }
+    }
+}
+
+async fn read_trees(
+    store: Arc<Store>,
+    dir: RepoPathBuf,
+    value: MergedTreeValue,
+) -> BackendResult<Merge<Tree>> {
+    let trees = value
+        .to_tree_merge(&store, &dir)
+        .await?
+        .expect("Should be tree merge");
+    Ok(trees)
+}
+
+async fn write_trees(
+    store: Arc<Store>,
+    dir: RepoPathBuf,
+    backend_trees: Merge<backend::Tree>,
+) -> BackendResult<Merge<Tree>> {
+    // TODO: Could use `backend_trees.try_map_async()` here if it took `self` by
+    // value or if `Backend::write_tree()` to an `Arc<backend::Tree>`.
+    let trees = try_join_all(
+        backend_trees
+            .into_iter()
+            .map(|backend_tree| store.write_tree(&dir, backend_tree)),
+    )
+    .await?;
+    Ok(Merge::from_vec(trees))
+}
+
+async fn resolve_file_values_owned(
+    store: Arc<Store>,
+    path: RepoPathBuf,
+    values: MergedTreeValue,
+) -> BackendResult<MergedTreeValue> {
+    let maybe_resolved = try_resolve_file_values(&store, &path, &values).await?;
+    Ok(maybe_resolved.unwrap_or(values))
+}
+
 /// The returned conflict will either be resolved or have the same number of
 /// sides as the input.
 async fn merge_trees(merge: Merge<Tree>) -> BackendResult<Merge<Tree>> {
@@ -541,66 +717,19 @@ async fn merge_trees(merge: Merge<Tree>) -> BackendResult<Merge<Tree>> {
         Err(merge) => merge,
     };
 
-    let base_tree = merge.first();
-    let store = base_tree.store();
-    let dir = base_tree.dir();
-    // Keep resolved entries in `resolved` and conflicted entries in `non_trivial`
-    // to start with. Then we'll create the full trees later, and only if there
-    // are any conflicts.
-    let mut resolved = BTreeMap::new();
-    let mut non_trivial = vec![];
-    for (basename, path_merge) in all_merged_tree_entries(&merge) {
-        if let Some(value) = path_merge.resolve_trivial() {
-            if let Some(value) = *value {
-                resolved.insert(basename.to_owned(), value.clone());
-            }
-            continue;
-        } else {
-            non_trivial.push((basename.to_owned(), path_merge));
-        }
-    }
-
-    // TODO: Merge values concurrently
-    let mut unmerged_tree = MergedTreeInput::new(resolved);
-    for (basename, path_merge) in non_trivial {
-        let path = dir.join(&basename);
-        let path_merge = merge_tree_values(store, &path, &path_merge).await?;
-        unmerged_tree.mark_completed(basename, path_merge);
-    }
-
-    let backend_trees = unmerged_tree.into_backend_trees();
-
-    // TODO: Could use `backend_trees.try_map_async()` here if it took `self` by
-    // value or if `Backend::write_tree()` to an `Arc<backend::Tree>`.
-    let trees = try_join_all(
-        backend_trees
-            .into_iter()
-            .map(|backend_tree| store.write_tree(dir, backend_tree)),
-    )
-    .await?;
-    Ok(Merge::from_vec(trees))
-}
-
-/// Tries to resolve a conflict between tree values. Returns
-/// Ok(Merge::normal(value)) if the conflict was resolved, and
-/// Ok(Merge::absent()) if the path should be removed. Returns the
-/// conflict unmodified if it cannot be resolved automatically.
-async fn merge_tree_values(
-    store: &Arc<Store>,
-    path: &RepoPath,
-    values: &MergedTreeVal<'_>,
-) -> BackendResult<MergedTreeValue> {
-    if let Some(trees) = values.to_tree_merge(store, path).await? {
-        // If all sides are trees or missing, merge the trees recursively, treating
-        // missing trees as empty.
-        let empty_tree_id = store.empty_tree_id();
-        let merged_tree = Box::pin(merge_trees(trees)).await?;
-        Ok(merged_tree
-            .map(|tree| (tree.id() != empty_tree_id).then(|| TreeValue::Tree(tree.id().clone()))))
-    } else {
-        let maybe_resolved = try_resolve_file_values(store, path, values).await?;
-        Ok(maybe_resolved.unwrap_or_else(|| values.cloned()))
-    }
+    let store = merge.first().store().clone();
+    let merger = TreeMerger {
+        store,
+        trees_to_resolve: BTreeMap::new(),
+        work: FuturesUnordered::new(),
+    };
+    merger.work.push(Box::pin(std::future::ready(
+        TreeMergerWorkOutput::ReadTrees {
+            dir: RepoPathBuf::root(),
+            result: Ok(merge),
+        },
+    )));
+    merger.merge().await
 }
 
 /// Tries to resolve file conflicts by merging the file contents. Treats missing
