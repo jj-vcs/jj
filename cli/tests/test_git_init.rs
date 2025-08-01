@@ -166,7 +166,7 @@ fn test_git_init_external(bare: bool) {
         insta::assert_snapshot!(get_log_output(&work_dir), @r"
         @  ed6b513890ae
         ○  e80a42cccd06 my-bookmark git_head() My commit message
-        ◆  000000000000
+        ♦  000000000000
         [EOF]
         ");
     }
@@ -344,7 +344,7 @@ fn test_git_init_colocated_via_git_repo_path() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  f3fe58bc88cc
     ○  e80a42cccd06 my-bookmark git_head() My commit message
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -354,7 +354,7 @@ fn test_git_init_colocated_via_git_repo_path() {
     @  0c77f9e21b55
     ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -382,7 +382,7 @@ fn test_git_init_colocated_via_git_repo_path_gitlink() {
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @r"
     @  f3fe58bc88cc
     ○  e80a42cccd06 my-bookmark git_head() My commit message
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -392,7 +392,7 @@ fn test_git_init_colocated_via_git_repo_path_gitlink() {
     @  0c77f9e21b55
     ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -420,7 +420,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory() {
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @r"
     @  f3fe58bc88cc
     ○  e80a42cccd06 my-bookmark git_head() My commit message
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -430,7 +430,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory() {
     @  0c77f9e21b55
     ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -462,7 +462,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory_without_bare_conf
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @r"
     @  f3fe58bc88cc
     ○  e80a42cccd06 my-bookmark git_head() My commit message
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -472,7 +472,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory_without_bare_conf
     @  0c77f9e21b55
     ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -507,7 +507,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() {
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @r"
     @  f3fe58bc88cc
     ○  e80a42cccd06 my-bookmark git_head() My commit message
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -517,7 +517,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() {
     @  0c77f9e21b55
     ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -653,7 +653,7 @@ fn test_git_init_colocated_dirty_working_copy() {
     ○  nntyzxmz someone@example.org 1970-01-01 11:00:00 my-bookmark git_head() e80a42cc
     │  My commit message
     │  A some-file
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
@@ -751,7 +751,7 @@ fn test_git_init_external_but_git_dir_exists() {
     // The local ".git" repository is unrelated, so no commits should be imported
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  e8849ae12c70
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -760,7 +760,7 @@ fn test_git_init_external_but_git_dir_exists() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  1c1c95df80e5
     ○  e8849ae12c70
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -784,7 +784,7 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  f3fe58bc88cc
     ○  e80a42cccd06 my-bookmark git_head() My commit message
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -794,7 +794,7 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
     @  0c77f9e21b55
     ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -813,7 +813,7 @@ fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     // No HEAD ref is available yet
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  e8849ae12c70
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -826,7 +826,7 @@ fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     // be created on top.
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  e8849ae12c70 main master
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -890,7 +890,7 @@ fn test_git_init_conditional_config() {
     insta::assert_snapshot!(output, @r"
     @  new-repo@example.org
     ○  new-repo@example.org
-    ◆
+    ♦
     [EOF]
     ");
     let output = run_jj(&new_workspace_dir, &["op", "log", "-T", op_log_template]);
