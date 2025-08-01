@@ -1442,6 +1442,30 @@ fn test_file_list_entries() {
     exec-file [file] conflict=false executable=true
     [EOF]
     ");
+
+    let template = r#"if(files, files.map(|e| e.path()), "(empty)") ++ "\n""#;
+    let output = work_dir.run_jj(["log", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    @    conflict-exec-file conflict-file dir/file exec-file
+    ├─╮
+    │ ○  conflict-exec-file conflict-file dir/file exec-file
+    ○ │  conflict-exec-file conflict-file
+    ├─╯
+    ◆  (empty)
+    [EOF]
+    ");
+
+    let template = r#"self.files("dir").map(|e| e.path()) ++ "\n""#;
+    let output = work_dir.run_jj(["log", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    @    dir/file
+    ├─╮
+    │ ○  dir/file
+    ○ │
+    ├─╯
+    ◆
+    [EOF]
+    ");
 }
 
 #[cfg(unix)]

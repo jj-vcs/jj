@@ -309,6 +309,11 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
+            CommitTemplatePropertyKind::TreeEntryList(property) => {
+                let table = &self.build_fn_table.tree_entry_list_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
+            }
             CommitTemplatePropertyKind::DiffStats(property) => {
                 let table = &self.build_fn_table.diff_stats_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -386,6 +391,7 @@ pub enum CommitTemplatePropertyKind<'repo> {
     TreeDiffEntry(BoxedTemplateProperty<'repo, TreeDiffEntry>),
     TreeDiffEntryList(BoxedTemplateProperty<'repo, Vec<TreeDiffEntry>>),
     TreeEntry(BoxedTemplateProperty<'repo, TreeEntry>),
+    TreeEntryList(BoxedTemplateProperty<'repo, Vec<TreeEntry>>),
     DiffStats(BoxedTemplateProperty<'repo, DiffStatsFormatted<'repo>>),
     CryptographicSignatureOpt(BoxedTemplateProperty<'repo, Option<CryptographicSignature>>),
     AnnotationLine(BoxedTemplateProperty<'repo, AnnotationLine>),
@@ -415,6 +421,7 @@ template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'re
     TreeDiffEntry(TreeDiffEntry),
     TreeDiffEntryList(Vec<TreeDiffEntry>),
     TreeEntry(TreeEntry),
+    TreeEntryList(Vec<TreeEntry>),
     DiffStats(DiffStatsFormatted<'repo>),
     CryptographicSignatureOpt(Option<CryptographicSignature>),
     AnnotationLine(AnnotationLine),
@@ -454,6 +461,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::TreeDiffEntry(_) => "TreeDiffEntry",
             Self::TreeDiffEntryList(_) => "List<TreeDiffEntry>",
             Self::TreeEntry(_) => "TreeEntry",
+            Self::TreeEntryList(_) => "List<TreeEntry>",
             Self::DiffStats(_) => "DiffStats",
             Self::CryptographicSignatureOpt(_) => "Option<CryptographicSignature>",
             Self::AnnotationLine(_) => "AnnotationLine",
@@ -487,6 +495,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::TreeDiffEntry(_) => None,
             Self::TreeDiffEntryList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
             Self::TreeEntry(_) => None,
+            Self::TreeEntryList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
             Self::DiffStats(_) => None,
             Self::CryptographicSignatureOpt(property) => {
                 Some(property.map(|sig| sig.is_some()).into_dyn())
@@ -544,6 +553,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::TreeDiffEntry(_) => None,
             Self::TreeDiffEntryList(_) => None,
             Self::TreeEntry(_) => None,
+            Self::TreeEntryList(_) => None,
             Self::DiffStats(_) => None,
             Self::CryptographicSignatureOpt(_) => None,
             Self::AnnotationLine(_) => None,
@@ -575,6 +585,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::TreeDiffEntry(_) => None,
             Self::TreeDiffEntryList(_) => None,
             Self::TreeEntry(_) => None,
+            Self::TreeEntryList(_) => None,
             Self::DiffStats(property) => Some(property.into_template()),
             Self::CryptographicSignatureOpt(_) => None,
             Self::AnnotationLine(_) => None,
@@ -636,6 +647,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::TreeDiffEntry(_), _) => None,
             (Self::TreeDiffEntryList(_), _) => None,
             (Self::TreeEntry(_), _) => None,
+            (Self::TreeEntryList(_), _) => None,
             (Self::DiffStats(_), _) => None,
             (Self::CryptographicSignatureOpt(_), _) => None,
             (Self::AnnotationLine(_), _) => None,
@@ -668,6 +680,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::TreeDiffEntry(_), _) => None,
             (Self::TreeDiffEntryList(_), _) => None,
             (Self::TreeEntry(_), _) => None,
+            (Self::TreeEntryList(_), _) => None,
             (Self::DiffStats(_), _) => None,
             (Self::CryptographicSignatureOpt(_), _) => None,
             (Self::AnnotationLine(_), _) => None,
@@ -698,6 +711,7 @@ pub struct CommitTemplateBuildFnTable<'repo> {
     pub tree_diff_entry_methods: CommitTemplateBuildMethodFnMap<'repo, TreeDiffEntry>,
     pub tree_diff_entry_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<TreeDiffEntry>>,
     pub tree_entry_methods: CommitTemplateBuildMethodFnMap<'repo, TreeEntry>,
+    pub tree_entry_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<TreeEntry>>,
     pub diff_stats_methods: CommitTemplateBuildMethodFnMap<'repo, DiffStats>,
     pub cryptographic_signature_methods:
         CommitTemplateBuildMethodFnMap<'repo, CryptographicSignature>,
@@ -725,6 +739,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             tree_diff_entry_methods: builtin_tree_diff_entry_methods(),
             tree_diff_entry_list_methods: template_builder::builtin_unformattable_list_methods(),
             tree_entry_methods: builtin_tree_entry_methods(),
+            tree_entry_list_methods: template_builder::builtin_unformattable_list_methods(),
             diff_stats_methods: builtin_diff_stats_methods(),
             cryptographic_signature_methods: builtin_cryptographic_signature_methods(),
             annotation_line_methods: builtin_annotation_line_methods(),
@@ -750,6 +765,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             tree_diff_entry_methods: HashMap::new(),
             tree_diff_entry_list_methods: HashMap::new(),
             tree_entry_methods: HashMap::new(),
+            tree_entry_list_methods: HashMap::new(),
             diff_stats_methods: HashMap::new(),
             cryptographic_signature_methods: HashMap::new(),
             annotation_line_methods: HashMap::new(),
@@ -775,6 +791,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             tree_diff_entry_methods,
             tree_diff_entry_list_methods,
             tree_entry_methods,
+            tree_entry_list_methods,
             diff_stats_methods,
             cryptographic_signature_methods,
             annotation_line_methods,
@@ -806,6 +823,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             tree_diff_entry_list_methods,
         );
         merge_fn_map(&mut self.tree_entry_methods, tree_entry_methods);
+        merge_fn_map(&mut self.tree_entry_list_methods, tree_entry_list_methods);
         merge_fn_map(&mut self.diff_stats_methods, diff_stats_methods);
         merge_fn_map(
             &mut self.cryptographic_signature_methods,
@@ -1128,6 +1146,30 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             let matcher: Rc<dyn Matcher> = files.to_matcher().into();
             let out_property = self_property
                 .and_then(move |commit| Ok(TreeDiff::from_commit(repo, &commit, matcher.clone())?));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "files",
+        |language, diagnostics, _build_ctx, self_property, function| {
+            let ([], [files_node]) = function.expect_arguments()?;
+            let files = if let Some(node) = files_node {
+                expect_fileset_literal(diagnostics, node, language.path_converter)?
+            } else {
+                // TODO: defaults to CLI path arguments?
+                // https://github.com/jj-vcs/jj/issues/2933#issuecomment-1925870731
+                FilesetExpression::all()
+            };
+            let matcher = files.to_matcher();
+            let out_property = self_property.and_then(move |commit| {
+                let tree = commit.tree()?;
+                let entries: Vec<_> = tree
+                    .entries_matching(&*matcher)
+                    .map(|(path, value)| value.map(|value| (path, value)))
+                    .map_ok(|(path, value)| TreeEntry { path, value })
+                    .try_collect()?;
+                Ok(entries)
+            });
             Ok(out_property.into_dyn_wrapped())
         },
     );

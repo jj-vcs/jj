@@ -154,6 +154,9 @@ This type cannot be printed. The following methods are defined.
 * `.diff([files: String]) -> TreeDiff`: Changes from the parents within [the
   `files` expression](filesets.md). All files are compared by default, but it is
   likely to change in future version to respect the command line path arguments.
+* `.files([files: String]) -> List<TreeEntry>`: Files that exist in this commit,
+  matching [the `files` expression](filesets.md). Use `.diff().files()` to list
+  changed files.
 * `.root() -> Boolean`: True if the commit is the root commit.
 
 ### `ChangeId` type
