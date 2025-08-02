@@ -119,6 +119,15 @@ fn test_rebase_invalid() {
     [EOF]
     [exit status: 1]
     ");
+
+    // Rebase onto itself with -s
+    let output = work_dir.run_jj(["rebase", "-s", "a", "-d", "a"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Cannot rebase 7d980be7a1d4 onto itself
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 #[test]
