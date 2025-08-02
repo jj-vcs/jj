@@ -472,16 +472,12 @@ fn trees_value<'a>(trees: &'a Merge<Tree>, basename: &RepoPathComponent) -> Merg
 }
 
 struct MergedTreeInput {
-    /// Entries that were resolved without needing to look up any data. Sorted
-    /// by basename.
-    resolved: Vec<(RepoPathComponentBuf, TreeValue)>,
-    /// Entries that we needed to look up data for but which are now determined
-    /// to be conflicts.
+    resolved: BTreeMap<RepoPathComponentBuf, TreeValue>,
     conflicts: BTreeMap<RepoPathComponentBuf, MergedTreeValue>,
 }
 
 impl MergedTreeInput {
-    fn new(resolved: Vec<(RepoPathComponentBuf, TreeValue)>) -> Self {
+    fn new(resolved: BTreeMap<RepoPathComponentBuf, TreeValue>) -> Self {
         Self {
             resolved,
             conflicts: BTreeMap::new(),
@@ -489,7 +485,13 @@ impl MergedTreeInput {
     }
 
     fn mark_completed(&mut self, basename: RepoPathComponentBuf, value: MergedTreeValue) {
-        self.conflicts.insert(basename, value);
+        if let Some(resolved) = value.resolve_trivial() {
+            if let Some(resolved) = resolved.as_ref() {
+                self.resolved.insert(basename, resolved.clone());
+            }
+        } else {
+            self.conflicts.insert(basename, value);
+        }
     }
 
     fn into_backend_trees(self) -> Merge<backend::Tree> {
@@ -501,7 +503,8 @@ impl MergedTreeInput {
         }
 
         if self.conflicts.is_empty() {
-            Merge::resolved(backend::Tree::from_sorted_entries(self.resolved))
+            let all_entries = self.resolved.into_iter().collect();
+            Merge::resolved(backend::Tree::from_sorted_entries(all_entries))
         } else {
             // Create a Merge with the conflict entries for each side.
             let mut conflict_entries = self.conflicts.first_key_value().unwrap().1.map(|_| vec![]);
@@ -519,7 +522,7 @@ impl MergedTreeInput {
                 let backend_tree = backend::Tree::from_sorted_entries(
                     self.resolved
                         .iter()
-                        .cloned()
+                        .map(|(name, value)| (name.clone(), value.clone()))
                         .merge_by(entries, by_name)
                         .collect(),
                 );
@@ -541,30 +544,30 @@ async fn merge_trees(merge: Merge<Tree>) -> BackendResult<Merge<Tree>> {
     let base_tree = merge.first();
     let store = base_tree.store();
     let dir = base_tree.dir();
-    // Keep resolved entries in `resolved` and conflicted entries in `conflicts` to
-    // start with. Then we'll create the full trees later, and only if there are
-    // any conflicts.
-    let mut resolved = vec![];
-    let mut conflicts = vec![];
-    // TODO: Merge values concurrently
+    // Keep resolved entries in `resolved` and conflicted entries in `non_trivial`
+    // to start with. Then we'll create the full trees later, and only if there
+    // are any conflicts.
+    let mut resolved = BTreeMap::new();
+    let mut non_trivial = vec![];
     for (basename, path_merge) in all_merged_tree_entries(&merge) {
-        let path = dir.join(basename);
-        let path_merge = merge_tree_values(store, &path, &path_merge).await?;
-        match path_merge.into_resolved() {
-            Ok(Some(value)) => {
-                resolved.push((basename.to_owned(), value));
+        if let Some(value) = path_merge.resolve_trivial() {
+            if let Some(value) = *value {
+                resolved.insert(basename.to_owned(), value.clone());
             }
-            Ok(None) => {}
-            Err(path_merge) => {
-                conflicts.push((basename.to_owned(), path_merge));
-            }
-        };
+            continue;
+        } else {
+            non_trivial.push((basename.to_owned(), path_merge));
+        }
     }
 
+    // TODO: Merge values concurrently
     let mut unmerged_tree = MergedTreeInput::new(resolved);
-    for (basename, path_merge) in conflicts {
+    for (basename, path_merge) in non_trivial {
+        let path = dir.join(&basename);
+        let path_merge = merge_tree_values(store, &path, &path_merge).await?;
         unmerged_tree.mark_completed(basename, path_merge);
     }
+
     let backend_trees = unmerged_tree.into_backend_trees();
 
     // TODO: Could use `backend_trees.try_map_async()` here if it took `self` by
@@ -587,10 +590,6 @@ async fn merge_tree_values(
     path: &RepoPath,
     values: &MergedTreeVal<'_>,
 ) -> BackendResult<MergedTreeValue> {
-    if let Some(resolved) = values.resolve_trivial() {
-        return Ok(Merge::resolved(resolved.cloned()));
-    }
-
     if let Some(trees) = values.to_tree_merge(store, path).await? {
         // If all sides are trees or missing, merge the trees recursively, treating
         // missing trees as empty.
