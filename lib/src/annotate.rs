@@ -41,7 +41,6 @@ use crate::diff::Diff;
 use crate::diff::DiffHunkKind;
 use crate::fileset::FilesetExpression;
 use crate::graph::GraphEdge;
-use crate::graph::GraphEdgeType;
 use crate::merged_tree::MergedTree;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
@@ -377,7 +376,7 @@ fn process_commit(
         };
         if parent_source.line_map.is_empty() {
             state.commit_source_map.remove(parent_commit_id);
-        } else if parent_edge.edge_type == GraphEdgeType::Missing {
+        } else if parent_edge.is_missing() {
             // If an omitted parent had the file, leave these lines unresolved.
             // The origin of the unresolved lines is represented as
             // Err(LineOrigin { parent_commit_id, parent_line_number }).

@@ -27,7 +27,6 @@ use super::rev_walk::RevWalk;
 use super::revset_engine::BoxedRevWalk;
 use crate::backend::CommitId;
 use crate::graph::GraphEdge;
-use crate::graph::GraphEdgeType;
 use crate::graph::GraphNode;
 use crate::revset::RevsetEvaluationError;
 
@@ -179,10 +178,7 @@ impl<'a> RevsetGraphWalk<'a> {
                 edges.push(CommitGraphEdge::direct(parent_position));
             } else {
                 let parent_edges = self.edges_from_external_commit(index, parent)?;
-                if parent_edges
-                    .iter()
-                    .all(|edge| edge.edge_type == GraphEdgeType::Missing)
-                {
+                if parent_edges.iter().all(|edge| edge.is_missing()) {
                     edges.push(CommitGraphEdge::missing(parent_position));
                 } else {
                     edges.extend(
@@ -219,10 +215,7 @@ impl<'a> RevsetGraphWalk<'a> {
                     // We have found a path back into the input set
                     edges.push(CommitGraphEdge::indirect(parent_position));
                 } else if let Some(parent_edges) = self.edges.get(&parent_position) {
-                    if parent_edges
-                        .iter()
-                        .all(|edge| edge.edge_type == GraphEdgeType::Missing)
-                    {
+                    if parent_edges.iter().all(|edge| edge.is_missing()) {
                         edges.push(CommitGraphEdge::missing(parent_position));
                     } else {
                         edges.extend(
@@ -254,10 +247,7 @@ impl<'a> RevsetGraphWalk<'a> {
         index: &CompositeIndex,
         edges: Vec<CommitGraphEdge>,
     ) -> Result<Vec<CommitGraphEdge>, RevsetEvaluationError> {
-        if !edges
-            .iter()
-            .any(|edge| edge.edge_type == GraphEdgeType::Indirect)
-        {
+        if !edges.iter().any(|edge| edge.is_indirect()) {
             return Ok(edges);
         }
         let Some(max_position) = edges.iter().map(|edge| edge.target).max() else {
@@ -269,7 +259,7 @@ impl<'a> RevsetGraphWalk<'a> {
         // To start with, add the edges one step after the input edges.
         for edge in &edges {
             initial_targets.set(edge.target);
-            if edge.edge_type != GraphEdgeType::Missing {
+            if !edge.is_missing() {
                 assert!(self.look_ahead.binary_search(&edge.target).is_ok());
                 let entry = index.commits().entry_by_pos(edge.target);
                 min_generation = min(min_generation, entry.generation_number());
@@ -279,7 +269,7 @@ impl<'a> RevsetGraphWalk<'a> {
         // Find commits reachable transitively and add them to the `unwanted` set.
         let mut unwanted = PositionsBitSet::with_max_pos(max_position);
         while let Some(edge) = work.pop() {
-            if edge.edge_type == GraphEdgeType::Missing || edge.target < self.min_position {
+            if edge.is_missing() || edge.target < self.min_position {
                 continue;
             }
             if unwanted.get_set(edge.target) {

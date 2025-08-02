@@ -59,6 +59,18 @@ impl<N> GraphEdge<N> {
             edge_type: self.edge_type,
         }
     }
+
+    pub fn is_missing(&self) -> bool {
+        self.edge_type == GraphEdgeType::Missing
+    }
+
+    pub fn is_direct(&self) -> bool {
+        self.edge_type == GraphEdgeType::Direct
+    }
+
+    pub fn is_indirect(&self) -> bool {
+        self.edge_type == GraphEdgeType::Indirect
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
@@ -71,7 +83,7 @@ pub enum GraphEdgeType {
 fn reachable_targets<N>(edges: &[GraphEdge<N>]) -> impl DoubleEndedIterator<Item = &N> {
     edges
         .iter()
-        .filter(|edge| edge.edge_type != GraphEdgeType::Missing)
+        .filter(|edge| !edge.is_missing())
         .map(|edge| &edge.target)
 }
 

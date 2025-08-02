@@ -23,7 +23,6 @@ use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::evolution::accumulate_predecessors;
-use jj_lib::graph::GraphEdgeType;
 use jj_lib::graph::TopoGroupedGraphIterator;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::op_store::RefTarget;
@@ -195,7 +194,7 @@ pub fn show_op_diff(
                 let (commit_id, mut edges) = node?;
                 let modified_change = changes.get(&commit_id).unwrap();
                 // Omit "missing" edge to keep the graph concise.
-                edges.retain(|edge| edge.edge_type != GraphEdgeType::Missing);
+                edges.retain(|edge| !edge.is_missing());
 
                 let mut buffer = vec![];
                 let within_graph = with_content_format.sub_width(graph.width(&commit_id, &edges));
