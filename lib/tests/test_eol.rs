@@ -188,11 +188,80 @@ fn test_eol_conversion_snapshot(
     std::fs::read(&file_disk_path).expect("Failed to read the checked out test file")
 }
 
-// Create a conflict commit in a CRLF EOL file, and append another line with the
-// CRLF EOL to the file, create a snapshot on the modified merge conflict,
-// checkout the snapshot with the given setting, and return the content of the
-// file.
-fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
+struct ConflictSnapshotTestConfig {
+    parent1_contents: &'static [u8],
+    parent2_contents: &'static [u8],
+    contents_to_append: &'static [u8],
+    merge_snapshot_setting: &'static str,
+    check_eol_is_lf: bool,
+    expected_file_end: &'static [u8],
+}
+
+#[test_case(ConflictSnapshotTestConfig {
+    parent1_contents: b"a\n",
+    parent2_contents: b"b\n",
+    contents_to_append: b"c\r\n",
+    merge_snapshot_setting: r#"working-copy.eol-conversion = "input-output""#,
+    check_eol_is_lf: true,
+    expected_file_end: b"c\n",
+}; "input output setting with CRLF contents appended")]
+#[test_case(ConflictSnapshotTestConfig {
+    parent1_contents: b"a\n",
+    parent2_contents: b"b\n",
+    contents_to_append: b"c\r\n",
+    merge_snapshot_setting: r#"working-copy.eol-conversion = "input""#,
+    check_eol_is_lf: true,
+    expected_file_end: b"c\n",
+}; "input setting with CRLF contents appended")]
+#[test_case(ConflictSnapshotTestConfig {
+    parent1_contents: b"a\n",
+    parent2_contents: b"b\n",
+    contents_to_append: b"c\r\n",
+    merge_snapshot_setting: r#"working-copy.eol-conversion = "none""#,
+    check_eol_is_lf: false,
+    expected_file_end: b"c\r\n",
+}; "none setting with CRLF contents appended")]
+#[test_case(ConflictSnapshotTestConfig {
+    parent1_contents: b"a\n",
+    parent2_contents: b"b\r\n",
+    contents_to_append: b"c\r\nd\n",
+    merge_snapshot_setting: r#"working-copy.eol-conversion = "input-output""#,
+    check_eol_is_lf: false,
+    expected_file_end: b"c\r\nd\n",
+}; "input output setting with CRLF conflicts in store")]
+#[test_case(ConflictSnapshotTestConfig {
+    parent1_contents: b"a\n",
+    parent2_contents: b"b\r\n",
+    contents_to_append: b"c\r\nd\n",
+    merge_snapshot_setting: r#"working-copy.eol-conversion = "input""#,
+    check_eol_is_lf: false,
+    expected_file_end: b"c\r\nd\n",
+}; "input setting with CRLF conflicts in store")]
+#[test_case(ConflictSnapshotTestConfig {
+    parent1_contents: b"a\r\n",
+    parent2_contents: b"b\r\n",
+    contents_to_append: b"c\r\nd\n",
+    merge_snapshot_setting: r#"working-copy.eol-conversion = "none""#,
+    // We only check the last line, because it is only guaranteed that the last line is not the
+    // conflict markers. The conflict markers in the store are supposed to use the LF EOL.
+    check_eol_is_lf: false,
+    expected_file_end: b"c\r\nd\n",
+}; "none setting with CRLF conflicts in store")]
+fn test_eol_snapshot_after_editing_conflict(
+    ConflictSnapshotTestConfig {
+        parent1_contents,
+        parent2_contents,
+        contents_to_append,
+        merge_snapshot_setting,
+        expected_file_end,
+        check_eol_is_lf,
+    }: ConflictSnapshotTestConfig,
+) {
+    // Create a conflict commit with the given contents as is in the Store, and
+    // append another line to the conflict file, create a snapshot on the modified
+    // merge conflict under the test setting, checkout the snapshot with the given
+    // setting, and return the content of the file content in Store.
+
     // Use the working-copy.eol-conversion = "none" setting to write files to the
     // store as is.
     let no_eol_conversion_settings =
@@ -216,7 +285,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     testutils::write_working_copy_file(
         test_workspace.workspace.workspace_root(),
         file_repo_path,
-        "a\r\n",
+        parent1_contents,
     );
     let tree = test_workspace.snapshot().unwrap();
     let mut tx = test_workspace.repo.start_transaction();
@@ -239,7 +308,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     testutils::write_working_copy_file(
         test_workspace.workspace.workspace_root(),
         file_repo_path,
-        "b\r\n",
+        parent2_contents,
     );
     let tree = test_workspace.snapshot().unwrap();
     let mut tx = test_workspace.repo.start_transaction();
@@ -257,6 +326,24 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
         .block_on()
         .unwrap();
     let merge_commit = commit_with_tree(test_workspace.repo.store(), tree.id());
+    let extra_setting = format!("{merge_snapshot_setting}\n");
+    let user_settings = base_user_settings_with_extra_configs(&extra_setting);
+    // Reload the Workspace to apply the settings under testing.
+    test_workspace.workspace = Workspace::load(
+        &user_settings,
+        test_workspace.workspace.workspace_root(),
+        &StoreFactories::default(),
+        &default_working_copy_factories(),
+    )
+    .expect("Failed to reload the workspace");
+    // We have to query the Commit again. The Workspace is backed by a different
+    // Store from the original Commit.
+    let merge_commit = test_workspace
+        .workspace
+        .repo_loader()
+        .store()
+        .get_commit(merge_commit.id())
+        .unwrap();
     // Append new texts to the file with conflicts to make sure the last line is not
     // conflict markers.
     test_workspace
@@ -269,19 +356,9 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
         )
         .unwrap();
     let mut file = File::options().append(true).open(&file_disk_path).unwrap();
-    file.write_all(b"c\r\n").unwrap();
+    file.write_all(contents_to_append).unwrap();
     drop(file);
 
-    let extra_setting = format!("{extra_setting}\n");
-    let user_settings = base_user_settings_with_extra_configs(&extra_setting);
-    // Reload the Workspace to apply the settings under testing.
-    test_workspace.workspace = Workspace::load(
-        &user_settings,
-        test_workspace.workspace.workspace_root(),
-        &StoreFactories::default(),
-        &default_working_copy_factories(),
-    )
-    .expect("Failed to reload the workspace");
     let tree = test_workspace.snapshot().unwrap();
     let new_tree = test_workspace.snapshot().unwrap();
     assert_eq!(
@@ -331,46 +408,28 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
         .unwrap();
 
     assert!(std::fs::exists(&file_disk_path).unwrap());
-    std::fs::read(&file_disk_path).unwrap()
-}
-
-#[test]
-fn test_eol_conversion_input_output_snapshot_conflicts() {
-    let contents =
-        create_conflict_snapshot_and_read(r#"working-copy.eol-conversion = "input-output""#);
-    for line in contents.lines_with_terminator() {
-        assert!(
-            !line.ends_with(b"\r\n"),
-            "{:?} should not end with CRLF",
-            line.to_str_lossy().as_ref()
-        );
-    }
-}
-
-#[test]
-fn test_eol_conversion_input_snapshot_conflicts() {
-    let contents = create_conflict_snapshot_and_read(r#"working-copy.eol-conversion = "input""#);
-    for line in contents.lines_with_terminator() {
-        assert!(
-            !line.ends_with(b"\r\n"),
-            "{:?} should not end with CRLF",
-            line.to_str_lossy().as_ref()
-        );
-    }
-}
-
-#[test]
-fn test_eol_conversion_none_snapshot_conflicts() {
-    let contents = create_conflict_snapshot_and_read(r#"working-copy.eol-conversion = "none""#);
-    // We only check the last line, because it is only guaranteed that the last line
-    // is not the conflict markers. The conflict markers in the store are supposed
-    // to use the LF EOL.
-    let line = contents.lines_with_terminator().next_back().unwrap();
+    let contents = std::fs::read(&file_disk_path).unwrap();
     assert!(
-        line.ends_with(b"\r\n"),
-        "{:?} should end with CRLF",
-        line.to_str_lossy().as_ref()
+        contents.ends_with(expected_file_end),
+        "{:?} should end with {:?}",
+        &*contents.to_str_lossy(),
+        &*expected_file_end.to_str_lossy()
     );
+    if !check_eol_is_lf {
+        return;
+    };
+    for line in contents.lines_with_terminator() {
+        assert!(
+            !line.ends_with(b"\r\n"),
+            "{:?} should not end with CRLF",
+            &*line.to_str_lossy()
+        );
+        assert!(
+            line.ends_with(b"\n"),
+            "{:?} should end with LF",
+            &*line.to_str_lossy()
+        );
+    }
 }
 
 struct UpdateConflictsTestConfig {
@@ -499,7 +558,7 @@ fn test_eol_conversion_update_conflicts(
 #[test_case(Config {
     extra_setting: r#"working-copy.eol-conversion = "input-output""#,
     file_content: MIXED_EOL_FILE_CONTENT,
-} => CRLF_FILE_CONTENT; "eol-conversion input-output mixed EOL file")]
+} => MIXED_EOL_FILE_CONTENT; "eol-conversion input-output mixed EOL file")]
 #[test_case(Config {
     extra_setting: r#"working-copy.eol-conversion = "input-output""#,
     file_content: BINARY_FILE_CONTENT,
@@ -619,4 +678,144 @@ fn test_eol_conversion_checkout(
 
     assert!(std::fs::exists(&file_disk_path).unwrap());
     std::fs::read(&file_disk_path).unwrap()
+}
+
+#[test_case(b"a\r\n", b"b\r\n", b"a\r\nb\r\n"; "CRLF file appended")]
+#[test_case(b"a\r\nb\n", b"c\r\n", b"a\r\nb\nc\r\n"; "Mixed EOL file appended")]
+fn test_eol_crlf_files_in_store_should_not_be_modified(
+    old_contents_in_store: &[u8],
+    contents_to_append: &[u8],
+    expected_new_contents_in_store: &[u8],
+) {
+    // In this test, we create a file with a line that ends with CRLF in Store.
+    // Afterwards, we append another line that ends with CRLF to the file, and
+    // take a snapshot with the EOL settings under tests. The file should still
+    // have CRLF EOL in the Store.
+    //
+    // See https://github.com/jj-vcs/jj/issues/7010 for details on why we need
+    // this test.
+
+    // First we create a file with CRLF EOL in the Store by using the none EOL
+    // conversion setting.
+    let no_eol_conversion_settings =
+        base_user_settings_with_extra_configs("working-copy.eol-conversion = \"none\"\n");
+    // Use the working-copy.eol-conversion = "none" setting, so that the input files
+    // are stored as is.
+    let mut test_workspace = TestWorkspace::init_with_backend_and_settings(
+        TestRepoBackend::Git,
+        &no_eol_conversion_settings,
+    );
+    let file_repo_path = repo_path("test-eol-file");
+    let file_disk_path = file_repo_path
+        .to_fs_path(test_workspace.workspace.workspace_root())
+        .unwrap();
+    testutils::write_working_copy_file(
+        test_workspace.workspace.workspace_root(),
+        file_repo_path,
+        old_contents_in_store,
+    );
+    let tree = test_workspace.snapshot().unwrap();
+    let old_commit = commit_with_tree(test_workspace.repo.store(), tree.id());
+
+    // Checkout the empty commit to clear the directory, so that later when we
+    // checkout, files are recreated.
+    test_workspace
+        .workspace
+        .check_out(
+            test_workspace.repo.op_id().clone(),
+            None,
+            &test_workspace.workspace.repo_loader().store().root_commit(),
+            &CheckoutOptions::empty_for_test(),
+        )
+        .unwrap();
+    assert!(!std::fs::exists(&file_disk_path).unwrap());
+
+    // Then we append another line to the file with the EOL conversion setting under
+    // test.
+    let extra_setting = r#"working-copy.eol-conversion = "input-output""#;
+    let user_settings = base_user_settings_with_extra_configs(extra_setting);
+    // Change the working-copy.eol-conversion setting to the configuration under
+    // testing.
+    test_workspace.workspace = Workspace::load(
+        &user_settings,
+        test_workspace.workspace.workspace_root(),
+        &StoreFactories::default(),
+        &default_working_copy_factories(),
+    )
+    .expect("Failed to reload the workspace");
+    // We have to query the Commit again. The Workspace is backed by a different
+    // Store from the original Commit.
+    let old_commit = test_workspace
+        .workspace
+        .repo_loader()
+        .store()
+        .get_commit(old_commit.id())
+        .expect("Failed to find the commit with the test file");
+    // Check out the commit with the test file.
+    test_workspace
+        .workspace
+        .check_out(
+            test_workspace.repo.op_id().clone(),
+            None,
+            &old_commit,
+            &CheckoutOptions::empty_for_test(),
+        )
+        .unwrap();
+    assert!(std::fs::exists(&file_disk_path).unwrap());
+    let mut file = File::options().append(true).open(&file_disk_path).unwrap();
+    file.write_all(contents_to_append).unwrap();
+    drop(file);
+    let tree = test_workspace.snapshot().unwrap();
+    let new_commit = commit_with_tree(test_workspace.repo.store(), tree.id());
+
+    // Checkout the empty commit to clear the directory, so that later when we
+    // checkout, files are recreated.
+    test_workspace
+        .workspace
+        .check_out(
+            test_workspace.repo.op_id().clone(),
+            None,
+            &test_workspace.workspace.repo_loader().store().root_commit(),
+            &CheckoutOptions::empty_for_test(),
+        )
+        .unwrap();
+    assert!(!std::fs::exists(&file_disk_path).unwrap());
+
+    // We use the working-copy.eol-conversion = "none" setting to checkout the
+    // modified file, so that the files are checked out as is. And check if that
+    // file still has CRLF EOL in the Store.
+    test_workspace.workspace = Workspace::load(
+        &no_eol_conversion_settings,
+        test_workspace.workspace.workspace_root(),
+        &StoreFactories::default(),
+        &default_working_copy_factories(),
+    )
+    .expect("Failed to reload the workspace");
+    // We have to query the Commit again. The Workspace is backed by a different
+    // Store from the original Commit.
+    let new_commit = test_workspace
+        .workspace
+        .repo_loader()
+        .store()
+        .get_commit(new_commit.id())
+        .expect("Failed to find the commit with the test file");
+    // Check out the commit with the test file.
+    test_workspace
+        .workspace
+        .check_out(
+            test_workspace.repo.op_id().clone(),
+            None,
+            &new_commit,
+            &CheckoutOptions::empty_for_test(),
+        )
+        .unwrap();
+    assert!(std::fs::exists(&file_disk_path).unwrap());
+    let contents = std::fs::read(&file_disk_path).unwrap();
+    assert_eq!(
+        contents,
+        expected_new_contents_in_store,
+        "Expected {:?}. Actual {:?}.",
+        &*expected_new_contents_in_store.to_str_lossy(),
+        &*contents.to_str_lossy()
+    );
 }
