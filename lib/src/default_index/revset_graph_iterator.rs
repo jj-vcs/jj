@@ -194,6 +194,9 @@ impl<'a> RevsetGraphWalk<'a> {
                     }
                 }
             }
+            if self.skip_transitive_edges {
+                self.remove_transitive_edges(index.commits(), &mut edges);
+            }
             Ok(edges)
         }
     }
@@ -264,7 +267,12 @@ impl<'a> RevsetGraphWalk<'a> {
                         parents_complete = false;
                     }
                 }
-                parents_complete.then_some(edges)
+                parents_complete.then(|| {
+                    if self.skip_transitive_edges {
+                        self.remove_transitive_edges(index.commits(), &mut edges);
+                    }
+                    edges
+                })
             };
             if let Some(edges) = complete_parent_edges {
                 stack.pop().unwrap();
@@ -277,13 +285,13 @@ impl<'a> RevsetGraphWalk<'a> {
     fn remove_transitive_edges(
         &self,
         index: &CompositeCommitIndex,
-        edges: Vec<CommitGraphEdge>,
-    ) -> Vec<CommitGraphEdge> {
+        edges: &mut Vec<CommitGraphEdge>,
+    ) {
         if !edges.iter().any(|edge| edge.is_indirect()) {
-            return edges;
+            return;
         }
-        let Some((min_pos, max_pos)) = reachable_positions(&edges).minmax().into_option() else {
-            return edges;
+        let Some((min_pos, max_pos)) = reachable_positions(edges).minmax().into_option() else {
+            return;
         };
 
         let enqueue_parents = |work: &mut Vec<GlobalCommitPosition>, entry: &CommitIndexEntry| {
@@ -302,7 +310,7 @@ impl<'a> RevsetGraphWalk<'a> {
         let mut initial_targets = PositionsBitSet::with_max_pos(max_pos);
         let mut work = vec![];
         // To start with, add the edges one step after the input edges.
-        for pos in reachable_positions(&edges) {
+        for pos in reachable_positions(edges) {
             initial_targets.set(pos);
             let entry = index.entry_by_pos(pos);
             min_generation = min(min_generation, entry.generation_number());
@@ -326,9 +334,7 @@ impl<'a> RevsetGraphWalk<'a> {
             enqueue_parents(&mut work, &entry);
         }
 
-        let mut edges = edges;
         edges.retain(|edge| !unwanted.get(edge.target));
-        edges
     }
 
     fn consume_to(
@@ -355,10 +361,7 @@ impl<'a> RevsetGraphWalk<'a> {
             return Ok(None);
         };
         let entry = index.commits().entry_by_pos(position);
-        let mut edges = self.pop_edges_from_internal_commit(index, &entry)?;
-        if self.skip_transitive_edges {
-            edges = self.remove_transitive_edges(index.commits(), edges);
-        }
+        let edges = self.pop_edges_from_internal_commit(index, &entry)?;
         let edges = edges
             .iter()
             .map(|edge| edge.map(|pos| index.commits().entry_by_pos(pos).commit_id()))
