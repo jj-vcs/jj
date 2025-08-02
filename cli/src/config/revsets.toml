@@ -12,6 +12,8 @@ log = "present(@) | ancestors(immutable_heads().., 2) | present(trunk())"
 # This also helps stabilize output order.
 log-graph-prioritize = "present(@)"
 sign = "reachable(@, mutable())"
+# The 'remote' variable is injected by the code. It is required for this revset.
+git-push = "remote_bookmarks(remote=remote)..@"
 
 [revset-aliases]
 # trunk() can be overridden as '<bookmark>@<remote>'. Use present(trunk()) if
