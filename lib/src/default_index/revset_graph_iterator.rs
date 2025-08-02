@@ -18,6 +18,7 @@ use std::cmp::Ordering;
 use std::cmp::min;
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
+use std::rc::Rc;
 
 use itertools::Itertools as _;
 
@@ -112,7 +113,7 @@ pub(super) struct RevsetGraphWalk<'a> {
     /// look_ahead set, but it's faster to keep a separate field for it.
     min_position: GlobalCommitPosition,
     /// Edges for commits not in the input set.
-    edges: BTreeMap<GlobalCommitPosition, Vec<CommitGraphEdge>>,
+    edges: BTreeMap<GlobalCommitPosition, Rc<[CommitGraphEdge]>>,
     skip_transitive_edges: bool,
 }
 
@@ -141,7 +142,7 @@ impl<'a> RevsetGraphWalk<'a> {
         &mut self,
         index: &CompositeIndex,
         index_entry: &CommitIndexEntry,
-    ) -> Result<Vec<CommitGraphEdge>, RevsetEvaluationError> {
+    ) -> Result<Rc<[CommitGraphEdge]>, RevsetEvaluationError> {
         let position = index_entry.position();
         while let Some(entry) = self.edges.last_entry() {
             match entry.key().cmp(&position) {
@@ -157,20 +158,20 @@ impl<'a> RevsetGraphWalk<'a> {
         &mut self,
         index: &CompositeIndex,
         index_entry: &CommitIndexEntry,
-    ) -> Result<Vec<CommitGraphEdge>, RevsetEvaluationError> {
+    ) -> Result<Rc<[CommitGraphEdge]>, RevsetEvaluationError> {
         let mut parent_entries = index_entry.parents();
         if parent_entries.len() == 1 {
             let parent = parent_entries.next().unwrap();
             let parent_position = parent.position();
             self.consume_to(index, parent_position)?;
             if self.look_ahead.binary_search(&parent_position).is_ok() {
-                Ok(vec![CommitGraphEdge::direct(parent_position)])
+                Ok([CommitGraphEdge::direct(parent_position)].into())
             } else {
                 let parent_edges = self.edges_from_external_commit(index, parent)?;
                 if parent_edges.iter().all(|edge| edge.is_missing()) {
-                    Ok(vec![CommitGraphEdge::missing(parent_position)])
+                    Ok([CommitGraphEdge::missing(parent_position)].into())
                 } else {
-                    Ok(parent_edges.to_vec())
+                    Ok(parent_edges.clone())
                 }
             }
         } else {
@@ -197,7 +198,7 @@ impl<'a> RevsetGraphWalk<'a> {
             if self.skip_transitive_edges {
                 self.remove_transitive_edges(index.commits(), &mut edges);
             }
-            Ok(edges)
+            Ok(edges.into())
         }
     }
 
@@ -205,7 +206,7 @@ impl<'a> RevsetGraphWalk<'a> {
         &mut self,
         index: &CompositeIndex,
         index_entry: CommitIndexEntry<'_>,
-    ) -> Result<&[CommitGraphEdge], RevsetEvaluationError> {
+    ) -> Result<&Rc<[CommitGraphEdge]>, RevsetEvaluationError> {
         let position = index_entry.position();
         let mut stack = vec![index_entry];
         while let Some(entry) = stack.last() {
@@ -221,16 +222,16 @@ impl<'a> RevsetGraphWalk<'a> {
                 self.consume_to(index, parent_position)?;
                 if self.look_ahead.binary_search(&parent_position).is_ok() {
                     // We have found a path back into the input set
-                    Some(vec![CommitGraphEdge::indirect(parent_position)])
+                    Some([CommitGraphEdge::indirect(parent_position)].into())
                 } else if let Some(parent_edges) = self.edges.get(&parent_position) {
                     if parent_edges.iter().all(|edge| edge.is_missing()) {
-                        Some(vec![CommitGraphEdge::missing(parent_position)])
+                        Some([CommitGraphEdge::missing(parent_position)].into())
                     } else {
                         Some(parent_edges.clone())
                     }
                 } else if parent_position < self.min_position {
                     // The parent is not in the input set
-                    Some(vec![CommitGraphEdge::missing(parent_position)])
+                    Some([CommitGraphEdge::missing(parent_position)].into())
                 } else {
                     // The parent is not in the input set but it's somewhere in the range
                     // where we have commits in the input set, so continue searching.
@@ -271,7 +272,7 @@ impl<'a> RevsetGraphWalk<'a> {
                     if self.skip_transitive_edges {
                         self.remove_transitive_edges(index.commits(), &mut edges);
                     }
-                    edges
+                    edges.into()
                 })
             };
             if let Some(edges) = complete_parent_edges {
