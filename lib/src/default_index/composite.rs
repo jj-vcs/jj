@@ -30,6 +30,7 @@ use ref_cast::ref_cast_custom;
 
 use super::bit_set::AncestorsBitSet;
 use super::bit_set::PositionsBitSet;
+use super::changed_path::CompositeChangedPathIndex;
 use super::entry::CommitIndexEntry;
 use super::entry::GlobalCommitPosition;
 use super::entry::LocalCommitPosition;
@@ -497,27 +498,38 @@ enum CompositeCommitIndexSegment {
 #[derive(Clone, Debug)]
 pub(super) struct CompositeIndex {
     commits: CompositeCommitIndexSegment,
-    // TODO: add changed-paths index
+    changed_paths: CompositeChangedPathIndex,
 }
 
 impl CompositeIndex {
-    pub(super) fn from_readonly(commits: Arc<ReadonlyCommitIndexSegment>) -> Self {
+    pub(super) fn from_readonly(
+        commits: Arc<ReadonlyCommitIndexSegment>,
+        changed_paths: CompositeChangedPathIndex,
+    ) -> Self {
         Self {
             commits: CompositeCommitIndexSegment::Readonly(commits),
+            changed_paths,
         }
     }
 
-    pub(super) fn from_mutable(commits: Box<MutableCommitIndexSegment>) -> Self {
+    pub(super) fn from_mutable(
+        commits: Box<MutableCommitIndexSegment>,
+        changed_paths: CompositeChangedPathIndex,
+    ) -> Self {
         Self {
             commits: CompositeCommitIndexSegment::Mutable(commits),
+            changed_paths,
         }
     }
 
-    pub(super) fn into_mutable(self) -> Option<Box<MutableCommitIndexSegment>> {
-        match self.commits {
-            CompositeCommitIndexSegment::Readonly(_) => None,
-            CompositeCommitIndexSegment::Mutable(segment) => Some(segment),
-        }
+    pub(super) fn into_mutable(
+        self,
+    ) -> Option<(Box<MutableCommitIndexSegment>, CompositeChangedPathIndex)> {
+        let commits = match self.commits {
+            CompositeCommitIndexSegment::Readonly(_) => return None,
+            CompositeCommitIndexSegment::Mutable(segment) => segment,
+        };
+        Some((commits, self.changed_paths))
     }
 
     pub(super) fn commits(&self) -> &CompositeCommitIndex {
@@ -539,6 +551,10 @@ impl CompositeIndex {
             CompositeCommitIndexSegment::Readonly(_) => None,
             CompositeCommitIndexSegment::Mutable(segment) => Some(segment),
         }
+    }
+
+    pub(super) fn changed_paths(&self) -> &CompositeChangedPathIndex {
+        &self.changed_paths
     }
 
     pub(super) fn evaluate_revset(

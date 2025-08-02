@@ -29,6 +29,7 @@ use itertools::Itertools as _;
 use tempfile::NamedTempFile;
 use thiserror::Error;
 
+use super::changed_path::CompositeChangedPathIndex;
 use super::composite::CommitIndexSegmentId;
 use super::mutable::DefaultMutableIndex;
 use super::readonly::DefaultReadonlyIndex;
@@ -170,7 +171,8 @@ impl DefaultIndexStore {
         let commits =
             ReadonlyCommitIndexSegment::load(&self.commit_segments_dir(), index_file_id, lengths)
                 .map_err(DefaultIndexStoreError::LoadIndex)?;
-        Ok(DefaultReadonlyIndex::from_segment(commits))
+        let changed_paths = CompositeChangedPathIndex::null(); // TODO
+        Ok(DefaultReadonlyIndex::from_segment(commits, changed_paths))
     }
 
     /// Rebuilds index for the given `operation`.
@@ -320,12 +322,13 @@ impl DefaultIndexStore {
         index: DefaultMutableIndex,
         op_id: &OperationId,
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
-        let commits = index.into_segment();
+        let (commits, changed_paths) = index.into_segment();
         let commits = commits
             .maybe_squash_with_ancestors()
             .save_in(&self.commit_segments_dir())
             .map_err(DefaultIndexStoreError::SaveIndex)?;
-        let index = DefaultReadonlyIndex::from_segment(commits);
+        // TODO: changed_paths
+        let index = DefaultReadonlyIndex::from_segment(commits, changed_paths);
         self.associate_index_with_operation(&index, op_id)
             .map_err(|source| DefaultIndexStoreError::AssociateIndex {
                 op_id: op_id.to_owned(),

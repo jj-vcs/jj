@@ -22,6 +22,7 @@
 #![allow(missing_docs)]
 
 mod bit_set;
+mod changed_path;
 mod composite;
 mod entry;
 mod mutable;
@@ -57,6 +58,7 @@ mod tests {
     use smallvec::smallvec_inline;
     use test_case::test_case;
 
+    use super::changed_path::CompositeChangedPathIndex;
     use super::composite::AsCompositeIndex as _;
     use super::composite::CommitIndexSegment as _;
     use super::composite::CompositeCommitIndex;
@@ -96,7 +98,8 @@ mod tests {
     }
 
     fn get_commit_index_stats(commits: &Arc<ReadonlyCommitIndexSegment>) -> IndexStats {
-        let index = DefaultReadonlyIndex::from_segment(commits.clone());
+        let changed_paths = CompositeChangedPathIndex::null();
+        let index = DefaultReadonlyIndex::from_segment(commits.clone(), changed_paths);
         index.stats()
     }
 
