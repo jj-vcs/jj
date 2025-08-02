@@ -471,6 +471,65 @@ fn trees_value<'a>(trees: &'a Merge<Tree>, basename: &RepoPathComponent) -> Merg
     value
 }
 
+struct MergedTreeInput {
+    /// Entries that were resolved without needing to look up any data. Sorted
+    /// by basename.
+    resolved: Vec<(RepoPathComponentBuf, TreeValue)>,
+    /// Entries that we needed to look up data for but which are now determined
+    /// to be conflicts.
+    conflicts: BTreeMap<RepoPathComponentBuf, MergedTreeValue>,
+}
+
+impl MergedTreeInput {
+    fn new(resolved: Vec<(RepoPathComponentBuf, TreeValue)>) -> Self {
+        Self {
+            resolved,
+            conflicts: BTreeMap::new(),
+        }
+    }
+
+    fn mark_completed(&mut self, basename: RepoPathComponentBuf, value: MergedTreeValue) {
+        self.conflicts.insert(basename, value);
+    }
+
+    fn into_backend_trees(self) -> Merge<backend::Tree> {
+        fn by_name(
+            (name1, _): &(RepoPathComponentBuf, TreeValue),
+            (name2, _): &(RepoPathComponentBuf, TreeValue),
+        ) -> bool {
+            name1 < name2
+        }
+
+        if self.conflicts.is_empty() {
+            Merge::resolved(backend::Tree::from_sorted_entries(self.resolved))
+        } else {
+            // Create a Merge with the conflict entries for each side.
+            let mut conflict_entries = self.conflicts.first_key_value().unwrap().1.map(|_| vec![]);
+            for (basename, value) in self.conflicts {
+                assert_eq!(value.num_sides(), conflict_entries.num_sides());
+                for (entries, value) in conflict_entries.iter_mut().zip(value.into_iter()) {
+                    if let Some(value) = value {
+                        entries.push((basename.clone(), value));
+                    }
+                }
+            }
+
+            let mut backend_trees = vec![];
+            for entries in conflict_entries.into_iter() {
+                let backend_tree = backend::Tree::from_sorted_entries(
+                    self.resolved
+                        .iter()
+                        .cloned()
+                        .merge_by(entries, by_name)
+                        .collect(),
+                );
+                backend_trees.push(backend_tree);
+            }
+            Merge::from_vec(backend_trees)
+        }
+    }
+}
+
 /// The returned conflict will either be resolved or have the same number of
 /// sides as the input.
 async fn merge_trees(merge: Merge<Tree>) -> BackendResult<Merge<Tree>> {
@@ -482,10 +541,10 @@ async fn merge_trees(merge: Merge<Tree>) -> BackendResult<Merge<Tree>> {
     let base_tree = merge.first();
     let store = base_tree.store();
     let dir = base_tree.dir();
-    // Keep resolved entries in `new_tree` and conflicted entries in `conflicts` to
+    // Keep resolved entries in `resolved` and conflicted entries in `conflicts` to
     // start with. Then we'll create the full trees later, and only if there are
     // any conflicts.
-    let mut new_tree_entries = Vec::new();
+    let mut resolved = vec![];
     let mut conflicts = vec![];
     // TODO: Merge values concurrently
     for (basename, path_merge) in all_merged_tree_entries(&merge) {
@@ -493,7 +552,7 @@ async fn merge_trees(merge: Merge<Tree>) -> BackendResult<Merge<Tree>> {
         let path_merge = merge_tree_values(store, &path, &path_merge).await?;
         match path_merge.into_resolved() {
             Ok(Some(value)) => {
-                new_tree_entries.push((basename.to_owned(), value));
+                resolved.push((basename.to_owned(), value));
             }
             Ok(None) => {}
             Err(path_merge) => {
@@ -501,40 +560,12 @@ async fn merge_trees(merge: Merge<Tree>) -> BackendResult<Merge<Tree>> {
             }
         };
     }
-    let backend_trees = if conflicts.is_empty() {
-        Merge::resolved(backend::Tree::from_sorted_entries(new_tree_entries))
-    } else {
-        fn by_name(
-            (name1, _): &(RepoPathComponentBuf, TreeValue),
-            (name2, _): &(RepoPathComponentBuf, TreeValue),
-        ) -> bool {
-            name1 < name2
-        }
 
-        // Create a Merge with the conflict entries for each side.
-        let mut conflict_entries = conflicts[0].1.map(|_| vec![]);
-        for (basename, value) in conflicts {
-            assert_eq!(value.num_sides(), conflict_entries.num_sides());
-            for (entries, value) in conflict_entries.iter_mut().zip(value.into_iter()) {
-                if let Some(value) = value {
-                    entries.push((basename.clone(), value));
-                }
-            }
-        }
-
-        let mut backend_trees = vec![];
-        for entries in conflict_entries {
-            let backend_tree = backend::Tree::from_sorted_entries(
-                new_tree_entries
-                    .iter()
-                    .cloned()
-                    .merge_by(entries, by_name)
-                    .collect(),
-            );
-            backend_trees.push(backend_tree);
-        }
-        Merge::from_vec(backend_trees)
-    };
+    let mut unmerged_tree = MergedTreeInput::new(resolved);
+    for (basename, path_merge) in conflicts {
+        unmerged_tree.mark_completed(basename, path_merge);
+    }
+    let backend_trees = unmerged_tree.into_backend_trees();
 
     // TODO: Could use `backend_trees.try_map_async()` here if it took `self` by
     // value or if `Backend::write_tree()` to an `Arc<backend::Tree>`.
