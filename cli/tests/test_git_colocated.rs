@@ -1595,13 +1595,14 @@ fn test_git_colocated_operation_cleanup() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  588c505e689d116180684778b29c540fe7180268
     ○  cf3bb116ded416d9b202e71303f260e504c2eeb9 main git_head() 2
-    │ ○  a50e55141dcd5f8f8d549acd2232ce4839eaa798 feature 3
+    │ ○  a50e55141dcd5f8f8d549acd2232ce4839eaa798 ORIG_HEAD REBASE_HEAD feature 3
     ├─╯
     ○  87f64775047d7ce62b7ee81412b8e4cc07aea40a 1
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ------- stderr -------
     Reset the working copy parent to the new Git HEAD.
+    Done importing changes from the underlying Git repo.
     [EOF]
     ");
 
@@ -1619,7 +1620,7 @@ fn test_git_colocated_operation_cleanup() {
     │ ○  588c505e689d116180684778b29c540fe7180268
     ├─╯
     ○  cf3bb116ded416d9b202e71303f260e504c2eeb9 main git_head() 2
-    │ ○  a50e55141dcd5f8f8d549acd2232ce4839eaa798 feature 3
+    │ ○  a50e55141dcd5f8f8d549acd2232ce4839eaa798 ORIG_HEAD REBASE_HEAD feature 3
     ├─╯
     ○  87f64775047d7ce62b7ee81412b8e4cc07aea40a 1
     ◆  0000000000000000000000000000000000000000
