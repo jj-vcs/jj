@@ -192,28 +192,43 @@ You can use parentheses to control evaluation order, such as `(x & y) | z` or
 You can also specify revisions by using functions. Some functions take other
 revsets (expressions) as arguments.
 
-* `parents(x[, depth])`: `parents(x)` is the same as `x-`.
+??? note "Function argument syntax"
+
+    In this documentation, optional arguments are indicated with square
+    brackets like `[arg]`. Some arguments also have an optional label which can
+    be used to specify that argument without specifying all previous arguments.
+
+    For instance, `remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`
+    indicates that all of the following usages are valid:
+
+    * `remote_bookmarks()`
+    * `remote_bookmarks("main")`
+    * `remote_bookmarks("main", "origin")`
+    * `remote_bookmarks("main", remote="origin")`
+    * `remote_bookmarks(remote="origin")`
+
+* `parents(x, [depth])`: `parents(x)` is the same as `x-`.
   `parents(x, depth)` returns the parents of `x` at the given `depth`. For
   instance, `parents(x, 3)` is equivalent to `x---`.
 
-* `children(x[, depth])`: `children(x)` is the same as `x+`.
+* `children(x, [depth])`: `children(x)` is the same as `x+`.
   `children(x, depth)` returns the children of `x` at the given `depth`. For
   instance, `children(x, 3)` is equivalent to `x+++`.
 
-* `ancestors(x[, depth])`: `ancestors(x)` is the same as `::x`.
+* `ancestors(x, [depth])`: `ancestors(x)` is the same as `::x`.
   `ancestors(x, depth)` returns the ancestors of `x` limited to the given
   `depth`.
 
-* `descendants(x[, depth])`: `descendants(x)` is the same as `x::`.
+* `descendants(x, [depth])`: `descendants(x)` is the same as `x::`.
   `descendants(x, depth)` returns the descendants of `x` limited to the given
   `depth`.
 
-* `first_parent(x[, depth])`: `first_parent(x)` is similar to `parents(x)`, but
+* `first_parent(x, [depth])`: `first_parent(x)` is similar to `parents(x)`, but
   for merges, it only returns the first parent instead of returning all parents.
   The `depth` argument also works similarly, so `first_parent(x, 2)` is
   equivalent to `first_parent(first_parent(x))`.
 
-* `first_ancestors(x[, depth])`: Similar to `ancestors(x[, depth])`, but only
+* `first_ancestors(x, [depth])`: Similar to `ancestors(x, [depth])`, but only
   traverses the first parent of each commit. In Git, the first parent of a merge
   commit is conventionally the branch into which changes are being merged, so
   `first_ancestors()` can be used to exclude changes made on other branches.
@@ -241,7 +256,7 @@ revsets (expressions) as arguments.
   bookmarks `push-123` and `repushed` but not the bookmark `main`. If a bookmark is
   in a conflicted state, all its possible targets are included.
 
-* `remote_bookmarks([bookmark_pattern[, [remote=]remote_pattern]])`: All remote
+* `remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`: All remote
   bookmarks targets across all remotes. If just the `bookmark_pattern` is
   specified, the bookmarks whose names match the given [string
   pattern](#string-patterns) across all remotes are selected. If both
@@ -256,11 +271,11 @@ revsets (expressions) as arguments.
   While Git-tracking bookmarks can be selected by `<name>@git`, these bookmarks
   aren't included in `remote_bookmarks()`.
 
-* `tracked_remote_bookmarks([bookmark_pattern[, [remote=]remote_pattern]])`: All
+* `tracked_remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`: All
   targets of tracked remote bookmarks. Supports the same optional arguments as
   `remote_bookmarks()`.
 
-* `untracked_remote_bookmarks([bookmark_pattern[, [remote=]remote_pattern]])`:
+* `untracked_remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`:
   All targets of untracked remote bookmarks. Supports the same optional arguments
   as `remote_bookmarks()`.
 
@@ -290,7 +305,7 @@ revsets (expressions) as arguments.
   [Mercurial's](https://repo.mercurial-scm.org/hg/help/revsets) `roots(x)`
   function, which is equivalent to `x ~ x+`.
 
-* `latest(x[, count])`: Latest `count` commits in `x`, based on committer
+* `latest(x, [count])`: Latest `count` commits in `x`, based on committer
   timestamp. The default `count` is 1.
 
 * `fork_point(x)`: The fork point of all commits in `x`. The fork point is the
@@ -362,7 +377,7 @@ revsets (expressions) as arguments.
   Some file patterns might need quoting because the `expression` must also be
   parsable as a revset. For example, `.` has to be quoted in `files(".")`.
 
-* `diff_contains(text[, files])`: Commits containing diffs matching the given
+* `diff_contains(text, [files])`: Commits containing diffs matching the given
   `text` pattern line by line.
 
   The search paths can be narrowed by the `files` expression. All modified files

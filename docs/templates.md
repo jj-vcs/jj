@@ -52,21 +52,21 @@ The following functions are defined.
   the given `width`.
 * `indent(prefix: Template, content: Template) -> Template`: Indent
   non-empty lines by the given `prefix`.
-* `pad_start(width: Integer, content: Template[, fill_char: Template])`: Pad (or
+* `pad_start(width: Integer, content: Template, [fill_char: Template])`: Pad (or
   right-justify) content by adding leading fill characters. The `content`
   shouldn't have newline character.
-* `pad_end(width: Integer, content: Template[, fill_char: Template])`: Pad (or
+* `pad_end(width: Integer, content: Template, [fill_char: Template])`: Pad (or
   left-justify) content by adding trailing fill characters. The `content`
   shouldn't have newline character.
-* `pad_centered(width: Integer, content: Template[, fill_char: Template])`: Pad
+* `pad_centered(width: Integer, content: Template, [fill_char: Template])`: Pad
   content by adding both leading and trailing fill characters. If an odd number
   of fill characters are needed, the trailing fill will be one longer than the
   leading fill. The `content` shouldn't have newline characters.
-* `truncate_start(width: Integer, content: Template[, ellipsis: Template])`:
+* `truncate_start(width: Integer, content: Template, [ellipsis: Template])`:
   Truncate `content` by removing leading characters. The `content` shouldn't
   have newline character. If `ellipsis` is provided and `content` was truncated,
   prepend the `ellipsis` to the result.
-* `truncate_end(width: Integer, content: Template[, ellipsis: Template])`:
+* `truncate_end(width: Integer, content: Template, [ellipsis: Template])`:
   Truncate `content` by removing trailing characters. The `content` shouldn't
   have newline character. If `ellipsis` is provided and `content` was truncated,
   append the `ellipsis` to the result.
@@ -80,7 +80,7 @@ The following functions are defined.
 * `stringify(content: Stringify) -> String`: Format `content` to string. This
   effectively removes color labels.
 * `json(value: Serialize) -> String`: Serialize `value` in JSON format.
-* `if(condition: Boolean, then: Template[, else: Template]) -> Template`:
+* `if(condition: Boolean, then: Template, [else: Template]) -> Template`:
   Conditionally evaluate `then`/`else` template content.
 * `coalesce(content: Template...) -> Template`: Returns the first **non-empty**
   content.
