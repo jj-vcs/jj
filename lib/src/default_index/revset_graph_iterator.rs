@@ -262,28 +262,30 @@ impl<'a> RevsetGraphWalk<'a> {
             assert!(self.look_ahead.binary_search(&pos).is_ok());
             let entry = index.commits().entry_by_pos(pos);
             min_generation = min(min_generation, entry.generation_number());
-            work.extend_from_slice(self.edges_from_internal_commit(index, &entry)?);
+            let parent_edges = self.edges_from_internal_commit(index, &entry)?;
+            work.extend(reachable_positions(parent_edges));
         }
         // Find commits reachable transitively and add them to the `unwanted` set.
         let mut unwanted = PositionsBitSet::with_max_pos(max_position);
-        while let Some(edge) = work.pop() {
-            if edge.is_missing() || edge.target < self.min_position {
+        while let Some(pos) = work.pop() {
+            if pos < self.min_position {
                 continue;
             }
-            if unwanted.get_set(edge.target) {
+            if unwanted.get_set(pos) {
                 // Already visited
                 continue;
             }
-            if initial_targets.get(edge.target) {
+            if initial_targets.get(pos) {
                 // Already visited
                 continue;
             }
-            assert!(self.look_ahead.binary_search(&edge.target).is_ok());
-            let entry = index.commits().entry_by_pos(edge.target);
+            assert!(self.look_ahead.binary_search(&pos).is_ok());
+            let entry = index.commits().entry_by_pos(pos);
             if entry.generation_number() < min_generation {
                 continue;
             }
-            work.extend_from_slice(self.edges_from_internal_commit(index, &entry)?);
+            let parent_edges = self.edges_from_internal_commit(index, &entry)?;
+            work.extend(reachable_positions(parent_edges));
         }
 
         let mut edges = edges;
