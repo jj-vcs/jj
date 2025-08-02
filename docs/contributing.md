@@ -200,7 +200,7 @@ These are listed roughly in order of decreasing importance.
 Run this in the jj repo:
 
 ```shell
-jj config set --repo fix.tools.rustfmt '{ command = ["rustfmt", "+nightly"], patterns = ["glob:**/*.rs"] }'
+jj config set --repo fix.tools.rustfmt '{ command = ["rustfmt", "+nightly"], patterns = ["glob:**/*.rs ~ glob:lib/src/protos/**/*.rs"] }'
 ```
 
 ### Using `mold` for faster tests on Linux
