@@ -35,6 +35,8 @@ use crate::git_util::print_git_import_stats;
 use crate::git_util::with_remote_git_callbacks;
 use crate::ui::Ui;
 
+const DEFAULT_REMOTE: &RemoteName = RemoteName::new("origin");
+
 /// Fetch from a Git remote
 ///
 /// If a working-copy commit gets abandoned, it will be given a new, empty
@@ -153,8 +155,6 @@ pub fn cmd_git_fetch(
     )?;
     Ok(())
 }
-
-const DEFAULT_REMOTE: &RemoteName = RemoteName::new("origin");
 
 fn get_default_fetch_remotes(
     ui: &Ui,
