@@ -64,6 +64,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   diff formatters. Built-in tools that do not function well as diff editing
   tools or as diff formatters will now report an error when used as such.
 
+* `jj squash` now has a `--restore-descendants` option to preserve the snapshots
+  of the children of the modified commits.
+
 * `jj diffedit` now accepts filesets to edit only the specified paths.
 
 * AnnotationLine objects in templates now have a `original_line_number() ->
