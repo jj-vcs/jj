@@ -54,6 +54,7 @@ use crate::merge::MergedTreeValue;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;
+use crate::repo_path::RepoPathComponentBuf;
 use crate::store::Store;
 use crate::tree::Tree;
 use crate::tree::try_resolve_file_conflict;
@@ -496,30 +497,41 @@ async fn merge_trees(merge: Merge<Tree>) -> BackendResult<Merge<Tree>> {
             }
             Ok(None) => {}
             Err(path_merge) => {
-                conflicts.push((basename, path_merge.into_iter()));
+                conflicts.push((basename.to_owned(), path_merge));
             }
         };
     }
     let backend_trees = if conflicts.is_empty() {
         Merge::resolved(backend::Tree::from_sorted_entries(new_tree_entries))
     } else {
-        // For each side of the conflict, overwrite the entries in `new_tree` with the
-        // values from  `conflicts`. Entries that are not in `conflicts` will remain
-        // unchanged and will be reused for each side.
-        let tree_count = merge.iter().len();
-        let mut backend_trees = Vec::with_capacity(tree_count);
-        // TODO: can merge-join common tree entries with conflicting ones
-        let new_tree_entries = BTreeMap::from_iter(new_tree_entries);
-        for _ in 0..tree_count {
-            let mut new_tree_entries = new_tree_entries.clone();
-            for (basename, path_conflict) in &mut conflicts {
-                if let Some(value) = path_conflict.next().unwrap() {
-                    new_tree_entries.insert(basename.to_owned(), value);
+        fn by_name(
+            (name1, _): &(RepoPathComponentBuf, TreeValue),
+            (name2, _): &(RepoPathComponentBuf, TreeValue),
+        ) -> bool {
+            name1 < name2
+        }
+
+        // Create a Merge with the conflict entries for each side.
+        let mut conflict_entries = conflicts[0].1.map(|_| vec![]);
+        for (basename, value) in conflicts {
+            assert_eq!(value.num_sides(), conflict_entries.num_sides());
+            for (entries, value) in conflict_entries.iter_mut().zip(value.into_iter()) {
+                if let Some(value) = value {
+                    entries.push((basename.clone(), value));
                 }
             }
-            backend_trees.push(backend::Tree::from_sorted_entries(
-                new_tree_entries.into_iter().collect(),
-            ));
+        }
+
+        let mut backend_trees = vec![];
+        for entries in conflict_entries {
+            let backend_tree = backend::Tree::from_sorted_entries(
+                new_tree_entries
+                    .iter()
+                    .cloned()
+                    .merge_by(entries, by_name)
+                    .collect(),
+            );
+            backend_trees.push(backend_tree);
         }
         Merge::from_vec(backend_trees)
     };
