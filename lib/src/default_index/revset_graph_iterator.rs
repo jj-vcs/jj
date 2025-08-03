@@ -250,21 +250,19 @@ impl<'a> RevsetGraphWalk<'a> {
         if !edges.iter().any(|edge| edge.is_indirect()) {
             return Ok(edges);
         }
-        let Some(max_position) = edges.iter().map(|edge| edge.target).max() else {
+        let Some(max_position) = reachable_positions(&edges).max() else {
             return Ok(edges);
         };
         let mut min_generation = u32::MAX;
         let mut initial_targets = PositionsBitSet::with_max_pos(max_position);
         let mut work = vec![];
         // To start with, add the edges one step after the input edges.
-        for edge in &edges {
-            initial_targets.set(edge.target);
-            if !edge.is_missing() {
-                assert!(self.look_ahead.binary_search(&edge.target).is_ok());
-                let entry = index.commits().entry_by_pos(edge.target);
-                min_generation = min(min_generation, entry.generation_number());
-                work.extend_from_slice(self.edges_from_internal_commit(index, &entry)?);
-            }
+        for pos in reachable_positions(&edges) {
+            initial_targets.set(pos);
+            assert!(self.look_ahead.binary_search(&pos).is_ok());
+            let entry = index.commits().entry_by_pos(pos);
+            min_generation = min(min_generation, entry.generation_number());
+            work.extend_from_slice(self.edges_from_internal_commit(index, &entry)?);
         }
         // Find commits reachable transitively and add them to the `unwanted` set.
         let mut unwanted = PositionsBitSet::with_max_pos(max_position);
@@ -335,4 +333,13 @@ impl RevWalk<CompositeIndex> for RevsetGraphWalk<'_> {
     fn next(&mut self, index: &CompositeIndex) -> Option<Self::Item> {
         self.try_next(index).transpose()
     }
+}
+
+fn reachable_positions(
+    edges: &[CommitGraphEdge],
+) -> impl DoubleEndedIterator<Item = GlobalCommitPosition> {
+    edges
+        .iter()
+        .filter(|edge| !edge.is_missing())
+        .map(|edge| edge.target)
 }
