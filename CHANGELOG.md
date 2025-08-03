@@ -93,6 +93,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj op diff -p` and `jj op log -p` now show content diffs from the first
   predecessor only. [#7090](https://github.com/jj-vcs/jj/issues/7090)
 
+* `jj git fetch` no longer shows `NaN%` progress when connecting to slow remotes.
+  [#7155](https://github.com/jj-vcs/jj/issues/7155)
+
 ### Packaging changes
 
 

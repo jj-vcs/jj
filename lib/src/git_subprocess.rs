@@ -625,7 +625,11 @@ impl GitProgress {
     fn to_progress(&self) -> Progress {
         Progress {
             bytes_downloaded: None,
-            overall: self.fraction() as f32 / self.total() as f32,
+            overall: if self.total() != 0 {
+                self.fraction() as f32 / self.total() as f32
+            } else {
+                0.0
+            },
         }
     }
 
@@ -973,5 +977,10 @@ Done";
             "abc".to_string()
         );
         assert!(parse_unknown_option(b"error: unknown option: 'abc'").is_none());
+    }
+
+    #[test]
+    fn test_initial_overall_progress_is_zero() {
+        assert_eq!(GitProgress::default().to_progress().overall, 0.0);
     }
 }
