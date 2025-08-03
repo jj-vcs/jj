@@ -19,6 +19,8 @@ use std::cmp::min;
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
 
+use itertools::Itertools as _;
+
 use super::bit_set::PositionsBitSet;
 use super::composite::CompositeIndex;
 use super::entry::CommitIndexEntry;
@@ -250,11 +252,11 @@ impl<'a> RevsetGraphWalk<'a> {
         if !edges.iter().any(|edge| edge.is_indirect()) {
             return Ok(edges);
         }
-        let Some(max_position) = reachable_positions(&edges).max() else {
+        let Some((min_pos, max_pos)) = reachable_positions(&edges).minmax().into_option() else {
             return Ok(edges);
         };
         let mut min_generation = u32::MAX;
-        let mut initial_targets = PositionsBitSet::with_max_pos(max_position);
+        let mut initial_targets = PositionsBitSet::with_max_pos(max_pos);
         let mut work = vec![];
         // To start with, add the edges one step after the input edges.
         for pos in reachable_positions(&edges) {
@@ -263,14 +265,11 @@ impl<'a> RevsetGraphWalk<'a> {
             let entry = index.commits().entry_by_pos(pos);
             min_generation = min(min_generation, entry.generation_number());
             let parent_edges = self.edges_from_internal_commit(index, &entry)?;
-            work.extend(reachable_positions(parent_edges));
+            work.extend(reachable_positions(parent_edges).filter(|&pos| pos >= min_pos));
         }
         // Find commits reachable transitively and add them to the `unwanted` set.
-        let mut unwanted = PositionsBitSet::with_max_pos(max_position);
+        let mut unwanted = PositionsBitSet::with_max_pos(max_pos);
         while let Some(pos) = work.pop() {
-            if pos < self.min_position {
-                continue;
-            }
             if unwanted.get_set(pos) {
                 // Already visited
                 continue;
@@ -285,7 +284,7 @@ impl<'a> RevsetGraphWalk<'a> {
                 continue;
             }
             let parent_edges = self.edges_from_internal_commit(index, &entry)?;
-            work.extend(reachable_positions(parent_edges));
+            work.extend(reachable_positions(parent_edges).filter(|&pos| pos >= min_pos));
         }
 
         let mut edges = edges;
