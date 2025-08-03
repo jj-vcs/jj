@@ -98,6 +98,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj fix` commands now replace `$root` with the workspace's root path. This is
   useful for tools stored inside the workspace.
 
+* `jj squash` has gained `--insert-before`, `--insert-after`, and `--destination`
+  options.
+
 ### Fixed bugs
 
 * Fixed an error in `jj util gc` caused by the empty blob being missing from
