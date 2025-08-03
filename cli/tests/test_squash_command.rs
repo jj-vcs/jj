@@ -1592,14 +1592,14 @@ fn test_squash_use_destination_message() {
     ");
 }
 
-// The --use-destination-message and --message options are incompatible.
 #[test]
-fn test_squash_use_destination_message_and_message_mutual_exclusion() {
+fn test_squash_option_exclusion() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     work_dir.run_jj(["commit", "-m=a"]).success();
     work_dir.run_jj(["describe", "-m=b"]).success();
+
     insta::assert_snapshot!(work_dir.run_jj([
         "squash",
         "--message=123",
@@ -1614,6 +1614,590 @@ fn test_squash_use_destination_message_and_message_mutual_exclusion() {
     [EOF]
     [exit status: 2]
     ");
+
+    insta::assert_snapshot!(work_dir.run_jj([
+        "squash",
+        "-r@",
+        "--into=@-"
+    ]), @r"
+    ------- stderr -------
+    error: the argument '--revision <REVSET>' cannot be used with '--into <REVSET>'
+
+    Usage: jj squash --revision <REVSET> [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj([
+        "squash",
+        "-r@",
+        "--destination=@-"
+    ]), @r"
+    ------- stderr -------
+    error: the argument '--revision <REVSET>' cannot be used with '--destination <REVSETS>'
+
+    Usage: jj squash --revision <REVSET> [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj([
+        "squash",
+        "-r@",
+        "--after=@-"
+    ]), @r"
+    ------- stderr -------
+    error: the argument '--revision <REVSET>' cannot be used with '--insert-after <REVSETS>'
+
+    Usage: jj squash --revision <REVSET> [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj([
+        "squash",
+        "-r@",
+        "--before=@-"
+    ]), @r"
+    ------- stderr -------
+    error: the argument '--revision <REVSET>' cannot be used with '--insert-before <REVSETS>'
+
+    Usage: jj squash --revision <REVSET> [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj([
+        "squash",
+        "--destination=@",
+        "--into=@-"
+    ]), @r"
+    ------- stderr -------
+    error: the argument '--destination <REVSETS>' cannot be used with '--into <REVSET>'
+
+    Usage: jj squash --destination <REVSETS> [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj([
+        "squash",
+        "--after=@",
+        "--into=@-"
+    ]), @r"
+    ------- stderr -------
+    error: the argument '--insert-after <REVSETS>' cannot be used with '--into <REVSET>'
+
+    Usage: jj squash --insert-after <REVSETS> [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj([
+        "squash",
+        "--before=@-",
+        "--into=@-"
+    ]), @r"
+    ------- stderr -------
+    error: the argument '--insert-before <REVSETS>' cannot be used with '--into <REVSET>'
+
+    Usage: jj squash --insert-before <REVSETS> [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+}
+
+#[test]
+fn test_squash_to_new_commit() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "file1\n");
+    work_dir.run_jj(["commit", "-m", "file1"]).success();
+    work_dir.write_file("file2", "file2\n");
+    work_dir.run_jj(["commit", "-m", "file2"]).success();
+    work_dir.write_file("file3", "file3\n");
+    work_dir.run_jj(["commit", "-m", "file3"]).success();
+    work_dir.write_file("file4", "file4\n");
+    work_dir.run_jj(["commit", "-m", "file4"]).success();
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  mzvwutvlkqwt
+    ○  zsuskulnrvyr file4
+    │  A file4
+    ○  kkmpptxzrspx file3
+    │  A file3
+    ○  rlvkpnrzqnoo file2
+    │  A file2
+    ○  qpvuntsmwlqt file1
+    │  A file1
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    // insert the commit before the source commit
+    let output = work_dir.run_jj([
+        "squash",
+        "-m",
+        "file 3&4",
+        "-f",
+        "kkmpptxzrspx::",
+        "--insert-before",
+        "qpvuntsmwlqt",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Created new commit yqosqzyt 12bb5aa1 file 3&4
+    Rebased 2 descendant commits
+    Working copy  (@) now at: spxsnpux 5b7a2ac3 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 269d92e4 file2
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  spxsnpuxtvxq
+    ○  rlvkpnrzqnoo file2
+    │  A file2
+    ○  qpvuntsmwlqt file1
+    │  A file1
+    ○  yqosqzytrlsw file 3&4
+    │  A file3
+    │  A file4
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    // insert the commit after a commit
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj([
+        "squash",
+        "-m",
+        "file 3&4",
+        "-f",
+        "kkmpptxzrspx::",
+        "--insert-after",
+        "qpvuntsmwlqt",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Created new commit znkkpsqq 71efbc99 file 3&4
+    Rebased 1 descendant commits
+    Working copy  (@) now at: uuzqqzqu 4a07118a (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 800cd9f9 file2
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  uuzqqzquvwzn
+    ○  rlvkpnrzqnoo file2
+    │  A file2
+    ○  znkkpsqqskkl file 3&4
+    │  A file3
+    │  A file4
+    ○  qpvuntsmwlqt file1
+    │  A file1
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    // insert the commit onto another
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj([
+        "squash",
+        "-m",
+        "file 3&4",
+        "-f",
+        "kkmpptxzrspx::",
+        "--destination",
+        "qpvuntsmwlqt",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Created new commit wqnwkozp e70a59b7 file 3&4
+    Working copy  (@) now at: mouksmqu ecd9569d (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 27974c44 file2
+    Added 0 files, modified 0 files, removed 2 files
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  mouksmquosnp
+    ○  rlvkpnrzqnoo file2
+    │  A file2
+    │ ○  wqnwkozpkust file 3&4
+    ├─╯  A file3
+    │    A file4
+    ○  qpvuntsmwlqt file1
+    │  A file1
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    // insert the commit after the source commit
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj([
+        "squash",
+        "-m",
+        "file 3&4",
+        "-f",
+        "kkmpptxzrspx::",
+        "--insert-after",
+        "zsuskulnrvyr",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Created new commit nkmrtpmo dc2faadd file 3&4
+    Rebased 1 descendant commits
+    Working copy  (@) now at: ruktrxxu 6d045de7 (empty) (no description set)
+    Parent commit (@-)      : nkmrtpmo dc2faadd file 3&4
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  ruktrxxusqqp
+    ○  nkmrtpmomlro file 3&4
+    │  A file3
+    │  A file4
+    ○  rlvkpnrzqnoo file2
+    │  A file2
+    ○  qpvuntsmwlqt file1
+    │  A file1
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    // insert the commit before the source commit
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj([
+        "squash",
+        "-m",
+        "file 3&4",
+        "-f",
+        "kkmpptxzrspx::",
+        "--insert-before",
+        "zsuskulnrvyr",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Created new commit xtnwkqum 342eb9be file 3&4
+    Rebased 1 descendant commits
+    Working copy  (@) now at: pqrnrkux 4f456097 (empty) (no description set)
+    Parent commit (@-)      : xtnwkqum 342eb9be file 3&4
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  pqrnrkuxnrvz
+    ○  xtnwkqumpolk file 3&4
+    │  A file3
+    │  A file4
+    ○  rlvkpnrzqnoo file2
+    │  A file2
+    ○  qpvuntsmwlqt file1
+    │  A file1
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    // double destination with a commit that will disappear
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj([
+        "squash",
+        "-m",
+        "file 3&4",
+        "-f",
+        "kkmpptxzrspx::",
+        "--destination",
+        "rlvkpnrzqnoo",
+        "--destination",
+        "kkmpptxzrspx",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Created new commit wvuyspvk 8a940ae6 file 3&4
+    Working copy  (@) now at: pkynqtxp 09bb6d70 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 27974c44 file2
+    Added 0 files, modified 0 files, removed 2 files
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  pkynqtxptmyn
+    │ ○  wvuyspvkupzz file 3&4
+    ├─╯  A file3
+    │    A file4
+    ○  rlvkpnrzqnoo file2
+    │  A file2
+    ○  qpvuntsmwlqt file1
+    │  A file1
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    // creating a new commit should open the editor to write the commit message
+    work_dir.run_jj(["undo"]).success();
+    std::fs::write(edit_script, ["dump editor1", "write\nfile 3&4"].join("\0")).unwrap();
+    let output = work_dir.run_jj([
+        "squash",
+        "-f",
+        "kkmpptxzrspx::zsuskulnrvyr",
+        "--insert-before",
+        "qpvuntsmwlqt",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Created new commit xlzxqlsl 8ceb6c68 file 3&4
+    Rebased 3 descendant commits
+    Working copy  (@) now at: mzvwutvl af73b227 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz e72015b0 file2
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
+    JJ: Enter a description for the combined commit.
+
+    JJ: Description from source commit:
+    file3
+
+    JJ: Description from source commit:
+    file4
+
+    JJ: This commit contains the following changes:
+    JJ:     A file3
+    JJ:     A file4
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  mzvwutvlkqwt
+    ○  rlvkpnrzqnoo file2
+    │  A file2
+    ○  qpvuntsmwlqt file1
+    │  A file1
+    ○  xlzxqlslvuyv file 3&4
+    │  A file3
+    │  A file4
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["evolog", "-r", "xlzxqlslvuyv"]);
+    insta::assert_snapshot!(output, @r"
+    ○    xlzxqlsl test.user@example.com 2001-02-03 08:05:31 8ceb6c68
+    ├─╮  file 3&4
+    │ │  -- operation bce6018e7161 (2001-02-03 08:05:31) squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:31 c7946a56
+    │ │  file4
+    │ │  -- operation bce6018e7161 (2001-02-03 08:05:31) squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:11 38778966
+    │ │  file4
+    │ │  -- operation 83489d186f66 (2001-02-03 08:05:11) commit 89a30a7539466ed176c1ef122a020fd9cb15848e
+    │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:11 89a30a75
+    │ │  (no description set)
+    │ │  -- operation e23fd04aab50 (2001-02-03 08:05:11) snapshot working copy
+    │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:10 bbf04d26
+    │    (empty) (no description set)
+    │    -- operation 19d57874b952 (2001-02-03 08:05:10) commit c23c424826221bc4fdee9487926595324e50ee95
+    ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:31 3ab8a4a5
+    │  file3
+    │  -- operation bce6018e7161 (2001-02-03 08:05:31) squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:10 0d254956
+    │  file3
+    │  -- operation 19d57874b952 (2001-02-03 08:05:10) commit c23c424826221bc4fdee9487926595324e50ee95
+    ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:10 c23c4248
+    │  (no description set)
+    │  -- operation d19ad3734aa6 (2001-02-03 08:05:10) snapshot working copy
+    ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:09 c1272e87
+       (empty) (no description set)
+       -- operation fdee458ae5f2 (2001-02-03 08:05:09) commit cb58ff1c6f1af92f827661e7275941ceb4d910c5
+    [EOF]
+    ");
+
+    // creating a new commit with --use-destination-message shouldn't open the
+    // editor
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj([
+        "squash",
+        "-f",
+        "kkmpptxzrspx::zsuskulnrvyr",
+        "--insert-before",
+        "qpvuntsmwlqt",
+        "--use-destination-message",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Created new commit pkstwlsy 3e0cd203 (no description set)
+    Rebased 3 descendant commits
+    Working copy  (@) now at: mzvwutvl f52f8d55 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 8cfd575a file2
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  mzvwutvlkqwt
+    ○  rlvkpnrzqnoo file2
+    │  A file2
+    ○  qpvuntsmwlqt file1
+    │  A file1
+    ○  pkstwlsyuyku
+    │  A file3
+    │  A file4
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    // squashing 0 sources should create an empty commit
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj([
+        "squash",
+        "-f",
+        "none()",
+        "--insert-before",
+        "qpvuntsmwlqt",
+        "--use-destination-message",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Created new commit zowrlwsv 5feda7c2 (empty) (no description set)
+    Rebased 5 descendant commits
+    Working copy  (@) now at: mzvwutvl 95edec8e (empty) (no description set)
+    Parent commit (@-)      : zsuskuln 5abf0a51 file4
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  mzvwutvlkqwt
+    ○  zsuskulnrvyr file4
+    │  A file4
+    ○  kkmpptxzrspx file3
+    │  A file3
+    ○  rlvkpnrzqnoo file2
+    │  A file2
+    ○  qpvuntsmwlqt file1
+    │  A file1
+    ○  zowrlwsvrkvk
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["evolog", "-r", "zowrlwsvrkvk"]);
+    insta::assert_snapshot!(output, @r"
+    ○  zowrlwsv test.user@example.com 2001-02-03 08:05:38 5feda7c2
+       (empty) (no description set)
+       -- operation 1b5b7f9b27ba (2001-02-03 08:05:38) squash 0 commits
+    [EOF]
+    ");
+
+    // squashing empty changes should create an empty commit
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj([
+        "squash",
+        "-f",
+        "kkmpptxzrspx::zsuskulnrvyr",
+        "--insert-before",
+        "qpvuntsmwlqt",
+        "--use-destination-message",
+        "no file",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Created new commit nsrwusvy c2183685 (empty) (no description set)
+    Rebased 5 descendant commits
+    Working copy  (@) now at: mzvwutvl cb96ecf9 (empty) (no description set)
+    Parent commit (@-)      : zsuskuln 97edce13 file4
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  mzvwutvlkqwt
+    ○  zsuskulnrvyr file4
+    │  A file4
+    ○  kkmpptxzrspx file3
+    │  A file3
+    ○  rlvkpnrzqnoo file2
+    │  A file2
+    ○  qpvuntsmwlqt file1
+    │  A file1
+    ○  nsrwusvynpoy
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["evolog", "-r", "nsrwusvynpoy"]);
+    insta::assert_snapshot!(output, @r"
+    ○  nsrwusvy test.user@example.com 2001-02-03 08:05:42 c2183685
+       (empty) (no description set)
+       -- operation a8d1b9aee58e (2001-02-03 08:05:42) squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    [EOF]
+    ");
+
+    // squashing from an empty commit should produce an empty commit
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["new", "--no-edit", "root()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Created new commit wtlqussy 7eff41c8 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj([
+        "squash",
+        "-f",
+        "wtlqussy",
+        "--destination",
+        "root()",
+        "--use-destination-message",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Created new commit ukwxllxp 43a4b8e0 (empty) (no description set)
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  mzvwutvlkqwt
+    ○  zsuskulnrvyr file4
+    │  A file4
+    ○  kkmpptxzrspx file3
+    │  A file3
+    ○  rlvkpnrzqnoo file2
+    │  A file2
+    ○  qpvuntsmwlqt file1
+    │  A file1
+    │ ○  ukwxllxpysvw
+    ├─╯
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["evolog", "-r", "ukwxllxpysvw"]);
+    insta::assert_snapshot!(output, @r"
+    ○  ukwxllxp test.user@example.com 2001-02-03 08:05:46 43a4b8e0
+    │  (empty) (no description set)
+    │  -- operation 11bdcad3854e (2001-02-03 08:05:47) squash commit 7eff41c8d17b8b4d2e7110402719e9d245dba975
+    ○  wtlqussy hidden test.user@example.com 2001-02-03 08:05:46 7eff41c8
+       (empty) (no description set)
+       -- operation b2ee55ac8c70 (2001-02-03 08:05:46) new empty commit
+    [EOF]
+    ");
 }
 
 #[must_use]
@@ -1625,4 +2209,10 @@ fn get_description(work_dir: &TestWorkDir, rev: &str) -> CommandOutput {
 fn get_log_output_with_description(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"separate(" ", commit_id.short(), description)"#;
     work_dir.run_jj(["log", "-T", template])
+}
+
+#[must_use]
+fn get_log_with_summary(work_dir: &TestWorkDir) -> CommandOutput {
+    let template = r#"separate(" ", change_id.short(), local_bookmarks, description)"#;
+    work_dir.run_jj(["log", "-T", template, "--summary"])
 }

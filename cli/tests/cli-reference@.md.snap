@@ -2588,6 +2588,9 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 * `-r`, `--revision <REVSET>` — Revision to squash into its parent (default: @)
 * `-f`, `--from <REVSETS>` — Revision(s) to squash from (default: @)
 * `-t`, `--into <REVSET>` [alias: `to`] — Revision to squash into (default: @)
+* `-d`, `--destination <REVSETS>` — The revision(s) to use as parent for the new commit (can be repeated to create a merge commit)
+* `-A`, `--insert-after <REVSETS>` [alias: `after`] — The revision(s) to insert the new commit after (can be repeated to create a merge commit)
+* `-B`, `--insert-before <REVSETS>` [alias: `before`] — The revision(s) to insert the new commit before (can be repeated to create a merge commit)
 * `-m`, `--message <MESSAGE>` — The description to use for squashed revision (don't open editor)
 * `-u`, `--use-destination-message` — Use the description of the destination revision and discard the description(s) of the source revision(s)
 * `-i`, `--interactive` — Interactively choose which parts to squash
