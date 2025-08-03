@@ -371,6 +371,7 @@ fn move_first_commit(
             },
             simplify_ancestor_merge: false,
         },
+        &Default::default(),
     )?;
 
     // 1 for the transformation of the original commit to the second commit
