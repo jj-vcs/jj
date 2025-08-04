@@ -1375,7 +1375,7 @@ The Git repo will be a bare git repo stored inside the `.jj/` directory.
 
 Add a Git remote
 
-**Usage:** `jj git remote add <REMOTE> <URL>`
+**Usage:** `jj git remote add [OPTIONS] <REMOTE> <URL>`
 
 ###### **Arguments:**
 
@@ -1383,6 +1383,21 @@ Add a Git remote
 * `<URL>` — The remote's URL or path
 
    Local path will be resolved to absolute form.
+
+###### **Options:**
+
+* `--fetch-tags <FETCH_TAGS>` — Configure when to fetch tags
+
+  Default value: `included`
+
+  Possible values:
+  - `all`:
+    Always fetch all tags
+  - `included`:
+    Only fetch tags that point to objects that are already being transmitted
+  - `none`:
+    Do not fetch any tags
+
 
 
 

@@ -24,6 +24,7 @@ mod root;
 use std::path::Path;
 
 use clap::Subcommand;
+use clap::ValueEnum;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
 use jj_lib::git;
@@ -131,4 +132,27 @@ fn write_repository_level_trunk_alias(
         "Setting the revset alias `trunk()` to `{symbol}`",
     )?;
     Ok(())
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
+enum FetchTagsMode {
+    /// Always fetch all tags
+    All,
+
+    /// Only fetch tags that point to objects that are already being
+    /// transmitted.
+    Included,
+
+    /// Do not fetch any tags
+    None,
+}
+
+impl FetchTagsMode {
+    fn as_fetch_tags(&self) -> gix::remote::fetch::Tags {
+        match self {
+            Self::All => gix::remote::fetch::Tags::All,
+            Self::Included => gix::remote::fetch::Tags::Included,
+            Self::None => gix::remote::fetch::Tags::None,
+        }
+    }
 }
