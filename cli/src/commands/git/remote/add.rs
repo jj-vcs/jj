@@ -40,6 +40,11 @@ pub fn cmd_git_remote_add(
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
     let url = absolute_git_url(command.cwd(), &args.url)?;
-    git::add_remote(workspace_command.repo().store(), &args.remote, &url)?;
+    git::add_remote(
+        workspace_command.repo().store(),
+        &args.remote,
+        &url,
+        Default::default(),
+    )?;
     Ok(())
 }

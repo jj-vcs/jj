@@ -4188,7 +4188,13 @@ fn test_remote_remove_refs() {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
 
-    git::add_remote(repo.store(), "foo".as_ref(), "https://example.com/").unwrap();
+    git::add_remote(
+        repo.store(),
+        "foo".as_ref(),
+        "https://example.com/",
+        Default::default(),
+    )
+    .unwrap();
     // Reload after Git configuration change.
     let repo = &test_repo
         .env
@@ -4230,7 +4236,13 @@ fn test_remote_rename_refs() {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
 
-    git::add_remote(repo.store(), "foo".as_ref(), "https://example.com/").unwrap();
+    git::add_remote(
+        repo.store(),
+        "foo".as_ref(),
+        "https://example.com/",
+        Default::default(),
+    )
+    .unwrap();
     // Reload after Git configuration change.
     let repo = &test_repo
         .env
@@ -4286,4 +4298,39 @@ fn user_settings_without_change_id() -> UserSettings {
         .unwrap();
     config.add_layer(layer);
     UserSettings::from_config(config).unwrap()
+}
+
+#[test]
+fn test_remote_add_with_tags_specification() {
+    for fetch_tags in [
+        gix::remote::fetch::Tags::All,
+        gix::remote::fetch::Tags::Included,
+        gix::remote::fetch::Tags::None,
+    ] {
+        let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+        let repo = &test_repo.repo;
+
+        let remote_name = "foo";
+        git::add_remote(
+            repo.store(),
+            remote_name.as_ref(),
+            "https://example.com/",
+            fetch_tags,
+        )
+        .unwrap();
+
+        // Reload after Git configuration change.
+        let repo = &test_repo
+            .env
+            .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+        let git_repo = get_git_repo(repo);
+        assert_eq!(
+            fetch_tags,
+            git_repo
+                .find_remote(remote_name)
+                .expect("unable to find remote")
+                .fetch_tags()
+        );
+    }
 }

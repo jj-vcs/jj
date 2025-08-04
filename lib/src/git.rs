@@ -1812,6 +1812,7 @@ pub fn add_remote(
     store: &Store,
     remote_name: &RemoteName,
     url: &str,
+    fetch_tags: gix::remote::fetch::Tags,
 ) -> Result<(), GitRemoteManagementError> {
     let git_repo = get_git_repo(store)?;
 
@@ -1826,6 +1827,7 @@ pub fn add_remote(
     let mut remote = git_repo
         .remote_at(url)
         .map_err(GitRemoteManagementError::from_git)?
+        .with_fetch_tags(fetch_tags)
         .with_refspecs(
             [default_fetch_refspec(remote_name).as_bytes()],
             gix::remote::Direction::Fetch,
