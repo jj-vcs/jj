@@ -67,6 +67,8 @@ pub struct RepoPathComponent {
 }
 
 impl RepoPathComponent {
+    pub const DOT_GITATTRIBUTES: &Self = Self::new_unchecked(".gitattributes");
+
     /// Wraps `value` as `RepoPathComponent`.
     ///
     /// Returns an error if the input `value` is empty or contains path
