@@ -18,6 +18,7 @@ mod test_evolution_predecessors;
 mod test_fix;
 mod test_git;
 mod test_git_backend;
+mod test_gitattributes;
 mod test_gpg;
 mod test_id_prefix;
 mod test_index;

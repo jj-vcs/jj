@@ -41,6 +41,7 @@ either = { workspace = true }
 etcetera = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true, optional = true }
+gix-attributes = { workspace = true }
 globset = { workspace = true }
 hashbrown = { workspace = true }
 ignore = { workspace = true }
