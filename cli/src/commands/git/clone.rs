@@ -34,6 +34,7 @@ use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
+use crate::commands::git::FetchTagsMode;
 use crate::commands::git::maybe_add_gitignore;
 use crate::git_util::absolute_git_url;
 use crate::git_util::print_git_import_stats;
@@ -68,6 +69,9 @@ pub struct GitCloneArgs {
     /// Create a shallow clone of the given depth
     #[arg(long)]
     depth: Option<NonZeroU32>,
+    /// Configure when to fetch tags
+    #[arg(long, value_enum, default_value_t = FetchTagsMode::Included)]
+    fetch_tags: FetchTagsMode,
 }
 
 fn clone_destination_for_source(source: &str) -> Option<&str> {
@@ -127,8 +131,14 @@ pub fn cmd_git_clone(
 
     let clone_result = (|| -> Result<_, CommandError> {
         let workspace_command = init_workspace(ui, command, &canonical_wc_path, colocate)?;
-        let mut workspace_command =
-            configure_remote(ui, command, workspace_command, remote_name, &source)?;
+        let mut workspace_command = configure_remote(
+            ui,
+            command,
+            workspace_command,
+            remote_name,
+            &source,
+            args.fetch_tags.as_fetch_tags(),
+        )?;
         let default_branch = fetch_new_remote(ui, &mut workspace_command, remote_name, args.depth)?;
         Ok((workspace_command, default_branch))
     })();
@@ -205,12 +215,13 @@ fn configure_remote(
     workspace_command: WorkspaceCommandHelper,
     remote_name: &RemoteName,
     source: &str,
+    fetch_tags: gix::remote::fetch::Tags,
 ) -> Result<WorkspaceCommandHelper, CommandError> {
     git::add_remote(
         workspace_command.repo().store(),
         remote_name,
         source,
-        Default::default(),
+        fetch_tags,
     )?;
     // Reload workspace to apply new remote configuration to
     // gix::ThreadSafeRepository behind the store.

@@ -1221,6 +1221,18 @@ The Git repo will be a bare git repo stored inside the `.jj/` directory.
 * `--colocate` — Whether or not to colocate the Jujutsu repo with the git repo
 * `--no-colocate` — Disable colocation of the Jujutsu repo with the git repo
 * `--depth <DEPTH>` — Create a shallow clone of the given depth
+* `--fetch-tags <FETCH_TAGS>` — Configure when to fetch tags
+
+  Default value: `included`
+
+  Possible values:
+  - `all`:
+    Always fetch all tags
+  - `included`:
+    Only fetch tags that point to objects that are already being transmitted
+  - `none`:
+    Do not fetch any tags
+
 
 
 

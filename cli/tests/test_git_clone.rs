@@ -428,6 +428,52 @@ fn test_git_clone_no_colocate() {
 }
 
 #[test]
+fn test_git_clone_tags() {
+    let cases = [
+        (gix::remote::fetch::Tags::Included, [].as_slice()),
+        (
+            gix::remote::fetch::Tags::Included,
+            &["--fetch-tags", "included"],
+        ),
+        (gix::remote::fetch::Tags::All, &["--fetch-tags", "all"]),
+        (gix::remote::fetch::Tags::None, &["--fetch-tags", "none"]),
+    ];
+
+    insta::allow_duplicates! {
+        for (expected, args) in cases {
+            let test_env = TestEnvironment::default();
+            let root_dir = test_env.work_dir("");
+            let git_repo_path = test_env.env_root().join("source");
+            let _git_repo = git::init(git_repo_path);
+
+            // Clone an empty repo
+            let output = root_dir.run_jj(
+                [
+                    "git",
+                    "clone",
+                    "source",
+                    "repo",
+                    "--colocate"
+                ]
+                .iter()
+                .chain(args)
+            );
+            insta::assert_snapshot!(output, @r#"
+            ------- stderr -------
+            Fetching into new repo in "$TEST_ENV/repo"
+            Nothing changed.
+            Hint: Running `git clean -xdf` will remove `.jj/`!
+            [EOF]
+            "#);
+
+            let git_repo = git::open(test_env.env_root().join("repo"));
+            let remote = git_repo.find_remote("origin").unwrap();
+            assert_eq!(expected, remote.fetch_tags());
+        }
+    }
+}
+
+#[test]
 fn test_git_clone_remote_default_bookmark() {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");
