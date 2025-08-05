@@ -85,7 +85,7 @@ pub(crate) fn cmd_simplify_parents(
     let mut reparented_descendants = 0;
 
     tx.repo_mut()
-        .transform_descendants(commit_ids, |mut rewriter| {
+        .transform_descendants(commit_ids, async |mut rewriter| {
             let num_old_heads = rewriter.new_parents().len();
             if commit_ids_set.contains(rewriter.old_commit().id()) && num_old_heads > 1 {
                 // TODO: BackendError is not the right error here because

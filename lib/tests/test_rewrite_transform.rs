@@ -50,7 +50,7 @@ fn test_transform_descendants_sync() {
 
     let mut rebased = HashMap::new();
     tx.repo_mut()
-        .transform_descendants(vec![commit_b.id().clone()], |mut rewriter| {
+        .transform_descendants(vec![commit_b.id().clone()], async |mut rewriter| {
             rewriter.replace_parent(commit_a.id(), [commit_g.id()]);
             if *rewriter.old_commit() == commit_c {
                 rewriter.abandon();
@@ -102,7 +102,7 @@ fn test_transform_descendants_sync_linearize_merge() {
 
     let mut rebased = HashMap::new();
     tx.repo_mut()
-        .transform_descendants(vec![commit_c.id().clone()], |mut rewriter| {
+        .transform_descendants(vec![commit_c.id().clone()], async |mut rewriter| {
             rewriter.replace_parent(commit_a.id(), [commit_b.id()]);
             let old_commit_id = rewriter.old_commit().id().clone();
             let new_commit = rewriter.rebase()?.write()?;
@@ -159,7 +159,7 @@ fn test_transform_descendants_new_parents_map() {
                 commit_c.id().clone() => vec![commit_a.id().clone()],
             },
             &options,
-            |mut rewriter| {
+            async |mut rewriter| {
                 let old_commit_id = rewriter.old_commit().id().clone();
                 if old_commit_id != *commit_b.id() {
                     if let Some(new_commit_c) = rebased.get(commit_c.id()) {

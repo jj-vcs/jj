@@ -296,7 +296,7 @@ pub fn absorb_hunks(
     let mut num_rebased = 0;
     // Rewrite commits in topological order so that descendant commits wouldn't
     // be rewritten multiple times.
-    repo.transform_descendants(selected_trees.keys().cloned().collect(), |rewriter| {
+    repo.transform_descendants(selected_trees.keys().cloned().collect(), async |rewriter| {
         // Remove selected hunks from the source commit by reparent()
         if rewriter.old_commit().id() == source.commit.id() {
             let commit_builder = rewriter.reparent();

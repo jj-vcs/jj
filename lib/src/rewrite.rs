@@ -797,7 +797,7 @@ fn apply_move_commits(
         commits.descendants,
         &commits.commit_new_parents_map,
         &options.rewrite_refs,
-        |rewriter| {
+        async |rewriter| {
             let old_commit_id = rewriter.old_commit().id().clone();
             if commits.to_abandon.contains(&old_commit_id) {
                 rewriter.abandon();
@@ -958,7 +958,7 @@ pub fn duplicate_commits(
 
     // Rebase new children onto the target heads.
     let children_commit_ids_set: HashSet<CommitId> = children_commit_ids.iter().cloned().collect();
-    mut_repo.transform_descendants(children_commit_ids.to_vec(), |mut rewriter| {
+    mut_repo.transform_descendants(children_commit_ids.to_vec(), async |mut rewriter| {
         if children_commit_ids_set.contains(rewriter.old_commit().id()) {
             let mut child_new_parent_ids = IndexSet::new();
             for old_parent_id in rewriter.old_commit().parent_ids() {

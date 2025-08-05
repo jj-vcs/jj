@@ -117,7 +117,7 @@ pub(crate) fn cmd_abandon(
         to_abandon.iter().cloned().collect(),
         &HashMap::new(),
         &options,
-        |rewriter| {
+        async |rewriter| {
             if to_abandon.contains(rewriter.old_commit().id()) {
                 rewriter.abandon();
             } else if args.restore_descendants {

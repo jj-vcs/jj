@@ -160,7 +160,7 @@ pub(crate) fn cmd_revert(
     let children_commit_ids_set: HashSet<CommitId> = new_child_ids.iter().cloned().collect();
     let mut num_rebased = 0;
     tx.repo_mut()
-        .transform_descendants(new_child_ids, |mut rewriter| {
+        .transform_descendants(new_child_ids, async |mut rewriter| {
             if children_commit_ids_set.contains(rewriter.old_commit().id()) {
                 let mut child_new_parent_ids = IndexSet::new();
                 for old_parent_id in rewriter.old_commit().parent_ids() {

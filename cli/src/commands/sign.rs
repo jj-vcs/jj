@@ -89,7 +89,7 @@ pub fn cmd_sign(ui: &mut Ui, command: &CommandHelper, args: &SignArgs) -> Result
 
     tx.repo_mut().transform_descendants(
         to_sign.iter().ids().cloned().collect_vec(),
-        |rewriter| {
+        async |rewriter| {
             let old_commit = rewriter.old_commit().clone();
             let mut commit_builder = rewriter.reparent();
 

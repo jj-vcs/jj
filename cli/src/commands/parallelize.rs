@@ -116,7 +116,7 @@ pub(crate) fn cmd_parallelize(
 
     tx.repo_mut().transform_descendants(
         target_commits.iter().ids().cloned().collect_vec(),
-        |mut rewriter| {
+        async |mut rewriter| {
             // Commits in the target set do not depend on each other but they still depend
             // on other parents
             if let Some(new_parents) = new_target_parents.get(rewriter.old_commit().id()) {

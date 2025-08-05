@@ -267,7 +267,7 @@ pub(crate) fn cmd_describe(
     // chain.
     tx.repo_mut().transform_descendants(
         commit_builders.keys().map(|&id| id.clone()).collect(),
-        |rewriter| {
+        async |rewriter| {
             let old_commit_id = rewriter.old_commit().id().clone();
             let commit_builder = rewriter.reparent();
             if let Some(temp_builder) = commit_builders.get(&old_commit_id) {
