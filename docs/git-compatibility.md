@@ -178,13 +178,21 @@ co-located repo like so:
 echo '/*' > .jj/.gitignore
 # Move the Git repo
 mv .jj/repo/store/git .git
-# Tell jj where to find it
+# Tell jj where to find it (do not use on Windows! See below.)
 echo -n '../../../.git' > .jj/repo/store/git_target
 # Make the Git repository non-bare and set HEAD
 git config --unset core.bare
 # Convince jj to update .git/HEAD to point to the working-copy commit's parent
 jj new && jj undo
 ```
+
+!!! warning
+
+    On Windows, the `echo` command will append line endings and cause `jj`
+    to complain about the contents of `git_target`.
+
+    Instead of the `echo -n ...` line, use:
+    `Set-Content -Path .jj/repo/store/git_target -Value ../../../.git -NoNewLine`
 
 We may officially support this in the future. If you try this, we would
 appreciate feedback and bug reports.
