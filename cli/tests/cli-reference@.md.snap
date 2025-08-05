@@ -91,6 +91,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj status`↴](#jj-status)
 * [`jj tag`↴](#jj-tag)
 * [`jj tag list`↴](#jj-tag-list)
+* [`jj touch`↴](#jj-touch)
 * [`jj undo`↴](#jj-undo)
 * [`jj unsign`↴](#jj-unsign)
 * [`jj util`↴](#jj-util)
@@ -159,6 +160,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `squash` — Move changes from a revision into another revision
 * `status` — Show high-level repo status [default alias: st]
 * `tag` — Manage tags
+* `touch` — Modify the metadata of a revision without changing its content
 * `undo` — Undo an operation (shortcut for `jj op undo`)
 * `unsign` — Drop a cryptographic signature
 * `util` — Infrequently used commands such as for generating shell completions
@@ -2641,6 +2643,18 @@ List tags
    [`CommitRef` type]: https://jj-vcs.github.io/jj/latest/templates/#commitref-type
 
    [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
+
+
+
+## `jj touch`
+
+Modify the metadata of a revision without changing its content
+
+**Usage:** `jj touch [REVSETS]...`
+
+###### **Arguments:**
+
+* `<REVSETS>` — The revision(s) to touch (default: @)
 
 
 

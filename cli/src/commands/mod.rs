@@ -53,6 +53,7 @@ mod split;
 mod squash;
 mod status;
 mod tag;
+mod touch;
 mod unsign;
 mod util;
 mod version;
@@ -141,6 +142,7 @@ enum Command {
     Status(status::StatusArgs),
     #[command(subcommand)]
     Tag(tag::TagCommand),
+    Touch(touch::TouchArgs),
     /// Undo an operation (shortcut for `jj op undo`)
     Undo(operation::undo::OperationUndoArgs),
     Unsign(unsign::UnsignArgs),
@@ -202,6 +204,7 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
         Command::Squash(args) => squash::cmd_squash(ui, command_helper, args),
         Command::Status(args) => status::cmd_status(ui, command_helper, args),
         Command::Tag(args) => tag::cmd_tag(ui, command_helper, args),
+        Command::Touch(args) => touch::cmd_touch(ui, command_helper, args),
         Command::Undo(args) => operation::undo::cmd_op_undo(ui, command_helper, args),
         Command::Unsign(args) => unsign::cmd_unsign(ui, command_helper, args),
         Command::Util(args) => util::cmd_util(ui, command_helper, args),
