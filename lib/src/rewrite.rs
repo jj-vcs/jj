@@ -860,7 +860,7 @@ pub struct DuplicateCommitsStats {
 /// should not be ancestors of `parent_commit_ids`. Commits in
 /// `target_commit_ids` should be in reverse topological order (children before
 /// parents).
-pub fn duplicate_commits(
+pub async fn duplicate_commits(
     mut_repo: &mut MutableRepo,
     target_commit_ids: &[CommitId],
     target_descriptions: &HashMap<CommitId, String>,
@@ -917,7 +917,10 @@ pub fn duplicate_commits(
     // Topological order ensures that any parents of the original commit are
     // either not in `target_commits` or were already duplicated.
     for original_commit_id in target_commit_ids.iter().rev() {
-        let original_commit = mut_repo.store().get_commit(original_commit_id)?;
+        let original_commit = mut_repo
+            .store()
+            .get_commit_async(original_commit_id)
+            .await?;
         let new_parent_ids = if target_root_ids.contains(original_commit_id) {
             parent_commit_ids.to_vec()
         } else {
@@ -936,7 +939,7 @@ pub fn duplicate_commits(
         };
         let mut new_commit_builder = CommitRewriter::new(mut_repo, original_commit, new_parent_ids)
             .rebase()
-            .block_on()?
+            .await?
             .generate_new_change_id();
         if let Some(desc) = target_descriptions.get(original_commit_id) {
             new_commit_builder = new_commit_builder.set_description(desc);
