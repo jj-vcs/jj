@@ -85,6 +85,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New `signing.backends.ssh.revocation-list` config for specifying a list of revoked
   public keys for commit signature verification.
 
+* Added support `revsets.git-push` which allows you to customize the default
+  set of commits to push. See issue
+  [#3649](https://github.com/jj-vcs/jj/issues/3650).
+
 ### Fixed bugs
 
 * Fixed an error in `jj util gc` caused by the empty blob being missing from
@@ -208,7 +212,6 @@ Thanks to the people who made this release happen!
 
 * `jj evolog` can show associated operations for commits created by new jj
   versions.
-
 ### Breaking changes
 
 * The old `libgit2` code path for fetches and pushes has been removed,
