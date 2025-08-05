@@ -121,13 +121,13 @@ pub async fn restore_tree(
     }
 }
 
-pub fn rebase_commit(
+pub async fn rebase_commit(
     mut_repo: &mut MutableRepo,
     old_commit: Commit,
     new_parents: Vec<CommitId>,
 ) -> BackendResult<Commit> {
     let rewriter = CommitRewriter::new(mut_repo, old_commit, new_parents);
-    let builder = rewriter.rebase()?;
+    let builder = rewriter.rebase().await?;
     builder.write()
 }
 
@@ -287,10 +287,8 @@ impl<'repo> CommitRewriter<'repo> {
 
     /// Rebase the old commit onto the new parents. Returns a `CommitBuilder`
     /// for the new commit.
-    pub fn rebase(self) -> BackendResult<CommitBuilder<'repo>> {
-        let builder = self
-            .rebase_with_empty_behavior(EmptyBehavior::Keep)
-            .block_on()?;
+    pub async fn rebase(self) -> BackendResult<CommitBuilder<'repo>> {
+        let builder = self.rebase_with_empty_behavior(EmptyBehavior::Keep).await?;
         Ok(builder.unwrap())
     }
 
@@ -937,7 +935,8 @@ pub fn duplicate_commits(
                 .collect()
         };
         let mut new_commit_builder = CommitRewriter::new(mut_repo, original_commit, new_parent_ids)
-            .rebase()?
+            .rebase()
+            .block_on()?
             .generate_new_change_id();
         if let Some(desc) = target_descriptions.get(original_commit_id) {
             new_commit_builder = new_commit_builder.set_description(desc);
@@ -978,7 +977,7 @@ pub fn duplicate_commits(
             rewriter.set_new_parents(child_new_parent_ids.into_iter().collect());
         }
         num_rebased += 1;
-        rewriter.rebase()?.write()?;
+        rewriter.rebase().await?.write()?;
         Ok(())
     })?;
 

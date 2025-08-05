@@ -56,7 +56,7 @@ fn test_transform_descendants_sync() {
                 rewriter.abandon();
             } else {
                 let old_commit_id = rewriter.old_commit().id().clone();
-                let new_commit = rewriter.rebase()?.write()?;
+                let new_commit = rewriter.rebase().await?.write()?;
                 rebased.insert(old_commit_id, new_commit);
             }
             Ok(())
@@ -105,7 +105,7 @@ fn test_transform_descendants_sync_linearize_merge() {
         .transform_descendants(vec![commit_c.id().clone()], async |mut rewriter| {
             rewriter.replace_parent(commit_a.id(), [commit_b.id()]);
             let old_commit_id = rewriter.old_commit().id().clone();
-            let new_commit = rewriter.rebase()?.write()?;
+            let new_commit = rewriter.rebase().await?.write()?;
             rebased.insert(old_commit_id, new_commit);
             Ok(())
         })
@@ -167,7 +167,7 @@ fn test_transform_descendants_new_parents_map() {
                         rewriter.replace_parent(new_commit_c.id(), [new_commit_b.id()]);
                     }
                 }
-                let new_commit = rewriter.rebase()?.write()?;
+                let new_commit = rewriter.rebase().await?.write()?;
                 rebased.insert(old_commit_id, new_commit);
                 Ok(())
             },

@@ -180,7 +180,7 @@ pub(crate) fn cmd_revert(
                 rewriter.set_new_parents(child_new_parent_ids.into_iter().collect());
             }
             num_rebased += 1;
-            rewriter.rebase()?.write()?;
+            rewriter.rebase().await?.write()?;
             Ok(())
         })?;
 

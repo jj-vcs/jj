@@ -309,13 +309,13 @@ pub fn absorb_hunks(
             return Ok(());
         }
         let Some(tree_builder) = selected_trees.remove(rewriter.old_commit().id()) else {
-            rewriter.rebase()?.write()?;
+            rewriter.rebase().await?.write()?;
             num_rebased += 1;
             return Ok(());
         };
         // Merge hunks between source parent tree and selected tree
         let selected_tree_id = tree_builder.write_tree(&store)?;
-        let commit_builder = rewriter.rebase()?;
+        let commit_builder = rewriter.rebase().await?;
         let destination_tree = store.get_root_tree(commit_builder.tree_id())?;
         let selected_tree = store.get_root_tree(&selected_tree_id)?;
         let new_tree = destination_tree

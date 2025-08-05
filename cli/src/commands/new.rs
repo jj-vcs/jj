@@ -215,7 +215,7 @@ pub(crate) fn cmd_new(
             .cloned()
             .chain(std::iter::once(new_commit.id().clone()))
             .collect_vec();
-        rebase_commit(tx.repo_mut(), child_commit, new_parent_ids)?;
+        rebase_commit(tx.repo_mut(), child_commit, new_parent_ids).block_on()?;
         num_rebased += 1;
     }
     num_rebased += tx.repo_mut().rebase_descendants()?;

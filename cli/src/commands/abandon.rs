@@ -124,7 +124,7 @@ pub(crate) fn cmd_abandon(
                 rewriter.reparent().write()?;
                 num_rebased += 1;
             } else {
-                rewriter.rebase()?.write()?;
+                rewriter.rebase().await?.write()?;
                 num_rebased += 1;
             }
             Ok(())

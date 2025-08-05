@@ -342,7 +342,7 @@ fn move_first_commit(
     tx.repo_mut()
         .transform_descendants(vec![target.commit.id().clone()], async |rewriter| {
             let old_commit_id = rewriter.old_commit().id().clone();
-            let new_commit = rewriter.rebase()?.write()?;
+            let new_commit = rewriter.rebase().await?.write()?;
             rewritten_commits.insert(old_commit_id, new_commit.id().clone());
             Ok(())
         })?;
@@ -425,7 +425,7 @@ fn rewrite_descendants(
             } else {
                 rewriter.replace_parent(first_commit.id(), [second_commit.id()]);
             }
-            rewriter.rebase()?.write()?;
+            rewriter.rebase().await?.write()?;
             Ok(())
         },
     )?;
