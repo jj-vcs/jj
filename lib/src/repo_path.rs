@@ -640,8 +640,9 @@ impl RepoPathUiConverter {
 
                 let suffix_count = source_components
                     .iter()
+                    .skip(prefix_count)
                     .rev()
-                    .zip(target_components.iter().rev())
+                    .zip(target_components.iter().skip(prefix_count).rev())
                     .take_while(|(source_component, target_component)| {
                         source_component == target_component
                     })
@@ -1205,5 +1206,13 @@ mod tests {
         assert_eq!(format("two", "four"), "{two => four}");
         assert_eq!(format("file1", "file2"), "{file1 => file2}");
         assert_eq!(format("file-1", "file-2"), "{file-1 => file-2}");
+        assert_eq!(
+            format("x/something/something/2to1.txt", "x/something/2to1.txt"),
+            "x/something/{something => }/2to1.txt"
+        );
+        assert_eq!(
+            format("x/something/1to2.txt", "x/something/something/1to2.txt"),
+            "x/something/{ => something}/1to2.txt"
+        );
     }
 }
