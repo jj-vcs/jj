@@ -239,6 +239,77 @@ fn test_touch() {
 
     [EOF]
     ");
+
+    // New change-id
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["touch", "--update-change-id", "kkmpptxzrspx"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Touched 1 commits:
+      nmzmmopx f4388b00 b | (no description set)
+    Rebased 1 descendant commits
+    Working copy  (@) now at: mzvwutvl d35b7dc2 c | (no description set)
+    Parent commit (@-)      : nmzmmopx f4388b00 b | (no description set)
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log(&work_dir), @r"
+    @  Commit ID: d35b7dc2b8f9feb32c6429dbcb20ba1ae3901de6
+    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    │  Bookmarks: c
+    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:13)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:26)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: f4388b00f296491a55ec47463a09a93a6ccfd6b2
+    │  Change ID: nmzmmopxokpsnwzmtnsppxxxprozqovs
+    │  Bookmarks: b
+    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:11)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:26)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
+    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    │  Bookmarks: a
+    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │
+    │      (no description set)
+    │
+    ◆  Commit ID: 0000000000000000000000000000000000000000
+       Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+       Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
+       Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
+
+           (no description set)
+
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "nmzmmo"]), @r"
+    ○  nmzmmopx test.user@example.com 2001-02-03 08:05:26 b f4388b00
+    │  (no description set)
+    │  -- operation df17d70a8043 (2001-02-03 08:05:26) touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:11 75591b18
+    │  (no description set)
+    │  -- operation 4b33c26502f8 (2001-02-03 08:05:11) snapshot working copy
+    ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:09 acebf2bd
+       (empty) (no description set)
+       -- operation 686c6e44c08d (2001-02-03 08:05:09) new empty commit
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "mzvwut"]), @r"
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:26 c d35b7dc2
+    │  (no description set)
+    │  -- operation df17d70a8043 (2001-02-03 08:05:26) touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:13 22be6c4e
+    │  (no description set)
+    │  -- operation a424b73ab8eb (2001-02-03 08:05:13) snapshot working copy
+    ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:11 b9f5490a
+       (empty) (no description set)
+       -- operation e3fbc5040416 (2001-02-03 08:05:11) new empty commit
+    [EOF]
+    ");
 }
 
 #[test]

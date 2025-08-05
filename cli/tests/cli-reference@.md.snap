@@ -2658,6 +2658,9 @@ Modify the metadata of a revision without changing its content
 
 ###### **Options:**
 
+* `--update-change-id` — Generate a new change-id
+
+   This generates a new change-id for the revision.
 * `--update-author-timestamp` — Update the author timestamp
 
    This update the author date to now, without modifying the author.

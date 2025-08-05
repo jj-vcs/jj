@@ -34,7 +34,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj log`, `jj evolog` and `jj op log` output can now be anonymized with the
   `builtin_log_redacted` and `builtin_op_log_redacted` templates.
 
-* Add the `jj touch` command, which modifies a revision's metadata.
+* Add the `jj touch` command, which modifies a revision's metadata. This can be
+  used to generate a new change-id, which may help resolve some divergences.
 
 ### Fixed bugs
 

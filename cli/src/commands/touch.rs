@@ -16,11 +16,13 @@ use std::collections::HashSet;
 
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
+use jj_lib::commit::Commit;
 use jj_lib::object_id::ObjectId as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::text_util::parse_author;
@@ -43,6 +45,12 @@ pub(crate) struct TouchArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable)
     )]
     revisions_opt: Vec<RevisionArg>,
+
+    /// Generate a new change-id
+    ///
+    /// This generates a new change-id for the revision.
+    #[arg(long)]
+    update_change_id: bool,
 
     /// Update the author timestamp
     ///
@@ -109,9 +117,9 @@ pub(crate) fn cmd_touch(
         }
     };
 
-    let mut num_touched = 0;
     let mut num_reparented = 0;
     let commit_ids_set: HashSet<_> = commit_ids.iter().cloned().collect();
+    let mut touched: Vec<Commit> = Vec::new();
     // Even though `MutableRepo::rewrite_commit` and
     // `MutableRepo::rebase_descendants` can handle rewriting of a commit even
     // if it is a descendant of another commit being rewritten, using
@@ -136,16 +144,23 @@ pub(crate) fn cmd_touch(
                 }
                 commit_builder = commit_builder.set_author(new_author);
 
-                commit_builder.write()?;
-                num_touched += 1;
+                if args.update_change_id {
+                    commit_builder = commit_builder.generate_new_change_id();
+                }
+
+                let new_commit = commit_builder.write()?;
+                touched.push(new_commit);
             } else {
                 commit_builder.write()?;
                 num_reparented += 1;
             }
             Ok(())
         })?;
-    if num_touched > 0 {
-        writeln!(ui.status(), "Updated {num_touched} commits")?;
+    if !touched.is_empty() {
+        writeln!(ui.status(), "Touched {} commits:", touched.len())?;
+        if let Some(mut formatter) = ui.status_formatter() {
+            print_updated_commits(formatter.as_mut(), &tx.commit_summary_template(), &touched)?;
+        }
     }
     if num_reparented > 0 {
         writeln!(ui.status(), "Rebased {num_reparented} descendant commits")?;
