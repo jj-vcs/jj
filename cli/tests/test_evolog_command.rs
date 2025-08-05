@@ -47,6 +47,20 @@ fn test_evolog_with_or_without_diff() {
     [EOF]
     ");
 
+    // Test `--no-operation`
+    let output = work_dir.run_jj(["evolog", "--no-operation"]);
+    insta::assert_snapshot!(output, @r"
+    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
+    │  my description
+    ×  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 7f56b2a0 conflict
+    │  my description
+    ○  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 51e08f95
+    │  my description
+    ○  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:08 b955b72e
+       (empty) my description
+    [EOF]
+    ");
+
     // Color
     let output = work_dir.run_jj(["--color=always", "evolog"]);
     insta::assert_snapshot!(output, @r"

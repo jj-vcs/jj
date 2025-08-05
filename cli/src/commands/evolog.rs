@@ -64,6 +64,9 @@ pub(crate) struct EvologArgs {
     /// Don't show the graph, show a flat list of revisions
     #[arg(long)]
     no_graph: bool,
+    /// Don't show the associated operation for each commit
+    #[arg(long)]
+    no_operation: bool,
     /// Render each revision using the given template
     ///
     /// Run `jj log -T` to list the built-in templates.
@@ -177,7 +180,9 @@ pub(crate) fn cmd_evolog(
                 with_content_format.sub_width(graph.width(entry.commit.id(), &edges));
             within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
                 template.format(&entry.commit, formatter)?;
-                if let Some(op) = &entry.operation {
+                if !args.no_operation
+                    && let Some(op) = &entry.operation
+                {
                     write!(formatter.labeled("separator"), "--")?;
                     write!(formatter, " operation ")?;
                     op_summary_template.format(op, formatter)?;
@@ -221,8 +226,11 @@ pub(crate) fn cmd_evolog(
             let entry = entry?;
             with_content_format.write(formatter, |formatter| {
                 template.format(&entry.commit, formatter)?;
-                if let Some(op) = &entry.operation {
-                    write!(formatter, "-- operation ")?;
+                if !args.no_operation
+                    && let Some(op) = &entry.operation
+                {
+                    write!(formatter.labeled("separator"), "--")?;
+                    write!(formatter, " operation ")?;
                     op_summary_template.format(op, formatter)?;
                     writeln!(formatter)?;
                 }
