@@ -23,6 +23,7 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
 use crate::complete;
+use crate::text_util::parse_author;
 use crate::ui::Ui;
 
 /// Modify the metadata of a revision without changing its content
@@ -42,6 +43,36 @@ pub(crate) struct TouchArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable)
     )]
     revisions_opt: Vec<RevisionArg>,
+
+    /// Update the author timestamp
+    ///
+    /// This update the author date to now, without modifying the author.
+    #[arg(long)]
+    update_author_timestamp: bool,
+
+    /// Update the author to the configured user
+    ///
+    /// This updates the author name and email. The author timestamp is
+    /// not modified – use --update-author-timestamp to update the author
+    /// timestamp.
+    ///
+    /// You can use it in combination with the JJ_USER and JJ_EMAIL
+    /// environment variables to set a different author:
+    ///
+    /// $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj touch --update-author
+    #[arg(long)]
+    update_author: bool,
+
+    /// Set author to the provided string
+    ///
+    /// This changes author name and email while retaining author
+    /// timestamp for non-discardable commits.
+    #[arg(
+        long,
+        conflicts_with = "update_author",
+        value_parser = parse_author
+    )]
+    author: Option<(String, String)>,
 }
 
 #[instrument(skip_all)]
@@ -90,8 +121,21 @@ pub(crate) fn cmd_touch(
     tx.repo_mut()
         .transform_descendants(commit_ids, async |rewriter| {
             let old_commit_id = rewriter.old_commit().id().clone();
-            let commit_builder = rewriter.reparent();
+            let mut commit_builder = rewriter.reparent();
             if commit_ids_set.contains(&old_commit_id) {
+                let mut new_author = commit_builder.author().clone();
+                if let Some((name, email)) = args.author.clone() {
+                    new_author.name = name;
+                    new_author.email = email;
+                } else if args.update_author {
+                    new_author.name = commit_builder.committer().name.clone();
+                    new_author.email = commit_builder.committer().email.clone();
+                }
+                if args.update_author_timestamp {
+                    new_author.timestamp = commit_builder.committer().timestamp;
+                }
+                commit_builder = commit_builder.set_author(new_author);
+
                 commit_builder.write()?;
                 num_touched += 1;
             } else {

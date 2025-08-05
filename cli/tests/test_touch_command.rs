@@ -108,6 +108,160 @@ fn test_touch() {
 
     [EOF]
     ");
+
+    // Update author
+    work_dir.run_jj(["undo"]).success();
+    work_dir
+        .run_jj([
+            "touch",
+            "--config=user.name=Ove Ridder",
+            "--config=user.email=ove.ridder@example.com",
+            "--update-author",
+            "kkmpptxzrspx",
+        ])
+        .success();
+    insta::assert_snapshot!(get_log(&work_dir), @r"
+    @  Commit ID: 6f31b2555777ac2261dd17008b6fdc42619ebe1f
+    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    │  Bookmarks: c
+    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:13)
+    │  Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 08:05:17)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: 590c8b6945666401d01269190c1b82cd3311a0cd
+    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    │  Bookmarks: b
+    │  Author   : Ove Ridder <ove.ridder@example.com> (2001-02-03 08:05:11)
+    │  Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 08:05:17)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
+    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    │  Bookmarks: a
+    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │
+    │      (no description set)
+    │
+    ◆  Commit ID: 0000000000000000000000000000000000000000
+       Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+       Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
+       Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
+
+           (no description set)
+
+    [EOF]
+    ");
+
+    // Update author timestamp
+    work_dir.run_jj(["undo"]).success();
+    work_dir
+        .run_jj(["touch", "--update-author-timestamp", "kkmpptxzrspx"])
+        .success();
+    insta::assert_snapshot!(get_log(&work_dir), @r"
+    @  Commit ID: b23f6a3f160d122f8d8dacd8d2acff2d29d5ba84
+    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    │  Bookmarks: c
+    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:13)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:20)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: f121a0fb72e1790e4116b2e3b6989c795ac7f74b
+    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    │  Bookmarks: b
+    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:20)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:20)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
+    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    │  Bookmarks: a
+    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │
+    │      (no description set)
+    │
+    ◆  Commit ID: 0000000000000000000000000000000000000000
+       Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+       Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
+       Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
+
+           (no description set)
+
+    [EOF]
+    ");
+
+    // Set author
+    work_dir.run_jj(["undo"]).success();
+    work_dir
+        .run_jj([
+            "touch",
+            "--author",
+            "Alice <alice@example.com>",
+            "kkmpptxzrspx",
+        ])
+        .success();
+    insta::assert_snapshot!(get_log(&work_dir), @r"
+    @  Commit ID: 74007c679b9e4f13d1e3d553ef8397586b033421
+    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    │  Bookmarks: c
+    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:13)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:23)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: d070c8adbc590813c81e296591d6b2cac8f3bb41
+    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    │  Bookmarks: b
+    │  Author   : Alice <alice@example.com> (2001-02-03 08:05:11)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:23)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
+    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    │  Bookmarks: a
+    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │
+    │      (no description set)
+    │
+    ◆  Commit ID: 0000000000000000000000000000000000000000
+       Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+       Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
+       Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
+
+           (no description set)
+
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_squash_option_mutual_exclusion() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m=a"]).success();
+    work_dir.run_jj(["describe", "-m=b"]).success();
+    insta::assert_snapshot!(work_dir.run_jj([
+        "touch",
+        "--author=Alice <alice@example.com>",
+        "--update-author",
+    ]), @r"
+    ------- stderr -------
+    error: the argument '--author <AUTHOR>' cannot be used with '--update-author'
+
+    Usage: jj touch --author <AUTHOR> [REVSETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
 }
 
 #[must_use]

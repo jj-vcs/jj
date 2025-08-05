@@ -2650,11 +2650,27 @@ List tags
 
 Modify the metadata of a revision without changing its content
 
-**Usage:** `jj touch [REVSETS]...`
+**Usage:** `jj touch [OPTIONS] [REVSETS]...`
 
 ###### **Arguments:**
 
 * `<REVSETS>` — The revision(s) to touch (default: @)
+
+###### **Options:**
+
+* `--update-author-timestamp` — Update the author timestamp
+
+   This update the author date to now, without modifying the author.
+* `--update-author` — Update the author to the configured user
+
+   This updates the author name and email. The author timestamp is not modified – use --update-author-timestamp to update the author timestamp.
+
+   You can use it in combination with the JJ_USER and JJ_EMAIL environment variables to set a different author:
+
+   $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj touch --update-author
+* `--author <AUTHOR>` — Set author to the provided string
+
+   This changes author name and email while retaining author timestamp for non-discardable commits.
 
 
 
