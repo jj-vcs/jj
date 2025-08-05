@@ -285,6 +285,46 @@ fn test_touch() {
 
     [EOF]
     ");
+
+    // New change-id
+    work_dir.run_jj(["undo"]).success();
+    work_dir
+        .run_jj(["touch", "--new-id", "kkmpptxzrspx"])
+        .success();
+    insta::assert_snapshot!(get_log(&work_dir), @r"
+    @  Commit ID: 57a77ea4efe636fc93a18e75cfcb548308b7115d
+    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    │  Bookmarks: c
+    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:13)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:28)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: 7e50ccbf9d7c938cccad69f773f1ebf333132ee0
+    │  Change ID: wvuyspvkupzzkqkpoqmluzvvwpwkonmy
+    │  Bookmarks: b
+    │  Author   : Alice <alice@example.com> (2001-02-03 08:05:11)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:28)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
+    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    │  Bookmarks: a
+    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │
+    │      (no description set)
+    │
+    ◆  Commit ID: 0000000000000000000000000000000000000000
+       Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+       Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
+       Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
+
+           (no description set)
+
+    [EOF]
+    ");
 }
 
 #[test]

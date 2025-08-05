@@ -45,6 +45,12 @@ pub(crate) struct TouchArgs {
     )]
     revisions_opt: Vec<RevisionArg>,
 
+    /// Generate a new change-id
+    ///
+    /// This generates a new change-id for the revision.
+    #[arg(long)]
+    new_id: bool,
+
     /// Update the author timestamp
     ///
     /// This update the author date to now, without modifying the author.
@@ -171,6 +177,10 @@ pub(crate) fn cmd_touch(
                     new_committer.timestamp = commit_builder.author().timestamp;
                 }
                 commit_builder = commit_builder.set_committer(new_committer);
+
+                if args.new_id {
+                    commit_builder = commit_builder.generate_new_change_id();
+                }
 
                 let new_commit = commit_builder.write()?;
                 touched.insert(old_commit_id.clone(), new_commit.id().clone());
