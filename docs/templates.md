@@ -14,15 +14,15 @@ object can be referenced as `self`.
 
 ### Commit keywords
 
-In `jj log`/`jj evolog` templates, all 0-argument methods of [the `Commit`
+In `jj log`/`jj evolog -T` templates, all 0-argument methods of [the `Commit`
 type](#commit-type) are available as keywords. For example, `commit_id` is
 equivalent to `self.commit_id()`.
 
 ### Operation keywords
 
-In `jj op log` templates, all 0-argument methods of [the `Operation`
-type](#operation-type) are available as keywords. For example,
-`current_operation` is equivalent to `self.current_operation()`.
+In `jj op log`/`jj evolog --operation-template` templates, all 0-argument
+methods of [the `Operation` type](#operation-type) are available as keywords.
+For example, `current_operation` is equivalent to `self.current_operation()`.
 
 ## Operators
 

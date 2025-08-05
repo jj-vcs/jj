@@ -47,6 +47,22 @@ fn test_evolog_with_or_without_diff() {
     [EOF]
     ");
 
+    // no separation inserted between `--template` and `--operation-template`
+    let output = work_dir.run_jj([
+        "evolog",
+        "--template",
+        "change_id.short(8)",
+        "--operation-template",
+        "'|'++id.short()",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    @  rlvkpnrz|3499115d3831
+    ×  rlvkpnrz|eb87ec366530
+    ○  rlvkpnrz|18a971ce330a
+    ○  rlvkpnrz|e0f8e58b3800
+    [EOF]
+    ");
+
     // Color
     let output = work_dir.run_jj(["--color=always", "evolog"]);
     insta::assert_snapshot!(output, @r"

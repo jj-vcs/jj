@@ -922,6 +922,11 @@ Lists the previous commits which a change has pointed to. The current commit of 
    [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
 
    [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
+* `--operation-template <OPERATION_TEMPLATE>` — Render each revision's corresponding operation with the given template
+
+   The template's `self` type is [`Operation`].
+
+   [`Operation`]: https://jj-vcs.github.io/jj/latest/templates/#operation-keywords
 * `-p`, `--patch` — Show patch compared to the previous version of this change
 
    If the previous version has different parents, it will be temporarily rebased to the parents of the new version, so the diff is not contaminated by unrelated changes.

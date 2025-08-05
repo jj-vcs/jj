@@ -79,6 +79,14 @@ pub(crate) struct EvologArgs {
     ///     https://jj-vcs.github.io/jj/latest/templates/
     #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
+    /// Render each revision's corresponding operation with the given template
+    ///
+    /// The template's `self` type is [`Operation`].
+    ///
+    /// [`Operation`]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/#operation-keywords
+    #[arg(long, add = ArgValueCandidates::new(complete::template_aliases))]
+    operation_template: Option<String>,
     /// Show patch compared to the previous version of this change
     ///
     /// If the previous version has different parents, it will be temporarily
@@ -129,10 +137,15 @@ pub(crate) fn cmd_evolog(
             .labeled(["log", "commit", "node"]);
     }
 
-    // TODO: better styling and --template argument support
-    let op_summary_template = workspace_command
-        .operation_summary_template()
-        .labeled(["log"]);
+    let op_summary_template = if let Some(ref op_template) = args.operation_template {
+        workspace_command.parse_operation_template(ui, op_template)?
+    } else {
+        let template_text = workspace_command
+            .settings()
+            .get_string("templates.evolog_operation")?;
+        workspace_command.parse_operation_template(ui, &template_text)?
+    };
+    let op_summary_template = op_summary_template.labeled(["operation"]);
 
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
@@ -178,8 +191,6 @@ pub(crate) fn cmd_evolog(
             within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
                 template.format(&entry.commit, formatter)?;
                 if let Some(op) = &entry.operation {
-                    write!(formatter.labeled("separator"), "--")?;
-                    write!(formatter, " operation ")?;
                     op_summary_template.format(op, formatter)?;
                     writeln!(formatter)?;
                 }
@@ -222,7 +233,6 @@ pub(crate) fn cmd_evolog(
             with_content_format.write(formatter, |formatter| {
                 template.format(&entry.commit, formatter)?;
                 if let Some(op) = &entry.operation {
-                    write!(formatter, "-- operation ")?;
                     op_summary_template.format(op, formatter)?;
                     writeln!(formatter)?;
                 }

@@ -819,6 +819,10 @@
                     "type": "string",
                     "description": "Trailers that will be appended to a commit's description"
                 },
+                "evolog_operation": {
+                    "type": "string",
+                    "description": "The default for `jj evolog --operation-template`"
+                },
                 "file_annotate": {
                     "type": "string",
                     "description": "`jj file annotate`'s output"

@@ -65,14 +65,13 @@ workspace_list = '''
 name ++ ": " ++ format_commit_summary_with_refs(target, target.bookmarks()) ++ "\n"
 '''
 
-op_summary = '''
+op_summary = 'builtin_op_summary(self)'
+
+evolog_operation = '''
 separate(" ",
-  self.id().short(),
-  if(root,
-    label("root", "root()"),
-    surround("(", ")", format_timestamp(self.time().end())),
-  ),
-  self.description().first_line(),
+  label("separator", "--"),
+  "operation",
+  builtin_op_summary(self),
 )
 '''
 
@@ -222,6 +221,17 @@ label(if(current_operation, "current_operation"),
     if(root, format_root_operation(self)),
     format_operation_oneline(self),
   )
+)
+'''
+
+'builtin_op_summary(x)' = '''
+separate(" ",
+  format_short_operation_id(x.id()),
+  if(x.root(),
+    label("root", "root()"),
+    surround("(", ")", format_timestamp(x.time().end())),
+  ),
+  x.description().first_line(),
 )
 '''
 

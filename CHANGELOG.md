@@ -85,6 +85,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New `signing.backends.ssh.revocation-list` config for specifying a list of revoked
   public keys for commit signature verification.
 
+* `jj evolog` now accepts `--operation-template` to customize operation display.
+  The default can be configured with the `templates.evolog_operation` config
+  option.
+
 ### Fixed bugs
 
 * Fixed an error in `jj util gc` caused by the empty blob being missing from
