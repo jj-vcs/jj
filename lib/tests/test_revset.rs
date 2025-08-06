@@ -434,8 +434,88 @@ fn test_resolve_symbol_divergent_change_id() {
                 && targets == vec![commit2.id().clone(), commit1.id().clone()]
     );
     assert_eq!(
+        resolve_symbol(tx.repo(), &format!("{change_id}/0")).unwrap(),
+        vec![commit2.id().clone()]
+    );
+    assert_eq!(
+        resolve_symbol(tx.repo(), &format!("{change_id}/1")).unwrap(),
+        vec![commit1.id().clone()]
+    );
+    assert_matches!(
+        resolve_symbol(tx.repo(), &format!("{change_id}/2")),
+        Err(RevsetResolutionError::NoSuchRevision { .. })
+    );
+    assert_eq!(
         resolve_symbol(tx.repo(), &format!("change_id({change_id})")).unwrap(),
         vec![commit2.id().clone(), commit1.id().clone()]
+    );
+}
+
+#[test]
+fn test_resolve_symbol_hidden_change_id() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    // Rewrite the commit, causing the old version to be abandoned.
+    let commit2 = tx
+        .repo_mut()
+        .rewrite_commit(&commit1)
+        .set_description("updated commit")
+        .write()
+        .unwrap();
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo = tx.commit("rewrite commit").unwrap();
+
+    let change_id = commit1.change_id();
+    assert_eq!(
+        resolve_symbol(repo.as_ref(), &format!("{change_id}")).unwrap(),
+        vec![commit2.id().clone()]
+    );
+    assert_eq!(
+        resolve_symbol(repo.as_ref(), &format!("{change_id}/0")).unwrap(),
+        vec![commit2.id().clone()]
+    );
+    assert_eq!(
+        resolve_symbol(repo.as_ref(), &format!("{change_id}/1")).unwrap(),
+        vec![commit1.id().clone()]
+    );
+    assert_matches!(
+        resolve_symbol(repo.as_ref(), &format!("{change_id}/2")),
+        Err(RevsetResolutionError::NoSuchRevision { .. })
+    );
+    assert_eq!(
+        resolve_symbol(repo.as_ref(), &format!("change_id({change_id})")).unwrap(),
+        vec![commit2.id().clone()]
+    );
+
+    // Abandon the new commit as well so that there are only hidden commits.
+    let mut tx = repo.start_transaction();
+    tx.repo_mut().record_abandoned_commit(&commit2);
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo = tx.commit("abandon commit").unwrap();
+
+    assert_matches!(
+        resolve_symbol(repo.as_ref(), &format!("{change_id}")),
+        Err(RevsetResolutionError::NoSuchRevision { name, candidates })
+            if name == change_id.to_string() && candidates.is_empty()
+    );
+    assert_eq!(
+        resolve_symbol(repo.as_ref(), &format!("{change_id}/0")).unwrap(),
+        vec![commit2.id().clone()]
+    );
+    assert_eq!(
+        resolve_symbol(repo.as_ref(), &format!("{change_id}/1")).unwrap(),
+        vec![commit1.id().clone()]
+    );
+    assert_matches!(
+        resolve_symbol(repo.as_ref(), &format!("{change_id}/2")),
+        Err(RevsetResolutionError::NoSuchRevision { .. })
+    );
+    assert_eq!(
+        resolve_symbol(repo.as_ref(), &format!("change_id({change_id})")).unwrap(),
+        vec![]
     );
 }
 

@@ -54,6 +54,15 @@ A change ID is a unique identifier for a [change](#change). They are typically
 them as a sequence of 12 letters in the k-z range, at the beginning of a line.
 These are actually hexadecimal numbers that use "digits" z-k instead of 0-9a-f.
 
+## Change offset
+
+Sometimes a change ID might not unambiguously identify a commit, such as if the
+commit is hidden or if the change ID is [divergent][divergent-change]. In these
+cases, you can add an offset after the change ID to make it clear which commit
+you are referring to, with the most recent commit having an offset of 0. For
+instance, the most recent commit with change ID `xyz` could be referred to as
+`xyz/0`, while the one before it would be `xyz/1`, and so on.
+
 ## Commit
 
 A snapshot of the files in the repository at a given point in time (technically
