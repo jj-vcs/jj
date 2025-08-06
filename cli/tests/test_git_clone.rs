@@ -485,6 +485,7 @@ fn test_git_clone_tags() {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/default"
     bookmark: main@origin [new] tracked
+    tag: v1.0@git [new] 
     tag: v2.0@git [new] 
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: sqpuoqvx 88542a00 (empty) (no description set)
@@ -498,6 +499,7 @@ fn test_git_clone_tags() {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/included"
     bookmark: main@origin [new] tracked
+    tag: v1.0@git [new] 
     tag: v2.0@git [new] 
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: uuqppmxq 676b2fd8 (empty) (no description set)
