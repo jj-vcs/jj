@@ -47,7 +47,7 @@ use crate::templater::TemplatePropertyExt as _;
 use crate::templater::WrapTemplateProperty;
 
 pub trait OperationTemplateLanguageExtension {
-    fn build_fn_table(&self) -> OperationTemplateBuildFnTable;
+    fn build_fn_table(&self) -> OperationTemplateLanguageBuildFnTable;
 
     fn build_cache_extensions(&self, extensions: &mut ExtensionsMap);
 }
@@ -61,7 +61,7 @@ pub trait OperationTemplateEnvironment {
 pub struct OperationTemplateLanguage {
     repo_loader: RepoLoader,
     current_op_id: Option<OperationId>,
-    build_fn_table: OperationTemplateBuildFnTable,
+    build_fn_table: OperationTemplateLanguageBuildFnTable,
     cache_extensions: ExtensionsMap,
 }
 
@@ -73,7 +73,7 @@ impl OperationTemplateLanguage {
         current_op_id: Option<&OperationId>,
         extensions: &[impl AsRef<dyn OperationTemplateLanguageExtension>],
     ) -> Self {
-        let mut build_fn_table = OperationTemplateBuildFnTable::builtin();
+        let mut build_fn_table = OperationTemplateLanguageBuildFnTable::builtin();
         let mut cache_extensions = ExtensionsMap::empty();
 
         for extension in extensions {
@@ -94,7 +94,7 @@ impl OperationTemplateLanguage {
 }
 
 impl TemplateLanguage<'static> for OperationTemplateLanguage {
-    type Property = OperationTemplatePropertyKind;
+    type Property = OperationTemplateLanguagePropertyKind;
 
     fn settings(&self) -> &UserSettings {
         self.repo_loader.settings()
@@ -119,21 +119,21 @@ impl TemplateLanguage<'static> for OperationTemplateLanguage {
     ) -> TemplateParseResult<Self::Property> {
         let type_name = property.type_name();
         match property {
-            OperationTemplatePropertyKind::Core(property) => {
+            OperationTemplateLanguagePropertyKind::Core(property) => {
                 let table = &self.build_fn_table.core;
                 table.build_method(self, diagnostics, build_ctx, property, function)
             }
-            OperationTemplatePropertyKind::Operation(property) => {
+            OperationTemplateLanguagePropertyKind::Operation(property) => {
                 let table = &self.build_fn_table.operation_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
-            OperationTemplatePropertyKind::OperationList(property) => {
+            OperationTemplateLanguagePropertyKind::OperationList(property) => {
                 let table = &self.build_fn_table.operation_list_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
-            OperationTemplatePropertyKind::OperationId(property) => {
+            OperationTemplateLanguagePropertyKind::OperationId(property) => {
                 let table = &self.build_fn_table.operation_id_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
@@ -167,21 +167,22 @@ where
 {
 }
 
-pub enum OperationTemplatePropertyKind {
+/// Tagged property types available in [`OperationTemplateLanguage`].
+pub enum OperationTemplateLanguagePropertyKind {
     Core(CoreTemplatePropertyKind<'static>),
     Operation(BoxedTemplateProperty<'static, Operation>),
     OperationList(BoxedTemplateProperty<'static, Vec<Operation>>),
     OperationId(BoxedTemplateProperty<'static, OperationId>),
 }
 
-template_builder::impl_core_property_wrappers!(OperationTemplatePropertyKind => Core);
-template_builder::impl_property_wrappers!(OperationTemplatePropertyKind {
+template_builder::impl_core_property_wrappers!(OperationTemplateLanguagePropertyKind => Core);
+template_builder::impl_property_wrappers!(OperationTemplateLanguagePropertyKind {
     Operation(Operation),
     OperationList(Vec<Operation>),
     OperationId(OperationId),
 });
 
-impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
+impl CoreTemplatePropertyVar<'static> for OperationTemplateLanguagePropertyKind {
     fn wrap_template(template: Box<dyn Template>) -> Self {
         Self::Core(CoreTemplatePropertyKind::wrap_template(template))
     }
@@ -264,21 +265,21 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
     }
 }
 
-impl OperationTemplatePropertyVar<'static> for OperationTemplatePropertyKind {}
+impl OperationTemplatePropertyVar<'static> for OperationTemplateLanguagePropertyKind {}
 
 /// Table of functions that translate method call node of self type `T`.
 pub type OperationTemplateBuildMethodFnMap<T> =
     TemplateBuildMethodFnMap<'static, OperationTemplateLanguage, T>;
 
-/// Symbol table of methods available in the operation template.
-pub struct OperationTemplateBuildFnTable {
+/// Symbol table of methods available in [`OperationTemplateLanguage`].
+pub struct OperationTemplateLanguageBuildFnTable {
     pub core: CoreTemplateBuildFnTable<'static, OperationTemplateLanguage>,
     pub operation_methods: OperationTemplateBuildMethodFnMap<Operation>,
     pub operation_list_methods: OperationTemplateBuildMethodFnMap<Vec<Operation>>,
     pub operation_id_methods: OperationTemplateBuildMethodFnMap<OperationId>,
 }
 
-impl OperationTemplateBuildFnTable {
+impl OperationTemplateLanguageBuildFnTable {
     /// Creates new symbol table containing the builtin methods.
     fn builtin() -> Self {
         Self {
