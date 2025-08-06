@@ -836,6 +836,10 @@
                     "type": "string",
                     "description": "The draft commit description opened in an editor"
                 },
+                "evolog": {
+                    "type": "string",
+                    "description": "`jj evolog`'s output"
+                },
                 "file_list": {
                     "type": "string",
                     "description": "`jj file list`'s output"

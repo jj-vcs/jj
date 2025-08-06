@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::io;
-
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
+use jj_lib::evolution::CommitEvolutionEntry;
 use jj_lib::evolution::walk_predecessors;
 use jj_lib::graph::GraphEdge;
 use jj_lib::graph::TopoGroupedGraphIterator;
@@ -67,14 +66,14 @@ pub(crate) struct EvologArgs {
     no_graph: bool,
     /// Render each revision using the given template
     ///
-    /// Run `jj log -T` to list the built-in templates.
+    /// All 0-argument methods of the [`CommitEvolutionEntry` type] are
+    /// available as keywords in the template expression. See [`jj help -k
+    /// templates`] for more information.
     ///
-    /// You can also specify arbitrary template expressions using the
-    /// [built-in keywords]. See [`jj help -k templates`] for more
-    /// information.
+    /// If not specified, this defaults to the `templates.evolog` setting.
     ///
-    /// [built-in keywords]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
+    /// [`CommitEvolutionEntry` type]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/#commitevolutionentry-type
     ///
     /// [`jj help -k templates`]:
     ///     https://jj-vcs.github.io/jj/latest/templates/
@@ -108,32 +107,28 @@ pub(crate) fn cmd_evolog(
     let graph_style = GraphStyle::from_settings(workspace_command.settings())?;
     let with_content_format = LogContentFormat::new(ui, workspace_command.settings())?;
 
-    let template: TemplateRenderer<Commit>;
+    let template: TemplateRenderer<CommitEvolutionEntry>;
     let node_template: TemplateRenderer<Option<Commit>>;
     {
         let language = workspace_command.commit_template_language();
         let template_string = match &args.template {
             Some(value) => value.clone(),
-            None => workspace_command.settings().get_string("templates.log")?,
+            None => workspace_command.settings().get("templates.evolog")?,
         };
         template = workspace_command
             .parse_template(ui, &language, &template_string)?
-            .labeled(["log", "commit"]);
+            .labeled(["evolog"]); // TODO: add label for the context type?
         node_template = workspace_command
             .parse_template(
                 ui,
                 &language,
+                // TODO: should we add templates.evolog_node?
                 &workspace_command
                     .settings()
                     .get_string("templates.log_node")?,
             )?
-            .labeled(["log", "commit", "node"]);
+            .labeled(["evolog", "commit", "node"]);
     }
-
-    // TODO: better styling and --template argument support
-    let op_summary_template = workspace_command
-        .operation_summary_template()
-        .labeled(["log"]);
 
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
@@ -177,14 +172,7 @@ pub(crate) fn cmd_evolog(
             let within_graph =
                 with_content_format.sub_width(graph.width(entry.commit.id(), &edges));
             within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
-                template.format(&entry.commit, formatter)?;
-                if let Some(op) = &entry.operation {
-                    write!(formatter.labeled("separator"), "--")?;
-                    write!(formatter, " operation ")?;
-                    op_summary_template.format(op, formatter)?;
-                    writeln!(formatter)?;
-                }
-                io::Result::Ok(())
+                template.format(&entry, formatter)
             })?;
             if !buffer.ends_with(b"\n") {
                 buffer.push(b'\n');
@@ -222,15 +210,7 @@ pub(crate) fn cmd_evolog(
 
         for entry in evolution_entries {
             let entry = entry?;
-            with_content_format.write(formatter, |formatter| {
-                template.format(&entry.commit, formatter)?;
-                if let Some(op) = &entry.operation {
-                    write!(formatter, "-- operation ")?;
-                    op_summary_template.format(op, formatter)?;
-                    writeln!(formatter)?;
-                }
-                io::Result::Ok(())
-            })?;
+            with_content_format.write(formatter, |formatter| template.format(&entry, formatter))?;
             if let Some(renderer) = &diff_renderer {
                 let predecessors: Vec<_> = entry.predecessors().try_collect()?;
                 let width = ui.term_width();

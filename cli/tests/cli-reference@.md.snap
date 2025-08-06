@@ -917,11 +917,11 @@ Lists the previous commits which a change has pointed to. The current commit of 
 * `--no-graph` — Don't show the graph, show a flat list of revisions
 * `-T`, `--template <TEMPLATE>` — Render each revision using the given template
 
-   Run `jj log -T` to list the built-in templates.
+   All 0-argument methods of the [`CommitEvolutionEntry` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
-   You can also specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
+   If not specified, this defaults to the `templates.evolog` setting.
 
-   [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
+   [`CommitEvolutionEntry` type]: https://jj-vcs.github.io/jj/latest/templates/#commitevolutionentry-type
 
    [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
 * `-p`, `--patch` — Show patch compared to the previous version of this change

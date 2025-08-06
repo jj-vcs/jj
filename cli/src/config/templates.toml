@@ -39,6 +39,8 @@ duplicate_description = 'description'
 
 commit_trailers = ''
 
+evolog = 'builtin_evolog_compact'
+
 file_list = '''
 path.display() ++ "\n"
 '''
@@ -119,6 +121,25 @@ concat(
   surround(
     "\nJJ: This commit contains the following changes:\n", "",
     indent("JJ:     ", diff.summary()),
+  ),
+)
+'''
+
+# TODO: just copied from log/operation templates; customize it for evolog
+builtin_evolog_compact = '''
+concat(
+  builtin_log_compact(commit),
+  if(operation,
+    separate(" ",
+      label("separator", "--"),
+      "operation",
+      operation.id().short(),
+      if(operation.root(),
+        label("root", "root()"),
+        surround("(", ")", format_timestamp(operation.time().end())),
+      ),
+      operation.description().first_line(),
+    ) ++ "\n",
   ),
 )
 '''

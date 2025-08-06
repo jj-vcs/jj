@@ -523,6 +523,7 @@ log-graph-prioritize = "coalesce(description("megamerge\n"), trunk())"
 
 You can configure the template used when no `-T` is specified.
 
+- `templates.evolog` for `jj evolog`
 - `templates.log` for `jj log`
 - `templates.show` for `jj show`
 - `templates.op_log` for `jj op log`
@@ -530,6 +531,8 @@ You can configure the template used when no `-T` is specified.
 
 ```toml
 [templates]
+# Use builtin evolog template
+evolog = "builtin_evolog_compact"
 # Use builtin log template
 log = "builtin_log_compact"
 # Use builtin show template

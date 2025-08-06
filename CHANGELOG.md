@@ -10,6 +10,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* `jj evolog` templates now accept `CommitEvolutionEntry` as context type. To
+  get `Commit` properties, use `commit.<method>()`. To customize the default
+  output, set `templates.evolog` instead of `templates.log`.
+
 * `jj op show` now uses `templates.op_show` configuration for its default template
   instead of `templates.op_log`.
 
@@ -62,7 +66,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj diff --stat` now shows the change in size to binary files.
 
-* `jj log`, `jj evolog` and `jj op log` output can now be anonymized with the
+* `jj log` and `jj op log` output can now be anonymized with the
   `builtin_log_redacted` and `builtin_op_log_redacted` templates.
 
 * `jj git init` now checks for an `upstream` remote in addition to `origin` when

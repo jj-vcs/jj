@@ -198,6 +198,74 @@ fn test_evolog_with_or_without_diff() {
 }
 
 #[test]
+fn test_evolog_template() {
+    let test_env = TestEnvironment::default();
+
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "origin"])
+        .success();
+    let origin_dir = test_env.work_dir("origin");
+    origin_dir
+        .run_jj(["bookmark", "set", "-r@", "main"])
+        .success();
+
+    test_env
+        .run_jj_in(".", ["git", "clone", "origin", "local"])
+        .success();
+    let work_dir = test_env.work_dir("local");
+
+    // default template with operation
+    let output = work_dir.run_jj(["evolog", "-r@"]);
+    insta::assert_snapshot!(output, @r"
+    @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 2b17ac71
+       (empty) (no description set)
+       -- operation 2931515731a6 (2001-02-03 08:05:09) add workspace 'default'
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["evolog", "-r@", "--color=debug"]);
+    insta::assert_snapshot!(output, @r"
+    [1m[38;5;2m<<evolog commit node working_copy::@>>[0m  [1m[38;5;13m<<evolog working_copy commit change_id shortest prefix::k>>[38;5;8m<<evolog working_copy commit change_id shortest rest::kmpptxz>>[39m<<evolog working_copy:: >>[38;5;3m<<evolog working_copy commit author email local::test.user>><<evolog working_copy commit author email::@>><<evolog working_copy commit author email domain::example.com>>[39m<<evolog working_copy:: >>[38;5;14m<<evolog working_copy commit committer timestamp local format::2001-02-03 08:05:09>>[39m<<evolog working_copy:: >>[38;5;12m<<evolog working_copy commit commit_id shortest prefix::2>>[38;5;8m<<evolog working_copy commit commit_id shortest rest::b17ac71>>[39m<<evolog working_copy::>>[0m
+       [1m[38;5;10m<<evolog working_copy empty::(empty)>>[39m<<evolog working_copy:: >>[38;5;10m<<evolog working_copy empty description placeholder::(no description set)>>[39m<<evolog working_copy::>>[0m
+       [38;5;8m<<evolog separator::-->>[39m<<evolog:: operation >>[38;5;4m<<evolog operation id short::2931515731a6>>[39m<<evolog:: (>>[38;5;6m<<evolog operation time end local format::2001-02-03 08:05:09>>[39m<<evolog::) >><<evolog operation description first_line::add workspace 'default'>><<evolog::>>
+    [EOF]
+    ");
+
+    // default template without operation
+    let output = work_dir.run_jj(["evolog", "-rmain@origin"]);
+    insta::assert_snapshot!(output, @r"
+    ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:07 main@origin e8849ae1
+       (empty) (no description set)
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["evolog", "-rmain@origin", "--color=debug"]);
+    insta::assert_snapshot!(output, @r"
+    [1m[38;5;14m<<evolog commit node immutable::◆>>[0m  [1m[38;5;5m<<evolog commit change_id shortest prefix::q>>[0m[38;5;8m<<evolog commit change_id shortest rest::pvuntsm>>[39m<<evolog:: >>[38;5;3m<<evolog commit author email local::test.user>><<evolog commit author email::@>><<evolog commit author email domain::example.com>>[39m<<evolog:: >>[38;5;6m<<evolog commit committer timestamp local format::2001-02-03 08:05:07>>[39m<<evolog:: >>[38;5;5m<<evolog commit bookmarks name::main>><<evolog commit bookmarks::@>><<evolog commit bookmarks remote::origin>>[39m<<evolog:: >>[1m[38;5;4m<<evolog commit commit_id shortest prefix::e>>[0m[38;5;8m<<evolog commit commit_id shortest rest::8849ae1>>[39m<<evolog::>>
+       [38;5;2m<<evolog empty::(empty)>>[39m<<evolog:: >>[38;5;2m<<evolog empty description placeholder::(no description set)>>[39m<<evolog::>>
+    [EOF]
+    ");
+
+    // default template with root commit
+    let output = work_dir.run_jj(["evolog", "-rroot()"]);
+    insta::assert_snapshot!(output, @r"
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["evolog", "-rroot()", "--color=debug"]);
+    insta::assert_snapshot!(output, @r"
+    [1m[38;5;14m<<evolog commit node immutable::◆>>[0m  [1m[38;5;5m<<evolog commit change_id shortest prefix::z>>[0m[38;5;8m<<evolog commit change_id shortest rest::zzzzzzz>>[39m<<evolog:: >>[38;5;2m<<evolog root::root()>>[39m<<evolog:: >>[1m[38;5;4m<<evolog commit commit_id shortest prefix::0>>[0m[38;5;8m<<evolog commit commit_id shortest rest::0000000>>[39m<<evolog::>>
+    [EOF]
+    ");
+
+    // JSON output with operation
+    let output = work_dir.run_jj(["evolog", "-r@", "-Tjson(self)", "--no-graph"]);
+    insta::assert_snapshot!(output, @r#"{"commit":{"commit_id":"2b17ac719c7db025e2514f5708d2b0328fc6b268","parents":["0000000000000000000000000000000000000000"],"change_id":"kkmpptxzrspxrzommnulwmwkkqwworpl","description":"","author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:09+07:00"}},"operation":{"id":"2931515731a6903101194e8e889efb13f7494077d8ec2650e2ec40ad69c32fe45385a3d333d1792ffbc410655f1e98daa404f709062a7908bc0b03a0241825bc","parents":["00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"],"time":{"start":"2001-02-03T04:05:09+07:00","end":"2001-02-03T04:05:09+07:00"},"description":"add workspace 'default'","hostname":"host.example.com","username":"test-username","is_snapshot":false,"tags":{}}}[EOF]"#);
+
+    // JSON output without operation
+    let output = work_dir.run_jj(["evolog", "-rmain@origin", "-Tjson(self)", "--no-graph"]);
+    insta::assert_snapshot!(output, @r#"{"commit":{"commit_id":"e8849ae12c709f2321908879bc724fdb2ab8a781","parents":["0000000000000000000000000000000000000000"],"change_id":"qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu","description":"","author":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:07+07:00"},"committer":{"name":"Test User","email":"test.user@example.com","timestamp":"2001-02-03T04:05:07+07:00"}},"operation":null}[EOF]"#);
+}
+
+#[test]
 fn test_evolog_with_custom_symbols() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -474,6 +542,7 @@ fn test_evolog_with_no_template() {
     - builtin_config_list
     - builtin_config_list_detailed
     - builtin_draft_commit_description
+    - builtin_evolog_compact
     - builtin_log_comfortable
     - builtin_log_compact
     - builtin_log_compact_full_description
@@ -600,33 +669,6 @@ fn test_evolog_reverse_with_graph() {
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:13 78fdd026
        (empty) c+d+e
        -- operation 2c736b66cd16 (2001-02-03 08:05:13) squash commits into b28cda4b118fc50495ca34a24f030abc078d032e
-    [EOF]
-    ");
-}
-
-#[test]
-fn test_evolog_anonymize() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-
-    work_dir.run_jj(["describe", "-m", "a"]).success();
-    work_dir.run_jj(["describe", "-m", "b"]).success();
-    work_dir.run_jj(["describe", "-m", "c"]).success();
-    let output = work_dir.run_jj(["evolog", "-Tbuiltin_log_redacted"]);
-    insta::assert_snapshot!(output, @r"
-    @  qpvuntsm user-78cd 2001-02-03 08:05:10 b28cda4b
-    │  (empty) (redacted)
-    │  -- operation 5f4c7b5cb177 (2001-02-03 08:05:10) describe commit 9f43967b1cdbce4ab322cb7b4636fc0362c38373
-    ○  qpvuntsm hidden user-78cd 2001-02-03 08:05:09 9f43967b
-    │  (empty) (redacted)
-    │  -- operation 3851e9877d51 (2001-02-03 08:05:09) describe commit b86e28cd6862624ad77e1aaf31e34b2c7545bebd
-    ○  qpvuntsm hidden user-78cd 2001-02-03 08:05:08 b86e28cd
-    │  (empty) (redacted)
-    │  -- operation ab34d1de4875 (2001-02-03 08:05:08) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
-    ○  qpvuntsm hidden user-78cd 2001-02-03 08:05:07 e8849ae1
-       (empty) (redacted)
-       -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ");
 }
