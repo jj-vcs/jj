@@ -431,13 +431,11 @@ fn test_resolve_symbol_divergent_change_id() {
         resolve_symbol(tx.repo(), &format!("{change_id}")),
         Err(RevsetResolutionError::DivergentChangeId { symbol, targets })
             if symbol == change_id.to_string()
-                && targets == vec![commit1.id().clone(), commit2.id().clone()]
+                && targets == vec![commit2.id().clone(), commit1.id().clone()]
     );
     assert_eq!(
         resolve_symbol(tx.repo(), &format!("change_id({change_id})")).unwrap(),
-        // The order is unspecified at resolution stage, but the current index
-        // implementation returns commit ids in ascending position order.
-        vec![commit1.id().clone(), commit2.id().clone()]
+        vec![commit2.id().clone(), commit1.id().clone()]
     );
 }
 

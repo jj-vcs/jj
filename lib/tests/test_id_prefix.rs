@@ -22,6 +22,7 @@ use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::id_prefix::IdPrefixIndex;
+use jj_lib::index::ResolvedChangeTargets;
 use jj_lib::object_id::HexPrefix;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::object_id::PrefixResolution::AmbiguousMatch;
@@ -160,7 +161,10 @@ fn test_id_prefix() {
             .unwrap()
     };
     let resolve_change_prefix = |index: &IdPrefixIndex, prefix: HexPrefix| {
-        index.resolve_change_prefix(repo.as_ref(), &prefix).unwrap()
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix)
+            .unwrap()
+            .filter_map(ResolvedChangeTargets::into_visible)
     };
 
     // Without a disambiguation revset
@@ -317,7 +321,10 @@ fn test_id_prefix_divergent() {
             .unwrap()
     };
     let resolve_change_prefix = |index: &IdPrefixIndex, prefix: HexPrefix| {
-        index.resolve_change_prefix(repo.as_ref(), &prefix).unwrap()
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix)
+            .unwrap()
+            .filter_map(ResolvedChangeTargets::into_visible)
     };
 
     // Without a disambiguation revset
@@ -344,8 +351,8 @@ fn test_id_prefix_divergent() {
     assert_eq!(
         resolve_change_prefix(&index, prefix("a50")),
         SingleMatch(vec![
+            third_commit_divergent_with_second.id().clone(),
             second_commit.id().clone(),
-            third_commit_divergent_with_second.id().clone()
         ])
     );
 
@@ -369,8 +376,8 @@ fn test_id_prefix_divergent() {
     assert_eq!(
         resolve_change_prefix(&index, prefix("a")),
         SingleMatch(vec![
+            third_commit_divergent_with_second.id().clone(),
             second_commit.id().clone(),
-            third_commit_divergent_with_second.id().clone()
         ])
     );
 
@@ -473,7 +480,10 @@ fn test_id_prefix_hidden() {
             .unwrap()
     };
     let resolve_change_prefix = |index: &IdPrefixIndex, prefix: HexPrefix| {
-        index.resolve_change_prefix(repo.as_ref(), &prefix).unwrap()
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix)
+            .unwrap()
+            .filter_map(ResolvedChangeTargets::into_visible)
     };
 
     // Without a disambiguation revset

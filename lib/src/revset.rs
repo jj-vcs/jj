@@ -39,6 +39,7 @@ use crate::fileset::FilesetExpression;
 use crate::graph::GraphNode;
 use crate::id_prefix::IdPrefixContext;
 use crate::id_prefix::IdPrefixIndex;
+use crate::index::ResolvedChangeTargets;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::op_store::RefTarget;
@@ -2767,6 +2768,7 @@ impl ChangePrefixResolver<'_> {
         match index
             .resolve_change_prefix(repo, prefix)
             .map_err(|err| RevsetResolutionError::Other(err.into()))?
+            .filter_map(ResolvedChangeTargets::into_visible)
         {
             PrefixResolution::AmbiguousMatch => Err(
                 RevsetResolutionError::AmbiguousChangeIdPrefix(prefix.reverse_hex()),
