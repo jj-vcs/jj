@@ -117,32 +117,14 @@ impl TemplateLanguage<'static> for OperationTemplateLanguage {
         property: Self::Property,
         function: &FunctionCallNode,
     ) -> TemplateParseResult<Self::Property> {
-        let type_name = property.type_name();
         match property {
             OperationTemplateLanguagePropertyKind::Core(property) => {
                 let table = &self.build_fn_table.core;
                 table.build_method(self, diagnostics, build_ctx, property, function)
             }
-            OperationTemplateLanguagePropertyKind::Operation(
-                OperationTemplatePropertyKind::Operation(property),
-            ) => {
-                let table = &self.build_fn_table.operation.operation_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(self, diagnostics, build_ctx, property, function)
-            }
-            OperationTemplateLanguagePropertyKind::Operation(
-                OperationTemplatePropertyKind::OperationList(property),
-            ) => {
-                let table = &self.build_fn_table.operation.operation_list_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(self, diagnostics, build_ctx, property, function)
-            }
-            OperationTemplateLanguagePropertyKind::Operation(
-                OperationTemplatePropertyKind::OperationId(property),
-            ) => {
-                let table = &self.build_fn_table.operation.operation_id_methods;
-                let build = template_parser::lookup_method(type_name, table, function)?;
-                build(self, diagnostics, build_ctx, property, function)
+            OperationTemplateLanguagePropertyKind::Operation(property) => {
+                let table = &self.build_fn_table.operation;
+                table.build_method(self, diagnostics, build_ctx, property, function)
             }
         }
     }
@@ -401,6 +383,36 @@ where
         merge_fn_map(&mut self.operation_methods, operation_methods);
         merge_fn_map(&mut self.operation_list_methods, operation_list_methods);
         merge_fn_map(&mut self.operation_id_methods, operation_id_methods);
+    }
+
+    /// Applies the method call node `function` to the given `property` by using
+    /// this symbol table.
+    pub fn build_method(
+        &self,
+        language: &L,
+        diagnostics: &mut TemplateDiagnostics,
+        build_ctx: &BuildContext<L::Property>,
+        property: OperationTemplatePropertyKind<'a>,
+        function: &FunctionCallNode,
+    ) -> TemplateParseResult<L::Property> {
+        let type_name = property.type_name();
+        match property {
+            OperationTemplatePropertyKind::Operation(property) => {
+                let table = &self.operation_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(language, diagnostics, build_ctx, property, function)
+            }
+            OperationTemplatePropertyKind::OperationList(property) => {
+                let table = &self.operation_list_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(language, diagnostics, build_ctx, property, function)
+            }
+            OperationTemplatePropertyKind::OperationId(property) => {
+                let table = &self.operation_id_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(language, diagnostics, build_ctx, property, function)
+            }
+        }
     }
 }
 
