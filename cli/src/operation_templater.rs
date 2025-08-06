@@ -123,17 +123,23 @@ impl TemplateLanguage<'static> for OperationTemplateLanguage {
                 let table = &self.build_fn_table.core;
                 table.build_method(self, diagnostics, build_ctx, property, function)
             }
-            OperationTemplateLanguagePropertyKind::Operation(property) => {
+            OperationTemplateLanguagePropertyKind::Operation(
+                OperationTemplatePropertyKind::Operation(property),
+            ) => {
                 let table = &self.build_fn_table.operation.operation_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
-            OperationTemplateLanguagePropertyKind::OperationList(property) => {
+            OperationTemplateLanguagePropertyKind::Operation(
+                OperationTemplatePropertyKind::OperationList(property),
+            ) => {
                 let table = &self.build_fn_table.operation.operation_list_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
-            OperationTemplateLanguagePropertyKind::OperationId(property) => {
+            OperationTemplateLanguagePropertyKind::Operation(
+                OperationTemplatePropertyKind::OperationId(property),
+            ) => {
                 let table = &self.build_fn_table.operation.operation_id_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
@@ -167,20 +173,120 @@ where
 {
 }
 
+/// Tagged union of the operation template property types.
+pub enum OperationTemplatePropertyKind<'a> {
+    Operation(BoxedTemplateProperty<'a, Operation>),
+    OperationList(BoxedTemplateProperty<'a, Vec<Operation>>),
+    OperationId(BoxedTemplateProperty<'a, OperationId>),
+}
+
+/// Implements `WrapTemplateProperty<type>` for operation property types.
+///
+/// Use `impl_operation_property_wrappers!(<'a> Kind<'a> => Operation);` to
+/// implement forwarding conversion.
+macro_rules! impl_operation_property_wrappers {
+    ($($head:tt)+) => {
+        $crate::template_builder::impl_property_wrappers!($($head)+ {
+            Operation(jj_lib::operation::Operation),
+            OperationList(Vec<jj_lib::operation::Operation>),
+            OperationId(jj_lib::op_store::OperationId),
+        });
+    };
+}
+
+pub(crate) use impl_operation_property_wrappers;
+
+impl_operation_property_wrappers!(<'a> OperationTemplatePropertyKind<'a>);
+
+impl<'a> OperationTemplatePropertyKind<'a> {
+    pub fn type_name(&self) -> &'static str {
+        match self {
+            Self::Operation(_) => "Operation",
+            Self::OperationList(_) => "List<Operation>",
+            Self::OperationId(_) => "OperationId",
+        }
+    }
+
+    pub fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>> {
+        match self {
+            Self::Operation(_) => None,
+            Self::OperationList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::OperationId(_) => None,
+        }
+    }
+
+    pub fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>> {
+        None
+    }
+
+    pub fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'a, String>> {
+        let template = self.try_into_template()?;
+        Some(PlainTextFormattedProperty::new(template).into_dyn())
+    }
+
+    pub fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
+        match self {
+            Self::Operation(property) => Some(property.into_serialize()),
+            Self::OperationList(property) => Some(property.into_serialize()),
+            Self::OperationId(property) => Some(property.into_serialize()),
+        }
+    }
+
+    pub fn try_into_template(self) -> Option<Box<dyn Template + 'a>> {
+        match self {
+            Self::Operation(_) => None,
+            Self::OperationList(_) => None,
+            Self::OperationId(property) => Some(property.into_template()),
+        }
+    }
+
+    pub fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'a, bool>> {
+        match (self, other) {
+            (Self::Operation(_), _) => None,
+            (Self::OperationList(_), _) => None,
+            (Self::OperationId(_), _) => None,
+        }
+    }
+
+    pub fn try_into_eq_core(
+        self,
+        other: CoreTemplatePropertyKind<'a>,
+    ) -> Option<BoxedTemplateProperty<'a, bool>> {
+        match (self, other) {
+            (Self::Operation(_), _) => None,
+            (Self::OperationList(_), _) => None,
+            (Self::OperationId(_), _) => None,
+        }
+    }
+
+    pub fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'a, Ordering>> {
+        match (self, other) {
+            (Self::Operation(_), _) => None,
+            (Self::OperationList(_), _) => None,
+            (Self::OperationId(_), _) => None,
+        }
+    }
+
+    pub fn try_into_cmp_core(
+        self,
+        other: CoreTemplatePropertyKind<'a>,
+    ) -> Option<BoxedTemplateProperty<'a, Ordering>> {
+        match (self, other) {
+            (Self::Operation(_), _) => None,
+            (Self::OperationList(_), _) => None,
+            (Self::OperationId(_), _) => None,
+        }
+    }
+}
+
 /// Tagged property types available in [`OperationTemplateLanguage`].
 pub enum OperationTemplateLanguagePropertyKind {
     Core(CoreTemplatePropertyKind<'static>),
-    Operation(BoxedTemplateProperty<'static, Operation>),
-    OperationList(BoxedTemplateProperty<'static, Vec<Operation>>),
-    OperationId(BoxedTemplateProperty<'static, OperationId>),
+    Operation(OperationTemplatePropertyKind<'static>),
 }
 
 template_builder::impl_core_property_wrappers!(OperationTemplateLanguagePropertyKind => Core);
-template_builder::impl_property_wrappers!(OperationTemplateLanguagePropertyKind {
-    Operation(Operation),
-    OperationList(Vec<Operation>),
-    OperationId(OperationId),
-});
+impl_operation_property_wrappers!(OperationTemplateLanguagePropertyKind => Operation);
 
 impl CoreTemplatePropertyVar<'static> for OperationTemplateLanguagePropertyKind {
     fn wrap_template(template: Box<dyn Template>) -> Self {
@@ -194,73 +300,62 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplateLanguagePropertyKind 
     fn type_name(&self) -> &'static str {
         match self {
             Self::Core(property) => property.type_name(),
-            Self::Operation(_) => "Operation",
-            Self::OperationList(_) => "List<Operation>",
-            Self::OperationId(_) => "OperationId",
+            Self::Operation(property) => property.type_name(),
         }
     }
 
     fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'static, bool>> {
         match self {
             Self::Core(property) => property.try_into_boolean(),
-            Self::Operation(_) => None,
-            Self::OperationList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
-            Self::OperationId(_) => None,
+            Self::Operation(property) => property.try_into_boolean(),
         }
     }
 
     fn try_into_integer(self) -> Option<BoxedTemplateProperty<'static, i64>> {
         match self {
             Self::Core(property) => property.try_into_integer(),
-            _ => None,
+            Self::Operation(property) => property.try_into_integer(),
         }
     }
 
     fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'static, String>> {
         match self {
             Self::Core(property) => property.try_into_stringify(),
-            _ => {
-                let template = self.try_into_template()?;
-                Some(PlainTextFormattedProperty::new(template).into_dyn())
-            }
+            Self::Operation(property) => property.try_into_stringify(),
         }
     }
 
     fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'static>> {
         match self {
             Self::Core(property) => property.try_into_serialize(),
-            Self::Operation(property) => Some(property.into_serialize()),
-            Self::OperationList(property) => Some(property.into_serialize()),
-            Self::OperationId(property) => Some(property.into_serialize()),
+            Self::Operation(property) => property.try_into_serialize(),
         }
     }
 
     fn try_into_template(self) -> Option<Box<dyn Template>> {
         match self {
             Self::Core(property) => property.try_into_template(),
-            Self::Operation(_) => None,
-            Self::OperationList(_) => None,
-            Self::OperationId(property) => Some(property.into_template()),
+            Self::Operation(property) => property.try_into_template(),
         }
     }
 
     fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'static, bool>> {
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs),
-            (Self::Core(_), _) => None,
-            (Self::Operation(_), _) => None,
-            (Self::OperationList(_), _) => None,
-            (Self::OperationId(_), _) => None,
+            (Self::Core(lhs), Self::Operation(rhs)) => rhs.try_into_eq_core(lhs),
+            (Self::Operation(lhs), Self::Core(rhs)) => lhs.try_into_eq_core(rhs),
+            (Self::Operation(lhs), Self::Operation(rhs)) => lhs.try_into_eq(rhs),
         }
     }
 
     fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'static, Ordering>> {
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs),
-            (Self::Core(_), _) => None,
-            (Self::Operation(_), _) => None,
-            (Self::OperationList(_), _) => None,
-            (Self::OperationId(_), _) => None,
+            (Self::Core(lhs), Self::Operation(rhs)) => rhs
+                .try_into_cmp_core(lhs)
+                .map(|property| property.map(Ordering::reverse).into_dyn()),
+            (Self::Operation(lhs), Self::Core(rhs)) => lhs.try_into_cmp_core(rhs),
+            (Self::Operation(lhs), Self::Operation(rhs)) => lhs.try_into_cmp(rhs),
         }
     }
 }
