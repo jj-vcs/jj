@@ -124,17 +124,17 @@ impl TemplateLanguage<'static> for OperationTemplateLanguage {
                 table.build_method(self, diagnostics, build_ctx, property, function)
             }
             OperationTemplateLanguagePropertyKind::Operation(property) => {
-                let table = &self.build_fn_table.operation_methods;
+                let table = &self.build_fn_table.operation.operation_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
             OperationTemplateLanguagePropertyKind::OperationList(property) => {
-                let table = &self.build_fn_table.operation_list_methods;
+                let table = &self.build_fn_table.operation.operation_list_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
             OperationTemplateLanguagePropertyKind::OperationId(property) => {
-                let table = &self.build_fn_table.operation_id_methods;
+                let table = &self.build_fn_table.operation.operation_id_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
@@ -267,23 +267,21 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplateLanguagePropertyKind 
 
 impl OperationTemplatePropertyVar<'static> for OperationTemplateLanguagePropertyKind {}
 
-/// Table of functions that translate method call node of self type `T`.
-pub type OperationTemplateBuildMethodFnMap<T> =
-    TemplateBuildMethodFnMap<'static, OperationTemplateLanguage, T>;
-
-/// Symbol table of methods available in [`OperationTemplateLanguage`].
-pub struct OperationTemplateLanguageBuildFnTable {
-    pub core: CoreTemplateBuildFnTable<'static, OperationTemplateLanguage>,
-    pub operation_methods: OperationTemplateBuildMethodFnMap<Operation>,
-    pub operation_list_methods: OperationTemplateBuildMethodFnMap<Vec<Operation>>,
-    pub operation_id_methods: OperationTemplateBuildMethodFnMap<OperationId>,
+/// Symbol table for the operation template property types.
+pub struct OperationTemplateBuildFnTable<'a, L: TemplateLanguage<'a> + ?Sized> {
+    pub operation_methods: TemplateBuildMethodFnMap<'a, L, Operation>,
+    pub operation_list_methods: TemplateBuildMethodFnMap<'a, L, Vec<Operation>>,
+    pub operation_id_methods: TemplateBuildMethodFnMap<'a, L, OperationId>,
 }
 
-impl OperationTemplateLanguageBuildFnTable {
+impl<'a, L> OperationTemplateBuildFnTable<'a, L>
+where
+    L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
+    L::Property: OperationTemplatePropertyVar<'a>,
+{
     /// Creates new symbol table containing the builtin methods.
-    fn builtin() -> Self {
+    pub fn builtin() -> Self {
         Self {
-            core: CoreTemplateBuildFnTable::builtin(),
             operation_methods: builtin_operation_methods(),
             operation_list_methods: template_builder::builtin_unformattable_list_methods(),
             operation_id_methods: builtin_operation_id_methods(),
@@ -292,32 +290,63 @@ impl OperationTemplateLanguageBuildFnTable {
 
     pub fn empty() -> Self {
         Self {
-            core: CoreTemplateBuildFnTable::empty(),
             operation_methods: HashMap::new(),
             operation_list_methods: HashMap::new(),
             operation_id_methods: HashMap::new(),
         }
     }
 
-    fn merge(&mut self, other: Self) {
+    pub fn merge(&mut self, other: Self) {
         let Self {
-            core,
             operation_methods,
             operation_list_methods,
             operation_id_methods,
         } = other;
 
-        self.core.merge(core);
         merge_fn_map(&mut self.operation_methods, operation_methods);
         merge_fn_map(&mut self.operation_list_methods, operation_list_methods);
         merge_fn_map(&mut self.operation_id_methods, operation_id_methods);
     }
 }
 
-fn builtin_operation_methods() -> OperationTemplateBuildMethodFnMap<Operation> {
+/// Symbol table of methods available in [`OperationTemplateLanguage`].
+pub struct OperationTemplateLanguageBuildFnTable {
+    pub core: CoreTemplateBuildFnTable<'static, OperationTemplateLanguage>,
+    pub operation: OperationTemplateBuildFnTable<'static, OperationTemplateLanguage>,
+}
+
+impl OperationTemplateLanguageBuildFnTable {
+    /// Creates new symbol table containing the builtin methods.
+    fn builtin() -> Self {
+        Self {
+            core: CoreTemplateBuildFnTable::builtin(),
+            operation: OperationTemplateBuildFnTable::builtin(),
+        }
+    }
+
+    pub fn empty() -> Self {
+        Self {
+            core: CoreTemplateBuildFnTable::empty(),
+            operation: OperationTemplateBuildFnTable::empty(),
+        }
+    }
+
+    fn merge(&mut self, other: Self) {
+        let Self { core, operation } = other;
+
+        self.core.merge(core);
+        self.operation.merge(operation);
+    }
+}
+
+fn builtin_operation_methods<'a, L>() -> TemplateBuildMethodFnMap<'a, L, Operation>
+where
+    L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
+    L::Property: OperationTemplatePropertyVar<'a>,
+{
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = OperationTemplateBuildMethodFnMap::<Operation>::new();
+    let mut map = TemplateBuildMethodFnMap::<L, Operation>::new();
     map.insert(
         "current_operation",
         |language, _diagnostics, _build_ctx, self_property, function| {
@@ -415,10 +444,14 @@ impl Template for OperationId {
     }
 }
 
-fn builtin_operation_id_methods() -> OperationTemplateBuildMethodFnMap<OperationId> {
+fn builtin_operation_id_methods<'a, L>() -> TemplateBuildMethodFnMap<'a, L, OperationId>
+where
+    L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
+    L::Property: OperationTemplatePropertyVar<'a>,
+{
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = OperationTemplateBuildMethodFnMap::<OperationId>::new();
+    let mut map = TemplateBuildMethodFnMap::<L, OperationId>::new();
     map.insert(
         "short",
         |language, diagnostics, build_ctx, self_property, function| {

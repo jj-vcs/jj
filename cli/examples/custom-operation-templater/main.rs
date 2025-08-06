@@ -48,7 +48,7 @@ fn num_char_in_id(operation: Operation, ch_match: char) -> i64 {
 impl OperationTemplateLanguageExtension for HexCounter {
     fn build_fn_table(&self) -> OperationTemplateLanguageBuildFnTable {
         let mut table = OperationTemplateLanguageBuildFnTable::empty();
-        table.operation_methods.insert(
+        table.operation.operation_methods.insert(
             "num_digits_in_id",
             |_language, _diagnostics, _build_context, property, call| {
                 call.expect_no_arguments()?;
@@ -56,7 +56,7 @@ impl OperationTemplateLanguageExtension for HexCounter {
                 Ok(out_property.into_dyn_wrapped())
             },
         );
-        table.operation_methods.insert(
+        table.operation.operation_methods.insert(
             "num_char_in_id",
             |_language, diagnostics, _build_context, property, call| {
                 let [string_arg] = call.expect_exact_arguments()?;
