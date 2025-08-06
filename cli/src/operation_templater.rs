@@ -150,6 +150,7 @@ impl OperationTemplateLanguage {
 pub trait OperationTemplatePropertyVar<'a>
 where
     Self: WrapTemplateProperty<'a, Operation>,
+    Self: WrapTemplateProperty<'a, Option<Operation>>,
     Self: WrapTemplateProperty<'a, Vec<Operation>>,
     Self: WrapTemplateProperty<'a, OperationId>,
 {
@@ -158,6 +159,7 @@ where
 /// Tagged union of the operation template property types.
 pub enum OperationTemplatePropertyKind<'a> {
     Operation(BoxedTemplateProperty<'a, Operation>),
+    OperationOpt(BoxedTemplateProperty<'a, Option<Operation>>),
     OperationList(BoxedTemplateProperty<'a, Vec<Operation>>),
     OperationId(BoxedTemplateProperty<'a, OperationId>),
 }
@@ -170,6 +172,7 @@ macro_rules! impl_operation_property_wrappers {
     ($($head:tt)+) => {
         $crate::template_builder::impl_property_wrappers!($($head)+ {
             Operation(jj_lib::operation::Operation),
+            OperationOpt(Option<jj_lib::operation::Operation>),
             OperationList(Vec<jj_lib::operation::Operation>),
             OperationId(jj_lib::op_store::OperationId),
         });
@@ -184,6 +187,7 @@ impl<'a> OperationTemplatePropertyKind<'a> {
     pub fn type_name(&self) -> &'static str {
         match self {
             Self::Operation(_) => "Operation",
+            Self::OperationOpt(_) => "Option<Operation>",
             Self::OperationList(_) => "List<Operation>",
             Self::OperationId(_) => "OperationId",
         }
@@ -192,6 +196,7 @@ impl<'a> OperationTemplatePropertyKind<'a> {
     pub fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>> {
         match self {
             Self::Operation(_) => None,
+            Self::OperationOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
             Self::OperationList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
             Self::OperationId(_) => None,
         }
@@ -209,6 +214,7 @@ impl<'a> OperationTemplatePropertyKind<'a> {
     pub fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
         match self {
             Self::Operation(property) => Some(property.into_serialize()),
+            Self::OperationOpt(property) => Some(property.into_serialize()),
             Self::OperationList(property) => Some(property.into_serialize()),
             Self::OperationId(property) => Some(property.into_serialize()),
         }
@@ -217,6 +223,7 @@ impl<'a> OperationTemplatePropertyKind<'a> {
     pub fn try_into_template(self) -> Option<Box<dyn Template + 'a>> {
         match self {
             Self::Operation(_) => None,
+            Self::OperationOpt(_) => None,
             Self::OperationList(_) => None,
             Self::OperationId(property) => Some(property.into_template()),
         }
@@ -225,6 +232,7 @@ impl<'a> OperationTemplatePropertyKind<'a> {
     pub fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'a, bool>> {
         match (self, other) {
             (Self::Operation(_), _) => None,
+            (Self::OperationOpt(_), _) => None,
             (Self::OperationList(_), _) => None,
             (Self::OperationId(_), _) => None,
         }
@@ -236,6 +244,7 @@ impl<'a> OperationTemplatePropertyKind<'a> {
     ) -> Option<BoxedTemplateProperty<'a, bool>> {
         match (self, other) {
             (Self::Operation(_), _) => None,
+            (Self::OperationOpt(_), _) => None,
             (Self::OperationList(_), _) => None,
             (Self::OperationId(_), _) => None,
         }
@@ -244,6 +253,7 @@ impl<'a> OperationTemplatePropertyKind<'a> {
     pub fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'a, Ordering>> {
         match (self, other) {
             (Self::Operation(_), _) => None,
+            (Self::OperationOpt(_), _) => None,
             (Self::OperationList(_), _) => None,
             (Self::OperationId(_), _) => None,
         }
@@ -255,6 +265,7 @@ impl<'a> OperationTemplatePropertyKind<'a> {
     ) -> Option<BoxedTemplateProperty<'a, Ordering>> {
         match (self, other) {
             (Self::Operation(_), _) => None,
+            (Self::OperationOpt(_), _) => None,
             (Self::OperationList(_), _) => None,
             (Self::OperationId(_), _) => None,
         }
@@ -401,6 +412,13 @@ where
                 let table = &self.operation_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(language, diagnostics, build_ctx, property, function)
+            }
+            OperationTemplatePropertyKind::OperationOpt(property) => {
+                let type_name = "Operation";
+                let table = &self.operation_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                let inner_property = property.try_unwrap(type_name).into_dyn();
+                build(language, diagnostics, build_ctx, inner_property, function)
             }
             OperationTemplatePropertyKind::OperationList(property) => {
                 let table = &self.operation_list_methods;
