@@ -8,7 +8,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Release highlights
+### Breaking changes
+
+### Deprecations
+
+### New features
+
+### Fixed bugs
+
+## [0.32.0] - 2025-08-06
 
 ### Breaking changes
 
@@ -41,9 +49,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
-* `jj workspace list` now accepts `-T`/`--template` option to customize its output via templates.
+* `jj workspace list` now accepts `-T`/`--template` option to customize its
+  output via templates.
 
-* Added `templates.workspace_list` template to customize the output of `jj workspace list`.
+* Added `templates.workspace_list` template to customize the output of
+  `jj workspace list`.
 
 * `jj fix` now buffers the standard error stream from subprocesses and emits
   the output from each all at once. The file name is printed before the output.
@@ -99,8 +109,41 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj git fetch` no longer shows `NaN%` progress when connecting to slow remotes.
   [#7155](https://github.com/jj-vcs/jj/issues/7155)
 
-### Packaging changes
+### Contributors
 
+Thanks to the people who made this release happen!
+
+* adamnemecek (@adamnemecek)
+* Alexander Kobjolke (@jakalx)
+* Apromixately (@Apromixately)
+* Austin Seipp (@thoughtpolice)
+* Bryce Berger (@bryceberger)
+* Daniel Danner (@dnnr)
+* Daniel Luz (@mernen)
+* Evan Martin (@evmar)
+* George Christou (@gechr)
+* George Elliott-Hunter (@george-palmsens)
+* Hubert Głuchowski (@afishhh)
+* Ilya Grigoriev (@ilyagr)
+* Jade Lovelace (@lf-)
+* Jake Martin (@jake-m-commits)
+* Jan Klass (@Kissaki)
+* Joaquín Triñanes (@JoaquinTrinanes)
+* Josh Steadmon (@steadmon)
+* Kaiyi Li (@06393993)
+* Martin von Zweigbergk (@martinvonz)
+* Nigthknight (@nigthknight)
+* Ori Avtalion (@salty-horse)
+* Pablo Brasero (@pablobm)
+* Pavan Kumar Sunkara (@pksunkara)
+* Philip Metzger (@PhilipMetzger)
+* phoebe (@phoreverpheebs)
+* Remo Senekowitsch (@senekor)
+* Scott Taylor (@scott2000)
+* Stephen Jennings (@jennings)
+* Theo Buehler (@botovq)
+* Tyarel8 (@Tyarel8)
+* Yuya Nishihara (@yuja)
 
 ## [0.31.0] - 2025-07-02
 
