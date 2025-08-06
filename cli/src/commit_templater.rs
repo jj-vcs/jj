@@ -1218,6 +1218,23 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         },
     );
     map.insert(
+        "change_offset",
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let repo = language.repo;
+            let out_property = self_property.and_then(|commit| {
+                // The given commit could be hidden in e.g. `jj evolog`.
+                let maybe_targets = repo.resolve_change_id(commit.change_id())?;
+                let offset = maybe_targets
+                    .and_then(|targets| targets.find_offset(commit.id()))
+                    .map(i64::try_from)
+                    .transpose()?;
+                Ok(offset)
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
         "immutable",
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
