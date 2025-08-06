@@ -44,11 +44,18 @@ use crate::templater::PlainTextFormattedProperty;
 use crate::templater::Template;
 use crate::templater::TemplateFormatter;
 use crate::templater::TemplatePropertyExt as _;
+use crate::templater::WrapTemplateProperty;
 
 pub trait OperationTemplateLanguageExtension {
     fn build_fn_table(&self) -> OperationTemplateBuildFnTable;
 
     fn build_cache_extensions(&self, extensions: &mut ExtensionsMap);
+}
+
+/// Global resources needed by [`OperationTemplatePropertyKind`] methods.
+pub trait OperationTemplateEnvironment {
+    fn repo_loader(&self) -> &RepoLoader;
+    fn current_op_id(&self) -> Option<&OperationId>;
 }
 
 pub struct OperationTemplateLanguage {
@@ -135,10 +142,29 @@ impl TemplateLanguage<'static> for OperationTemplateLanguage {
     }
 }
 
+impl OperationTemplateEnvironment for OperationTemplateLanguage {
+    fn repo_loader(&self) -> &RepoLoader {
+        &self.repo_loader
+    }
+
+    fn current_op_id(&self) -> Option<&OperationId> {
+        self.current_op_id.as_ref()
+    }
+}
+
 impl OperationTemplateLanguage {
     pub fn cache_extension<T: Any>(&self) -> Option<&T> {
         self.cache_extensions.get::<T>()
     }
+}
+
+/// Wrapper for the operation template property types.
+pub trait OperationTemplatePropertyVar<'a>
+where
+    Self: WrapTemplateProperty<'a, Operation>,
+    Self: WrapTemplateProperty<'a, Vec<Operation>>,
+    Self: WrapTemplateProperty<'a, OperationId>,
+{
 }
 
 pub enum OperationTemplatePropertyKind {
@@ -238,6 +264,8 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
     }
 }
 
+impl OperationTemplatePropertyVar<'static> for OperationTemplatePropertyKind {}
+
 /// Table of functions that translate method call node of self type `T`.
 pub type OperationTemplateBuildMethodFnMap<T> =
     TemplateBuildMethodFnMap<'static, OperationTemplateLanguage, T>;
@@ -293,7 +321,7 @@ fn builtin_operation_methods() -> OperationTemplateBuildMethodFnMap<Operation> {
         "current_operation",
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let current_op_id = language.current_op_id.clone();
+            let current_op_id = language.current_op_id().cloned();
             let out_property = self_property.map(move |op| Some(op.id()) == current_op_id.as_ref());
             Ok(out_property.into_dyn_wrapped())
         },
@@ -360,7 +388,8 @@ fn builtin_operation_methods() -> OperationTemplateBuildMethodFnMap<Operation> {
         "root",
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let root_op_id = language.repo_loader.op_store().root_operation_id().clone();
+            let op_store = language.repo_loader().op_store();
+            let root_op_id = op_store.root_operation_id().clone();
             let out_property = self_property.map(move |op| op.id() == &root_op_id);
             Ok(out_property.into_dyn_wrapped())
         },
