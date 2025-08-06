@@ -161,6 +161,16 @@ This type cannot be printed. The following methods are defined.
   changed files.
 * `.root() -> Boolean`: True if the commit is the root commit.
 
+### `CommitEvolutionEntry` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: no_
+
+This type cannot be printed. The following methods are defined.
+
+* `.commit() -> Commit`: New commit.
+* `.operation() -> Operation`: Operation where the commit was created or
+  rewritten.
+
 ### `ChangeId` type
 
 _Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_

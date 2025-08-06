@@ -35,7 +35,7 @@ use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
 
 /// Commit with predecessor information.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct CommitEvolutionEntry {
     /// Commit id and metadata.
     pub commit: Commit,
@@ -44,6 +44,7 @@ pub struct CommitEvolutionEntry {
     /// Reachable predecessor ids reconstructed from the commit metadata. This
     /// should be set if the associated `operation` is unknown.
     // TODO: remove with legacy commit.predecessors support
+    #[serde(skip)]
     reachable_predecessors: Option<Vec<CommitId>>,
 }
 

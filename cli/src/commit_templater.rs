@@ -36,6 +36,7 @@ use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::copies::CopiesTreeDiffEntry;
 use jj_lib::copies::CopiesTreeDiffEntryPath;
 use jj_lib::copies::CopyRecords;
+use jj_lib::evolution::CommitEvolutionEntry;
 use jj_lib::extensions_map::ExtensionsMap;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
@@ -223,6 +224,11 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
+            CommitTemplatePropertyKind::CommitEvolutionEntry(property) => {
+                let table = &self.build_fn_table.commit_evolution_entry_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
+            }
             CommitTemplatePropertyKind::CommitRef(property) => {
                 let table = &self.build_fn_table.commit_ref_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -397,6 +403,7 @@ pub enum CommitTemplatePropertyKind<'repo> {
     Commit(BoxedTemplateProperty<'repo, Commit>),
     CommitOpt(BoxedTemplateProperty<'repo, Option<Commit>>),
     CommitList(BoxedTemplateProperty<'repo, Vec<Commit>>),
+    CommitEvolutionEntry(BoxedTemplateProperty<'repo, CommitEvolutionEntry>),
     CommitRef(BoxedTemplateProperty<'repo, Rc<CommitRef>>),
     CommitRefOpt(BoxedTemplateProperty<'repo, Option<Rc<CommitRef>>>),
     CommitRefList(BoxedTemplateProperty<'repo, Vec<Rc<CommitRef>>>),
@@ -428,6 +435,7 @@ template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'re
     Commit(Commit),
     CommitOpt(Option<Commit>),
     CommitList(Vec<Commit>),
+    CommitEvolutionEntry(CommitEvolutionEntry),
     CommitRef(Rc<CommitRef>),
     CommitRefOpt(Option<Rc<CommitRef>>),
     CommitRefList(Vec<Rc<CommitRef>>),
@@ -469,6 +477,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::Commit(_) => "Commit",
             Self::CommitOpt(_) => "Option<Commit>",
             Self::CommitList(_) => "List<Commit>",
+            Self::CommitEvolutionEntry(_) => "CommitEvolutionEntry",
             Self::CommitRef(_) => "CommitRef",
             Self::CommitRefOpt(_) => "Option<CommitRef>",
             Self::CommitRefList(_) => "List<CommitRef>",
@@ -502,6 +511,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::Commit(_) => None,
             Self::CommitOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
             Self::CommitList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::CommitEvolutionEntry(_) => None,
             Self::CommitRef(_) => None,
             Self::CommitRefOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
             Self::CommitRefList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
@@ -565,6 +575,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::Commit(property) => Some(property.into_serialize()),
             Self::CommitOpt(property) => Some(property.into_serialize()),
             Self::CommitList(property) => Some(property.into_serialize()),
+            Self::CommitEvolutionEntry(property) => Some(property.into_serialize()),
             Self::CommitRef(property) => Some(property.into_serialize()),
             Self::CommitRefOpt(property) => Some(property.into_serialize()),
             Self::CommitRefList(property) => Some(property.into_serialize()),
@@ -598,6 +609,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::Commit(_) => None,
             Self::CommitOpt(_) => None,
             Self::CommitList(_) => None,
+            Self::CommitEvolutionEntry(_) => None,
             Self::CommitRef(property) => Some(property.into_template()),
             Self::CommitRefOpt(property) => Some(property.into_template()),
             Self::CommitRefList(property) => Some(property.into_template()),
@@ -664,6 +676,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::Commit(_), _) => None,
             (Self::CommitOpt(_), _) => None,
             (Self::CommitList(_), _) => None,
+            (Self::CommitEvolutionEntry(_), _) => None,
             (Self::CommitRef(_), _) => None,
             (Self::CommitRefOpt(_), _) => None,
             (Self::CommitRefList(_), _) => None,
@@ -703,6 +716,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::Commit(_), _) => None,
             (Self::CommitOpt(_), _) => None,
             (Self::CommitList(_), _) => None,
+            (Self::CommitEvolutionEntry(_), _) => None,
             (Self::CommitRef(_), _) => None,
             (Self::CommitRefOpt(_), _) => None,
             (Self::CommitRefList(_), _) => None,
@@ -742,6 +756,7 @@ pub struct CommitTemplateBuildFnTable<'repo> {
     pub operation: OperationTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>,
     pub commit_methods: CommitTemplateBuildMethodFnMap<'repo, Commit>,
     pub commit_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<Commit>>,
+    pub commit_evolution_entry_methods: CommitTemplateBuildMethodFnMap<'repo, CommitEvolutionEntry>,
     pub commit_ref_methods: CommitTemplateBuildMethodFnMap<'repo, Rc<CommitRef>>,
     pub commit_ref_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<Rc<CommitRef>>>,
     pub workspace_ref_methods: CommitTemplateBuildMethodFnMap<'repo, WorkspaceRef>,
@@ -771,6 +786,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             operation: OperationTemplateBuildFnTable::builtin(),
             commit_methods: builtin_commit_methods(),
             commit_list_methods: template_builder::builtin_unformattable_list_methods(),
+            commit_evolution_entry_methods: builtin_commit_evolution_entry_methods(),
             commit_ref_methods: builtin_commit_ref_methods(),
             commit_ref_list_methods: template_builder::builtin_formattable_list_methods(),
             workspace_ref_methods: builtin_workspace_ref_methods(),
@@ -798,6 +814,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             operation: OperationTemplateBuildFnTable::empty(),
             commit_methods: HashMap::new(),
             commit_list_methods: HashMap::new(),
+            commit_evolution_entry_methods: HashMap::new(),
             commit_ref_methods: HashMap::new(),
             commit_ref_list_methods: HashMap::new(),
             workspace_ref_methods: HashMap::new(),
@@ -825,6 +842,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             operation,
             commit_methods,
             commit_list_methods,
+            commit_evolution_entry_methods,
             commit_ref_methods,
             commit_ref_list_methods,
             workspace_ref_methods,
@@ -849,6 +867,10 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
         self.operation.merge(operation);
         merge_fn_map(&mut self.commit_methods, commit_methods);
         merge_fn_map(&mut self.commit_list_methods, commit_list_methods);
+        merge_fn_map(
+            &mut self.commit_evolution_entry_methods,
+            commit_evolution_entry_methods,
+        );
         merge_fn_map(&mut self.commit_ref_methods, commit_ref_methods);
         merge_fn_map(&mut self.commit_ref_list_methods, commit_ref_list_methods);
         merge_fn_map(&mut self.workspace_ref_methods, workspace_ref_methods);
@@ -1305,6 +1327,31 @@ fn evaluate_user_revset<'repo>(
     let (None | Some(RevsetModifier::All)) = modifier;
 
     evaluate_revset_expression(language, span, &expression)
+}
+
+fn builtin_commit_evolution_entry_methods<'repo>()
+-> CommitTemplateBuildMethodFnMap<'repo, CommitEvolutionEntry> {
+    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // code completion inside macro is quite restricted.
+    let mut map = CommitTemplateBuildMethodFnMap::<CommitEvolutionEntry>::new();
+    map.insert(
+        "commit",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|entry| entry.commit);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "operation",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|entry| entry.operation);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    // TODO: add predecessors() -> Vec<Commit>?
+    map
 }
 
 /// Bookmark or tag name with metadata.
