@@ -19,6 +19,7 @@ use std::num::NonZeroU32;
 use std::path::Path;
 
 use jj_lib::git;
+use jj_lib::git::FetchTagsOverride;
 use jj_lib::git::GitFetch;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
@@ -70,8 +71,11 @@ pub struct GitCloneArgs {
     #[arg(long)]
     depth: Option<NonZeroU32>,
     /// Configure when to fetch tags
-    #[arg(long, value_enum, default_value_t = FetchTagsMode::Included)]
-    fetch_tags: FetchTagsMode,
+    ///
+    /// Unless otherwise specified, the initial clone will fetch all tags,
+    /// while all subsequent fetches will only fetch included tags.
+    #[arg(long, value_enum)]
+    fetch_tags: Option<FetchTagsMode>,
 }
 
 fn clone_destination_for_source(source: &str) -> Option<&str> {
@@ -137,9 +141,17 @@ pub fn cmd_git_clone(
             workspace_command,
             remote_name,
             &source,
-            args.fetch_tags.as_fetch_tags(),
+            // If not explicitly specified on the CLI, configure the remote for only fetching
+            // included tags for future fetches.
+            args.fetch_tags.unwrap_or(FetchTagsMode::Included),
         )?;
-        let default_branch = fetch_new_remote(ui, &mut workspace_command, remote_name, args.depth)?;
+        let default_branch = fetch_new_remote(
+            ui,
+            &mut workspace_command,
+            remote_name,
+            args.depth,
+            args.fetch_tags,
+        )?;
         Ok((workspace_command, default_branch))
     })();
     if clone_result.is_err() {
@@ -215,13 +227,13 @@ fn configure_remote(
     workspace_command: WorkspaceCommandHelper,
     remote_name: &RemoteName,
     source: &str,
-    fetch_tags: gix::remote::fetch::Tags,
+    fetch_tags: FetchTagsMode,
 ) -> Result<WorkspaceCommandHelper, CommandError> {
     git::add_remote(
         workspace_command.repo().store(),
         remote_name,
         source,
-        fetch_tags,
+        fetch_tags.as_fetch_tags(),
     )?;
     // Reload workspace to apply new remote configuration to
     // gix::ThreadSafeRepository behind the store.
@@ -241,6 +253,7 @@ fn fetch_new_remote(
     workspace_command: &mut WorkspaceCommandHelper,
     remote_name: &RemoteName,
     depth: Option<NonZeroU32>,
+    fetch_tags: Option<FetchTagsMode>,
 ) -> Result<Option<RefNameBuf>, CommandError> {
     writeln!(
         ui.status(),
@@ -258,7 +271,20 @@ fn fetch_new_remote(
             &[StringPattern::everything()],
             cb,
             depth,
-            None,
+            match fetch_tags {
+                // If not explicitly specified on the CLI, override the remote
+                // configuration and fetch all tags by default since this is
+                // the Git default behavior.
+                None => Some(FetchTagsOverride::AllTags),
+
+                // Technically by this point the remote should already be
+                // configured based on the CLI parameters so we shouldn't *need*
+                // to apply an override here but all the cases are expanded here
+                // for clarity.
+                Some(FetchTagsMode::All) => Some(FetchTagsOverride::AllTags),
+                Some(FetchTagsMode::None) => Some(FetchTagsOverride::NoTags),
+                Some(FetchTagsMode::Included) => None,
+            },
         )
     })?;
     let default_branch = git_fetch.get_default_branch(remote_name)?;

@@ -1225,7 +1225,7 @@ The Git repo will be a bare git repo stored inside the `.jj/` directory.
 * `--depth <DEPTH>` — Create a shallow clone of the given depth
 * `--fetch-tags <FETCH_TAGS>` — Configure when to fetch tags
 
-  Default value: `included`
+   Unless otherwise specified, the initial clone will fetch all tags, while all subsequent fetches will only fetch included tags.
 
   Possible values:
   - `all`:
