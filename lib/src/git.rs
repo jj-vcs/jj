@@ -1772,7 +1772,9 @@ fn remove_remote_git_config_sections(
         })
         .map(|section| {
             if section.value_names().any(|name| {
-                !name.eq_ignore_ascii_case(b"url") && !name.eq_ignore_ascii_case(b"fetch")
+                !name.eq_ignore_ascii_case(b"url")
+                    && !name.eq_ignore_ascii_case(b"fetch")
+                    && !name.eq_ignore_ascii_case(b"tagOpt")
             }) {
                 return Err(GitRemoteManagementError::NonstandardConfiguration(
                     remote_name.to_owned(),
