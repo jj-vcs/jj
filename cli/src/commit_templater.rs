@@ -46,11 +46,13 @@ use jj_lib::matchers::Matcher;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::op_store::OperationId;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo;
+use jj_lib::repo::RepoLoader;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::revset;
@@ -75,6 +77,11 @@ use serde::Serialize as _;
 use crate::diff_util;
 use crate::diff_util::DiffStats;
 use crate::formatter::Formatter;
+use crate::operation_templater;
+use crate::operation_templater::OperationTemplateBuildFnTable;
+use crate::operation_templater::OperationTemplateEnvironment;
+use crate::operation_templater::OperationTemplatePropertyKind;
+use crate::operation_templater::OperationTemplatePropertyVar;
 use crate::revset_util;
 use crate::template_builder;
 use crate::template_builder::BuildContext;
@@ -193,6 +200,10 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
         match property {
             CommitTemplatePropertyKind::Core(property) => {
                 let table = &self.build_fn_table.core;
+                table.build_method(self, diagnostics, build_ctx, property, function)
+            }
+            CommitTemplatePropertyKind::Operation(property) => {
+                let table = &self.build_fn_table.operation;
                 table.build_method(self, diagnostics, build_ctx, property, function)
             }
             CommitTemplatePropertyKind::Commit(property) => {
@@ -369,8 +380,20 @@ impl<'repo> CommitTemplateLanguage<'repo> {
     }
 }
 
+impl<'repo> OperationTemplateEnvironment for CommitTemplateLanguage<'repo> {
+    fn repo_loader(&self) -> &RepoLoader {
+        self.repo.base_repo().loader()
+    }
+
+    fn current_op_id(&self) -> Option<&OperationId> {
+        // TODO: Maybe return None if the repo is a MutableRepo?
+        Some(self.repo.base_repo().op_id())
+    }
+}
+
 pub enum CommitTemplatePropertyKind<'repo> {
     Core(CoreTemplatePropertyKind<'repo>),
+    Operation(OperationTemplatePropertyKind<'repo>),
     Commit(BoxedTemplateProperty<'repo, Commit>),
     CommitOpt(BoxedTemplateProperty<'repo, Option<Commit>>),
     CommitList(BoxedTemplateProperty<'repo, Vec<Commit>>),
@@ -400,6 +423,7 @@ pub enum CommitTemplatePropertyKind<'repo> {
 }
 
 template_builder::impl_core_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> => Core);
+operation_templater::impl_operation_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> => Operation);
 template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> {
     Commit(Commit),
     CommitOpt(Option<Commit>),
@@ -441,6 +465,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     fn type_name(&self) -> &'static str {
         match self {
             Self::Core(property) => property.type_name(),
+            Self::Operation(property) => property.type_name(),
             Self::Commit(_) => "Commit",
             Self::CommitOpt(_) => "Option<Commit>",
             Self::CommitList(_) => "List<Commit>",
@@ -473,6 +498,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'repo, bool>> {
         match self {
             Self::Core(property) => property.try_into_boolean(),
+            Self::Operation(property) => property.try_into_boolean(),
             Self::Commit(_) => None,
             Self::CommitOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
             Self::CommitList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
@@ -509,6 +535,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     fn try_into_integer(self) -> Option<BoxedTemplateProperty<'repo, i64>> {
         match self {
             Self::Core(property) => property.try_into_integer(),
+            Self::Operation(property) => property.try_into_integer(),
             _ => None,
         }
     }
@@ -516,6 +543,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'repo, String>> {
         match self {
             Self::Core(property) => property.try_into_stringify(),
+            Self::Operation(property) => property.try_into_stringify(),
             Self::RefSymbol(property) => Some(property.map(|RefSymbolBuf(s)| s).into_dyn()),
             Self::RefSymbolOpt(property) => Some(
                 property
@@ -533,6 +561,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'repo>> {
         match self {
             Self::Core(property) => property.try_into_serialize(),
+            Self::Operation(property) => property.try_into_serialize(),
             Self::Commit(property) => Some(property.into_serialize()),
             Self::CommitOpt(property) => Some(property.into_serialize()),
             Self::CommitList(property) => Some(property.into_serialize()),
@@ -565,6 +594,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     fn try_into_template(self) -> Option<Box<dyn Template + 'repo>> {
         match self {
             Self::Core(property) => property.try_into_template(),
+            Self::Operation(property) => property.try_into_template(),
             Self::Commit(_) => None,
             Self::CommitOpt(_) => None,
             Self::CommitList(_) => None,
@@ -598,6 +628,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         type Core<'repo> = CoreTemplatePropertyKind<'repo>;
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs),
+            (Self::Core(lhs), Self::Operation(rhs)) => rhs.try_into_eq_core(lhs),
             (Self::Core(Core::String(lhs)), Self::RefSymbol(rhs)) => {
                 Some((lhs, rhs).map(|(l, r)| RefSymbolBuf(l) == r).into_dyn())
             }
@@ -606,6 +637,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
                     .map(|(l, r)| Some(RefSymbolBuf(l)) == r)
                     .into_dyn(),
             ),
+            (Self::Operation(lhs), Self::Core(rhs)) => lhs.try_into_eq_core(rhs),
+            (Self::Operation(lhs), Self::Operation(rhs)) => lhs.try_into_eq(rhs),
             (Self::RefSymbol(lhs), Self::Core(Core::String(rhs))) => {
                 Some((lhs, rhs).map(|(l, r)| l == RefSymbolBuf(r)).into_dyn())
             }
@@ -627,6 +660,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
                 Some((lhs, rhs).map(|(l, r)| l == r).into_dyn())
             }
             (Self::Core(_), _) => None,
+            (Self::Operation(_), _) => None,
             (Self::Commit(_), _) => None,
             (Self::CommitOpt(_), _) => None,
             (Self::CommitList(_), _) => None,
@@ -659,7 +693,13 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'repo, Ordering>> {
         match (self, other) {
             (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs),
+            (Self::Core(lhs), Self::Operation(rhs)) => rhs
+                .try_into_cmp_core(lhs)
+                .map(|property| property.map(Ordering::reverse).into_dyn()),
+            (Self::Operation(lhs), Self::Core(rhs)) => lhs.try_into_cmp_core(rhs),
+            (Self::Operation(lhs), Self::Operation(rhs)) => lhs.try_into_cmp(rhs),
             (Self::Core(_), _) => None,
+            (Self::Operation(_), _) => None,
             (Self::Commit(_), _) => None,
             (Self::CommitOpt(_), _) => None,
             (Self::CommitList(_), _) => None,
@@ -690,6 +730,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
     }
 }
 
+impl<'repo> OperationTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo> {}
+
 /// Table of functions that translate method call node of self type `T`.
 pub type CommitTemplateBuildMethodFnMap<'repo, T> =
     TemplateBuildMethodFnMap<'repo, CommitTemplateLanguage<'repo>, T>;
@@ -697,6 +739,7 @@ pub type CommitTemplateBuildMethodFnMap<'repo, T> =
 /// Symbol table of methods available in the commit template.
 pub struct CommitTemplateBuildFnTable<'repo> {
     pub core: CoreTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>,
+    pub operation: OperationTemplateBuildFnTable<'repo, CommitTemplateLanguage<'repo>>,
     pub commit_methods: CommitTemplateBuildMethodFnMap<'repo, Commit>,
     pub commit_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<Commit>>,
     pub commit_ref_methods: CommitTemplateBuildMethodFnMap<'repo, Rc<CommitRef>>,
@@ -725,6 +768,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
     fn builtin() -> Self {
         Self {
             core: CoreTemplateBuildFnTable::builtin(),
+            operation: OperationTemplateBuildFnTable::builtin(),
             commit_methods: builtin_commit_methods(),
             commit_list_methods: template_builder::builtin_unformattable_list_methods(),
             commit_ref_methods: builtin_commit_ref_methods(),
@@ -751,6 +795,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
     pub fn empty() -> Self {
         Self {
             core: CoreTemplateBuildFnTable::empty(),
+            operation: OperationTemplateBuildFnTable::empty(),
             commit_methods: HashMap::new(),
             commit_list_methods: HashMap::new(),
             commit_ref_methods: HashMap::new(),
@@ -777,6 +822,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
     fn merge(&mut self, extension: Self) {
         let CommitTemplateBuildFnTable {
             core,
+            operation,
             commit_methods,
             commit_list_methods,
             commit_ref_methods,
@@ -800,6 +846,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
         } = extension;
 
         self.core.merge(core);
+        self.operation.merge(operation);
         merge_fn_map(&mut self.commit_methods, commit_methods);
         merge_fn_map(&mut self.commit_list_methods, commit_list_methods);
         merge_fn_map(&mut self.commit_ref_methods, commit_ref_methods);
