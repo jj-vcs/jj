@@ -42,6 +42,7 @@ commit_trailers = ''
 file_list = '''
 path.display() ++ "\n"
 '''
+file_show = ''
 
 git_push_bookmark = '"push-" ++ change_id.short()'
 

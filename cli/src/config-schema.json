@@ -835,6 +835,10 @@
                     "type": "string",
                     "description": "`jj file list`'s output"
                 },
+                "file_show": {
+                    "type": "string",
+                    "description": "`jj file show`'s output"
+                },
                 "git_push_bookmark": {
                     "type": "string",
                     "description": "Bookmark name to be assigned when pushing a change to Git remote"

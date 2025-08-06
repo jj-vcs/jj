@@ -14,6 +14,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj file show` now accepts `-T`/`--template` option to insert file metadata.
+
 ### Fixed bugs
 
 ## [0.32.0] - 2025-08-06
