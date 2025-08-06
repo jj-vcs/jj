@@ -139,7 +139,7 @@ fn test_status_conflicted_bookmarks() {
     let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy  (@) : qpvuntsm?? 99025a24 local_bookmark?? | (empty) a
+    Working copy  (@) : qpvuntsm/1 99025a24 local_bookmark?? | (empty) a
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     Warning: These bookmarks have conflicts:
       local_bookmark
@@ -182,7 +182,7 @@ fn test_status_conflicted_bookmarks() {
     let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy  (@) : qpvuntsm?? 99025a24 local_bookmark?? | (empty) a
+    Working copy  (@) : qpvuntsm/1 99025a24 local_bookmark?? | (empty) a
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     Warning: These bookmarks have conflicts:
       local_bookmark

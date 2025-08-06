@@ -106,7 +106,7 @@ fn test_git_push_current_bookmark() {
     // Check the setup
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     bookmark1: qpvuntsm e5ce6d9a (empty) modified bookmark1 commit
-      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 9b2e76de (empty) description 1
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 hidden 9b2e76de (empty) description 1
     bookmark2: yostqsxw 88ca14a7 (empty) foo
       @origin (behind by 1 commits): zsuskuln 38a20473 (empty) description 2
     my-bookmark: yostqsxw 88ca14a7 (empty) foo
@@ -133,7 +133,7 @@ fn test_git_push_current_bookmark() {
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     bookmark1: qpvuntsm e5ce6d9a (empty) modified bookmark1 commit
-      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 9b2e76de (empty) description 1
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 hidden 9b2e76de (empty) description 1
     bookmark2: yostqsxw 88ca14a7 (empty) foo
       @origin: yostqsxw 88ca14a7 (empty) foo
     my-bookmark: yostqsxw 88ca14a7 (empty) foo
@@ -643,7 +643,7 @@ fn test_git_push_locally_created_and_rewritten() {
     bookmark2: zsuskuln 38a20473 (empty) description 2
       @origin: zsuskuln 38a20473 (empty) description 2
     my: vruxwmqv 9ebc3217 (empty) local 2
-      @origin (ahead by 1 commits, behind by 1 commits): vruxwmqv hidden e0cba5e4 (empty) local 1
+      @origin (ahead by 1 commits, behind by 1 commits): vruxwmqv/1 hidden e0cba5e4 (empty) local 1
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "push"]);

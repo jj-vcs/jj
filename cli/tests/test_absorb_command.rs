@@ -129,28 +129,28 @@ fn test_absorb_simple() {
     insta::assert_snapshot!(get_evolog(&work_dir, "subject(1)"), @r"
     ○    kkmpptxz 5810eb0f 1
     ├─╮
-    │ ○  yqosqzyt hidden 39b42898 (no description set)
-    │ ○  yqosqzyt hidden 977269ac (empty) (no description set)
-    ○    kkmpptxz hidden bd7d4016 1
+    │ ○  yqosqzyt/0 hidden 39b42898 (no description set)
+    │ ○  yqosqzyt/1 hidden 977269ac (empty) (no description set)
+    ○    kkmpptxz/1 hidden bd7d4016 1
     ├─╮
-    │ ○  mzvwutvl hidden 0b307741 (no description set)
-    │ ○  mzvwutvl hidden f2709b4e (empty) (no description set)
-    ○  kkmpptxz hidden 1553c5e8 1
-    ○  kkmpptxz hidden eb943711 (empty) 1
+    │ ○  mzvwutvl/0 hidden 0b307741 (no description set)
+    │ ○  mzvwutvl/1 hidden f2709b4e (empty) (no description set)
+    ○  kkmpptxz/2 hidden 1553c5e8 1
+    ○  kkmpptxz/3 hidden eb943711 (empty) 1
     [EOF]
     ");
     insta::assert_snapshot!(get_evolog(&work_dir, "subject(2)"), @r"
     ○    zsuskuln dd109863 2
     ├─╮
-    │ ○  vruxwmqv hidden 761492a8 (no description set)
-    │ ○  vruxwmqv hidden 48c7d8fa (empty) (no description set)
-    ○  zsuskuln hidden 8edd60a2 2
-    ○    zsuskuln hidden 95568809 2
+    │ ○  vruxwmqv/0 hidden 761492a8 (no description set)
+    │ ○  vruxwmqv/1 hidden 48c7d8fa (empty) (no description set)
+    ○  zsuskuln/1 hidden 8edd60a2 2
+    ○    zsuskuln/2 hidden 95568809 2
     ├─╮
-    │ ○  mzvwutvl hidden 0b307741 (no description set)
-    │ ○  mzvwutvl hidden f2709b4e (empty) (no description set)
-    ○  zsuskuln hidden 36fad385 2
-    ○  zsuskuln hidden 561fbce9 (empty) 2
+    │ ○  mzvwutvl/0 hidden 0b307741 (no description set)
+    │ ○  mzvwutvl/1 hidden f2709b4e (empty) (no description set)
+    ○  zsuskuln/3 hidden 36fad385 2
+    ○  zsuskuln/4 hidden 561fbce9 (empty) 2
     [EOF]
     ");
 }

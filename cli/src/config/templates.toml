@@ -468,13 +468,21 @@ separate(" ",
 'format_short_change_id_with_hidden_and_divergent_info(commit)' = '''
 if(commit.hidden(),
   label("hidden",
-    format_short_change_id(commit.change_id()) ++ " hidden"
+    join(" ",
+      format_short_change_id(commit.change_id()) ++ format_change_offset(commit),
+      "hidden",
+    ),
   ),
-  label(if(commit.divergent(), "divergent"),
-    format_short_change_id(commit.change_id()) ++ if(commit.divergent(), "??")
-  )
+  if(commit.divergent(),
+    label("divergent",
+      format_short_change_id(commit.change_id()) ++ format_change_offset(commit),
+    ),
+    format_short_change_id(commit.change_id()),
+  ),
 )
 '''
+'format_change_offset(commit)' = 'surround(label("change_offset", "/"), "", commit.change_offset())'
+
 
 'format_short_commit_header(commit)' = '''
 separate(" ",

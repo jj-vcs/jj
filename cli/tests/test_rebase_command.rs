@@ -3005,7 +3005,7 @@ fn test_rebase_skip_duplicate_divergent() {
     insta::assert_snapshot!(work_dir.run_jj(["rebase", "-r", "c::", "-o", "d"]), @r"
     ------- stderr -------
     Abandoned 1 divergent commits that were already present in the destination:
-      zsuskuln?? 3f194323 b2 | b2
+      zsuskuln/0 3f194323 b2 | b2
     Rebased 1 commits to destination
     [EOF]
     ");
@@ -3023,7 +3023,7 @@ fn test_rebase_skip_duplicate_divergent() {
     insta::assert_snapshot!(work_dir.run_jj(["rebase", "-s", "b1", "-o", "b2"]), @r"
     ------- stderr -------
     Abandoned 1 divergent commits that were already present in the destination:
-      zsuskuln?? 48bf33ab b1 | b2
+      zsuskuln/1 48bf33ab b1 | b2
     Rebased 1 commits to destination
     Working copy  (@) now at: znkkpsqq 81e83d0f d | d
     Parent commit (@-)      : zsuskuln 3f194323 b1 b2 | b2

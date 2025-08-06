@@ -17,8 +17,7 @@
 # Unique prefixes and the rest for change & commit ids
 "prefix" = { bold = true }
 "rest" = "bright black"
-"mutable divergent rest" = "red"
-"mutable divergent prefix" = { fg = "red", underline = true }
+"change_offset" = { bold = true }
 "hidden prefix" = "default"
 
 "author" = "yellow"
@@ -35,6 +34,7 @@
 "git_ref" = "green"
 "git_refs" = "green"
 "git_head" = "green"
+"divergent" = "magenta"
 "mutable divergent" = "red"
 "mutable divergent change_id" = "red"
 "conflict" = "red"
@@ -63,6 +63,7 @@
 "working_copy tags" = "bright magenta"
 "working_copy git_ref" = "bright green"
 "working_copy git_refs" = "bright green"
+"working_copy divergent" = "bright magenta"
 "working_copy mutable divergent" = "bright red"
 "working_copy mutable divergent change_id" = "bright red"
 "working_copy conflict" = "bright red"

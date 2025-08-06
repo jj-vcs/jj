@@ -93,7 +93,7 @@ fn test_identical_commits_by_cycling_rewrite() {
     @  oxmtprsl test.user@example.com 2001-01-01 11:00:00 c5abd225
     │  (empty) test2
     │  -- operation f184243937e9 describe commit 053222c21fa06b9492e22346f8f70e732231ad4f
-    ○  oxmtprsl hidden test.user@example.com 2001-01-01 11:00:00 053222c2
+    ○  oxmtprsl/1 hidden test.user@example.com 2001-01-01 11:00:00 053222c2
        (empty) test1
        -- operation 509c18587028 new empty commit
     [EOF]
@@ -125,7 +125,7 @@ fn test_identical_commits_by_convergent_rewrite() {
     // TODO: The "test3" commit should have either "test1" or "test2" as predecessor
     // (or both?)
     insta::assert_snapshot!(work_dir.run_jj(["evolog"]), @r"
-    @  oxmtprsl?? test.user@example.com 2001-01-01 11:00:00 c5abd225
+    @  oxmtprsl/1 test.user@example.com 2001-01-01 11:00:00 c5abd225
        (empty) test2
        -- operation a1561db9359b new empty commit
     [EOF]
@@ -161,7 +161,7 @@ fn test_identical_commits_by_convergent_rewrite_one_operation() {
     // TODO: The "test3" commit should have either "test1" or "test2" as predecessor
     // (or both?)
     insta::assert_snapshot!(work_dir.run_jj(["evolog"]), @r"
-    @  oxmtprsl?? test.user@example.com 2001-01-01 11:00:00 c5abd225
+    @  oxmtprsl/0 test.user@example.com 2001-01-01 11:00:00 c5abd225
        (empty) test2
        -- operation a1561db9359b new empty commit
     [EOF]
@@ -202,13 +202,13 @@ fn test_identical_commits_swap_by_reordering() {
     ");
     // TODO: Each commit should be a predecessor of the other
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r=@"]), @r"
-    @  oxmtprsl?? test.user@example.com 2001-01-01 11:00:00 5bae90c9
+    @  oxmtprsl/0 test.user@example.com 2001-01-01 11:00:00 5bae90c9
        (empty) test
        -- operation 380fbe20623e new empty commit
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r=@-"]), @r"
-    ○  oxmtprsl?? test.user@example.com 2001-01-01 11:00:00 e94ed463
+    ○  oxmtprsl/1 test.user@example.com 2001-01-01 11:00:00 e94ed463
        (empty) test
        -- operation 40e37b931010 new empty commit
     [EOF]

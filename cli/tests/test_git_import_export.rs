@@ -41,7 +41,7 @@ fn test_resolution_of_git_tracking_bookmarks() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm 384a1421 (empty) new_message
-      @git (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden a7f9930b (empty) old_message
+      @git (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 hidden a7f9930b (empty) old_message
     [EOF]
     ");
 
