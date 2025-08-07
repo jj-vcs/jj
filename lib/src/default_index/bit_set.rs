@@ -64,14 +64,16 @@ impl PositionsBitSet {
     }
 
     fn to_global_pos(&self, (bitset_pos, bit_pos): (u32, u32)) -> GlobalCommitPosition {
-        let bitset_rev_pos = self.bitset_len - bitset_pos - 1;
+        let bitset_rev_pos = u32::checked_sub(self.bitset_len, bitset_pos + 1)
+            .expect("bitset_pos < self.bitset_len");
         GlobalCommitPosition(bitset_rev_pos * u64::BITS + bit_pos)
     }
 
     fn to_bitset_pos(&self, pos: GlobalCommitPosition) -> (u32, u32) {
         let bitset_rev_pos = pos.0 / u64::BITS;
         let bit_pos = pos.0 % u64::BITS;
-        let bitset_pos = self.bitset_len - bitset_rev_pos - 1;
+        let bitset_pos = u32::checked_sub(self.bitset_len, bitset_rev_pos + 1)
+            .expect("bitset_rev_pos < self.bitset_len");
         (bitset_pos, bit_pos)
     }
 
