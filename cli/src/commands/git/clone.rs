@@ -20,6 +20,7 @@ use std::path::Path;
 
 use jj_lib::git;
 use jj_lib::git::GitFetch;
+use jj_lib::git::FetchTagsOverride;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
@@ -253,7 +254,13 @@ fn fetch_new_remote(
     let mut tx = workspace_command.start_transaction();
     let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
     with_remote_git_callbacks(ui, |cb| {
-        git_fetch.fetch(remote_name, &[StringPattern::everything()], cb, depth)
+        git_fetch.fetch(
+            remote_name,
+            &[StringPattern::everything()],
+            cb,
+            depth,
+            FetchTagsOverride::UseRemoteConfiguration,
+        )
     })?;
     let default_branch = git_fetch.get_default_branch(remote_name)?;
     let import_stats = git_fetch.import_refs()?;
