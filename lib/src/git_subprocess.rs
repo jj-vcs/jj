@@ -28,6 +28,7 @@ use bstr::ByteSlice as _;
 use itertools::Itertools as _;
 use thiserror::Error;
 
+use crate::git::FetchTagsOverride;
 use crate::git::GitPushStats;
 use crate::git::Progress;
 use crate::git::RefSpec;
@@ -161,6 +162,7 @@ impl<'a> GitSubprocessContext<'a> {
         refspecs: &[RefSpec],
         callbacks: &mut RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
+        fetch_tags_override: Option<FetchTagsOverride>,
     ) -> Result<Option<String>, GitSubprocessError> {
         if refspecs.is_empty() {
             return Ok(None);
@@ -175,6 +177,15 @@ impl<'a> GitSubprocessContext<'a> {
         }
         if let Some(d) = depth {
             command.arg(format!("--depth={d}"));
+        }
+        match fetch_tags_override {
+            Some(FetchTagsOverride::AllTags) => {
+                command.arg("--tags");
+            }
+            Some(FetchTagsOverride::NoTags) => {
+                command.arg("--no-tags");
+            }
+            None => {}
         }
         command.arg("--").arg(remote_name.as_str());
         command.args(refspecs.iter().map(|x| x.to_git_format()));

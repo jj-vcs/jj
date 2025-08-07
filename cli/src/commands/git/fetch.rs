@@ -175,7 +175,7 @@ fn do_git_fetch(
 
     for remote_name in remotes {
         with_remote_git_callbacks(ui, |callbacks| {
-            git_fetch.fetch(remote_name, branch_names, callbacks, None)
+            git_fetch.fetch(remote_name, branch_names, callbacks, None, None)
         })?;
     }
     let import_stats = git_fetch.import_refs()?;

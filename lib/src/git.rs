@@ -2172,6 +2172,7 @@ impl<'a> GitFetch<'a> {
         branch_names: &[StringPattern],
         mut callbacks: RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
+        fetch_tags_override: Option<FetchTagsOverride>,
     ) -> Result<(), GitFetchError> {
         validate_remote_name(remote_name)?;
 
@@ -2199,10 +2200,13 @@ impl<'a> GitFetch<'a> {
         //
         // even more unfortunately, git errors out one refspec at a time,
         // meaning that the below cycle runs in O(#failed refspecs)
-        while let Some(failing_refspec) =
-            self.git_ctx
-                .spawn_fetch(remote_name, &remaining_refspecs, &mut callbacks, depth)?
-        {
+        while let Some(failing_refspec) = self.git_ctx.spawn_fetch(
+            remote_name,
+            &remaining_refspecs,
+            &mut callbacks,
+            depth,
+            fetch_tags_override,
+        )? {
             tracing::debug!(failing_refspec, "failed to fetch ref");
             remaining_refspecs.retain(|r| r.source.as_ref() != Some(&failing_refspec));
 
@@ -2417,4 +2421,16 @@ pub struct Progress {
     /// `Some` iff data transfer is currently in progress
     pub bytes_downloaded: Option<u64>,
     pub overall: f32,
+}
+
+/// Allows temporarily overriding the behavior of a single `git fetch`
+/// operation as to whether tags are fetched
+#[derive(Copy, Clone, Debug)]
+pub enum FetchTagsOverride {
+    /// For this one fetch attempt, fetch all tags regardless of what the
+    /// remote's `tagOpt` is configured to
+    AllTags,
+    /// For this one fetch attempt, fetch no tags regardless of what the
+    /// remote's `tagOpt` is configured to
+    NoTags,
 }
