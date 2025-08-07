@@ -203,6 +203,14 @@ Run this in the jj repo:
 jj config set --repo fix.tools.rustfmt '{ command = ["rustfmt", "+nightly"], patterns = ["glob:**/*.rs"] }'
 ```
 
+> Note: users of Nix and `direnv` should drop the `"+nightly"` argument above
+> since the devShell is already configured to pull in a nightly version of
+> rustfmt:
+>
+> ```shell
+> jj config set --repo fix.tools.rustfmt '{ command = ["rustfmt"], patterns = ["glob:**/*.rs"] }'
+> ```
+
 ### Using `mold` for faster tests on Linux
 
 On a machine with a multi-core CPU, one way to speed up
