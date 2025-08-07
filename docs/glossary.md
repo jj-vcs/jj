@@ -146,7 +146,13 @@ and [commits](#commit).
 
 ## Remote
 
-TODO
+A remote is a reference to a copy of your repository. The most common case is
+that the remote is hosted on the internet or another network, but local remotes
+are also possible. Remotes are useful when working on a project with multiple
+collaborators. As Jujutsu is compatible with Git you can use all popular
+providers that are also available for Git. For example
+[GitHub](https://github.com), [GitLab](https://gitlab.com) or
+[Codeberg](https://codeberg.org/).
 
 ## Revision
 
