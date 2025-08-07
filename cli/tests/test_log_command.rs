@@ -55,11 +55,13 @@ fn test_log_with_no_template() {
     - builtin_log_node
     - builtin_log_node_ascii
     - builtin_log_oneline
+    - builtin_log_redacted
     - builtin_op_log_comfortable
     - builtin_op_log_compact
     - builtin_op_log_node
     - builtin_op_log_node_ascii
     - builtin_op_log_oneline
+    - builtin_op_log_redacted
     - commit_summary_separator
     - default_commit_description
     - description_placeholder
@@ -1679,6 +1681,29 @@ fn test_log_full_description_template() {
     │
     │  <full description>
     │
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_log_anonymize() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj([
+            "describe",
+            "-m",
+            "this is commit with a multiline description\n\n<full description>",
+        ])
+        .success();
+
+    let output = work_dir.run_jj(["log", "-Tbuiltin_log_redacted"]);
+    insta::assert_snapshot!(output, @r"
+    @  qpvuntsm user-78cd 2001-02-03 08:05:08 37b69cda
+    │  (empty) (redacted)
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");

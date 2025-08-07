@@ -27,6 +27,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj diff --stat` now shows the change in size to binary files.
 
+* `jj log`, `jj evolog` and `jj op log` output can now be anonymized with the
+  `builtin_log_redacted` and `builtin_op_log_redacted` templates.
+
 ### Fixed bugs
 
 ### Packaging changes

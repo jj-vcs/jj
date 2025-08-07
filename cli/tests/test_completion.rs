@@ -1073,11 +1073,13 @@ fn test_template_alias() {
     builtin_log_node
     builtin_log_node_ascii
     builtin_log_oneline
+    builtin_log_redacted
     builtin_op_log_comfortable
     builtin_op_log_compact
     builtin_op_log_node
     builtin_op_log_node_ascii
     builtin_op_log_oneline
+    builtin_op_log_redacted
     commit_summary_separator
     default_commit_description
     description_placeholder

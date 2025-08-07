@@ -200,11 +200,13 @@ fn test_op_log_with_no_template() {
     - builtin_log_node
     - builtin_log_node_ascii
     - builtin_log_oneline
+    - builtin_log_redacted
     - builtin_op_log_comfortable
     - builtin_op_log_compact
     - builtin_op_log_node
     - builtin_op_log_node_ascii
     - builtin_op_log_oneline
+    - builtin_op_log_redacted
     - commit_summary_separator
     - default_commit_description
     - description_placeholder
@@ -2769,6 +2771,28 @@ fn test_op_log_parents() {
     Concurrent modification detected, resolving automatically.
     [EOF]
     "###);
+}
+
+#[test]
+fn test_op_log_anonymize() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir
+        .run_jj(["describe", "-m", "description 0"])
+        .success();
+
+    let output = work_dir.run_jj(["op", "log", "-Tbuiltin_op_log_redacted"]);
+    insta::assert_snapshot!(output, @r"
+    @  12f7cbba4278 user-5910 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    │  describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    │  (redacted)
+    ○  8f47435a3990 user-5910 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    │  add workspace 'default'
+    │  (redacted)
+    ○  000000000000 root()
+    [EOF]
+    ");
 }
 
 fn init_bare_git_repo(git_repo_path: &Path) -> gix::Repository {

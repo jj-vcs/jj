@@ -168,6 +168,21 @@ if(root,
 )
 '''
 
+builtin_log_redacted = '''
+if(root,
+  format_root_commit(self),
+  label(if(current_working_copy, "working_copy"),
+    concat(
+      format_short_commit_header_redacted(self) ++ "\n",
+      separate(" ",
+        if(empty, label("empty", "(empty)")),
+        label("description", "(redacted)"),
+      ) ++ "\n",
+    ),
+  )
+)
+'''
+
 builtin_log_compact_full_description = '''
 if(root,
   format_root_commit(self),
@@ -215,6 +230,7 @@ label(if(current_operation, "current_operation"),
   )
 )
 '''
+
 builtin_op_log_comfortable = 'builtin_op_log_compact ++ "\n"'
 builtin_op_log_oneline = '''
 label(if(current_operation, "current_operation"),
@@ -222,6 +238,15 @@ label(if(current_operation, "current_operation"),
     if(snapshot, format_snapshot_operation_oneline(self)),
     if(root, format_root_operation(self)),
     format_operation_oneline(self),
+  )
+)
+'''
+builtin_op_log_redacted = '''
+label(if(current_operation, "current_operation"),
+  coalesce(
+    if(snapshot, format_snapshot_operation_redacted(self)),
+    if(root, format_root_operation(self)),
+    format_operation_redacted(self),
   )
 )
 '''
@@ -315,7 +340,15 @@ concat(
   if(op.tags(), op.tags() ++ "\n"),
 )
 '''
+'format_operation_redacted(op)' = '''
+concat(
+  separate(" ", format_short_operation_id(op.id()), format_user_redacted(op.user()), format_time_range(op.time())), "\n",
+  op.description().first_line(), "\n",
+  "(redacted)",
+)
+'''
 'format_snapshot_operation(op)' = 'format_operation(op)'
+'format_snapshot_operation_redacted(op)' = 'format_operation_redacted(op)'
 'format_root_operation(root)' = 'separate(" ", root.id().short(), label("root", "root()")) ++ "\n"'
 
 
@@ -358,6 +391,22 @@ separate(" ",
 )
 '''
 
+'format_short_commit_header_redacted(commit)' = '''
+separate(" ",
+  format_short_change_id_with_hidden_and_divergent_info(commit),
+  label("author", format_user_redacted(commit.author())),
+  format_timestamp(commit_timestamp(commit)),
+  commit.bookmarks().map(|bookmark| concat("bookmark-", hash(bookmark.name()).substr(0, 4))),
+  commit.tags().map(|tag| concat("tag-", hash(tag.name()).substr(0, 4))),
+  commit.working_copies(),
+  if(commit.git_head(), label("git_head", "git_head()")),
+  format_short_commit_id(commit.commit_id()),
+  if(commit.conflict(), label("conflict", "conflict")),
+  if(config("ui.show-cryptographic-signatures").as_boolean(),
+    format_short_cryptographic_signature(commit.signature())),
+)
+''' # TODO: Possibly add some kind of repo-unique salt to the hash methods, if it makes users feel more secure (right now, `main` will always be `branch-c8c7a` for every repo)
+
 'format_detailed_cryptographic_signature(signature)' = '''
 if(signature,
   separate(" ",
@@ -382,6 +431,8 @@ if(signature,
   ))
 )
 '''
+
+'format_user_redacted(user)' = '''label("user", concat('user-', hash(user).substr(0, 4)))'''
 
 builtin_log_node = '''
 coalesce(

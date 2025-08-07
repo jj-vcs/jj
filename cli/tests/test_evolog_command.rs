@@ -481,11 +481,13 @@ fn test_evolog_with_no_template() {
     - builtin_log_node
     - builtin_log_node_ascii
     - builtin_log_oneline
+    - builtin_log_redacted
     - builtin_op_log_comfortable
     - builtin_op_log_compact
     - builtin_op_log_node
     - builtin_op_log_node_ascii
     - builtin_op_log_oneline
+    - builtin_op_log_redacted
     - commit_summary_separator
     - default_commit_description
     - description_placeholder
@@ -598,6 +600,33 @@ fn test_evolog_reverse_with_graph() {
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:13 78fdd026
        (empty) c+d+e
        -- operation 2c736b66cd16 (2001-02-03 08:05:13) squash commits into b28cda4b118fc50495ca34a24f030abc078d032e
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_evolog_anonymize() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "a"]).success();
+    work_dir.run_jj(["describe", "-m", "b"]).success();
+    work_dir.run_jj(["describe", "-m", "c"]).success();
+    let output = work_dir.run_jj(["evolog", "-Tbuiltin_log_redacted"]);
+    insta::assert_snapshot!(output, @r"
+    @  qpvuntsm user-78cd 2001-02-03 08:05:10 b28cda4b
+    │  (empty) (redacted)
+    │  -- operation 5f4c7b5cb177 (2001-02-03 08:05:10) describe commit 9f43967b1cdbce4ab322cb7b4636fc0362c38373
+    ○  qpvuntsm hidden user-78cd 2001-02-03 08:05:09 9f43967b
+    │  (empty) (redacted)
+    │  -- operation 3851e9877d51 (2001-02-03 08:05:09) describe commit b86e28cd6862624ad77e1aaf31e34b2c7545bebd
+    ○  qpvuntsm hidden user-78cd 2001-02-03 08:05:08 b86e28cd
+    │  (empty) (redacted)
+    │  -- operation ab34d1de4875 (2001-02-03 08:05:08) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    ○  qpvuntsm hidden user-78cd 2001-02-03 08:05:07 e8849ae1
+       (empty) (redacted)
+       -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ");
 }
