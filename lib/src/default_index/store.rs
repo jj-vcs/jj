@@ -27,6 +27,7 @@ use std::sync::Arc;
 
 use itertools::Itertools as _;
 use tempfile::NamedTempFile;
+use tempfile::PersistError;
 use thiserror::Error;
 
 use super::changed_path::CompositeChangedPathIndex;
@@ -44,7 +45,6 @@ use crate::dag_walk;
 use crate::file_util;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
-use crate::file_util::persist_content_addressed_temp_file;
 use crate::index::Index as _;
 use crate::index::IndexReadError;
 use crate::index::IndexStore;
@@ -349,7 +349,10 @@ impl DefaultIndexStore {
         file.write_all(index.readonly_commits().id().hex().as_bytes())
             .context(temp_file.path())?;
         let path = dir.join(op_id.hex());
-        persist_content_addressed_temp_file(temp_file, &path).context(&path)?;
+        temp_file
+            .persist(&path)
+            .map_err(|PersistError { error, file: _ }| error)
+            .context(&path)?;
         Ok(())
     }
 }
