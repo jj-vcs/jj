@@ -177,6 +177,7 @@
           uv
           # nixos does not work with uv-installed python
           python3
+          python3Packages.numpy
         ];
 
         # on macOS and Linux, use faster parallel linkers that are much more
