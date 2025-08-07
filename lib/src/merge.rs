@@ -832,6 +832,14 @@ where
                         copy_id: copy_id.clone(),
                     }),
                     (None, None) => None,
+                    // New files are populated to preserve the materialized conflict. The file won't
+                    // be checked out to the disk. So the metadata is not important, and we will
+                    // just use the default values.
+                    (None, Some(id)) => Some(TreeValue::File {
+                        id,
+                        executable: false,
+                        copy_id: CopyId::placeholder(),
+                    }),
                     (old, new) => panic!("incompatible update: {old:?} to {new:?}"),
                 },
             )

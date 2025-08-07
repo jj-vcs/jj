@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::convert::Infallible;
 use std::fs::File;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt as _;
@@ -23,21 +24,25 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use assert_matches::assert_matches;
+use bstr::BString;
 use indoc::indoc;
 use itertools::Itertools as _;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::TreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::conflict_labels::ConflictLabels;
+use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::file_util;
 use jj_lib::file_util::check_symlink_support;
 use jj_lib::file_util::try_symlink;
+use jj_lib::files::FileMergeHunkLevel;
 use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::LocalWorkingCopy;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateSettings;
 use jj_lib::merge::Merge;
+use jj_lib::merge::SameChange;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::op_store::OperationId;
@@ -46,8 +51,10 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
+use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::secret_backend::SecretBackend;
 use jj_lib::tree_builder::TreeBuilder;
+use jj_lib::tree_merge::MergeOptions;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::SnapshotOptions;
@@ -69,6 +76,7 @@ use testutils::repo_path;
 use testutils::repo_path_buf;
 use testutils::repo_path_component;
 use testutils::write_random_commit;
+use tokio::io::AsyncReadExt as _;
 
 fn check_icase_fs(dir: &Path) -> bool {
     let test_file = tempfile::Builder::new()
@@ -1066,6 +1074,304 @@ fn test_materialize_snapshot_unchanged_conflicts() {
     // could be deleted from all sides.
     let snapshotted_tree = test_workspace.snapshot().unwrap();
     assert_tree_eq!(snapshotted_tree, merged_tree_with_labels);
+}
+
+struct SnapshotModifiedMaterializedConflictTestConfig {
+    base_contents: Option<&'static str>,
+    parent1_contents: Option<&'static str>,
+    parent2_contents: Option<&'static str>,
+    // Edit the conflict contents of the conflict file. The input is the parsed hunks of the
+    // conflict file. The contents of the conflict file will be replaced by the hunks returned.
+    get_new_merge_hunks: fn(Vec<Merge<BString>>) -> Vec<Merge<BString>>,
+
+    expected_file_contents: Merge<Option<&'static str>>,
+}
+
+#[test_case(SnapshotModifiedMaterializedConflictTestConfig {
+    base_contents: None,
+    parent1_contents: Some("parent1\n"),
+    parent2_contents: Some("parent2\n"),
+    get_new_merge_hunks: |mut hunks: Vec<Merge<BString>>| {
+        for (i, side) in hunks[0].iter_mut().enumerate() {
+            if i == 0 {
+                side.extend(b"appended\n");
+            }
+        }
+        hunks
+    },
+    expected_file_contents: Merge::from_vec(vec![
+        Some("parent1\nappended\n"),
+        None,
+        Some("parent2\n"),
+    ]),
+}; "no base contents parent 1 appended")]
+#[test_case(SnapshotModifiedMaterializedConflictTestConfig {
+    base_contents: None,
+    parent1_contents: Some("parent1\n"),
+    parent2_contents: Some("parent2\n"),
+    get_new_merge_hunks: |mut hunks: Vec<Merge<BString>>| {
+        for (i, side) in hunks[0].iter_mut().enumerate() {
+            if i == 2 {
+                side.extend(b"appended\n");
+            }
+        }
+        hunks
+    },
+    expected_file_contents: Merge::from_vec(vec![
+        Some("parent1\n"),
+        None,
+        Some("parent2\nappended\n"),
+    ]),
+}; "no base contents parent 2 appended")]
+#[test_case(SnapshotModifiedMaterializedConflictTestConfig {
+    base_contents: None,
+    parent1_contents: Some("parent1\n"),
+    parent2_contents: Some("parent2\n"),
+    get_new_merge_hunks: |mut hunks: Vec<Merge<BString>>| {
+        for (i, side) in hunks[0].iter_mut().enumerate() {
+            if i == 0 || i == 2 {
+                side.extend(b"appended\n");
+            }
+        }
+        hunks
+    },
+    expected_file_contents: Merge::from_vec(vec![
+        Some("parent1\nappended\n"),
+        None,
+        Some("parent2\nappended\n"),
+    ]),
+}; "no base contents both parents appended")]
+#[test_case(SnapshotModifiedMaterializedConflictTestConfig {
+    base_contents: None,
+    parent1_contents: Some("parent1\n"),
+    parent2_contents: Some("parent2\n"),
+    get_new_merge_hunks: |mut hunks: Vec<Merge<BString>>| {
+        hunks.push(Merge::resolved(BString::from("appended\n")));
+        hunks
+    },
+    expected_file_contents: Merge::from_vec(vec![
+        Some("parent1\nappended\n"),
+        // The file in the base change is also modified to preserve the materialized conflict.
+        Some("appended\n"),
+        Some("parent2\nappended\n"),
+    ]),
+}; "no base contents a new resolved hunk appended")]
+#[test_case(SnapshotModifiedMaterializedConflictTestConfig {
+    base_contents: None,
+    parent1_contents: Some("parent1\n"),
+    parent2_contents: Some("parent2\n"),
+    get_new_merge_hunks: |mut hunks: Vec<Merge<BString>>| {
+        for side in &mut hunks[0] {
+            side.extend(b"appended\n");
+        }
+        hunks
+    },
+    expected_file_contents: Merge::from_vec(vec![
+        Some("parent1\nappended\n"),
+        // The file in the base change is also modified to preserve the materialized conflict.
+        Some("appended\n"),
+        Some("parent2\nappended\n"),
+    ]),
+}; "no base contents all sides of the existing hunk appended")]
+#[test_case(SnapshotModifiedMaterializedConflictTestConfig {
+    base_contents: None,
+    parent1_contents: Some("parent1\n"),
+    parent2_contents: Some("parent2\n"),
+    get_new_merge_hunks: |mut hunks: Vec<Merge<BString>>| {
+        hunks[0].iter_mut().nth(1).unwrap().extend(b"new base\n");
+        hunks
+    },
+    // If the user adds contents to the absent side of a conflict hunk, we consider the conflict resolved.
+    expected_file_contents: Merge::from_vec(vec![
+        Some("parent1\n"),
+        // The file in the base change is modified to preserve the materialized conflict.
+        Some("new base\n"),
+        Some("parent2\n"),
+    ]),
+}; "no base contents base side appended only")]
+#[test_case(SnapshotModifiedMaterializedConflictTestConfig {
+    base_contents: None,
+    parent1_contents: Some("parent1\n"),
+    parent2_contents: Some("parent2\n"),
+    get_new_merge_hunks: |mut hunks: Vec<Merge<BString>>| {
+        hunks.insert(0, Merge::resolved(BString::from("prepended\n")));
+        hunks
+    },
+    expected_file_contents: Merge::from_vec(vec![
+        Some("prepended\nparent1\n"),
+        // The file in the base change is also modified to preserve the materialized conflict.
+        Some("prepended\n"),
+        Some("prepended\nparent2\n"),
+    ]),
+}; "no base contents a new resolved hunk prepended")]
+#[test_case(SnapshotModifiedMaterializedConflictTestConfig {
+    base_contents: Some("base\n"),
+    parent1_contents: None,
+    parent2_contents: Some("parent2\n"),
+    get_new_merge_hunks: |mut hunks: Vec<Merge<BString>>| {
+        hunks.push(Merge::resolved(BString::from("appended\n")));
+        hunks
+    },
+    expected_file_contents: Merge::from_vec(vec![
+        // The file in the parent1 change is also modified to preserve the materialized conflict.
+        Some("appended\n"),
+        Some("base\nappended\n"),
+        Some("parent2\nappended\n"),
+    ]),
+}; "file removed in parent1 a resolved hunk appended in merge")]
+#[test_case(SnapshotModifiedMaterializedConflictTestConfig {
+    base_contents: Some("base\n"),
+    parent1_contents: Some("parent1\n"),
+    parent2_contents: None,
+    get_new_merge_hunks: |mut hunks: Vec<Merge<BString>>| {
+        hunks.push(Merge::resolved(BString::from("appended\n")));
+        hunks
+    },
+    expected_file_contents: Merge::from_vec(vec![
+        Some("parent1\nappended\n"),
+        Some("base\nappended\n"),
+        // The file in the parent2 change is also modified to preserve the materialized conflict.
+        Some("appended\n"),
+    ]),
+}; "file removed in parent2 a resolved hunk appended in merge")]
+fn test_snapshot_modified_materialized_conflict(
+    SnapshotModifiedMaterializedConflictTestConfig {
+        base_contents,
+        parent1_contents,
+        parent2_contents,
+        get_new_merge_hunks,
+        expected_file_contents,
+    }: SnapshotModifiedMaterializedConflictTestConfig,
+) {
+    // In this test, we create the following commits, checkout the merge commit,
+    // modify the merge contents, snapshot, and verify if the new merged tree is
+    // correct.
+
+    // D
+    // |\
+    // B C
+    // |/
+    // A
+
+    // We can't use the tokio runtime here because the test backend will create
+    // the tokio runtime in TestWorkspace::init, and tokio will panic if the
+    // tokio runtime is dropped in an async context. See
+    // https://docs.rs/tokio/1.47.1/tokio/runtime/struct.Handle.html#panics-2
+    // for details.
+    let mut test_workspace = TestWorkspace::init();
+    let file_repo_path = repo_path("test-file");
+    let file_disk_path = file_repo_path
+        .to_fs_path(test_workspace.workspace.workspace_root())
+        .unwrap();
+
+    // Create the commits with given contents.
+    let mut tx = test_workspace.repo.start_transaction();
+    let tree = create_tree(
+        &test_workspace.repo,
+        base_contents
+            .map(|contents| (file_repo_path, contents))
+            .as_slice(),
+    );
+    let base_commit = tx
+        .repo_mut()
+        .new_commit(
+            vec![test_workspace.repo.store().root_commit_id().clone()],
+            tree,
+        )
+        .write()
+        .unwrap();
+    let tree = create_tree(
+        &test_workspace.repo,
+        &parent1_contents
+            .map(|contents| (file_repo_path, contents))
+            .into_iter()
+            .collect::<Vec<_>>(),
+    );
+    let parent1_commit = tx
+        .repo_mut()
+        .new_commit(vec![base_commit.id().clone()], tree)
+        .write()
+        .unwrap();
+    let tree = create_tree(
+        &test_workspace.repo,
+        &parent2_contents
+            .map(|contents| (file_repo_path, contents))
+            .into_iter()
+            .collect::<Vec<_>>(),
+    );
+    let parent2_commit = tx
+        .repo_mut()
+        .new_commit(vec![base_commit.id().clone()], tree)
+        .write()
+        .unwrap();
+    // Update the repo to pick up the new commits.
+    test_workspace.repo = tx.commit("create parent commits").unwrap();
+
+    // Create the merge commit.
+    let tree = merge_commit_trees(&*test_workspace.repo, &[parent1_commit, parent2_commit])
+        .block_on()
+        .unwrap();
+    let merge_commit = commit_with_tree(test_workspace.repo.store(), tree);
+
+    // Checkout the merge commit.
+    test_workspace
+        .workspace
+        .check_out(test_workspace.repo.op_id().clone(), None, &merge_commit)
+        .unwrap();
+    let contents = std::fs::read(&file_disk_path).unwrap();
+    let hunks =
+        jj_lib::conflicts::parse_conflict(&contents, 2, jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN)
+            .unwrap();
+    let hunks = get_new_merge_hunks(hunks);
+    let mut new_contents = vec![];
+    for hunk in hunks {
+        jj_lib::conflicts::materialize_merge_result(
+            &hunk,
+            &ConflictLabels::unlabeled(),
+            &mut new_contents,
+            &ConflictMaterializeOptions {
+                marker_style: jj_lib::conflicts::ConflictMarkerStyle::Diff,
+                marker_len: None,
+                merge: MergeOptions {
+                    hunk_level: FileMergeHunkLevel::Line,
+                    same_change: SameChange::Accept,
+                },
+            },
+        )
+        .unwrap();
+    }
+    std::fs::write(&file_disk_path, new_contents).unwrap();
+
+    // Snapshot.
+    let tree = test_workspace.snapshot().unwrap();
+    let actual_file_contents = tree
+        .path_value_async(file_repo_path)
+        .block_on()
+        .unwrap()
+        .try_map_async(async |tree_value| {
+            let Some(tree_value) = tree_value else {
+                return Ok::<_, Infallible>(None);
+            };
+            let TreeValue::File { id, .. } = tree_value else {
+                panic!("All sides of the conflict should be either a file or absent.");
+            };
+            let mut contents = vec![];
+            test_workspace
+                .repo
+                .store()
+                .read_file(file_repo_path, id)
+                .await
+                .unwrap()
+                .read_to_end(&mut contents)
+                .await
+                .unwrap();
+            Ok::<_, Infallible>(Some(String::from_utf8(contents).unwrap()))
+        })
+        .block_on()
+        .unwrap();
+    let expected_file_contents =
+        expected_file_contents.map(|contents| contents.as_deref().map(str::to_string));
+    assert_eq!(actual_file_contents, expected_file_contents);
 }
 
 #[test]

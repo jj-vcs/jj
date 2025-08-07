@@ -1077,30 +1077,18 @@ pub async fn update_from_content(
         }
     }
 
-    // If the user edited the empty placeholder for an absent side, we consider the
-    // conflict resolved.
-    if zip(&contents, &simplified_file_ids)
-        .any(|(content, file_id)| file_id.is_none() && !content.is_empty())
-    {
-        let file_id = store.write_file(path, &mut &content[..]).await?;
-        return Ok(Merge::normal(file_id));
-    }
-
     // Now write the new files contents we found by parsing the file with conflict
     // markers.
     // TODO: Write these concurrently
     let new_file_ids: Vec<Option<FileId>> = zip(&contents, &simplified_file_ids)
         .map(|(content, file_id)| -> BackendResult<Option<FileId>> {
-            match file_id {
-                Some(_) => {
-                    let file_id = store.write_file(path, &mut content.as_slice()).block_on()?;
-                    Ok(Some(file_id))
-                }
-                None => {
-                    // The missing side of a conflict is still represented by
-                    // the empty string we materialized it as
-                    Ok(None)
-                }
+            if file_id.is_some() || !content.is_empty() {
+                let file_id = store.write_file(path, &mut content.as_slice()).block_on()?;
+                Ok(Some(file_id))
+            } else {
+                // The missing side of a conflict is still represented by
+                // the empty string we materialized it as
+                Ok(None)
             }
         })
         .try_collect()?;
