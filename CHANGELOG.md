@@ -22,6 +22,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Both `jj git clone` and `jj git init` now take a `--no-colocate` flag to
   disable colocation (in case `git.colocate` is set to `true`.)
 
+* `jj log`, `jj evolog` and `jj op log` output can now be anonymized with the
+  `builtin_log_redacted` and `builtin_op_log_redacted` templates.
+
 ### Fixed bugs
 
 ## [0.32.0] - 2025-08-06
