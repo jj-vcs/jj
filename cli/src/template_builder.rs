@@ -22,6 +22,8 @@ use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigValue;
+use jj_lib::content_hash::blake2b_hash;
+use jj_lib::hex_util;
 use jj_lib::op_store::TimestampRange;
 use jj_lib::settings::UserSettings;
 use jj_lib::time_util::DatePattern;
@@ -1634,6 +1636,12 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             Ok(L::Property::wrap_template(template))
         },
     );
+    map.insert("hash", |language, diagnostics, build_ctx, function| {
+        let [content_node] = function.expect_exact_arguments()?;
+        let content = expect_stringify_expression(language, diagnostics, build_ctx, content_node)?;
+        let result = content.map(|c| hex_util::encode_hex(blake2b_hash(&c).as_ref()));
+        Ok(result.into_dyn_wrapped())
+    });
     map.insert("label", |language, diagnostics, build_ctx, function| {
         let [label_node, content_node] = function.expect_exact_arguments()?;
         let label_property =
