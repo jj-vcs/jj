@@ -2338,6 +2338,7 @@ dependencies = [
  "assert_cmd",
  "assert_matches",
  "async-trait",
+ "blake2",
  "bstr",
  "chrono",
  "clap",
