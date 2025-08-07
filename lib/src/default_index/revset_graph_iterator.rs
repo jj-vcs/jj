@@ -335,7 +335,7 @@ impl<'a> RevsetGraphWalk<'a> {
             enqueue_parents(&mut work, &entry);
         }
 
-        edges.retain(|edge| !unwanted.get(edge.target));
+        edges.retain(|edge| edge.is_missing() || !unwanted.get(edge.target));
     }
 
     fn consume_to(
