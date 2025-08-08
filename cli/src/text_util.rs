@@ -17,6 +17,7 @@ use std::cmp;
 use std::io;
 
 use bstr::ByteSlice as _;
+use chrono::{DateTime, FixedOffset};
 use unicode_width::UnicodeWidthChar as _;
 use unicode_width::UnicodeWidthStr as _;
 
@@ -545,6 +546,11 @@ pub fn parse_author(author: &str) -> Result<(String, String), &'static str> {
     let re = regex::Regex::new(r"(?<name>.*?)\s*<(?<email>.+)>$").unwrap();
     let captures = re.captures(author).ok_or("Invalid author string")?;
     Ok((captures["name"].to_string(), captures["email"].to_string()))
+}
+
+pub fn parse_date(date: &str) -> chrono::ParseResult<DateTime<FixedOffset>> {
+    Ok(DateTime::parse_from_rfc2822(date)
+        .or_else(|_| DateTime::parse_from_rfc3339(date))?)
 }
 
 #[cfg(test)]

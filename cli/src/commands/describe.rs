@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::text_util::parse_date;
 use std::collections::HashMap;
 use std::io;
 use std::io::Read as _;
 use std::iter;
-
+use chrono::{DateTime, FixedOffset};
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
-use jj_lib::backend::Signature;
+use jj_lib::backend::{Signature, Timestamp};
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::object_id::ObjectId as _;
 use tracing::instrument;
@@ -102,10 +103,16 @@ pub(crate) struct DescribeArgs {
     /// timestamp for non-discardable commits.
     #[arg(
         long,
-        conflicts_with = "reset_author",
         value_parser = parse_author
     )]
     author: Option<(String, String)>,
+    /// Set the author date to the given date either in RFC 2822 or 3339
+    #[arg(
+        long,
+        conflicts_with = "reset_author",
+        value_parser = parse_date
+    )]
+    author_date: Option<DateTime<FixedOffset>>,
 }
 
 #[instrument(skip_all)]
@@ -164,14 +171,23 @@ pub(crate) fn cmd_describe(
                 let new_author = commit_builder.committer().clone();
                 commit_builder.set_author(new_author);
             }
-            if let Some((name, email)) = args.author.clone() {
-                let new_author = Signature {
-                    name,
-                    email,
-                    timestamp: commit_builder.author().timestamp,
-                };
-                commit_builder.set_author(new_author);
+            let author = &commit_builder.author();
+            let mut name = author.name.clone();
+            let mut email = author.email.clone();
+            let mut timestamp = author.timestamp;
+            if let Some((new_name, new_email)) = args.author.clone() {
+                name = new_name;
+                email = new_email;
             }
+            if let Some(author_date) = args.author_date {
+                timestamp = Timestamp::from_datetime(author_date)
+            }
+            let new_author = Signature {
+                name,
+                email,
+                timestamp,
+            };
+            commit_builder.set_author(new_author);
             commit_builder
         })
         .collect_vec();
@@ -250,7 +266,8 @@ pub(crate) fn cmd_describe(
             old_commit.description() != commit_builder.description()
                 || args.reset_author
                 // Ignore author timestamp which could be updated if the old
-                // commit was discardable.
+                // commit was discardable. @TODO not sure how to handle this; there is a `is_discardable` function but I am not sure whether I should call it here
+                || old_commit.author().timestamp != commit_builder.author().timestamp
                 || old_commit.author().name != commit_builder.author().name
                 || old_commit.author().email != commit_builder.author().email
         })
