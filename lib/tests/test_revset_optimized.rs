@@ -41,7 +41,7 @@ fn stable_settings() -> UserSettings {
     let mut config = testutils::base_user_config();
     let mut layer = ConfigLayer::empty(ConfigSource::User);
     layer
-        .set_value("debug.commit-timestamp", "2001-02-03T04:05:06+07:00")
+        .set_value("debug.commit-timestamp", "2001-02-03T04:05:06[+07:00]")
         .unwrap();
     config.add_layer(layer);
     UserSettings::from_config(config).unwrap()

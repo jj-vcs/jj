@@ -17,8 +17,9 @@ use std::iter;
 use std::path::Path;
 
 use assert_matches::assert_matches;
-use chrono::DateTime;
 use itertools::Itertools as _;
+use jiff::Zoned;
+use jiff::tz::TimeZone;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::MillisSinceEpoch;
@@ -90,7 +91,7 @@ fn resolve_symbol(repo: &dyn Repo, symbol: &str) -> Result<Vec<CommitId>, Revset
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
         user_email: "",
-        date_pattern_context: chrono::Local::now().into(),
+        date_pattern_now: Zoned::now(),
         extensions: &RevsetExtensions::default(),
         workspace: None,
     };
@@ -213,7 +214,7 @@ fn test_resolve_symbol_commit_id() {
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
         user_email: settings.user_email(),
-        date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+        date_pattern_now: Zoned::now().with_time_zone(TimeZone::UTC),
         extensions: &RevsetExtensions::default(),
         workspace: None,
     };
@@ -1002,7 +1003,7 @@ fn try_resolve_commit_ids(
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
         user_email: settings.user_email(),
-        date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+        date_pattern_now: Zoned::now().with_time_zone(TimeZone::UTC),
         extensions: &RevsetExtensions::default(),
         workspace: None,
     };
@@ -1036,7 +1037,7 @@ fn resolve_commit_ids_in_workspace(
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
         user_email: settings.user_email(),
-        date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+        date_pattern_now: Zoned::now().with_time_zone(TimeZone::UTC),
         extensions: &RevsetExtensions::default(),
         workspace: Some(workspace_ctx),
     };
@@ -3335,7 +3336,11 @@ fn test_evaluate_expression_author() {
 }
 
 fn parse_timestamp(s: &str) -> Timestamp {
-    Timestamp::from_datetime(s.parse::<DateTime<chrono::FixedOffset>>().unwrap())
+    Timestamp::from_zoned(
+        s.parse::<jiff::Timestamp>()
+            .unwrap()
+            .to_zoned(TimeZone::UTC),
+    )
 }
 
 #[test]

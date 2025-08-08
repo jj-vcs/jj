@@ -2562,6 +2562,8 @@ mod tests {
     use std::path::Path;
     use std::sync::Arc;
 
+    use jiff::Zoned;
+    use jiff::tz::TimeZone;
     use jj_lib::config::ConfigLayer;
     use jj_lib::config::ConfigSource;
     use jj_lib::revset::RevsetAliasesMap;
@@ -2638,7 +2640,7 @@ mod tests {
                 aliases_map: &self.revset_aliases_map,
                 local_variables: HashMap::new(),
                 user_email: "test.user@example.com",
-                date_pattern_context: chrono::DateTime::UNIX_EPOCH.fixed_offset().into(),
+                date_pattern_now: Zoned::now().with_time_zone(TimeZone::UTC),
                 extensions: &self.revset_extensions,
                 workspace: Some(RevsetWorkspaceContext {
                     path_converter: &self.path_converter,
@@ -2692,7 +2694,7 @@ mod tests {
         let mut config = testutils::base_user_config();
         let mut layer = ConfigLayer::empty(ConfigSource::User);
         layer
-            .set_value("debug.commit-timestamp", "2001-02-03T04:05:06+07:00")
+            .set_value("debug.commit-timestamp", "2001-02-03T04:05:06[+07:00]")
             .unwrap();
         config.add_layer(layer);
         UserSettings::from_config(config).unwrap()
