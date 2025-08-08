@@ -34,7 +34,7 @@ fn test_rewrite_immutable_generic() {
     │  c
     │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 main 9d190342
     ├─╯  b
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 c8c8515a
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 git_head() c8c8515a
     │  a
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -149,7 +149,7 @@ fn test_new_wc_commit_when_wc_immutable() {
     let output = work_dir.run_jj(["bookmark", "set", "main", "-r@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Moved 1 bookmarks to kkmpptxz 28e8c405 main | (empty) a
+    Moved 1 bookmarks to kkmpptxz 28e8c405 main* | (empty) a
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
     Working copy  (@) now at: zsuskuln e9901f56 (empty) (no description set)
     Parent commit (@-)      : kkmpptxz 28e8c405 main | (empty) a
@@ -194,7 +194,7 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace() {
     let output = work_dir.run_jj(["bookmark", "set", "main", "-r@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Moved 1 bookmarks to kkmpptxz e1cb4cf3 main | (empty) a
+    Moved 1 bookmarks to kkmpptxz e1cb4cf3 main* | (empty) a
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
     Warning: The working-copy commit in workspace 'workspace1' became immutable, so a new commit has been created on top of it.
     Working copy  (@) now at: royxmykx cec19492 (empty) (no description set)
@@ -210,7 +210,7 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace() {
     (empty) (no description set)
     royxmykx test.user@example.com 2001-02-03 08:05:12 default@ cec19492
     (empty) (no description set)
-    kkmpptxz test.user@example.com 2001-02-03 08:05:09 main e1cb4cf3
+    kkmpptxz test.user@example.com 2001-02-03 08:05:09 main git_head() e1cb4cf3
     (empty) a
     zzzzzzzz root() 00000000
     [EOF]
@@ -252,7 +252,7 @@ fn test_rewrite_immutable_commands() {
     │ │
     │ ~
     │
-    ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:10 9d190342
+    ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:10 git_head() 9d190342
     │  b
     ~
     [EOF]

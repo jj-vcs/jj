@@ -365,7 +365,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     // Working copy should contain conflict marker length
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_output), @r#"
-    Current operation: OperationId("da3b34243efe5ea04830cd2211b5be79444fbc2ef23681361fd2f551ebb86772bff21695da95b72388306e028bf04c6d76db10bf4cbd3a08eb34bf744c8900c7")
+    Current operation: OperationId("f160fdc6c25d58e7513bebf10d70e7d74960aaa28201c1cde24111ec73a60b3b68f7983a1779d401095ce8cd5ae9d3d3d14586dbd4a81b1c288ef360510438e7")
     Current tree: Merge(Conflicted([TreeId("381273b50cf73f8c81b3f1502ee89e9bbd6c1518"), TreeId("771f3d31c4588ea40a8864b2a981749888e596c2"), TreeId("f56b8223da0dab22b03b8323ced4946329aeb4e0")]))
     Normal { <executable> }           249 <timestamp> Some(MaterializedConflictData { conflict_marker_len: 11 }) "file"
     [EOF]
@@ -428,7 +428,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     // Working copy should still contain conflict marker length
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_output), @r#"
-    Current operation: OperationId("3de33bbfe3a9df8a052cc243aeedac6a3240d6115cb88f2779a1b6f1289288c6e78153875e48e41c17c098418f681bc872c54743e76b9e210f08533c50fc5a26")
+    Current operation: OperationId("201238777c74467a101135318343fd9b45ac9c604cc659f601dde79eedac2e7d492e3d0d5c634c6a36d3d36549e1a0a43f395a9841e4d2afef02c7f12282337b")
     Current tree: Merge(Conflicted([TreeId("381273b50cf73f8c81b3f1502ee89e9bbd6c1518"), TreeId("771f3d31c4588ea40a8864b2a981749888e596c2"), TreeId("3329c18c95f7b7a55c278c2259e9c4ce711fae59")]))
     Normal { <executable> }           289 <timestamp> Some(MaterializedConflictData { conflict_marker_len: 11 }) "file"
     [EOF]
@@ -463,7 +463,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     // working copy
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_output), @r#"
-    Current operation: OperationId("2676b66a8d17cf7913d2260285abe6f3ca4c8dc8f3fdfb3f54a4d566c9199670f80123a7174b553ff67c13c20c6827cde2429847a7949c19bc52f2397139e4c9")
+    Current operation: OperationId("55c0cf174aecbb839497e26efe49aa0a91a8cc49e9e95c78479c819120bace1708a06fb6d9dc6ea76cdb166a3997bffc632c944b362db61f15d45021b31d8187")
     Current tree: Merge(Resolved(TreeId("6120567b3cb2472d549753ed3e4b84183d52a650")))
     Normal { <executable> }           130 <timestamp> None "file"
     [EOF]

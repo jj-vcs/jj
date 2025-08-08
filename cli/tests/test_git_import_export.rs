@@ -34,14 +34,18 @@ fn test_resolution_of_git_tracking_bookmarks() {
 
     // Create local-git tracking bookmark
     let output = work_dir.run_jj(["git", "export"]);
-    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
     // Move the local bookmark somewhere else
     work_dir
         .run_jj(["describe", "-r", "main", "-m", "new_message"])
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm 384a1421 (empty) new_message
-      @git (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden a7f9930b (empty) old_message
+      @git: qpvuntsm 384a1421 (empty) new_message
     [EOF]
     ");
 
@@ -55,7 +59,7 @@ fn test_resolution_of_git_tracking_bookmarks() {
     [EOF]
     ");
     insta::assert_snapshot!(query("main@git"), @r"
-    a7f9930bb6d54ba39e6c254135b9bfe32041fea4 old_message
+    384a14213707d776d0517f65cdcf954d07d88c40 new_message
     [EOF]
     ");
     // Can't be selected by remote_bookmarks()
@@ -78,6 +82,7 @@ fn test_git_export_conflicting_git_refs() {
     insta::with_settings!({filters => vec![("Failed to set: .*", "Failed to set: ...")]}, {
         insta::assert_snapshot!(output, @r#"
         ------- stderr -------
+        Nothing changed.
         Warning: Failed to export some bookmarks:
           main/sub@git: Failed to set: ...
         Hint: Git doesn't allow a branch name that looks like a parent directory of

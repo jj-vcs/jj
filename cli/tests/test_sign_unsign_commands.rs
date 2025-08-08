@@ -39,7 +39,7 @@ backend = "test"
     insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:10 fbef508b
     │  (empty) (no description set)
-    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 8c63f712
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 git_head() 8c63f712
     │  (empty) three
     ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 26a2c4cb
     │  (empty) two
@@ -66,7 +66,7 @@ backend = "test"
     insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:12 8d7bc037 [✓︎]
     │  (empty) (no description set)
-    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:12 d2174a79 [✓︎]
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:12 git_head() d2174a79 [✓︎]
     │  (empty) three
     ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:12 062a3c5a [✓︎]
     │  (empty) two
@@ -119,7 +119,7 @@ backend = "test"
     insta::assert_snapshot!(output, @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 72a53d81 [✓︎]
     │  (empty) (no description set)
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 401ea16f
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 git_head() 401ea16f
     │  (empty) one
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -222,7 +222,7 @@ backend = "test"
     insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:12 1b3596cb
     │  (empty) (no description set)
-    ○  kkmpptxz someone@else.com 2001-02-03 08:05:12 ed55e398 [✓︎]
+    ○  kkmpptxz someone@else.com 2001-02-03 08:05:12 git_head() ed55e398 [✓︎]
     │  (empty) three
     ○  rlvkpnrz someone@else.com 2001-02-03 08:05:12 0e054ee0 [✓︎]
     │  (empty) two
@@ -270,7 +270,7 @@ backend = "test"
     insta::assert_snapshot!(output, @r"
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:11 ab7e21e9 [✓︎]
     │  (empty) C
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:11 3981b3e4
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:11 git_head() 3981b3e4
     │  (empty) B
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:11 0e149d92 [✓︎]
     │  (empty) A
@@ -331,7 +331,7 @@ backend = "test"
     insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:11 be4609e2 [✓︎]
     │  (empty) (no description set)
-    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:11 7b6ad8e6 [✓︎]
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:11 git_head() 7b6ad8e6 [✓︎]
     │  (empty) three
     ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:11 8dc06170 [✓︎]
     │  (empty) two
@@ -358,7 +358,7 @@ backend = "test"
     insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:13 9aec4578
     │  (empty) (no description set)
-    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:13 8c2dc912
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:13 git_head() 8c2dc912
     │  (empty) three
     ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:13 3081d203
     │  (empty) two
@@ -418,7 +418,7 @@ backend = "test"
     insta::assert_snapshot!(output, @r"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:12 0fda7ce2
     │  (empty) (no description set)
-    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:12 f6eb4a7e
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:12 git_head() f6eb4a7e
     │  (empty) three
     ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:12 65d9cdf7
     │  (empty) two

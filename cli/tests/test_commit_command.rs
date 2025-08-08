@@ -210,7 +210,7 @@ fn test_commit_interactive() {
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 9b0176ab
     │  (no description set)
     │  A file2
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:11 6e6fa925
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:11 git_head() 6e6fa925
     │  add files
     │  A file1
     ◆  zzzzzzzz root() 00000000
@@ -267,7 +267,7 @@ fn test_commit_interactive_with_paths() {
     │  (no description set)
     │  M file2
     │  M file3
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 eb640375
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 git_head() eb640375
     │  edit
     │  A file1
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 ff687a2f

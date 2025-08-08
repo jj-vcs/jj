@@ -393,10 +393,10 @@ fn test_split_with_descendants() {
     insta::assert_snapshot!(evolog_1, @r"
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:12 74306e35
     │  Add file1
-    │  -- operation 994b490f285d (2001-02-03 08:05:12) split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
+    │  -- operation 2c4838e93c74 (2001-02-03 08:05:12) split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 1d2499e7
     │  Add file1 & file2
-    │  -- operation adf4f33386c9 (2001-02-03 08:05:08) commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
+    │  -- operation ecbf28ec1e03 (2001-02-03 08:05:08) commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
     │  -- operation 78ead2155fcc (2001-02-03 08:05:08) snapshot working copy
@@ -412,10 +412,10 @@ fn test_split_with_descendants() {
     insta::assert_snapshot!(evolog_2, @r"
     ○  royxmykx test.user@example.com 2001-02-03 08:05:12 0a37745e
     │  Add file2
-    │  -- operation 994b490f285d (2001-02-03 08:05:12) split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
+    │  -- operation 2c4838e93c74 (2001-02-03 08:05:12) split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 1d2499e7
     │  Add file1 & file2
-    │  -- operation adf4f33386c9 (2001-02-03 08:05:08) commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
+    │  -- operation ecbf28ec1e03 (2001-02-03 08:05:08) commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
     │  -- operation 78ead2155fcc (2001-02-03 08:05:08) snapshot working copy
@@ -827,7 +827,7 @@ fn test_split_interactive() {
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 7e5d65b1
     │  (no description set)
     │  A file2
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 c664a51b
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 git_head() c664a51b
     │  (no description set)
     │  A file1
     ◆  zzzzzzzz root() 00000000
@@ -893,7 +893,7 @@ fn test_split_interactive_with_paths() {
     │  (no description set)
     │  M file2
     │  M file3
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 cdc9960a
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 git_head() cdc9960a
     │  (no description set)
     │  A file1
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 ff687a2f
@@ -1476,6 +1476,11 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
             ------- stderr -------
             Selected changes : qpvuntsm a481fe8a "*le-signet*" | first-commit
             Remaining changes: mzvwutvl 5f597a6e second-commit
+            Warning: Failed to export some bookmarks:
+              "*le-signet*"@git: Failed to set: A reference must be a valid tag name as well: A ref must not contain '*' character
+            Hint: Git doesn't allow a branch name that looks like a parent directory of
+            another (e.g. `foo` and `foo/bar`). Try to rename the bookmarks that failed to
+            export or their "parent" bookmarks.
             Working copy  (@) now at: mzvwutvl 5f597a6e second-commit
             Parent commit (@-)      : qpvuntsm a481fe8a "*le-signet*" | first-commit
             [EOF]
@@ -1496,6 +1501,11 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
             ------- stderr -------
             Selected changes : qpvuntsm a481fe8a first-commit
             Remaining changes: mzvwutvl 5f597a6e "*le-signet*" | second-commit
+            Warning: Failed to export some bookmarks:
+              "*le-signet*"@git: Failed to set: A reference must be a valid tag name as well: A ref must not contain '*' character
+            Hint: Git doesn't allow a branch name that looks like a parent directory of
+            another (e.g. `foo` and `foo/bar`). Try to rename the bookmarks that failed to
+            export or their "parent" bookmarks.
             Working copy  (@) now at: mzvwutvl 5f597a6e "*le-signet*" | second-commit
             Parent commit (@-)      : qpvuntsm a481fe8a first-commit
             [EOF]

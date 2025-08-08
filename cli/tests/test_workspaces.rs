@@ -528,7 +528,7 @@ fn test_workspaces_conflicting_edits() {
     let output = secondary_dir.run_jj(["st"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation bd4f780d0422).
+    Error: The working copy is stale (not updated since operation 19bd07492318).
     Hint: Run `jj workspace update-stale` to update it.
     See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy for more information.
     [EOF]
@@ -538,7 +538,7 @@ fn test_workspaces_conflicting_edits() {
     let output = secondary_dir.run_jj(["log"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation bd4f780d0422).
+    Error: The working copy is stale (not updated since operation 19bd07492318).
     Hint: Run `jj workspace update-stale` to update it.
     See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy for more information.
     [EOF]
@@ -629,7 +629,7 @@ fn test_workspaces_updated_by_other() {
     let output = secondary_dir.run_jj(["st"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation bd4f780d0422).
+    Error: The working copy is stale (not updated since operation 19bd07492318).
     Hint: Run `jj workspace update-stale` to update it.
     See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy for more information.
     [EOF]
@@ -779,12 +779,12 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
     ]);
     insta::allow_duplicates! {
         insta::assert_snapshot!(output, @r"
-        @  b0789def13 abandon commit de90575a14d8b9198dc0930f9de4a69f846ded36
-        ○  778c9aae54 create initial working-copy commit in workspace secondary
-        ○  219d4aca5c add workspace 'secondary'
-        ○  31ad55e98c new empty commit
-        ○  4ba7680cbe snapshot working copy
-        ○  9739176f19 new empty commit
+        @  1d65c83473 abandon commit de90575a14d8b9198dc0930f9de4a69f846ded36
+        ○  c14838fe85 create initial working-copy commit in workspace secondary
+        ○  20e7f4080b add workspace 'secondary'
+        ○  65a07ba38a new empty commit
+        ○  77c8b18626 snapshot working copy
+        ○  dcbc224066 new empty commit
         ○  4b5baa44b7 snapshot working copy
         ○  8f47435a39 add workspace 'default'
         ○  0000000000
@@ -821,7 +821,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         Parent commit (@-): rzvqmyuk 891f0006 (empty) (no description set)
         [EOF]
         ------- stderr -------
-        Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object 778c9aae54957e842bede2223fda227be33e08061732276a4cfb7b431a3e146e5c62187d640aa883095d3b2c6cf43d31ad5fde72076bb9a88b8594fb8b5e6606 of type operation not found
+        Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object c14838fe8576759bce949aec3191dea65e31efd9ab8e545784bab5261cc6c63d3e6622d2dcf8192320603d4a8ff50700882d584392938cbe03e7470dc4dcc86c of type operation not found
         Created and checked out recovery commit 866928d1e0fd
         [EOF]
         ");
@@ -839,7 +839,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         let output = secondary_dir.run_jj(["workspace", "update-stale"]);
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
-        Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object 778c9aae54957e842bede2223fda227be33e08061732276a4cfb7b431a3e146e5c62187d640aa883095d3b2c6cf43d31ad5fde72076bb9a88b8594fb8b5e6606 of type operation not found
+        Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object c14838fe8576759bce949aec3191dea65e31efd9ab8e545784bab5261cc6c63d3e6622d2dcf8192320603d4a8ff50700882d584392938cbe03e7470dc4dcc86c of type operation not found
         Created and checked out recovery commit 866928d1e0fd
         [EOF]
         ");
@@ -890,20 +890,20 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         insta::assert_snapshot!(output, @r"
         @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 secondary@ 18851b39
         │  RECOVERY COMMIT FROM `jj workspace update-stale`
-        │  -- operation 0a26da4b0149 (2001-02-03 08:05:18) snapshot working copy
+        │  -- operation ed526d9c7a86 (2001-02-03 08:05:18) snapshot working copy
         ○  kmkuslsw hidden test.user@example.com 2001-02-03 08:05:18 866928d1
            (empty) RECOVERY COMMIT FROM `jj workspace update-stale`
-           -- operation 83f707034db1 (2001-02-03 08:05:18) recovery commit
+           -- operation d4bba5374d37 (2001-02-03 08:05:18) recovery commit
         [EOF]
         ");
     } else {
         insta::assert_snapshot!(output, @r"
         @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 secondary@ 18851b39
         │  RECOVERY COMMIT FROM `jj workspace update-stale`
-        │  -- operation 0f876590219e (2001-02-03 08:05:18) snapshot working copy
+        │  -- operation ed5199591cd0 (2001-02-03 08:05:18) snapshot working copy
         ○  kmkuslsw hidden test.user@example.com 2001-02-03 08:05:18 866928d1
            (empty) RECOVERY COMMIT FROM `jj workspace update-stale`
-           -- operation 83f707034db1 (2001-02-03 08:05:18) recovery commit
+           -- operation d4bba5374d37 (2001-02-03 08:05:18) recovery commit
         [EOF]
         ");
     }
@@ -1082,7 +1082,7 @@ fn test_workspaces_forget_multi_transaction() {
     // the op log should have multiple workspaces forgotten in a single tx
     let output = main_dir.run_jj(["op", "log", "--limit", "1"]);
     insta::assert_snapshot!(output, @r"
-    @  d3aded9a10b6 test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
+    @  949127355bcb test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
     │  forget workspaces second, third
     │  args: jj workspace forget second third
     [EOF]

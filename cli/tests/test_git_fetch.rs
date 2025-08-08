@@ -121,6 +121,7 @@ fn test_git_fetch_default_remote() {
     work_dir.run_jj(["git", "fetch"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     origin: qmyrypzk ab8b299e message
+      @git: qmyrypzk ab8b299e message
       @origin: qmyrypzk ab8b299e message
     [EOF]
     ");
@@ -143,6 +144,7 @@ fn test_git_fetch_single_remote() {
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     rem1: ppspxspk 4acd0343 message
+      @git: ppspxspk 4acd0343 message
       @rem1: ppspxspk 4acd0343 message
     [EOF]
     ");
@@ -159,6 +161,7 @@ fn test_git_fetch_single_remote_all_remotes_flag() {
     work_dir.run_jj(["git", "fetch", "--all-remotes"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     rem1: ppspxspk 4acd0343 message
+      @git: ppspxspk 4acd0343 message
       @rem1: ppspxspk 4acd0343 message
     [EOF]
     ");
@@ -177,6 +180,7 @@ fn test_git_fetch_single_remote_from_arg() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     rem1: ppspxspk 4acd0343 message
+      @git: ppspxspk 4acd0343 message
       @rem1: ppspxspk 4acd0343 message
     [EOF]
     ");
@@ -194,6 +198,7 @@ fn test_git_fetch_single_remote_from_config() {
     work_dir.run_jj(["git", "fetch"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     rem1: ppspxspk 4acd0343 message
+      @git: ppspxspk 4acd0343 message
       @rem1: ppspxspk 4acd0343 message
     [EOF]
     ");
@@ -213,8 +218,10 @@ fn test_git_fetch_multiple_remotes() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     rem1: ppspxspk 4acd0343 message
+      @git: ppspxspk 4acd0343 message
       @rem1: ppspxspk 4acd0343 message
     rem2: pzqqpnpo 44c57802 message
+      @git: pzqqpnpo 44c57802 message
       @rem2: pzqqpnpo 44c57802 message
     [EOF]
     ");
@@ -316,8 +323,10 @@ fn test_git_fetch_all_remotes() {
     work_dir.run_jj(["git", "fetch", "--all-remotes"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     rem1: ppspxspk 4acd0343 message
+      @git: ppspxspk 4acd0343 message
       @rem1: ppspxspk 4acd0343 message
     rem2: pzqqpnpo 44c57802 message
+      @git: pzqqpnpo 44c57802 message
       @rem2: pzqqpnpo 44c57802 message
     [EOF]
     ");
@@ -336,8 +345,10 @@ fn test_git_fetch_multiple_remotes_from_config() {
     work_dir.run_jj(["git", "fetch"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     rem1: ppspxspk 4acd0343 message
+      @git: ppspxspk 4acd0343 message
       @rem1: ppspxspk 4acd0343 message
     rem2: pzqqpnpo 44c57802 message
+      @git: pzqqpnpo 44c57802 message
       @rem2: pzqqpnpo 44c57802 message
     [EOF]
     ");
@@ -505,6 +516,7 @@ fn test_git_fetch_prune_before_updating_tips() {
     work_dir.run_jj(["git", "fetch"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     origin: qmyrypzk ab8b299e message
+      @git: qmyrypzk ab8b299e message
       @origin: qmyrypzk ab8b299e message
     [EOF]
     ");
@@ -525,6 +537,7 @@ fn test_git_fetch_prune_before_updating_tips() {
     work_dir.run_jj(["git", "fetch"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     origin/subname: qmyrypzk ab8b299e message
+      @git: qmyrypzk ab8b299e message
       @origin: qmyrypzk ab8b299e message
     [EOF]
     ");
@@ -545,6 +558,7 @@ fn test_git_fetch_conflicting_bookmarks() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     rem1: kkmpptxz 2b17ac71 (empty) (no description set)
+      @git: kkmpptxz 2b17ac71 (empty) (no description set)
     [EOF]
     ");
 
@@ -556,6 +570,7 @@ fn test_git_fetch_conflicting_bookmarks() {
     rem1 (conflicted):
       + kkmpptxz 2b17ac71 (empty) (no description set)
       + ppspxspk 4acd0343 message
+      @git (behind by 1 commits): kkmpptxz 2b17ac71 (empty) (no description set)
       @rem1 (behind by 1 commits): ppspxspk 4acd0343 message
     [EOF]
     ");
@@ -644,6 +659,7 @@ fn test_git_fetch_all() {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/target"
     Nothing changed.
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     let target_dir = test_env.work_dir("target");
@@ -679,12 +695,16 @@ fn test_git_fetch_all() {
     ");
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @r"
     a1: mzvwutvl c8303692 a1
+      @git: mzvwutvl c8303692 a1
       @origin: mzvwutvl c8303692 a1
     a2: yqosqzyt d4d535f1 a2
+      @git: yqosqzyt d4d535f1 a2
       @origin: yqosqzyt d4d535f1 a2
     b: yostqsxw bc83465a b
+      @git: yostqsxw bc83465a b
       @origin: yostqsxw bc83465a b
     trunk1: kkmpptxz 38288177 trunk1
+      @git: kkmpptxz 38288177 trunk1
       @origin: kkmpptxz 38288177 trunk1
     [EOF]
     ");
@@ -736,12 +756,16 @@ fn test_git_fetch_all() {
     "#);
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @r"
     a1: mzvwutvl c8303692 a1
+      @git: mzvwutvl c8303692 a1
       @origin: mzvwutvl c8303692 a1
     a2: yqosqzyt d4d535f1 a2
+      @git: yqosqzyt d4d535f1 a2
       @origin: yqosqzyt d4d535f1 a2
     b: yostqsxw 0fbbc495 new_descr_for_b_to_create_conflict
+      @git: yostqsxw 0fbbc495 new_descr_for_b_to_create_conflict
       @origin (ahead by 1 commits, behind by 1 commits): yostqsxw hidden bc83465a b
     trunk1: kkmpptxz 38288177 trunk1
+      @git: kkmpptxz 38288177 trunk1
       @origin: kkmpptxz 38288177 trunk1
     [EOF]
     ");
@@ -757,17 +781,22 @@ fn test_git_fetch_all() {
     ");
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @r"
     a1: mzvwutvl 798c5e24 a1
+      @git: mzvwutvl 798c5e24 a1
       @origin: mzvwutvl 798c5e24 a1
     a2: yqosqzyt baad96fe a2
+      @git: yqosqzyt baad96fe a2
       @origin: yqosqzyt baad96fe a2
     b (conflicted):
       - yostqsxw hidden bc83465a b
       + yostqsxw?? 0fbbc495 new_descr_for_b_to_create_conflict
       + yostqsxw?? 6fc6fe17 b
+      @git (behind by 2 commits): yostqsxw?? 0fbbc495 new_descr_for_b_to_create_conflict
       @origin (behind by 1 commits): yostqsxw?? 6fc6fe17 b
     trunk1: kkmpptxz 38288177 trunk1
+      @git: kkmpptxz 38288177 trunk1
       @origin: kkmpptxz 38288177 trunk1
     trunk2: uyznsvlq e80d998a trunk2
+      @git: uyznsvlq e80d998a trunk2
       @origin: uyznsvlq e80d998a trunk2
     [EOF]
     ");
@@ -779,7 +808,7 @@ fn test_git_fetch_all() {
     │ │ ○  798c5e2435e1 "a1" a1
     │ ├─╯
     │ ○  e80d998ab04b "trunk2" trunk2
-    │ │ ○  0fbbc495357c "new_descr_for_b_to_create_conflict" b??
+    │ │ ○  0fbbc495357c "new_descr_for_b_to_create_conflict" b?? b@git
     │ ├─╯
     │ ○  382881770501 "trunk1" trunk1
     ├─╯
@@ -802,6 +831,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/target"
     Nothing changed.
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     let target_dir = test_env.work_dir("target");
@@ -860,6 +890,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     // ...check what the intermediate state looks like...
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @r"
     b: yostqsxw bc83465a b
+      @git: yostqsxw bc83465a b
       @origin: yostqsxw bc83465a b
     [EOF]
     ");
@@ -950,7 +981,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     │ │ ○  bc7e74c21d43 "a1" a1
     │ ├─╯
     │ ○  756be1d31c41 "trunk2"
-    │ │ ○  c62db3119722 "new_descr_for_b_to_create_conflict" b??
+    │ │ ○  c62db3119722 "new_descr_for_b_to_create_conflict" b?? b@git
     │ ├─╯
     │ │ ○  d4d535f1d579 "a2" a2
     │ ├─╯
@@ -963,13 +994,16 @@ fn test_git_fetch_some_of_many_bookmarks() {
     // We left a2 where it was before, let's see how `jj bookmark list` sees this.
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @r"
     a1: mzvwutvl bc7e74c2 a1
+      @git: mzvwutvl bc7e74c2 a1
       @origin: mzvwutvl bc7e74c2 a1
     a2: yqosqzyt d4d535f1 a2
+      @git: yqosqzyt d4d535f1 a2
       @origin: yqosqzyt d4d535f1 a2
     b (conflicted):
       - yostqsxw hidden bc83465a b
       + yostqsxw?? c62db311 new_descr_for_b_to_create_conflict
       + yostqsxw?? 2b30dbc9 b
+      @git (behind by 2 commits): yostqsxw?? c62db311 new_descr_for_b_to_create_conflict
       @origin (behind by 1 commits): yostqsxw?? 2b30dbc9 b
     [EOF]
     ");
@@ -990,7 +1024,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     │ │ ○  bc7e74c21d43 "a1" a1
     │ ├─╯
     │ ○  756be1d31c41 "trunk2"
-    │ │ ○  c62db3119722 "new_descr_for_b_to_create_conflict" b??
+    │ │ ○  c62db3119722 "new_descr_for_b_to_create_conflict" b?? b@git
     │ ├─╯
     │ ○  382881770501 "trunk1"
     ├─╯
@@ -999,13 +1033,16 @@ fn test_git_fetch_some_of_many_bookmarks() {
     "#);
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @r"
     a1: mzvwutvl bc7e74c2 a1
+      @git: mzvwutvl bc7e74c2 a1
       @origin: mzvwutvl bc7e74c2 a1
     a2: yqosqzyt 841140b1 a2
+      @git: yqosqzyt 841140b1 a2
       @origin: yqosqzyt 841140b1 a2
     b (conflicted):
       - yostqsxw hidden bc83465a b
       + yostqsxw?? c62db311 new_descr_for_b_to_create_conflict
       + yostqsxw?? 2b30dbc9 b
+      @git (behind by 2 commits): yostqsxw?? c62db311 new_descr_for_b_to_create_conflict
       @origin (behind by 1 commits): yostqsxw?? 2b30dbc9 b
     [EOF]
     ");
@@ -1053,6 +1090,7 @@ fn test_git_fetch_bookmarks_some_missing() {
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     origin: qmyrypzk ab8b299e message
+      @git: qmyrypzk ab8b299e message
       @origin: qmyrypzk ab8b299e message
     [EOF]
     ");
@@ -1072,12 +1110,16 @@ fn test_git_fetch_bookmarks_some_missing() {
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     origin: qmyrypzk ab8b299e message
+      @git: qmyrypzk ab8b299e message
       @origin: qmyrypzk ab8b299e message
     rem1: ppspxspk 4acd0343 message
+      @git: ppspxspk 4acd0343 message
       @rem1: ppspxspk 4acd0343 message
     rem2: pzqqpnpo 44c57802 message
+      @git: pzqqpnpo 44c57802 message
       @rem2: pzqqpnpo 44c57802 message
     rem3: wrzwlmys 45a3faef message
+      @git: wrzwlmys 45a3faef message
       @rem3: wrzwlmys 45a3faef message
     [EOF]
     ");
@@ -1094,12 +1136,16 @@ fn test_git_fetch_bookmarks_some_missing() {
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     origin: qmyrypzk ab8b299e message
+      @git: qmyrypzk ab8b299e message
       @origin: qmyrypzk ab8b299e message
     rem1: ppspxspk 4acd0343 message
+      @git: ppspxspk 4acd0343 message
       @rem1: ppspxspk 4acd0343 message
     rem2: pzqqpnpo 44c57802 message
+      @git: pzqqpnpo 44c57802 message
       @rem2: pzqqpnpo 44c57802 message
     rem3: wrzwlmys 45a3faef message
+      @git: wrzwlmys 45a3faef message
       @rem3: wrzwlmys 45a3faef message
     [EOF]
     ");
@@ -1147,6 +1193,7 @@ fn test_git_fetch_undo() {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/target"
     Nothing changed.
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     let target_dir = test_env.work_dir("target");
@@ -1185,7 +1232,7 @@ fn test_git_fetch_undo() {
     let output = target_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 158b589e0e15 (2001-02-03 08:05:18) fetch from git remote(s) origin
+    Undid operation: 63b6c13dc147 (2001-02-03 08:05:18) fetch from git remote(s) origin
     [EOF]
     ");
     // The undo works as expected
@@ -1226,6 +1273,7 @@ fn test_fetch_undo_what() {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/target"
     Nothing changed.
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     let work_dir = test_env.work_dir("target");
@@ -1265,6 +1313,7 @@ fn test_fetch_undo_what() {
     "#);
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     b: yostqsxw bc83465a b
+      @git: yostqsxw bc83465a b
       @origin: yostqsxw bc83465a b
     [EOF]
     ");
@@ -1292,6 +1341,7 @@ fn test_fetch_undo_what() {
     b (deleted)
       @origin: yostqsxw hidden bc83465a b
     newbookmark: qpvuntsm e8849ae1 (empty) (no description set)
+      @git: qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
     // Restoring just the remote-tracking state will not affect `newbookmark`, but
@@ -1310,6 +1360,7 @@ fn test_fetch_undo_what() {
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     newbookmark: qpvuntsm e8849ae1 (empty) (no description set)
+      @git: qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
 }
@@ -1327,6 +1378,7 @@ fn test_git_fetch_remove_fetch() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     origin: qpvuntsm e8849ae1 (empty) (no description set)
+      @git: qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
 
@@ -1335,6 +1387,7 @@ fn test_git_fetch_remove_fetch() {
     origin (conflicted):
       + qpvuntsm e8849ae1 (empty) (no description set)
       + qmyrypzk ab8b299e message
+      @git (behind by 1 commits): qpvuntsm e8849ae1 (empty) (no description set)
       @origin (behind by 1 commits): qmyrypzk ab8b299e message
     [EOF]
     ");
@@ -1346,6 +1399,7 @@ fn test_git_fetch_remove_fetch() {
     origin (conflicted):
       + qpvuntsm e8849ae1 (empty) (no description set)
       + qmyrypzk ab8b299e message
+      @git (behind by 1 commits): qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
 
@@ -1364,6 +1418,7 @@ fn test_git_fetch_remove_fetch() {
     origin (conflicted):
       + qpvuntsm e8849ae1 (empty) (no description set)
       + qmyrypzk ab8b299e message
+      @git (behind by 1 commits): qpvuntsm e8849ae1 (empty) (no description set)
       @origin (behind by 1 commits): qmyrypzk ab8b299e message
     [EOF]
     ");
@@ -1382,6 +1437,7 @@ fn test_git_fetch_rename_fetch() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     origin: qpvuntsm e8849ae1 (empty) (no description set)
+      @git: qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
 
@@ -1390,6 +1446,7 @@ fn test_git_fetch_rename_fetch() {
     origin (conflicted):
       + qpvuntsm e8849ae1 (empty) (no description set)
       + qmyrypzk ab8b299e message
+      @git (behind by 1 commits): qpvuntsm e8849ae1 (empty) (no description set)
       @origin (behind by 1 commits): qmyrypzk ab8b299e message
     [EOF]
     ");
@@ -1401,6 +1458,7 @@ fn test_git_fetch_rename_fetch() {
     origin (conflicted):
       + qpvuntsm e8849ae1 (empty) (no description set)
       + qmyrypzk ab8b299e message
+      @git (behind by 1 commits): qpvuntsm e8849ae1 (empty) (no description set)
       @upstream (behind by 1 commits): qmyrypzk ab8b299e message
     [EOF]
     ");
@@ -1427,6 +1485,7 @@ fn test_git_fetch_removed_bookmark() {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/target"
     Nothing changed.
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     let target_dir = test_env.work_dir("target");
@@ -1525,6 +1584,7 @@ fn test_git_fetch_removed_parent_bookmark() {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/target"
     Nothing changed.
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     let target_dir = test_env.work_dir("target");
@@ -1626,6 +1686,7 @@ fn test_git_fetch_remote_only_bookmark() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qomsplrm ebeb70d8 message
+      @git: qomsplrm ebeb70d8 message
       @origin: qomsplrm ebeb70d8 message
     [EOF]
     ");
@@ -1652,6 +1713,7 @@ fn test_git_fetch_remote_only_bookmark() {
     "#);
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qomsplrm ebeb70d8 message
+      @git: qomsplrm ebeb70d8 message
       @origin: qomsplrm ebeb70d8 message
     feature2@origin: qomsplrm ebeb70d8 message
     [EOF]
@@ -1692,8 +1754,10 @@ fn test_git_fetch_preserve_commits_across_repos() {
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature: srwrtuky 16ec9ef2 message
       @fork: srwrtuky 16ec9ef2 message
+      @git: srwrtuky 16ec9ef2 message
     upstream: zkvzklqn bcd7cd77 message
       @fork: zkvzklqn bcd7cd77 message
+      @git: zkvzklqn bcd7cd77 message
       @upstream: zkvzklqn bcd7cd77 message
     [EOF]
     ");
@@ -1751,6 +1815,7 @@ fn test_git_fetch_preserve_commits_across_repos() {
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     upstream: trrkvuqr f3e9250b merge
       @fork (behind by 2 commits): zkvzklqn bcd7cd77 message
+      @git: trrkvuqr f3e9250b merge
       @upstream: trrkvuqr f3e9250b merge
     [EOF]
     ");

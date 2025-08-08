@@ -78,8 +78,8 @@ fn test_git_remotes() {
     insta::assert_snapshot!(read_git_config(work_dir.root()), @r#"
     [core]
     	repositoryformatversion = 0
-    	bare = true
-    	logallrefupdates = false
+    	bare = false
+    	logallrefupdates = true
     [remote "bar"]
     	url = http://example.com/repo/bar
     	fetch = +refs/heads/*:refs/remotes/bar/*
@@ -168,8 +168,8 @@ fn test_git_remote_with_fetch_tags() {
     insta::assert_snapshot!(read_git_config(work_dir.root()), @r#"
     [core]
     	repositoryformatversion = 0
-    	bare = true
-    	logallrefupdates = false
+    	bare = false
+    	logallrefupdates = true
     [remote "foo"]
     	url = http://example.com/repo
     	fetch = +refs/heads/*:refs/remotes/foo/*
@@ -238,8 +238,8 @@ fn test_git_remote_set_url() {
     insta::assert_snapshot!(read_git_config(work_dir.root()), @r#"
     [core]
     	repositoryformatversion = 0
-    	bare = true
-    	logallrefupdates = false
+    	bare = false
+    	logallrefupdates = true
     [remote "foo"]
     	url = http://example.com/repo/bar
     	fetch = +refs/heads/*:refs/remotes/foo/*
@@ -321,8 +321,8 @@ fn test_git_remote_rename() {
     insta::assert_snapshot!(read_git_config(work_dir.root()), @r#"
     [core]
     	repositoryformatversion = 0
-    	bare = true
-    	logallrefupdates = false
+    	bare = false
+    	logallrefupdates = true
     [remote "baz"]
     	url = http://example.com/repo/baz
     	fetch = +refs/heads/*:refs/remotes/baz/*
@@ -575,8 +575,8 @@ fn test_git_remote_with_global_git_remote_config() {
     insta::assert_snapshot!(read_git_config(work_dir.root()), @r#"
     [core]
     	repositoryformatversion = 0
-    	bare = true
-    	logallrefupdates = false
+    	bare = false
+    	logallrefupdates = true
     [remote "bar"]
     	url = htps://example.com/repo/foo
     	fetch = +refs/heads/*:refs/remotes/bar/*
@@ -618,8 +618,8 @@ fn test_git_remote_with_global_git_remote_config() {
     insta::assert_snapshot!(read_git_config(work_dir.root()), @r#"
     [core]
     	repositoryformatversion = 0
-    	bare = true
-    	logallrefupdates = false
+    	bare = false
+    	logallrefupdates = true
     [remote "bar"]
     	url = htps://example.com/repo/foo
     	fetch = +refs/heads/*:refs/remotes/bar/*

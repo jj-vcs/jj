@@ -63,7 +63,7 @@ fn test_bookmark_multiple_names() {
     let output = work_dir.run_jj(["bookmark", "set", "foo", "bar", "--to=@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Moved 2 bookmarks to zsuskuln 0e555a27 bar foo | (empty) (no description set)
+    Moved 2 bookmarks to zsuskuln 0e555a27 bar* foo* | (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -98,8 +98,8 @@ fn test_bookmark_multiple_names() {
     let output = work_dir.run_jj(["bookmark", "set", "-r@", "bar", "baz"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Created 1 bookmarks pointing to zsuskuln 0e555a27 bar baz | (empty) (no description set)
-    Moved 1 bookmarks to zsuskuln 0e555a27 bar baz | (empty) (no description set)
+    Created 1 bookmarks pointing to zsuskuln 0e555a27 bar* baz | (empty) (no description set)
+    Moved 1 bookmarks to zsuskuln 0e555a27 bar* baz | (empty) (no description set)
     [EOF]
     ");
 
@@ -107,7 +107,7 @@ fn test_bookmark_multiple_names() {
     let output = work_dir.run_jj(["bookmark", "set", "-r@", "foo", "bar", "baz"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Moved 1 bookmarks to zsuskuln 0e555a27 bar baz foo | (empty) (no description set)
+    Moved 1 bookmarks to zsuskuln 0e555a27 bar baz foo* | (empty) (no description set)
     [EOF]
     ");
 }
@@ -122,6 +122,8 @@ fn test_bookmark_at_root() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created 1 bookmarks pointing to zzzzzzzz 00000000 fred | (empty) (no description set)
+    Warning: Failed to export some bookmarks:
+      fred@git: Ref cannot point to the root commit in Git
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "export"]);
@@ -276,7 +278,7 @@ fn test_bookmark_move() {
     let output = work_dir.run_jj(["bookmark", "set", "foo", "--revision", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Moved 1 bookmarks to mzvwutvl 8afc18ff foo | (empty) (no description set)
+    Moved 1 bookmarks to mzvwutvl 8afc18ff foo* | (empty) (no description set)
     [EOF]
     ");
 
@@ -292,14 +294,14 @@ fn test_bookmark_move() {
     let output = work_dir.run_jj(["bookmark", "set", "-r@-", "--allow-backwards", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Moved 1 bookmarks to qpvuntsm e8849ae1 foo | (empty) (no description set)
+    Moved 1 bookmarks to qpvuntsm e8849ae1 foo* | (empty) (no description set)
     [EOF]
     ");
 
     let output = work_dir.run_jj(["bookmark", "move", "foo", "--to=@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Moved 1 bookmarks to mzvwutvl 8afc18ff foo | (empty) (no description set)
+    Moved 1 bookmarks to mzvwutvl 8afc18ff foo* | (empty) (no description set)
     [EOF]
     ");
 
@@ -315,7 +317,7 @@ fn test_bookmark_move() {
     let output = work_dir.run_jj(["bookmark", "move", "--to=@-", "--allow-backwards", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Moved 1 bookmarks to qpvuntsm e8849ae1 foo | (empty) (no description set)
+    Moved 1 bookmarks to qpvuntsm e8849ae1 foo* | (empty) (no description set)
     [EOF]
     ");
 
@@ -350,6 +352,7 @@ fn test_bookmark_move() {
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     foo: mzvwutvl 91b59745 (empty) (no description set)
+      @git: mzvwutvl 91b59745 (empty) (no description set)
       @origin (behind by 1 commits): qpvuntsm 5f3ceb1e (empty) commit
     [EOF]
     ");
@@ -367,6 +370,7 @@ fn test_bookmark_move() {
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     foo: mzvwutvl 91b59745 (empty) (no description set)
+      @git: mzvwutvl 91b59745 (empty) (no description set)
     foo@origin: qpvuntsm 5f3ceb1e (empty) commit
     [EOF]
     ");
@@ -445,7 +449,7 @@ fn test_bookmark_move_matching() {
     let output = work_dir.run_jj(["bookmark", "move", "--from=::@", "--to=@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Moved 2 bookmarks to vruxwmqv 0dd9a4b1 b1 c1 | (empty) head2
+    Moved 2 bookmarks to vruxwmqv 0dd9a4b1 b1* c1* | (empty) head2
     Hint: Specify bookmark by name to update just one of the bookmarks.
     [EOF]
     ");
@@ -485,7 +489,7 @@ fn test_bookmark_move_matching() {
     let output = work_dir.run_jj(["bookmark", "move", "--from=::a1+", "--to=a1+", "glob:?1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Moved 1 bookmarks to kkmpptxz 9328ecc5 a1 | (empty) head1
+    Moved 1 bookmarks to kkmpptxz 9328ecc5 a1* | (empty) head1
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -532,7 +536,7 @@ fn test_bookmark_move_conflicting() {
         .success();
     insta::assert_snapshot!(get_log(), @r"
     @  A1
-    ○  A0 foo??
+    ○  A0 foo?? foo@git
     │ ○  C0
     ├─╯
     │ ○  B0 foo??
@@ -559,7 +563,7 @@ fn test_bookmark_move_conflicting() {
     let output = work_dir.run_jj(["bookmark", "set", "-rdescription(A1)", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Moved 1 bookmarks to mzvwutvl 0f5f3e2c foo | (empty) A1
+    Moved 1 bookmarks to mzvwutvl 0f5f3e2c foo* | (empty) A1
     [EOF]
     ");
     insta::assert_snapshot!(get_log(), @r"
@@ -822,6 +826,7 @@ fn test_bookmark_delete_glob() {
     // The deleted bookmarks are still there
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     bar-2: qpvuntsm 8e056f6b (empty) commit
+      @git: qpvuntsm 8e056f6b (empty) commit
       @origin: qpvuntsm 8e056f6b (empty) commit
     foo-1 (deleted)
       @origin: qpvuntsm 8e056f6b (empty) commit
@@ -870,14 +875,7 @@ fn test_bookmark_delete_export() {
 
     work_dir.run_jj(["bookmark", "delete", "foo"]).success();
     let output = work_dir.run_jj(["bookmark", "list", "--all-remotes"]);
-    insta::assert_snapshot!(output, @r"
-    foo (deleted)
-      @git: rlvkpnrz 43444d88 (empty) (no description set)
-    [EOF]
-    ------- stderr -------
-    Hint: Bookmarks marked as deleted will be deleted from the underlying Git repo on the next `jj git export`.
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"");
 
     work_dir.run_jj(["git", "export"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
@@ -895,12 +893,17 @@ fn test_bookmark_forget_export() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     foo: rlvkpnrz 43444d88 (empty) (no description set)
+      @git: rlvkpnrz 43444d88 (empty) (no description set)
     [EOF]
     ");
 
     // Exporting the bookmark to git creates a local-git tracking bookmark
     let output = work_dir.run_jj(["git", "export"]);
-    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
     let output = work_dir.run_jj(["bookmark", "forget", "--include-remotes", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -924,7 +927,11 @@ fn test_bookmark_forget_export() {
     // This is demonstrated in `test_git_colocated_bookmark_forget` in
     // test_git_colocated.rs
     let output = work_dir.run_jj(["git", "export"]);
-    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
 }
 
@@ -962,6 +969,7 @@ fn test_bookmark_forget_fetched_bookmark() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qomsplrm ebeb70d8 message
+      @git: qomsplrm ebeb70d8 message
       @origin: qomsplrm ebeb70d8 message
     [EOF]
     ");
@@ -982,7 +990,11 @@ fn test_bookmark_forget_fetched_bookmark() {
     // bookmark.
     // TODO: Show that jj git push is also a no-op
     let output = work_dir.run_jj(["git", "export"]);
-    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
     let output = work_dir.run_jj(["git", "import"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1000,6 +1012,7 @@ fn test_bookmark_forget_fetched_bookmark() {
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qomsplrm ebeb70d8 message
+      @git: qomsplrm ebeb70d8 message
       @origin: qomsplrm ebeb70d8 message
     [EOF]
     ");
@@ -1018,6 +1031,7 @@ fn test_bookmark_forget_fetched_bookmark() {
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qomsplrm ebeb70d8 message
+      @git: qomsplrm ebeb70d8 message
       @origin: qomsplrm ebeb70d8 message
     [EOF]
     ");
@@ -1036,7 +1050,7 @@ fn test_bookmark_forget_fetched_bookmark() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Forgot 1 local bookmarks.
-    Forgot 1 remote bookmarks.
+    Forgot 2 remote bookmarks.
     [EOF]
     ");
 
@@ -1049,6 +1063,7 @@ fn test_bookmark_forget_fetched_bookmark() {
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: tyvxnvqr 9175cb32 (empty) another message
+      @git: tyvxnvqr 9175cb32 (empty) another message
       @origin: tyvxnvqr 9175cb32 (empty) another message
     [EOF]
     ");
@@ -1185,9 +1200,11 @@ fn test_bookmark_track_untrack() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qxxqrkql bd843888 commit 1
+      @git: qxxqrkql bd843888 commit 1
       @origin: qxxqrkql bd843888 commit 1
     feature2@origin: qxxqrkql bd843888 commit 1
     main: qxxqrkql bd843888 commit 1
+      @git: qxxqrkql bd843888 commit 1
       @origin: qxxqrkql bd843888 commit 1
     [EOF]
     ");
@@ -1201,12 +1218,15 @@ fn test_bookmark_track_untrack() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qxxqrkql bd843888 commit 1
+      @git: qxxqrkql bd843888 commit 1
       @origin: qxxqrkql bd843888 commit 1
     feature2 (conflicted):
       + qpvuntsm e8849ae1 (empty) (no description set)
       + qxxqrkql bd843888 commit 1
+      @git (behind by 1 commits): qpvuntsm e8849ae1 (empty) (no description set)
       @origin (behind by 1 commits): qxxqrkql bd843888 commit 1
     main: qxxqrkql bd843888 commit 1
+      @git: qxxqrkql bd843888 commit 1
       @origin: qxxqrkql bd843888 commit 1
     [EOF]
     ");
@@ -1221,9 +1241,11 @@ fn test_bookmark_track_untrack() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qxxqrkql bd843888 commit 1
+      @git: qxxqrkql bd843888 commit 1
     feature1@origin: qxxqrkql bd843888 commit 1
     feature2@origin: qxxqrkql bd843888 commit 1
     main: qxxqrkql bd843888 commit 1
+      @git: qxxqrkql bd843888 commit 1
       @origin: qxxqrkql bd843888 commit 1
     [EOF]
     ");
@@ -1256,9 +1278,11 @@ fn test_bookmark_track_untrack() {
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qxxqrkql bd843888 commit 1
+      @git: qxxqrkql bd843888 commit 1
     feature1@origin: psynomvr 48ec79a4 commit 2
     feature2@origin: psynomvr 48ec79a4 commit 2
     main: psynomvr 48ec79a4 commit 2
+      @git: psynomvr 48ec79a4 commit 2
       @origin: psynomvr 48ec79a4 commit 2
     [EOF]
     ");
@@ -1298,11 +1322,14 @@ fn test_bookmark_track_untrack() {
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qxxqrkql bd843888 commit 1
+      @git: qxxqrkql bd843888 commit 1
     feature1@origin: yumopmsr d8cd3e02 commit 3
     feature2@origin: yumopmsr d8cd3e02 commit 3
     feature3: yumopmsr d8cd3e02 commit 3
+      @git: yumopmsr d8cd3e02 commit 3
       @origin: yumopmsr d8cd3e02 commit 3
     main: yumopmsr d8cd3e02 commit 3
+      @git: yumopmsr d8cd3e02 commit 3
       @origin: yumopmsr d8cd3e02 commit 3
     [EOF]
     ");
@@ -1496,6 +1523,7 @@ fn test_bookmark_track_untrack_patterns() {
       @git: yrnqsqlx 41e7a49d commit
       @origin: yrnqsqlx 41e7a49d commit
     feature2: yrnqsqlx 41e7a49d commit
+      @git: yrnqsqlx 41e7a49d commit
       @origin: yrnqsqlx 41e7a49d commit
     main: qpvuntsm e8849ae1 (empty) (no description set)
       @git: qpvuntsm e8849ae1 (empty) (no description set)
@@ -2261,15 +2289,18 @@ fn test_bookmark_list_conflicted() {
     work_dir.run_jj(["status"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     bar: kkmpptxz a82129fb (empty) b
+      @git: kkmpptxz a82129fb (empty) b
     foo (conflicted):
       + rlvkpnrz 4e1b2d80 (empty) a
       + kkmpptxz a82129fb (empty) b
+      @git (behind by 1 commits): rlvkpnrz 4e1b2d80 (empty) a
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["bookmark", "list", "--conflicted"]), @r"
     foo (conflicted):
       + rlvkpnrz 4e1b2d80 (empty) a
       + kkmpptxz a82129fb (empty) b
+      @git (behind by 1 commits): rlvkpnrz 4e1b2d80 (empty) a
     [EOF]
     ");
 }
@@ -2447,7 +2478,7 @@ fn test_bookmark_move_with_default_target_revision() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Target revision was not specified, defaulting to the working copy (--to=@). In the near future it will be required to explicitly specify it.
-    Moved 1 bookmarks to zsuskuln 0e555a27 foo | (empty) (no description set)
+    Moved 1 bookmarks to zsuskuln 0e555a27 foo* | (empty) (no description set)
     [EOF]
     ");
 }

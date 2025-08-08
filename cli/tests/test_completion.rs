@@ -1272,7 +1272,7 @@ fn test_files() {
     │  working_copy
     │  A f_added_2
     │  M f_modified
-    ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 second 5d65dc93
+    ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 second git_head() 5d65dc93
     │  second
     │  A f_added
     │  R {f_not_yet_renamed_2 => f_another_renamed_2}
