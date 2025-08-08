@@ -395,9 +395,8 @@ The different versions of documentation are managed and deployed with
 On a POSIX system or WSL, one way to build the entire website is as follows (on
 Windows, you'll need to understand and adapt the shell script):
 
-1. Check out `jj` as a co-located `jj + git` repository (`jj clone --colocate`),
-cloned from your fork of `jj` (e.g. `github.com/jjfan/jj`). You can also use a
-pure Git repo if you prefer.
+1. Check out `jj` (`jj git clone`), cloned from your fork of `jj` (e.g.
+  `github.com/jjfan/jj`). You can also use a pure Git repo if you prefer.
 
 2. Make sure `github.com/jjfan/jj` includes the `gh-pages` bookmark of the jj repo
 and run `git fetch origin gh-pages`.

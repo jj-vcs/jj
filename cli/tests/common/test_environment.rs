@@ -62,11 +62,14 @@ impl Default for TestEnvironment {
             command_number: RefCell::new(0),
         };
         // Use absolute timestamps in the operation log to make tests independent of the
-        // current time.
+        // current time. Use non-colocated repos by default for simplicity.
         env.add_config(
             r#"
 [template-aliases]
 'format_time_range(time_range)' = 'time_range.start() ++ " - " ++ time_range.end()'
+
+[git]
+colocate = false
         "#,
         );
 

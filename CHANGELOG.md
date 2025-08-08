@@ -10,6 +10,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* Git repositories are now colocated by default. Configure
+  `git.colocate = false` to keep the previous behavior.
+
 ### Deprecations
 
 ### New features

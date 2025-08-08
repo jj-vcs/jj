@@ -643,6 +643,9 @@ fn test_config_set_for_user_directory() {
 
     [template-aliases]
     'format_time_range(time_range)' = 'time_range.start() ++ " - " ++ time_range.end()'
+
+    [git]
+    colocate = false
     "#);
 
     // Add one more config file to the directory
@@ -666,6 +669,9 @@ fn test_config_set_for_user_directory() {
 
     [template-aliases]
     'format_time_range(time_range)' = 'time_range.start() ++ " - " ++ time_range.end()'
+
+    [git]
+    colocate = false
     "#);
 
     insta::assert_snapshot!(
@@ -1276,7 +1282,16 @@ fn test_config_get() {
 
 #[test]
 fn test_config_get_yields_values_consistent_with_schema_defaults() {
-    let test_env = TestEnvironment::default();
+    let mut test_env = TestEnvironment::default();
+
+    // The default test environment may already contain configuration that's
+    // different from the true default, e.g. `git.colocate = false`. So we
+    // explicitly set the config to an empty one in order to test the true
+    // default config values.
+    let config_dir = test_env.env_root().join("empty-config");
+    std::fs::create_dir(&config_dir).unwrap();
+    test_env.set_config_path(&config_dir);
+
     let get_true_default = move |key: &str| {
         let output = test_env.run_jj_in(".", ["config", "get", key]).success();
         let output_doc = toml_edit::Document::parse(format!("test={}", output.stdout.normalized()))
