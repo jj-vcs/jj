@@ -486,7 +486,7 @@
                 "colocate": {
                     "type": "boolean",
                     "description": "Whether to colocate the working copy with the git repository",
-                    "default": false
+                    "default": true
                 }
             }
         },
