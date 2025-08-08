@@ -2646,6 +2646,8 @@ Modify the metadata of a revision without changing its content
    This changes author name and email while retaining author timestamp for non-discardable commits.
 * `--preserve-committer` — Preserve the committer
 * `--preserve-committer-timestamp` — Preserve the committer timestamp
+* `--sync-committer` — Sync the committer with the author
+* `--sync-committer-timestamp` — Sync the committer timestamp with the author timestamp
 
 
 

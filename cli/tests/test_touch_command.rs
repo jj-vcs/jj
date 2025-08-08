@@ -239,6 +239,52 @@ fn test_touch() {
 
     [EOF]
     ");
+
+    // Sync committer
+    // Keep the previous change for the next test
+    // work_dir.run_jj(["undo"]).success();
+    work_dir
+        .run_jj([
+            "touch",
+            "--sync-committer",
+            "--sync-committer-timestamp",
+            "kkmpptxzrspx",
+        ])
+        .success();
+    insta::assert_snapshot!(get_log(&work_dir), @r"
+    @  Commit ID: 1953fb4ea2723dc7744ac4b14d0bf001c8307597
+    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    │  Bookmarks: c
+    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:13)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:25)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: 3669feba988f2de7ce77be2b33e122beecbaae1c
+    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    │  Bookmarks: b
+    │  Author   : Alice <alice@example.com> (2001-02-03 08:05:11)
+    │  Committer: Alice <alice@example.com> (2001-02-03 08:05:11)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
+    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    │  Bookmarks: a
+    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │
+    │      (no description set)
+    │
+    ◆  Commit ID: 0000000000000000000000000000000000000000
+       Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+       Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
+       Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
+
+           (no description set)
+
+    [EOF]
+    ");
 }
 
 #[test]
@@ -257,6 +303,34 @@ fn test_squash_option_mutual_exclusion() {
     error: the argument '--author <AUTHOR>' cannot be used with '--update-author'
 
     Usage: jj touch --author <AUTHOR> [REVSETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj([
+        "touch",
+        "--preserve-committer",
+        "--sync-committer",
+    ]), @r"
+    ------- stderr -------
+    error: the argument '--preserve-committer' cannot be used with '--sync-committer'
+
+    Usage: jj touch --preserve-committer [REVSETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj([
+        "touch",
+        "--preserve-committer-timestamp",
+        "--sync-committer-timestamp",
+    ]), @r"
+    ------- stderr -------
+    error: the argument '--preserve-committer-timestamp' cannot be used with '--sync-committer-timestamp'
+
+    Usage: jj touch --preserve-committer-timestamp [REVSETS]...
 
     For more information, try '--help'.
     [EOF]

@@ -82,6 +82,14 @@ pub(crate) struct TouchArgs {
     /// Preserve the committer timestamp
     #[arg(long)]
     preserve_committer_timestamp: bool,
+
+    /// Sync the committer with the author
+    #[arg(long, conflicts_with = "preserve_committer")]
+    sync_committer: bool,
+
+    /// Sync the committer timestamp with the author timestamp
+    #[arg(long, conflicts_with = "preserve_committer_timestamp")]
+    sync_committer_timestamp: bool,
 }
 
 #[instrument(skip_all)]
@@ -153,9 +161,14 @@ pub(crate) fn cmd_touch(
                 if args.preserve_committer {
                     new_committer.name = old_commit.committer().name.clone();
                     new_committer.email = old_commit.committer().email.clone();
+                } else if args.sync_committer {
+                    new_committer.name = commit_builder.author().name.clone();
+                    new_committer.email = commit_builder.author().email.clone();
                 }
                 if args.preserve_committer_timestamp {
                     new_committer.timestamp = old_commit.committer().timestamp;
+                } else if args.sync_committer_timestamp {
+                    new_committer.timestamp = commit_builder.author().timestamp;
                 }
                 commit_builder = commit_builder.set_committer(new_committer);
 
