@@ -23,9 +23,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   disable colocation (in case `git.colocate` is set to `true`.)
 
 * `jj git remote add` and `jj git clone` now support `--fetch-tags` to control
-  when tags are fetched
+  when tags are fetched for all subsequent fetches.
 
 ### Fixed bugs
+
+* `jj git clone` now correctly fetches all tags, unless `--fetch-tags none` is
+  specified.
 
 ## [0.32.0] - 2025-08-06
 

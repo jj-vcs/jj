@@ -1227,11 +1227,11 @@ The Git repo will be a bare git repo stored inside the `.jj/` directory.
 
   Possible values:
   - `all`:
-    Always fetch all tags
+    Fetch all tags when cloning, then configure the remote to always fetch all tags for all subsequent fetches
   - `included`:
-    Only fetch tags that point to objects that are already being transmitted
+    Fetch all tags when cloning, then configure the remote to only fetch tags that point to objects that are already being transmitted for all subsequent fetches
   - `none`:
-    Do not fetch any tags
+    Do not fetch any tags during the clone, and configure the remote to also never fetch any tags on subsequent fetches
 
 
 

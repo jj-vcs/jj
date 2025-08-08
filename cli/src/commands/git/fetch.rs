@@ -18,6 +18,7 @@ use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
+use jj_lib::git::FetchTagsOverride;
 use jj_lib::git::GitFetch;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::repo::Repo as _;
@@ -175,7 +176,13 @@ fn do_git_fetch(
 
     for remote_name in remotes {
         with_remote_git_callbacks(ui, |callbacks| {
-            git_fetch.fetch(remote_name, branch_names, callbacks, None)
+            git_fetch.fetch(
+                remote_name,
+                branch_names,
+                callbacks,
+                None,
+                FetchTagsOverride::UseRemoteConfiguration,
+            )
         })?;
     }
     let import_stats = git_fetch.import_refs()?;
