@@ -21,11 +21,7 @@ fn test_tag_list() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
-    let git_repo = {
-        let mut git_repo_path = work_dir.root().to_owned();
-        git_repo_path.extend([".jj", "repo", "store", "git"]);
-        git::open(git_repo_path)
-    };
+    let git_repo = git::open(work_dir.root().join(".git"));
 
     let copy_ref = |src_name: &str, tag_name: &str| {
         let src = git_repo.find_reference(src_name).unwrap();
