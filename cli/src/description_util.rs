@@ -288,7 +288,7 @@ where
     let missing: Vec<_> = commit_ids_map
         .iter()
         .filter(|(_, commit_id)| !descriptions.contains_key(*commit_id))
-        .map(|(commit_id_prefix, _)| commit_id_prefix.to_string())
+        .map(|(commit_id_prefix, _)| commit_id_prefix.clone())
         .collect();
 
     Ok(ParsedBulkEditMessage {

@@ -166,7 +166,7 @@ pub(crate) fn cmd_log(
     {
         let language = workspace_command.commit_template_language();
         let template_string = match &args.template {
-            Some(value) => value.to_string(),
+            Some(value) => value.clone(),
             None => settings.get_string("templates.log")?,
         };
         template = workspace_command

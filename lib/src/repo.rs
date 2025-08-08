@@ -519,7 +519,7 @@ impl StoreFactories {
         let backend_factory = self.backend_factories.get(&backend_type).ok_or_else(|| {
             StoreLoadError::UnsupportedType {
                 store: "commit",
-                store_type: backend_type.to_string(),
+                store_type: backend_type.clone(),
             }
         })?;
         Ok(backend_factory(settings, store_path)?)
@@ -539,7 +539,7 @@ impl StoreFactories {
         let op_store_factory = self.op_store_factories.get(&op_store_type).ok_or_else(|| {
             StoreLoadError::UnsupportedType {
                 store: "operation",
-                store_type: op_store_type.to_string(),
+                store_type: op_store_type.clone(),
             }
         })?;
         Ok(op_store_factory(settings, store_path, root_data)?)
@@ -561,7 +561,7 @@ impl StoreFactories {
             .get(&op_heads_store_type)
             .ok_or_else(|| StoreLoadError::UnsupportedType {
                 store: "operation heads",
-                store_type: op_heads_store_type.to_string(),
+                store_type: op_heads_store_type.clone(),
             })?;
         Ok(op_heads_store_factory(settings, store_path)?)
     }
@@ -581,7 +581,7 @@ impl StoreFactories {
             .get(&index_store_type)
             .ok_or_else(|| StoreLoadError::UnsupportedType {
                 store: "index",
-                store_type: index_store_type.to_string(),
+                store_type: index_store_type.clone(),
             })?;
         Ok(index_store_factory(settings, store_path)?)
     }
@@ -602,7 +602,7 @@ impl StoreFactories {
             .get(&submodule_store_type)
             .ok_or_else(|| StoreLoadError::UnsupportedType {
                 store: "submodule_store",
-                store_type: submodule_store_type.to_string(),
+                store_type: submodule_store_type.clone(),
             })?;
 
         Ok(submodule_store_factory(settings, store_path)?)
