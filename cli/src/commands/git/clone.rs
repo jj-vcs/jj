@@ -18,6 +18,7 @@ use std::io::Write as _;
 use std::num::NonZeroU32;
 use std::path::Path;
 
+use clap::ValueEnum;
 use jj_lib::git;
 use jj_lib::git::FetchTagsOverride;
 use jj_lib::git::GitFetch;
@@ -35,7 +36,6 @@ use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
-use crate::commands::git::FetchTagsMode;
 use crate::commands::git::maybe_add_gitignore;
 use crate::git_util::absolute_git_url;
 use crate::git_util::print_git_import_stats;
@@ -71,8 +71,41 @@ pub struct GitCloneArgs {
     #[arg(long)]
     depth: Option<NonZeroU32>,
     /// Configure when to fetch tags
-    #[arg(long, value_enum, default_value_t = FetchTagsMode::Included)]
-    fetch_tags: FetchTagsMode,
+    #[arg(long, value_enum, default_value_t = CloneFetchTagsMode::Included)]
+    fetch_tags: CloneFetchTagsMode,
+}
+
+#[derive(Copy, Clone, Debug, ValueEnum)]
+enum CloneFetchTagsMode {
+    /// Fetch all tags when cloning, then configure the remote to
+    /// always fetch all tags for all subsequent fetches.
+    All,
+
+    /// Fetch all tags when cloning, then configure the remote to
+    /// only fetch tags that point to objects that are already being
+    /// transmitted for all subsequent fetches.
+    Included,
+
+    /// Do not fetch any tags during the clone, and configure the
+    /// remote to also never fetch any tags on subsequent fetches.
+    None,
+}
+
+impl CloneFetchTagsMode {
+    fn as_fetch_tags(self) -> gix::remote::fetch::Tags {
+        match self {
+            Self::All => gix::remote::fetch::Tags::All,
+            Self::Included => gix::remote::fetch::Tags::Included,
+            Self::None => gix::remote::fetch::Tags::None,
+        }
+    }
+
+    fn as_fetch_tags_override(self) -> FetchTagsOverride {
+        match self {
+            Self::All | Self::Included => FetchTagsOverride::ForceAllTags,
+            Self::None => FetchTagsOverride::UseRemoteConfiguration,
+        }
+    }
 }
 
 fn clone_destination_for_source(source: &str) -> Option<&str> {
@@ -222,7 +255,7 @@ fn configure_remote(
     workspace_command: WorkspaceCommandHelper,
     remote_name: &RemoteName,
     source: &str,
-    fetch_tags: FetchTagsMode,
+    fetch_tags: CloneFetchTagsMode,
 ) -> Result<WorkspaceCommandHelper, CommandError> {
     git::add_remote(
         workspace_command.repo().store(),
@@ -248,7 +281,7 @@ fn fetch_new_remote(
     workspace_command: &mut WorkspaceCommandHelper,
     remote_name: &RemoteName,
     depth: Option<NonZeroU32>,
-    fetch_tags: FetchTagsMode,
+    fetch_tags: CloneFetchTagsMode,
 ) -> Result<Option<RefNameBuf>, CommandError> {
     writeln!(
         ui.status(),
@@ -266,10 +299,7 @@ fn fetch_new_remote(
             &[StringPattern::everything()],
             cb,
             depth,
-            match fetch_tags {
-                FetchTagsMode::All | FetchTagsMode::Included => FetchTagsOverride::ForceAllTags,
-                FetchTagsMode::None => FetchTagsOverride::UseRemoteConfiguration,
-            },
+            fetch_tags.as_fetch_tags_override(),
         )
     })?;
     let default_branch = git_fetch.get_default_branch(remote_name)?;
