@@ -74,6 +74,14 @@ pub(crate) struct TouchArgs {
         value_parser = parse_author
     )]
     author: Option<(String, String)>,
+
+    /// Preserve the committer
+    #[arg(long)]
+    preserve_committer: bool,
+
+    /// Preserve the committer timestamp
+    #[arg(long)]
+    preserve_committer_timestamp: bool,
 }
 
 #[instrument(skip_all)]
@@ -89,16 +97,19 @@ pub(crate) fn cmd_touch(
     } else {
         workspace_command.parse_revset(ui, &RevisionArg::AT)?
     }
-    .evaluate_to_commit_ids()?
+    .evaluate_to_commits()?
     .try_collect()?; // in reverse topological order
+    let commits: HashMap<_, _> = commits.into_iter().map(|c| (c.id().clone(), c)).collect();
+
     if commits.is_empty() {
         writeln!(ui.status(), "No revisions to reset.")?;
         return Ok(());
     }
-    workspace_command.check_rewritable(commits.iter())?;
+    let commit_ids: Vec<_> = commits.keys().cloned().collect();
+    workspace_command.check_rewritable(commit_ids.iter())?;
 
     let mut tx = workspace_command.start_transaction();
-    let tx_description = match commits.as_slice() {
+    let tx_description = match &commit_ids[..] {
         [] => unreachable!(),
         [commit] => format!("reset commit {}", commit.hex()),
         [first_commit, remaining_commits @ ..] => {
@@ -114,7 +125,7 @@ pub(crate) fn cmd_touch(
     let mut num_reparented = 0;
     let mut touched: HashMap<CommitId, CommitId> = HashMap::new();
     tx.repo_mut()
-        .transform_descendants(commits.clone(), async |rewriter| {
+        .transform_descendants(commit_ids, async |rewriter| {
             let old_commit_id = rewriter.old_commit().id().clone();
             let mut commit_builder = rewriter.reparent();
             let new_parents = commit_builder
@@ -124,7 +135,7 @@ pub(crate) fn cmd_touch(
                 .cloned()
                 .collect();
             commit_builder = commit_builder.set_parents(new_parents);
-            if commits.contains(&old_commit_id) {
+            if let Some(old_commit) = commits.get(&old_commit_id) {
                 let mut new_author = commit_builder.author().clone();
                 if let Some((name, email)) = args.author.clone() {
                     new_author.name = name;
@@ -137,6 +148,16 @@ pub(crate) fn cmd_touch(
                     new_author.timestamp = commit_builder.committer().timestamp;
                 }
                 commit_builder = commit_builder.set_author(new_author);
+
+                let mut new_committer = commit_builder.committer().clone();
+                if args.preserve_committer {
+                    new_committer.name = old_commit.committer().name.clone();
+                    new_committer.email = old_commit.committer().email.clone();
+                }
+                if args.preserve_committer_timestamp {
+                    new_committer.timestamp = old_commit.committer().timestamp;
+                }
+                commit_builder = commit_builder.set_committer(new_committer);
 
                 let new_commit = commit_builder.write()?;
                 touched.insert(old_commit_id.clone(), new_commit.id().clone());
