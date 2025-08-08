@@ -1706,6 +1706,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#packaging-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Packaging changes
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1818,7 +1827,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#packaging-changes" class="md-nav__link">
+  <a href="#packaging-changes_1" class="md-nav__link">
     <span class="md-ellipsis">
       Packaging changes
     </span>
@@ -1896,7 +1905,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#packaging-changes_1" class="md-nav__link">
+  <a href="#packaging-changes_2" class="md-nav__link">
     <span class="md-ellipsis">
       Packaging changes
     </span>
@@ -1974,7 +1983,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#packaging-changes_2" class="md-nav__link">
+  <a href="#packaging-changes_3" class="md-nav__link">
     <span class="md-ellipsis">
       Packaging changes
     </span>
@@ -3681,6 +3690,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#packaging-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Packaging changes
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3793,7 +3811,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#packaging-changes" class="md-nav__link">
+  <a href="#packaging-changes_1" class="md-nav__link">
     <span class="md-ellipsis">
       Packaging changes
     </span>
@@ -3871,7 +3889,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#packaging-changes_1" class="md-nav__link">
+  <a href="#packaging-changes_2" class="md-nav__link">
     <span class="md-ellipsis">
       Packaging changes
     </span>
@@ -3949,7 +3967,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#packaging-changes_2" class="md-nav__link">
+  <a href="#packaging-changes_3" class="md-nav__link">
     <span class="md-ellipsis">
       Packaging changes
     </span>
@@ -5632,6 +5650,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 </li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
+<h3 id="packaging-changes">Packaging changes<a class="headerlink" href="#packaging-changes" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The test suite no longer optionally uses Taplo CLI or jq, and packagers can
+  remove them as dependencies if present.</li>
+</ul>
 <h2 id="0320-2025-08-06">[0.32.0] - 2025-08-06<a class="headerlink" href="#0320-2025-08-06" title="Permanent link">&para;</a></h2>
 <h3 id="breaking-changes_1">Breaking changes<a class="headerlink" href="#breaking-changes_1" title="Permanent link">&para;</a></h3>
 <ul>
@@ -5856,7 +5879,7 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p>Fixed lockfile issue on stale file handles observed with NFS.</p>
 </li>
 </ul>
-<h3 id="packaging-changes">Packaging changes<a class="headerlink" href="#packaging-changes" title="Permanent link">&para;</a></h3>
+<h3 id="packaging-changes_1">Packaging changes<a class="headerlink" href="#packaging-changes_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>aarch64-windows</code> builds (release binaries and <code>main</code> snapshots) are now provided.</li>
 </ul>
@@ -6013,7 +6036,7 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   <a href="https://github.com/jj-vcs/jj/issues/5189">#5189</a></p>
 </li>
 </ul>
-<h3 id="packaging-changes_1">Packaging changes<a class="headerlink" href="#packaging-changes_1" title="Permanent link">&para;</a></h3>
+<h3 id="packaging-changes_2">Packaging changes<a class="headerlink" href="#packaging-changes_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Due to the removal of the <code>libgit2</code> code path, packagers should remove any
   dependencies on <code>libgit2</code>, <code>libssh2</code>, Zlib, OpenSSL, and <code>pkg-config</code>, and
@@ -6157,7 +6180,7 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   <a href="https://github.com/jj-vcs/jj/issues/5377">#5377</a></p>
 </li>
 </ul>
-<h3 id="packaging-changes_2">Packaging changes<a class="headerlink" href="#packaging-changes_2" title="Permanent link">&para;</a></h3>
+<h3 id="packaging-changes_3">Packaging changes<a class="headerlink" href="#packaging-changes_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Jujutsu now uses
   <a href="https://github.com/trifectatechfoundation/zlib-rs"><code>zlib-rs</code></a>, a
