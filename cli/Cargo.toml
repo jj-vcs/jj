@@ -53,6 +53,7 @@ name = "datatest_runner"
 harness = false
 
 [dependencies]
+blake2 = { workspace = true }
 bstr = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }

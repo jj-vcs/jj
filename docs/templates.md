@@ -91,6 +91,8 @@ The following functions are defined.
 * `surround(prefix: Template, suffix: Template, content: Template) -> Template`:
   Surround **non-empty** content with texts such as parentheses.
 * `config(name: String) -> ConfigValue`: Look up configuration value by `name`.
+* `hash(content: Template) -> Template`:
+  Hash the input and return a hexadecimal string representation of the digest.
 
 ## Types
 

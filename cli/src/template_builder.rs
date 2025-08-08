@@ -17,11 +17,15 @@ use std::collections::HashMap;
 use std::io;
 use std::iter;
 
+use blake2::Blake2b512;
+use blake2::Digest as _;
+// use digest::Digest as _;
 use itertools::Itertools as _;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigValue;
+use jj_lib::hex_util;
 use jj_lib::op_store::TimestampRange;
 use jj_lib::settings::UserSettings;
 use jj_lib::time_util::DatePattern;
@@ -1634,6 +1638,16 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             Ok(L::Property::wrap_template(template))
         },
     );
+    map.insert("hash", |language, diagnostics, build_ctx, function| {
+        let [content_node] = function.expect_exact_arguments()?;
+        let content = expect_stringify_expression(language, diagnostics, build_ctx, content_node)?;
+        let result = content.map(|c| {
+            let mut hasher = Blake2b512::new();
+            hasher.update(c);
+            hex_util::encode_hex(hasher.finalize().as_slice())
+        });
+        Ok(result.into_dyn_wrapped())
+    });
     map.insert("label", |language, diagnostics, build_ctx, function| {
         let [label_node, content_node] = function.expect_exact_arguments()?;
         let label_property =
