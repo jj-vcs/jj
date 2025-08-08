@@ -85,7 +85,7 @@ impl Default for GitSettings {
             abandon_unreachable_commits: true,
             executable_path: PathBuf::from("git"),
             write_change_id_header: true,
-            colocate: false,
+            colocate: true,
         }
     }
 }

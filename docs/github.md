@@ -57,13 +57,13 @@ changes.
 
 [sync-issue]: https://github.com/jj-vcs/jj/issues/1039
 
-## Working in a Git co-located repository
+## Working in a regular, colocated Git repository
 
-After doing `jj git init --colocate`, Git will be in a [detached HEAD
+In the default repo configuration (which is called "colocated"), Git will be in a [detached HEAD
 state][detached], which is unusual, as Git mainly works with named branches; jj
 does not.
 
-In a co-located repository, every `jj` command will automatically synchronize
+In a colocated repository, every `jj` command will automatically synchronize
 Jujutsu's view of the repo with Git's view. For example, `jj commit` updates the
 HEAD of the Git repository, enabling an incremental migration.
 
@@ -76,9 +76,10 @@ $ jj bookmark create doc-update -r @-
 $ jj git push --allow-new
 ```
 
-## Working in a Jujutsu repository
+## Working in a non-colocated Jujutsu repository
 
-In a Jujutsu repository, the workflow is simplified. If there's no need for
+If you create a non-colocated repository with `jj git init --no-colocate` or
+`jj git clone --no-colocate`, the workflow is simplified. If there's no need for
 explicitly named bookmarks, you can just generate one for a change. As Jujutsu is
 able to create a bookmark for a revision.
 

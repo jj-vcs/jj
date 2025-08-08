@@ -22,6 +22,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Both `jj git clone` and `jj git init` now take a `--no-colocate` flag to
   disable colocation (in case `git.colocate` is set to `true`.)
 
+* `jj git clone` and `jj git init` now colocate the repo by default.
+
 * `jj git remote add` and `jj git clone` now support `--fetch-tags` to control
   when tags are fetched
 
