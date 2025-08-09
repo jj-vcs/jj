@@ -34,7 +34,19 @@ fn is_binary(bytes: &[u8]) -> bool {
     // TODO(06393993): align the algorithm with git so that the git config autocrlf
     // users won't see different decisions on whether a file is binary and needs to
     // perform EOL conversion.
-    bytes.contains(&b'\0')
+    let mut bytes = bytes.iter().peekable();
+    while let Some(byte) = bytes.next() {
+        match *byte {
+            b'\0' => return true,
+            b'\r' => {
+                if bytes.peek() != Some(&&b'\n') {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
 }
 
 #[derive(Clone)]
@@ -262,7 +274,10 @@ mod tests {
       }, b"\0\r\n", b"\0\r\n"; "input settings binary input")]
     #[test_case(TargetEolStrategy {
           eol_conversion_mode: EolConversionMode::InputOutput,
-      }, b"\0\r\n", b"\0\r\n"; "input output settings binary input")]
+      }, b"\0\r\n", b"\0\r\n"; "input output settings binary input with NUL")]
+    #[test_case(TargetEolStrategy {
+          eol_conversion_mode: EolConversionMode::InputOutput,
+      }, b"\r\r\n", b"\r\r\n"; "input output settings binary input with lone CR")]
     #[test_case(TargetEolStrategy {
           eol_conversion_mode: EolConversionMode::Input,
       }, &[0; 20 << 10], &[0; 20 << 10]; "input settings long binary input")]
