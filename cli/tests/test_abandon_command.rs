@@ -38,7 +38,7 @@ fn test_basics() {
     ├───╯
     ○ │  [rlv] a
     ├─╯
-    ◆  [zzz]
+    ♦  [zzz]
     [EOF]
     ");
 
@@ -62,7 +62,7 @@ fn test_basics() {
     ├───╯
     ○ │  [rlv] a
     ├─╯
-    ◆  [zzz]
+    ♦  [zzz]
     [EOF]
     ");
 
@@ -87,7 +87,7 @@ fn test_basics() {
     ├───╯
     ○ │  [rlv] a e??
     ├─╯
-    ◆  [zzz]
+    ♦  [zzz]
     [EOF]
     ");
 
@@ -113,7 +113,7 @@ fn test_basics() {
     ├───╯
     ○ │  [rlv] a
     ├─╯
-    ◆  [zzz]
+    ♦  [zzz]
     [EOF]
     ");
 
@@ -134,7 +134,7 @@ fn test_basics() {
     │ ○  [roy] c
     ○ │  [rlv] a
     ├─╯
-    ◆  [zzz]
+    ♦  [zzz]
     [EOF]
     ");
 
@@ -161,7 +161,7 @@ fn test_basics() {
     ├───╯
     ○ │  [rlv] a
     ├─╯
-    ◆  [zzz]
+    ♦  [zzz]
     [EOF]
     ");
 
@@ -231,7 +231,7 @@ fn test_bug_2600() {
     ├─╯
     ○  [zsu] base
     ○  [rlv] nottherootcommit
-    ◆  [zzz]
+    ♦  [zzz]
     [EOF]
     ");
     let setup_opid = work_dir.current_operation_id();
@@ -258,7 +258,7 @@ fn test_bug_2600() {
     │ ○  [roy] a
     ├─╯
     ○  [rlv] nottherootcommit
-    ◆  [zzz]
+    ♦  [zzz]
     [EOF]
     ");
 
@@ -283,7 +283,7 @@ fn test_bug_2600() {
     ○  [vru] b
     ○  [zsu] base
     ○  [rlv] nottherootcommit
-    ◆  [zzz]
+    ♦  [zzz]
     [EOF]
     ");
 
@@ -309,7 +309,7 @@ fn test_bug_2600() {
     ├─╯
     ○  [zsu] base
     ○  [rlv] nottherootcommit
-    ◆  [zzz]
+    ♦  [zzz]
     [EOF]
     ");
 
@@ -323,7 +323,7 @@ fn test_bug_2600() {
     ├─╯
     ○  [zsu] base
     ○  [rlv] nottherootcommit
-    ◆  [zzz]
+    ♦  [zzz]
     [EOF]
     ");
     let output = work_dir.run_jj(["abandon", "--retain-bookmarks", "a", "b"]);
@@ -344,7 +344,7 @@ fn test_bug_2600() {
     @  [znk] c
     ○  [zsu] a b base
     ○  [rlv] nottherootcommit
-    ◆  [zzz]
+    ♦  [zzz]
     [EOF]
     ");
     let output = work_dir.run_jj(["bookmark", "list", "b"]);
@@ -374,7 +374,7 @@ fn test_bug_2600_rootcommit_special_case() {
     │ ○  [zsu] a
     ├─╯
     ○  [rlv] base
-    ◆  [zzz]
+    ♦  [zzz]
     [EOF]
     ");
 
@@ -497,7 +497,7 @@ fn test_abandon_tracking_bookmarks() {
     @  [zsu] bar
     │ ○  [qpv] foo
     ├─╯
-    ◆  [zzz]
+    ♦  [zzz]
     [EOF]
     ");
 
