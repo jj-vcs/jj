@@ -86,9 +86,10 @@ pub(crate) struct DescribeArgs {
     /// allow the message to be edited afterwards.
     #[arg(long)]
     edit: bool,
-    /// Reset the author to the configured user
+    /// Reset the author name, email, and timestamp
     ///
-    /// This resets the author name, email, and timestamp.
+    /// This resets the author name and email to the configured user and sets
+    /// the author timestamp to the current time.
     ///
     /// You can use it in combination with the JJ_USER and JJ_EMAIL
     /// environment variables to set a different author:
