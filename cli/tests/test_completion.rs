@@ -1467,3 +1467,25 @@ fn test_files() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_command_alias_with_exec() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    test_env.add_config(r#"aliases.my-script = ["util", "exec", "--", "my-jj-script"]"#);
+
+    work_dir.write_file("file1", "contents");
+    work_dir.write_file("file2", "contents");
+    work_dir.create_dir("folder");
+    work_dir.write_file("folder/subfile", "contents");
+
+    let output = work_dir.complete_fish(["my-script", "f"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    file1
+    file2
+    folder/
+    [EOF]
+    ");
+}
