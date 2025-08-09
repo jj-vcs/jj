@@ -53,6 +53,7 @@ fn test_git_clone() {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/empty"
     Nothing changed.
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
@@ -68,6 +69,7 @@ fn test_git_clone() {
     Working copy  (@) now at: uuqppmxq 3711b3b5 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     let clone_dir = test_env.work_dir("clone");
@@ -155,6 +157,7 @@ fn test_git_clone() {
     Working copy  (@) now at: uuzqqzqu c871b515 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 }
@@ -505,13 +508,16 @@ fn test_git_clone_remote_default_bookmark() {
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 feature1 main | message
     Added 1 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     let clone_dir1 = test_env.work_dir("clone1");
     insta::assert_snapshot!(get_bookmark_output(&clone_dir1), @r"
     feature1: qomsplrm ebeb70d8 message
+      @git: qomsplrm ebeb70d8 message
       @origin: qomsplrm ebeb70d8 message
     main: qomsplrm ebeb70d8 message
+      @git: qomsplrm ebeb70d8 message
       @origin: qomsplrm ebeb70d8 message
     [EOF]
     ");
@@ -535,12 +541,14 @@ fn test_git_clone_remote_default_bookmark() {
     Working copy  (@) now at: rzvqmyuk 27e56779 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 feature1@origin main | message
     Added 1 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     let clone_dir2 = test_env.work_dir("clone2");
     insta::assert_snapshot!(get_bookmark_output(&clone_dir2), @r"
     feature1@origin: qomsplrm ebeb70d8 message
     main: qomsplrm ebeb70d8 message
+      @git: qomsplrm ebeb70d8 message
       @origin: qomsplrm ebeb70d8 message
     [EOF]
     ");
@@ -557,11 +565,13 @@ fn test_git_clone_remote_default_bookmark() {
     Working copy  (@) now at: nppvrztz b16020e9 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 feature1 main@origin | message
     Added 1 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     let clone_dir3 = test_env.work_dir("clone3");
     insta::assert_snapshot!(get_bookmark_output(&clone_dir3), @r"
     feature1: qomsplrm ebeb70d8 message
+      @git: qomsplrm ebeb70d8 message
       @origin: qomsplrm ebeb70d8 message
     main@origin: qomsplrm ebeb70d8 message
     [EOF]
@@ -592,6 +602,7 @@ fn test_git_clone_remote_default_bookmark() {
     Working copy  (@) now at: wmwvqwsz 5068d576 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 feature1@origin main@origin | message
     Added 1 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     let clone_dir4 = test_env.work_dir("clone4");
@@ -620,13 +631,16 @@ fn test_git_clone_remote_default_bookmark() {
     Working copy  (@) now at: vzqnnsmr fea36bca (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 feature1 main | message
     Added 1 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     let clone_dir5 = test_env.work_dir("clone5");
     insta::assert_snapshot!(get_bookmark_output(&clone_dir5), @r"
     feature1: qomsplrm ebeb70d8 message
+      @git: qomsplrm ebeb70d8 message
       @origin: qomsplrm ebeb70d8 message
     main: qomsplrm ebeb70d8 message
+      @git: qomsplrm ebeb70d8 message
       @origin: qomsplrm ebeb70d8 message
     [EOF]
     ");
@@ -662,6 +676,7 @@ fn test_git_clone_remote_default_bookmark_with_escape() {
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 "\"" | message
     Added 1 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
@@ -689,6 +704,7 @@ fn test_git_clone_ignore_working_copy() {
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     let clone_dir = test_env.work_dir("clone");
@@ -749,6 +765,7 @@ fn test_git_clone_with_remote_name() {
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 }
@@ -803,6 +820,7 @@ fn test_git_clone_trunk_deleted() {
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
@@ -810,7 +828,7 @@ fn test_git_clone_trunk_deleted() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Forgot 1 local bookmarks.
-    Forgot 1 remote bookmarks.
+    Forgot 2 remote bookmarks.
     Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@origin` doesn't exist
     Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
     [EOF]
@@ -820,7 +838,7 @@ fn test_git_clone_trunk_deleted() {
     insta::assert_snapshot!(output, @r"
     @  sqpuoqvx test.user@example.com 2001-02-03 08:05:07 1ca44815
     │  (empty) (no description set)
-    ○  qomsplrm someone@example.org 1970-01-01 11:00:00 ebeb70d8
+    ○  qomsplrm someone@example.org 1970-01-01 11:00:00 git_head() ebeb70d8
     │  message
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -892,6 +910,7 @@ fn test_git_clone_conditional_config() {
     Working copy  (@) now at: zxsnswpr 5479cd52 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     run_jj(&new_workspace_dir, &["new"]).success();
@@ -934,6 +953,7 @@ fn test_git_clone_with_depth() {
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
@@ -941,7 +961,7 @@ fn test_git_clone_with_depth() {
     insta::assert_snapshot!(output, @r"
     @  sqpuoqvx test.user@example.com 2001-02-03 08:05:07 1ca44815
     │  (empty) (no description set)
-    ◆  qomsplrm someone@example.org 1970-01-01 11:00:00 main ebeb70d8
+    ◆  qomsplrm someone@example.org 1970-01-01 11:00:00 main git_head() ebeb70d8
     │  message
     ~
     [EOF]
@@ -1002,7 +1022,7 @@ fn test_git_clone_malformed() {
     let output = clone_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation 01e1362cd2e1).
+    Error: The working copy is stale (not updated since operation 725ea8e17489).
     Hint: Run `jj workspace update-stale` to update it.
     See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy for more information.
     [EOF]
@@ -1014,6 +1034,7 @@ fn test_git_clone_malformed() {
     let output = clone_dir.run_jj(["workspace", "update-stale"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Concurrent modification detected, resolving automatically.
     Internal error: Failed to check out commit 2f4286212884d472a0b2013a961b695a144ac65c
     Caused by: Reserved path component .jj in $TEST_ENV/clone/.jj
     [EOF]
@@ -1059,6 +1080,7 @@ fn test_git_clone_with_global_git_remote_config() {
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 }

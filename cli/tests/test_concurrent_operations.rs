@@ -170,13 +170,13 @@ fn test_concurrent_snapshot_wc_reloadable() {
     let template = r#"id.short() ++ "\n" ++ description ++ "\n" ++ tags"#;
     let output = work_dir.run_jj(["op", "log", "-T", template]);
     insta::assert_snapshot!(output, @r"
-    @  a631dcf37fea
+    @  834a07411de0
     │  commit c91a0909a9d3f3d8392ba9fab88f4b40fc0810ee
     │  args: jj commit -m 'new child1'
-    ○  2b8e6f8683dc
+    ○  154cb36d3cfc
     │  snapshot working copy
     │  args: jj commit -m 'new child1'
-    ○  2e1c4ffb74ca
+    ○  b94a3df75d7a
     │  commit 9af4c151edead0304de97ce3a0b414552921a425
     │  args: jj commit -m initial
     ○  cfe73d1664ae
@@ -192,8 +192,8 @@ fn test_concurrent_snapshot_wc_reloadable() {
     let output = work_dir.run_jj(["op", "log", "--no-graph", "-T", template]);
     let [op_id_after_snapshot, _, op_id_before_snapshot] =
         output.stdout.raw().lines().next_array().unwrap();
-    insta::assert_snapshot!(op_id_after_snapshot[..12], @"a631dcf37fea");
-    insta::assert_snapshot!(op_id_before_snapshot[..12], @"2e1c4ffb74ca");
+    insta::assert_snapshot!(op_id_after_snapshot[..12], @"834a07411de0");
+    insta::assert_snapshot!(op_id_before_snapshot[..12], @"b94a3df75d7a");
 
     // Simulate a concurrent operation that began from the "initial" operation
     // (before the "child1" snapshot) but finished after the "child1"
@@ -205,12 +205,13 @@ fn test_concurrent_snapshot_wc_reloadable() {
     .unwrap();
     work_dir.write_file("child2", "");
     let output = work_dir.run_jj(["describe", "-m", "new child2"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz 493da83e new child2
+    Reset the working copy parent to the new Git HEAD.
+    Working copy  (@) now at: royxmykx 94b3a3e8 new child2
     Parent commit (@-)      : rlvkpnrz 15bd889d new child1
     [EOF]
-    "###);
+    ");
 
     // Since the repo can be reloaded before snapshotting, "child2" should be
     // a child of "child1", not of "initial".

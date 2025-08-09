@@ -112,6 +112,7 @@ fn test_git_push_undo() {
     //    remote-tracking  | AA      |   AA   | AA
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm d9a9f6a0 (empty) BB
+      @git: qpvuntsm d9a9f6a0 (empty) BB
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
     [EOF]
     ");
@@ -125,6 +126,7 @@ fn test_git_push_undo() {
     //    remote-tracking  | BB      |   BB   | BB
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm d9a9f6a0 (empty) BB
+      @git: qpvuntsm d9a9f6a0 (empty) BB
       @origin: qpvuntsm d9a9f6a0 (empty) BB
     [EOF]
     ");
@@ -139,6 +141,7 @@ fn test_git_push_undo() {
     //    remote-tracking  | AA      |   AA   | BB
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm d9a9f6a0 (empty) BB
+      @git: qpvuntsm d9a9f6a0 (empty) BB
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
     [EOF]
     ");
@@ -158,6 +161,7 @@ fn test_git_push_undo() {
       - qpvuntsm hidden 3a44d6c5 (empty) AA
       + qpvuntsm?? 1e742089 (empty) CC
       + qpvuntsm?? d9a9f6a0 (empty) BB
+      @git (behind by 1 commits): qpvuntsm?? 1e742089 (empty) CC
       @origin (behind by 1 commits): qpvuntsm?? d9a9f6a0 (empty) BB
     [EOF]
     ");
@@ -193,6 +197,7 @@ fn test_git_push_undo_with_import() {
     //    remote-tracking  | AA      |   AA   | AA
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm d9a9f6a0 (empty) BB
+      @git: qpvuntsm d9a9f6a0 (empty) BB
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
     [EOF]
     ");
@@ -206,6 +211,7 @@ fn test_git_push_undo_with_import() {
     //    remote-tracking  | BB      |   BB   | BB
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm d9a9f6a0 (empty) BB
+      @git: qpvuntsm d9a9f6a0 (empty) BB
       @origin: qpvuntsm d9a9f6a0 (empty) BB
     [EOF]
     ");
@@ -220,6 +226,7 @@ fn test_git_push_undo_with_import() {
     //    remote-tracking  | AA      |   AA   | BB
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm d9a9f6a0 (empty) BB
+      @git: qpvuntsm d9a9f6a0 (empty) BB
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
     [EOF]
     ");
@@ -236,7 +243,8 @@ fn test_git_push_undo_with_import() {
     //    remote-tracking  | BB      |   BB   | BB
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm d9a9f6a0 (empty) BB
-      @origin: qpvuntsm d9a9f6a0 (empty) BB
+      @git: qpvuntsm d9a9f6a0 (empty) BB
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
     [EOF]
     ");
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
@@ -245,8 +253,12 @@ fn test_git_push_undo_with_import() {
     // There is not a conflict. This seems like a good outcome; undoing `git push`
     // was essentially a no-op.
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
-    main: qpvuntsm 1e742089 (empty) CC
-      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden d9a9f6a0 (empty) BB
+    main (conflicted):
+      - qpvuntsm hidden 3a44d6c5 (empty) AA
+      + qpvuntsm?? 1e742089 (empty) CC
+      + qpvuntsm?? d9a9f6a0 (empty) BB
+      @git (behind by 1 commits): qpvuntsm?? 1e742089 (empty) CC
+      @origin (behind by 1 commits): qpvuntsm?? d9a9f6a0 (empty) BB
     [EOF]
     ");
 }
@@ -360,6 +372,7 @@ fn test_git_push_undo_repo_only() {
     work_dir.run_jj(["git", "push", "--allow-new"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm 3a44d6c5 (empty) AA
+      @git: qpvuntsm 3a44d6c5 (empty) AA
       @origin: qpvuntsm 3a44d6c5 (empty) AA
     [EOF]
     ");
@@ -367,6 +380,7 @@ fn test_git_push_undo_repo_only() {
     work_dir.run_jj(["describe", "-m", "BB"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm d9a9f6a0 (empty) BB
+      @git: qpvuntsm d9a9f6a0 (empty) BB
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
     [EOF]
     ");
@@ -379,6 +393,7 @@ fn test_git_push_undo_repo_only() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm d9a9f6a0 (empty) BB
+      @git: qpvuntsm d9a9f6a0 (empty) BB
       @origin: qpvuntsm d9a9f6a0 (empty) BB
     [EOF]
     ");
@@ -388,6 +403,7 @@ fn test_git_push_undo_repo_only() {
     // This currently gives an identical result to `test_git_push_undo_import`.
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm 1e742089 (empty) CC
+      @git: qpvuntsm 1e742089 (empty) CC
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden d9a9f6a0 (empty) BB
     [EOF]
     ");
@@ -414,6 +430,7 @@ fn test_bookmark_track_untrack_undo() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qpvuntsm bab5b5ef (empty) commit
+      @git: qpvuntsm bab5b5ef (empty) commit
       @origin: qpvuntsm bab5b5ef (empty) commit
     feature2 (deleted)
       @origin: qpvuntsm bab5b5ef (empty) commit
@@ -426,6 +443,7 @@ fn test_bookmark_track_untrack_undo() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qpvuntsm bab5b5ef (empty) commit
+      @git: qpvuntsm bab5b5ef (empty) commit
     feature1@origin: qpvuntsm bab5b5ef (empty) commit
     feature2@origin: qpvuntsm bab5b5ef (empty) commit
     [EOF]
@@ -434,6 +452,7 @@ fn test_bookmark_track_untrack_undo() {
     work_dir.run_jj(["undo"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qpvuntsm bab5b5ef (empty) commit
+      @git: qpvuntsm bab5b5ef (empty) commit
       @origin: qpvuntsm bab5b5ef (empty) commit
     feature2 (deleted)
       @origin: qpvuntsm bab5b5ef (empty) commit
@@ -443,6 +462,7 @@ fn test_bookmark_track_untrack_undo() {
     work_dir.run_jj(["undo"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qpvuntsm bab5b5ef (empty) commit
+      @git: qpvuntsm bab5b5ef (empty) commit
     feature1@origin: qpvuntsm bab5b5ef (empty) commit
     feature2@origin: qpvuntsm bab5b5ef (empty) commit
     [EOF]
@@ -453,6 +473,7 @@ fn test_bookmark_track_untrack_undo() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qpvuntsm bab5b5ef (empty) commit
+      @git: qpvuntsm bab5b5ef (empty) commit
       @origin: qpvuntsm bab5b5ef (empty) commit
     feature2@origin: qpvuntsm bab5b5ef (empty) commit
     [EOF]
@@ -461,6 +482,7 @@ fn test_bookmark_track_untrack_undo() {
     work_dir.run_jj(["undo"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qpvuntsm bab5b5ef (empty) commit
+      @git: qpvuntsm bab5b5ef (empty) commit
     feature1@origin: qpvuntsm bab5b5ef (empty) commit
     feature2@origin: qpvuntsm bab5b5ef (empty) commit
     [EOF]
@@ -479,7 +501,7 @@ fn test_undo_latest_undo_implicitly() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 6de77c1b46a3 (2001-02-03 08:05:09) undo operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
+    Undid operation: 3a39f0eba5a2 (2001-02-03 08:05:09) undo operation 2ec1d2c86c413637efd046909aded4919e1e0af69713ece3662ffce89dc728a7d70a7240341519b2fed8db0a132ca9f588abd10c5e5b16a22a6d1e239b6f18c5
     Working copy  (@) now at: rlvkpnrz 43444d88 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
@@ -493,7 +515,7 @@ fn test_undo_latest_undo_implicitly() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: b77c991c5a2f (2001-02-03 08:05:12) undo operation 58f57841c00da755413d291ed9e1a1d9a58dd4311b5000a8703f1bf93339dd12cdbc2c6e1c8cd5f43cb584cabddcf8366153a007c244d89ee80a4e42e513058d
+    Undid operation: 1463992ad364 (2001-02-03 08:05:12) undo operation d8623f2580557a8c9fe35260fbfc84559ea2480781297f69d5b5e6a3fe37e41ecde9e646eded6c1d54ebf26e472441a7606973e15a19925652af05852cd98663
     Working copy  (@) now at: mzvwutvl 8afc18ff (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
@@ -517,7 +539,7 @@ fn test_undo_latest_undo_explicitly() {
     let output = work_dir.run_jj(["undo", op_id_hex]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 6de77c1b46a3 (2001-02-03 08:05:09) undo operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
+    Undid operation: 3a39f0eba5a2 (2001-02-03 08:05:09) undo operation 2ec1d2c86c413637efd046909aded4919e1e0af69713ece3662ffce89dc728a7d70a7240341519b2fed8db0a132ca9f588abd10c5e5b16a22a6d1e239b6f18c5
     Working copy  (@) now at: rlvkpnrz 43444d88 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
@@ -528,7 +550,7 @@ fn test_undo_latest_undo_explicitly() {
     let output = work_dir.run_jj(["undo", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: c99ea8473832 (2001-02-03 08:05:13) undo operation 09cbd5c994ee9e437950a49fa4400d3c6e9d5c1e44ea55b38806a9692317716647578328c53b887a758a40270ad8ab6d5b67c1675d088281879cc7c74a2da6cc
+    Undid operation: 98bae1fb7c53 (2001-02-03 08:05:13) undo operation f7cb684a7e1660ce72d5e469c4828c72b9f3f5082c5a5e81cc84b52c668f05fea37d55658a07c6b18f2b60f30ea28d3e5eb544c3fdb8d38615fff548537f8959
     Working copy  (@) now at: royxmykx ba0e5dca (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 43444d88 (empty) (no description set)
     Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
@@ -554,7 +576,7 @@ fn test_undo_an_older_undo() {
     let output = work_dir.run_jj(["undo", op_id_hex]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 6de77c1b46a3 (2001-02-03 08:05:09) undo operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
+    Undid operation: 3a39f0eba5a2 (2001-02-03 08:05:09) undo operation 2ec1d2c86c413637efd046909aded4919e1e0af69713ece3662ffce89dc728a7d70a7240341519b2fed8db0a132ca9f588abd10c5e5b16a22a6d1e239b6f18c5
     [EOF]
     ");
 
@@ -565,7 +587,7 @@ fn test_undo_an_older_undo() {
     let output = work_dir.run_jj(["undo", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: ffea82d2bf89 (2001-02-03 08:05:14) undo operation 2b3480d4ece49d59f5da51e1284b742773e6b858935f122bebab625430137f9aae1aaebf7a8c081e0715e9cd24deee9d0d039743fbb1dd61804c633c9c7f17a2
+    Undid operation: ac8e1db8aa9c (2001-02-03 08:05:14) undo operation 776049e2adabb4787b4e5f44b09cf84fe50505f07a900010ecf7ecea7bd6e20fccea679620ffa675cf06ca42660dd63782ab55635f3ca1e0502aad9e4e28ba6a
     [EOF]
     ");
 }
@@ -581,7 +603,7 @@ fn test_undo_an_undo_multiple_times() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 6de77c1b46a3 (2001-02-03 08:05:09) undo operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
+    Undid operation: 3a39f0eba5a2 (2001-02-03 08:05:09) undo operation 2ec1d2c86c413637efd046909aded4919e1e0af69713ece3662ffce89dc728a7d70a7240341519b2fed8db0a132ca9f588abd10c5e5b16a22a6d1e239b6f18c5
     Working copy  (@) now at: rlvkpnrz 43444d88 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
@@ -591,7 +613,7 @@ fn test_undo_an_undo_multiple_times() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: f17b43a603fd (2001-02-03 08:05:10) undo operation 6de77c1b46a39115938845d2fffb5780a49a4991d1f8f99b60509705faa38d496b06cdbb427a497ff22d1f2b81613ac80a8dd6b97ca2fa35d7cc66d2a33059e4
+    Undid operation: f3cef7b607a1 (2001-02-03 08:05:10) undo operation 3a39f0eba5a2f4d30faa874579c555fc47c9793fa1df93a41f0626b9f0dd8f00ca060b89d254005a796478a12d573bb646059c9a940280a0e3bd197d0ab6ec3e
     Working copy  (@) now at: qpvuntsm e8849ae1 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
@@ -604,7 +626,7 @@ fn test_undo_an_undo_multiple_times() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 1eee1feca2d3 (2001-02-03 08:05:13) undo operation 18ee4719e7c7a2da3fbeec66678dfb03c4f3deebbe887dbc46270102c86894615a07a223713981d12b3ddc757e5104c7e9f7b391202747cd1868e0d2ac01f35d
+    Undid operation: ab995dc61581 (2001-02-03 08:05:13) undo operation 40abf6ba1264f5fc96f1ffd832926f53e85b4b3437197cccf8c1f91b53ac568d601d00512cb66028bb06a6dcb2577307fbd07b78b223d5699dd9c641ab78a249
     Working copy  (@) now at: royxmykx e7d0d5fd (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
@@ -614,7 +636,7 @@ fn test_undo_an_undo_multiple_times() {
     let output = work_dir.run_jj(["undo", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 079cb7121929 (2001-02-03 08:05:14) undo operation 1eee1feca2d334e1c7c956048eec1e54a35d58b39aaec88c8a48ce7ce216b30e287f49c0305c51ad86292c6a2e11dd98ed97d8ef0a497e7114cf2aea99d4e71d
+    Undid operation: 87043c84066e (2001-02-03 08:05:14) undo operation ab995dc6158197274d1f422111e3078a4d42271eadaee2d48f3c14765008889339acab35f15483ab4945884628f21c7758a388e30eb8f0bc7c86e42abf1ab550
     Working copy  (@) now at: qpvuntsm e8849ae1 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
@@ -636,7 +658,7 @@ fn test_undo_bookmark_deletion() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: e1bcf7cd8080 (2001-02-03 08:05:09) delete bookmark foo
+    Undid operation: 6bedbc576956 (2001-02-03 08:05:09) delete bookmark foo
     [EOF]
     ");
 }

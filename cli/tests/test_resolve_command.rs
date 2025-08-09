@@ -1229,7 +1229,7 @@ fn test_resolve_change_delete_executable() {
     │ │  +++ b/file5
     │ │  @@ -0,0 +1,1 @@
     │ │  +b5
-    ○ │  mzvwutvl test.user@example.com 2001-02-03 08:05:13 a e2d3924b
+    ○ │  mzvwutvl test.user@example.com 2001-02-03 08:05:13 a git_head() e2d3924b
     ├─╯  a
     │    diff --git a/file1 b/file1
     │    old mode 100644

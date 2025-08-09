@@ -357,7 +357,7 @@ fn test_restore_interactive() {
     │  M file1
     │  M file2
     │  A file3
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 6c8d5b87
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a git_head() 6c8d5b87
     │  a
     │  A file1
     │  A file2
@@ -398,7 +398,7 @@ fn test_restore_interactive() {
     @  zsuskuln test.user@example.com 2001-02-03 08:05:13 b 7cd0a341
     │  b
     │  M file2
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 6c8d5b87
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a git_head() 6c8d5b87
     │  a
     │  A file1
     │  A file2
@@ -422,7 +422,7 @@ fn test_restore_interactive() {
     @  zsuskuln test.user@example.com 2001-02-03 08:05:16 b 0f1263f5
     │  b
     │  M file2
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 6c8d5b87
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a git_head() 6c8d5b87
     │  a
     │  A file1
     │  A file2
@@ -456,7 +456,7 @@ fn test_restore_interactive_merge() {
     │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 b ca7e57cd
     │ │  b
     │ │  A file2
-    ○ │  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 78059355
+    ○ │  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a git_head() 78059355
     ├─╯  a
     │    A file1
     ◆  zzzzzzzz root() 00000000
@@ -501,7 +501,7 @@ fn test_restore_interactive_merge() {
     │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 b ca7e57cd
     │ │  b
     │ │  A file2
-    ○ │  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 78059355
+    ○ │  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a git_head() 78059355
     ├─╯  a
     │    A file1
     ◆  zzzzzzzz root() 00000000
@@ -530,7 +530,7 @@ fn test_restore_interactive_with_paths() {
     │  M file1
     │  M file2
     │  A file3
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 6c8d5b87
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a git_head() 6c8d5b87
     │  a
     │  A file1
     │  A file2
@@ -562,7 +562,7 @@ fn test_restore_interactive_with_paths() {
     │  b
     │  M file2
     │  A file3
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 6c8d5b87
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a git_head() 6c8d5b87
     │  a
     │  A file1
     │  A file2

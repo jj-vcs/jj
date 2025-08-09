@@ -2,7 +2,7 @@
   Git command: >
     `git init`
   Jujutsu command: >
-    `jj git init [--colocate]`
+    `jj git init [--no-colocate]`
   Notes: ''
 
 - Use case: Clone an existing repo

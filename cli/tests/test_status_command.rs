@@ -157,7 +157,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     insta::assert_snapshot!(output, @r"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:13 7e0bc4cf conflict
     │  (empty) boom-cont-2
-    ×  royxmykx test.user@example.com 2001-02-03 08:05:12 681c71af conflict
+    ×  royxmykx test.user@example.com 2001-02-03 08:05:12 git_head() 681c71af conflict
     │  (empty) boom-cont
     ×    mzvwutvl test.user@example.com 2001-02-03 08:05:11 30558616 conflict
     ├─╮  (empty) boom
@@ -227,7 +227,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     insta::assert_snapshot!(output, @r"
     @  wqnwkozp test.user@example.com 2001-02-03 08:05:20 cc7d68f7
     │  fixed 2
-    ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 812e2163
+    ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 git_head() 812e2163
     │  fixed 1
     ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 7e0bc4cf conflict
     │  (empty) boom-cont-2
@@ -265,7 +265,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     │  fixed 2
     @  kmkuslsw test.user@example.com 2001-02-03 08:05:19 812e2163
     │  fixed 1
-    ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 7e0bc4cf conflict
+    ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 git_head() 7e0bc4cf conflict
     │  (empty) boom-cont-2
     ×  royxmykx test.user@example.com 2001-02-03 08:05:12 681c71af conflict
     │  (empty) boom-cont

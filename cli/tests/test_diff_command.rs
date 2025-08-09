@@ -3120,7 +3120,7 @@ fn test_diff_external_tool() {
     │  --
     │  file2
     │  file3
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 74c18ac3
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 git_head() 74c18ac3
     │  (no description set)
     │  --
     │  file1
@@ -3341,7 +3341,7 @@ fn test_diff_external_file_by_file_tool() {
     │  file1
     │  --
     │  file4
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 923beb72
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 git_head() 923beb72
     │  (no description set)
     │  ==
     │  file1

@@ -367,7 +367,7 @@ fn test_op_log_no_graph_null_terminated() {
             r#"id.short(4) ++ "\0""#,
         ])
         .success();
-    insta::assert_debug_snapshot!(output.stdout.normalized(), @r#""a9e5\00265\08f47\00000\0""#);
+    insta::assert_debug_snapshot!(output.stdout.normalized(), @r#""44ae\0f007\08f47\00000\0""#);
 }
 
 #[test]
@@ -653,10 +653,10 @@ fn test_op_abandon_ancestors() {
     work_dir.run_jj(["commit", "-m", "commit 1"]).success();
     work_dir.run_jj(["commit", "-m", "commit 2"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["op", "log"]), @r"
-    @  3fc56f6bb4db test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    @  50489c0cb163 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │  commit 4e0592f3dd52e7a4998a97d9a1f354e2727a856b
     │  args: jj commit -m 'commit 2'
-    ○  c815486340d5 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    ○  a3511b08052f test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  commit e8849ae12c709f2321908879bc724fdb2ab8a781
     │  args: jj commit -m 'commit 1'
     ○  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
@@ -673,12 +673,12 @@ fn test_op_abandon_ancestors() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["debug", "local-working-copy", "--ignore-working-copy"]), @r#"
-    Current operation: OperationId("1675333b7de89b5da012c696d797345bad2a6ce55a4b605e85c3897f818f05e11e8c53de19d34c2fee38a36528dc95bd2a378f72ac0877f8bec2513a68043253")
+    Current operation: OperationId("8d5d3acc85dcdf1a580eee0b814186019f597604498254a2cd0111a2e61fa036bd68808471dafcada97b40c1fb4fe7a616b038d4a6d972de7eb4ab988675b7fe")
     Current tree: Merge(Resolved(TreeId("4b825dc642cb6eb9a060e54bf8d69288fbee4904")))
     [EOF]
     "#);
     insta::assert_snapshot!(work_dir.run_jj(["op", "log"]), @r"
-    @  1675333b7de8 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    @  8d5d3acc85dc test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │  commit 4e0592f3dd52e7a4998a97d9a1f354e2727a856b
     │  args: jj commit -m 'commit 2'
     ○  000000000000 root()
@@ -696,10 +696,10 @@ fn test_op_abandon_ancestors() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["op", "log"]), @r"
-    @  9df33337d494 test-username@host.example.com 2001-02-03 04:05:16.000 +07:00 - 2001-02-03 04:05:16.000 +07:00
+    @  0330cfeb4c36 test-username@host.example.com 2001-02-03 04:05:16.000 +07:00 - 2001-02-03 04:05:16.000 +07:00
     │  commit 2f3e935ade915272ccdce9e43e5a5c82fc336aee
     │  args: jj commit -m 'commit 5'
-    ○  1675333b7de8 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    ○  8d5d3acc85dc test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │  commit 4e0592f3dd52e7a4998a97d9a1f354e2727a856b
     │  args: jj commit -m 'commit 2'
     ○  000000000000 root()
@@ -710,7 +710,7 @@ fn test_op_abandon_ancestors() {
     let output = work_dir.run_jj(["op", "abandon", "..@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Cannot abandon the current operation 9df33337d494
+    Error: Cannot abandon the current operation 0330cfeb4c36
     Hint: Run `jj undo` to revert the current operation, then use `jj op abandon`
     [EOF]
     [exit status: 1]
@@ -734,15 +734,15 @@ fn test_op_abandon_ancestors() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["debug", "local-working-copy", "--ignore-working-copy"]), @r#"
-    Current operation: OperationId("4666f57b051cb0d73145999d689331e34224bf6bad69c367498d7fc25f0d89d230146e7234526004426d515b396b13b9de8daadf54003eaf678f4264c0a7d992")
+    Current operation: OperationId("074d8ecb1f21958f70264197025552128bb4a89f1d1d6675cfb47304411663c768aef3c52b14ac6a01a102b7c66fd07f35e5913a38ae1bf1ad11e30e14025bc8")
     Current tree: Merge(Resolved(TreeId("4b825dc642cb6eb9a060e54bf8d69288fbee4904")))
     [EOF]
     "#);
     insta::assert_snapshot!(work_dir.run_jj(["op", "log"]), @r"
-    @  4666f57b051c test-username@host.example.com 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
-    │  undo operation 9df33337d49450b21bf694025557ede1ac4c63c7b17f593add0d7adc81b394d363f1edffa025b323f88ec947dcd9214f46e82e742e7a74adbfff4c2d96321133
+    @  074d8ecb1f21 test-username@host.example.com 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
+    │  undo operation 0330cfeb4c36cd67a94bf34fe8bb9ecc4f49e650b31bec10afc4df192b5709d3693702f6fc5ae40df379c0e4f8ea9bf960965ee41ebec65b5aeafd95ae1bed28
     │  args: jj undo
-    ○  1675333b7de8 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    ○  8d5d3acc85dc test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │  commit 4e0592f3dd52e7a4998a97d9a1f354e2727a856b
     │  args: jj commit -m 'commit 2'
     ○  000000000000 root()
@@ -757,8 +757,8 @@ fn test_op_abandon_ancestors() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["op", "log", "-n1"]), @r"
-    @  4666f57b051c test-username@host.example.com 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
-    │  undo operation 9df33337d49450b21bf694025557ede1ac4c63c7b17f593add0d7adc81b394d363f1edffa025b323f88ec947dcd9214f46e82e742e7a74adbfff4c2d96321133
+    @  074d8ecb1f21 test-username@host.example.com 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
+    │  undo operation 0330cfeb4c36cd67a94bf34fe8bb9ecc4f49e650b31bec10afc4df192b5709d3693702f6fc5ae40df379c0e4f8ea9bf960965ee41ebec65b5aeafd95ae1bed28
     │  args: jj undo
     [EOF]
     ");
@@ -782,12 +782,12 @@ fn test_op_abandon_without_updating_working_copy() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["debug", "local-working-copy", "--ignore-working-copy"]), @r#"
-    Current operation: OperationId("0d4bb8e4a2babc4c216be0f9bde32aeef888abebde0062aeb1c204dde5e1f476fa951fcbeceb2263cf505008ba87a834849469dede30dfc589f37d5073aedfbe")
+    Current operation: OperationId("05f883e4d0574d71ddc5e09f497aa9ef12e2f202ba85f8ddbe233c91d227c256153f42e0203d0de83d4e7c8eec71f8ae8540e3bb5822092d1ec87d9c2fa39f2e")
     Current tree: Merge(Resolved(TreeId("4b825dc642cb6eb9a060e54bf8d69288fbee4904")))
     [EOF]
     "#);
     insta::assert_snapshot!(work_dir.run_jj(["op", "log", "-n1", "--ignore-working-copy"]), @r"
-    @  f5e2d13c1aac test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    @  991cfdf679b1 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     │  commit 4b087e94a5d14530c3953d617623d075a13294c8
     │  args: jj commit -m 'commit 3'
     [EOF]
@@ -800,16 +800,16 @@ fn test_op_abandon_without_updating_working_copy() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Abandoned 1 operations and reparented 1 descendant operations.
-    Warning: The working copy operation 0d4bb8e4a2ba is not updated because it differs from the repo f5e2d13c1aac.
+    Warning: The working copy operation 05f883e4d057 is not updated because it differs from the repo 991cfdf679b1.
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["debug", "local-working-copy", "--ignore-working-copy"]), @r#"
-    Current operation: OperationId("0d4bb8e4a2babc4c216be0f9bde32aeef888abebde0062aeb1c204dde5e1f476fa951fcbeceb2263cf505008ba87a834849469dede30dfc589f37d5073aedfbe")
+    Current operation: OperationId("05f883e4d0574d71ddc5e09f497aa9ef12e2f202ba85f8ddbe233c91d227c256153f42e0203d0de83d4e7c8eec71f8ae8540e3bb5822092d1ec87d9c2fa39f2e")
     Current tree: Merge(Resolved(TreeId("4b825dc642cb6eb9a060e54bf8d69288fbee4904")))
     [EOF]
     "#);
     insta::assert_snapshot!(work_dir.run_jj(["op", "log", "-n1", "--ignore-working-copy"]), @r"
-    @  aa53bfb9a190 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    @  9e51819c6964 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     │  commit 4b087e94a5d14530c3953d617623d075a13294c8
     │  args: jj commit -m 'commit 3'
     [EOF]
@@ -830,8 +830,8 @@ fn test_op_abandon_multiple_heads() {
         .run_jj(["op", "log", "--no-graph", r#"-Tid.short() ++ "\n""#])
         .success();
     let [head_op_id, prev_op_id] = output.stdout.raw().lines().next_array().unwrap();
-    insta::assert_snapshot!(head_op_id, @"0d4bb8e4a2ba");
-    insta::assert_snapshot!(prev_op_id, @"3fc56f6bb4db");
+    insta::assert_snapshot!(head_op_id, @"05f883e4d057");
+    insta::assert_snapshot!(prev_op_id, @"50489c0cb163");
 
     // Create 1 other concurrent operation.
     work_dir
@@ -843,19 +843,19 @@ fn test_op_abandon_multiple_heads() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: The "@" expression resolved to more than one operation
-    Hint: Try specifying one of the operations by ID: 0d4bb8e4a2ba, 56b918336386
+    Hint: Try specifying one of the operations by ID: 05f883e4d057, 70b844ade4fb
     [EOF]
     [exit status: 1]
     "#);
     let (_, other_head_op_id) = output.stderr.raw().trim_end().rsplit_once(", ").unwrap();
-    insta::assert_snapshot!(other_head_op_id, @"56b918336386");
+    insta::assert_snapshot!(other_head_op_id, @"70b844ade4fb");
     assert_ne!(head_op_id, other_head_op_id);
 
     // Can't abandon one of the head operations.
     let output = work_dir.run_jj(["op", "abandon", head_op_id]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Cannot abandon the current operation 0d4bb8e4a2ba
+    Error: Cannot abandon the current operation 05f883e4d057
     [EOF]
     [exit status: 1]
     ");
@@ -864,7 +864,7 @@ fn test_op_abandon_multiple_heads() {
     let output = work_dir.run_jj(["op", "abandon", other_head_op_id]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Cannot abandon the current operation 56b918336386
+    Error: Cannot abandon the current operation 70b844ade4fb
     [EOF]
     [exit status: 1]
     ");
@@ -881,16 +881,16 @@ fn test_op_abandon_multiple_heads() {
 
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @r"
-    @    4bc6ca79dcdc test-username@host.example.com 2001-02-03 04:05:17.000 +07:00 - 2001-02-03 04:05:17.000 +07:00
+    @    6601aedf4e23 test-username@host.example.com 2001-02-03 04:05:17.000 +07:00 - 2001-02-03 04:05:17.000 +07:00
     ├─╮  reconcile divergent operations
     │ │  args: jj op log
-    ○ │  f5e2d13c1aac test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    ○ │  991cfdf679b1 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     │ │  commit 4b087e94a5d14530c3953d617623d075a13294c8
     │ │  args: jj commit -m 'commit 3'
-    │ ○  56b918336386 test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
+    │ ○  70b844ade4fb test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
     ├─╯  commit 4e0592f3dd52e7a4998a97d9a1f354e2727a856b
     │    args: jj commit '--at-op=@--' -m 'commit 4'
-    ○  c815486340d5 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    ○  a3511b08052f test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  commit e8849ae12c709f2321908879bc724fdb2ab8a781
     │  args: jj commit -m 'commit 1'
     ○  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
@@ -1141,7 +1141,7 @@ fn test_op_diff() {
     // Overview of op log.
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @r"
-    @  f63e1950e7be test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    @  4ac7ba7a10ad test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     │  track remote bookmark bookmark-1@origin
     │  args: jj bookmark track bookmark-1@origin
     ○  e922d994bdc4 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
@@ -1162,8 +1162,8 @@ fn test_op_diff() {
     ");
     let output = work_dir.run_jj(["op", "diff", "--from", "@", "--to", "@"]);
     insta::assert_snapshot!(output, @r"
-    From operation: f63e1950e7be (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
-      To operation: f63e1950e7be (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
+    From operation: 4ac7ba7a10ad (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
+      To operation: 4ac7ba7a10ad (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
     [EOF]
     ");
 
@@ -1173,7 +1173,7 @@ fn test_op_diff() {
     let output = work_dir.run_jj(["op", "diff", "--from", "@-", "--to", "@"]);
     insta::assert_snapshot!(output, @r"
     From operation: e922d994bdc4 (2001-02-03 08:05:09) fetch from git remote(s) origin
-      To operation: f63e1950e7be (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
+      To operation: 4ac7ba7a10ad (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
 
     Changed local bookmarks:
     bookmark-1:
@@ -1193,7 +1193,7 @@ fn test_op_diff() {
     let output = work_dir.run_jj(["op", "diff", "--from", "0000000"]);
     insta::assert_snapshot!(output, @r"
     From operation: 000000000000 root()
-      To operation: f63e1950e7be (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
+      To operation: 4ac7ba7a10ad (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
 
     Changed commits:
     ○  + rnnslrkn 4ff62539 bookmark-2@origin | Commit 2
@@ -1226,7 +1226,7 @@ fn test_op_diff() {
     // Diff from latest operation to root operation
     let output = work_dir.run_jj(["op", "diff", "--to", "0000000"]);
     insta::assert_snapshot!(output, @r"
-    From operation: f63e1950e7be (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
+    From operation: 4ac7ba7a10ad (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
       To operation: 000000000000 root()
 
     Changed commits:
@@ -1273,7 +1273,7 @@ fn test_op_diff() {
     insta::assert_snapshot!(output, @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
-    │ ○  pukowqtp someone@example.org 1970-01-01 11:00:00 bookmark-1?? bookmark-1@origin 0cb7e07e
+    │ ○  pukowqtp someone@example.org 1970-01-01 11:00:00 bookmark-1?? bookmark-1@git bookmark-1@origin 0cb7e07e
     ├─╯  Commit 1
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -1283,10 +1283,10 @@ fn test_op_diff() {
     ");
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @r"
-    @    913172f3f51a test-username@host.example.com 2001-02-03 04:05:19.000 +07:00 - 2001-02-03 04:05:19.000 +07:00
+    @    ded2db831a61 test-username@host.example.com 2001-02-03 04:05:19.000 +07:00 - 2001-02-03 04:05:19.000 +07:00
     ├─╮  reconcile divergent operations
     │ │  args: jj log
-    ○ │  f63e1950e7be test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    ○ │  4ac7ba7a10ad test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     │ │  track remote bookmark bookmark-1@origin
     │ │  args: jj bookmark track bookmark-1@origin
     │ ○  5a866c412d4a test-username@host.example.com 2001-02-03 04:05:18.000 +07:00 - 2001-02-03 04:05:18.000 +07:00
@@ -1308,14 +1308,14 @@ fn test_op_diff() {
     // Diff between the first parent of the merge operation and the merge operation.
     let output = work_dir.run_jj(["op", "diff", "--from", first_parent_id, "--to", op_id]);
     insta::assert_snapshot!(output, @r"
-    From operation: f63e1950e7be (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
-      To operation: 913172f3f51a (2001-02-03 08:05:19) reconcile divergent operations
+    From operation: 4ac7ba7a10ad (2001-02-03 08:05:10) track remote bookmark bookmark-1@origin
+      To operation: ded2db831a61 (2001-02-03 08:05:19) reconcile divergent operations
 
     Changed local bookmarks:
     bookmark-1:
-    + (added) pukowqtp 0cb7e07e bookmark-1?? bookmark-1@origin | Commit 1
+    + (added) pukowqtp 0cb7e07e bookmark-1?? bookmark-1@git bookmark-1@origin | Commit 1
     + (added) rnnslrkn 4ff62539 bookmark-1?? bookmark-2@origin | Commit 2
-    - pukowqtp 0cb7e07e bookmark-1?? bookmark-1@origin | Commit 1
+    - pukowqtp 0cb7e07e bookmark-1?? bookmark-1@git bookmark-1@origin | Commit 1
     [EOF]
     ");
 
@@ -1324,18 +1324,18 @@ fn test_op_diff() {
     let output = work_dir.run_jj(["op", "diff", "--from", second_parent_id, "--to", op_id]);
     insta::assert_snapshot!(output, @r"
     From operation: 5a866c412d4a (2001-02-03 08:05:18) point bookmark bookmark-1 to commit 4ff6253913375c6ebdddd8423c11df3b3f17e331
-      To operation: 913172f3f51a (2001-02-03 08:05:19) reconcile divergent operations
+      To operation: ded2db831a61 (2001-02-03 08:05:19) reconcile divergent operations
 
     Changed local bookmarks:
     bookmark-1:
-    + (added) pukowqtp 0cb7e07e bookmark-1?? bookmark-1@origin | Commit 1
+    + (added) pukowqtp 0cb7e07e bookmark-1?? bookmark-1@git bookmark-1@origin | Commit 1
     + (added) rnnslrkn 4ff62539 bookmark-1?? bookmark-2@origin | Commit 2
     - rnnslrkn 4ff62539 bookmark-1?? bookmark-2@origin | Commit 2
 
     Changed remote bookmarks:
     bookmark-1@origin:
-    + tracked pukowqtp 0cb7e07e bookmark-1?? bookmark-1@origin | Commit 1
-    - untracked pukowqtp 0cb7e07e bookmark-1?? bookmark-1@origin | Commit 1
+    + tracked pukowqtp 0cb7e07e bookmark-1?? bookmark-1@git bookmark-1@origin | Commit 1
+    - untracked pukowqtp 0cb7e07e bookmark-1?? bookmark-1@git bookmark-1@origin | Commit 1
     [EOF]
     ");
 
@@ -1352,8 +1352,8 @@ fn test_op_diff() {
     ");
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @r"
-    From operation: 913172f3f51a (2001-02-03 08:05:19) reconcile divergent operations
-      To operation: 0e0a422f79d9 (2001-02-03 08:05:23) fetch from git remote(s) origin
+    From operation: ded2db831a61 (2001-02-03 08:05:19) reconcile divergent operations
+      To operation: 521a62a6da69 (2001-02-03 08:05:23) fetch from git remote(s) origin
 
     Changed commits:
     ○  + kulxwnxm e1a239a5 bookmark-2@origin | Commit 5
@@ -1364,13 +1364,13 @@ fn test_op_diff() {
     bookmark-1:
     + (added) zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
     + (added) rnnslrkn 4ff62539 bookmark-1?? | Commit 2
-    - (added) pukowqtp 0cb7e07e Commit 1
+    - (added) pukowqtp 0cb7e07e bookmark-1@git | Commit 1
     - (added) rnnslrkn 4ff62539 bookmark-1?? | Commit 2
 
     Changed remote bookmarks:
     bookmark-1@origin:
     + tracked zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
-    - tracked pukowqtp 0cb7e07e Commit 1
+    - tracked pukowqtp 0cb7e07e bookmark-1@git | Commit 1
     bookmark-2@origin:
     + untracked kulxwnxm e1a239a5 bookmark-2@origin | Commit 5
     - untracked rnnslrkn 4ff62539 bookmark-1?? | Commit 2
@@ -1395,8 +1395,8 @@ fn test_op_diff() {
     ");
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @r"
-    From operation: 0e0a422f79d9 (2001-02-03 08:05:23) fetch from git remote(s) origin
-      To operation: f39e1e8ef9e6 (2001-02-03 08:05:25) create bookmark bookmark-2 pointing to commit e1a239a57eb15cefc5910198befbbbe2b43c47af
+    From operation: 521a62a6da69 (2001-02-03 08:05:23) fetch from git remote(s) origin
+      To operation: 43c1d18a9af6 (2001-02-03 08:05:25) create bookmark bookmark-2 pointing to commit e1a239a57eb15cefc5910198befbbbe2b43c47af
 
     Changed local bookmarks:
     bookmark-2:
@@ -1414,8 +1414,8 @@ fn test_op_diff() {
     ");
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @r"
-    From operation: f39e1e8ef9e6 (2001-02-03 08:05:25) create bookmark bookmark-2 pointing to commit e1a239a57eb15cefc5910198befbbbe2b43c47af
-      To operation: 691bbfe04a96 (2001-02-03 08:05:27) track remote bookmark bookmark-2@origin
+    From operation: 43c1d18a9af6 (2001-02-03 08:05:25) create bookmark bookmark-2 pointing to commit e1a239a57eb15cefc5910198befbbbe2b43c47af
+      To operation: 8a660896b5cf (2001-02-03 08:05:27) track remote bookmark bookmark-2@origin
 
     Changed remote bookmarks:
     bookmark-2@origin:
@@ -1435,8 +1435,8 @@ fn test_op_diff() {
     ");
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @r"
-    From operation: f39e1e8ef9e6 (2001-02-03 08:05:25) create bookmark bookmark-2 pointing to commit e1a239a57eb15cefc5910198befbbbe2b43c47af
-      To operation: 691bbfe04a96 (2001-02-03 08:05:27) track remote bookmark bookmark-2@origin
+    From operation: 43c1d18a9af6 (2001-02-03 08:05:25) create bookmark bookmark-2 pointing to commit e1a239a57eb15cefc5910198befbbbe2b43c47af
+      To operation: 8a660896b5cf (2001-02-03 08:05:27) track remote bookmark bookmark-2@origin
 
     Changed remote bookmarks:
     bookmark-2@origin:
@@ -1456,8 +1456,8 @@ fn test_op_diff() {
     ");
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @r"
-    From operation: 691bbfe04a96 (2001-02-03 08:05:27) track remote bookmark bookmark-2@origin
-      To operation: 60a91a8c707a (2001-02-03 08:05:31) new empty commit
+    From operation: 8a660896b5cf (2001-02-03 08:05:27) track remote bookmark bookmark-2@origin
+      To operation: c364c355d891 (2001-02-03 08:05:31) new empty commit
 
     Changed commits:
     ○  + xlzxqlsl 731ab199 (empty) new commit
@@ -1478,8 +1478,8 @@ fn test_op_diff() {
     ");
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @r"
-    From operation: 60a91a8c707a (2001-02-03 08:05:31) new empty commit
-      To operation: 9f7576674264 (2001-02-03 08:05:33) point bookmark bookmark-1 to commit 731ab19950fc6fc1199b9ea73cb8b9016f22e8f3
+    From operation: c364c355d891 (2001-02-03 08:05:31) new empty commit
+      To operation: 48f9a43b61e3 (2001-02-03 08:05:33) point bookmark bookmark-1 to commit 731ab19950fc6fc1199b9ea73cb8b9016f22e8f3
 
     Changed local bookmarks:
     bookmark-1:
@@ -1498,8 +1498,8 @@ fn test_op_diff() {
     ");
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @r"
-    From operation: 9f7576674264 (2001-02-03 08:05:33) point bookmark bookmark-1 to commit 731ab19950fc6fc1199b9ea73cb8b9016f22e8f3
-      To operation: 9b51b9c5a5ee (2001-02-03 08:05:35) delete bookmark bookmark-2
+    From operation: 48f9a43b61e3 (2001-02-03 08:05:33) point bookmark bookmark-1 to commit 731ab19950fc6fc1199b9ea73cb8b9016f22e8f3
+      To operation: 13a1d28ed686 (2001-02-03 08:05:35) delete bookmark bookmark-2
 
     Changed local bookmarks:
     bookmark-2:
@@ -1519,8 +1519,8 @@ fn test_op_diff() {
     ");
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @r"
-    From operation: 9b51b9c5a5ee (2001-02-03 08:05:35) delete bookmark bookmark-2
-      To operation: 7a434343b4ad (2001-02-03 08:05:37) push all tracked bookmarks to git remote origin
+    From operation: 13a1d28ed686 (2001-02-03 08:05:35) delete bookmark bookmark-2
+      To operation: c0ea6c73ffb5 (2001-02-03 08:05:37) push all tracked bookmarks to git remote origin
 
     Changed remote bookmarks:
     bookmark-1@origin:
@@ -1572,7 +1572,7 @@ fn test_op_diff_patch() {
     let output = work_dir.run_jj(["op", "diff", "--op", "@", "-p", "--git"]);
     insta::assert_snapshot!(output, @r"
     From operation: 688a949038f6 (2001-02-03 08:05:08) snapshot working copy
-      To operation: ed6f6674bcf8 (2001-02-03 08:05:08) new empty commit
+      To operation: 84ae75930314 (2001-02-03 08:05:08) new empty commit
 
     Changed commits:
     ○  + rlvkpnrz c1c924b8 (empty) (no description set)
@@ -1594,8 +1594,8 @@ fn test_op_diff_patch() {
     ");
     let output = work_dir.run_jj(["op", "diff", "-p", "--git"]);
     insta::assert_snapshot!(output, @r"
-    From operation: 36a5d140ea10 (2001-02-03 08:05:11) snapshot working copy
-      To operation: cfb8edbeae42 (2001-02-03 08:05:11) squash commits into 6b57e33cc56babbeaa6bcd6e2a296236b52ad93c
+    From operation: e75702937fe2 (2001-02-03 08:05:11) snapshot working copy
+      To operation: 990b6375d0dc (2001-02-03 08:05:11) squash commits into 6b57e33cc56babbeaa6bcd6e2a296236b52ad93c
 
     Changed commits:
     ○  + mzvwutvl 6cbd01ae (empty) (no description set)
@@ -1628,8 +1628,8 @@ fn test_op_diff_patch() {
     ");
     let output = work_dir.run_jj(["op", "diff", "-p", "--git"]);
     insta::assert_snapshot!(output, @r"
-    From operation: cfb8edbeae42 (2001-02-03 08:05:11) squash commits into 6b57e33cc56babbeaa6bcd6e2a296236b52ad93c
-      To operation: dd1ab16f2720 (2001-02-03 08:05:13) abandon commit 6cbd01aefe5ae05a015328311dbd63b7305b8ebe
+    From operation: 990b6375d0dc (2001-02-03 08:05:11) squash commits into 6b57e33cc56babbeaa6bcd6e2a296236b52ad93c
+      To operation: e262e1ac35cc (2001-02-03 08:05:13) abandon commit 6cbd01aefe5ae05a015328311dbd63b7305b8ebe
 
     Changed commits:
     ○  + yqosqzyt c97a8573 (empty) (no description set)
@@ -1669,10 +1669,10 @@ fn test_op_diff_sibling() {
 
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @r"
-    @    d566adf20e48 test-username@host.example.com 2001-02-03 04:05:13.000 +07:00 - 2001-02-03 04:05:13.000 +07:00
+    @    d2efaed750ca test-username@host.example.com 2001-02-03 04:05:13.000 +07:00 - 2001-02-03 04:05:13.000 +07:00
     ├─╮  reconcile divergent operations
     │ │  args: jj op log
-    ○ │  7bba3a63b73b test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    ○ │  ca553356e5a7 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     │ │  new empty commit
     │ │  args: jj new '@-+' -mA
     ○ │  613137e2652f test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
@@ -1703,8 +1703,8 @@ fn test_op_diff_sibling() {
         .success();
     let [head_op_id, p1_op_id, _, _, _, _, p2_op_id] =
         output.stdout.raw().lines().next_array().unwrap();
-    insta::assert_snapshot!(head_op_id, @"d566adf20e48");
-    insta::assert_snapshot!(p1_op_id, @"7bba3a63b73b");
+    insta::assert_snapshot!(head_op_id, @"d2efaed750ca");
+    insta::assert_snapshot!(p1_op_id, @"ca553356e5a7");
     insta::assert_snapshot!(p2_op_id, @"252ff3a5a0e6");
 
     // Diff between p1 and p2 operations should work no matter if p2 is chosen
@@ -1721,7 +1721,7 @@ fn test_op_diff_sibling() {
         "--summary",
     ]);
     insta::assert_snapshot!(output, @r"
-    From operation: 7bba3a63b73b (2001-02-03 08:05:11) new empty commit
+    From operation: ca553356e5a7 (2001-02-03 08:05:11) new empty commit
       To operation: 252ff3a5a0e6 (2001-02-03 08:05:12) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
 
     Changed commits:
@@ -1752,7 +1752,7 @@ fn test_op_diff_sibling() {
     ]);
     insta::assert_snapshot!(output, @r"
     From operation: 252ff3a5a0e6 (2001-02-03 08:05:12) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
-      To operation: 7bba3a63b73b (2001-02-03 08:05:11) new empty commit
+      To operation: ca553356e5a7 (2001-02-03 08:05:11) new empty commit
 
     Changed commits:
     ○  - qpvuntsm hidden b1ca67e2 (empty) B
@@ -1792,7 +1792,7 @@ fn test_op_diff_divergent_change() {
     │  2b
     │ ○  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:10 a7e9a63b
     ├─╯  2a
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 8a06f3b3
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 git_head() 8a06f3b3
     │  1
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -1806,7 +1806,7 @@ fn test_op_diff_divergent_change() {
     insta::assert_snapshot!(work_dir.run_jj(["log"]), @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:15 da3f472d
     │  2ab
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 8a06f3b3
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 git_head() 8a06f3b3
     │  1
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -1823,8 +1823,8 @@ fn test_op_diff_divergent_change() {
         &divergent_op_id,
     ]);
     insta::assert_snapshot!(output, @r"
-    From operation: ef75d88dd5fe (2001-02-03 08:05:08) commit 5d86d4b609080a15077fcd723e537582d5ea6559
-      To operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+    From operation: 31443b97e69f (2001-02-03 08:05:08) commit 5d86d4b609080a15077fcd723e537582d5ea6559
+      To operation: 7175d410421b (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
 
     Changed commits:
     ○  + rlvkpnrz?? 82ad1ba9 2b
@@ -1848,8 +1848,8 @@ fn test_op_diff_divergent_change() {
         &resolved_op_id,
     ]);
     insta::assert_snapshot!(output, @r"
-    From operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
-      To operation: 6a444a3d42e6 (2001-02-03 08:05:15) squash commits into 82ad1ba9ded407bab6fea1524b207f49a02779a0
+    From operation: 7175d410421b (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+      To operation: d2e7ff5b4180 (2001-02-03 08:05:15) squash commits into 82ad1ba9ded407bab6fea1524b207f49a02779a0
 
     Changed commits:
     ○  + rlvkpnrz da3f472d 2ab
@@ -1873,8 +1873,8 @@ fn test_op_diff_divergent_change() {
         &divergent_op_id,
     ]);
     insta::assert_snapshot!(output, @r"
-    From operation: ef75d88dd5fe (2001-02-03 08:05:08) commit 5d86d4b609080a15077fcd723e537582d5ea6559
-      To operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+    From operation: 31443b97e69f (2001-02-03 08:05:08) commit 5d86d4b609080a15077fcd723e537582d5ea6559
+      To operation: 7175d410421b (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
 
     Changed commits:
     ○  + rlvkpnrz?? 82ad1ba9 2b
@@ -1913,8 +1913,8 @@ fn test_op_diff_divergent_change() {
         &resolved_op_id,
     ]);
     insta::assert_snapshot!(output, @r"
-    From operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
-      To operation: 6a444a3d42e6 (2001-02-03 08:05:15) squash commits into 82ad1ba9ded407bab6fea1524b207f49a02779a0
+    From operation: 7175d410421b (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+      To operation: d2e7ff5b4180 (2001-02-03 08:05:15) squash commits into 82ad1ba9ded407bab6fea1524b207f49a02779a0
 
     Changed commits:
     ○  + rlvkpnrz da3f472d 2ab
@@ -1945,8 +1945,8 @@ fn test_op_diff_divergent_change() {
         &divergent_op_id,
     ]);
     insta::assert_snapshot!(output, @r"
-    From operation: 6a444a3d42e6 (2001-02-03 08:05:15) squash commits into 82ad1ba9ded407bab6fea1524b207f49a02779a0
-      To operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+    From operation: d2e7ff5b4180 (2001-02-03 08:05:15) squash commits into 82ad1ba9ded407bab6fea1524b207f49a02779a0
+      To operation: 7175d410421b (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
 
     Changed commits:
     ○  + rlvkpnrz?? 82ad1ba9 2b
@@ -1970,8 +1970,8 @@ fn test_op_diff_divergent_change() {
         &initial_op_id,
     ]);
     insta::assert_snapshot!(output, @r"
-    From operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
-      To operation: ef75d88dd5fe (2001-02-03 08:05:08) commit 5d86d4b609080a15077fcd723e537582d5ea6559
+    From operation: 7175d410421b (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+      To operation: 31443b97e69f (2001-02-03 08:05:08) commit 5d86d4b609080a15077fcd723e537582d5ea6559
 
     Changed commits:
     ○  + rlvkpnrz 4f7a567a (empty) (no description set)
@@ -2001,7 +2001,7 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
     │  (empty) 2a
     │ ○  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:11 8f35f6a6
     ├─╯  (empty) 2b
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 6666e5c3
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 git_head() 6666e5c3
     │  (empty) 1
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -2014,9 +2014,9 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
     // FIXME: the diff should be empty
     let output = work_dir.run_jj(["op", "diff"]);
     insta::assert_snapshot!(output, @r"
-    From operation: 69ec49158b0e (2001-02-03 08:05:09) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
-    From operation: 0c5076ddf77d (2001-02-03 08:05:10) describe commit ab92d1a87bebb4300165a16a753c5403bd7bc578
-      To operation: ac3c7e679e31 (2001-02-03 08:05:11) reconcile divergent operations
+    From operation: 102b6ff2d413 (2001-02-03 08:05:09) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    From operation: 98f1b011c0f2 (2001-02-03 08:05:10) describe commit ab92d1a87bebb4300165a16a753c5403bd7bc578
+      To operation: f4c9fa3f2305 (2001-02-03 08:05:11) reconcile divergent operations
 
     Changed commits:
     ○  + rlvkpnrz?? 8f35f6a6 (empty) 2b
@@ -2026,7 +2026,7 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
 
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @r"
-    ac3c7e679e31 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    f4c9fa3f2305 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     reconcile divergent operations
     args: jj log
     [EOF]
@@ -2034,10 +2034,10 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
 
     let output = work_dir.run_jj(["op", "log", "--op-diff", "--limit=3"]);
     insta::assert_snapshot!(output, @r"
-    @    ac3c7e679e31 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    @    f4c9fa3f2305 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     ├─╮  reconcile divergent operations
     │ │  args: jj log
-    ○ │  69ec49158b0e test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    ○ │  102b6ff2d413 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │ │  describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
     │ │  args: jj describe -r@- -m1
     │ │
@@ -2050,7 +2050,7 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
     │ │  Changed working copy default@:
     │ │  + rlvkpnrz 7ed5a610 (empty) 2a
     │ │  - rlvkpnrz hidden ab92d1a8 (empty) 2a
-    │ ○  0c5076ddf77d test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    │ ○  98f1b011c0f2 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     ├─╯  describe commit ab92d1a87bebb4300165a16a753c5403bd7bc578
     │    args: jj describe '--at-op=@-' -m2b
     │
@@ -2090,7 +2090,7 @@ fn test_op_diff_word_wrap() {
     // ui.log-word-wrap option works, and diff stat respects content width
     insta::assert_snapshot!(render(&["op", "diff", "--from=@---", "--stat"], 40, true), @r"
     From operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
-      To operation: 4fe1b71ec70b (2001-02-03 08:05:08) snapshot working copy
+      To operation: 359d673a34d0 (2001-02-03 08:05:08) snapshot working copy
 
     Changed commits:
     ○  + sqpuoqvx f6f32c19 (no description
@@ -2145,7 +2145,7 @@ fn test_op_diff_word_wrap() {
     insta::assert_snapshot!(
         render(&["op", "diff", "--from=@---", "--config", config], 10, true), @r"
     From operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
-      To operation: 4fe1b71ec70b (2001-02-03 08:05:08) snapshot working copy
+      To operation: 359d673a34d0 (2001-02-03 08:05:08) snapshot working copy
 
     Changed
     commits:
@@ -2233,7 +2233,7 @@ fn test_op_show() {
     // Overview of op log.
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @r"
-    @  f63e1950e7be test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    @  4ac7ba7a10ad test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     │  track remote bookmark bookmark-1@origin
     │  args: jj bookmark track bookmark-1@origin
     ○  e922d994bdc4 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
@@ -2255,7 +2255,7 @@ fn test_op_show() {
     // Showing the latest operation.
     let output = work_dir.run_jj(["op", "show", "@"]);
     insta::assert_snapshot!(output, @r"
-    f63e1950e7be test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    4ac7ba7a10ad test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     track remote bookmark bookmark-1@origin
     args: jj bookmark track bookmark-1@origin
 
@@ -2315,7 +2315,7 @@ fn test_op_show() {
     insta::assert_snapshot!(output, @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
-    │ ○  pukowqtp someone@example.org 1970-01-01 11:00:00 bookmark-1?? bookmark-1@origin 0cb7e07e
+    │ ○  pukowqtp someone@example.org 1970-01-01 11:00:00 bookmark-1?? bookmark-1@git bookmark-1@origin 0cb7e07e
     ├─╯  Commit 1
     ◆  zzzzzzzz root() 00000000
     [EOF]
@@ -2326,7 +2326,7 @@ fn test_op_show() {
     // Showing a merge operation is empty.
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @r"
-    d1cef38569e5 test-username@host.example.com 2001-02-03 04:05:17.000 +07:00 - 2001-02-03 04:05:17.000 +07:00
+    b336b127ddd2 test-username@host.example.com 2001-02-03 04:05:17.000 +07:00 - 2001-02-03 04:05:17.000 +07:00
     reconcile divergent operations
     args: jj log
     [EOF]
@@ -2345,7 +2345,7 @@ fn test_op_show() {
     ");
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @r"
-    25f087162efe test-username@host.example.com 2001-02-03 04:05:19.000 +07:00 - 2001-02-03 04:05:19.000 +07:00
+    749c69c77b07 test-username@host.example.com 2001-02-03 04:05:19.000 +07:00 - 2001-02-03 04:05:19.000 +07:00
     fetch from git remote(s) origin
     args: jj git fetch
 
@@ -2358,13 +2358,13 @@ fn test_op_show() {
     bookmark-1:
     + (added) zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
     + (added) rnnslrkn 4ff62539 bookmark-1?? | Commit 2
-    - (added) pukowqtp 0cb7e07e Commit 1
+    - (added) pukowqtp 0cb7e07e bookmark-1@git | Commit 1
     - (added) rnnslrkn 4ff62539 bookmark-1?? | Commit 2
 
     Changed remote bookmarks:
     bookmark-1@origin:
     + tracked zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
-    - tracked pukowqtp 0cb7e07e Commit 1
+    - tracked pukowqtp 0cb7e07e bookmark-1@git | Commit 1
     bookmark-2@origin:
     + untracked kulxwnxm e1a239a5 bookmark-2@origin | Commit 5
     - untracked rnnslrkn 4ff62539 bookmark-1?? | Commit 2
@@ -2389,7 +2389,7 @@ fn test_op_show() {
     ");
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @r"
-    3f01d2bbe9da test-username@host.example.com 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
+    4cdbb3763db9 test-username@host.example.com 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
     create bookmark bookmark-2 pointing to commit e1a239a57eb15cefc5910198befbbbe2b43c47af
     args: jj bookmark create bookmark-2 -r bookmark-2@origin
 
@@ -2409,7 +2409,7 @@ fn test_op_show() {
     ");
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @r"
-    b9fec1580033 test-username@host.example.com 2001-02-03 04:05:23.000 +07:00 - 2001-02-03 04:05:23.000 +07:00
+    2af49708535a test-username@host.example.com 2001-02-03 04:05:23.000 +07:00 - 2001-02-03 04:05:23.000 +07:00
     track remote bookmark bookmark-2@origin
     args: jj bookmark track bookmark-2@origin
 
@@ -2430,7 +2430,7 @@ fn test_op_show() {
     ");
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @r"
-    b9fec1580033 test-username@host.example.com 2001-02-03 04:05:23.000 +07:00 - 2001-02-03 04:05:23.000 +07:00
+    2af49708535a test-username@host.example.com 2001-02-03 04:05:23.000 +07:00 - 2001-02-03 04:05:23.000 +07:00
     track remote bookmark bookmark-2@origin
     args: jj bookmark track bookmark-2@origin
 
@@ -2452,7 +2452,7 @@ fn test_op_show() {
     ");
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @r"
-    de4c030a0bc0 test-username@host.example.com 2001-02-03 04:05:27.000 +07:00 - 2001-02-03 04:05:27.000 +07:00
+    399181055986 test-username@host.example.com 2001-02-03 04:05:27.000 +07:00 - 2001-02-03 04:05:27.000 +07:00
     new empty commit
     args: jj new bookmark-1@origin -m 'new commit'
 
@@ -2475,7 +2475,7 @@ fn test_op_show() {
     ");
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @r"
-    3719246c9ba5 test-username@host.example.com 2001-02-03 04:05:29.000 +07:00 - 2001-02-03 04:05:29.000 +07:00
+    de8ce83af8c8 test-username@host.example.com 2001-02-03 04:05:29.000 +07:00 - 2001-02-03 04:05:29.000 +07:00
     point bookmark bookmark-1 to commit 8f340dd76dc637e4deac17f30056eef7d8eaf682
     args: jj bookmark set bookmark-1 -r @
 
@@ -2496,7 +2496,7 @@ fn test_op_show() {
     ");
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @r"
-    5dc28083437f test-username@host.example.com 2001-02-03 04:05:31.000 +07:00 - 2001-02-03 04:05:31.000 +07:00
+    9471f0ec1660 test-username@host.example.com 2001-02-03 04:05:31.000 +07:00 - 2001-02-03 04:05:31.000 +07:00
     delete bookmark bookmark-2
     args: jj bookmark delete bookmark-2
 
@@ -2518,7 +2518,7 @@ fn test_op_show() {
     ");
     let output = work_dir.run_jj(["op", "show"]);
     insta::assert_snapshot!(output, @r"
-    7d47c561dcb4 test-username@host.example.com 2001-02-03 04:05:33.000 +07:00 - 2001-02-03 04:05:33.000 +07:00
+    87e9bae0f715 test-username@host.example.com 2001-02-03 04:05:33.000 +07:00 - 2001-02-03 04:05:33.000 +07:00
     push all tracked bookmarks to git remote origin
     args: jj git push --tracked --deleted
 
@@ -2572,7 +2572,7 @@ fn test_op_show_patch() {
     ");
     let output = work_dir.run_jj(["op", "show", "@", "-p", "--git"]);
     insta::assert_snapshot!(output, @r"
-    ed6f6674bcf8 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    84ae75930314 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     new empty commit
     args: jj new
 
@@ -2596,7 +2596,7 @@ fn test_op_show_patch() {
     ");
     let output = work_dir.run_jj(["op", "show", "-p", "--git"]);
     insta::assert_snapshot!(output, @r"
-    cfb8edbeae42 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    990b6375d0dc test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     squash commits into 6b57e33cc56babbeaa6bcd6e2a296236b52ad93c
     args: jj squash
 
@@ -2631,7 +2631,7 @@ fn test_op_show_patch() {
     ");
     let output = work_dir.run_jj(["op", "show", "-p", "--git"]);
     insta::assert_snapshot!(output, @r"
-    dd1ab16f2720 test-username@host.example.com 2001-02-03 04:05:13.000 +07:00 - 2001-02-03 04:05:13.000 +07:00
+    e262e1ac35cc test-username@host.example.com 2001-02-03 04:05:13.000 +07:00 - 2001-02-03 04:05:13.000 +07:00
     abandon commit 6cbd01aefe5ae05a015328311dbd63b7305b8ebe
     args: jj abandon
 
@@ -2648,7 +2648,7 @@ fn test_op_show_patch() {
     // Try again with "op log".
     let output = work_dir.run_jj(["op", "log", "--git"]);
     insta::assert_snapshot!(output, @r"
-    @  dd1ab16f2720 test-username@host.example.com 2001-02-03 04:05:13.000 +07:00 - 2001-02-03 04:05:13.000 +07:00
+    @  e262e1ac35cc test-username@host.example.com 2001-02-03 04:05:13.000 +07:00 - 2001-02-03 04:05:13.000 +07:00
     │  abandon commit 6cbd01aefe5ae05a015328311dbd63b7305b8ebe
     │  args: jj abandon
     │
@@ -2659,7 +2659,7 @@ fn test_op_show_patch() {
     │  Changed working copy default@:
     │  + yqosqzyt c97a8573 (empty) (no description set)
     │  - mzvwutvl hidden 6cbd01ae (empty) (no description set)
-    ○  cfb8edbeae42 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    ○  990b6375d0dc test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     │  squash commits into 6b57e33cc56babbeaa6bcd6e2a296236b52ad93c
     │  args: jj squash
     │
@@ -2679,7 +2679,7 @@ fn test_op_show_patch() {
     │  Changed working copy default@:
     │  + mzvwutvl 6cbd01ae (empty) (no description set)
     │  - rlvkpnrz hidden 05a2969e (no description set)
-    ○  36a5d140ea10 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    ○  e75702937fe2 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     │  snapshot working copy
     │  args: jj squash
     │
@@ -2697,7 +2697,7 @@ fn test_op_show_patch() {
     │  Changed working copy default@:
     │  + rlvkpnrz 05a2969e (no description set)
     │  - rlvkpnrz hidden c1c924b8 (empty) (no description set)
-    ○  ed6f6674bcf8 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    ○  84ae75930314 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  new empty commit
     │  args: jj new
     │
