@@ -154,6 +154,7 @@ fn test_debug_index() {
     let work_dir = test_env.work_dir("repo");
     let output = work_dir.run_jj(["debug", "index"]);
     assert_snapshot!(filter_index_stats(output), @r"
+    === Commits ===
     Number of commits: 2
     Number of merges: 0
     Max generation number: 1
@@ -163,6 +164,9 @@ fn test_debug_index() {
       Level 0:
         Number of commits: 2
         Name: [hash]
+    === Changed paths ===
+    Indexed commits: none
+    Stats per level:
     [EOF]
     ");
 }
@@ -176,6 +180,7 @@ fn test_debug_reindex() {
     work_dir.run_jj(["new"]).success();
     let output = work_dir.run_jj(["debug", "index"]);
     assert_snapshot!(filter_index_stats(output), @r"
+    === Commits ===
     Number of commits: 4
     Number of merges: 0
     Max generation number: 3
@@ -188,6 +193,9 @@ fn test_debug_reindex() {
       Level 1:
         Number of commits: 1
         Name: [hash]
+    === Changed paths ===
+    Indexed commits: none
+    Stats per level:
     [EOF]
     ");
     let output = work_dir.run_jj(["debug", "reindex"]);
@@ -198,6 +206,7 @@ fn test_debug_reindex() {
     ");
     let output = work_dir.run_jj(["debug", "index"]);
     assert_snapshot!(filter_index_stats(output), @r"
+    === Commits ===
     Number of commits: 4
     Number of merges: 0
     Max generation number: 3
@@ -207,6 +216,9 @@ fn test_debug_reindex() {
       Level 0:
         Number of commits: 4
         Name: [hash]
+    === Changed paths ===
+    Indexed commits: none
+    Stats per level:
     [EOF]
     ");
 }

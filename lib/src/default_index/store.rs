@@ -26,11 +26,16 @@ use std::slice;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
+use prost::Message as _;
 use tempfile::NamedTempFile;
+use tempfile::PersistError;
 use thiserror::Error;
 
+use super::changed_path::ChangedPathIndexSegmentId;
 use super::changed_path::CompositeChangedPathIndex;
 use super::composite::CommitIndexSegmentId;
+use super::entry::GlobalCommitPosition;
 use super::mutable::DefaultMutableIndex;
 use super::readonly::DefaultReadonlyIndex;
 use super::readonly::FieldLengths;
@@ -44,7 +49,6 @@ use crate::dag_walk;
 use crate::file_util;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
-use crate::file_util::persist_content_addressed_temp_file;
 use crate::index::Index as _;
 use crate::index::IndexReadError;
 use crate::index::IndexStore;
@@ -74,16 +78,16 @@ impl From<DefaultIndexStoreInitError> for BackendInitError {
 
 #[derive(Debug, Error)]
 pub enum DefaultIndexStoreError {
-    #[error("Failed to associate commit index file with an operation {op_id}")]
+    #[error("Failed to associate index files with an operation {op_id}")]
     AssociateIndex {
         op_id: OperationId,
         source: PathError,
     },
-    #[error("Failed to load associated commit index file name")]
+    #[error("Failed to load associated index file names")]
     LoadAssociation(#[source] PathError),
     #[error(transparent)]
     LoadIndex(ReadonlyIndexLoadError),
-    #[error("Failed to write commit index file")]
+    #[error("Failed to write index file")]
     SaveIndex(#[source] PathError),
     #[error("Failed to index commits at operation {op_id}")]
     IndexCommits {
@@ -122,10 +126,12 @@ impl DefaultIndexStore {
         // Create base directories in case the store was initialized by old jj.
         self.ensure_base_dirs()?;
         // Remove all operation links to trigger rebuilding.
-        file_util::remove_dir_contents(&self.operations_dir())?;
+        file_util::remove_dir_contents(&self.op_links_dir())?;
+        file_util::remove_dir_contents(&self.legacy_operations_dir())?;
         // Remove index segments to save disk space. If raced, new segment file
         // will be created by the other process.
         file_util::remove_dir_contents(&self.commit_segments_dir())?;
+        file_util::remove_dir_contents(&self.changed_path_segments_dir())?;
         // jj <= 0.14 created segment files in the top directory
         for entry in self.dir.read_dir().context(&self.dir)? {
             let entry = entry.context(&self.dir)?;
@@ -140,13 +146,24 @@ impl DefaultIndexStore {
     }
 
     fn ensure_base_dirs(&self) -> Result<(), PathError> {
-        for dir in [self.operations_dir(), self.commit_segments_dir()] {
+        for dir in [
+            self.op_links_dir(),
+            self.legacy_operations_dir(),
+            self.commit_segments_dir(),
+            self.changed_path_segments_dir(),
+        ] {
             file_util::create_or_reuse_dir(&dir).context(&dir)?;
         }
         Ok(())
     }
 
-    fn operations_dir(&self) -> PathBuf {
+    /// Directory for mapping from operations to segments. (jj >= 0.33)
+    fn op_links_dir(&self) -> PathBuf {
+        self.dir.join("op_links")
+    }
+
+    /// Directory for mapping from operations to commit segments. (jj < 0.33)
+    fn legacy_operations_dir(&self) -> PathBuf {
         self.dir.join("operations")
     }
 
@@ -155,23 +172,71 @@ impl DefaultIndexStore {
         self.dir.join("segments")
     }
 
+    /// Directory for changed-path segment files.
+    fn changed_path_segments_dir(&self) -> PathBuf {
+        self.dir.join("changed_paths")
+    }
+
     fn load_index_at_operation(
         &self,
         op_id: &OperationId,
         lengths: FieldLengths,
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
-        let op_id_file = self.operations_dir().join(op_id.hex());
-        let index_file_id_hex = fs::read(&op_id_file)
-            .context(&op_id_file)
-            .map_err(DefaultIndexStoreError::LoadAssociation)?;
-        let index_file_id = CommitIndexSegmentId::try_from_hex(&index_file_id_hex)
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "file name is not valid hex"))
-            .context(&op_id_file)
-            .map_err(DefaultIndexStoreError::LoadAssociation)?;
-        let commits =
-            ReadonlyCommitIndexSegment::load(&self.commit_segments_dir(), index_file_id, lengths)
-                .map_err(DefaultIndexStoreError::LoadIndex)?;
-        let changed_paths = CompositeChangedPathIndex::null(); // TODO
+        let commit_segment_id;
+        let changed_path_start_commit_pos;
+        let changed_path_segment_ids;
+        let op_link_file = self.op_links_dir().join(op_id.hex());
+        match fs::read(&op_link_file).context(&op_link_file) {
+            Ok(data) => {
+                let proto = crate::protos::default_index::SegmentControl::decode(&*data)
+                    .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))
+                    .context(&op_link_file)
+                    .map_err(DefaultIndexStoreError::LoadAssociation)?;
+                commit_segment_id = CommitIndexSegmentId::new(proto.commit_segment_id);
+                changed_path_start_commit_pos = proto
+                    .changed_path_start_commit_pos
+                    .map(GlobalCommitPosition);
+                changed_path_segment_ids = proto
+                    .changed_path_segment_ids
+                    .into_iter()
+                    .map(ChangedPathIndexSegmentId::new)
+                    .collect_vec();
+            }
+            // TODO: drop support for legacy operation link file in jj 0.39 or so
+            Err(PathError { error, .. }) if error.kind() == io::ErrorKind::NotFound => {
+                let op_id_file = self.legacy_operations_dir().join(op_id.hex());
+                let data = fs::read(&op_id_file)
+                    .context(&op_id_file)
+                    .map_err(DefaultIndexStoreError::LoadAssociation)?;
+                commit_segment_id = CommitIndexSegmentId::try_from_hex(&data)
+                    .ok_or_else(|| {
+                        io::Error::new(io::ErrorKind::InvalidData, "file name is not valid hex")
+                    })
+                    .context(&op_id_file)
+                    .map_err(DefaultIndexStoreError::LoadAssociation)?;
+                changed_path_start_commit_pos = None;
+                changed_path_segment_ids = vec![];
+            }
+            Err(err) => return Err(DefaultIndexStoreError::LoadAssociation(err)),
+        };
+
+        let commits = ReadonlyCommitIndexSegment::load(
+            &self.commit_segments_dir(),
+            commit_segment_id,
+            lengths,
+        )
+        .map_err(DefaultIndexStoreError::LoadIndex)?;
+        // TODO: lazy load or mmap?
+        let changed_paths = if let Some(start_commit_pos) = changed_path_start_commit_pos {
+            CompositeChangedPathIndex::load(
+                &self.changed_path_segments_dir(),
+                start_commit_pos,
+                &changed_path_segment_ids,
+            )
+            .map_err(DefaultIndexStoreError::LoadIndex)?
+        } else {
+            CompositeChangedPathIndex::null()
+        };
         Ok(DefaultReadonlyIndex::from_segment(commits, changed_paths))
     }
 
@@ -180,13 +245,14 @@ impl DefaultIndexStore {
     /// The index to be built will be calculated from one of the ancestor
     /// operations if exists. Use `reinit()` to rebuild index from scratch.
     #[tracing::instrument(skip(self, store))]
-    pub fn build_index_at_operation(
+    pub async fn build_index_at_operation(
         &self,
         operation: &Operation,
         store: &Arc<Store>,
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
         tracing::info!("scanning operations to index");
-        let operations_dir = self.operations_dir();
+        let op_links_dir = self.op_links_dir();
+        let legacy_operations_dir = self.legacy_operations_dir();
         let field_lengths = FieldLengths {
             commit_id: store.commit_id_length(),
             change_id: store.change_id_length(),
@@ -196,7 +262,9 @@ impl DefaultIndexStore {
         let mut parent_op = None;
         for op in op_walk::walk_ancestors(slice::from_ref(operation)) {
             let op = op?;
-            if operations_dir.join(op.id().hex()).is_file() {
+            if op_links_dir.join(op.id().hex()).is_file()
+                || legacy_operations_dir.join(op.id().hex()).is_file()
+            {
                 parent_op = Some(op);
                 break;
             } else {
@@ -307,8 +375,13 @@ impl DefaultIndexStore {
             },
             |_| panic!("graph has cycle"),
         )?;
-        for (CommitByCommitterTimestamp(commit), _) in commits.iter().rev() {
-            mutable_index.add_commit(commit);
+        for (CommitByCommitterTimestamp(commit), op_id) in commits.iter().rev() {
+            mutable_index.add_commit(commit).await.map_err(|source| {
+                DefaultIndexStoreError::IndexCommits {
+                    op_id: op_id.clone(),
+                    source,
+                }
+            })?;
         }
 
         let index = self.save_mutable_index(mutable_index, operation.id())?;
@@ -317,17 +390,52 @@ impl DefaultIndexStore {
         Ok(index)
     }
 
+    // TODO: for testing; replace with "build" function
+    pub fn enable_changed_path_index_at_operation(
+        &self,
+        op_id: &OperationId,
+        store: &Arc<Store>,
+    ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
+        // Create directories in case the store was initialized by jj < 0.33.
+        self.ensure_base_dirs()
+            .map_err(DefaultIndexStoreError::SaveIndex)?;
+        let field_lengths = FieldLengths {
+            commit_id: store.commit_id_length(),
+            change_id: store.change_id_length(),
+        };
+        let index = self.load_index_at_operation(op_id, field_lengths)?;
+        if index.changed_paths().start_commit_pos().is_some() {
+            return Ok(index);
+        }
+        let changed_paths =
+            CompositeChangedPathIndex::empty(GlobalCommitPosition(index.num_commits()));
+        let commits = index.readonly_commits().clone();
+        let index = DefaultReadonlyIndex::from_segment(commits, changed_paths);
+        self.associate_index_with_operation(&index, op_id)
+            .map_err(|source| DefaultIndexStoreError::AssociateIndex {
+                op_id: op_id.to_owned(),
+                source,
+            })?;
+        Ok(index)
+    }
+
     fn save_mutable_index(
         &self,
         index: DefaultMutableIndex,
         op_id: &OperationId,
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
-        let (commits, changed_paths) = index.into_segment();
+        // Create directories in case the store was initialized by jj < 0.33.
+        self.ensure_base_dirs()
+            .map_err(DefaultIndexStoreError::SaveIndex)?;
+        let (commits, mut changed_paths) = index.into_segment();
         let commits = commits
             .maybe_squash_with_ancestors()
             .save_in(&self.commit_segments_dir())
             .map_err(DefaultIndexStoreError::SaveIndex)?;
-        // TODO: changed_paths
+        // TODO: changed_paths.maybe_squash_with_ancestors()
+        changed_paths
+            .save_in(&self.changed_path_segments_dir())
+            .map_err(DefaultIndexStoreError::SaveIndex)?;
         let index = DefaultReadonlyIndex::from_segment(commits, changed_paths);
         self.associate_index_with_operation(&index, op_id)
             .map_err(|source| DefaultIndexStoreError::AssociateIndex {
@@ -343,13 +451,41 @@ impl DefaultIndexStore {
         index: &DefaultReadonlyIndex,
         op_id: &OperationId,
     ) -> Result<(), PathError> {
-        let dir = self.operations_dir();
+        let proto = crate::protos::default_index::SegmentControl {
+            commit_segment_id: index.readonly_commits().id().to_bytes(),
+            changed_path_start_commit_pos: index
+                .changed_paths()
+                .start_commit_pos()
+                .map(|GlobalCommitPosition(start)| start),
+            changed_path_segment_ids: index
+                .changed_paths()
+                .readonly_segments()
+                .iter()
+                .map(|segment| segment.id().to_bytes())
+                .collect(),
+        };
+        let dir = self.op_links_dir();
+        let mut temp_file = NamedTempFile::new_in(&dir).context(&dir)?;
+        let file = temp_file.as_file_mut();
+        file.write_all(&proto.encode_to_vec())
+            .context(temp_file.path())?;
+        let path = dir.join(op_id.hex());
+        temp_file
+            .persist(&path)
+            .map_err(|PersistError { error, file: _ }| error)
+            .context(&path)?;
+
+        // TODO: drop support for legacy operation link file in jj 0.39 or so
+        let dir = self.legacy_operations_dir();
         let mut temp_file = NamedTempFile::new_in(&dir).context(&dir)?;
         let file = temp_file.as_file_mut();
         file.write_all(index.readonly_commits().id().hex().as_bytes())
             .context(temp_file.path())?;
         let path = dir.join(op_id.hex());
-        persist_content_addressed_temp_file(temp_file, &path).context(&path)?;
+        temp_file
+            .persist(&path)
+            .map_err(|PersistError { error, file: _ }| error)
+            .context(&path)?;
         Ok(())
     }
 }
@@ -376,7 +512,7 @@ impl IndexStore for DefaultIndexStore {
             Err(DefaultIndexStoreError::LoadAssociation(PathError { error, .. }))
                 if error.kind() == io::ErrorKind::NotFound =>
             {
-                self.build_index_at_operation(op, store)
+                self.build_index_at_operation(op, store).block_on()
             }
             Err(DefaultIndexStoreError::LoadIndex(err)) if err.is_corrupt_or_not_found() => {
                 // If the index was corrupt (maybe it was written in a different format),
@@ -397,7 +533,7 @@ impl IndexStore for DefaultIndexStore {
                     }
                 }
                 self.reinit().map_err(|err| IndexReadError(err.into()))?;
-                self.build_index_at_operation(op, store)
+                self.build_index_at_operation(op, store).block_on()
             }
             result => result,
         }

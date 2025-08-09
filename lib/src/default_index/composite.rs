@@ -557,6 +557,10 @@ impl CompositeIndex {
         &self.changed_paths
     }
 
+    pub(super) fn changed_paths_mut(&mut self) -> &mut CompositeChangedPathIndex {
+        &mut self.changed_paths
+    }
+
     pub(super) fn evaluate_revset(
         &self,
         expression: &ResolvedExpression,

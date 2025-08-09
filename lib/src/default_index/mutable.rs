@@ -29,11 +29,13 @@ use std::sync::Arc;
 use blake2::Blake2b512;
 use digest::Digest as _;
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 use smallvec::SmallVec;
 use smallvec::smallvec;
 use tempfile::NamedTempFile;
 
 use super::changed_path::CompositeChangedPathIndex;
+use super::changed_path::collect_changed_paths;
 use super::composite::AsCompositeIndex;
 use super::composite::ChangeIdIndexImpl;
 use super::composite::CommitIndexSegment;
@@ -50,6 +52,7 @@ use super::readonly::DefaultReadonlyIndex;
 use super::readonly::FieldLengths;
 use super::readonly::OVERFLOW_FLAG;
 use super::readonly::ReadonlyCommitIndexSegment;
+use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::commit::Commit;
@@ -484,13 +487,21 @@ impl DefaultMutableIndex {
         self.0.commits().num_commits()
     }
 
-    pub(super) fn add_commit(&mut self, commit: &Commit) {
+    #[tracing::instrument(skip(self))]
+    pub(super) async fn add_commit(&mut self, commit: &Commit) -> BackendResult<()> {
+        let new_commit_pos = GlobalCommitPosition(self.num_commits());
         self.add_commit_data(
             commit.id().clone(),
             commit.change_id().clone(),
             commit.parent_ids(),
         );
-        // TODO: index changed paths if enabled
+        if new_commit_pos == GlobalCommitPosition(self.num_commits()) {
+            return Ok(()); // commit already indexed
+        }
+        if self.0.changed_paths().next_mutable_commit_pos() == Some(new_commit_pos) {
+            self.add_commit_changed_paths(commit).await?;
+        }
+        Ok(())
     }
 
     pub(super) fn add_commit_data(
@@ -501,6 +512,14 @@ impl DefaultMutableIndex {
     ) {
         self.mutable_commits()
             .add_commit_data(commit_id, change_id, parent_ids);
+    }
+
+    // CompositeChangedPathIndex::add_commit() isn't implemented because we need
+    // a commit index to merge parent trees, which means we need to borrow self.
+    async fn add_commit_changed_paths(&mut self, commit: &Commit) -> BackendResult<()> {
+        let paths = collect_changed_paths(self, commit).await?;
+        self.0.changed_paths_mut().add_changed_paths(paths);
+        Ok(())
     }
 }
 
@@ -574,8 +593,9 @@ impl MutableIndex for DefaultMutableIndex {
     }
 
     fn add_commit(&mut self, commit: &Commit) -> Result<(), IndexError> {
-        Self::add_commit(self, commit);
-        Ok(())
+        Self::add_commit(self, commit)
+            .block_on()
+            .map_err(|err| IndexError(err.into()))
     }
 
     fn merge_in(&mut self, other: &dyn ReadonlyIndex) {

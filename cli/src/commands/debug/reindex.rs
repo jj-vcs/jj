@@ -16,6 +16,7 @@ use std::fmt::Debug;
 use std::io::Write as _;
 
 use jj_lib::default_index::DefaultIndexStore;
+use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
@@ -42,6 +43,7 @@ pub fn cmd_debug_reindex(
         default_index_store.reinit().map_err(internal_error)?;
         let default_index = default_index_store
             .build_index_at_operation(&op, repo_loader.store())
+            .block_on()
             .map_err(internal_error)?;
         writeln!(
             ui.status(),
