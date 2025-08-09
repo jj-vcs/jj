@@ -13,6 +13,8 @@ This document contains the help content for the `jj` command-line program.
 * [`jj`↴](#jj)
 * [`jj abandon`↴](#jj-abandon)
 * [`jj absorb`↴](#jj-absorb)
+* [`jj bisect`↴](#jj-bisect)
+* [`jj bisect run`↴](#jj-bisect-run)
 * [`jj bookmark`↴](#jj-bookmark)
 * [`jj bookmark create`↴](#jj-bookmark-create)
 * [`jj bookmark delete`↴](#jj-bookmark-delete)
@@ -126,6 +128,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 
 * `abandon` — Abandon a revision
 * `absorb` — Move changes from a revision into the stack of mutable revisions
+* `bisect` — Find a bad revision by bisection
 * `bookmark` — Manage bookmarks [default alias: b]
 * `commit` — Update the description and create a new change on top [default alias: ci]
 * `config` — Manage config options
@@ -258,6 +261,39 @@ The modification made by `jj absorb` can be reviewed by `jj op show -p`.
    Only ancestors of the source revision will be considered.
 
   Default value: `mutable()`
+
+
+
+## `jj bisect`
+
+Find a bad revision by bisection
+
+**Usage:** `jj bisect <COMMAND>`
+
+###### **Subcommands:**
+
+* `run` — Automatically bisect by testing revisions using a given command
+
+
+
+## `jj bisect run`
+
+Automatically bisect by testing revisions using a given command.
+
+It is assumed that if the bug is present at a given revision, then it's also present at all descendant revisions in the input range.
+
+**Usage:** `jj bisect run [OPTIONS] --command <COMMAND>`
+
+###### **Options:**
+
+* `-r`, `--range <REVSETS>` — Range of revisions to bisect
+
+   This is typically a range like `v1.0..main`. The heads of the range are assumed to be bad.
+* `--command <COMMAND>` — Command to run to determine whether the bug is present
+
+   The command will be run from the workspace root. The exit status of the command will be used to mark revisions as good or bad: status 0 means good, 125 means to skip the revision, 127 (command not found) will abort the bisection, and any other non-zero exit status means the revision is bad.
+
+   The test target's commit ID is available to the command in the `$JJ_BISECT_TARGET` environment variable.
 
 
 
