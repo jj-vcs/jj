@@ -244,7 +244,7 @@ impl GitBackend {
                 .map_err(GitBackendInitError::Path)?
         };
         let git_repo = gix::ThreadSafeRepository::init_opts(
-            canonical_workspace_root,
+            &canonical_workspace_root,
             gix::create::Kind::WithWorktree,
             gix::create::Options::default(),
             gix_open_opts_from_settings(settings),
@@ -254,7 +254,13 @@ impl GitBackend {
         let git_settings = settings
             .git_settings()
             .map_err(GitBackendInitError::Config)?;
-        Self::init_with_repo(store_path, &git_repo_path, git_repo, git_settings)
+        let git_backend = Self::init_with_repo(store_path, &git_repo_path, git_repo, git_settings);
+        #[cfg(windows)]
+        if git_backend.is_ok() {
+            use crate::workspace::set_dotgit_and_dotjj_visibility;
+            set_dotgit_and_dotjj_visibility(&canonical_workspace_root);
+        }
+        git_backend
     }
 
     /// Initializes backend with an existing Git repo at the specified path.
