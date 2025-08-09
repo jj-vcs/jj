@@ -87,11 +87,11 @@ fn test_op_log() {
     │
     │  Changed commits:
     │  ○  + qpvuntsm 3ae22e7f (empty) description 0
-    │     - qpvuntsm hidden e8849ae1 (empty) (no description set)
+    │     - qpvuntsm?1 (hidden) e8849ae1 (empty) (no description set)
     │
     │  Changed working copy default@:
     │  + qpvuntsm 3ae22e7f (empty) description 0
-    │  - qpvuntsm hidden e8849ae1 (empty) (no description set)
+    │  - qpvuntsm?1 (hidden) e8849ae1 (empty) (no description set)
     ○  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
     │
@@ -113,11 +113,11 @@ fn test_op_log() {
     │
     │  Changed commits:
     │  ○  [38;5;2m+[39m [1m[38;5;13mq[38;5;8mpvuntsm[39m [38;5;12m3[38;5;8mae22e7f[39m [38;5;10m(empty)[39m description 0[0m
-    │     [38;5;1m-[39m [1m[39mq[0m[38;5;8mpvuntsm[39m hidden [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
+    │     [38;5;1m-[39m [1m[39mq[0m[38;5;8mpvuntsm[1m[39m?1[0m (hidden) [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
     │
     │  Changed working copy [38;5;2mdefault@[39m:
     │  [38;5;2m+[39m [1m[38;5;13mq[38;5;8mpvuntsm[39m [38;5;12m3[38;5;8mae22e7f[39m [38;5;10m(empty)[39m description 0[0m
-    │  [38;5;1m-[39m [1m[39mq[0m[38;5;8mpvuntsm[39m hidden [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
+    │  [38;5;1m-[39m [1m[39mq[0m[38;5;8mpvuntsm[1m[39m?1[0m (hidden) [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
     ○  [38;5;4m8f47435a3990[39m [38;5;3mtest-username@host.example.com[39m [38;5;6m2001-02-03 04:05:07.000 +07:00[39m - [38;5;6m2001-02-03 04:05:07.000 +07:00[39m
     │  add workspace 'default'
     │
@@ -520,14 +520,14 @@ fn test_op_log_word_wrap() {
     │  Changed commits:
     │  ○  + qpvuntsm 79f0968d (no
     │     description set)
-    │     - qpvuntsm hidden e8849ae1 (empty)
-    │     (no description set)
+    │     - qpvuntsm?1 (hidden) e8849ae1
+    │     (empty) (no description set)
     │
     │  Changed working copy default@:
     │  + qpvuntsm 79f0968d (no description
     │  set)
-    │  - qpvuntsm hidden e8849ae1 (empty)
-    │  (no description set)
+    │  - qpvuntsm?1 (hidden) e8849ae1
+    │  (empty) (no description set)
     ○  8f47435a3990
     │  test-username@host.example.com
     │  2001-02-03 04:05:07.000 +07:00 -
@@ -558,16 +558,16 @@ fn test_op_log_word_wrap() {
     │  Changed commits:
     │  ○  + qpvuntsm 79f0968d (no
     │     description set)
-    │     - qpvuntsm hidden e8849ae1 (empty)
-    │     (no description set)
+    │     - qpvuntsm?1 (hidden) e8849ae1
+    │     (empty) (no description set)
     │     file1 | 100 ++++++++++++++++++++++
     │     1 file changed, 100 insertions(+), 0 deletions(-)
     │
     │  Changed working copy default@:
     │  + qpvuntsm 79f0968d (no description
     │  set)
-    │  - qpvuntsm hidden e8849ae1 (empty)
-    │  (no description set)
+    │  - qpvuntsm?1 (hidden) e8849ae1
+    │  (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(render(&["op", "log", "-n1", "--no-graph", "--stat"], 40, true), @r"
@@ -580,15 +580,15 @@ fn test_op_log_word_wrap() {
 
     Changed commits:
     + qpvuntsm 79f0968d (no description set)
-    - qpvuntsm hidden e8849ae1 (empty) (no
-    description set)
+    - qpvuntsm?1 (hidden) e8849ae1 (empty)
+    (no description set)
     file1 | 100 ++++++++++++++++++++++++++++
     1 file changed, 100 insertions(+), 0 deletions(-)
 
     Changed working copy default@:
     + qpvuntsm 79f0968d (no description set)
-    - qpvuntsm hidden e8849ae1 (empty) (no
-    description set)
+    - qpvuntsm?1 (hidden) e8849ae1 (empty)
+    (no description set)
     [EOF]
     ");
 
@@ -996,9 +996,9 @@ fn test_op_recover_from_bad_gc() {
     // The repo should no longer be corrupt.
     let output = work_dir.run_jj(["log"]);
     insta::assert_snapshot!(output, @r"
-    @  mzvwutvl?? test.user@example.com 2001-02-03 08:05:12 29d07a2d
+    @  mzvwutvl?1 test.user@example.com 2001-02-03 08:05:12 29d07a2d
     │  (empty) 4
-    │ ○  mzvwutvl?? test.user@example.com 2001-02-03 08:05:15 bc027e2c
+    │ ○  mzvwutvl?0 test.user@example.com 2001-02-03 08:05:15 bc027e2c
     ├─╯  (empty) 4.1
     ○  zsuskuln test.user@example.com 2001-02-03 08:05:10 git_head() c2934cfb
     │  (empty) (no description set)
@@ -1230,30 +1230,30 @@ fn test_op_diff() {
       To operation: 000000000000 root()
 
     Changed commits:
-    ○  - rnnslrkn hidden 4ff62539 Commit 2
-    ○  - rnnkyono hidden 11671e4c Commit 3
-    ○  - pukowqtp hidden 0cb7e07e Commit 1
-    ○  - qpvuntsm hidden e8849ae1 (empty) (no description set)
+    ○  - rnnslrkn?0 (hidden) 4ff62539 Commit 2
+    ○  - rnnkyono?0 (hidden) 11671e4c Commit 3
+    ○  - pukowqtp?0 (hidden) 0cb7e07e Commit 1
+    ○  - qpvuntsm?0 (hidden) e8849ae1 (empty) (no description set)
 
     Changed working copy default@:
     + (absent)
-    - qpvuntsm hidden e8849ae1 (empty) (no description set)
+    - qpvuntsm?0 (hidden) e8849ae1 (empty) (no description set)
 
     Changed local bookmarks:
     bookmark-1:
     + (absent)
-    - pukowqtp hidden 0cb7e07e Commit 1
+    - pukowqtp?0 (hidden) 0cb7e07e Commit 1
 
     Changed remote bookmarks:
     bookmark-1@origin:
     + untracked (absent)
-    - tracked pukowqtp hidden 0cb7e07e Commit 1
+    - tracked pukowqtp?0 (hidden) 0cb7e07e Commit 1
     bookmark-2@origin:
     + untracked (absent)
-    - untracked rnnslrkn hidden 4ff62539 Commit 2
+    - untracked rnnslrkn?0 (hidden) 4ff62539 Commit 2
     bookmark-3@origin:
     + untracked (absent)
-    - untracked rnnkyono hidden 11671e4c Commit 3
+    - untracked rnnkyono?0 (hidden) 11671e4c Commit 3
     [EOF]
     ");
 
@@ -1358,7 +1358,7 @@ fn test_op_diff() {
     Changed commits:
     ○  + kulxwnxm e1a239a5 bookmark-2@origin | Commit 5
     ○  + zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
-    ○  - rnnkyono hidden 11671e4c Commit 3
+    ○  - rnnkyono?0 (hidden) 11671e4c Commit 3
 
     Changed local bookmarks:
     bookmark-1:
@@ -1376,7 +1376,7 @@ fn test_op_diff() {
     - untracked rnnslrkn 4ff62539 bookmark-1?? | Commit 2
     bookmark-3@origin:
     + untracked (absent)
-    - untracked rnnkyono hidden 11671e4c Commit 3
+    - untracked rnnkyono?0 (hidden) 11671e4c Commit 3
     [EOF]
     ");
 
@@ -1461,11 +1461,11 @@ fn test_op_diff() {
 
     Changed commits:
     ○  + xlzxqlsl 731ab199 (empty) new commit
-    ○  - qpvuntsm hidden e8849ae1 (empty) (no description set)
+    ○  - qpvuntsm?0 (hidden) e8849ae1 (empty) (no description set)
 
     Changed working copy default@:
     + xlzxqlsl 731ab199 (empty) new commit
-    - qpvuntsm hidden e8849ae1 (empty) (no description set)
+    - qpvuntsm?0 (hidden) e8849ae1 (empty) (no description set)
     [EOF]
     ");
 
@@ -1555,7 +1555,7 @@ fn test_op_diff_patch() {
 
     Changed commits:
     ○  + qpvuntsm 6b57e33c (no description set)
-       - qpvuntsm hidden e8849ae1 (empty) (no description set)
+       - qpvuntsm?1 (hidden) e8849ae1 (empty) (no description set)
        diff --git a/file b/file
        new file mode 100644
        index 0000000000..7898192261
@@ -1566,7 +1566,7 @@ fn test_op_diff_patch() {
 
     Changed working copy default@:
     + qpvuntsm 6b57e33c (no description set)
-    - qpvuntsm hidden e8849ae1 (empty) (no description set)
+    - qpvuntsm?1 (hidden) e8849ae1 (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "diff", "--op", "@", "-p", "--git"]);
@@ -1600,8 +1600,8 @@ fn test_op_diff_patch() {
     Changed commits:
     ○  + mzvwutvl 6cbd01ae (empty) (no description set)
     ○  + qpvuntsm 7aa2ec5d (no description set)
-       - qpvuntsm hidden 6b57e33c (no description set)
-       - rlvkpnrz hidden 05a2969e (no description set)
+       - qpvuntsm?1 (hidden) 6b57e33c (no description set)
+       - rlvkpnrz?0 (hidden) 05a2969e (no description set)
        diff --git a/file b/file
        index 7898192261..6178079822 100644
        --- a/file
@@ -1612,7 +1612,7 @@ fn test_op_diff_patch() {
 
     Changed working copy default@:
     + mzvwutvl 6cbd01ae (empty) (no description set)
-    - rlvkpnrz hidden 05a2969e (no description set)
+    - rlvkpnrz?0 (hidden) 05a2969e (no description set)
     [EOF]
     ");
 
@@ -1633,11 +1633,11 @@ fn test_op_diff_patch() {
 
     Changed commits:
     ○  + yqosqzyt c97a8573 (empty) (no description set)
-    ○  - mzvwutvl hidden 6cbd01ae (empty) (no description set)
+    ○  - mzvwutvl?0 (hidden) 6cbd01ae (empty) (no description set)
 
     Changed working copy default@:
     + yqosqzyt c97a8573 (empty) (no description set)
-    - mzvwutvl hidden 6cbd01ae (empty) (no description set)
+    - mzvwutvl?0 (hidden) 6cbd01ae (empty) (no description set)
     [EOF]
     ");
 }
@@ -1725,18 +1725,18 @@ fn test_op_diff_sibling() {
       To operation: 252ff3a5a0e6 (2001-02-03 08:05:12) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
 
     Changed commits:
-    ○    - mzvwutvl hidden 08c63613 (empty) A
+    ○    - mzvwutvl?0 (hidden) 08c63613 (empty) A
     ├─╮
-    │ ○  - kkmpptxz hidden 6c70a4f7 A.1
+    │ ○  - kkmpptxz?0 (hidden) 6c70a4f7 A.1
     │    A file1
-    ○  - zsuskuln hidden 47b9525e A.2
+    ○  - zsuskuln?0 (hidden) 47b9525e A.2
        A file2
     ○  + qpvuntsm b1ca67e2 (empty) B
-       - qpvuntsm hidden e8849ae1 (empty) (no description set)
+       - qpvuntsm?1 (hidden) e8849ae1 (empty) (no description set)
 
     Changed working copy default@:
     + qpvuntsm b1ca67e2 (empty) B
-    - mzvwutvl hidden 08c63613 (empty) A
+    - mzvwutvl?0 (hidden) 08c63613 (empty) A
     [EOF]
     ");
     let output = work_dir.run_jj([
@@ -1755,7 +1755,7 @@ fn test_op_diff_sibling() {
       To operation: 7bba3a63b73b (2001-02-03 08:05:11) new empty commit
 
     Changed commits:
-    ○  - qpvuntsm hidden b1ca67e2 (empty) B
+    ○  - qpvuntsm?0 (hidden) b1ca67e2 (empty) B
     ○    + mzvwutvl 08c63613 (empty) A
     ├─╮
     │ ○  + kkmpptxz 6c70a4f7 A.1
@@ -1765,7 +1765,7 @@ fn test_op_diff_sibling() {
 
     Changed working copy default@:
     + mzvwutvl 08c63613 (empty) A
-    - qpvuntsm hidden b1ca67e2 (empty) B
+    - qpvuntsm?0 (hidden) b1ca67e2 (empty) B
     [EOF]
     ");
 }
@@ -1788,9 +1788,9 @@ fn test_op_diff_divergent_change() {
     work_dir.write_file("file", "1\n2b\n");
     work_dir.run_jj(["desc", "-m2b"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["log"]), @r"
-    @  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:12 82ad1ba9
+    @  rlvkpnrz?0 test.user@example.com 2001-02-03 08:05:12 82ad1ba9
     │  2b
-    │ ○  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:10 a7e9a63b
+    │ ○  rlvkpnrz?1 test.user@example.com 2001-02-03 08:05:10 a7e9a63b
     ├─╯  2a
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 8a06f3b3
     │  1
@@ -1827,14 +1827,14 @@ fn test_op_diff_divergent_change() {
       To operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
 
     Changed commits:
-    ○  + rlvkpnrz?? 82ad1ba9 2b
-       - rlvkpnrz hidden 4f7a567a (empty) (no description set)
-    ○  + rlvkpnrz?? a7e9a63b 2a
-       - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+    ○  + rlvkpnrz?0 82ad1ba9 2b
+       - rlvkpnrz?4 (hidden) 4f7a567a (empty) (no description set)
+    ○  + rlvkpnrz?1 a7e9a63b 2a
+       - rlvkpnrz?4 (hidden) 4f7a567a (empty) (no description set)
 
     Changed working copy default@:
-    + rlvkpnrz?? 82ad1ba9 2b
-    - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+    + rlvkpnrz?0 82ad1ba9 2b
+    - rlvkpnrz?4 (hidden) 4f7a567a (empty) (no description set)
     [EOF]
     ");
 
@@ -1853,12 +1853,12 @@ fn test_op_diff_divergent_change() {
 
     Changed commits:
     ○  + rlvkpnrz da3f472d 2ab
-       - rlvkpnrz hidden 82ad1ba9 2b
-       - rlvkpnrz hidden a7e9a63b 2a
+       - rlvkpnrz?1 (hidden) 82ad1ba9 2b
+       - rlvkpnrz?3 (hidden) a7e9a63b 2a
 
     Changed working copy default@:
     + rlvkpnrz da3f472d 2ab
-    - rlvkpnrz hidden 82ad1ba9 2b
+    - rlvkpnrz?1 (hidden) 82ad1ba9 2b
     [EOF]
     ");
 
@@ -1877,8 +1877,8 @@ fn test_op_diff_divergent_change() {
       To operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
 
     Changed commits:
-    ○  + rlvkpnrz?? 82ad1ba9 2b
-       - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+    ○  + rlvkpnrz?0 82ad1ba9 2b
+       - rlvkpnrz?4 (hidden) 4f7a567a (empty) (no description set)
        diff --git a/file b/file
        index d00491fd7e..5e0f51b37b 100644
        --- a/file
@@ -1886,8 +1886,8 @@ fn test_op_diff_divergent_change() {
        @@ -1,1 +1,2 @@
         1
        +2b
-    ○  + rlvkpnrz?? a7e9a63b 2a
-       - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+    ○  + rlvkpnrz?1 a7e9a63b 2a
+       - rlvkpnrz?4 (hidden) 4f7a567a (empty) (no description set)
        diff --git a/file b/file
        index d00491fd7e..13a46f22fa 100644
        --- a/file
@@ -1897,8 +1897,8 @@ fn test_op_diff_divergent_change() {
         1
 
     Changed working copy default@:
-    + rlvkpnrz?? 82ad1ba9 2b
-    - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+    + rlvkpnrz?0 82ad1ba9 2b
+    - rlvkpnrz?4 (hidden) 4f7a567a (empty) (no description set)
     [EOF]
     ");
 
@@ -1918,8 +1918,8 @@ fn test_op_diff_divergent_change() {
 
     Changed commits:
     ○  + rlvkpnrz da3f472d 2ab
-       - rlvkpnrz hidden 82ad1ba9 2b
-       - rlvkpnrz hidden a7e9a63b 2a
+       - rlvkpnrz?1 (hidden) 82ad1ba9 2b
+       - rlvkpnrz?3 (hidden) a7e9a63b 2a
        diff --git a/file b/file
        index 5e0f51b37b..60327514e0 100644
        --- a/file
@@ -1931,7 +1931,7 @@ fn test_op_diff_divergent_change() {
 
     Changed working copy default@:
     + rlvkpnrz da3f472d 2ab
-    - rlvkpnrz hidden 82ad1ba9 2b
+    - rlvkpnrz?1 (hidden) 82ad1ba9 2b
     [EOF]
     ");
 
@@ -1949,14 +1949,14 @@ fn test_op_diff_divergent_change() {
       To operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
 
     Changed commits:
-    ○  + rlvkpnrz?? 82ad1ba9 2b
-       - rlvkpnrz hidden da3f472d 2ab
-    ○  + rlvkpnrz?? a7e9a63b 2a
-       - rlvkpnrz hidden da3f472d 2ab
+    ○  + rlvkpnrz?0 82ad1ba9 2b
+       - rlvkpnrz?2 (hidden) da3f472d 2ab
+    ○  + rlvkpnrz?1 a7e9a63b 2a
+       - rlvkpnrz?2 (hidden) da3f472d 2ab
 
     Changed working copy default@:
-    + rlvkpnrz?? 82ad1ba9 2b
-    - rlvkpnrz hidden da3f472d 2ab
+    + rlvkpnrz?0 82ad1ba9 2b
+    - rlvkpnrz?2 (hidden) da3f472d 2ab
     [EOF]
     ");
 
@@ -1975,12 +1975,12 @@ fn test_op_diff_divergent_change() {
 
     Changed commits:
     ○  + rlvkpnrz 4f7a567a (empty) (no description set)
-       - rlvkpnrz hidden 82ad1ba9 2b
-       - rlvkpnrz hidden a7e9a63b 2a
+       - rlvkpnrz?1 (hidden) 82ad1ba9 2b
+       - rlvkpnrz?3 (hidden) a7e9a63b 2a
 
     Changed working copy default@:
     + rlvkpnrz 4f7a567a (empty) (no description set)
-    - rlvkpnrz hidden 82ad1ba9 2b
+    - rlvkpnrz?1 (hidden) 82ad1ba9 2b
     [EOF]
     ");
 }
@@ -1997,9 +1997,9 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
     work_dir.run_jj(["desc", "--at-op=@-", "-m2b"]).success();
 
     insta::assert_snapshot!(work_dir.run_jj(["log"]), @r"
-    @  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:09 7ed5a610
+    @  rlvkpnrz?1 test.user@example.com 2001-02-03 08:05:09 7ed5a610
     │  (empty) 2a
-    │ ○  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:11 8f35f6a6
+    │ ○  rlvkpnrz?0 test.user@example.com 2001-02-03 08:05:11 8f35f6a6
     ├─╯  (empty) 2b
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 6666e5c3
     │  (empty) 1
@@ -2019,8 +2019,8 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
       To operation: ac3c7e679e31 (2001-02-03 08:05:11) reconcile divergent operations
 
     Changed commits:
-    ○  + rlvkpnrz?? 8f35f6a6 (empty) 2b
-       - rlvkpnrz hidden 4545eaf5 (empty) 2b
+    ○  + rlvkpnrz?0 8f35f6a6 (empty) 2b
+       - rlvkpnrz?2 (hidden) 4545eaf5 (empty) 2b
     [EOF]
     ");
 
@@ -2043,24 +2043,24 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
     │ │
     │ │  Changed commits:
     │ │  ○  + rlvkpnrz 7ed5a610 (empty) 2a
-    │ │  │  - rlvkpnrz hidden ab92d1a8 (empty) 2a
+    │ │  │  - rlvkpnrz?1 (hidden) ab92d1a8 (empty) 2a
     │ │  ○  + qpvuntsm 6666e5c3 (empty) 1
-    │ │     - qpvuntsm hidden e8849ae1 (empty) (no description set)
+    │ │     - qpvuntsm?1 (hidden) e8849ae1 (empty) (no description set)
     │ │
     │ │  Changed working copy default@:
     │ │  + rlvkpnrz 7ed5a610 (empty) 2a
-    │ │  - rlvkpnrz hidden ab92d1a8 (empty) 2a
+    │ │  - rlvkpnrz?1 (hidden) ab92d1a8 (empty) 2a
     │ ○  0c5076ddf77d test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     ├─╯  describe commit ab92d1a87bebb4300165a16a753c5403bd7bc578
     │    args: jj describe '--at-op=@-' -m2b
     │
     │    Changed commits:
     │    ○  + rlvkpnrz 50ec12eb (empty) 2b
-    │       - rlvkpnrz hidden ab92d1a8 (empty) 2a
+    │       - rlvkpnrz?1 (hidden) ab92d1a8 (empty) 2a
     │
     │    Changed working copy default@:
     │    + rlvkpnrz 50ec12eb (empty) 2b
-    │    - rlvkpnrz hidden ab92d1a8 (empty) 2a
+    │    - rlvkpnrz?1 (hidden) ab92d1a8 (empty) 2a
     [EOF]
     ");
 }
@@ -2109,14 +2109,14 @@ fn test_op_diff_word_wrap() {
        | Commit 3
        some-file | 1 +
        1 file changed, 1 insertion(+), 0 deletions(-)
-    ○  - qpvuntsm hidden e8849ae1 (empty)
-       (no description set)
+    ○  - qpvuntsm?0 (hidden) e8849ae1
+       (empty) (no description set)
        0 files changed, 0 insertions(+), 0 deletions(-)
 
     Changed working copy default@:
     + sqpuoqvx f6f32c19 (no description set)
-    - qpvuntsm hidden e8849ae1 (empty) (no
-    description set)
+    - qpvuntsm?0 (hidden) e8849ae1 (empty)
+    (no description set)
 
     Changed local bookmarks:
     bookmark-1:
@@ -2352,7 +2352,7 @@ fn test_op_show() {
     Changed commits:
     ○  + kulxwnxm e1a239a5 bookmark-2@origin | Commit 5
     ○  + zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
-    ○  - rnnkyono hidden 11671e4c Commit 3
+    ○  - rnnkyono?0 (hidden) 11671e4c Commit 3
 
     Changed local bookmarks:
     bookmark-1:
@@ -2370,7 +2370,7 @@ fn test_op_show() {
     - untracked rnnslrkn 4ff62539 bookmark-1?? | Commit 2
     bookmark-3@origin:
     + untracked (absent)
-    - untracked rnnkyono hidden 11671e4c Commit 3
+    - untracked rnnkyono?0 (hidden) 11671e4c Commit 3
     [EOF]
     ");
 
@@ -2458,11 +2458,11 @@ fn test_op_show() {
 
     Changed commits:
     ○  + tlkvzzqu 8f340dd7 (empty) new commit
-    ○  - qpvuntsm hidden e8849ae1 (empty) (no description set)
+    ○  - qpvuntsm?0 (hidden) e8849ae1 (empty) (no description set)
 
     Changed working copy default@:
     + tlkvzzqu 8f340dd7 (empty) new commit
-    - qpvuntsm hidden e8849ae1 (empty) (no description set)
+    - qpvuntsm?0 (hidden) e8849ae1 (empty) (no description set)
     [EOF]
     ");
 
@@ -2556,7 +2556,7 @@ fn test_op_show_patch() {
 
     Changed commits:
     ○  + qpvuntsm 6b57e33c (no description set)
-       - qpvuntsm hidden e8849ae1 (empty) (no description set)
+       - qpvuntsm?1 (hidden) e8849ae1 (empty) (no description set)
        diff --git a/file b/file
        new file mode 100644
        index 0000000000..7898192261
@@ -2567,7 +2567,7 @@ fn test_op_show_patch() {
 
     Changed working copy default@:
     + qpvuntsm 6b57e33c (no description set)
-    - qpvuntsm hidden e8849ae1 (empty) (no description set)
+    - qpvuntsm?1 (hidden) e8849ae1 (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "show", "@", "-p", "--git"]);
@@ -2603,8 +2603,8 @@ fn test_op_show_patch() {
     Changed commits:
     ○  + mzvwutvl 6cbd01ae (empty) (no description set)
     ○  + qpvuntsm 7aa2ec5d (no description set)
-       - qpvuntsm hidden 6b57e33c (no description set)
-       - rlvkpnrz hidden 05a2969e (no description set)
+       - qpvuntsm?1 (hidden) 6b57e33c (no description set)
+       - rlvkpnrz?0 (hidden) 05a2969e (no description set)
        diff --git a/file b/file
        index 7898192261..6178079822 100644
        --- a/file
@@ -2615,7 +2615,7 @@ fn test_op_show_patch() {
 
     Changed working copy default@:
     + mzvwutvl 6cbd01ae (empty) (no description set)
-    - rlvkpnrz hidden 05a2969e (no description set)
+    - rlvkpnrz?0 (hidden) 05a2969e (no description set)
     [EOF]
     ");
 
@@ -2637,11 +2637,11 @@ fn test_op_show_patch() {
 
     Changed commits:
     ○  + yqosqzyt c97a8573 (empty) (no description set)
-    ○  - mzvwutvl hidden 6cbd01ae (empty) (no description set)
+    ○  - mzvwutvl?0 (hidden) 6cbd01ae (empty) (no description set)
 
     Changed working copy default@:
     + yqosqzyt c97a8573 (empty) (no description set)
-    - mzvwutvl hidden 6cbd01ae (empty) (no description set)
+    - mzvwutvl?0 (hidden) 6cbd01ae (empty) (no description set)
     [EOF]
     ");
 
@@ -2654,11 +2654,11 @@ fn test_op_show_patch() {
     │
     │  Changed commits:
     │  ○  + yqosqzyt c97a8573 (empty) (no description set)
-    │  ○  - mzvwutvl hidden 6cbd01ae (empty) (no description set)
+    │  ○  - mzvwutvl?0 (hidden) 6cbd01ae (empty) (no description set)
     │
     │  Changed working copy default@:
     │  + yqosqzyt c97a8573 (empty) (no description set)
-    │  - mzvwutvl hidden 6cbd01ae (empty) (no description set)
+    │  - mzvwutvl?0 (hidden) 6cbd01ae (empty) (no description set)
     ○  cfb8edbeae42 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     │  squash commits into 6b57e33cc56babbeaa6bcd6e2a296236b52ad93c
     │  args: jj squash
@@ -2666,8 +2666,8 @@ fn test_op_show_patch() {
     │  Changed commits:
     │  ○  + mzvwutvl 6cbd01ae (empty) (no description set)
     │  ○  + qpvuntsm 7aa2ec5d (no description set)
-    │     - qpvuntsm hidden 6b57e33c (no description set)
-    │     - rlvkpnrz hidden 05a2969e (no description set)
+    │     - qpvuntsm?1 (hidden) 6b57e33c (no description set)
+    │     - rlvkpnrz?0 (hidden) 05a2969e (no description set)
     │     diff --git a/file b/file
     │     index 7898192261..6178079822 100644
     │     --- a/file
@@ -2678,14 +2678,14 @@ fn test_op_show_patch() {
     │
     │  Changed working copy default@:
     │  + mzvwutvl 6cbd01ae (empty) (no description set)
-    │  - rlvkpnrz hidden 05a2969e (no description set)
+    │  - rlvkpnrz?0 (hidden) 05a2969e (no description set)
     ○  36a5d140ea10 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     │  snapshot working copy
     │  args: jj squash
     │
     │  Changed commits:
     │  ○  + rlvkpnrz 05a2969e (no description set)
-    │     - rlvkpnrz hidden c1c924b8 (empty) (no description set)
+    │     - rlvkpnrz?1 (hidden) c1c924b8 (empty) (no description set)
     │     diff --git a/file b/file
     │     index 7898192261..6178079822 100644
     │     --- a/file
@@ -2696,7 +2696,7 @@ fn test_op_show_patch() {
     │
     │  Changed working copy default@:
     │  + rlvkpnrz 05a2969e (no description set)
-    │  - rlvkpnrz hidden c1c924b8 (empty) (no description set)
+    │  - rlvkpnrz?1 (hidden) c1c924b8 (empty) (no description set)
     ○  ed6f6674bcf8 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  new empty commit
     │  args: jj new
@@ -2713,7 +2713,7 @@ fn test_op_show_patch() {
     │
     │  Changed commits:
     │  ○  + qpvuntsm 6b57e33c (no description set)
-    │     - qpvuntsm hidden e8849ae1 (empty) (no description set)
+    │     - qpvuntsm?1 (hidden) e8849ae1 (empty) (no description set)
     │     diff --git a/file b/file
     │     new file mode 100644
     │     index 0000000000..7898192261
@@ -2724,7 +2724,7 @@ fn test_op_show_patch() {
     │
     │  Changed working copy default@:
     │  + qpvuntsm 6b57e33c (no description set)
-    │  - qpvuntsm hidden e8849ae1 (empty) (no description set)
+    │  - qpvuntsm?1 (hidden) e8849ae1 (empty) (no description set)
     ○  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
     │

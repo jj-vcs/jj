@@ -250,6 +250,17 @@ impl<T> PrefixResolution<T> {
             Self::AmbiguousMatch => PrefixResolution::AmbiguousMatch,
         }
     }
+
+    pub fn filter_map<U>(self, f: impl FnOnce(T) -> Option<U>) -> PrefixResolution<U> {
+        match self {
+            Self::NoMatch => PrefixResolution::NoMatch,
+            Self::SingleMatch(x) => match f(x) {
+                None => PrefixResolution::NoMatch,
+                Some(y) => PrefixResolution::SingleMatch(y),
+            },
+            Self::AmbiguousMatch => PrefixResolution::AmbiguousMatch,
+        }
+    }
 }
 
 impl<T: Clone> PrefixResolution<T> {
