@@ -996,9 +996,9 @@ fn test_op_recover_from_bad_gc() {
     // The repo should no longer be corrupt.
     let output = work_dir.run_jj(["log"]);
     insta::assert_snapshot!(output, @r"
-    @  mzvwutvl?? test.user@example.com 2001-02-03 08:05:12 29d07a2d
+    @  mzvwutvl divergent test.user@example.com 2001-02-03 08:05:12 29d07a2d
     │  (empty) 4
-    │ ○  mzvwutvl?? test.user@example.com 2001-02-03 08:05:15 bc027e2c
+    │ ○  mzvwutvl divergent test.user@example.com 2001-02-03 08:05:15 bc027e2c
     ├─╯  (empty) 4.1
     ○  zsuskuln test.user@example.com 2001-02-03 08:05:10 git_head() c2934cfb
     │  (empty) (no description set)
@@ -1788,9 +1788,9 @@ fn test_op_diff_divergent_change() {
     work_dir.write_file("file", "1\n2b\n");
     work_dir.run_jj(["desc", "-m2b"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["log"]), @r"
-    @  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:12 82ad1ba9
+    @  rlvkpnrz divergent test.user@example.com 2001-02-03 08:05:12 82ad1ba9
     │  2b
-    │ ○  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:10 a7e9a63b
+    │ ○  rlvkpnrz divergent test.user@example.com 2001-02-03 08:05:10 a7e9a63b
     ├─╯  2a
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 8a06f3b3
     │  1
@@ -1827,13 +1827,13 @@ fn test_op_diff_divergent_change() {
       To operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
 
     Changed commits:
-    ○  + rlvkpnrz?? 82ad1ba9 2b
+    ○  + rlvkpnrz divergent 82ad1ba9 2b
        - rlvkpnrz hidden 4f7a567a (empty) (no description set)
-    ○  + rlvkpnrz?? a7e9a63b 2a
+    ○  + rlvkpnrz divergent a7e9a63b 2a
        - rlvkpnrz hidden 4f7a567a (empty) (no description set)
 
     Changed working copy default@:
-    + rlvkpnrz?? 82ad1ba9 2b
+    + rlvkpnrz divergent 82ad1ba9 2b
     - rlvkpnrz hidden 4f7a567a (empty) (no description set)
     [EOF]
     ");
@@ -1877,7 +1877,7 @@ fn test_op_diff_divergent_change() {
       To operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
 
     Changed commits:
-    ○  + rlvkpnrz?? 82ad1ba9 2b
+    ○  + rlvkpnrz divergent 82ad1ba9 2b
        - rlvkpnrz hidden 4f7a567a (empty) (no description set)
        diff --git a/file b/file
        index d00491fd7e..5e0f51b37b 100644
@@ -1886,7 +1886,7 @@ fn test_op_diff_divergent_change() {
        @@ -1,1 +1,2 @@
         1
        +2b
-    ○  + rlvkpnrz?? a7e9a63b 2a
+    ○  + rlvkpnrz divergent a7e9a63b 2a
        - rlvkpnrz hidden 4f7a567a (empty) (no description set)
        diff --git a/file b/file
        index d00491fd7e..13a46f22fa 100644
@@ -1897,7 +1897,7 @@ fn test_op_diff_divergent_change() {
         1
 
     Changed working copy default@:
-    + rlvkpnrz?? 82ad1ba9 2b
+    + rlvkpnrz divergent 82ad1ba9 2b
     - rlvkpnrz hidden 4f7a567a (empty) (no description set)
     [EOF]
     ");
@@ -1949,13 +1949,13 @@ fn test_op_diff_divergent_change() {
       To operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
 
     Changed commits:
-    ○  + rlvkpnrz?? 82ad1ba9 2b
+    ○  + rlvkpnrz divergent 82ad1ba9 2b
        - rlvkpnrz hidden da3f472d 2ab
-    ○  + rlvkpnrz?? a7e9a63b 2a
+    ○  + rlvkpnrz divergent a7e9a63b 2a
        - rlvkpnrz hidden da3f472d 2ab
 
     Changed working copy default@:
-    + rlvkpnrz?? 82ad1ba9 2b
+    + rlvkpnrz divergent 82ad1ba9 2b
     - rlvkpnrz hidden da3f472d 2ab
     [EOF]
     ");
@@ -1997,9 +1997,9 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
     work_dir.run_jj(["desc", "--at-op=@-", "-m2b"]).success();
 
     insta::assert_snapshot!(work_dir.run_jj(["log"]), @r"
-    @  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:09 7ed5a610
+    @  rlvkpnrz divergent test.user@example.com 2001-02-03 08:05:09 7ed5a610
     │  (empty) 2a
-    │ ○  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:11 8f35f6a6
+    │ ○  rlvkpnrz divergent test.user@example.com 2001-02-03 08:05:11 8f35f6a6
     ├─╯  (empty) 2b
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 6666e5c3
     │  (empty) 1
@@ -2019,7 +2019,7 @@ fn test_op_diff_at_merge_op_with_rebased_commits() {
       To operation: ac3c7e679e31 (2001-02-03 08:05:11) reconcile divergent operations
 
     Changed commits:
-    ○  + rlvkpnrz?? 8f35f6a6 (empty) 2b
+    ○  + rlvkpnrz divergent 8f35f6a6 (empty) 2b
        - rlvkpnrz hidden 4545eaf5 (empty) 2b
     [EOF]
     ");
