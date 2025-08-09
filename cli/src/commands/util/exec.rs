@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap_complete::ArgValueCompleter;
+use clap_complete::PathCompleter;
+
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
@@ -67,6 +70,7 @@ pub(crate) struct UtilExecArgs {
     /// External command to execute
     command: String,
     /// Arguments to pass to the external command
+    #[arg(add = ArgValueCompleter::new(PathCompleter::file()))]
     args: Vec<String>,
 }
 
