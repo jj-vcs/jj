@@ -72,6 +72,7 @@ mod test_squash_command;
 mod test_status_command;
 mod test_tag_command;
 mod test_templater;
+mod test_touch_command;
 mod test_undo;
 mod test_util_command;
 mod test_working_copy;
