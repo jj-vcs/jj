@@ -16,14 +16,10 @@ include = [
     "/LICENSE",
     "/benches/",
     "/src/",
-    "/tests/",
     "!*.pending-snap",
     "!*.snap*",
 ]
 
-
-[[test]]
-name = "runner"
 
 [[bench]]
 name = "diff_bench"
@@ -90,7 +86,6 @@ proptest = { workspace = true }
 rustversion = { workspace = true }
 sapling-renderdag = { workspace = true }
 test-case = { workspace = true }
-testutils = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 
 [features]

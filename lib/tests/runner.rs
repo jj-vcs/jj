@@ -1,9 +1,10 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 #[test]
 fn test_no_forgotten_test_files() {
-    let test_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests");
-    testutils::assert_no_forgotten_test_files(&test_dir);
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let test_dir = manifest_dir;
+    testutils::assert_no_forgotten_test_files(manifest_dir, test_dir);
 }
 
 mod test_annotate;
