@@ -2592,6 +2592,8 @@ type</a> are available as keywords. For example,
   Truncate <code>content</code> by removing trailing characters. The <code>content</code> shouldn't
   have newline character. If <code>ellipsis</code> is provided and <code>content</code> was truncated,
   append the <code>ellipsis</code> to the result.</li>
+<li><code>hash(content: Stringify) -&gt; String</code>:
+  Hash the input and return a hexadecimal string representation of the digest.</li>
 <li><code>label(label: Stringify, content: Template) -&gt; Template</code>: Apply label to
   the content. The <code>label</code> is evaluated as a space-separated string.</li>
 <li><code>raw_escape_sequence(content: Template) -&gt; Template</code>: Preserves any escape
