@@ -518,6 +518,7 @@ impl From<TrailerParseError> for CommandError {
 
 #[cfg(feature = "git")]
 mod git {
+    use jj_lib::git::GitDefaultRefspecError;
     use jj_lib::git::GitExportError;
     use jj_lib::git::GitFetchError;
     use jj_lib::git::GitImportError;
@@ -574,6 +575,15 @@ jj currently does not support partial clones. To use jj with this repository, tr
                 ),
                 GitFetchError::InvalidBranchPattern(_) => user_error(err),
                 GitFetchError::Subprocess(_) => user_error(err),
+            }
+        }
+    }
+
+    impl From<GitDefaultRefspecError> for CommandError {
+        fn from(err: GitDefaultRefspecError) -> Self {
+            match err {
+                GitDefaultRefspecError::NoSuchRemote(_) => user_error(err),
+                GitDefaultRefspecError::InvalidRemoteConfiguration(_, _) => user_error(err),
             }
         }
     }

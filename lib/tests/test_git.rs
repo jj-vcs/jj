@@ -48,6 +48,9 @@ use jj_lib::git::GitPushStats;
 use jj_lib::git::GitRefKind;
 use jj_lib::git::GitRefUpdate;
 use jj_lib::git::GitResetHeadError;
+use jj_lib::git::IgnoredRefspec;
+use jj_lib::git::IgnoredRefspecs;
+use jj_lib::git::expand_default_fetch_refspecs;
 use jj_lib::git::expand_fetch_refspecs;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::hex_util;
@@ -3133,6 +3136,221 @@ fn test_fetch_empty_refspecs() {
             .get_remote_bookmark(remote_symbol("main", "origin"))
             .is_absent()
     );
+}
+
+#[test]
+fn test_expand_default_fetch_refspecs() {
+    let mut test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let git_repo = get_git_repo(&test_repo.repo);
+    let config = git_repo.config_snapshot().clone();
+
+    // NB: gix doesn't seem to round-trip some of these refspecs even though
+    // they parse fine, so we'll update the config file here directly
+    std::fs::OpenOptions::new()
+        .append(true)
+        .open(
+            config
+                .meta()
+                .path
+                .as_ref()
+                .expect("failed to find config file"),
+        )
+        .expect("failed to open config file")
+        .write_all(
+            br#"
+            [remote "origin"]
+            url = /dev/null
+            # Valid
+            fetch = +refs/heads/main:refs/remotes/origin/main
+            fetch = +refs/heads/foo*:refs/remotes/origin/foo*
+            # Invalid
+            fetch = +refs/heads/src-only
+            fetch = refs/heads/non-forced
+            fetch = refs/heads/non-forced:refs/remotes/origin/non-forced
+            fetch = +refs/heads/wrong-dst:refs/remotes/tags/wrong-dst
+            fetch = +refs/heads/wrong-remote:refs/remotes/origin2/wrong-remote
+            fetch = +refs/tags/wrong-src:refs/remotes/origin/wrong-src
+            "#,
+        )
+        .expect("failed to update config file");
+
+    // Reload after Git configuration change.
+    test_repo.repo = test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+    let git_repo = get_git_repo(&test_repo.repo);
+
+    let (IgnoredRefspecs(ignored_refspecs), expanded) =
+        expand_default_fetch_refspecs("origin".as_ref(), &git_repo)
+            .expect("failed to expand refspecs");
+
+    let mut warnings = String::new();
+    for IgnoredRefspec { refspec, reason } in ignored_refspecs {
+        warnings.push_str(reason);
+        warnings.push_str(": ");
+        warnings.push_str(&String::from_utf8_lossy(&refspec));
+        warnings.push('\n');
+    }
+
+    insta::assert_snapshot!(warnings, @r"
+    fetch-only refspecs are not supported: refs/heads/non-forced
+    fetch-only refspecs are not supported: refs/heads/src-only
+    non-forced refspecs are not supported: refs/heads/non-forced:refs/remotes/origin/non-forced
+    remote renaming not supported: +refs/heads/wrong-dst:refs/remotes/tags/wrong-dst
+    remote renaming not supported: +refs/heads/wrong-remote:refs/remotes/origin2/wrong-remote
+    only refs/heads/ is supported for refspec sources: +refs/tags/wrong-src:refs/remotes/origin/wrong-src
+    ");
+
+    insta::assert_snapshot!(format!("{expanded:#?}"), @r#"
+    ExpandedFetchRefSpecs {
+        expected_branch_names: [
+            Glob(
+                GlobPattern(
+                    "foo*",
+                ),
+            ),
+            Glob(
+                GlobPattern(
+                    "main",
+                ),
+            ),
+        ],
+        refspecs: [
+            RefSpec {
+                forced: true,
+                source: Some(
+                    "refs/heads/foo*",
+                ),
+                destination: "refs/remotes/origin/foo*",
+            },
+            RefSpec {
+                forced: true,
+                source: Some(
+                    "refs/heads/main",
+                ),
+                destination: "refs/remotes/origin/main",
+            },
+        ],
+    }
+    "#);
+}
+
+#[test]
+fn test_expand_default_fetch_refspecs_invalid_configuration() {
+    let mut test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let git_repo = get_git_repo(&test_repo.repo);
+    let config = git_repo.config_snapshot().clone();
+
+    // These refspecs are already rejected by gix, but we want to assert the error
+    // reporting here
+    std::fs::OpenOptions::new()
+        .append(true)
+        .open(
+            config
+                .meta()
+                .path
+                .as_ref()
+                .expect("failed to find config file"),
+        )
+        .expect("failed to open config file")
+        .write_all(
+            br#"
+            [remote "first"]
+            url = /dev/null
+            fetch = +refs/heads/bad*pattern*:refs/remotes/heads/bad*pattern*
+            [remote "second"]
+            url = /dev/null
+            fetch = +refs/heads/badpattern?:refs/remotes/heads/badpattern?
+            [remote "third"]
+            url = /dev/null
+            fetch = +refs/heads/bad[pat]:refs/remotes/heads/bad[pat]
+            "#,
+        )
+        .expect("failed to update config file");
+
+    // Reload after Git configuration change.
+    test_repo.repo = test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+    let git_repo = get_git_repo(&test_repo.repo);
+
+    let first_err = expand_default_fetch_refspecs("first".as_ref(), &git_repo).unwrap_err();
+    let second_err = expand_default_fetch_refspecs("second".as_ref(), &git_repo).unwrap_err();
+    let third_err = expand_default_fetch_refspecs("third".as_ref(), &git_repo).unwrap_err();
+
+    insta::assert_snapshot!(format!("{first_err:#?}\n{second_err:#?}\n{third_err:#?}"), @r#"
+    InvalidRemoteConfiguration(
+        RemoteNameBuf(
+            "first",
+        ),
+        RefSpec {
+            kind: "fetch",
+            remote_name: "first",
+            source: Error {
+                key: "remote.<name>.fetch",
+                value: Some(
+                    "+refs/heads/bad*pattern*:refs/remotes/heads/bad*pattern*",
+                ),
+                environment_override: None,
+                source: Some(
+                    PatternUnsupported {
+                        pattern: "refs/heads/bad*pattern*",
+                    },
+                ),
+            },
+        },
+    )
+    InvalidRemoteConfiguration(
+        RemoteNameBuf(
+            "second",
+        ),
+        RefSpec {
+            kind: "fetch",
+            remote_name: "second",
+            source: Error {
+                key: "remote.<name>.fetch",
+                value: Some(
+                    "+refs/heads/badpattern?:refs/remotes/heads/badpattern?",
+                ),
+                environment_override: None,
+                source: Some(
+                    ReferenceName(
+                        Tag(
+                            InvalidByte {
+                                byte: "?",
+                            },
+                        ),
+                    ),
+                ),
+            },
+        },
+    )
+    InvalidRemoteConfiguration(
+        RemoteNameBuf(
+            "third",
+        ),
+        RefSpec {
+            kind: "fetch",
+            remote_name: "third",
+            source: Error {
+                key: "remote.<name>.fetch",
+                value: Some(
+                    "+refs/heads/bad[pat]:refs/remotes/heads/bad[pat]",
+                ),
+                environment_override: None,
+                source: Some(
+                    ReferenceName(
+                        Tag(
+                            InvalidByte {
+                                byte: "[",
+                            },
+                        ),
+                    ),
+                ),
+            },
+        },
+    )
+    "#);
 }
 
 #[test]
