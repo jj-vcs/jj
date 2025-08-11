@@ -183,6 +183,7 @@ nav: # This lists all the files that become part of the documentation
       - Managed config: 'design/managed-config.md'
       - JJ converge (aka resolve-divergence): 'design/jj-converge-command.md'
       - Supporting Git Attributes in Jujutsu: 'design/gitattributes.md'
+      - Supporting the `filter` Git Attributes in Jujutsu: 'design/gitattributes-filter.md'
 
   - Development roadmap: 'roadmap.md'
   - Changelog: 'changelog.md'
