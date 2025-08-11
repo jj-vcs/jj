@@ -957,6 +957,7 @@ pub struct TreeStateSettings {
     pub exec_change_setting: ExecChangeSetting,
     /// The fsmonitor (e.g. Watchman) to use, if any.
     pub fsmonitor_settings: FsmonitorSettings,
+    pub filter_settings: FilterSettings,
 }
 
 impl TreeStateSettings {
@@ -967,6 +968,7 @@ impl TreeStateSettings {
             eol_conversion_mode: EolConversionMode::try_from_settings(user_settings)?,
             exec_change_setting: user_settings.get("working-copy.exec-bit-change")?,
             fsmonitor_settings: FsmonitorSettings::from_settings(user_settings)?,
+            filter_settings: FilterSettings::try_from_settings(user_settings)?,
         })
     }
 }
@@ -1052,6 +1054,7 @@ impl TreeState {
             eol_conversion_mode,
             exec_change_setting,
             ref fsmonitor_settings,
+            ref filter_settings,
         }: &TreeStateSettings,
     ) -> Self {
         let exec_policy = ExecChangePolicy::new(exec_change_setting, &state_path);
@@ -1069,13 +1072,7 @@ impl TreeState {
             exec_policy,
             fsmonitor_settings: fsmonitor_settings.clone(),
             target_eol_strategy: TargetEolStrategy::new(eol_conversion_mode),
-            filter_strategy: FilterStrategy::new(
-                working_copy_path,
-                FilterSettings {
-                    enabled: false,
-                    drivers: HashMap::new(),
-                },
-            ),
+            filter_strategy: FilterStrategy::new(working_copy_path, filter_settings.clone()),
         }
     }
 

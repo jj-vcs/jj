@@ -35,10 +35,12 @@ use itertools::Itertools as _;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt as _;
 
+use crate::config::ConfigGetError;
 use crate::gitattributes::GitAttributes;
 use crate::gitattributes::State;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
+use crate::settings::UserSettings;
 
 type FilterError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -88,6 +90,26 @@ pub struct FilterSettings {
     /// The key is the name of the filter driver. We use this name to specify
     /// which filter should apply to a file.
     pub drivers: HashMap<String, FilterDriver>,
+}
+
+impl FilterSettings {
+    pub(crate) fn try_from_settings(user_settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        let filter_drivers_key = "git.filter.drivers";
+        let drivers = user_settings
+            .table_keys(filter_drivers_key)
+            .map(|name| {
+                Ok((
+                    name.to_owned(),
+                    user_settings
+                        .get::<FilterDriver>(format!("{filter_drivers_key}.{name}").as_str())?,
+                ))
+            })
+            .try_collect()?;
+        Ok(Self {
+            enabled: user_settings.get_bool("git.filter.enabled")?,
+            drivers,
+        })
+    }
 }
 
 /// Indicate whether the filter is a clean filter or a smudge filter.
