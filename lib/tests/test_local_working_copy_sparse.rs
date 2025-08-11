@@ -81,6 +81,7 @@ fn test_sparse_checkout() {
             added_files: 0,
             removed_files: 3,
             skipped_files: 0,
+            ..Default::default()
         }
     );
     assert_eq!(
@@ -155,6 +156,7 @@ fn test_sparse_checkout() {
             added_files: 2,
             removed_files: 2,
             skipped_files: 0,
+            ..Default::default()
         }
     );
     assert_eq!(locked_wc.sparse_patterns().unwrap(), sparse_patterns);

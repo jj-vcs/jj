@@ -666,7 +666,8 @@ fn test_conflicting_changes_on_disk() {
             updated_files: 0,
             added_files: 3,
             removed_files: 0,
-            skipped_files: 3
+            skipped_files: 3,
+            ..Default::default()
         }
     );
 
@@ -891,7 +892,8 @@ fn test_materialize_snapshot_conflicted_files() {
             updated_files: 0,
             added_files: 2,
             removed_files: 0,
-            skipped_files: 0
+            skipped_files: 0,
+            ..Default::default()
         }
     );
 

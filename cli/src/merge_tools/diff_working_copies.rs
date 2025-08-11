@@ -12,6 +12,7 @@ use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::EolConversionMode;
 use jj_lib::local_working_copy::ExecChangeSetting;
+use jj_lib::local_working_copy::FilterSettings;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateError;
 use jj_lib::local_working_copy::TreeStateSettings;
@@ -157,6 +158,10 @@ pub(crate) fn check_out_trees(
             eol_conversion_mode: EolConversionMode::None,
             exec_change_setting: ExecChangeSetting::Auto,
             fsmonitor_settings: FsmonitorSettings::None,
+            filter_settings: FilterSettings {
+                enabled: false,
+                drivers: HashMap::new(),
+            },
         };
         let mut state = TreeState::init(store.clone(), wc_path, state_dir, &tree_state_settings)?;
         state.set_sparse_patterns(changed_files.clone())?;
