@@ -51,6 +51,12 @@ path = "testing/fake-diff-editor.rs"
 required-features = ["test-fakes"]
 
 [[bin]]
+name = "fake-gitattr-filter"
+# We can't just depends on the fake binary defined in jj-lib until the bindeps feature is stabilized: https://rust-lang.github.io/rfcs/3028-cargo-binary-dependencies.html.
+path = "../lib/testing/fake-filter.rs"
+required-features = ["test-fakes"]
+
+[[bin]]
 name = "fake-formatter"
 path = "testing/fake-formatter.rs"
 required-features = ["test-fakes"]
