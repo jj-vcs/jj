@@ -205,7 +205,7 @@ impl FileLoader for TreeFileLoader {
     async fn load(&self, path: &RepoPath) -> Result<Option<Box<dyn AsyncRead + Send + Unpin>>> {
         let tree_values =
             self.tree
-                .path_value_async(path)
+                .path_value(path)
                 .await
                 .map_err(|source| GitAttributesError {
                     message: format!(
