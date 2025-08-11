@@ -229,7 +229,7 @@ fn test_rewrite_immutable_commands() {
     work_dir.run_jj(["new", "@-", "-m=c"]).success();
     work_dir.write_file("file", "c");
     work_dir
-        .run_jj(["new", "all:visible_heads()", "-m=merge"])
+        .run_jj(["new", "visible_heads()", "-m=merge"])
         .success();
     // Create another file to make sure the merge commit isn't empty (to satisfy `jj
     // split`) and still has a conflict (to satisfy `jj resolve`).
@@ -380,7 +380,7 @@ fn test_rewrite_immutable_commands() {
     Hint: For more information, see:
           - https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
           - `jj help -k config`, "Set of immutable commits"
-    Hint: This operation would rewrite 2 immutable commits.
+    Hint: This operation would rewrite 1 immutable commits.
     [EOF]
     [exit status: 1]
     "#);
@@ -470,6 +470,20 @@ fn test_rewrite_immutable_commands() {
     "#);
     // split
     let output = work_dir.run_jj(["split", "-r=main"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Commit 4397373a0991 is immutable
+    Hint: Could not modify commit: mzvwutvl 4397373a main | (conflict) merge
+    Hint: Immutable commits are used to protect shared history.
+    Hint: For more information, see:
+          - https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
+          - `jj help -k config`, "Set of immutable commits"
+    Hint: This operation would rewrite 1 immutable commits.
+    [EOF]
+    [exit status: 1]
+    "#);
+    // split -B
+    let output = work_dir.run_jj(["split", "-B=main", "-m", "will fail", "file"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Commit 4397373a0991 is immutable

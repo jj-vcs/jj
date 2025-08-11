@@ -18,9 +18,11 @@ use std::collections::HashMap;
 use std::iter;
 use std::path;
 use std::slice;
+use std::sync::LazyLock;
 
+use globset::Glob;
+use globset::GlobBuilder;
 use itertools::Itertools as _;
-use once_cell::sync::Lazy;
 use thiserror::Error;
 
 use crate::dsl_util::collect_similar;
@@ -63,7 +65,7 @@ pub enum FilePatternParseError {
     RelativePath(#[from] RelativePathParseError),
     /// Failed to parse glob pattern.
     #[error(transparent)]
-    GlobPattern(#[from] glob::PatternError),
+    GlobPattern(#[from] globset::Error),
 }
 
 /// Basic pattern to match `RepoPath`.
@@ -78,7 +80,7 @@ pub enum FilePattern {
         /// Prefix directory path where the `pattern` will be evaluated.
         dir: RepoPathBuf,
         /// Glob pattern relative to `dir`.
-        pattern: glob::Pattern,
+        pattern: Box<Glob>,
     },
     // TODO: add more patterns:
     // - FilesInPath: files in directory, non-recursively?
@@ -123,7 +125,7 @@ impl FilePattern {
         input: impl AsRef<str>,
     ) -> Result<Self, FilePatternParseError> {
         let path = path_converter.parse_file_path(input.as_ref())?;
-        Ok(FilePattern::FilePath(path))
+        Ok(Self::FilePath(path))
     }
 
     /// Pattern that matches cwd-relative path prefix.
@@ -132,7 +134,7 @@ impl FilePattern {
         input: impl AsRef<str>,
     ) -> Result<Self, FilePatternParseError> {
         let path = path_converter.parse_file_path(input.as_ref())?;
-        Ok(FilePattern::PrefixPath(path))
+        Ok(Self::PrefixPath(path))
     }
 
     /// Pattern that matches cwd-relative file path glob.
@@ -149,13 +151,13 @@ impl FilePattern {
     pub fn root_file_path(input: impl AsRef<str>) -> Result<Self, FilePatternParseError> {
         // TODO: Let caller pass in converter for root-relative paths too
         let path = RepoPathBuf::from_relative_path(input.as_ref())?;
-        Ok(FilePattern::FilePath(path))
+        Ok(Self::FilePath(path))
     }
 
     /// Pattern that matches workspace-relative path prefix.
     pub fn root_prefix_path(input: impl AsRef<str>) -> Result<Self, FilePatternParseError> {
         let path = RepoPathBuf::from_relative_path(input.as_ref())?;
-        Ok(FilePattern::PrefixPath(path))
+        Ok(Self::PrefixPath(path))
     }
 
     /// Pattern that matches workspace-relative file path glob.
@@ -167,28 +169,38 @@ impl FilePattern {
 
     fn file_glob_at(dir: RepoPathBuf, input: &str) -> Result<Self, FilePatternParseError> {
         if input.is_empty() {
-            return Ok(FilePattern::FilePath(dir));
+            return Ok(Self::FilePath(dir));
         }
         // Normalize separator to '/', reject ".." which will never match
         let normalized = RepoPathBuf::from_relative_path(input)?;
-        let pattern = glob::Pattern::new(normalized.as_internal_file_string())?;
-        Ok(FilePattern::FileGlob { dir, pattern })
+        let pattern = Box::new(parse_file_glob(normalized.as_internal_file_string())?);
+        Ok(Self::FileGlob { dir, pattern })
     }
 
     /// Returns path if this pattern represents a literal path in a workspace.
     /// Returns `None` if this is a glob pattern for example.
     pub fn as_path(&self) -> Option<&RepoPath> {
         match self {
-            FilePattern::FilePath(path) => Some(path),
-            FilePattern::PrefixPath(path) => Some(path),
-            FilePattern::FileGlob { .. } => None,
+            Self::FilePath(path) => Some(path),
+            Self::PrefixPath(path) => Some(path),
+            Self::FileGlob { .. } => None,
         }
     }
 }
 
+pub(super) fn parse_file_glob(input: &str) -> Result<Glob, globset::Error> {
+    GlobBuilder::new(input).literal_separator(true).build()
+}
+
 /// Splits `input` path into literal directory path and glob pattern.
 fn split_glob_path(input: &str) -> (&str, &str) {
-    const GLOB_CHARS: &[char] = &['?', '*', '[', ']']; // see glob::Pattern::escape()
+    // See globset::escape(). In addition to that, backslash is parsed as an
+    // escape sequence on Unix.
+    const GLOB_CHARS: &[char] = if cfg!(windows) {
+        &['?', '*', '[', ']', '{', '}']
+    } else {
+        &['?', '*', '[', ']', '{', '}', '\\']
+    };
     let prefix_len = input
         .split_inclusive(path::is_separator)
         .take_while(|component| !component.contains(GLOB_CHARS))
@@ -220,53 +232,53 @@ pub enum FilesetExpression {
 impl FilesetExpression {
     /// Expression that matches nothing.
     pub fn none() -> Self {
-        FilesetExpression::None
+        Self::None
     }
 
     /// Expression that matches everything.
     pub fn all() -> Self {
-        FilesetExpression::All
+        Self::All
     }
 
     /// Expression that matches the given `pattern`.
     pub fn pattern(pattern: FilePattern) -> Self {
-        FilesetExpression::Pattern(pattern)
+        Self::Pattern(pattern)
     }
 
     /// Expression that matches file (or exact) path.
     pub fn file_path(path: RepoPathBuf) -> Self {
-        FilesetExpression::Pattern(FilePattern::FilePath(path))
+        Self::Pattern(FilePattern::FilePath(path))
     }
 
     /// Expression that matches path prefix.
     pub fn prefix_path(path: RepoPathBuf) -> Self {
-        FilesetExpression::Pattern(FilePattern::PrefixPath(path))
+        Self::Pattern(FilePattern::PrefixPath(path))
     }
 
     /// Expression that matches any of the given `expressions`.
-    pub fn union_all(expressions: Vec<FilesetExpression>) -> Self {
+    pub fn union_all(expressions: Vec<Self>) -> Self {
         match expressions.len() {
-            0 => FilesetExpression::none(),
+            0 => Self::none(),
             1 => expressions.into_iter().next().unwrap(),
-            _ => FilesetExpression::UnionAll(expressions),
+            _ => Self::UnionAll(expressions),
         }
     }
 
     /// Expression that matches both `self` and `other`.
     pub fn intersection(self, other: Self) -> Self {
-        FilesetExpression::Intersection(Box::new(self), Box::new(other))
+        Self::Intersection(Box::new(self), Box::new(other))
     }
 
     /// Expression that matches `self` but not `other`.
     pub fn difference(self, other: Self) -> Self {
-        FilesetExpression::Difference(Box::new(self), Box::new(other))
+        Self::Difference(Box::new(self), Box::new(other))
     }
 
     /// Flattens union expression at most one level.
     fn as_union_all(&self) -> &[Self] {
         match self {
-            FilesetExpression::None => &[],
-            FilesetExpression::UnionAll(exprs) => exprs,
+            Self::None => &[],
+            Self::UnionAll(exprs) => exprs,
             _ => slice::from_ref(self),
         }
     }
@@ -276,12 +288,9 @@ impl FilesetExpression {
         iter::from_fn(move || {
             let expr = stack.pop()?;
             match expr {
-                FilesetExpression::None
-                | FilesetExpression::All
-                | FilesetExpression::Pattern(_) => {}
-                FilesetExpression::UnionAll(exprs) => stack.extend(exprs.iter().rev()),
-                FilesetExpression::Intersection(expr1, expr2)
-                | FilesetExpression::Difference(expr1, expr2) => {
+                Self::None | Self::All | Self::Pattern(_) => {}
+                Self::UnionAll(exprs) => stack.extend(exprs.iter().rev()),
+                Self::Intersection(expr1, expr2) | Self::Difference(expr1, expr2) => {
                     stack.push(expr2);
                     stack.push(expr1);
                 }
@@ -298,7 +307,7 @@ impl FilesetExpression {
         // pre/post-ordering doesn't matter so long as children are visited from
         // left to right.
         self.dfs_pre().filter_map(|expr| match expr {
-            FilesetExpression::Pattern(pattern) => pattern.as_path(),
+            Self::Pattern(pattern) => pattern.as_path(),
             _ => None,
         })
     }
@@ -385,10 +394,10 @@ type FilesetFunction = fn(
     &FunctionCallNode,
 ) -> FilesetParseResult<FilesetExpression>;
 
-static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, FilesetFunction>> = Lazy::new(|| {
+static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, FilesetFunction>> = LazyLock::new(|| {
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map: HashMap<&'static str, FilesetFunction> = HashMap::new();
+    let mut map: HashMap<&str, FilesetFunction> = HashMap::new();
     map.insert("none", |_diagnostics, _path_converter, function| {
         function.expect_no_arguments()?;
         Ok(FilesetExpression::none())
@@ -505,8 +514,15 @@ mod tests {
 
     fn insta_settings() -> insta::Settings {
         let mut settings = insta::Settings::clone_current();
-        // Elide parsed glob tokens, which aren't interesting.
-        settings.add_filter(r"\b(tokens): \[[^]]*\],", "$1: _,");
+        // Elide parsed glob options and tokens, which aren't interesting.
+        settings.add_filter(
+            r"(?m)^(\s{12}opts):\s*GlobOptions\s*\{\n(\s{16}.*\n)*\s{12}\},",
+            "$1: _,",
+        );
+        settings.add_filter(
+            r"(?m)^(\s{12}tokens):\s*Tokens\(\n(\s{16}.*\n)*\s{12}\),",
+            "$1: _,",
+        );
         // Collapse short "Thing(_,)" repeatedly to save vertical space and make
         // the output more readable.
         for _ in 0..4 {
@@ -598,10 +614,11 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "cur*",
-                pattern: Pattern {
-                    original: "*",
+                pattern: Glob {
+                    glob: "*",
+                    re: "(?-u)^[^/]*$",
+                    opts: _,
                     tokens: _,
-                    is_recursive: false,
                 },
             },
         )
@@ -611,10 +628,11 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "cur*",
-                pattern: Pattern {
-                    original: "*",
+                pattern: Glob {
+                    glob: "*",
+                    re: "(?-u)^[^/]*$",
+                    opts: _,
                     tokens: _,
-                    is_recursive: false,
                 },
             },
         )
@@ -624,10 +642,11 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "",
-                pattern: Pattern {
-                    original: "*",
+                pattern: Glob {
+                    glob: "*",
+                    re: "(?-u)^[^/]*$",
+                    opts: _,
                     tokens: _,
-                    is_recursive: false,
                 },
             },
         )
@@ -638,10 +657,11 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "cur*",
-                pattern: Pattern {
-                    original: "**",
+                pattern: Glob {
+                    glob: "**",
+                    re: "(?-u)^.*$",
+                    opts: _,
                     tokens: _,
-                    is_recursive: true,
                 },
             },
         )
@@ -651,10 +671,11 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "foo",
-                pattern: Pattern {
-                    original: "b?r/baz",
+                pattern: Glob {
+                    glob: "b?r/baz",
+                    re: "(?-u)^b[^/]r/baz$",
+                    opts: _,
                     tokens: _,
-                    is_recursive: false,
                 },
             },
         )
@@ -664,31 +685,34 @@ mod tests {
         // no support for relative path component after glob meta character
         assert!(parse(r#"glob:"*/..""#).is_err());
 
-        // cwd-relative, with Windows path separators
         if cfg!(windows) {
+            // cwd-relative, with Windows path separators
             insta::assert_debug_snapshot!(
                 parse(r#"glob:"..\\foo\\*\\bar""#).unwrap(), @r#"
             Pattern(
                 FileGlob {
                     dir: "foo",
-                    pattern: Pattern {
-                        original: "*/bar",
+                    pattern: Glob {
+                        glob: "*/bar",
+                        re: "(?-u)^[^/]*/bar$",
+                        opts: _,
                         tokens: _,
-                        is_recursive: false,
                     },
                 },
             )
             "#);
         } else {
+            // backslash is an escape character on Unix
             insta::assert_debug_snapshot!(
                 parse(r#"glob:"..\\foo\\*\\bar""#).unwrap(), @r#"
             Pattern(
                 FileGlob {
                     dir: "cur*",
-                    pattern: Pattern {
-                        original: "..\\foo\\*\\bar",
+                    pattern: Glob {
+                        glob: "..\\foo\\*\\bar",
+                        re: "(?-u)^\\.\\.foo\\*bar$",
+                        opts: _,
                         tokens: _,
-                        is_recursive: false,
                     },
                 },
             )
@@ -712,10 +736,11 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "",
-                pattern: Pattern {
-                    original: "*",
+                pattern: Glob {
+                    glob: "*",
+                    re: "(?-u)^[^/]*$",
+                    opts: _,
                     tokens: _,
-                    is_recursive: false,
                 },
             },
         )
@@ -725,18 +750,49 @@ mod tests {
         Pattern(
             FileGlob {
                 dir: "foo/bar",
-                pattern: Pattern {
-                    original: "b[az]",
+                pattern: Glob {
+                    glob: "b[az]",
+                    re: "(?-u)^b[az]$",
+                    opts: _,
                     tokens: _,
-                        ),
-                    ],
-                    is_recursive: false,
+                },
+            },
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            parse(r#"root-glob:"foo/bar/b{ar,az}""#).unwrap(), @r#"
+        Pattern(
+            FileGlob {
+                dir: "foo/bar",
+                pattern: Glob {
+                    glob: "b{ar,az}",
+                    re: "(?-u)^b(?:az|ar)$",
+                    opts: _,
+                    tokens: _,
                 },
             },
         )
         "#);
         assert!(parse(r#"root-glob:"../*""#).is_err());
         assert!(parse(r#"root-glob:"/*""#).is_err());
+
+        // workspace-relative, backslash escape without meta characters
+        if cfg!(not(windows)) {
+            insta::assert_debug_snapshot!(
+                parse(r#"root-glob:'foo/bar\baz'"#).unwrap(), @r#"
+            Pattern(
+                FileGlob {
+                    dir: "foo",
+                    pattern: Glob {
+                        glob: "bar\\baz",
+                        re: "(?-u)^barbaz$",
+                        opts: _,
+                        tokens: _,
+                    },
+                },
+            )
+            "#);
+        }
     }
 
     #[test]
@@ -872,18 +928,14 @@ mod tests {
         let glob_expr = |dir: &str, pattern: &str| {
             FilesetExpression::pattern(FilePattern::FileGlob {
                 dir: repo_path_buf(dir),
-                pattern: glob::Pattern::new(pattern).unwrap(),
+                pattern: Box::new(parse_file_glob(pattern).unwrap()),
             })
         };
 
         insta::assert_debug_snapshot!(glob_expr("", "*").to_matcher(), @r#"
         FileGlobsMatcher {
             tree: [
-                Pattern {
-                    original: "*",
-                    tokens: _,
-                    is_recursive: false,
-                },
+                Regex("(?-u)^[^/]*$"),
             ] {},
         }
         "#);
@@ -894,18 +946,10 @@ mod tests {
         FileGlobsMatcher {
             tree: [] {
                 "foo": [
-                    Pattern {
-                        original: "*",
-                        tokens: _,
-                        is_recursive: false,
-                    },
+                    Regex("(?-u)^[^/]*$"),
                 ] {
                     "bar": [
-                        Pattern {
-                            original: "*",
-                            tokens: _,
-                            is_recursive: false,
-                        },
+                        Regex("(?-u)^[^/]*$"),
                     ] {},
                 },
             },

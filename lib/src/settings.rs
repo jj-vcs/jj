@@ -63,26 +63,29 @@ pub struct GitSettings {
     pub abandon_unreachable_commits: bool,
     pub executable_path: PathBuf,
     pub write_change_id_header: bool,
+    pub colocate: bool,
 }
 
 impl GitSettings {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
-        Ok(GitSettings {
+        Ok(Self {
             auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
             abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
             executable_path: settings.get("git.executable-path")?,
             write_change_id_header: settings.get("git.write-change-id-header")?,
+            colocate: settings.get("git.colocate")?,
         })
     }
 }
 
 impl Default for GitSettings {
     fn default() -> Self {
-        GitSettings {
+        Self {
             auto_local_bookmark: false,
             abandon_unreachable_commits: true,
             executable_path: PathBuf::from("git"),
             write_change_id_header: true,
+            colocate: false,
         }
     }
 }
@@ -158,7 +161,7 @@ impl UserSettings {
             signing_behavior,
             signing_key,
         };
-        Ok(UserSettings {
+        Ok(Self {
             config: Arc::new(config),
             data: Arc::new(data),
             rng,
@@ -182,7 +185,7 @@ impl UserSettings {
     }
 
     // Must not be changed to avoid git pushing older commits with no set name
-    pub const USER_NAME_PLACEHOLDER: &'static str = "(no name configured)";
+    pub const USER_NAME_PLACEHOLDER: &str = "(no name configured)";
 
     pub fn user_email(&self) -> &str {
         &self.data.user_email
@@ -194,7 +197,7 @@ impl UserSettings {
 
     // Must not be changed to avoid git pushing older commits with no set email
     // address
-    pub const USER_EMAIL_PLACEHOLDER: &'static str = "(no email configured)";
+    pub const USER_EMAIL_PLACEHOLDER: &str = "(no email configured)";
 
     pub fn commit_timestamp(&self) -> Option<Timestamp> {
         self.data.commit_timestamp
@@ -309,20 +312,20 @@ pub struct JJRng(Mutex<ChaCha20Rng>);
 impl JJRng {
     pub fn new_change_id(&self, length: usize) -> ChangeId {
         let mut rng = self.0.lock().unwrap();
-        let random_bytes = (0..length).map(|_| rng.gen::<u8>()).collect();
+        let random_bytes = (0..length).map(|_| rng.random::<u8>()).collect();
         ChangeId::new(random_bytes)
     }
 
     /// Creates a new RNGs. Could be made public, but we'd like to encourage all
     /// RNGs references to point to the same RNG.
     fn new(seed: Option<u64>) -> Self {
-        Self(Mutex::new(JJRng::internal_rng_from_seed(seed)))
+        Self(Mutex::new(Self::internal_rng_from_seed(seed)))
     }
 
     fn internal_rng_from_seed(seed: Option<u64>) -> ChaCha20Rng {
         match seed {
             Some(seed) => ChaCha20Rng::seed_from_u64(seed),
-            None => ChaCha20Rng::from_entropy(),
+            None => ChaCha20Rng::from_os_rng(),
         }
     }
 }
@@ -343,10 +346,10 @@ impl FromStr for HumanByteSize {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.parse() {
-            Ok(bytes) => Ok(HumanByteSize(bytes)),
+            Ok(bytes) => Ok(Self(bytes)),
             Err(_) => {
                 let bytes = parse_human_byte_size(s)?;
-                Ok(HumanByteSize(bytes))
+                Ok(Self(bytes))
             }
         }
     }
@@ -358,7 +361,7 @@ impl TryFrom<ConfigValue> for HumanByteSize {
     fn try_from(value: ConfigValue) -> Result<Self, Self::Error> {
         if let Some(n) = value.as_integer() {
             let n = u64::try_from(n).map_err(|_| "Integer out of range")?;
-            Ok(HumanByteSize(n))
+            Ok(Self(n))
         } else if let Some(s) = value.as_str() {
             s.parse()
         } else {

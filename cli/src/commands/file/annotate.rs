@@ -16,14 +16,15 @@ use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use jj_lib::annotate::FileAnnotation;
 use jj_lib::annotate::FileAnnotator;
+use jj_lib::annotate::LineOrigin;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::commit_templater::AnnotationLine;
 use crate::complete;
 use crate::templater::TemplateRenderer;
@@ -119,23 +120,27 @@ fn render_file_annotation(
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     let mut last_id = None;
-    let default_id = repo.store().root_commit_id();
-    for (line_number, (commit_id, content)) in annotation.lines().enumerate() {
-        /* At least in cases where the repository was jj-initialized shallowly,
-        then unshallow'd with git, some changes will not have a commit id
-        because jj does not import the unshallow'd commits. So we default
-        to the root commit id for now. */
-        let commit_id = commit_id.unwrap_or(default_id);
-        let commit = repo.store().get_commit(commit_id)?;
-        let first_line_in_hunk = last_id != Some(commit_id);
+    // At least in cases where the repository was jj-initialized shallowly,
+    // then unshallow'd with git, some changes will not have a commit id
+    // because jj does not import the unshallow'd commits. So we default
+    // to the root commit id for now.
+    let default_line_origin = LineOrigin {
+        commit_id: repo.store().root_commit_id().clone(),
+        line_number: 0,
+    };
+    for (line_number, (line_origin, content)) in annotation.line_origins().enumerate() {
+        let line_origin = line_origin.unwrap_or(&default_line_origin);
+        let commit = repo.store().get_commit(&line_origin.commit_id)?;
+        let first_line_in_hunk = last_id != Some(&line_origin.commit_id);
         let annotation_line = AnnotationLine {
             commit,
             content: content.to_owned(),
             line_number: line_number + 1,
+            original_line_number: line_origin.line_number + 1,
             first_line_in_hunk,
         };
         template_render.format(&annotation_line, formatter.as_mut())?;
-        last_id = Some(commit_id);
+        last_id = Some(&line_origin.commit_id);
     }
 
     Ok(())

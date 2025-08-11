@@ -20,9 +20,9 @@ use std::fmt;
 use std::slice;
 
 use itertools::Itertools as _;
+use pest::RuleType;
 use pest::iterators::Pair;
 use pest::iterators::Pairs;
-use pest::RuleType;
 
 /// Manages diagnostic messages emitted during parsing.
 ///
@@ -37,7 +37,7 @@ pub struct Diagnostics<T> {
 impl<T> Diagnostics<T> {
     /// Creates new empty diagnostics collector.
     pub fn new() -> Self {
-        Diagnostics {
+        Self {
             diagnostics: Vec::new(),
         }
     }
@@ -97,7 +97,7 @@ pub struct ExpressionNode<'i, T> {
 impl<'i, T> ExpressionNode<'i, T> {
     /// Wraps the given expression and span.
     pub fn new(kind: T, span: pest::Span<'i>) -> Self {
-        ExpressionNode { kind, span }
+        Self { kind, span }
     }
 }
 
@@ -646,11 +646,11 @@ pub enum AliasId<'a> {
 impl fmt::Display for AliasId<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AliasId::Symbol(name) => write!(f, "{name}"),
-            AliasId::Function(name, params) => {
+            Self::Symbol(name) => write!(f, "{name}"),
+            Self::Function(name, params) => {
                 write!(f, "{name}({params})", params = params.join(", "))
             }
-            AliasId::Parameter(name) => write!(f, "{name}"),
+            Self::Parameter(name) => write!(f, "{name}"),
         }
     }
 }

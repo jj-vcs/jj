@@ -19,6 +19,41 @@ use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 
 #[test]
+fn test_undo_root_operation() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // TODO: `jj undo 'root()'` is not a valid command, so use the hardcoded root op
+    // id here.
+    let output = work_dir.run_jj(["undo", "000000000000"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Cannot undo root operation
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_undo_merge_operation() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["new", "--at-op=@-"]).success();
+    let output = work_dir.run_jj(["undo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    Error: Cannot undo a merge operation
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_undo_rewrite_with_child() {
     // Test that if we undo an operation that rewrote some commit, any descendants
     // after that will be rebased on top of the un-rewritten commit.
@@ -28,8 +63,6 @@ fn test_undo_rewrite_with_child() {
 
     work_dir.run_jj(["describe", "-m", "initial"]).success();
     work_dir.run_jj(["describe", "-m", "modified"]).success();
-    let output = work_dir.run_jj(["op", "log"]).success();
-    let op_id_hex = output.stdout.raw()[3..15].to_string();
     work_dir.run_jj(["new", "-m", "child"]).success();
     let output = work_dir.run_jj(["log", "-T", "description"]);
     insta::assert_snapshot!(output, @r"
@@ -38,7 +71,7 @@ fn test_undo_rewrite_with_child() {
     ◆
     [EOF]
     ");
-    work_dir.run_jj(["undo", &op_id_hex]).success();
+    work_dir.run_jj(["undo", "@-"]).success();
 
     // Since we undid the description-change, the child commit should now be on top
     // of the initial commit
@@ -435,7 +468,7 @@ fn test_bookmark_track_untrack_undo() {
 }
 
 #[test]
-fn test_shows_a_warning_when_undoing_an_undo_operation_as_bare_jj_undo() {
+fn test_undo_latest_undo_implicitly() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -446,11 +479,11 @@ fn test_shows_a_warning_when_undoing_an_undo_operation_as_bare_jj_undo() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 94337eb25498 (2001-02-03 08:05:09) undo operation c7b028ea7b47461d4328dde306e13337ea9000b6abfde4cb751902fae3124d578f2e0082cbd1e1d32b5e64afc001a933be5acc81a015a7f15d62d90750eaa9ca
+    Undid operation: 6de77c1b46a3 (2001-02-03 08:05:09) undo operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
     Working copy  (@) now at: rlvkpnrz 43444d88 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
-    Hint: This action reverted an 'undo' operation. The repository is now in the same state as it was before the original 'undo'.
-    Hint: If your goal is to undo multiple operations, consider using `jj op log` to see past states, and `jj op restore` to restore one of these states.
+    Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
+    Hint: To undo multiple operations, use `jj op log` to see past states and `jj op restore` to restore one of these states.
     [EOF]
     ");
 
@@ -460,31 +493,150 @@ fn test_shows_a_warning_when_undoing_an_undo_operation_as_bare_jj_undo() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 0456966dabcb (2001-02-03 08:05:12) undo operation aea8c90f370bd851b9b66a6542aeff24f01418d745efcd7a94c7399afe4ce9aaf79903cd1feb34a9d091bfad3b3680e138ec90ecbed759cf2f6eacdb5c34e4e6
+    Undid operation: b77c991c5a2f (2001-02-03 08:05:12) undo operation 58f57841c00da755413d291ed9e1a1d9a58dd4311b5000a8703f1bf93339dd12cdbc2c6e1c8cd5f43cb584cabddcf8366153a007c244d89ee80a4e42e513058d
     Working copy  (@) now at: mzvwutvl 8afc18ff (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
-    Hint: This action reverted an 'undo' operation. The repository is now in the same state as it was before the original 'undo'.
-    Hint: If your goal is to undo multiple operations, consider using `jj op log` to see past states, and `jj op restore` to restore one of these states.
+    Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
+    Hint: To undo multiple operations, use `jj op log` to see past states and `jj op restore` to restore one of these states.
     [EOF]
     ");
 }
 
 #[test]
-fn test_shows_no_warning_when_undoing_a_specific_undo_change() {
+fn test_undo_latest_undo_explicitly() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
     work_dir.run_jj(["new"]).success();
     work_dir.run_jj(["undo"]).success();
-    let output = work_dir.run_jj(["op", "log"]).success();
-    let op_id_hex = output.stdout.raw()[3..15].to_string();
-    let output = work_dir.run_jj(["undo", &op_id_hex]);
+    let output = work_dir
+        .run_jj(["op", "log", "--no-graph", "-T=id.short()", "-n=1"])
+        .success();
+    let op_id_hex = output.stdout.raw();
+    let output = work_dir.run_jj(["undo", op_id_hex]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 94337eb25498 (2001-02-03 08:05:09) undo operation c7b028ea7b47461d4328dde306e13337ea9000b6abfde4cb751902fae3124d578f2e0082cbd1e1d32b5e64afc001a933be5acc81a015a7f15d62d90750eaa9ca
+    Undid operation: 6de77c1b46a3 (2001-02-03 08:05:09) undo operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
     Working copy  (@) now at: rlvkpnrz 43444d88 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    ");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["undo", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Undid operation: c99ea8473832 (2001-02-03 08:05:13) undo operation 09cbd5c994ee9e437950a49fa4400d3c6e9d5c1e44ea55b38806a9692317716647578328c53b887a758a40270ad8ab6d5b67c1675d088281879cc7c74a2da6cc
+    Working copy  (@) now at: royxmykx ba0e5dca (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 43444d88 (empty) (no description set)
+    Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
+    Hint: To undo multiple operations, use `jj op log` to see past states and `jj op restore` to restore one of these states.
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_undo_an_older_undo() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir
+        .run_jj(["op", "log", "--no-graph", "-T=id.short()", "-n=1"])
+        .success();
+    let op_id_hex = output.stdout.raw();
+    work_dir.run_jj(["new"]).success();
+    // Undo an older undo operation that is not the immediately preceding operation.
+    let output = work_dir.run_jj(["undo", op_id_hex]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Undid operation: 6de77c1b46a3 (2001-02-03 08:05:09) undo operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
+    [EOF]
+    ");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["new"]).success();
+    // Undo an older undo operation that is not the immediately preceding operation.
+    let output = work_dir.run_jj(["undo", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Undid operation: ffea82d2bf89 (2001-02-03 08:05:14) undo operation 2b3480d4ece49d59f5da51e1284b742773e6b858935f122bebab625430137f9aae1aaebf7a8c081e0715e9cd24deee9d0d039743fbb1dd61804c633c9c7f17a2
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_undo_an_undo_multiple_times() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["undo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Undid operation: 6de77c1b46a3 (2001-02-03 08:05:09) undo operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
+    Working copy  (@) now at: rlvkpnrz 43444d88 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
+    Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
+    Hint: To undo multiple operations, use `jj op log` to see past states and `jj op restore` to restore one of these states.
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["undo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Undid operation: f17b43a603fd (2001-02-03 08:05:10) undo operation 6de77c1b46a39115938845d2fffb5780a49a4991d1f8f99b60509705faa38d496b06cdbb427a497ff22d1f2b81613ac80a8dd6b97ca2fa35d7cc66d2a33059e4
+    Working copy  (@) now at: qpvuntsm e8849ae1 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
+    Hint: To undo multiple operations, use `jj op log` to see past states and `jj op restore` to restore one of these states.
+    [EOF]
+    ");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["undo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Undid operation: 1eee1feca2d3 (2001-02-03 08:05:13) undo operation 18ee4719e7c7a2da3fbeec66678dfb03c4f3deebbe887dbc46270102c86894615a07a223713981d12b3ddc757e5104c7e9f7b391202747cd1868e0d2ac01f35d
+    Working copy  (@) now at: royxmykx e7d0d5fd (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
+    Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
+    Hint: To undo multiple operations, use `jj op log` to see past states and `jj op restore` to restore one of these states.
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["undo", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Undid operation: 079cb7121929 (2001-02-03 08:05:14) undo operation 1eee1feca2d334e1c7c956048eec1e54a35d58b39aaec88c8a48ce7ce216b30e287f49c0305c51ad86292c6a2e11dd98ed97d8ef0a497e7114cf2aea99d4e71d
+    Working copy  (@) now at: qpvuntsm e8849ae1 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
+    Hint: To undo multiple operations, use `jj op log` to see past states and `jj op restore` to restore one of these states.
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_undo_bookmark_deletion() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["bookmark", "create", "foo", "-r=@"])
+        .success();
+    work_dir.run_jj(["bookmark", "delete", "foo"]).success();
+    let output = work_dir.run_jj(["undo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Undid operation: e1bcf7cd8080 (2001-02-03 08:05:09) delete bookmark foo
     [EOF]
     ");
 }

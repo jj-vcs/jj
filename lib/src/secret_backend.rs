@@ -15,12 +15,13 @@
 //! Provides a backend for testing ACLs
 
 use std::any::Any;
-use std::io::Read;
 use std::path::Path;
+use std::pin::Pin;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
 use futures::stream::BoxStream;
+use tokio::io::AsyncRead;
 
 use crate::backend::Backend;
 use crate::backend::BackendError;
@@ -31,6 +32,8 @@ use crate::backend::Commit;
 use crate::backend::CommitId;
 use crate::backend::Conflict;
 use crate::backend::ConflictId;
+use crate::backend::CopyHistory;
+use crate::backend::CopyId;
 use crate::backend::CopyRecord;
 use crate::backend::FileId;
 use crate::backend::SigningFn;
@@ -66,7 +69,7 @@ impl SecretBackend {
     /// Loads the backend from the given path.
     pub fn load(settings: &UserSettings, store_path: &Path) -> Result<Self, BackendLoadError> {
         let inner = GitBackend::load(settings, store_path)?;
-        Ok(SecretBackend { inner })
+        Ok(Self { inner })
     }
 
     /// Convert a git repo to using `SecretBackend`
@@ -91,7 +94,7 @@ impl Backend for SecretBackend {
     }
 
     fn name(&self) -> &str {
-        SecretBackend::name()
+        Self::name()
     }
 
     fn commit_id_length(&self) -> usize {
@@ -118,7 +121,11 @@ impl Backend for SecretBackend {
         1
     }
 
-    async fn read_file(&self, path: &RepoPath, id: &FileId) -> BackendResult<Box<dyn Read>> {
+    async fn read_file(
+        &self,
+        path: &RepoPath,
+        id: &FileId,
+    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
         if path.as_internal_file_string().contains("secret")
             || SECRET_CONTENTS_HEX.contains(&id.hex().as_ref())
         {
@@ -134,7 +141,7 @@ impl Backend for SecretBackend {
     async fn write_file(
         &self,
         path: &RepoPath,
-        contents: &mut (dyn Read + Send),
+        contents: &mut (dyn AsyncRead + Send + Unpin),
     ) -> BackendResult<FileId> {
         self.inner.write_file(path, contents).await
     }
@@ -154,6 +161,24 @@ impl Backend for SecretBackend {
 
     async fn write_symlink(&self, path: &RepoPath, target: &str) -> BackendResult<SymlinkId> {
         self.inner.write_symlink(path, target).await
+    }
+
+    async fn read_copy(&self, _id: &CopyId) -> BackendResult<CopyHistory> {
+        Err(BackendError::Unsupported(
+            "The secret backend doesn't support copies".to_string(),
+        ))
+    }
+
+    async fn write_copy(&self, _contents: &CopyHistory) -> BackendResult<CopyId> {
+        Err(BackendError::Unsupported(
+            "The secret backend doesn't support copies".to_string(),
+        ))
+    }
+
+    async fn get_related_copies(&self, _copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>> {
+        Err(BackendError::Unsupported(
+            "The secret backend doesn't support copies".to_string(),
+        ))
     }
 
     async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> BackendResult<Tree> {
@@ -189,7 +214,7 @@ impl Backend for SecretBackend {
         paths: Option<&[RepoPathBuf]>,
         root: &CommitId,
         head: &CommitId,
-    ) -> BackendResult<BoxStream<BackendResult<CopyRecord>>> {
+    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
         self.inner.get_copy_records(paths, root, head)
     }
 

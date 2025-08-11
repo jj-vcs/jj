@@ -58,19 +58,23 @@ impl OperationTemplateLanguageExtension for HexCounter {
         );
         table.operation_methods.insert(
             "num_char_in_id",
-            |_language, _diagnostics, _build_context, property, call| {
+            |_language, diagnostics, _build_context, property, call| {
                 let [string_arg] = call.expect_exact_arguments()?;
-                let char_arg =
-                    template_parser::expect_string_literal_with(string_arg, |string, span| {
+                let char_arg = template_parser::catch_aliases(
+                    diagnostics,
+                    string_arg,
+                    |_diagnostics, arg| {
+                        let string = template_parser::expect_string_literal(arg)?;
                         let chars: Vec<_> = string.chars().collect();
                         match chars[..] {
                             [ch] => Ok(ch),
                             _ => Err(TemplateParseError::expression(
                                 "Expected singular character argument",
-                                span,
+                                arg.span,
                             )),
                         }
-                    })?;
+                    },
+                )?;
 
                 let out_property =
                     property.map(move |operation| num_char_in_id(operation, char_arg));
@@ -88,4 +92,5 @@ fn main() -> std::process::ExitCode {
     CliRunner::init()
         .add_operation_template_extension(Box::new(HexCounter))
         .run()
+        .into()
 }

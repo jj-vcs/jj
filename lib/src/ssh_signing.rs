@@ -38,6 +38,7 @@ use crate::signing::Verification;
 pub struct SshBackend {
     program: OsString,
     allowed_signers: Option<OsString>,
+    revocation_list: Option<OsString>,
 }
 
 #[derive(Debug, Error)]
@@ -57,7 +58,7 @@ pub enum SshError {
 
 impl From<SshError> for SignError {
     fn from(e: SshError) -> Self {
-        SignError::Backend(Box::new(e))
+        Self::Backend(Box::new(e))
     }
 }
 
@@ -88,9 +89,8 @@ fn run_command(command: &mut Command, stdin: &[u8]) -> SshResult<Vec<u8>> {
 // If the given data is actually already a filepath to a key on disk then the
 // key input is returned directly.
 fn ensure_key_as_file(key: &str) -> SshResult<Either<PathBuf, tempfile::TempPath>> {
-    let is_inlined_ssh_key = key.starts_with("ssh-");
-    if !is_inlined_ssh_key {
-        let key_path = crate::file_util::expand_home_path(key);
+    let key_path = crate::file_util::expand_home_path(key);
+    if key_path.is_absolute() {
         return Ok(either::Left(key_path));
     }
 
@@ -112,20 +112,36 @@ fn ensure_key_as_file(key: &str) -> SshResult<Either<PathBuf, tempfile::TempPath
 }
 
 impl SshBackend {
-    pub fn new(program: OsString, allowed_signers: Option<OsString>) -> Self {
+    pub fn new(
+        program: OsString,
+        allowed_signers: Option<OsString>,
+        revocation_list: Option<OsString>,
+    ) -> Self {
         Self {
             program,
             allowed_signers,
+            revocation_list,
         }
     }
 
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         let program = settings.get_string("signing.backends.ssh.program")?;
-        let allowed_signers = settings
-            .get_string("signing.backends.ssh.allowed-signers")
-            .optional()?
-            .map(|v| crate::file_util::expand_home_path(v.as_str()));
-        Ok(Self::new(program.into(), allowed_signers.map(|v| v.into())))
+
+        let get_expanded_path = |name| {
+            Ok(settings
+                .get_string(name)
+                .optional()?
+                .map(|v| crate::file_util::expand_home_path(v.as_str())))
+        };
+
+        let allowed_signers = get_expanded_path("signing.backends.ssh.allowed-signers")?;
+        let revocation_list = get_expanded_path("signing.backends.ssh.revocation-list")?;
+
+        Ok(Self::new(
+            program.into(),
+            allowed_signers.map(Into::into),
+            revocation_list.map(Into::into),
+        ))
     }
 
     fn create_command(&self) -> Command {
@@ -133,7 +149,7 @@ impl SshBackend {
         // Hide console window on Windows (https://stackoverflow.com/a/60958956)
         #[cfg(windows)]
         {
-            use std::os::windows::process::CommandExt;
+            use std::os::windows::process::CommandExt as _;
             const CREATE_NO_WINDOW: u32 = 0x08000000;
             command.creation_flags(CREATE_NO_WINDOW);
         }
@@ -250,6 +266,10 @@ impl SigningBackend for SshBackend {
                     .arg("-n")
                     .arg("git");
 
+                if let Some(revocation_list) = self.revocation_list.as_ref() {
+                    command.arg("-r").arg(revocation_list);
+                }
+
                 let result = run_command(&mut command, data);
 
                 let status = match result {
@@ -299,6 +319,21 @@ mod tests {
         file.read_to_end(&mut buf).unwrap();
 
         assert_eq!("ssh-ed25519 some-key-data", String::from_utf8(buf).unwrap());
+    }
+
+    #[test]
+    fn test_ssh_key_to_file_conversion_non_ssh_prefix() {
+        let keydata = "ecdsa-sha2-nistp256 some-key-data";
+        let path = ensure_key_as_file(keydata).unwrap();
+
+        let mut buf = vec![];
+        let mut file = File::open(path.right().unwrap()).unwrap();
+        file.read_to_end(&mut buf).unwrap();
+
+        assert_eq!(
+            "ecdsa-sha2-nistp256 some-key-data",
+            String::from_utf8(buf).unwrap()
+        );
     }
 
     #[test]

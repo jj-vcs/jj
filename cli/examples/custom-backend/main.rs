@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use std::any::Any;
-use std::io::Read;
 use std::path::Path;
+use std::pin::Pin;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
@@ -32,6 +32,8 @@ use jj_lib::backend::Commit;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::Conflict;
 use jj_lib::backend::ConflictId;
+use jj_lib::backend::CopyHistory;
+use jj_lib::backend::CopyId;
 use jj_lib::backend::CopyRecord;
 use jj_lib::backend::FileId;
 use jj_lib::backend::SigningFn;
@@ -47,6 +49,7 @@ use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceInitError;
+use tokio::io::AsyncRead;
 
 #[derive(clap::Parser, Clone, Debug)]
 enum CustomCommand {
@@ -91,6 +94,7 @@ fn main() -> std::process::ExitCode {
         .add_store_factories(create_store_factories())
         .add_subcommand(run_custom_command)
         .run()
+        .into()
 }
 
 /// A commit backend that's extremely similar to the Git backend
@@ -102,12 +106,12 @@ struct JitBackend {
 impl JitBackend {
     fn init(settings: &UserSettings, store_path: &Path) -> Result<Self, BackendInitError> {
         let inner = GitBackend::init_internal(settings, store_path)?;
-        Ok(JitBackend { inner })
+        Ok(Self { inner })
     }
 
     fn load(settings: &UserSettings, store_path: &Path) -> Result<Self, BackendLoadError> {
         let inner = GitBackend::load(settings, store_path)?;
-        Ok(JitBackend { inner })
+        Ok(Self { inner })
     }
 }
 
@@ -145,14 +149,18 @@ impl Backend for JitBackend {
         1
     }
 
-    async fn read_file(&self, path: &RepoPath, id: &FileId) -> BackendResult<Box<dyn Read>> {
+    async fn read_file(
+        &self,
+        path: &RepoPath,
+        id: &FileId,
+    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
         self.inner.read_file(path, id).await
     }
 
     async fn write_file(
         &self,
         path: &RepoPath,
-        contents: &mut (dyn Read + Send),
+        contents: &mut (dyn AsyncRead + Send + Unpin),
     ) -> BackendResult<FileId> {
         self.inner.write_file(path, contents).await
     }
@@ -163,6 +171,18 @@ impl Backend for JitBackend {
 
     async fn write_symlink(&self, path: &RepoPath, target: &str) -> BackendResult<SymlinkId> {
         self.inner.write_symlink(path, target).await
+    }
+
+    async fn read_copy(&self, id: &CopyId) -> BackendResult<CopyHistory> {
+        self.inner.read_copy(id).await
+    }
+
+    async fn write_copy(&self, contents: &CopyHistory) -> BackendResult<CopyId> {
+        self.inner.write_copy(contents).await
+    }
+
+    async fn get_related_copies(&self, copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>> {
+        self.inner.get_related_copies(copy_id).await
     }
 
     async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> BackendResult<Tree> {
@@ -198,7 +218,7 @@ impl Backend for JitBackend {
         paths: Option<&[RepoPathBuf]>,
         root: &CommitId,
         head: &CommitId,
-    ) -> BackendResult<BoxStream<BackendResult<CopyRecord>>> {
+    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
         self.inner.get_copy_records(paths, root, head)
     }
 

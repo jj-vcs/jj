@@ -16,9 +16,7 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::fs::File;
 use std::io;
-use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -28,6 +26,8 @@ use thiserror::Error;
 use crate::backend::BackendInitError;
 use crate::backend::MergedTreeId;
 use crate::commit::Commit;
+use crate::file_util;
+use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::local_working_copy::LocalWorkingCopy;
@@ -36,7 +36,6 @@ use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store::OperationId;
 use crate::ref_name::WorkspaceName;
 use crate::ref_name::WorkspaceNameBuf;
-use crate::repo::read_store_type;
 use crate::repo::BackendInitializer;
 use crate::repo::CheckOutCommitError;
 use crate::repo::IndexStoreInitializer;
@@ -49,11 +48,11 @@ use crate::repo::RepoLoader;
 use crate::repo::StoreFactories;
 use crate::repo::StoreLoadError;
 use crate::repo::SubmoduleStoreInitializer;
+use crate::repo::read_store_type;
 use crate::settings::UserSettings;
 use crate::signing::SignInitError;
 use crate::signing::Signer;
 use crate::simple_backend::SimpleBackend;
-use crate::store::Store;
 use crate::transaction::TransactionCommitError;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutOptions;
@@ -67,8 +66,8 @@ use crate::working_copy::WorkingCopyStateError;
 pub enum WorkspaceInitError {
     #[error("The destination repo ({0}) already exists")]
     DestinationExists(PathBuf),
-    #[error("Repo path could not be interpreted as Unicode text")]
-    NonUnicodePath,
+    #[error("Repo path could not be encoded")]
+    EncodeRepoPath(#[source] BadPathEncoding),
     #[error(transparent)]
     CheckOutCommit(#[from] CheckOutCommitError),
     #[error(transparent)]
@@ -93,8 +92,8 @@ pub enum WorkspaceLoadError {
     NoWorkspaceHere(PathBuf),
     #[error("Cannot read the repo")]
     StoreLoadError(#[from] StoreLoadError),
-    #[error("Repo path could not be interpreted as Unicode text")]
-    NonUnicodePath,
+    #[error("Repo path could not be decoded")]
+    DecodeRepoPath(#[source] BadPathEncoding),
     #[error(transparent)]
     WorkingCopyState(#[from] WorkingCopyStateError),
     #[error(transparent)]
@@ -213,6 +212,7 @@ fn init_working_copy(
         working_copy_state_path.clone(),
         repo.op_id().clone(),
         workspace_name,
+        repo.settings(),
     )?;
     let working_copy_type_path = working_copy_state_path.join("type");
     fs::write(&working_copy_type_path, working_copy.name()).context(&working_copy_type_path)?;
@@ -225,7 +225,7 @@ impl Workspace {
         repo_path: PathBuf,
         working_copy: Box<dyn WorkingCopy>,
         repo_loader: RepoLoader,
-    ) -> Result<Workspace, PathError> {
+    ) -> Result<Self, PathError> {
         let workspace_root = dunce::canonicalize(workspace_root).context(workspace_root)?;
         Ok(Self::new_no_canonicalize(
             workspace_root,
@@ -385,7 +385,7 @@ impl Workspace {
                 workspace_name,
             )?;
             let repo_loader = repo.loader().clone();
-            let workspace = Workspace::new(workspace_root, repo_dir, working_copy, repo_loader)?;
+            let workspace = Self::new(workspace_root, repo_dir, working_copy, repo_loader)?;
             Ok((workspace, repo))
         })()
         .inspect_err(|_err| {
@@ -423,16 +423,10 @@ impl Workspace {
         let jj_dir = create_jj_dir(workspace_root)?;
 
         let repo_dir = dunce::canonicalize(repo_path).context(repo_path)?;
+        let repo_dir_bytes =
+            file_util::path_to_bytes(&repo_dir).map_err(WorkspaceInitError::EncodeRepoPath)?;
         let repo_file_path = jj_dir.join("repo");
-        let mut repo_file = File::create(&repo_file_path).context(&repo_file_path)?;
-        repo_file
-            .write_all(
-                repo_dir
-                    .to_str()
-                    .ok_or(WorkspaceInitError::NonUnicodePath)?
-                    .as_bytes(),
-            )
-            .context(&repo_file_path)?;
+        fs::write(&repo_file_path, repo_dir_bytes).context(&repo_file_path)?;
 
         let (working_copy, repo) = init_working_copy(
             repo,
@@ -441,7 +435,7 @@ impl Workspace {
             working_copy_factory,
             workspace_name,
         )?;
-        let workspace = Workspace::new(
+        let workspace = Self::new(
             workspace_root,
             repo_dir,
             working_copy,
@@ -488,7 +482,7 @@ impl Workspace {
 
     pub fn start_working_copy_mutation(
         &mut self,
-    ) -> Result<LockedWorkspace, WorkingCopyStateError> {
+    ) -> Result<LockedWorkspace<'_>, WorkingCopyStateError> {
         let locked_wc = self.working_copy.start_mutation()?;
         Ok(LockedWorkspace {
             base: self,
@@ -549,7 +543,7 @@ impl LockedWorkspace<'_> {
 // Factory trait to build WorkspaceLoaders given the workspace root.
 pub trait WorkspaceLoaderFactory {
     fn create(&self, workspace_root: &Path)
-        -> Result<Box<dyn WorkspaceLoader>, WorkspaceLoadError>;
+    -> Result<Box<dyn WorkspaceLoader>, WorkspaceLoadError>;
 }
 
 pub fn get_working_copy_factory<'a>(
@@ -563,7 +557,7 @@ pub fn get_working_copy_factory<'a>(
     } else {
         Err(StoreLoadError::UnsupportedType {
             store: "working copy",
-            store_type: working_copy_type.to_string(),
+            store_type: working_copy_type.clone(),
         })
     }
 }
@@ -587,13 +581,6 @@ pub trait WorkspaceLoader {
 
     // Returns the type identifier for the WorkingCopy trait in this Workspace.
     fn get_working_copy_type(&self) -> Result<String, StoreLoadError>;
-
-    // Loads the WorkingCopy trait for this Workspace.
-    fn load_working_copy(
-        &self,
-        store: &Arc<Store>,
-        working_copy_factory: &dyn WorkingCopyFactory,
-    ) -> Result<Box<dyn WorkingCopy>, WorkspaceLoadError>;
 }
 
 pub struct DefaultWorkspaceLoaderFactory;
@@ -631,9 +618,9 @@ impl DefaultWorkspaceLoader {
         // the actual repo directory (typically in another workspace).
         if repo_dir.is_file() {
             let buf = fs::read(&repo_dir).context(&repo_dir)?;
-            let repo_path_str =
-                String::from_utf8(buf).map_err(|_| WorkspaceLoadError::NonUnicodePath)?;
-            repo_dir = dunce::canonicalize(jj_dir.join(&repo_path_str)).context(&repo_path_str)?;
+            let repo_path =
+                file_util::path_from_bytes(&buf).map_err(WorkspaceLoadError::DecodeRepoPath)?;
+            repo_dir = dunce::canonicalize(jj_dir.join(repo_path)).context(repo_path)?;
             if !repo_dir.is_dir() {
                 return Err(WorkspaceLoadError::RepoDoesNotExist(repo_dir));
             }
@@ -665,7 +652,12 @@ impl WorkspaceLoader for DefaultWorkspaceLoader {
         let repo_loader =
             RepoLoader::init_from_file_system(user_settings, &self.repo_path, store_factories)?;
         let working_copy_factory = get_working_copy_factory(self, working_copy_factories)?;
-        let working_copy = self.load_working_copy(repo_loader.store(), working_copy_factory)?;
+        let working_copy = working_copy_factory.load_working_copy(
+            repo_loader.store().clone(),
+            self.workspace_root.clone(),
+            self.working_copy_state_path.clone(),
+            user_settings,
+        )?;
         let workspace = Workspace::new(
             &self.workspace_root,
             self.repo_path.clone(),
@@ -677,18 +669,6 @@ impl WorkspaceLoader for DefaultWorkspaceLoader {
 
     fn get_working_copy_type(&self) -> Result<String, StoreLoadError> {
         read_store_type("working copy", self.working_copy_state_path.join("type"))
-    }
-
-    fn load_working_copy(
-        &self,
-        store: &Arc<Store>,
-        working_copy_factory: &dyn WorkingCopyFactory,
-    ) -> Result<Box<dyn WorkingCopy>, WorkspaceLoadError> {
-        Ok(working_copy_factory.load_working_copy(
-            store.clone(),
-            self.workspace_root.clone(),
-            self.working_copy_state_path.clone(),
-        )?)
     }
 }
 

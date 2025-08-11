@@ -1,3 +1,0 @@
-#:schema ../../../src/config-schema.json
-[core]
-fsmonitor = "who-watches-the-watchmen"

@@ -21,9 +21,9 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::command_error::CommandError;
 use crate::complete;
-use crate::diff_util::diff_formats_for_log;
 use crate::diff_util::DiffFormatArgs;
 use crate::diff_util::DiffRenderer;
+use crate::diff_util::diff_formats_for_log;
 use crate::graphlog::GraphStyle;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
@@ -58,16 +58,18 @@ pub fn cmd_op_show(
     let repo_loader = workspace_command.workspace().repo_loader();
     let settings = workspace_command.settings();
     let op = workspace_command.resolve_single_op(&args.operation)?;
-    let parents: Vec<_> = op.parents().try_collect()?;
-    let parent_op = repo_loader.merge_operations(parents, None)?;
-    let parent_repo = repo_loader.load_at(&parent_op)?;
+    let parent_ops: Vec<_> = op.parents().try_collect()?;
+    let merged_parent_op = repo_loader.merge_operations(parent_ops.clone(), None)?;
+    let parent_repo = repo_loader.load_at(&merged_parent_op)?;
     let repo = repo_loader.load_at(&op)?;
 
     let id_prefix_context = workspace_env.new_id_prefix_context();
     let commit_summary_template = {
         let language = workspace_env.commit_template_language(repo.as_ref(), &id_prefix_context);
         let text = settings.get_string("templates.commit_summary")?;
-        workspace_env.parse_template(ui, &language, &text)?
+        workspace_env
+            .parse_template(ui, &language, &text)?
+            .labeled(["op_show", "commit"])
     };
 
     let graph_style = GraphStyle::from_settings(settings)?;
@@ -91,13 +93,18 @@ pub fn cmd_op_show(
         let text = settings.get_string("templates.op_log")?;
         workspace_command
             .parse_operation_template(ui, &text)?
-            .labeled("operation")
+            .labeled(["op_show", "operation"])
     };
 
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     template.format(&op, formatter.as_mut())?;
 
+    // TODO: Merged repo may have newly rebased commits, which wouldn't exist in
+    // the index. (#4465)
+    if parent_ops.len() > 1 {
+        return Ok(());
+    }
     show_op_diff(
         ui,
         formatter.as_mut(),

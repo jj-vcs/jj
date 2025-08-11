@@ -53,6 +53,10 @@ fn test_version() {
     let expected = [
         "jj ?.??.?\n",
         "jj ?.??.?-????????????????????????????????????????\n",
+        // This test could be made to succeed when `jj` is compiled at a merge commit by adding a
+        // few entries like "jj ?.??.?-????????????????????????????????????????-?????????????????
+        // ???????????????????????\n" here. However, it might be best to keep it failing, so that
+        // we avoid releasing `jj` with such `--version` output.
     ];
     assert!(
         expected.contains(&sanitized.as_str()),
@@ -580,26 +584,34 @@ fn test_color_ui_messages() {
     ");
 
     // formatted hint
-    let output = work_dir.run_jj(["new", ".."]);
+    let output = work_dir.run_jj(["edit", ".."]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     [1m[38;5;1mError: [39mRevset `..` resolved to more than one revision[0m
     [1m[38;5;6mHint: [0m[39mThe revset `..` resolved to these revisions:[39m
-    [39m  [1m[38;5;5mm[0m[38;5;8mzvwutvl[39m [1m[38;5;4m8[0m[38;5;8mafc18ff[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m[39m
+    [39m  [1m[38;5;13mm[38;5;8mzvwutvl[39m [38;5;12m8[38;5;8mafc18ff[39m [38;5;10m(empty)[39m [38;5;10m(no description set)[0m[39m[39m
     [39m  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m[39m
-    [1m[38;5;6mHint: [0m[39mPrefix the expression with `all:` to allow any number of revisions (i.e. `all:..`).[39m
     [EOF]
     [exit status: 1]
     ");
 
-    // debugging colors
+    // commit_summary template with debugging colors
     let output = work_dir.run_jj(["st", "--color", "debug"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy  (@) : [1m[38;5;13m<<working_copy change_id shortest prefix::m>>[38;5;8m<<working_copy change_id shortest rest::zvwutvl>>[39m<<working_copy:: >>[38;5;12m<<working_copy commit_id shortest prefix::8>>[38;5;8m<<working_copy commit_id shortest rest::afc18ff>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty::(empty)>>[39m<<working_copy:: >>[38;5;10m<<working_copy empty description placeholder::(no description set)>>[0m
-    Parent commit (@-): [1m[38;5;5m<<change_id shortest prefix::q>>[0m[38;5;8m<<change_id shortest rest::pvuntsm>>[39m [1m[38;5;4m<<commit_id shortest prefix::e>>[0m[38;5;8m<<commit_id shortest rest::8849ae1>>[39m [38;5;2m<<empty::(empty)>>[39m [38;5;2m<<empty description placeholder::(no description set)>>[39m
+    Working copy  (@) : [1m[38;5;13m<<commit working_copy change_id shortest prefix::m>>[38;5;8m<<commit working_copy change_id shortest rest::zvwutvl>>[39m<<commit working_copy:: >>[38;5;12m<<commit working_copy commit_id shortest prefix::8>>[38;5;8m<<commit working_copy commit_id shortest rest::afc18ff>>[39m<<commit working_copy:: >>[38;5;10m<<commit working_copy empty::(empty)>>[39m<<commit working_copy:: >>[38;5;10m<<commit working_copy empty description placeholder::(no description set)>>[0m
+    Parent commit (@-): [1m[38;5;5m<<commit change_id shortest prefix::q>>[0m[38;5;8m<<commit change_id shortest rest::pvuntsm>>[39m<<commit:: >>[1m[38;5;4m<<commit commit_id shortest prefix::e>>[0m[38;5;8m<<commit commit_id shortest rest::8849ae1>>[39m<<commit:: >>[38;5;2m<<commit empty::(empty)>>[39m<<commit:: >>[38;5;2m<<commit empty description placeholder::(no description set)>>[39m
     [EOF]
     ");
+
+    // commit_summary template in transaction
+    let output = work_dir.run_jj(["revert", "--color=debug", "-r@", "-d@"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Reverted 1 commits as follows:
+      [1m[38;5;5m<<commit change_id shortest prefix::y>>[0m[38;5;8m<<commit change_id shortest rest::ostqsxw>>[39m<<commit:: >>[1m[38;5;4m<<commit commit_id shortest prefix::8b>>[0m[38;5;8m<<commit commit_id shortest rest::f82eec>>[39m<<commit:: >>[38;5;2m<<commit empty::(empty)>>[39m<<commit:: >><<commit description first_line::Revert "">>
+    [EOF]
+    "#);
 }
 
 #[test]
@@ -1049,7 +1061,10 @@ fn test_help() {
     insta::assert_snapshot!(output, @r"
     Touch up the content changes in a revision with a diff editor
 
-    Usage: jj diffedit [OPTIONS]
+    Usage: jj diffedit [OPTIONS] [FILESETS]...
+
+    Arguments:
+      [FILESETS]...  Edit only these paths (unmatched paths will remain unchanged)
 
     Options:
       -r, --revision <REVSET>    The revision to touch up
@@ -1063,7 +1078,7 @@ fn test_help() {
       -R, --repository <REPOSITORY>      Path to repository to operate on
           --ignore-working-copy          Don't snapshot the working copy, and don't update it
           --ignore-immutable             Allow rewriting immutable commits
-          --at-operation <AT_OPERATION>  Operation to load the repo at [aliases: at-op]
+          --at-operation <AT_OPERATION>  Operation to load the repo at [aliases: --at-op]
           --debug                        Enable debug logging
           --color <WHEN>                 When to colorize output [possible values: always, never, debug,
                                          auto]

@@ -46,6 +46,7 @@ use crate::repo::RewriteRootCommit;
 use crate::repo_path::InvalidRepoPathError;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
+use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::transaction::TransactionCommitError;
 
@@ -88,6 +89,7 @@ pub trait WorkingCopyFactory {
         state_path: PathBuf,
         operation_id: OperationId,
         workspace_name: WorkspaceNameBuf,
+        settings: &UserSettings,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
 
     /// Load an existing working copy.
@@ -96,6 +98,7 @@ pub trait WorkingCopyFactory {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
+        settings: &UserSettings,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
 }
 
@@ -227,7 +230,7 @@ pub struct SnapshotOptions<'a> {
 impl SnapshotOptions<'_> {
     /// Create an instance for use in tests.
     pub fn empty_for_test() -> Self {
-        SnapshotOptions {
+        Self {
             base_ignores: GitIgnoreFile::empty(),
             fsmonitor_settings: FsmonitorSettings::None,
             progress: None,
@@ -272,7 +275,7 @@ pub struct CheckoutOptions {
 impl CheckoutOptions {
     /// Create an instance for use in tests.
     pub fn empty_for_test() -> Self {
-        CheckoutOptions {
+        Self {
             conflict_marker_style: ConflictMarkerStyle::default(),
         }
     }

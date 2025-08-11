@@ -14,12 +14,13 @@
 
 use std::io::Write as _;
 
+use jj_lib::file_util;
 use tracing::instrument;
 
 use super::ConfigLevelArgs;
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::ui::Ui;
 
 /// Print the paths to the config files
@@ -40,13 +41,9 @@ pub fn cmd_config_path(
     args: &ConfigPathArgs,
 ) -> Result<(), CommandError> {
     for config_path in args.level.config_paths(command.config_env())? {
-        writeln!(
-            ui.stdout(),
-            "{}",
-            config_path
-                .to_str()
-                .ok_or_else(|| user_error("The config path is not valid UTF-8"))?
-        )?;
+        let path_bytes = file_util::path_to_bytes(config_path).map_err(user_error)?;
+        ui.stdout().write_all(path_bytes)?;
+        writeln!(ui.stdout())?;
     }
     Ok(())
 }

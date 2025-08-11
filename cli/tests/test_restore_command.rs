@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::common::create_commit_with_files;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::create_commit_with_files;
 
 #[test]
 fn test_restore() {
@@ -35,9 +35,9 @@ fn test_restore() {
     let output = work_dir.run_jj(["restore", "-r=@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: `jj restore` does not have a `--revision`/`-r` option. If you'd like to modify
-    the *current* revision, use `--from`. If you'd like to modify a *different* revision,
-    use `--into` or `--changes-in`.
+    Error: `jj restore` does not have a `--revision`/`-r` option.
+    Hint: To modify the current revision, use `--from`.
+    Hint: To undo changes in a revision compared to its parents, use `--changes-in`.
     [EOF]
     [exit status: 1]
     ");
@@ -62,7 +62,7 @@ fn test_restore() {
     [EOF]
     ");
     let output = work_dir.run_jj(["restore", "-c=@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r###"
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: kkmpptxz c1d65a0f (conflict) (no description set)
@@ -72,13 +72,14 @@ fn test_restore() {
     file2    2-sided conflict including 1 deletion
     New conflicts appeared in 1 commits:
       kkmpptxz c1d65a0f (conflict) (no description set)
-    Hint: To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by creating a commit on top of
+    the conflicted commit:
       jj new kkmpptxz
     Then use `jj resolve`, or edit the conflict markers in the file directly.
-    Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
+    Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    ");
+    "###);
     let output = work_dir.run_jj(["diff", "-s", "-r=@-"]);
     insta::assert_snapshot!(output, @"");
 

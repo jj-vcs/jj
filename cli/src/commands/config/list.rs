@@ -22,8 +22,8 @@ use super::ConfigLevelArgs;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::complete;
-use crate::config::resolved_config_values;
 use crate::config::AnnotatedValue;
+use crate::config::resolved_config_values;
 use crate::generic_templater;
 use crate::generic_templater::GenericTemplateLanguage;
 use crate::templater::TemplatePropertyExt as _;
@@ -85,7 +85,7 @@ pub fn cmd_config_list(
         };
         command
             .parse_template(ui, &language, &text)?
-            .labeled("config_list")
+            .labeled(["config_list"])
     };
 
     let name_path = args.name.clone().unwrap_or_else(ConfigNamePathBuf::root);

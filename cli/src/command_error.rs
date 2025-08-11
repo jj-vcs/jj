@@ -17,18 +17,19 @@ use std::error::Error as _;
 use std::io;
 use std::io::Write as _;
 use std::iter;
-use std::process::ExitCode;
 use std::str;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
 use jj_lib::absorb::AbsorbError;
 use jj_lib::backend::BackendError;
+use jj_lib::backend::CommitId;
 use jj_lib::config::ConfigFileSaveError;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigLoadError;
 use jj_lib::config::ConfigMigrateError;
 use jj_lib::dsl_util::Diagnostics;
+use jj_lib::evolution::WalkPredecessorsError;
 use jj_lib::fileset::FilePatternParseError;
 use jj_lib::fileset::FilesetParseError;
 use jj_lib::fileset::FilesetParseErrorKind;
@@ -100,7 +101,7 @@ impl CommandError {
         kind: CommandErrorKind,
         err: impl Into<Box<dyn error::Error + Send + Sync>>,
     ) -> Self {
-        CommandError {
+        Self {
             kind,
             error: Arc::from(err.into()),
             hints: vec![],
@@ -167,7 +168,7 @@ impl ErrorWithMessage {
         message: impl Into<String>,
         source: impl Into<Box<dyn error::Error + Send + Sync>>,
     ) -> Self {
-        ErrorWithMessage {
+        Self {
             message: message.into(),
             source: source.into(),
         }
@@ -241,7 +242,7 @@ impl From<io::Error> for CommandError {
             io::ErrorKind::BrokenPipe => CommandErrorKind::BrokenPipe,
             _ => CommandErrorKind::User,
         };
-        CommandError::new(kind, err)
+        Self::new(kind, err)
     }
 }
 
@@ -337,9 +338,7 @@ impl From<WorkspaceInitError> for CommandError {
             WorkspaceInitError::DestinationExists(_) => {
                 user_error("The target repo already exists")
             }
-            WorkspaceInitError::NonUnicodePath => {
-                user_error("The target repo path contains non-unicode characters")
-            }
+            WorkspaceInitError::EncodeRepoPath(_) => user_error(err),
             WorkspaceInitError::CheckOutCommit(err) => {
                 internal_error_with_message("Failed to check out the initial commit", err)
             }
@@ -417,6 +416,16 @@ impl From<TransactionCommitError> for CommandError {
     }
 }
 
+impl From<WalkPredecessorsError> for CommandError {
+    fn from(err: WalkPredecessorsError) -> Self {
+        match err {
+            WalkPredecessorsError::Backend(err) => err.into(),
+            WalkPredecessorsError::OpStore(err) => err.into(),
+            WalkPredecessorsError::CycleDetected(_) => internal_error(err),
+        }
+    }
+}
+
 impl From<DiffEditError> for CommandError {
     fn from(err: DiffEditError) -> Self {
         user_error_with_message("Failed to edit diff", err)
@@ -442,6 +451,9 @@ impl From<ConflictResolveError> for CommandError {
             ConflictResolveError::Io(err) => err.into(),
             _ => {
                 let hint = match &err {
+                    ConflictResolveError::ConflictTooComplicated { .. } => {
+                        Some("Edit the conflict markers manually to resolve this.".to_owned())
+                    }
                     ConflictResolveError::ExecutableConflict { .. } => {
                         Some("Use `jj file chmod` to update the executable bit.".to_owned())
                     }
@@ -639,9 +651,9 @@ impl From<RevsetParseError> for CommandError {
 
 impl From<RevsetResolutionError> for CommandError {
     fn from(err: RevsetResolutionError) -> Self {
-        let hint = revset_resolution_error_hint(&err);
+        let hints = revset_resolution_error_hints(&err);
         let mut cmd_err = user_error(err);
-        cmd_err.extend_hints(hint);
+        cmd_err.extend_hints(hints);
         cmd_err
     }
 }
@@ -734,9 +746,11 @@ fn find_source_parse_error_hint(err: &dyn error::Error) -> Option<String> {
     } else if let Some(source) = source.downcast_ref() {
         revset_parse_error_hint(source)
     } else if let Some(source) = source.downcast_ref() {
-        revset_resolution_error_hint(source)
+        // TODO: propagate all hints?
+        revset_resolution_error_hints(source).into_iter().next()
     } else if let Some(UserRevsetEvaluationError::Resolution(source)) = source.downcast_ref() {
-        revset_resolution_error_hint(source)
+        // TODO: propagate all hints?
+        revset_resolution_error_hints(source).into_iter().next()
     } else if let Some(source) = source.downcast_ref() {
         string_pattern_parse_error_hint(source)
     } else if let Some(source) = source.downcast_ref() {
@@ -852,18 +866,46 @@ fn revset_parse_error_hint(err: &RevsetParseError) -> Option<String> {
     }
 }
 
-fn revset_resolution_error_hint(err: &RevsetResolutionError) -> Option<String> {
+fn revset_resolution_error_hints(err: &RevsetResolutionError) -> Vec<String> {
+    let multiple_targets_hint = |targets: &[CommitId]| {
+        format!(
+            "Use commit ID to select single revision from: {}",
+            targets.iter().map(|id| format!("{id:.12}")).join(", ")
+        )
+    };
     match err {
         RevsetResolutionError::NoSuchRevision {
             name: _,
             candidates,
-        } => format_similarity_hint(candidates),
+        } => format_similarity_hint(candidates).into_iter().collect(),
+        RevsetResolutionError::DivergentChangeId { symbol, targets } => vec![
+            multiple_targets_hint(targets),
+            format!("Use `change_id({symbol})` to select all revisions"),
+            "To abandon unneeded revisions, run `jj abandon <commit_id>`".to_owned(),
+        ],
+        RevsetResolutionError::ConflictedRef {
+            kind: "bookmark",
+            symbol,
+            targets,
+        } => vec![
+            multiple_targets_hint(targets),
+            format!("Use `bookmarks(exact:{symbol})` to select all revisions"),
+            format!(
+                "To set which revision the bookmark points to, run `jj bookmark set {symbol} -r \
+                 <REVISION>`"
+            ),
+        ],
+        RevsetResolutionError::ConflictedRef {
+            kind: _,
+            symbol: _,
+            targets,
+        } => vec![multiple_targets_hint(targets)],
         RevsetResolutionError::EmptyString
         | RevsetResolutionError::WorkspaceMissingWorkingCopy { .. }
         | RevsetResolutionError::AmbiguousCommitIdPrefix(_)
         | RevsetResolutionError::AmbiguousChangeIdPrefix(_)
         | RevsetResolutionError::Backend(_)
-        | RevsetResolutionError::Other(_) => None,
+        | RevsetResolutionError::Other(_) => vec![],
     }
 }
 
@@ -896,23 +938,20 @@ fn template_parse_error_hint(err: &TemplateParseError) -> Option<String> {
 
 const BROKEN_PIPE_EXIT_CODE: u8 = 3;
 
-pub(crate) fn handle_command_result(ui: &mut Ui, result: Result<(), CommandError>) -> ExitCode {
-    try_handle_command_result(ui, result).unwrap_or_else(|_| ExitCode::from(BROKEN_PIPE_EXIT_CODE))
+pub(crate) fn handle_command_result(ui: &mut Ui, result: Result<(), CommandError>) -> u8 {
+    try_handle_command_result(ui, result).unwrap_or(BROKEN_PIPE_EXIT_CODE)
 }
 
-fn try_handle_command_result(
-    ui: &mut Ui,
-    result: Result<(), CommandError>,
-) -> io::Result<ExitCode> {
+fn try_handle_command_result(ui: &mut Ui, result: Result<(), CommandError>) -> io::Result<u8> {
     let Err(cmd_err) = &result else {
-        return Ok(ExitCode::SUCCESS);
+        return Ok(0);
     };
     let err = &cmd_err.error;
     let hints = &cmd_err.hints;
     match cmd_err.kind {
         CommandErrorKind::User => {
             print_error(ui, "Error: ", err, hints)?;
-            Ok(ExitCode::from(1))
+            Ok(1)
         }
         CommandErrorKind::Config => {
             print_error(ui, "Config error: ", err, hints)?;
@@ -921,23 +960,23 @@ fn try_handle_command_result(
                 "For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k \
                  config`."
             )?;
-            Ok(ExitCode::from(1))
+            Ok(1)
         }
         CommandErrorKind::Cli => {
             if let Some(err) = err.downcast_ref::<clap::Error>() {
                 handle_clap_error(ui, err, hints)
             } else {
                 print_error(ui, "Error: ", err, hints)?;
-                Ok(ExitCode::from(2))
+                Ok(2)
             }
         }
         CommandErrorKind::BrokenPipe => {
             // A broken pipe is not an error, but a signal to exit gracefully.
-            Ok(ExitCode::from(BROKEN_PIPE_EXIT_CODE))
+            Ok(BROKEN_PIPE_EXIT_CODE)
         }
         CommandErrorKind::Internal => {
             print_error(ui, "Internal error: ", err, hints)?;
-            Ok(ExitCode::from(255))
+            Ok(255)
         }
     }
 }
@@ -998,7 +1037,7 @@ fn print_error_hints(ui: &Ui, hints: &[ErrorHint]) -> io::Result<()> {
     Ok(())
 }
 
-fn handle_clap_error(ui: &mut Ui, err: &clap::Error, hints: &[ErrorHint]) -> io::Result<ExitCode> {
+fn handle_clap_error(ui: &mut Ui, err: &clap::Error, hints: &[ErrorHint]) -> io::Result<u8> {
     let clap_str = if ui.color() {
         err.render().ansi().to_string()
     } else {
@@ -1015,7 +1054,7 @@ fn handle_clap_error(ui: &mut Ui, err: &clap::Error, hints: &[ErrorHint]) -> io:
     match err.kind() {
         clap::error::ErrorKind::DisplayHelp | clap::error::ErrorKind::DisplayVersion => {
             write!(ui.stdout(), "{clap_str}")?;
-            return Ok(ExitCode::SUCCESS);
+            return Ok(0);
         }
         _ => {}
     }
@@ -1023,7 +1062,7 @@ fn handle_clap_error(ui: &mut Ui, err: &clap::Error, hints: &[ErrorHint]) -> io:
     // Skip the first source error, which should be printed inline.
     print_error_sources(ui, err.source().and_then(|err| err.source()))?;
     print_error_hints(ui, hints)?;
-    Ok(ExitCode::from(2))
+    Ok(2)
 }
 
 /// Prints diagnostic messages emitted during parsing.

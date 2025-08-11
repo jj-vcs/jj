@@ -27,6 +27,12 @@ fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
 }
 
 #[must_use]
+fn get_log_with_summary(work_dir: &TestWorkDir) -> CommandOutput {
+    let template = r#"separate(" ", change_id.short(), local_bookmarks, description)"#;
+    work_dir.run_jj(["log", "-T", template, "--summary"])
+}
+
+#[must_use]
 fn get_workspace_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"separate(" ", change_id.short(), working_copies, description)"#;
     work_dir.run_jj(["log", "-T", template, "-r", "all()"])
@@ -67,15 +73,15 @@ fn test_split_by_paths() {
     let output = work_dir.run_jj(["split", "file2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    First part: qpvuntsm 6dbc7747 (no description set)
-    Second part: zsuskuln 42cbbc02 (no description set)
+    Selected changes : qpvuntsm 6dbc7747 (no description set)
+    Remaining changes: zsuskuln 42cbbc02 (no description set)
     Working copy  (@) now at: zsuskuln 42cbbc02 (no description set)
     Parent commit (@-)      : qpvuntsm 6dbc7747 (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
-    JJ: Enter a description for the first commit.
+    JJ: Enter a description for the selected changes.
 
 
     JJ: This commit contains the following changes:
@@ -120,10 +126,10 @@ fn test_split_by_paths() {
     let output = work_dir.run_jj(["split", "-r", "@-", "."]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: All changes have been selected, so the second commit will be empty
+    Warning: All changes have been selected, so the original revision will become empty
     Rebased 1 descendant commits
-    First part: qpvuntsm 9fd1c9e1 (no description set)
-    Second part: znkkpsqq 41e0da21 (empty) (no description set)
+    Selected changes : qpvuntsm 9fd1c9e1 (no description set)
+    Remaining changes: znkkpsqq 41e0da21 (empty) (no description set)
     Working copy  (@) now at: zsuskuln a06e40b8 (no description set)
     Parent commit (@-)      : znkkpsqq 41e0da21 (empty) (no description set)
     [EOF]
@@ -151,10 +157,10 @@ fn test_split_by_paths() {
     let output = work_dir.run_jj(["split", "-r", "@-", "nonexistent"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: No changes have been selected, so the first commit will be empty
+    Warning: No changes have been selected, so the new revision will be empty
     Rebased 1 descendant commits
-    First part: qpvuntsm 49416632 (empty) (no description set)
-    Second part: lylxulpl 718afbf5 (no description set)
+    Selected changes : qpvuntsm 49416632 (empty) (no description set)
+    Remaining changes: lylxulpl 718afbf5 (no description set)
     Working copy  (@) now at: zsuskuln 0ed53ee6 (no description set)
     Parent commit (@-)      : lylxulpl 718afbf5 (no description set)
     [EOF]
@@ -201,9 +207,9 @@ fn test_split_with_non_empty_description() {
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
-    First part: qpvuntsm c7f7b14b part 1
-    Second part: kkmpptxz ac33a5a9 part 2
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Selected changes : qpvuntsm c7f7b14b part 1
+    Remaining changes: kkmpptxz ac33a5a9 part 2
     Working copy  (@) now at: kkmpptxz ac33a5a9 part 2
     Parent commit (@-)      : qpvuntsm c7f7b14b part 1
     [EOF]
@@ -211,7 +217,7 @@ fn test_split_with_non_empty_description() {
 
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
-    JJ: Enter a description for the first commit.
+    JJ: Enter a description for the selected changes.
     test
 
     JJ: This commit contains the following changes:
@@ -221,7 +227,7 @@ fn test_split_with_non_empty_description() {
     "#);
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r#"
-    JJ: Enter a description for the second commit.
+    JJ: Enter a description for the remaining changes.
     test
 
     JJ: This commit contains the following changes:
@@ -235,7 +241,7 @@ fn test_split_with_non_empty_description() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 }
@@ -259,9 +265,9 @@ fn test_split_with_default_description() {
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
-    First part: qpvuntsm ff633dcc TESTED=TODO
-    Second part: rlvkpnrz b1d20b7e (no description set)
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Selected changes : qpvuntsm ff633dcc TESTED=TODO
+    Remaining changes: rlvkpnrz b1d20b7e (no description set)
     Working copy  (@) now at: rlvkpnrz b1d20b7e (no description set)
     Parent commit (@-)      : qpvuntsm ff633dcc TESTED=TODO
     [EOF]
@@ -273,7 +279,7 @@ fn test_split_with_default_description() {
     // description from the commit being split.
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
-    JJ: Enter a description for the first commit.
+    JJ: Enter a description for the selected changes.
 
 
     TESTED=TODO
@@ -290,7 +296,7 @@ fn test_split_with_default_description() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 }
@@ -340,8 +346,8 @@ fn test_split_with_descendants() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    First part: qpvuntsm 74306e35 Add file1
-    Second part: royxmykx 0a37745e Add file2
+    Selected changes : qpvuntsm 74306e35 Add file1
+    Remaining changes: royxmykx 0a37745e Add file2
     Working copy  (@) now at: kkmpptxz 7ee84812 Add file4
     Parent commit (@-)      : rlvkpnrz d335bd94 Add file3
     [EOF]
@@ -359,7 +365,7 @@ fn test_split_with_descendants() {
     // prompted to enter a description for each of the commits.
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
-    JJ: Enter a description for the first commit.
+    JJ: Enter a description for the selected changes.
     Add file1 & file2
 
     JJ: This commit contains the following changes:
@@ -369,7 +375,7 @@ fn test_split_with_descendants() {
     "#);
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r#"
-    JJ: Enter a description for the second commit.
+    JJ: Enter a description for the remaining changes.
     Add file1 & file2
 
     JJ: This commit contains the following changes:
@@ -387,12 +393,16 @@ fn test_split_with_descendants() {
     insta::assert_snapshot!(evolog_1, @r"
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:12 74306e35
     │  Add file1
+    │  -- operation 994b490f285d (2001-02-03 08:05:12) split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 1d2499e7
     │  Add file1 & file2
+    │  -- operation adf4f33386c9 (2001-02-03 08:05:08) commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
+    │  -- operation 78ead2155fcc (2001-02-03 08:05:08) snapshot working copy
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
+       -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ");
 
@@ -402,12 +412,16 @@ fn test_split_with_descendants() {
     insta::assert_snapshot!(evolog_2, @r"
     ○  royxmykx test.user@example.com 2001-02-03 08:05:12 0a37745e
     │  Add file2
+    │  -- operation 994b490f285d (2001-02-03 08:05:12) split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 1d2499e7
     │  Add file1 & file2
+    │  -- operation adf4f33386c9 (2001-02-03 08:05:08) commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
+    │  -- operation 78ead2155fcc (2001-02-03 08:05:08) snapshot working copy
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
+       -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ");
 }
@@ -447,8 +461,8 @@ fn test_split_with_merge_child() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    First part: kkmpptxz cc199567 Add file1
-    Second part: royxmykx e488409f Add file2
+    Selected changes : kkmpptxz cc199567 Add file1
+    Remaining changes: royxmykx e488409f Add file2
     Working copy  (@) now at: zsuskuln ace61421 (empty) 2
     Parent commit (@-)      : qpvuntsm 884fe9b9 (empty) 1
     Parent commit (@-)      : royxmykx e488409f Add file2
@@ -484,7 +498,7 @@ fn test_split_parallel_no_descendants() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 
@@ -496,9 +510,9 @@ fn test_split_parallel_no_descendants() {
     let output = work_dir.run_jj(["split", "--parallel", "file1"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
-    First part: qpvuntsm 7bcd474c TESTED=TODO
-    Second part: kkmpptxz 431886f6 (no description set)
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Selected changes : qpvuntsm 7bcd474c TESTED=TODO
+    Remaining changes: kkmpptxz 431886f6 (no description set)
     Working copy  (@) now at: kkmpptxz 431886f6 (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
@@ -511,7 +525,7 @@ fn test_split_parallel_no_descendants() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 
@@ -521,7 +535,7 @@ fn test_split_parallel_no_descendants() {
     // description from the commit being split.
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
-    JJ: Enter a description for the first commit.
+    JJ: Enter a description for the selected changes.
 
 
     TESTED=TODO
@@ -541,13 +555,16 @@ fn test_split_parallel_no_descendants() {
     insta::assert_snapshot!(evolog_1, @r#"
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 7bcd474c
     │  TESTED=TODO
+    │  -- operation 2b21c33e1596 (2001-02-03 08:05:09) split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
+    │  -- operation 1663cd1cc445 (2001-02-03 08:05:08) snapshot working copy
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
+       -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 
@@ -557,13 +574,16 @@ fn test_split_parallel_no_descendants() {
     insta::assert_snapshot!(evolog_2, @r#"
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 431886f6
     │  (no description set)
+    │  -- operation 2b21c33e1596 (2001-02-03 08:05:09) split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
+    │  -- operation 1663cd1cc445 (2001-02-03 08:05:08) snapshot working copy
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
+       -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 }
@@ -617,8 +637,8 @@ fn test_split_parallel_with_descendants() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    First part: qpvuntsm 18c85f56 Add file1
-    Second part: vruxwmqv cbdfd9cf Add file2
+    Selected changes : qpvuntsm 18c85f56 Add file1
+    Remaining changes: vruxwmqv cbdfd9cf Add file2
     Working copy  (@) now at: vruxwmqv cbdfd9cf Add file2
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
@@ -639,7 +659,7 @@ fn test_split_parallel_with_descendants() {
     // prompted to enter a description for each of the sibling commits.
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
-    JJ: Enter a description for the first commit.
+    JJ: Enter a description for the selected changes.
     Add file1 & file2
 
     JJ: This commit contains the following changes:
@@ -649,7 +669,7 @@ fn test_split_parallel_with_descendants() {
     "#);
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r#"
-    JJ: Enter a description for the second commit.
+    JJ: Enter a description for the remaining changes.
     Add file1 & file2
 
     JJ: This commit contains the following changes:
@@ -694,8 +714,8 @@ fn test_split_parallel_with_merge_child() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    First part: kkmpptxz cc199567 Add file1
-    Second part: royxmykx 82a5c527 Add file2
+    Selected changes : kkmpptxz cc199567 Add file1
+    Remaining changes: royxmykx 82a5c527 Add file2
     Working copy  (@) now at: zsuskuln b7cdcdec (empty) 2
     Parent commit (@-)      : qpvuntsm 884fe9b9 (empty) 1
     Parent commit (@-)      : kkmpptxz cc199567 Add file1
@@ -773,8 +793,8 @@ fn test_split_interactive() {
     let output = work_dir.run_jj(["split"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    First part: qpvuntsm c664a51b (no description set)
-    Second part: rlvkpnrz 7e5d65b1 (no description set)
+    Selected changes : qpvuntsm c664a51b (no description set)
+    Remaining changes: rlvkpnrz 7e5d65b1 (no description set)
     Working copy  (@) now at: rlvkpnrz 7e5d65b1 (no description set)
     Parent commit (@-)      : qpvuntsm c664a51b (no description set)
     [EOF]
@@ -786,13 +806,14 @@ fn test_split_interactive() {
 
     The diff initially shows the changes in the commit you're splitting.
 
-    Adjust the right side until it shows the contents you want for the first commit.
-    The remainder will be in the second commit.
+    Adjust the right side until it shows the contents you want to split into the
+    new commit.
+    The changes that are not selected will replace the original commit.
     ");
 
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
-    JJ: Enter a description for the first commit.
+    JJ: Enter a description for the selected changes.
 
 
     JJ: This commit contains the following changes:
@@ -848,8 +869,8 @@ fn test_split_interactive_with_paths() {
     let output = work_dir.run_jj(["split", "-i", "file1", "file2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    First part: rlvkpnrz cdc9960a (no description set)
-    Second part: kkmpptxz 7255f070 (no description set)
+    Selected changes : rlvkpnrz cdc9960a (no description set)
+    Remaining changes: kkmpptxz 7255f070 (no description set)
     Working copy  (@) now at: kkmpptxz 7255f070 (no description set)
     Parent commit (@-)      : rlvkpnrz cdc9960a (no description set)
     [EOF]
@@ -857,7 +878,7 @@ fn test_split_interactive_with_paths() {
 
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
-    JJ: Enter a description for the first commit.
+    JJ: Enter a description for the selected changes.
 
 
     JJ: This commit contains the following changes:
@@ -1043,9 +1064,9 @@ fn test_split_with_non_empty_description_and_trailers() {
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
-    First part: qpvuntsm c7f7b14b part 1
-    Second part: kkmpptxz ac33a5a9 part 2
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Selected changes : qpvuntsm c7f7b14b part 1
+    Remaining changes: kkmpptxz ac33a5a9 part 2
     Working copy  (@) now at: kkmpptxz ac33a5a9 part 2
     Parent commit (@-)      : qpvuntsm c7f7b14b part 1
     [EOF]
@@ -1053,7 +1074,7 @@ fn test_split_with_non_empty_description_and_trailers() {
 
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
-    JJ: Enter a description for the first commit.
+    JJ: Enter a description for the selected changes.
     test
 
     Signed-off-by: test.user@example.com
@@ -1065,7 +1086,7 @@ fn test_split_with_non_empty_description_and_trailers() {
     "#);
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r#"
-    JJ: Enter a description for the second commit.
+    JJ: Enter a description for the remaining changes.
     test
 
     Signed-off-by: test.user@example.com
@@ -1081,7 +1102,7 @@ fn test_split_with_non_empty_description_and_trailers() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 }
@@ -1099,8 +1120,8 @@ fn test_split_with_message() {
     let output = work_dir.run_jj(["split", "-m", "fix in file1", "file1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    First part: qpvuntsm f2a70519 fix in file1
-    Second part: kkmpptxz cac11766 my feature
+    Selected changes : qpvuntsm f2a70519 fix in file1
+    Remaining changes: kkmpptxz cac11766 my feature
     Working copy  (@) now at: kkmpptxz cac11766 my feature
     Parent commit (@-)      : qpvuntsm f2a70519 fix in file1
     [EOF]
@@ -1125,8 +1146,8 @@ fn test_split_with_message() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    First part: qpvuntsm d01cf12d fix in file1
-    Second part: royxmykx b1556ed9 my feature
+    Selected changes : qpvuntsm d01cf12d fix in file1
+    Remaining changes: royxmykx b1556ed9 my feature
     Working copy  (@) now at: royxmykx b1556ed9 my feature
     Parent commit (@-)      : qpvuntsm d01cf12d fix in file1
     [EOF]
@@ -1138,6 +1159,264 @@ fn test_split_with_message() {
     │
     │  CC: test.user@example.com
     ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_split_move_first_commit() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.write_file("file2", "bar\n");
+    work_dir.run_jj(["commit", "-m", "file2"]).success();
+    work_dir.write_file("file3", "bar\n");
+    work_dir.run_jj(["commit", "-m", "file3"]).success();
+    work_dir.write_file("file4", "bar\n");
+    work_dir.run_jj(["commit", "-m", "file4"]).success();
+    work_dir.run_jj(["new", "root()"]).success();
+    work_dir.write_file("file5", "bar\n");
+    work_dir.run_jj(["commit", "-m", "file5"]).success();
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  royxmykxtrkr
+    ○  mzvwutvlkqwt file5
+    │  A file5
+    │ ○  kkmpptxzrspx file4
+    │ │  A file4
+    │ ○  rlvkpnrzqnoo file3
+    │ │  A file3
+    │ ○  qpvuntsmwlqt file2
+    ├─╯  A file1
+    │    A file2
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    // insert the commit before the source commit
+    let output = work_dir.run_jj([
+        "split",
+        "-m",
+        "file1",
+        "-r",
+        "qpvuntsmwlqt",
+        "--insert-before",
+        "qpvuntsmwlqt",
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 2 descendant commits
+    Selected changes : vruxwmqv bf94c29a file1
+    Remaining changes: qpvuntsm 66b1d4f1 file2
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  royxmykxtrkr
+    ○  mzvwutvlkqwt file5
+    │  A file5
+    │ ○  kkmpptxzrspx file4
+    │ │  A file4
+    │ ○  rlvkpnrzqnoo file3
+    │ │  A file3
+    │ ○  qpvuntsmwlqt file2
+    │ │  A file2
+    │ ○  vruxwmqvtpmx file1
+    ├─╯  A file1
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    // insert the commit after the source commit
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj([
+        "split",
+        "-m",
+        "file1",
+        "-r",
+        "qpvuntsmwlqt",
+        "--insert-after",
+        "qpvuntsmwlqt",
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 2 descendant commits
+    Selected changes : kpqxywon 08294e90 file1
+    Remaining changes: qpvuntsm 76ebcbb8 file2
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  royxmykxtrkr
+    ○  mzvwutvlkqwt file5
+    │  A file5
+    │ ○  kkmpptxzrspx file4
+    │ │  A file4
+    │ ○  rlvkpnrzqnoo file3
+    │ │  A file3
+    │ ○  kpqxywonksrl file1
+    │ │  A file1
+    │ ○  qpvuntsmwlqt file2
+    ├─╯  A file2
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    // create a new branch anywhere in the tree
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj([
+        "split",
+        "-m",
+        "file1",
+        "-r",
+        "qpvuntsmwlqt",
+        "--destination",
+        "rlvkpnrzqnoo",
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 2 descendant commits
+    Selected changes : lylxulpl b42b2604 file1
+    Remaining changes: qpvuntsm 0f76cbf0 file2
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  royxmykxtrkr
+    ○  mzvwutvlkqwt file5
+    │  A file5
+    │ ○  kkmpptxzrspx file4
+    │ │  A file4
+    │ │ ○  lylxulplsnyw file1
+    │ ├─╯  A file1
+    │ ○  rlvkpnrzqnoo file3
+    │ │  A file3
+    │ ○  qpvuntsmwlqt file2
+    ├─╯  A file2
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    // create a bubble in the tree
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj([
+        "split",
+        "-m",
+        "file1",
+        "-r",
+        "qpvuntsmwlqt",
+        "--insert-after",
+        "qpvuntsmwlqt",
+        "--insert-before",
+        "kkmpptxzrspx",
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 2 descendant commits
+    Selected changes : uyznsvlq d0338445 file1
+    Remaining changes: qpvuntsm 16d41320 file2
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  royxmykxtrkr
+    ○  mzvwutvlkqwt file5
+    │  A file5
+    │ ○    kkmpptxzrspx file4
+    │ ├─╮  A file4
+    │ │ ○  uyznsvlquzzm file1
+    │ │ │  A file1
+    │ ○ │  rlvkpnrzqnoo file3
+    │ ├─╯  A file3
+    │ ○  qpvuntsmwlqt file2
+    ├─╯  A file2
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    // create a commit in another branch
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj([
+        "split",
+        "-m",
+        "file1",
+        "-r",
+        "qpvuntsmwlqt",
+        "--before",
+        "@",
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 3 descendant commits
+    Selected changes : nmzmmopx 72225233 file1
+    Remaining changes: qpvuntsm 98b70782 file2
+    Working copy  (@) now at: royxmykx c3dd10b0 (empty) (no description set)
+    Parent commit (@-)      : nmzmmopx 72225233 file1
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  royxmykxtrkr
+    ○  nmzmmopxokps file1
+    │  A file1
+    ○  mzvwutvlkqwt file5
+    │  A file5
+    │ ○  kkmpptxzrspx file4
+    │ │  A file4
+    │ ○  rlvkpnrzqnoo file3
+    │ │  A file3
+    │ ○  qpvuntsmwlqt file2
+    ├─╯  A file2
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    // merge two branches with the new commit
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj([
+        "split",
+        "-m",
+        "file1",
+        "-r",
+        "qpvuntsmwlqt",
+        "--after",
+        "mzvwutvlkqwt",
+        "--after",
+        "kkmpptxzrspx",
+        "file1",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 3 descendant commits
+    Selected changes : nlrtlrxv 1b6975b0 file1
+    Remaining changes: qpvuntsm 905586dd file2
+    Working copy  (@) now at: royxmykx 85be9860 (empty) (no description set)
+    Parent commit (@-)      : nlrtlrxv 1b6975b0 file1
+    Added 4 files, modified 0 files, removed 0 files
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  royxmykxtrkr
+    ○    nlrtlrxvuusk file1
+    ├─╮  A file1
+    │ ○  kkmpptxzrspx file4
+    │ │  A file4
+    │ ○  rlvkpnrzqnoo file3
+    │ │  A file3
+    │ ○  qpvuntsmwlqt file2
+    │ │  A file2
+    ○ │  mzvwutvlkqwt file5
+    ├─╯  A file5
+    ◆  zzzzzzzzzzzz
     [EOF]
     ");
 }
@@ -1176,11 +1455,11 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
         .run_jj(["bookmark", "set", "'*le-signet*'", "-r", "@"])
         .success();
     insta::allow_duplicates! {
-    insta::assert_snapshot!(get_log_output(&main_dir), @r"
-    @  qpvuntsmwlqt false *le-signet* first-commit
+    insta::assert_snapshot!(get_log_output(&main_dir), @r#"
+    @  qpvuntsmwlqt false "*le-signet*" first-commit
     ◆  zzzzzzzzzzzz true
     [EOF]
-    ");
+    "#);
     }
 
     // Do the split.
@@ -1193,42 +1472,42 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
     match bookmark_behavior {
         BookmarkBehavior::LeaveBookmarkWithTarget => {
             insta::allow_duplicates! {
-            insta::assert_snapshot!(output, @r"
+            insta::assert_snapshot!(output, @r#"
             ------- stderr -------
-            First part: qpvuntsm a481fe8a *le-signet* | first-commit
-            Second part: mzvwutvl 5f597a6e second-commit
+            Selected changes : qpvuntsm a481fe8a "*le-signet*" | first-commit
+            Remaining changes: mzvwutvl 5f597a6e second-commit
             Working copy  (@) now at: mzvwutvl 5f597a6e second-commit
-            Parent commit (@-)      : qpvuntsm a481fe8a *le-signet* | first-commit
+            Parent commit (@-)      : qpvuntsm a481fe8a "*le-signet*" | first-commit
             [EOF]
-            ");
+            "#);
             }
             insta::allow_duplicates! {
-            insta::assert_snapshot!(get_log_output(&main_dir), @r"
+            insta::assert_snapshot!(get_log_output(&main_dir), @r#"
             @  mzvwutvlkqwt false second-commit
-            ○  qpvuntsmwlqt false *le-signet* first-commit
+            ○  qpvuntsmwlqt false "*le-signet*" first-commit
             ◆  zzzzzzzzzzzz true
             [EOF]
-            ");
+            "#);
             }
         }
         BookmarkBehavior::Default | BookmarkBehavior::MoveBookmarkToChild => {
             insta::allow_duplicates! {
-            insta::assert_snapshot!(output, @r"
+            insta::assert_snapshot!(output, @r#"
             ------- stderr -------
-            First part: qpvuntsm a481fe8a first-commit
-            Second part: mzvwutvl 5f597a6e *le-signet* | second-commit
-            Working copy  (@) now at: mzvwutvl 5f597a6e *le-signet* | second-commit
+            Selected changes : qpvuntsm a481fe8a first-commit
+            Remaining changes: mzvwutvl 5f597a6e "*le-signet*" | second-commit
+            Working copy  (@) now at: mzvwutvl 5f597a6e "*le-signet*" | second-commit
             Parent commit (@-)      : qpvuntsm a481fe8a first-commit
             [EOF]
-            ");
+            "#);
             }
             insta::allow_duplicates! {
-            insta::assert_snapshot!(get_log_output(&main_dir), @r"
-            @  mzvwutvlkqwt false *le-signet* second-commit
+            insta::assert_snapshot!(get_log_output(&main_dir), @r#"
+            @  mzvwutvlkqwt false "*le-signet*" second-commit
             ○  qpvuntsmwlqt false first-commit
             ◆  zzzzzzzzzzzz true
             [EOF]
-            ");
+            "#);
             }
         }
     }
@@ -1244,24 +1523,24 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
     match bookmark_behavior {
         BookmarkBehavior::LeaveBookmarkWithTarget => {
             insta::allow_duplicates! {
-            insta::assert_snapshot!(get_log_output(&main_dir), @r"
+            insta::assert_snapshot!(get_log_output(&main_dir), @r#"
             @  vruxwmqvtpmx false second-commit
-            │ ○  qpvuntsmwlqt false *le-signet* first-commit
+            │ ○  qpvuntsmwlqt false "*le-signet*" first-commit
             ├─╯
             ◆  zzzzzzzzzzzz true
             [EOF]
-            ");
+            "#);
             }
         }
         BookmarkBehavior::Default | BookmarkBehavior::MoveBookmarkToChild => {
             insta::allow_duplicates! {
-            insta::assert_snapshot!(get_log_output(&main_dir), @r"
-            @  vruxwmqvtpmx false *le-signet* second-commit
+            insta::assert_snapshot!(get_log_output(&main_dir), @r#"
+            @  vruxwmqvtpmx false "*le-signet*" second-commit
             │ ○  qpvuntsmwlqt false first-commit
             ├─╯
             ◆  zzzzzzzzzzzz true
             [EOF]
-            ");
+            "#);
             }
         }
     }

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::common::to_toml_value;
 use crate::common::TestEnvironment;
+use crate::common::to_toml_value;
 
 #[test]
 fn test_log_with_empty_revision() {
@@ -55,11 +55,13 @@ fn test_log_with_no_template() {
     - builtin_log_node
     - builtin_log_node_ascii
     - builtin_log_oneline
+    - builtin_log_redacted
     - builtin_op_log_comfortable
     - builtin_op_log_compact
     - builtin_op_log_node
     - builtin_op_log_node_ascii
     - builtin_op_log_oneline
+    - builtin_op_log_redacted
     - commit_summary_separator
     - default_commit_description
     - description_placeholder
@@ -205,7 +207,7 @@ fn test_log_with_or_without_diff() {
         "description",
         "-p",
         "-s",
-        "--config=ui.diff.format=summary",
+        "--config=ui.diff-formatter=:summary",
     ]);
     insta::assert_snapshot!(output, @r"
     @  a new commit
@@ -484,6 +486,16 @@ fn test_log_shortest_accessors() {
     zzz[zzzzzzzzz] 00[0000000000]
     [EOF]
     ");
+
+    // The shortest prefix "zzz" is shadowed by bookmark
+    work_dir
+        .run_jj(["bookmark", "set", "-r@", "z", "zz", "zzz"])
+        .success();
+    insta::assert_snapshot!(
+        render("root()", r#"format_id(change_id) ++ " " ++ format_id(commit_id) ++ "\n""#), @r"
+    zzzz[zzzzzzzz] 00[0000000000]
+    [EOF]
+    ");
 }
 
 #[test]
@@ -729,39 +741,6 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
     @  Change wq[nwkozpkust] 88[e8407a4f0a]
     │
     ~
-    [EOF]
-    ");
-}
-
-#[test]
-fn test_log_short_shortest_length_parameter() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-    let render = |template| work_dir.run_jj(["log", "-T", template]);
-
-    insta::assert_snapshot!(
-        render(r#"commit_id.short(0) ++ "|" ++ commit_id.shortest(0)"#), @r"
-    @  |e
-    ◆  |0
-    [EOF]
-    ");
-    insta::assert_snapshot!(
-        render(r#"commit_id.short(-0) ++ "|" ++ commit_id.shortest(-0)"#), @r"
-    @  |e
-    ◆  |0
-    [EOF]
-    ");
-    insta::assert_snapshot!(
-        render(r#"commit_id.short(-100) ++ "|" ++ commit_id.shortest(-100)"#), @r"
-    @  <Error: out of range integral type conversion attempted>|<Error: out of range integral type conversion attempted>
-    ◆  <Error: out of range integral type conversion attempted>|<Error: out of range integral type conversion attempted>
-    [EOF]
-    ");
-    insta::assert_snapshot!(
-        render(r#"commit_id.short(100) ++ "|" ++ commit_id.shortest(100)"#), @r"
-    @  e8849ae12c709f2321908879bc724fdb2ab8a781|e8849ae12c709f2321908879bc724fdb2ab8a781
-    ◆  0000000000000000000000000000000000000000|0000000000000000000000000000000000000000
     [EOF]
     ");
 }
@@ -1213,11 +1192,11 @@ fn test_graph_template_color() {
     ");
     let output = work_dir.run_jj(["--color=debug", "log", "-T", template]);
     insta::assert_snapshot!(output, @r"
-    [1m[38;5;2m<<node working_copy::@>>[0m  [1m[38;5;2m<<log working_copy description::single line>>[0m
-    <<node::○>>  [38;5;1m<<log description::first line>>[39m
-    │  [38;5;1m<<log description::second line>>[39m
-    │  [38;5;1m<<log description::third line>>[39m
-    [1m[38;5;14m<<node immutable::◆>>[0m
+    [1m[38;5;2m<<log commit node working_copy::@>>[0m  [1m[38;5;2m<<log commit working_copy description::single line>>[0m
+    <<log commit node::○>>  [38;5;1m<<log commit description::first line>>[39m
+    │  [38;5;1m<<log commit description::second line>>[39m
+    │  [38;5;1m<<log commit description::third line>>[39m
+    [1m[38;5;14m<<log commit node immutable::◆>>[0m
     [EOF]
     ");
 }
@@ -1474,11 +1453,11 @@ fn test_log_diff_stat_width() {
     insta::assert_snapshot!(render(&["log", "--stat", "--no-graph"], 30), @r"
     rlvkpnrz test.user@example.com 2001-02-03 08:05:09 9490cfd3
     (no description set)
-    file2 | 100 +++++++++++++++
+    file2 | 100 ++++++++++++++++++
     1 file changed, 100 insertions(+), 0 deletions(-)
     qpvuntsm test.user@example.com 2001-02-03 08:05:08 79f0968d
     (no description set)
-    file1 | 100 +++++++++++++++
+    file1 | 100 ++++++++++++++++++
     1 file changed, 100 insertions(+), 0 deletions(-)
     zzzzzzzz root() 00000000
     0 files changed, 0 insertions(+), 0 deletions(-)
@@ -1489,11 +1468,11 @@ fn test_log_diff_stat_width() {
     insta::assert_snapshot!(render(&["log", "--stat"], 30), @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 9490cfd3
     │  (no description set)
-    │  file2 | 100 ++++++++++++
+    │  file2 | 100 +++++++++++++++
     │  1 file changed, 100 insertions(+), 0 deletions(-)
     │ ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 79f0968d
     ├─╯  (no description set)
-    │    file1 | 100 ++++++++++
+    │    file1 | 100 +++++++++++++
     │    1 file changed, 100 insertions(+), 0 deletions(-)
     ◆  zzzzzzzz root() 00000000
        0 files changed, 0 insertions(+), 0 deletions(-)
@@ -1702,6 +1681,29 @@ fn test_log_full_description_template() {
     │
     │  <full description>
     │
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_log_anonymize() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj([
+            "describe",
+            "-m",
+            "this is commit with a multiline description\n\n<full description>",
+        ])
+        .success();
+
+    let output = work_dir.run_jj(["log", "-Tbuiltin_log_redacted"]);
+    insta::assert_snapshot!(output, @r"
+    @  qpvuntsm user-78cd 2001-02-03 08:05:08 37b69cda
+    │  (empty) (redacted)
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");

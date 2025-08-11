@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::common::create_commit_with_files;
 use crate::common::TestEnvironment;
+use crate::common::create_commit_with_files;
 
 #[test]
 fn test_status_copies() {
@@ -143,7 +143,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
 
     // CONFLICT: New commit that is conflicted by merging <CHILD1> and <CHILD2>
     work_dir
-        .run_jj(["new", "--message", "boom", "all:(@-)+"])
+        .run_jj(["new", "--message", "boom", "(@-)+"])
         .success();
     // Adding more descendants to ensure we correctly find the root ancestors with
     // conflicts, not just the parents.
@@ -172,34 +172,36 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     ");
 
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r###"
     The working copy has no changes.
     Working copy  (@) : yqosqzyt 7e0bc4cf (conflict) (empty) boom-cont-2
     Parent commit (@-): royxmykx 681c71af (conflict) (empty) boom-cont
     Warning: There are unresolved conflicts at these paths:
     conflicted.txt    2-sided conflict
-    Hint: To resolve the conflicts, start by updating to the first one:
+    Hint: To resolve the conflicts, start by creating a commit on top of
+    the first conflicted commit:
       jj new mzvwutvl
     Then use `jj resolve`, or edit the conflict markers in the file directly.
-    Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
+    Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    ");
+    "###);
 
     let output = work_dir.run_jj(["status", "--color=always"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r###"
     The working copy has no changes.
     Working copy  (@) : [1m[38;5;13my[38;5;8mqosqzyt[39m [38;5;12m7[38;5;8me0bc4cf[39m [38;5;9m(conflict)[39m [38;5;10m(empty)[39m boom-cont-2[0m
     Parent commit (@-): [1m[38;5;5mr[0m[38;5;8moyxmykx[39m [1m[38;5;4m6[0m[38;5;8m81c71af[39m [38;5;1m(conflict)[39m [38;5;2m(empty)[39m boom-cont
     [1m[38;5;3mWarning: [39mThere are unresolved conflicts at these paths:[0m
     conflicted.txt    [38;5;3m2-sided conflict[39m
-    [1m[38;5;6mHint: [0m[39mTo resolve the conflicts, start by updating to the first one:[39m
+    [1m[38;5;6mHint: [0m[39mTo resolve the conflicts, start by creating a commit on top of[39m
+    [39mthe first conflicted commit:[39m
     [39m  jj new [1m[38;5;5mm[0m[38;5;8mzvwutvl[39m[39m
     [39mThen use `jj resolve`, or edit the conflict markers in the file directly.[39m
-    [39mOnce the conflicts are resolved, you may want to inspect the result with `jj diff`.[39m
+    [39mOnce the conflicts are resolved, you can inspect the result with `jj diff`.[39m
     [39mThen run `jj squash` to move the resolution into the conflicted commit.[39m
     [EOF]
-    ");
+    "###);
 
     let output = work_dir.run_jj(["status", "--config=hints.resolving-conflicts=false"]);
     insta::assert_snapshot!(output, @r"
@@ -352,7 +354,7 @@ fn test_status_simplify_conflict_sides() {
     create_commit_with_files(&work_dir, "conflict", &["conflictA", "conflictB"], &[]);
 
     insta::assert_snapshot!(work_dir.run_jj(["status"]),
-    @r"
+    @r###"
     The working copy has no changes.
     Working copy  (@) : nkmrtpmo a5a545ce conflict | (conflict) (empty) conflict
     Parent commit (@-): kmkuslsw ccb05364 conflictA | (conflict) (empty) conflictA
@@ -360,14 +362,15 @@ fn test_status_simplify_conflict_sides() {
     Warning: There are unresolved conflicts at these paths:
     fileA    2-sided conflict
     fileB    2-sided conflict
-    Hint: To resolve the conflicts, start by updating to one of the first ones:
+    Hint: To resolve the conflicts, start by creating a commit on top of
+    one of the first conflicted commits:
       jj new lylxulpl
       jj new kmkuslsw
     Then use `jj resolve`, or edit the conflict markers in the file directly.
-    Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
+    Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    ");
+    "###);
 }
 
 #[test]
@@ -389,8 +392,7 @@ fn test_status_untracked_files() {
     Untracked paths:
     ? always-untracked-file
     ? initially-untracked-file
-    ? sub/always-untracked
-    ? sub/initially-untracked
+    ? sub/
     Working copy  (@) : qpvuntsm e8849ae1 (empty) (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -446,8 +448,7 @@ fn test_status_untracked_files() {
     Untracked paths:
     ? always-untracked-file
     ? initially-untracked-file
-    ? sub/always-untracked
-    ? sub/initially-untracked
+    ? sub/
     Working copy  (@) : mzvwutvl 240f261a (no description set)
     Parent commit (@-): qpvuntsm b8c1286d (no description set)
     [EOF]
@@ -460,8 +461,18 @@ fn test_status_untracked_files() {
     Untracked paths:
     ? always-untracked-file
     ? initially-untracked-file
-    ? sub/always-untracked
-    ? sub/initially-untracked
+    ? sub/
+    Working copy  (@) : yostqsxw 50beac0d (empty) (no description set)
+    Parent commit (@-): mzvwutvl 240f261a (no description set)
+    [EOF]
+    ");
+
+    let output = work_dir.dir("sub").run_jj(["status"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    Untracked paths:
+    ? ../always-untracked-file
+    ? ../initially-untracked-file
+    ? ./
     Working copy  (@) : yostqsxw 50beac0d (empty) (no description set)
     Parent commit (@-): mzvwutvl 240f261a (no description set)
     [EOF]

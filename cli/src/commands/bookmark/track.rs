@@ -95,7 +95,7 @@ pub fn cmd_bookmark_track(
                 .get::<String>("templates.bookmark_list")?;
             workspace_command
                 .parse_template(ui, &language, &text)?
-                .labeled("bookmark_list")
+                .labeled(["bookmark_list"])
         };
 
         let mut remote_per_bookmark: HashMap<_, Vec<_>> = HashMap::new();

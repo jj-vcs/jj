@@ -14,8 +14,8 @@
 
 use test_case::test_case;
 
-use crate::common::create_commit;
 use crate::common::TestEnvironment;
+use crate::common::create_commit;
 
 #[test]
 fn test_simplify_parents_no_commits() {

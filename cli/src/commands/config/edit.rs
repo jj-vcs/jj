@@ -17,8 +17,8 @@ use tracing::instrument;
 
 use super::ConfigLevelArgs;
 use crate::cli_util::CommandHelper;
-use crate::command_error::print_error_sources;
 use crate::command_error::CommandError;
+use crate::command_error::print_error_sources;
 use crate::ui::Ui;
 
 /// Start an editor on a jj config file.
@@ -46,6 +46,7 @@ pub fn cmd_config_edit(
     // Editing again and again until either of these conditions is met
     // 1. The config is OK
     // 2. The user restores previous one
+    writeln!(ui.status(), "Editing file: {}", file.path().display())?;
     loop {
         editor.edit_file(file.path())?;
 

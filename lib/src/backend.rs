@@ -15,21 +15,23 @@
 #![allow(missing_docs)]
 
 use std::any::Any;
-use std::collections::BTreeMap;
 use std::fmt::Debug;
-use std::io::Read;
+use std::pin::Pin;
+use std::slice;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use chrono::TimeZone as _;
 use futures::stream::BoxStream;
 use thiserror::Error;
+use tokio::io::AsyncRead;
 
 use crate::content_hash::ContentHash;
 use crate::hex_util;
 use crate::index::Index;
 use crate::merge::Merge;
-use crate::object_id::id_type;
 use crate::object_id::ObjectId as _;
+use crate::object_id::id_type;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;
@@ -50,14 +52,33 @@ id_type!(pub TreeId { hex() });
 id_type!(pub FileId { hex() });
 id_type!(pub SymlinkId { hex() });
 id_type!(pub ConflictId { hex() });
+id_type!(pub CopyId { hex() });
 
 impl ChangeId {
+    /// Parses the given "reverse" hex string into a `ChangeId`.
+    pub fn try_from_reverse_hex(hex: impl AsRef<[u8]>) -> Option<Self> {
+        hex_util::decode_reverse_hex(hex).map(Self)
+    }
+
     /// Returns the hex string representation of this ID, which uses `z-k`
     /// "digits" instead of `0-9a-f`.
     pub fn reverse_hex(&self) -> String {
         hex_util::encode_reverse_hex(&self.0)
     }
 }
+
+impl CopyId {
+    /// Returns a placeholder copy id to be used when we don't have a real copy
+    /// id yet.
+    // TODO: Delete this
+    pub fn placeholder() -> Self {
+        Self::new(vec![])
+    }
+}
+
+#[derive(Debug, Error)]
+#[error("Out-of-range date")]
+pub struct TimestampOutOfRange;
 
 #[derive(ContentHash, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
 pub struct MillisSinceEpoch(pub i64);
@@ -82,10 +103,41 @@ impl Timestamp {
             tz_offset: datetime.offset().local_minus_utc() / 60,
         }
     }
+
+    pub fn to_datetime(
+        &self,
+    ) -> Result<chrono::DateTime<chrono::FixedOffset>, TimestampOutOfRange> {
+        let utc = match chrono::Utc.timestamp_opt(
+            self.timestamp.0.div_euclid(1000),
+            (self.timestamp.0.rem_euclid(1000)) as u32 * 1000000,
+        ) {
+            chrono::LocalResult::None => {
+                return Err(TimestampOutOfRange);
+            }
+            chrono::LocalResult::Single(x) => x,
+            chrono::LocalResult::Ambiguous(y, _z) => y,
+        };
+
+        Ok(utc.with_timezone(
+            &chrono::FixedOffset::east_opt(self.tz_offset * 60)
+                .unwrap_or_else(|| chrono::FixedOffset::east_opt(0).unwrap()),
+        ))
+    }
+}
+
+impl serde::Serialize for Timestamp {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // TODO: test is_human_readable() to use raw format?
+        let t = self.to_datetime().map_err(serde::ser::Error::custom)?;
+        t.serialize(serializer)
+    }
 }
 
 /// Represents a [`Commit`] signature.
-#[derive(ContentHash, Debug, PartialEq, Eq, Clone)]
+#[derive(ContentHash, Debug, PartialEq, Eq, Clone, serde::Serialize)]
 pub struct Signature {
     pub name: String,
     pub email: String,
@@ -127,27 +179,32 @@ impl Eq for MergedTreeId {}
 impl MergedTreeId {
     /// Create a resolved `MergedTreeId` from a single regular tree.
     pub fn resolved(tree_id: TreeId) -> Self {
-        MergedTreeId::Merge(Merge::resolved(tree_id))
+        Self::Merge(Merge::resolved(tree_id))
     }
 
     /// Return this id as `Merge<TreeId>`
     pub fn to_merge(&self) -> Merge<TreeId> {
         match self {
-            MergedTreeId::Legacy(tree_id) => Merge::resolved(tree_id.clone()),
-            MergedTreeId::Merge(tree_ids) => tree_ids.clone(),
+            Self::Legacy(tree_id) => Merge::resolved(tree_id.clone()),
+            Self::Merge(tree_ids) => tree_ids.clone(),
         }
     }
 }
 
-#[derive(ContentHash, Debug, PartialEq, Eq, Clone)]
+#[derive(ContentHash, Debug, PartialEq, Eq, Clone, serde::Serialize)]
 pub struct Commit {
     pub parents: Vec<CommitId>,
+    // TODO: delete commit.predecessors when we can assume that most commits are
+    // tracked by op.commit_predecessors. (in jj 0.42 or so?)
+    #[serde(skip)] // deprecated
     pub predecessors: Vec<CommitId>,
+    #[serde(skip)] // TODO: should be exposed?
     pub root_tree: MergedTreeId,
     pub change_id: ChangeId,
     pub description: String,
     pub author: Signature,
     pub committer: Signature,
+    #[serde(skip)] // raw data wouldn't be useful
     pub secure_sig: Option<SecureSig>,
 }
 
@@ -191,6 +248,24 @@ pub struct CopyRecord {
     /// It is required that the commit id is an ancestor of the commit with
     /// which this copy source is associated.
     pub source_commit: CommitId,
+}
+
+/// Describes the copy history of a file. The copy object is unchanged when a
+/// file is modified.
+#[derive(ContentHash, Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
+pub struct CopyHistory {
+    /// The file's current path.
+    pub current_path: RepoPathBuf,
+    /// IDs of the files that became the current incarnation of this file.
+    ///
+    /// A newly created file has no parents. A regular copy or rename has one
+    /// parent. A merge of multiple files has multiple parents.
+    pub parents: Vec<CopyId>,
+    /// An optional piece of data to give the Copy object a different ID. May be
+    /// randomly generated. This allows a commit to say that a file was replaced
+    /// by a new incarnation of it, indicating a logically distinct file
+    /// taking the place of the previous file at the path.
+    pub salt: Vec<u8>,
 }
 
 /// Error that may occur during backend initialization.
@@ -266,7 +341,13 @@ pub type BackendResult<T> = Result<T, BackendError>;
 
 #[derive(ContentHash, Debug, PartialEq, Eq, Clone, Hash)]
 pub enum TreeValue {
-    File { id: FileId, executable: bool },
+    // TODO: When there's a CopyId here, the copy object's path must match
+    // the path identified by the tree.
+    File {
+        id: FileId,
+        executable: bool,
+        copy_id: CopyId,
+    },
     Symlink(SymlinkId),
     Tree(TreeId),
     GitSubmodule(CommitId),
@@ -276,11 +357,11 @@ pub enum TreeValue {
 impl TreeValue {
     pub fn hex(&self) -> String {
         match self {
-            TreeValue::File { id, .. } => id.hex(),
-            TreeValue::Symlink(id) => id.hex(),
-            TreeValue::Tree(id) => id.hex(),
-            TreeValue::GitSubmodule(id) => id.hex(),
-            TreeValue::Conflict(id) => id.hex(),
+            Self::File { id, .. } => id.hex(),
+            Self::Symlink(id) => id.hex(),
+            Self::Tree(id) => id.hex(),
+            Self::GitSubmodule(id) => id.hex(),
+            Self::Conflict(id) => id.hex(),
         }
     }
 }
@@ -293,7 +374,7 @@ pub struct TreeEntry<'a> {
 
 impl<'a> TreeEntry<'a> {
     pub fn new(name: &'a RepoPathComponent, value: &'a TreeValue) -> Self {
-        TreeEntry { name, value }
+        Self { name, value }
     }
 
     pub fn name(&self) -> &'a RepoPathComponent {
@@ -306,7 +387,7 @@ impl<'a> TreeEntry<'a> {
 }
 
 pub struct TreeEntriesNonRecursiveIterator<'a> {
-    iter: std::collections::btree_map::Iter<'a, RepoPathComponentBuf, TreeValue>,
+    iter: slice::Iter<'a, (RepoPathComponentBuf, TreeValue)>,
 }
 
 impl<'a> Iterator for TreeEntriesNonRecursiveIterator<'a> {
@@ -321,51 +402,40 @@ impl<'a> Iterator for TreeEntriesNonRecursiveIterator<'a> {
 
 #[derive(ContentHash, Default, PartialEq, Eq, Debug, Clone)]
 pub struct Tree {
-    entries: BTreeMap<RepoPathComponentBuf, TreeValue>,
+    entries: Vec<(RepoPathComponentBuf, TreeValue)>,
 }
 
 impl Tree {
+    pub fn from_sorted_entries(entries: Vec<(RepoPathComponentBuf, TreeValue)>) -> Self {
+        debug_assert!(entries.is_sorted_by(|(a, _), (b, _)| a < b));
+        Self { entries }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
 
     pub fn names(&self) -> impl Iterator<Item = &RepoPathComponent> {
-        self.entries.keys().map(|name| name.as_ref())
+        self.entries.iter().map(|(name, _)| name.as_ref())
     }
 
-    pub fn entries(&self) -> TreeEntriesNonRecursiveIterator {
+    pub fn entries(&self) -> TreeEntriesNonRecursiveIterator<'_> {
         TreeEntriesNonRecursiveIterator {
             iter: self.entries.iter(),
         }
     }
 
-    pub fn set(&mut self, name: RepoPathComponentBuf, value: TreeValue) {
-        self.entries.insert(name, value);
-    }
-
-    pub fn remove(&mut self, name: &RepoPathComponent) {
-        self.entries.remove(name);
-    }
-
-    pub fn set_or_remove(&mut self, name: &RepoPathComponent, value: Option<TreeValue>) {
-        match value {
-            None => {
-                self.entries.remove(name);
-            }
-            Some(value) => {
-                self.entries.insert(name.to_owned(), value);
-            }
-        }
-    }
-
-    pub fn entry(&self, name: &RepoPathComponent) -> Option<TreeEntry> {
-        self.entries
-            .get_key_value(name)
-            .map(|(name, value)| TreeEntry { name, value })
+    pub fn entry(&self, name: &RepoPathComponent) -> Option<TreeEntry<'_>> {
+        let index = self
+            .entries
+            .binary_search_by_key(&name, |(name, _)| name)
+            .ok()?;
+        let (name, value) = &self.entries[index];
+        Some(TreeEntry { name, value })
     }
 
     pub fn value(&self, name: &RepoPathComponent) -> Option<&TreeValue> {
-        self.entries.get(name)
+        self.entry(name).map(|entry| entry.value)
     }
 }
 
@@ -397,7 +467,7 @@ pub trait Backend: Send + Sync + Debug {
     fn as_any(&self) -> &dyn Any;
 
     /// A unique name that identifies this backend. Written to
-    /// `.jj/repo/store/backend` when the repo is created.
+    /// `.jj/repo/store/type` when the repo is created.
     fn name(&self) -> &str;
 
     /// The length of commit IDs in bytes.
@@ -421,17 +491,44 @@ pub trait Backend: Send + Sync + Debug {
     /// sent.
     fn concurrency(&self) -> usize;
 
-    async fn read_file(&self, path: &RepoPath, id: &FileId) -> BackendResult<Box<dyn Read>>;
+    async fn read_file(
+        &self,
+        path: &RepoPath,
+        id: &FileId,
+    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>>;
 
     async fn write_file(
         &self,
         path: &RepoPath,
-        contents: &mut (dyn Read + Send),
+        contents: &mut (dyn AsyncRead + Send + Unpin),
     ) -> BackendResult<FileId>;
 
     async fn read_symlink(&self, path: &RepoPath, id: &SymlinkId) -> BackendResult<String>;
 
     async fn write_symlink(&self, path: &RepoPath, target: &str) -> BackendResult<SymlinkId>;
+
+    /// Read the specified `CopyHistory` object.
+    ///
+    /// Backends that don't support copy tracking may return
+    /// `BackendError::Unsupported`.
+    async fn read_copy(&self, id: &CopyId) -> BackendResult<CopyHistory>;
+
+    /// Write the `CopyHistory` object and return its ID.
+    ///
+    /// Backends that don't support copy tracking may return
+    /// `BackendError::Unsupported`.
+    async fn write_copy(&self, copy: &CopyHistory) -> BackendResult<CopyId>;
+
+    /// Find all copy histories that are related to the specified one. This is
+    /// defined as those that are ancestors of the given specified one, plus
+    /// their descendants. Children must be returned before parents.
+    ///
+    /// It is valid (but wasteful) to include other copy histories, such as
+    /// siblings, or even completely unrelated copy histories.
+    ///
+    /// Backends that don't support copy tracking may return
+    /// `BackendError::Unsupported`.
+    async fn get_related_copies(&self, copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>>;
 
     async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> BackendResult<Tree>;
 
@@ -481,7 +578,7 @@ pub trait Backend: Send + Sync + Debug {
         paths: Option<&[RepoPathBuf]>,
         root: &CommitId,
         head: &CommitId,
-    ) -> BackendResult<BoxStream<BackendResult<CopyRecord>>>;
+    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>>;
 
     /// Perform garbage collection.
     ///

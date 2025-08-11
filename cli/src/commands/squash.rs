@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indoc::formatdoc;
 use itertools::Itertools as _;
@@ -28,9 +29,9 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::DiffSelector;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::WorkspaceCommandTransaction;
+use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
-use crate::command_error::CommandError;
 use crate::complete;
 use crate::description_util::add_trailers;
 use crate::description_util::combine_messages_for_editing;
@@ -99,11 +100,14 @@ pub(crate) struct SquashArgs {
     #[arg(long, short)]
     interactive: bool,
     /// Specify diff editor to be used (implies --interactive)
-    #[arg(long, value_name = "NAME")]
+    #[arg(
+        long,
+        value_name = "NAME",
+        add = ArgValueCandidates::new(complete::diff_editors),
+    )]
     tool: Option<String>,
     /// Move only changes to these paths (instead of all paths)
     #[arg(
-        conflicts_with_all = ["interactive", "tool"],
         value_name = "FILESETS",
         value_hint = clap::ValueHint::AnyPath,
         add = ArgValueCompleter::new(complete::squash_revision_files),
@@ -134,9 +138,8 @@ pub(crate) fn cmd_squash(
         .try_collect()?;
         destination = workspace_command
             .resolve_single_rev(ui, args.into.as_ref().unwrap_or(&RevisionArg::AT))?;
-        if sources.iter().any(|source| source.id() == destination.id()) {
-            return Err(user_error("Source and destination cannot be the same"));
-        }
+        // remove the destination from the sources
+        sources.retain(|source| source.id() != destination.id());
         // Reverse the set so we apply the oldest commits first. It shouldn't affect the
         // result, but it avoids creating transient conflicts and is therefore probably
         // a little faster.
@@ -202,7 +205,6 @@ pub(crate) fn cmd_squash(
                         add_trailers(ui, &tx, &commit_builder)?
                     }
                 } else {
-                    let intro = "Enter a description for the combined commit.";
                     let combined = combine_messages_for_editing(
                         ui,
                         &tx,
@@ -213,6 +215,7 @@ pub(crate) fn cmd_squash(
                     // It's weird that commit.description() contains "JJ: " lines, but works.
                     commit_builder.set_description(combined);
                     let temp_commit = commit_builder.write_hidden()?;
+                    let intro = "Enter a description for the combined commit.";
                     let template = description_template(ui, &tx, intro, &temp_commit)?;
                     edit_description(&text_editor, &template)?
                 }
@@ -262,11 +265,11 @@ impl SquashedDescription {
 
         if !args.message_paragraphs.is_empty() {
             let desc = join_message_paragraphs(&args.message_paragraphs);
-            SquashedDescription::Exact(desc)
+            Self::Exact(desc)
         } else if args.use_destination_message {
-            SquashedDescription::UseDestination
+            Self::UseDestination
         } else {
-            SquashedDescription::Combine
+            Self::Combine
         }
     }
 }

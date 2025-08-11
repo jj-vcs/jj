@@ -1,4 +1,4 @@
-# Revsets to pass to `jj bench revsets` on the Git 
+# Revsets to pass to `jj bench revsets` on the Git repo
 
 # Single tags
 v1.0.0
@@ -42,6 +42,9 @@ heads(author(peff))
 # Roots and heads of range
 roots(::v2.40.0)
 heads(::v2.40.0)
+# Ancestors and ranges of large subsets
+::(v1.0.0..v2.40.0)
+author(peff)..
 # Parents and ancestors of old commit
 v1.0.0-
 v1.0.0---
@@ -70,6 +73,6 @@ tags()+++::
 merges()
 ~merges()
 # These are unbearably slow, so only filter within small set
-file(root:"Makefile") & v1.0.0..v1.2.0
+files(root:"Makefile") & v1.0.0..v1.2.0
 empty() & v1.0.0..v1.2.0
-conflict() & v1.0.0..v1.2.0
+conflicts() & v1.0.0..v1.2.0

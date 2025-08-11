@@ -16,12 +16,14 @@ use std::env::join_paths;
 use std::path::PathBuf;
 
 use indoc::indoc;
+use itertools::Itertools as _;
 use regex::Regex;
 
+use crate::common::TestEnvironment;
+use crate::common::default_config_from_schema;
 use crate::common::fake_editor_path;
 use crate::common::force_interactive;
 use crate::common::to_toml_value;
-use crate::common::TestEnvironment;
 
 #[test]
 fn test_config_list_single() {
@@ -945,6 +947,77 @@ fn test_config_edit_user_new_file() {
     );
 }
 
+// TODO: remove after deprecation period in 0.35
+#[cfg_attr(not(target_os = "macos"), ignore)]
+#[test]
+fn test_config_edit_user_deprecated_file() {
+    let test_env = TestEnvironment::default();
+    let user_config_path = test_env
+        .home_dir()
+        .join("Library/Application Support/jj/config.toml");
+    std::fs::create_dir_all(user_config_path.parent().unwrap()).unwrap();
+
+    std::fs::write(
+        &user_config_path,
+        indoc! {b"
+        [foo]
+        bar = 'Make sure I can pick this up'
+        "},
+    )
+    .unwrap();
+
+    let output = test_env.run_jj_with(|cmd| {
+        cmd.env_remove("JJ_CONFIG")
+            .args(["config", "get", "foo.bar"])
+    });
+    insta::assert_snapshot!(output, @r"
+    Make sure I can pick this up
+    [EOF]
+    ------- stderr -------
+    Warning: Deprecated configuration file `$TEST_ENV/home/Library/Application Support/jj/config.toml`.
+    Configuration files in `~/Library/Application Support/jj` are deprecated, and support will be removed in a future release.
+    Instead, move your configuration files to `~/.config/jj`.
+    [EOF]
+    ");
+
+    // if XDG_CONFIG_HOME is ~/Library/Application Support,
+    // you shouldn't get a warning
+    let output = test_env.run_jj_with(|cmd| {
+        cmd.env_remove("JJ_CONFIG")
+            .env(
+                "XDG_CONFIG_HOME",
+                test_env.home_dir().join("Library/Application Support"),
+            )
+            .args(["config", "get", "foo.bar"])
+    });
+    insta::assert_snapshot!(output, @r"
+    Make sure I can pick this up
+    [EOF]
+    ");
+
+    // if you set JJ_CONFIG, you shouldn't get a warning
+    let output = test_env.run_jj_with(|cmd| {
+        cmd.env("JJ_CONFIG", &user_config_path)
+            .args(["config", "get", "foo.bar"])
+    });
+    insta::assert_snapshot!(output, @r"
+    Make sure I can pick this up
+    [EOF]
+    ");
+
+    let new_path = test_env.home_dir().join(".config/jj/config.toml");
+    std::fs::create_dir_all(new_path.parent().unwrap()).unwrap();
+    std::fs::rename(&user_config_path, &new_path).unwrap();
+    let output = test_env.run_jj_with(|cmd| {
+        cmd.env_remove("JJ_CONFIG")
+            .args(["config", "get", "foo.bar"])
+    });
+    insta::assert_snapshot!(output, @r"
+    Make sure I can pick this up
+    [EOF]
+    ");
+}
+
 #[test]
 fn test_config_edit_repo() {
     let mut test_env = TestEnvironment::default();
@@ -985,6 +1058,7 @@ fn test_config_edit_invalid_config() {
     });
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Editing file: $TEST_ENV/repo/.jj/repo/config.toml
     Warning: An error has been found inside the config:
     Caused by:
     1: Configuration cannot be parsed as TOML document
@@ -1013,6 +1087,7 @@ fn test_config_edit_invalid_config() {
     });
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Editing file: $TEST_ENV/repo/.jj/repo/config.toml
     Warning: An error has been found inside the config:
     Caused by:
     1: Configuration cannot be parsed as TOML document
@@ -1097,6 +1172,7 @@ fn test_config_only_loads_toml_files() {
     1: $TEST_ENV/config/config0001.toml
     2: $TEST_ENV/config/config0002.toml
     Choose a config file (default 1): 1
+    Editing file: $TEST_ENV/config/config0001.toml
     [EOF]
     ");
 }
@@ -1180,6 +1256,88 @@ fn test_config_get() {
     bar
     [EOF]
     ");
+}
+
+#[test]
+fn test_config_get_yields_values_consistent_with_schema_defaults() {
+    let test_env = TestEnvironment::default();
+    let get_true_default = move |key: &str| {
+        let output = test_env.run_jj_in(".", ["config", "get", key]).success();
+        let output_doc =
+            toml_edit::ImDocument::parse(format!("test={}", output.stdout.normalized()))
+                .unwrap_or_else(|_| {
+                    // Unfortunately for this test, `config get` is "lossy" and does not print
+                    // quoted strings. This means that e.g. `false` and `"false"` are not
+                    // distinguishable. If value couldn't be parsed, it's probably a string, so
+                    // let's parse its Debug string instead.
+                    toml_edit::ImDocument::parse(format!(
+                        "test={:?}",
+                        output.stdout.normalized().trim()
+                    ))
+                    .unwrap()
+                });
+        output_doc.get("test").unwrap().as_value().unwrap().clone()
+    };
+
+    let mut schema_defaults = toml_edit::ser::to_document(&default_config_from_schema()).unwrap();
+
+    // Ensure that `get_values()` flattens the entire configuration.
+    struct SetDotted;
+    impl toml_edit::visit_mut::VisitMut for SetDotted {
+        fn visit_table_like_mut(&mut self, node: &mut dyn toml_edit::TableLike) {
+            node.set_dotted(true);
+            toml_edit::visit_mut::visit_table_like_mut(self, node);
+        }
+    }
+    toml_edit::visit_mut::visit_document_mut(&mut SetDotted, &mut schema_defaults);
+
+    for (key, schema_default) in schema_defaults.into_table().get_values() {
+        let key = key.iter().join(".");
+        match key.as_str() {
+            // These keys technically don't have a default value, but they exhibit a default
+            // behavior consistent with the value claimed by the schema. When these defaults are
+            // used, a hint is printed to stdout.
+            "ui.default-command" => insta::assert_snapshot!(schema_default, @r#""log""#),
+            "ui.diff-editor" => insta::assert_snapshot!(schema_default, @r#"":builtin""#),
+            "ui.merge-editor" => insta::assert_snapshot!(schema_default, @r#"":builtin""#),
+            "git.fetch" => insta::assert_snapshot!(schema_default, @r#""origin""#),
+            "git.push" => insta::assert_snapshot!(schema_default, @r#""origin""#),
+
+            // When no `short-prefixes` revset is explicitly configured, the revset for `log` is
+            // used instead, even if that has a value different from the default. The schema
+            // represents this behavior with a symbolic default value.
+            "revsets.short-prefixes" => {
+                insta::assert_snapshot!(schema_default, @r#""<revsets.log>""#);
+            }
+
+            // The default for `ui.pager` is a table; `ui.pager.command` is an array and `jj config
+            // get` currently cannot print that. The schema default omits the env variable
+            // `LESSCHARSET` and gives the default as a plain string.
+            "ui.pager" => insta::assert_snapshot!(schema_default, @r#""less -FRX""#),
+
+            // The `immutable_heads()` revset actually defaults to `builtin_immutable_heads()` but
+            // this would be a poor starting point for a custom revset, so the schema "inlines"
+            // `builtin_immutable_heads()`.
+            r#"revset-aliases."immutable_heads()""# => {
+                let builtin_default =
+                    get_true_default("revset-aliases.'builtin_immutable_heads()'");
+                assert!(
+                    builtin_default.to_string() == schema_default.to_string(),
+                    "{key}: the schema claims a default ({schema_default}) which is different \
+                     from what builtin_immutable_heads() resolves to ({builtin_default})"
+                );
+            }
+
+            _ => {
+                let true_default = get_true_default(&key);
+                assert!(
+                    true_default.to_string() == schema_default.to_string(),
+                    "{key}: true default value ({true_default}) is not consistent with default \
+                     claimed by schema ({schema_default})"
+                );
+            }
+        }
+    }
 }
 
 #[test]

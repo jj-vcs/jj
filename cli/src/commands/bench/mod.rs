@@ -24,14 +24,14 @@ use std::time::Instant;
 use clap::Subcommand;
 use criterion::Criterion;
 
-use self::common_ancestors::cmd_bench_common_ancestors;
 use self::common_ancestors::BenchCommonAncestorsArgs;
-use self::is_ancestor::cmd_bench_is_ancestor;
+use self::common_ancestors::cmd_bench_common_ancestors;
 use self::is_ancestor::BenchIsAncestorArgs;
-use self::resolve_prefix::cmd_bench_resolve_prefix;
+use self::is_ancestor::cmd_bench_is_ancestor;
 use self::resolve_prefix::BenchResolvePrefixArgs;
-use self::revset::cmd_bench_revset;
+use self::resolve_prefix::cmd_bench_resolve_prefix;
 use self::revset::BenchRevsetArgs;
+use self::revset::cmd_bench_revset;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::ui::Ui;

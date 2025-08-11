@@ -17,6 +17,7 @@ use testutils::git;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::to_toml_value;
 
 fn git_repo_dir_for_jj_repo(work_dir: &TestWorkDir<'_>) -> std::path::PathBuf {
     work_dir
@@ -318,6 +319,20 @@ fn test_git_push_forward_unexpectedly_moved() {
     [EOF]
     [exit status: 1]
     ");
+
+    // The ref name should be colorized
+    let output = work_dir.run_jj(["git", "push", "--color=always"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Move forward bookmark bookmark1 from 9b2e76de3920 to 624f94a35f00
+    [1m[38;5;1mError: [39mFailed to push some bookmarks[0m
+    [1m[38;5;6mHint: [0m[39mThe following references unexpectedly moved on the remote:[39m
+    [39m  [38;5;2mrefs/heads/bookmark1[39m (reason: stale info)[39m
+    [1m[38;5;6mHint: [0m[39mTry fetching from the remote, then make the bookmark point to where you want it to be, and push again.[39m
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 #[test]
@@ -367,6 +382,20 @@ fn test_git_push_sideways_unexpectedly_moved() {
     Hint: The following references unexpectedly moved on the remote:
       refs/heads/bookmark1 (reason: stale info)
     Hint: Try fetching from the remote, then make the bookmark point to where you want it to be, and push again.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // The ref name should be colorized
+    let output = work_dir.run_jj(["git", "push", "--color=always"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Move sideways bookmark bookmark1 from 9b2e76de3920 to 827b8a385853
+    [1m[38;5;1mError: [39mFailed to push some bookmarks[0m
+    [1m[38;5;6mHint: [0m[39mThe following references unexpectedly moved on the remote:[39m
+    [39m  [38;5;2mrefs/heads/bookmark1[39m (reason: stale info)[39m
+    [1m[38;5;6mHint: [0m[39mTry fetching from the remote, then make the bookmark point to where you want it to be, and push again.[39m
     [EOF]
     [exit status: 1]
     ");
@@ -771,18 +800,6 @@ fn test_git_push_changes() {
     let output = work_dir.run_jj(["git", "push", "-c=(@|@-)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Revset `(@|@-)` resolved to more than one revision
-    Hint: The revset `(@|@-)` resolved to these revisions:
-      yostqsxw 2723f611 push-yostqsxwqrlt* | bar
-      yqosqzyt 0f8164cd foo
-    Hint: Prefix the expression with `all:` to allow any number of revisions (i.e. `all:(@|@-)`).
-    [EOF]
-    [exit status: 1]
-    ");
-    // test pushing two changes at once, part 2
-    let output = work_dir.run_jj(["git", "push", "-c=all:(@|@-)"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
     Creating bookmark push-yqosqzytrlsw for revision yqosqzytrlsw
     Changes to push to origin:
       Move sideways bookmark push-yostqsxwqrlt from 916414184c47 to 2723f6111cb9
@@ -791,11 +808,11 @@ fn test_git_push_changes() {
     ");
     // specifying the same change twice doesn't break things
     work_dir.write_file("file", "modified3");
-    let output = work_dir.run_jj(["git", "push", "-c=all:(@|@)"]);
+    let output = work_dir.run_jj(["git", "push", "-c=(@|@)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
-      Move sideways bookmark push-yostqsxwqrlt from 2723f6111cb9 to 7436a8a600a4
+      Move sideways bookmark push-yostqsxwqrlt from 2723f6111cb9 to ee4011999491
     [EOF]
     ");
 
@@ -805,7 +822,7 @@ fn test_git_push_changes() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
-      Move sideways bookmark push-yostqsxwqrlt from 7436a8a600a4 to a8b93bdd0f68
+      Move sideways bookmark push-yostqsxwqrlt from ee4011999491 to 1b393e646dec
     [EOF]
     ");
 
@@ -824,7 +841,7 @@ fn test_git_push_changes() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
-    Working copy  (@) : yostqsxw 4b18f5ea bar
+    Working copy  (@) : yostqsxw 41aca6a2 bar
     Parent commit (@-): yqosqzyt 0f8164cd push-yostqsxwqrlt* push-yqosqzytrlsw | foo
     [EOF]
     ");
@@ -840,24 +857,56 @@ fn test_git_push_changes() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
-    Working copy  (@) : yostqsxw 4b18f5ea bar
+    Working copy  (@) : yostqsxw 41aca6a2 bar
     Parent commit (@-): yqosqzyt 0f8164cd push-yostqsxwqrlt* push-yqosqzytrlsw | foo
     [EOF]
     ");
 
-    // Test changing `git.push-bookmark-prefix`. It causes us to push again.
+    // Test changing `git_push_bookmark` template. It causes us to push again.
     let output = work_dir.run_jj([
         "git",
         "push",
-        "--config=git.push-bookmark-prefix=test-",
+        &format!(
+            "--config=templates.git_push_bookmark={}",
+            to_toml_value("'test-' ++ change_id.short()")
+        ),
         "--change=@",
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Creating bookmark test-yostqsxwqrlt for revision yostqsxwqrlt
     Changes to push to origin:
-      Add bookmark test-yostqsxwqrlt to 4b18f5ea2994
+      Add bookmark test-yostqsxwqrlt to 41aca6a29460
     [EOF]
+    ");
+
+    // Try again with the deprecated config
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--config=git.push-bookmark-prefix=test-",
+        "--change=@",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: Deprecated CLI-provided config: git.push-bookmark-prefix is updated to templates.git_push_bookmark = '"test-" ++ change_id.short()'
+    Bookmark test-yostqsxwqrlt@origin already matches test-yostqsxwqrlt
+    Nothing changed.
+    [EOF]
+    "#);
+
+    // Bad `git_push_bookmark` templates
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        r#"--config=templates.git_push_bookmark='""'"#,
+        "--change=@",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Empty bookmark name generated
+    [EOF]
+    [exit status: 1]
     ");
 }
 
@@ -953,11 +1002,11 @@ fn test_git_push_changes_with_name() {
     ");
     // test pushing two changes at once
     work_dir.write_file("file", "modified2");
-    let output = work_dir.run_jj(["git", "push", "--named=b2=all:(@|@-)"]);
+    let output = work_dir.run_jj(["git", "push", "--named=b2=(@|@-)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Revset `all:(@|@-)` resolved to more than one revision
-    Hint: The revset `all:(@|@-)` resolved to these revisions:
+    Error: Revset `(@|@-)` resolved to more than one revision
+    Hint: The revset `(@|@-)` resolved to these revisions:
       yostqsxw 1b2bd869 b1* | pushed
       yqosqzyt 0f8164cd foo
     [EOF]

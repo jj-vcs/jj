@@ -19,25 +19,26 @@ use std::path::PathBuf;
 use std::str;
 use std::sync::Arc;
 
+use indoc::writedoc;
 use itertools::Itertools as _;
 use jj_lib::file_util;
 use jj_lib::git;
-use jj_lib::git::parse_git_ref;
 use jj_lib::git::GitRefKind;
+use jj_lib::git::parse_git_ref;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::view::View;
 use jj_lib::workspace::Workspace;
 
 use super::write_repository_level_trunk_alias;
-use crate::cli_util::start_repo_transaction;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
+use crate::cli_util::start_repo_transaction;
+use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::internal_error;
 use crate::command_error::user_error_with_hint;
 use crate::command_error::user_error_with_message;
-use crate::command_error::CommandError;
 use crate::commands::git::maybe_add_gitignore;
 use crate::git_util::is_colocated_git_workspace;
 use crate::git_util::print_git_export_stats;
@@ -66,6 +67,10 @@ pub struct GitInitArgs {
     /// This option is mutually exclusive with `--git-repo`.
     #[arg(long, conflicts_with = "git_repo")]
     colocate: bool,
+
+    /// Disable colocation of the Jujutsu repo with the git repo
+    #[arg(long, conflicts_with = "colocate")]
+    no_colocate: bool,
 
     /// Specifies a path to an **existing** git repository to be
     /// used as the backing git repo for the newly created `jj` repo.
@@ -97,13 +102,13 @@ pub fn cmd_git_init(
         .and_then(|_| dunce::canonicalize(wc_path))
         .map_err(|e| user_error_with_message("Failed to create workspace", e))?;
 
-    do_init(
-        ui,
-        command,
-        &wc_path,
-        args.colocate,
-        args.git_repo.as_deref(),
-    )?;
+    let colocate = if command.settings().git_settings()?.colocate {
+        !args.no_colocate
+    } else {
+        args.colocate
+    };
+
+    do_init(ui, command, &wc_path, colocate, args.git_repo.as_deref())?;
 
     let relative_wc_path = file_util::relative_path(cwd, &wc_path);
     writeln!(
@@ -111,6 +116,12 @@ pub fn cmd_git_init(
         r#"Initialized repo in "{}""#,
         relative_wc_path.display()
     )?;
+    if colocate {
+        writeln!(
+            ui.hint_default(),
+            r"Running `git clean -xdf` will remove `.jj/`!",
+        )?;
+    }
 
     Ok(())
 }
@@ -279,10 +290,13 @@ fn print_trackable_remote_bookmarks(ui: &Ui, view: &View) -> io::Result<()> {
             write!(formatter, "  ")?;
             writeln!(formatter.labeled("bookmark"), "{symbol}")?;
         }
-        writeln!(
+        writedoc!(
             formatter.labeled("hint").with_heading("Hint: "),
-            "Run `jj bookmark track {syms}` to keep local bookmarks updated on future pulls.",
-            syms = remote_bookmark_symbols.iter().join(" "),
+            "
+            Run the following command to keep local bookmarks updated on future pulls:
+              jj bookmark track {syms}
+            ",
+            syms = remote_bookmark_symbols.iter().join(" ")
         )?;
     }
     Ok(())

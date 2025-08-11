@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::common::create_commit;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::create_commit;
 
 #[test]
 fn test_basics() {
@@ -422,9 +422,8 @@ fn test_double_abandon() {
     let output = work_dir.run_jj(["abandon", &commit_id]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned 1 commits:
-      rlvkpnrz hidden 7d980be7 a
-    Nothing changed.
+    Skipping 1 revisions that are already hidden.
+    No revisions to abandon.
     [EOF]
     ");
 }

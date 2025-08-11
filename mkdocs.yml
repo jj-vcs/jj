@@ -14,6 +14,7 @@ theme:
     # - navigation.top
     - content.action.edit
     - content.code.copy
+    - content.tabs.link
     - navigation.instant
 
   icon:
@@ -132,7 +133,10 @@ nav: # This lists all the files that become part of the documentation
       - Operation log: 'operation-log.md'
       - Glossary: 'glossary.md'
 
-  - Configuration:
+  - Guides:
+      - Divergent changes: 'guides/divergence.md'
+
+  - Reference:
       - Settings: 'config.md'
       - Fileset language: 'filesets.md'
       - Revset language: 'revsets.md'
@@ -170,6 +174,7 @@ nav: # This lists all the files that become part of the documentation
       - Copy tracking and tracing: 'design/copy-tracking.md'
 
   - Development roadmap: 'roadmap.md'
+  - Changelog: 'changelog.md'
 
 # The following follow .gitignore syntax, relative
 # to the docs dir.

@@ -19,9 +19,9 @@ use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::signing::SignBehavior;
 
-use crate::cli_util::print_updated_commits;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::ui::Ui;
@@ -69,7 +69,7 @@ pub fn cmd_unsign(
 
     tx.repo_mut().transform_descendants(
         to_unsign.iter().ids().cloned().collect_vec(),
-        |rewriter| {
+        async |rewriter| {
             let old_commit = rewriter.old_commit().clone();
             let commit_builder = rewriter.reparent();
 

@@ -19,12 +19,12 @@ use jj_lib::op_store::OpStoreError;
 use jj_lib::operation::Operation;
 use jj_lib::repo::Repo as _;
 
-use super::view_with_desired_portions_restored;
-use super::UndoWhatToRestore;
 use super::DEFAULT_UNDO_WHAT;
+use super::UndoWhatToRestore;
+use super::view_with_desired_portions_restored;
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -47,13 +47,21 @@ pub struct OperationUndoArgs {
     what: Vec<UndoWhatToRestore>,
 }
 
-fn is_undo(op: &Operation, parent_op: &Operation) -> Result<bool, OpStoreError> {
-    let grand_parents: Vec<_> = parent_op.parents().try_collect()?;
-    if let [grand_parent_op] = &grand_parents[..] {
-        Ok(op.view_id() == grand_parent_op.view_id())
-    } else {
-        Ok(false)
-    }
+// Checks whether `op` resets the view of `parent_op` to the view of the
+// grandparent op.
+//
+// This is a necessary condition for `op` to be an undo of `parent_op` but is
+// not sufficient. For example, deleting a bookmark also resets the view
+// similarly but is not a literal `undo` operation.
+fn resets_view_of(op: &Operation, parent_op: &Operation) -> Result<bool, OpStoreError> {
+    let Ok(grandparent_op) = parent_op.parents().exactly_one() else {
+        return Ok(false);
+    };
+    Ok(op.view_id() == grandparent_op?.view_id())
+}
+
+fn tx_description(op: &Operation) -> String {
+    format!("undo operation {}", op.id().hex())
 }
 
 pub fn cmd_op_undo(
@@ -63,18 +71,16 @@ pub fn cmd_op_undo(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let bad_op = workspace_command.resolve_single_op(&args.operation)?;
-    let mut parent_ops = bad_op.parents();
-    let Some(parent_op) = parent_ops.next().transpose()? else {
-        return Err(user_error("Cannot undo repo initialization"));
+    let parent_of_bad_op = match bad_op.parents().at_most_one() {
+        Ok(Some(parent_of_bad_op)) => parent_of_bad_op?,
+        Ok(None) => return Err(user_error("Cannot undo root operation")),
+        Err(_) => return Err(user_error("Cannot undo a merge operation")),
     };
-    if parent_ops.next().is_some() {
-        return Err(user_error("Cannot undo a merge operation"));
-    }
 
     let mut tx = workspace_command.start_transaction();
     let repo_loader = tx.base_repo().loader();
     let bad_repo = repo_loader.load_at(&bad_op)?;
-    let parent_repo = repo_loader.load_at(&parent_op)?;
+    let parent_repo = repo_loader.load_at(&parent_of_bad_op)?;
     tx.repo_mut().merge(&bad_repo, &parent_repo)?;
     let new_view = view_with_desired_portions_restored(
         tx.repo().view().store_view(),
@@ -88,18 +94,41 @@ pub fn cmd_op_undo(
         template.format(&bad_op, formatter.as_mut())?;
         writeln!(formatter)?;
     }
-    tx.finish(ui, format!("undo operation {}", bad_op.id().hex()))?;
+    tx.finish(ui, tx_description(&bad_op))?;
 
-    if args.operation == "@" && is_undo(&bad_op, &parent_op)? {
+    // Check if the user performed a "double undo", i.e. the current `undo` (C)
+    // reverts an immediately preceding `undo` (B) that is itself an `undo` of the
+    // operation preceding it (A).
+    //
+    //    C (undo of B)
+    // @  B (`bad_op` = undo of A)
+    // ○  A
+    //
+    // An exception is made for when the user specified the immediately preceding
+    // `undo` with an op set. In this situation, the user's intent is clear, so
+    // a warning is not shown.
+    //
+    // Note that undoing an older `undo` does not constitute a "double undo". For
+    // example, the current `undo` (D) here reverts an `undo` B that is not the
+    // immediately preceding operation (C). A warning is not shown in this case.
+    //
+    //    D (undo of B)
+    // @  C (unrelated operation)
+    // ○  B (`bad_op` = undo of A)
+    // ○  A
+    if args.operation == "@"
+        && resets_view_of(&bad_op, &parent_of_bad_op)?
+        && bad_op.metadata().description == tx_description(&parent_of_bad_op)
+    {
         writeln!(
-            ui.hint_default(),
-            "This action reverted an 'undo' operation. The repository is now in the same state as \
-             it was before the original 'undo'."
+            ui.warning_default(),
+            "The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in \
+             the same state as it was before the second-last `jj undo`."
         )?;
         writeln!(
             ui.hint_default(),
-            "If your goal is to undo multiple operations, consider using `jj op log` to see past \
-             states, and `jj op restore` to restore one of these states."
+            "To undo multiple operations, use `jj op log` to see past states and `jj op restore` \
+             to restore one of these states."
         )?;
     }
 

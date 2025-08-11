@@ -23,9 +23,9 @@ use std::fmt::Formatter;
 use std::fs;
 use std::io;
 use std::io::Cursor;
-use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::process::Command;
 use std::process::ExitStatus;
 use std::str;
@@ -35,18 +35,20 @@ use std::sync::MutexGuard;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use bstr::BStr;
 use futures::stream::BoxStream;
 use gix::bstr::BString;
-use gix::objs::CommitRef;
 use gix::objs::CommitRefIter;
 use gix::objs::WriteTo as _;
 use itertools::Itertools as _;
+use once_cell::sync::OnceCell as OnceLock;
 use pollster::FutureExt as _;
 use prost::Message as _;
 use smallvec::SmallVec;
 use thiserror::Error;
+use tokio::io::AsyncRead;
+use tokio::io::AsyncReadExt as _;
 
-use crate::backend::make_root_commit;
 use crate::backend::Backend;
 use crate::backend::BackendError;
 use crate::backend::BackendInitError;
@@ -58,6 +60,8 @@ use crate::backend::CommitId;
 use crate::backend::Conflict;
 use crate::backend::ConflictId;
 use crate::backend::ConflictTerm;
+use crate::backend::CopyHistory;
+use crate::backend::CopyId;
 use crate::backend::CopyRecord;
 use crate::backend::FileId;
 use crate::backend::MergedTreeId;
@@ -70,10 +74,13 @@ use crate::backend::Timestamp;
 use crate::backend::Tree;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
+use crate::backend::make_root_commit;
 use crate::config::ConfigGetError;
+use crate::file_util;
+use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
-use crate::hex_util::to_forward_hex;
+use crate::hex_util;
 use crate::index::Index;
 use crate::lock::FileLock;
 use crate::merge::Merge;
@@ -96,8 +103,8 @@ const CHANGE_ID_LENGTH: usize = 16;
 const NO_GC_REF_NAMESPACE: &str = "refs/jj/keep/";
 const CONFLICT_SUFFIX: &str = ".jjconflict";
 
-pub const JJ_TREES_COMMIT_HEADER: &[u8] = b"jj:trees";
-pub const CHANGE_ID_COMMIT_HEADER: &[u8] = b"change-id";
+pub const JJ_TREES_COMMIT_HEADER: &str = "jj:trees";
+pub const CHANGE_ID_COMMIT_HEADER: &str = "change-id";
 
 #[derive(Debug, Error)]
 pub enum GitBackendInitError {
@@ -105,6 +112,8 @@ pub enum GitBackendInitError {
     InitRepository(#[source] gix::init::Error),
     #[error("Failed to open git repository")]
     OpenRepository(#[source] gix::open::Error),
+    #[error("Failed to encode git repository path")]
+    EncodeRepositoryPath(#[source] BadPathEncoding),
     #[error(transparent)]
     Config(ConfigGetError),
     #[error(transparent)]
@@ -113,7 +122,7 @@ pub enum GitBackendInitError {
 
 impl From<Box<GitBackendInitError>> for BackendInitError {
     fn from(err: Box<GitBackendInitError>) -> Self {
-        BackendInitError(err)
+        Self(err)
     }
 }
 
@@ -121,6 +130,8 @@ impl From<Box<GitBackendInitError>> for BackendInitError {
 pub enum GitBackendLoadError {
     #[error("Failed to open git repository")]
     OpenRepository(#[source] gix::open::Error),
+    #[error("Failed to decode git repository path")]
+    DecodeRepositoryPath(#[source] BadPathEncoding),
     #[error(transparent)]
     Config(ConfigGetError),
     #[error(transparent)]
@@ -129,7 +140,7 @@ pub enum GitBackendLoadError {
 
 impl From<Box<GitBackendLoadError>> for BackendLoadError {
     fn from(err: Box<GitBackendLoadError>) -> Self {
-        BackendLoadError(err)
+        Self(err)
     }
 }
 
@@ -144,7 +155,7 @@ pub enum GitBackendError {
 
 impl From<GitBackendError> for BackendError {
     fn from(err: GitBackendError) -> Self {
-        BackendError::Other(err.into())
+        Self::Other(err.into())
     }
 }
 
@@ -166,6 +177,7 @@ pub struct GitBackend {
     root_commit_id: CommitId,
     root_change_id: ChangeId,
     empty_tree_id: TreeId,
+    shallow_root_ids: OnceLock<Vec<CommitId>>,
     extra_metadata_store: TableStore,
     cached_extra_metadata: Mutex<Option<Arc<ReadonlyTable>>>,
     git_executable: PathBuf,
@@ -186,12 +198,13 @@ impl GitBackend {
         let root_commit_id = CommitId::from_bytes(&[0; HASH_LENGTH]);
         let root_change_id = ChangeId::from_bytes(&[0; CHANGE_ID_LENGTH]);
         let empty_tree_id = TreeId::from_hex("4b825dc642cb6eb9a060e54bf8d69288fbee4904");
-        GitBackend {
+        Self {
             base_repo,
             repo,
             root_commit_id,
             root_change_id,
             empty_tree_id,
+            shallow_root_ids: OnceLock::new(),
             extra_metadata_store,
             cached_extra_metadata: Mutex::new(None),
             git_executable: git_settings.executable_path,
@@ -284,27 +297,24 @@ impl GitBackend {
             .context(&extra_path)
             .map_err(GitBackendInitError::Path)?;
         let target_path = store_path.join("git_target");
-        if cfg!(windows) && git_repo_path.is_relative() {
+        let git_repo_path = if cfg!(windows) && git_repo_path.is_relative() {
             // When a repository is created in Windows, format the path with *forward
             // slashes* and not backwards slashes. This makes it possible to use the same
             // repository under Windows Subsystem for Linux.
             //
             // This only works for relative paths. If the path is absolute, there's not much
             // we can do, and it simply won't work inside and outside WSL at the same time.
-            let git_repo_path_string = git_repo_path
-                .components()
-                .map(|component| component.as_os_str().to_str().unwrap().to_owned())
-                .join("/");
-            fs::write(&target_path, git_repo_path_string.as_bytes())
-                .context(&target_path)
-                .map_err(GitBackendInitError::Path)?;
+            file_util::slash_path(git_repo_path)
         } else {
-            fs::write(&target_path, git_repo_path.to_str().unwrap().as_bytes())
-                .context(&target_path)
-                .map_err(GitBackendInitError::Path)?;
+            git_repo_path.into()
         };
+        let git_repo_path_bytes = file_util::path_to_bytes(&git_repo_path)
+            .map_err(GitBackendInitError::EncodeRepositoryPath)?;
+        fs::write(&target_path, git_repo_path_bytes)
+            .context(&target_path)
+            .map_err(GitBackendInitError::Path)?;
         let extra_metadata_store = TableStore::init(extra_path, HASH_LENGTH);
-        Ok(GitBackend::new(repo, extra_metadata_store, git_settings))
+        Ok(Self::new(repo, extra_metadata_store, git_settings))
     }
 
     pub fn load(
@@ -313,10 +323,12 @@ impl GitBackend {
     ) -> Result<Self, Box<GitBackendLoadError>> {
         let git_repo_path = {
             let target_path = store_path.join("git_target");
-            let git_repo_path_str = fs::read_to_string(&target_path)
+            let git_repo_path_bytes = fs::read(&target_path)
                 .context(&target_path)
                 .map_err(GitBackendLoadError::Path)?;
-            let git_repo_path = store_path.join(git_repo_path_str);
+            let git_repo_path = file_util::path_from_bytes(&git_repo_path_bytes)
+                .map_err(GitBackendLoadError::DecodeRepositoryPath)?;
+            let git_repo_path = store_path.join(git_repo_path);
             canonicalize_git_repo_path(&git_repo_path)
                 .context(&git_repo_path)
                 .map_err(GitBackendLoadError::Path)?
@@ -330,7 +342,7 @@ impl GitBackend {
         let git_settings = settings
             .git_settings()
             .map_err(GitBackendLoadError::Config)?;
-        Ok(GitBackend::new(repo, extra_metadata_store, git_settings))
+        Ok(Self::new(repo, extra_metadata_store, git_settings))
     }
 
     fn lock_git_repo(&self) -> MutexGuard<'_, gix::Repository> {
@@ -350,6 +362,25 @@ impl GitBackend {
     /// Path to the working directory if the repository isn't bare.
     pub fn git_workdir(&self) -> Option<&Path> {
         self.base_repo.work_dir()
+    }
+
+    fn shallow_root_ids(&self, git_repo: &gix::Repository) -> BackendResult<&[CommitId]> {
+        // The list of shallow roots is cached by gix, but it's still expensive
+        // to stat file on every read_object() call. Refreshing shallow roots is
+        // also bad for consistency reasons.
+        self.shallow_root_ids
+            .get_or_try_init(|| {
+                let maybe_oids = git_repo
+                    .shallow_commits()
+                    .map_err(|err| BackendError::Other(err.into()))?;
+                let commit_ids = maybe_oids.map_or(vec![], |oids| {
+                    oids.iter()
+                        .map(|oid| CommitId::from_bytes(oid.as_bytes()))
+                        .collect()
+                });
+                Ok(commit_ids)
+            })
+            .map(AsRef::as_ref)
     }
 
     fn cached_extra_metadata_table(&self) -> BackendResult<Arc<ReadonlyTable>> {
@@ -427,11 +458,12 @@ impl GitBackend {
             &mut mut_table,
             &table_lock,
             &head_ids,
+            self.shallow_root_ids(&locked_repo)?,
         )?;
         self.save_extra_metadata_table(mut_table, &table_lock)
     }
 
-    fn read_file_sync(&self, id: &FileId) -> BackendResult<Box<dyn Read>> {
+    fn read_file_sync(&self, id: &FileId) -> BackendResult<Vec<u8>> {
         let git_blob_id = validate_git_object_id(id)?;
         let locked_repo = self.lock_git_repo();
         let mut blob = locked_repo
@@ -439,7 +471,7 @@ impl GitBackend {
             .map_err(|err| map_not_found_err(err, id))?
             .try_into_blob()
             .map_err(|err| to_read_object_err(err, id))?;
-        Ok(Box::new(Cursor::new(blob.take_data())))
+        Ok(blob.take_data())
     }
 
     fn new_diff_platform(&self) -> BackendResult<gix::diff::blob::Platform> {
@@ -518,28 +550,23 @@ fn gix_open_opts_from_settings(settings: &UserSettings) -> gix::open::Options {
         .strict_config(true)
 }
 
-/// Reads the `jj:trees` header from the commit.
-fn root_tree_from_header(git_commit: &CommitRef) -> Result<Option<MergedTreeId>, ()> {
-    for (key, value) in &git_commit.extra_headers {
-        if *key == JJ_TREES_COMMIT_HEADER {
-            let mut tree_ids = SmallVec::new();
-            for hex in str::from_utf8(value.as_ref()).or(Err(()))?.split(' ') {
-                let tree_id = TreeId::try_from_hex(hex).or(Err(()))?;
-                if tree_id.as_bytes().len() != HASH_LENGTH {
-                    return Err(());
-                }
-                tree_ids.push(tree_id);
-            }
-            // It is invalid to use `jj:trees` with a non-conflicted tree. If this were
-            // allowed, it would be possible to construct a commit which appears to have
-            // different contents depending on whether it is viewed using `jj` or `git`.
-            if tree_ids.len() == 1 || tree_ids.len() % 2 == 0 {
-                return Err(());
-            }
-            return Ok(Some(MergedTreeId::Merge(Merge::from_vec(tree_ids))));
+/// Parses the `jj:trees` header value.
+fn root_tree_from_git_extra_header(value: &BStr) -> Result<MergedTreeId, ()> {
+    let mut tree_ids = SmallVec::new();
+    for hex in value.split(|b| *b == b' ') {
+        let tree_id = TreeId::try_from_hex(hex).ok_or(())?;
+        if tree_id.as_bytes().len() != HASH_LENGTH {
+            return Err(());
         }
+        tree_ids.push(tree_id);
     }
-    Ok(None)
+    // It is invalid to use `jj:trees` with a non-conflicted tree. If this were
+    // allowed, it would be possible to construct a commit which appears to have
+    // different contents depending on whether it is viewed using `jj` or `git`.
+    if tree_ids.len() == 1 || tree_ids.len() % 2 == 0 {
+        return Err(());
+    }
+    Ok(MergedTreeId::Merge(Merge::from_vec(tree_ids)))
 }
 
 fn commit_from_git_without_root_parent(
@@ -556,25 +583,10 @@ fn commit_from_git_without_root_parent(
     // valid JJ Change Id
     let change_id = commit
         .extra_headers()
-        .find("change-id")
-        .and_then(to_forward_hex)
-        .and_then(|change_id_hex| ChangeId::try_from_hex(change_id_hex.as_str()).ok())
+        .find(CHANGE_ID_COMMIT_HEADER)
+        .and_then(ChangeId::try_from_reverse_hex)
         .filter(|val| val.as_bytes().len() == CHANGE_ID_LENGTH)
-        // Otherwise, we reverse the bits of the commit id to create the change id.
-        // We don't want to use the first bytes unmodified because then it would be
-        // ambiguous if a given hash prefix refers to the commit id or the change id.
-        // It would have been enough to pick the last 16 bytes instead of the
-        // leading 16 bytes to address that. We also reverse the bits to make it
-        // less likely that users depend on any relationship between the two ids.
-        .unwrap_or_else(|| {
-            ChangeId::new(
-                id.as_bytes()[4..HASH_LENGTH]
-                    .iter()
-                    .rev()
-                    .map(|b| b.reverse_bits())
-                    .collect(),
-            )
-        });
+        .unwrap_or_else(|| change_id_from_git_commit_id(id));
 
     // shallow commits don't have parents their parents actually fetched, so we
     // discard them here
@@ -587,18 +599,22 @@ fn commit_from_git_without_root_parent(
             .map(|oid| CommitId::from_bytes(oid.as_bytes()))
             .collect_vec()
     };
-    let tree_id = TreeId::from_bytes(commit.tree().as_bytes());
     // If this commit is a conflict, we'll update the root tree later, when we read
     // the extra metadata.
-    let root_tree = root_tree_from_header(&commit)
-        .map_err(|()| to_read_object_err("Invalid jj:trees header", id))?;
-    let root_tree = root_tree.unwrap_or_else(|| {
-        if uses_tree_conflict_format {
-            MergedTreeId::resolved(tree_id)
-        } else {
-            MergedTreeId::Legacy(tree_id)
-        }
-    });
+    let root_tree = commit
+        .extra_headers()
+        .find(JJ_TREES_COMMIT_HEADER)
+        .map(root_tree_from_git_extra_header)
+        .transpose()
+        .map_err(|()| to_read_object_err("Invalid jj:trees header", id))?
+        .unwrap_or_else(|| {
+            let tree_id = TreeId::from_bytes(commit.tree().as_bytes());
+            if uses_tree_conflict_format {
+                MergedTreeId::resolved(tree_id)
+            } else {
+                MergedTreeId::Legacy(tree_id)
+            }
+        });
     // Use lossy conversion as commit message with "mojibake" is still better than
     // nothing.
     // TODO: what should we do with commit.encoding?
@@ -639,6 +655,21 @@ fn commit_from_git_without_root_parent(
     })
 }
 
+fn change_id_from_git_commit_id(id: &CommitId) -> ChangeId {
+    // We reverse the bits of the commit id to create the change id. We don't
+    // want to use the first bytes unmodified because then it would be ambiguous
+    // if a given hash prefix refers to the commit id or the change id. It would
+    // have been enough to pick the last 16 bytes instead of the leading 16
+    // bytes to address that. We also reverse the bits to make it less likely
+    // that users depend on any relationship between the two ids.
+    let bytes = id.as_bytes()[4..HASH_LENGTH]
+        .iter()
+        .rev()
+        .map(|b| b.reverse_bits())
+        .collect();
+    ChangeId::new(bytes)
+}
+
 const EMPTY_STRING_PLACEHOLDER: &str = "JJ_EMPTY_STRING";
 
 fn signature_from_git(signature: gix::actor::SignatureRef) -> Signature {
@@ -654,8 +685,9 @@ fn signature_from_git(signature: gix::actor::SignatureRef) -> Signature {
     } else {
         "".to_string()
     };
-    let timestamp = MillisSinceEpoch(signature.time.seconds * 1000);
-    let tz_offset = signature.time.offset.div_euclid(60); // in minutes
+    let time = signature.time().unwrap_or_default();
+    let timestamp = MillisSinceEpoch(time.seconds * 1000);
+    let tz_offset = time.offset.div_euclid(60); // in minutes
     Signature {
         name,
         email,
@@ -666,7 +698,7 @@ fn signature_from_git(signature: gix::actor::SignatureRef) -> Signature {
     }
 }
 
-fn signature_to_git(signature: &Signature) -> gix::actor::SignatureRef<'_> {
+fn signature_to_git(signature: &Signature) -> gix::actor::Signature {
     // git does not support empty names or emails
     let name = if !signature.name.is_empty() {
         &signature.name
@@ -682,7 +714,7 @@ fn signature_to_git(signature: &Signature) -> gix::actor::SignatureRef<'_> {
         signature.timestamp.timestamp.0.div_euclid(1000),
         signature.timestamp.tz_offset * 60, // in seconds
     );
-    gix::actor::SignatureRef {
+    gix::actor::Signature {
         name: name.into(),
         email: email.into(),
         time,
@@ -838,15 +870,21 @@ fn recreate_no_gc_refs(
     Ok(())
 }
 
-fn run_git_gc(program: &OsStr, git_dir: &Path) -> Result<(), GitGcError> {
+fn run_git_gc(program: &OsStr, git_dir: &Path, keep_newer: SystemTime) -> Result<(), GitGcError> {
+    let keep_newer = keep_newer
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap_or_default(); // underflow
     let mut git = Command::new(program);
-    git.arg("--git-dir=."); // turn off discovery
-    git.arg("gc");
+    git.arg("--git-dir=.") // turn off discovery
+        .arg("gc")
+        .arg(format!("--prune=@{} +0000", keep_newer.as_secs()));
     // Don't specify it by GIT_DIR/--git-dir. On Windows, the path could be
     // canonicalized as UNC path, which wouldn't be supported by git.
     git.current_dir(git_dir);
     // TODO: pass output to UI layer instead of printing directly here
+    tracing::info!(?git, "running git gc");
     let status = git.status().map_err(GitGcError::GcCommand)?;
+    tracing::info!(?status, "git gc exited");
     if !status.success() {
         return Err(GitGcError::GcCommandErrorStatus(status));
     }
@@ -901,11 +939,8 @@ fn import_extra_metadata_entries_from_heads(
     mut_table: &mut MutableTable,
     _table_lock: &FileLock,
     head_ids: &HashSet<&CommitId>,
+    shallow_roots: &[CommitId],
 ) -> BackendResult<()> {
-    let shallow_commits = git_repo
-        .shallow_commits()
-        .map_err(|e| BackendError::Other(Box::new(e)))?;
-
     let mut work_ids = head_ids
         .iter()
         .filter(|&id| mut_table.get_value(id.as_bytes()).is_none())
@@ -915,9 +950,7 @@ fn import_extra_metadata_entries_from_heads(
         let git_object = git_repo
             .find_object(validate_git_object_id(&id)?)
             .map_err(|err| map_not_found_err(err, &id))?;
-        let is_shallow = shallow_commits
-            .as_ref()
-            .is_some_and(|shallow| shallow.contains(&git_object.id));
+        let is_shallow = shallow_roots.contains(&id);
         // TODO(#1624): Should we read the root tree here and check if it has a
         // `.jjconflict-...` entries? That could happen if the user used `git` to e.g.
         // change the description of a commit with tree-level conflicts.
@@ -975,17 +1008,22 @@ impl Backend for GitBackend {
         1
     }
 
-    async fn read_file(&self, _path: &RepoPath, id: &FileId) -> BackendResult<Box<dyn Read>> {
-        self.read_file_sync(id)
+    async fn read_file(
+        &self,
+        _path: &RepoPath,
+        id: &FileId,
+    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
+        let data = self.read_file_sync(id)?;
+        Ok(Box::pin(Cursor::new(data)))
     }
 
     async fn write_file(
         &self,
         _path: &RepoPath,
-        contents: &mut (dyn Read + Send),
+        contents: &mut (dyn AsyncRead + Send + Unpin),
     ) -> BackendResult<FileId> {
         let mut bytes = Vec::new();
-        contents.read_to_end(&mut bytes).unwrap();
+        contents.read_to_end(&mut bytes).await.unwrap();
         let locked_repo = self.lock_git_repo();
         let oid = locked_repo
             .write_blob(bytes)
@@ -1021,6 +1059,24 @@ impl Backend for GitBackend {
         Ok(SymlinkId::new(oid.as_bytes().to_vec()))
     }
 
+    async fn read_copy(&self, _id: &CopyId) -> BackendResult<CopyHistory> {
+        Err(BackendError::Unsupported(
+            "The Git backend doesn't support tracked copies yet".to_string(),
+        ))
+    }
+
+    async fn write_copy(&self, _contents: &CopyHistory) -> BackendResult<CopyId> {
+        Err(BackendError::Unsupported(
+            "The Git backend doesn't support tracked copies yet".to_string(),
+        ))
+    }
+
+    async fn get_related_copies(&self, _copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>> {
+        Err(BackendError::Unsupported(
+            "The Git backend doesn't support tracked copies yet".to_string(),
+        ))
+    }
+
     async fn read_tree(&self, _path: &RepoPath, id: &TreeId) -> BackendResult<Tree> {
         if id == &self.empty_tree_id {
             return Ok(Tree::default());
@@ -1033,55 +1089,64 @@ impl Backend for GitBackend {
             .map_err(|err| map_not_found_err(err, id))?
             .try_into_tree()
             .map_err(|err| to_read_object_err(err, id))?;
-        let mut tree = Tree::default();
-        for entry in git_tree.iter() {
-            let entry = entry.map_err(|err| to_read_object_err(err, id))?;
-            let name =
-                str::from_utf8(entry.filename()).map_err(|err| to_invalid_utf8_err(err, id))?;
-            let (name, value) = match entry.mode().kind() {
-                gix::object::tree::EntryKind::Tree => {
-                    let id = TreeId::from_bytes(entry.oid().as_bytes());
-                    (name, TreeValue::Tree(id))
-                }
-                gix::object::tree::EntryKind::Blob => {
-                    let id = FileId::from_bytes(entry.oid().as_bytes());
-                    if let Some(basename) = name.strip_suffix(CONFLICT_SUFFIX) {
-                        (
-                            basename,
-                            TreeValue::Conflict(ConflictId::from_bytes(entry.oid().as_bytes())),
-                        )
-                    } else {
+        let mut entries: Vec<_> = git_tree
+            .iter()
+            .map(|entry| -> BackendResult<_> {
+                let entry = entry.map_err(|err| to_read_object_err(err, id))?;
+                let name =
+                    str::from_utf8(entry.filename()).map_err(|err| to_invalid_utf8_err(err, id))?;
+                let (name, value) = match entry.mode().kind() {
+                    gix::object::tree::EntryKind::Tree => {
+                        let id = TreeId::from_bytes(entry.oid().as_bytes());
+                        (name, TreeValue::Tree(id))
+                    }
+                    gix::object::tree::EntryKind::Blob => {
+                        let id = FileId::from_bytes(entry.oid().as_bytes());
+                        if let Some(basename) = name.strip_suffix(CONFLICT_SUFFIX) {
+                            (
+                                basename,
+                                TreeValue::Conflict(ConflictId::from_bytes(entry.oid().as_bytes())),
+                            )
+                        } else {
+                            (
+                                name,
+                                TreeValue::File {
+                                    id,
+                                    executable: false,
+                                    copy_id: CopyId::placeholder(),
+                                },
+                            )
+                        }
+                    }
+                    gix::object::tree::EntryKind::BlobExecutable => {
+                        let id = FileId::from_bytes(entry.oid().as_bytes());
                         (
                             name,
                             TreeValue::File {
                                 id,
-                                executable: false,
+                                executable: true,
+                                copy_id: CopyId::placeholder(),
                             },
                         )
                     }
-                }
-                gix::object::tree::EntryKind::BlobExecutable => {
-                    let id = FileId::from_bytes(entry.oid().as_bytes());
-                    (
-                        name,
-                        TreeValue::File {
-                            id,
-                            executable: true,
-                        },
-                    )
-                }
-                gix::object::tree::EntryKind::Link => {
-                    let id = SymlinkId::from_bytes(entry.oid().as_bytes());
-                    (name, TreeValue::Symlink(id))
-                }
-                gix::object::tree::EntryKind::Commit => {
-                    let id = CommitId::from_bytes(entry.oid().as_bytes());
-                    (name, TreeValue::GitSubmodule(id))
-                }
-            };
-            tree.set(RepoPathComponentBuf::new(name).unwrap(), value);
+                    gix::object::tree::EntryKind::Link => {
+                        let id = SymlinkId::from_bytes(entry.oid().as_bytes());
+                        (name, TreeValue::Symlink(id))
+                    }
+                    gix::object::tree::EntryKind::Commit => {
+                        let id = CommitId::from_bytes(entry.oid().as_bytes());
+                        (name, TreeValue::GitSubmodule(id))
+                    }
+                };
+                Ok((RepoPathComponentBuf::new(name).unwrap(), value))
+            })
+            .try_collect()?;
+        // While Git tree entries are sorted, the rule is slightly different.
+        // Directory names are sorted as if they had trailing "/".
+        if !entries.is_sorted_by_key(|(name, _)| name) {
+            entries.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
         }
-        Ok(tree)
+        Ok(Tree::from_sorted_entries(entries))
     }
 
     async fn write_tree(&self, _path: &RepoPath, contents: &Tree) -> BackendResult<TreeId> {
@@ -1095,6 +1160,7 @@ impl Backend for GitBackend {
                     TreeValue::File {
                         id,
                         executable: false,
+                        copy_id: _, // TODO: Use the value
                     } => gix::objs::tree::Entry {
                         mode: gix::object::tree::EntryKind::Blob.into(),
                         filename: name.into(),
@@ -1103,6 +1169,7 @@ impl Backend for GitBackend {
                     TreeValue::File {
                         id,
                         executable: true,
+                        copy_id: _, // TODO: Use the value
                     } => gix::objs::tree::Entry {
                         mode: gix::object::tree::EntryKind::BlobExecutable.into(),
                         filename: name.into(),
@@ -1143,15 +1210,8 @@ impl Backend for GitBackend {
     }
 
     fn read_conflict(&self, _path: &RepoPath, id: &ConflictId) -> BackendResult<Conflict> {
-        let mut file = self.read_file_sync(&FileId::new(id.to_bytes()))?;
-        let mut data = String::new();
-        file.read_to_string(&mut data)
-            .map_err(|err| BackendError::ReadObject {
-                object_type: "conflict".to_owned(),
-                hash: id.hex(),
-                source: err.into(),
-            })?;
-        let json: serde_json::Value = serde_json::from_str(&data).unwrap();
+        let data = self.read_file_sync(&FileId::new(id.to_bytes()))?;
+        let json: serde_json::Value = serde_json::from_slice(&data).unwrap();
         Ok(Conflict {
             removes: conflict_term_list_from_json(json.get("removes").unwrap()),
             adds: conflict_term_list_from_json(json.get("adds").unwrap()),
@@ -1190,11 +1250,7 @@ impl Backend for GitBackend {
             let git_object = locked_repo
                 .find_object(git_commit_id)
                 .map_err(|err| map_not_found_err(err, id))?;
-            let is_shallow = locked_repo
-                .shallow_commits()
-                .ok()
-                .flatten()
-                .is_some_and(|shallow| shallow.contains(&git_object.id));
+            let is_shallow = self.shallow_root_ids(&locked_repo)?.contains(id);
             commit_from_git_without_root_parent(id, &git_object, false, is_shallow)?
         };
         if commit.parents.is_empty() {
@@ -1259,20 +1315,17 @@ impl Backend for GitBackend {
                 parents.push(validate_git_object_id(parent_id)?);
             }
         }
-        let mut extra_headers = vec![];
+        let mut extra_headers: Vec<(BString, BString)> = vec![];
         if let MergedTreeId::Merge(tree_ids) = &contents.root_tree {
             if !tree_ids.is_resolved() {
-                let value = tree_ids.iter().map(|id| id.hex()).join(" ").into_bytes();
-                extra_headers.push((
-                    BString::new(JJ_TREES_COMMIT_HEADER.to_vec()),
-                    BString::new(value),
-                ));
+                let value = tree_ids.iter().map(|id| id.hex()).join(" ");
+                extra_headers.push((JJ_TREES_COMMIT_HEADER.into(), value.into()));
             }
         }
         if self.write_change_id_header {
             extra_headers.push((
-                BString::new(CHANGE_ID_COMMIT_HEADER.to_vec()),
-                BString::new(contents.change_id.reverse_hex().into()),
+                CHANGE_ID_COMMIT_HEADER.into(),
+                contents.change_id.reverse_hex().into(),
             ));
         }
 
@@ -1289,8 +1342,8 @@ impl Backend for GitBackend {
             let mut commit = gix::objs::Commit {
                 message: message.to_owned().into(),
                 tree: git_tree_id,
-                author: author.into(),
-                committer: committer.into(),
+                author: author.clone(),
+                committer: committer.clone(),
                 encoding: None,
                 parents: parents.clone(),
                 extra_headers: extra_headers.clone(),
@@ -1321,8 +1374,19 @@ impl Backend for GitBackend {
 
             match table.get_value(git_id.as_bytes()) {
                 Some(existing_extras) if existing_extras != extras => {
-                    // It's possible a commit already exists with the same commit id but different
-                    // change id. Adjust the timestamp until this is no longer the case.
+                    // It's possible a commit already exists with the same
+                    // commit id but different change id. Adjust the timestamp
+                    // until this is no longer the case.
+                    //
+                    // For example, this can happen when rebasing duplicate
+                    // commits, https://github.com/jj-vcs/jj/issues/694.
+                    //
+                    // `jj` resets the committer timestamp to the current
+                    // timestamp whenever it rewrites a commit. So, it's
+                    // unlikely for the timestamp to be 0 even if the original
+                    // commit had its timestamp set to 0. Moreover, we test that
+                    // a commit with a negative timestamp can still be written
+                    // and read back by `jj`.
                     committer.time.seconds -= 1;
                 }
                 _ => break CommitId::from_bytes(git_id.as_bytes()),
@@ -1349,7 +1413,7 @@ impl Backend for GitBackend {
         paths: Option<&[RepoPathBuf]>,
         root_id: &CommitId,
         head_id: &CommitId,
-    ) -> BackendResult<BoxStream<BackendResult<CopyRecord>>> {
+    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
         let repo = self.git_repo();
         let root_tree = self.read_tree_for_commit(&repo, root_id)?;
         let head_tree = self.read_tree_for_commit(&repo, head_id)?;
@@ -1435,9 +1499,12 @@ impl Backend for GitBackend {
         // mtime <= keep_newer? (it won't be consistent with no-gc refs
         // preserved by the keep_newer timestamp though)
         // TODO: remove unreachable extras table segments
-        // TODO: pass in keep_newer to "git gc" command
-        run_git_gc(self.git_executable.as_ref(), self.git_repo_path())
-            .map_err(|err| BackendError::Other(err.into()))?;
+        run_git_gc(
+            self.git_executable.as_ref(),
+            self.git_repo_path(),
+            keep_newer,
+        )
+        .map_err(|err| BackendError::Other(err.into()))?;
         // Since "git gc" will move loose refs into packed refs, in-memory
         // packed-refs cache should be invalidated without relying on mtime.
         git_repo.refs.force_refresh_packed_buffer().ok();
@@ -1529,7 +1596,11 @@ fn conflict_term_from_json(json: &serde_json::Value) -> ConflictTerm {
 
 fn tree_value_to_json(value: &TreeValue) -> serde_json::Value {
     match value {
-        TreeValue::File { id, executable } => serde_json::json!({
+        TreeValue::File {
+            id,
+            executable,
+            copy_id: _,
+        } => serde_json::json!({
              "file": {
                  "id": id.hex(),
                  "executable": executable,
@@ -1555,6 +1626,7 @@ fn tree_value_from_json(json: &serde_json::Value) -> TreeValue {
         TreeValue::File {
             id: FileId::new(bytes_vec_from_json(json_file.get("id").unwrap())),
             executable: json_file.get("executable").unwrap().as_bool().unwrap(),
+            copy_id: CopyId::placeholder(),
         }
     } else if let Some(json_id) = json.get("symlink_id") {
         TreeValue::Symlink(SymlinkId::new(bytes_vec_from_json(json_id)))
@@ -1570,13 +1642,13 @@ fn tree_value_from_json(json: &serde_json::Value) -> TreeValue {
 }
 
 fn bytes_vec_from_json(value: &serde_json::Value) -> Vec<u8> {
-    hex::decode(value.as_str().unwrap()).unwrap()
+    hex_util::decode_hex(value.as_str().unwrap()).unwrap()
 }
 
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
-    use hex::ToHex as _;
+    use gix::date::parse::TimeBuf;
     use pollster::FutureExt as _;
 
     use super::*;
@@ -1648,8 +1720,8 @@ mod tests {
         };
         let git_commit_id = git_repo
             .commit_as(
-                &git_committer,
-                &git_author,
+                git_committer.to_ref(&mut TimeBuf::default()),
+                git_author.to_ref(&mut TimeBuf::default()),
                 "refs/heads/dummy",
                 "git commit message",
                 root_tree_id,
@@ -1675,8 +1747,8 @@ mod tests {
         // Add an empty commit on top
         let git_commit_id2 = git_repo
             .commit_as(
-                &git_committer,
-                &git_author,
+                git_committer.to_ref(&mut TimeBuf::default()),
+                git_author.to_ref(&mut TimeBuf::default()),
                 "refs/heads/dummy2",
                 "git commit message 2",
                 root_tree_id,
@@ -1763,7 +1835,8 @@ mod tests {
             file.value(),
             &TreeValue::File {
                 id: FileId::from_bytes(blob1.as_bytes()),
-                executable: false
+                executable: false,
+                copy_id: CopyId::placeholder(),
             }
         );
         assert_eq!(symlink.name().as_internal_str(), "symlink");
@@ -1799,8 +1872,8 @@ mod tests {
             gix::ObjectId::from_hex(b"4b825dc642cb6eb9a060e54bf8d69288fbee4904").unwrap();
         let git_commit_id = git_repo
             .commit_as(
-                &signature,
-                &signature,
+                signature.to_ref(&mut TimeBuf::default()),
+                signature.to_ref(&mut TimeBuf::default()),
                 "refs/heads/main",
                 "git commit message",
                 empty_tree_id,
@@ -1812,10 +1885,12 @@ mod tests {
 
         // read_commit() without import_head_commits() works as of now. This might be
         // changed later.
-        assert!(backend
-            .read_commit(&CommitId::from_bytes(git_commit_id.as_bytes()))
-            .block_on()
-            .is_ok());
+        assert!(
+            backend
+                .read_commit(&CommitId::from_bytes(git_commit_id.as_bytes()))
+                .block_on()
+                .is_ok()
+        );
         assert!(
             backend
                 .cached_extra_metadata_table()
@@ -1930,20 +2005,20 @@ mod tests {
 
     #[test]
     fn read_empty_string_placeholder() {
-        let git_signature1 = gix::actor::SignatureRef {
+        let git_signature1 = gix::actor::Signature {
             name: EMPTY_STRING_PLACEHOLDER.into(),
             email: "git.author@example.com".into(),
             time: gix::date::Time::new(1000, 60 * 60),
         };
-        let signature1 = signature_from_git(git_signature1);
+        let signature1 = signature_from_git(git_signature1.to_ref(&mut TimeBuf::default()));
         assert!(signature1.name.is_empty());
         assert_eq!(signature1.email, "git.author@example.com");
-        let git_signature2 = gix::actor::SignatureRef {
+        let git_signature2 = gix::actor::Signature {
             name: "git committer".into(),
             email: EMPTY_STRING_PLACEHOLDER.into(),
             time: gix::date::Time::new(2000, -480 * 60),
         };
-        let signature2 = signature_from_git(git_signature2);
+        let signature2 = signature_from_git(git_signature2.to_ref(&mut TimeBuf::default()));
         assert_eq!(signature2.name, "git committer");
         assert!(signature2.email.is_empty());
     }
@@ -2096,11 +2171,13 @@ mod tests {
             ))
             .unwrap();
         let git_tree = git_repo.find_tree(git_commit.tree_id().unwrap()).unwrap();
-        assert!(git_tree
-            .iter()
-            .map(Result::unwrap)
-            .filter(|entry| entry.filename() != b"README")
-            .all(|entry| entry.mode().0 == 0o040000));
+        assert!(
+            git_tree
+                .iter()
+                .map(Result::unwrap)
+                .filter(|entry| entry.filename() != b"README")
+                .all(|entry| entry.mode().value() == 0o040000)
+        );
         let mut iter = git_tree.iter().map(Result::unwrap);
         let entry = iter.next().unwrap();
         assert_eq!(entry.filename(), b".jjconflict-base-0");
@@ -2134,7 +2211,7 @@ mod tests {
         );
         let entry = iter.next().unwrap();
         assert_eq!(entry.filename(), b"README");
-        assert_eq!(entry.mode().0, 0o100644);
+        assert_eq!(entry.mode().value(), 0o100644);
         assert!(iter.next().is_none());
 
         // When writing a single tree using the new format, it's represented by a
@@ -2218,8 +2295,8 @@ mod tests {
             gix::ObjectId::from_hex(b"4b825dc642cb6eb9a060e54bf8d69288fbee4904").unwrap();
         let git_commit_id = git_repo
             .commit_as(
-                &signature,
-                &signature,
+                signature.to_ref(&mut TimeBuf::default()),
+                signature.to_ref(&mut TimeBuf::default()),
                 "refs/heads/main",
                 "git commit message",
                 empty_tree_id,
@@ -2233,12 +2310,14 @@ mod tests {
         backend
             .import_head_commits([&commit_id, &commit_id])
             .unwrap();
-        assert!(git_repo
-            .references()
-            .unwrap()
-            .prefixed("refs/jj/keep/")
-            .unwrap()
-            .any(|git_ref| git_ref.unwrap().id().detach() == git_commit_id));
+        assert!(
+            git_repo
+                .references()
+                .unwrap()
+                .prefixed("refs/jj/keep/")
+                .unwrap()
+                .any(|git_ref| git_ref.unwrap().id().detach() == git_commit_id)
+        );
     }
 
     #[test]
@@ -2300,7 +2379,7 @@ mod tests {
         };
 
         let mut signer = |data: &_| {
-            let hash: String = blake2b_hash(data).encode_hex();
+            let hash: String = hex_util::encode_hex(&blake2b_hash(data));
             Ok(format!("test sig\nhash={hash}\n").into_bytes())
         };
 

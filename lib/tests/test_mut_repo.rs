@@ -24,13 +24,14 @@ use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::RebaseOptions;
 use maplit::hashset;
+use pollster::FutureExt as _;
+use testutils::TestRepo;
 use testutils::assert_rebased_onto;
 use testutils::create_random_commit;
 use testutils::create_random_tree;
 use testutils::rebase_descendants_with_options_return_map;
 use testutils::write_random_commit;
-use testutils::CommitGraphBuilder;
-use testutils::TestRepo;
+use testutils::write_random_commit_with_parents;
 
 fn remote_symbol<'a, N, M>(name: &'a N, remote: &'a M) -> RemoteRefSymbol<'a>
 where
@@ -148,7 +149,8 @@ fn test_edit_previous_empty_merge() {
     let old_parent_tree = old_parent1
         .tree()
         .unwrap()
-        .merge(&empty_tree, &old_parent2.tree().unwrap())
+        .merge(empty_tree, old_parent2.tree().unwrap())
+        .block_on()
         .unwrap();
     let old_wc_commit = mut_repo
         .new_commit(
@@ -370,10 +372,9 @@ fn test_add_head_ancestor() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit2]);
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+    let commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
     let repo = tx.commit("test").unwrap();
 
     assert_eq!(repo.view().heads(), &hashset! {commit3.id().clone()});
@@ -402,10 +403,7 @@ fn test_add_head_not_immediate_child() {
         .set_predecessors(vec![initial.id().clone()])
         .write()
         .unwrap();
-    let child = create_random_commit(tx.repo_mut())
-        .set_parents(vec![rewritten.id().clone()])
-        .write()
-        .unwrap();
+    let child = write_random_commit_with_parents(tx.repo_mut(), &[&rewritten]);
     drop(tx);
 
     assert_eq!(repo.view().heads(), &hashset! {initial.id().clone()});
@@ -430,10 +428,9 @@ fn test_remove_head() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit2]);
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+    let commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
@@ -545,18 +542,16 @@ fn test_rebase_descendants_simple() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit2]);
-    let commit4 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit5 = graph_builder.commit_with_parents(&[&commit4]);
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+    let commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
+    let commit4 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+    let commit5 = write_random_commit_with_parents(tx.repo_mut(), &[&commit4]);
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit6 = graph_builder.commit_with_parents(&[&commit1]);
+    let commit6 = write_random_commit_with_parents(mut_repo, &[&commit1]);
     mut_repo.set_rewritten_commit(commit2.id().clone(), commit6.id().clone());
     mut_repo.record_abandoned_commit(&commit4);
     let rebase_map =
@@ -582,17 +577,15 @@ fn test_rebase_descendants_divergent_rewrite() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let _commit3 = graph_builder.commit_with_parents(&[&commit2]);
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+    let _commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let mut graph_builder = CommitGraphBuilder::new(mut_repo);
-    let commit4 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit5 = graph_builder.commit_with_parents(&[&commit1]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit1]);
     mut_repo.set_divergent_rewrite(
         commit2.id().clone(),
         vec![commit4.id().clone(), commit5.id().clone()],
@@ -683,13 +676,13 @@ fn test_reparent_descendants() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.initial_commit();
-    let commit_child_a_b = graph_builder.commit_with_parents(&[&commit_a, &commit_b]);
-    let commit_grandchild_a_b = graph_builder.commit_with_parents(&[&commit_child_a_b]);
-    let commit_child_a = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_child_b = graph_builder.commit_with_parents(&[&commit_b]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit(tx.repo_mut());
+    let commit_child_a_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a, &commit_b]);
+    let commit_grandchild_a_b =
+        write_random_commit_with_parents(tx.repo_mut(), &[&commit_child_a_b]);
+    let commit_child_a = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_child_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
     let mut_repo = tx.repo_mut();
     for (bookmark, commit) in [
         ("b", &commit_b),

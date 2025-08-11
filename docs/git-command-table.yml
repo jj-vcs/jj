@@ -141,6 +141,13 @@
     `jj log`
   Notes: ''
 
+- Use case: Show log of commits adding/removing the string "stuff"
+  Git command: >
+    `git log -G stuff`
+  Jujutsu command: >
+    `jj log -r 'diff_contains(stuff)'`
+  Notes: ''
+
 - Use case: List versioned files in the working copy
   Git command: >
     `git ls-files --cached`

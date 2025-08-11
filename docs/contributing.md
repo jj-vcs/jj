@@ -141,7 +141,7 @@ recommended steps.
 One-time setup:
 
     rustup toolchain add nightly  # wanted for 'rustfmt'
-    rustup toolchain add 1.84     # also specified in Cargo.toml
+    rustup toolchain add 1.85     # also specified in Cargo.toml
     cargo install --locked bacon
     cargo install --locked cargo-insta
     cargo install --locked cargo-nextest
@@ -179,7 +179,7 @@ These are listed roughly in order of decreasing importance.
 3. Your code will be rejected if it cannot be compiled with the minimal
    supported version of Rust ("MSRV"). Currently, `jj` follows a rather
    casual MSRV policy: "The current `rustc` stable version, minus one."
-   As of this writing, that version is **1.84.0**.
+   As of this writing, that version is **1.85.0**.
 
 4. Your code needs to pass `cargo clippy`. You can also
    use `cargo +nightly clippy` if you wish to see more warnings.
@@ -202,6 +202,14 @@ Run this in the jj repo:
 ```shell
 jj config set --repo fix.tools.rustfmt '{ command = ["rustfmt", "+nightly"], patterns = ["glob:**/*.rs"] }'
 ```
+
+> Note: users of Nix and `direnv` should drop the `"+nightly"` argument above
+> since the devShell is already configured to pull in a nightly version of
+> rustfmt:
+>
+> ```shell
+> jj config set --repo fix.tools.rustfmt '{ command = ["rustfmt"], patterns = ["glob:**/*.rs"] }'
+> ```
 
 ### Using `mold` for faster tests on Linux
 
@@ -452,8 +460,8 @@ you can submit a PR based on the `gh-pages` bookmark of
 Previously, the version switcher would not work unless the value of the
 `site_url` config in `mkdocs.yml` matched the actual URL the site is being
 served from. This bug should now be fixed, but if you are not serving the site
-from https://jj-vcs.github.com/jj and something does not work weirdly, you might
-want to adjust the `site_url` to something like `https://jjfan.github.io/jj`.
+from <https://jj-vcs.github.com/jj> and something fails weirdly, you might want
+to adjust the `site_url` to something like `https://jjfan.github.io/jj`.
 
 
 ## Modifying protobuffers (this is not common)

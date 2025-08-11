@@ -50,8 +50,8 @@ pub struct GitIgnoreFile {
 }
 
 impl GitIgnoreFile {
-    pub fn empty() -> Arc<GitIgnoreFile> {
-        Arc::new(GitIgnoreFile {
+    pub fn empty() -> Arc<Self> {
+        Arc::new(Self {
             parent: None,
             matcher: gitignore::Gitignore::empty(),
         })
@@ -62,11 +62,11 @@ impl GitIgnoreFile {
     /// The `prefix` should be a slash-separated path relative to the workspace
     /// root.
     pub fn chain(
-        self: &Arc<GitIgnoreFile>,
+        self: &Arc<Self>,
         prefix: &str,
         ignore_path: &Path,
         input: &[u8],
-    ) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
+    ) -> Result<Arc<Self>, GitIgnoreError> {
         let mut builder = gitignore::GitignoreBuilder::new(prefix);
         for (i, input_line) in input.split(|b| *b == b'\n').enumerate() {
             let line =
@@ -95,7 +95,7 @@ impl GitIgnoreFile {
         } else {
             Some(self.clone())
         };
-        Ok(Arc::new(GitIgnoreFile { parent, matcher }))
+        Ok(Arc::new(Self { parent, matcher }))
     }
 
     /// Concatenates new `.gitignore` file at the `prefix` directory.
@@ -103,10 +103,10 @@ impl GitIgnoreFile {
     /// The `prefix` should be a slash-separated path relative to the workspace
     /// root.
     pub fn chain_with_file(
-        self: &Arc<GitIgnoreFile>,
+        self: &Arc<Self>,
         prefix: &str,
         file: PathBuf,
-    ) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
+    ) -> Result<Arc<Self>, GitIgnoreError> {
         if file.is_file() {
             let buf = fs::read(&file).map_err(|err| GitIgnoreError::ReadFile {
                 path: file.clone(),
@@ -272,9 +272,11 @@ mod tests {
         assert!(matches(b"\\?\n", "?"));
         assert!(!matches(b"\\?\n", "x"));
         assert!(matches(b"\\w\n", "w"));
-        assert!(GitIgnoreFile::empty()
-            .chain("", Path::new(""), b"\\\n")
-            .is_err());
+        assert!(
+            GitIgnoreFile::empty()
+                .chain("", Path::new(""), b"\\\n")
+                .is_err()
+        );
     }
 
     #[test]
@@ -327,9 +329,11 @@ mod tests {
         assert!(matches(b"a\r\r\n", "a"));
         assert!(matches(b"\ra\n", "\ra"));
         assert!(!matches(b"\ra\n", "a"));
-        assert!(GitIgnoreFile::empty()
-            .chain("", Path::new(""), b"a b \\  \n")
-            .is_err());
+        assert!(
+            GitIgnoreFile::empty()
+                .chain("", Path::new(""), b"a b \\  \n")
+                .is_err()
+        );
     }
 
     #[test]

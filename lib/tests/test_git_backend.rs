@@ -34,6 +34,8 @@ use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use maplit::hashmap;
 use maplit::hashset;
+use testutils::TestRepo;
+use testutils::TestRepoBackend;
 use testutils::commit_with_tree;
 use testutils::create_random_commit;
 use testutils::create_single_tree;
@@ -41,9 +43,8 @@ use testutils::create_tree;
 use testutils::is_external_tool_installed;
 use testutils::repo_path;
 use testutils::repo_path_buf;
-use testutils::CommitGraphBuilder;
-use testutils::TestRepo;
-use testutils::TestRepoBackend;
+use testutils::write_random_commit;
+use testutils::write_random_commit_with_parents;
 
 fn get_git_backend(repo: &Arc<ReadonlyRepo>) -> &GitBackend {
     repo.store()
@@ -119,14 +120,13 @@ fn test_gc() {
     // B
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_c]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_g = graph_builder.commit_with_parents(&[&commit_e, &commit_f]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_c]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_g = write_random_commit_with_parents(tx.repo_mut(), &[&commit_e, &commit_f]);
     let commit_h = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_f.id().clone()])
         .set_predecessors(vec![commit_d.id().clone()])
@@ -193,13 +193,13 @@ fn test_gc() {
 
     // G is no longer reachable
     let mut mut_index = base_index.start_modification();
-    mut_index.add_commit(&commit_a);
-    mut_index.add_commit(&commit_b);
-    mut_index.add_commit(&commit_c);
-    mut_index.add_commit(&commit_d);
-    mut_index.add_commit(&commit_e);
-    mut_index.add_commit(&commit_f);
-    mut_index.add_commit(&commit_h);
+    mut_index.add_commit(&commit_a).unwrap();
+    mut_index.add_commit(&commit_b).unwrap();
+    mut_index.add_commit(&commit_c).unwrap();
+    mut_index.add_commit(&commit_d).unwrap();
+    mut_index.add_commit(&commit_e).unwrap();
+    mut_index.add_commit(&commit_f).unwrap();
+    mut_index.add_commit(&commit_h).unwrap();
     repo.store().gc(mut_index.as_index(), now()).unwrap();
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
@@ -212,10 +212,10 @@ fn test_gc() {
 
     // D|E|H are no longer reachable
     let mut mut_index = base_index.start_modification();
-    mut_index.add_commit(&commit_a);
-    mut_index.add_commit(&commit_b);
-    mut_index.add_commit(&commit_c);
-    mut_index.add_commit(&commit_f);
+    mut_index.add_commit(&commit_a).unwrap();
+    mut_index.add_commit(&commit_b).unwrap();
+    mut_index.add_commit(&commit_c).unwrap();
+    mut_index.add_commit(&commit_f).unwrap();
     repo.store().gc(mut_index.as_index(), now()).unwrap();
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
@@ -227,7 +227,7 @@ fn test_gc() {
 
     // B|C|F are no longer reachable
     let mut mut_index = base_index.start_modification();
-    mut_index.add_commit(&commit_a);
+    mut_index.add_commit(&commit_a).unwrap();
     repo.store().gc(mut_index.as_index(), now()).unwrap();
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
@@ -364,7 +364,7 @@ fn test_jj_trees_header_with_one_tree() {
     // Import new commit into `jj` repo. This should fail, because allowing a
     // non-conflicted commit to have a different tree in `jj` than in Git could be
     // used to hide malicious code.
-    insta::assert_debug_snapshot!(git_backend.import_head_commits(&[new_commit_id.clone()]), @r#"
+    insta::assert_debug_snapshot!(git_backend.import_head_commits(std::slice::from_ref(&new_commit_id)), @r#"
     Err(
         ReadObject {
             object_type: "commit",

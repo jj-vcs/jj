@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::collections::HashSet;
+use std::env;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::exit;
@@ -91,6 +92,9 @@ fn main() {
             }
             ["print", message] => {
                 println!("{message}");
+            }
+            ["print-current-dir"] => {
+                println!("{}", env::current_dir().unwrap().display());
             }
             ["print-files-before"] => {
                 for base_name in files_recursively(&args.before).iter().sorted() {

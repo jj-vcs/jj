@@ -2,13 +2,6 @@
 
 This guide assumes a basic understanding of either Git or Mercurial.
 
-## Set up an SSH key
-
-As of October 2023 it's recommended to set up an SSH key to work with GitHub
-projects. See [GitHub's Tutorial][gh]. This restriction may be lifted in the
-future, see [issue #469][http-auth] for more information and progress on
-authenticated HTTP.
-
 ## Basic workflow
 
 The simplest way to start with Jujutsu is to create a stack of commits first.
@@ -247,7 +240,6 @@ the [tutorial][tut].
 [auto-bookmark]: config.md#automatic-local-bookmark-creation
 [detached]: https://git-scm.com/docs/git-checkout#_detached_head
 [gh]: https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
-[http-auth]: https://github.com/jj-vcs/jj/issues/469
 [tut]: tutorial.md#conflicts
 [stacked]: https://jg.gg/2018/09/29/stacked-diffs-versus-pull-requests/
 

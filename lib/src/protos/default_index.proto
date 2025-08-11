@@ -1,4 +1,4 @@
-// Copyright 2024 The Jujutsu Authors
+// Copyright 2025 The Jujutsu Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,18 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::common::TestEnvironment;
+syntax = "proto3";
 
-#[test]
-fn test_deprecated_flags() {
-    let test_env = TestEnvironment::default();
-    let output = test_env
-        .run_jj_in(".", ["util", "completion", "--bash"])
-        .success();
-    insta::assert_snapshot!(output.stderr, @r"
-    Warning: `jj util completion --bash` will be removed in a future version, and this will be a hard error
-    Hint: Use `jj util completion bash` instead
-    [EOF]
-    ");
-    assert!(output.stdout.raw().contains("COMPREPLY"), "{output}");
+package default_index;
+
+// Control file to link operation to index segments.
+message SegmentControl {
+  // Hash (or file name) of the commit index segment.
+  bytes commit_segment_id = 1;
+  // First commit stored in the changed-path index segments. Unset if
+  // changed-path index is disabled.
+  optional uint32 changed_path_start_commit_pos = 2;
+  // Hashes (or file names) of the changed-path index segments.
+  repeated bytes changed_path_segment_ids = 3;
 }

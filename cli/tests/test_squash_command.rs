@@ -325,6 +325,37 @@ fn test_squash_partial() {
     Nothing changed.
     [EOF]
     "#);
+
+    // we can use --interactive and fileset together
+    work_dir.run_jj(["undo"]).success();
+    work_dir.write_file("file3", "foo\n");
+    std::fs::write(&edit_script, "reset file1").unwrap();
+    let output = work_dir.run_jj(["squash", "-i", "file1", "file3"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 1 descendant commits
+    Working copy  (@) now at: mzvwutvl 69c58f86 c | (no description set)
+    Parent commit (@-)      : kkmpptxz 0f38c564 b | (no description set)
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["log", "-s"]);
+    insta::assert_snapshot!(output, @r"
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:36 c 69c58f86
+    │  (no description set)
+    │  M file1
+    │  M file2
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:36 b 0f38c564
+    │  (no description set)
+    │  M file1
+    │  M file2
+    │  A file3
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 a 64ea60be
+    │  (no description set)
+    │  A file1
+    │  A file2
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
 }
 
 #[test]
@@ -442,13 +473,12 @@ fn test_squash_from_to() {
     [EOF]
     ");
 
-    // Errors out if source and destination are the same
+    // No-op if source and destination are the same
     let output = work_dir.run_jj(["squash", "--into", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Source and destination cannot be the same
+    Nothing changed.
     [EOF]
-    [exit status: 1]
     ");
 
     // Can squash from sibling, which results in the source being abandoned
@@ -538,6 +568,34 @@ fn test_squash_from_to() {
     let output = work_dir.run_jj(["file", "show", "file2", "-r", "d"]);
     insta::assert_snapshot!(output, @r"
     e
+    [EOF]
+    ");
+
+    // Can squash into the sources
+    work_dir.run_jj(["undo"]).success();
+    let output = work_dir.run_jj(["squash", "--from", "e::f", "--into", "d"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: pkstwlsy 76baa567 (empty) (no description set)
+    Parent commit (@-)      : vruxwmqv 415e4069 d e f | (no description set)
+    [EOF]
+    ");
+    // The change has been removed from the source (the change pointed to by 'e'
+    // became empty and was abandoned)
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  76baa567ed0a (empty)
+    ○  415e40694e88 d e f
+    │ ○  ee0b260ffc44 c
+    │ ○  e31bf988d7c9 b
+    ├─╯
+    ○  e3e04beaf7d3 a
+    ◆  000000000000 (empty)
+    [EOF]
+    ");
+    // The change from the source has been applied
+    let output = work_dir.run_jj(["file", "show", "file2", "-r", "d"]);
+    insta::assert_snapshot!(output, @r"
+    f
     [EOF]
     ");
 }
@@ -778,7 +836,7 @@ fn test_squash_from_multiple() {
         .run_jj(["bookmark", "create", "-r@", "d"])
         .success();
     work_dir.write_file("file", "d\n");
-    work_dir.run_jj(["new", "all:visible_heads()"]).success();
+    work_dir.run_jj(["new", "visible_heads()"]).success();
     work_dir
         .run_jj(["bookmark", "create", "-r@", "e"])
         .success();
@@ -805,20 +863,21 @@ fn test_squash_from_multiple() {
 
     // Squash a few commits sideways
     let output = work_dir.run_jj(["squash", "--from=b", "--from=c", "--into=d"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r###"
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: kpqxywon 703c6f0c f | (no description set)
     Parent commit (@-)      : yostqsxw 3d6a1899 e | (no description set)
     New conflicts appeared in 1 commits:
       yqosqzyt a3221d7a d | (conflict) (no description set)
-    Hint: To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by creating a commit on top of
+    the conflicted commit:
       jj new yqosqzyt
     Then use `jj resolve`, or edit the conflict markers in the file directly.
-    Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
+    Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    ");
+    "###);
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  703c6f0cae6f f
     ○    3d6a18995cae e
@@ -918,7 +977,7 @@ fn test_squash_from_multiple_partial() {
         .success();
     work_dir.write_file("file1", "d\n");
     work_dir.write_file("file2", "d\n");
-    work_dir.run_jj(["new", "all:visible_heads()"]).success();
+    work_dir.run_jj(["new", "visible_heads()"]).success();
     work_dir
         .run_jj(["bookmark", "create", "-r@", "e"])
         .success();
@@ -947,20 +1006,21 @@ fn test_squash_from_multiple_partial() {
 
     // Partially squash a few commits sideways
     let output = work_dir.run_jj(["squash", "--from=b|c", "--into=d", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r###"
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: kpqxywon f3ae0274 f | (no description set)
     Parent commit (@-)      : yostqsxw 45ad30bd e | (no description set)
     New conflicts appeared in 1 commits:
       yqosqzyt 15efa8c0 d | (conflict) (no description set)
-    Hint: To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by creating a commit on top of
+    the conflicted commit:
       jj new yqosqzyt
     Then use `jj resolve`, or edit the conflict markers in the file directly.
-    Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
+    Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    ");
+    "###);
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  f3ae0274fb6c f
     ○      45ad30bdccc6 e
@@ -1115,11 +1175,15 @@ fn test_squash_from_multiple_partial_no_op() {
     ]);
     insta::assert_snapshot!(output, @r"
     @    6dfc239e2ba3 d
-    ├─╮
+    ├─╮  -- operation b7394e553191 (2001-02-03 08:05:13) squash commits into fdb92bc249a019337e7fa3f6c6fa74a762dd20b5
     │ ○  b1a17f79a1a5 b
+    │ │  -- operation 853cf887ea1b (2001-02-03 08:05:10) snapshot working copy
     │ ○  d8b7d57239ca b
+    │    -- operation a7f388a190d3 (2001-02-03 08:05:09) new empty commit
     ○  fdb92bc249a0 d
+    │  -- operation 2a8d2002ac46 (2001-02-03 08:05:12) snapshot working copy
     ○  af709ccc1ca9 d
+       -- operation 5aefb1c40e7d (2001-02-03 08:05:11) new empty commit
     [EOF]
     ");
 

@@ -196,7 +196,8 @@ To squash or split commits, use `jj squash` and `jj split`.
 
 You can set `snapshot.auto-track` to only start tracking new files matching the
 configured pattern (e.g. `"none()"`). Changes to already tracked files will
-still be snapshotted by every command.
+still be snapshotted by every command. Files not matching the pattern can be
+tracked with `jj file track`.
 
 You can keep your notes and other scratch files in the repository, if you add
 a wildcard pattern to either the repo's `gitignore` or your global `gitignore`.
@@ -494,7 +495,7 @@ your state without realising.
 
 To start, use `jj new <rev>` to create a change based on that earlier revision. Make
 your edits, then use `jj squash` to update the earlier revision with those edits.
-For when you would use git stashing, use `jj edit <rev>` for expected behaviour.
+For when you would use git stashing, use `jj edit <rev>` for expected behavior.
 Other workflows may prefer `jj edit` as well.
 
 ### Why are most merge commits marked as "(empty)"?
@@ -515,14 +516,33 @@ by `jj rebase` to rebase the changes in a commit. It's used in `jj log` to
 indicate which commits are empty. It's used in the `files()` revset function
 (and by `jj log <path>`) to find commits that modify a certain path. And so on.
 
+## How do I revert a merge commit? `jj revert -r <merge>` does nothing
+
+Jujutsu defines the changes in a merge commit (and non-merge commits) as the
+changes made compared to the auto-merged parents. That means that merge commits
+are often empty. As a result, `jj revert` or a merge commit often results in an
+empty commit. To revert the changes merged in from the second parent, instead
+use `jj restore --from <first parent>` .
+
+Example:
+```text
+@
+|
+C
+| \
+B D
+|/
+A
+```
+To revert the merge in `C`, create a new commit with `jj new C`,
+then `jj restore --from B`, and then describe the message
+with something like `jj desc -m "Revert the merge of D into B`. Now, commit `@`
+undoes the merge of `D` into  `B`. If necessary, you can now rebase it
+elsewhere, e.g. `jj rebase -r @ -d main`.
+
 ### How do I deal with divergent changes ('??' after the [change ID])?
 
-A [divergent change][glossary_divergent_change] represents a change that has two
-or more visible commits associated with it. To refer to such commits, you must
-use their [commit ID]. Most commonly, the way to resolve
-this is to abandon the unneeded commits (using `jj abandon <commit ID>`). If you
-would like to keep both commits with this change ID, you can `jj duplicate` one
-of them before abandoning it.
+See: [Handling divergent commits](guides/divergence.md).
 
 ### How do I deal with conflicted bookmarks ('??' after bookmark name)?
 
@@ -537,13 +557,23 @@ commits associated with it.
 
 ### How do I integrate Jujutsu with Gerrit?
 
-At the moment you'll need a script, which adds the required fields for Gerrit
-like the `Change-Id` footer. Then `jj` can invoke it via an `$EDITOR` override
-in an aliased command. Here's an [example][gerrit-integration] from a
-contributor (look for the `jj signoff` alias).
+Add this to your configuration to automatically add Change-Id trailers to commit messages:
+```toml
+[templates]
+commit_trailers = '''
+if(
+  !trailers.contains_key("Change-Id"),
+  format_gerrit_change_id_trailer(self)
+)
+'''
+```
+Note: If you don't check for the presence of the "Change-Id" trailer, you might
+occasionally get duplicate trailers.
+This happens when Jujutsu's change-id isn't in sync with the "Change-Id" trailer.
+Eg. after `jj split`, the "Change-Id" trailer generated for the new change would
+be different from the original one, it wouldn't be deduplicated.
 
-After you have attached the `Change-Id:` footer to the commit series, you'll
-have to manually invoke `git push` of `HEAD` on the underlying git repository
+You'll have to manually invoke `git push` of `HEAD` on the underlying git repository
 into the remote Gerrit bookmark `refs/for/$BRANCH`, where `$BRANCH` is the base
 bookmark you want your changes to go to (e.g., `git push origin
 HEAD:refs/for/main`). Using a [co-located][co-located] repo
@@ -551,6 +581,37 @@ will make the underlying git repo directly accessible from the working
 directory.
 
 We hope to integrate with Gerrit natively in the future.
+
+### I'm experiencing `jj` command issues in a Vite/Vitest project, how do I fix this?
+
+When using Vite or Vitest in a Jujutsu repository, you may experience:
+- Very slow vitest startup times
+- Timeout errors in `jj` terminal commands
+- Errors with 3rd party visual tools like `jjk` or `visual-jj`
+- Corrupted `working_copy.lock` files
+
+This happens because Vite watches the `.jj` directory where Jujutsu stores its internal state.
+This creates unnecessary overhead as Vite processes Jujutsu's frequent internal file changes,
+which can slow down both tools and occasionally cause file access conflicts.
+
+**Solution**: Configure Vite to ignore the `.jj` directory by adding it to the
+`server.watch.ignored` array inside your Vite configuration, for example:
+```js
+// vite.config.js
+export default defineConfig({
+  // ... other config like plugins, test setup, etc.
+  server: {
+    watch: {
+      ignored: [
+        "**/.jj/**",
+      ]
+    }
+  },
+})
+```
+
+Note: There was a [request](https://github.com/vitejs/vite/issues/20036) to include `.jj`
+in the default ignore list, but manual configuration remains the recommended approach.
 
 ### I want to write a tool which integrates with Jujutsu. Should I use the library or parse the CLI?
 
@@ -577,8 +638,6 @@ detect custom backends and more).
 
 [gerrit-integration]: https://gist.github.com/thoughtpolice/8f2fd36ae17cd11b8e7bd93a70e31ad6
 [gitignore]: https://git-scm.com/docs/gitignore
-
-[glossary_divergent_change]: glossary.md#divergent-change
 
 [operator]: revsets.md#operators
 

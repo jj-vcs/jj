@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::common::create_commit_with_files;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::create_commit_with_files;
 
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
@@ -50,7 +50,7 @@ fn test_chmod_regular_conflict() {
     ");
     let output = work_dir.run_jj(["debug", "tree"]);
     insta::assert_snapshot!(output, @r#"
-    file: Ok(Conflicted([Some(File { id: FileId("587be6b4c3f93f93c489c0111bba5596147a26cb"), executable: true }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("8ba3a16384aacc37d01564b28401755ce8053f51"), executable: false })]))
+    file: Ok(Conflicted([Some(File { id: FileId("587be6b4c3f93f93c489c0111bba5596147a26cb"), executable: true, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("8ba3a16384aacc37d01564b28401755ce8053f51"), executable: false, copy_id: CopyId("") })]))
     [EOF]
     "#);
     let output = work_dir.run_jj(["file", "show", "file"]);
@@ -69,7 +69,7 @@ fn test_chmod_regular_conflict() {
     work_dir.run_jj(["file", "chmod", "x", "file"]).success();
     let output = work_dir.run_jj(["debug", "tree"]);
     insta::assert_snapshot!(output, @r#"
-    file: Ok(Conflicted([Some(File { id: FileId("587be6b4c3f93f93c489c0111bba5596147a26cb"), executable: true }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: true }), Some(File { id: FileId("8ba3a16384aacc37d01564b28401755ce8053f51"), executable: true })]))
+    file: Ok(Conflicted([Some(File { id: FileId("587be6b4c3f93f93c489c0111bba5596147a26cb"), executable: true, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: true, copy_id: CopyId("") }), Some(File { id: FileId("8ba3a16384aacc37d01564b28401755ce8053f51"), executable: true, copy_id: CopyId("") })]))
     [EOF]
     "#);
     let output = work_dir.run_jj(["file", "show", "file"]);
@@ -86,7 +86,7 @@ fn test_chmod_regular_conflict() {
     work_dir.run_jj(["file", "chmod", "n", "file"]).success();
     let output = work_dir.run_jj(["debug", "tree"]);
     insta::assert_snapshot!(output, @r#"
-    file: Ok(Conflicted([Some(File { id: FileId("587be6b4c3f93f93c489c0111bba5596147a26cb"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("8ba3a16384aacc37d01564b28401755ce8053f51"), executable: false })]))
+    file: Ok(Conflicted([Some(File { id: FileId("587be6b4c3f93f93c489c0111bba5596147a26cb"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("8ba3a16384aacc37d01564b28401755ce8053f51"), executable: false, copy_id: CopyId("") })]))
     [EOF]
     "#);
     let output = work_dir.run_jj(["file", "show", "file"]);
@@ -158,7 +158,7 @@ fn test_chmod_file_dir_deletion_conflicts() {
     // The file-dir conflict cannot be chmod-ed
     let output = work_dir.run_jj(["debug", "tree", "-r=file_dir"]);
     insta::assert_snapshot!(output, @r#"
-    file: Ok(Conflicted([Some(File { id: FileId("78981922613b2afb6025042ff6bd878ac1994e85"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(Tree(TreeId("133bb38fc4e4bf6b551f1f04db7e48f04cac2877")))]))
+    file: Ok(Conflicted([Some(File { id: FileId("78981922613b2afb6025042ff6bd878ac1994e85"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false, copy_id: CopyId("") }), Some(Tree(TreeId("133bb38fc4e4bf6b551f1f04db7e48f04cac2877")))]))
     [EOF]
     "#);
     let output = work_dir.run_jj(["file", "show", "-r=file_dir", "file"]);
@@ -180,7 +180,7 @@ fn test_chmod_file_dir_deletion_conflicts() {
     // The file_deletion conflict can be chmod-ed
     let output = work_dir.run_jj(["debug", "tree", "-r=file_deletion"]);
     insta::assert_snapshot!(output, @r#"
-    file: Ok(Conflicted([Some(File { id: FileId("78981922613b2afb6025042ff6bd878ac1994e85"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), None]))
+    file: Ok(Conflicted([Some(File { id: FileId("78981922613b2afb6025042ff6bd878ac1994e85"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false, copy_id: CopyId("") }), None]))
     [EOF]
     "#);
     let output = work_dir.run_jj(["file", "show", "-r=file_deletion", "file"]);
@@ -194,7 +194,7 @@ fn test_chmod_file_dir_deletion_conflicts() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "chmod", "x", "file", "-r=file_deletion"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r###"
     ------- stderr -------
     Working copy  (@) now at: kmkuslsw dc89f9e7 file_deletion | (conflict) file_deletion
     Parent commit (@-)      : zsuskuln bc9cdea1 file | file
@@ -204,16 +204,17 @@ fn test_chmod_file_dir_deletion_conflicts() {
     file    2-sided conflict including 1 deletion and an executable
     New conflicts appeared in 1 commits:
       kmkuslsw dc89f9e7 file_deletion | (conflict) file_deletion
-    Hint: To resolve the conflicts, start by updating to it:
+    Hint: To resolve the conflicts, start by creating a commit on top of
+    the conflicted commit:
       jj new kmkuslsw
     Then use `jj resolve`, or edit the conflict markers in the file directly.
-    Once the conflicts are resolved, you may want to inspect the result with `jj diff`.
+    Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    ");
+    "###);
     let output = work_dir.run_jj(["debug", "tree", "-r=file_deletion"]);
     insta::assert_snapshot!(output, @r#"
-    file: Ok(Conflicted([Some(File { id: FileId("78981922613b2afb6025042ff6bd878ac1994e85"), executable: true }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: true }), None]))
+    file: Ok(Conflicted([Some(File { id: FileId("78981922613b2afb6025042ff6bd878ac1994e85"), executable: true, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: true, copy_id: CopyId("") }), None]))
     [EOF]
     "#);
     let output = work_dir.run_jj(["file", "show", "-r=file_deletion", "file"]);

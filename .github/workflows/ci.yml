@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: ${{ github.event_name == 'merge_group' }}
       matrix:
-        build: [linux-x86_64-gnu, linux-aarch64-gnu, macos-x86_64, macos-aarch64, windows-x86_64]
+        build: [linux-x86_64-gnu, linux-aarch64-gnu, macos-x86_64, macos-aarch64, windows-x86_64, windows-aarch64]
         include:
         - build: linux-x86_64-gnu
           os: ubuntu-24.04
@@ -35,6 +35,9 @@ jobs:
           cargo_flags: ""
         - build: windows-x86_64
           os: windows-2022
+          cargo_flags: ""
+        - build: windows-aarch64
+          os: windows-11-arm
           cargo_flags: ""
     runs-on: ${{ matrix.os }}
 
@@ -55,17 +58,17 @@ jobs:
       with:
         persist-credentials: false
     - name: Set up Windows Builders
-      if: startswith(matrix.os, 'windows')
+      if: startswith(matrix.os, 'windows-x86_64') # FIXME: aarch64 doesn't have D:\ yet
       uses: ./.github/actions/setup-windows
     - name: Install Rust
       uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
       with:
-        toolchain: 1.84
-    - uses: taiki-e/install-action@86c23eed46c17b80677df6d8151545ce3e236c61
+        toolchain: 1.85
+    - uses: taiki-e/install-action@6064345e6658255e90e9500fdf9a06ab77e6909c
       with:
-        tool: nextest,taplo-cli
+        tool: nextest
     - name: Install mold
-      uses: rui314/setup-mold@e16410e7f8d9e167b74ad5697a9089a35126eb50
+      uses: rui314/setup-mold@702b1908b5edf30d71a8d1666b724e0f0c6fa035
       with:
         make-default: false
     - name: Build
@@ -99,7 +102,7 @@ jobs:
     - name: Install Rust
       uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
       with:
-        toolchain: 1.84
+        toolchain: 1.85
     - name: Build
       run: cargo build -p jj-cli --no-default-features --verbose
 
@@ -108,7 +111,8 @@ jobs:
     strategy:
       fail-fast: ${{ github.event_name == 'merge_group' }}
       matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-14]
+        # TODO: add back macos-14 here (currently disabled because of issues with gpg-agent)
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
 
@@ -117,7 +121,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: DeterminateSystems/nix-installer-action@21a544727d0c62386e78b4befe52d19ad12692e3
+      - uses: DeterminateSystems/nix-installer-action@90bb610b90bf290cad97484ba341453bd1cbefea
       - run: nix flake check -L --show-trace
 
   check-protos:
@@ -182,7 +186,7 @@ jobs:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       with:
         persist-credentials: false
-    - uses: EmbarkStudios/cargo-deny-action@34899fc7ba81ca6268d5947a7a16b4649013fea1
+    - uses: EmbarkStudios/cargo-deny-action@30f817c6f72275c6d54dc744fbca09ebc958599f
       with:
         command: check ${{ matrix.checks }}
 
@@ -197,7 +201,7 @@ jobs:
         with:
           python-version: 3.11
       - name: Install uv
-        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca
+        uses: astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc
         with:
           # If you bump the version, also update docs/contributing.md
           # and all other workflows that install uv
@@ -214,7 +218,7 @@ jobs:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
         with:
-          toolchain: 1.84
+          toolchain: 1.85
       # NOTE: We need to run `cargo test --doc` separately from normal tests:
       # - `cargo build --all-targets` specifies: "Build all targets"
       # - `cargo test --all-targets` specifies: "Test all targets (does not include doctests)"
@@ -238,7 +242,7 @@ jobs:
         with:
           python-version: 3.11
       - name: Install uv
-        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca
+        uses: astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc
         with:
           # If you bump the version, also update docs/contributing.md
           # and all other workflows that install uv
@@ -255,7 +259,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install uv
-        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca
+        uses: astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc
       # 'only-managed' means that uv will always download Python, even
       # if the runner happens to provide a compatible version
       - name: Check that `mkdocs` can build the docs
@@ -273,7 +277,7 @@ jobs:
           persist-credentials: false
 
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca
+        uses: astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc
 
       - name: Run zizmor
         run: uvx zizmor --format sarif . > results.sarif
@@ -281,7 +285,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@60168efe1c415ce0f5521ea06d5c2062adbeed1b
+        uses: github/codeql-action/upload-sarif@51f77329afa6477de8c49fc9c7046c15b9a4e79d
         with:
           sarif_file: results.sarif
           category: zizmor
@@ -309,7 +313,7 @@ jobs:
           fi
         env:
           # This limit *can* be raised, we just want to be aware if we exceed it
-          TOTAL_DEP_LIMIT: 500
+          TOTAL_DEP_LIMIT: 550
 
   # Block the merge if required checks fail, but only in the merge
   # queue. See also `required-checks-hack.yml`.

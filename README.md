@@ -313,10 +313,9 @@ January 2021. I haven't had to re-clone from source (I don't think I've even had
 to restore from backup).
 
 There *will* be changes to workflows and backward-incompatible changes to the
-on-disk formats before version 1.0.0. Even the binary's name may change (i.e.
-away from `jj`). For any format changes, we'll try to implement transparent
-upgrades (as we've done with recent changes), or provide upgrade commands or
-scripts if requested.
+on-disk formats before version 1.0.0. For any format changes, we'll try to
+implement transparent upgrades (as we've done with recent changes), or provide
+upgrade commands or scripts if requested.
 
 ## Related work
 

@@ -19,13 +19,14 @@ use std::sync::Arc;
 use pollster::FutureExt as _;
 
 use crate::backend;
+use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::backend::MergedTreeId;
 use crate::backend::Signature;
-use crate::commit::is_backend_commit_empty;
 use crate::commit::Commit;
+use crate::commit::is_backend_commit_empty;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::settings::JJRng;
@@ -166,7 +167,7 @@ pub struct DetachedCommitBuilder {
 }
 
 impl DetachedCommitBuilder {
-    /// Only called from [`MutRepo::new_commit`]. Use that function instead.
+    /// Only called from [`MutableRepo::new_commit`]. Use that function instead.
     pub(crate) fn for_new_commit(
         repo: &dyn Repo,
         settings: &UserSettings,
@@ -188,7 +189,7 @@ impl DetachedCommitBuilder {
             committer: signature,
             secure_sig: None,
         };
-        DetachedCommitBuilder {
+        Self {
             store,
             rng,
             commit,
@@ -197,7 +198,8 @@ impl DetachedCommitBuilder {
         }
     }
 
-    /// Only called from [`MutRepo::rewrite_commit`]. Use that function instead.
+    /// Only called from [`MutableRepo::rewrite_commit`]. Use that function
+    /// instead.
     pub(crate) fn for_rewrite_from(
         repo: &dyn Repo,
         settings: &UserSettings,
@@ -230,7 +232,7 @@ impl DetachedCommitBuilder {
             commit.author.timestamp = commit.committer.timestamp;
         }
 
-        DetachedCommitBuilder {
+        Self {
             store,
             commit,
             rng: settings.get_rng(),
@@ -348,8 +350,19 @@ impl DetachedCommitBuilder {
 
     /// Writes new commit and makes it visible in the `mut_repo`.
     pub fn write(self, mut_repo: &mut MutableRepo) -> BackendResult<Commit> {
+        let predecessors = self.commit.predecessors.clone();
         let commit = write_to_store(&self.store, self.commit, &self.sign_settings)?;
+        // FIXME: Google's index.has_id() always returns true.
+        if mut_repo.is_backed_by_default_index() && mut_repo.index().has_id(commit.id()) {
+            // Recording existing commit as new would create cycle in
+            // predecessors/parent mappings within the current transaction, and
+            // in predecessors graph globally.
+            return Err(BackendError::Other(
+                format!("Newly-created commit {id} already exists", id = commit.id()).into(),
+            ));
+        }
         mut_repo.add_head(&commit)?;
+        mut_repo.set_predecessors(commit.id().clone(), predecessors);
         if let Some(rewrite_source) = self.rewrite_source {
             if rewrite_source.change_id() == commit.change_id() {
                 mut_repo.set_rewritten_commit(rewrite_source.id().clone(), commit.id().clone());

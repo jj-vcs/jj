@@ -14,12 +14,14 @@
 
 #![allow(missing_docs)]
 
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Debug;
 use std::iter;
 
+use globset::Glob;
 use itertools::Itertools as _;
 use tracing::instrument;
 
@@ -56,7 +58,7 @@ impl Visit {
     }
 
     pub fn is_nothing(&self) -> bool {
-        *self == Visit::Nothing
+        *self == Self::Nothing
     }
 }
 
@@ -134,7 +136,7 @@ impl FilesMatcher {
         for f in files {
             tree.add(f.as_ref()).value = FilesNodeKind::File;
         }
-        FilesMatcher { tree }
+        Self { tree }
     }
 }
 
@@ -188,7 +190,7 @@ impl PrefixMatcher {
         for prefix in prefixes {
             tree.add(prefix.as_ref()).value = PrefixNodeKind::Prefix;
         }
-        PrefixMatcher { tree }
+        Self { tree }
     }
 }
 
@@ -243,38 +245,37 @@ fn prefix_tree_to_visit_sets(tree: &RepoPathTree<PrefixNodeKind>) -> Visit {
 /// will be evaluated relative to `dir`.
 #[derive(Clone, Debug)]
 pub struct FileGlobsMatcher {
-    tree: RepoPathTree<Vec<glob::Pattern>>,
+    // TODO: use Option<RegexSet> instead of Vec<Regex>?
+    tree: RepoPathTree<Vec<regex::bytes::Regex>>,
 }
 
 impl FileGlobsMatcher {
-    pub fn new<D: AsRef<RepoPath>>(
-        dir_patterns: impl IntoIterator<Item = (D, glob::Pattern)>,
+    pub fn new<D: AsRef<RepoPath>, P: Borrow<Glob>>(
+        dir_patterns: impl IntoIterator<Item = (D, P)>,
     ) -> Self {
-        let mut tree: RepoPathTree<Vec<glob::Pattern>> = Default::default();
+        let mut tree: RepoPathTree<Vec<regex::bytes::Regex>> = Default::default();
         for (dir, pattern) in dir_patterns {
-            tree.add(dir.as_ref()).value.push(pattern);
+            // Based on new_regex() in globset. We don't use GlobMatcher because
+            // RepoPath separator should be "/" on all platforms.
+            let regex = regex::bytes::RegexBuilder::new(pattern.borrow().regex())
+                .dot_matches_new_line(true)
+                .build()
+                .expect("glob regex should be valid");
+            tree.add(dir.as_ref()).value.push(regex);
         }
-        FileGlobsMatcher { tree }
+        Self { tree }
     }
 }
 
 impl Matcher for FileGlobsMatcher {
     fn matches(&self, file: &RepoPath) -> bool {
-        // TODO: glob::Pattern relies on path::is_separator() internally, but
-        // RepoPath separator should be '/'. One way to address this problem is
-        // to switch to globset::Glob, and use the underlying regex pattern.
-        const OPTIONS: glob::MatchOptions = glob::MatchOptions {
-            case_sensitive: true,
-            require_literal_separator: true,
-            require_literal_leading_dot: false,
-        };
         // check if any ancestor (dir, patterns) matches 'file'
         self.tree
             .walk_to(file)
             .take_while(|(_, tail_path)| !tail_path.is_root()) // only dirs
             .any(|(sub, tail_path)| {
                 let name = tail_path.as_internal_file_string();
-                sub.value.iter().any(|pat| pat.matches_with(name, OPTIONS))
+                sub.value.iter().any(|pat| pat.is_match(name.as_bytes()))
             })
     }
 
@@ -514,6 +515,7 @@ mod tests {
     use maplit::hashset;
 
     use super::*;
+    use crate::fileset::parse_file_glob;
 
     fn repo_path(value: &str) -> &RepoPath {
         RepoPath::from_internal_string(value).unwrap()
@@ -672,11 +674,12 @@ mod tests {
 
     #[test]
     fn test_fileglobsmatcher_rooted() {
-        let to_pattern = |s| glob::Pattern::new(s).unwrap();
+        let to_pattern = |s| parse_file_glob(s).unwrap();
 
         let m = FileGlobsMatcher::new([(RepoPath::root(), to_pattern("*.rs"))]);
         assert!(!m.matches(repo_path("foo")));
         assert!(m.matches(repo_path("foo.rs")));
+        assert!(m.matches(repo_path("foo\n.rs"))); // "*" matches newline
         assert!(!m.matches(repo_path("foo.rss")));
         assert!(!m.matches(repo_path("foo.rs/bar.rs")));
         assert!(!m.matches(repo_path("foo/bar.rs")));
@@ -725,7 +728,7 @@ mod tests {
 
     #[test]
     fn test_fileglobsmatcher_nested() {
-        let to_pattern = |s| glob::Pattern::new(s).unwrap();
+        let to_pattern = |s| parse_file_glob(s).unwrap();
 
         let m = FileGlobsMatcher::new([
             (repo_path("foo"), to_pattern("**/*.a")),
@@ -784,7 +787,7 @@ mod tests {
 
     #[test]
     fn test_fileglobsmatcher_wildcard_any() {
-        let to_pattern = |s| glob::Pattern::new(s).unwrap();
+        let to_pattern = |s| parse_file_glob(s).unwrap();
 
         // "*" could match the root path, but it doesn't matter since the root
         // isn't a valid file path.

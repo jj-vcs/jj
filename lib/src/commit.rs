@@ -22,7 +22,9 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
+use futures::future::try_join_all;
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 
 use crate::backend;
 use crate::backend::BackendResult;
@@ -37,10 +39,13 @@ use crate::signing::SignResult;
 use crate::signing::Verification;
 use crate::store::Store;
 
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize)]
 pub struct Commit {
+    #[serde(skip)]
     store: Arc<Store>,
+    #[serde(rename = "commit_id")]
     id: CommitId,
+    #[serde(flatten)]
     data: Arc<backend::Commit>,
 }
 
@@ -78,7 +83,7 @@ impl Hash for Commit {
 
 impl Commit {
     pub fn new(store: Arc<Store>, id: CommitId, data: Arc<backend::Commit>) -> Self {
-        Commit { store, id, data }
+        Self { store, id, data }
     }
 
     pub fn store(&self) -> &Arc<Store> {
@@ -93,23 +98,26 @@ impl Commit {
         &self.data.parents
     }
 
-    pub fn parents(&self) -> impl Iterator<Item = BackendResult<Commit>> + use<'_> {
+    pub fn parents(&self) -> impl Iterator<Item = BackendResult<Self>> + use<'_> {
         self.data.parents.iter().map(|id| self.store.get_commit(id))
     }
 
-    pub fn predecessor_ids(&self) -> &[CommitId] {
-        &self.data.predecessors
-    }
-
-    pub fn predecessors(&self) -> impl Iterator<Item = BackendResult<Commit>> + use<'_> {
-        self.data
-            .predecessors
-            .iter()
-            .map(|id| self.store.get_commit(id))
+    pub async fn parents_async(&self) -> BackendResult<Vec<Self>> {
+        try_join_all(
+            self.data
+                .parents
+                .iter()
+                .map(|id| self.store.get_commit_async(id)),
+        )
+        .await
     }
 
     pub fn tree(&self) -> BackendResult<MergedTree> {
-        self.store.get_root_tree(&self.data.root_tree)
+        self.tree_async().block_on()
+    }
+
+    pub async fn tree_async(&self) -> BackendResult<MergedTree> {
+        self.store.get_root_tree_async(&self.data.root_tree).await
     }
 
     pub fn tree_id(&self) -> &MergedTreeId {
@@ -120,7 +128,7 @@ impl Commit {
     /// parents.
     pub fn parent_tree(&self, repo: &dyn Repo) -> BackendResult<MergedTree> {
         let parents: Vec<_> = self.parents().try_collect()?;
-        merge_commit_trees(repo, &parents)
+        merge_commit_trees(repo, &parents).block_on()
     }
 
     /// Returns whether commit's content is empty. Commit description is not
@@ -197,7 +205,7 @@ pub(crate) fn is_backend_commit_empty(
         .iter()
         .map(|id| store.get_commit(id))
         .try_collect()?;
-    let parent_tree = merge_commit_trees(repo, &parents)?;
+    let parent_tree = merge_commit_trees(repo, &parents).block_on()?;
     Ok(commit.root_tree == parent_tree.id())
 }
 

@@ -82,7 +82,7 @@ pub(crate) struct GitSubprocessContext<'a> {
 
 impl<'a> GitSubprocessContext<'a> {
     pub(crate) fn new(git_dir: impl Into<PathBuf>, git_executable_path: &'a Path) -> Self {
-        GitSubprocessContext {
+        Self {
             git_dir: git_dir.into(),
             git_executable_path,
         }
@@ -101,7 +101,7 @@ impl<'a> GitSubprocessContext<'a> {
         // Hide console window on Windows (https://stackoverflow.com/a/60958956)
         #[cfg(windows)]
         {
-            use std::os::windows::process::CommandExt;
+            use std::os::windows::process::CommandExt as _;
             const CREATE_NO_WINDOW: u32 = 0x08000000;
             git_cmd.creation_flags(CREATE_NO_WINDOW);
         }
@@ -111,6 +111,17 @@ impl<'a> GitSubprocessContext<'a> {
         // root to Command::current_dir and then pass a relative path to the git
         // dir
         git_cmd
+            // The gitconfig-controlled automated spawning of the macOS `fsmonitor--daemon`
+            // can cause strange behavior with certain subprocess operations.
+            // For example: https://github.com/jj-vcs/jj/issues/6440.
+            //
+            // Nothing we're doing in `jj` interacts with this daemon, so we force the
+            // config to be false for subprocess operations in order to avoid these
+            // interactions.
+            //
+            // In a colocated repo, the daemon will still get started the first time a `git`
+            // command is run manually if the gitconfigs are set up that way.
+            .args(["-c", "core.fsmonitor=false"])
             .arg("--git-dir")
             .arg(&self.git_dir)
             // Disable translation and other locale-dependent behavior so we can
@@ -614,7 +625,11 @@ impl GitProgress {
     fn to_progress(&self) -> Progress {
         Progress {
             bytes_downloaded: None,
-            overall: self.fraction() as f32 / self.total() as f32,
+            overall: if self.total() != 0 {
+                self.fraction() as f32 / self.total() as f32
+            } else {
+                0.0
+            },
         }
     }
 
@@ -906,8 +921,10 @@ Done";
         let (output, sideband, progress) = read(sample.as_bytes());
         assert_eq!(
             sideband,
-            ["line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"]
-                .map(|s| s.as_bytes().to_owned())
+            [
+                "line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"
+            ]
+            .map(|s| s.as_bytes().to_owned())
         );
         assert_eq!(output, b"blah blah\nsome error message\n");
         insta::assert_debug_snapshot!(progress, @r"
@@ -923,8 +940,10 @@ Done";
         let (output, sideband, _progress) = read(sample.as_bytes().trim_end());
         assert_eq!(
             sideband,
-            ["line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"]
-                .map(|s| s.as_bytes().to_owned())
+            [
+                "line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"
+            ]
+            .map(|s| s.as_bytes().to_owned())
         );
         assert_eq!(output, b"blah blah\nsome error message");
     }
@@ -958,5 +977,10 @@ Done";
             "abc".to_string()
         );
         assert!(parse_unknown_option(b"error: unknown option: 'abc'").is_none());
+    }
+
+    #[test]
+    fn test_initial_overall_progress_is_zero() {
+        assert_eq!(GitProgress::default().to_progress().overall, 0.0);
     }
 }

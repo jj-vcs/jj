@@ -26,7 +26,7 @@ The following operators are supported:
 * `x+`: Children of `x`
 
 
-## divergent operations
+## Divergent operations
 
 One benefit of the operation log (and the reason for its creation) is that it
 allows lock-free concurrency -- you can run concurrent `jj` commands without

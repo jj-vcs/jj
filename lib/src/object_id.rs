@@ -14,6 +14,11 @@
 
 #![allow(missing_docs)]
 
+use std::fmt;
+use std::fmt::Debug;
+
+use crate::hex_util;
+
 pub trait ObjectId {
     fn object_type(&self) -> String;
     fn as_bytes(&self) -> &[u8];
@@ -25,8 +30,8 @@ pub trait ObjectId {
 // a single Vec<u8> used to store an identifier (typically the output of a hash
 // function) as bytes. Types defined using this macro automatically implement
 // the `ObjectId` and `ContentHash` traits.
-// Documentation comments written inside the macro definition and will be
-// captured and associated with the type defined by the macro.
+// Documentation comments written inside the macro definition will be captured
+// and associated with the type defined by the macro.
 //
 // Example:
 // ```no_run
@@ -40,7 +45,7 @@ macro_rules! id_type {
         $vis:vis $name:ident { $hex_method:ident() }
     ) => {
         $(#[$attr])*
-        #[derive(ContentHash, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
+        #[derive($crate::content_hash::ContentHash, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
         $vis struct $name(Vec<u8>);
         $crate::object_id::impl_id_type!($name, $hex_method);
     };
@@ -48,6 +53,7 @@ macro_rules! id_type {
 
 macro_rules! impl_id_type {
     ($name:ident, $hex_method:ident) => {
+        #[allow(dead_code)]
         impl $name {
             pub fn new(value: Vec<u8>) -> Self {
                 Self(value)
@@ -66,8 +72,8 @@ macro_rules! impl_id_type {
             }
 
             /// Parses the given hex string into an ObjectId.
-            pub fn try_from_hex(hex: &str) -> Result<Self, hex::FromHexError> {
-                hex::decode(hex).map(Self)
+            pub fn try_from_hex(hex: impl AsRef<[u8]>) -> Option<Self> {
+                $crate::hex_util::decode_hex(hex).map(Self)
             }
         }
 
@@ -81,6 +87,19 @@ macro_rules! impl_id_type {
         impl std::fmt::Display for $name {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
                 f.pad(&self.$hex_method())
+            }
+        }
+
+        impl serde::Serialize for $name {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                if serializer.is_human_readable() {
+                    self.$hex_method().serialize(serializer)
+                } else {
+                    self.as_bytes().serialize(serializer)
+                }
             }
         }
 
@@ -102,7 +121,7 @@ macro_rules! impl_id_type {
             }
 
             fn hex(&self) -> String {
-                hex::encode(&self.0)
+                $crate::hex_util::encode_hex(&self.0)
             }
         }
     };
@@ -113,7 +132,7 @@ pub(crate) use impl_id_type;
 
 /// An identifier prefix (typically from a type implementing the [`ObjectId`]
 /// trait) with facilities for converting between bytes and a hex string.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct HexPrefix {
     // For odd-length prefixes, the lower 4 bits of the last byte are
     // zero-filled (e.g. the prefix "abc" is stored in two bytes as "abc0").
@@ -124,28 +143,48 @@ pub struct HexPrefix {
 impl HexPrefix {
     /// Returns a new `HexPrefix` or `None` if `prefix` cannot be decoded from
     /// hex to bytes.
-    pub fn new(prefix: &str) -> Option<HexPrefix> {
-        let has_odd_byte = prefix.len() & 1 != 0;
-        let min_prefix_bytes = if has_odd_byte {
-            hex::decode(prefix.to_owned() + "0").ok()?
-        } else {
-            hex::decode(prefix).ok()?
-        };
-        Some(HexPrefix {
+    pub fn try_from_hex(prefix: impl AsRef<[u8]>) -> Option<Self> {
+        let (min_prefix_bytes, has_odd_byte) = hex_util::decode_hex_prefix(prefix)?;
+        Some(Self {
+            min_prefix_bytes,
+            has_odd_byte,
+        })
+    }
+
+    /// Returns a new `HexPrefix` or `None` if `prefix` cannot be decoded from
+    /// "reverse" hex to bytes.
+    pub fn try_from_reverse_hex(prefix: impl AsRef<[u8]>) -> Option<Self> {
+        let (min_prefix_bytes, has_odd_byte) = hex_util::decode_reverse_hex_prefix(prefix)?;
+        Some(Self {
             min_prefix_bytes,
             has_odd_byte,
         })
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Self {
-        HexPrefix {
+        Self {
             min_prefix_bytes: bytes.to_owned(),
             has_odd_byte: false,
         }
     }
 
+    /// Returns a new `HexPrefix` representing the given `id`.
+    pub fn from_id<T: ObjectId + ?Sized>(id: &T) -> Self {
+        Self::from_bytes(id.as_bytes())
+    }
+
+    /// Returns string representation of this prefix using hex digits.
     pub fn hex(&self) -> String {
-        let mut hex_string = hex::encode(&self.min_prefix_bytes);
+        let mut hex_string = hex_util::encode_hex(&self.min_prefix_bytes);
+        if self.has_odd_byte {
+            hex_string.pop().unwrap();
+        }
+        hex_string
+    }
+
+    /// Returns string representation of this prefix using `z-k` "digits".
+    pub fn reverse_hex(&self) -> String {
+        let mut hex_string = hex_util::encode_reverse_hex(&self.min_prefix_bytes);
         if self.has_odd_byte {
             hex_string.pop().unwrap();
         }
@@ -189,6 +228,12 @@ impl HexPrefix {
     }
 }
 
+impl Debug for HexPrefix {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        f.debug_tuple("HexPrefix").field(&self.hex()).finish()
+    }
+}
+
 /// The result of a prefix search.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PrefixResolution<T> {
@@ -200,23 +245,21 @@ pub enum PrefixResolution<T> {
 impl<T> PrefixResolution<T> {
     pub fn map<U>(self, f: impl FnOnce(T) -> U) -> PrefixResolution<U> {
         match self {
-            PrefixResolution::NoMatch => PrefixResolution::NoMatch,
-            PrefixResolution::SingleMatch(x) => PrefixResolution::SingleMatch(f(x)),
-            PrefixResolution::AmbiguousMatch => PrefixResolution::AmbiguousMatch,
+            Self::NoMatch => PrefixResolution::NoMatch,
+            Self::SingleMatch(x) => PrefixResolution::SingleMatch(f(x)),
+            Self::AmbiguousMatch => PrefixResolution::AmbiguousMatch,
         }
     }
 }
 
 impl<T: Clone> PrefixResolution<T> {
-    pub fn plus(&self, other: &PrefixResolution<T>) -> PrefixResolution<T> {
+    pub fn plus(&self, other: &Self) -> Self {
         match (self, other) {
-            (PrefixResolution::NoMatch, other) => other.clone(),
-            (local, PrefixResolution::NoMatch) => local.clone(),
-            (PrefixResolution::AmbiguousMatch, _) => PrefixResolution::AmbiguousMatch,
-            (_, PrefixResolution::AmbiguousMatch) => PrefixResolution::AmbiguousMatch,
-            (PrefixResolution::SingleMatch(_), PrefixResolution::SingleMatch(_)) => {
-                PrefixResolution::AmbiguousMatch
-            }
+            (Self::NoMatch, other) => other.clone(),
+            (local, Self::NoMatch) => local.clone(),
+            (Self::AmbiguousMatch, _) => Self::AmbiguousMatch,
+            (_, Self::AmbiguousMatch) => Self::AmbiguousMatch,
+            (Self::SingleMatch(_), Self::SingleMatch(_)) => Self::AmbiguousMatch,
         }
     }
 }
@@ -240,22 +283,22 @@ mod tests {
 
     #[test]
     fn test_hex_prefix_prefixes() {
-        let prefix = HexPrefix::new("").unwrap();
+        let prefix = HexPrefix::try_from_hex("").unwrap();
         assert_eq!(prefix.min_prefix_bytes(), b"");
 
-        let prefix = HexPrefix::new("1").unwrap();
+        let prefix = HexPrefix::try_from_hex("1").unwrap();
         assert_eq!(prefix.min_prefix_bytes(), b"\x10");
 
-        let prefix = HexPrefix::new("12").unwrap();
+        let prefix = HexPrefix::try_from_hex("12").unwrap();
         assert_eq!(prefix.min_prefix_bytes(), b"\x12");
 
-        let prefix = HexPrefix::new("123").unwrap();
+        let prefix = HexPrefix::try_from_hex("123").unwrap();
         assert_eq!(prefix.min_prefix_bytes(), b"\x12\x30");
 
-        let bad_prefix = HexPrefix::new("0x123");
+        let bad_prefix = HexPrefix::try_from_hex("0x123");
         assert_eq!(bad_prefix, None);
 
-        let bad_prefix = HexPrefix::new("foobar");
+        let bad_prefix = HexPrefix::try_from_hex("foobar");
         assert_eq!(bad_prefix, None);
     }
 
@@ -263,16 +306,16 @@ mod tests {
     fn test_hex_prefix_matches() {
         let id = CommitId::from_hex("1234");
 
-        assert!(HexPrefix::new("").unwrap().matches(&id));
-        assert!(HexPrefix::new("1").unwrap().matches(&id));
-        assert!(HexPrefix::new("12").unwrap().matches(&id));
-        assert!(HexPrefix::new("123").unwrap().matches(&id));
-        assert!(HexPrefix::new("1234").unwrap().matches(&id));
-        assert!(!HexPrefix::new("12345").unwrap().matches(&id));
+        assert!(HexPrefix::try_from_hex("").unwrap().matches(&id));
+        assert!(HexPrefix::try_from_hex("1").unwrap().matches(&id));
+        assert!(HexPrefix::try_from_hex("12").unwrap().matches(&id));
+        assert!(HexPrefix::try_from_hex("123").unwrap().matches(&id));
+        assert!(HexPrefix::try_from_hex("1234").unwrap().matches(&id));
+        assert!(!HexPrefix::try_from_hex("12345").unwrap().matches(&id));
 
-        assert!(!HexPrefix::new("a").unwrap().matches(&id));
-        assert!(!HexPrefix::new("1a").unwrap().matches(&id));
-        assert!(!HexPrefix::new("12a").unwrap().matches(&id));
-        assert!(!HexPrefix::new("123a").unwrap().matches(&id));
+        assert!(!HexPrefix::try_from_hex("a").unwrap().matches(&id));
+        assert!(!HexPrefix::try_from_hex("1a").unwrap().matches(&id));
+        assert!(!HexPrefix::try_from_hex("12a").unwrap().matches(&id));
+        assert!(!HexPrefix::try_from_hex("123a").unwrap().matches(&id));
     }
 }

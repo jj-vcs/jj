@@ -16,8 +16,9 @@ use jj_lib::merge::Merge;
 use jj_lib::op_store::RefTarget;
 use jj_lib::refs::merge_ref_targets;
 use jj_lib::repo::Repo as _;
-use testutils::CommitGraphBuilder;
 use testutils::TestWorkspace;
+use testutils::write_random_commit;
+use testutils::write_random_commit_with_parents;
 
 #[test]
 fn test_merge_ref_targets() {
@@ -33,14 +34,13 @@ fn test_merge_ref_targets() {
     // |/
     // 1
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit2]);
-    let commit4 = graph_builder.commit_with_parents(&[&commit2]);
-    let commit5 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit6 = graph_builder.commit_with_parents(&[&commit5]);
-    let commit7 = graph_builder.commit_with_parents(&[&commit5]);
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+    let commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
+    let commit4 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
+    let commit5 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+    let commit6 = write_random_commit_with_parents(tx.repo_mut(), &[&commit5]);
+    let commit7 = write_random_commit_with_parents(tx.repo_mut(), &[&commit5]);
     let repo = tx.commit("test").unwrap();
 
     let target1 = RefTarget::normal(commit1.id().clone());

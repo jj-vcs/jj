@@ -3,35 +3,67 @@
 Jujutsu works the same on all platforms, but there are some caveats that Windows
 users should be aware of.
 
-## Line endings are not converted
+## Line endings conversion
 
-Jujutsu does not currently honor `.gitattributes` and does not have a setting
-like Git's [`core.autocrlf`][git-autocrlf]. This means that line endings will be checked
-out exactly as they are committed and committed exactly as authored. This is true on all
-platforms, but Windows users are most likely to miss CRLF conversion.
+Jujutsu currently has a setting,
+[`working-copy.eol-conversion`](config.md#eol-conversion-settings), similar to
+Git's [`core.autocrlf`][git-autocrlf][^1], but does not currently honor
+`.gitattributes` and the `core.autocrlf` git config, so it is recommended to
+keep the `working-copy.eol-conversion` setting and the `core.autocrlf` git
+config in sync[^1].
 
-Your Git repository may expect Windows users to have `core.autocrlf` set to
-`true`, so that files are checked out with line endings converted from LF to CRLF
-but committed with line endings converted from CRLF back to LF. Jujutsu doesn't
-understand this and preserves CRLF line endings in files when committing.
+!!! note
 
-After creating a colocated repository on Windows, you most likely want to set
-`core.autocrlf` to `input`, then `jj abandon` to convert all files on disk to LF
-line endings:
+    If you created a colocated git repo, forget to keep these 2 settings in
+    sync, and result in a dirty working copy with only EOL diffs, you can set
+    the `working-copy.eol-conversion` setting correctly and run `jj abandon` to
+    fix it.
+
+The line endings conversion won't be applied to files detected as a binary files
+via a heuristics[^2] regardless of the settings. This behavior is subject to
+change when we support the text git attribute.
+
+Jujutsu may make incorrect decision on whether a file is a binary file and apply
+line conversion incorrectly, but currently, Jujutsu doesn't support configuring
+line endings conversion for particular files. If this issue is hit, one should
+not enable the line conversion setting.
+
+!!! note
+
+    If Jujutsu applies line endings conversion on incorrect files, you should
+    not enable the line conversion setting and the git `core.autocrlf` setting.
+    See below.
+
+To disable line conversion, set the `core.autocrlf` setting to `none` or just
+remove the setting.
 
 ```powershell
 PS> git config core.autocrlf input
-
+# We use none instead of input to avoid applying EOL conversion.
+PS> jj config set --repo working-copy.eol-conversion none
 # Abandoning the working copy will cause Jujutsu to overwrite all files with
 # CRLF line endings with the line endings they are committed with, probably LF
 PS> jj abandon
 ```
 
+This means that line endings will be checked out exactly as they are committed
+and committed exactly as authored.
+
 This setting ensures Git will check out files with LF line endings without
 converting them to CRLF. You'll want to make sure any tooling you use,
 especially IDEs, preserve LF line endings.
 
+[^1]: This poses the question if we should support reading the `core.autocrlf`
+      setting in colocated repos. See details at the
+      [issue][read-git-config-issue].
+[^2]: To detect if a file is binary, Jujutsu currently checks if there is 0 byte
+      in the file which is different from the algorithm of
+      [`gitoxide`][gitoxide-is-binary] or [`git`][git-is-binary]. Jujutsu
+      doesn't plan to align the binary detection logic with git.
 [git-autocrlf]: https://git-scm.com/book/en/v2/Customizing-Git-Git-Configuration#_core_autocrlf
+[read-git-config-issue]: https://github.com/jj-vcs/jj/issues/4048
+[gitoxide-is-binary]: https://github.com/GitoxideLabs/gitoxide/blob/073487b38ed40bcd7eb45dc110ae1ce84f9275a9/gix-filter/src/eol/utils.rs#L98-L100
+[git-is-binary]: https://github.com/git/git/blob/f1ca98f609f9a730b9accf24e5558a10a0b41b6c/convert.c#L94-L103
 
 ## Pagination
 

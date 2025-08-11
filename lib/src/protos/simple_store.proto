@@ -20,6 +20,7 @@ message TreeValue {
   message File {
     bytes id = 1;
     bool executable = 2;
+    bytes copy_id = 3;
   }
 
   oneof value {

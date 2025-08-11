@@ -25,6 +25,7 @@ use bstr::BString;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigValue;
+use jj_lib::op_store::TimestampRange;
 
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
@@ -105,7 +106,8 @@ impl Template for Signature {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
+#[serde(transparent)]
 pub struct Email(pub String);
 
 impl Template for Email {
@@ -142,27 +144,6 @@ impl Template for Timestamp {
         match time_util::format_absolute_timestamp(self) {
             Ok(formatted) => write!(formatter, "{formatted}"),
             Err(err) => formatter.handle_error(err.into()),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TimestampRange {
-    // Could be aliased to Range<Timestamp> if needed.
-    pub start: Timestamp,
-    pub end: Timestamp,
-}
-
-impl TimestampRange {
-    // TODO: Introduce duration type, and move formatting to it.
-    pub fn duration(&self) -> Result<String, time_util::TimestampOutOfRange> {
-        let mut f = timeago::Formatter::new();
-        f.min_unit(timeago::TimeUnit::Microseconds).ago("");
-        let duration = time_util::format_duration(&self.start, &self.end, &f)?;
-        if duration == "now" {
-            Ok("less than a microsecond".to_owned())
-        } else {
-            Ok(duration)
         }
     }
 }
@@ -206,7 +187,7 @@ impl<T, L> LabelTemplate<T, L> {
         T: Template,
         L: TemplateProperty<Output = Vec<String>>,
     {
-        LabelTemplate { content, labels }
+        Self { content, labels }
     }
 }
 
@@ -273,7 +254,7 @@ impl<T, F> ReformatTemplate<T, F> {
         T: Template,
         F: Fn(&mut TemplateFormatter, &FormatRecorder) -> io::Result<()>,
     {
-        ReformatTemplate { content, reformat }
+        Self { content, reformat }
     }
 }
 
@@ -302,7 +283,7 @@ impl<S, T> SeparateTemplate<S, T> {
         S: Template,
         T: Template,
     {
-        SeparateTemplate {
+        Self {
             separator,
             contents,
         }
@@ -340,7 +321,7 @@ where
     E: error::Error + Send + Sync + 'static,
 {
     fn from(err: E) -> Self {
-        TemplatePropertyError(err.into())
+        Self(err.into())
     }
 }
 
@@ -389,6 +370,8 @@ tuple_impls! {
 }
 
 pub type BoxedTemplateProperty<'a, O> = Box<dyn TemplateProperty<Output = O> + 'a>;
+pub type BoxedSerializeProperty<'a> =
+    BoxedTemplateProperty<'a, Box<dyn erased_serde::Serialize + 'a>>;
 
 /// `TemplateProperty` adapters that are useful when implementing methods.
 pub trait TemplatePropertyExt: TemplateProperty {
@@ -421,6 +404,15 @@ pub trait TemplatePropertyExt: TemplateProperty {
         self.and_then(move |opt| {
             opt.ok_or_else(|| TemplatePropertyError(format!("No {type_name} available").into()))
         })
+    }
+
+    /// Converts this property into boxed serialize property.
+    fn into_serialize<'a>(self) -> BoxedSerializeProperty<'a>
+    where
+        Self: Sized + 'a,
+        Self::Output: serde::Serialize,
+    {
+        Box::new(self.map(|value| Box::new(value) as Box<dyn erased_serde::Serialize>))
     }
 
     /// Converts this property into `Template`.
@@ -493,7 +485,7 @@ impl<P> FormattablePropertyTemplate<P> {
         P: TemplateProperty,
         P::Output: Template,
     {
-        FormattablePropertyTemplate { property }
+        Self { property }
     }
 }
 
@@ -517,7 +509,7 @@ pub struct PlainTextFormattedProperty<T> {
 
 impl<T> PlainTextFormattedProperty<T> {
     pub fn new(template: T) -> Self {
-        PlainTextFormattedProperty { template }
+        Self { template }
     }
 }
 
@@ -550,7 +542,7 @@ impl<P, S, F> ListPropertyTemplate<P, S, F> {
         S: Template,
         F: Fn(&mut TemplateFormatter, O) -> io::Result<()>,
     {
-        ListPropertyTemplate {
+        Self {
             property,
             separator,
             format_item,
@@ -615,7 +607,7 @@ impl<P, T, U> ConditionalTemplate<P, T, U> {
         T: Template,
         U: Template,
     {
-        ConditionalTemplate {
+        Self {
             condition,
             true_template,
             false_template,
@@ -657,7 +649,7 @@ impl<P, F> TemplateFunction<P, F> {
         P: TemplateProperty,
         F: Fn(P::Output) -> Result<O, TemplatePropertyError>,
     {
-        TemplateFunction { property, function }
+        Self { property, function }
     }
 }
 
@@ -681,7 +673,7 @@ pub struct PropertyPlaceholder<O> {
 
 impl<O> PropertyPlaceholder<O> {
     pub fn new() -> Self {
-        PropertyPlaceholder {
+        Self {
             value: Rc::new(RefCell::new(None)),
         }
     }
@@ -729,20 +721,21 @@ pub struct TemplateRenderer<'a, C> {
 
 impl<'a, C: Clone> TemplateRenderer<'a, C> {
     pub fn new(template: Box<dyn Template + 'a>, placeholder: PropertyPlaceholder<C>) -> Self {
-        TemplateRenderer {
+        Self {
             template,
             placeholder,
             labels: Vec::new(),
         }
     }
 
-    /// Returns renderer that will format template with the given `label`.
+    /// Returns renderer that will format template with the given `labels`.
     ///
     /// This is equivalent to wrapping the content template with `label()`
-    /// function. For example, `content.labeled("foo").labeled("bar")` can be
-    /// expressed as `label("bar", label("foo", content))` in template.
-    pub fn labeled(mut self, label: impl Into<String>) -> Self {
-        self.labels.insert(0, label.into());
+    /// function. For example,
+    /// `content.labeled(["foo", "bar"]).labeled(["baz"])` can be expressed as
+    /// `label("baz", label("foo bar", content))` in template.
+    pub fn labeled<S: Into<String>>(mut self, labels: impl IntoIterator<Item = S>) -> Self {
+        self.labels.splice(0..0, labels.into_iter().map(Into::into));
         self
     }
 
@@ -751,6 +744,17 @@ impl<'a, C: Clone> TemplateRenderer<'a, C> {
         self.placeholder.with_value(context.clone(), || {
             format_labeled(&mut wrapper, &self.template, &self.labels)
         })
+    }
+
+    /// Renders template into buffer ignoring any color labels.
+    ///
+    /// The output is usually UTF-8, but it can contain arbitrary bytes such as
+    /// file content.
+    pub fn format_plain_text(&self, context: &C) -> Vec<u8> {
+        let mut output = Vec::new();
+        self.format(context, &mut PlainTextFormatter::new(&mut output))
+            .expect("write() to vec backed formatter should never fail");
+        output
     }
 }
 
@@ -762,7 +766,7 @@ pub struct TemplateFormatter<'a> {
 
 impl<'a> TemplateFormatter<'a> {
     fn new(formatter: &'a mut dyn Formatter, error_handler: PropertyErrorHandler) -> Self {
-        TemplateFormatter {
+        Self {
             formatter,
             error_handler,
         }

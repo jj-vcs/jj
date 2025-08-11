@@ -14,15 +14,17 @@
 
 use std::io::Write as _;
 
+use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
-use jj_lib::matchers::EverythingMatcher;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::rewrite::merge_commit_trees;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::ui::Ui;
@@ -76,8 +78,19 @@ pub(crate) struct DiffeditArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     to: Option<RevisionArg>,
+    /// Edit only these paths (unmatched paths will remain unchanged)
+    #[arg(
+        value_name = "FILESETS",
+        value_hint = clap::ValueHint::AnyPath,
+        add = ArgValueCompleter::new(complete::modified_revision_or_range_files),
+    )]
+    paths: Vec<String>,
     /// Specify diff editor to be used
-    #[arg(long, value_name = "NAME")]
+    #[arg(
+        long,
+        value_name = "NAME",
+        add = ArgValueCandidates::new(complete::diff_editors),
+    )]
     tool: Option<String>,
     /// Preserve the content (not the diff) when rebasing descendants
     ///
@@ -96,13 +109,17 @@ pub(crate) fn cmd_diffedit(
     args: &DiffeditArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
+    let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
+    let matcher = fileset_expression.to_matcher();
 
     let (target_commit, base_commits, diff_description);
     if args.from.is_some() || args.to.is_some() {
         target_commit = workspace_command
             .resolve_single_rev(ui, args.to.as_ref().unwrap_or(&RevisionArg::AT))?;
-        base_commits = vec![workspace_command
-            .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))?];
+        base_commits = vec![
+            workspace_command
+                .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))?,
+        ];
         diff_description = format!(
             "The diff initially shows the commit's changes relative to:\n{}",
             workspace_command.format_commit_summary(&base_commits[0])
@@ -129,9 +146,9 @@ don't make any changes, then the operation will be aborted.",
             tx.format_commit_summary(&target_commit),
         )
     };
-    let base_tree = merge_commit_trees(tx.repo(), base_commits.as_slice())?;
+    let base_tree = merge_commit_trees(tx.repo(), base_commits.as_slice()).block_on()?;
     let tree = target_commit.tree()?;
-    let tree_id = diff_editor.edit(&base_tree, &tree, &EverythingMatcher, format_instructions)?;
+    let tree_id = diff_editor.edit(&base_tree, &tree, &matcher, format_instructions)?;
     if tree_id == *target_commit.tree_id() {
         writeln!(ui.status(), "Nothing changed.")?;
     } else {
@@ -159,5 +176,11 @@ don't make any changes, then the operation will be aborted.",
         }
         tx.finish(ui, format!("edit commit {}", target_commit.id().hex()))?;
     }
+    print_unmatched_explicit_paths(
+        ui,
+        &workspace_command,
+        &fileset_expression,
+        [&base_tree, &tree],
+    )?;
     Ok(())
 }

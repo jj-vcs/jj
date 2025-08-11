@@ -18,9 +18,9 @@ use std::fmt::Debug;
 use std::fmt::Error;
 use std::fmt::Formatter;
 use std::io::Cursor;
-use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
@@ -29,7 +29,6 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use futures::stream;
 use futures::stream::BoxStream;
-use jj_lib::backend::make_root_commit;
 use jj_lib::backend::Backend;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::BackendResult;
@@ -38,6 +37,8 @@ use jj_lib::backend::Commit;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::Conflict;
 use jj_lib::backend::ConflictId;
+use jj_lib::backend::CopyHistory;
+use jj_lib::backend::CopyId;
 use jj_lib::backend::CopyRecord;
 use jj_lib::backend::FileId;
 use jj_lib::backend::SecureSig;
@@ -45,10 +46,15 @@ use jj_lib::backend::SigningFn;
 use jj_lib::backend::SymlinkId;
 use jj_lib::backend::Tree;
 use jj_lib::backend::TreeId;
+use jj_lib::backend::make_root_commit;
+use jj_lib::dag_walk::topo_order_reverse;
 use jj_lib::index::Index;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
+use tokio::io::AsyncRead;
+use tokio::io::AsyncReadExt as _;
+use tokio::runtime::Runtime;
 
 const HASH_LENGTH: usize = 10;
 const CHANGE_ID_LENGTH: usize = 16;
@@ -66,6 +72,7 @@ pub struct TestBackendData {
     files: HashMap<RepoPathBuf, HashMap<FileId, Vec<u8>>>,
     symlinks: HashMap<RepoPathBuf, HashMap<SymlinkId, String>>,
     conflicts: HashMap<RepoPathBuf, HashMap<ConflictId, Conflict>>,
+    copies: HashMap<CopyId, CopyHistory>,
 }
 
 #[derive(Clone, Default)]
@@ -118,6 +125,7 @@ pub struct TestBackend {
     root_change_id: ChangeId,
     empty_tree_id: TreeId,
     data: Arc<Mutex<TestBackendData>>,
+    runtime: Runtime,
 }
 
 impl TestBackend {
@@ -125,11 +133,14 @@ impl TestBackend {
         let root_commit_id = CommitId::from_bytes(&[0; HASH_LENGTH]);
         let root_change_id = ChangeId::from_bytes(&[0; CHANGE_ID_LENGTH]);
         let empty_tree_id = TreeId::new(get_hash(&Tree::default()));
-        TestBackend {
+        let runtime = Runtime::new().unwrap();
+
+        Self {
             root_commit_id,
             root_change_id,
             empty_tree_id,
             data,
+            runtime,
         }
     }
 
@@ -139,6 +150,17 @@ impl TestBackend {
 
     pub fn remove_commit_unchecked(&self, id: &CommitId) {
         self.locked_data().commits.remove(id);
+    }
+
+    async fn run_async<R: Send + 'static>(
+        &self,
+        process: impl FnOnce(MutexGuard<TestBackendData>) -> R + Send + 'static,
+    ) -> R {
+        let data = self.data.clone();
+        self.runtime
+            .spawn(async move { process(data.lock().unwrap()) })
+            .await
+            .unwrap()
     }
 }
 
@@ -183,94 +205,177 @@ impl Backend for TestBackend {
         10
     }
 
-    async fn read_file(&self, path: &RepoPath, id: &FileId) -> BackendResult<Box<dyn Read>> {
-        match self
-            .locked_data()
-            .files
-            .get(path)
-            .and_then(|items| items.get(id))
-            .cloned()
-        {
-            None => Err(BackendError::ObjectNotFound {
-                object_type: "file".to_string(),
-                hash: id.hex(),
-                source: format!("at path {path:?}").into(),
-            }),
-            Some(contents) => Ok(Box::new(Cursor::new(contents))),
-        }
+    async fn read_file(
+        &self,
+        path: &RepoPath,
+        id: &FileId,
+    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
+        let path = path.to_owned();
+        let id = id.clone();
+        self.run_async(move |data| {
+            match data
+                .files
+                .get(&path)
+                .and_then(|items| items.get(&id))
+                .cloned()
+            {
+                None => Err(BackendError::ObjectNotFound {
+                    object_type: "file".to_string(),
+                    hash: id.hex(),
+                    source: format!("at path {path:?}").into(),
+                }),
+                Some(contents) => {
+                    let reader: Pin<Box<dyn AsyncRead + Send>> = Box::pin(Cursor::new(contents));
+                    Ok(reader)
+                }
+            }
+        })
+        .await
     }
 
     async fn write_file(
         &self,
         path: &RepoPath,
-        contents: &mut (dyn Read + Send),
+        contents: &mut (dyn AsyncRead + Send + Unpin),
     ) -> BackendResult<FileId> {
+        let path = path.to_owned();
         let mut bytes = Vec::new();
-        contents.read_to_end(&mut bytes).unwrap();
-        let id = FileId::new(get_hash(&bytes));
-        self.locked_data()
-            .files
-            .entry(path.to_owned())
-            .or_default()
-            .insert(id.clone(), bytes);
-        Ok(id)
+        contents.read_to_end(&mut bytes).await.unwrap();
+        self.run_async(move |mut data| {
+            let id = FileId::new(get_hash(&bytes));
+            data.files
+                .entry(path.clone())
+                .or_default()
+                .insert(id.clone(), bytes);
+            Ok(id)
+        })
+        .await
     }
 
     async fn read_symlink(&self, path: &RepoPath, id: &SymlinkId) -> BackendResult<String> {
-        match self
-            .locked_data()
-            .symlinks
-            .get(path)
-            .and_then(|items| items.get(id))
-            .cloned()
-        {
-            None => Err(BackendError::ObjectNotFound {
-                object_type: "symlink".to_string(),
-                hash: id.hex(),
-                source: format!("at path {path:?}").into(),
-            }),
-            Some(target) => Ok(target),
-        }
+        let path = path.to_owned();
+        let id = id.clone();
+        self.run_async(move |data| {
+            match data
+                .symlinks
+                .get(&path)
+                .and_then(|items| items.get(&id))
+                .cloned()
+            {
+                None => Err(BackendError::ObjectNotFound {
+                    object_type: "symlink".to_string(),
+                    hash: id.hex(),
+                    source: format!("at path {path:?}").into(),
+                }),
+                Some(target) => Ok(target),
+            }
+        })
+        .await
     }
 
     async fn write_symlink(&self, path: &RepoPath, target: &str) -> BackendResult<SymlinkId> {
         let id = SymlinkId::new(get_hash(target.as_bytes()));
-        self.locked_data()
-            .symlinks
-            .entry(path.to_owned())
-            .or_default()
-            .insert(id.clone(), target.to_string());
-        Ok(id)
+        let path = path.to_owned();
+        let target = target.to_owned();
+        self.run_async(move |mut data| {
+            data.symlinks
+                .entry(path)
+                .or_default()
+                .insert(id.clone(), target);
+            Ok(id)
+        })
+        .await
+    }
+
+    async fn read_copy(&self, id: &CopyId) -> BackendResult<CopyHistory> {
+        let id = id.clone();
+        self.run_async(move |data| {
+            let copy =
+                data.copies
+                    .get(&id)
+                    .cloned()
+                    .ok_or_else(|| BackendError::ObjectNotFound {
+                        object_type: "copy".to_string(),
+                        hash: id.hex(),
+                        source: "".into(),
+                    })?;
+            Ok(copy)
+        })
+        .await
+    }
+
+    async fn write_copy(&self, contents: &CopyHistory) -> BackendResult<CopyId> {
+        let contents = contents.clone();
+        self.run_async(move |mut data| {
+            let id = CopyId::new(get_hash(&contents));
+            data.copies.insert(id.clone(), contents);
+            Ok(id)
+        })
+        .await
+    }
+
+    async fn get_related_copies(&self, copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>> {
+        let copy_id = copy_id.clone();
+        self.run_async(move |data| {
+            let copies = &data.copies;
+            if !copies.contains_key(&copy_id) {
+                return Err(BackendError::ObjectNotFound {
+                    object_type: "copy history".to_string(),
+                    hash: copy_id.hex(),
+                    source: "".into(),
+                });
+            }
+            // Return all copy histories to test that the caller correctly ignores histories
+            // that are not relevant to the trees they're working with.
+            let mut histories = vec![];
+            for id in topo_order_reverse(
+                copies.keys(),
+                |id| *id,
+                |id| copies.get(*id).unwrap().parents.iter(),
+            ) {
+                histories.push(copies.get(id).unwrap().clone());
+            }
+            Ok(histories)
+        })
+        .await
     }
 
     async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> BackendResult<Tree> {
         if id == &self.empty_tree_id {
             return Ok(Tree::default());
         }
-        match self
-            .locked_data()
-            .trees
-            .get(path)
-            .and_then(|items| items.get(id))
-            .cloned()
-        {
-            None => Err(BackendError::ObjectNotFound {
-                object_type: "tree".to_string(),
-                hash: id.hex(),
-                source: format!("at path {path:?}").into(),
-            }),
-            Some(tree) => Ok(tree),
-        }
+        let path = path.to_owned();
+        let id = id.clone();
+        self.run_async(move |data| {
+            match data
+                .trees
+                .get(&path)
+                .and_then(|items| items.get(&id))
+                .cloned()
+            {
+                None => Err(BackendError::ObjectNotFound {
+                    object_type: "tree".to_string(),
+                    hash: id.hex(),
+                    source: format!("at path {path:?}").into(),
+                }),
+                Some(tree) => Ok(tree),
+            }
+        })
+        .await
     }
 
     async fn write_tree(&self, path: &RepoPath, contents: &Tree) -> BackendResult<TreeId> {
-        let id = TreeId::new(get_hash(contents));
-        self.locked_data()
-            .trees
-            .entry(path.to_owned())
-            .or_default()
-            .insert(id.clone(), contents.clone());
-        Ok(id)
+        let path = path.to_owned();
+        let contents = contents.clone();
+        self.run_async(move |mut data| {
+            let id = TreeId::new(get_hash(&contents));
+            data.trees
+                .entry(path.clone())
+                .or_default()
+                .insert(id.clone(), contents.clone());
+            Ok(id)
+        })
+        .await
     }
 
     fn read_conflict(&self, path: &RepoPath, id: &ConflictId) -> BackendResult<Conflict> {
@@ -307,14 +412,16 @@ impl Backend for TestBackend {
                 self.empty_tree_id.clone(),
             ));
         }
-        match self.locked_data().commits.get(id).cloned() {
+        let id = id.clone();
+        self.run_async(move |data| match data.commits.get(&id).cloned() {
             None => Err(BackendError::ObjectNotFound {
                 object_type: "commit".to_string(),
                 hash: id.hex(),
                 source: "".into(),
             }),
             Some(commit) => Ok(commit),
-        }
+        })
+        .await
     }
 
     async fn write_commit(
@@ -330,11 +437,12 @@ impl Backend for TestBackend {
             contents.secure_sig = Some(SecureSig { data, sig });
         }
 
-        let id = CommitId::new(get_hash(&contents));
-        self.locked_data()
-            .commits
-            .insert(id.clone(), contents.clone());
-        Ok((id, contents))
+        self.run_async(move |mut data| {
+            let id = CommitId::new(get_hash(&contents));
+            data.commits.insert(id.clone(), contents.clone());
+            Ok((id, contents))
+        })
+        .await
     }
 
     fn get_copy_records(
@@ -342,11 +450,56 @@ impl Backend for TestBackend {
         _paths: Option<&[RepoPathBuf]>,
         _root: &CommitId,
         _head: &CommitId,
-    ) -> BackendResult<BoxStream<BackendResult<CopyRecord>>> {
+    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
         Ok(Box::pin(stream::empty()))
     }
 
     fn gc(&self, _index: &dyn Index, _keep_newer: SystemTime) -> BackendResult<()> {
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use pollster::FutureExt as _;
+
+    use super::*;
+    use crate::repo_path_buf;
+
+    fn copy_history(path: &str, parents: &[CopyId]) -> CopyHistory {
+        CopyHistory {
+            current_path: repo_path_buf(path),
+            parents: parents.to_vec(),
+            salt: vec![],
+        }
+    }
+
+    #[test]
+    fn get_related_copies() {
+        let backend = TestBackend::with_data(Arc::new(Mutex::new(TestBackendData::default())));
+
+        // Test with a single chain so the resulting order is deterministic
+        let copy1 = copy_history("foo1", &[]);
+        let copy1_id = backend.write_copy(&copy1).block_on().unwrap();
+        let copy2 = copy_history("foo2", std::slice::from_ref(&copy1_id));
+        let copy2_id = backend.write_copy(&copy2).block_on().unwrap();
+        let copy3 = copy_history("foo3", std::slice::from_ref(&copy2_id));
+        let copy3_id = backend.write_copy(&copy3).block_on().unwrap();
+
+        // Error when looking up by non-existent id
+        assert!(
+            backend
+                .get_related_copies(&CopyId::from_hex("abcd"))
+                .block_on()
+                .is_err()
+        );
+
+        // Looking up by any id returns the related copies in the same order (children
+        // before parents)
+        let related = backend.get_related_copies(&copy1_id).block_on().unwrap();
+        assert_eq!(related, vec![copy3.clone(), copy2.clone(), copy1.clone()]);
+        let related: Vec<CopyHistory> = backend.get_related_copies(&copy3_id).block_on().unwrap();
+        assert_eq!(related, vec![copy3.clone(), copy2.clone(), copy1.clone()]);
     }
 }

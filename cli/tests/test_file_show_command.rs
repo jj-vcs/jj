@@ -68,10 +68,21 @@ fn test_show() {
     [EOF]
     ");
 
-    // Can print multiple files
-    let output = work_dir.run_jj(["file", "show", "."]);
+    // Can print a single file with template
+    let template = r#""--- " ++ path ++ "\n""#;
+    let output = work_dir.run_jj(["file", "show", "-T", template, "file1"]);
     insta::assert_snapshot!(output, @r"
+    --- file1
+    b
+    [EOF]
+    ");
+
+    // Can print multiple files with template
+    let output = work_dir.run_jj(["file", "show", "-T", template, "."]);
+    insta::assert_snapshot!(output, @r"
+    --- dir/file2
     c
+    --- file1
     b
     [EOF]
     ");
@@ -117,11 +128,15 @@ fn test_show_symlink() {
     work_dir.write_file("dir/file2", "c\n");
     std::os::unix::fs::symlink("symlink1_target", work_dir.root().join("symlink1")).unwrap();
 
-    // Can print multiple files
-    let output = work_dir.run_jj(["file", "show", "."]);
+    // Can print multiple files with template
+    let template = r#""--- " ++ path ++ " [" ++ file_type ++ "]\n""#;
+    let output = work_dir.run_jj(["file", "show", "-T", template, "."]);
     insta::assert_snapshot!(output, @r"
+    --- dir/file2 [file]
     c
+    --- file1 [file]
     a
+    --- symlink1 [symlink]
     [EOF]
     ------- stderr -------
     Warning: Path 'symlink1' exists but is not a file

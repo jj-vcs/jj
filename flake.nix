@@ -31,6 +31,8 @@
         ];
       };
 
+      packageVersion = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).workspace.package.version;
+
       filterSrc = src: regexes:
         pkgs.lib.cleanSourceWith {
           inherit src;
@@ -75,9 +77,6 @@
 
         # for git subprocess test
         git
-
-        # for schema tests
-        taplo
       ];
 
       env = {
@@ -90,7 +89,7 @@
       packages = {
         jujutsu = rustMinimalPlatform.buildRustPackage {
           pname = "jujutsu";
-          version = "unstable-${self.shortRev or "dirty"}";
+          version = "${packageVersion}-unstable-${self.shortRev or "dirty"}";
 
           cargoBuildFlags = ["--bin" "jj"]; # don't build and install the fake editors
           useNextest = true;
@@ -101,12 +100,6 @@
             "^flake\\.lock$"
             "^target/"
           ];
-
-          # Taplo requires SystemConfiguration access, as it unconditionally creates a
-          # reqwest client.
-          sandboxProfile = ''
-            (allow mach-lookup (global-name "com.apple.SystemConfiguration.configd"))
-          '';
 
           cargoLock.lockFile = ./Cargo.lock;
           nativeBuildInputs = nativeBuildInputs ++ [pkgs.installShellFiles];
@@ -174,6 +167,7 @@
           uv
           # nixos does not work with uv-installed python
           python3
+          python3Packages.numpy
         ];
 
         # on macOS and Linux, use faster parallel linkers that are much more

@@ -22,13 +22,14 @@ use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::workspace::Workspace;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::command_error::CommandError;
 use crate::command_error::internal_error_with_message;
 use crate::command_error::user_error;
-use crate::command_error::CommandError;
 use crate::ui::Ui;
 
 /// How to handle sparse patterns when creating a new workspace.
@@ -185,7 +186,7 @@ pub fn cmd_workspace_add(
             .try_collect()?
     };
 
-    let tree = merge_commit_trees(tx.repo(), &parents)?;
+    let tree = merge_commit_trees(tx.repo(), &parents).block_on()?;
     let parent_ids = parents.iter().ids().cloned().collect_vec();
     let new_wc_commit = tx.repo_mut().new_commit(parent_ids, tree.id()).write()?;
 

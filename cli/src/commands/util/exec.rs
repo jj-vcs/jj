@@ -12,10 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap_complete::ArgValueCompleter;
+use clap_complete::PathCompleter;
+
 use crate::cli_util::CommandHelper;
+use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
-use crate::command_error::CommandError;
 use crate::ui::Ui;
 
 /// Execute an external command via jj
@@ -50,7 +53,6 @@ use crate::ui::Ui;
 /// ```toml
 /// [aliases]
 /// my-inline-script = ["util", "exec", "--", "bash", "-c", """
-/// #!/usr/bin/env bash
 /// set -euo pipefail
 /// echo "Look Ma, everything in one file!"
 /// echo "args: $@"
@@ -59,12 +61,16 @@ use crate::ui::Ui;
 /// # This last empty string will become "$0" in bash, so your actual arguments
 /// # are all included in "$@" and start at "$1" as expected.
 /// ```
+///
+/// > Note: Shebangs (e.g. `#!/usr/bin/env`) aren't necessary since you're
+/// > already explicitly passing your script into the right shell.
 #[derive(clap::Args, Clone, Debug)]
 #[command(verbatim_doc_comment)]
 pub(crate) struct UtilExecArgs {
     /// External command to execute
     command: String,
     /// Arguments to pass to the external command
+    #[arg(add = ArgValueCompleter::new(PathCompleter::file()))]
     args: Vec<String>,
 }
 

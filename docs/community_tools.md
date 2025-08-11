@@ -68,6 +68,12 @@ VisualJJ is not open-source.
 
 Find it [here][visualjj].
 
+## Jujutsu UI
+
+jjui is a terminal user interface for working with Jujutsu version control system.
+
+Find it [here][jjui].
+
 <!-- TODO: Add benbrittains/cultivate when its ready -->
 ## Finding other integrations
 
@@ -85,3 +91,4 @@ You can find other community contributed tools and integrations in our
 [vjj]: https://github.com/noahmayr/vjj
 [visualjj]: https://www.visualjj.com
 [Wiki]: https://github.com/jj-vcs/jj/wiki
+[jjui]: https://github.com/idursun/jjui

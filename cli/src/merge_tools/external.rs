@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::io;
 use std::io::Write;
+use std::path::Path;
 use std::process::Command;
 use std::process::ExitStatus;
 use std::process::Stdio;
@@ -8,13 +9,14 @@ use std::sync::Arc;
 
 use bstr::BString;
 use itertools::Itertools as _;
+use jj_lib::backend::CopyId;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::conflicts;
-use jj_lib::conflicts::choose_materialized_conflict_marker_len;
-use jj_lib::conflicts::materialize_merge_result_to_bytes_with_marker_len;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN;
+use jj_lib::conflicts::choose_materialized_conflict_marker_len;
+use jj_lib::conflicts::materialize_merge_result_to_bytes_with_marker_len;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Merge;
@@ -26,19 +28,19 @@ use jj_lib::working_copy::CheckoutOptions;
 use pollster::FutureExt as _;
 use thiserror::Error;
 
-use super::diff_working_copies::check_out_trees;
-use super::diff_working_copies::new_utf8_temp_dir;
-use super::diff_working_copies::set_readonly_recursively;
-use super::diff_working_copies::DiffEditWorkingCopies;
-use super::diff_working_copies::DiffSide;
 use super::ConflictResolveError;
 use super::DiffEditError;
 use super::DiffGenerateError;
 use super::MergeToolFile;
 use super::MergeToolPartialResolutionError;
+use super::diff_working_copies::DiffEditWorkingCopies;
+use super::diff_working_copies::DiffSide;
+use super::diff_working_copies::check_out_trees;
+use super::diff_working_copies::new_utf8_temp_dir;
+use super::diff_working_copies::set_readonly_recursively;
+use crate::config::CommandNameAndArgs;
 use crate::config::find_all_variables;
 use crate::config::interpolate_variables;
-use crate::config::CommandNameAndArgs;
 use crate::ui::Ui;
 
 /// Merge/diff tool loaded from the settings.
@@ -56,6 +58,8 @@ pub struct ExternalMergeTool {
     /// Whether to execute the tool with a pair of directories or individual
     /// files.
     pub diff_invocation_mode: DiffToolMode,
+    /// Whether to execute the tool in the temporary diff directory
+    pub diff_do_chdir: bool,
     /// Arguments to pass to the program when editing diffs.
     /// `$left` and `$right` are replaced with the corresponding directories.
     pub edit_args: Vec<String>,
@@ -110,6 +114,7 @@ impl Default for ExternalMergeTool {
             merge_conflict_exit_codes: vec![],
             merge_tool_edits_conflict_markers: false,
             conflict_marker_style: None,
+            diff_do_chdir: true,
             diff_invocation_mode: DiffToolMode::Dir,
         }
     }
@@ -313,7 +318,11 @@ fn run_mergetool_external_single_file(
     let new_tree_value = match new_file_ids.into_resolved() {
         Ok(file_id) => {
             let executable = file.executable.expect("should have been resolved");
-            Merge::resolved(file_id.map(|id| TreeValue::File { id, executable }))
+            Merge::resolved(file_id.map(|id| TreeValue::File {
+                id,
+                executable,
+                copy_id: CopyId::placeholder(),
+            }))
         }
         // Update the file ids only, leaving the executable flags unchanged
         Err(file_ids) => conflict.with_new_file_ids(&file_ids),
@@ -395,7 +404,7 @@ pub fn edit_diff_external(
         &options,
     )?;
 
-    let patterns = diffedit_wc.working_copies.to_command_variables();
+    let patterns = diffedit_wc.working_copies.to_command_variables(false);
     let mut cmd = Command::new(&editor.program);
     cmd.args(interpolate_variables(&editor.edit_args, &patterns));
     tracing::info!(?cmd, "Invoking the external diff editor:");
@@ -436,7 +445,13 @@ pub fn generate_diff(
         .map_err(ExternalToolError::SetUpDir)?;
     set_readonly_recursively(diff_wc.right_working_copy_path())
         .map_err(ExternalToolError::SetUpDir)?;
-    invoke_external_diff(ui, writer, tool, &diff_wc.to_command_variables())
+    invoke_external_diff(
+        ui,
+        writer,
+        tool,
+        diff_wc.temp_dir(),
+        &diff_wc.to_command_variables(true),
+    )
 }
 
 /// Invokes the specified `tool` directing its output into `writer`.
@@ -444,11 +459,32 @@ pub fn invoke_external_diff(
     ui: &Ui,
     writer: &mut dyn Write,
     tool: &ExternalMergeTool,
+    diff_dir: &Path,
     patterns: &HashMap<&str, &str>,
 ) -> Result<(), DiffGenerateError> {
     // TODO: Somehow propagate --color to the external command?
     let mut cmd = Command::new(&tool.program);
-    cmd.args(interpolate_variables(&tool.diff_args, patterns));
+    let mut patterns = patterns.clone();
+    let absolute_left_path = Path::new(diff_dir).join(patterns["left"]);
+    let absolute_right_path = Path::new(diff_dir).join(patterns["right"]);
+    if !tool.diff_do_chdir {
+        patterns.insert(
+            "left",
+            absolute_left_path
+                .to_str()
+                .expect("temp_dir should be valid utf-8"),
+        );
+        patterns.insert(
+            "right",
+            absolute_right_path
+                .to_str()
+                .expect("temp_dir should be valid utf-8"),
+        );
+    } else {
+        cmd.current_dir(diff_dir);
+    }
+    cmd.args(interpolate_variables(&tool.diff_args, &patterns));
+
     tracing::info!(?cmd, "Invoking the external diff generator:");
     let mut child = cmd
         .stdin(Stdio::null())

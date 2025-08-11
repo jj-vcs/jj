@@ -14,27 +14,25 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::sync::Arc;
 
-use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeId;
-use jj_lib::fix::fix_files;
 use jj_lib::fix::FileFixer;
 use jj_lib::fix::FileToFix;
 use jj_lib::fix::FixError;
 use jj_lib::fix::ParallelFileFixer;
+use jj_lib::fix::fix_files;
 use jj_lib::matchers::EverythingMatcher;
-use jj_lib::merged_tree::MergedTree;
-use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use pollster::FutureExt as _;
-use testutils::create_tree;
-use testutils::repo_path;
 use testutils::TestRepo;
+use testutils::create_tree;
+use testutils::create_tree_with;
+use testutils::read_file;
+use testutils::repo_path;
 use thiserror::Error;
 
 struct TestFileFixer {}
@@ -76,11 +74,7 @@ fn make_fix_content_error(message: &str) -> FixError {
 // changed to uppercase and the new file id is returned. If the file starts with
 // "error", an error is raised. Otherwise returns None.
 fn fix_file(store: &Store, file_to_fix: &FileToFix) -> Result<Option<FileId>, FixError> {
-    let mut old_content = vec![];
-    let mut read = store
-        .read_file(&file_to_fix.repo_path, &file_to_fix.file_id)
-        .unwrap();
-    read.read_to_end(&mut old_content).unwrap();
+    let old_content = read_file(store, &file_to_fix.repo_path, &file_to_fix.file_id);
 
     if let Some(rest) = old_content.strip_prefix(b"fixme:") {
         let new_content = rest.to_ascii_uppercase();
@@ -94,17 +88,6 @@ fn fix_file(store: &Store, file_to_fix: &FileToFix) -> Result<Option<FileId>, Fi
     } else {
         Ok(None)
     }
-}
-
-fn create_tree_helper(
-    repo: &Arc<ReadonlyRepo>,
-    path_and_content: &[(String, String)],
-) -> MergedTree {
-    let content_map = path_and_content
-        .iter()
-        .map(|p| (repo_path(&p.0), p.1.as_str()))
-        .collect_vec();
-    create_tree(repo, &content_map)
 }
 
 fn create_commit(tx: &mut Transaction, parents: Vec<CommitId>, tree_id: MergedTreeId) -> CommitId {
@@ -141,6 +124,7 @@ fn test_fix_one_file() {
         tx.repo_mut(),
         &mut file_fixer,
     )
+    .block_on()
     .unwrap();
 
     let expected_tree_a = create_tree(repo, &[(path1, "CONTENT")]);
@@ -181,6 +165,7 @@ fn test_fixer_does_not_change_content() {
         tx.repo_mut(),
         &mut file_fixer,
     )
+    .block_on()
     .unwrap();
 
     assert!(summary.rewrites.is_empty());
@@ -212,6 +197,7 @@ fn test_empty_commit() {
         tx.repo_mut(),
         &mut file_fixer,
     )
+    .block_on()
     .unwrap();
 
     assert!(summary.rewrites.is_empty());
@@ -243,7 +229,8 @@ fn test_fixer_fails() {
         include_unchanged_files,
         tx.repo_mut(),
         &mut file_fixer,
-    );
+    )
+    .block_on();
 
     let error = result.err().unwrap();
     assert_eq!(error.to_string(), "Forced failure: boo");
@@ -277,6 +264,7 @@ fn test_unchanged_file_is_not_fixed() {
         tx.repo_mut(),
         &mut file_fixer,
     )
+    .block_on()
     .unwrap();
 
     assert!(summary.rewrites.is_empty());
@@ -311,6 +299,7 @@ fn test_unchanged_file_is_fixed() {
         tx.repo_mut(),
         &mut file_fixer,
     )
+    .block_on()
     .unwrap();
 
     let expected_tree_b = create_tree(repo, &[(path1, "CONTENT")]);
@@ -355,6 +344,7 @@ fn test_already_fixed_descendant() {
         tx.repo_mut(),
         &mut file_fixer,
     )
+    .block_on()
     .unwrap();
 
     assert_eq!(summary.rewrites.len(), 2);
@@ -400,6 +390,7 @@ fn test_parallel_fixer_basic() {
         tx.repo_mut(),
         &mut parallel_fixer,
     )
+    .block_on()
     .unwrap();
 
     let expected_tree_a = create_tree(repo, &[(path1, "CONTENT")]);
@@ -421,13 +412,11 @@ fn test_parallel_fixer_fixes_files() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut path_contents1 = vec![];
-    for i in 0..100 {
-        let path = format!("file{i}");
-        let content = format!("fixme:content{i}");
-        path_contents1.push((path, content));
-    }
-    let tree1 = create_tree_helper(repo, &path_contents1);
+    let tree1 = create_tree_with(repo, |builder| {
+        for i in 0..100 {
+            builder.file(repo_path(&format!("file{i}")), format!("fixme:content{i}"));
+        }
+    });
     let commit_a = create_commit(
         &mut tx,
         vec![repo.store().root_commit_id().clone()],
@@ -445,15 +434,14 @@ fn test_parallel_fixer_fixes_files() {
         tx.repo_mut(),
         &mut parallel_fixer,
     )
+    .block_on()
     .unwrap();
 
-    let mut expected_path_contents = vec![];
-    for i in 0..100 {
-        let path = format!("file{i}");
-        let content = format!("CONTENT{i}");
-        expected_path_contents.push((path, content));
-    }
-    let expected_tree_a = create_tree_helper(repo, &expected_path_contents);
+    let expected_tree_a = create_tree_with(repo, |builder| {
+        for i in 0..100 {
+            builder.file(repo_path(&format!("file{i}")), format!("CONTENT{i}"));
+        }
+    });
 
     assert_eq!(summary.rewrites.len(), 1);
     assert!(summary.rewrites.contains_key(&commit_a));
@@ -473,13 +461,11 @@ fn test_parallel_fixer_does_not_change_content() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut path_contents1 = vec![];
-    for i in 0..100 {
-        let path = format!("file{i}");
-        let content = format!("content{i}");
-        path_contents1.push((path, content));
-    }
-    let tree1 = create_tree_helper(repo, &path_contents1);
+    let tree1 = create_tree_with(repo, |builder| {
+        for i in 0..100 {
+            builder.file(repo_path(&format!("file{i}")), format!("content{i}"));
+        }
+    });
     let commit_a = create_commit(
         &mut tx,
         vec![repo.store().root_commit_id().clone()],
@@ -497,6 +483,7 @@ fn test_parallel_fixer_does_not_change_content() {
         tx.repo_mut(),
         &mut parallel_fixer,
     )
+    .block_on()
     .unwrap();
 
     assert!(summary.rewrites.is_empty());
@@ -510,19 +497,19 @@ fn test_parallel_fixer_no_changes_upon_partial_failure() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let mut path_contents1 = vec![];
-    for i in 0..100 {
-        let path = format!("file{i}");
-        let content = if i == 7 {
-            format!("error:boo{i}")
-        } else if i % 3 == 0 {
-            format!("fixme:content{i}")
-        } else {
-            format!("foobar:{i}")
-        };
-        path_contents1.push((path, content));
-    }
-    let tree1 = create_tree_helper(repo, &path_contents1);
+    let tree1 = create_tree_with(repo, |builder| {
+        for i in 0..100 {
+            let contents = if i == 7 {
+                format!("error:boo{i}")
+            } else if i % 3 == 0 {
+                format!("fixme:content{i}")
+            } else {
+                format!("foobar:{i}")
+            };
+
+            builder.file(repo_path(&format!("file{i}")), &contents);
+        }
+    });
     let commit_a = create_commit(
         &mut tx,
         vec![repo.store().root_commit_id().clone()],
@@ -539,7 +526,8 @@ fn test_parallel_fixer_no_changes_upon_partial_failure() {
         include_unchanged_files,
         tx.repo_mut(),
         &mut parallel_fixer,
-    );
+    )
+    .block_on();
     let error = result.err().unwrap();
     assert_eq!(error.to_string(), "Forced failure: boo7");
 }
@@ -586,6 +574,7 @@ fn test_fix_multiple_revisions() {
         tx.repo_mut(),
         &mut file_fixer,
     )
+    .block_on()
     .unwrap();
 
     let expected_tree_a = create_tree(repo, &[(path1, "XYZ")]);

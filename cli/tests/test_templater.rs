@@ -33,7 +33,7 @@ fn test_templater_parse_error() {
     1 | description ()
       |             ^---
       |
-      = expected <EOI>, `++`, `||`, `&&`, `==`, `!=`, `>=`, `>`, `<=`, or `<`
+      = expected <EOI>, `++`, `||`, `&&`, `==`, `!=`, `>=`, `>`, `<=`, `<`, `+`, `-`, `*`, `/`, or `%`
     [EOF]
     [exit status: 1]
     ");
@@ -63,13 +63,13 @@ fn test_templater_parse_error() {
     ");
     insta::assert_snapshot!(render(r#"commit_id.shorter()"#), @r"
     ------- stderr -------
-    Error: Failed to parse template: Method `shorter` doesn't exist for type `CommitOrChangeId`
+    Error: Failed to parse template: Method `shorter` doesn't exist for type `CommitId`
     Caused by:  --> 1:11
       |
     1 | commit_id.shorter()
       |           ^-----^
       |
-      = Method `shorter` doesn't exist for type `CommitOrChangeId`
+      = Method `shorter` doesn't exist for type `CommitId`
     Hint: Did you mean `short`, `shortest`?
     [EOF]
     [exit status: 1]
@@ -115,7 +115,7 @@ fn test_templater_parse_error() {
     1 | id.sort()
       |    ^--^
       |
-      = Method `sort` doesn't exist for type `CommitOrChangeId`
+      = Method `sort` doesn't exist for type `CommitId`
     Hint: Did you mean `short`, `shortest`?
     [EOF]
     [exit status: 1]
@@ -146,7 +146,7 @@ fn test_templater_parse_error() {
       | ^-----^
       |
       = Keyword `builtin` doesn't exist
-    Hint: Did you mean `builtin_config_list`, `builtin_config_list_detailed`, `builtin_draft_commit_description`, `builtin_log_comfortable`, `builtin_log_compact`, `builtin_log_compact_full_description`, `builtin_log_detailed`, `builtin_log_node`, `builtin_log_node_ascii`, `builtin_log_oneline`, `builtin_op_log_comfortable`, `builtin_op_log_compact`, `builtin_op_log_node`, `builtin_op_log_node_ascii`, `builtin_op_log_oneline`?
+    Hint: Did you mean `builtin_config_list`, `builtin_config_list_detailed`, `builtin_draft_commit_description`, `builtin_log_comfortable`, `builtin_log_compact`, `builtin_log_compact_full_description`, `builtin_log_detailed`, `builtin_log_node`, `builtin_log_node_ascii`, `builtin_log_oneline`, `builtin_log_redacted`, `builtin_op_log_comfortable`, `builtin_op_log_compact`, `builtin_op_log_node`, `builtin_op_log_node_ascii`, `builtin_op_log_oneline`, `builtin_op_log_redacted`?
     [EOF]
     [exit status: 1]
     ");
@@ -216,6 +216,8 @@ fn test_templater_alias() {
     'deprecated()' = 'author.username()'
     'builtin_log_node' = '"#"'
     'builtin_op_log_node' = '"#"'
+    'builtin_log_node_ascii' = '"#"'
+    'builtin_op_log_node_ascii' = '"#"'
     "###,
     );
 

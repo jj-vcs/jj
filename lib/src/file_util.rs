@@ -14,18 +14,28 @@
 
 #![allow(missing_docs)]
 
+use std::borrow::Cow;
+use std::ffi::OsString;
 use std::fs;
 use std::fs::File;
 use std::io;
+use std::io::Read;
+use std::io::Write;
 use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
+use std::pin::Pin;
+use std::task::Poll;
 
 use tempfile::NamedTempFile;
 use tempfile::PersistError;
 use thiserror::Error;
+use tokio::io::AsyncRead;
+use tokio::io::AsyncReadExt as _;
+use tokio::io::ReadBuf;
 
-pub use self::platform::*;
+pub use self::platform::check_symlink_support;
+pub use self::platform::try_symlink;
 
 #[derive(Debug, Error)]
 #[error("Cannot access {path}")]
@@ -71,6 +81,30 @@ pub fn remove_dir_contents(dirname: &Path) -> Result<(), PathError> {
         fs::remove_file(&path).context(&path)?;
     }
     Ok(())
+}
+
+#[derive(Debug, Error)]
+#[error(transparent)]
+pub struct BadPathEncoding(platform::BadOsStrEncoding);
+
+/// Constructs [`Path`] from `bytes` in platform-specific manner.
+///
+/// On Unix, this function never fails because paths are just bytes. On Windows,
+/// this may return error if the input wasn't well-formed UTF-8.
+pub fn path_from_bytes(bytes: &[u8]) -> Result<&Path, BadPathEncoding> {
+    let s = platform::os_str_from_bytes(bytes).map_err(BadPathEncoding)?;
+    Ok(Path::new(s))
+}
+
+/// Converts `path` to bytes in platform-specific manner.
+///
+/// On Unix, this function never fails because paths are just bytes. On Windows,
+/// this may return error if the input wasn't well-formed UTF-8.
+///
+/// The returned byte sequence can be considered a superset of ASCII (such as
+/// UTF-8 bytes.)
+pub fn path_to_bytes(path: &Path) -> Result<&[u8], BadPathEncoding> {
+    platform::os_str_to_bytes(path.as_ref()).map_err(BadPathEncoding)
 }
 
 /// Expands "~/" to "$HOME/".
@@ -131,6 +165,32 @@ pub fn normalize_path(path: &Path) -> PathBuf {
     }
 }
 
+/// Converts the given `path` to Unix-like path separated by "/".
+///
+/// The returned path might not work on Windows if it was canonicalized. On
+/// Unix, this function is noop.
+pub fn slash_path(path: &Path) -> Cow<'_, Path> {
+    if cfg!(windows) {
+        Cow::Owned(to_slash_separated(path).into())
+    } else {
+        Cow::Borrowed(path)
+    }
+}
+
+fn to_slash_separated(path: &Path) -> OsString {
+    let mut buf = OsString::with_capacity(path.as_os_str().len());
+    let mut components = path.components();
+    match components.next() {
+        Some(c) => buf.push(c),
+        None => return buf,
+    }
+    for c in components {
+        buf.push("/");
+        buf.push(c);
+    }
+    buf
+}
+
 /// Like `NamedTempFile::persist()`, but doesn't try to overwrite the existing
 /// target on Windows.
 pub fn persist_content_addressed_temp_file<P: AsRef<Path>>(
@@ -162,11 +222,70 @@ pub fn persist_content_addressed_temp_file<P: AsRef<Path>>(
     }
 }
 
+/// Reads from an async source and writes to a sync destination. Does not spawn
+/// a task, so writes will block.
+pub async fn copy_async_to_sync<R: AsyncRead, W: Write + ?Sized>(
+    reader: R,
+    writer: &mut W,
+) -> io::Result<usize> {
+    let mut buf = vec![0; 16 << 10];
+    let mut total_written_bytes = 0;
+
+    let mut reader = std::pin::pin!(reader);
+    loop {
+        let written_bytes = reader.read(&mut buf).await?;
+        if written_bytes == 0 {
+            return Ok(total_written_bytes);
+        }
+        writer.write_all(&buf[0..written_bytes])?;
+        total_written_bytes += written_bytes;
+    }
+}
+
+/// `AsyncRead`` implementation backed by a `Read`. It is not actually async;
+/// the goal is simply to avoid reading the full contents from the `Read` into
+/// memory.
+pub struct BlockingAsyncReader<R> {
+    reader: R,
+}
+
+impl<R: Read + Unpin> BlockingAsyncReader<R> {
+    /// Creates a new `BlockingAsyncReader`
+    pub fn new(reader: R) -> Self {
+        Self { reader }
+    }
+}
+
+impl<R: Read + Unpin> AsyncRead for BlockingAsyncReader<R> {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        let num_bytes_read = self.reader.read(buf.initialize_unfilled())?;
+        buf.advance(num_bytes_read);
+        Poll::Ready(Ok(()))
+    }
+}
+
 #[cfg(unix)]
 mod platform {
+    use std::convert::Infallible;
+    use std::ffi::OsStr;
     use std::io;
+    use std::os::unix::ffi::OsStrExt as _;
     use std::os::unix::fs::symlink;
     use std::path::Path;
+
+    pub type BadOsStrEncoding = Infallible;
+
+    pub fn os_str_from_bytes(data: &[u8]) -> Result<&OsStr, BadOsStrEncoding> {
+        Ok(OsStr::from_bytes(data))
+    }
+
+    pub fn os_str_to_bytes(data: &OsStr) -> Result<&[u8], BadOsStrEncoding> {
+        Ok(data.as_bytes())
+    }
 
     /// Symlinks are always available on UNIX
     pub fn check_symlink_support() -> io::Result<bool> {
@@ -184,8 +303,12 @@ mod platform {
     use std::os::windows::fs::symlink_file;
     use std::path::Path;
 
-    use winreg::enums::HKEY_LOCAL_MACHINE;
     use winreg::RegKey;
+    use winreg::enums::HKEY_LOCAL_MACHINE;
+
+    pub use super::fallback::BadOsStrEncoding;
+    pub use super::fallback::os_str_from_bytes;
+    pub use super::fallback::os_str_to_bytes;
 
     /// Symlinks may or may not be enabled on Windows. They require the
     /// Developer Mode setting, which is stored in the registry key below.
@@ -208,14 +331,57 @@ mod platform {
     }
 }
 
+#[cfg_attr(unix, allow(dead_code))]
+mod fallback {
+    use std::ffi::OsStr;
+    use std::str;
+
+    use thiserror::Error;
+
+    // Define error per platform so we can explicitly say UTF-8 is expected.
+    #[derive(Debug, Error)]
+    #[error("Invalid UTF-8 sequence")]
+    pub struct BadOsStrEncoding;
+
+    pub fn os_str_from_bytes(data: &[u8]) -> Result<&OsStr, BadOsStrEncoding> {
+        Ok(str::from_utf8(data).map_err(|_| BadOsStrEncoding)?.as_ref())
+    }
+
+    pub fn os_str_to_bytes(data: &OsStr) -> Result<&[u8], BadOsStrEncoding> {
+        Ok(data.to_str().ok_or(BadOsStrEncoding)?.as_ref())
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::io::Cursor;
     use std::io::Write as _;
 
+    use itertools::Itertools as _;
+    use pollster::FutureExt as _;
     use test_case::test_case;
 
     use super::*;
     use crate::tests::new_temp_dir;
+
+    #[test]
+    fn test_path_bytes_roundtrip() {
+        let bytes = b"ascii";
+        let path = path_from_bytes(bytes).unwrap();
+        assert_eq!(path_to_bytes(path).unwrap(), bytes);
+
+        let bytes = b"utf-8.\xc3\xa0";
+        let path = path_from_bytes(bytes).unwrap();
+        assert_eq!(path_to_bytes(path).unwrap(), bytes);
+
+        let bytes = b"latin1.\xe0";
+        if cfg!(unix) {
+            let path = path_from_bytes(bytes).unwrap();
+            assert_eq!(path_to_bytes(path).unwrap(), bytes);
+        } else {
+            assert!(path_from_bytes(bytes).is_err());
+        }
+    }
 
     #[test]
     fn normalize_too_many_dot_dot() {
@@ -228,6 +394,30 @@ mod tests {
         assert_eq!(
             normalize_path(Path::new("foo/../../../bar/baz/..")),
             Path::new("../../bar")
+        );
+    }
+
+    #[test]
+    fn test_slash_path() {
+        assert_eq!(slash_path(Path::new("")), Path::new(""));
+        assert_eq!(slash_path(Path::new("foo")), Path::new("foo"));
+        assert_eq!(slash_path(Path::new("foo/bar")), Path::new("foo/bar"));
+        assert_eq!(slash_path(Path::new("foo/bar/..")), Path::new("foo/bar/.."));
+        assert_eq!(
+            slash_path(Path::new(r"foo\bar")),
+            if cfg!(windows) {
+                Path::new("foo/bar")
+            } else {
+                Path::new(r"foo\bar")
+            }
+        );
+        assert_eq!(
+            slash_path(Path::new(r"..\foo\bar")),
+            if cfg!(windows) {
+                Path::new("../foo/bar")
+            } else {
+                Path::new(r"..\foo\bar")
+            }
         );
     }
 
@@ -255,5 +445,56 @@ mod tests {
         }
 
         assert!(persist_content_addressed_temp_file(temp_file, &target).is_ok());
+    }
+
+    #[test]
+    fn test_copy_async_to_sync_small() {
+        let input = b"hello";
+        let mut output = vec![];
+
+        let result = copy_async_to_sync(Cursor::new(&input), &mut output).block_on();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 5);
+        assert_eq!(output, input);
+    }
+
+    #[test]
+    fn test_copy_async_to_sync_large() {
+        // More than 1 buffer worth of data
+        let input = (0..100u8).cycle().take(40000).collect_vec();
+        let mut output = vec![];
+
+        let result = copy_async_to_sync(Cursor::new(&input), &mut output).block_on();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 40000);
+        assert_eq!(output, input);
+    }
+
+    #[test]
+    fn test_blocking_async_reader() {
+        let input = b"hello";
+        let sync_reader = Cursor::new(&input);
+        let mut async_reader = BlockingAsyncReader::new(sync_reader);
+
+        let mut buf = [0u8; 3];
+        let num_bytes_read = async_reader.read(&mut buf).block_on().unwrap();
+        assert_eq!(num_bytes_read, 3);
+        assert_eq!(&buf, &input[0..3]);
+
+        let num_bytes_read = async_reader.read(&mut buf).block_on().unwrap();
+        assert_eq!(num_bytes_read, 2);
+        assert_eq!(&buf[0..2], &input[3..5]);
+    }
+
+    #[test]
+    fn test_blocking_async_reader_read_to_end() {
+        let input = b"hello";
+        let sync_reader = Cursor::new(&input);
+        let mut async_reader = BlockingAsyncReader::new(sync_reader);
+
+        let mut buf = vec![];
+        let num_bytes_read = async_reader.read_to_end(&mut buf).block_on().unwrap();
+        assert_eq!(num_bytes_read, input.len());
+        assert_eq!(&buf, &input);
     }
 }

@@ -74,7 +74,7 @@ pub(crate) fn cmd_file_list(
         };
         workspace_command
             .parse_template(ui, &language, &text)?
-            .labeled("file_list")
+            .labeled(["file_list"])
     };
 
     ui.request_pager();

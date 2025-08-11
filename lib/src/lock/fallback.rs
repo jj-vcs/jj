@@ -58,7 +58,7 @@ impl Iterator for BackoffIterator {
 // Suppress warning on platforms where specialized lock impl is available
 #[cfg_attr(unix, allow(dead_code))]
 impl FileLock {
-    pub fn lock(path: PathBuf) -> Result<FileLock, FileLockError> {
+    pub fn lock(path: PathBuf) -> Result<Self, FileLockError> {
         let mut options = OpenOptions::new();
         options.create_new(true);
         options.write(true);
@@ -66,7 +66,7 @@ impl FileLock {
         loop {
             match options.open(&path) {
                 Ok(file) => {
-                    return Ok(FileLock { path, _file: file });
+                    return Ok(Self { path, _file: file });
                 }
                 Err(err)
                     if err.kind() == std::io::ErrorKind::AlreadyExists
@@ -88,7 +88,7 @@ impl FileLock {
                         message: "Failed to create lock file",
                         path,
                         err,
-                    })
+                    });
                 }
             }
         }

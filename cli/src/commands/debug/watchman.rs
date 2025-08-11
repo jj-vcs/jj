@@ -27,8 +27,8 @@ use jj_lib::fsmonitor::WatchmanConfig;
 use jj_lib::local_working_copy::LocalWorkingCopy;
 
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::ui::Ui;
 
 #[derive(Subcommand, Clone, Debug)]
@@ -59,10 +59,11 @@ pub fn cmd_debug_watchman(
             // TODO(ilyagr): It would be nice to add colors here
             let config = match workspace_command.settings().fsmonitor_settings()? {
                 FsmonitorSettings::Watchman(config) => {
-                    writeln!(ui.stdout(), "Watchman is enabled via `core.fsmonitor`.")?;
+                    writeln!(ui.stdout(), "Watchman is enabled via `fsmonitor.backend`.")?;
                     writeln!(
                         ui.stdout(),
-                        r"Background snapshotting is {}. Use `core.watchman.register-snapshot-trigger` to control it.",
+                        r"Background snapshotting is {}. Use \
+                          `fsmonitor.watchman.register-snapshot-trigger` to control it.",
                         if config.register_trigger {
                             "enabled"
                         } else {
@@ -74,7 +75,7 @@ pub fn cmd_debug_watchman(
                 FsmonitorSettings::None => {
                     writeln!(
                         ui.stdout(),
-                        r#"Watchman is disabled. Set `core.fsmonitor="watchman"` to enable."#
+                        r#"Watchman is disabled. Set `fsmonitor.backend="watchman"` to enable."#
                     )?;
                     writeln!(
                         ui.stdout(),
@@ -85,7 +86,7 @@ pub fn cmd_debug_watchman(
                 other_fsmonitor => {
                     return Err(user_error(format!(
                         r"This command does not support the currently enabled filesystem monitor: {other_fsmonitor:?}."
-                    )))
+                    )));
                 }
             };
             let wc = check_local_disk_wc(workspace_command.working_copy().as_any())?;

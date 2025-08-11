@@ -33,6 +33,25 @@ impl ContentHash for () {
     fn hash(&self, _: &mut impl DigestUpdate) {}
 }
 
+macro_rules! tuple_impls {
+    ($( ( $($n:tt $T:ident),+ ) )+) => {
+        $(
+            impl<$($T: ContentHash,)+> ContentHash for ($($T,)+) {
+                fn hash(&self, state: &mut impl DigestUpdate) {
+                    $(self.$n.hash(state);)+
+                }
+            }
+        )+
+    }
+}
+
+tuple_impls! {
+    (0 T0)
+    (0 T0, 1 T1)
+    (0 T0, 1 T1, 2 T2)
+    (0 T0, 1 T1, 2 T2, 3 T3)
+}
+
 impl ContentHash for bool {
     fn hash(&self, state: &mut impl DigestUpdate) {
         u8::from(*self).hash(state);
@@ -157,6 +176,7 @@ mod tests {
     use std::collections::HashMap;
 
     use super::*;
+    use crate::hex_util;
 
     #[test]
     fn test_string_sanity() {
@@ -192,6 +212,22 @@ mod tests {
     }
 
     #[test]
+    fn test_tuple_sanity() {
+        #[derive(ContentHash)]
+        struct T1(i32);
+        #[derive(ContentHash)]
+        struct T2(i32, i32);
+        #[derive(ContentHash)]
+        struct T3(i32, i32, i32);
+        #[derive(ContentHash)]
+        struct T4(i32, i32, i32, i32);
+        assert_eq!(hash(&T1(0)), hash(&(0,)));
+        assert_eq!(hash(&T2(0, 1)), hash(&(0, 1)));
+        assert_eq!(hash(&T3(0, 1, 2)), hash(&(0, 1, 2)));
+        assert_eq!(hash(&T4(0, 1, 2, 3)), hash(&(0, 1, 2, 3)));
+    }
+
+    #[test]
     fn test_struct_sanity() {
         #[derive(ContentHash)]
         struct Foo {
@@ -221,7 +257,7 @@ mod tests {
             x: Vec<Option<i32>>,
             y: i64,
         }
-        let foo_hash = hex::encode(hash(&Foo {
+        let foo_hash = hex_util::encode_hex(&hash(&Foo {
             x: vec![None, Some(42)],
             y: 17,
         }));
@@ -237,7 +273,7 @@ mod tests {
             y: Y,
         }
         assert_eq!(
-            hex::encode(hash(&GenericFoo {
+            hex_util::encode_hex(&hash(&GenericFoo {
                 x: vec![None, Some(42)],
                 y: 17i64
             })),

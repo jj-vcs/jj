@@ -15,22 +15,25 @@
 #![allow(missing_docs)]
 
 use std::io;
-use std::io::Read;
 use std::io::Write;
 use std::iter::zip;
+use std::pin::Pin;
 
 use bstr::BString;
 use bstr::ByteSlice as _;
-use futures::stream::BoxStream;
-use futures::try_join;
 use futures::Stream;
 use futures::StreamExt as _;
+use futures::stream::BoxStream;
+use futures::try_join;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
+use tokio::io::AsyncRead;
+use tokio::io::AsyncReadExt as _;
 
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::CommitId;
+use crate::backend::CopyId;
 use crate::backend::FileId;
 use crate::backend::SymlinkId;
 use crate::backend::TreeId;
@@ -97,11 +100,11 @@ async fn get_file_contents(
 ) -> BackendResult<BString> {
     match term {
         Some(id) => {
+            let mut reader = store.read_file(path, id).await?;
             let mut content = vec![];
-            store
-                .read_file_async(path, id)
-                .await?
+            reader
                 .read_to_end(&mut content)
+                .await
                 .map_err(|err| BackendError::ReadFile {
                     path: path.to_owned(),
                     id: id.clone(),
@@ -140,7 +143,7 @@ pub enum MaterializedTreeValue {
 
 impl MaterializedTreeValue {
     pub fn is_absent(&self) -> bool {
-        matches!(self, MaterializedTreeValue::Absent)
+        matches!(self, Self::Absent)
     }
 
     pub fn is_present(&self) -> bool {
@@ -152,16 +155,18 @@ impl MaterializedTreeValue {
 pub struct MaterializedFileValue {
     pub id: FileId,
     pub executable: bool,
-    pub reader: Box<dyn Read>,
+    pub copy_id: CopyId,
+    pub reader: Pin<Box<dyn AsyncRead + Send>>,
 }
 
 impl MaterializedFileValue {
     /// Reads file content until EOF. The provided `path` is used only for error
     /// reporting purpose.
-    pub fn read_all(&mut self, path: &RepoPath) -> BackendResult<Vec<u8>> {
+    pub async fn read_all(&mut self, path: &RepoPath) -> BackendResult<Vec<u8>> {
         let mut buf = Vec::new();
         self.reader
             .read_to_end(&mut buf)
+            .await
             .map_err(|err| BackendError::ReadFile {
                 path: path.to_owned(),
                 id: self.id.clone(),
@@ -185,6 +190,8 @@ pub struct MaterializedFileConflictValue {
     /// Merged executable bit. `None` if there are changes in both executable
     /// bit and file absence.
     pub executable: Option<bool>,
+    /// Merged copy id. `None` if no single value could be determined.
+    pub copy_id: Option<CopyId>,
 }
 
 /// Reads the data associated with a `MergedTreeValue` so it can be written to
@@ -209,16 +216,21 @@ async fn materialize_tree_value_no_access_denied(
 ) -> BackendResult<MaterializedTreeValue> {
     match value.into_resolved() {
         Ok(None) => Ok(MaterializedTreeValue::Absent),
-        Ok(Some(TreeValue::File { id, executable })) => {
-            let reader = store.read_file_async(path, &id).await?;
+        Ok(Some(TreeValue::File {
+            id,
+            executable,
+            copy_id,
+        })) => {
+            let reader = store.read_file(path, &id).await?;
             Ok(MaterializedTreeValue::File(MaterializedFileValue {
                 id,
                 executable,
+                copy_id,
                 reader,
             }))
         }
         Ok(Some(TreeValue::Symlink(id))) => {
-            let target = store.read_symlink_async(path, &id).await?;
+            let target = store.read_symlink(path, &id).await?;
             Ok(MaterializedTreeValue::Symlink { id, target })
         }
         Ok(Some(TreeValue::GitSubmodule(id))) => Ok(MaterializedTreeValue::GitSubmodule(id)),
@@ -253,6 +265,7 @@ pub async fn try_materialize_file_conflict_value(
         ids,
         contents,
         executable,
+        copy_id: Some(CopyId::placeholder()),
     }))
 }
 
@@ -711,18 +724,16 @@ pub fn materialized_diff_stream<'a>(
     tree_diff: BoxStream<'a, CopiesTreeDiffEntry>,
 ) -> impl Stream<Item = MaterializedTreeDiffEntry> + use<'a> {
     tree_diff
-        .map(|CopiesTreeDiffEntry { path, values }| async {
-            match values {
-                Err(err) => MaterializedTreeDiffEntry {
-                    path,
-                    values: Err(err),
-                },
-                Ok((before, after)) => {
-                    let before_future = materialize_tree_value(store, path.source(), before);
-                    let after_future = materialize_tree_value(store, path.target(), after);
-                    let values = try_join!(before_future, after_future);
-                    MaterializedTreeDiffEntry { path, values }
-                }
+        .map(async |CopiesTreeDiffEntry { path, values }| match values {
+            Err(err) => MaterializedTreeDiffEntry {
+                path,
+                values: Err(err),
+            },
+            Ok((before, after)) => {
+                let before_future = materialize_tree_value(store, path.source(), before);
+                let after_future = materialize_tree_value(store, path.target(), after);
+                let values = try_join!(before_future, after_future);
+                MaterializedTreeDiffEntry { path, values }
             }
         })
         .buffered((store.concurrency() / 2).max(1))

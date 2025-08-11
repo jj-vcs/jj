@@ -26,24 +26,24 @@ use jj_lib::repo::RepoLoader;
 use jj_lib::settings::UserSettings;
 
 use crate::template_builder;
-use crate::template_builder::merge_fn_map;
 use crate::template_builder::BuildContext;
 use crate::template_builder::CoreTemplateBuildFnTable;
 use crate::template_builder::CoreTemplatePropertyKind;
 use crate::template_builder::CoreTemplatePropertyVar;
 use crate::template_builder::TemplateBuildMethodFnMap;
 use crate::template_builder::TemplateLanguage;
+use crate::template_builder::merge_fn_map;
 use crate::template_parser;
 use crate::template_parser::FunctionCallNode;
 use crate::template_parser::TemplateDiagnostics;
 use crate::template_parser::TemplateParseResult;
+use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
 use crate::templater::ListTemplate;
 use crate::templater::PlainTextFormattedProperty;
 use crate::templater::Template;
 use crate::templater::TemplateFormatter;
 use crate::templater::TemplatePropertyExt as _;
-use crate::templater::TimestampRange;
 
 pub trait OperationTemplateLanguageExtension {
     fn build_fn_table(&self) -> OperationTemplateBuildFnTable;
@@ -76,7 +76,7 @@ impl OperationTemplateLanguage {
                 .build_cache_extensions(&mut cache_extensions);
         }
 
-        OperationTemplateLanguage {
+        Self {
             // Clone these to keep lifetime simple
             repo_loader: repo_loader.clone(),
             current_op_id: current_op_id.cloned(),
@@ -121,6 +121,11 @@ impl TemplateLanguage<'static> for OperationTemplateLanguage {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
+            OperationTemplatePropertyKind::OperationList(property) => {
+                let table = &self.build_fn_table.operation_list_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
+            }
             OperationTemplatePropertyKind::OperationId(property) => {
                 let table = &self.build_fn_table.operation_id_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -139,50 +144,54 @@ impl OperationTemplateLanguage {
 pub enum OperationTemplatePropertyKind {
     Core(CoreTemplatePropertyKind<'static>),
     Operation(BoxedTemplateProperty<'static, Operation>),
+    OperationList(BoxedTemplateProperty<'static, Vec<Operation>>),
     OperationId(BoxedTemplateProperty<'static, OperationId>),
 }
 
 template_builder::impl_core_property_wrappers!(OperationTemplatePropertyKind => Core);
 template_builder::impl_property_wrappers!(OperationTemplatePropertyKind {
     Operation(Operation),
+    OperationList(Vec<Operation>),
     OperationId(OperationId),
 });
 
 impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
     fn wrap_template(template: Box<dyn Template>) -> Self {
-        OperationTemplatePropertyKind::Core(CoreTemplatePropertyKind::wrap_template(template))
+        Self::Core(CoreTemplatePropertyKind::wrap_template(template))
     }
 
     fn wrap_list_template(template: Box<dyn ListTemplate>) -> Self {
-        OperationTemplatePropertyKind::Core(CoreTemplatePropertyKind::wrap_list_template(template))
+        Self::Core(CoreTemplatePropertyKind::wrap_list_template(template))
     }
 
     fn type_name(&self) -> &'static str {
         match self {
-            OperationTemplatePropertyKind::Core(property) => property.type_name(),
-            OperationTemplatePropertyKind::Operation(_) => "Operation",
-            OperationTemplatePropertyKind::OperationId(_) => "OperationId",
+            Self::Core(property) => property.type_name(),
+            Self::Operation(_) => "Operation",
+            Self::OperationList(_) => "List<Operation>",
+            Self::OperationId(_) => "OperationId",
         }
     }
 
     fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'static, bool>> {
         match self {
-            OperationTemplatePropertyKind::Core(property) => property.try_into_boolean(),
-            OperationTemplatePropertyKind::Operation(_) => None,
-            OperationTemplatePropertyKind::OperationId(_) => None,
+            Self::Core(property) => property.try_into_boolean(),
+            Self::Operation(_) => None,
+            Self::OperationList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::OperationId(_) => None,
         }
     }
 
     fn try_into_integer(self) -> Option<BoxedTemplateProperty<'static, i64>> {
         match self {
-            OperationTemplatePropertyKind::Core(property) => property.try_into_integer(),
+            Self::Core(property) => property.try_into_integer(),
             _ => None,
         }
     }
 
-    fn try_into_plain_text(self) -> Option<BoxedTemplateProperty<'static, String>> {
+    fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'static, String>> {
         match self {
-            OperationTemplatePropertyKind::Core(property) => property.try_into_plain_text(),
+            Self::Core(property) => property.try_into_stringify(),
             _ => {
                 let template = self.try_into_template()?;
                 Some(PlainTextFormattedProperty::new(template).into_dyn())
@@ -190,35 +199,41 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplatePropertyKind {
         }
     }
 
+    fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'static>> {
+        match self {
+            Self::Core(property) => property.try_into_serialize(),
+            Self::Operation(property) => Some(property.into_serialize()),
+            Self::OperationList(property) => Some(property.into_serialize()),
+            Self::OperationId(property) => Some(property.into_serialize()),
+        }
+    }
+
     fn try_into_template(self) -> Option<Box<dyn Template>> {
         match self {
-            OperationTemplatePropertyKind::Core(property) => property.try_into_template(),
-            OperationTemplatePropertyKind::Operation(_) => None,
-            OperationTemplatePropertyKind::OperationId(property) => Some(property.into_template()),
+            Self::Core(property) => property.try_into_template(),
+            Self::Operation(_) => None,
+            Self::OperationList(_) => None,
+            Self::OperationId(property) => Some(property.into_template()),
         }
     }
 
     fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'static, bool>> {
         match (self, other) {
-            (
-                OperationTemplatePropertyKind::Core(lhs),
-                OperationTemplatePropertyKind::Core(rhs),
-            ) => lhs.try_into_eq(rhs),
-            (OperationTemplatePropertyKind::Core(_), _) => None,
-            (OperationTemplatePropertyKind::Operation(_), _) => None,
-            (OperationTemplatePropertyKind::OperationId(_), _) => None,
+            (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs),
+            (Self::Core(_), _) => None,
+            (Self::Operation(_), _) => None,
+            (Self::OperationList(_), _) => None,
+            (Self::OperationId(_), _) => None,
         }
     }
 
     fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'static, Ordering>> {
         match (self, other) {
-            (
-                OperationTemplatePropertyKind::Core(lhs),
-                OperationTemplatePropertyKind::Core(rhs),
-            ) => lhs.try_into_cmp(rhs),
-            (OperationTemplatePropertyKind::Core(_), _) => None,
-            (OperationTemplatePropertyKind::Operation(_), _) => None,
-            (OperationTemplatePropertyKind::OperationId(_), _) => None,
+            (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs),
+            (Self::Core(_), _) => None,
+            (Self::Operation(_), _) => None,
+            (Self::OperationList(_), _) => None,
+            (Self::OperationId(_), _) => None,
         }
     }
 }
@@ -231,36 +246,41 @@ pub type OperationTemplateBuildMethodFnMap<T> =
 pub struct OperationTemplateBuildFnTable {
     pub core: CoreTemplateBuildFnTable<'static, OperationTemplateLanguage>,
     pub operation_methods: OperationTemplateBuildMethodFnMap<Operation>,
+    pub operation_list_methods: OperationTemplateBuildMethodFnMap<Vec<Operation>>,
     pub operation_id_methods: OperationTemplateBuildMethodFnMap<OperationId>,
 }
 
 impl OperationTemplateBuildFnTable {
     /// Creates new symbol table containing the builtin methods.
     fn builtin() -> Self {
-        OperationTemplateBuildFnTable {
+        Self {
             core: CoreTemplateBuildFnTable::builtin(),
             operation_methods: builtin_operation_methods(),
+            operation_list_methods: template_builder::builtin_unformattable_list_methods(),
             operation_id_methods: builtin_operation_id_methods(),
         }
     }
 
     pub fn empty() -> Self {
-        OperationTemplateBuildFnTable {
+        Self {
             core: CoreTemplateBuildFnTable::empty(),
             operation_methods: HashMap::new(),
+            operation_list_methods: HashMap::new(),
             operation_id_methods: HashMap::new(),
         }
     }
 
-    fn merge(&mut self, other: OperationTemplateBuildFnTable) {
-        let OperationTemplateBuildFnTable {
+    fn merge(&mut self, other: Self) {
+        let Self {
             core,
             operation_methods,
+            operation_list_methods,
             operation_id_methods,
         } = other;
 
         self.core.merge(core);
         merge_fn_map(&mut self.operation_methods, operation_methods);
+        merge_fn_map(&mut self.operation_list_methods, operation_list_methods);
         merge_fn_map(&mut self.operation_id_methods, operation_id_methods);
     }
 }
@@ -321,10 +341,7 @@ fn builtin_operation_methods() -> OperationTemplateBuildMethodFnMap<Operation> {
         "time",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.map(|op| TimestampRange {
-                start: op.metadata().start_time,
-                end: op.metadata().end_time,
-            });
+            let out_property = self_property.map(|op| op.metadata().time.clone());
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -345,6 +362,17 @@ fn builtin_operation_methods() -> OperationTemplateBuildMethodFnMap<Operation> {
             function.expect_no_arguments()?;
             let root_op_id = language.repo_loader.op_store().root_operation_id().clone();
             let out_property = self_property.map(move |op| op.id() == &root_op_id);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "parents",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|op| {
+                let ops: Vec<_> = op.parents().try_collect()?;
+                Ok(ops)
+            });
             Ok(out_property.into_dyn_wrapped())
         },
     );

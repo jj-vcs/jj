@@ -13,16 +13,16 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCompleter;
+use jj_lib::absorb::AbsorbSource;
 use jj_lib::absorb::absorb_hunks;
 use jj_lib::absorb::split_hunks_to_trees;
-use jj_lib::absorb::AbsorbSource;
 use jj_lib::matchers::EverythingMatcher;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
-use crate::cli_util::print_updated_commits;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::diff_util::DiffFormat;
@@ -60,7 +60,11 @@ pub(crate) struct AbsorbArgs {
     )]
     into: Vec<RevisionArg>,
     /// Move only changes to these paths (instead of all paths)
-    #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
+    #[arg(
+        value_name = "FILESETS",
+        value_hint = clap::ValueHint::AnyPath,
+        add = ArgValueCompleter::new(complete::modified_from_files),
+    )]
     paths: Vec<String>,
 }
 

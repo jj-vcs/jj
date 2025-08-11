@@ -352,7 +352,7 @@ Note: desired behavior of `jj branch forget` is to
 
 ## Remaining issues
 
-* https://github.com/jj-vcs/jj/issues/1278 pushing to tracked remote
+* <https://github.com/jj-vcs/jj/issues/1278> pushing to tracked remote
   * Option could be added to push to all `tracking` remotes?
 * Track remote branch locally with different name
   * Local branch name could be stored per remote branch
@@ -365,8 +365,8 @@ Note: desired behavior of `jj branch forget` is to
 
 ## References
 
-* https://github.com/jj-vcs/jj/issues/1136
-* https://github.com/jj-vcs/jj/issues/1666
-* https://github.com/jj-vcs/jj/issues/1690
-* https://github.com/jj-vcs/jj/issues/1734
-* https://github.com/jj-vcs/jj/pull/1739
+* <https://github.com/jj-vcs/jj/issues/1136>
+* <https://github.com/jj-vcs/jj/issues/1666>
+* <https://github.com/jj-vcs/jj/issues/1690>
+* <https://github.com/jj-vcs/jj/issues/1734>
+* <https://github.com/jj-vcs/jj/pull/1739>

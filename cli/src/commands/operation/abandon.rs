@@ -20,11 +20,11 @@ use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::op_walk;
 
-use crate::cli_util::short_operation_hash;
 use crate::cli_util::CommandHelper;
+use crate::cli_util::short_operation_hash;
+use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::user_error;
-use crate::command_error::CommandError;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -37,8 +37,10 @@ use crate::ui::Ui;
 /// To discard recent operations, use `jj op restore <operation ID>` followed
 /// by `jj op abandon <operation ID>..@-`.
 ///
-/// The abandoned operations, commits, and other unreachable objects can later
-/// be garbage collected by using `jj util gc` command.
+/// Previous versions of a change (or predecessors) are also discarded if they
+/// become unreachable from the operation history. The abandoned operations,
+/// commits, and other unreachable objects can later be garbage collected by
+/// using `jj util gc` command.
 #[derive(clap::Args, Clone, Debug)]
 pub struct OperationAbandonArgs {
     /// The operation or operation range to abandon

@@ -63,10 +63,11 @@ clap_mangen = { workspace = true }
 criterion = { workspace = true, optional = true }
 crossterm = { workspace = true }
 dunce = { workspace = true }
+erased-serde = { workspace = true }
 etcetera = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true, optional = true }
-glob = { workspace = true }
+globset = { workspace = true }
 indexmap = { workspace = true }
 indoc = { workspace = true }
 itertools = { workspace = true }
@@ -91,6 +92,7 @@ tempfile = { workspace = true }
 textwrap = { workspace = true }
 thiserror = { workspace = true }
 timeago = { workspace = true }
+tokio = { workspace = true }
 toml_edit = { workspace = true }
 tracing = { workspace = true }
 tracing-chrome = { workspace = true }
@@ -107,6 +109,9 @@ assert_matches = { workspace = true }
 async-trait = { workspace = true }
 datatest-stable = { workspace = true }
 insta = { workspace = true }
+jsonschema = { workspace = true }
+proptest = { workspace = true }
+proptest-state-machine = { workspace = true }
 test-case = { workspace = true }
 testutils = { workspace = true }
 # https://github.com/rust-lang/cargo/issues/2911#issuecomment-1483256987
@@ -126,3 +131,20 @@ pkg-url = "{ repo }/releases/download/v{ version }/jj-v{ version }-{ target }.{ 
 
 [lints]
 workspace = true
+
+[package.metadata.deb]
+# Install `cargo-deb` and run `cargo deb` to create a package in `target/debian/`
+name = "jj"
+maintainer = "Unspecified Debian Maintainer <nobody@example.com>"
+copyright = "Copyright 2025 The Jujutsu Authors"
+license-file = "LICENSE"
+section = "vcs"
+priority = "optional"
+extended-description = "Distributed Version Control System inspired by Git, Mercurial and Darcs."
+assets = [
+    { source = "docs/*", dest = "usr/share/doc/jj/", mode = "644"},
+# TODO: It'd be nice to package the output of `MKDOCS_OFFLINE=true uv run mkdocs build` in the docs dir as well, but this is not trivial.
+    { source = "docs/*/*", dest = "usr/share/doc/jj/", mode = "644"},
+    { source = "target/release/jj", dest = "usr/bin/", mode = "755"},
+]
+default-features = true

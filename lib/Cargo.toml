@@ -43,9 +43,8 @@ dunce = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true, optional = true }
-glob = { workspace = true }
+globset = { workspace = true }
 hashbrown = { workspace = true }
-hex = { workspace = true }
 ignore = { workspace = true }
 indexmap = { workspace = true }
 interim = { workspace = true }
@@ -69,7 +68,7 @@ smallvec = { workspace = true }
 strsim = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, optional = true }
+tokio = { workspace = true }
 toml_edit = { workspace = true }
 tracing = { workspace = true }
 watchman_client = { workspace = true, optional = true }
@@ -89,6 +88,8 @@ indoc = { workspace = true }
 insta = { workspace = true }
 num_cpus = { workspace = true }
 pretty_assertions = { workspace = true }
+proptest = { workspace = true }
+rustversion = { workspace = true }
 sapling-renderdag = { workspace = true }
 test-case = { workspace = true }
 testutils = { workspace = true }
@@ -97,7 +98,7 @@ tokio = { workspace = true, features = ["full"] }
 [features]
 default = ["git"]
 git = ["dep:gix"]
-watchman = ["dep:tokio", "dep:watchman_client"]
+watchman = ["dep:watchman_client"]
 testing = ["git"]
 
 [lints]

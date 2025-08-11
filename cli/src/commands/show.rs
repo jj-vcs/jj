@@ -26,6 +26,8 @@ use crate::ui::Ui;
 
 /// Show commit description and changes in a revision
 #[derive(clap::Args, Clone, Debug)]
+#[command(mut_arg("ignore_all_space", |a| a.short('w')))]
+#[command(mut_arg("ignore_space_change", |a| a.short('b')))]
 pub(crate) struct ShowArgs {
     /// Show changes in this revision, compared to its parent(s)
     #[arg(
@@ -65,10 +67,12 @@ pub(crate) fn cmd_show(
     let workspace_command = command.workspace_helper(ui)?;
     let commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
     let template_string = match &args.template {
-        Some(value) => value.to_string(),
+        Some(value) => value.clone(),
         None => workspace_command.settings().get_string("templates.show")?,
     };
-    let template = workspace_command.parse_commit_template(ui, &template_string)?;
+    let template = workspace_command
+        .parse_commit_template(ui, &template_string)?
+        .labeled(["show", "commit"]);
     let diff_renderer = workspace_command.diff_renderer_for(&args.format)?;
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();

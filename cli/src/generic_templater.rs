@@ -27,6 +27,7 @@ use crate::template_parser;
 use crate::template_parser::FunctionCallNode;
 use crate::template_parser::TemplateDiagnostics;
 use crate::template_parser::TemplateParseResult;
+use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
 use crate::templater::ListTemplate;
 use crate::templater::Template;
@@ -55,7 +56,7 @@ impl<'a, C> GenericTemplateLanguage<'a, C> {
         keywords: GenericTemplateBuildKeywordFnMap<'a, C>,
         settings: &UserSettings,
     ) -> Self {
-        GenericTemplateLanguage {
+        Self {
             // Clone settings to keep lifetime simple. It's cheap.
             settings: settings.clone(),
             build_fn_table: GenericTemplateBuildFnTable {
@@ -162,65 +163,68 @@ pub(crate) use impl_self_property_wrapper;
 
 impl<'a, C> CoreTemplatePropertyVar<'a> for GenericTemplatePropertyKind<'a, C> {
     fn wrap_template(template: Box<dyn Template + 'a>) -> Self {
-        GenericTemplatePropertyKind::Core(CoreTemplatePropertyKind::wrap_template(template))
+        Self::Core(CoreTemplatePropertyKind::wrap_template(template))
     }
 
     fn wrap_list_template(template: Box<dyn ListTemplate + 'a>) -> Self {
-        GenericTemplatePropertyKind::Core(CoreTemplatePropertyKind::wrap_list_template(template))
+        Self::Core(CoreTemplatePropertyKind::wrap_list_template(template))
     }
 
     fn type_name(&self) -> &'static str {
         match self {
-            GenericTemplatePropertyKind::Core(property) => property.type_name(),
-            GenericTemplatePropertyKind::Self_(_) => "Self",
+            Self::Core(property) => property.type_name(),
+            Self::Self_(_) => "Self",
         }
     }
 
     fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>> {
         match self {
-            GenericTemplatePropertyKind::Core(property) => property.try_into_boolean(),
-            GenericTemplatePropertyKind::Self_(_) => None,
+            Self::Core(property) => property.try_into_boolean(),
+            Self::Self_(_) => None,
         }
     }
 
     fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>> {
         match self {
-            GenericTemplatePropertyKind::Core(property) => property.try_into_integer(),
-            GenericTemplatePropertyKind::Self_(_) => None,
+            Self::Core(property) => property.try_into_integer(),
+            Self::Self_(_) => None,
         }
     }
 
-    fn try_into_plain_text(self) -> Option<BoxedTemplateProperty<'a, String>> {
+    fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'a, String>> {
         match self {
-            GenericTemplatePropertyKind::Core(property) => property.try_into_plain_text(),
-            GenericTemplatePropertyKind::Self_(_) => None,
+            Self::Core(property) => property.try_into_stringify(),
+            Self::Self_(_) => None,
+        }
+    }
+
+    fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
+        match self {
+            Self::Core(property) => property.try_into_serialize(),
+            Self::Self_(_) => None,
         }
     }
 
     fn try_into_template(self) -> Option<Box<dyn Template + 'a>> {
         match self {
-            GenericTemplatePropertyKind::Core(property) => property.try_into_template(),
-            GenericTemplatePropertyKind::Self_(_) => None,
+            Self::Core(property) => property.try_into_template(),
+            Self::Self_(_) => None,
         }
     }
 
     fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'a, bool>> {
         match (self, other) {
-            (GenericTemplatePropertyKind::Core(lhs), GenericTemplatePropertyKind::Core(rhs)) => {
-                lhs.try_into_eq(rhs)
-            }
-            (GenericTemplatePropertyKind::Core(_), _) => None,
-            (GenericTemplatePropertyKind::Self_(_), _) => None,
+            (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_eq(rhs),
+            (Self::Core(_), _) => None,
+            (Self::Self_(_), _) => None,
         }
     }
 
     fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'a, Ordering>> {
         match (self, other) {
-            (GenericTemplatePropertyKind::Core(lhs), GenericTemplatePropertyKind::Core(rhs)) => {
-                lhs.try_into_cmp(rhs)
-            }
-            (GenericTemplatePropertyKind::Core(_), _) => None,
-            (GenericTemplatePropertyKind::Self_(_), _) => None,
+            (Self::Core(lhs), Self::Core(rhs)) => lhs.try_into_cmp(rhs),
+            (Self::Core(_), _) => None,
+            (Self::Self_(_), _) => None,
         }
     }
 }

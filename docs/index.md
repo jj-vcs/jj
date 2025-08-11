@@ -28,3 +28,4 @@ You may want to jump to:
 - [Tutorial and bird's eye view](tutorial.md)
 - [Working with GitHub](github.md)
 - [Development roadmap](roadmap.md)
+- [Changelog](changelog.md)

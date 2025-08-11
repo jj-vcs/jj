@@ -17,7 +17,7 @@
 use std::any::Any;
 use std::fmt::Debug;
 use std::fmt::Formatter;
-use std::io::Read;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::SystemTime;
@@ -25,6 +25,7 @@ use std::time::SystemTime;
 use clru::CLruCache;
 use futures::stream::BoxStream;
 use pollster::FutureExt as _;
+use tokio::io::AsyncRead;
 
 use crate::backend;
 use crate::backend::Backend;
@@ -47,7 +48,6 @@ use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::signing::Signer;
 use crate::tree::Tree;
-use crate::tree_builder::TreeBuilder;
 
 // There are more tree objects than commits, and trees are often shared across
 // commits.
@@ -73,12 +73,16 @@ impl Debug for Store {
 
 impl Store {
     pub fn new(backend: Box<dyn Backend>, signer: Signer) -> Arc<Self> {
-        Arc::new(Store {
+        Arc::new(Self {
             backend,
             signer,
             commit_cache: Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY.try_into().unwrap())),
             tree_cache: Mutex::new(CLruCache::new(TREE_CACHE_CAPACITY.try_into().unwrap())),
         })
+    }
+
+    pub fn backend(&self) -> &dyn Backend {
+        self.backend.as_ref()
     }
 
     pub fn backend_impl(&self) -> &dyn Any {
@@ -94,7 +98,7 @@ impl Store {
         paths: Option<&[RepoPathBuf]>,
         root: &CommitId,
         head: &CommitId,
-    ) -> BackendResult<BoxStream<BackendResult<CopyRecord>>> {
+    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
         self.backend.get_copy_records(paths, root, head)
     }
 
@@ -203,13 +207,22 @@ impl Store {
     }
 
     pub fn get_root_tree(self: &Arc<Self>, id: &MergedTreeId) -> BackendResult<MergedTree> {
+        self.get_root_tree_async(id).block_on()
+    }
+
+    pub async fn get_root_tree_async(
+        self: &Arc<Self>,
+        id: &MergedTreeId,
+    ) -> BackendResult<MergedTree> {
         match &id {
             MergedTreeId::Legacy(id) => {
-                let tree = self.get_tree(RepoPathBuf::root(), id)?;
+                let tree = self.get_tree_async(RepoPathBuf::root(), id).await?;
                 MergedTree::from_legacy_tree(tree)
             }
             MergedTreeId::Merge(ids) => {
-                let trees = ids.try_map(|id| self.get_tree(RepoPathBuf::root(), id))?;
+                let trees = ids
+                    .try_map_async(|id| self.get_tree_async(RepoPathBuf::root(), id))
+                    .await?;
                 Ok(MergedTree::new(trees))
             }
         }
@@ -230,35 +243,23 @@ impl Store {
         Ok(Tree::new(self.clone(), path.to_owned(), tree_id, data))
     }
 
-    pub fn read_file(&self, path: &RepoPath, id: &FileId) -> BackendResult<Box<dyn Read>> {
-        self.read_file_async(path, id).block_on()
-    }
-
-    pub async fn read_file_async(
+    pub async fn read_file(
         &self,
         path: &RepoPath,
         id: &FileId,
-    ) -> BackendResult<Box<dyn Read>> {
+    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
         self.backend.read_file(path, id).await
     }
 
     pub async fn write_file(
         &self,
         path: &RepoPath,
-        contents: &mut (dyn Read + Send),
+        contents: &mut (dyn AsyncRead + Send + Unpin),
     ) -> BackendResult<FileId> {
         self.backend.write_file(path, contents).await
     }
 
-    pub fn read_symlink(&self, path: &RepoPath, id: &SymlinkId) -> BackendResult<String> {
-        self.read_symlink_async(path, id).block_on()
-    }
-
-    pub async fn read_symlink_async(
-        &self,
-        path: &RepoPath,
-        id: &SymlinkId,
-    ) -> BackendResult<String> {
+    pub async fn read_symlink(&self, path: &RepoPath, id: &SymlinkId) -> BackendResult<String> {
         self.backend.read_symlink(path, id).await
     }
 
@@ -284,11 +285,13 @@ impl Store {
             .write_conflict(path, &contents.clone().into_backend_conflict())
     }
 
-    pub fn tree_builder(self: &Arc<Self>, base_tree_id: TreeId) -> TreeBuilder {
-        TreeBuilder::new(self.clone(), base_tree_id)
-    }
-
     pub fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()> {
         self.backend.gc(index, keep_newer)
+    }
+
+    /// Clear cached objects. Mainly intended for testing.
+    pub fn clear_caches(&self) {
+        self.commit_cache.lock().unwrap().clear();
+        self.tree_cache.lock().unwrap().clear();
     }
 }

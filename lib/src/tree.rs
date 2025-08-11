@@ -19,10 +19,10 @@ use std::fmt::Error;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::io::Read as _;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
+use tokio::io::AsyncReadExt as _;
 use tracing::instrument;
 
 use crate::backend;
@@ -76,7 +76,7 @@ impl Hash for Tree {
 
 impl Tree {
     pub fn new(store: Arc<Store>, dir: RepoPathBuf, id: TreeId, data: Arc<backend::Tree>) -> Self {
-        Tree {
+        Self {
             store,
             dir,
             id,
@@ -86,7 +86,7 @@ impl Tree {
 
     pub fn empty(store: Arc<Store>, dir: RepoPathBuf) -> Self {
         let id = store.empty_tree_id().clone();
-        Tree {
+        Self {
             store,
             dir,
             id,
@@ -110,7 +110,7 @@ impl Tree {
         &self.data
     }
 
-    pub fn entries_non_recursive(&self) -> TreeEntriesNonRecursiveIterator {
+    pub fn entries_non_recursive(&self) -> TreeEntriesNonRecursiveIterator<'_> {
         self.data.entries()
     }
 
@@ -136,7 +136,7 @@ impl Tree {
         }
     }
 
-    pub fn sub_tree(&self, name: &RepoPathComponent) -> BackendResult<Option<Tree>> {
+    pub fn sub_tree(&self, name: &RepoPathComponent) -> BackendResult<Option<Self>> {
         if let Some(sub_tree) = self.data.value(name) {
             match sub_tree {
                 TreeValue::Tree(sub_tree_id) => {
@@ -151,12 +151,12 @@ impl Tree {
         }
     }
 
-    fn known_sub_tree(&self, subdir: RepoPathBuf, id: &TreeId) -> Tree {
+    fn known_sub_tree(&self, subdir: RepoPathBuf, id: &TreeId) -> Self {
         self.store.get_tree(subdir, id).unwrap()
     }
 
     /// Look up the tree at the given path.
-    pub fn sub_tree_recursive(&self, path: &RepoPath) -> BackendResult<Option<Tree>> {
+    pub fn sub_tree_recursive(&self, path: &RepoPath) -> BackendResult<Option<Self>> {
         let mut current_tree = self.clone();
         for name in path.components() {
             match current_tree.sub_tree(name)? {
@@ -268,13 +268,31 @@ pub async fn try_resolve_file_conflict(
     // we can't merge them anyway. At the same time we determine whether the
     // resulting file should be executable.
     let Ok(file_id_conflict) = conflict.try_map(|term| match term {
-        Some(TreeValue::File { id, executable: _ }) => Ok(id),
+        Some(TreeValue::File {
+            id,
+            executable: _,
+            copy_id: _,
+        }) => Ok(id),
         _ => Err(()),
     }) else {
         return Ok(None);
     };
     let Ok(executable_conflict) = conflict.try_map(|term| match term {
-        Some(TreeValue::File { id: _, executable }) => Ok(executable),
+        Some(TreeValue::File {
+            id: _,
+            executable,
+            copy_id: _,
+        }) => Ok(executable),
+        _ => Err(()),
+    }) else {
+        return Ok(None);
+    };
+    let Ok(copy_id_conflict) = conflict.try_map(|term| match term {
+        Some(TreeValue::File {
+            id: _,
+            executable: _,
+            copy_id,
+        }) => Ok(copy_id),
         _ => Err(()),
     }) else {
         return Ok(None);
@@ -283,12 +301,17 @@ pub async fn try_resolve_file_conflict(
         // We're unable to determine whether the result should be executable
         return Ok(None);
     };
+    let Some(&copy_id) = copy_id_conflict.resolve_trivial() else {
+        // We're unable to determine the file's copy ID
+        return Ok(None);
+    };
     if let Some(&resolved_file_id) = file_id_conflict.resolve_trivial() {
         // Don't bother reading the file contents if the conflict can be trivially
         // resolved.
         return Ok(Some(TreeValue::File {
             id: resolved_file_id.clone(),
             executable,
+            copy_id: copy_id.clone(),
         }));
     }
 
@@ -301,11 +324,12 @@ pub async fn try_resolve_file_conflict(
     let file_id_conflict = file_id_conflict.simplify();
 
     let contents = file_id_conflict
-        .try_map_async(|file_id| async {
+        .try_map_async(async |file_id| {
             let mut content = vec![];
-            let mut reader = store.read_file_async(filename, file_id).await?;
+            let mut reader = store.read_file(filename, file_id).await?;
             reader
                 .read_to_end(&mut content)
+                .await
                 .map_err(|err| BackendError::ReadObject {
                     object_type: file_id.object_type(),
                     hash: file_id.hex(),
@@ -318,7 +342,11 @@ pub async fn try_resolve_file_conflict(
         let id = store
             .write_file(filename, &mut merged_content.as_slice())
             .await?;
-        Ok(Some(TreeValue::File { id, executable }))
+        Ok(Some(TreeValue::File {
+            id,
+            executable,
+            copy_id: copy_id.clone(),
+        }))
     } else {
         Ok(None)
     }

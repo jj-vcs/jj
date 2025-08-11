@@ -49,18 +49,19 @@ pub enum FsmonitorSettings {
 
     /// No filesystem monitor. This is the default if nothing is configured, but
     /// also makes it possible to turn off the monitor on a case-by-case basis
-    /// when the user gives an option like `--config=core.fsmonitor=none`;
+    /// when the user gives an option like `--config=fsmonitor.backend=none`;
     /// useful when e.g. when doing analysis of snapshot performance.
     None,
 }
 
 impl FsmonitorSettings {
     /// Creates an `FsmonitorSettings` from a `config`.
-    pub fn from_settings(settings: &UserSettings) -> Result<FsmonitorSettings, ConfigGetError> {
-        let name = "core.fsmonitor";
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        let name = "fsmonitor.backend";
         match settings.get_string(name)?.as_ref() {
             "watchman" => Ok(Self::Watchman(WatchmanConfig {
-                register_trigger: settings.get_bool("core.watchman.register-snapshot-trigger")?,
+                register_trigger: settings
+                    .get_bool("fsmonitor.watchman.register-snapshot-trigger")?,
             })),
             "test" => Err(ConfigGetError::Type {
                 name: name.to_owned(),
@@ -127,7 +128,6 @@ pub mod watchman {
     impl From<Clock> for crate::protos::working_copy::WatchmanClock {
         fn from(clock: Clock) -> Self {
             use crate::protos::working_copy::watchman_clock;
-            use crate::protos::working_copy::WatchmanClock;
             let Clock(clock) = clock;
             let watchman_clock = match clock {
                 InnerClock::Spec(ClockSpec::StringClock(string_clock)) => {
@@ -140,7 +140,7 @@ pub mod watchman {
                     unimplemented!("SCM-aware Watchman clocks not supported")
                 }
             };
-            WatchmanClock {
+            Self {
                 watchman_clock: Some(watchman_clock),
             }
         }

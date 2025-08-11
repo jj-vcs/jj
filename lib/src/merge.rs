@@ -28,11 +28,12 @@ use std::sync::Arc;
 
 use futures::future::try_join_all;
 use itertools::Itertools as _;
-use smallvec::smallvec_inline;
 use smallvec::SmallVec;
+use smallvec::smallvec_inline;
 
 use crate::backend;
 use crate::backend::BackendResult;
+use crate::backend::CopyId;
 use crate::backend::FileId;
 use crate::backend::TreeValue;
 use crate::content_hash::ContentHash;
@@ -107,7 +108,8 @@ where
 /// There is exactly one more `adds()` than `removes()`. When interpreted as a
 /// series of diffs, the merge's (i+1)-st add is matched with the i-th
 /// remove. The zeroth add is considered a diff from the non-existent state.
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone, serde::Serialize)]
+#[serde(transparent)]
 pub struct Merge<T> {
     /// Alternates between positive and negative terms, starting with positive.
     values: SmallVec<[T; 1]>,
@@ -131,7 +133,7 @@ impl<T> Merge<T> {
     pub fn from_vec(values: impl Into<SmallVec<[T; 1]>>) -> Self {
         let values = values.into();
         assert!(values.len() % 2 != 0, "must have an odd number of terms");
-        Merge { values }
+        Self { values }
     }
 
     /// Creates a new merge object from the given removes and adds.
@@ -147,12 +149,12 @@ impl<T> Merge<T> {
             let (remove, add) = diff.both().expect("must have one more adds than removes");
             values.extend([remove, add]);
         }
-        Merge { values }
+        Self { values }
     }
 
     /// Creates a `Merge` with a single resolved value.
     pub const fn resolved(value: T) -> Self {
-        Merge {
+        Self {
             values: smallvec_inline![value],
         }
     }
@@ -232,7 +234,7 @@ impl<T> Merge<T> {
 
     /// Returns the resolved value, if this merge is resolved. Otherwise returns
     /// the merge itself as an `Err`. Does not resolve trivial merges.
-    pub fn into_resolved(mut self) -> Result<T, Merge<T>> {
+    pub fn into_resolved(mut self) -> Result<T, Self> {
         if self.values.len() == 1 {
             Ok(self.values.pop().unwrap())
         } else {
@@ -288,11 +290,11 @@ impl<T> Merge<T> {
             .iter()
             .map(|index| self.values[*index].clone())
             .collect();
-        Merge { values }
+        Self { values }
     }
 
     /// Updates the merge based on the given simplified merge.
-    pub fn update_from_simplified(mut self, simplified: Merge<T>) -> Self
+    pub fn update_from_simplified(mut self, simplified: Self) -> Self
     where
         T: PartialEq,
     {
@@ -417,7 +419,7 @@ impl<T> IntoIterator for Merge<T> {
 
 impl<T> FromIterator<T> for MergeBuilder<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let mut builder = MergeBuilder::default();
+        let mut builder = Self::default();
         builder.extend(iter);
         builder
     }
@@ -569,17 +571,29 @@ where
             })
     }
 
+    /// Whether this merge is present and not a tree
+    pub fn is_file_like(&self) -> bool {
+        self.is_present() && !self.is_tree()
+    }
+
     /// If this merge contains only files or absent entries, returns a merge of
-    /// the `FileId`s`. The executable bits will be ignored. Use
+    /// the `FileId`s`. The executable bits and copy IDs will be ignored. Use
     /// `Merge::with_new_file_ids()` to produce a new merge with the original
     /// executable bits preserved.
     pub fn to_file_merge(&self) -> Option<Merge<Option<FileId>>> {
-        self.try_map(|term| match borrow_tree_value(term.as_ref()) {
-            None => Ok(None),
-            Some(TreeValue::File { id, executable: _ }) => Ok(Some(id.clone())),
-            _ => Err(()),
-        })
-        .ok()
+        let file_ids = self
+            .try_map(|term| match borrow_tree_value(term.as_ref()) {
+                None => Ok(None),
+                Some(TreeValue::File {
+                    id,
+                    executable: _,
+                    copy_id: _,
+                }) => Ok(Some(id.clone())),
+                _ => Err(()),
+            })
+            .ok()?;
+
+        Some(file_ids)
     }
 
     /// If this merge contains only files or absent entries, returns a merge of
@@ -587,7 +601,26 @@ where
     pub fn to_executable_merge(&self) -> Option<Merge<Option<bool>>> {
         self.try_map(|term| match borrow_tree_value(term.as_ref()) {
             None => Ok(None),
-            Some(TreeValue::File { id: _, executable }) => Ok(Some(*executable)),
+            Some(TreeValue::File {
+                id: _,
+                executable,
+                copy_id: _,
+            }) => Ok(Some(*executable)),
+            _ => Err(()),
+        })
+        .ok()
+    }
+
+    /// If this merge contains only files or absent entries, returns a merge of
+    /// the files' copy IDs.
+    pub fn to_copy_id_merge(&self) -> Option<Merge<Option<CopyId>>> {
+        self.try_map(|term| match borrow_tree_value(term.as_ref()) {
+            None => Ok(None),
+            Some(TreeValue::File {
+                id: _,
+                executable: _,
+                copy_id,
+            }) => Ok(Some(copy_id.clone())),
             _ => Err(()),
         })
         .ok()
@@ -610,7 +643,7 @@ where
         if let Ok(tree_id_merge) = tree_id_merge {
             Ok(Some(
                 tree_id_merge
-                    .try_map_async(|id| async move {
+                    .try_map_async(async |id| {
                         if let Some(id) = id {
                             store.get_tree_async(dir.to_owned(), id).await
                         } else {
@@ -634,9 +667,18 @@ where
         let values = zip(self.iter(), file_ids.iter().cloned())
             .map(
                 |(tree_value, file_id)| match (borrow_tree_value(tree_value.as_ref()), file_id) {
-                    (Some(&TreeValue::File { id: _, executable }), Some(id)) => {
-                        Some(TreeValue::File { id, executable })
-                    }
+                    (
+                        Some(TreeValue::File {
+                            id: _,
+                            executable,
+                            copy_id,
+                        }),
+                        Some(id),
+                    ) => Some(TreeValue::File {
+                        id,
+                        executable: *executable,
+                        copy_id: copy_id.clone(),
+                    }),
                     (None, None) => None,
                     (old, new) => panic!("incompatible update: {old:?} to {new:?}"),
                 },
@@ -668,13 +710,17 @@ fn describe_conflict_term(value: &TreeValue) -> String {
         TreeValue::File {
             id,
             executable: false,
+            copy_id: _,
         } => {
+            // TODO: include the copy here once we start using it
             format!("file with id {id}")
         }
         TreeValue::File {
             id,
             executable: true,
+            copy_id: _,
         } => {
+            // TODO: include the copy here once we start using it
             format!("executable file with id {id}")
         }
         TreeValue::Symlink(id) => {

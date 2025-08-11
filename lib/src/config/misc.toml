@@ -1,19 +1,20 @@
-[core]
-fsmonitor = "none"
-
-[core.watchman]
-register-snapshot-trigger = false
-
 [debug]
 # commit-timestamp = <now>
 # operation-timestamp = <now>
 # randomness-seed = <random>
+
+[fsmonitor]
+backend = "none"
+
+[fsmonitor.watchman]
+register-snapshot-trigger = false
 
 [git]
 abandon-unreachable-commits = true
 auto-local-bookmark = false
 executable-path = "git"
 write-change-id-header = true
+colocate = false
 
 [operation]
 hostname = ""
@@ -39,3 +40,6 @@ program = "ssh-keygen"
 [user]
 email = ""
 name = ""
+
+[working-copy]
+eol-conversion = "none"

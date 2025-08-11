@@ -45,9 +45,9 @@ use jj_lib::workspace::Workspace;
 use unicode_width::UnicodeWidthStr as _;
 
 use crate::cleanup_guard::CleanupGuard;
+use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::user_error;
-use crate::command_error::CommandError;
 use crate::formatter::Formatter;
 use crate::ui::ProgressOutput;
 use crate::ui::Ui;
@@ -176,7 +176,7 @@ impl GitSidebandProgressMessageWriter {
     pub fn new(ui: &Ui) -> Self {
         let is_terminal = ui.use_progress_indicator();
 
-        GitSidebandProgressMessageWriter {
+        Self {
             display_prefix: "remote: ".as_bytes(),
             suffix: if is_terminal { "\x1B[K" } else { "        " }.as_bytes(),
             scratch: Vec::new(),
@@ -290,26 +290,21 @@ pub fn print_git_import_stats(
         return Ok(());
     };
     if show_ref_stats {
-        let refs_stats = [
+        for (kind, changes) in [
             (GitRefKind::Bookmark, &stats.changed_remote_bookmarks),
             (GitRefKind::Tag, &stats.changed_remote_tags),
-        ]
-        .into_iter()
-        .flat_map(|(kind, changes)| {
-            changes
+        ] {
+            let refs_stats = changes
                 .iter()
-                .map(move |(symbol, (remote_ref, ref_target))| {
+                .map(|(symbol, (remote_ref, ref_target))| {
                     RefStatus::new(kind, symbol.as_ref(), remote_ref, ref_target, repo)
                 })
-        })
-        .collect_vec();
-
-        let has_both_ref_kinds =
-            !stats.changed_remote_bookmarks.is_empty() && !stats.changed_remote_tags.is_empty();
-        let max_width = refs_stats.iter().map(|x| x.symbol.width()).max();
-        if let Some(max_width) = max_width {
+                .collect_vec();
+            let Some(max_width) = refs_stats.iter().map(|x| x.symbol.width()).max() else {
+                continue;
+            };
             for status in refs_stats {
-                status.output(max_width, has_both_ref_kinds, &mut *formatter)?;
+                status.output(max_width, &mut *formatter)?;
             }
         }
     }
@@ -452,7 +447,7 @@ struct RateEstimate {
 
 impl RateEstimate {
     pub fn new() -> Self {
-        RateEstimate { state: None }
+        Self { state: None }
     }
 
     /// Compute smoothed rate from an update
@@ -537,12 +532,7 @@ impl RefStatus {
         }
     }
 
-    fn output(
-        &self,
-        max_symbol_width: usize,
-        has_both_ref_kinds: bool,
-        out: &mut dyn Formatter,
-    ) -> std::io::Result<()> {
+    fn output(&self, max_symbol_width: usize, out: &mut dyn Formatter) -> std::io::Result<()> {
         let tracking_status = match self.tracking_status {
             TrackingStatus::Tracked => "tracked",
             TrackingStatus::Untracked => "untracked",
@@ -559,14 +549,13 @@ impl RefStatus {
         let pad_width = max_symbol_width.saturating_sub(symbol_width);
         let padded_symbol = format!("{}{:>pad_width$}", self.symbol, "", pad_width = pad_width);
 
-        let ref_kind = match self.ref_kind {
-            GitRefKind::Bookmark => "bookmark: ",
-            GitRefKind::Tag if !has_both_ref_kinds => "tag: ",
-            GitRefKind::Tag => "tag:    ",
+        let label = match self.ref_kind {
+            GitRefKind::Bookmark => "bookmark",
+            GitRefKind::Tag => "tag",
         };
 
-        write!(out, "{ref_kind}")?;
-        write!(out.labeled("bookmark"), "{padded_symbol}")?;
+        write!(out, "{label}: ")?;
+        write!(out.labeled(label), "{padded_symbol}")?;
         writeln!(out, " [{import_status}] {tracking_status}")
     }
 }

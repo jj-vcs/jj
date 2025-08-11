@@ -131,7 +131,7 @@ pub enum GpgError {
 
 impl From<GpgError> for SignError {
     fn from(e: GpgError) -> Self {
-        SignError::Backend(Box::new(e))
+        Self::Backend(Box::new(e))
     }
 }
 
@@ -163,7 +163,7 @@ impl GpgBackend {
         // Hide console window on Windows (https://stackoverflow.com/a/60958956)
         #[cfg(windows)]
         {
-            use std::os::windows::process::CommandExt;
+            use std::os::windows::process::CommandExt as _;
             const CREATE_NO_WINDOW: u32 = 0x08000000;
             command.creation_flags(CREATE_NO_WINDOW);
         }
@@ -251,7 +251,7 @@ impl GpgsmBackend {
         // Hide console window on Windows (https://stackoverflow.com/a/60958956)
         #[cfg(windows)]
         {
-            use std::os::windows::process::CommandExt;
+            use std::os::windows::process::CommandExt as _;
             const CREATE_NO_WINDOW: u32 = 0x08000000;
             command.creation_flags(CREATE_NO_WINDOW);
         }

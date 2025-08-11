@@ -13,6 +13,7 @@ use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateError;
+use jj_lib::local_working_copy::TreeStateSettings;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::Matcher;
 use jj_lib::merged_tree::MergedTree;
@@ -26,8 +27,8 @@ use pollster::FutureExt as _;
 use tempfile::TempDir;
 use thiserror::Error;
 
-use super::external::ExternalToolError;
 use super::DiffEditError;
+use super::external::ExternalToolError;
 
 #[derive(Debug, Error)]
 pub enum DiffCheckoutError {
@@ -61,9 +62,21 @@ impl DiffWorkingCopies {
             .map(|state| state.working_copy_path())
     }
 
-    pub fn to_command_variables(&self) -> HashMap<&'static str, &str> {
-        let left_wc_dir = self.left_working_copy_path();
-        let right_wc_dir = self.right_working_copy_path();
+    pub fn temp_dir(&self) -> &Path {
+        self._temp_dir.path()
+    }
+
+    pub fn to_command_variables(&self, relative: bool) -> HashMap<&'static str, &str> {
+        let mut left_wc_dir = self.left_working_copy_path();
+        let mut right_wc_dir = self.right_working_copy_path();
+        if relative {
+            left_wc_dir = left_wc_dir
+                .strip_prefix(self.temp_dir())
+                .expect("path should be relative to temp_dir");
+            right_wc_dir = right_wc_dir
+                .strip_prefix(self.temp_dir())
+                .expect("path should be relative to temp_dir");
+        }
         let mut result = maplit::hashmap! {
             "left" => left_wc_dir.to_str().expect("temp_dir should be valid utf-8"),
             "right" => right_wc_dir.to_str().expect("temp_dir should be valid utf-8"),
@@ -90,7 +103,7 @@ fn check_out(
 ) -> Result<TreeState, DiffCheckoutError> {
     std::fs::create_dir(&wc_dir).map_err(DiffCheckoutError::SetUpDir)?;
     std::fs::create_dir(&state_dir).map_err(DiffCheckoutError::SetUpDir)?;
-    let mut tree_state = TreeState::init(store, wc_dir, state_dir)?;
+    let mut tree_state = TreeState::init(store, wc_dir, state_dir, &TreeStateSettings::default())?;
     tree_state.set_sparse_patterns(sparse_patterns, options)?;
     tree_state.check_out(tree, options)?;
     Ok(tree_state)

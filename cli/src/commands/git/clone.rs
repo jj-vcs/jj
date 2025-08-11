@@ -30,10 +30,11 @@ use jj_lib::workspace::Workspace;
 use super::write_repository_level_trunk_alias;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
+use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
-use crate::command_error::CommandError;
+use crate::commands::git::FetchTagsMode;
 use crate::commands::git::maybe_add_gitignore;
 use crate::git_util::absolute_git_url;
 use crate::git_util::print_git_import_stats;
@@ -62,9 +63,15 @@ pub struct GitCloneArgs {
     /// Whether or not to colocate the Jujutsu repo with the git repo
     #[arg(long)]
     colocate: bool,
+    /// Disable colocation of the Jujutsu repo with the git repo
+    #[arg(long, conflicts_with = "colocate")]
+    no_colocate: bool,
     /// Create a shallow clone of the given depth
     #[arg(long)]
     depth: Option<NonZeroU32>,
+    /// Configure when to fetch tags
+    #[arg(long, value_enum, default_value_t = FetchTagsMode::Included)]
+    fetch_tags: FetchTagsMode,
 }
 
 fn clone_destination_for_source(source: &str) -> Option<&str> {
@@ -111,22 +118,34 @@ pub fn cmd_git_clone(
     fs::create_dir_all(&wc_path)
         .map_err(|err| user_error_with_message(format!("Failed to create {wc_path_str}"), err))?;
 
+    let colocate = if command.settings().git_settings()?.colocate {
+        !args.no_colocate
+    } else {
+        args.colocate
+    };
+
     // Canonicalize because fs::remove_dir_all() doesn't seem to like e.g.
     // `/some/path/.`
     let canonical_wc_path = dunce::canonicalize(&wc_path)
         .map_err(|err| user_error_with_message(format!("Failed to create {wc_path_str}"), err))?;
 
     let clone_result = (|| -> Result<_, CommandError> {
-        let workspace_command = init_workspace(ui, command, &canonical_wc_path, args.colocate)?;
-        let mut workspace_command =
-            configure_remote(ui, command, workspace_command, remote_name, &source)?;
+        let workspace_command = init_workspace(ui, command, &canonical_wc_path, colocate)?;
+        let mut workspace_command = configure_remote(
+            ui,
+            command,
+            workspace_command,
+            remote_name,
+            &source,
+            args.fetch_tags.as_fetch_tags(),
+        )?;
         let default_branch = fetch_new_remote(ui, &mut workspace_command, remote_name, args.depth)?;
         Ok((workspace_command, default_branch))
     })();
     if clone_result.is_err() {
         let clean_up_dirs = || -> io::Result<()> {
             fs::remove_dir_all(canonical_wc_path.join(".jj"))?;
-            if args.colocate {
+            if colocate {
                 fs::remove_dir_all(canonical_wc_path.join(".git"))?;
             }
             if !wc_path_existed {
@@ -155,15 +174,21 @@ pub fn cmd_git_clone(
             .view()
             .get_remote_bookmark(default_symbol);
         if let Some(commit_id) = default_branch_remote_ref.target.as_normal().cloned() {
-            let mut checkout_tx = workspace_command.start_transaction();
-            // For convenience, create local bookmark as Git would do.
-            checkout_tx.repo_mut().track_remote_bookmark(default_symbol);
-            if let Ok(commit) = checkout_tx.repo().store().get_commit(&commit_id) {
-                checkout_tx.check_out(&commit)?;
+            let mut tx = workspace_command.start_transaction();
+            if let Ok(commit) = tx.repo().store().get_commit(&commit_id) {
+                tx.check_out(&commit)?;
             }
-            checkout_tx.finish(ui, "check out git remote's default branch")?;
+            tx.finish(ui, "check out git remote's default branch")?;
         }
     }
+
+    if colocate {
+        writeln!(
+            ui.hint_default(),
+            r"Running `git clean -xdf` will remove `.jj/`!",
+        )?;
+    }
+
     Ok(())
 }
 
@@ -190,8 +215,14 @@ fn configure_remote(
     workspace_command: WorkspaceCommandHelper,
     remote_name: &RemoteName,
     source: &str,
+    fetch_tags: gix::remote::fetch::Tags,
 ) -> Result<WorkspaceCommandHelper, CommandError> {
-    git::add_remote(workspace_command.repo().store(), remote_name, source)?;
+    git::add_remote(
+        workspace_command.repo().store(),
+        remote_name,
+        source,
+        fetch_tags,
+    )?;
     // Reload workspace to apply new remote configuration to
     // gix::ThreadSafeRepository behind the store.
     let workspace = command.load_workspace_at(
@@ -216,15 +247,32 @@ fn fetch_new_remote(
         r#"Fetching into new repo in "{}""#,
         workspace_command.workspace_root().display()
     )?;
-    let git_settings = workspace_command.settings().git_settings()?;
-    let mut fetch_tx = workspace_command.start_transaction();
-    let mut git_fetch = GitFetch::new(fetch_tx.repo_mut(), &git_settings)?;
+    let settings = workspace_command.settings();
+    let git_settings = settings.git_settings()?;
+    let track_default = settings.get_bool("git.track-default-bookmark-on-clone")?;
+    let mut tx = workspace_command.start_transaction();
+    let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
     with_remote_git_callbacks(ui, |cb| {
         git_fetch.fetch(remote_name, &[StringPattern::everything()], cb, depth)
     })?;
     let default_branch = git_fetch.get_default_branch(remote_name)?;
     let import_stats = git_fetch.import_refs()?;
-    print_git_import_stats(ui, fetch_tx.repo(), &import_stats, true)?;
-    fetch_tx.finish(ui, "fetch from git remote into empty repo")?;
+    if let Some(name) = &default_branch {
+        let remote_symbol = name.to_remote_symbol(remote_name);
+        let remote_ref = tx.repo().get_remote_bookmark(remote_symbol);
+        if track_default && remote_ref.is_present() {
+            // For convenience, create local bookmark as Git would do.
+            tx.repo_mut().track_remote_bookmark(remote_symbol);
+        }
+    }
+    print_git_import_stats(ui, tx.repo(), &import_stats, true)?;
+    if git_settings.auto_local_bookmark && !track_default {
+        writeln!(
+            ui.hint_default(),
+            "`git.track-default-bookmark-on-clone=false` has no effect if \
+             `git.auto-local-bookmark` is enabled."
+        )?;
+    }
+    tx.finish(ui, "fetch from git remote into empty repo")?;
     Ok(default_branch)
 }

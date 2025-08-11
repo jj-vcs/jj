@@ -22,7 +22,9 @@ use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
+use jj_lib::evolution::walk_predecessors;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::op_store::OperationId;
 use jj_lib::op_walk;
 use jj_lib::op_walk::OpsetEvaluationError;
 use jj_lib::op_walk::OpsetResolutionError;
@@ -30,9 +32,20 @@ use jj_lib::operation::Operation;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::settings::UserSettings;
-use testutils::create_random_commit;
-use testutils::write_random_commit;
+use test_case::test_case;
 use testutils::TestRepo;
+use testutils::write_random_commit;
+use testutils::write_random_commit_with_parents;
+
+fn get_predecessors(repo: &ReadonlyRepo, id: &CommitId) -> Vec<CommitId> {
+    let entries: Vec<_> = walk_predecessors(repo, slice::from_ref(id))
+        .try_collect()
+        .expect("unreachable predecessors shouldn't be visited");
+    let first = entries
+        .first()
+        .expect("specified commit should be reachable");
+    first.predecessor_ids().to_vec()
+}
 
 fn list_dir(dir: &Path) -> Vec<String> {
     std::fs::read_dir(dir)
@@ -164,10 +177,7 @@ fn test_isolation() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let initial = create_random_commit(tx.repo_mut())
-        .set_parents(vec![repo.store().root_commit_id().clone()])
-        .write()
-        .unwrap();
+    let initial = write_random_commit_with_parents(tx.repo_mut(), &[]);
     let repo = tx.commit("test").unwrap();
 
     let mut tx1 = repo.start_transaction();
@@ -209,6 +219,38 @@ fn test_isolation() {
     // After reload, the base repo sees both rewrites.
     let repo = repo.reload_at_head().unwrap();
     assert_heads(repo.as_ref(), vec![rewrite1.id(), rewrite2.id()]);
+}
+
+#[test]
+fn test_stored_commit_predecessors() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let loader = repo.loader();
+
+    let mut tx = repo.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = tx
+        .repo_mut()
+        .rewrite_commit(&commit1)
+        .set_description("rewritten")
+        .write()
+        .unwrap();
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo = tx.commit("test").unwrap();
+
+    // Reload operation from disk.
+    let op = loader.load_operation(repo.op_id()).unwrap();
+    assert!(op.stores_commit_predecessors());
+    assert_matches!(op.predecessors_for_commit(commit1.id()), Some([]));
+    assert_matches!(op.predecessors_for_commit(commit2.id()), Some([id]) if id == commit1.id());
+
+    // Save operation without the predecessors as old jj would do.
+    let mut data = op.store_operation().clone();
+    data.commit_predecessors = None;
+    let op_id = loader.op_store().write_operation(&data).unwrap();
+    assert_ne!(&op_id, op.id());
+    let op = loader.load_operation(&op_id).unwrap();
+    assert!(!op.stores_commit_predecessors());
 }
 
 #[test]
@@ -416,6 +458,184 @@ fn test_reparent_range_branchy() {
     assert_eq!(new_op_f.parent_ids(), slice::from_ref(repo_d.op_id()));
 }
 
+#[test_case(false; "legacy commit.predecessors")]
+#[test_case(true; "op.commit_predecessors")]
+fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
+    let test_repo = TestRepo::init();
+    let repo_0 = test_repo.repo;
+    let loader = repo_0.loader();
+    let op_store = repo_0.op_store();
+
+    let repo_at = |id: &OperationId| {
+        let op = loader.load_operation(id).unwrap();
+        loader.load_at(&op).unwrap()
+    };
+    let head_commits = |repo: &dyn Repo| {
+        repo.view()
+            .heads()
+            .iter()
+            .map(|id| repo.store().get_commit(id).unwrap())
+            .collect_vec()
+    };
+
+    // Set up rewriting as follows:
+    //
+    //   op1     op2     op3     op4
+    //   B0      B0 B1      B1
+    //   |       |  |       |
+    //   A0      A0 A1   A0 A1   A2
+    let mut tx = repo_0.start_transaction();
+    let commit_a0 = write_random_commit(tx.repo_mut());
+    let commit_b0 = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a0]);
+    let repo_1 = tx.commit("op1").unwrap();
+
+    let mut tx = repo_1.start_transaction();
+    let commit_a1 = tx
+        .repo_mut()
+        .rewrite_commit(&commit_a0)
+        .set_description("a1")
+        .write()
+        .unwrap();
+    tx.repo_mut().rebase_descendants().unwrap();
+    let [commit_b1] = head_commits(tx.repo()).try_into().unwrap();
+    tx.repo_mut().add_head(&commit_b0).unwrap(); // resurrect rewritten commits
+    let repo_2 = tx.commit("op2").unwrap();
+
+    let mut tx = repo_2.start_transaction();
+    tx.repo_mut().record_abandoned_commit(&commit_b0);
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo_3 = tx.commit("op3").unwrap();
+
+    let mut tx = repo_3.start_transaction();
+    tx.repo_mut().record_abandoned_commit(&commit_a0);
+    tx.repo_mut().record_abandoned_commit(&commit_b1);
+    let commit_a2 = tx
+        .repo_mut()
+        .rewrite_commit(&commit_a1)
+        .set_description("a2")
+        .write()
+        .unwrap();
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo_4 = tx.commit("op4").unwrap();
+
+    let repo_4 = if op_stores_commit_predecessors {
+        repo_4
+    } else {
+        // Save operation without the predecessors as old jj would do. We only
+        // need to rewrite the head operation since walk_predecessors() will
+        // fall back to the legacy code path immediately.
+        let mut data = repo_4.operation().store_operation().clone();
+        data.commit_predecessors = None;
+        let op_id = op_store.write_operation(&data).unwrap();
+        repo_at(&op_id)
+    };
+
+    // Sanity check for the setup
+    assert_eq!(repo_1.view().heads().len(), 1);
+    assert_eq!(repo_2.view().heads().len(), 2);
+    assert_eq!(repo_3.view().heads().len(), 2);
+    assert_eq!(repo_4.view().heads().len(), 1);
+    assert_eq!(repo_4.index().all_heads_for_gc().unwrap().count(), 3);
+    assert_eq!(
+        repo_4.operation().stores_commit_predecessors(),
+        op_stores_commit_predecessors
+    );
+    assert_eq!(
+        get_predecessors(&repo_4, commit_a1.id()),
+        [commit_a0.id().clone()]
+    );
+    assert_eq!(
+        get_predecessors(&repo_4, commit_a2.id()),
+        [commit_a1.id().clone()]
+    );
+    assert_eq!(
+        get_predecessors(&repo_4, commit_b1.id()),
+        [commit_b0.id().clone()]
+    );
+
+    // Abandon op1
+    let stats = op_walk::reparent_range(
+        op_store.as_ref(),
+        slice::from_ref(repo_1.operation()),
+        slice::from_ref(repo_4.operation()),
+        repo_0.operation(),
+    )
+    .unwrap();
+    assert_eq!(stats.new_head_ids.len(), 1);
+    assert_eq!(stats.rewritten_count, 3);
+    assert_eq!(stats.unreachable_count, 1);
+    let repo = repo_at(&stats.new_head_ids[0]);
+    // A0 - B0 are still reachable
+    assert!(repo.index().has_id(commit_a0.id()));
+    assert!(repo.index().has_id(commit_b0.id()));
+    assert_eq!(
+        get_predecessors(&repo, commit_a1.id()),
+        [commit_a0.id().clone()]
+    );
+    assert_eq!(
+        get_predecessors(&repo, commit_b1.id()),
+        [commit_b0.id().clone()]
+    );
+    assert_eq!(get_predecessors(&repo, commit_a0.id()), []);
+    assert_eq!(get_predecessors(&repo, commit_b0.id()), []);
+
+    // Abandon op1 and op2
+    let stats = op_walk::reparent_range(
+        op_store.as_ref(),
+        slice::from_ref(repo_2.operation()),
+        slice::from_ref(repo_4.operation()),
+        repo_0.operation(),
+    )
+    .unwrap();
+    assert_eq!(stats.new_head_ids.len(), 1);
+    assert_eq!(stats.rewritten_count, 2);
+    assert_eq!(stats.unreachable_count, 2);
+    let repo = repo_at(&stats.new_head_ids[0]);
+    // A0 is still reachable
+    assert!(repo.index().has_id(commit_a0.id()));
+    if op_stores_commit_predecessors {
+        // B0 is no longer reachable
+        assert!(!repo.index().has_id(commit_b0.id()));
+        // the predecessor record `A1: A0` no longer exists
+        assert_eq!(get_predecessors(&repo, commit_a1.id()), []);
+        // Unreachable predecessors should be excluded
+        assert_eq!(get_predecessors(&repo, commit_b1.id()), []);
+    } else {
+        // B0 is retained because it is immediate predecessor of B1
+        assert!(repo.index().has_id(commit_b0.id()));
+        assert_eq!(
+            get_predecessors(&repo, commit_a1.id()),
+            [commit_a0.id().clone()]
+        );
+        assert_eq!(
+            get_predecessors(&repo, commit_b1.id()),
+            [commit_b0.id().clone()]
+        );
+    }
+
+    // Abandon op1, op2, and op3
+    let stats = op_walk::reparent_range(
+        op_store.as_ref(),
+        slice::from_ref(repo_3.operation()),
+        slice::from_ref(repo_4.operation()),
+        repo_0.operation(),
+    )
+    .unwrap();
+    assert_eq!(stats.new_head_ids.len(), 1);
+    assert_eq!(stats.rewritten_count, 1);
+    assert_eq!(stats.unreachable_count, 3);
+    let repo = repo_at(&stats.new_head_ids[0]);
+    // A0 is no longer reachable
+    assert!(!repo.index().has_id(commit_a0.id()));
+    // A1 is still reachable through A2
+    assert!(repo.index().has_id(commit_a1.id()));
+    assert_eq!(
+        get_predecessors(&repo, commit_a2.id()),
+        [commit_a1.id().clone()]
+    );
+    assert_eq!(get_predecessors(&repo, commit_a1.id()), []);
+}
+
 fn stable_op_id_settings() -> UserSettings {
     let mut config = testutils::base_user_config();
     config.add_layer(
@@ -438,20 +658,20 @@ fn test_resolve_op_id() {
     let mut operations = Vec::new();
     // The actual value of `i` doesn't matter, we just need to make sure we end
     // up with hashes with ambiguous prefixes.
-    for i in (1..5).chain([39, 62]) {
+    for i in (1..5).chain([9, 27]) {
         let tx = repo.start_transaction();
         let repo = tx.commit(format!("transaction {i}")).unwrap();
         operations.push(repo.operation().clone());
     }
-    // "b" and "0" are ambiguous
+    // "6" and "0" are ambiguous
     insta::assert_debug_snapshot!(operations.iter().map(|op| op.id().hex()).collect_vec(), @r#"
     [
-        "bb1ea76bb194556214b1259568d5f3381fb4209f10b86d6c3c7d162a9b8ee1a5d98da57cf21ceadeecd2416c20508348ed4c1a24226c708f035b138fc7a97d5b",
-        "5c35c6506eedd9c74ffab46940129cb3b66e5e1968b4eea5bb38701d6d3462b4a34d78efcaa81d41fabf6937d79c4431e2adc4361095c9fb795004da420d8a26",
-        "b43387cf7a5808ebb6cdacd5c95de9d4b315c6edc465a49ff290b731da1c3d57315af49686e5ffd4c2fc4478af40b4a70cba7334bbca8e3d4e69176de807a916",
-        "fcd828a3033f9a9f44c8f06cd0d7f79570d53895c9d7d794ea51a7ee4b7871c8fe245ec18d2ece76ec7b51a998b04da811c232668c7c2c53f72b5baf0ad20797",
-        "091574d16d89ab848ac08c9a8e35276484c5e332ea97f1fad7b794763aa280ce5b663d835b555b5b763cbdbb6d8dba5a35ad1f2780ebdca5e598f07f82dcd3c7",
-        "06e9f38473578a4b1a8672ab474eb2741269fffb2f765a610de47fddafc60a88c002f7cdb9d82a9d1dfdbdd3b4045cd62e34215e7a781ed149332980e90227f1",
+        "ff7608ec55acf1ccb44bee52a0972f8b36864540ee6547d5e124a30bafd3bfbe00418446d5581cf71debac912a091dd2f93a2dd3bcb34bc53c61604aa9c129d6",
+        "b83ded05e46bef569737b8c1293c59af3fe89f72bc2cecd017b5eb96f5c69e50205069eedf144ca4fa9e55ac0c27842dce874b371a752223c5f85c4b6faadf96",
+        "6412c4e33f791b71f440817d3d16c0ee1b7640845db8f5e4146c58e8c3f4329df4662b0edeab5860c86b4679b150f38318a6e3d4ada5803176f9c5273d97f4dd",
+        "6838be3a934e1b8fc966dcf43796a3cc639a3d26edb1e9af94a285f4ce7edaecfe9e101dd7f0338af22e1632f36d634916015b72b026e1529a7b600566c29067",
+        "0ecccbdd90dd12a592dd0de010feda8bf23e4a5650f1946a82df854fc28791ad046b2d42b38060103db7fb99c00787689df98a7d2166d8180666b745cc32b172",
+        "065be6feb0ab573f0638e952ead8482899307d211f80af5dc90952a6171cc7122d5af9f13fde2ce3e37fc5e7776d5e3bc4236d82ce7d2ecbf1f63373c20772e4",
     ]
     "#);
 
@@ -472,7 +692,7 @@ fn test_resolve_op_id() {
     );
     // Ambiguous id
     assert_matches!(
-        resolve("b"),
+        resolve("6"),
         Err(OpsetEvaluationError::OpsetResolution(
             OpsetResolutionError::AmbiguousIdPrefix(_)
         ))
@@ -495,7 +715,7 @@ fn test_resolve_op_id() {
     let root_operation = loader.root_operation();
     assert_eq!(resolve(&root_operation.id().hex()).unwrap(), root_operation);
     assert_eq!(resolve("00").unwrap(), root_operation);
-    assert_eq!(resolve("09").unwrap(), operations[4]);
+    assert_eq!(resolve("0e").unwrap(), operations[4]);
     assert_matches!(
         resolve("0"),
         Err(OpsetEvaluationError::OpsetResolution(
@@ -588,19 +808,166 @@ fn test_resolve_op_parents_children() {
     let tx1 = repo.start_transaction();
     let tx2 = repo.start_transaction();
     let repo = testutils::commit_transactions(vec![tx1, tx2]);
+    let parent_op_ids = repo.operation().parent_ids();
+
+    // The subexpression that resolves to multiple operations (i.e. the accompanying
+    // op ids) should be reported, not the full expression provided by the user.
     let op5_id_hex = repo.operation().id().hex();
-    assert_matches!(
-        op_walk::resolve_op_with_repo(&repo, &format!("{op5_id_hex}-")),
-        Err(OpsetEvaluationError::OpsetResolution(
-            OpsetResolutionError::MultipleOperations { .. }
-        ))
+    let parents_op_str = format!("{op5_id_hex}-");
+    let error = op_walk::resolve_op_with_repo(&repo, &parents_op_str).unwrap_err();
+    assert_eq!(
+        extract_multiple_operations_error(&error).unwrap(),
+        (&parents_op_str, parent_op_ids)
     );
+    let grandparents_op_str = format!("{op5_id_hex}--");
+    let error = op_walk::resolve_op_with_repo(&repo, &grandparents_op_str).unwrap_err();
+    assert_eq!(
+        extract_multiple_operations_error(&error).unwrap(),
+        (&parents_op_str, parent_op_ids)
+    );
+    let children_of_parents_op_str = format!("{op5_id_hex}-+");
+    let error = op_walk::resolve_op_with_repo(&repo, &children_of_parents_op_str).unwrap_err();
+    assert_eq!(
+        extract_multiple_operations_error(&error).unwrap(),
+        (&parents_op_str, parent_op_ids)
+    );
+
     let op2_id_hex = operations[2].id().hex();
-    assert_matches!(
-        op_walk::resolve_op_with_repo(&repo, &format!("{op2_id_hex}+")),
-        Err(OpsetEvaluationError::OpsetResolution(
-            OpsetResolutionError::MultipleOperations { .. }
-        ))
+    let op_str = format!("{op2_id_hex}+");
+    let error = op_walk::resolve_op_with_repo(&repo, &op_str).unwrap_err();
+    assert_eq!(
+        extract_multiple_operations_error(&error).unwrap(),
+        (&op_str, parent_op_ids)
+    );
+}
+
+#[test]
+fn test_walk_ancestors() {
+    let test_repo = TestRepo::init();
+    let repo_0 = test_repo.repo;
+    let loader = repo_0.loader();
+
+    fn op_parents<const N: usize>(op: &Operation) -> [Operation; N] {
+        let parents: Vec<_> = op.parents().try_collect().unwrap();
+        parents.try_into().unwrap()
+    }
+
+    fn collect_ancestors(head_ops: &[Operation]) -> Vec<Operation> {
+        op_walk::walk_ancestors(head_ops).try_collect().unwrap()
+    }
+
+    fn collect_ancestors_range(head_ops: &[Operation], root_ops: &[Operation]) -> Vec<Operation> {
+        op_walk::walk_ancestors_range(head_ops, root_ops)
+            .try_collect()
+            .unwrap()
+    }
+
+    // Set up operation graph:
+    // H
+    // G
+    // |\
+    // | F
+    // E |
+    // D |
+    // |/
+    // C
+    // | B
+    // A |
+    // |/
+    // 0 (initial)
+    let repo_a = repo_0.start_transaction().commit("op A").unwrap();
+    let repo_b = repo_0
+        .start_transaction()
+        .write("op B")
+        .unwrap()
+        .leave_unpublished();
+    let repo_c = repo_a.start_transaction().commit("op C").unwrap();
+    let repo_d = repo_c.start_transaction().commit("op D").unwrap();
+    let tx_e = repo_d.start_transaction();
+    let tx_f = repo_c.start_transaction();
+    let repo_g = testutils::commit_transactions(vec![tx_e, tx_f]);
+    let [op_e, op_f] = op_parents(repo_g.operation());
+    let repo_h = repo_g.start_transaction().commit("op H").unwrap();
+
+    // At merge, parents are visited in forward order, which isn't important.
+    assert_eq!(
+        collect_ancestors(slice::from_ref(repo_h.operation())),
+        [
+            repo_h.operation().clone(),
+            repo_g.operation().clone(),
+            op_e.clone(),
+            repo_d.operation().clone(),
+            op_f.clone(),
+            repo_c.operation().clone(),
+            repo_a.operation().clone(),
+            loader.root_operation(),
+        ]
+    );
+
+    // Ancestors of multiple heads
+    assert_eq!(
+        collect_ancestors(&[op_f.clone(), repo_b.operation().clone()]),
+        [
+            op_f.clone(),
+            repo_c.operation().clone(),
+            repo_a.operation().clone(),
+            repo_b.operation().clone(),
+            loader.root_operation(),
+        ]
+    );
+
+    // Exclude direct ancestor
+    assert_eq!(
+        collect_ancestors_range(
+            slice::from_ref(repo_h.operation()),
+            slice::from_ref(repo_d.operation()),
+        ),
+        [
+            repo_h.operation().clone(),
+            repo_g.operation().clone(),
+            op_e.clone(),
+            op_f.clone(),
+        ]
+    );
+
+    // Exclude indirect ancestor
+    assert_eq!(
+        collect_ancestors_range(slice::from_ref(&op_e), slice::from_ref(&op_f)),
+        [op_e.clone(), repo_d.operation().clone()]
+    );
+
+    // Exclude far ancestor
+    assert_eq!(
+        collect_ancestors_range(
+            slice::from_ref(repo_h.operation()),
+            slice::from_ref(repo_a.operation()),
+        ),
+        [
+            repo_h.operation().clone(),
+            repo_g.operation().clone(),
+            op_e.clone(),
+            repo_d.operation().clone(),
+            op_f.clone(),
+            repo_c.operation().clone(),
+        ]
+    );
+
+    // Exclude ancestors of descendant
+    assert_eq!(
+        collect_ancestors_range(
+            slice::from_ref(repo_g.operation()),
+            slice::from_ref(repo_h.operation()),
+        ),
+        []
+    );
+
+    // Exclude multiple roots
+    assert_eq!(
+        collect_ancestors_range(
+            slice::from_ref(repo_g.operation()),
+            &[repo_d.operation().clone(), op_f.clone()],
+        ),
+        [repo_g.operation().clone(), op_e.clone()]
     );
 }
 
@@ -680,4 +1047,19 @@ fn test_gc() {
     // Sanity check for the last state
     assert_eq!(expected_op_entries.len(), 1);
     assert_eq!(expected_view_entries.len(), 1);
+}
+
+#[track_caller]
+fn extract_multiple_operations_error(
+    error: &OpsetEvaluationError,
+) -> Option<(&String, &[OperationId])> {
+    if let OpsetEvaluationError::OpsetResolution(OpsetResolutionError::MultipleOperations {
+        expr,
+        candidates,
+    }) = error
+    {
+        Some((expr, candidates))
+    } else {
+        None
+    }
 }

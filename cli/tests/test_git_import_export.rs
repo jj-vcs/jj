@@ -116,7 +116,7 @@ fn test_git_export_undo() {
     let output = work_dir.run_jj(["op", "undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 5892a7e5aee4 (2001-02-03 08:05:10) export git refs
+    Undid operation: b718f970b78c (2001-02-03 08:05:10) export git refs
     [EOF]
     ");
     insta::assert_debug_snapshot!(get_git_repo_refs(&git_repo), @r#"
@@ -191,7 +191,7 @@ fn test_git_import_undo() {
     let output = work_dir.run_jj(["op", "restore", &base_operation_id]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Restored to operation: 2affa7025254 (2001-02-03 08:05:07) add workspace 'default'
+    Restored to operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
@@ -273,7 +273,7 @@ fn test_git_import_move_export_with_default_undo() {
     let output = work_dir.run_jj(["op", "restore", &base_operation_id]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Restored to operation: 2affa7025254 (2001-02-03 08:05:07) add workspace 'default'
+    Restored to operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
     Working copy  (@) now at: qpvuntsm e8849ae1 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -301,6 +301,61 @@ fn test_git_import_move_export_with_default_undo() {
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     a: yqosqzyt 507c0edc (empty) (no description set)
       @git: yqosqzyt 507c0edc (empty) (no description set)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_import_export_stats_color() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::open(work_dir.root().join(".jj/repo/store/git"));
+
+    work_dir.run_jj(["bookmark", "set", "-r@", "foo"]).success();
+    work_dir
+        .run_jj(["bookmark", "set", "-r@", "'un:exportable'"])
+        .success();
+    work_dir.run_jj(["new", "--no-edit", "root()"]).success();
+    let other_commit_id = work_dir
+        .run_jj(&["log", "-Tcommit_id", "--no-graph", "-rvisible_heads() ~ @"])
+        .success()
+        .stdout
+        .into_raw();
+
+    let output = work_dir
+        .run_jj(["git", "export", "--color=always"])
+        .success();
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    [1m[38;5;3mWarning: [39mFailed to export some bookmarks:[0m
+      [38;5;5m"un:exportable"@git[39m: Failed to set: A reference must be a valid tag name as well: A ref must not contain invalid bytes or ascii control characters: ":"
+    [1m[38;5;6mHint: [0m[39mGit doesn't allow a branch name that looks like a parent directory of[39m
+    [39manother (e.g. `foo` and `foo/bar`). Try to rename the bookmarks that failed to[39m
+    [39mexport or their "parent" bookmarks.[39m
+    [EOF]
+    "#);
+
+    let other_commit_id = gix::ObjectId::from_hex(other_commit_id.as_bytes()).unwrap();
+    for name in ["refs/heads/foo", "refs/heads/bar", "refs/tags/baz"] {
+        git_repo
+            .reference(
+                name,
+                other_commit_id,
+                gix::refs::transaction::PreviousValue::Any,
+                "",
+            )
+            .unwrap();
+    }
+
+    let output = work_dir
+        .run_jj(["git", "import", "--color=always"])
+        .success();
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    bookmark: [38;5;5mbar@git[39m [new] tracked
+    bookmark: [38;5;5mfoo@git[39m [updated] tracked
+    tag: [38;5;5mbaz@git[39m [new] 
     [EOF]
     ");
 }

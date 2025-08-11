@@ -12,15 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use indoc::writedoc;
 use jj_lib::backend::Signature;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::description_util::add_trailers;
 use crate::description_util::description_template;
@@ -29,21 +31,38 @@ use crate::description_util::join_message_paragraphs;
 use crate::text_util::parse_author;
 use crate::ui::Ui;
 
-/// Update the description and create a new change on top.
+/// Update the description and create a new change on top [default alias: ci]
+///
+/// This command is very similar to `jj split`. Differences include:
+///
+/// * `jj commit` is not interactive by default (it selects all changes).
+///
+/// * `jj commit` doesn't have a `-r` option. It always acts on the working-copy
+///   commit (@).
+///
+/// * `jj split` (without `-d/-A/-B`) will move bookmarks forward from the old
+///   change to the child change. `jj commit` doesn't move bookmarks forward.
+///
+/// * `jj split` allows you to move the selected changes to a different
+///   destination with `-d/-A/-B`.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct CommitArgs {
     /// Interactively choose which changes to include in the first commit
     #[arg(short, long)]
     interactive: bool,
     /// Specify diff editor to be used (implies --interactive)
-    #[arg(long, value_name = "NAME")]
+    #[arg(
+        long,
+        value_name = "NAME",
+        add = ArgValueCandidates::new(complete::diff_editors),
+    )]
     tool: Option<String>,
     /// The change description to use (don't open editor)
     #[arg(long = "message", short, value_name = "MESSAGE")]
     message_paragraphs: Vec<String>,
     /// Put these paths in the first commit
     #[arg(
-        value_name = "FILESETS", 
+        value_name = "FILESETS",
         value_hint = clap::ValueHint::AnyPath,
         add = ArgValueCompleter::new(complete::modified_files),
     )]
@@ -146,8 +165,20 @@ new working-copy commit.
         let description = add_trailers(ui, &tx, &commit_builder)?;
         commit_builder.set_description(description);
         let temp_commit = commit_builder.write_hidden()?;
-        let description = description_template(ui, &tx, "", &temp_commit)?;
-        edit_description(&text_editor, &description)?
+        let intro = "";
+        let description = description_template(ui, &tx, intro, &temp_commit)?;
+        let description = edit_description(&text_editor, &description)?;
+        if description.is_empty() {
+            writedoc!(
+                ui.hint_default(),
+                "
+                The commit message was left empty.
+                If this was not intentional, run `jj undo` to restore the previous state.
+                Or run `jj desc @-` to add a description to the parent commit.
+                "
+            )?;
+        }
+        description
     };
     commit_builder.set_description(description);
     let new_commit = commit_builder.write(tx.repo_mut())?;

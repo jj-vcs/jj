@@ -18,7 +18,6 @@ use std::env;
 use std::ffi::OsStr;
 use std::fs;
 use std::fs::OpenOptions;
-use std::io::Read as _;
 use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
@@ -32,6 +31,7 @@ use jj_lib::backend::Backend;
 use jj_lib::backend::BackendInitError;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
+use jj_lib::backend::CopyId;
 use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::MillisSinceEpoch;
@@ -70,10 +70,12 @@ use jj_lib::working_copy::SnapshotStats;
 use jj_lib::workspace::Workspace;
 use pollster::FutureExt as _;
 use tempfile::TempDir;
+use tokio::io::AsyncReadExt as _;
 
 use crate::test_backend::TestBackendFactory;
 
 pub mod git;
+pub mod proptest;
 pub mod test_backend;
 
 // TODO: Consider figuring out a way to make `GitBackend` and `git(1)` calls in
@@ -81,15 +83,17 @@ pub mod test_backend;
 // somewhat tricky because `gix` looks at system and user configuration, and
 // `GitBackend` also calls into `git(1)` for things like garbage collection.
 pub fn hermetic_git() {
-    // Prevent GitBackend from loading user and system configurations. For
-    // gitoxide API use in tests, Config::isolated() is probably better.
-    env::set_var("GIT_CONFIG_SYSTEM", "/dev/null");
-    env::set_var("GIT_CONFIG_GLOBAL", "/dev/null");
-    // gitoxide uses "main" as the default branch name, whereas git
-    // uses "master".
-    env::set_var("GIT_CONFIG_KEY_0", "init.defaultBranch");
-    env::set_var("GIT_CONFIG_VALUE_0", "master");
-    env::set_var("GIT_CONFIG_COUNT", "1");
+    unsafe {
+        // Prevent GitBackend from loading user and system configurations. For
+        // gitoxide API use in tests, Config::isolated() is probably better.
+        env::set_var("GIT_CONFIG_SYSTEM", "/dev/null");
+        env::set_var("GIT_CONFIG_GLOBAL", "/dev/null");
+        // gitoxide uses "main" as the default branch name, whereas git
+        // uses "master".
+        env::set_var("GIT_CONFIG_KEY_0", "init.defaultBranch");
+        env::set_var("GIT_CONFIG_VALUE_0", "master");
+        env::set_var("GIT_CONFIG_COUNT", "1");
+    }
 }
 
 pub fn new_temp_dir() -> TempDir {
@@ -148,7 +152,7 @@ pub struct TestEnvironment {
 
 impl TestEnvironment {
     pub fn init() -> Self {
-        TestEnvironment {
+        Self {
             temp_dir: new_temp_dir(),
             test_backend_factory: TestBackendFactory::default(),
         }
@@ -206,9 +210,9 @@ impl TestRepoBackend {
         store_path: &Path,
     ) -> Result<Box<dyn Backend>, BackendInitError> {
         match self {
-            TestRepoBackend::Git => Ok(Box::new(GitBackend::init_internal(settings, store_path)?)),
-            TestRepoBackend::Simple => Ok(Box::new(SimpleBackend::init(store_path))),
-            TestRepoBackend::Test => Ok(Box::new(env.test_backend_factory.init(store_path))),
+            Self::Git => Ok(Box::new(GitBackend::init_internal(settings, store_path)?)),
+            Self::Simple => Ok(Box::new(SimpleBackend::init(store_path))),
+            Self::Test => Ok(Box::new(env.test_backend_factory.init(store_path))),
         }
     }
 }
@@ -370,9 +374,9 @@ pub fn repo_path_buf(value: impl Into<String>) -> RepoPathBuf {
 }
 
 pub fn read_file(store: &Store, path: &RepoPath, id: &FileId) -> Vec<u8> {
-    let mut reader = store.read_file(path, id).unwrap();
+    let mut reader = store.read_file(path, id).block_on().unwrap();
     let mut content = vec![];
-    reader.read_to_end(&mut content).unwrap();
+    reader.read_to_end(&mut content).block_on().unwrap();
     content
 }
 
@@ -383,61 +387,130 @@ pub fn write_file(store: &Store, path: &RepoPath, contents: &str) -> FileId {
         .unwrap()
 }
 
-pub fn write_normal_file(
-    tree_builder: &mut TreeBuilder,
-    path: &RepoPath,
-    contents: &str,
-) -> FileId {
-    let id = write_file(tree_builder.store(), path, contents);
-    tree_builder.set(
-        path.to_owned(),
-        TreeValue::File {
-            id: id.clone(),
+pub struct TestTreeBuilder {
+    store: Arc<Store>,
+    tree_builder: TreeBuilder,
+}
+
+impl TestTreeBuilder {
+    pub fn new(store: Arc<Store>) -> Self {
+        let tree_builder = TreeBuilder::new(store.clone(), store.empty_tree_id().clone());
+        Self {
+            store,
+            tree_builder,
+        }
+    }
+
+    pub fn file(
+        &mut self,
+        path: &RepoPath,
+        contents: impl AsRef<[u8]>,
+    ) -> TestTreeFileEntryBuilder<'_> {
+        TestTreeFileEntryBuilder {
+            tree_builder: &mut self.tree_builder,
+            path: path.to_owned(),
+            contents: contents.as_ref().to_vec(),
             executable: false,
-        },
-    );
-    id
+        }
+    }
+
+    pub fn symlink(&mut self, path: &RepoPath, target: &str) {
+        let id = self.store.write_symlink(path, target).block_on().unwrap();
+        self.tree_builder
+            .set(path.to_owned(), TreeValue::Symlink(id));
+    }
+
+    pub fn submodule(&mut self, path: &RepoPath, commit: CommitId) {
+        self.tree_builder
+            .set(path.to_owned(), TreeValue::GitSubmodule(commit));
+    }
+
+    pub fn write_single_tree(self) -> Tree {
+        let id = self.tree_builder.write_tree().unwrap();
+        self.store.get_tree(RepoPathBuf::root(), &id).unwrap()
+    }
+
+    pub fn write_merged_tree(self) -> MergedTree {
+        MergedTree::resolved(self.write_single_tree())
+    }
 }
 
-pub fn write_executable_file(tree_builder: &mut TreeBuilder, path: &RepoPath, contents: &str) {
-    let id = write_file(tree_builder.store(), path, contents);
-    tree_builder.set(
-        path.to_owned(),
-        TreeValue::File {
-            id,
-            executable: true,
-        },
-    );
+pub struct TestTreeFileEntryBuilder<'a> {
+    tree_builder: &'a mut TreeBuilder,
+    path: RepoPathBuf,
+    contents: Vec<u8>,
+    executable: bool,
 }
 
-pub fn write_symlink(tree_builder: &mut TreeBuilder, path: &RepoPath, target: &str) {
-    let id = tree_builder
-        .store()
-        .write_symlink(path, target)
-        .block_on()
-        .unwrap();
-    tree_builder.set(path.to_owned(), TreeValue::Symlink(id));
+impl TestTreeFileEntryBuilder<'_> {
+    pub fn executable(mut self, executable: bool) -> Self {
+        self.executable = executable;
+        self
+    }
+}
+
+impl Drop for TestTreeFileEntryBuilder<'_> {
+    fn drop(&mut self) {
+        let id = self
+            .tree_builder
+            .store()
+            .write_file(&self.path, &mut self.contents.as_slice())
+            .block_on()
+            .unwrap();
+        let path = std::mem::replace(&mut self.path, RepoPathBuf::root());
+        self.tree_builder.set(
+            path,
+            TreeValue::File {
+                id,
+                executable: self.executable,
+                copy_id: CopyId::placeholder(),
+            },
+        );
+    }
+}
+
+pub fn create_single_tree_with(
+    repo: &Arc<ReadonlyRepo>,
+    build: impl FnOnce(&mut TestTreeBuilder),
+) -> Tree {
+    let mut builder = TestTreeBuilder::new(repo.store().clone());
+    build(&mut builder);
+    builder.write_single_tree()
 }
 
 pub fn create_single_tree(repo: &Arc<ReadonlyRepo>, path_contents: &[(&RepoPath, &str)]) -> Tree {
-    let store = repo.store();
-    let mut tree_builder = store.tree_builder(store.empty_tree_id().clone());
-    for (path, contents) in path_contents {
-        write_normal_file(&mut tree_builder, path, contents);
-    }
-    let id = tree_builder.write_tree().unwrap();
-    store.get_tree(RepoPathBuf::root(), &id).unwrap()
+    create_single_tree_with(repo, |builder| {
+        for (path, contents) in path_contents {
+            builder.file(path, contents);
+        }
+    })
+}
+
+pub fn create_tree_with(
+    repo: &Arc<ReadonlyRepo>,
+    build: impl FnOnce(&mut TestTreeBuilder),
+) -> MergedTree {
+    let mut builder = TestTreeBuilder::new(repo.store().clone());
+    build(&mut builder);
+    builder.write_merged_tree()
 }
 
 pub fn create_tree(repo: &Arc<ReadonlyRepo>, path_contents: &[(&RepoPath, &str)]) -> MergedTree {
-    MergedTree::resolved(create_single_tree(repo, path_contents))
+    create_tree_with(repo, |builder| {
+        for (path, contents) in path_contents {
+            builder.file(path, contents);
+        }
+    })
 }
 
 #[must_use]
 pub fn create_random_tree(repo: &Arc<ReadonlyRepo>) -> MergedTreeId {
     let number = rand::random::<u32>();
     let path = repo_path_buf(format!("file{number}"));
-    create_tree(repo, &[(&path, "contents")]).id()
+    create_tree_with(repo, |builder| {
+        builder.file(&path, "contents");
+    })
+    .id()
 }
 
 pub fn create_random_commit(mut_repo: &mut MutableRepo) -> CommitBuilder<'_> {
@@ -486,7 +559,11 @@ pub fn dump_tree(store: &Arc<Store>, tree_id: &MergedTreeId) -> String {
     let tree = store.get_root_tree(tree_id).unwrap();
     for (path, result) in tree.entries() {
         match result.unwrap().into_resolved() {
-            Ok(Some(TreeValue::File { id, executable: _ })) => {
+            Ok(Some(TreeValue::File {
+                id,
+                executable: _,
+                copy_id: _,
+            })) => {
                 let file_buf = read_file(store, &path, &id);
                 let file_contents = String::from_utf8_lossy(&file_buf);
                 writeln!(&mut buf, "  file {path:?} ({id}): {file_contents:?}").unwrap();
@@ -505,11 +582,41 @@ pub fn dump_tree(store: &Arc<Store>, tree_id: &MergedTreeId) -> String {
     buf
 }
 
-pub fn write_random_commit(mut_repo: &mut MutableRepo) -> Commit {
-    create_random_commit(mut_repo).write().unwrap()
+#[macro_export]
+macro_rules! assert_tree_eq {
+    ($left_tree_id:expr, $right_tree_id:expr, $store:expr $(,)?) => {
+        assert_tree_eq!($left_tree_id, $right_tree_id, $store, "trees are different")
+    };
+    ($left_tree_id:expr, $right_tree_id:expr, $store:expr, $($args:tt)+) => {{
+        let store = $store;
+        assert_eq!(
+            $left_tree_id,
+            $right_tree_id,
+            "{}:\n left: {}\nright: {}",
+            format_args!($($args)*),
+            $crate::dump_tree(store, $left_tree_id),
+            $crate::dump_tree(store, $right_tree_id),
+        )
+    }};
 }
 
-pub fn write_working_copy_file(workspace_root: &Path, path: &RepoPath, contents: &str) {
+pub fn write_random_commit(mut_repo: &mut MutableRepo) -> Commit {
+    write_random_commit_with_parents(mut_repo, &[])
+}
+
+pub fn write_random_commit_with_parents(mut_repo: &mut MutableRepo, parents: &[&Commit]) -> Commit {
+    let parents = if parents.is_empty() {
+        &[&mut_repo.store().root_commit()]
+    } else {
+        parents
+    };
+    create_random_commit(mut_repo)
+        .set_parents(parents.iter().map(|commit| commit.id().clone()).collect())
+        .write()
+        .unwrap()
+}
+
+pub fn write_working_copy_file(workspace_root: &Path, path: &RepoPath, contents: impl AsRef<[u8]>) {
     let path = path.to_fs_path(workspace_root).unwrap();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).unwrap();
@@ -520,32 +627,7 @@ pub fn write_working_copy_file(workspace_root: &Path, path: &RepoPath, contents:
         .truncate(true)
         .open(path)
         .unwrap();
-    file.write_all(contents.as_bytes()).unwrap();
-}
-
-pub struct CommitGraphBuilder<'repo> {
-    mut_repo: &'repo mut MutableRepo,
-}
-
-impl<'repo> CommitGraphBuilder<'repo> {
-    pub fn new(mut_repo: &'repo mut MutableRepo) -> Self {
-        CommitGraphBuilder { mut_repo }
-    }
-
-    pub fn initial_commit(&mut self) -> Commit {
-        write_random_commit(self.mut_repo)
-    }
-
-    pub fn commit_with_parents(&mut self, parents: &[&Commit]) -> Commit {
-        let parent_ids = parents
-            .iter()
-            .map(|commit| commit.id().clone())
-            .collect_vec();
-        create_random_commit(self.mut_repo)
-            .set_parents(parent_ids)
-            .write()
-            .unwrap()
-    }
+    file.write_all(contents.as_ref()).unwrap();
 }
 
 /// Rebase descendants of the rewritten commits. Returns map of original commit
@@ -578,8 +660,7 @@ fn assert_in_rebased_map(
             expected_old_commit.id().hex()
         )
     });
-    let new_commit = repo.store().get_commit(new_commit_id).unwrap().clone();
-    new_commit
+    repo.store().get_commit(new_commit_id).unwrap().clone()
 }
 
 pub fn assert_rebased_onto(

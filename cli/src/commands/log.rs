@@ -17,29 +17,26 @@ use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
-use jj_lib::config::ConfigGetError;
-use jj_lib::config::ConfigGetResultExt as _;
-use jj_lib::graph::reverse_graph;
 use jj_lib::graph::GraphEdge;
 use jj_lib::graph::GraphEdgeType;
 use jj_lib::graph::TopoGroupedGraphIterator;
+use jj_lib::graph::reverse_graph;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetIteratorExt as _;
-use jj_lib::settings::UserSettings;
 use tracing::instrument;
 
-use crate::cli_util::format_template;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::format_template;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
-use crate::graphlog::get_graphlog;
 use crate::graphlog::GraphStyle;
+use crate::graphlog::get_graphlog;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
@@ -169,15 +166,15 @@ pub(crate) fn cmd_log(
     {
         let language = workspace_command.commit_template_language();
         let template_string = match &args.template {
-            Some(value) => value.to_string(),
+            Some(value) => value.clone(),
             None => settings.get_string("templates.log")?,
         };
         template = workspace_command
             .parse_template(ui, &language, &template_string)?
-            .labeled("log");
+            .labeled(["log", "commit"]);
         node_template = workspace_command
-            .parse_template(ui, &language, &get_node_template(graph_style, settings)?)?
-            .labeled("node");
+            .parse_template(ui, &language, &settings.get_string("templates.log_node")?)?
+            .labeled(["log", "commit", "node"]);
     }
 
     {
@@ -189,7 +186,7 @@ pub(crate) fn cmd_log(
             let mut raw_output = formatter.raw()?;
             let mut graph = get_graphlog(graph_style, raw_output.as_mut());
             let iter: Box<dyn Iterator<Item = _>> = {
-                let mut forward_iter = TopoGroupedGraphIterator::new(revset.iter_graph());
+                let mut forward_iter = TopoGroupedGraphIterator::new(revset.iter_graph(), |id| id);
 
                 let has_commit = revset.containing_fn();
 
@@ -335,17 +332,4 @@ pub(crate) fn cmd_log(
     }
 
     Ok(())
-}
-
-pub fn get_node_template(
-    style: GraphStyle,
-    settings: &UserSettings,
-) -> Result<String, ConfigGetError> {
-    let symbol = settings.get_string("templates.log_node").optional()?;
-    let default = if style.is_ascii() {
-        "builtin_log_node_ascii"
-    } else {
-        "builtin_log_node"
-    };
-    Ok(symbol.unwrap_or_else(|| default.to_owned()))
 }

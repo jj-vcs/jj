@@ -30,7 +30,7 @@ be compiled from the same source code.
 
 #### From Source
 
-First make sure that you have a Rust version >= 1.84 and that the
+First make sure that you have a Rust version >= 1.85 and that the
 `build-essential` package is installed by running something like this:
 
 ```shell
@@ -116,7 +116,7 @@ zypper install jujutsu
 
 #### From Source
 
-First make sure that you have a Rust version >= 1.84. You may also need to run:
+First make sure that you have a Rust version >= 1.85. You may also need to run:
 
 ```shell
 xcode-select --install
@@ -158,7 +158,7 @@ sudo port install jujutsu
 
 ### Windows
 
-First make sure that you have a Rust version >= 1.84. Now run either:
+First make sure that you have a Rust version >= 1.85. Now run either:
 
 ```shell
 # To install the *prerelease* version from the main branch
@@ -170,6 +170,20 @@ or:
 ```shell
 # To install the latest release
 cargo install --locked --bin jj jj-cli
+```
+
+via winget:
+
+```shell
+# To install the latest release via winget
+winget install jj-vcs.jj
+```
+
+via scoop:
+
+```shell
+# To install the latest release via scoop
+scoop install main/jj
 ```
 
 
@@ -203,82 +217,83 @@ transition once we default to these new completions.
     to the name of your shell (see examples below). See the upstream clap issue
     [#3166][clap] for the explanation.
 
+<!-- The content tabs formatting below is optimized for the website and not for GitHub. -->
 
 ### Bash
 
-#### Standard
+=== "Standard"
 
-```shell
-source <(jj util completion bash)
-```
+    ```shell
+    source <(jj util completion bash)
+    ```
 
-#### Dynamic
+=== "Dynamic"
 
-```shell
-source <(COMPLETE=bash jj)
-```
+    ```shell
+    source <(COMPLETE=bash jj)
+    ```
 
 ### Zsh
 
-#### Standard
+=== "Standard"
 
-```shell
-autoload -U compinit
-compinit
-source <(jj util completion zsh)
-```
+    ```shell
+    autoload -U compinit
+    compinit
+    source <(jj util completion zsh)
+    ```
 
-#### Dynamic
+=== "Dynamic"
 
-```shell
-source <(COMPLETE=zsh jj)
-```
+    ```shell
+    source <(COMPLETE=zsh jj)
+    ```
 
 ### Fish
 
 !!! note
 
-    No configuration is required with fish >= 4.1 which loads dynamic completions by default.
+    No configuration is required with fish >= 4.0.2 which loads dynamic completions by default.
 
-#### Standard
+=== "Standard"
 
-```shell
-jj util completion fish | source
-```
+    ```shell
+    jj util completion fish | source
+    ```
 
-#### Dynamic
+=== "Dynamic"
 
-```shell
-COMPLETE=fish jj | source
-```
+    ```shell
+    COMPLETE=fish jj | source
+    ```
 
 ### Nushell
 
-```nu
-jj util completion nushell | save completions-jj.nu
-use completions-jj.nu *  # Or `source completions-jj.nu`
-```
+=== "Standard"
 
-(dynamic completions not available yet)
+    ```nu
+    jj util completion nushell | save completions-jj.nu
+    use completions-jj.nu *  # Or `source completions-jj.nu`
+    ```
 
 ### Xonsh
 
-```shell
-source-bash $(jj util completion)
-```
+=== "Standard"
 
-(dynamic completions not available yet)
+    ```shell
+    source-bash $(jj util completion)
+    ```
 
 ### Powershell
 
-Insert this line in your $PROFILE file:
-(usually $HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1)
+=== "Standard"
 
-```shell
-Invoke-Expression (& { (jj util completion power-shell | Out-String) })
-```
+    Insert this line in your `$PROFILE` file
+    (usually `$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1`):
 
-(dynamic completions not available yet)
+    ```shell
+    Invoke-Expression (& { (jj util completion power-shell | Out-String) })
+    ```
 
 [cargo-binstall]: https://github.com/cargo-bins/cargo-binstall
 [clap]: https://github.com/clap-rs/clap/issues/3166

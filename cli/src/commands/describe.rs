@@ -26,25 +26,24 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
+use crate::description_util::ParsedBulkEditMessage;
 use crate::description_util::add_trailers_with_template;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
 use crate::description_util::edit_multiple_descriptions;
 use crate::description_util::join_message_paragraphs;
 use crate::description_util::parse_trailers_template;
-use crate::description_util::ParsedBulkEditMessage;
 use crate::text_util::parse_author;
 use crate::ui::Ui;
 
-/// Update the change description or other metadata
+/// Update the change description or other metadata [default alias: desc]
 ///
 /// Starts an editor to let you edit the description of changes. The editor
 /// will be $EDITOR, or `pico` if that's not defined (`Notepad` on Windows).
 #[derive(clap::Args, Clone, Debug)]
-#[command(visible_aliases = &["desc"])]
 pub(crate) struct DescribeArgs {
     /// The revision(s) whose description to edit (default: @)
     #[arg(
@@ -87,9 +86,10 @@ pub(crate) struct DescribeArgs {
     /// allow the message to be edited afterwards.
     #[arg(long)]
     edit: bool,
-    /// Reset the author to the configured user
+    /// Reset the author name, email, and timestamp
     ///
-    /// This resets the author name, email, and timestamp.
+    /// This resets the author name and email to the configured user and sets
+    /// the author timestamp to the current time.
     ///
     /// You can use it in combination with the JJ_USER and JJ_EMAIL
     /// environment variables to set a different author:
@@ -132,14 +132,16 @@ pub(crate) fn cmd_describe(
     let text_editor = workspace_command.text_editor()?;
 
     let mut tx = workspace_command.start_transaction();
-    let tx_description = if commits.len() == 1 {
-        format!("describe commit {}", commits[0].id().hex())
-    } else {
-        format!(
-            "describe commit {} and {} more",
-            commits[0].id().hex(),
-            commits.len() - 1
-        )
+    let tx_description = match commits.as_slice() {
+        [] => unreachable!(),
+        [commit] => format!("describe commit {}", commit.id().hex()),
+        [first_commit, remaining_commits @ ..] => {
+            format!(
+                "describe commit {} and {} more",
+                first_commit.id().hex(),
+                remaining_commits.len()
+            )
+        }
     };
 
     let shared_description = if args.stdin {
@@ -151,11 +153,6 @@ pub(crate) fn cmd_describe(
     } else {
         None
     };
-
-    // edit and no_edit are conflicting arguments and therefore it should not
-    // be possible for both to be true at the same time.
-    assert!(!(args.edit && args.no_edit));
-    let use_editor = args.edit || (shared_description.is_none() && !args.no_edit);
 
     let mut commit_builders = commits
         .iter()
@@ -179,6 +176,8 @@ pub(crate) fn cmd_describe(
             commit_builder
         })
         .collect_vec();
+
+    let use_editor = args.edit || (shared_description.is_none() && !args.no_edit);
 
     if let Some(trailer_template) = parse_trailers_template(ui, &tx)? {
         for commit_builder in &mut commit_builders {
@@ -206,7 +205,8 @@ pub(crate) fn cmd_describe(
             .try_collect()?;
 
         if let [(_, temp_commit)] = &*temp_commits {
-            let template = description_template(ui, &tx, "", temp_commit)?;
+            let intro = "";
+            let template = description_template(ui, &tx, intro, temp_commit)?;
             let description = edit_description(&text_editor, &template)?;
             commit_builders[0].set_description(description);
         } else {
@@ -260,14 +260,15 @@ pub(crate) fn cmd_describe(
 
     let mut num_described = 0;
     let mut num_reparented = 0;
-    // Even though `MutRepo::rewrite_commit` and `MutRepo::rebase_descendants` can
-    // handle rewriting of a commit even if it is a descendant of another commit
-    // being rewritten, using `MutRepo::transform_descendants` prevents us from
-    // rewriting the same commit multiple times, and adding additional entries
-    // in the predecessor chain.
+    // Even though `MutableRepo::rewrite_commit` and
+    // `MutableRepo::rebase_descendants` can handle rewriting of a commit even
+    // if it is a descendant of another commit being rewritten, using
+    // `MutableRepo::transform_descendants` prevents us from rewriting the same
+    // commit multiple times, and adding additional entries in the predecessor
+    // chain.
     tx.repo_mut().transform_descendants(
         commit_builders.keys().map(|&id| id.clone()).collect(),
-        |rewriter| {
+        async |rewriter| {
             let old_commit_id = rewriter.old_commit().id().clone();
             let commit_builder = rewriter.reparent();
             if let Some(temp_builder) = commit_builders.get(&old_commit_id) {

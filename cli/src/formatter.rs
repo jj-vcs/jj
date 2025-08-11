@@ -75,7 +75,7 @@ pub struct LabeledWriter<T, S> {
 
 impl<T, S> LabeledWriter<T, S> {
     pub fn new(formatter: T, label: S) -> Self {
-        LabeledWriter { formatter, label }
+        Self { formatter, label }
     }
 
     /// Turns into writer that prints labeled message with the `heading`.
@@ -114,7 +114,7 @@ pub struct HeadingLabeledWriter<T, S, H> {
 
 impl<T, S, H> HeadingLabeledWriter<T, S, H> {
     pub fn new(writer: LabeledWriter<T, S>, heading: H) -> Self {
-        HeadingLabeledWriter {
+        Self {
             writer,
             heading: Some(heading),
         }
@@ -155,18 +155,18 @@ enum FormatterFactoryKind {
 impl FormatterFactory {
     pub fn plain_text() -> Self {
         let kind = FormatterFactoryKind::PlainText;
-        FormatterFactory { kind }
+        Self { kind }
     }
 
     pub fn sanitized() -> Self {
         let kind = FormatterFactoryKind::Sanitized;
-        FormatterFactory { kind }
+        Self { kind }
     }
 
     pub fn color(config: &StackedConfig, debug: bool) -> Result<Self, ConfigGetError> {
         let rules = Arc::new(rules_from_config(config)?);
         let kind = FormatterFactoryKind::Color { rules, debug };
-        Ok(FormatterFactory { kind })
+        Ok(Self { kind })
     }
 
     pub fn new_formatter<'output, W: Write + 'output>(
@@ -192,7 +192,7 @@ pub struct PlainTextFormatter<W> {
 }
 
 impl<W> PlainTextFormatter<W> {
-    pub fn new(output: W) -> PlainTextFormatter<W> {
+    pub fn new(output: W) -> Self {
         Self { output }
     }
 }
@@ -226,7 +226,7 @@ pub struct SanitizingFormatter<W> {
 }
 
 impl<W> SanitizingFormatter<W> {
-    pub fn new(output: W) -> SanitizingFormatter<W> {
+    pub fn new(output: W) -> Self {
         Self { output }
     }
 }
@@ -270,7 +270,7 @@ pub struct Style {
 }
 
 impl Style {
-    fn merge(&mut self, other: &Style) {
+    fn merge(&mut self, other: &Self) {
         self.fg = other.fg.or(self.fg);
         self.bg = other.bg.or(self.bg);
         self.bold = other.bold.or(self.bold);
@@ -296,8 +296,8 @@ pub struct ColorFormatter<W: Write> {
 }
 
 impl<W: Write> ColorFormatter<W> {
-    pub fn new(output: W, rules: Arc<Rules>, debug: bool) -> ColorFormatter<W> {
-        ColorFormatter {
+    pub fn new(output: W, rules: Arc<Rules>, debug: bool) -> Self {
+        Self {
             output,
             rules,
             labels: vec![],
@@ -465,8 +465,8 @@ fn deserialize_color<'de, D>(deserializer: D) -> Result<Color, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let name_or_hex = String::deserialize(deserializer)?;
-    color_for_name_or_hex(&name_or_hex).map_err(D::Error::custom)
+    let color_str = String::deserialize(deserializer)?;
+    color_for_string(&color_str).map_err(D::Error::custom)
 }
 
 fn deserialize_color_opt<'de, D>(deserializer: D) -> Result<Option<Color>, D::Error>
@@ -476,8 +476,8 @@ where
     deserialize_color(deserializer).map(Some)
 }
 
-fn color_for_name_or_hex(name_or_hex: &str) -> Result<Color, String> {
-    match name_or_hex {
+fn color_for_string(color_str: &str) -> Result<Color, String> {
+    match color_str {
         "default" => Ok(Color::Reset),
         "black" => Ok(Color::Black),
         "red" => Ok(Color::DarkRed),
@@ -495,8 +495,18 @@ fn color_for_name_or_hex(name_or_hex: &str) -> Result<Color, String> {
         "bright magenta" => Ok(Color::Magenta),
         "bright cyan" => Ok(Color::Cyan),
         "bright white" => Ok(Color::White),
-        _ => color_for_hex(name_or_hex).ok_or_else(|| format!("Invalid color: {name_or_hex}")),
+        _ => color_for_ansi256_index(color_str)
+            .or_else(|| color_for_hex(color_str))
+            .ok_or_else(|| format!("Invalid color: {color_str}")),
     }
+}
+
+fn color_for_ansi256_index(color: &str) -> Option<Color> {
+    color
+        .strip_prefix("ansi-color-")
+        .filter(|s| *s == "0" || !s.starts_with('0'))
+        .and_then(|n| n.parse::<u8>().ok())
+        .map(Color::AnsiValue)
 }
 
 fn color_for_hex(color: &str) -> Option<Color> {
@@ -615,12 +625,12 @@ enum FormatOp {
 
 impl FormatRecorder {
     pub fn new() -> Self {
-        FormatRecorder::default()
+        Self::default()
     }
 
     /// Creates new buffer containing the given `data`.
     pub fn with_data(data: impl Into<Vec<u8>>) -> Self {
-        FormatRecorder {
+        Self {
             data: data.into(),
             ops: vec![],
         }
@@ -831,6 +841,54 @@ mod tests {
         [38;5;13m bright magenta [39m
         [38;5;14m bright cyan [39m
         [38;5;15m bright white [39m
+        [EOF]
+        ");
+    }
+
+    #[test]
+    fn test_color_for_ansi256_index() {
+        assert_eq!(
+            color_for_ansi256_index("ansi-color-0"),
+            Some(Color::AnsiValue(0))
+        );
+        assert_eq!(
+            color_for_ansi256_index("ansi-color-10"),
+            Some(Color::AnsiValue(10))
+        );
+        assert_eq!(
+            color_for_ansi256_index("ansi-color-255"),
+            Some(Color::AnsiValue(255))
+        );
+        assert_eq!(color_for_ansi256_index("ansi-color-256"), None);
+
+        assert_eq!(color_for_ansi256_index("ansi-color-00"), None);
+        assert_eq!(color_for_ansi256_index("ansi-color-010"), None);
+        assert_eq!(color_for_ansi256_index("ansi-color-0255"), None);
+    }
+
+    #[test]
+    fn test_color_formatter_ansi256() {
+        let config = config_from_string(
+            r#"
+        [colors]
+        purple-bg = { fg = "ansi-color-15", bg = "ansi-color-93" }
+        gray = "ansi-color-244"
+        "#,
+        );
+        let mut output: Vec<u8> = vec![];
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        formatter.push_label("purple-bg").unwrap();
+        write!(formatter, " purple background ").unwrap();
+        formatter.pop_label().unwrap();
+        writeln!(formatter).unwrap();
+        formatter.push_label("gray").unwrap();
+        write!(formatter, " gray ").unwrap();
+        formatter.pop_label().unwrap();
+        writeln!(formatter).unwrap();
+        drop(formatter);
+        insta::assert_snapshot!(to_snapshot_string(output), @r"
+        [38;5;15m[48;5;93m purple background [39m[49m
+        [38;5;244m gray [39m
         [EOF]
         ");
     }
@@ -1079,6 +1137,21 @@ mod tests {
         let err = ColorFormatter::for_config(&mut output, &config, false).unwrap_err();
         insta::assert_snapshot!(err, @r#"Invalid type or value for colors."outer inner""#);
         insta::assert_snapshot!(err.source().unwrap(), @"Invalid color: bloo");
+    }
+
+    #[test]
+    fn test_color_formatter_unrecognized_ansi256_color() {
+        // An unrecognized ANSI color causes an error.
+        let config = config_from_string(
+            r##"
+            colors."outer" = "red"
+            colors."outer inner" = "ansi-color-256"
+            "##,
+        );
+        let mut output: Vec<u8> = vec![];
+        let err = ColorFormatter::for_config(&mut output, &config, false).unwrap_err();
+        insta::assert_snapshot!(err, @r#"Invalid type or value for colors."outer inner""#);
+        insta::assert_snapshot!(err.source().unwrap(), @"Invalid color: ansi-color-256");
     }
 
     #[test]

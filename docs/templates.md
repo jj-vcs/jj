@@ -31,6 +31,9 @@ The following operators are supported.
 * `x.f()`: Method call.
 * `-x`: Negate integer value.
 * `!x`: Logical not.
+* `x * y`, `x / y`, `x % y`: Multiplication/division/remainder. Operands must
+  be `Integer`s.
+* `x + y`, `x - y`: Addition/subtraction. Operands must be `Integer`s.
 * `x >= y`, `x > y`, `x <= y`, `x < y`: Greater than or equal/greater than/
   lesser than or equal/lesser than. Operands must be `Integer`s.
 * `x == y`, `x != y`: Equal/not equal. Operands must be either `Boolean`,
@@ -49,34 +52,37 @@ The following functions are defined.
   the given `width`.
 * `indent(prefix: Template, content: Template) -> Template`: Indent
   non-empty lines by the given `prefix`.
-* `pad_start(width: Integer, content: Template[, fill_char: Template])`: Pad (or
+* `pad_start(width: Integer, content: Template, [fill_char: Template])`: Pad (or
   right-justify) content by adding leading fill characters. The `content`
   shouldn't have newline character.
-* `pad_end(width: Integer, content: Template[, fill_char: Template])`: Pad (or
+* `pad_end(width: Integer, content: Template, [fill_char: Template])`: Pad (or
   left-justify) content by adding trailing fill characters. The `content`
   shouldn't have newline character.
-* `pad_centered(width: Integer, content: Template[, fill_char: Template])`: Pad
+* `pad_centered(width: Integer, content: Template, [fill_char: Template])`: Pad
   content by adding both leading and trailing fill characters. If an odd number
   of fill characters are needed, the trailing fill will be one longer than the
   leading fill. The `content` shouldn't have newline characters.
-* `truncate_start(width: Integer, content: Template[, ellipsis: Template])`:
+* `truncate_start(width: Integer, content: Template, [ellipsis: Template])`:
   Truncate `content` by removing leading characters. The `content` shouldn't
   have newline character. If `ellipsis` is provided and `content` was truncated,
   prepend the `ellipsis` to the result.
-* `truncate_end(width: Integer, content: Template[, ellipsis: Template])`:
+* `truncate_end(width: Integer, content: Template, [ellipsis: Template])`:
   Truncate `content` by removing trailing characters. The `content` shouldn't
   have newline character. If `ellipsis` is provided and `content` was truncated,
   append the `ellipsis` to the result.
-* `label(label: Template, content: Template) -> Template`: Apply label to
+* `hash(content: Stringify) -> String`:
+  Hash the input and return a hexadecimal string representation of the digest.
+* `label(label: Stringify, content: Template) -> Template`: Apply label to
   the content. The `label` is evaluated as a space-separated string.
 * `raw_escape_sequence(content: Template) -> Template`: Preserves any escape
   sequences in `content` (i.e., bypasses sanitization) and strips labels.
   Note: This function is intended for escape sequences and as such, its output
   is expected to be invisible / of no display width. Outputting content with
   nonzero display width may break wrapping, indentation etc.
-* `stringify(content: Template) -> String`: Format `content` to string. This
+* `stringify(content: Stringify) -> String`: Format `content` to string. This
   effectively removes color labels.
-* `if(condition: Boolean, then: Template[, else: Template]) -> Template`:
+* `json(value: Serialize) -> String`: Serialize `value` in JSON format.
+* `if(condition: Boolean, then: Template, [else: Template]) -> Template`:
   Conditionally evaluate `then`/`else` template content.
 * `coalesce(content: Template...) -> Template`: Returns the first **non-empty**
   content.
@@ -90,21 +96,28 @@ The following functions are defined.
 
 ## Types
 
-### AnnotationLine type
+### `AnnotationLine` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
 
 The following methods are defined.
 
 * `.commit() -> Commit`: Commit responsible for changing the relevant line.
 * `.content() -> Template`: Line content including newline character.
 * `.line_number() -> Integer`: 1-based line number.
+* `.original_line_number() -> Integer`: 1-based line number in the original commit.
 * `.first_line_in_hunk() -> Boolean`: False when the directly preceding line
   references the same commit.
 
-### Boolean type
+### `Boolean` type
+
+_Conversion: `Boolean`: yes, `Serialize`: yes, `Template`: yes_
 
 No methods are defined. Can be constructed with `false` or `true` literal.
 
-### Commit type
+### `Commit` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: no_
 
 This type cannot be printed. The following methods are defined.
 
@@ -115,11 +128,11 @@ This type cannot be printed. The following methods are defined.
 * `.parents() -> List<Commit>`
 * `.author() -> Signature`
 * `.committer() -> Signature`
-* `.signature() -> Option<CryptographicSignature>`
+* `.signature() -> Option<CryptographicSignature>`: Cryptographic signature if the
+  commit was signed.
 * `.mine() -> Boolean`: Commits where the author's email matches the email of
   the current user.
-* `.working_copies() -> String`: For multi-workspace repository, indicate
-  working-copy commit as `<workspace name>@`.
+* `.working_copies() -> List<WorkspaceRef>`: For multi-workspace repositories, returns a list of workspace references for each workspace whose working-copy commit matches the current commit.
 * `.current_working_copy() -> Boolean`: True for the working-copy commit of the
   current workspace.
 * `.bookmarks() -> List<CommitRef>`: Local and remote bookmarks pointing to the
@@ -143,23 +156,39 @@ This type cannot be printed. The following methods are defined.
 * `.diff([files: String]) -> TreeDiff`: Changes from the parents within [the
   `files` expression](filesets.md). All files are compared by default, but it is
   likely to change in future version to respect the command line path arguments.
+* `.files([files: String]) -> List<TreeEntry>`: Files that exist in this commit,
+  matching [the `files` expression](filesets.md). Use `.diff().files()` to list
+  changed files.
 * `.root() -> Boolean`: True if the commit is the root commit.
 
-### CommitId / ChangeId type
+### `ChangeId` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 
 The following methods are defined.
 
-* `.normal_hex() -> String`: Normal hex representation (0-9a-f), useful for
-  ChangeId, whose canonical hex representation is "reversed" (z-k).
+* `.normal_hex() -> String`: Normal hex representation (0-9a-f) instead of the
+  canonical "reversed" (z-k) representation.
 * `.short([len: Integer]) -> String`
 * `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Shortest unique prefix.
 
-### CommitRef type
+### `CommitId` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 
 The following methods are defined.
 
-* `.name() -> String`: Local bookmark or tag name.
-* `.remote() -> String`: Remote name or empty if this is a local ref.
+* `.short([len: Integer]) -> String`
+* `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Shortest unique prefix.
+
+### `CommitRef` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+
+The following methods are defined.
+
+* `.name() -> RefSymbol`: Local bookmark or tag name.
+* `.remote() -> Option<RefSymbol>`: Remote name if this is a remote ref.
 * `.present() -> Boolean`: True if the ref points to any commit.
 * `.conflict() -> Boolean`: True if [the bookmark or tag is
   conflicted](bookmarks.md#conflicts).
@@ -177,7 +206,9 @@ The following methods are defined.
 * `.tracking_behind_count() -> SizeHint`: Number of commits behind of the
   tracking local ref.
 
-### ConfigValue type
+### `ConfigValue` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
 
 This type can be printed in TOML syntax. The following methods are defined.
 
@@ -187,7 +218,9 @@ This type can be printed in TOML syntax. The following methods are defined.
   value (e.g. integer) to string.
 * `.as_string_list() -> List<String>`: Extract list of strings.
 
-### CryptographicSignature type
+### `CryptographicSignature` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
 
 The following methods are defined.
 
@@ -210,7 +243,9 @@ The following methods are defined.
     if(commit.signature(), "commit has a signature", "commit is unsigned")
     ```
 
-### DiffStats type
+### `DiffStats` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
 
 This type can be printed as a histogram of the changes. The following methods
 are defined.
@@ -218,7 +253,9 @@ are defined.
 * `.total_added() -> Integer`: Total number of insertions.
 * `.total_removed() -> Integer`: Total number of deletions.
 
-### Email type
+### `Email` type
+
+_Conversion: `Boolean`: yes, `Serialize`: yes, `Template`: yes_
 
 The email field of a signature may or may not look like an email address. It may
 be empty, may not contain the symbol `@`, and could in principle contain
@@ -231,11 +268,15 @@ The following methods are defined.
 * `.domain() -> String`: the part of the email after the first `@` or the empty
   string.
 
-### Integer type
+### `Integer` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 
 No methods are defined.
 
-### List type
+### `List` type
+
+_Conversion: `Boolean`: yes, `Serialize`: maybe, `Template`: maybe_
 
 A list can be implicitly converted to `Boolean`. The following methods are
 defined.
@@ -248,20 +289,24 @@ defined.
 * `.map(|item| expression) -> ListTemplate`: Apply template `expression`
   to each element. Example: `parents.map(|c| c.commit_id().short())`
 
-### List<Trailer> type
+### `List<Trailer>` type
 
 The following methods are defined. See also the `List` type.
 
-* `.contains_key(key: Template) -> Boolean`: True if the commit description
+* `.contains_key(key: Stringify) -> Boolean`: True if the commit description
   contains at least one trailer with the key `key`.
 
-### ListTemplate type
+### `ListTemplate` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
 
 The following methods are defined. See also the `List` type.
 
 * `.join(separator: Template) -> Template`
 
-### Operation type
+### `Operation` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: no_
 
 This type cannot be printed. The following methods are defined.
 
@@ -273,20 +318,38 @@ This type cannot be printed. The following methods are defined.
 * `.user() -> String`
 * `.snapshot() -> Boolean`: True if the operation is a snapshot operation.
 * `.root() -> Boolean`: True if the operation is the root operation.
+* `.parents() -> List<Operation>`
 
-### OperationId type
+### `OperationId` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 
 The following methods are defined.
 
 * `.short([len: Integer]) -> String`
 
-### Option type
+### `Option` type
+
+_Conversion: `Boolean`: yes, `Serialize`: maybe, `Template`: maybe_
 
 An option can be implicitly converted to `Boolean` denoting whether the
 contained value is set. If set, all methods of the contained value can be
 invoked. If not set, an error will be reported inline on method call.
 
-### RepoPath type
+On comparison between two optional values or optional and non-optional values,
+unset value is not an error. Unset value is considered less than any set values.
+
+### `RefSymbol` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+
+[A `String` type](#string-type), but is formatted as revset symbol by quoting
+and escaping if necessary. Unlike strings, this cannot be implicitly converted
+to `Boolean`.
+
+### `RepoPath` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 
 A slash-separated path relative to the repository root. The following methods
 are defined.
@@ -295,7 +358,19 @@ are defined.
   platform-native separator, and is relative to the current working directory.
 * `.parent() -> Option<RepoPath>`: Parent directory path.
 
-### ShortestIdPrefix type
+### `Serialize` type
+
+An expression that can be serialized in machine-readable format such as JSON.
+
+!!! note
+
+    Field names and value types in the serialized output are usually stable
+    across jj versions, but the backward compatibility isn't guaranteed. If the
+    underlying data model is updated, the serialized output may change.
+
+### `ShortestIdPrefix` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 
 The following methods are defined.
 
@@ -304,7 +379,9 @@ The following methods are defined.
 * `.upper() -> ShortestIdPrefix`
 * `.lower() -> ShortestIdPrefix`
 
-### Signature type
+### `Signature` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 
 The following methods are defined.
 
@@ -312,7 +389,9 @@ The following methods are defined.
 * `.email() -> Email`
 * `.timestamp() -> Timestamp`
 
-### SizeHint type
+### `SizeHint` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: no_
 
 This type cannot be printed. The following methods are defined.
 
@@ -320,23 +399,28 @@ This type cannot be printed. The following methods are defined.
 * `.upper() -> Option<Integer>`: Upper bound if known.
 * `.exact() -> Option<Integer>`: Exact value if upper bound is known and it
   equals to the lower bound.
-* `.zero() -> Boolean`: True if upper bound is known and is `0`.
+* `.zero() -> Boolean`: True if upper bound is known and is `0`. Equivalent to
+  `.upper() == 0`.
 
-### String type
+### `String` type
+
+_Conversion: `Boolean`: yes, `Serialize`: yes, `Template`: yes_
 
 A string can be implicitly converted to `Boolean`. The following methods are
 defined.
 
 * `.len() -> Integer`: Length in UTF-8 bytes.
-* `.contains(needle: Template) -> Boolean`
+* `.contains(needle: Stringify) -> Boolean`
 * `.first_line() -> String`
 * `.lines() -> List<String>`: Split into lines excluding newline characters.
 * `.upper() -> String`
 * `.lower() -> String`
-* `.starts_with(needle: Template) -> Boolean`
-* `.ends_with(needle: Template) -> Boolean`
-* `.remove_prefix(needle: Template) -> String`: Removes the passed prefix, if present
-* `.remove_suffix(needle: Template) -> String`: Removes the passed suffix, if present
+* `.starts_with(needle: Stringify) -> Boolean`
+* `.ends_with(needle: Stringify) -> Boolean`
+* `.remove_prefix(needle: Stringify) -> String`: Removes the passed prefix, if
+  present.
+* `.remove_suffix(needle: Stringify) -> String`: Removes the passed suffix, if
+  present.
 * `.trim() -> String`: Removes leading and trailing whitespace
 * `.trim_start() -> String`: Removes leading whitespace
 * `.trim_end() -> String`: Removes trailing whitespace
@@ -369,11 +453,22 @@ that don't form a valid escape sequence.
 A single-quoted string literal has no escape syntax. `'` can't be expressed
 inside a single-quoted string literal.
 
-### Template type
+### `Stringify` type
+
+An expression that can be converted to a `String`.
+
+Any types that can be converted to `Template` can also be `Stringify`. Unlike
+`Template`, color labels are stripped.
+
+### `Template` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
 
 Most types can be implicitly converted to `Template`. No methods are defined.
 
-### Timestamp type
+### `Timestamp` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 
 The following methods are defined.
 
@@ -385,7 +480,9 @@ The following methods are defined.
 * `.after(date: String) -> Boolean`: True if the timestamp is exactly at or after the given date.
 * `.before(date: String) -> Boolean`: True if the timestamp is before, but not including, the given date.
 
-### TimestampRange type
+### `TimestampRange` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 
 The following methods are defined.
 
@@ -393,14 +490,18 @@ The following methods are defined.
 * `.end() -> Timestamp`
 * `.duration() -> String`
 
-### Trailer type
+### `Trailer` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
 
 The following methods are defined.
 
 * `.key() -> String`
 * `.value() -> String`
 
-### TreeDiff type
+### `TreeDiff` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
 
 This type cannot be printed. The following methods are defined.
 
@@ -411,7 +512,9 @@ This type cannot be printed. The following methods are defined.
 * `.stat([width: Integer]) -> DiffStats`: Calculate stats of changed lines.
 * `.summary() -> Template`: Format as a list of status code and path pairs.
 
-### TreeDiffEntry type
+### `TreeDiffEntry` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
 
 This type cannot be printed. The following methods are defined.
 
@@ -422,7 +525,9 @@ This type cannot be printed. The following methods are defined.
 * `.source() -> TreeEntry`: The source (or left) entry.
 * `.target() -> TreeEntry`: The target (or right) entry.
 
-### TreeEntry type
+### `TreeEntry` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
 
 This type cannot be printed. The following methods are defined.
 
@@ -431,6 +536,34 @@ This type cannot be printed. The following methods are defined.
 * `.file_type() -> String`: One of `"file"`, `"symlink"`, `"tree"`,
   `"git-submodule"`, or `"conflict"`.
 * `.executable() -> Boolean`: True if the entry is an executable file.
+
+### `WorkspaceRef` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+
+The following methods are defined.
+
+* `.name() -> RefSymbol`: Returns the workspace name as a symbol.
+* `.target() -> Commit`: Returns the working-copy commit of this workspace.
+
+## Color labels
+
+Template fragments are usually labeled with the command name, the context (or
+the top-level object), and the method names. You can [customize the output
+colors][config-colors] by using these labels.
+
+For example, the following template is labeled as `op_log operation id short`:
+
+```sh
+jj op log -T 'self.id().short()'
+```
+
+In addition to that, you can insert arbitrary labels by `label(label, content)`
+function.
+
+To inspect how output fragments are labeled, use `--color=debug` option.
+
+[config-colors]: config.md#custom-colors-and-styles
 
 ## Configuration
 

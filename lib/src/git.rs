@@ -151,7 +151,7 @@ pub(crate) struct RefSpec {
 
 impl RefSpec {
     fn forced(source: impl Into<String>, destination: impl Into<String>) -> Self {
-        RefSpec {
+        Self {
             forced: true,
             source: Some(source.into()),
             destination: destination.into(),
@@ -160,7 +160,7 @@ impl RefSpec {
 
     fn delete(destination: impl Into<String>) -> Self {
         // We don't force push on branch deletion
-        RefSpec {
+        Self {
             forced: false,
             source: None,
             destination: destination.into(),
@@ -208,7 +208,7 @@ impl<'a> RefToPush<'a> {
                  source of truth. This means the lookup should always work.",
             );
 
-        RefToPush {
+        Self {
             refspec,
             expected_location,
         }
@@ -371,7 +371,7 @@ pub enum GitImportError {
 
 impl GitImportError {
     fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
-        GitImportError::Git(source.into())
+        Self::Git(source.into())
     }
 }
 
@@ -827,7 +827,7 @@ pub enum GitExportError {
 
 impl GitExportError {
     fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
-        GitExportError::Git(source.into())
+        Self::Git(source.into())
     }
 }
 
@@ -1241,7 +1241,7 @@ pub enum GitResetHeadError {
 
 impl GitResetHeadError {
     fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
-        GitResetHeadError::Git(source.into())
+        Self::Git(source.into())
     }
 }
 
@@ -1291,7 +1291,7 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
     if git_repo.state().is_some() {
         // Based on the files `git2::Repository::cleanup_state` deletes; when
         // upstreaming this logic should probably become more elaborate to match
-        // `git(1)` behaviour.
+        // `git(1)` behavior.
         const STATE_FILE_NAMES: &[&str] = &[
             "MERGE_HEAD",
             "MERGE_MODE",
@@ -1345,8 +1345,7 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
     };
 
     let wc_tree = wc_commit.tree()?;
-    update_intent_to_add_impl(&mut index, &parent_tree, &wc_tree, git_repo.object_hash())
-        .block_on()?;
+    update_intent_to_add_impl(&git_repo, &mut index, &parent_tree, &wc_tree).block_on()?;
 
     // Match entries in the new index with entries in the old index, and copy stat
     // information if the entry didn't change.
@@ -1388,7 +1387,11 @@ fn build_index_from_merged_tree(
             };
 
             let (id, mode) = match entry {
-                TreeValue::File { id, executable } => {
+                TreeValue::File {
+                    id,
+                    executable,
+                    copy_id: _,
+                } => {
                     if *executable {
                         (id.as_bytes(), gix::index::entry::Mode::FILE_EXECUTABLE)
                     } else {
@@ -1499,7 +1502,7 @@ pub fn update_intent_to_add(
         .index_or_empty()
         .map_err(GitResetHeadError::from_git)?;
     let mut_index = Arc::make_mut(&mut index);
-    update_intent_to_add_impl(mut_index, old_tree, new_tree, git_repo.object_hash()).block_on()?;
+    update_intent_to_add_impl(&git_repo, mut_index, old_tree, new_tree).block_on()?;
     debug_assert!(mut_index.verify_entries().is_ok());
     mut_index
         .write(gix::index::write::Options::default())
@@ -1509,11 +1512,11 @@ pub fn update_intent_to_add(
 }
 
 async fn update_intent_to_add_impl(
+    git_repo: &gix::Repository,
     index: &mut gix::index::File,
     old_tree: &MergedTree,
     new_tree: &MergedTree,
-    hash_kind: gix::hash::Kind,
-) -> BackendResult<()> {
+) -> Result<(), GitResetHeadError> {
     let mut diff_stream = old_tree.diff_stream(new_tree, &EverythingMatcher);
     let mut added_paths = vec![];
     let mut removed_paths = HashSet::new();
@@ -1521,7 +1524,11 @@ async fn update_intent_to_add_impl(
         let (before, after) = values?;
         if before.is_absent() {
             let executable = match after.as_normal() {
-                Some(TreeValue::File { id: _, executable }) => *executable,
+                Some(TreeValue::File {
+                    id: _,
+                    executable,
+                    copy_id: _,
+                }) => *executable,
                 Some(TreeValue::Symlink(_)) => false,
                 _ => {
                     continue;
@@ -1542,19 +1549,26 @@ async fn update_intent_to_add_impl(
         return Ok(());
     }
 
-    for (path, executable) in added_paths {
-        // We have checked that the index doesn't have this entry
-        index.dangerously_push_entry(
-            gix::index::entry::Stat::default(),
-            gix::ObjectId::empty_blob(hash_kind),
-            gix::index::entry::Flags::INTENT_TO_ADD | gix::index::entry::Flags::EXTENDED,
-            if executable {
-                gix::index::entry::Mode::FILE_EXECUTABLE
-            } else {
-                gix::index::entry::Mode::FILE
-            },
-            path.as_ref(),
-        );
+    if !added_paths.is_empty() {
+        // We need to write the empty blob, otherwise `jj util gc` will report an error.
+        let empty_blob = git_repo
+            .write_blob(b"")
+            .map_err(GitResetHeadError::from_git)?
+            .detach();
+        for (path, executable) in added_paths {
+            // We have checked that the index doesn't have this entry
+            index.dangerously_push_entry(
+                gix::index::entry::Stat::default(),
+                empty_blob,
+                gix::index::entry::Flags::INTENT_TO_ADD | gix::index::entry::Flags::EXTENDED,
+                if executable {
+                    gix::index::entry::Mode::FILE_EXECUTABLE
+                } else {
+                    gix::index::entry::Mode::FILE
+                },
+                path.as_ref(),
+            );
+        }
     }
     if !removed_paths.is_empty() {
         index.remove_entries(|_size, path, entry| {
@@ -1590,7 +1604,7 @@ pub enum GitRemoteManagementError {
 
 impl GitRemoteManagementError {
     fn from_git(source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
-        GitRemoteManagementError::InternalGitError(source.into())
+        Self::InternalGitError(source.into())
     }
 }
 
@@ -1758,7 +1772,9 @@ fn remove_remote_git_config_sections(
         })
         .map(|section| {
             if section.value_names().any(|name| {
-                !name.eq_ignore_ascii_case(b"url") && !name.eq_ignore_ascii_case(b"fetch")
+                !name.eq_ignore_ascii_case(b"url")
+                    && !name.eq_ignore_ascii_case(b"fetch")
+                    && !name.eq_ignore_ascii_case(b"tagOpt")
             }) {
                 return Err(GitRemoteManagementError::NonstandardConfiguration(
                     remote_name.to_owned(),
@@ -1796,6 +1812,7 @@ pub fn add_remote(
     store: &Store,
     remote_name: &RemoteName,
     url: &str,
+    fetch_tags: gix::remote::fetch::Tags,
 ) -> Result<(), GitRemoteManagementError> {
     let git_repo = get_git_repo(store)?;
 
@@ -1810,6 +1827,7 @@ pub fn add_remote(
     let mut remote = git_repo
         .remote_at(url)
         .map_err(GitRemoteManagementError::from_git)?
+        .with_fetch_tags(fetch_tags)
         .with_refspecs(
             [default_fetch_refspec(remote_name).as_bytes()],
             gix::remote::Direction::Fetch,
@@ -1854,9 +1872,10 @@ fn remove_remote_git_refs(
     git_repo: &mut gix::Repository,
     remote: &RemoteName,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+    let prefix = format!("refs/remotes/{remote}/", remote = remote.as_str());
     let edits: Vec<_> = git_repo
         .references()?
-        .prefixed(format!("refs/remotes/{remote}/", remote = remote.as_str()))?
+        .prefixed(prefix.as_str())?
         .map_ok(remove_ref)
         .try_collect()?;
     git_repo.edit_references(edits)?;
@@ -1910,7 +1929,7 @@ pub fn rename_remote(
         _ => {
             return Err(GitRemoteManagementError::NonstandardConfiguration(
                 old_remote_name.to_owned(),
-            ))
+            ));
         }
     }
 
@@ -1952,7 +1971,7 @@ fn rename_remote_git_refs(
 
     let edits: Vec<_> = git_repo
         .references()?
-        .prefixed(old_prefix.clone())?
+        .prefixed(old_prefix.as_str())?
         .map_ok(|old_ref| {
             let new_name = BString::new(
                 [
@@ -2247,7 +2266,7 @@ impl<'a> GitFetch<'a> {
                             fetched
                                 .branches
                                 .iter()
-                                .any(|pattern| pattern.matches(symbol.name.as_str()))
+                                .any(|pattern| pattern.is_match(symbol.name.as_str()))
                         }),
                     GitRefKind::Tag => true,
                 },

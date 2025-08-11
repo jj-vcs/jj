@@ -148,17 +148,27 @@ fn resolve_single_op(
         "@" => get_current_op(),
         s => resolve_single_op_from_store(op_store, s),
     }?;
-    for c in op_postfix.chars() {
+    for (i, c) in op_postfix.chars().enumerate() {
         let mut neighbor_ops = match c {
             '-' => operation.parents().try_collect()?,
             '+' => find_child_ops(head_ops.as_ref().unwrap(), operation.id())?,
             _ => unreachable!(),
         };
         operation = match neighbor_ops.len() {
+            // Since there is no hint provided for `EmptyOperations` in
+            // `opset_resolution_error_hint()` (there would be no useful hint for the
+            // user to take action on anyway), we don't have to worry about op ids being
+            // incoherent with the op set expression shown to the user, unlike for the
+            // `MultipleOperations` variant.
+            //
+            // The full op set expression is guaranteed to be empty in this case,
+            // because ancestors/descendants of an empty operation are empty.
             0 => Err(OpsetResolutionError::EmptyOperations(op_str.to_owned()))?,
             1 => neighbor_ops.pop().unwrap(),
+            // Returns the exact subexpression that resolves to multiple operations,
+            // rather than the full expression provided by the user.
             _ => Err(OpsetResolutionError::MultipleOperations {
-                expr: op_str.to_owned(),
+                expr: op_str[..=op_symbol.len() + i].to_owned(),
                 candidates: neighbor_ops.iter().map(|op| op.id().clone()).collect(),
             })?,
         };
@@ -173,7 +183,7 @@ fn resolve_single_op_from_store(
     if op_str.is_empty() {
         return Err(OpsetResolutionError::InvalidIdPrefix(op_str.to_owned()).into());
     }
-    let prefix = HexPrefix::new(op_str)
+    let prefix = HexPrefix::try_from_hex(op_str)
         .ok_or_else(|| OpsetResolutionError::InvalidIdPrefix(op_str.to_owned()))?;
     match op_store.resolve_operation_id_prefix(&prefix)? {
         PrefixResolution::NoMatch => {
@@ -204,7 +214,7 @@ pub fn get_current_head_ops(
         })
         .try_collect()?;
     // To stabilize output, sort in the same order as resolve_op_heads()
-    head_ops.sort_by_key(|op| op.metadata().end_time.timestamp);
+    head_ops.sort_by_key(|op| op.metadata().time.end.timestamp);
     Ok(head_ops)
 }
 
@@ -227,8 +237,8 @@ struct OperationByEndTime(Operation);
 
 impl Ord for OperationByEndTime {
     fn cmp(&self, other: &Self) -> Ordering {
-        let self_end_time = &self.0.metadata().end_time;
-        let other_end_time = &other.0.metadata().end_time;
+        let self_end_time = &self.0.metadata().time.end;
+        let other_end_time = &other.0.metadata().time.end;
         self_end_time
             .cmp(other_end_time)
             .then_with(|| self.0.cmp(&other.0)) // to comply with Eq
@@ -245,21 +255,77 @@ impl PartialOrd for OperationByEndTime {
 pub fn walk_ancestors(
     head_ops: &[Operation],
 ) -> impl Iterator<Item = OpStoreResult<Operation>> + use<> {
-    // Emit the latest head first to stabilize the order.
-    let mut head_ops = head_ops
+    let head_ops = head_ops
         .iter()
         .cloned()
         .map(OperationByEndTime)
         .collect_vec();
-    head_ops.sort_unstable_by(|op1, op2| op1.cmp(op2).reverse());
     // Lazily load operations based on timestamp-based heuristic. This works so long
     // as the operation history is mostly linear.
     dag_walk::topo_order_reverse_lazy_ok(
         head_ops.into_iter().map(Ok),
         |OperationByEndTime(op)| op.id().clone(),
         |OperationByEndTime(op)| op.parents().map_ok(OperationByEndTime).collect_vec(),
+        |_| panic!("graph has cycle"),
     )
     .map_ok(|OperationByEndTime(op)| op)
+}
+
+/// Walks ancestors from `head_ops` in reverse topological order, excluding
+/// ancestors of `root_ops`.
+pub fn walk_ancestors_range(
+    head_ops: &[Operation],
+    root_ops: &[Operation],
+) -> impl Iterator<Item = OpStoreResult<Operation>> + use<> {
+    let mut start_ops = itertools::chain(head_ops, root_ops)
+        .cloned()
+        .map(OperationByEndTime)
+        .collect_vec();
+
+    // Consume items until root_ops to get rid of unwanted ops.
+    let leading_items = if root_ops.is_empty() {
+        vec![]
+    } else {
+        let unwanted_ids = root_ops.iter().map(|op| op.id().clone()).collect();
+        collect_ancestors_until_roots(&mut start_ops, unwanted_ids)
+    };
+
+    // Lazily load operations based on timestamp-based heuristic. This works so long
+    // as the operation history is mostly linear.
+    let trailing_iter = dag_walk::topo_order_reverse_lazy_ok(
+        start_ops.into_iter().map(Ok),
+        |OperationByEndTime(op)| op.id().clone(),
+        |OperationByEndTime(op)| op.parents().map_ok(OperationByEndTime).collect_vec(),
+        |_| panic!("graph has cycle"),
+    )
+    .map_ok(|OperationByEndTime(op)| op);
+    itertools::chain(leading_items, trailing_iter)
+}
+
+fn collect_ancestors_until_roots(
+    start_ops: &mut Vec<OperationByEndTime>,
+    mut unwanted_ids: HashSet<OperationId>,
+) -> Vec<OpStoreResult<Operation>> {
+    let sorted_ops = match dag_walk::topo_order_reverse_chunked(
+        start_ops,
+        |OperationByEndTime(op)| op.id().clone(),
+        |OperationByEndTime(op)| op.parents().map_ok(OperationByEndTime).collect_vec(),
+        |_| panic!("graph has cycle"),
+    ) {
+        Ok(sorted_ops) => sorted_ops,
+        Err(err) => return vec![Err(err)],
+    };
+    let mut items = Vec::new();
+    for OperationByEndTime(op) in sorted_ops {
+        if unwanted_ids.contains(op.id()) {
+            unwanted_ids.extend(op.parent_ids().iter().cloned());
+        } else {
+            items.push(Ok(op));
+        }
+    }
+    // Don't visit ancestors of unwanted ops further.
+    start_ops.retain(|OperationByEndTime(op)| !unwanted_ids.contains(op.id()));
+    items
 }
 
 /// Stats about `reparent_range()`.
@@ -289,18 +355,9 @@ pub fn reparent_range(
     head_ops: &[Operation],
     dest_op: &Operation,
 ) -> OpStoreResult<ReparentStats> {
-    // Calculate ::root_ops to exclude them from the source range and count the
-    // number of operations that become unreachable.
-    let mut unwanted_ids: HashSet<_> = walk_ancestors(root_ops)
-        .map_ok(|op| op.id().clone())
-        .try_collect()?;
-    let ops_to_reparent: Vec<_> = walk_ancestors(head_ops)
-        .filter_ok(|op| !unwanted_ids.contains(op.id()))
-        .try_collect()?;
-    for op in walk_ancestors(slice::from_ref(dest_op)) {
-        unwanted_ids.remove(op?.id());
-    }
-    let unreachable_ids = unwanted_ids;
+    let ops_to_reparent: Vec<_> = walk_ancestors_range(head_ops, root_ops).try_collect()?;
+    let unreachable_count = walk_ancestors_range(root_ops, slice::from_ref(dest_op))
+        .process_results(|iter| iter.count())?;
 
     assert!(
         ops_to_reparent
@@ -331,6 +388,6 @@ pub fn reparent_range(
     Ok(ReparentStats {
         new_head_ids,
         rewritten_count: rewritten_ids.len(),
-        unreachable_count: unreachable_ids.len(),
+        unreachable_count,
     })
 }

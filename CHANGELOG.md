@@ -8,6 +8,257 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Breaking changes
+
+### Deprecations
+
+* The on-disk index format has changed. `jj` will write index files in both old
+  and new formats, so old `jj` versions should be able to read these index
+  files. This compatibility layer will be removed in a future release.
+
+### New features
+
+* `jj file show` now accepts `-T`/`--template` option to insert file metadata.
+
+* The new configuration option `git.colocate=boolean` controls whether or not
+  Git repositories are colocated by default.
+
+* Both `jj git clone` and `jj git init` now take a `--no-colocate` flag to
+  disable colocation (in case `git.colocate` is set to `true`.)
+
+* `jj git remote add` and `jj git clone` now support `--fetch-tags` to control
+  when tags are fetched
+
+* `jj diff --stat` now shows the change in size to binary files.
+
+* `jj log`, `jj evolog` and `jj op log` output can now be anonymized with the
+  `builtin_log_redacted` and `builtin_op_log_redacted` templates.
+
+### Fixed bugs
+
+### Packaging changes
+
+* The test suite no longer optionally uses Taplo CLI or jq, and packagers can
+  remove them as dependencies if present.
+
+## [0.32.0] - 2025-08-06
+
+### Breaking changes
+
+* In revsets, symbol expressions (such as change ID prefix) no longer resolve to
+  multiple revisions, and error out if resolved to more than one revisions. Use
+  `change_id(prefix)` or `bookmarks(exact:name)` to query divergent changes or
+  conflicted bookmarks. Commands like `jj rebase` no longer require `all:` to
+  specify multiple destination revisions.
+
+* `jj op abandon` now discards previous versions of a change (or predecessors)
+  if they become unreachable from the operation history. The evolution history
+  is truncated accordingly.
+
+  Once `jj op abandon` and `jj util gc` are run in a repository, old versions of
+  `jj` might get "commit not found" error on `jj evolog`.
+
+* `commit.working_copies()` template method now returns `List<WorkspaceRef>`
+
+* The previously predefined `amend` alias has been removed. You can restore it
+  by setting the config `aliases.amend = ["squash"]`.
+
+### Deprecations
+
+* The `all:` revset modifier and `ui.always-allow-large-revsets` setting is
+  planned to be removed in a future release.
+  [#6016](https://github.com/jj-vcs/jj/issues/6016)
+
+* Rename the `core.fsmonitor` and `core.watchman` settings to
+  `fsmonitor.backend`, and `fsmonitor.watchman` respectively.
+
+### New features
+
+* `jj workspace list` now accepts `-T`/`--template` option to customize its
+  output via templates.
+
+* Added `templates.workspace_list` template to customize the output of
+  `jj workspace list`.
+
+* `jj fix` now buffers the standard error stream from subprocesses and emits
+  the output from each all at once. The file name is printed before the output.
+
+* `jj status` now collapses fully untracked directories into one line.
+  It still fully traverses them while snapshotting but they won't clutter up
+  the output with all of their contents.
+
+* Add the `working-copy.eol-conversion` config which is similar to the git
+  `core.autocrlf` config. A heuristics is used to detect if a file is a binary
+  file to prevent the EOL conversion from changing binary files unexpectedly.
+
+* Add a `.parents()` method to the
+  [`Operation`](docs/templates.md#operation-type) type in the templating
+  language.
+
+* Merge tools config can now explicitly forbid using them as diff editors or
+  diff formatters. Built-in tools that do not function well as diff editing
+  tools or as diff formatters will now report an error when used as such.
+
+* `jj diffedit` now accepts filesets to edit only the specified paths.
+
+* AnnotationLine objects in templates now have a `original_line_number() ->
+  Integer` method.
+
+* Commit templates now support `.files()` to list all existing files at that
+  revision.
+
+* Glob patterns now support `{foo,bar}` syntax. There may be subtle behavior
+  changes as we use the [globset](https://crates.io/crates/globset) library now.
+
+* The new `bisect(x)` revset function can help bisect a range of commits to
+  find when a bug was introduced.
+
+* New `first_parent()` and `first_ancestors()` revset functions which are
+  similar to `parents()` and `ancestors()`, but only traverse the first parent
+  of each commit (similar to Git's `--first-parent` option).
+
+* New `signing.backends.ssh.revocation-list` config for specifying a list of revoked
+  public keys for commit signature verification.
+
+* `jj fix` commands now replace `$root` with the workspace's root path. This is
+  useful for tools stored inside the workspace.
+
+### Fixed bugs
+
+* Fixed an error in `jj util gc` caused by the empty blob being missing from
+  the Git store. [#7062](https://github.com/jj-vcs/jj/issues/7062)
+
+* `jj op diff -p` and `jj op log -p` now show content diffs from the first
+  predecessor only. [#7090](https://github.com/jj-vcs/jj/issues/7090)
+
+* `jj git fetch` no longer shows `NaN%` progress when connecting to slow remotes.
+  [#7155](https://github.com/jj-vcs/jj/issues/7155)
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* adamnemecek (@adamnemecek)
+* Alexander Kobjolke (@jakalx)
+* Apromixately (@Apromixately)
+* Austin Seipp (@thoughtpolice)
+* Bryce Berger (@bryceberger)
+* Daniel Danner (@dnnr)
+* Daniel Luz (@mernen)
+* Evan Martin (@evmar)
+* George Christou (@gechr)
+* George Elliott-Hunter (@george-palmsens)
+* Hubert Głuchowski (@afishhh)
+* Ilya Grigoriev (@ilyagr)
+* Jade Lovelace (@lf-)
+* Jake Martin (@jake-m-commits)
+* Jan Klass (@Kissaki)
+* Joaquín Triñanes (@JoaquinTrinanes)
+* Josh Steadmon (@steadmon)
+* Kaiyi Li (@06393993)
+* Martin von Zweigbergk (@martinvonz)
+* Nigthknight (@nigthknight)
+* Ori Avtalion (@salty-horse)
+* Pablo Brasero (@pablobm)
+* Pavan Kumar Sunkara (@pksunkara)
+* Philip Metzger (@PhilipMetzger)
+* phoebe (@phoreverpheebs)
+* Remo Senekowitsch (@senekor)
+* Scott Taylor (@scott2000)
+* Stephen Jennings (@jennings)
+* Theo Buehler (@botovq)
+* Tyarel8 (@Tyarel8)
+* Yuya Nishihara (@yuja)
+
+## [0.31.0] - 2025-07-02
+
+### Breaking changes
+
+* Revset expressions like `hidden_id | description(x)` now [search the specified
+  hidden revision and its ancestors](docs/revsets.md#hidden-revisions) as well
+  as all visible revisions.
+
+* Commit templates no longer normalize `description` by appending final newline
+  character. Use `description.trim_end() ++ "\n"` if needed.
+
+### Deprecations
+
+* The `git.push-bookmark-prefix` setting is deprecated in favor of
+  `templates.git_push_bookmark`, which supports templating. The old setting can
+  be expressed in template as `"<prefix>" ++ change_id.short()`.
+
+### New features
+
+* New `change_id(prefix)`/`commit_id(prefix)` revset functions to explicitly
+  query commits by change/commit ID prefix.
+
+* The `parents()` and `children()` revset functions now accept an optional
+  `depth` argument. For instance, `parents(x, 3)` is equivalent to `x---`, and
+  `children(x, 3)` is equivalent to `x+++`.
+
+* `jj evolog` can now follow changes from multiple revisions such as divergent
+  revisions.
+
+* `jj diff` now accepts `-T`/`--template` option to customize summary output.
+
+* Log node templates are now specified in toml rather than hardcoded.
+
+* Templates now support `json(x)` function to serialize values in JSON format.
+
+* The ANSI 256-color palette can be used when configuring colors. For example,
+  `colors."diff removed token" = { bg = "ansi-color-52", underline = false }`
+  will apply a dark red background on removed words in diffs.
+
+### Fixed bugs
+
+* `jj file annotate` can now process files at a hidden revision.
+
+* `jj op log --op-diff` no longer fails at displaying "reconcile divergent
+  operations." [#4465](https://github.com/jj-vcs/jj/issues/4465)
+
+* `jj util gc --expire=now` now passes the corresponding flag to `git gc`.
+
+* `change_id`/`commit_id.shortest()` template functions now take conflicting
+  bookmark and tag names into account.
+  [#2416](https://github.com/jj-vcs/jj/issues/2416)
+
+* Fixed lockfile issue on stale file handles observed with NFS.
+
+### Packaging changes
+
+* `aarch64-windows` builds (release binaries and `main` snapshots) are now provided.
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Anton Älgmyr (@algmyr)
+* Austin Seipp (@thoughtpolice)
+* Benjamin Brittain (@benbrittain)
+* Cyril Plisko (@imp)
+* Daniel Luz (@mernen)
+* Gaëtan Lehmann (@glehmann)
+* Gilad Woloch (@giladwo)
+* Greg Morenz (@gmorenz)
+* Igor Velkov (@iav)
+* Ilya Grigoriev (@ilyagr)
+* Jade Lovelace (@lf-)
+* Jonas Greitemann (@jgreitemann)
+* Josh Steadmon (@steadmon)
+* juemrami (@juemrami)
+* Kaiyi Li (@06393993)
+* Lars Francke (@lfrancke)
+* Martin von Zweigbergk (@martinvonz)
+* Osama Qarem (@osamaqarem)
+* Philip Metzger (@PhilipMetzger)
+* raylu (@raylu)
+* Scott Taylor (@scott2000)
+* Vincent Ging Ho Yim (@cenviity)
+* Yuya Nishihara (@yuja)
+
+
+## [0.30.0] - 2025-06-04
+
 ### Release highlights
 
 * The experimental support from release 0.29.0 for transferring the change ID
@@ -19,26 +270,130 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   some Git commands (e.g. `git rebase`) do not preserve the change ids when
   they rewrite commits.
 
+* `jj rebase` now automatically abandons divergent commits if another commit
+  with the same change ID is already present in the destination with identical
+  changes.
+
+* `jj split` has gained `--message`, `--insert-before`, `--insert-after`, and
+  `--destination` options.
+
+* `jj evolog` can show associated operations for commits created by new jj
+  versions.
+
 ### Breaking changes
 
 * The old `libgit2` code path for fetches and pushes has been removed,
   and the `git.subprocess` setting along with it.
 
+* In templates, bookmark/tag/remote names are now formatted in revset symbol
+  notation. The type of `bookmark.remote()` is changed to `Option<_>`.
+  `bookmark.remote() == "foo"` still works, but `bookmark.remote().<method>()`
+  might need `if(bookmark.remote(), ..)` to suppress error.
+
+* `jj rebase` now automatically abandons divergent commits if another commit
+  with the same change ID is already present in the destination with identical
+  changes. To keep these divergent commits, use the `--keep-divergent` flag.
+
+* The deprecated `--skip-empty` flag for `jj rebase` has been removed. Use the
+  `--skip-emptied` flag instead.
+
+* The deprecated `jj branch` subcommands have been removed. Use the `jj
+  bookmark` subcommands instead.
+
+* `jj util completion` now requires the name of the shell as a positional
+  argument and no longer produces Bash completions by default. The deprecated
+  optional arguments for different shells have been removed.
+
+* External diff tools are now run in the temporary directory containing
+  the before (`left`) and after (`right`) directories, making diffs appear
+  more pleasing for tools that display file paths prominently. Users can
+  opt out of this by setting `merge-tools.<tool>.diff-do-chdir = false`,
+  but this will likely be removed in a future release. Please report any
+  issues you run into.
+
+* The minimum supported Rust version (MSRV) is now 1.85.0.
+
 ### Deprecations
+
+* The `ui.diff.format` and `ui.diff.tool` config options have been merged as
+  `ui.diff-formatter`. The builtin format can be specified as `:<format>`
+  (e.g. `ui.diff-formatter=":git"` for Git diffs.)
+
+* The `.normal_hex()` method will be removed from the `CommitId` template type.
+  It's useful only for the `ChangeId` type.
 
 ### New features
 
 * `jj split` has gained a `--message` option to set the description of the
   commit with the selected changes.
 
+* `jj split` has gained the ability to place the revision with the selected
+  changes anywhere in the revision tree with the `--insert-before`,
+  `--insert-after` and `--destination` command line flags.
+
+* Added `git.track-default-bookmark-on-clone` setting to control whether to
+  track the default remote bookmark on `jj git clone`.
+
+* Templates can now do arithmetic on integers with the `+`, `-`, `*`, `/`, and
+  `%` infix operators.
+
+* Evolution history is now stored in the operation log. `jj evolog` can show
+  associated operations for commits created by new jj versions.
+
 ### Fixed bugs
+
+* Work around a git issue that could cause subprocess operations to hang if the
+  `core.fsmonitor` gitconfig is set in the global or system gitconfigs.
+  [#6440](https://github.com/jj-vcs/jj/issues/6440)
+
+* `jj parallelize` can now parallelize groups of changes that _start_ with an
+  immutable change, but do not contain any other immutable changes.
+
+* `jj` will no longer warn about deprecated paths on macOS if the configured
+  XDG directory is the deprecated one (~/Library/Application Support).
+
+* The builtin diff editor now correctly handles splitting changes where a file
+  is replaced by a directory of the same name.
+  [#5189](https://github.com/jj-vcs/jj/issues/5189)
 
 ### Packaging changes
 
-* Due to the removal of the `libgit2` code path, packagers should
-  remove any dependencies on `libgit2`, `libssh2`, Zlib, OpenSSL, and
-  `pkg-config`, and ensure they are not setting the Cargo `git2` or
-  `vendored-openssl` features.
+* Due to the removal of the `libgit2` code path, packagers should remove any
+  dependencies on `libgit2`, `libssh2`, Zlib, OpenSSL, and `pkg-config`, and
+  ensure they are not setting the Cargo `git2` or `vendored-openssl` features.
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Alper Cugun (@alper)
+* Austin Seipp (@thoughtpolice)
+* Benjamin Brittain (@benbrittain)
+* Benjamin Tan (@bnjmnt4n)
+* Bryce Berger (@bryceberger)
+* Colin Nelson (@orthros)
+* Doug Stephen (@dljsjr)
+* Emily (@emilazy)
+* Eyvind Bernhardsen (@eyvind)
+* Felix Geisendörfer (@felixge)
+* Gaëtan Lehmann (@glehmann)
+* Ilya Grigoriev (@ilyagr)
+* Isaac Corbrey (@icorbrey)
+* Jonas Greitemann (@jgreitemann)
+* Josep Mengual (@truita)
+* kkoang (@kkoang)
+* Manuel Mendez (@mmlb)
+* Marshall Bowers (@maxdeviant)
+* Martin von Zweigbergk (@martinvonz)
+* Mateus Auler (@mateusauler)
+* Michael Pratt (@prattmic)
+* Nicole Patricia Mazzuca (@strega-nil)
+* Philip Metzger (@PhilipMetzger)
+* Scott Taylor (@scott2000)
+* T6 (@tjjfvi)
+* Vincent Ging Ho Yim (@cenviity)
+* Winter (@winterqt)
+* Yuya Nishihara (@yuja)
 
 ## [0.29.0] - 2025-05-07
 
@@ -636,7 +991,7 @@ Thanks to the people who made this release happen!
 * Added `--into` flag to `jj restore`, similarly to `jj squash` and `jj
   absorb`. It is equivalent to `--to`, but `--into` is the recommended name.
 
-* Italic text is now supported. You can set e.g. `color.error = { fg = "red",
+* Italic text is now supported. You can set e.g. `colors.error = { fg = "red",
   italic = true }` in your config.
 
 * New `author_name`/`author_email`/`committer_name`/`committer_email(pattern)`
@@ -651,7 +1006,7 @@ Thanks to the people who made this release happen!
 * The Jujutsu documentation site now publishes a schema for the official
   configuration file, which can be integrated into your editor for autocomplete,
   inline errors, and more.
-  Please [see the documentation](/docs/config.md#json-schema-support) for more
+  Please [see the documentation](docs/config.md#json-schema-support) for more
   on this.
 
 ### Fixed bugs
@@ -743,7 +1098,7 @@ changes. Two select improvements:
 * `jj config list` now prints inline tables `{ key = value, .. }` literally.
   Inner items of inline tables are no longer merged across configuration files.
   See [the table syntax
-  documentation](docs/config.md#dotted-style-headings-and-inline-tables) for
+  documentation](docs/config.md#dotted-style-and-headings) for
   details.
 
 * `jj config edit --user` now opens a file even if `$JJ_CONFIG` points to a
@@ -1236,7 +1591,7 @@ Thanks to the people who made this release happen!
 
 ### New features
 
-* Add new boolean config knob, `ui.movement.edit` for controlling the behaviour
+* Add new boolean config knob, `ui.movement.edit` for controlling the behavior
   of `prev/next`. The flag turns `edit` mode `on` and `off` permanently when set
   respectively to `true` or `false`.
 
@@ -2275,7 +2630,7 @@ Thanks to the people who made this release happen!
   If the deduced tracking flags are wrong, use `jj branch track`/`untrack`
   commands to fix them up.
 
-  See [automatic local branch creation](docs/config.md#automatic-local-branch-creation)
+  See [automatic local branch creation](docs/config.md#automatic-local-bookmark-creation)
   for details.
 
 * Non-tracking remote branches aren't listed by default. Use `jj branch list
@@ -2353,7 +2708,7 @@ Thanks to the people who made this release happen!
 * A default revset-alias function `trunk()` now exists. If you previously
   defined
   your own `trunk()` alias it will continue to overwrite the built-in one.
-  Check [revsets.toml](cli/src/config/revsets.toml)
+  Check [revsets.toml](docs/revsets.toml)
   and [revsets.md](docs/revsets.md)
   to understand how the function can be adapted.
 
@@ -2877,7 +3232,7 @@ Thanks to the people who made this release happen!
 * Per-repository configuration is now read from `.jj/repo/config.toml`.
 
 * Background colors, bold text, and underlining are now supported. You can set
-  e.g. `color.error = { bg = "red", bold = true, underline = true }` in your
+  e.g. `colors.error = { bg = "red", bold = true, underline = true }` in your
   `~/.jjconfig.toml`.
 
 * The `empty` condition in templates is true when the commit makes no change to

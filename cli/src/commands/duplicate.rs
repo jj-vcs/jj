@@ -20,19 +20,19 @@ use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::CommitId;
 use jj_lib::repo::Repo as _;
+use jj_lib::rewrite::DuplicateCommitsStats;
 use jj_lib::rewrite::duplicate_commits;
 use jj_lib::rewrite::duplicate_commits_onto_parents;
-use jj_lib::rewrite::DuplicateCommitsStats;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
-use crate::cli_util::compute_commit_location;
-use crate::cli_util::short_commit_hash;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
-use crate::command_error::user_error;
+use crate::cli_util::compute_commit_location;
+use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
-use crate::formatter::PlainTextFormatter;
 use crate::ui::Ui;
 
 /// Create new changes with the same content as existing ones
@@ -180,12 +180,8 @@ pub(crate) fn cmd_duplicate(
         to_duplicate
             .iter()
             .map(|commit_id| -> BackendResult<_> {
-                let mut output = Vec::new();
                 let commit = tx.repo().store().get_commit(commit_id)?;
-                parsed
-                    .format(&commit, &mut PlainTextFormatter::new(&mut output))
-                    .expect("write() to vec backed formatter should never fail");
-
+                let output = parsed.format_plain_text(&commit);
                 Ok((commit_id.clone(), output.into_string_lossy()))
             })
             .try_collect()?
@@ -202,7 +198,8 @@ pub(crate) fn cmd_duplicate(
             &new_descs,
             &parent_commit_ids,
             &children_commit_ids,
-        )?
+        )
+        .block_on()?
     } else {
         duplicate_commits_onto_parents(tx.repo_mut(), &to_duplicate, &new_descs)?
     };

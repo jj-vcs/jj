@@ -39,6 +39,7 @@ use tempfile::NamedTempFile;
 use thiserror::Error;
 
 use crate::file_util::persist_content_addressed_temp_file;
+use crate::hex_util;
 use crate::lock::FileLock;
 use crate::lock::FileLockError;
 
@@ -79,7 +80,7 @@ impl ReadonlyTable {
         store: &TableStore,
         name: String,
         key_size: usize,
-    ) -> TableStoreResult<Arc<ReadonlyTable>> {
+    ) -> TableStoreResult<Arc<Self>> {
         let to_load_err = |err| TableStoreError::LoadSegment {
             name: name.clone(),
             err,
@@ -106,7 +107,7 @@ impl ReadonlyTable {
         file.read_to_end(&mut data).map_err(to_load_err)?;
         let values = data.split_off(index_size);
         let index = data;
-        Ok(Arc::new(ReadonlyTable {
+        Ok(Arc::new(Self {
             key_size,
             parent_file: maybe_parent_file,
             name,
@@ -186,7 +187,7 @@ impl<'table> ReadonlyTableIndexEntry<'table> {
         let entry_size = ReadonlyTableIndexEntry::size(table.key_size);
         let offset = entry_size * pos;
         let data = &table.index[offset..][..entry_size];
-        ReadonlyTableIndexEntry { data }
+        Self { data }
     }
 
     fn size(key_size: usize) -> usize {
@@ -294,7 +295,7 @@ impl MutableTable {
     /// ReadonlyTable, return MutableTable with the commits from both. This
     /// is done recursively, so the stack of index files has O(log n) files.
     #[expect(clippy::assigning_clones)]
-    fn maybe_squash_with_ancestors(self) -> MutableTable {
+    fn maybe_squash_with_ancestors(self) -> Self {
         let mut num_new_entries = self.entries.len();
         let mut files_to_squash = vec![];
         let mut maybe_parent_file = self.parent_file.clone();
@@ -305,7 +306,7 @@ impl MutableTable {
                     // TODO: We should probably also squash if the parent file has less than N
                     // commits, regardless of how many (few) are in `self`.
                     if 2 * num_new_entries < parent_file.num_local_entries {
-                        squashed = MutableTable::incremental(parent_file);
+                        squashed = Self::incremental(parent_file);
                         break;
                     }
                     num_new_entries += parent_file.num_local_entries;
@@ -313,7 +314,7 @@ impl MutableTable {
                     maybe_parent_file = parent_file.parent_file.clone();
                 }
                 None => {
-                    squashed = MutableTable::full(self.key_size);
+                    squashed = Self::full(self.key_size);
                     break;
                 }
             }
@@ -338,7 +339,7 @@ impl MutableTable {
         let buf = self.maybe_squash_with_ancestors().serialize();
         let mut hasher = Blake2b512::new();
         hasher.update(&buf);
-        let file_id_hex = hex::encode(hasher.finalize());
+        let file_id_hex = hex_util::encode_hex(&hasher.finalize());
         let file_path = store.dir.join(&file_id_hex);
         let to_save_err = |err| TableStoreError::SaveSegment {
             name: file_id_hex.clone(),
@@ -407,7 +408,7 @@ pub struct TableStore {
 impl TableStore {
     pub fn init(dir: PathBuf, key_size: usize) -> Self {
         std::fs::create_dir(dir.join("heads")).unwrap();
-        TableStore {
+        Self {
             dir,
             key_size,
             cached_tables: Default::default(),
@@ -416,7 +417,7 @@ impl TableStore {
 
     pub fn reinit(&self) {
         std::fs::remove_dir_all(self.dir.join("heads")).unwrap();
-        TableStore::init(self.dir.clone(), self.key_size);
+        Self::init(self.dir.clone(), self.key_size);
     }
 
     pub fn key_size(&self) -> usize {
@@ -424,7 +425,7 @@ impl TableStore {
     }
 
     pub fn load(dir: PathBuf, key_size: usize) -> Self {
-        TableStore {
+        Self {
             dir,
             key_size,
             cached_tables: Default::default(),

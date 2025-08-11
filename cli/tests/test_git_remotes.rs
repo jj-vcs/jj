@@ -123,6 +123,71 @@ fn test_git_remote_add() {
 }
 
 #[test]
+fn test_git_remote_with_fetch_tags() {
+    let test_env = TestEnvironment::default();
+
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["git", "remote", "add", "foo", "http://example.com/repo"]);
+    insta::assert_snapshot!(output, @"");
+
+    let output = work_dir.run_jj([
+        "git",
+        "remote",
+        "add",
+        "foo-included",
+        "http://example.com/repo",
+        "--fetch-tags",
+        "included",
+    ]);
+    insta::assert_snapshot!(output, @"");
+
+    let output = work_dir.run_jj([
+        "git",
+        "remote",
+        "add",
+        "foo-all",
+        "http://example.com/repo",
+        "--fetch-tags",
+        "all",
+    ]);
+    insta::assert_snapshot!(output, @"");
+
+    let output = work_dir.run_jj([
+        "git",
+        "remote",
+        "add",
+        "foo-none",
+        "http://example.com/repo",
+        "--fetch-tags",
+        "none",
+    ]);
+    insta::assert_snapshot!(output, @"");
+
+    insta::assert_snapshot!(read_git_config(work_dir.root()), @r#"
+    [core]
+    	repositoryformatversion = 0
+    	bare = true
+    	logallrefupdates = false
+    [remote "foo"]
+    	url = http://example.com/repo
+    	fetch = +refs/heads/*:refs/remotes/foo/*
+    [remote "foo-included"]
+    	url = http://example.com/repo
+    	fetch = +refs/heads/*:refs/remotes/foo-included/*
+    [remote "foo-all"]
+    	url = http://example.com/repo
+    	tagOpt = --tags
+    	fetch = +refs/heads/*:refs/remotes/foo-all/*
+    [remote "foo-none"]
+    	url = http://example.com/repo
+    	tagOpt = --no-tags
+    	fetch = +refs/heads/*:refs/remotes/foo-none/*
+    "#);
+}
+
+#[test]
 fn test_git_remote_set_url() {
     let test_env = TestEnvironment::default();
 
@@ -503,7 +568,7 @@ fn test_git_remote_with_global_git_remote_config() {
     // and `git push`, but `git remote rename`, `git remote remove`,
     // `git remote set-url`, etc., will ignore it.
     //
-    // This behaviour applies to `jj git remote remove` and
+    // This behavior applies to `jj git remote remove` and
     // `jj git remote set-url` as well. It would be hard to change due
     // to gitoxide’s model, but hopefully it’s relatively harmless.
     insta::assert_snapshot!(output, @"");

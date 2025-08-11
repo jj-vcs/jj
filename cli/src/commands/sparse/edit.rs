@@ -21,9 +21,9 @@ use tracing::instrument;
 
 use super::update_sparse_patterns_with;
 use crate::cli_util::CommandHelper;
+use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error_with_message;
-use crate::command_error::CommandError;
 use crate::description_util::TextEditor;
 use crate::ui::Ui;
 

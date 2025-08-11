@@ -26,8 +26,8 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use itertools::Itertools as _;
-use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
+use ref_cast::ref_cast_custom;
 use thiserror::Error;
 
 use crate::content_hash::ContentHash;
@@ -114,8 +114,8 @@ impl Debug for RepoPathComponentBuf {
     }
 }
 
-impl AsRef<RepoPathComponent> for RepoPathComponent {
-    fn as_ref(&self) -> &RepoPathComponent {
+impl AsRef<Self> for RepoPathComponent {
+    fn as_ref(&self) -> &Self {
         self
     }
 }
@@ -199,7 +199,8 @@ impl DoubleEndedIterator for RepoPathComponentsIter<'_> {
 impl FusedIterator for RepoPathComponentsIter<'_> {}
 
 /// Owned repository path.
-#[derive(Clone, Eq, Hash, PartialEq)]
+#[derive(ContentHash, Clone, Eq, Hash, PartialEq, serde::Serialize)]
+#[serde(transparent)]
 pub struct RepoPathBuf {
     // Don't add more fields. Eq, Hash, and Ord must be compatible with the
     // borrowed RepoPath type.
@@ -207,8 +208,9 @@ pub struct RepoPathBuf {
 }
 
 /// Borrowed repository path.
-#[derive(Eq, Hash, PartialEq, RefCastCustom)]
+#[derive(ContentHash, Eq, Hash, PartialEq, RefCastCustom, serde::Serialize)]
 #[repr(transparent)]
+#[serde(transparent)]
 pub struct RepoPath {
     value: str,
 }
@@ -237,7 +239,7 @@ pub struct InvalidNewRepoPathError {
 impl RepoPathBuf {
     /// Creates owned repository path pointing to the root.
     pub const fn root() -> Self {
-        RepoPathBuf {
+        Self {
             value: String::new(),
         }
     }
@@ -246,7 +248,7 @@ impl RepoPathBuf {
     pub fn from_internal_string(value: impl Into<String>) -> Result<Self, InvalidNewRepoPathError> {
         let value: String = value.into();
         if is_valid_repo_path_str(&value) {
-            Ok(RepoPathBuf { value })
+            Ok(Self { value })
         } else {
             Err(InvalidNewRepoPathError { value })
         }
@@ -286,7 +288,7 @@ impl RepoPathBuf {
             value.push('/');
             value.push_str(name?);
         }
-        Ok(RepoPathBuf { value })
+        Ok(Self { value })
     }
 
     /// Parses an `input` path into a `RepoPathBuf` relative to `base`.
@@ -392,32 +394,32 @@ impl RepoPath {
     }
 
     /// Returns true if the `base` is a prefix of this path.
-    pub fn starts_with(&self, base: &RepoPath) -> bool {
+    pub fn starts_with(&self, base: &Self) -> bool {
         self.strip_prefix(base).is_some()
     }
 
     /// Returns the remaining path with the `base` path removed.
-    pub fn strip_prefix(&self, base: &RepoPath) -> Option<&RepoPath> {
+    pub fn strip_prefix(&self, base: &Self) -> Option<&Self> {
         if base.value.is_empty() {
             Some(self)
         } else {
             let tail = self.value.strip_prefix(&base.value)?;
             if tail.is_empty() {
-                Some(RepoPath::from_internal_string_unchecked(tail))
+                Some(Self::from_internal_string_unchecked(tail))
             } else {
                 tail.strip_prefix('/')
-                    .map(RepoPath::from_internal_string_unchecked)
+                    .map(Self::from_internal_string_unchecked)
             }
         }
     }
 
     /// Returns the parent path without the base name component.
-    pub fn parent(&self) -> Option<&RepoPath> {
+    pub fn parent(&self) -> Option<&Self> {
         self.split().map(|(parent, _)| parent)
     }
 
     /// Splits this into the parent path and base name component.
-    pub fn split(&self) -> Option<(&RepoPath, &RepoPathComponent)> {
+    pub fn split(&self) -> Option<(&Self, &RepoPathComponent)> {
         let mut components = self.components();
         let basename = components.next_back()?;
         Some((components.as_path(), basename))
@@ -425,6 +427,10 @@ impl RepoPath {
 
     pub fn components(&self) -> RepoPathComponentsIter<'_> {
         RepoPathComponentsIter { value: &self.value }
+    }
+
+    pub fn ancestors(&self) -> impl Iterator<Item = &Self> {
+        std::iter::successors(Some(self), |path| path.parent())
     }
 
     pub fn join(&self, entry: &RepoPathComponent) -> RepoPathBuf {
@@ -437,8 +443,8 @@ impl RepoPath {
     }
 }
 
-impl AsRef<RepoPath> for RepoPath {
-    fn as_ref(&self) -> &RepoPath {
+impl AsRef<Self> for RepoPath {
+    fn as_ref(&self) -> &Self {
         self
     }
 }
@@ -500,6 +506,17 @@ impl PartialOrd for RepoPath {
 impl PartialOrd for RepoPathBuf {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl<P: AsRef<RepoPathComponent>> Extend<P> for RepoPathBuf {
+    fn extend<T: IntoIterator<Item = P>>(&mut self, iter: T) {
+        for component in iter {
+            if !self.value.is_empty() {
+                self.value.push('/');
+            }
+            self.value.push_str(component.as_ref().as_internal_str());
+        }
     }
 }
 
@@ -585,11 +602,10 @@ impl RepoPathUiConverter {
     /// Format a path for display in the UI.
     pub fn format_file_path(&self, file: &RepoPath) -> String {
         match self {
-            RepoPathUiConverter::Fs { cwd, base } => {
+            Self::Fs { cwd, base } => {
                 file_util::relative_path(cwd, &file.to_fs_path_unchecked(base))
-                    .to_str()
-                    .unwrap()
-                    .to_owned()
+                    .display()
+                    .to_string()
             }
         }
     }
@@ -605,7 +621,7 @@ impl RepoPathUiConverter {
         }
         let mut formatted = String::new();
         match self {
-            RepoPathUiConverter::Fs { cwd, base } => {
+            Self::Fs { cwd, base } => {
                 let source_path = file_util::relative_path(cwd, &source.to_fs_path_unchecked(base));
                 let target_path = file_util::relative_path(cwd, &target.to_fs_path_unchecked(base));
 
@@ -624,8 +640,9 @@ impl RepoPathUiConverter {
 
                 let suffix_count = source_components
                     .iter()
+                    .skip(prefix_count)
                     .rev()
-                    .zip(target_components.iter().rev())
+                    .zip(target_components.iter().skip(prefix_count).rev())
                     .take_while(|(source_component, target_component)| {
                         source_component == target_component
                     })
@@ -634,7 +651,7 @@ impl RepoPathUiConverter {
                     .min(target_components.len().saturating_sub(1));
 
                 fn format_components(c: &[std::path::Component]) -> String {
-                    c.iter().collect::<PathBuf>().to_str().unwrap().to_owned()
+                    c.iter().collect::<PathBuf>().display().to_string()
                 }
 
                 if prefix_count > 0 {
@@ -669,7 +686,7 @@ impl RepoPathUiConverter {
     /// where relative paths are interpreted as relative to.
     pub fn parse_file_path(&self, input: &str) -> Result<RepoPathBuf, UiPathParseError> {
         match self {
-            RepoPathUiConverter::Fs { cwd, base } => {
+            Self::Fs { cwd, base } => {
                 RepoPathBuf::parse_fs_path(cwd, base, input).map_err(UiPathParseError::Fs)
             }
         }
@@ -815,6 +832,19 @@ mod tests {
     }
 
     #[test]
+    fn test_extend() {
+        let mut path = RepoPathBuf::root();
+        path.extend(std::iter::empty::<RepoPathComponentBuf>());
+        assert_eq!(path.as_ref(), RepoPath::root());
+        path.extend([repo_path_component("dir")]);
+        assert_eq!(path.as_ref(), repo_path("dir"));
+        path.extend(std::iter::repeat_n(repo_path_component("subdir"), 3));
+        assert_eq!(path.as_ref(), repo_path("dir/subdir/subdir/subdir"));
+        path.extend(std::iter::empty::<RepoPathComponentBuf>());
+        assert_eq!(path.as_ref(), repo_path("dir/subdir/subdir/subdir"));
+    }
+
+    #[test]
     fn test_parent() {
         let root = RepoPath::root();
         let dir_component = repo_path_component("dir");
@@ -867,6 +897,22 @@ mod tests {
     }
 
     #[test]
+    fn test_ancestors() {
+        assert_eq!(
+            RepoPath::root().ancestors().collect_vec(),
+            vec![RepoPath::root()]
+        );
+        assert_eq!(
+            repo_path("dir").ancestors().collect_vec(),
+            vec![repo_path("dir"), RepoPath::root()]
+        );
+        assert_eq!(
+            repo_path("dir/subdir").ancestors().collect_vec(),
+            vec![repo_path("dir/subdir"), repo_path("dir"), RepoPath::root()]
+        );
+    }
+
+    #[test]
     fn test_to_fs_path() {
         assert_eq!(
             repo_path("").to_fs_path(Path::new("base/dir")).unwrap(),
@@ -894,18 +940,22 @@ mod tests {
         // Current/parent dir component
         assert!(repo_path(".").to_fs_path(Path::new("base")).is_err());
         assert!(repo_path("..").to_fs_path(Path::new("base")).is_err());
-        assert!(repo_path("dir/../file")
-            .to_fs_path(Path::new("base"))
-            .is_err());
+        assert!(
+            repo_path("dir/../file")
+                .to_fs_path(Path::new("base"))
+                .is_err()
+        );
         assert!(repo_path("./file").to_fs_path(Path::new("base")).is_err());
         assert!(repo_path("file/.").to_fs_path(Path::new("base")).is_err());
         assert!(repo_path("../file").to_fs_path(Path::new("base")).is_err());
         assert!(repo_path("file/..").to_fs_path(Path::new("base")).is_err());
 
         // Empty component (which is invalid as a repo path)
-        assert!(RepoPath::from_internal_string_unchecked("/")
-            .to_fs_path(Path::new("base"))
-            .is_err());
+        assert!(
+            RepoPath::from_internal_string_unchecked("/")
+                .to_fs_path(Path::new("base"))
+                .is_err()
+        );
         assert_eq!(
             // Iterator omits empty component after "/", which is fine so long
             // as the returned path doesn't escape.
@@ -914,39 +964,57 @@ mod tests {
                 .unwrap(),
             Path::new("base/a")
         );
-        assert!(RepoPath::from_internal_string_unchecked("/b")
-            .to_fs_path(Path::new("base"))
-            .is_err());
-        assert!(RepoPath::from_internal_string_unchecked("a//b")
-            .to_fs_path(Path::new("base"))
-            .is_err());
+        assert!(
+            RepoPath::from_internal_string_unchecked("/b")
+                .to_fs_path(Path::new("base"))
+                .is_err()
+        );
+        assert!(
+            RepoPath::from_internal_string_unchecked("a//b")
+                .to_fs_path(Path::new("base"))
+                .is_err()
+        );
 
         // Component containing slash (simulating Windows path separator)
-        assert!(RepoPathComponent::new_unchecked("wind/ows")
-            .to_fs_name()
-            .is_err());
-        assert!(RepoPathComponent::new_unchecked("./file")
-            .to_fs_name()
-            .is_err());
-        assert!(RepoPathComponent::new_unchecked("file/.")
-            .to_fs_name()
-            .is_err());
+        assert!(
+            RepoPathComponent::new_unchecked("wind/ows")
+                .to_fs_name()
+                .is_err()
+        );
+        assert!(
+            RepoPathComponent::new_unchecked("./file")
+                .to_fs_name()
+                .is_err()
+        );
+        assert!(
+            RepoPathComponent::new_unchecked("file/.")
+                .to_fs_name()
+                .is_err()
+        );
         assert!(RepoPathComponent::new_unchecked("/").to_fs_name().is_err());
 
         // Windows path separator and drive letter
         if cfg!(windows) {
-            assert!(repo_path(r#"wind\ows"#)
-                .to_fs_path(Path::new("base"))
-                .is_err());
-            assert!(repo_path(r#".\file"#)
-                .to_fs_path(Path::new("base"))
-                .is_err());
-            assert!(repo_path(r#"file\."#)
-                .to_fs_path(Path::new("base"))
-                .is_err());
-            assert!(repo_path(r#"c:/foo"#)
-                .to_fs_path(Path::new("base"))
-                .is_err());
+            assert!(
+                repo_path(r#"wind\ows"#)
+                    .to_fs_path(Path::new("base"))
+                    .is_err()
+            );
+            assert!(
+                repo_path(r#".\file"#)
+                    .to_fs_path(Path::new("base"))
+                    .is_err()
+            );
+            assert!(
+                repo_path(r#"file\."#)
+                    .to_fs_path(Path::new("base"))
+                    .is_err()
+            );
+            assert!(
+                repo_path(r#"c:/foo"#)
+                    .to_fs_path(Path::new("base"))
+                    .is_err()
+            );
         }
     }
 
@@ -1138,5 +1206,13 @@ mod tests {
         assert_eq!(format("two", "four"), "{two => four}");
         assert_eq!(format("file1", "file2"), "{file1 => file2}");
         assert_eq!(format("file-1", "file-2"), "{file-1 => file-2}");
+        assert_eq!(
+            format("x/something/something/2to1.txt", "x/something/2to1.txt"),
+            "x/something/{something => }/2to1.txt"
+        );
+        assert_eq!(
+            format("x/something/1to2.txt", "x/something/something/1to2.txt"),
+            "x/something/{ => something}/1to2.txt"
+        );
     }
 }

@@ -228,11 +228,11 @@ fn test_bookmark_bad_name() {
 
     // quoted name works
     let output = work_dir.run_jj(["bookmark", "create", "-r@", "'foo@bar'"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Created 1 bookmarks pointing to qpvuntsm e8849ae1 foo@bar | (empty) (no description set)
+    Created 1 bookmarks pointing to qpvuntsm e8849ae1 "foo@bar" | (empty) (no description set)
     [EOF]
-    ");
+    "#);
 }
 
 #[test]
@@ -407,9 +407,9 @@ fn test_bookmark_move_matching() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the following required arguments were not provided:
-      <--from <REVSETS>|NAMES>
+      <NAMES|--from <REVSETS>>
 
-    Usage: jj bookmark move --to <REVSET> <--from <REVSETS>|NAMES>
+    Usage: jj bookmark move --to <REVSET> <NAMES|--from <REVSETS>>
 
     For more information, try '--help'.
     [EOF]
@@ -627,7 +627,7 @@ fn test_bookmark_rename() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Tracked remote bookmarks for bookmark bremote were not renamed.
-    Hint: To rename the bookmark on the remote, you can `jj git push --bookmark bremote` first (to delete it on the remote), and then `jj git push --bookmark bremote2`. `jj git push --all` would also be sufficient.
+    Hint: To rename the bookmark on the remote, you can `jj git push --bookmark bremote` first (to delete it on the remote), and then `jj git push --bookmark bremote2`. `jj git push --all --deleted` would also be sufficient.
     [EOF]
     ");
     let output = work_dir.run_jj(["bookmark", "rename", "bremote2", "bremote"]);
@@ -718,7 +718,7 @@ fn test_bookmark_forget_glob() {
     let output = work_dir.run_jj(["bookmark", "forget", "glob:foo-[1-3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    error: invalid value 'glob:foo-[1-3' for '<NAMES>...': Pattern syntax error near position 4: invalid range pattern
+    error: invalid value 'glob:foo-[1-3' for '<NAMES>...': error parsing glob 'foo-[1-3': unclosed character class; missing ']'
 
     For more information, try '--help'.
     [EOF]
@@ -836,7 +836,7 @@ fn test_bookmark_delete_glob() {
     let output = work_dir.run_jj(["bookmark", "delete", "glob:foo-[1-3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    error: invalid value 'glob:foo-[1-3' for '<NAMES>...': Pattern syntax error near position 4: invalid range pattern
+    error: invalid value 'glob:foo-[1-3' for '<NAMES>...': error parsing glob 'foo-[1-3': unclosed character class; missing ']'
 
     For more information, try '--help'.
     [EOF]
@@ -1596,6 +1596,22 @@ fn test_bookmark_list() {
     [EOF]
     ");
 
+    let output = local_dir.run_jj(["bookmark", "list", "--all-remotes", "--color=always"]);
+    insta::assert_snapshot!(output, @r"
+    [38;5;5mlocal-only[39m: [1m[38;5;13mw[38;5;8mqnwkozp[39m [38;5;12m03[38;5;8m53dd35[39m [38;5;10m(empty)[39m local-only[0m
+    [38;5;5mremote-delete[39m (deleted)
+      [38;5;5m@origin[39m: [1m[38;5;5mv[0m[38;5;8mruxwmqv[39m [1m[38;5;4mb[0m[38;5;8m32031cf[39m [38;5;2m(empty)[39m remote-delete
+    [38;5;5mremote-sync[39m: [1m[38;5;5mr[0m[38;5;8mlvkpnrz[39m [1m[38;5;4m7[0m[38;5;8ma07dbee[39m [38;5;2m(empty)[39m remote-sync
+      [38;5;5m@origin[39m: [1m[38;5;5mr[0m[38;5;8mlvkpnrz[39m [1m[38;5;4m7[0m[38;5;8ma07dbee[39m [38;5;2m(empty)[39m remote-sync
+    [38;5;5mremote-unsync[39m: [1m[38;5;13mw[38;5;8mqnwkozp[39m [38;5;12m03[38;5;8m53dd35[39m [38;5;10m(empty)[39m local-only[0m
+      [38;5;5m@origin[39m (ahead by 1 commits, behind by 1 commits): [1m[38;5;5mzs[0m[38;5;8muskuln[39m [1m[38;5;4m5[0m[38;5;8m53203ba[39m [38;5;2m(empty)[39m remote-unsync
+    [38;5;5mremote-untrack@origin[39m: [1m[38;5;5mro[0m[38;5;8myxmykx[39m [1m[38;5;4m1[0m[38;5;8m49bc756[39m [38;5;2m(empty)[39m remote-untrack
+    [EOF]
+    ------- stderr -------
+    [1m[38;5;6mHint: [0m[39mBookmarks marked as deleted can be *deleted permanently* on the remote by running `jj git push --deleted`. Use `jj bookmark forget` if you don't want that.[39m
+    [EOF]
+    ");
+
     let template = r#"
     concat(
       "[" ++ name ++ if(remote, "@" ++ remote) ++ "]\n",
@@ -1697,6 +1713,20 @@ fn test_bookmark_list() {
     Hint: Bookmarks marked as deleted can be *deleted permanently* on the remote by running `jj git push --deleted`. Use `jj bookmark forget` if you don't want that.
     [EOF]
     ");
+
+    let output = local_dir.run_jj(["bookmark", "list", r#"-Tjson(self) ++ "\n""#]);
+    insta::assert_snapshot!(output, @r#"
+    {"name":"local-only","target":["0353dd35c56156971ce5f023a1db7a6196160a8a"]}
+    {"name":"remote-delete","target":[null]}
+    {"name":"remote-delete","remote":"origin","target":["b32031cf329fbb90d042635c295b4e3fa2ca2651"],"tracking_target":[null]}
+    {"name":"remote-sync","target":["7a07dbeef135886b7ba7adb27d05190c39cd92ab"]}
+    {"name":"remote-unsync","target":["0353dd35c56156971ce5f023a1db7a6196160a8a"]}
+    {"name":"remote-unsync","remote":"origin","target":["553203baa52803406124962dbc0bcdc0227b20b2"],"tracking_target":["0353dd35c56156971ce5f023a1db7a6196160a8a"]}
+    [EOF]
+    ------- stderr -------
+    Hint: Bookmarks marked as deleted can be *deleted permanently* on the remote by running `jj git push --deleted`. Use `jj bookmark forget` if you don't want that.
+    [EOF]
+    "#);
 }
 
 #[test]
@@ -1921,6 +1951,38 @@ fn test_bookmark_list_filtered() {
       @git: royxmykx e6970e0e (empty) rewritten
     [EOF]
     ");
+}
+
+#[test]
+fn test_bookmark_list_quoted_name() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "'with space'"])
+        .success();
+
+    // quoted by default
+    let output = work_dir.run_jj(["bookmark", "list"]);
+    insta::assert_snapshot!(output, @r#"
+    "with space": qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    "#);
+
+    // string method should apply to the original (unquoted) name
+    let template = r#"
+    separate(' ',
+      self,
+      name.contains('"'),
+      name.len(),
+    ) ++ "\n"
+    "#;
+    let output = work_dir.run_jj(["bookmark", "list", "-T", template]);
+    insta::assert_snapshot!(output, @r#"
+    "with space" false 10
+    [EOF]
+    "#);
 }
 
 #[test]

@@ -41,7 +41,7 @@ the path [has no special characters](#quoting-file-names).
 * `root-glob:"pattern"`: Matches file paths with workspace-relative Unix-style
   shell [wildcard `pattern`][glob].
 
-[glob]: https://docs.rs/glob/latest/glob/struct.Pattern.html
+[glob]: https://docs.rs/globset/latest/globset/#syntax
 
 ## Operators
 

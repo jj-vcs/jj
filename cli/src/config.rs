@@ -21,6 +21,7 @@ use std::fmt;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::LazyLock;
 
 use etcetera::BaseStrategy as _;
 use itertools::Itertools as _;
@@ -39,9 +40,9 @@ use regex::Captures;
 use regex::Regex;
 use tracing::instrument;
 
+use crate::command_error::CommandError;
 use crate::command_error::config_error;
 use crate::command_error::config_error_with_message;
-use crate::command_error::CommandError;
 use crate::text_util;
 use crate::ui::Ui;
 
@@ -184,7 +185,7 @@ struct ConfigPath {
 impl ConfigPath {
     fn new(path: PathBuf) -> Self {
         use ConfigPathState::*;
-        ConfigPath {
+        Self {
             state: if path.exists() { Exists } else { New },
             path,
         }
@@ -287,8 +288,8 @@ impl UnresolvedConfigEnv {
                 Self::warn_for_deprecated_path(
                     ui,
                     path.as_path(),
-                    "~/Library/Application Support",
-                    "~/.config",
+                    "~/Library/Application Support/jj",
+                    "~/.config/jj",
                 );
                 paths.push(path);
             }
@@ -298,8 +299,8 @@ impl UnresolvedConfigEnv {
                 Self::warn_for_deprecated_path(
                     ui,
                     path.as_path(),
-                    "~/Library/Application Support",
-                    "~/.config",
+                    "~/Library/Application Support/jj",
+                    "~/.config/jj",
                 );
                 paths.push(path);
             }
@@ -347,6 +348,10 @@ impl ConfigEnv {
                     // Library/Preferences is supposed to be exclusively plists
                     s.data_dir()
                 })
+                .filter(|data_dir| {
+                    // User might've purposefully set their config dir to the deprecated one
+                    Some(data_dir) != config_dir.as_ref()
+                })
         } else {
             None
         };
@@ -363,7 +368,7 @@ impl ConfigEnv {
             home_dir: home_dir.clone(),
             jj_config: env::var("JJ_CONFIG").ok(),
         };
-        ConfigEnv {
+        Self {
             home_dir,
             repo_path: None,
             user_config_paths: env.resolve(ui),
@@ -710,7 +715,7 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
         // TODO: Delete in jj 0.34+
         ConfigMigrationRule::rename_value(
             "core.watchman.register_snapshot_trigger",
-            "core.watchman.register-snapshot-trigger",
+            "fsmonitor.watchman.register-snapshot-trigger",
         ),
         // TODO: Delete in jj 0.34+
         ConfigMigrationRule::rename_value("diff.format", "ui.diff.format"),
@@ -720,11 +725,39 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
             "template-aliases.default_commit_description",
             |old_value| {
                 let value = old_value.as_str().ok_or("expected a string")?;
-                // Trailing newline would be padded by templater
+                // Trailing newline would be padded by templater (in jj < 0.31)
                 let value = text_util::complete_newline(value);
                 let escaped = dsl_util::escape_string(&value);
                 Ok(format!(r#""{escaped}""#).into())
             },
+        ),
+        // TODO: Delete in jj 0.36+
+        ConfigMigrationRule::rename_value("ui.diff.tool", "ui.diff-formatter"),
+        // TODO: Delete in jj 0.36+
+        ConfigMigrationRule::rename_update_value(
+            "ui.diff.format",
+            "ui.diff-formatter",
+            |old_value| {
+                let value = old_value.as_str().ok_or("expected a string")?;
+                Ok(format!(":{value}").into())
+            },
+        ),
+        // TODO: Delete in jj 0.37+
+        ConfigMigrationRule::rename_update_value(
+            "git.push-bookmark-prefix",
+            "templates.git_push_bookmark",
+            |old_value| {
+                let value = old_value.as_str().ok_or("expected a string")?;
+                let escaped = dsl_util::escape_string(value);
+                Ok(format!(r#""{escaped}" ++ change_id.short()"#).into())
+            },
+        ),
+        // TODO: Delete in jj 0.38.0+
+        ConfigMigrationRule::rename_value("core.fsmonitor", "fsmonitor.backend"),
+        // TODO: Delete in jj 0.38.0+
+        ConfigMigrationRule::rename_value(
+            "core.watchman.register-snapshot-trigger",
+            "fsmonitor.watchman.register-snapshot-trigger",
         ),
     ]
 }
@@ -743,7 +776,7 @@ pub enum CommandNameAndArgs {
 
 impl CommandNameAndArgs {
     /// Returns command name without arguments.
-    pub fn split_name(&self) -> Cow<str> {
+    pub fn split_name(&self) -> Cow<'_, str> {
         let (name, _) = self.split_name_and_args();
         name
     }
@@ -751,20 +784,29 @@ impl CommandNameAndArgs {
     /// Returns command name and arguments.
     ///
     /// The command name may be an empty string (as well as each argument.)
-    pub fn split_name_and_args(&self) -> (Cow<str>, Cow<[String]>) {
+    pub fn split_name_and_args(&self) -> (Cow<'_, str>, Cow<'_, [String]>) {
         match self {
-            CommandNameAndArgs::String(s) => {
+            Self::String(s) => {
                 // Handle things like `EDITOR=emacs -nw` (TODO: parse shell escapes)
                 let mut args = s.split(' ').map(|s| s.to_owned());
                 (args.next().unwrap().into(), args.collect())
             }
-            CommandNameAndArgs::Vec(NonEmptyCommandArgsVec(a)) => {
-                (Cow::Borrowed(&a[0]), Cow::Borrowed(&a[1..]))
-            }
-            CommandNameAndArgs::Structured {
+            Self::Vec(NonEmptyCommandArgsVec(a)) => (Cow::Borrowed(&a[0]), Cow::Borrowed(&a[1..])),
+            Self::Structured {
                 env: _,
                 command: cmd,
             } => (Cow::Borrowed(&cmd.0[0]), Cow::Borrowed(&cmd.0[1..])),
+        }
+    }
+
+    /// Returns command string only if the underlying type is a string.
+    ///
+    /// Use this to parse enum strings such as `":builtin"`, which can be
+    /// escaped as `[":builtin"]`.
+    pub fn as_str(&self) -> Option<&str> {
+        match self {
+            Self::String(s) => Some(s),
+            Self::Vec(_) | Self::Structured { .. } => None,
         }
     }
 
@@ -781,8 +823,8 @@ impl CommandNameAndArgs {
         variables: &HashMap<&str, V>,
     ) -> Command {
         let (name, args) = self.split_name_and_args();
-        let mut cmd = Command::new(name.as_ref());
-        if let CommandNameAndArgs::Structured { env, .. } = self {
+        let mut cmd = Command::new(interpolate_variables_single(name.as_ref(), variables));
+        if let Self::Structured { env, .. } = self {
             cmd.envs(env);
         }
         cmd.args(interpolate_variables(&args, variables));
@@ -792,17 +834,17 @@ impl CommandNameAndArgs {
 
 impl<T: AsRef<str> + ?Sized> From<&T> for CommandNameAndArgs {
     fn from(s: &T) -> Self {
-        CommandNameAndArgs::String(s.as_ref().to_owned())
+        Self::String(s.as_ref().to_owned())
     }
 }
 
 impl fmt::Display for CommandNameAndArgs {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CommandNameAndArgs::String(s) => write!(f, "{s}"),
+            Self::String(s) => write!(f, "{s}"),
             // TODO: format with shell escapes
-            CommandNameAndArgs::Vec(a) => write!(f, "{}", a.0.join(" ")),
-            CommandNameAndArgs::Structured { env, command } => {
+            Self::Vec(a) => write!(f, "{}", a.0.join(" ")),
+            Self::Structured { env, command } => {
                 for (k, v) in env {
                     write!(f, "{k}={v} ")?;
                 }
@@ -813,27 +855,28 @@ impl fmt::Display for CommandNameAndArgs {
 }
 
 // Not interested in $UPPER_CASE_VARIABLES
-static VARIABLE_REGEX: once_cell::sync::Lazy<Regex> =
-    once_cell::sync::Lazy::new(|| Regex::new(r"\$([a-z0-9_]+)\b").unwrap());
+static VARIABLE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\$([a-z0-9_]+)\b").unwrap());
 
 pub fn interpolate_variables<V: AsRef<str>>(
     args: &[String],
     variables: &HashMap<&str, V>,
 ) -> Vec<String> {
     args.iter()
-        .map(|arg| {
-            VARIABLE_REGEX
-                .replace_all(arg, |caps: &Captures| {
-                    let name = &caps[1];
-                    if let Some(subst) = variables.get(name) {
-                        subst.as_ref().to_owned()
-                    } else {
-                        caps[0].to_owned()
-                    }
-                })
-                .into_owned()
-        })
+        .map(|arg| interpolate_variables_single(arg, variables))
         .collect()
+}
+
+fn interpolate_variables_single<V: AsRef<str>>(arg: &str, variables: &HashMap<&str, V>) -> String {
+    VARIABLE_REGEX
+        .replace_all(arg, |caps: &Captures| {
+            let name = &caps[1];
+            if let Some(subst) = variables.get(name) {
+                subst.as_ref().to_owned()
+            } else {
+                caps[0].to_owned()
+            }
+        })
+        .into_owned()
 }
 
 /// Return all variable names found in the args, without the dollar sign
@@ -860,7 +903,7 @@ impl TryFrom<Vec<String>> for NonEmptyCommandArgsVec {
         if args.is_empty() {
             Err("command arguments should not be empty")
         } else {
-            Ok(NonEmptyCommandArgsVec(args))
+            Ok(Self(args))
         }
     }
 }
@@ -1344,15 +1387,15 @@ mod tests {
     }
 
     impl Want {
-        const fn new(path: &'static str) -> Want {
-            Want {
+        const fn new(path: &'static str) -> Self {
+            Self {
                 path,
                 state: WantState::New,
             }
         }
 
-        const fn existing(path: &'static str) -> Want {
-            Want {
+        const fn existing(path: &'static str) -> Self {
+            Self {
                 path,
                 state: WantState::Existing,
             }

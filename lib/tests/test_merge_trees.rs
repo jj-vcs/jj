@@ -17,9 +17,10 @@ use jj_lib::backend::TreeValue;
 use jj_lib::merge::Merge;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::rebase_commit;
+use pollster::FutureExt as _;
+use testutils::TestRepo;
 use testutils::create_tree;
 use testutils::repo_path;
-use testutils::TestRepo;
 
 #[test]
 fn test_simplify_conflict_after_resolving_parent() {
@@ -65,8 +66,12 @@ fn test_simplify_conflict_after_resolving_parent() {
         .write()
         .unwrap();
 
-    let commit_b2 = rebase_commit(tx.repo_mut(), commit_b, vec![commit_d.id().clone()]).unwrap();
-    let commit_c2 = rebase_commit(tx.repo_mut(), commit_c, vec![commit_b2.id().clone()]).unwrap();
+    let commit_b2 = rebase_commit(tx.repo_mut(), commit_b, vec![commit_d.id().clone()])
+        .block_on()
+        .unwrap();
+    let commit_c2 = rebase_commit(tx.repo_mut(), commit_c, vec![commit_b2.id().clone()])
+        .block_on()
+        .unwrap();
 
     // Test the setup: Both B and C should have conflicts.
     let tree_b2 = commit_b2.tree().unwrap();
@@ -82,7 +87,9 @@ fn test_simplify_conflict_after_resolving_parent() {
         .set_tree_id(tree_b3.id())
         .write()
         .unwrap();
-    let commit_c3 = rebase_commit(tx.repo_mut(), commit_c2, vec![commit_b3.id().clone()]).unwrap();
+    let commit_c3 = rebase_commit(tx.repo_mut(), commit_c2, vec![commit_b3.id().clone()])
+        .block_on()
+        .unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     let repo = tx.commit("test").unwrap();
 
@@ -93,6 +100,7 @@ fn test_simplify_conflict_after_resolving_parent() {
         Ok(Some(TreeValue::File {
             id,
             executable: false,
+            copy_id: _,
         })) => {
             assert_eq!(
                 testutils::read_file(repo.store(), path, &id),
@@ -154,7 +162,9 @@ fn test_rebase_linearize_lossy_merge() {
         .write()
         .unwrap();
 
-    let commit_d2 = rebase_commit(repo_mut, commit_d, vec![commit_b.id().clone()]).unwrap();
+    let commit_d2 = rebase_commit(repo_mut, commit_d, vec![commit_b.id().clone()])
+        .block_on()
+        .unwrap();
 
     assert_eq!(*commit_d2.tree_id(), tree_2.id());
 }
@@ -214,6 +224,7 @@ fn test_rebase_on_lossy_merge() {
         commit_d,
         vec![commit_b.id().clone(), commit_c2.id().clone()],
     )
+    .block_on()
     .unwrap();
 
     let expected_tree_id = Merge::from_vec(vec![

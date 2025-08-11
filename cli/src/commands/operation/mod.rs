@@ -19,19 +19,19 @@ mod restore;
 mod show;
 pub mod undo;
 
-use abandon::cmd_op_abandon;
 use abandon::OperationAbandonArgs;
+use abandon::cmd_op_abandon;
 use clap::Subcommand;
-use diff::cmd_op_diff;
 use diff::OperationDiffArgs;
-use log::cmd_op_log;
+use diff::cmd_op_diff;
 use log::OperationLogArgs;
-use restore::cmd_op_restore;
+use log::cmd_op_log;
 use restore::OperationRestoreArgs;
-use show::cmd_op_show;
+use restore::cmd_op_restore;
 use show::OperationShowArgs;
-use undo::cmd_op_undo;
+use show::cmd_op_show;
 use undo::OperationUndoArgs;
+use undo::cmd_op_undo;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;

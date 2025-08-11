@@ -15,13 +15,13 @@
 use indoc::indoc;
 use itertools::Itertools as _;
 
+use crate::common::CommandOutput;
+use crate::common::TestEnvironment;
+use crate::common::TestWorkDir;
 use crate::common::create_commit;
 use crate::common::create_commit_with_files;
 use crate::common::fake_diff_editor_path;
 use crate::common::to_toml_value;
-use crate::common::CommandOutput;
-use crate::common::TestEnvironment;
-use crate::common::TestWorkDir;
 
 #[test]
 fn test_diff_basic() {
@@ -93,6 +93,15 @@ fn test_diff_basic() {
     insta::assert_snapshot!(output, @r"
     F- file1
     FF file2
+    [EOF]
+    ");
+
+    let template = r#"source.path() ++ ' => ' ++ target.path() ++ ' (' ++ status ++ ")\n""#;
+    let output = work_dir.run_jj(["diff", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    file2 => file2 (modified)
+    file1 => file3 (renamed)
+    file2 => file4 (copied)
     [EOF]
     ");
 
@@ -237,6 +246,126 @@ fn test_diff_basic() {
     // Unmodified paths shouldn't generate warnings
     let output = work_dir.run_jj(["diff", "-s", "--from=@", "file2"]);
     insta::assert_snapshot!(output, @"");
+
+    // Deprecated config key
+    let output = work_dir.run_jj(["diff", "--config=ui.diff.format=git", "file2"]);
+    insta::assert_snapshot!(output, @r#"
+    diff --git a/file2 b/file2
+    index 94ebaf9001..1ffc51b472 100644
+    --- a/file2
+    +++ b/file2
+    @@ -1,4 +1,3 @@
+     1
+    -2
+    +5
+     3
+    -4
+    [EOF]
+    ------- stderr -------
+    Warning: Deprecated CLI-provided config: ui.diff.format is updated to ui.diff-formatter = ":git"
+    [EOF]
+    "#);
+
+    // --tool=:<builtin>
+    let output = work_dir.run_jj(["diff", "--tool=:summary", "--color-words", "file2"]);
+    insta::assert_snapshot!(output, @r"
+    M file2
+    Modified regular file file2:
+       1    1: 1
+       2    2: 25
+       3    3: 3
+       4     : 4
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["diff", "--tool=:git", "--stat", "file2"]);
+    insta::assert_snapshot!(output, @r"
+    file2 | 3 +--
+    1 file changed, 1 insertion(+), 2 deletions(-)
+    diff --git a/file2 b/file2
+    index 94ebaf9001..1ffc51b472 100644
+    --- a/file2
+    +++ b/file2
+    @@ -1,4 +1,3 @@
+     1
+    -2
+    +5
+     3
+    -4
+    [EOF]
+    ");
+
+    // Bad combination
+    let output = work_dir.run_jj(["diff", "--summary", "--tool=:stat"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: --tool=:stat cannot be used with --summary
+    [EOF]
+    [exit status: 2]
+    ");
+    let output = work_dir.run_jj(["diff", "--git", "--tool=:git"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: --tool=:git cannot be used with --git
+    [EOF]
+    [exit status: 2]
+    ");
+    let output = work_dir.run_jj(["diff", "--git", "--tool=external"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: --tool=external cannot be used with --git
+    [EOF]
+    [exit status: 2]
+    ");
+    let output = work_dir.run_jj(["diff", "-T''", "--summary"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    error: the argument '--template <TEMPLATE>' cannot be used with:
+      --summary
+      --stat
+      --types
+      --name-only
+
+    Usage: jj diff --template <TEMPLATE> --summary [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+    let output = work_dir.run_jj(["diff", "-T''", "--git"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    error: the argument '--template <TEMPLATE>' cannot be used with:
+      --git
+      --color-words
+
+    Usage: jj diff --template <TEMPLATE> --git [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+    let output = work_dir.run_jj(["diff", "-T''", "--tool=:git"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    error: the argument '--template <TEMPLATE>' cannot be used with '--tool <TOOL>'
+
+    Usage: jj diff --template <TEMPLATE> [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    // Bad builtin format
+    let output = work_dir.run_jj(["diff", "--config=ui.diff-formatter=:unknown"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Config error: Invalid type or value for ui.diff-formatter
+    Caused by: Invalid builtin diff format: unknown
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 #[test]
@@ -2911,10 +3040,13 @@ fn test_diff_external_tool() {
 
     // nonzero exit codes should print a warning
     std::fs::write(&edit_script, "fail").unwrap();
-    let output = work_dir.run_jj(["diff", "--config=ui.diff.tool=fake-diff-editor"]);
-    let mut insta_settings = insta::Settings::clone_current();
-    insta_settings.add_filter("exit (status|code)", "<exit status>");
-    insta_settings.bind(|| {
+    let output = work_dir.run_jj(["diff", "--config=ui.diff-formatter=fake-diff-editor"]);
+    let insta_portable_exit_status = {
+        let mut settings = insta::Settings::clone_current();
+        settings.add_filter("exit (status|code)", "<exit status>");
+        settings
+    };
+    insta_portable_exit_status.bind(|| {
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Warning: Tool exited with <exit status>: 1 (run with --debug to see the exact invocation)
@@ -2947,6 +3079,31 @@ fn test_diff_external_tool() {
     file3
     [EOF]
     ");
+
+    // diff with unset edit-args
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=fake-diff-editor",
+        "--config=merge-tools.fake-diff-editor.edit-args=[]",
+    ]), @r"
+    file1
+    file2
+    --
+    file2
+    file3
+    [EOF]
+    ");
+
+    // diff with explicitly unset edit-args and diff-args
+    insta_portable_exit_status.bind(|| {
+        insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=fake-diff-editor",
+        "--config=merge-tools.fake-diff-editor.edit-args=[]",
+        "--config=merge-tools.fake-diff-editor.diff-args=[]",
+    ]), @r"
+        ------- stderr -------
+        Error: The tool `fake-diff-editor` cannot be used for diff formatting
+        [EOF]
+        [<exit status>: 2]
+        ");
+    });
 
     // diff with file patterns
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=fake-diff-editor", "file1"]), @r"
@@ -2990,7 +3147,7 @@ fn test_diff_external_tool() {
     ");
 
     // Enabled by default, looks up the merge-tools table
-    let config = "--config=ui.diff.tool=fake-diff-editor";
+    let config = "--config=ui.diff-formatter=fake-diff-editor";
     insta::assert_snapshot!(work_dir.run_jj(["diff", config]), @r"
     file1
     file2
@@ -3002,7 +3159,7 @@ fn test_diff_external_tool() {
 
     // Inlined command arguments
     let command_toml = to_toml_value(fake_diff_editor_path());
-    let config = format!("--config=ui.diff.tool=[{command_toml}, '$right', '$left']");
+    let config = format!("--config=ui.diff-formatter=[{command_toml}, '$right', '$left']");
     insta::assert_snapshot!(work_dir.run_jj(["diff", &config]), @r"
     file2
     file3
@@ -3038,15 +3195,80 @@ fn test_diff_external_tool() {
     [EOF]
     ");
 
+    // Deprecated config key
+    std::fs::write(
+        &edit_script,
+        "print-files-before\0print --\0print-files-after",
+    )
+    .unwrap();
+    let output = work_dir.run_jj([
+        "diff",
+        "--config=ui.diff.format=git",
+        "--config=ui.diff.tool=fake-diff-editor",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    file1
+    file2
+    --
+    file2
+    file3
+    [EOF]
+    ------- stderr -------
+    Warning: Deprecated CLI-provided config: ui.diff.tool is renamed to ui.diff-formatter
+    Warning: Deprecated CLI-provided config: ui.diff.format is deleted (superseded by ui.diff-formatter)
+    [EOF]
+    ");
+
     // --tool=:builtin shouldn't be ignored
     let output = work_dir.run_jj(["diff", "--tool=:builtin"]);
     insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
     ------- stderr -------
-    Error: Failed to generate diff
-    Caused by:
-    1: Error executing ':builtin' (run with --debug to see the exact invocation)
+    Error: Invalid builtin diff format: builtin
     [EOF]
-    [exit status: 1]
+    [exit status: 2]
+    ");
+}
+
+#[test]
+fn test_diff_do_chdir() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file1", "file1\n");
+
+    std::fs::write(&edit_script, "print-current-dir").unwrap();
+    assert_eq!(
+        work_dir
+            .run_jj([
+                "diff",
+                "--tool=fake-diff-editor",
+                "--config=merge-tools.fake-diff-editor.diff-do-chdir=false",
+            ])
+            .to_string()
+            .lines()
+            .next()
+            .unwrap(),
+        "$TEST_ENV/repo"
+    );
+    assert!(
+        work_dir
+            .run_jj(["diff", "--tool=fake-diff-editor"])
+            .to_string()
+            .lines()
+            .next()
+            .unwrap()
+            != "$TEST_ENV/repo"
+    );
+
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=echo"]), @r"
+    left right
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=echo",
+        "--config=merge-tools.echo.diff-invocation-mode=file-by-file"]).normalize_backslash(), @r"
+    left/file1 right/file1
+    [EOF]
     ");
 }
 
@@ -3073,7 +3295,7 @@ fn test_diff_external_file_by_file_tool() {
 
     // Enabled by default, looks up the merge-tools table
     let configs: &[_] = &[
-        "--config=ui.diff.tool=fake-diff-editor",
+        "--config=ui.diff-formatter=fake-diff-editor",
         "--config=merge-tools.fake-diff-editor.diff-invocation-mode=file-by-file",
     ];
 
@@ -3359,82 +3581,86 @@ fn test_diff_stat_long_name_or_stat() {
     };
 
     insta::assert_snapshot!(get_stat(&work_dir, 1, 1), @r"
-    1   | 1 +
-    一  | 1 +
+    1  | 1 +
+    一 | 1 +
     2 files changed, 2 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 1, 10), @r"
-    1   | 10 ++++++++++
-    一  | 10 ++++++++++
+    1  | 10 ++++++++++
+    一 | 10 ++++++++++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
+    // 30 column display width means right edge is
+    //                ... here ->|
     insta::assert_snapshot!(get_stat(&work_dir, 1, 100), @r"
-    1   | 100 +++++++++++++++++
-    一  | 100 +++++++++++++++++
+    1  | 100 +++++++++++++++++++++
+    一 | 100 +++++++++++++++++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 10, 1), @r"
-    1234567890      | 1 +
-    ...五六七八九十 | 1 +
+    1234567890        | 1 +
+    ...四五六七八九十 | 1 +
     2 files changed, 2 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 10, 10), @r"
-    1234567890     | 10 +++++++
-    ...六七八九十  | 10 +++++++
+    1234567890       | 10 ++++++++
+    ...五六七八九十  | 10 ++++++++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 10, 100), @r"
-    1234567890     | 100 ++++++
-    ...六七八九十  | 100 ++++++
+    1234567890       | 100 +++++++
+    ...五六七八九十  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 50, 1), @r"
-    ...901234567890 | 1 +
-    ...五六七八九十 | 1 +
+    ...78901234567890 | 1 +
+    ...四五六七八九十 | 1 +
     2 files changed, 2 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 50, 10), @r"
-    ...01234567890 | 10 +++++++
-    ...六七八九十  | 10 +++++++
+    ...8901234567890 | 10 ++++++++
+    ...五六七八九十  | 10 ++++++++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 50, 100), @r"
-    ...01234567890 | 100 ++++++
-    ...六七八九十  | 100 ++++++
+    ...8901234567890 | 100 +++++++
+    ...五六七八九十  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
 
     // Lengths around where we introduce the ellipsis
+    // 30 column display width means right edge is
+    //                ... here ->|
     insta::assert_snapshot!(get_stat(&work_dir, 13, 100), @r"
-    1234567890123  | 100 ++++++
-    ...九十一二三  | 100 ++++++
+    1234567890123    | 100 +++++++
+    ...八九十一二三  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 14, 100), @r"
-    12345678901234 | 100 ++++++
-    ...十一二三四  | 100 ++++++
+    12345678901234   | 100 +++++++
+    ...九十一二三四  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 15, 100), @r"
-    ...56789012345 | 100 ++++++
-    ...一二三四五  | 100 ++++++
+    123456789012345  | 100 +++++++
+    ...十一二三四五  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 16, 100), @r"
-    ...67890123456 | 100 ++++++
-    ...二三四五六  | 100 ++++++
+    1234567890123456 | 100 +++++++
+    ...一二三四五六  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
@@ -3463,68 +3689,164 @@ fn test_diff_stat_long_name_or_stat() {
     [EOF]
     ");
     insta::assert_snapshot!(get_stat(&work_dir, 1, 10), @r"
-    1   | 10 ++
-    一  | 10 ++
+    1  | 10 +++
+    一 | 10 +++
     2 files changed, 20 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+}
+
+/// Verify that diff --stat always shows at least one `+` or `-` even when the
+/// file is mostly the other.
+#[test]
+fn test_diff_stat_rounding() {
+    let mut test_env = TestEnvironment::default();
+    test_env.add_env_var("COLUMNS", "40");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("mostly_adds.txt", b"x\n");
+    work_dir.write_file("mostly_removes.txt", b"x\n".repeat(300));
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("mostly_adds.txt", b"y\n".repeat(100));
+    work_dir.write_file("mostly_removes.txt", b"y\n");
+    work_dir.write_file("only_adds.txt", b"y\n".repeat(10));
+
+    let output = work_dir.run_jj(["diff", "--stat"]);
+    insta::assert_snapshot!(output, @r"
+    mostly_adds.txt    | 101 ++++-
+    mostly_removes.txt | 301 +--------------
+    only_adds.txt      |  10 +
+    3 files changed, 111 insertions(+), 301 deletions(-)
+    [EOF]
+    ");
+
+    // very narrow terminal, with both adds and deletes
+    test_env.add_env_var("COLUMNS", "3");
+    let work_dir = test_env.work_dir("repo");
+    let output = work_dir.run_jj(["diff", "--stat"]);
+    insta::assert_snapshot!(output, @r"
+    .. | 101 +-
+    .. | 301 +-
+    .. |  10 +
+    3 files changed, 111 insertions(+), 301 deletions(-)
     [EOF]
     ");
 }
 
 #[test]
 fn test_diff_binary() {
-    let test_env = TestEnvironment::default();
+    let mut test_env = TestEnvironment::default();
+    test_env.add_env_var("COLUMNS", "40");
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    work_dir.write_file("file1.png", b"\x89PNG\r\n\x1a\nabcdefg\0");
-    work_dir.write_file("file2.png", b"\x89PNG\r\n\x1a\n0123456\0");
+    work_dir.write_file("binary_removed.png", b"\x89PNG\r\n\x1a\nabcdefg\0");
+    work_dir.write_file("binary_modified.png", b"\x89PNG\r\n\x1a\n0123456\0");
+    work_dir.write_file("binary_modified_to_text.png", b"\x89PNG\r\n\x1a\n0123456\0");
     work_dir.run_jj(["new"]).success();
-    work_dir.remove_file("file1.png");
-    work_dir.write_file("file2.png", "foo\nbar\n");
-    work_dir.write_file("file3.png", b"\x89PNG\r\n\x1a\nxyz\0");
+    work_dir.remove_file("binary_removed.png");
+    work_dir.write_file("binary_modified.png", b"\x89PNG\r\n\x1a\n012345x\0");
+    // this file's contents became a valid text file
+    work_dir.write_file("binary_modified_to_text.png", "foo\nbar\n");
+    work_dir.write_file("binary_added.png", b"\x89PNG\r\n\x1a\nxyz\0");
     // try a file that's valid UTF-8 but contains control characters
-    work_dir.write_file("file4.png", b"\0\0\0");
+    work_dir.write_file("binary_valid_utf8.png", b"\0\0\0");
 
     let output = work_dir.run_jj(["diff"]);
     insta::assert_snapshot!(output, @r"
-    Removed regular file file1.png:
+    Added regular file binary_added.png:
         (binary)
-    Modified regular file file2.png:
+    Modified regular file binary_modified.png:
         (binary)
-    Added regular file file3.png:
+    Modified regular file binary_modified_to_text.png:
         (binary)
-    Added regular file file4.png:
+    Removed regular file binary_removed.png:
+        (binary)
+    Added regular file binary_valid_utf8.png:
         (binary)
     [EOF]
     ");
 
     let output = work_dir.run_jj(["diff", "--git"]);
     insta::assert_snapshot!(output, @r"
-    diff --git a/file1.png b/file1.png
-    deleted file mode 100644
-    index 2b65b23c22..0000000000
-    Binary files a/file1.png and /dev/null differ
-    diff --git a/file2.png b/file2.png
-    index 7f036ce788..3bd1f0e297 100644
-    Binary files a/file2.png and b/file2.png differ
-    diff --git a/file3.png b/file3.png
+    diff --git a/binary_added.png b/binary_added.png
     new file mode 100644
     index 0000000000..deacfbc286
-    Binary files /dev/null and b/file3.png differ
-    diff --git a/file4.png b/file4.png
+    Binary files /dev/null and b/binary_added.png differ
+    diff --git a/binary_modified.png b/binary_modified.png
+    index 7f036ce788..f666e11aeb 100644
+    Binary files a/binary_modified.png and b/binary_modified.png differ
+    diff --git a/binary_modified_to_text.png b/binary_modified_to_text.png
+    index 7f036ce788..3bd1f0e297 100644
+    Binary files a/binary_modified_to_text.png and b/binary_modified_to_text.png differ
+    diff --git a/binary_removed.png b/binary_removed.png
+    deleted file mode 100644
+    index 2b65b23c22..0000000000
+    Binary files a/binary_removed.png and /dev/null differ
+    diff --git a/binary_valid_utf8.png b/binary_valid_utf8.png
     new file mode 100644
     index 0000000000..4227ca4e87
-    Binary files /dev/null and b/file4.png differ
+    Binary files /dev/null and b/binary_valid_utf8.png differ
     [EOF]
     ");
 
     let output = work_dir.run_jj(["diff", "--stat"]);
+    // Rightmost display column          ->|
     insta::assert_snapshot!(output, @r"
-    file1.png | 3 ---
-    file2.png | 5 ++---
-    file3.png | 3 +++
-    file4.png | 1 +
-    4 files changed, 6 insertions(+), 6 deletions(-)
+    binary_added.png    | (binary) +12 bytes
+    binary_modified.png | (binary)
+    ...fied_to_text.png | (binary) -8 bytes
+    binary_removed.png  | (binary) -16 bytes
+    ...y_valid_utf8.png | (binary) +3 bytes
+    5 files changed, 0 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+}
+
+/// Test diff --stat output width for diffs that have different cases of right
+/// side text: solely "(binary)", a mixture of text and binary diffs, and binary
+/// size changes.
+#[test]
+fn test_diff_stat_binary_and_text() {
+    let mut test_env = TestEnvironment::default();
+    test_env.add_env_var("COLUMNS", "40");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("binary_with_elided_long_file_name.png", b"\x001");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("binary_with_elided_long_file_name.png", b"\x002");
+
+    // Diff with a modified binary file with no change in size.
+    let output = work_dir.run_jj(["diff", "--stat"]);
+    // Rightmost display column          ->|
+    insta::assert_snapshot!(output, @r"
+    ..._elided_long_file_name.png | (binary)
+    1 file changed, 0 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+
+    // With a text file included, more space is used for the +++ part.
+    work_dir.write_file("text_with_elided_long_file_name.txt", b"a\n".repeat(100));
+    let output = work_dir.run_jj(["diff", "--stat"]);
+    // Rightmost display column          ->|
+    insta::assert_snapshot!(output, @r"
+    ...d_long_file_name.png | (binary)
+    ...d_long_file_name.txt | 100 ++++++++++
+    2 files changed, 100 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+
+    // If the binary file size changed, the right side must be wide enough for that
+    // text.
+    work_dir.write_file("binary_with_elided_long_file_name.png", b"\x0033");
+    let output = work_dir.run_jj(["diff", "--stat"]);
+    // Rightmost display column          ->|
+    insta::assert_snapshot!(output, @r"
+    ...ong_file_name.png | (binary) +1 bytes
+    ...ong_file_name.txt | 100 +++++++++++++
+    2 files changed, 100 insertions(+), 0 deletions(-)
     [EOF]
     ");
 }
@@ -3571,6 +3893,16 @@ fn test_diff_revisions() {
     ------- stderr -------
     Error: Cannot diff revsets with gaps in.
     Hint: Revision 2378873cd201 would need to be in the set.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // A merge into the chain is not allowed
+    // We could decide to support this case
+    insta::assert_snapshot!(diff_revisions("C|E"), @r"
+    ------- stderr -------
+    Error: Cannot diff revsets with gaps in.
+    Hint: Revision a90b2fff19e9 would need to be in the set.
     [EOF]
     [exit status: 1]
     ");

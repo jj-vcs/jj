@@ -19,10 +19,10 @@ use indoc::formatdoc;
 use test_case::test_case;
 use testutils::git;
 
-use crate::common::to_toml_value;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::to_toml_value;
 
 fn init_git_repo(git_repo_path: &Path, bare: bool) -> gix::Repository {
     let git_repo = if bare {
@@ -334,9 +334,11 @@ fn test_git_init_colocated_via_git_repo_path() {
     assert!(jj_path.join("working_copy").is_dir());
     assert!(repo_path.is_dir());
     assert!(store_path.is_dir());
-    assert!(read_git_target(&work_dir)
-        .replace('\\', "/")
-        .ends_with("../../../.git"));
+    assert!(
+        read_git_target(&work_dir)
+            .replace('\\', "/")
+            .ends_with("../../../.git")
+    );
 
     // Check that the Git repo's HEAD got checked out
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -582,7 +584,8 @@ fn test_git_init_colocated_via_git_repo_path_imported_refs() {
     Done importing changes from the underlying Git repo.
     Hint: The following remote bookmarks aren't associated with the existing local bookmarks:
       local-remote@origin
-    Hint: Run `jj bookmark track local-remote@origin` to keep local bookmarks updated on future pulls.
+    Hint: Run the following command to keep local bookmarks updated on future pulls:
+      jj bookmark track local-remote@origin
     Initialized repo in "."
     [EOF]
     "#);
@@ -773,6 +776,7 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
     ------- stderr -------
     Done importing changes from the underlying Git repo.
     Initialized repo in "repo"
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
@@ -796,6 +800,59 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
 }
 
 #[test]
+fn test_git_init_colocated_via_config_git_dir_exists() {
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    init_git_repo(work_dir.root(), false);
+
+    test_env.add_config("git.colocate = true");
+
+    let output = test_env.run_jj_in(".", ["git", "init", "repo"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Done importing changes from the underlying Git repo.
+    Initialized repo in "repo"
+    Hint: Running `git clean -xdf` will remove `.jj/`!
+    [EOF]
+    "#);
+
+    // Check that the Git repo's HEAD got checked out
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  f3fe58bc88cc
+    ○  e80a42cccd06 my-bookmark git_head() My commit message
+    ◆  000000000000
+    [EOF]
+    ");
+
+    // Check that the Git repo's HEAD moves
+    work_dir.run_jj(["new"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  0c77f9e21b55
+    ○  f3fe58bc88cc git_head()
+    ○  e80a42cccd06 my-bookmark My commit message
+    ◆  000000000000
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_init_no_colocate() {
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+
+    test_env.add_config("git.colocate = true");
+
+    let output = test_env.run_jj_in(".", ["git", "init", "--no-colocate", "repo"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Initialized repo in "repo"
+    [EOF]
+    "#);
+
+    assert!(!work_dir.root().join(".git").exists());
+}
+
+#[test]
 fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
@@ -803,6 +860,7 @@ fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Initialized repo in "repo"
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     // No HEAD ref is available yet

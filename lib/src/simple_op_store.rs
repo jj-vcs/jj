@@ -38,9 +38,9 @@ use crate::backend::MillisSinceEpoch;
 use crate::backend::Timestamp;
 use crate::content_hash::blake2b_hash;
 use crate::dag_walk;
-use crate::file_util::persist_content_addressed_temp_file;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::file_util::persist_content_addressed_temp_file;
 use crate::merge::Merge;
 use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId;
@@ -57,6 +57,7 @@ use crate::op_store::RemoteRef;
 use crate::op_store::RemoteRefState;
 use crate::op_store::RemoteView;
 use crate::op_store::RootOperationData;
+use crate::op_store::TimestampRange;
 use crate::op_store::View;
 use crate::op_store::ViewId;
 use crate::ref_name::GitRefNameBuf;
@@ -76,7 +77,7 @@ pub struct SimpleOpStoreInitError(#[from] pub PathError);
 
 impl From<SimpleOpStoreInitError> for BackendInitError {
     fn from(err: SimpleOpStoreInitError) -> Self {
-        BackendInitError(err.into())
+        Self(err.into())
     }
 }
 
@@ -109,7 +110,7 @@ impl SimpleOpStore {
     }
 
     fn new(store_path: &Path, root_data: RootOperationData) -> Self {
-        SimpleOpStore {
+        Self {
             path: store_path.to_path_buf(),
             root_data,
             root_operation_id: OperationId::from_bytes(&[0; OPERATION_ID_LENGTH]),
@@ -254,7 +255,7 @@ impl OpStore for SimpleOpStore {
                 if !name.starts_with(&hex_prefix) {
                     continue;
                 }
-                let Ok(id) = OperationId::try_from_hex(&name) else {
+                let Some(id) = OperationId::try_from_hex(&name) else {
                     continue; // Skip invalid hex
                 };
                 if matched.is_some() {
@@ -277,11 +278,11 @@ impl OpStore for SimpleOpStore {
     fn gc(&self, head_ids: &[OperationId], keep_newer: SystemTime) -> OpStoreResult<()> {
         let to_op_id = |entry: &fs::DirEntry| -> Option<OperationId> {
             let name = entry.file_name().into_string().ok()?;
-            OperationId::try_from_hex(&name).ok()
+            OperationId::try_from_hex(name)
         };
         let to_view_id = |entry: &fs::DirEntry| -> Option<ViewId> {
             let name = entry.file_name().into_string().ok()?;
-            ViewId::try_from_hex(&name).ok()
+            ViewId::try_from_hex(name)
         };
         let remove_file_if_not_new = |entry: &fs::DirEntry| -> Result<(), PathError> {
             let path = entry.path();
@@ -433,8 +434,8 @@ fn operation_metadata_to_proto(
     metadata: &OperationMetadata,
 ) -> crate::protos::op_store::OperationMetadata {
     crate::protos::op_store::OperationMetadata {
-        start_time: Some(timestamp_to_proto(&metadata.start_time)),
-        end_time: Some(timestamp_to_proto(&metadata.end_time)),
+        start_time: Some(timestamp_to_proto(&metadata.time.start)),
+        end_time: Some(timestamp_to_proto(&metadata.time.end)),
         description: metadata.description.clone(),
         hostname: metadata.hostname.clone(),
         username: metadata.username.clone(),
@@ -446,11 +447,12 @@ fn operation_metadata_to_proto(
 fn operation_metadata_from_proto(
     proto: crate::protos::op_store::OperationMetadata,
 ) -> OperationMetadata {
-    let start_time = timestamp_from_proto(proto.start_time.unwrap_or_default());
-    let end_time = timestamp_from_proto(proto.end_time.unwrap_or_default());
+    let time = TimestampRange {
+        start: timestamp_from_proto(proto.start_time.unwrap_or_default()),
+        end: timestamp_from_proto(proto.end_time.unwrap_or_default()),
+    };
     OperationMetadata {
-        start_time,
-        end_time,
+        time,
         description: proto.description,
         hostname: proto.hostname,
         username: proto.username,
@@ -459,11 +461,47 @@ fn operation_metadata_from_proto(
     }
 }
 
+fn commit_predecessors_map_to_proto(
+    map: &BTreeMap<CommitId, Vec<CommitId>>,
+) -> Vec<crate::protos::op_store::CommitPredecessors> {
+    map.iter()
+        .map(
+            |(commit_id, predecessor_ids)| crate::protos::op_store::CommitPredecessors {
+                commit_id: commit_id.to_bytes(),
+                predecessor_ids: predecessor_ids.iter().map(|id| id.to_bytes()).collect(),
+            },
+        )
+        .collect()
+}
+
+fn commit_predecessors_map_from_proto(
+    proto: Vec<crate::protos::op_store::CommitPredecessors>,
+) -> BTreeMap<CommitId, Vec<CommitId>> {
+    proto
+        .into_iter()
+        .map(|entry| {
+            let commit_id = CommitId::new(entry.commit_id);
+            let predecessor_ids = entry
+                .predecessor_ids
+                .into_iter()
+                .map(CommitId::new)
+                .collect();
+            (commit_id, predecessor_ids)
+        })
+        .collect()
+}
+
 fn operation_to_proto(operation: &Operation) -> crate::protos::op_store::Operation {
+    let (commit_predecessors, stores_commit_predecessors) = match &operation.commit_predecessors {
+        Some(map) => (commit_predecessors_map_to_proto(map), true),
+        None => (vec![], false),
+    };
     let mut proto = crate::protos::op_store::Operation {
         view_id: operation.view_id.as_bytes().to_vec(),
+        parents: Default::default(),
         metadata: Some(operation_metadata_to_proto(&operation.metadata)),
-        ..Default::default()
+        commit_predecessors,
+        stores_commit_predecessors,
     };
     for parent in &operation.parents {
         proto.parents.push(parent.to_bytes());
@@ -481,10 +519,14 @@ fn operation_from_proto(
         .try_collect()?;
     let view_id = view_id_from_proto(proto.view_id)?;
     let metadata = operation_metadata_from_proto(proto.metadata.unwrap_or_default());
+    let commit_predecessors = proto
+        .stores_commit_predecessors
+        .then(|| commit_predecessors_map_from_proto(proto.commit_predecessors));
     Ok(Operation {
         view_id,
         parents,
         metadata,
+        commit_predecessors,
     })
 }
 
@@ -750,6 +792,7 @@ mod tests {
     use maplit::hashset;
 
     use super::*;
+    use crate::hex_util;
     use crate::tests::new_temp_dir;
 
     fn create_view() -> View {
@@ -804,7 +847,7 @@ mod tests {
 
     fn create_operation() -> Operation {
         let pad_id_bytes = |hex: &str, len: usize| {
-            let mut bytes = hex::decode(hex).unwrap();
+            let mut bytes = hex_util::decode_hex(hex).unwrap();
             bytes.resize(len, b'\0');
             bytes
         };
@@ -815,13 +858,15 @@ mod tests {
                 OperationId::new(pad_id_bytes("bbb222", OPERATION_ID_LENGTH)),
             ],
             metadata: OperationMetadata {
-                start_time: Timestamp {
-                    timestamp: MillisSinceEpoch(123456789),
-                    tz_offset: 3600,
-                },
-                end_time: Timestamp {
-                    timestamp: MillisSinceEpoch(123456800),
-                    tz_offset: 3600,
+                time: TimestampRange {
+                    start: Timestamp {
+                        timestamp: MillisSinceEpoch(123456789),
+                        tz_offset: 3600,
+                    },
+                    end: Timestamp {
+                        timestamp: MillisSinceEpoch(123456800),
+                        tz_offset: 3600,
+                    },
                 },
                 description: "check out foo".to_string(),
                 hostname: "some.host.example.com".to_string(),
@@ -832,6 +877,13 @@ mod tests {
                     "key2".to_string() => "value2".to_string(),
                 },
             },
+            commit_predecessors: Some(btreemap! {
+                CommitId::from_hex("111111") => vec![],
+                CommitId::from_hex("222222") => vec![
+                    CommitId::from_hex("333333"),
+                    CommitId::from_hex("444444"),
+                ],
+            }),
         }
     }
 
@@ -849,7 +901,7 @@ mod tests {
         // Test exact output so we detect regressions in compatibility
         assert_snapshot!(
             OperationId::new(blake2b_hash(&create_operation()).to_vec()).hex(),
-            @"a721c8bfe6d30b4279437722417743c2c5d9efe731942663e3e7d37320e0ab6b49a7c1452d101cc427ceb8927a4cab03d49dabe73c0677bb9edf5c8b2aa83585"
+            @"b544c80b5ededdd64d0f10468fa636a06b83c45d94dd9bdac95319f7fe11fee536506c5c110681dee6233e69db7647683e732939a3ec88e867250efd765fea18"
         );
     }
 
