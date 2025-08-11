@@ -258,7 +258,7 @@ pub enum UntrackedReason {
 
 /// Stats about a checkout operation on a working copy. All "files" mentioned
 /// below may also be symlinks or materialized conflicts.
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct CheckoutStats {
     /// The number of files that were updated in the working copy.
     /// These files existed before and after the checkout.
