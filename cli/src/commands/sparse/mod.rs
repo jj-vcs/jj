@@ -75,6 +75,6 @@ fn update_sparse_patterns_with(
         .map_err(|err| internal_error_with_message("Failed to update working copy paths", err))?;
     let operation_id = locked_ws.locked_wc().old_operation_id().clone();
     locked_ws.finish(operation_id)?;
-    print_checkout_stats(ui, &stats, &wc_commit)?;
+    print_checkout_stats(ui, &stats, &wc_commit, workspace_command.path_converter())?;
     Ok(())
 }

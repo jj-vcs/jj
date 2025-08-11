@@ -86,7 +86,12 @@ fn test_gitattr_filter_update_optional_filter_failed() {
         .success();
     work_dir.run_jj(["new", "root()"]).success();
     assert!(!std::fs::exists(&file_path).unwrap());
-    work_dir.run_jj(["edit", bookmark_name]).success();
+    let stderr = work_dir
+        .run_jj(["edit", bookmark_name])
+        .success()
+        .stderr
+        .into_raw();
+    assert!(stderr.contains(test_file_name));
     let actual_contents = std::fs::read_to_string(&file_path).unwrap();
     assert_eq!(actual_contents, contents);
 }
@@ -128,6 +133,16 @@ fn test_gitattr_filter_update_required_filter_failed() {
     assert!(!std::fs::exists(&file_path).unwrap());
     let output = work_dir.run_jj(["edit", bookmark_name]);
     assert!(!output.status.success());
+    assert!(
+        output.stderr.raw().contains(filter_name),
+        "Expect the stderr to contain the filter name {filter_name}, but got\n{}",
+        output.stderr.raw()
+    );
+    assert!(
+        output.stderr.raw().contains(test_file_name),
+        "Expect the stderr to contain the file name {test_file_name}, but got\n{}",
+        output.stderr.raw()
+    );
 }
 
 #[test]
@@ -195,9 +210,15 @@ fn test_gitattr_filter_snapshot_optional_filter_failed() {
     let contents = "abcdefg\n";
     std::fs::write(&file_path, contents).unwrap();
     let bookmark_name = "test_change";
-    work_dir
+    let stderr = work_dir
         .run_jj(["bookmark", "create", "-r@", bookmark_name])
-        .success();
+        .success()
+        .stderr
+        .into_raw();
+    assert!(
+        stderr.contains(test_file_name),
+        "Expect stderr to include the file name {test_file_name}, but got\n{stderr}"
+    );
     work_dir.run_jj(["new", "root()"]).success();
     assert!(!std::fs::exists(&file_path).unwrap());
     work_dir.run_jj(["edit", bookmark_name]).success();
@@ -236,4 +257,13 @@ fn test_gitattr_filter_snapshot_required_filter_failed() {
     std::fs::write(&file_path, contents).unwrap();
     let output = work_dir.run_jj(["log"]);
     assert!(!output.status.success());
+    let stderr = output.stderr.raw();
+    assert!(
+        stderr.contains(test_file_name),
+        "Expect stderr to include the file name {test_file_name}, but got\n{stderr}"
+    );
+    assert!(
+        stderr.contains(test_file_name),
+        "Expect stderr to include the filter name {filter_name}, but got\n{stderr}"
+    );
 }

@@ -340,10 +340,11 @@ fn test_gitattr_filter_update_optional_filter_failed() {
     );
     let tree = tree_builder.write_merged_tree();
     let commit = commit_with_tree(test_workspace.repo.store(), tree);
-    test_workspace
+    let stats = test_workspace
         .workspace
         .check_out(test_workspace.repo.op_id().clone(), None, &commit)
         .unwrap();
+    stats.unconverted_paths.get(file_repo_path).unwrap();
     let actual_contents = std::fs::read(file_disk_path).unwrap();
     let actual_contents = actual_contents.as_bstr();
     assert_eq!(actual_contents, contents);

@@ -16,6 +16,7 @@
 
 use std::borrow::Cow;
 use std::cmp::Ordering;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::error::Error;
@@ -122,6 +123,7 @@ use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutStats;
+use crate::working_copy::FilterIgnoreReason;
 use crate::working_copy::LockedWorkingCopy;
 use crate::working_copy::ResetError;
 use crate::working_copy::SnapshotError;
@@ -1304,6 +1306,7 @@ impl TreeState {
         let (tree_entries_tx, tree_entries_rx) = channel();
         let (file_states_tx, file_states_rx) = channel();
         let (untracked_paths_tx, untracked_paths_rx) = channel();
+        let (unconverted_files_tx, unconverted_files_rx) = channel();
         let (deleted_files_tx, deleted_files_rx) = channel();
         let git_attributes = GitAttributes::new(vec![
             Arc::new(DiskFileLoader::new(self.working_copy_path.clone())),
@@ -1321,6 +1324,7 @@ impl TreeState {
                 tree_entries_tx,
                 file_states_tx,
                 untracked_paths_tx,
+                unconverted_files_tx,
                 deleted_files_tx,
                 error: OnceLock::new(),
                 progress,
@@ -1344,6 +1348,7 @@ impl TreeState {
 
         let stats = SnapshotStats {
             untracked_paths: untracked_paths_rx.into_iter().collect(),
+            unconverted_paths: unconverted_files_rx.into_iter().collect(),
         };
         let mut tree_builder = MergedTreeBuilder::new(self.tree.clone());
         trace_span!("process tree entries").in_scope(|| {
@@ -1491,6 +1496,7 @@ struct FileSnapshotter<'a> {
     tree_entries_tx: Sender<(RepoPathBuf, MergedTreeValue)>,
     file_states_tx: Sender<(RepoPathBuf, FileState)>,
     untracked_paths_tx: Sender<(RepoPathBuf, UntrackedReason)>,
+    unconverted_files_tx: Sender<(RepoPathBuf, FilterIgnoreReason)>,
     deleted_files_tx: Sender<RepoPathBuf>,
     error: OnceLock<SnapshotError>,
     progress: Option<&'a SnapshotProgress<'a>>,
@@ -1902,7 +1908,7 @@ impl FileSnapshotter<'_> {
                 message: format!("Failed to open file {}", disk_path.display()),
                 err: err.into(),
             })?;
-            let (file, _) = self
+            let (file, ignore_reason) = self
                 .tree_state
                 .filter_strategy
                 .convert_to_store(
@@ -1915,6 +1921,16 @@ impl FileSnapshotter<'_> {
                     message: "Failed to use the filter to convert the contents.".to_string(),
                     err,
                 })?;
+            if let Some(reason @ FilterIgnoreReason::FilterCommandFailed { .. }) = ignore_reason
+                && self
+                    .unconverted_files_tx
+                    .send((repo_path.to_owned(), reason))
+                    .is_err()
+            {
+                tracing::trace!(
+                    "Failed to send the unconverted file information back on snapshot."
+                );
+            }
             self.tree_state
                 .target_eol_strategy
                 .convert_eol_for_snapshot(file)
@@ -1979,7 +1995,7 @@ impl FileSnapshotter<'_> {
             message: format!("Failed to open file {}", disk_path.display()),
             err: err.into(),
         })?;
-        let (file, _) = self
+        let (file, ignore_reason) = self
             .tree_state
             .filter_strategy
             .convert_to_store(BlockingAsyncReader::new(file), path, self.git_attributes)
@@ -1988,6 +2004,14 @@ impl FileSnapshotter<'_> {
                 message: "Failed to use the filter to convert the contents.".to_string(),
                 err,
             })?;
+        if let Some(reason @ FilterIgnoreReason::FilterCommandFailed { .. }) = ignore_reason
+            && self
+                .unconverted_files_tx
+                .send((path.to_owned(), reason))
+                .is_err()
+        {
+            tracing::trace!("Failed to send the unconverted file information back on snapshot.");
+        }
         let mut contents = self
             .tree_state
             .target_eol_strategy
@@ -2039,6 +2063,7 @@ fn snapshot_error_for_mtime_out_of_range(err: MtimeOutOfRange, path: &Path) -> S
 
 /// Functions to update local-disk files from the store.
 impl TreeState {
+    #[expect(clippy::too_many_arguments)]
     async fn write_file(
         &self,
         repo_path: &RepoPath,
@@ -2047,6 +2072,7 @@ impl TreeState {
         exec_bit: ExecBit,
         apply_conversion: bool,
         git_attributes: &GitAttributes,
+        stats: &mut CheckoutStats,
     ) -> Result<FileState, CheckoutError> {
         let mut file = File::options()
             .write(true)
@@ -2065,7 +2091,7 @@ impl TreeState {
                     message: "Failed to convert the EOL for the content".to_string(),
                     err: err.into(),
                 })?;
-            let (contents, _) = self
+            let (contents, ignore_reason) = self
                 .filter_strategy
                 .convert_to_working_copy(file, repo_path, git_attributes)
                 .await
@@ -2073,6 +2099,9 @@ impl TreeState {
                     message: "Failed to use the filter to convert the contents.".to_string(),
                     err,
                 })?;
+            if let Some(reason @ FilterIgnoreReason::FilterCommandFailed { .. }) = ignore_reason {
+                stats.unconverted_paths.insert(repo_path.to_owned(), reason);
+            }
             contents
         } else {
             Box::new(contents)
@@ -2144,6 +2173,7 @@ impl TreeState {
         contents: &[u8],
         exec_bit: ExecBit,
         git_attributes: &GitAttributes,
+        stats: &mut CheckoutStats,
     ) -> Result<FileState, CheckoutError> {
         let contents = self
             .target_eol_strategy
@@ -2153,7 +2183,7 @@ impl TreeState {
                 message: "Failed to convert the EOL when writing a merge conflict".to_string(),
                 err: err.into(),
             })?;
-        let (contents, _) = self
+        let (contents, ignore_reason) = self
             .filter_strategy
             .convert_to_working_copy(contents, repo_path, git_attributes)
             .await
@@ -2161,6 +2191,9 @@ impl TreeState {
                 message: "Failed to use the filter to convert the contents.".to_string(),
                 err,
             })?;
+        if let Some(reason @ FilterIgnoreReason::FilterCommandFailed { .. }) = ignore_reason {
+            stats.unconverted_paths.insert(repo_path.to_owned(), reason);
+        }
         let mut file = OpenOptions::new()
             .write(true)
             .create_new(true) // Don't overwrite un-ignored file. Don't follow symlink.
@@ -2218,6 +2251,7 @@ impl TreeState {
             added_files: added_stats.added_files,
             removed_files: removed_stats.removed_files,
             skipped_files: added_stats.skipped_files,
+            unconverted_paths: BTreeMap::new(),
         })
     }
 
@@ -2234,6 +2268,7 @@ impl TreeState {
             added_files: 0,
             removed_files: 0,
             skipped_files: 0,
+            unconverted_paths: BTreeMap::new(),
         };
         let mut changed_file_states = Vec::new();
         let mut deleted_files = HashSet::new();
@@ -2363,6 +2398,7 @@ impl TreeState {
                         exec_bit,
                         true,
                         &git_attributes,
+                        &mut stats,
                     )
                     .await?
                 }
@@ -2378,6 +2414,7 @@ impl TreeState {
                             ExecBit(false),
                             false,
                             &git_attributes,
+                            &mut stats,
                         )
                         .await?
                     }
@@ -2405,7 +2442,14 @@ impl TreeState {
                     let contents =
                         materialize_merge_result_to_bytes(&file.contents, &file.labels, &options);
                     let mut file_state = self
-                        .write_conflict(&path, &disk_path, &contents, exec_bit, &git_attributes)
+                        .write_conflict(
+                            &path,
+                            &disk_path,
+                            &contents,
+                            exec_bit,
+                            &git_attributes,
+                            &mut stats,
+                        )
                         .await?;
                     file_state.materialized_conflict_data = Some(MaterializedConflictData {
                         conflict_marker_len: conflict_marker_len.try_into().unwrap_or(u32::MAX),
@@ -2423,6 +2467,7 @@ impl TreeState {
                         contents.as_bytes(),
                         ExecBit(false),
                         &git_attributes,
+                        &mut stats,
                     )
                     .await?
                 }
