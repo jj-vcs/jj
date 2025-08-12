@@ -315,7 +315,7 @@ impl ReadonlyRepo {
     }
 
     #[instrument]
-    pub fn reload_at(&self, operation: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+    pub fn reload_at(&self, operation: &Operation) -> Result<Arc<Self>, RepoLoaderError> {
         self.loader().load_at(operation)
     }
 }

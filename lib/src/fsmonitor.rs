@@ -194,7 +194,7 @@ pub mod watchman {
                 .await
                 .map_err(Error::ResolveRootError)?;
 
-            let monitor = Fsmonitor {
+            let monitor = Self {
                 client,
                 resolved_root,
             };
