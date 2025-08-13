@@ -13,7 +13,6 @@ use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateError;
-use jj_lib::local_working_copy::TreeStateSettings;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::Matcher;
 use jj_lib::merged_tree::MergedTree;
@@ -23,6 +22,7 @@ use jj_lib::store::Store;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::SnapshotOptions;
+use jj_lib::working_copy::WorkingCopySettings;
 use pollster::FutureExt as _;
 use tempfile::TempDir;
 use thiserror::Error;
@@ -103,9 +103,10 @@ fn check_out(
 ) -> Result<TreeState, DiffCheckoutError> {
     std::fs::create_dir(&wc_dir).map_err(DiffCheckoutError::SetUpDir)?;
     std::fs::create_dir(&state_dir).map_err(DiffCheckoutError::SetUpDir)?;
-    let mut tree_state = TreeState::init(store, wc_dir, state_dir, &TreeStateSettings::default())?;
-    tree_state.set_sparse_patterns(sparse_patterns, options)?;
-    tree_state.check_out(tree, options)?;
+    let mut tree_state = TreeState::init(store, wc_dir, state_dir)?;
+    let wc_settings = WorkingCopySettings::empty_for_test();
+    tree_state.set_sparse_patterns(sparse_patterns, options, &wc_settings)?;
+    tree_state.check_out(tree, options, &wc_settings)?;
     Ok(tree_state)
 }
 
@@ -305,14 +306,17 @@ diff editing in mind and be a little inaccurate.
         let mut output_tree_state = diff_wc
             .output_tree_state
             .unwrap_or(diff_wc.right_tree_state);
-        output_tree_state.snapshot(&SnapshotOptions {
-            base_ignores,
-            fsmonitor_settings: FsmonitorSettings::None,
-            progress: None,
-            start_tracking_matcher: &EverythingMatcher,
-            max_new_file_size: u64::MAX,
-            conflict_marker_style,
-        })?;
+        output_tree_state.snapshot(
+            &SnapshotOptions {
+                base_ignores,
+                fsmonitor_settings: FsmonitorSettings::None,
+                progress: None,
+                start_tracking_matcher: &EverythingMatcher,
+                max_new_file_size: u64::MAX,
+                conflict_marker_style,
+            },
+            &WorkingCopySettings::empty_for_test(),
+        )?;
         Ok(output_tree_state.current_tree_id().clone())
     }
 }

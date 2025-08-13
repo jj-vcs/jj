@@ -28,8 +28,10 @@ use tracing::instrument;
 use crate::backend::BackendError;
 use crate::backend::MergedTreeId;
 use crate::commit::Commit;
+use crate::config::ConfigGetError;
 use crate::conflicts::ConflictMarkerStyle;
 use crate::dag_walk;
+use crate::eol::EolConversionMode;
 use crate::fsmonitor::FsmonitorSettings;
 use crate::gitignore::GitIgnoreError;
 use crate::gitignore::GitIgnoreFile;
@@ -76,7 +78,10 @@ pub trait WorkingCopy: Send {
 
     /// Locks the working copy and returns an instance with methods for updating
     /// the working copy files and state.
-    fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError>;
+    fn start_mutation(
+        &self,
+        wc_settings: WorkingCopySettings,
+    ) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError>;
 }
 
 /// The factory which creates and loads a specific type of working copy.
@@ -89,7 +94,6 @@ pub trait WorkingCopyFactory {
         state_path: PathBuf,
         operation_id: OperationId,
         workspace_name: WorkspaceNameBuf,
-        settings: &UserSettings,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
 
     /// Load an existing working copy.
@@ -98,7 +102,6 @@ pub trait WorkingCopyFactory {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
-        settings: &UserSettings,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
 }
 
@@ -160,6 +163,38 @@ pub trait LockedWorkingCopy {
         self: Box<Self>,
         operation_id: OperationId,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
+}
+
+/// Options used by the [`LockedWorkingCopy`] during operations like checkouts
+/// or snapshots that can be loaded solely from user settings. These should not
+/// change during a working copy mutation.
+///
+/// Some of these may be ignored by different working copy implementations.
+///
+/// Options that can't be loaded from user settings should be added to structs
+/// for specific commands such as [`SnapshotOptions`].
+#[derive(Debug, Clone)]
+pub struct WorkingCopySettings {
+    /// Configuring auto-converting CRLF line endings into LF when you add a
+    /// file to the backend, and vice versa when it checks out code onto your
+    /// filesystem.
+    pub eol_conversion_mode: EolConversionMode,
+}
+
+impl WorkingCopySettings {
+    /// Create an instance for use in tests.
+    pub fn empty_for_test() -> Self {
+        Self {
+            eol_conversion_mode: EolConversionMode::default(),
+        }
+    }
+
+    /// Create an instance from user settings.
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        Ok(Self {
+            eol_conversion_mode: EolConversionMode::try_from_settings(settings)?,
+        })
+    }
 }
 
 /// An error while snapshotting the working copy.

@@ -22,6 +22,7 @@ use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::WorkingCopy as _;
+use jj_lib::working_copy::WorkingCopySettings;
 use pollster::FutureExt as _;
 use testutils::TestWorkspace;
 use testutils::commit_with_tree;
@@ -137,7 +138,6 @@ fn test_sparse_checkout() {
         repo.store().clone(),
         ws.workspace_root().to_path_buf(),
         wc.state_path().to_path_buf(),
-        repo.settings(),
     )
     .unwrap();
     assert_eq!(
@@ -147,7 +147,9 @@ fn test_sparse_checkout() {
     assert_eq!(wc.sparse_patterns().unwrap(), sparse_patterns);
 
     // Set sparse patterns to file2, dir1/subdir1/ and dir2/
-    let mut locked_wc = wc.start_mutation().unwrap();
+    let mut locked_wc = wc
+        .start_mutation(WorkingCopySettings::empty_for_test())
+        .unwrap();
     let sparse_patterns = to_owned_path_vec(&[root_file1_path, dir1_subdir1_path, dir2_path]);
     let stats = locked_wc
         .set_sparse_patterns(sparse_patterns.clone(), &CheckoutOptions::empty_for_test())
