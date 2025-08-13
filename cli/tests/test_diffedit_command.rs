@@ -274,6 +274,30 @@ fn test_diffedit_new_file() {
 }
 
 #[test]
+fn test_diffedit_existing_instructions() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_diff_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // A diff containing an existing JJ-INSTRUCTIONS file themselves.
+    work_dir.write_file("JJ-INSTRUCTIONS", "instruct");
+
+    std::fs::write(&edit_script, "write JJ-INSTRUCTIONS\nmodified\n").unwrap();
+    let output = work_dir.run_jj(["diffedit"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: qpvuntsm e914aaad (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+    // Test that we didn't delete or overwrite the "JJ-INSTRUCTIONS" file.
+    let content = work_dir.read_file("JJ-INSTRUCTIONS");
+    insta::assert_snapshot!(content, @r"modified");
+}
+
+#[test]
 fn test_diffedit_external_tool_conflict_marker_style() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
