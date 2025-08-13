@@ -137,12 +137,37 @@ pub enum ExecChangePolicy {
     Ignore,
 }
 
+#[derive(Clone, Copy, Debug, Default, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ExecChangeSetting {
+    Respect,
+    Ignore,
+    #[default]
+    Auto,
+}
+
+#[cfg_attr(windows, expect(unused_variables))]
 impl ExecChangePolicy {
-    fn get() -> Self {
+    /// Get the executable bit policy based on user settings and executable bit
+    /// support in the working copy path.
+    ///
+    /// On Unix we check whether executable bits are supported in the working
+    /// copy to determine respect/ignorance, but we default to respect.
+    fn get(exec_change_setting: ExecChangeSetting, wc_path: &Path) -> Self {
         #[cfg(windows)]
         return Self::Ignore;
         #[cfg(unix)]
-        return Self::Respect;
+        return match exec_change_setting {
+            ExecChangeSetting::Respect => Self::Respect,
+            ExecChangeSetting::Ignore => Self::Ignore,
+            ExecChangeSetting::Auto => {
+                match crate::file_util::check_executable_bit_support(wc_path) {
+                    Ok(false) => Self::Ignore,
+                    Ok(true) => Self::Respect,
+                    Err(_) => Self::Respect,
+                }
+            }
+        };
     }
 }
 
@@ -825,6 +850,8 @@ pub struct TreeStateSettings {
     /// file to the backend, and vice versa when it checks out code onto your
     /// filesystem.
     pub eol_conversion_mode: EolConversionMode,
+    /// Whether to ignore changes to the executable bit for files on Unix.
+    pub exec_change_setting: ExecChangeSetting,
     /// The fsmonitor (e.g. Watchman) to use, if any.
     pub fsmonitor_settings: FsmonitorSettings,
 }
@@ -835,6 +862,7 @@ impl TreeStateSettings {
         Ok(Self {
             conflict_marker_style: user_settings.get("ui.conflict-marker-style")?,
             eol_conversion_mode: EolConversionMode::try_from_settings(user_settings)?,
+            exec_change_setting: user_settings.get("working-copy.exec-bit-change")?,
             fsmonitor_settings: FsmonitorSettings::from_settings(user_settings)?,
         })
     }
@@ -918,10 +946,12 @@ impl TreeState {
         &TreeStateSettings {
             conflict_marker_style,
             eol_conversion_mode,
+            exec_change_setting,
             ref fsmonitor_settings,
         }: &TreeStateSettings,
     ) -> Self {
         let tree_id = store.empty_merged_tree_id();
+        let exec_policy = ExecChangePolicy::get(exec_change_setting, &working_copy_path);
         Self {
             store,
             working_copy_path,
@@ -933,7 +963,7 @@ impl TreeState {
             symlink_support: check_symlink_support().unwrap_or(false),
             watchman_clock: None,
             conflict_marker_style,
-            exec_policy: ExecChangePolicy::get(),
+            exec_policy,
             fsmonitor_settings: fsmonitor_settings.clone(),
             target_eol_strategy: TargetEolStrategy::new(eol_conversion_mode),
         }

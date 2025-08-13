@@ -51,6 +51,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   no longer require an explicit revision argument. This walks back a
   deprecation from `jj 0.26`, as the community feedback was mostly negative.
 
+* Updated the internal executable bit representation in the working copy to
+  allow ignoring executable bit changes when using a nonstandard filesystem. We
+  also try to detect the filesystem's behavior on Unix by default, but it can
+  be overridden manually by setting
+  `working-copy.exec-bit-change = "respect" | "ignore"`.
+
 ### Fixed bugs
 
 ## [0.33.0] - 2025-09-03
