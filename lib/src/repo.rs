@@ -948,6 +948,7 @@ impl MutableRepo {
     /// docstring for `record_rewritten_commit` for details.
     pub fn set_rewritten_commit(&mut self, old_id: CommitId, new_id: CommitId) {
         assert_ne!(old_id, *self.store().root_commit_id());
+        assert_ne!(new_id, old_id);
         self.parent_mapping
             .insert(old_id, Rewrite::Rewritten(new_id));
     }
@@ -965,10 +966,10 @@ impl MutableRepo {
         new_ids: impl IntoIterator<Item = CommitId>,
     ) {
         assert_ne!(old_id, *self.store().root_commit_id());
-        self.parent_mapping.insert(
-            old_id.clone(),
-            Rewrite::Divergent(new_ids.into_iter().collect()),
-        );
+        let new_ids = new_ids.into_iter().collect_vec();
+        assert!(!new_ids.contains(&old_id));
+        self.parent_mapping
+            .insert(old_id.clone(), Rewrite::Divergent(new_ids));
     }
 
     /// Record a commit as having been abandoned in this transaction.

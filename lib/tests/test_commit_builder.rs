@@ -16,7 +16,6 @@ use assert_matches::assert_matches;
 use futures::StreamExt as _;
 use indoc::indoc;
 use itertools::Itertools as _;
-use jj_lib::backend::BackendError;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::MillisSinceEpoch;
 use jj_lib::backend::Signature;
@@ -387,6 +386,11 @@ fn test_rewrite_to_identical_commit(backend: TestRepoBackend) {
         )
         .write()
         .unwrap();
+    let _child_commit = tx
+        .repo_mut()
+        .new_commit(vec![commit1.id().clone()], store.empty_merged_tree_id())
+        .write()
+        .unwrap();
     let repo = tx.commit("test").unwrap();
 
     // Create commit identical to the original
@@ -395,12 +399,13 @@ fn test_rewrite_to_identical_commit(backend: TestRepoBackend) {
     builder.set_predecessors(vec![]);
     // Writing to the store should work
     let commit2 = builder.write_hidden().unwrap();
-    assert_eq!(commit1, commit2);
-    // Writing to the repo shouldn't work, which would create cycle in
-    // predecessors/parent mappings
-    let result = builder.write(tx.repo_mut());
-    assert_matches!(result, Err(BackendError::Other(_)));
-    tx.repo_mut().rebase_descendants().unwrap();
+    assert_eq!(commit2, commit1);
+    // Writing to the repo should be allowed but should not result in any changes
+    // (to parent_mapping)
+    builder.write(tx.repo_mut()).unwrap();
+    assert!(!tx.repo().has_rewrites());
+    // _child_commit should, consequently, not be rebased
+    assert_eq!(tx.repo_mut().rebase_descendants().unwrap(), 0);
     tx.commit("test").unwrap();
 
     // Create two rewritten commits of the same content and metadata
@@ -410,12 +415,11 @@ fn test_rewrite_to_identical_commit(backend: TestRepoBackend) {
         .set_description("rewritten")
         .write()
         .unwrap();
-    let result = tx
-        .repo_mut()
+    tx.repo_mut()
         .rewrite_commit(&commit1)
         .set_description("rewritten")
-        .write();
-    assert_matches!(result, Err(BackendError::Other(_)));
+        .write()
+        .unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     tx.commit("test").unwrap();
 }
