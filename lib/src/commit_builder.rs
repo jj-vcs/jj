@@ -48,6 +48,14 @@ impl CommitBuilder<'_> {
         self.inner
     }
 
+    /// Clears the source commit to not record new commit as rewritten from it.
+    ///
+    /// The caller should also assign new change id to not create divergence.
+    pub fn clear_rewrite_source(mut self) -> Self {
+        self.inner.clear_rewrite_source();
+        self
+    }
+
     pub fn parents(&self) -> &[CommitId] {
         self.inner.parents()
     }
@@ -250,6 +258,13 @@ impl DetachedCommitBuilder {
         }
     }
 
+    /// Clears the source commit to not record new commit as rewritten from it.
+    ///
+    /// The caller should also assign new change id to not create divergence.
+    pub fn clear_rewrite_source(&mut self) {
+        self.rewrite_source = None;
+    }
+
     pub fn parents(&self) -> &[CommitId] {
         &self.commit.parents
     }
@@ -364,9 +379,7 @@ impl DetachedCommitBuilder {
         mut_repo.add_head(&commit)?;
         mut_repo.set_predecessors(commit.id().clone(), predecessors);
         if let Some(rewrite_source) = self.rewrite_source {
-            if rewrite_source.change_id() == commit.change_id() {
-                mut_repo.set_rewritten_commit(rewrite_source.id().clone(), commit.id().clone());
-            }
+            mut_repo.set_rewritten_commit(rewrite_source.id().clone(), commit.id().clone());
         }
         Ok(commit)
     }
@@ -386,12 +399,8 @@ impl DetachedCommitBuilder {
     pub fn abandon(self, mut_repo: &mut MutableRepo) {
         let commit = self.commit;
         if let Some(rewrite_source) = &self.rewrite_source {
-            if rewrite_source.change_id() == &commit.change_id {
-                mut_repo.record_abandoned_commit_with_parents(
-                    rewrite_source.id().clone(),
-                    commit.parents,
-                );
-            }
+            mut_repo
+                .record_abandoned_commit_with_parents(rewrite_source.id().clone(), commit.parents);
         }
     }
 }

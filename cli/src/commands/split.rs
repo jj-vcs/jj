@@ -230,10 +230,10 @@ pub(crate) fn cmd_split(
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder.set_tree_id(target.selected_tree.id());
         if use_move_flags {
-            commit_builder
-                // Generate a new change id so that the commit being split doesn't
-                // become divergent.
-                .generate_new_change_id();
+            commit_builder.clear_rewrite_source();
+            // Generate a new change id so that the commit being split doesn't
+            // become divergent.
+            commit_builder.generate_new_change_id();
         }
         let description = if !args.message_paragraphs.is_empty() {
             let description = join_message_paragraphs(&args.message_paragraphs);
@@ -279,10 +279,10 @@ pub(crate) fn cmd_split(
             .set_parents(parents)
             .set_tree_id(new_tree.id());
         if !use_move_flags {
-            commit_builder
-                // Generate a new change id so that the commit being split doesn't
-                // become divergent.
-                .generate_new_change_id();
+            commit_builder.clear_rewrite_source();
+            // Generate a new change id so that the commit being split doesn't
+            // become divergent.
+            commit_builder.generate_new_change_id();
         }
         let description = if target.commit.description().is_empty() {
             // If there was no description before, don't ask for one for the

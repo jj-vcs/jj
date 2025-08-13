@@ -940,6 +940,7 @@ pub async fn duplicate_commits(
         let mut new_commit_builder = CommitRewriter::new(mut_repo, original_commit, new_parent_ids)
             .rebase()
             .await?
+            .clear_rewrite_source()
             .generate_new_change_id();
         if let Some(desc) = target_descriptions.get(original_commit_id) {
             new_commit_builder = new_commit_builder.set_description(desc);
@@ -1026,6 +1027,7 @@ pub fn duplicate_commits_onto_parents(
             .collect();
         let mut new_commit_builder = mut_repo
             .rewrite_commit(&original_commit)
+            .clear_rewrite_source()
             .generate_new_change_id()
             .set_parents(new_parent_ids);
         if let Some(desc) = target_descriptions.get(original_commit_id) {

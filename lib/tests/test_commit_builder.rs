@@ -458,6 +458,7 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
     let mut tx = repo.start_transaction();
     tx.repo_mut()
         .rewrite_commit(&commit2)
+        .clear_rewrite_source()
         .generate_new_change_id()
         .write()
         .unwrap();
