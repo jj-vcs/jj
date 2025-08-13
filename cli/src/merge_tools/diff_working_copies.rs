@@ -13,7 +13,6 @@ use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateError;
-use jj_lib::local_working_copy::TreeStateSettings;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::Matcher;
 use jj_lib::merged_tree::MergedTree;
@@ -22,6 +21,7 @@ use jj_lib::store::Store;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::SnapshotOptions;
+use jj_lib::working_copy::WorkingCopySettings;
 use pollster::FutureExt as _;
 use tempfile::TempDir;
 use thiserror::Error;
@@ -150,14 +150,10 @@ pub(crate) fn check_out_trees(
         let state_dir = temp_path.join(format!("{name}_state"));
         std::fs::create_dir(&wc_path).map_err(DiffCheckoutError::SetUpDir)?;
         std::fs::create_dir(&state_dir).map_err(DiffCheckoutError::SetUpDir)?;
-        let mut state = TreeState::init(
-            store.clone(),
-            wc_path,
-            state_dir,
-            &TreeStateSettings::default(),
-        )?;
-        state.set_sparse_patterns(changed_files.clone(), options)?;
-        state.check_out(tree, options)?;
+        let mut state = TreeState::init(store.clone(), wc_path, state_dir)?;
+        let wc_settings = WorkingCopySettings::empty_for_test();
+        state.set_sparse_patterns(changed_files.clone(), options, &wc_settings)?;
+        state.check_out(tree, options, &wc_settings)?;
         Ok(state)
     };
 
@@ -283,14 +279,17 @@ diff editing in mind and be a little inaccurate.
         let diff_wc = self.working_copies;
         // Snapshot changes in the temporary output directory.
         let mut output_tree_state = diff_wc.output.unwrap_or(diff_wc.right);
-        output_tree_state.snapshot(&SnapshotOptions {
-            base_ignores,
-            fsmonitor_settings: FsmonitorSettings::None,
-            progress: None,
-            start_tracking_matcher: &EverythingMatcher,
-            max_new_file_size: u64::MAX,
-            conflict_marker_style,
-        })?;
+        output_tree_state.snapshot(
+            &SnapshotOptions {
+                base_ignores,
+                fsmonitor_settings: FsmonitorSettings::None,
+                progress: None,
+                start_tracking_matcher: &EverythingMatcher,
+                max_new_file_size: u64::MAX,
+                conflict_marker_style,
+            },
+            &WorkingCopySettings::empty_for_test(),
+        )?;
         Ok(output_tree_state.current_tree_id().clone())
     }
 }

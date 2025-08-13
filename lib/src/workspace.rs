@@ -26,6 +26,7 @@ use thiserror::Error;
 use crate::backend::BackendInitError;
 use crate::backend::MergedTreeId;
 use crate::commit::Commit;
+use crate::config::ConfigGetError;
 use crate::file_util;
 use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
@@ -60,6 +61,7 @@ use crate::working_copy::CheckoutStats;
 use crate::working_copy::LockedWorkingCopy;
 use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
+use crate::working_copy::WorkingCopySettings;
 use crate::working_copy::WorkingCopyStateError;
 
 #[derive(Error, Debug)]
@@ -98,6 +100,15 @@ pub enum WorkspaceLoadError {
     WorkingCopyState(#[from] WorkingCopyStateError),
     #[error(transparent)]
     Path(#[from] PathError),
+}
+
+/// An error while trying to start a working copy mutation.
+#[derive(Error, Debug)]
+pub enum StartWorkingCopyMutError {
+    #[error(transparent)]
+    WcState(#[from] WorkingCopyStateError),
+    #[error(transparent)]
+    ConfigGet(#[from] ConfigGetError),
 }
 
 /// The combination of a repo and a working copy.
@@ -147,7 +158,6 @@ fn init_working_copy(
         working_copy_state_path.clone(),
         repo.op_id().clone(),
         workspace_name,
-        repo.settings(),
     )?;
     let working_copy_type_path = working_copy_state_path.join("type");
     fs::write(&working_copy_type_path, working_copy.name()).context(&working_copy_type_path)?;
@@ -417,8 +427,9 @@ impl Workspace {
 
     pub fn start_working_copy_mutation(
         &mut self,
-    ) -> Result<LockedWorkspace<'_>, WorkingCopyStateError> {
-        let locked_wc = self.working_copy.start_mutation()?;
+    ) -> Result<LockedWorkspace<'_>, StartWorkingCopyMutError> {
+        let wc_settings = WorkingCopySettings::from_settings(self.settings())?;
+        let locked_wc = self.working_copy.start_mutation(wc_settings)?;
         Ok(LockedWorkspace {
             base: self,
             locked_wc,
@@ -591,7 +602,6 @@ impl WorkspaceLoader for DefaultWorkspaceLoader {
             repo_loader.store().clone(),
             self.workspace_root.clone(),
             self.working_copy_state_path.clone(),
-            user_settings,
         )?;
         let workspace = Workspace::new(
             &self.workspace_root,
