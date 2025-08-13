@@ -19,6 +19,7 @@ use itertools::Itertools as _;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::repo::Repo as _;
+use jj_lib::working_copy::SnapshotOptions;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -56,8 +57,11 @@ pub(crate) fn cmd_file_untrack(
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
     let auto_tracking_matcher = workspace_command.auto_tracking_matcher(ui)?;
-    let options =
-        workspace_command.snapshot_options_with_start_tracking_matcher(&auto_tracking_matcher)?;
+    let options = SnapshotOptions {
+        base_ignores: workspace_command.base_ignores()?,
+        progress: None,
+        start_tracking_matcher: &auto_tracking_matcher,
+    };
 
     let mut tx = workspace_command.start_transaction().into_inner();
     let (mut locked_ws, wc_commit) = workspace_command.start_working_copy_mutation()?;

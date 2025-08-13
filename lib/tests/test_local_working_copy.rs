@@ -44,10 +44,11 @@ use jj_lib::secret_backend::SecretBackend;
 use jj_lib::tree_builder::TreeBuilder;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::CheckoutStats;
+use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::UntrackedReason;
 use jj_lib::working_copy::WorkingCopy as _;
-use jj_lib::workspace::LockedWorkspace;
+use jj_lib::working_copy::WorkingCopySettings;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::default_working_copy_factories;
 use pollster::FutureExt as _;
@@ -1854,13 +1855,16 @@ fn test_check_out_reserved_file_path_vfat(vfat_path_str: &str, file_path_strs: &
 
 #[test]
 fn test_fsmonitor() {
-    let mut test_workspace = TestWorkspace::init();
+    let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
-    let ws = &mut test_workspace.workspace;
     assert_eq!(
-        ws.working_copy().sparse_patterns().unwrap(),
+        test_workspace
+            .workspace
+            .working_copy()
+            .sparse_patterns()
+            .unwrap(),
         vec![RepoPathBuf::root()]
     );
 
@@ -1876,32 +1880,34 @@ fn test_fsmonitor() {
     testutils::write_working_copy_file(&workspace_root, ignored_path, "ignored\n");
     testutils::write_working_copy_file(&workspace_root, gitignore_path, "to/ignored\n");
 
-    let snapshot = |locked_ws: &mut LockedWorkspace, paths: &[&RepoPath]| {
+    let snapshot = |paths: &[&RepoPath]| {
         let fs_paths = paths
             .iter()
             .map(|p| p.to_fs_path_unchecked(Path::new("")))
             .collect();
-        let (tree_id, _stats) = locked_ws
-            .locked_wc()
-            .snapshot(&SnapshotOptions {
+        let mut locked_wc = test_workspace
+            .workspace
+            .working_copy()
+            .start_mutation(WorkingCopySettings {
                 fsmonitor_settings: FsmonitorSettings::Test {
                     changed_files: fs_paths,
                 },
-                ..SnapshotOptions::empty_for_test()
+                ..WorkingCopySettings::empty_for_test()
             })
             .unwrap();
-        tree_id
+        let (tree_id, _stats) = locked_wc
+            .snapshot(&SnapshotOptions::empty_for_test())
+            .unwrap();
+        (locked_wc, tree_id)
     };
 
     {
-        let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-        let tree_id = snapshot(&mut locked_ws, &[]);
+        let (_locked_wc, tree_id) = snapshot(&[]);
         assert_eq!(tree_id, repo.store().empty_merged_tree_id());
     }
 
     {
-        let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-        let tree_id = snapshot(&mut locked_ws, &[foo_path]);
+        let (_locked_wc, tree_id) = snapshot(&[foo_path]);
         insta::assert_snapshot!(testutils::dump_tree(repo.store(), &tree_id), @r#"
         tree 2a5341b103917cfdb48a
           file "foo" (e99c2057c15160add351): "foo\n"
@@ -1909,25 +1915,20 @@ fn test_fsmonitor() {
     }
 
     {
-        let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-        let tree_id = snapshot(
-            &mut locked_ws,
-            &[foo_path, bar_path, nested_path, ignored_path],
-        );
+        let (locked_wc, tree_id) = snapshot(&[foo_path, bar_path, nested_path, ignored_path]);
         insta::assert_snapshot!(testutils::dump_tree(repo.store(), &tree_id), @r#"
         tree 1c5c336421714b1df7bb
           file "bar" (94cc973e7e1aefb7eff6): "bar\n"
           file "foo" (e99c2057c15160add351): "foo\n"
           file "path/to/nested" (6209060941cd770c8d46): "nested\n"
         "#);
-        locked_ws.finish(repo.op_id().clone()).unwrap();
+        locked_wc.finish(repo.op_id().clone()).unwrap();
     }
 
     {
         testutils::write_working_copy_file(&workspace_root, foo_path, "updated foo\n");
         testutils::write_working_copy_file(&workspace_root, bar_path, "updated bar\n");
-        let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-        let tree_id = snapshot(&mut locked_ws, &[foo_path]);
+        let (_locked_wc, tree_id) = snapshot(&[foo_path]);
         insta::assert_snapshot!(testutils::dump_tree(repo.store(), &tree_id), @r#"
         tree f653dfa18d0b025bdb9e
           file "bar" (94cc973e7e1aefb7eff6): "bar\n"
@@ -1938,20 +1939,19 @@ fn test_fsmonitor() {
 
     {
         std::fs::remove_file(foo_path.to_fs_path_unchecked(&workspace_root)).unwrap();
-        let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-        let tree_id = snapshot(&mut locked_ws, &[foo_path]);
+        let (locked_wc, tree_id) = snapshot(&[foo_path]);
         insta::assert_snapshot!(testutils::dump_tree(repo.store(), &tree_id), @r#"
         tree b7416fc248a038b920c3
           file "bar" (94cc973e7e1aefb7eff6): "bar\n"
           file "path/to/nested" (6209060941cd770c8d46): "nested\n"
         "#);
-        locked_ws.finish(repo.op_id().clone()).unwrap();
+        locked_wc.finish(repo.op_id().clone()).unwrap();
     }
 }
 
 #[test]
 fn test_snapshot_max_new_file_size() {
-    let mut test_workspace = TestWorkspace::init();
+    let test_workspace = TestWorkspace::init();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
     let small_path = repo_path("small");
     let large_path = repo_path("large");
@@ -1961,21 +1961,31 @@ fn test_snapshot_max_new_file_size() {
         vec![0; limit],
     )
     .unwrap();
-    let options = SnapshotOptions {
+    let wc_settings = WorkingCopySettings {
         max_new_file_size: limit as u64,
-        ..SnapshotOptions::empty_for_test()
+        ..WorkingCopySettings::empty_for_test()
     };
-    test_workspace
-        .snapshot_with_options(&options)
-        .expect("files exactly matching the size limit should succeed");
+
+    let snapshot = || {
+        let mut locked_wc = test_workspace
+            .workspace
+            .working_copy()
+            .start_mutation(wc_settings.clone())
+            .unwrap();
+        let (tree_id, stats) = locked_wc.snapshot(&SnapshotOptions::empty_for_test())?;
+        let op_id = test_workspace.repo.op_id().clone(); // arbitrary operation id
+        locked_wc.finish(op_id).unwrap();
+        let tree = test_workspace.repo.store().get_root_tree(&tree_id).unwrap();
+        Result::<_, SnapshotError>::Ok((tree, stats))
+    };
+
+    snapshot().expect("files exactly matching the size limit should succeed");
     std::fs::write(
         small_path.to_fs_path_unchecked(&workspace_root),
         vec![0; limit + 1],
     )
     .unwrap();
-    let (old_tree, _stats) = test_workspace
-        .snapshot_with_options(&options)
-        .expect("existing files may grow beyond the size limit");
+    let (old_tree, _stats) = snapshot().expect("existing files may grow beyond the size limit");
 
     // A new file of 1KiB + 1 bytes should be left untracked
     std::fs::write(
@@ -1983,9 +1993,8 @@ fn test_snapshot_max_new_file_size() {
         vec![0; limit + 1],
     )
     .unwrap();
-    let (new_tree, stats) = test_workspace
-        .snapshot_with_options(&options)
-        .expect("snapshot should not fail because of new files beyond the size limit");
+    let (new_tree, stats) =
+        snapshot().expect("snapshot should not fail because of new files beyond the size limit");
     assert_eq!(new_tree, old_tree);
     assert_eq!(
         stats
@@ -2014,9 +2023,8 @@ fn test_snapshot_max_new_file_size() {
         sub_large_path.to_fs_path_unchecked(&workspace_root),
     )
     .unwrap();
-    let (new_tree, stats) = test_workspace
-        .snapshot_with_options(&options)
-        .expect("snapshot should not fail because of new files beyond the size limit");
+    let (new_tree, stats) =
+        snapshot().expect("snapshot should not fail because of new files beyond the size limit");
     assert_eq!(new_tree, old_tree);
     assert_eq!(
         stats

@@ -981,14 +981,14 @@ impl TreeState {
     ) -> Result<(bool, SnapshotStats), SnapshotError> {
         let &SnapshotOptions {
             ref base_ignores,
-            ref fsmonitor_settings,
             progress,
             start_tracking_matcher,
-            max_new_file_size,
         } = options;
         let &WorkingCopySettings {
             conflict_marker_style,
             eol_conversion_mode,
+            ref fsmonitor_settings,
+            max_new_file_size,
         } = wc_settings;
 
         let sparse_matcher = self.sparse_matcher();
