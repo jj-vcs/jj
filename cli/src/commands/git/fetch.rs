@@ -19,6 +19,7 @@ use itertools::Itertools as _;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitFetch;
+use jj_lib::git::expand_fetch_refspecs;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringPattern;
@@ -147,7 +148,7 @@ pub fn cmd_git_fetch(
     };
 
     let mut tx = workspace_command.start_transaction();
-    do_git_fetch(ui, &mut tx, &branches_by_remote)?;
+    do_git_fetch(ui, &mut tx, branches_by_remote)?;
     warn_if_branches_not_found(ui, &tx, &args.branch, &remotes)?;
     tx.finish(
         ui,
@@ -196,7 +197,7 @@ fn parse_remote_pattern(remote: &str) -> Result<StringPattern, CommandError> {
 fn do_git_fetch(
     ui: &mut Ui,
     tx: &mut WorkspaceCommandTransaction,
-    branches_by_remote: &[(&RemoteName, Vec<StringPattern>)],
+    branches_by_remote: Vec<(&RemoteName, Vec<StringPattern>)>,
 ) -> Result<(), CommandError> {
     let git_settings = tx.settings().git_settings()?;
     let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
@@ -207,7 +208,13 @@ fn do_git_fetch(
             continue;
         }
         with_remote_git_callbacks(ui, |callbacks| {
-            git_fetch.fetch(remote, branches, callbacks, None, None)
+            git_fetch.fetch(
+                remote,
+                expand_fetch_refspecs(remote, branches)?,
+                callbacks,
+                None,
+                None,
+            )
         })?;
     }
 

@@ -2108,11 +2108,18 @@ struct FetchedBranches {
     branches: Vec<StringPattern>,
 }
 
-fn expand_fetch_refspecs(
+/// Represents the refspecs to fetch from a remote
+pub struct ExpandedFetchRefSpecs {
+    expected_branch_names: Vec<StringPattern>,
+    refspecs: Vec<RefSpec>,
+}
+
+/// Expand a list of branch string patterns to refspecs to fetch
+pub fn expand_fetch_refspecs(
     remote: &RemoteName,
-    branch_names: &[StringPattern],
-) -> Result<Vec<RefSpec>, GitFetchError> {
-    branch_names
+    branch_names: Vec<StringPattern>,
+) -> Result<ExpandedFetchRefSpecs, GitFetchError> {
+    let refspecs = branch_names
         .iter()
         .map(|pattern| {
             pattern
@@ -2130,7 +2137,12 @@ fn expand_fetch_refspecs(
                 })
                 .ok_or_else(|| GitFetchError::InvalidBranchPattern(pattern.clone()))
         })
-        .collect()
+        .try_collect()?;
+
+    Ok(ExpandedFetchRefSpecs {
+        expected_branch_names: branch_names,
+        refspecs,
+    })
 }
 
 /// Helper struct to execute multiple `git fetch` operations
@@ -2169,7 +2181,10 @@ impl<'a> GitFetch<'a> {
     pub fn fetch(
         &mut self,
         remote_name: &RemoteName,
-        branch_names: &[StringPattern],
+        ExpandedFetchRefSpecs {
+            expected_branch_names,
+            refspecs: mut remaining_refspecs,
+        }: ExpandedFetchRefSpecs,
         mut callbacks: RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
         fetch_tags_override: Option<FetchTagsOverride>,
@@ -2184,9 +2199,7 @@ impl<'a> GitFetch<'a> {
         {
             return Err(GitFetchError::NoSuchRemote(remote_name.to_owned()));
         }
-        // At this point, we are only updating Git's remote tracking branches, not the
-        // local branches.
-        let mut remaining_refspecs: Vec<_> = expand_fetch_refspecs(remote_name, branch_names)?;
+
         if remaining_refspecs.is_empty() {
             // Don't fall back to the base refspecs.
             return Ok(());
@@ -2224,7 +2237,7 @@ impl<'a> GitFetch<'a> {
 
         self.fetched.push(FetchedBranches {
             remote: remote_name.to_owned(),
-            branches: branch_names.to_vec(),
+            branches: expected_branch_names,
         });
         Ok(())
     }

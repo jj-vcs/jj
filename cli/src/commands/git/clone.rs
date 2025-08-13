@@ -21,6 +21,7 @@ use std::path::Path;
 use jj_lib::git;
 use jj_lib::git::FetchTagsOverride;
 use jj_lib::git::GitFetch;
+use jj_lib::git::expand_fetch_refspecs;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
@@ -268,7 +269,7 @@ fn fetch_new_remote(
     with_remote_git_callbacks(ui, |cb| {
         git_fetch.fetch(
             remote_name,
-            &[StringPattern::everything()],
+            expand_fetch_refspecs(remote_name, vec![StringPattern::everything()])?,
             cb,
             depth,
             match fetch_tags {
