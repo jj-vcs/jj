@@ -2161,11 +2161,11 @@ impl WorkingCopy for LocalWorkingCopy {
         let old_tree_id = wc.tree_id()?.clone();
         Ok(Box::new(LockedLocalWorkingCopy {
             wc,
-            lock,
             old_operation_id,
             old_tree_id,
             tree_state_dirty: false,
             new_workspace_name: None,
+            _lock: lock,
         }))
     }
 }
@@ -2381,12 +2381,11 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
 /// `finish()` or `discard()`.
 pub struct LockedLocalWorkingCopy {
     wc: LocalWorkingCopy,
-    #[expect(dead_code)]
-    lock: FileLock,
     old_operation_id: OperationId,
     old_tree_id: MergedTreeId,
     tree_state_dirty: bool,
     new_workspace_name: Option<WorkspaceNameBuf>,
+    _lock: FileLock,
 }
 
 impl LockedWorkingCopy for LockedLocalWorkingCopy {
