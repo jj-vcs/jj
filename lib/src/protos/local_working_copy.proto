@@ -33,9 +33,8 @@ message FileState {
   int64 mtime_millis_since_epoch = 1;
   uint64 size = 2;
   FileType file_type = 3;
-  // Set only if file_type is Conflict
-  bytes conflict_id = 4 [deprecated = true];
   MaterializedConflictData materialized_conflict_data = 5;
+  reserved 4;
 }
 
 message FileStateEntry {

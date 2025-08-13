@@ -5,7 +5,7 @@ pub struct MaterializedConflictData {
     #[prost(uint32, tag = "1")]
     pub conflict_marker_len: u32,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct FileState {
     #[prost(int64, tag = "1")]
     pub mtime_millis_since_epoch: i64,
@@ -13,10 +13,6 @@ pub struct FileState {
     pub size: u64,
     #[prost(enumeration = "FileType", tag = "3")]
     pub file_type: i32,
-    /// Set only if file_type is Conflict
-    #[deprecated]
-    #[prost(bytes = "vec", tag = "4")]
-    pub conflict_id: ::prost::alloc::vec::Vec<u8>,
     #[prost(message, optional, tag = "5")]
     pub materialized_conflict_data: ::core::option::Option<MaterializedConflictData>,
 }
