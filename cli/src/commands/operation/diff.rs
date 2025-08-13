@@ -208,7 +208,7 @@ pub fn show_op_diff(
                 if !buffer.ends_with(b"\n") {
                     buffer.push(b'\n');
                 }
-                if let Some(diff_renderer) = &diff_renderer {
+                if let Some(diff_renderer) = diff_renderer {
                     let mut formatter = ui.new_formatter(&mut buffer);
                     show_change_diff(
                         ui,
@@ -239,7 +239,7 @@ pub fn show_op_diff(
                         modified_change,
                     )
                 })?;
-                if let Some(diff_renderer) = &diff_renderer {
+                if let Some(diff_renderer) = diff_renderer {
                     let width = with_content_format.width();
                     show_change_diff(ui, formatter, diff_renderer, modified_change, width)?;
                 }
