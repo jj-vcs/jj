@@ -2105,6 +2105,39 @@ struct CheckoutState {
     workspace_name: WorkspaceNameBuf,
 }
 
+impl CheckoutState {
+    fn load(state_path: &Path) -> Self {
+        let buf = fs::read(state_path.join("checkout")).unwrap();
+        let proto = crate::protos::local_working_copy::Checkout::decode(&*buf).unwrap();
+        Self {
+            operation_id: OperationId::new(proto.operation_id),
+            workspace_name: if proto.workspace_name.is_empty() {
+                // For compatibility with old working copies.
+                // TODO: Delete in mid 2022 or so
+                WorkspaceName::DEFAULT.to_owned()
+            } else {
+                proto.workspace_name.into()
+            },
+        }
+    }
+
+    #[instrument(skip_all)]
+    fn save(&self, state_path: &Path) {
+        let proto = crate::protos::local_working_copy::Checkout {
+            operation_id: self.operation_id.to_bytes(),
+            workspace_name: (*self.workspace_name).into(),
+        };
+        let mut temp_file = NamedTempFile::new_in(state_path).unwrap();
+        temp_file
+            .as_file_mut()
+            .write_all(&proto.encode_to_vec())
+            .unwrap();
+        // TODO: Retry if persisting fails (it will on Windows if the file happened to
+        // be open for read).
+        temp_file.persist(state_path.join("checkout")).unwrap();
+    }
+}
+
 pub struct LocalWorkingCopy {
     store: Arc<Store>,
     working_copy_path: PathBuf,
@@ -2246,37 +2279,9 @@ impl LocalWorkingCopy {
         &self.state_path
     }
 
-    fn write_proto(&self, proto: crate::protos::local_working_copy::Checkout) {
-        let mut temp_file = NamedTempFile::new_in(&self.state_path).unwrap();
-        temp_file
-            .as_file_mut()
-            .write_all(&proto.encode_to_vec())
-            .unwrap();
-        // TODO: Retry if persisting fails (it will on Windows if the file happened to
-        // be open for read).
-        temp_file.persist(self.state_path.join("checkout")).unwrap();
-    }
-
     fn checkout_state(&self) -> &CheckoutState {
-        self.checkout_state.get_or_init(|| {
-            let buf = fs::read(self.state_path.join("checkout")).unwrap();
-            let proto = crate::protos::local_working_copy::Checkout::decode(&*buf).unwrap();
-            CheckoutState {
-                operation_id: OperationId::new(proto.operation_id),
-                workspace_name: if proto.workspace_name.is_empty() {
-                    // For compatibility with old working copies.
-                    // TODO: Delete in mid 2022 or so
-                    WorkspaceName::DEFAULT.to_owned()
-                } else {
-                    proto.workspace_name.into()
-                },
-            }
-        })
-    }
-
-    fn checkout_state_mut(&mut self) -> &mut CheckoutState {
-        self.checkout_state(); // ensure loaded
-        self.checkout_state.get_mut().unwrap()
+        self.checkout_state
+            .get_or_init(|| CheckoutState::load(&self.state_path))
     }
 
     #[instrument(skip_all)]
@@ -2302,14 +2307,6 @@ impl LocalWorkingCopy {
 
     pub fn file_states(&self) -> Result<FileStates<'_>, WorkingCopyStateError> {
         Ok(self.tree_state()?.file_states())
-    }
-
-    #[instrument(skip_all)]
-    fn save(&mut self) {
-        self.write_proto(crate::protos::local_working_copy::Checkout {
-            operation_id: self.operation_id().to_bytes(),
-            workspace_name: self.workspace_name().into(),
-        });
     }
 
     #[cfg(feature = "watchman")]
@@ -2516,11 +2513,16 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
                 })?;
         }
         if self.old_operation_id != operation_id || self.new_workspace_name.is_some() {
-            if let Some(new_name) = self.new_workspace_name {
-                self.wc.checkout_state_mut().workspace_name = new_name;
-            }
-            self.wc.checkout_state_mut().operation_id = operation_id;
-            self.wc.save();
+            let workspace_name = self
+                .new_workspace_name
+                // This saves a trip to the filesystem if the state was already loaded.
+                .unwrap_or_else(|| self.wc.workspace_name().into());
+            let checkout_state = CheckoutState {
+                operation_id,
+                workspace_name,
+            };
+            checkout_state.save(&self.wc.state_path);
+            self.wc.checkout_state = OnceCell::with_value(checkout_state);
         }
         // TODO: Clear the "pending_checkout" file here.
         Ok(Box::new(self.wc))
