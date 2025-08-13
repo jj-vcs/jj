@@ -41,8 +41,7 @@ pub use self::platform::try_symlink;
 #[error("Cannot access {path}")]
 pub struct PathError {
     pub path: PathBuf,
-    #[source]
-    pub error: io::Error,
+    pub source: io::Error,
 }
 
 pub trait IoResultExt<T> {
@@ -53,7 +52,7 @@ impl<T> IoResultExt<T> for io::Result<T> {
     fn context(self, path: impl AsRef<Path>) -> Result<T, PathError> {
         self.map_err(|error| PathError {
             path: path.as_ref().to_path_buf(),
-            error,
+            source: error,
         })
     }
 }

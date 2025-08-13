@@ -359,7 +359,7 @@ impl OpStore for SimpleOpStore {
 }
 
 fn io_to_read_error(err: PathError, id: &impl ObjectId) -> OpStoreError {
-    if err.error.kind() == ErrorKind::NotFound {
+    if err.source.kind() == ErrorKind::NotFound {
         OpStoreError::ObjectNotFound {
             object_type: id.object_type(),
             hash: id.hex(),

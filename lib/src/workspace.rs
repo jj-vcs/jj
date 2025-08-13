@@ -119,7 +119,7 @@ fn create_jj_dir(workspace_root: &Path) -> Result<PathBuf, WorkspaceInitError> {
     let jj_dir = workspace_root.join(".jj");
     match std::fs::create_dir(&jj_dir).context(&jj_dir) {
         Ok(()) => Ok(jj_dir),
-        Err(ref e) if e.error.kind() == io::ErrorKind::AlreadyExists => {
+        Err(ref e) if e.source.kind() == io::ErrorKind::AlreadyExists => {
             Err(WorkspaceInitError::DestinationExists(jj_dir))
         }
         Err(e) => Err(e.into()),

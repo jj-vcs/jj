@@ -1301,7 +1301,7 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
             "BISECT_LOG",
         ];
         const STATE_DIR_NAMES: &[&str] = &["rebase-merge", "rebase-apply", "sequencer"];
-        let handle_err = |err: PathError| match err.error.kind() {
+        let handle_err = |err: PathError| match err.source.kind() {
             std::io::ErrorKind::NotFound => Ok(()),
             _ => Err(GitResetHeadError::from_git(err)),
         };

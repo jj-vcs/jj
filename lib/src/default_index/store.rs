@@ -203,7 +203,7 @@ impl DefaultIndexStore {
                     .collect_vec();
             }
             // TODO: drop support for legacy operation link file in jj 0.39 or so
-            Err(PathError { error, .. }) if error.kind() == io::ErrorKind::NotFound => {
+            Err(PathError { source: error, .. }) if error.kind() == io::ErrorKind::NotFound => {
                 let op_id_file = self.legacy_operations_dir().join(op_id.hex());
                 let data = fs::read(&op_id_file)
                     .context(&op_id_file)
@@ -509,7 +509,7 @@ impl IndexStore for DefaultIndexStore {
             change_id: store.change_id_length(),
         };
         let index = match self.load_index_at_operation(op.id(), field_lengths) {
-            Err(DefaultIndexStoreError::LoadAssociation(PathError { error, .. }))
+            Err(DefaultIndexStoreError::LoadAssociation(PathError { source: error, .. }))
                 if error.kind() == io::ErrorKind::NotFound =>
             {
                 self.build_index_at_operation(op, store).block_on()

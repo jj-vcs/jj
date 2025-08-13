@@ -568,9 +568,10 @@ impl ConfigFile {
     ) -> Result<Self, ConfigLoadError> {
         let layer = match ConfigLayer::load_from_file(source, path.into()) {
             Ok(layer) => Arc::new(layer),
-            Err(ConfigLoadError::Read(PathError { path, error }))
-                if error.kind() == io::ErrorKind::NotFound =>
-            {
+            Err(ConfigLoadError::Read(PathError {
+                path,
+                source: error,
+            })) if error.kind() == io::ErrorKind::NotFound => {
                 let mut data = DocumentMut::new();
                 data.insert(
                     "$schema",
