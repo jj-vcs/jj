@@ -181,6 +181,9 @@ pub enum SnapshotError {
     /// Checking path with ignore patterns failed.
     #[error(transparent)]
     GitIgnoreError(#[from] GitIgnoreError),
+    /// Failed to load the working copy state.
+    #[error(transparent)]
+    WorkingCopyStateError(#[from] WorkingCopyStateError),
     /// Some other error happened while snapshotting the working copy.
     #[error("{message}")]
     Other {
@@ -301,6 +304,9 @@ pub enum CheckoutError {
     /// Reading or writing from the commit backend failed.
     #[error("Internal backend error")]
     InternalBackendError(#[from] BackendError),
+    /// Failed to load the working copy state.
+    #[error(transparent)]
+    WorkingCopyStateError(#[from] WorkingCopyStateError),
     /// Some other error happened while checking out the working copy.
     #[error("{message}")]
     Other {
@@ -325,7 +331,10 @@ pub enum ResetError {
     /// Reading or writing from the commit backend failed.
     #[error("Internal error")]
     InternalBackendError(#[from] BackendError),
-    /// Some other error happened while checking out the working copy.
+    /// Failed to load the working copy state.
+    #[error(transparent)]
+    WorkingCopyStateError(#[from] WorkingCopyStateError),
+    /// Some other error happened while resetting the working copy.
     #[error("{message}")]
     Other {
         /// Error message.
