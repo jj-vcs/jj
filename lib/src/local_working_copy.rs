@@ -441,43 +441,6 @@ impl<'a> IntoIterator for FileStates<'a> {
     }
 }
 
-#[derive(Clone, Debug, Default)]
-/// Options that controls the behavior of the [`TreeState`] created.
-pub struct TreeStateSettings {
-    /// Configuring auto-converting CRLF line endings into LF when you add a
-    /// file to the backend, and vice versa when it checks out code onto your
-    /// filesystem.
-    pub eol_conversion_mode: EolConversionMode,
-}
-
-impl TreeStateSettings {
-    /// Create [`TreeStateSettings`] from [`UserSettings`].
-    pub fn try_from_user_settings(user_settings: &UserSettings) -> Result<Self, ConfigGetError> {
-        Ok(Self {
-            eol_conversion_mode: EolConversionMode::try_from_settings(user_settings)?,
-        })
-    }
-}
-
-pub struct TreeState {
-    store: Arc<Store>,
-    working_copy_path: PathBuf,
-    state_path: PathBuf,
-    tree_id: MergedTreeId,
-    file_states: FileStatesMap,
-    // Currently only path prefixes
-    sparse_patterns: Vec<RepoPathBuf>,
-    own_mtime: MillisSinceEpoch,
-    symlink_support: bool,
-
-    /// The most recent clock value returned by Watchman. Will only be set if
-    /// the repo is configured to use the Watchman filesystem monitor and
-    /// Watchman has been queried at least once.
-    watchman_clock: Option<crate::protos::local_working_copy::WatchmanClock>,
-
-    target_eol_strategy: TargetEolStrategy,
-}
-
 fn file_state_from_proto(proto: &crate::protos::local_working_copy::FileState) -> FileState {
     let file_type = match proto.file_type() {
         crate::protos::local_working_copy::FileType::Normal => FileType::Normal {
@@ -772,6 +735,43 @@ fn file_state(metadata: &Metadata) -> Option<FileState> {
 struct FsmonitorMatcher {
     matcher: Option<Box<dyn Matcher>>,
     watchman_clock: Option<crate::protos::local_working_copy::WatchmanClock>,
+}
+
+#[derive(Clone, Debug, Default)]
+/// Options that controls the behavior of the [`TreeState`] created.
+pub struct TreeStateSettings {
+    /// Configuring auto-converting CRLF line endings into LF when you add a
+    /// file to the backend, and vice versa when it checks out code onto your
+    /// filesystem.
+    pub eol_conversion_mode: EolConversionMode,
+}
+
+impl TreeStateSettings {
+    /// Create [`TreeStateSettings`] from [`UserSettings`].
+    pub fn try_from_user_settings(user_settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        Ok(Self {
+            eol_conversion_mode: EolConversionMode::try_from_settings(user_settings)?,
+        })
+    }
+}
+
+pub struct TreeState {
+    store: Arc<Store>,
+    working_copy_path: PathBuf,
+    state_path: PathBuf,
+    tree_id: MergedTreeId,
+    file_states: FileStatesMap,
+    // Currently only path prefixes
+    sparse_patterns: Vec<RepoPathBuf>,
+    own_mtime: MillisSinceEpoch,
+    symlink_support: bool,
+
+    /// The most recent clock value returned by Watchman. Will only be set if
+    /// the repo is configured to use the Watchman filesystem monitor and
+    /// Watchman has been queried at least once.
+    watchman_clock: Option<crate::protos::local_working_copy::WatchmanClock>,
+
+    target_eol_strategy: TargetEolStrategy,
 }
 
 #[derive(Debug, Error)]
