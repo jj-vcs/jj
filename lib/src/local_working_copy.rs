@@ -78,7 +78,6 @@ use crate::conflicts::materialize_merge_result_to_bytes_with_marker_len;
 use crate::conflicts::materialize_tree_value;
 pub use crate::eol::EolConversionMode;
 use crate::eol::TargetEolStrategy;
-use crate::eol::create_target_eol_strategy;
 use crate::file_util::BlockingAsyncReader;
 use crate::file_util::check_symlink_support;
 use crate::file_util::copy_async_to_sync;
@@ -733,8 +732,8 @@ struct FsmonitorMatcher {
     watchman_clock: Option<crate::protos::local_working_copy::WatchmanClock>,
 }
 
+/// Settings specific to the tree state of the [`LocalWorkingCopy`] backend.
 #[derive(Clone, Debug, Default)]
-/// Options that controls the behavior of the [`TreeState`] created.
 pub struct TreeStateSettings {
     /// Configuring auto-converting CRLF line endings into LF when you add a
     /// file to the backend, and vice versa when it checks out code onto your
@@ -814,8 +813,7 @@ impl TreeState {
         state_path: PathBuf,
         tree_state_settings: &TreeStateSettings,
     ) -> Result<Self, TreeStateError> {
-        let target_eol_strategy = create_target_eol_strategy(tree_state_settings);
-        let mut wc = Self::empty(store, working_copy_path, state_path, target_eol_strategy);
+        let mut wc = Self::empty(store, working_copy_path, state_path, tree_state_settings);
         wc.save()?;
         Ok(wc)
     }
@@ -824,7 +822,9 @@ impl TreeState {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
-        target_eol_strategy: TargetEolStrategy,
+        &TreeStateSettings {
+            eol_conversion_mode,
+        }: &TreeStateSettings,
     ) -> Self {
         let tree_id = store.empty_merged_tree_id();
         Self {
@@ -837,7 +837,7 @@ impl TreeState {
             own_mtime: MillisSinceEpoch(0),
             symlink_support: check_symlink_support().unwrap_or(false),
             watchman_clock: None,
-            target_eol_strategy,
+            target_eol_strategy: TargetEolStrategy::new(eol_conversion_mode),
         }
     }
 
@@ -847,7 +847,6 @@ impl TreeState {
         state_path: PathBuf,
         tree_state_settings: &TreeStateSettings,
     ) -> Result<Self, TreeStateError> {
-        let target_eol_strategy = create_target_eol_strategy(tree_state_settings);
         let tree_state_path = state_path.join("tree_state");
         let file = match File::open(&tree_state_path) {
             Err(ref err) if err.kind() == io::ErrorKind::NotFound => {
@@ -862,7 +861,7 @@ impl TreeState {
             Ok(file) => file,
         };
 
-        let mut wc = Self::empty(store, working_copy_path, state_path, target_eol_strategy);
+        let mut wc = Self::empty(store, working_copy_path, state_path, tree_state_settings);
         wc.read(&tree_state_path, file)?;
         Ok(wc)
     }
@@ -1055,7 +1054,6 @@ impl TreeState {
                 progress,
                 max_new_file_size,
                 conflict_marker_style,
-                target_eol_strategy: self.target_eol_strategy.clone(),
             };
             let directory_to_visit = DirectoryToVisit {
                 dir: RepoPathBuf::root(),
@@ -1204,7 +1202,6 @@ struct FileSnapshotter<'a> {
     progress: Option<&'a SnapshotProgress<'a>>,
     max_new_file_size: u64,
     conflict_marker_style: ConflictMarkerStyle,
-    target_eol_strategy: TargetEolStrategy,
 }
 
 impl FileSnapshotter<'_> {
@@ -1586,7 +1583,8 @@ impl FileSnapshotter<'_> {
                 message: format!("Failed to open file {}", disk_path.display()),
                 err: err.into(),
             })?;
-            self.target_eol_strategy
+            self.tree_state
+                .target_eol_strategy
                 .convert_eol_for_snapshot(BlockingAsyncReader::new(file))
                 .await
                 .map_err(|err| SnapshotError::Other {
@@ -1652,6 +1650,7 @@ impl FileSnapshotter<'_> {
             err: err.into(),
         })?;
         let mut contents = self
+            .tree_state
             .target_eol_strategy
             .convert_eol_for_snapshot(BlockingAsyncReader::new(file))
             .await

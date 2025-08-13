@@ -19,16 +19,7 @@ use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt as _;
 
 use crate::config::ConfigGetError;
-use crate::local_working_copy::TreeStateSettings;
 use crate::settings::UserSettings;
-
-pub(crate) fn create_target_eol_strategy(
-    tree_state_settings: &TreeStateSettings,
-) -> TargetEolStrategy {
-    TargetEolStrategy {
-        eol_conversion_mode: tree_state_settings.eol_conversion_mode,
-    }
-}
 
 fn is_binary(bytes: &[u8]) -> bool {
     // TODO(06393993): align the algorithm with git so that the git config autocrlf
@@ -55,6 +46,12 @@ pub(crate) struct TargetEolStrategy {
 }
 
 impl TargetEolStrategy {
+    pub(crate) fn new(eol_conversion_mode: EolConversionMode) -> Self {
+        Self {
+            eol_conversion_mode,
+        }
+    }
+
     /// The limit is to probe whether the file is binary is 8KB.
     const PROBE_LIMIT: u64 = 8 << 10;
 
