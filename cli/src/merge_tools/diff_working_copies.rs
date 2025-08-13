@@ -11,9 +11,9 @@ use jj_lib::backend::MergedTreeId;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
+use jj_lib::local_working_copy::LocalWcSettings;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateError;
-use jj_lib::local_working_copy::TreeStateSettings;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::Matcher;
 use jj_lib::merged_tree::MergedTree;
@@ -154,7 +154,7 @@ pub(crate) fn check_out_trees(
             store.clone(),
             wc_path,
             state_dir,
-            &TreeStateSettings::default(),
+            &LocalWcSettings::default(),
         )?;
         state.set_sparse_patterns(changed_files.clone(), options)?;
         state.check_out(tree, options)?;

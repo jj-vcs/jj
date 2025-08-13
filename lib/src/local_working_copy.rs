@@ -79,7 +79,6 @@ use crate::conflicts::materialize_merge_result_to_bytes_with_marker_len;
 use crate::conflicts::materialize_tree_value;
 pub use crate::eol::EolConversionMode;
 use crate::eol::TargetEolStrategy;
-use crate::eol::create_target_eol_strategy;
 use crate::file_util::BlockingAsyncReader;
 use crate::file_util::check_symlink_support;
 use crate::file_util::copy_async_to_sync;
@@ -738,21 +737,37 @@ struct FsmonitorMatcher {
     watchman_clock: Option<crate::protos::local_working_copy::WatchmanClock>,
 }
 
+/// Settings specific to the [`LocalWorkingCopy`] backend.
 #[derive(Clone, Debug, Default)]
-/// Options that controls the behavior of the [`TreeState`] created.
-pub struct TreeStateSettings {
+pub struct LocalWcSettings {
     /// Configuring auto-converting CRLF line endings into LF when you add a
     /// file to the backend, and vice versa when it checks out code onto your
     /// filesystem.
     pub eol_conversion_mode: EolConversionMode,
 }
 
-impl TreeStateSettings {
-    /// Create [`TreeStateSettings`] from [`UserSettings`].
+impl LocalWcSettings {
+    /// Create an instance from [`UserSettings`].
     pub fn try_from_user_settings(user_settings: &UserSettings) -> Result<Self, ConfigGetError> {
         Ok(Self {
             eol_conversion_mode: EolConversionMode::try_from_settings(user_settings)?,
         })
+    }
+}
+
+/// Settings for the tree state.
+#[derive(Clone, Debug)]
+struct TreeStateConfig {
+    symlink_support: bool,
+    target_eol_strategy: TargetEolStrategy,
+}
+
+impl TreeStateConfig {
+    fn from_wc_settings(wc_settings: &LocalWcSettings) -> Self {
+        Self {
+            symlink_support: check_symlink_support().unwrap_or(false),
+            target_eol_strategy: TargetEolStrategy::new(wc_settings.eol_conversion_mode),
+        }
     }
 }
 
@@ -765,14 +780,13 @@ pub struct TreeState {
     // Currently only path prefixes
     sparse_patterns: Vec<RepoPathBuf>,
     own_mtime: MillisSinceEpoch,
-    symlink_support: bool,
 
     /// The most recent clock value returned by Watchman. Will only be set if
     /// the repo is configured to use the Watchman filesystem monitor and
     /// Watchman has been queried at least once.
     watchman_clock: Option<crate::protos::local_working_copy::WatchmanClock>,
 
-    target_eol_strategy: TargetEolStrategy,
+    config: TreeStateConfig,
 }
 
 #[derive(Debug, Error)]
@@ -817,10 +831,9 @@ impl TreeState {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
-        tree_state_settings: &TreeStateSettings,
+        wc_settings: &LocalWcSettings,
     ) -> Result<Self, TreeStateError> {
-        let target_eol_strategy = create_target_eol_strategy(tree_state_settings);
-        let mut wc = Self::empty(store, working_copy_path, state_path, target_eol_strategy);
+        let mut wc = Self::empty(store, working_copy_path, state_path, wc_settings);
         wc.save()?;
         Ok(wc)
     }
@@ -829,7 +842,7 @@ impl TreeState {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
-        target_eol_strategy: TargetEolStrategy,
+        wc_settings: &LocalWcSettings,
     ) -> Self {
         let tree_id = store.empty_merged_tree_id();
         Self {
@@ -840,9 +853,8 @@ impl TreeState {
             file_states: FileStatesMap::new(),
             sparse_patterns: vec![RepoPathBuf::root()],
             own_mtime: MillisSinceEpoch(0),
-            symlink_support: check_symlink_support().unwrap_or(false),
             watchman_clock: None,
-            target_eol_strategy,
+            config: TreeStateConfig::from_wc_settings(wc_settings),
         }
     }
 
@@ -850,13 +862,12 @@ impl TreeState {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
-        tree_state_settings: &TreeStateSettings,
+        wc_settings: &LocalWcSettings,
     ) -> Result<Self, TreeStateError> {
-        let target_eol_strategy = create_target_eol_strategy(tree_state_settings);
         let tree_state_path = state_path.join("tree_state");
         let file = match File::open(&tree_state_path) {
             Err(ref err) if err.kind() == io::ErrorKind::NotFound => {
-                return Self::init(store, working_copy_path, state_path, tree_state_settings);
+                return Self::init(store, working_copy_path, state_path, wc_settings);
             }
             Err(err) => {
                 return Err(TreeStateError::ReadTreeState {
@@ -867,7 +878,7 @@ impl TreeState {
             Ok(file) => file,
         };
 
-        let mut wc = Self::empty(store, working_copy_path, state_path, target_eol_strategy);
+        let mut wc = Self::empty(store, working_copy_path, state_path, wc_settings);
         wc.read(&tree_state_path, file)?;
         Ok(wc)
     }
@@ -1062,7 +1073,6 @@ impl TreeState {
                 progress,
                 max_new_file_size,
                 conflict_marker_style,
-                target_eol_strategy: self.target_eol_strategy.clone(),
             };
             let directory_to_visit = DirectoryToVisit {
                 dir: RepoPathBuf::root(),
@@ -1211,7 +1221,6 @@ struct FileSnapshotter<'a> {
     progress: Option<&'a SnapshotProgress<'a>>,
     max_new_file_size: u64,
     conflict_marker_style: ConflictMarkerStyle,
-    target_eol_strategy: TargetEolStrategy,
 }
 
 impl FileSnapshotter<'_> {
@@ -1498,7 +1507,7 @@ impl FileSnapshotter<'_> {
             Ok(None)
         } else {
             let current_tree_values = self.current_tree.path_value(repo_path)?;
-            let new_file_type = if !self.tree_state.symlink_support {
+            let new_file_type = if !self.tree_state.config.symlink_support {
                 let mut new_file_type = new_file_state.file_type.clone();
                 if matches!(new_file_type, FileType::Normal { .. })
                     && matches!(current_tree_values.as_normal(), Some(TreeValue::Symlink(_)))
@@ -1593,7 +1602,9 @@ impl FileSnapshotter<'_> {
                 message: format!("Failed to open file {}", disk_path.display()),
                 err: err.into(),
             })?;
-            self.target_eol_strategy
+            self.tree_state
+                .config
+                .target_eol_strategy
                 .convert_eol_for_snapshot(BlockingAsyncReader::new(file))
                 .await
                 .map_err(|err| SnapshotError::Other {
@@ -1659,6 +1670,8 @@ impl FileSnapshotter<'_> {
             err: err.into(),
         })?;
         let mut contents = self
+            .tree_state
+            .config
             .target_eol_strategy
             .convert_eol_for_snapshot(BlockingAsyncReader::new(file))
             .await
@@ -1674,7 +1687,7 @@ impl FileSnapshotter<'_> {
         path: &RepoPath,
         disk_path: &Path,
     ) -> Result<SymlinkId, SnapshotError> {
-        if self.tree_state.symlink_support {
+        if self.tree_state.config.symlink_support {
             let target = disk_path.read_link().map_err(|err| SnapshotError::Other {
                 message: format!("Failed to read symlink {}", disk_path.display()),
                 err: err.into(),
@@ -1718,7 +1731,8 @@ impl TreeState {
                 err: err.into(),
             })?;
         let contents = if apply_eol_conversion {
-            self.target_eol_strategy
+            self.config
+                .target_eol_strategy
                 .convert_eol_for_update(contents)
                 .await
                 .map_err(|err| CheckoutError::Other {
@@ -1777,6 +1791,7 @@ impl TreeState {
         materialized_conflict_data: Option<MaterializedConflictData>,
     ) -> Result<FileState, CheckoutError> {
         let conflict_data = self
+            .config
             .target_eol_strategy
             .convert_eol_for_update(conflict_data.as_slice())
             .await
@@ -1977,7 +1992,7 @@ impl TreeState {
                         .await?
                 }
                 MaterializedTreeValue::Symlink { id: _, target } => {
-                    if self.symlink_support {
+                    if self.config.symlink_support {
                         self.write_symlink(&disk_path, target)?
                     } else {
                         self.write_file(&disk_path, target.as_bytes(), false, false)
@@ -2160,7 +2175,7 @@ pub struct LocalWorkingCopy {
     state_path: PathBuf,
     checkout_state: CheckoutState,
     tree_state: OnceCell<TreeState>,
-    tree_state_settings: TreeStateSettings,
+    wc_settings: LocalWcSettings,
 }
 
 impl WorkingCopy for LocalWorkingCopy {
@@ -2205,7 +2220,7 @@ impl WorkingCopy for LocalWorkingCopy {
             // TODO: It's expensive to reload the whole tree. We should copy it from `self` if it
             // hasn't changed.
             tree_state: OnceCell::new(),
-            tree_state_settings: self.tree_state_settings.clone(),
+            wc_settings: self.wc_settings.clone(),
         };
         let old_operation_id = wc.operation_id().clone();
         let old_tree_id = wc.tree_id()?.clone();
@@ -2241,16 +2256,18 @@ impl LocalWorkingCopy {
             workspace_name,
         };
         checkout_state.save(&state_path)?;
-        let tree_state_settings = TreeStateSettings::try_from_user_settings(user_settings)
-            .map_err(|err| WorkingCopyStateError {
-                message: "Failed to read the tree state settings".to_string(),
-                err: err.into(),
+        let wc_settings =
+            LocalWcSettings::try_from_user_settings(user_settings).map_err(|err| {
+                WorkingCopyStateError {
+                    message: "Failed to read working copy settings".to_string(),
+                    err: err.into(),
+                }
             })?;
         let tree_state = TreeState::init(
             store.clone(),
             working_copy_path.clone(),
             state_path.clone(),
-            &tree_state_settings,
+            &wc_settings,
         )
         .map_err(|err| WorkingCopyStateError {
             message: "Failed to initialize working copy state".to_string(),
@@ -2262,7 +2279,7 @@ impl LocalWorkingCopy {
             state_path,
             checkout_state,
             tree_state: OnceCell::with_value(tree_state),
-            tree_state_settings,
+            wc_settings,
         })
     }
 
@@ -2273,10 +2290,12 @@ impl LocalWorkingCopy {
         user_settings: &UserSettings,
     ) -> Result<Self, WorkingCopyStateError> {
         let checkout_state = CheckoutState::load(&state_path)?;
-        let tree_state_settings = TreeStateSettings::try_from_user_settings(user_settings)
-            .map_err(|err| WorkingCopyStateError {
-                message: "Failed to read the tree state settings".to_string(),
-                err: err.into(),
+        let wc_settings =
+            LocalWcSettings::try_from_user_settings(user_settings).map_err(|err| {
+                WorkingCopyStateError {
+                    message: "Failed to read working copy settings".to_string(),
+                    err: err.into(),
+                }
             })?;
         Ok(Self {
             store,
@@ -2284,7 +2303,7 @@ impl LocalWorkingCopy {
             state_path,
             checkout_state,
             tree_state: OnceCell::new(),
-            tree_state_settings,
+            wc_settings,
         })
     }
 
@@ -2299,7 +2318,7 @@ impl LocalWorkingCopy {
                 self.store.clone(),
                 self.working_copy_path.clone(),
                 self.state_path.clone(),
-                &self.tree_state_settings,
+                &self.wc_settings,
             )
             .map_err(|err| WorkingCopyStateError {
                 message: "Failed to read working copy state".to_string(),
