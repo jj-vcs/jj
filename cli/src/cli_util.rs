@@ -1362,27 +1362,6 @@ to the current parents may contain changes from multiple commits.
         Ok(expression.to_matcher())
     }
 
-    pub fn snapshot_options_with_start_tracking_matcher<'a>(
-        &self,
-        start_tracking_matcher: &'a dyn Matcher,
-    ) -> Result<SnapshotOptions<'a>, CommandError> {
-        let base_ignores = self.base_ignores()?;
-        let fsmonitor_settings = self.settings().fsmonitor_settings()?;
-        let HumanByteSize(mut max_new_file_size) = self
-            .settings()
-            .get_value_with("snapshot.max-new-file-size", TryInto::try_into)?;
-        if max_new_file_size == 0 {
-            max_new_file_size = u64::MAX;
-        }
-        Ok(SnapshotOptions {
-            base_ignores,
-            fsmonitor_settings,
-            progress: None,
-            start_tracking_matcher,
-            max_new_file_size,
-        })
-    }
-
     pub(crate) fn path_converter(&self) -> &RepoPathUiConverter {
         self.env.path_converter()
     }
@@ -1841,9 +1820,7 @@ to the current parents may contain changes from multiple commits.
         let auto_tracking_matcher = self
             .auto_tracking_matcher(ui)
             .map_err(snapshot_command_error)?;
-        let options = self
-            .snapshot_options_with_start_tracking_matcher(&auto_tracking_matcher)
-            .map_err(snapshot_command_error)?;
+        let base_ignores = self.base_ignores().map_err(snapshot_command_error)?;
 
         // Compare working-copy tree and operation with repo's, and reload as needed.
         let mut locked_ws = self
@@ -1904,9 +1881,12 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             };
         self.user_repo = ReadonlyUserRepo::new(repo);
         let (new_tree_id, stats) = {
-            let mut options = options;
             let progress = crate::progress::snapshot_progress(ui);
-            options.progress = progress.as_ref().map(|x| x as _);
+            let options = SnapshotOptions {
+                base_ignores,
+                progress: progress.as_ref().map(|x| x as _),
+                start_tracking_matcher: &auto_tracking_matcher,
+            };
             locked_ws
                 .locked_wc()
                 .snapshot(&options)
