@@ -29,7 +29,6 @@ use crate::backend::BackendError;
 use crate::backend::MergedTreeId;
 use crate::commit::Commit;
 use crate::dag_walk;
-use crate::fsmonitor::FsmonitorSettings;
 use crate::gitignore::GitIgnoreError;
 use crate::gitignore::GitIgnoreFile;
 use crate::matchers::EverythingMatcher;
@@ -205,10 +204,6 @@ pub struct SnapshotOptions<'a> {
     // because the TreeState may be long-lived if the library is used in a
     // long-lived process.
     pub base_ignores: Arc<GitIgnoreFile>,
-    /// The fsmonitor (e.g. Watchman) to use, if any.
-    // TODO: Should we make this a field on `LocalWorkingCopy` instead since it's quite specific to
-    // that implementation?
-    pub fsmonitor_settings: FsmonitorSettings,
     /// A callback for the UI to display progress.
     pub progress: Option<&'a SnapshotProgress<'a>>,
     /// For new files that are not already tracked, start tracking them if they
@@ -227,7 +222,6 @@ impl SnapshotOptions<'_> {
     pub fn empty_for_test() -> Self {
         Self {
             base_ignores: GitIgnoreFile::empty(),
-            fsmonitor_settings: FsmonitorSettings::None,
             progress: None,
             start_tracking_matcher: &EverythingMatcher,
             max_new_file_size: u64::MAX,

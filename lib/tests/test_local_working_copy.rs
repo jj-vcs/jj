@@ -33,6 +33,7 @@ use jj_lib::file_util::try_symlink;
 use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::LocalWorkingCopy;
+use jj_lib::local_working_copy::LockedLocalWorkingCopy;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
@@ -1961,14 +1962,16 @@ fn test_fsmonitor() {
             .iter()
             .map(|p| p.to_fs_path_unchecked(Path::new("")))
             .collect();
-        let (tree_id, _stats) = locked_ws
-            .locked_wc()
-            .snapshot(&SnapshotOptions {
-                fsmonitor_settings: FsmonitorSettings::Test {
-                    changed_files: fs_paths,
-                },
-                ..SnapshotOptions::empty_for_test()
-            })
+        let locked_wc = locked_ws.locked_wc();
+        locked_wc
+            .as_any_mut()
+            .downcast_mut::<LockedLocalWorkingCopy>()
+            .unwrap()
+            .update_fsmonitor_settings_for_test(FsmonitorSettings::Test {
+                changed_files: fs_paths,
+            });
+        let (tree_id, _stats) = locked_wc
+            .snapshot(&SnapshotOptions::empty_for_test())
             .unwrap();
         tree_id
     };

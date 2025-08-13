@@ -1368,7 +1368,6 @@ to the current parents may contain changes from multiple commits.
         start_tracking_matcher: &'a dyn Matcher,
     ) -> Result<SnapshotOptions<'a>, CommandError> {
         let base_ignores = self.base_ignores()?;
-        let fsmonitor_settings = self.settings().fsmonitor_settings()?;
         let HumanByteSize(mut max_new_file_size) = self
             .settings()
             .get_value_with("snapshot.max-new-file-size", TryInto::try_into)?;
@@ -1377,7 +1376,6 @@ to the current parents may contain changes from multiple commits.
         }
         Ok(SnapshotOptions {
             base_ignores,
-            fsmonitor_settings,
             progress: None,
             start_tracking_matcher,
             max_new_file_size,

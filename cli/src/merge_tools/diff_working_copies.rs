@@ -9,7 +9,6 @@ use std::sync::Arc;
 use futures::StreamExt as _;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::conflicts::ConflictMarkerStyle;
-use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateError;
@@ -288,7 +287,6 @@ diff editing in mind and be a little inaccurate.
         let mut output_tree_state = diff_wc.output.unwrap_or(diff_wc.right);
         output_tree_state.snapshot(&SnapshotOptions {
             base_ignores,
-            fsmonitor_settings: FsmonitorSettings::None,
             progress: None,
             start_tracking_matcher: &EverythingMatcher,
             max_new_file_size: u64::MAX,
