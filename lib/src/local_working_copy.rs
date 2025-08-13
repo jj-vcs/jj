@@ -895,8 +895,9 @@ impl TreeState {
                 source: err,
             }
         })?;
+        #[allow(deprecated)]
         if proto.tree_ids.is_empty() {
-            self.tree_id = MergedTreeId::Legacy(TreeId::new(proto.legacy_tree_id.clone()));
+            self.tree_id = MergedTreeId::resolved(TreeId::new(proto.legacy_tree_id.clone()));
         } else {
             let tree_ids_builder: MergeBuilder<TreeId> = proto
                 .tree_ids
@@ -916,8 +917,8 @@ impl TreeState {
     fn save(&mut self) -> Result<(), TreeStateError> {
         let mut proto: crate::protos::local_working_copy::TreeState = Default::default();
         match &self.tree_id {
-            MergedTreeId::Legacy(tree_id) => {
-                proto.legacy_tree_id = tree_id.to_bytes();
+            MergedTreeId::Legacy(_) => {
+                unreachable!();
             }
             MergedTreeId::Merge(tree_ids) => {
                 proto.tree_ids = tree_ids.iter().map(|id| id.to_bytes()).collect();

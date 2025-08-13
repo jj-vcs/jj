@@ -47,7 +47,7 @@ message SparsePatterns {
 }
 
 message TreeState {
-  bytes legacy_tree_id = 1;
+  bytes legacy_tree_id = 1 [deprecated = true];
   // Alternating positive and negative terms if there's a conflict, otherwise a
   // single (positive) value
   repeated bytes tree_ids = 5;

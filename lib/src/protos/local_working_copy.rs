@@ -30,6 +30,7 @@ pub struct SparsePatterns {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TreeState {
+    #[deprecated]
     #[prost(bytes = "vec", tag = "1")]
     pub legacy_tree_id: ::prost::alloc::vec::Vec<u8>,
     /// Alternating positive and negative terms if there's a conflict, otherwise a
