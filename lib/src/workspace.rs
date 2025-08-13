@@ -432,12 +432,7 @@ impl Workspace {
         commit: &Commit,
         options: &CheckoutOptions,
     ) -> Result<CheckoutStats, CheckoutError> {
-        let mut locked_ws =
-            self.start_working_copy_mutation()
-                .map_err(|err| CheckoutError::Other {
-                    message: "Failed to start editing the working copy state".to_string(),
-                    err: err.into(),
-                })?;
+        let mut locked_ws = self.start_working_copy_mutation()?;
         // Check if the current working-copy commit has changed on disk compared to what
         // the caller expected. It's safe to check out another commit
         // regardless, but it's probably not what  the caller wanted, so we let
