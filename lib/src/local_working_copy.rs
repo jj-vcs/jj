@@ -746,6 +746,8 @@ pub struct LocalWcSettings {
     /// file to the backend, and vice versa when it checks out code onto your
     /// filesystem.
     pub eol_conversion_mode: EolConversionMode,
+    /// The fsmonitor (e.g. Watchman) to use, if any.
+    pub fsmonitor_settings: FsmonitorSettings,
 }
 
 impl LocalWcSettings {
@@ -754,6 +756,7 @@ impl LocalWcSettings {
         Ok(Self {
             conflict_marker_style: user_settings.get("ui.conflict-marker-style")?,
             eol_conversion_mode: EolConversionMode::try_from_settings(user_settings)?,
+            fsmonitor_settings: FsmonitorSettings::from_settings(user_settings)?,
         })
     }
 }
@@ -762,6 +765,7 @@ impl LocalWcSettings {
 #[derive(Clone, Debug)]
 struct TreeStateConfig {
     conflict_marker_style: ConflictMarkerStyle,
+    fsmonitor_settings: FsmonitorSettings,
     symlink_support: bool,
     target_eol_strategy: TargetEolStrategy,
 }
@@ -769,8 +773,9 @@ struct TreeStateConfig {
 impl TreeStateConfig {
     fn from_wc_settings(wc_settings: &LocalWcSettings) -> Self {
         Self {
-            conflict_marker_style: wc_settings.conflict_marker_style,
             symlink_support: check_symlink_support().unwrap_or(false),
+            conflict_marker_style: wc_settings.conflict_marker_style,
+            fsmonitor_settings: wc_settings.fsmonitor_settings.clone(),
             target_eol_strategy: TargetEolStrategy::new(wc_settings.eol_conversion_mode),
         }
     }
@@ -1031,7 +1036,6 @@ impl TreeState {
     ) -> Result<(bool, SnapshotStats), SnapshotError> {
         let &SnapshotOptions {
             ref base_ignores,
-            ref fsmonitor_settings,
             progress,
             start_tracking_matcher,
             max_new_file_size,
@@ -1039,12 +1043,12 @@ impl TreeState {
 
         let sparse_matcher = self.sparse_matcher();
 
-        let fsmonitor_clock_needs_save = *fsmonitor_settings != FsmonitorSettings::None;
+        let fsmonitor_clock_needs_save = self.config.fsmonitor_settings != FsmonitorSettings::None;
         let mut is_dirty = fsmonitor_clock_needs_save;
         let FsmonitorMatcher {
             matcher: fsmonitor_matcher,
             watchman_clock,
-        } = self.make_fsmonitor_matcher(fsmonitor_settings)?;
+        } = self.make_fsmonitor_matcher(&self.config.fsmonitor_settings)?;
         let fsmonitor_matcher = match fsmonitor_matcher.as_ref() {
             None => &EverythingMatcher,
             Some(fsmonitor_matcher) => fsmonitor_matcher.as_ref(),
@@ -2536,6 +2540,15 @@ impl LockedLocalWorkingCopy {
             .reset_watchman();
         self.tree_state_dirty = true;
         Ok(())
+    }
+
+    /// Update the local working copy's settings (and propagate to the tree
+    /// state config).
+    ///
+    /// This should only be used in tests.
+    pub fn update_settings_for_test(&mut self, wc_settings: LocalWcSettings) {
+        self.wc.tree_state_mut().unwrap().config = TreeStateConfig::from_wc_settings(&wc_settings);
+        self.wc.wc_settings = wc_settings;
     }
 }
 
