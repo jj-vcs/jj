@@ -49,3 +49,4 @@ name = ""
 
 [working-copy]
 eol-conversion = "none"
+exec-bit-change = "auto"
