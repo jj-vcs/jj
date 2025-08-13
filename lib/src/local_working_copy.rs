@@ -2409,13 +2409,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         &mut self,
         options: &SnapshotOptions,
     ) -> Result<(MergedTreeId, SnapshotStats), SnapshotError> {
-        let tree_state = self
-            .wc
-            .tree_state_mut()
-            .map_err(|err| SnapshotError::Other {
-                message: "Failed to read the working copy state".to_string(),
-                err: err.into(),
-            })?;
+        let tree_state = self.wc.tree_state_mut()?;
         let (is_dirty, stats) = tree_state.snapshot(options)?;
         self.tree_state_dirty |= is_dirty;
         Ok((tree_state.current_tree_id().clone(), stats))
@@ -2429,13 +2423,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         // TODO: Write a "pending_checkout" file with the new TreeId so we can
         // continue an interrupted update if we find such a file.
         let new_tree = commit.tree()?;
-        let tree_state = self
-            .wc
-            .tree_state_mut()
-            .map_err(|err| CheckoutError::Other {
-                message: "Failed to load the working copy state".to_string(),
-                err: err.into(),
-            })?;
+        let tree_state = self.wc.tree_state_mut()?;
         if tree_state.tree_id != *commit.tree_id() {
             let stats = tree_state.check_out(&new_tree, options)?;
             self.tree_state_dirty = true;
@@ -2451,28 +2439,14 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
 
     fn reset(&mut self, commit: &Commit) -> Result<(), ResetError> {
         let new_tree = commit.tree()?;
-        self.wc
-            .tree_state_mut()
-            .map_err(|err| ResetError::Other {
-                message: "Failed to read the working copy state".to_string(),
-                err: err.into(),
-            })?
-            .reset(&new_tree)
-            .block_on()?;
+        self.wc.tree_state_mut()?.reset(&new_tree).block_on()?;
         self.tree_state_dirty = true;
         Ok(())
     }
 
     fn recover(&mut self, commit: &Commit) -> Result<(), ResetError> {
         let new_tree = commit.tree()?;
-        self.wc
-            .tree_state_mut()
-            .map_err(|err| ResetError::Other {
-                message: "Failed to read the working copy state".to_string(),
-                err: err.into(),
-            })?
-            .recover(&new_tree)
-            .block_on()?;
+        self.wc.tree_state_mut()?.recover(&new_tree).block_on()?;
         self.tree_state_dirty = true;
         Ok(())
     }
@@ -2490,11 +2464,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         // continue an interrupted update if we find such a file.
         let stats = self
             .wc
-            .tree_state_mut()
-            .map_err(|err| CheckoutError::Other {
-                message: "Failed to load the working copy state".to_string(),
-                err: err.into(),
-            })?
+            .tree_state_mut()?
             .set_sparse_patterns(new_sparse_patterns, options)?;
         self.tree_state_dirty = true;
         Ok(stats)
@@ -2529,13 +2499,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
 
 impl LockedLocalWorkingCopy {
     pub fn reset_watchman(&mut self) -> Result<(), SnapshotError> {
-        self.wc
-            .tree_state_mut()
-            .map_err(|err| SnapshotError::Other {
-                message: "Failed to read the working copy state".to_string(),
-                err: err.into(),
-            })?
-            .reset_watchman();
+        self.wc.tree_state_mut()?.reset_watchman();
         self.tree_state_dirty = true;
         Ok(())
     }
