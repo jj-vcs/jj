@@ -2555,16 +2555,19 @@ mod tests {
         RepoPathComponent::new(value).unwrap()
     }
 
-    #[test]
-    fn test_file_states_merge() {
-        let new_state = |size| FileState {
+    fn new_state(size: u64) -> FileState {
+        FileState {
             file_type: FileType::Normal {
                 executable: FileExecutableFlag::from_bool_lossy(false),
             },
             mtime: MillisSinceEpoch(0),
             size,
             materialized_conflict_data: None,
-        };
+        }
+    }
+
+    #[test]
+    fn test_file_states_merge() {
         let new_static_entry = |path: &'static str, size| (repo_path(path), new_state(size));
         let new_owned_entry = |path: &str, size| (repo_path(path).to_owned(), new_state(size));
         let new_proto_entry = |path: &str, size| {
@@ -2606,14 +2609,6 @@ mod tests {
 
     #[test]
     fn test_file_states_lookup() {
-        let new_state = |size| FileState {
-            file_type: FileType::Normal {
-                executable: FileExecutableFlag::from_bool_lossy(false),
-            },
-            mtime: MillisSinceEpoch(0),
-            size,
-            materialized_conflict_data: None,
-        };
         let new_proto_entry = |path: &str, size| {
             file_state_entry_to_proto(repo_path(path).to_owned(), &new_state(size))
         };
@@ -2671,14 +2666,6 @@ mod tests {
 
     #[test]
     fn test_file_states_lookup_at() {
-        let new_state = |size| FileState {
-            file_type: FileType::Normal {
-                executable: FileExecutableFlag::from_bool_lossy(false),
-            },
-            mtime: MillisSinceEpoch(0),
-            size,
-            materialized_conflict_data: None,
-        };
         let new_proto_entry = |path: &str, size| {
             file_state_entry_to_proto(repo_path(path).to_owned(), &new_state(size))
         };
