@@ -153,7 +153,7 @@ impl<'repo> CommitRewriter<'repo> {
     }
 
     /// Returns the `MutableRepo`.
-    pub fn mut_repo(&mut self) -> &mut MutableRepo {
+    pub fn repo_mut(&mut self) -> &mut MutableRepo {
         self.mut_repo
     }
 
