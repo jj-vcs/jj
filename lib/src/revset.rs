@@ -291,6 +291,10 @@ pub enum RevsetExpression<St: ExpressionState> {
     Roots(Arc<Self>),
     ForkPoint(Arc<Self>),
     Bisect(Arc<Self>),
+    HasSize {
+        candidates: Arc<Self>,
+        count: usize,
+    },
     Latest {
         candidates: Arc<Self>,
         count: usize,
@@ -523,6 +527,14 @@ impl<St: ExpressionState> RevsetExpression<St> {
         Arc::new(Self::Bisect(self.clone()))
     }
 
+    /// Commits in `self`, the number of which must be exactly equal to `count`.
+    pub fn has_size(self: &Arc<Self>, count: usize) -> Arc<Self> {
+        Arc::new(Self::HasSize {
+            candidates: self.clone(),
+            count,
+        })
+    }
+
     /// Filter all commits by `predicate` in `self`.
     pub fn filtered(self: &Arc<Self>, predicate: RevsetFilterPredicate) -> Arc<Self> {
         self.intersection(&Self::filter(predicate))
@@ -717,6 +729,10 @@ pub enum ResolvedExpression {
     Roots(Box<Self>),
     ForkPoint(Box<Self>),
     Bisect(Box<Self>),
+    HasSize {
+        candidates: Box<Self>,
+        count: usize,
+    },
     Latest {
         candidates: Box<Self>,
         count: usize,
@@ -925,6 +941,12 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         let [expression_arg] = function.expect_exact_arguments()?;
         let expression = lower_expression(diagnostics, expression_arg, context)?;
         Ok(RevsetExpression::bisect(&expression))
+    });
+    map.insert("exactly", |diagnostics, function, context| {
+        let ([candidates_arg, count_arg], []) = function.expect_arguments()?;
+        let candidates = lower_expression(diagnostics, candidates_arg, context)?;
+        let count = expect_literal("integer", count_arg)?;
+        Ok(candidates.has_size(count))
     });
     map.insert("merges", |_diagnostics, function, _context| {
         function.expect_no_arguments()?;
@@ -1445,6 +1467,12 @@ fn try_transform_expression<St: ExpressionState, E>(
             RevsetExpression::Bisect(expression) => {
                 transform_rec(expression, pre, post)?.map(RevsetExpression::Bisect)
             }
+            RevsetExpression::HasSize { candidates, count } => {
+                transform_rec(candidates, pre, post)?.map(|candidates| RevsetExpression::HasSize {
+                    candidates,
+                    count: *count,
+                })
+            }
             RevsetExpression::Latest { candidates, count } => transform_rec(candidates, pre, post)?
                 .map(|candidates| RevsetExpression::Latest {
                     candidates,
@@ -1685,6 +1713,14 @@ where
         RevsetExpression::Bisect(expression) => {
             let expression = folder.fold_expression(expression)?;
             RevsetExpression::Bisect(expression).into()
+        }
+        RevsetExpression::HasSize { candidates, count } => {
+            let candidates = folder.fold_expression(candidates)?;
+            RevsetExpression::HasSize {
+                candidates,
+                count: *count,
+            }
+            .into()
         }
         RevsetExpression::Latest { candidates, count } => {
             let candidates = folder.fold_expression(candidates)?;
@@ -3006,6 +3042,10 @@ impl VisibilityResolutionContext<'_> {
                 candidates: self.resolve(candidates).into(),
                 count: *count,
             },
+            RevsetExpression::HasSize { candidates, count } => ResolvedExpression::HasSize {
+                candidates: self.resolve(candidates).into(),
+                count: *count,
+            },
             RevsetExpression::Filter(_) | RevsetExpression::AsFilter(_) => {
                 // Top-level filter without intersection: e.g. "~author(_)" is represented as
                 // `AsFilter(NotIn(Filter(Author(_))))`.
@@ -3127,6 +3167,7 @@ impl VisibilityResolutionContext<'_> {
             | RevsetExpression::Roots(_)
             | RevsetExpression::ForkPoint(_)
             | RevsetExpression::Bisect(_)
+            | RevsetExpression::HasSize { .. }
             | RevsetExpression::Latest { .. } => {
                 ResolvedPredicateExpression::Set(self.resolve(expression).into())
             }

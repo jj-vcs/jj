@@ -1047,6 +1047,34 @@ impl EvaluationContext<'_> {
                 let candidate_set = self.evaluate(candidates)?;
                 Ok(Box::new(self.take_latest_revset(&*candidate_set, *count)?))
             }
+            ResolvedExpression::HasSize { candidates, count } => {
+                let set = self.evaluate(candidates)?;
+                let positions: Vec<_> = set
+                    .positions()
+                    .attach(index)
+                    .take(count.saturating_add(1))
+                    .try_collect()?;
+                if positions.len() != *count {
+                    // https://github.com/jj-vcs/jj/pull/7252#pullrequestreview-3236259998
+                    // in the default engine we have to evaluate the entire
+                    // revset (which may be very large) to get an exact count;
+                    // we would need to remove .take() above. instead just give
+                    // a vaguely approximate error message
+                    let determiner = if positions.len() > *count {
+                        "more"
+                    } else {
+                        "less"
+                    };
+                    return Err(RevsetEvaluationError::Other(
+                        format!(
+                            "The revset was expected to have {count} elements, but {determiner} \
+                             were provided",
+                        )
+                        .into(),
+                    ));
+                }
+                Ok(Box::new(EagerRevset { positions }))
+            }
             ResolvedExpression::Coalesce(expression1, expression2) => {
                 let set1 = self.evaluate(expression1)?;
                 if set1.positions().attach(index).next().is_some() {

@@ -45,9 +45,11 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathUiConverter;
+use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::Revset;
 use jj_lib::revset::RevsetAliasesMap;
 use jj_lib::revset::RevsetDiagnostics;
+use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetExtensions;
 use jj_lib::revset::RevsetFilterPredicate;
@@ -1006,10 +1008,10 @@ fn resolve_commit_ids(repo: &dyn Repo, revset_str: &str) -> Vec<CommitId> {
     try_resolve_commit_ids(repo, revset_str).unwrap()
 }
 
-fn try_resolve_commit_ids(
+fn try_resolve_expression(
     repo: &dyn Repo,
     revset_str: &str,
-) -> Result<Vec<CommitId>, RevsetResolutionError> {
+) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
     let settings = testutils::user_settings();
     let context = RevsetParseContext {
         aliases_map: &RevsetAliasesMap::default(),
@@ -1021,13 +1023,28 @@ fn try_resolve_commit_ids(
     };
     let expression = parse(&mut RevsetDiagnostics::new(), revset_str, &context).unwrap();
     let symbol_resolver = default_symbol_resolver(repo);
-    let expression = expression.resolve_user_expression(repo, &symbol_resolver)?;
-    Ok(expression
+    expression.resolve_user_expression(repo, &symbol_resolver)
+}
+
+fn try_resolve_commit_ids(
+    repo: &dyn Repo,
+    revset_str: &str,
+) -> Result<Vec<CommitId>, RevsetResolutionError> {
+    Ok(try_resolve_expression(repo, revset_str)?
         .evaluate(repo)
         .unwrap()
         .iter()
         .map(Result::unwrap)
         .collect())
+}
+
+fn try_evaluate_expression<'index>(
+    repo: &'index dyn Repo,
+    revset_str: &str,
+) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError> {
+    try_resolve_expression(repo, revset_str)
+        .unwrap()
+        .evaluate(repo)
 }
 
 fn resolve_commit_ids_in_workspace(
@@ -3033,6 +3050,33 @@ fn test_evaluate_expression_fork_point_merge_with_ancestor() {
             &format!("fork_point({} | {})", commit4.id(), commit5.id())
         ),
         vec![commit2.id().clone()]
+    );
+}
+
+#[test]
+fn test_evaluate_expression_exactly() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+
+    assert!(try_evaluate_expression(mut_repo, "exactly(none(), 0)").is_ok());
+    assert!(try_evaluate_expression(mut_repo, "exactly(none(), 1)").is_err());
+    assert!(try_evaluate_expression(mut_repo, &format!("exactly({}, 1)", commit1.id())).is_ok());
+    assert!(
+        try_evaluate_expression(
+            mut_repo,
+            &format!("exactly({}|{}, 2)", commit1.id(), commit2.id())
+        )
+        .is_ok()
+    );
+    // make sure that 'exactly(x, n)' returns x when the size check succeeds
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("exactly({}, 1)", commit1.id())),
+        vec![commit1.id().clone()]
     );
 }
 
