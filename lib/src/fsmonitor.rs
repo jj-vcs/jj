@@ -109,9 +109,9 @@ pub mod watchman {
     #[derive(Clone, Debug)]
     pub struct Clock(InnerClock);
 
-    impl From<crate::protos::working_copy::WatchmanClock> for Clock {
-        fn from(clock: crate::protos::working_copy::WatchmanClock) -> Self {
-            use crate::protos::working_copy::watchman_clock::WatchmanClock;
+    impl From<crate::protos::local_working_copy::WatchmanClock> for Clock {
+        fn from(clock: crate::protos::local_working_copy::WatchmanClock) -> Self {
+            use crate::protos::local_working_copy::watchman_clock::WatchmanClock;
             let watchman_clock = clock.watchman_clock.unwrap();
             let clock = match watchman_clock {
                 WatchmanClock::StringClock(string_clock) => {
@@ -125,9 +125,9 @@ pub mod watchman {
         }
     }
 
-    impl From<Clock> for crate::protos::working_copy::WatchmanClock {
+    impl From<Clock> for crate::protos::local_working_copy::WatchmanClock {
         fn from(clock: Clock) -> Self {
-            use crate::protos::working_copy::watchman_clock;
+            use crate::protos::local_working_copy::watchman_clock;
             let Clock(clock) = clock;
             let watchman_clock = match clock {
                 InnerClock::Spec(ClockSpec::StringClock(string_clock)) => {

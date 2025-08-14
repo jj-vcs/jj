@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package working_copy;
+package local_working_copy;
 
 enum FileType {
   Normal = 0;

@@ -5,12 +5,12 @@ pub mod default_index {
 pub mod git_store {
     include!("git_store.rs");
 }
+pub mod local_working_copy {
+    include!("local_working_copy.rs");
+}
 pub mod op_store {
     include!("op_store.rs");
 }
 pub mod simple_store {
     include!("simple_store.rs");
-}
-pub mod working_copy {
-    include!("working_copy.rs");
 }

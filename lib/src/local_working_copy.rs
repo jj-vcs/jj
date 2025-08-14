@@ -239,7 +239,7 @@ impl FileState {
 /// Owned map of path to file states, backed by proto data.
 #[derive(Clone, Debug)]
 struct FileStatesMap {
-    data: Vec<crate::protos::working_copy::FileStateEntry>,
+    data: Vec<crate::protos::local_working_copy::FileStateEntry>,
 }
 
 impl FileStatesMap {
@@ -248,7 +248,7 @@ impl FileStatesMap {
     }
 
     fn from_proto(
-        mut data: Vec<crate::protos::working_copy::FileStateEntry>,
+        mut data: Vec<crate::protos::local_working_copy::FileStateEntry>,
         is_sorted: bool,
     ) -> Self {
         if !is_sorted {
@@ -312,11 +312,11 @@ impl FileStatesMap {
 /// Read-only map of path to file states, possibly filtered by path prefix.
 #[derive(Clone, Copy, Debug)]
 pub struct FileStates<'a> {
-    data: &'a [crate::protos::working_copy::FileStateEntry],
+    data: &'a [crate::protos::local_working_copy::FileStateEntry],
 }
 
 impl<'a> FileStates<'a> {
-    fn from_sorted(data: &'a [crate::protos::working_copy::FileStateEntry]) -> Self {
+    fn from_sorted(data: &'a [crate::protos::local_working_copy::FileStateEntry]) -> Self {
         debug_assert!(is_file_state_entries_proto_unique_and_sorted(data));
         Self { data }
     }
@@ -428,8 +428,8 @@ impl<'a> FileStates<'a> {
 }
 
 type FileStatesIter<'a> = iter::Map<
-    slice::Iter<'a, crate::protos::working_copy::FileStateEntry>,
-    fn(&crate::protos::working_copy::FileStateEntry) -> (&RepoPath, FileState),
+    slice::Iter<'a, crate::protos::local_working_copy::FileStateEntry>,
+    fn(&crate::protos::local_working_copy::FileStateEntry) -> (&RepoPath, FileState),
 >;
 
 impl<'a> IntoIterator for FileStates<'a> {
@@ -473,26 +473,26 @@ pub struct TreeState {
     /// The most recent clock value returned by Watchman. Will only be set if
     /// the repo is configured to use the Watchman filesystem monitor and
     /// Watchman has been queried at least once.
-    watchman_clock: Option<crate::protos::working_copy::WatchmanClock>,
+    watchman_clock: Option<crate::protos::local_working_copy::WatchmanClock>,
 
     target_eol_strategy: TargetEolStrategy,
 }
 
-fn file_state_from_proto(proto: &crate::protos::working_copy::FileState) -> FileState {
+fn file_state_from_proto(proto: &crate::protos::local_working_copy::FileState) -> FileState {
     let file_type = match proto.file_type() {
-        crate::protos::working_copy::FileType::Normal => FileType::Normal {
+        crate::protos::local_working_copy::FileType::Normal => FileType::Normal {
             executable: FileExecutableFlag::from_bool_lossy(false),
         },
         // On Windows, FileType::Executable can exist in files written by older
         // versions of jj
-        crate::protos::working_copy::FileType::Executable => FileType::Normal {
+        crate::protos::local_working_copy::FileType::Executable => FileType::Normal {
             executable: FileExecutableFlag::from_bool_lossy(true),
         },
-        crate::protos::working_copy::FileType::Symlink => FileType::Symlink,
-        crate::protos::working_copy::FileType::Conflict => FileType::Normal {
+        crate::protos::local_working_copy::FileType::Symlink => FileType::Symlink,
+        crate::protos::local_working_copy::FileType::Conflict => FileType::Normal {
             executable: FileExecutableFlag::from_bool_lossy(false),
         },
-        crate::protos::working_copy::FileType::GitSubmodule => FileType::GitSubmodule,
+        crate::protos::local_working_copy::FileType::GitSubmodule => FileType::GitSubmodule,
     };
     FileState {
         file_type,
@@ -506,24 +506,24 @@ fn file_state_from_proto(proto: &crate::protos::working_copy::FileState) -> File
     }
 }
 
-fn file_state_to_proto(file_state: &FileState) -> crate::protos::working_copy::FileState {
-    let mut proto = crate::protos::working_copy::FileState::default();
+fn file_state_to_proto(file_state: &FileState) -> crate::protos::local_working_copy::FileState {
+    let mut proto = crate::protos::local_working_copy::FileState::default();
     let file_type = match &file_state.file_type {
         FileType::Normal { executable } => {
             if executable.unwrap_or_else(Default::default) {
-                crate::protos::working_copy::FileType::Executable
+                crate::protos::local_working_copy::FileType::Executable
             } else {
-                crate::protos::working_copy::FileType::Normal
+                crate::protos::local_working_copy::FileType::Normal
             }
         }
-        FileType::Symlink => crate::protos::working_copy::FileType::Symlink,
-        FileType::GitSubmodule => crate::protos::working_copy::FileType::GitSubmodule,
+        FileType::Symlink => crate::protos::local_working_copy::FileType::Symlink,
+        FileType::GitSubmodule => crate::protos::local_working_copy::FileType::GitSubmodule,
     };
     proto.file_type = file_type as i32;
     proto.mtime_millis_since_epoch = file_state.mtime.0;
     proto.size = file_state.size;
     proto.materialized_conflict_data = file_state.materialized_conflict_data.map(|data| {
-        crate::protos::working_copy::MaterializedConflictData {
+        crate::protos::local_working_copy::MaterializedConflictData {
             conflict_marker_len: data.conflict_marker_len,
         }
     });
@@ -531,7 +531,7 @@ fn file_state_to_proto(file_state: &FileState) -> crate::protos::working_copy::F
 }
 
 fn file_state_entry_from_proto(
-    proto: &crate::protos::working_copy::FileStateEntry,
+    proto: &crate::protos::local_working_copy::FileStateEntry,
 ) -> (&RepoPath, FileState) {
     let path = RepoPath::from_internal_string(&proto.path).unwrap();
     (path, file_state_from_proto(proto.state.as_ref().unwrap()))
@@ -540,15 +540,15 @@ fn file_state_entry_from_proto(
 fn file_state_entry_to_proto(
     path: RepoPathBuf,
     state: &FileState,
-) -> crate::protos::working_copy::FileStateEntry {
-    crate::protos::working_copy::FileStateEntry {
+) -> crate::protos::local_working_copy::FileStateEntry {
+    crate::protos::local_working_copy::FileStateEntry {
         path: path.into_internal_string(),
         state: Some(file_state_to_proto(state)),
     }
 }
 
 fn is_file_state_entries_proto_unique_and_sorted(
-    data: &[crate::protos::working_copy::FileStateEntry],
+    data: &[crate::protos::local_working_copy::FileStateEntry],
 ) -> bool {
     data.iter()
         .map(|entry| RepoPath::from_internal_string(&entry.path).unwrap())
@@ -556,7 +556,7 @@ fn is_file_state_entries_proto_unique_and_sorted(
 }
 
 fn sparse_patterns_from_proto(
-    proto: Option<&crate::protos::working_copy::SparsePatterns>,
+    proto: Option<&crate::protos::local_working_copy::SparsePatterns>,
 ) -> Vec<RepoPathBuf> {
     let mut sparse_patterns = vec![];
     if let Some(proto_sparse_patterns) = proto {
@@ -771,7 +771,7 @@ fn file_state(metadata: &Metadata) -> Option<FileState> {
 
 struct FsmonitorMatcher {
     matcher: Option<Box<dyn Matcher>>,
-    watchman_clock: Option<crate::protos::working_copy::WatchmanClock>,
+    watchman_clock: Option<crate::protos::local_working_copy::WatchmanClock>,
 }
 
 #[derive(Debug, Error)]
@@ -887,7 +887,7 @@ impl TreeState {
                 path: tree_state_path.to_owned(),
                 source: err,
             })?;
-        let proto = crate::protos::working_copy::TreeState::decode(&*buf).map_err(|err| {
+        let proto = crate::protos::local_working_copy::TreeState::decode(&*buf).map_err(|err| {
             TreeStateError::DecodeTreeState {
                 path: tree_state_path.to_owned(),
                 source: err,
@@ -912,7 +912,7 @@ impl TreeState {
 
     #[expect(clippy::assigning_clones)]
     fn save(&mut self) -> Result<(), TreeStateError> {
-        let mut proto: crate::protos::working_copy::TreeState = Default::default();
+        let mut proto: crate::protos::local_working_copy::TreeState = Default::default();
         match &self.tree_id {
             MergedTreeId::Legacy(tree_id) => {
                 proto.legacy_tree_id = tree_id.to_bytes();
@@ -925,7 +925,7 @@ impl TreeState {
         proto.file_states = self.file_states.data.clone();
         // `FileStatesMap` is guaranteed to be sorted.
         proto.is_file_states_sorted = true;
-        let mut sparse_patterns = crate::protos::working_copy::SparsePatterns::default();
+        let mut sparse_patterns = crate::protos::local_working_copy::SparsePatterns::default();
         for path in &self.sparse_patterns {
             sparse_patterns
                 .prefixes
@@ -2186,7 +2186,7 @@ impl LocalWorkingCopy {
         workspace_name: WorkspaceNameBuf,
         user_settings: &UserSettings,
     ) -> Result<Self, WorkingCopyStateError> {
-        let proto = crate::protos::working_copy::Checkout {
+        let proto = crate::protos::local_working_copy::Checkout {
             operation_id: operation_id.to_bytes(),
             workspace_name: workspace_name.into(),
         };
@@ -2246,7 +2246,7 @@ impl LocalWorkingCopy {
         &self.state_path
     }
 
-    fn write_proto(&self, proto: crate::protos::working_copy::Checkout) {
+    fn write_proto(&self, proto: crate::protos::local_working_copy::Checkout) {
         let mut temp_file = NamedTempFile::new_in(&self.state_path).unwrap();
         temp_file
             .as_file_mut()
@@ -2260,7 +2260,7 @@ impl LocalWorkingCopy {
     fn checkout_state(&self) -> &CheckoutState {
         self.checkout_state.get_or_init(|| {
             let buf = fs::read(self.state_path.join("checkout")).unwrap();
-            let proto = crate::protos::working_copy::Checkout::decode(&*buf).unwrap();
+            let proto = crate::protos::local_working_copy::Checkout::decode(&*buf).unwrap();
             CheckoutState {
                 operation_id: OperationId::new(proto.operation_id),
                 workspace_name: if proto.workspace_name.is_empty() {
@@ -2306,7 +2306,7 @@ impl LocalWorkingCopy {
 
     #[instrument(skip_all)]
     fn save(&mut self) {
-        self.write_proto(crate::protos::working_copy::Checkout {
+        self.write_proto(crate::protos::local_working_copy::Checkout {
             operation_id: self.operation_id().to_bytes(),
             workspace_name: self.workspace_name().into(),
         });
