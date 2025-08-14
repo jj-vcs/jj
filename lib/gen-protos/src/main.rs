@@ -20,7 +20,7 @@ fn main() -> Result<()> {
         "default_index.proto",
         "git_store.proto",
         "local_working_copy.proto",
-        "op_store.proto",
+        "simple_op_store.proto",
         "simple_store.proto",
     ];
 

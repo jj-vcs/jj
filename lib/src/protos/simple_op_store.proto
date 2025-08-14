@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package op_store;
+package simple_op_store;
 
 message RefConflictLegacy {
   repeated bytes removes = 1 [deprecated = true];

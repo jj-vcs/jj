@@ -157,7 +157,7 @@ impl OpStore for SimpleOpStore {
             .context(&path)
             .map_err(|err| io_to_read_error(err, id))?;
 
-        let proto = crate::protos::op_store::View::decode(&*buf)
+        let proto = crate::protos::simple_op_store::View::decode(&*buf)
             .map_err(|err| to_read_error(err.into(), id))?;
         Ok(view_from_proto(proto))
     }
@@ -194,7 +194,7 @@ impl OpStore for SimpleOpStore {
             .context(&path)
             .map_err(|err| io_to_read_error(err, id))?;
 
-        let proto = crate::protos::op_store::Operation::decode(&*buf)
+        let proto = crate::protos::simple_op_store::Operation::decode(&*buf)
             .map_err(|err| to_read_error(err.into(), id))?;
         let mut operation =
             operation_from_proto(proto).map_err(|err| to_read_error(err.into(), id))?;
@@ -416,14 +416,14 @@ fn view_id_from_proto(bytes: Vec<u8>) -> Result<ViewId, PostDecodeError> {
     }
 }
 
-fn timestamp_to_proto(timestamp: &Timestamp) -> crate::protos::op_store::Timestamp {
-    crate::protos::op_store::Timestamp {
+fn timestamp_to_proto(timestamp: &Timestamp) -> crate::protos::simple_op_store::Timestamp {
+    crate::protos::simple_op_store::Timestamp {
         millis_since_epoch: timestamp.timestamp.0,
         tz_offset: timestamp.tz_offset,
     }
 }
 
-fn timestamp_from_proto(proto: crate::protos::op_store::Timestamp) -> Timestamp {
+fn timestamp_from_proto(proto: crate::protos::simple_op_store::Timestamp) -> Timestamp {
     Timestamp {
         timestamp: MillisSinceEpoch(proto.millis_since_epoch),
         tz_offset: proto.tz_offset,
@@ -432,8 +432,8 @@ fn timestamp_from_proto(proto: crate::protos::op_store::Timestamp) -> Timestamp 
 
 fn operation_metadata_to_proto(
     metadata: &OperationMetadata,
-) -> crate::protos::op_store::OperationMetadata {
-    crate::protos::op_store::OperationMetadata {
+) -> crate::protos::simple_op_store::OperationMetadata {
+    crate::protos::simple_op_store::OperationMetadata {
         start_time: Some(timestamp_to_proto(&metadata.time.start)),
         end_time: Some(timestamp_to_proto(&metadata.time.end)),
         description: metadata.description.clone(),
@@ -445,7 +445,7 @@ fn operation_metadata_to_proto(
 }
 
 fn operation_metadata_from_proto(
-    proto: crate::protos::op_store::OperationMetadata,
+    proto: crate::protos::simple_op_store::OperationMetadata,
 ) -> OperationMetadata {
     let time = TimestampRange {
         start: timestamp_from_proto(proto.start_time.unwrap_or_default()),
@@ -463,10 +463,10 @@ fn operation_metadata_from_proto(
 
 fn commit_predecessors_map_to_proto(
     map: &BTreeMap<CommitId, Vec<CommitId>>,
-) -> Vec<crate::protos::op_store::CommitPredecessors> {
+) -> Vec<crate::protos::simple_op_store::CommitPredecessors> {
     map.iter()
         .map(
-            |(commit_id, predecessor_ids)| crate::protos::op_store::CommitPredecessors {
+            |(commit_id, predecessor_ids)| crate::protos::simple_op_store::CommitPredecessors {
                 commit_id: commit_id.to_bytes(),
                 predecessor_ids: predecessor_ids.iter().map(|id| id.to_bytes()).collect(),
             },
@@ -475,7 +475,7 @@ fn commit_predecessors_map_to_proto(
 }
 
 fn commit_predecessors_map_from_proto(
-    proto: Vec<crate::protos::op_store::CommitPredecessors>,
+    proto: Vec<crate::protos::simple_op_store::CommitPredecessors>,
 ) -> BTreeMap<CommitId, Vec<CommitId>> {
     proto
         .into_iter()
@@ -491,12 +491,12 @@ fn commit_predecessors_map_from_proto(
         .collect()
 }
 
-fn operation_to_proto(operation: &Operation) -> crate::protos::op_store::Operation {
+fn operation_to_proto(operation: &Operation) -> crate::protos::simple_op_store::Operation {
     let (commit_predecessors, stores_commit_predecessors) = match &operation.commit_predecessors {
         Some(map) => (commit_predecessors_map_to_proto(map), true),
         None => (vec![], false),
     };
-    let mut proto = crate::protos::op_store::Operation {
+    let mut proto = crate::protos::simple_op_store::Operation {
         view_id: operation.view_id.as_bytes().to_vec(),
         parents: Default::default(),
         metadata: Some(operation_metadata_to_proto(&operation.metadata)),
@@ -510,7 +510,7 @@ fn operation_to_proto(operation: &Operation) -> crate::protos::op_store::Operati
 }
 
 fn operation_from_proto(
-    proto: crate::protos::op_store::Operation,
+    proto: crate::protos::simple_op_store::Operation,
 ) -> Result<Operation, PostDecodeError> {
     let parents = proto
         .parents
@@ -530,8 +530,8 @@ fn operation_from_proto(
     })
 }
 
-fn view_to_proto(view: &View) -> crate::protos::op_store::View {
-    let mut proto = crate::protos::op_store::View {
+fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
+    let mut proto = crate::protos::simple_op_store::View {
         ..Default::default()
     };
     for (name, commit_id) in &view.wc_commit_ids {
@@ -546,14 +546,14 @@ fn view_to_proto(view: &View) -> crate::protos::op_store::View {
     proto.bookmarks = bookmark_views_to_proto_legacy(&view.local_bookmarks, &view.remote_views);
 
     for (name, target) in &view.tags {
-        proto.tags.push(crate::protos::op_store::Tag {
+        proto.tags.push(crate::protos::simple_op_store::Tag {
             name: name.into(),
             target: ref_target_to_proto(target),
         });
     }
 
     for (git_ref_name, target) in &view.git_refs {
-        proto.git_refs.push(crate::protos::op_store::GitRef {
+        proto.git_refs.push(crate::protos::simple_op_store::GitRef {
             name: git_ref_name.into(),
             target: ref_target_to_proto(target),
             ..Default::default()
@@ -565,7 +565,7 @@ fn view_to_proto(view: &View) -> crate::protos::op_store::View {
     proto
 }
 
-fn view_from_proto(proto: crate::protos::op_store::View) -> View {
+fn view_from_proto(proto: crate::protos::simple_op_store::View) -> View {
     // TODO: validate commit id length?
     let mut view = View::empty();
     // For compatibility with old repos before we had support for multiple working
@@ -619,7 +619,7 @@ fn view_from_proto(proto: crate::protos::op_store::View) -> View {
 fn bookmark_views_to_proto_legacy(
     local_bookmarks: &BTreeMap<RefNameBuf, RefTarget>,
     remote_views: &BTreeMap<RemoteNameBuf, RemoteView>,
-) -> Vec<crate::protos::op_store::Bookmark> {
+) -> Vec<crate::protos::simple_op_store::Bookmark> {
     op_store::merge_join_bookmark_views(local_bookmarks, remote_views)
         .map(|(name, bookmark_target)| {
             let local_target = ref_target_to_proto(bookmark_target.local_target);
@@ -627,14 +627,14 @@ fn bookmark_views_to_proto_legacy(
                 .remote_refs
                 .iter()
                 .map(
-                    |&(remote_name, remote_ref)| crate::protos::op_store::RemoteBookmark {
+                    |&(remote_name, remote_ref)| crate::protos::simple_op_store::RemoteBookmark {
                         remote_name: remote_name.into(),
                         target: ref_target_to_proto(&remote_ref.target),
                         state: remote_ref_state_to_proto(remote_ref.state),
                     },
                 )
                 .collect();
-            crate::protos::op_store::Bookmark {
+            crate::protos::simple_op_store::Bookmark {
                 name: name.into(),
                 local_target,
                 remote_bookmarks,
@@ -644,7 +644,7 @@ fn bookmark_views_to_proto_legacy(
 }
 
 fn bookmark_views_from_proto_legacy(
-    bookmarks_legacy: Vec<crate::protos::op_store::Bookmark>,
+    bookmarks_legacy: Vec<crate::protos::simple_op_store::Bookmark>,
 ) -> (
     BTreeMap<RefNameBuf, RefTarget>,
     BTreeMap<RemoteNameBuf, RemoteView>,
@@ -693,17 +693,18 @@ fn bookmark_views_from_proto_legacy(
     (local_bookmarks, remote_views)
 }
 
-fn ref_target_to_proto(value: &RefTarget) -> Option<crate::protos::op_store::RefTarget> {
-    let term_to_proto = |term: &Option<CommitId>| crate::protos::op_store::ref_conflict::Term {
-        value: term.as_ref().map(|id| id.to_bytes()),
-    };
+fn ref_target_to_proto(value: &RefTarget) -> Option<crate::protos::simple_op_store::RefTarget> {
+    let term_to_proto =
+        |term: &Option<CommitId>| crate::protos::simple_op_store::ref_conflict::Term {
+            value: term.as_ref().map(|id| id.to_bytes()),
+        };
     let merge = value.as_merge();
-    let conflict_proto = crate::protos::op_store::RefConflict {
+    let conflict_proto = crate::protos::simple_op_store::RefConflict {
         removes: merge.removes().map(term_to_proto).collect(),
         adds: merge.adds().map(term_to_proto).collect(),
     };
-    let proto = crate::protos::op_store::RefTarget {
-        value: Some(crate::protos::op_store::ref_target::Value::Conflict(
+    let proto = crate::protos::simple_op_store::RefTarget {
+        value: Some(crate::protos::simple_op_store::ref_target::Value::Conflict(
             conflict_proto,
         )),
     };
@@ -712,23 +713,27 @@ fn ref_target_to_proto(value: &RefTarget) -> Option<crate::protos::op_store::Ref
 
 #[expect(deprecated)]
 #[cfg(test)]
-fn ref_target_to_proto_legacy(value: &RefTarget) -> Option<crate::protos::op_store::RefTarget> {
+fn ref_target_to_proto_legacy(
+    value: &RefTarget,
+) -> Option<crate::protos::simple_op_store::RefTarget> {
     if let Some(id) = value.as_normal() {
-        let proto = crate::protos::op_store::RefTarget {
-            value: Some(crate::protos::op_store::ref_target::Value::CommitId(
+        let proto = crate::protos::simple_op_store::RefTarget {
+            value: Some(crate::protos::simple_op_store::ref_target::Value::CommitId(
                 id.to_bytes(),
             )),
         };
         Some(proto)
     } else if value.has_conflict() {
-        let ref_conflict_proto = crate::protos::op_store::RefConflictLegacy {
+        let ref_conflict_proto = crate::protos::simple_op_store::RefConflictLegacy {
             removes: value.removed_ids().map(|id| id.to_bytes()).collect(),
             adds: value.added_ids().map(|id| id.to_bytes()).collect(),
         };
-        let proto = crate::protos::op_store::RefTarget {
-            value: Some(crate::protos::op_store::ref_target::Value::ConflictLegacy(
-                ref_conflict_proto,
-            )),
+        let proto = crate::protos::simple_op_store::RefTarget {
+            value: Some(
+                crate::protos::simple_op_store::ref_target::Value::ConflictLegacy(
+                    ref_conflict_proto,
+                ),
+            ),
         };
         Some(proto)
     } else {
@@ -737,7 +742,9 @@ fn ref_target_to_proto_legacy(value: &RefTarget) -> Option<crate::protos::op_sto
     }
 }
 
-fn ref_target_from_proto(maybe_proto: Option<crate::protos::op_store::RefTarget>) -> RefTarget {
+fn ref_target_from_proto(
+    maybe_proto: Option<crate::protos::simple_op_store::RefTarget>,
+) -> RefTarget {
     // TODO: Delete legacy format handling when we decide to drop support for views
     // saved by jj <= 0.8.
     let Some(proto) = maybe_proto else {
@@ -745,20 +752,21 @@ fn ref_target_from_proto(maybe_proto: Option<crate::protos::op_store::RefTarget>
         return RefTarget::absent();
     };
     match proto.value.unwrap() {
-        crate::protos::op_store::ref_target::Value::CommitId(id) => {
+        crate::protos::simple_op_store::ref_target::Value::CommitId(id) => {
             // Legacy non-conflicting id
             RefTarget::normal(CommitId::new(id))
         }
         #[expect(deprecated)]
-        crate::protos::op_store::ref_target::Value::ConflictLegacy(conflict) => {
+        crate::protos::simple_op_store::ref_target::Value::ConflictLegacy(conflict) => {
             // Legacy conflicting ids
             let removes = conflict.removes.into_iter().map(CommitId::new);
             let adds = conflict.adds.into_iter().map(CommitId::new);
             RefTarget::from_legacy_form(removes, adds)
         }
-        crate::protos::op_store::ref_target::Value::Conflict(conflict) => {
-            let term_from_proto =
-                |term: crate::protos::op_store::ref_conflict::Term| term.value.map(CommitId::new);
+        crate::protos::simple_op_store::ref_target::Value::Conflict(conflict) => {
+            let term_from_proto = |term: crate::protos::simple_op_store::ref_conflict::Term| {
+                term.value.map(CommitId::new)
+            };
             let removes = conflict.removes.into_iter().map(term_from_proto);
             let adds = conflict.adds.into_iter().map(term_from_proto);
             RefTarget::from_merge(Merge::from_removes_adds(removes, adds))
@@ -768,8 +776,8 @@ fn ref_target_from_proto(maybe_proto: Option<crate::protos::op_store::RefTarget>
 
 fn remote_ref_state_to_proto(state: RemoteRefState) -> Option<i32> {
     let proto_state = match state {
-        RemoteRefState::New => crate::protos::op_store::RemoteRefState::New,
-        RemoteRefState::Tracked => crate::protos::op_store::RemoteRefState::Tracked,
+        RemoteRefState::New => crate::protos::simple_op_store::RemoteRefState::New,
+        RemoteRefState::Tracked => crate::protos::simple_op_store::RemoteRefState::Tracked,
     };
     Some(proto_state as i32)
 }
@@ -777,8 +785,8 @@ fn remote_ref_state_to_proto(state: RemoteRefState) -> Option<i32> {
 fn remote_ref_state_from_proto(proto_value: Option<i32>) -> Option<RemoteRefState> {
     let proto_state = proto_value?.try_into().ok()?;
     let state = match proto_state {
-        crate::protos::op_store::RemoteRefState::New => RemoteRefState::New,
-        crate::protos::op_store::RemoteRefState::Tracked => RemoteRefState::Tracked,
+        crate::protos::simple_op_store::RemoteRefState::New => RemoteRefState::New,
+        crate::protos::simple_op_store::RemoteRefState::Tracked => RemoteRefState::Tracked,
     };
     Some(state)
 }
