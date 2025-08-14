@@ -112,6 +112,7 @@ pub fn base_user_config() -> StackedConfig {
         user.email = "test.user@example.com"
         operation.username = "test-username"
         operation.hostname = "host.example.com"
+        ui.conflict-marker-style = "diff"
         debug.randomness-seed = 42
     "#;
     let mut config = StackedConfig::with_defaults();

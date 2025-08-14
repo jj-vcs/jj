@@ -36,7 +36,6 @@ use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::store::Store;
 use jj_lib::working_copy::CheckoutError;
-use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::LockedWorkingCopy;
 use jj_lib::working_copy::ResetError;
@@ -259,18 +258,14 @@ impl LockedWorkingCopy for LockedConflictsWorkingCopy {
         self.inner.snapshot(&options)
     }
 
-    fn check_out(
-        &mut self,
-        commit: &Commit,
-        options: &CheckoutOptions,
-    ) -> Result<CheckoutStats, CheckoutError> {
+    fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError> {
         let conflicts = commit
             .tree()?
             .conflicts()
             .map(|(path, _value)| format!("{}\n", path.as_internal_file_string()))
             .join("");
         std::fs::write(self.wc_path.join(".conflicts"), conflicts).unwrap();
-        self.inner.check_out(commit, options)
+        self.inner.check_out(commit)
     }
 
     fn rename_workspace(&mut self, new_name: WorkspaceNameBuf) {
@@ -292,9 +287,8 @@ impl LockedWorkingCopy for LockedConflictsWorkingCopy {
     fn set_sparse_patterns(
         &mut self,
         new_sparse_patterns: Vec<RepoPathBuf>,
-        options: &CheckoutOptions,
     ) -> Result<CheckoutStats, CheckoutError> {
-        self.inner.set_sparse_patterns(new_sparse_patterns, options)
+        self.inner.set_sparse_patterns(new_sparse_patterns)
     }
 
     fn finish(
