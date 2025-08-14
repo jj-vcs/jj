@@ -20,7 +20,6 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::TreeDiffEntry;
 use jj_lib::store::Store;
 use jj_lib::working_copy::CheckoutError;
-use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::SnapshotOptions;
 use pollster::FutureExt as _;
 use tempfile::TempDir;
@@ -133,7 +132,7 @@ pub(crate) fn check_out_trees(
     right_tree: &MergedTree,
     matcher: &dyn Matcher,
     diff_type: DiffType,
-    options: &CheckoutOptions,
+    conflict_marker_style: ConflictMarkerStyle,
 ) -> Result<DiffWorkingCopies, DiffCheckoutError> {
     let changed_files: Vec<_> = left_tree
         .diff_stream(right_tree, matcher)
@@ -150,14 +149,13 @@ pub(crate) fn check_out_trees(
         let state_dir = temp_path.join(format!("{name}_state"));
         std::fs::create_dir(&wc_path).map_err(DiffCheckoutError::SetUpDir)?;
         std::fs::create_dir(&state_dir).map_err(DiffCheckoutError::SetUpDir)?;
-        let mut state = TreeState::init(
-            store.clone(),
-            wc_path,
-            state_dir,
-            &TreeStateSettings::default(),
-        )?;
-        state.set_sparse_patterns(changed_files.clone(), options)?;
-        state.check_out(tree, options)?;
+        let tree_state_settings = TreeStateSettings {
+            conflict_marker_style,
+            ..TreeStateSettings::default()
+        };
+        let mut state = TreeState::init(store.clone(), wc_path, state_dir, &tree_state_settings)?;
+        state.set_sparse_patterns(changed_files.clone())?;
+        state.check_out(tree)?;
         Ok(state)
     };
 
@@ -190,10 +188,16 @@ impl DiffEditWorkingCopies {
         matcher: &dyn Matcher,
         diff_type: DiffType,
         instructions: Option<&str>,
-        options: &CheckoutOptions,
+        conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, DiffEditError> {
-        let working_copies =
-            check_out_trees(store, left_tree, right_tree, matcher, diff_type, options)?;
+        let working_copies = check_out_trees(
+            store,
+            left_tree,
+            right_tree,
+            matcher,
+            diff_type,
+            conflict_marker_style,
+        )?;
         working_copies.set_left_readonly()?;
         if diff_type == DiffType::ThreeWay {
             working_copies.set_right_readonly()?;
@@ -274,7 +278,6 @@ diff editing in mind and be a little inaccurate.
     pub fn snapshot_results(
         self,
         base_ignores: Arc<GitIgnoreFile>,
-        conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<MergedTreeId, DiffEditError> {
         if let Some(path) = self.instructions_path_to_cleanup {
             std::fs::remove_file(path).ok();
@@ -289,7 +292,6 @@ diff editing in mind and be a little inaccurate.
             progress: None,
             start_tracking_matcher: &EverythingMatcher,
             max_new_file_size: u64::MAX,
-            conflict_marker_style,
         })?;
         Ok(output_tree_state.current_tree_id().clone())
     }
