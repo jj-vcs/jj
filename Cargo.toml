@@ -58,6 +58,7 @@ gix = { version = "0.73.0", default-features = false, features = [
 ] }
 globset = "0.4.16"
 hashbrown = { version = "0.15.5", default-features = false, features = ["inline-more"] }
+hex = "0.4.3"
 ignore = "0.4.23"
 indexmap = { version = "2.10.0", features = ["serde"] }
 indoc = "2.0.6"
