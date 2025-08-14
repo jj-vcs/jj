@@ -1047,6 +1047,22 @@ impl EvaluationContext<'_> {
                 let candidate_set = self.evaluate(candidates)?;
                 Ok(Box::new(self.take_latest_revset(&*candidate_set, *count)?))
             }
+            ResolvedExpression::Exactly { candidates, count } => {
+                let set = self.evaluate(candidates)?;
+                let positions: Vec<_> = set.positions().attach(index).try_collect()?;
+                if positions.len() != *count {
+                    return Err(RevsetEvaluationError::Other(
+                        format!(
+                            "The given revset '{:?}' was expected to have {} elements, but has {}",
+                            set,
+                            count,
+                            positions.len()
+                        )
+                        .into(),
+                    ));
+                }
+                Ok(set)
+            }
             ResolvedExpression::Coalesce(expression1, expression2) => {
                 let set1 = self.evaluate(expression1)?;
                 if set1.positions().attach(index).next().is_some() {

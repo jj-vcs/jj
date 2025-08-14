@@ -318,6 +318,10 @@ revsets (expressions) as arguments.
   set are descendants. The current implementation deals somewhat poorly with
   non-linear history.
 
+* `exactly(x, count)`: Evaluates `x`, and errors if it is not of exactly size
+  `count`. Otherwise, returns `x`. This is useful in particular with `count=1`
+  when you want to ensure that some revset expression has exactly one target.
+
 * `merges()`: Merge commits.
 
 * `description(pattern)`: Commits that have a description matching the given

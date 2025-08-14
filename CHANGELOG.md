@@ -34,6 +34,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj log`, `jj evolog` and `jj op log` output can now be anonymized with the
   `builtin_log_redacted` and `builtin_op_log_redacted` templates.
 
+* The revset function `exactly(x, n)` will now evaluate `x` and error if it does
+  not have exactly `n` elements.
+
 ### Fixed bugs
 
 ### Packaging changes

@@ -292,6 +292,10 @@ pub enum RevsetExpression<St: ExpressionState> {
     Roots(Rc<Self>),
     ForkPoint(Rc<Self>),
     Bisect(Rc<Self>),
+    Exactly {
+        candidates: Rc<Self>,
+        count: usize,
+    },
     Latest {
         candidates: Rc<Self>,
         count: usize,
@@ -524,6 +528,14 @@ impl<St: ExpressionState> RevsetExpression<St> {
         Rc::new(Self::Bisect(self.clone()))
     }
 
+    /// Commits in `self` that are exactly of size `count`.
+    pub fn exactly(self: &Rc<Self>, count: usize) -> Rc<Self> {
+        Rc::new(Self::Exactly {
+            candidates: self.clone(),
+            count,
+        })
+    }
+
     /// Filter all commits by `predicate` in `self`.
     pub fn filtered(self: &Rc<Self>, predicate: RevsetFilterPredicate) -> Rc<Self> {
         self.intersection(&Self::filter(predicate))
@@ -718,6 +730,10 @@ pub enum ResolvedExpression {
     Roots(Box<Self>),
     ForkPoint(Box<Self>),
     Bisect(Box<Self>),
+    Exactly {
+        candidates: Box<Self>,
+        count: usize,
+    },
     Latest {
         candidates: Box<Self>,
         count: usize,
@@ -926,6 +942,12 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         let [expression_arg] = function.expect_exact_arguments()?;
         let expression = lower_expression(diagnostics, expression_arg, context)?;
         Ok(RevsetExpression::bisect(&expression))
+    });
+    map.insert("exactly", |diagnostics, function, context| {
+        let ([candidates_arg, count_arg], []) = function.expect_arguments()?;
+        let candidates = lower_expression(diagnostics, candidates_arg, context)?;
+        let count = expect_literal("integer", count_arg)?;
+        Ok(candidates.exactly(count))
     });
     map.insert("merges", |_diagnostics, function, _context| {
         function.expect_no_arguments()?;
@@ -1451,6 +1473,12 @@ fn try_transform_expression<St: ExpressionState, E>(
                     candidates,
                     count: *count,
                 }),
+            RevsetExpression::Exactly { candidates, count } => {
+                transform_rec(candidates, pre, post)?.map(|candidates| RevsetExpression::Exactly {
+                    candidates,
+                    count: *count,
+                })
+            }
             RevsetExpression::Filter(_) => None,
             RevsetExpression::AsFilter(candidates) => {
                 transform_rec(candidates, pre, post)?.map(RevsetExpression::AsFilter)
@@ -1691,6 +1719,11 @@ where
             let candidates = folder.fold_expression(candidates)?;
             let count = *count;
             RevsetExpression::Latest { candidates, count }.into()
+        }
+        RevsetExpression::Exactly { candidates, count } => {
+            let candidates = folder.fold_expression(candidates)?;
+            let count = *count;
+            RevsetExpression::Exactly { candidates, count }.into()
         }
         RevsetExpression::Filter(predicate) => RevsetExpression::Filter(predicate.clone()).into(),
         RevsetExpression::AsFilter(candidates) => {
@@ -3007,6 +3040,10 @@ impl VisibilityResolutionContext<'_> {
                 candidates: self.resolve(candidates).into(),
                 count: *count,
             },
+            RevsetExpression::Exactly { candidates, count } => ResolvedExpression::Exactly {
+                candidates: self.resolve(candidates).into(),
+                count: *count,
+            },
             RevsetExpression::Filter(_) | RevsetExpression::AsFilter(_) => {
                 // Top-level filter without intersection: e.g. "~author(_)" is represented as
                 // `AsFilter(NotIn(Filter(Author(_))))`.
@@ -3128,6 +3165,7 @@ impl VisibilityResolutionContext<'_> {
             | RevsetExpression::Roots(_)
             | RevsetExpression::ForkPoint(_)
             | RevsetExpression::Bisect(_)
+            | RevsetExpression::Exactly { .. }
             | RevsetExpression::Latest { .. } => {
                 ResolvedPredicateExpression::Set(self.resolve(expression).into())
             }
