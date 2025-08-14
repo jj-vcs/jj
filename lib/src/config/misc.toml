@@ -37,6 +37,9 @@ program = "gpgsm"
 # allowed-signers = <unknown>
 program = "ssh-keygen"
 
+[ui]
+conflict-marker-style = "diff"
+
 [user]
 email = ""
 name = ""

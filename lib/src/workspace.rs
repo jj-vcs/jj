@@ -56,7 +56,6 @@ use crate::signing::Signer;
 use crate::simple_backend::SimpleBackend;
 use crate::transaction::TransactionCommitError;
 use crate::working_copy::CheckoutError;
-use crate::working_copy::CheckoutOptions;
 use crate::working_copy::CheckoutStats;
 use crate::working_copy::LockedWorkingCopy;
 use crate::working_copy::WorkingCopy;
@@ -441,7 +440,6 @@ impl Workspace {
         operation_id: OperationId,
         old_tree_id: Option<&MergedTreeId>,
         commit: &Commit,
-        options: &CheckoutOptions,
     ) -> Result<CheckoutStats, CheckoutError> {
         let mut locked_ws =
             self.start_working_copy_mutation()
@@ -458,7 +456,7 @@ impl Workspace {
                 return Err(CheckoutError::ConcurrentCheckout);
             }
         }
-        let stats = locked_ws.locked_wc().check_out(commit, options)?;
+        let stats = locked_ws.locked_wc().check_out(commit)?;
         locked_ws
             .finish(operation_id)
             .map_err(|err| CheckoutError::Other {
