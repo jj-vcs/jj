@@ -1089,7 +1089,7 @@ fn test_workspaces_forget_multi_transaction() {
     ");
 
     // now, undo, and that should restore both workspaces
-    main_dir.run_jj(["op", "undo"]).success();
+    main_dir.run_jj(["undo"]).success();
 
     // finally, there should be three workspaces at the end
     let output = main_dir.run_jj(["workspace", "list"]);

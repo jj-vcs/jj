@@ -727,8 +727,8 @@ fn test_op_abandon_ancestors() {
     [exit status: 2]
     ");
 
-    // Abandon the current operation by undoing it first.
-    work_dir.run_jj(["undo"]).success();
+    // Abandon the current operation by reverting it first.
+    work_dir.run_jj(["op", "revert"]).success();
     let output = work_dir.run_jj(["op", "abandon", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -736,14 +736,14 @@ fn test_op_abandon_ancestors() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["debug", "local-working-copy", "--ignore-working-copy"]), @r#"
-    Current operation: OperationId("4666f57b051cb0d73145999d689331e34224bf6bad69c367498d7fc25f0d89d230146e7234526004426d515b396b13b9de8daadf54003eaf678f4264c0a7d992")
+    Current operation: OperationId("ce6a0300b7346109e75a6dcc97e3ff9e1488ce43a4073dd9eb81afb7f463b4543d3f15cf9a42a9864a4aaf6daab900b6b037dbdcb95f87422e891f7e884641aa")
     Current tree: Merge(Resolved(TreeId("4b825dc642cb6eb9a060e54bf8d69288fbee4904")))
     [EOF]
     "#);
     insta::assert_snapshot!(work_dir.run_jj(["op", "log"]), @r"
-    @  4666f57b051c test-username@host.example.com 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
-    │  undo operation 9df33337d49450b21bf694025557ede1ac4c63c7b17f593add0d7adc81b394d363f1edffa025b323f88ec947dcd9214f46e82e742e7a74adbfff4c2d96321133
-    │  args: jj undo
+    @  ce6a0300b734 test-username@host.example.com 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
+    │  revert operation 9df33337d49450b21bf694025557ede1ac4c63c7b17f593add0d7adc81b394d363f1edffa025b323f88ec947dcd9214f46e82e742e7a74adbfff4c2d96321133
+    │  args: jj op revert
     ○  1675333b7de8 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │  commit 4e0592f3dd52e7a4998a97d9a1f354e2727a856b
     │  args: jj commit -m 'commit 2'
@@ -759,9 +759,9 @@ fn test_op_abandon_ancestors() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["op", "log", "-n1"]), @r"
-    @  4666f57b051c test-username@host.example.com 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
-    │  undo operation 9df33337d49450b21bf694025557ede1ac4c63c7b17f593add0d7adc81b394d363f1edffa025b323f88ec947dcd9214f46e82e742e7a74adbfff4c2d96321133
-    │  args: jj undo
+    @  ce6a0300b734 test-username@host.example.com 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
+    │  revert operation 9df33337d49450b21bf694025557ede1ac4c63c7b17f593add0d7adc81b394d363f1edffa025b323f88ec947dcd9214f46e82e742e7a74adbfff4c2d96321133
+    │  args: jj op revert
     [EOF]
     ");
 }
@@ -1064,7 +1064,7 @@ fn test_op_summary_diff_template() {
     work_dir
         .run_jj(["new", "--no-edit", "-m=scratch"])
         .success();
-    let output = work_dir.run_jj(["op", "undo", "--color=always"]);
+    let output = work_dir.run_jj(["op", "revert", "--color=always"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Undid operation: [38;5;4m8c2682708d2e[39m ([38;5;6m2001-02-03 08:05:08[39m) new empty commit
@@ -1081,7 +1081,7 @@ fn test_op_summary_diff_template() {
     ]);
     insta::assert_snapshot!(output, @r"
     From operation: [38;5;4m000000000000[39m [38;5;2mroot()[39m
-      To operation: [38;5;4m5b09d908ed2f[39m ([38;5;6m2001-02-03 08:05:09[39m) undo operation 8c2682708d2e786e9c489d18b4cfc68c675d0d49b9be85de9540a973b775c7ef715c0a37c760fe74ee6a31e50487f6d64e392944124a1d288ca31493bf9e36f2
+      To operation: [38;5;4mad76b56af140[39m ([38;5;6m2001-02-03 08:05:09[39m) revert operation 8c2682708d2e786e9c489d18b4cfc68c675d0d49b9be85de9540a973b775c7ef715c0a37c760fe74ee6a31e50487f6d64e392944124a1d288ca31493bf9e36f2
 
     Changed commits:
     ○  [38;5;2m+[39m [1m[38;5;13mq[38;5;8mpvuntsm[39m [38;5;12me[38;5;8m8849ae1[39m [38;5;10m(empty)[39m [38;5;10m(no description set)[0m
@@ -1096,10 +1096,10 @@ fn test_op_summary_diff_template() {
     work_dir
         .run_jj(["new", "--no-edit", "-m=scratch"])
         .success();
-    let output = work_dir.run_jj(["op", "undo", "--color=debug"]);
+    let output = work_dir.run_jj(["op", "revert", "--color=debug"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: [38;5;4m<<operation id short::0f553bee92fc>>[39m<<operation:: (>>[38;5;6m<<operation time end local format::2001-02-03 08:05:11>>[39m<<operation::) >><<operation description first_line::new empty commit>>
+    Undid operation: [38;5;4m<<operation id short::c5c76cab7d34>>[39m<<operation:: (>>[38;5;6m<<operation time end local format::2001-02-03 08:05:11>>[39m<<operation::) >><<operation description first_line::new empty commit>>
     [EOF]
     ");
     let output = work_dir.run_jj([
@@ -1113,7 +1113,7 @@ fn test_op_summary_diff_template() {
     ]);
     insta::assert_snapshot!(output, @r"
     From operation: [38;5;4m<<op_diff operation id short::000000000000>>[39m<<op_diff operation:: >>[38;5;2m<<op_diff operation root::root()>>[39m
-      To operation: [38;5;4m<<op_diff operation id short::8840c54e3995>>[39m<<op_diff operation:: (>>[38;5;6m<<op_diff operation time end local format::2001-02-03 08:05:12>>[39m<<op_diff operation::) >><<op_diff operation description first_line::undo operation 0f553bee92fc9d54642c987c93e78aa1f391225cf8b82a5a0198782a4e49753e65fae15bc648b81b913f514a11ca15840e9a6a083e2e3a9198cebf09ebde06f2>>
+      To operation: [38;5;4m<<op_diff operation id short::f8b6a7ee554b>>[39m<<op_diff operation:: (>>[38;5;6m<<op_diff operation time end local format::2001-02-03 08:05:12>>[39m<<op_diff operation::) >><<op_diff operation description first_line::revert operation c5c76cab7d34a454ae4edcf362f6cc7387c87cb20b328e6d50cbcb6c893c6ea9bf76ff792c34e75f1259a33b066fed38df2561e880661d2b35db1bd65e95b877>>
 
     Changed commits:
     ○  [38;5;2m<<diff added::+>>[39m [1m[38;5;13m<<op_diff commit working_copy change_id shortest prefix::q>>[38;5;8m<<op_diff commit working_copy change_id shortest rest::pvuntsm>>[39m<<op_diff commit working_copy:: >>[38;5;12m<<op_diff commit working_copy commit_id shortest prefix::e>>[38;5;8m<<op_diff commit working_copy commit_id shortest rest::8849ae1>>[39m<<op_diff commit working_copy:: >>[38;5;10m<<op_diff commit working_copy empty::(empty)>>[39m<<op_diff commit working_copy:: >>[38;5;10m<<op_diff commit working_copy empty description placeholder::(no description set)>>[0m

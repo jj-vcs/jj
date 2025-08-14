@@ -977,7 +977,7 @@ fn test_operations() {
     [EOF]
     ");
 
-    let output = work_dir.complete_fish(["op", "undo", "8e"]);
+    let output = work_dir.complete_fish(["op", "revert", "8e"]);
     insta::assert_snapshot!(output, @r"
     8ed8c16786e6	(2001-02-03 08:05:11) describe commit 3725536d0ae06d69e46911258cee591dbdb66478
     [EOF]

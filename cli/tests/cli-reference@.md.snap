@@ -69,8 +69,8 @@ This document contains the help content for the `jj` command-line program.
 * [`jj operation diff`↴](#jj-operation-diff)
 * [`jj operation log`↴](#jj-operation-log)
 * [`jj operation restore`↴](#jj-operation-restore)
+* [`jj operation revert`↴](#jj-operation-revert)
 * [`jj operation show`↴](#jj-operation-show)
-* [`jj operation undo`↴](#jj-operation-undo)
 * [`jj parallelize`↴](#jj-parallelize)
 * [`jj prev`↴](#jj-prev)
 * [`jj rebase`↴](#jj-rebase)
@@ -161,7 +161,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `status` — Show high-level repo status [default alias: st]
 * `tag` — Manage tags
 * `touch` — Modify the metadata of a revision without changing its content
-* `undo` — Undo an operation (shortcut for `jj op undo`)
+* `undo` — Undo an operation
 * `unsign` — Drop a cryptographic signature
 * `util` — Infrequently used commands such as for generating shell completions
 * `version` — Display version information
@@ -1751,8 +1751,8 @@ See the [operation log documentation] for more information.
 * `diff` — Compare changes to the repository between two operations
 * `log` — Show the operation log
 * `restore` — Create a new operation that restores the repo to an earlier state
+* `revert` — Create a new operation that reverts an earlier operation
 * `show` — Show changes to the repository in an operation
-* `undo` — Create a new operation that undoes an earlier operation
 
 
 
@@ -1884,6 +1884,39 @@ This restores the repo to the state at the specified operation, effectively undo
 
 
 
+## `jj operation revert`
+
+Create a new operation that reverts an earlier operation
+
+This reverts an individual operation by applying the inverse of the operation.
+
+**Usage:** `jj operation revert [OPTIONS] [OPERATION]`
+
+###### **Arguments:**
+
+* `<OPERATION>` — The operation to revert
+
+   Use `jj op log` to find an operation to revert.
+
+  Default value: `@`
+
+###### **Options:**
+
+* `--what <WHAT>` — What portions of the local state to restore (can be repeated)
+
+   This option is EXPERIMENTAL.
+
+  Default values: `repo`, `remote-tracking`
+
+  Possible values:
+  - `repo`:
+    The jj repo state and local bookmarks
+  - `remote-tracking`:
+    The remote-tracking bookmarks. Do not restore these if you'd like to push after the undo
+
+
+
+
 ## `jj operation show`
 
 Show changes to the repository in an operation
@@ -1918,39 +1951,6 @@ Show changes to the repository in an operation
 * `--context <CONTEXT>` — Number of lines of context to show
 * `--ignore-all-space` — Ignore whitespace when comparing lines
 * `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
-
-
-
-## `jj operation undo`
-
-Create a new operation that undoes an earlier operation
-
-This undoes an individual operation by applying the inverse of the operation.
-
-**Usage:** `jj operation undo [OPTIONS] [OPERATION]`
-
-###### **Arguments:**
-
-* `<OPERATION>` — The operation to undo
-
-   Use `jj op log` to find an operation to undo.
-
-  Default value: `@`
-
-###### **Options:**
-
-* `--what <WHAT>` — What portions of the local state to restore (can be repeated)
-
-   This option is EXPERIMENTAL.
-
-  Default values: `repo`, `remote-tracking`
-
-  Possible values:
-  - `repo`:
-    The jj repo state and local bookmarks
-  - `remote-tracking`:
-    The remote-tracking bookmarks. Do not restore these if you'd like to push after the undo
-
 
 
 
@@ -2679,7 +2679,7 @@ Modify the metadata of a revision without changing its content
 
 ## `jj undo`
 
-Undo an operation (shortcut for `jj op undo`)
+Undo an operation
 
 **Usage:** `jj undo [OPTIONS] [OPERATION]`
 

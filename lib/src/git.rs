@@ -1055,7 +1055,7 @@ fn diff_refs_to_export(
         .filter(|&((kind, symbol), _)| {
             // There are two situations where remote bookmarks get out of sync:
             // 1. `jj bookmark forget --include-remotes`
-            // 2. `jj op undo`/`restore` in colocated repo
+            // 2. `jj op revert`/`restore` in colocated repo
             kind == GitRefKind::Bookmark && git_ref_filter(kind, symbol)
         });
     for ((_kind, symbol), target) in known_git_refs {

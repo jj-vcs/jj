@@ -113,7 +113,7 @@ fn test_git_export_undo() {
 
     // Exported refs won't be removed by undoing the export, but the git-tracking
     // bookmark is. This is the same as remote-tracking bookmarks.
-    let output = work_dir.run_jj(["op", "undo"]);
+    let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Undid operation: b718f970b78c (2001-02-03 08:05:10) export git refs

@@ -238,7 +238,7 @@ command)
 `jj st`: For now reprint the final output of `jj run`
 `jj op log`: No special handling needed, but awaits further discussion in
 [#963][issue]
-`jj undo/jj op undo`: No special handling needed
+`jj undo/jj op revert`: No special handling needed
 
 
 ## Open Points

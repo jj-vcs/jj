@@ -16,6 +16,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and new formats, so old `jj` versions should be able to read these index
   files. This compatibility layer will be removed in a future release.
 
+* `jj op undo` is deprecated in favor of `jj op revert`. (`jj undo` is still
+  available unchanged, but we plan to enable undoing multiple operations
+  progressively by repeated calls to `jj undo`.)
+
 ### New features
 
 * Add experimental support for indexing changed paths, which will speed up `jj

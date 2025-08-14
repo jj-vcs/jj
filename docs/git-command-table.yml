@@ -375,9 +375,8 @@
 - Use case: Undo an earlier operation
   Git command: Not supported
   Jujutsu command: >
-    `jj [op] undo <operation ID>`
-  Notes: >
-    `jj undo` is an alias for `jj op undo`.
+    `jj undo`
+  Notes: ''
 
 - Use case: Create a commit that cancels out a previous commit
   Git command: >

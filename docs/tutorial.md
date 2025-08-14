@@ -405,7 +405,7 @@ $ jj op log
 [many more lines]
 ```
 
-The most useful command is `jj undo` (alias for `jj op undo`), which will undo
+The most useful command is `jj undo`, which will undo
 an operation. By default, it will undo the most recent operation. Let's try it:
 
 ```shell

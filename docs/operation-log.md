@@ -13,7 +13,7 @@ and the current working-copy commit in each workspace. The operation object also
 before it, as well as metadata about the operation, such as timestamps,
 username, hostname, description.
 
-The operation log allows you to undo an operation (`jj [op] undo`), which doesn't
+The operation log allows you to undo an operation (`jj undo`), which doesn't
 need to be the most recent one. It also lets you restore the entire repo to the
 way it looked at an earlier point (`jj op restore`).
 
