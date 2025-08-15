@@ -2685,7 +2685,9 @@ Undo an operation
 
 ###### **Arguments:**
 
-* `<OPERATION>` — The operation to undo
+* `<OPERATION>` — (deprecated, use `jj op revert <operation>`)
+
+   The operation to undo
 
    Use `jj op log` to find an operation to undo.
 

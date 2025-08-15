@@ -26,6 +26,7 @@ fn test_undo_root_operation() {
     let output = work_dir.run_jj(["undo", "000000000000"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: `jj undo <operation>` is deprecated; use `jj op revert <operation>` instead
     Error: Cannot undo root operation
     [EOF]
     [exit status: 1]
