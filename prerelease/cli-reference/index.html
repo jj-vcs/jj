@@ -2127,13 +2127,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#jj-operation-show" class="md-nav__link">
+  <a href="#jj-operation-revert" class="md-nav__link">
     <span class="md-ellipsis">
-      jj operation show
+      jj operation revert
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="jj operation show">
+    <nav class="md-nav" aria-label="jj operation revert">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2160,13 +2160,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#jj-operation-undo" class="md-nav__link">
+  <a href="#jj-operation-show" class="md-nav__link">
     <span class="md-ellipsis">
-      jj operation undo
+      jj operation show
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="jj operation undo">
+    <nav class="md-nav" aria-label="jj operation show">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -5906,13 +5906,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#jj-operation-show" class="md-nav__link">
+  <a href="#jj-operation-revert" class="md-nav__link">
     <span class="md-ellipsis">
-      jj operation show
+      jj operation revert
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="jj operation show">
+    <nav class="md-nav" aria-label="jj operation revert">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -5939,13 +5939,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#jj-operation-undo" class="md-nav__link">
+  <a href="#jj-operation-show" class="md-nav__link">
     <span class="md-ellipsis">
-      jj operation undo
+      jj operation show
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="jj operation undo">
+    <nav class="md-nav" aria-label="jj operation show">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -6963,8 +6963,8 @@ does not match the <code>jj help</code> output exactly.</p>
 <li><a href="#jj-operation-diff"><code>jj operation diff</code>↴</a></li>
 <li><a href="#jj-operation-log"><code>jj operation log</code>↴</a></li>
 <li><a href="#jj-operation-restore"><code>jj operation restore</code>↴</a></li>
+<li><a href="#jj-operation-revert"><code>jj operation revert</code>↴</a></li>
 <li><a href="#jj-operation-show"><code>jj operation show</code>↴</a></li>
-<li><a href="#jj-operation-undo"><code>jj operation undo</code>↴</a></li>
 <li><a href="#jj-parallelize"><code>jj parallelize</code>↴</a></li>
 <li><a href="#jj-prev"><code>jj prev</code>↴</a></li>
 <li><a href="#jj-rebase"><code>jj rebase</code>↴</a></li>
@@ -7047,7 +7047,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <li><code>status</code> — Show high-level repo status [default alias: st]</li>
 <li><code>tag</code> — Manage tags</li>
 <li><code>touch</code> — Modify the metadata of a revision without changing its content</li>
-<li><code>undo</code> — Undo an operation (shortcut for <code>jj op undo</code>)</li>
+<li><code>undo</code> — Undo an operation</li>
 <li><code>unsign</code> — Drop a cryptographic signature</li>
 <li><code>util</code> — Infrequently used commands such as for generating shell completions</li>
 <li><code>version</code> — Display version information</li>
@@ -8311,8 +8311,8 @@ B   =&gt;   @
 <li><code>diff</code> — Compare changes to the repository between two operations</li>
 <li><code>log</code> — Show the operation log</li>
 <li><code>restore</code> — Create a new operation that restores the repo to an earlier state</li>
+<li><code>revert</code> — Create a new operation that reverts an earlier operation</li>
 <li><code>show</code> — Show changes to the repository in an operation</li>
-<li><code>undo</code> — Create a new operation that undoes an earlier operation</li>
 </ul>
 <h2 id="jj-operation-abandon"><code>jj operation abandon</code><a class="headerlink" href="#jj-operation-abandon" title="Permanent link">&para;</a></h2>
 <p>Abandon operation history</p>
@@ -8440,17 +8440,44 @@ B   =&gt;   @
 </ul>
 </li>
 </ul>
+<h2 id="jj-operation-revert"><code>jj operation revert</code><a class="headerlink" href="#jj-operation-revert" title="Permanent link">&para;</a></h2>
+<p>Create a new operation that reverts an earlier operation</p>
+<p>This reverts an individual operation by applying the inverse of the operation.</p>
+<p><strong>Usage:</strong> <code>jj operation revert [OPTIONS] [OPERATION]</code></p>
+<h6 id="arguments_41"><strong>Arguments:</strong><a class="headerlink" href="#arguments_41" title="Permanent link">&para;</a></h6>
+<ul>
+<li>
+<p><code>&lt;OPERATION&gt;</code> — The operation to revert</p>
+<p>Use <code>jj op log</code> to find an operation to revert.</p>
+<p>Default value: <code>@</code></p>
+</li>
+</ul>
+<h6 id="options_37"><strong>Options:</strong><a class="headerlink" href="#options_37" title="Permanent link">&para;</a></h6>
+<ul>
+<li>
+<p><code>--what &lt;WHAT&gt;</code> — What portions of the local state to restore (can be repeated)</p>
+<p>This option is EXPERIMENTAL.</p>
+<p>Default values: <code>repo</code>, <code>remote-tracking</code></p>
+<p>Possible values:</p>
+<ul>
+<li><code>repo</code>:
+  The jj repo state and local bookmarks</li>
+<li><code>remote-tracking</code>:
+  The remote-tracking bookmarks. Do not restore these if you'd like to push after the undo</li>
+</ul>
+</li>
+</ul>
 <h2 id="jj-operation-show"><code>jj operation show</code><a class="headerlink" href="#jj-operation-show" title="Permanent link">&para;</a></h2>
 <p>Show changes to the repository in an operation</p>
 <p><strong>Usage:</strong> <code>jj operation show [OPTIONS] [OPERATION]</code></p>
-<h6 id="arguments_41"><strong>Arguments:</strong><a class="headerlink" href="#arguments_41" title="Permanent link">&para;</a></h6>
+<h6 id="arguments_42"><strong>Arguments:</strong><a class="headerlink" href="#arguments_42" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
 <p><code>&lt;OPERATION&gt;</code> — Show repository changes in this operation, compared to its parent(s)</p>
 <p>Default value: <code>@</code></p>
 </li>
 </ul>
-<h6 id="options_37"><strong>Options:</strong><a class="headerlink" href="#options_37" title="Permanent link">&para;</a></h6>
+<h6 id="options_38"><strong>Options:</strong><a class="headerlink" href="#options_38" title="Permanent link">&para;</a></h6>
 <ul>
 <li><code>--no-graph</code> — Don't show the graph, show a flat list of modified changes</li>
 <li>
@@ -8482,33 +8509,6 @@ B   =&gt;   @
 </li>
 <li><code>--ignore-all-space</code> — Ignore whitespace when comparing lines</li>
 <li><code>--ignore-space-change</code> — Ignore changes in amount of whitespace when comparing lines</li>
-</ul>
-<h2 id="jj-operation-undo"><code>jj operation undo</code><a class="headerlink" href="#jj-operation-undo" title="Permanent link">&para;</a></h2>
-<p>Create a new operation that undoes an earlier operation</p>
-<p>This undoes an individual operation by applying the inverse of the operation.</p>
-<p><strong>Usage:</strong> <code>jj operation undo [OPTIONS] [OPERATION]</code></p>
-<h6 id="arguments_42"><strong>Arguments:</strong><a class="headerlink" href="#arguments_42" title="Permanent link">&para;</a></h6>
-<ul>
-<li>
-<p><code>&lt;OPERATION&gt;</code> — The operation to undo</p>
-<p>Use <code>jj op log</code> to find an operation to undo.</p>
-<p>Default value: <code>@</code></p>
-</li>
-</ul>
-<h6 id="options_38"><strong>Options:</strong><a class="headerlink" href="#options_38" title="Permanent link">&para;</a></h6>
-<ul>
-<li>
-<p><code>--what &lt;WHAT&gt;</code> — What portions of the local state to restore (can be repeated)</p>
-<p>This option is EXPERIMENTAL.</p>
-<p>Default values: <code>repo</code>, <code>remote-tracking</code></p>
-<p>Possible values:</p>
-<ul>
-<li><code>repo</code>:
-  The jj repo state and local bookmarks</li>
-<li><code>remote-tracking</code>:
-  The remote-tracking bookmarks. Do not restore these if you'd like to push after the undo</li>
-</ul>
-</li>
 </ul>
 <h2 id="jj-parallelize"><code>jj parallelize</code><a class="headerlink" href="#jj-parallelize" title="Permanent link">&para;</a></h2>
 <p>Parallelize revisions by making them siblings</p>
@@ -9082,7 +9082,7 @@ J           J
 </li>
 </ul>
 <h2 id="jj-undo"><code>jj undo</code><a class="headerlink" href="#jj-undo" title="Permanent link">&para;</a></h2>
-<p>Undo an operation (shortcut for <code>jj op undo</code>)</p>
+<p>Undo an operation</p>
 <p><strong>Usage:</strong> <code>jj undo [OPTIONS] [OPERATION]</code></p>
 <h6 id="arguments_53"><strong>Arguments:</strong><a class="headerlink" href="#arguments_53" title="Permanent link">&para;</a></h6>
 <ul>
