@@ -1430,6 +1430,22 @@ where
             Ok(L::Property::wrap_list_template(template))
         },
     );
+    map.insert(
+        "any",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let out_property =
+                build_any_operation(language, diagnostics, build_ctx, self_property, function)?;
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "all",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let out_property =
+                build_all_operation(language, diagnostics, build_ctx, self_property, function)?;
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
     map
 }
 
@@ -1514,6 +1530,82 @@ where
         },
     );
     Ok(Box::new(list_template))
+}
+
+/// Builds expression that checks if any item in the list satisfies the
+/// predicate.
+fn build_any_operation<'a, L, O, P>(
+    language: &L,
+    diagnostics: &mut TemplateDiagnostics,
+    build_ctx: &BuildContext<L::Property>,
+    self_property: P,
+    function: &FunctionCallNode,
+) -> TemplateParseResult<BoxedTemplateProperty<'a, bool>>
+where
+    L: TemplateLanguage<'a> + ?Sized,
+    L::Property: WrapTemplateProperty<'a, O>,
+    P: TemplateProperty + 'a,
+    P::Output: IntoIterator<Item = O>,
+    O: Clone + 'a,
+{
+    let [lambda_node] = function.expect_exact_arguments()?;
+    let item_placeholder = PropertyPlaceholder::new();
+    let item_predicate =
+        template_parser::catch_aliases(diagnostics, lambda_node, |diagnostics, node| {
+            let lambda = template_parser::expect_lambda(node)?;
+            build_lambda_expression(
+                build_ctx,
+                lambda,
+                &[&|| item_placeholder.clone().into_dyn_wrapped()],
+                |build_ctx, body| expect_boolean_expression(language, diagnostics, build_ctx, body),
+            )
+        })?;
+
+    let out_property = self_property.and_then(move |items| {
+        items
+            .into_iter()
+            .map(|item| item_placeholder.with_value(item, || item_predicate.extract()))
+            .process_results(|mut predicates| predicates.any(|p| p))
+    });
+    Ok(out_property.into_dyn())
+}
+
+/// Builds expression that checks if all items in the list satisfy the
+/// predicate.
+fn build_all_operation<'a, L, O, P>(
+    language: &L,
+    diagnostics: &mut TemplateDiagnostics,
+    build_ctx: &BuildContext<L::Property>,
+    self_property: P,
+    function: &FunctionCallNode,
+) -> TemplateParseResult<BoxedTemplateProperty<'a, bool>>
+where
+    L: TemplateLanguage<'a> + ?Sized,
+    L::Property: WrapTemplateProperty<'a, O>,
+    P: TemplateProperty + 'a,
+    P::Output: IntoIterator<Item = O>,
+    O: Clone + 'a,
+{
+    let [lambda_node] = function.expect_exact_arguments()?;
+    let item_placeholder = PropertyPlaceholder::new();
+    let item_predicate =
+        template_parser::catch_aliases(diagnostics, lambda_node, |diagnostics, node| {
+            let lambda = template_parser::expect_lambda(node)?;
+            build_lambda_expression(
+                build_ctx,
+                lambda,
+                &[&|| item_placeholder.clone().into_dyn_wrapped()],
+                |build_ctx, body| expect_boolean_expression(language, diagnostics, build_ctx, body),
+            )
+        })?;
+
+    let out_property = self_property.and_then(move |items| {
+        items
+            .into_iter()
+            .map(|item| item_placeholder.with_value(item, || item_predicate.extract()))
+            .process_results(|mut predicates| predicates.all(|p| p))
+    });
+    Ok(out_property.into_dyn())
 }
 
 /// Builds lambda expression to be evaluated with the provided arguments.
@@ -2679,6 +2771,60 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok(r#""a\nb\nc".lines().map(|s| s ++ s)"#),
             @"aa bb cc");
+
+        // Test any() method
+        insta::assert_snapshot!(
+            env.render_ok(r#""a\nb\nc".lines().any(|s| s == "b")"#),
+            @"true");
+        insta::assert_snapshot!(
+            env.render_ok(r#""a\nb\nc".lines().any(|s| s == "d")"#),
+            @"false");
+        insta::assert_snapshot!(
+            env.render_ok(r#""".lines().any(|s| s == "a")"#),
+            @"false");
+        // any() with more complex predicate
+        insta::assert_snapshot!(
+            env.render_ok(r#""ax\nbb\nc".lines().any(|s| s.contains("x"))"#),
+            @"true");
+        insta::assert_snapshot!(
+            env.render_ok(r#""a\nbb\nc".lines().any(|s| s.len() > 1)"#),
+            @"true");
+
+        // Test all() method
+        insta::assert_snapshot!(
+            env.render_ok(r#""a\nb\nc".lines().all(|s| s.len() == 1)"#),
+            @"true");
+        insta::assert_snapshot!(
+            env.render_ok(r#""a\nbb\nc".lines().all(|s| s.len() == 1)"#),
+            @"false");
+        // Empty list returns true for all()
+        insta::assert_snapshot!(
+            env.render_ok(r#""".lines().all(|s| s == "a")"#),
+            @"true");
+        // all() with more complex predicate
+        insta::assert_snapshot!(
+            env.render_ok(r#""ax\nbx\ncx".lines().all(|s| s.ends_with("x"))"#),
+            @"true");
+        insta::assert_snapshot!(
+            env.render_ok(r#""a\nbb\nc".lines().all(|s| s.len() < 3)"#),
+            @"true");
+
+        // Combining any/all with filter
+        insta::assert_snapshot!(
+            env.render_ok(r#""a\nbb\nccc".lines().filter(|s| s.len() > 1).any(|s| s == "bb")"#),
+            @"true");
+        insta::assert_snapshot!(
+            env.render_ok(r#""a\nbb\nccc".lines().filter(|s| s.len() > 1).all(|s| s.len() >= 2)"#),
+            @"true");
+
+        // Nested any/all operations
+        insta::assert_snapshot!(
+            env.render_ok(r#"if("a\nb".lines().any(|s| s == "a"), "found", "not found")"#),
+            @"found");
+        insta::assert_snapshot!(
+            env.render_ok(r#"if("a\nb".lines().all(|s| s.len() == 1), "all single", "not all")"#),
+            @"all single");
+
         // Global keyword in item template
         insta::assert_snapshot!(
             env.render_ok(r#""a\nb\nc".lines().map(|s| s ++ empty)"#),
@@ -2742,6 +2888,43 @@ mod tests {
           |                        ^-------^
           |
           = Expected expression of type `Boolean`, but actual type is `Template`
+        "#);
+
+        // Error in any() and all()
+        insta::assert_snapshot!(env.parse_err(r#""a".lines().any(|s| s.len())"#), @r#"
+         --> 1:21
+          |
+        1 | "a".lines().any(|s| s.len())
+          |                     ^-----^
+          |
+          = Expected expression of type `Boolean`, but actual type is `Integer`
+        "#);
+        // Bad lambda output for all()
+        insta::assert_snapshot!(env.parse_err(r#""a".lines().all(|s| s ++ "x")"#), @r#"
+         --> 1:21
+          |
+        1 | "a".lines().all(|s| s ++ "x")
+          |                     ^------^
+          |
+          = Expected expression of type `Boolean`, but actual type is `Template`
+        "#);
+        // Wrong parameter count for any()
+        insta::assert_snapshot!(env.parse_err(r#""a".lines().any(|| true)"#), @r#"
+         --> 1:18
+          |
+        1 | "a".lines().any(|| true)
+          |                  ^
+          |
+          = Expected 1 lambda parameters
+        "#);
+        // Wrong parameter count for all()
+        insta::assert_snapshot!(env.parse_err(r#""a".lines().all(|a, b| true)"#), @r#"
+         --> 1:18
+          |
+        1 | "a".lines().all(|a, b| true)
+          |                  ^--^
+          |
+          = Expected 1 lambda parameters
         "#);
         // Error in lambda expression
         insta::assert_snapshot!(env.parse_err(r#""a".lines().map(|s| s.unknown())"#), @r#"

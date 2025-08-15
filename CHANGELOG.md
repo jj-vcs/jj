@@ -18,6 +18,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Templates now support `any()` and `all()` methods on lists to check whether
+  any or all elements satisfy a predicate. Example: `parents.any(|c| c.mine())`
+  returns true if any parent commit is authored by the user.
+
 * Add experimental support for indexing changed paths, which will speed up `jj
   log PATH` query, `jj file annotate`, etc. The changed-path index can be
   enabled by `jj debug index-changed-paths` command. Indexing may take tens of

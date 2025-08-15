@@ -288,6 +288,10 @@ defined.
   `expression`. Example: `description.lines().filter(|s| s.contains("#"))`
 * `.map(|item| expression) -> ListTemplate`: Apply template `expression`
   to each element. Example: `parents.map(|c| c.commit_id().short())`
+* `.any(|item| expression) -> Boolean`: Returns true if any element satisfies
+  the predicate `expression`. Example: `parents.any(|c| c.description().contains("fix"))`
+* `.all(|item| expression) -> Boolean`: Returns true if all elements satisfy
+  the predicate `expression`. Example: `parents.all(|c| c.mine())`
 
 ### `List<Trailer>` type
 
