@@ -2332,7 +2332,13 @@ concurrently from jj's perspective result in forks and merges in the DAG.</p>
 <p>Basically everything under <code>.jj/</code>, i.e. the full set of <a href="#operation">operations</a>
 and <a href="#commit">commits</a>.</p>
 <h2 id="remote">Remote<a class="headerlink" href="#remote" title="Permanent link">&para;</a></h2>
-<p>TODO</p>
+<p>A remote is a reference to a copy of your repository. The most common case is
+that the remote is hosted on the internet or another network, but local remotes
+are also possible. Remotes are useful when working on a project with multiple
+collaborators. As Jujutsu is compatible with Git you can use all popular
+providers that are also available for Git. For example
+<a href="https://github.com">GitHub</a>, <a href="https://gitlab.com">GitLab</a> or
+<a href="https://codeberg.org/">Codeberg</a>.</p>
 <h2 id="revision">Revision<a class="headerlink" href="#revision" title="Permanent link">&para;</a></h2>
 <p>A synonym for <a href="#commit">Commit</a>.</p>
 <h2 id="revset">Revset<a class="headerlink" href="#revset" title="Permanent link">&para;</a></h2>
