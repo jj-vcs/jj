@@ -23,6 +23,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   available unchanged, but we plan to enable undoing multiple operations
   progressively by repeated calls to `jj undo`.)
 
+* The argument `<operation>` of `jj undo` is deprecated in favor of
+  `jj op revert <operation>`.
+
 ### New features
 
 * Templates now support `any()` and `all()` methods on lists to check whether

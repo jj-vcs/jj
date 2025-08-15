@@ -41,15 +41,17 @@ fn resets_view_of(op: &Operation, parent_op: &Operation) -> Result<bool, OpStore
     Ok(op.view_id() == grandparent_op?.view_id())
 }
 
-/// Undo an operation
+/// Undo the last operation
 ///
-/// This undoes an individual operation by applying the inverse of the
-/// operation.
+/// This undoes the last operation by applying its inverse as a new operation.
 #[derive(clap::Args, Clone, Debug)]
 pub struct UndoArgs {
+    /// (deprecated, use `jj op revert <operation>`)
+    ///
     /// The operation to undo
     ///
     /// Use `jj op log` to find an operation to undo.
+    // TODO: Delete in jj 0.39+
     #[arg(default_value = "@", add = ArgValueCandidates::new(complete::operations))]
     operation: String,
 
@@ -61,6 +63,12 @@ pub struct UndoArgs {
 }
 
 pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result<(), CommandError> {
+    if args.operation != "@" {
+        writeln!(
+            ui.warning_default(),
+            "`jj undo <operation>` is deprecated; use `jj op revert <operation>` instead"
+        )?;
+    }
     let workspace_command = command.workspace_helper(ui)?;
     let bad_op = workspace_command.resolve_single_op(&args.operation)?;
     let parent_of_bad_op = match bad_op.parents().at_most_one() {

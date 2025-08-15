@@ -26,6 +26,7 @@ fn test_undo_root_operation() {
     let output = work_dir.run_jj(["undo", "000000000000"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: `jj undo <operation>` is deprecated; use `jj op revert <operation>` instead
     Error: Cannot undo root operation
     [EOF]
     [exit status: 1]
@@ -113,6 +114,7 @@ fn test_undo_latest_undo_explicitly() {
     let output = work_dir.run_jj(["undo", op_id_hex]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: `jj undo <operation>` is deprecated; use `jj op revert <operation>` instead
     Reverted operation: 5b31042c020b (2001-02-03 08:05:09) revert operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
     Working copy  (@) now at: rlvkpnrz 43444d88 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
@@ -150,6 +152,7 @@ fn test_undo_an_older_undo() {
     let output = work_dir.run_jj(["undo", op_id_hex]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: `jj undo <operation>` is deprecated; use `jj op revert <operation>` instead
     Reverted operation: 5b31042c020b (2001-02-03 08:05:09) revert operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
     [EOF]
     ");
@@ -161,6 +164,7 @@ fn test_undo_an_older_undo() {
     let output = work_dir.run_jj(["undo", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: `jj undo <operation>` is deprecated; use `jj op revert <operation>` instead
     Reverted operation: f2c360817b17 (2001-02-03 08:05:14) revert operation 20e354c3f097e96da28c0470b2d9e38c07370ebbae6c01b33c62a44bee913603086b66c97cb8a24a6b1df284b64a82edea14b7fa3cb124da55ebc4d743a92475
     [EOF]
     ");
