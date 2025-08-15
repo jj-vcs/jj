@@ -5639,6 +5639,13 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
+<p>Add experimental support for indexing changed paths, which will speed up <code>jj
+  log PATH</code> query, <code>jj file annotate</code>, etc. The changed-path index can be
+  enabled by <code>jj debug index-changed-paths</code> command. Indexing may take tens of
+  minutes depending on the number of merge commits. The indexing command UI is
+  subject to change. <a href="https://github.com/jj-vcs/jj/issues/4674">#4674</a></p>
+</li>
+<li>
 <p><code>jj file show</code> now accepts <code>-T</code>/<code>--template</code> option to insert file metadata.</p>
 </li>
 <li>
