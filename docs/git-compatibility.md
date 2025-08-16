@@ -104,11 +104,10 @@ git clone` command.
 
 ## Co-located Jujutsu/Git repos
 
-A "co-located" Jujutsu repo is a hybrid Jujutsu/Git repo. These can be created
-if you initialize the Jujutsu repo in an existing Git repo by running `jj git
-init --colocate` or with `jj git clone --colocate`. The Git repo and the Jujutsu
-repo then share the same working copy. Jujutsu will import and export from and
-to the Git repo on every `jj` command automatically.
+A "co-located" Jujutsu repo is a hybrid Jujutsu/Git repo. This is the default
+for Git-backed repositories created with `jj git init` or `jj git clone`.
+The Git repo and the Jujutsu repo then share the same working copy. Jujutsu will
+import and export from and to the Git repo on every `jj` command automatically.
 
 This mode is very convenient when tools (e.g. build tools) expect a Git repo to
 be present.
@@ -127,6 +126,9 @@ git refs" operation.
 
 There are a few downsides to this mode of operation. Generally, using co-located
 repos may require you to deal with more involved Jujutsu and Git concepts.
+You can disable colocation with the `--no-colocate` flag on the commands
+`jj git init` and `jj git clone` or by setting the configuration
+`git.colocate = false`.
 
 * Interleaving `jj` and `git` commands increases the chance of confusing branch
   conflicts or [conflicted (AKA divergent) change

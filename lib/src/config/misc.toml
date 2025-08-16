@@ -14,7 +14,7 @@ abandon-unreachable-commits = true
 auto-local-bookmark = false
 executable-path = "git"
 write-change-id-header = true
-colocate = false
+colocate = true
 
 [operation]
 hostname = ""

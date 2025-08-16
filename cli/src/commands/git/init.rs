@@ -161,8 +161,7 @@ fn do_init(
         if colocated_git_repo_path.exists() {
             return Err(user_error_with_hint(
                 "Did not create a jj repo because there is an existing Git repo in this directory.",
-                "To create a repo backed by the existing Git repo, run `jj git init --colocate` \
-                 instead.",
+                "To create a repo backed by the existing Git repo, run `jj git init` instead.",
             ));
         }
         GitInitMode::Internal
