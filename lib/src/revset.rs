@@ -40,6 +40,7 @@ use crate::fileset::FilesetExpression;
 use crate::graph::GraphNode;
 use crate::id_prefix::IdPrefixContext;
 use crate::id_prefix::IdPrefixIndex;
+use crate::index::ResolvedChangeId;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::op_store::RefTarget;
@@ -98,6 +99,10 @@ pub enum RevsetResolutionError {
         symbol: String,
         targets: Vec<CommitId>,
     },
+    #[error("Cannot use generation number with `{symbol}`")]
+    GenerationNotAllowed { symbol: String },
+    #[error("Invalid generation for `{symbol}`: {generation}")]
+    InvalidGeneration { symbol: String, generation: u32 },
     #[error("Unexpected error from commit backend")]
     Backend(#[source] BackendError),
     #[error(transparent)]
@@ -147,6 +152,10 @@ pub enum RevsetCommitRef {
     WorkingCopy(WorkspaceNameBuf),
     WorkingCopies,
     Symbol(String),
+    SymbolWithGeneration {
+        symbol: String,
+        generation: u32,
+    },
     RemoteSymbol(RemoteRefSymbolBuf),
     ChangeId(HexPrefix),
     CommitId(HexPrefix),
@@ -380,6 +389,13 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
 
     pub fn symbol(value: String) -> Rc<Self> {
         Rc::new(Self::CommitRef(RevsetCommitRef::Symbol(value)))
+    }
+
+    pub fn symbol_with_generation(symbol: String, generation: u32) -> Rc<Self> {
+        Rc::new(Self::CommitRef(RevsetCommitRef::SymbolWithGeneration {
+            symbol,
+            generation,
+        }))
     }
 
     pub fn remote_symbol(value: RemoteRefSymbolBuf) -> Rc<Self> {
@@ -1188,6 +1204,21 @@ pub fn lower_expression(
 ) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
     revset_parser::catch_aliases(diagnostics, node, |diagnostics, node| match &node.kind {
         ExpressionKind::Identifier(name) => Ok(RevsetExpression::symbol((*name).to_owned())),
+        ExpressionKind::IdentifierWithGeneration {
+            identifier,
+            generation,
+        } => {
+            let generation = generation.parse().map_err(|_| {
+                RevsetParseError::with_span(
+                    RevsetParseErrorKind::InvalidGeneration((*generation).to_owned()),
+                    node.span,
+                )
+            })?;
+            Ok(RevsetExpression::symbol_with_generation(
+                (*identifier).to_owned(),
+                generation,
+            ))
+        }
         ExpressionKind::String(name) => Ok(RevsetExpression::symbol(name.to_owned())),
         ExpressionKind::StringPattern { .. } => Err(RevsetParseError::with_span(
             RevsetParseErrorKind::NotInfixOperator {
@@ -2512,6 +2543,21 @@ pub trait PartialSymbolResolver {
         repo: &dyn Repo,
         symbol: &str,
     ) -> Result<Option<CommitId>, RevsetResolutionError>;
+
+    fn resolve_symbol_with_generation(
+        &self,
+        repo: &dyn Repo,
+        symbol: &str,
+        _generation: u32,
+    ) -> Result<Option<CommitId>, RevsetResolutionError> {
+        match self.resolve_symbol(repo, symbol) {
+            Ok(None) => Ok(None),
+            Ok(Some(_)) => Err(RevsetResolutionError::GenerationNotAllowed {
+                symbol: symbol.to_owned(),
+            }),
+            Err(err) => Err(err),
+        }
+    }
 }
 
 struct TagResolver;
@@ -2613,7 +2659,7 @@ impl ChangePrefixResolver<'_> {
         &self,
         repo: &dyn Repo,
         prefix: &HexPrefix,
-    ) -> Result<Option<Vec<CommitId>>, RevsetResolutionError> {
+    ) -> Result<Option<ResolvedChangeId>, RevsetResolutionError> {
         let index = self
             .context
             .map(|ctx| ctx.populate(self.context_repo))
@@ -2637,13 +2683,40 @@ impl PartialSymbolResolver for ChangePrefixResolver<'_> {
         symbol: &str,
     ) -> Result<Option<CommitId>, RevsetResolutionError> {
         if let Some(prefix) = HexPrefix::try_from_reverse_hex(symbol) {
-            match self.try_resolve(repo, &prefix)? {
+            match self
+                .try_resolve(repo, &prefix)?
+                .and_then(ResolvedChangeId::into_visible)
+            {
                 Some(targets) if targets.len() == 1 => Ok(targets.into_iter().next()),
                 Some(targets) => Err(RevsetResolutionError::DivergentChangeId {
                     symbol: symbol.to_owned(),
                     targets,
                 }),
                 None => Ok(None),
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn resolve_symbol_with_generation(
+        &self,
+        repo: &dyn Repo,
+        symbol: &str,
+        generation: u32,
+    ) -> Result<Option<CommitId>, RevsetResolutionError> {
+        if let Some(prefix) = HexPrefix::try_from_reverse_hex(symbol) {
+            let Some(targets) = self.try_resolve(repo, &prefix)? else {
+                return Ok(None);
+            };
+
+            if let Some(commit_id) = targets.at_generation(generation) {
+                Ok(Some(commit_id.clone()))
+            } else {
+                Err(RevsetResolutionError::InvalidGeneration {
+                    symbol: symbol.to_owned(),
+                    generation,
+                })
             }
         } else {
             Ok(None)
@@ -2720,13 +2793,20 @@ impl<'a> SymbolResolver<'a> {
         &self,
         repo: &dyn Repo,
         symbol: &str,
+        generation: Option<u32>,
     ) -> Result<CommitId, RevsetResolutionError> {
         if symbol.is_empty() {
             return Err(RevsetResolutionError::EmptyString);
         }
 
         for partial_resolver in self.partial_resolvers() {
-            if let Some(id) = partial_resolver.resolve_symbol(repo, symbol)? {
+            let resolved = if let Some(generation) = generation {
+                partial_resolver.resolve_symbol_with_generation(repo, symbol, generation)?
+            } else {
+                partial_resolver.resolve_symbol(repo, symbol)?
+            };
+
+            if let Some(id) = resolved {
                 return Ok(id);
             }
         }
@@ -2742,7 +2822,11 @@ fn resolve_commit_ref(
 ) -> Result<Vec<CommitId>, RevsetResolutionError> {
     match commit_ref {
         RevsetCommitRef::Symbol(symbol) => {
-            let commit_id = symbol_resolver.resolve_symbol(repo, symbol)?;
+            let commit_id = symbol_resolver.resolve_symbol(repo, symbol, None)?;
+            Ok(vec![commit_id])
+        }
+        RevsetCommitRef::SymbolWithGeneration { symbol, generation } => {
+            let commit_id = symbol_resolver.resolve_symbol(repo, symbol, Some(*generation))?;
             Ok(vec![commit_id])
         }
         RevsetCommitRef::RemoteSymbol(symbol) => {
@@ -2762,7 +2846,10 @@ fn resolve_commit_ref(
         }
         RevsetCommitRef::ChangeId(prefix) => {
             let resolver = &symbol_resolver.change_id_resolver;
-            Ok(resolver.try_resolve(repo, prefix)?.unwrap_or_else(Vec::new))
+            Ok(resolver
+                .try_resolve(repo, prefix)?
+                .and_then(ResolvedChangeId::into_visible)
+                .unwrap_or_else(Vec::new))
         }
         RevsetCommitRef::CommitId(prefix) => {
             let resolver = &symbol_resolver.commit_id_resolver;
@@ -2860,6 +2947,8 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
                     | RevsetResolutionError::AmbiguousChangeIdPrefix(_)
                     | RevsetResolutionError::DivergentChangeId { .. }
                     | RevsetResolutionError::ConflictedRef { .. }
+                    | RevsetResolutionError::GenerationNotAllowed { .. }
+                    | RevsetResolutionError::InvalidGeneration { .. }
                     | RevsetResolutionError::Backend(_)
                     | RevsetResolutionError::Other(_) => Err(err),
                 })
