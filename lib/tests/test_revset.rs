@@ -1889,6 +1889,182 @@ fn test_evaluate_expression_first_ancestors() {
 }
 
 #[test]
+fn test_evaluate_expression_first_children() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit3]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit4, &commit2]);
+    let commit6 = write_random_commit_with_parents(mut_repo, &[&commit5, &commit4, &commit2]);
+
+    // Can find first children of the root commit
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "first_children(root())"),
+        vec![commit1.id().clone()]
+    );
+
+    // The first children of a head commit is nothing.
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_children({})", commit6.id())),
+        vec![]
+    );
+
+    // All first-parent children are returned.
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_children({})", commit1.id())),
+        vec![commit3.id().clone(), commit2.id().clone()]
+    );
+
+    // Can find the first-parent child of a commit that also has a second-parent child.
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_children({})", commit4.id())),
+        vec![commit5.id().clone()]
+    );
+
+    // A commit whose only children are nth-parent children returns nothing.
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_children({})", commit2.id())),
+        vec![]
+    );
+
+    // Can find the first children of a revset with multiple commits.
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("first_children({} | {})", commit5.id(), commit4.id())
+        ),
+        vec![commit6.id().clone(), commit5.id().clone()]
+    );
+
+    // `first_children(x, 0)` is equivalent to `x`
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_children({}, 0)", commit4.id())),
+        vec![commit4.id().clone()]
+    );
+
+    // `first_children(x, 2)` is equivalent to `first_children(first_children(x))`
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_children({}, 2)", commit4.id())),
+        vec![commit6.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("first_children({} | {}, 2)", commit4.id(), commit3.id())
+        ),
+        vec![commit6.id().clone(), commit5.id().clone()]
+    );
+}
+
+#[test]
+fn test_evaluate_expression_first_descendants() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let root_commit = repo.store().root_commit();
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(mut_repo, &[&commit1, &commit2]);
+    let commit4 = write_random_commit_with_parents(mut_repo, &[&commit2, &commit3]);
+    let commit5 = write_random_commit_with_parents(mut_repo, &[&commit3, &commit4]);
+    let commit6 = write_random_commit_with_parents(mut_repo, &[&commit1]);
+    let commit7 = write_random_commit_with_parents(mut_repo, &[&commit2, &commit6]);
+
+    // The first-parent descendants of the visible heads is just the head commits themselves
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "first_descendants(visible_heads())"),
+        vec![commit7.id().clone(), commit5.id().clone()]
+    );
+
+    // Can find first-parent descendants of a specific commit.
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_descendants({})", commit2.id())),
+        vec![
+            commit7.id().clone(),
+            commit4.id().clone(),
+            commit2.id().clone(),
+        ]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_descendants({})", commit1.id())),
+        vec![
+            commit7.id().clone(),
+            commit6.id().clone(),
+            commit5.id().clone(),
+            commit4.id().clone(),
+            commit3.id().clone(),
+            commit2.id().clone(),
+            commit1.id().clone(),
+        ]
+    );
+
+    // The first-parent descendants of root includes itself and its children
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "first_descendants(root(), 2)"),
+        vec![commit1.id().clone(), root_commit.id().clone()]
+    );
+
+    // The first-parent descendants of a commit with no first-parent children is itself.
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_descendants({})", commit6.id())),
+        vec![commit6.id().clone()]
+    );
+
+    // Can find first-parent descendants of a revset with multiple commits.
+    assert_eq!(
+        resolve_commit_ids(
+            mut_repo,
+            &format!("first_descendants({} | {})", commit3.id(), commit2.id())
+        ),
+        vec![
+            commit7.id().clone(),
+            commit5.id().clone(),
+            commit4.id().clone(),
+            commit3.id().clone(),
+            commit2.id().clone(),
+        ]
+    );
+
+    // Can find n first-parent descendants of a commit
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_descendants({}, 0)", commit1.id())),
+        vec![]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_descendants({}, 1)", commit1.id())),
+        vec![commit1.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_descendants({}, 2)", commit1.id())),
+        vec![
+            commit6.id().clone(),
+            commit3.id().clone(),
+            commit2.id().clone(),
+            commit1.id().clone(),
+        ]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, &format!("first_descendants({}, 3)", commit1.id())),
+        vec![
+            commit7.id().clone(),
+            commit6.id().clone(),
+            commit5.id().clone(),
+            commit4.id().clone(),
+            commit3.id().clone(),
+            commit2.id().clone(),
+            commit1.id().clone(),
+        ]
+    );
+}
+
+#[test]
 fn test_evaluate_expression_range() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;

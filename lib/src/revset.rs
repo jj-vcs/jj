@@ -557,6 +557,26 @@ impl<St: ExpressionState> RevsetExpression<St> {
         })
     }
 
+    /// First-parent descendants of `self`, including `self`.
+    pub fn first_descendants(self: &Arc<Self>) -> Arc<Self> {
+        self.first_descendants_range(GENERATION_RANGE_FULL)
+    }
+
+    /// First-parent descendants of `self` at an offset of `generation` ahead
+    /// of `self`. The `generation` offset is zero-based starting from `self`.
+    pub fn first_descendants_at(self: &Arc<Self>, generation: u64) -> Arc<Self> {
+        self.first_descendants_range(generation..generation.saturating_add(1))
+    }
+
+    /// First-parent descendants of `self` in the given range.
+    pub fn first_descendants_range(self: &Arc<Self>, generation_range: Range<u64>) -> Arc<Self> {
+        Arc::new(Self::Descendants {
+            roots: self.clone(),
+            generation: generation_range,
+            parents_range: 0..1,
+        })
+    }
+
     /// Fork point (best common ancestors) of `self`.
     pub fn fork_point(self: &Arc<Self>) -> Arc<Self> {
         Arc::new(Self::ForkPoint(self.clone()))
@@ -890,6 +910,27 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
             GENERATION_RANGE_FULL
         };
         Ok(heads.first_ancestors_range(generation))
+    });
+    map.insert("first_children", |diagnostics, function, context| {
+        let ([arg], [depth_opt_arg]) = function.expect_arguments()?;
+        let expression = lower_expression(diagnostics, arg, context)?;
+        let depth = if let Some(depth_arg) = depth_opt_arg {
+            expect_literal("integer", depth_arg)?
+        } else {
+            1
+        };
+        Ok(expression.first_descendants_at(depth))
+    });
+    map.insert("first_descendants", |diagnostics, function, context| {
+        let ([roots_arg], [depth_opt_arg]) = function.expect_arguments()?;
+        let roots = lower_expression(diagnostics, roots_arg, context)?;
+        let generation = if let Some(depth_arg) = depth_opt_arg {
+            let depth = expect_literal("integer", depth_arg)?;
+            0..depth
+        } else {
+            GENERATION_RANGE_FULL
+        };
+        Ok(roots.first_descendants_range(generation))
     });
     map.insert("connected", |diagnostics, function, context| {
         let [arg] = function.expect_exact_arguments()?;
@@ -6009,6 +6050,52 @@ mod tests {
             heads: CommitRef(Symbol("bar")),
         }
         "#);
+
+        // Descendants can only be folded if parent ranges match.
+        insta::assert_debug_snapshot!(
+            optimize(parse("first_descendants(first_descendants(foo, 5), 5)").unwrap()), @r#"
+        Descendants {
+            roots: CommitRef(Symbol("foo")),
+            generation: 0..9,
+            parents_range: 0..1,
+        }
+        "#
+        );
+        insta::assert_debug_snapshot!(
+            optimize(parse("first_descendants(first_children(foo), 5)").unwrap()), @r#"
+        Descendants {
+            roots: CommitRef(Symbol("foo")),
+            generation: 1..6,
+            parents_range: 0..1,
+        }
+        "#
+        );
+        insta::assert_debug_snapshot!(
+            optimize(parse("first_descendants(descendants(foo, 5), 5)").unwrap()), @r#"
+        Descendants {
+            roots: Descendants {
+                roots: CommitRef(Symbol("foo")),
+                generation: 0..5,
+                parents_range: 0..4294967295,
+            },
+            generation: 0..5,
+            parents_range: 0..1,
+        }
+        "#
+        );
+        insta::assert_debug_snapshot!(
+            optimize(parse("descendants(first_descendants(foo, 5), 5)").unwrap()), @r#"
+        Descendants {
+            roots: Descendants {
+                roots: CommitRef(Symbol("foo")),
+                generation: 0..5,
+                parents_range: 0..1,
+            },
+            generation: 0..5,
+            parents_range: 0..4294967295,
+        }
+        "#
+        );
         Ok(())
     }
 
