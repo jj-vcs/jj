@@ -190,6 +190,25 @@ impl RefSpec {
     }
 }
 
+/// Representation of a negative Git refspec
+#[derive(Debug)]
+#[repr(transparent)]
+pub(crate) struct NegativeRefSpec {
+    source: String,
+}
+
+impl NegativeRefSpec {
+    fn new(source: impl Into<String>) -> Self {
+        Self {
+            source: source.into(),
+        }
+    }
+
+    pub(crate) fn to_git_format(&self) -> String {
+        format!("^{}", self.source)
+    }
+}
+
 /// Helper struct that matches a refspec with its expected location in the
 /// remote it's being pushed to
 pub(crate) struct RefToPush<'a> {
@@ -2120,8 +2139,12 @@ struct FetchedBranches {
 /// Represents the refspecs to fetch from a remote
 #[derive(Debug)]
 pub struct ExpandedFetchRefSpecs {
+    // NB: branch names need not necessarily map 1:1 with refspecs below:
+    // for example, we can have negative refspecs in which case there will not
+    // be an expected_branch_name entry here
     expected_branch_names: Vec<StringPattern>,
     refspecs: Vec<RefSpec>,
+    negative_refspecs: Vec<NegativeRefSpec>,
 }
 
 /// Expand a list of branch string patterns to refspecs to fetch
@@ -2152,6 +2175,7 @@ pub fn expand_fetch_refspecs(
     Ok(ExpandedFetchRefSpecs {
         expected_branch_names: branch_names,
         refspecs,
+        negative_refspecs: Vec::new(),
     })
 }
 
@@ -2189,6 +2213,7 @@ pub fn expand_default_fetch_refspecs(
 
     let mut ignored_refspecs = Vec::with_capacity(remote_refspecs.len());
     let mut expected_branch_names = Vec::with_capacity(remote_refspecs.len());
+    let negative_refspecs = Vec::new();
 
     let refspecs = remote_refspecs
         .iter()
@@ -2297,6 +2322,7 @@ pub fn expand_default_fetch_refspecs(
         ExpandedFetchRefSpecs {
             expected_branch_names,
             refspecs,
+            negative_refspecs,
         },
     ))
 }
@@ -2340,6 +2366,7 @@ impl<'a> GitFetch<'a> {
         ExpandedFetchRefSpecs {
             expected_branch_names,
             refspecs: mut remaining_refspecs,
+            negative_refspecs,
         }: ExpandedFetchRefSpecs,
         mut callbacks: RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
@@ -2372,6 +2399,7 @@ impl<'a> GitFetch<'a> {
         while let Some(failing_refspec) = self.git_ctx.spawn_fetch(
             remote_name,
             &remaining_refspecs,
+            &negative_refspecs,
             &mut callbacks,
             depth,
             fetch_tags_override,

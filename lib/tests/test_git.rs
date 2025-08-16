@@ -3231,6 +3231,7 @@ fn test_expand_default_fetch_refspecs() {
                 destination: "refs/remotes/origin/main",
             },
         ],
+        negative_refspecs: [],
     }
     "#);
 }

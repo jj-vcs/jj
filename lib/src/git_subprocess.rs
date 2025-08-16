@@ -30,6 +30,7 @@ use thiserror::Error;
 
 use crate::git::FetchTagsOverride;
 use crate::git::GitPushStats;
+use crate::git::NegativeRefSpec;
 use crate::git::Progress;
 use crate::git::RefSpec;
 use crate::git::RefToPush;
@@ -160,6 +161,7 @@ impl<'a> GitSubprocessContext<'a> {
         &self,
         remote_name: &RemoteName,
         refspecs: &[RefSpec],
+        negative_refspecs: &[NegativeRefSpec],
         callbacks: &mut RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
         fetch_tags_override: Option<FetchTagsOverride>,
@@ -188,7 +190,12 @@ impl<'a> GitSubprocessContext<'a> {
             None => {}
         }
         command.arg("--").arg(remote_name.as_str());
-        command.args(refspecs.iter().map(|x| x.to_git_format()));
+        command.args(
+            refspecs
+                .iter()
+                .map(|x| x.to_git_format())
+                .chain(negative_refspecs.iter().map(|x| x.to_git_format())),
+        );
 
         let output = wait_with_progress(self.spawn_cmd(command)?, callbacks)?;
 
