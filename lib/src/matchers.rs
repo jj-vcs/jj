@@ -674,7 +674,7 @@ mod tests {
 
     #[test]
     fn test_fileglobsmatcher_rooted() {
-        let to_pattern = |s| parse_file_glob(s).unwrap();
+        let to_pattern = |s| parse_file_glob(s, false).unwrap();
 
         let m = FileGlobsMatcher::new([(RepoPath::root(), to_pattern("*.rs"))]);
         assert!(!m.matches(repo_path("foo")));
@@ -728,7 +728,7 @@ mod tests {
 
     #[test]
     fn test_fileglobsmatcher_nested() {
-        let to_pattern = |s| parse_file_glob(s).unwrap();
+        let to_pattern = |s| parse_file_glob(s, false).unwrap();
 
         let m = FileGlobsMatcher::new([
             (repo_path("foo"), to_pattern("**/*.a")),
@@ -787,7 +787,7 @@ mod tests {
 
     #[test]
     fn test_fileglobsmatcher_wildcard_any() {
-        let to_pattern = |s| parse_file_glob(s).unwrap();
+        let to_pattern = |s| parse_file_glob(s, false).unwrap();
 
         // "*" could match the root path, but it doesn't matter since the root
         // isn't a valid file path.

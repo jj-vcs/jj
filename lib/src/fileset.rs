@@ -112,9 +112,11 @@ impl FilePattern {
             "cwd" => Self::cwd_prefix_path(path_converter, input),
             "cwd-file" | "file" => Self::cwd_file_path(path_converter, input),
             "cwd-glob" | "glob" => Self::cwd_file_glob(path_converter, input),
+            "cwd-glob-i" | "glob-i" => Self::cwd_file_glob_i(path_converter, input),
             "root" => Self::root_prefix_path(input),
             "root-file" => Self::root_file_path(input),
             "root-glob" => Self::root_file_glob(input),
+            "root-glob-i" => Self::root_file_glob_i(input),
             _ => Err(FilePatternParseError::InvalidKind(kind.to_owned())),
         }
     }
@@ -144,7 +146,17 @@ impl FilePattern {
     ) -> Result<Self, FilePatternParseError> {
         let (dir, pattern) = split_glob_path(input.as_ref());
         let dir = path_converter.parse_file_path(dir)?;
-        Self::file_glob_at(dir, pattern)
+        Self::file_glob_at(dir, pattern, false)
+    }
+
+    /// Pattern that matches cwd-relative file path glob (case-insensitive).
+    pub fn cwd_file_glob_i(
+        path_converter: &RepoPathUiConverter,
+        input: impl AsRef<str>,
+    ) -> Result<Self, FilePatternParseError> {
+        let (dir, pattern) = split_glob_path_i(input.as_ref());
+        let dir = path_converter.parse_file_path(dir)?;
+        Self::file_glob_at(dir, pattern, true)
     }
 
     /// Pattern that matches workspace-relative file (or exact) path.
@@ -164,16 +176,31 @@ impl FilePattern {
     pub fn root_file_glob(input: impl AsRef<str>) -> Result<Self, FilePatternParseError> {
         let (dir, pattern) = split_glob_path(input.as_ref());
         let dir = RepoPathBuf::from_relative_path(dir)?;
-        Self::file_glob_at(dir, pattern)
+        Self::file_glob_at(dir, pattern, false)
     }
 
-    fn file_glob_at(dir: RepoPathBuf, input: &str) -> Result<Self, FilePatternParseError> {
+    /// Pattern that matches workspace-relative file path glob
+    /// (case-insensitive).
+    pub fn root_file_glob_i(input: impl AsRef<str>) -> Result<Self, FilePatternParseError> {
+        let (dir, pattern) = split_glob_path_i(input.as_ref());
+        let dir = RepoPathBuf::from_relative_path(dir)?;
+        Self::file_glob_at(dir, pattern, true)
+    }
+
+    fn file_glob_at(
+        dir: RepoPathBuf,
+        input: &str,
+        icase: bool,
+    ) -> Result<Self, FilePatternParseError> {
         if input.is_empty() {
             return Ok(Self::FilePath(dir));
         }
         // Normalize separator to '/', reject ".." which will never match
         let normalized = RepoPathBuf::from_relative_path(input)?;
-        let pattern = Box::new(parse_file_glob(normalized.as_internal_file_string())?);
+        let pattern = Box::new(parse_file_glob(
+            normalized.as_internal_file_string(),
+            icase,
+        )?);
         Ok(Self::FileGlob { dir, pattern })
     }
 
@@ -188,12 +215,15 @@ impl FilePattern {
     }
 }
 
-pub(super) fn parse_file_glob(input: &str) -> Result<Glob, globset::Error> {
-    GlobBuilder::new(input).literal_separator(true).build()
+pub(super) fn parse_file_glob(input: &str, icase: bool) -> Result<Glob, globset::Error> {
+    GlobBuilder::new(input)
+        .literal_separator(true)
+        .case_insensitive(icase)
+        .build()
 }
 
-/// Splits `input` path into literal directory path and glob pattern.
-fn split_glob_path(input: &str) -> (&str, &str) {
+/// Checks if a character is a glob metacharacter.
+fn is_glob_char(c: char) -> bool {
     // See globset::escape(). In addition to that, backslash is parsed as an
     // escape sequence on Unix.
     const GLOB_CHARS: &[char] = if cfg!(windows) {
@@ -201,9 +231,35 @@ fn split_glob_path(input: &str) -> (&str, &str) {
     } else {
         &['?', '*', '[', ']', '{', '}', '\\']
     };
+    GLOB_CHARS.contains(&c)
+}
+
+/// Checks if input contains glob metacharacters.
+fn contains_glob_chars(input: &str) -> bool {
+    input.chars().any(is_glob_char)
+}
+
+/// Splits `input` path into literal directory path and glob pattern.
+fn split_glob_path(input: &str) -> (&str, &str) {
     let prefix_len = input
         .split_inclusive(path::is_separator)
-        .take_while(|component| !component.contains(GLOB_CHARS))
+        .take_while(|component| !contains_glob_chars(component))
+        .map(|component| component.len())
+        .sum();
+    input.split_at(prefix_len)
+}
+
+/// Splits `input` path into literal directory path and glob pattern, for
+/// case-insensitive patterns.
+fn split_glob_path_i(input: &str) -> (&str, &str) {
+    let prefix_len = input
+        .split_inclusive(path::is_separator)
+        .take_while(|component| {
+            !component
+                .trim_end_matches(path::is_separator)
+                .chars()
+                .any(|c| c.is_ascii_alphabetic() || is_glob_char(c))
+        })
         .map(|component| component.len())
         .sum();
     input.split_at(prefix_len)
@@ -681,9 +737,12 @@ mod tests {
         )
         "#);
         assert!(parse(r#"glob:"../../*""#).is_err());
+        assert!(parse(r#"glob-i:"../../*""#).is_err());
         assert!(parse(r#"glob:"/*""#).is_err());
+        assert!(parse(r#"glob-i:"/*""#).is_err());
         // no support for relative path component after glob meta character
         assert!(parse(r#"glob:"*/..""#).is_err());
+        assert!(parse(r#"glob-i:"*/..""#).is_err());
 
         if cfg!(windows) {
             // cwd-relative, with Windows path separators
@@ -774,7 +833,9 @@ mod tests {
         )
         "#);
         assert!(parse(r#"root-glob:"../*""#).is_err());
+        assert!(parse(r#"root-glob-i:"../*""#).is_err());
         assert!(parse(r#"root-glob:"/*""#).is_err());
+        assert!(parse(r#"root-glob-i:"/*""#).is_err());
 
         // workspace-relative, backslash escape without meta characters
         if cfg!(not(windows)) {
@@ -793,6 +854,129 @@ mod tests {
             )
             "#);
         }
+    }
+
+    #[test]
+    fn test_parse_glob_pattern_case_insensitive() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+        let path_converter = RepoPathUiConverter::Fs {
+            cwd: PathBuf::from("/ws/cur"),
+            base: PathBuf::from("/ws"),
+        };
+        let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &path_converter);
+
+        // cwd-relative case-insensitive glob
+        insta::assert_debug_snapshot!(
+            parse(r#"glob-i:"*.TXT""#).unwrap(), @r#"
+        Pattern(
+            FileGlob {
+                dir: "cur",
+                pattern: Glob {
+                    glob: "*.TXT",
+                    re: "(?-u)(?i)^[^/]*\\.TXT$",
+                    opts: _,
+                    tokens: _,
+                },
+            },
+        )
+        "#);
+
+        // cwd-relative case-insensitive glob with more specific pattern
+        insta::assert_debug_snapshot!(
+            parse(r#"cwd-glob-i:"[Ff]oo""#).unwrap(), @r#"
+        Pattern(
+            FileGlob {
+                dir: "cur",
+                pattern: Glob {
+                    glob: "[Ff]oo",
+                    re: "(?-u)(?i)^[Ff]oo$",
+                    opts: _,
+                    tokens: _,
+                },
+            },
+        )
+        "#);
+
+        // workspace-relative case-insensitive glob
+        insta::assert_debug_snapshot!(
+            parse(r#"root-glob-i:"*.Rs""#).unwrap(), @r#"
+        Pattern(
+            FileGlob {
+                dir: "",
+                pattern: Glob {
+                    glob: "*.Rs",
+                    re: "(?-u)(?i)^[^/]*\\.Rs$",
+                    opts: _,
+                    tokens: _,
+                },
+            },
+        )
+        "#);
+
+        // case-insensitive pattern with directory component (should not split the path)
+        insta::assert_debug_snapshot!(
+            parse(r#"glob-i:"SubDir/*.rs""#).unwrap(), @r#"
+        Pattern(
+            FileGlob {
+                dir: "cur",
+                pattern: Glob {
+                    glob: "SubDir/*.rs",
+                    re: "(?-u)(?i)^SubDir/[^/]*\\.rs$",
+                    opts: _,
+                    tokens: _,
+                },
+            },
+        )
+        "#);
+
+        // case-sensitive pattern with directory component (should split the path)
+        insta::assert_debug_snapshot!(
+            parse(r#"glob:"SubDir/*.rs""#).unwrap(), @r#"
+        Pattern(
+            FileGlob {
+                dir: "cur/SubDir",
+                pattern: Glob {
+                    glob: "*.rs",
+                    re: "(?-u)^[^/]*\\.rs$",
+                    opts: _,
+                    tokens: _,
+                },
+            },
+        )
+        "#);
+
+        // case-insensitive pattern with leading dots (should split dots but not dirs)
+        insta::assert_debug_snapshot!(
+            parse(r#"glob-i:"../SomeDir/*.rs""#).unwrap(), @r#"
+        Pattern(
+            FileGlob {
+                dir: "",
+                pattern: Glob {
+                    glob: "SomeDir/*.rs",
+                    re: "(?-u)(?i)^SomeDir/[^/]*\\.rs$",
+                    opts: _,
+                    tokens: _,
+                },
+            },
+        )
+        "#);
+
+        // case-insensitive pattern with single leading dot
+        insta::assert_debug_snapshot!(
+            parse(r#"glob-i:"./SomeFile*.txt""#).unwrap(), @r#"
+        Pattern(
+            FileGlob {
+                dir: "cur",
+                pattern: Glob {
+                    glob: "SomeFile*.txt",
+                    re: "(?-u)(?i)^SomeFile[^/]*\\.txt$",
+                    opts: _,
+                    tokens: _,
+                },
+            },
+        )
+        "#);
     }
 
     #[test]
@@ -928,7 +1112,7 @@ mod tests {
         let glob_expr = |dir: &str, pattern: &str| {
             FilesetExpression::pattern(FilePattern::FileGlob {
                 dir: repo_path_buf(dir),
-                pattern: Box::new(parse_file_glob(pattern).unwrap()),
+                pattern: Box::new(parse_file_glob(pattern, false).unwrap()),
             })
         };
 
