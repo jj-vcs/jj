@@ -144,7 +144,6 @@ enum Command {
     #[command(subcommand)]
     Tag(tag::TagCommand),
     Touch(touch::TouchArgs),
-    /// Undo an operation
     Undo(undo::UndoArgs),
     Unsign(unsign::UnsignArgs),
     #[command(subcommand)]

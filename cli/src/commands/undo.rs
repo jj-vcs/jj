@@ -41,7 +41,7 @@ fn resets_view_of(op: &Operation, parent_op: &Operation) -> Result<bool, OpStore
     Ok(op.view_id() == grandparent_op?.view_id())
 }
 
-/// Create a new operation that undoes an earlier operation
+/// Undo an operation
 ///
 /// This undoes an individual operation by applying the inverse of the
 /// operation.
