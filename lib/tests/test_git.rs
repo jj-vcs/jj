@@ -38,6 +38,7 @@ use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
+use jj_lib::git::FetchTagsOverride;
 use jj_lib::git::GitBranchPushTargets;
 use jj_lib::git::GitFetch;
 use jj_lib::git::GitFetchError;
@@ -141,12 +142,29 @@ fn git_fetch(
     branch_names: &[StringPattern],
     git_settings: &GitSettings,
 ) -> Result<GitFetchStats, GitFetchError> {
+    git_fetch_with_fetch_tags_override(
+        mut_repo,
+        remote_name,
+        branch_names,
+        git_settings,
+        FetchTagsOverride::UseRemoteConfiguration,
+    )
+}
+
+fn git_fetch_with_fetch_tags_override(
+    mut_repo: &mut MutableRepo,
+    remote_name: &RemoteName,
+    branch_names: &[StringPattern],
+    git_settings: &GitSettings,
+    fetch_tags_override: FetchTagsOverride,
+) -> Result<GitFetchStats, GitFetchError> {
     let mut git_fetch = GitFetch::new(mut_repo, git_settings).unwrap();
     git_fetch.fetch(
         remote_name,
         branch_names,
         git::RemoteCallbacks::default(),
         None,
+        fetch_tags_override,
     )?;
     let default_branch = git_fetch.get_default_branch(remote_name)?;
 
@@ -3159,6 +3177,83 @@ fn test_fetch_multiple_branches() {
             .map(|(symbol, _)| symbol)
             .collect_vec(),
         [remote_symbol("main", "origin")]
+    );
+}
+
+#[test]
+fn test_fetch_with_fetch_tags_override() {
+    let git_settings = GitSettings {
+        auto_local_bookmark: true,
+        ..Default::default()
+    };
+    let source_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let source_repo = &source_repo.repo;
+    let source_git_repo = get_git_repo(source_repo);
+
+    let commit1 = empty_git_commit(&source_git_repo, "refs/heads/main", &[]);
+    git_ref(&source_git_repo, "refs/remotes/origin/main", commit1);
+    let commit2 = empty_git_commit(&source_git_repo, "refs/heads/disjoint", &[]);
+    git_ref(&source_git_repo, "refs/remotes/origin/disjoint", commit2);
+    let commit3 = empty_git_commit(&source_git_repo, "refs/tags/v1.0", &[commit1]);
+    let commit4 = empty_git_commit(&source_git_repo, "refs/tags/v2.0", &[commit2]);
+
+    testutils::git::set_symbolic_reference(&source_git_repo, "HEAD", "refs/heads/main");
+
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+
+    git::add_remote(
+        repo.store(),
+        "origin".as_ref(),
+        &source_git_repo.path().display().to_string(),
+        gix::remote::fetch::Tags::None,
+    )
+    .unwrap();
+    // Reload after Git configuration change.
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    let mut tx = repo.start_transaction();
+    let stats = git_fetch_with_fetch_tags_override(
+        tx.repo_mut(),
+        "origin".as_ref(),
+        &[StringPattern::everything()],
+        &git_settings,
+        FetchTagsOverride::UseRemoteConfiguration,
+    )
+    .unwrap();
+
+    assert_eq!(stats.import_stats.changed_remote_tags, vec![]);
+
+    let mut tx = repo.start_transaction();
+    let stats = git_fetch_with_fetch_tags_override(
+        tx.repo_mut(),
+        "origin".as_ref(),
+        &[StringPattern::everything()],
+        &git_settings,
+        FetchTagsOverride::ForceAllTags,
+    )
+    .unwrap();
+
+    let actual = stats
+        .import_stats
+        .changed_remote_tags
+        .iter()
+        .filter_map(|(remote_symbol, (_, target))| {
+            target
+                .as_resolved()?
+                .as_ref()
+                .map(|resolved| (remote_symbol.name.as_ref(), resolved.hex()))
+        })
+        .collect::<BTreeMap<_, _>>();
+
+    assert_eq!(
+        actual,
+        BTreeMap::from([
+            ("v1.0", commit3.to_hex().to_string()),
+            ("v2.0", commit4.to_hex().to_string()),
+        ])
     );
 }
 

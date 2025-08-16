@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap::ValueEnum;
 use jj_lib::git;
 use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
-use crate::commands::git::FetchTagsMode;
 use crate::git_util::absolute_git_url;
 use crate::ui::Ui;
 
@@ -34,8 +34,32 @@ pub struct GitRemoteAddArgs {
     url: String,
 
     /// Configure when to fetch tags
-    #[arg(long, value_enum, default_value_t = FetchTagsMode::Included)]
-    fetch_tags: FetchTagsMode,
+    #[arg(long, value_enum, default_value_t = RemoteFetchTagsMode::Included)]
+    fetch_tags: RemoteFetchTagsMode,
+}
+
+/// Configure the `tagOpt` setting of the remote
+#[derive(Copy, Clone, Debug, ValueEnum)]
+pub enum RemoteFetchTagsMode {
+    /// Always fetch all tags
+    All,
+
+    /// Only fetch tags that point to objects that are already being
+    /// transmitted.
+    Included,
+
+    /// Do not fetch any tags
+    None,
+}
+
+impl RemoteFetchTagsMode {
+    fn as_fetch_tags(self) -> gix::remote::fetch::Tags {
+        match self {
+            Self::All => gix::remote::fetch::Tags::All,
+            Self::Included => gix::remote::fetch::Tags::Included,
+            Self::None => gix::remote::fetch::Tags::None,
+        }
+    }
 }
 
 pub fn cmd_git_remote_add(
