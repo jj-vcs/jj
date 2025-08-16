@@ -234,6 +234,229 @@ fn test_git_init_external_import_trunk(bare: bool) {
     }
 }
 
+#[test_case(false; "full")]
+#[test_case(true; "bare")]
+fn test_git_init_external_import_trunk_from_upstream(bare: bool) {
+    let test_env = TestEnvironment::default();
+    let git_repo_path = test_env.env_root().join("git-repo");
+    let git_repo = init_git_repo(&git_repo_path, bare);
+
+    // Add remote bookmark "main" for remote "upstream", and set it as
+    // "upstream/HEAD"
+    let oid = git_repo
+        .find_reference("refs/heads/my-bookmark")
+        .unwrap()
+        .id();
+
+    git_repo
+        .reference(
+            "refs/remotes/upstream/main",
+            oid.detach(),
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            "create remote ref",
+        )
+        .unwrap();
+
+    git::set_symbolic_reference(
+        &git_repo,
+        "refs/remotes/upstream/HEAD",
+        "refs/remotes/upstream/main",
+    );
+
+    let output = test_env.run_jj_in(
+        ".",
+        [
+            "git",
+            "init",
+            "repo",
+            "--git-repo",
+            git_repo_path.to_str().unwrap(),
+        ],
+    );
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Done importing changes from the underlying Git repo.
+    Setting the revset alias `trunk()` to `main@upstream`
+    Working copy  (@) now at: sqpuoqvx ed6b5138 (empty) (no description set)
+    Parent commit (@-)      : nntyzxmz e80a42cc main@upstream my-bookmark | My commit message
+    Added 1 files, modified 0 files, removed 0 files
+    Initialized repo in "repo"
+    [EOF]
+    "#);
+    }
+
+    // "trunk()" alias should be set to remote "upstream"'s default bookmark "main"
+    let work_dir = test_env.work_dir("repo");
+    let output = work_dir.run_jj(["config", "list", "--repo", "revset-aliases.\"trunk()\""]);
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(output, @r#"
+        revset-aliases."trunk()" = "main@upstream"
+        [EOF]
+        "#);
+    }
+}
+
+#[test_case(false; "full")]
+#[test_case(true; "bare")]
+fn test_git_init_external_import_trunk_upstream_takes_precedence(bare: bool) {
+    let test_env = TestEnvironment::default();
+    let git_repo_path = test_env.env_root().join("git-repo");
+    let git_repo = init_git_repo(&git_repo_path, bare);
+
+    let oid = git_repo
+        .find_reference("refs/heads/my-bookmark")
+        .unwrap()
+        .id();
+
+    // Add both upstream and origin remotes with different default branches
+    // upstream has "develop" as default
+    git_repo
+        .reference(
+            "refs/remotes/upstream/develop",
+            oid.detach(),
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            "create upstream remote ref",
+        )
+        .unwrap();
+
+    git::set_symbolic_reference(
+        &git_repo,
+        "refs/remotes/upstream/HEAD",
+        "refs/remotes/upstream/develop",
+    );
+
+    // origin has "trunk" as default
+    git_repo
+        .reference(
+            "refs/remotes/origin/trunk",
+            oid.detach(),
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            "create origin remote ref",
+        )
+        .unwrap();
+
+    git::set_symbolic_reference(
+        &git_repo,
+        "refs/remotes/origin/HEAD",
+        "refs/remotes/origin/trunk",
+    );
+
+    let output = test_env.run_jj_in(
+        ".",
+        [
+            "git",
+            "init",
+            "repo",
+            "--git-repo",
+            git_repo_path.to_str().unwrap(),
+        ],
+    );
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Done importing changes from the underlying Git repo.
+    Setting the revset alias `trunk()` to `develop@upstream`
+    Working copy  (@) now at: sqpuoqvx ed6b5138 (empty) (no description set)
+    Parent commit (@-)      : nntyzxmz e80a42cc develop@upstream my-bookmark trunk@origin | My commit message
+    Added 1 files, modified 0 files, removed 0 files
+    Initialized repo in "repo"
+    [EOF]
+    "#);
+    }
+
+    // "trunk()" alias should be set to "upstream"'s default, not "origin"'s
+    let work_dir = test_env.work_dir("repo");
+    let output = work_dir.run_jj(["config", "list", "--repo", "revset-aliases.\"trunk()\""]);
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(output, @r#"
+        revset-aliases."trunk()" = "develop@upstream"
+        [EOF]
+        "#);
+    }
+}
+
+#[test_case(false; "full")]
+#[test_case(true; "bare")]
+fn test_git_init_external_import_trunk_with_custom_config(bare: bool) {
+    let test_env = TestEnvironment::default();
+    // Configure custom remote precedence
+    test_env.add_config(r#"git.trunk-remotes = ["fork", "upstream", "origin"]"#);
+
+    let git_repo_path = test_env.env_root().join("git-repo");
+    let git_repo = init_git_repo(&git_repo_path, bare);
+
+    let oid = git_repo
+        .find_reference("refs/heads/my-bookmark")
+        .unwrap()
+        .id();
+
+    // Add "fork" remote with "main" as default
+    git_repo
+        .reference(
+            "refs/remotes/fork/main",
+            oid.detach(),
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            "create fork remote ref",
+        )
+        .unwrap();
+
+    git::set_symbolic_reference(
+        &git_repo,
+        "refs/remotes/fork/HEAD",
+        "refs/remotes/fork/main",
+    );
+
+    // Also add "origin" remote to verify "fork" takes precedence
+    git_repo
+        .reference(
+            "refs/remotes/origin/master",
+            oid.detach(),
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            "create origin remote ref",
+        )
+        .unwrap();
+
+    git::set_symbolic_reference(
+        &git_repo,
+        "refs/remotes/origin/HEAD",
+        "refs/remotes/origin/master",
+    );
+
+    let output = test_env.run_jj_in(
+        ".",
+        [
+            "git",
+            "init",
+            "repo",
+            "--git-repo",
+            git_repo_path.to_str().unwrap(),
+        ],
+    );
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Done importing changes from the underlying Git repo.
+    Setting the revset alias `trunk()` to `main@fork`
+    Working copy  (@) now at: sqpuoqvx ed6b5138 (empty) (no description set)
+    Parent commit (@-)      : nntyzxmz e80a42cc main@fork master@origin my-bookmark | My commit message
+    Added 1 files, modified 0 files, removed 0 files
+    Initialized repo in "repo"
+    [EOF]
+    "#);
+    }
+
+    // "trunk()" alias should be set to "fork" remote's default
+    let work_dir = test_env.work_dir("repo");
+    let output = work_dir.run_jj(["config", "list", "--repo", "revset-aliases.\"trunk()\""]);
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(output, @r#"
+        revset-aliases."trunk()" = "main@fork"
+        [EOF]
+        "#);
+    }
+}
+
 #[test]
 fn test_git_init_external_ignore_working_copy() {
     let test_env = TestEnvironment::default();
