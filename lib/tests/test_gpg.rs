@@ -67,15 +67,18 @@ struct GpgEnvironment {
 
 impl GpgEnvironment {
     fn new() -> Result<Self, std::process::Output> {
-        let dir = tempfile::Builder::new()
-            .prefix("gpg-test-")
-            .tempdir()
-            .unwrap();
+        let dir = tempfile::Builder::new().prefix("jj-").tempdir().unwrap();
 
         let path = dir.path();
 
         #[cfg(unix)]
         std::fs::set_permissions(path, Permissions::from_mode(0o700)).unwrap();
+
+        // The extra socket file name is too long in macOS Nix builds.
+        std::fs::write(
+            path.join("gpg-agent.conf"),
+            "extra-socket none",
+        ).unwrap();
 
         let mut gpg = std::process::Command::new("gpg")
             .arg("--homedir")
@@ -113,10 +116,7 @@ struct GpgsmEnvironment {
 
 impl GpgsmEnvironment {
     fn new() -> Result<Self, std::process::Output> {
-        let dir = tempfile::Builder::new()
-            .prefix("gpgsm-test-")
-            .tempdir()
-            .unwrap();
+        let dir = tempfile::Builder::new().prefix("jj-").tempdir().unwrap();
 
         let path = dir.path();
 
@@ -128,6 +128,12 @@ impl GpgsmEnvironment {
             format!("{GPGSM_FINGERPRINT} S\n"),
         )
         .unwrap();
+
+        // The extra socket file name is too long in macOS Nix builds.
+        std::fs::write(
+            path.join("gpg-agent.conf"),
+            "extra-socket none",
+        ).unwrap();
 
         let mut gpgsm = std::process::Command::new("gpgsm")
             .arg("--homedir")

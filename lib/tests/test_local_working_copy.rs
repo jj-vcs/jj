@@ -14,8 +14,6 @@
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt as _;
-#[cfg(unix)]
-use std::os::unix::net::UnixListener;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -1064,11 +1062,16 @@ fn test_snapshot_special_file() {
     let file2_path = repo_path("file2");
     let file2_disk_path = file2_path.to_fs_path_unchecked(&workspace_root);
     std::fs::write(file2_disk_path, "contents".as_bytes()).unwrap();
-    let socket_disk_path = workspace_root.join("socket");
-    UnixListener::bind(&socket_disk_path).unwrap();
+    let fifo_disk_path = workspace_root.join("fifo");
+    // TODO: Use `std::os::unix::fs::mkfifo` once stable.
+    nix::unistd::mkfifo(
+        &fifo_disk_path,
+        nix::sys::stat::Mode::S_IRUSR | nix::sys::stat::Mode::S_IWUSR,
+    )
+    .unwrap();
     // Test the setup
-    assert!(socket_disk_path.exists());
-    assert!(!socket_disk_path.is_file());
+    assert!(fifo_disk_path.exists());
+    assert!(!fifo_disk_path.is_file());
 
     // Snapshot the working copy with the socket file
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
@@ -1091,7 +1094,12 @@ fn test_snapshot_special_file() {
 
     // Replace a regular file by a socket and snapshot the working copy again
     std::fs::remove_file(&file1_disk_path).unwrap();
-    UnixListener::bind(&file1_disk_path).unwrap();
+    // TODO: Use `std::os::unix::fs::mkfifo` once stable.
+    nix::unistd::mkfifo(
+        &file1_disk_path,
+        nix::sys::stat::Mode::S_IRUSR | nix::sys::stat::Mode::S_IWUSR,
+    )
+    .unwrap();
     let tree = test_workspace.snapshot().unwrap();
     // Only the regular file should be in the tree
     assert_eq!(
