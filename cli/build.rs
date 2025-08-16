@@ -32,7 +32,10 @@ fn main() {
     }
     println!("cargo:rerun-if-env-changed=NIX_JJ_GIT_HASH");
 
-    if let Some(git_hash) = get_git_hash() {
+    if let Some(git_hash) = get_git_hash_from_nix()
+        .or_else(get_git_hash_from_jj)
+        .or_else(get_git_hash_from_git)
+    {
         println!("cargo:rustc-env=JJ_VERSION={version}-{git_hash}");
     } else {
         println!("cargo:rustc-env=JJ_VERSION={version}");
@@ -47,13 +50,13 @@ fn main() {
     }
 }
 
-fn get_git_hash() -> Option<String> {
-    if let Some(nix_hash) = std::env::var("NIX_JJ_GIT_HASH")
+fn get_git_hash_from_nix() -> Option<String> {
+    std::env::var("NIX_JJ_GIT_HASH")
         .ok()
         .filter(|s| !s.is_empty())
-    {
-        return Some(nix_hash);
-    }
+}
+
+fn get_git_hash_from_jj() -> Option<String> {
     if let Ok(output) = Command::new("jj")
         .args([
             "--ignore-working-copy",
@@ -73,6 +76,10 @@ fn get_git_hash() -> Option<String> {
         return Some(parent_commits);
     }
 
+    None
+}
+
+fn get_git_hash_from_git() -> Option<String> {
     if let Ok(output) = Command::new("git").args(["rev-parse", "HEAD"]).output()
         && output.status.success()
     {
