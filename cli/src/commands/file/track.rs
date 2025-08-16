@@ -18,6 +18,7 @@ use std::io::Write as _;
 use indoc::writedoc;
 use itertools::Itertools as _;
 use jj_lib::repo_path::RepoPathUiConverter;
+use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::working_copy::UntrackedReason;
 use tracing::instrument;
@@ -54,7 +55,11 @@ pub(crate) fn cmd_file_track(
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
-    let options = workspace_command.snapshot_options_with_start_tracking_matcher(&matcher)?;
+    let options = SnapshotOptions {
+        base_ignores: workspace_command.base_ignores()?,
+        progress: None,
+        start_tracking_matcher: &matcher,
+    };
 
     let mut tx = workspace_command.start_transaction().into_inner();
     let (mut locked_ws, _wc_commit) = workspace_command.start_working_copy_mutation()?;

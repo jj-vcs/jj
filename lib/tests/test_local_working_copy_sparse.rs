@@ -19,9 +19,9 @@ use jj_lib::matchers::EverythingMatcher;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
-use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::WorkingCopy as _;
+use jj_lib::working_copy::WorkingCopySettings;
 use pollster::FutureExt as _;
 use testutils::TestWorkspace;
 use testutils::commit_with_tree;
@@ -63,12 +63,7 @@ fn test_sparse_checkout() {
 
     test_workspace
         .workspace
-        .check_out(
-            repo.op_id().clone(),
-            None,
-            &commit,
-            &CheckoutOptions::empty_for_test(),
-        )
+        .check_out(repo.op_id().clone(), None, &commit)
         .unwrap();
     let ws = &mut test_workspace.workspace;
 
@@ -77,7 +72,7 @@ fn test_sparse_checkout() {
     let sparse_patterns = to_owned_path_vec(&[dir1_path]);
     let stats = locked_ws
         .locked_wc()
-        .set_sparse_patterns(sparse_patterns.clone(), &CheckoutOptions::empty_for_test())
+        .set_sparse_patterns(sparse_patterns.clone())
         .unwrap();
     assert_eq!(
         stats,
@@ -137,7 +132,6 @@ fn test_sparse_checkout() {
         repo.store().clone(),
         ws.workspace_root().to_path_buf(),
         wc.state_path().to_path_buf(),
-        repo.settings(),
     )
     .unwrap();
     assert_eq!(
@@ -147,10 +141,12 @@ fn test_sparse_checkout() {
     assert_eq!(wc.sparse_patterns().unwrap(), sparse_patterns);
 
     // Set sparse patterns to file2, dir1/subdir1/ and dir2/
-    let mut locked_wc = wc.start_mutation().unwrap();
+    let mut locked_wc = wc
+        .start_mutation(WorkingCopySettings::empty_for_test())
+        .unwrap();
     let sparse_patterns = to_owned_path_vec(&[root_file1_path, dir1_subdir1_path, dir2_path]);
     let stats = locked_wc
-        .set_sparse_patterns(sparse_patterns.clone(), &CheckoutOptions::empty_for_test())
+        .set_sparse_patterns(sparse_patterns.clone())
         .unwrap();
     assert_eq!(
         stats,
@@ -226,12 +222,7 @@ fn test_sparse_commit() {
     let commit = commit_with_tree(repo.store(), tree.id());
     test_workspace
         .workspace
-        .check_out(
-            repo.op_id().clone(),
-            None,
-            &commit,
-            &CheckoutOptions::empty_for_test(),
-        )
+        .check_out(repo.op_id().clone(), None, &commit)
         .unwrap();
 
     // Set sparse patterns to only dir1/
@@ -242,7 +233,7 @@ fn test_sparse_commit() {
     let sparse_patterns = to_owned_path_vec(&[dir1_path]);
     locked_ws
         .locked_wc()
-        .set_sparse_patterns(sparse_patterns, &CheckoutOptions::empty_for_test())
+        .set_sparse_patterns(sparse_patterns)
         .unwrap();
     locked_ws.finish(repo.op_id().clone()).unwrap();
 
@@ -283,7 +274,7 @@ fn test_sparse_commit() {
     let sparse_patterns = to_owned_path_vec(&[dir1_path, dir2_path]);
     locked_ws
         .locked_wc()
-        .set_sparse_patterns(sparse_patterns, &CheckoutOptions::empty_for_test())
+        .set_sparse_patterns(sparse_patterns)
         .unwrap();
     locked_ws.finish(op_id).unwrap();
 
@@ -318,7 +309,7 @@ fn test_sparse_commit_gitignore() {
     let sparse_patterns = to_owned_path_vec(&[dir1_path]);
     locked_ws
         .locked_wc()
-        .set_sparse_patterns(sparse_patterns, &CheckoutOptions::empty_for_test())
+        .set_sparse_patterns(sparse_patterns)
         .unwrap();
     locked_ws.finish(repo.op_id().clone()).unwrap();
 

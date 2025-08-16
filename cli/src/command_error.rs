@@ -59,6 +59,7 @@ use jj_lib::working_copy::RecoverWorkspaceError;
 use jj_lib::working_copy::ResetError;
 use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::WorkingCopyStateError;
+use jj_lib::workspace::StartWorkingCopyMutError;
 use jj_lib::workspace::WorkspaceInitError;
 use thiserror::Error;
 
@@ -356,6 +357,17 @@ impl From<WorkspaceInitError> for CommandError {
             }
             WorkspaceInitError::SignInit(err) => user_error(err),
             WorkspaceInitError::TransactionCommit(err) => err.into(),
+        }
+    }
+}
+
+impl From<StartWorkingCopyMutError> for CommandError {
+    fn from(err: StartWorkingCopyMutError) -> Self {
+        match err {
+            StartWorkingCopyMutError::WcState(err) => {
+                internal_error_with_message("Failed to access the repository", err)
+            }
+            StartWorkingCopyMutError::ConfigGet(err) => config_error(err),
         }
     }
 }
