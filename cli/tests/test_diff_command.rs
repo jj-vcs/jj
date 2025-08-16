@@ -3947,3 +3947,87 @@ fn test_diff_revisions() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_diff_glob_patterns() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("a/foo.txt", "1\n");
+    work_dir.write_file("a/bar.txt", "2\n");
+    work_dir.write_file("b/baz.txt", "3\n");
+    work_dir.write_file("file1.txt", "4\n");
+    work_dir.write_file("file2.txt", "5\n");
+    // literal brackets in filename (valid on both Unix and Windows)
+    work_dir.write_file("file[1].txt", "6\n");
+
+    work_dir
+        .run_jj(["commit", "-m", "Initial commit"])
+        .success();
+
+    // Make changes to test files
+    work_dir.write_file("a/foo.txt", "1\n2\n");
+    work_dir.write_file("b/baz.txt", "3\n4\n");
+    work_dir.write_file("file1.txt", "4\n5\n");
+    work_dir.write_file("file2.txt", "5\n6\n");
+    work_dir.write_file("file[1].txt", "6\n7\n");
+
+    // Test that "**/*.txt" glob pattern matches all .txt files recursively
+    let output = work_dir.run_jj(["diff", "--stat", "--from", "@-", "**/*.txt"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    a/foo.txt   | 1 +
+    b/baz.txt   | 1 +
+    file1.txt   | 1 +
+    file2.txt   | 1 +
+    file[1].txt | 1 +
+    5 files changed, 5 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+
+    // Test that "a/*.txt" matches only .txt files in the "a" directory
+    let output = work_dir.run_jj(["diff", "--stat", "--from", "@-", "a/*.txt"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    a/foo.txt | 1 +
+    1 file changed, 1 insertion(+), 0 deletions(-)
+    [EOF]
+    ");
+
+    // Test that "b" (without glob chars) uses prefix matching for all files in "b"
+    let output = work_dir.run_jj(["diff", "--stat", "--from", "@-", "b"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    b/baz.txt | 1 +
+    1 file changed, 1 insertion(+), 0 deletions(-)
+    [EOF]
+    ");
+
+    // Test that "file?.txt" glob matches file1.txt and file2.txt
+    let output = work_dir.run_jj(["diff", "--stat", "--from", "@-", "file?.txt"]);
+    insta::assert_snapshot!(output, @r"
+    file1.txt | 1 +
+    file2.txt | 1 +
+    2 files changed, 2 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+
+    // Test that "file[12].txt" glob with character class matches file1.txt and
+    // file2.txt
+    let output = work_dir.run_jj(["diff", "--stat", "--from", "@-", "file[12].txt"]);
+    insta::assert_snapshot!(output, @r"
+    file1.txt | 1 +
+    file2.txt | 1 +
+    2 files changed, 2 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+
+    // Test that "file\[1\].txt" with escaped brackets matches literal "file[1].txt"
+    #[cfg(not(windows))]
+    {
+        let output = work_dir.run_jj(["diff", "--stat", "--from", "@-", r"file\[1\].txt"]);
+        insta::assert_snapshot!(output, @r"
+        file[1].txt | 1 +
+        1 file changed, 1 insertion(+), 0 deletions(-)
+        [EOF]
+        ");
+    }
+}

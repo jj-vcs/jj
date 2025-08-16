@@ -192,8 +192,8 @@ pub(super) fn parse_file_glob(input: &str) -> Result<Glob, globset::Error> {
     GlobBuilder::new(input).literal_separator(true).build()
 }
 
-/// Splits `input` path into literal directory path and glob pattern.
-fn split_glob_path(input: &str) -> (&str, &str) {
+/// Checks if input contains glob metacharacters.
+fn contains_glob_chars(input: &str) -> bool {
     // See globset::escape(). In addition to that, backslash is parsed as an
     // escape sequence on Unix.
     const GLOB_CHARS: &[char] = if cfg!(windows) {
@@ -201,9 +201,14 @@ fn split_glob_path(input: &str) -> (&str, &str) {
     } else {
         &['?', '*', '[', ']', '{', '}', '\\']
     };
+    input.contains(GLOB_CHARS)
+}
+
+/// Splits `input` path into literal directory path and glob pattern.
+fn split_glob_path(input: &str) -> (&str, &str) {
     let prefix_len = input
         .split_inclusive(path::is_separator)
-        .take_while(|component| !component.contains(GLOB_CHARS))
+        .take_while(|component| !contains_glob_chars(component))
         .map(|component| component.len())
         .sum();
     input.split_at(prefix_len)
@@ -427,6 +432,17 @@ fn resolve_function(
     }
 }
 
+fn resolve_file_pattern(
+    path_converter: &RepoPathUiConverter,
+    name: &str,
+) -> Result<FilePattern, FilePatternParseError> {
+    if contains_glob_chars(name) {
+        FilePattern::cwd_file_glob(path_converter, name)
+    } else {
+        FilePattern::cwd_prefix_path(path_converter, name)
+    }
+}
+
 fn resolve_expression(
     diagnostics: &mut FilesetDiagnostics,
     path_converter: &RepoPathUiConverter,
@@ -436,13 +452,11 @@ fn resolve_expression(
         |err| FilesetParseError::expression("Invalid file pattern", node.span).with_source(err);
     match &node.kind {
         ExpressionKind::Identifier(name) => {
-            let pattern =
-                FilePattern::cwd_prefix_path(path_converter, name).map_err(wrap_pattern_error)?;
+            let pattern = resolve_file_pattern(path_converter, name).map_err(wrap_pattern_error)?;
             Ok(FilesetExpression::pattern(pattern))
         }
         ExpressionKind::String(name) => {
-            let pattern =
-                FilePattern::cwd_prefix_path(path_converter, name).map_err(wrap_pattern_error)?;
+            let pattern = resolve_file_pattern(path_converter, name).map_err(wrap_pattern_error)?;
             Ok(FilesetExpression::pattern(pattern))
         }
         ExpressionKind::StringPattern { kind, value } => {

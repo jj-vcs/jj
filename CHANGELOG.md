@@ -10,6 +10,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* Filesets now support glob patterns by default. Patterns containing glob
+  metacharacters (`*`, `?`, `[`, `]`, `{`, `}`, `\` on Unix) are automatically
+  interpreted as globs. The explicit `glob:` prefix is still supported. Paths
+  without glob characters continue to use prefix matching.
+
 * `jj op show` now uses `templates.op_show` configuration for its default template
   instead of `templates.op_log`.
 
