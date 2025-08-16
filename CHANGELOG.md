@@ -46,6 +46,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj git remote add` and `jj git clone` now support `--fetch-tags` to control
   when tags are fetched for all subsequent fetches.
 
+* `jj git fetch` now supports `--tracked` to fetch only tracked bookmarks.
+
 * `jj diff --stat` now shows the change in size to binary files.
 
 * `jj log`, `jj evolog` and `jj op log` output can now be anonymized with the

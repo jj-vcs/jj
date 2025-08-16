@@ -45,7 +45,8 @@ pub struct GitFetchArgs {
     ///
     /// By default, the specified name matches exactly. Use `glob:` prefix to
     /// expand `*` as a glob, e.g. `--branch 'glob:push-*'`. Other wildcard
-    /// characters such as `?` are *not* supported.
+    /// characters such as `?` are *not* supported. Can be repeated to specify
+    /// multiple branches.
     #[arg(
         long, short,
         alias = "bookmark",
@@ -54,6 +55,12 @@ pub struct GitFetchArgs {
         add = ArgValueCandidates::new(complete::bookmarks),
     )]
     branch: Vec<StringPattern>,
+    /// Fetch only tracked bookmarks
+    ///
+    /// This fetches only bookmarks that are already tracked from the specified
+    /// remote(s).
+    #[arg(long, conflicts_with = "branch")]
+    tracked: bool,
     /// The remote to fetch from (only named remotes are supported, can be
     /// repeated)
     ///
@@ -118,8 +125,30 @@ pub fn cmd_git_fetch(
         .sorted()
         .collect_vec();
 
+    let branches_by_remote: Vec<(&RemoteName, Vec<StringPattern>)> = if args.tracked {
+        remotes
+            .iter()
+            .map(|&remote| {
+                let tracked_branches = workspace_command
+                    .repo()
+                    .view()
+                    .local_remote_bookmarks(remote)
+                    .filter(|(_, targets)| targets.remote_ref.is_tracked())
+                    .map(|(name, _)| StringPattern::exact(name))
+                    .collect_vec();
+                (remote, tracked_branches)
+            })
+            .collect_vec()
+    } else {
+        remotes
+            .iter()
+            .map(|&remote| (remote, args.branch.clone()))
+            .collect_vec()
+    };
+
     let mut tx = workspace_command.start_transaction();
-    do_git_fetch(ui, &mut tx, &remotes, &args.branch)?;
+    do_git_fetch(ui, &mut tx, &branches_by_remote)?;
+    warn_if_branches_not_found(ui, &tx, &args.branch, &remotes)?;
     tx.finish(
         ui,
         format!(
@@ -167,20 +196,24 @@ fn parse_remote_pattern(remote: &str) -> Result<StringPattern, CommandError> {
 fn do_git_fetch(
     ui: &mut Ui,
     tx: &mut WorkspaceCommandTransaction,
-    remotes: &[&RemoteName],
-    branch_names: &[StringPattern],
+    branches_by_remote: &[(&RemoteName, Vec<StringPattern>)],
 ) -> Result<(), CommandError> {
     let git_settings = tx.settings().git_settings()?;
     let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
 
-    for remote_name in remotes {
+    for (remote, branches) in branches_by_remote {
+        // Skip remotes with no branches to fetch
+        if branches.is_empty() {
+            continue;
+        }
         with_remote_git_callbacks(ui, |callbacks| {
-            git_fetch.fetch(remote_name, branch_names, callbacks, None, None)
+            git_fetch.fetch(remote, branches, callbacks, None, None)
         })?;
     }
+
     let import_stats = git_fetch.import_refs()?;
     print_git_import_stats(ui, tx.repo(), &import_stats, true)?;
-    warn_if_branches_not_found(ui, tx, branch_names, remotes)
+    Ok(())
 }
 
 fn warn_if_branches_not_found(
