@@ -1259,8 +1259,6 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 * `-b`, `--branch <BRANCH>` — Fetch only some of the branches
 
    By default, the specified name matches exactly. Use `glob:` prefix to expand `*` as a glob, e.g. `--branch 'glob:push-*'`. Other wildcard characters such as `?` are *not* supported. Can be repeated to specify multiple branches.
-
-  Default value: `glob:*`
 * `--tracked` — Fetch only tracked bookmarks
 
    This fetches only bookmarks that are already tracked from the specified remote(s).

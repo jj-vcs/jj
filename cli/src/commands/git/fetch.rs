@@ -19,7 +19,11 @@ use itertools::Itertools as _;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitFetch;
+use jj_lib::git::IgnoredRefspec;
+use jj_lib::git::IgnoredRefspecs;
+use jj_lib::git::expand_default_fetch_refspecs;
 use jj_lib::git::expand_fetch_refspecs;
+use jj_lib::git::get_git_backend;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringPattern;
@@ -51,7 +55,6 @@ pub struct GitFetchArgs {
     #[arg(
         long, short,
         alias = "bookmark",
-        default_value = "glob:*",
         value_parser = StringPattern::parse,
         add = ArgValueCandidates::new(complete::bookmarks),
     )]
@@ -126,44 +129,40 @@ pub fn cmd_git_fetch(
         .sorted()
         .collect_vec();
 
-    let branches_by_remote: Vec<(&RemoteName, Vec<StringPattern>)> = if args.tracked {
-        remotes
-            .iter()
-            .map(|&remote| {
-                let tracked_branches = workspace_command
-                    .repo()
-                    .view()
-                    .local_remote_bookmarks(remote)
-                    .filter(|(_, targets)| targets.remote_ref.is_tracked())
-                    .map(|(name, _)| StringPattern::exact(name))
-                    .collect_vec();
-                (remote, tracked_branches)
-            })
-            .collect_vec()
+    let mut tx = workspace_command.start_transaction();
+
+    let mut expansions = Vec::with_capacity(remotes.len());
+    if args.tracked {
+        for remote in &remotes {
+            let tracked_branches = tx
+                .repo()
+                .view()
+                .local_remote_bookmarks(remote)
+                .filter(|(_, targets)| targets.remote_ref.is_tracked())
+                .map(|(name, _)| StringPattern::exact(name))
+                .collect_vec();
+            expansions.push((remote, expand_fetch_refspecs(remote, tracked_branches)?));
+        }
+    } else if args.branch.is_empty() {
+        let git_repo = get_git_backend(tx.repo_mut().store())?.git_repo();
+        for remote in &remotes {
+            let (ignored, expanded) = expand_default_fetch_refspecs(remote, &git_repo)?;
+            warn_ignored_refspecs(ui, remote, ignored)?;
+            expansions.push((remote, expanded));
+        }
     } else {
-        remotes
-            .iter()
-            .map(|&remote| (remote, args.branch.clone()))
-            .collect_vec()
+        for remote in &remotes {
+            let expanded = expand_fetch_refspecs(remote, args.branch.clone())?;
+            expansions.push((remote, expanded));
+        }
     };
 
-    let mut tx = workspace_command.start_transaction();
     let git_settings = tx.settings().git_settings()?;
     let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
 
-    for (remote, branches) in branches_by_remote {
-        // Skip remotes with no branches to fetch
-        if branches.is_empty() {
-            continue;
-        }
+    for (remote, expanded) in expansions {
         with_remote_git_callbacks(ui, |callbacks| {
-            git_fetch.fetch(
-                remote,
-                expand_fetch_refspecs(remote, branches)?,
-                callbacks,
-                None,
-                None,
-            )
+            git_fetch.fetch(remote, expanded, callbacks, None, None)
         })?;
     }
 
@@ -246,6 +245,22 @@ fn warn_if_branches_not_found(
             ui.warning_default(),
             "No branch matching {} found on any specified/configured remote",
             missing_branches.iter().map(|b| format!("`{b}`")).join(", ")
+        )?;
+    }
+
+    Ok(())
+}
+
+fn warn_ignored_refspecs(
+    ui: &Ui,
+    remote_name: &RemoteName,
+    IgnoredRefspecs(ignored_refspecs): IgnoredRefspecs,
+) -> Result<(), CommandError> {
+    let remote_name = remote_name.as_symbol();
+    for IgnoredRefspec { refspec, reason } in ignored_refspecs {
+        writeln!(
+            ui.warning_default(),
+            "Ignored refspec `{refspec}` from `{remote_name}`: {reason}",
         )?;
     }
 

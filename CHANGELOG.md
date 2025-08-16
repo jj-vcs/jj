@@ -31,6 +31,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   many people to be negatively affected, because running `jj undo` twice was
   previously a no-op.
 
+* `jj git fetch` will now only fetch the refspec patterns configured on remotes
+  when the `--bookmark` option is omitted. Only simple refspec patterns
+  are currently supported, and anything else (like refspecs which rename
+  branches) will be ignored.
+
 ### Deprecations
 
 * The on-disk index format has changed. `jj` will write index files in both old

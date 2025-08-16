@@ -21,6 +21,7 @@ mod push;
 mod remote;
 mod root;
 
+use std::io::Write as _;
 use std::path::Path;
 
 use clap::Subcommand;
