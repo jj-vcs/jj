@@ -171,7 +171,11 @@ repos may require you to deal with more involved Jujutsu and Git concepts.
 
 A Jujutsu repo backed by a Git repo has a full Git repo inside, so it is
 technically possible (though not officially supported) to convert it into a
-co-located repo like so:
+co-located repo.
+
+First ensure that there is no pre-existing `.git` file or directory.
+
+Then:
 
 ```bash
 # Ignore the .jj directory in Git
