@@ -2862,7 +2862,627 @@ fn modify_git_repo(git_repo: gix::Repository) -> gix::Repository {
     git_repo
 }
 
+#[test]
+fn test_revert_root_operation() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // TODO: `jj op revert 'root()'` is not a valid command, so use the
+    // hardcoded root op id here.
+    let output = work_dir.run_jj(["op", "revert", "000000000000"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Cannot revert root operation
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_revert_merge_operation() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["new", "--at-op=@-"]).success();
+    let output = work_dir.run_jj(["op", "revert"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    Error: Cannot revert a merge operation
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_revert_rewrite_with_child() {
+    // Test that if we revert an operation that rewrote some commit, any descendants
+    // after that will be rebased on top of the un-rewritten commit.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "initial"]).success();
+    work_dir.run_jj(["describe", "-m", "modified"]).success();
+    work_dir.run_jj(["new", "-m", "child"]).success();
+    let output = work_dir.run_jj(["log", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
+    @  child
+    ○  modified
+    ◆
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "revert", "@-"]).success();
+
+    // Since we undid the description-change, the child commit should now be on top
+    // of the initial commit
+    let output = work_dir.run_jj(["log", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
+    @  child
+    ○  initial
+    ◆
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_push_revert() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
+    let git_repo_path = test_env.env_root().join("git-repo");
+    git::init_bare(git_repo_path);
+    test_env
+        .run_jj_in(".", ["git", "clone", "git-repo", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    test_env.advance_test_rng_seed_to_multiple_of(100_000);
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "main"])
+        .success();
+    work_dir.run_jj(["describe", "-m", "AA"]).success();
+    work_dir.run_jj(["git", "push", "--allow-new"]).success();
+    test_env.advance_test_rng_seed_to_multiple_of(100_000);
+    work_dir.run_jj(["describe", "-m", "BB"]).success();
+    //   Refs at this point look as follows (-- means no ref)
+    //                     | jj refs | jj's   | git
+    //                     |         | git    | repo
+    //                     |         |tracking|
+    //   ------------------------------------------
+    //    local `main`     | BB      |   --   | --
+    //    remote-tracking  | AA      |   AA   | AA
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    main: qpvuntsm d9a9f6a0 (empty) BB
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
+    [EOF]
+    ");
+    let pre_push_opid = work_dir.current_operation_id();
+    work_dir.run_jj(["git", "push"]).success();
+    //                     | jj refs | jj's   | git
+    //                     |         | git    | repo
+    //                     |         |tracking|
+    //   ------------------------------------------
+    //    local  `main`    | BB      |   --   | --
+    //    remote-tracking  | BB      |   BB   | BB
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    main: qpvuntsm d9a9f6a0 (empty) BB
+      @origin: qpvuntsm d9a9f6a0 (empty) BB
+    [EOF]
+    ");
+
+    // Revert the push
+    work_dir.run_jj(["op", "restore", &pre_push_opid]).success();
+    //                     | jj refs | jj's   | git
+    //                     |         | git    | repo
+    //                     |         |tracking|
+    //   ------------------------------------------
+    //    local  `main`    | BB      |   --   | --
+    //    remote-tracking  | AA      |   AA   | BB
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    main: qpvuntsm d9a9f6a0 (empty) BB
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
+    [EOF]
+    ");
+    test_env.advance_test_rng_seed_to_multiple_of(100_000);
+    work_dir.run_jj(["describe", "-m", "CC"]).success();
+    work_dir.run_jj(["git", "fetch"]).success();
+    // TODO: The user would probably not expect a conflict here. It currently is
+    // because the revert made us forget that the remote was at v2, so the fetch
+    // made us think it updated from v1 to v2 (instead of the no-op it could
+    // have been).
+    //
+    // One option to solve this would be to have `op revert` not restore
+    // remote-tracking bookmarks, but that also has undersired consequences: the
+    // second fetch in `jj git fetch && jj op revert && jj git fetch` would
+    // become a no-op.
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    main (conflicted):
+      - qpvuntsm hidden 3a44d6c5 (empty) AA
+      + qpvuntsm?? 1e742089 (empty) CC
+      + qpvuntsm?? d9a9f6a0 (empty) BB
+      @origin (behind by 1 commits): qpvuntsm?? d9a9f6a0 (empty) BB
+    [EOF]
+    ");
+}
+
+/// This test is identical to the previous one, except for one additional
+/// import. It demonstrates that this changes the outcome.
+#[test]
+fn test_git_push_revert_with_import() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
+    let git_repo_path = test_env.env_root().join("git-repo");
+    git::init_bare(git_repo_path);
+    test_env
+        .run_jj_in(".", ["git", "clone", "git-repo", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    test_env.advance_test_rng_seed_to_multiple_of(100_000);
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "main"])
+        .success();
+    work_dir.run_jj(["describe", "-m", "AA"]).success();
+    work_dir.run_jj(["git", "push", "--allow-new"]).success();
+    test_env.advance_test_rng_seed_to_multiple_of(100_000);
+    work_dir.run_jj(["describe", "-m", "BB"]).success();
+    //   Refs at this point look as follows (-- means no ref)
+    //                     | jj refs | jj's   | git
+    //                     |         | git    | repo
+    //                     |         |tracking|
+    //   ------------------------------------------
+    //    local `main`     | BB      |   --   | --
+    //    remote-tracking  | AA      |   AA   | AA
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    main: qpvuntsm d9a9f6a0 (empty) BB
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
+    [EOF]
+    ");
+    let pre_push_opid = work_dir.current_operation_id();
+    work_dir.run_jj(["git", "push"]).success();
+    //                     | jj refs | jj's   | git
+    //                     |         | git    | repo
+    //                     |         |tracking|
+    //   ------------------------------------------
+    //    local  `main`    | BB      |   --   | --
+    //    remote-tracking  | BB      |   BB   | BB
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    main: qpvuntsm d9a9f6a0 (empty) BB
+      @origin: qpvuntsm d9a9f6a0 (empty) BB
+    [EOF]
+    ");
+
+    // Revert the push
+    work_dir.run_jj(["op", "restore", &pre_push_opid]).success();
+    //                     | jj refs | jj's   | git
+    //                     |         | git    | repo
+    //                     |         |tracking|
+    //   ------------------------------------------
+    //    local  `main`    | BB      |   --   | --
+    //    remote-tracking  | AA      |   AA   | BB
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    main: qpvuntsm d9a9f6a0 (empty) BB
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
+    [EOF]
+    ");
+
+    // PROBLEM: inserting this import changes the outcome compared to previous test
+    // TODO: decide if this is the better behavior, and whether import of
+    // remote-tracking bookmarks should happen on every operation.
+    work_dir.run_jj(["git", "import"]).success();
+    //                     | jj refs | jj's   | git
+    //                     |         | git    | repo
+    //                     |         |tracking|
+    //   ------------------------------------------
+    //    local  `main`    | BB      |   --   | --
+    //    remote-tracking  | BB      |   BB   | BB
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    main: qpvuntsm d9a9f6a0 (empty) BB
+      @origin: qpvuntsm d9a9f6a0 (empty) BB
+    [EOF]
+    ");
+    test_env.advance_test_rng_seed_to_multiple_of(100_000);
+    work_dir.run_jj(["describe", "-m", "CC"]).success();
+    work_dir.run_jj(["git", "fetch"]).success();
+    // There is not a conflict. This seems like a good outcome; reverting `git push`
+    // was essentially a no-op.
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    main: qpvuntsm 1e742089 (empty) CC
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden d9a9f6a0 (empty) BB
+    [EOF]
+    ");
+}
+
+// This test is currently *identical* to `test_git_push_revert` except the repo
+// it's operating on is colocated.
+#[test]
+fn test_git_push_revert_colocated() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
+    let git_repo_path = test_env.env_root().join("git-repo");
+    git::init_bare(git_repo_path.clone());
+    let work_dir = test_env.work_dir("clone");
+    git::clone(work_dir.root(), git_repo_path.to_str().unwrap(), None);
+
+    work_dir.run_jj(["git", "init", "--git-repo=."]).success();
+
+    test_env.advance_test_rng_seed_to_multiple_of(100_000);
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "main"])
+        .success();
+    work_dir.run_jj(["describe", "-m", "AA"]).success();
+    work_dir.run_jj(["git", "push", "--allow-new"]).success();
+    test_env.advance_test_rng_seed_to_multiple_of(100_000);
+    work_dir.run_jj(["describe", "-m", "BB"]).success();
+    //   Refs at this point look as follows (-- means no ref)
+    //                     | jj refs | jj's   | git
+    //                     |         | git    | repo
+    //                     |         |tracking|
+    //   ------------------------------------------
+    //    local `main`     | BB      |   BB   | BB
+    //    remote-tracking  | AA      |   AA   | AA
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    main: qpvuntsm d9a9f6a0 (empty) BB
+      @git: qpvuntsm d9a9f6a0 (empty) BB
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
+    [EOF]
+    ");
+    let pre_push_opid = work_dir.current_operation_id();
+    work_dir.run_jj(["git", "push"]).success();
+    //                     | jj refs | jj's   | git
+    //                     |         | git    | repo
+    //                     |         |tracking|
+    //   ------------------------------------------
+    //    local `main`     | BB      |   BB   | BB
+    //    remote-tracking  | BB      |   BB   | BB
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    main: qpvuntsm d9a9f6a0 (empty) BB
+      @git: qpvuntsm d9a9f6a0 (empty) BB
+      @origin: qpvuntsm d9a9f6a0 (empty) BB
+    [EOF]
+    ");
+
+    // Revert the push
+    work_dir.run_jj(["op", "restore", &pre_push_opid]).success();
+    //       === Before auto-export ====
+    //                     | jj refs | jj's   | git
+    //                     |         | git    | repo
+    //                     |         |tracking|
+    //   ------------------------------------------
+    //    local `main`     | BB      |   BB   | BB
+    //    remote-tracking  | AA      |   BB   | BB
+    //       === After automatic `jj git export` ====
+    //                     | jj refs | jj's   | git
+    //                     |         | git    | repo
+    //                     |         |tracking|
+    //   ------------------------------------------
+    //    local `main`     | BB      |   BB   | BB
+    //    remote-tracking  | AA      |   AA   | AA
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    main: qpvuntsm d9a9f6a0 (empty) BB
+      @git: qpvuntsm d9a9f6a0 (empty) BB
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
+    [EOF]
+    ");
+    test_env.advance_test_rng_seed_to_multiple_of(100_000);
+    work_dir.run_jj(["describe", "-m", "CC"]).success();
+    work_dir.run_jj(["git", "fetch"]).success();
+    // We have the same conflict as `test_git_push_revert`. TODO: why did we get the
+    // same result in a seemingly different way?
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    main (conflicted):
+      - qpvuntsm hidden 3a44d6c5 (empty) AA
+      + qpvuntsm?? 1e742089 (empty) CC
+      + qpvuntsm?? d9a9f6a0 (empty) BB
+      @git (behind by 1 commits): qpvuntsm?? 1e742089 (empty) CC
+      @origin (behind by 1 commits): qpvuntsm?? d9a9f6a0 (empty) BB
+    [EOF]
+    ");
+}
+
+// This test is currently *identical* to `test_git_push_revert` except
+// both the git_refs and the remote-tracking bookmarks are preserved by revert.
+// TODO: Investigate the different outcome
+#[test]
+fn test_git_push_revert_repo_only() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
+    let git_repo_path = test_env.env_root().join("git-repo");
+    git::init_bare(git_repo_path);
+    test_env
+        .run_jj_in(".", ["git", "clone", "git-repo", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    test_env.advance_test_rng_seed_to_multiple_of(100_000);
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "main"])
+        .success();
+    work_dir.run_jj(["describe", "-m", "AA"]).success();
+    work_dir.run_jj(["git", "push", "--allow-new"]).success();
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    main: qpvuntsm 3a44d6c5 (empty) AA
+      @origin: qpvuntsm 3a44d6c5 (empty) AA
+    [EOF]
+    ");
+    test_env.advance_test_rng_seed_to_multiple_of(100_000);
+    work_dir.run_jj(["describe", "-m", "BB"]).success();
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    main: qpvuntsm d9a9f6a0 (empty) BB
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
+    [EOF]
+    ");
+    let pre_push_opid = work_dir.current_operation_id();
+    work_dir.run_jj(["git", "push"]).success();
+
+    // Revert the push, but keep both the git_refs and the remote-tracking bookmarks
+    work_dir
+        .run_jj(["op", "restore", "--what=repo", &pre_push_opid])
+        .success();
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    main: qpvuntsm d9a9f6a0 (empty) BB
+      @origin: qpvuntsm d9a9f6a0 (empty) BB
+    [EOF]
+    ");
+    test_env.advance_test_rng_seed_to_multiple_of(100_000);
+    work_dir.run_jj(["describe", "-m", "CC"]).success();
+    work_dir.run_jj(["git", "fetch"]).success();
+    // This currently gives an identical result to `test_git_push_revert_import`.
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    main: qpvuntsm 1e742089 (empty) CC
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden d9a9f6a0 (empty) BB
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_track_untrack_revert() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
+    let git_repo_path = test_env.env_root().join("git-repo");
+    git::init_bare(git_repo_path);
+    test_env
+        .run_jj_in(".", ["git", "clone", "git-repo", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-mcommit"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "feature1", "feature2"])
+        .success();
+    work_dir.run_jj(["git", "push", "--allow-new"]).success();
+    work_dir
+        .run_jj(["bookmark", "delete", "feature2"])
+        .success();
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    feature1: qpvuntsm bab5b5ef (empty) commit
+      @origin: qpvuntsm bab5b5ef (empty) commit
+    feature2 (deleted)
+      @origin: qpvuntsm bab5b5ef (empty) commit
+    [EOF]
+    ");
+
+    // Track/untrack can be reverted so long as states can be trivially merged.
+    work_dir
+        .run_jj(["bookmark", "untrack", "feature1@origin", "feature2@origin"])
+        .success();
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    feature1: qpvuntsm bab5b5ef (empty) commit
+    feature1@origin: qpvuntsm bab5b5ef (empty) commit
+    feature2@origin: qpvuntsm bab5b5ef (empty) commit
+    [EOF]
+    ");
+
+    work_dir.run_jj(["op", "revert"]).success();
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    feature1: qpvuntsm bab5b5ef (empty) commit
+      @origin: qpvuntsm bab5b5ef (empty) commit
+    feature2 (deleted)
+      @origin: qpvuntsm bab5b5ef (empty) commit
+    [EOF]
+    ");
+
+    work_dir.run_jj(["op", "revert"]).success();
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    feature1: qpvuntsm bab5b5ef (empty) commit
+    feature1@origin: qpvuntsm bab5b5ef (empty) commit
+    feature2@origin: qpvuntsm bab5b5ef (empty) commit
+    [EOF]
+    ");
+
+    work_dir
+        .run_jj(["bookmark", "track", "feature1@origin"])
+        .success();
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    feature1: qpvuntsm bab5b5ef (empty) commit
+      @origin: qpvuntsm bab5b5ef (empty) commit
+    feature2@origin: qpvuntsm bab5b5ef (empty) commit
+    [EOF]
+    ");
+
+    work_dir.run_jj(["op", "revert"]).success();
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    feature1: qpvuntsm bab5b5ef (empty) commit
+    feature1@origin: qpvuntsm bab5b5ef (empty) commit
+    feature2@origin: qpvuntsm bab5b5ef (empty) commit
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_revert_latest_revert_implicitly() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Double-revert creation of child
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["op", "revert"]).success();
+    let output = work_dir.run_jj(["op", "revert"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Undid operation: 36844b6b7193 (2001-02-03 08:05:09) revert operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
+    Working copy  (@) now at: rlvkpnrz 43444d88 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    ");
+
+    // Double-revert creation of sibling
+    work_dir.run_jj(["new", "@-"]).success();
+    work_dir.run_jj(["op", "revert"]).success();
+    let output = work_dir.run_jj(["op", "revert"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Undid operation: 205f00eaed13 (2001-02-03 08:05:12) revert operation 791c1da840ca87bea33edfef8f75fe54d7f83b6784f6126d43e0ad212deefd638a3286a6466037aa28de8ed662c0d4219540ebf7118d9946d96781a5bf094100
+    Working copy  (@) now at: mzvwutvl 8afc18ff (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_revert_latest_revert_explicitly() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["op", "revert"]).success();
+    let output = work_dir
+        .run_jj(["op", "log", "--no-graph", "-T=id.short()", "-n=1"])
+        .success();
+    let op_id_hex = output.stdout.raw();
+    let output = work_dir.run_jj(["op", "revert", op_id_hex]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Undid operation: 36844b6b7193 (2001-02-03 08:05:09) revert operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
+    Working copy  (@) now at: rlvkpnrz 43444d88 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    ");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["op", "revert"]).success();
+    let output = work_dir.run_jj(["op", "revert", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Undid operation: ca6c7df545ed (2001-02-03 08:05:13) revert operation f711a03983b4103310aa6c16b943cc59decf1ddc0dcb2f38fddeb2c1ebe358ed8753938d311199d3e13e081a28749831844dea6e538a407d1a72a6664f2397d2
+    Working copy  (@) now at: royxmykx ba0e5dca (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 43444d88 (empty) (no description set)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_revert_an_older_revert() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["op", "revert"]).success();
+    let output = work_dir
+        .run_jj(["op", "log", "--no-graph", "-T=id.short()", "-n=1"])
+        .success();
+    let op_id_hex = output.stdout.raw();
+    work_dir.run_jj(["new"]).success();
+    // Revert an older revert operation that is not the immediately preceding
+    // operation.
+    let output = work_dir.run_jj(["op", "revert", op_id_hex]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Undid operation: 36844b6b7193 (2001-02-03 08:05:09) revert operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
+    [EOF]
+    ");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["op", "revert"]).success();
+    work_dir.run_jj(["new"]).success();
+    // Revert an older revert operation that is not the immediately preceding
+    // operation.
+    let output = work_dir.run_jj(["op", "revert", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Undid operation: 5bbd123cfb98 (2001-02-03 08:05:14) revert operation 1f80909afacbb70f060441ecd74016dd334dd9cadfb3ab2d6fb8b4984a5ccf1d268f8e940d5430813da74aade2a56a01114e542473c531d85d3533d8005d68db
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_revert_a_revert_multiple_times() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["op", "revert"]).success();
+    let output = work_dir.run_jj(["op", "revert"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Undid operation: 36844b6b7193 (2001-02-03 08:05:09) revert operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
+    Working copy  (@) now at: rlvkpnrz 43444d88 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["op", "revert"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Undid operation: 663d392b2f79 (2001-02-03 08:05:10) revert operation 36844b6b71937240436ded2d9b485dd82454995169f14b696dee9dca0057de5102532141ab810d4fa18f60a1ebc6938ed4fefc5a3369b1cc2822c5896ddd24c9
+    Working copy  (@) now at: qpvuntsm e8849ae1 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["op", "revert"]).success();
+    let output = work_dir.run_jj(["undo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Undid operation: 56ad6369d4e2 (2001-02-03 08:05:13) revert operation 79cbab740cdc051ec4656dc2ff886028ea3d57f570deae2462f76257e558e27f383c4e5cfa1baac949c54532adb594278c072694c9932345df716571a3fa4193
+    Working copy  (@) now at: royxmykx e7d0d5fd (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
+    Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
+    Hint: To undo multiple operations, use `jj op log` to see past states and `jj op restore` to restore one of these states.
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["op", "revert", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Undid operation: 8ed16a27d4c3 (2001-02-03 08:05:14) revert operation 56ad6369d4e2ab5948643196e59ba674d1ae4bfe10dad2ae16307ed4bf7025b7a5557c301d295c8467a5472294b4b8ff2a3e71fc7385a26481390cd400947b0e
+    Working copy  (@) now at: qpvuntsm e8849ae1 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_revert_bookmark_deletion() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["bookmark", "create", "foo", "-r=@"])
+        .success();
+    work_dir.run_jj(["bookmark", "delete", "foo"]).success();
+    let output = work_dir.run_jj(["op", "revert"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Undid operation: e1bcf7cd8080 (2001-02-03 08:05:09) delete bookmark foo
+    [EOF]
+    ");
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir, op_id: &str) -> CommandOutput {
     work_dir.run_jj(["log", "-T", "commit_id", "--at-op", op_id, "-r", "all()"])
+}
+
+#[must_use]
+fn get_bookmark_output(work_dir: &TestWorkDir) -> CommandOutput {
+    // --quiet to suppress deleted bookmarks hint
+    work_dir.run_jj(["bookmark", "list", "--all-remotes", "--quiet"])
 }
