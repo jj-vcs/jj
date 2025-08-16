@@ -5646,6 +5646,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
+<p>Templates now support <code>any()</code> and <code>all()</code> methods on lists to check whether
+  any or all elements satisfy a predicate. Example: <code>parents.any(|c| c.mine())</code>
+  returns true if any parent commit is authored by the user.</p>
+</li>
+<li>
 <p>Add experimental support for indexing changed paths, which will speed up <code>jj
   log PATH</code> query, <code>jj file annotate</code>, etc. The changed-path index can be
   enabled by <code>jj debug index-changed-paths</code> command. Indexing may take tens of

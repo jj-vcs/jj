@@ -2781,6 +2781,10 @@ defined.</p>
   <code>expression</code>. Example: <code>description.lines().filter(|s| s.contains("#"))</code></li>
 <li><code>.map(|item| expression) -&gt; ListTemplate</code>: Apply template <code>expression</code>
   to each element. Example: <code>parents.map(|c| c.commit_id().short())</code></li>
+<li><code>.any(|item| expression) -&gt; Boolean</code>: Returns true if any element satisfies
+  the predicate <code>expression</code>. Example: <code>parents.any(|c| c.description().contains("fix"))</code></li>
+<li><code>.all(|item| expression) -&gt; Boolean</code>: Returns true if all elements satisfy
+  the predicate <code>expression</code>. Example: <code>parents.all(|c| c.mine())</code></li>
 </ul>
 <h3 id="listtrailer-type"><code>List&lt;Trailer&gt;</code> type<a class="headerlink" href="#listtrailer-type" title="Permanent link">&para;</a></h3>
 <p>The following methods are defined. See also the <code>List</code> type.</p>
