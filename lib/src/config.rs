@@ -288,6 +288,8 @@ pub enum ConfigSource {
     User,
     /// Repo configuration files.
     Repo,
+    /// Workspace configuration files.
+    Workspace,
     /// Override environment variables.
     EnvOverrides,
     /// Command-line arguments (which has the highest precedence.)
@@ -301,6 +303,7 @@ impl Display for ConfigSource {
             Default => "default",
             User => "user",
             Repo => "repo",
+            Workspace => "workspace",
             CommandArg => "cli",
             EnvBase | EnvOverrides => "env",
         };
