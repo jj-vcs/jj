@@ -552,7 +552,7 @@ fn test_workspaces_conflicting_edits() {
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
     Rebased 1 descendant commits onto commits rewritten by other operation
-    Working copy  (@) now at: pmmvwywv?? 90f3d42e (empty) (no description set)
+    Working copy  (@) now at: pmmvwywv divergent 90f3d42e (empty) (no description set)
     Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Updated working copy to fresh commit 90f3d42e0bff
