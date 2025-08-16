@@ -36,7 +36,7 @@ fn test_rewrite_immutable_generic() {
     ├─╯  b
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 c8c8515a
     │  a
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
@@ -247,12 +247,12 @@ fn test_rewrite_immutable_commands() {
     insta::assert_snapshot!(output, @r"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:14 55c97dc7
     │  (no description set)
-    │ ◆  mzvwutvl test.user@example.com 2001-02-03 08:05:12 main 4397373a conflict
+    │ ♦  mzvwutvl test.user@example.com 2001-02-03 08:05:12 main 4397373a conflict
     ╭─┤  merge
     │ │
     │ ~
     │
-    ◆  kkmpptxz test.user@example.com 2001-02-03 08:05:10 9d190342
+    ♦  kkmpptxz test.user@example.com 2001-02-03 08:05:10 9d190342
     │  b
     ~
     [EOF]

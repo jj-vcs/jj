@@ -1311,7 +1311,7 @@ fn test_files() {
     ├─╯  interdiff_from
     │    A f_interdiff_only_from
     │    A f_interdiff_same
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 

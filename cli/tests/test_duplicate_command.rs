@@ -33,7 +33,7 @@ fn test_duplicate() {
     │ ○  d18ca3e87135   b
     ○ │  7d980be7a1d4   a
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -66,7 +66,7 @@ fn test_duplicate() {
     ├─╯
     │ ○  13eb8bd0a547   a
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -90,7 +90,7 @@ fn test_duplicate() {
     │ ○  d18ca3e87135   b
     ○ │  7d980be7a1d4   a
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -115,7 +115,7 @@ fn test_duplicate_many() {
     ○ │  123b4d91f6e5   b
     ├─╯
     ○  7d980be7a1d4   a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -138,7 +138,7 @@ fn test_duplicate_many() {
     │   ○  10059c8651d7   b
     ├───╯
     ○  7d980be7a1d4   a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -160,7 +160,7 @@ fn test_duplicate_many() {
     │ ○  1ccf2589bfd1   b
     ├─╯
     ○  7d980be7a1d4   a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -188,7 +188,7 @@ fn test_duplicate_many() {
     │   ○  1a94ffc6e6aa   b
     ├───╯
     ○  7d980be7a1d4   a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -202,7 +202,7 @@ fn test_duplicate_many() {
     ○ │  123b4d91f6e5   b
     ├─╯
     ○  7d980be7a1d4   a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     let output = work_dir.run_jj(["duplicate", "d::", "a"]);
@@ -227,7 +227,7 @@ fn test_duplicate_many() {
     ○  7d980be7a1d4   a
     │ ○  117dd80623e6   a
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -259,7 +259,7 @@ fn test_duplicate_many() {
     │ ├─╯
     │ ○  cb7303191ed7   a
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -289,7 +289,7 @@ fn test_duplicate_destination() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -311,7 +311,7 @@ fn test_duplicate_destination() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -335,7 +335,7 @@ fn test_duplicate_destination() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -359,7 +359,7 @@ fn test_duplicate_destination() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -386,7 +386,7 @@ fn test_duplicate_destination() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -414,7 +414,7 @@ fn test_duplicate_destination() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -440,7 +440,7 @@ fn test_duplicate_destination() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -467,7 +467,7 @@ fn test_duplicate_destination() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -505,7 +505,7 @@ fn test_duplicate_insert_after() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -532,7 +532,7 @@ fn test_duplicate_insert_after() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -561,7 +561,7 @@ fn test_duplicate_insert_after() {
     │ ○  4048f2fbcf5c   a3
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -590,7 +590,7 @@ fn test_duplicate_insert_after() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -621,7 +621,7 @@ fn test_duplicate_insert_after() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -651,7 +651,7 @@ fn test_duplicate_insert_after() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -681,7 +681,7 @@ fn test_duplicate_insert_after() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -714,7 +714,7 @@ fn test_duplicate_insert_after() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -748,7 +748,7 @@ fn test_duplicate_insert_after() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -782,7 +782,7 @@ fn test_duplicate_insert_after() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -821,7 +821,7 @@ fn test_duplicate_insert_after() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -857,7 +857,7 @@ fn test_duplicate_insert_after() {
     │ ○  65b6f1fe6b41   b2
     │ ○  6a9343b8797a   b1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -892,7 +892,7 @@ fn test_duplicate_insert_after() {
     │ ○  65b6f1fe6b41   b2
     │ ○  6a9343b8797a   b1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -922,7 +922,7 @@ fn test_duplicate_insert_after() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -955,7 +955,7 @@ fn test_duplicate_insert_after() {
     │ ○  8ea56d6ad70b   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -988,7 +988,7 @@ fn test_duplicate_insert_after() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1019,7 +1019,7 @@ fn test_duplicate_insert_after() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1053,7 +1053,7 @@ fn test_duplicate_insert_after() {
     │ ○  65b6f1fe6b41   b2
     │ ○  6a9343b8797a   b1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1087,7 +1087,7 @@ fn test_duplicate_insert_after() {
     │ ○  65b6f1fe6b41   b2
     │ ○  6a9343b8797a   b1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1135,7 +1135,7 @@ fn test_duplicate_insert_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -1162,7 +1162,7 @@ fn test_duplicate_insert_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1191,7 +1191,7 @@ fn test_duplicate_insert_before() {
     │ ○  65b6f1fe6b41   b2
     │ ○  6a9343b8797a   b1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1220,7 +1220,7 @@ fn test_duplicate_insert_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1251,7 +1251,7 @@ fn test_duplicate_insert_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1282,7 +1282,7 @@ fn test_duplicate_insert_before() {
     ├───╯
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1313,7 +1313,7 @@ fn test_duplicate_insert_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1346,7 +1346,7 @@ fn test_duplicate_insert_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1380,7 +1380,7 @@ fn test_duplicate_insert_before() {
     │ ├─╯
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1414,7 +1414,7 @@ fn test_duplicate_insert_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1450,7 +1450,7 @@ fn test_duplicate_insert_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1484,7 +1484,7 @@ fn test_duplicate_insert_before() {
     │ ○  65b6f1fe6b41   b2
     │ ○  6a9343b8797a   b1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1520,7 +1520,7 @@ fn test_duplicate_insert_before() {
     │ ○  65b6f1fe6b41   b2
     │ ○  6a9343b8797a   b1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1551,7 +1551,7 @@ fn test_duplicate_insert_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1584,7 +1584,7 @@ fn test_duplicate_insert_before() {
     │ ○  65b6f1fe6b41   b2
     │ ○  6a9343b8797a   b1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1617,7 +1617,7 @@ fn test_duplicate_insert_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1653,7 +1653,7 @@ fn test_duplicate_insert_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1688,7 +1688,7 @@ fn test_duplicate_insert_before() {
     │ ○  65b6f1fe6b41   b2
     │ ○  6a9343b8797a   b1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1723,7 +1723,7 @@ fn test_duplicate_insert_before() {
     │ ○  65b6f1fe6b41   b2
     │ ○  6a9343b8797a   b1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1771,7 +1771,7 @@ fn test_duplicate_insert_after_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -1799,7 +1799,7 @@ fn test_duplicate_insert_after_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1828,7 +1828,7 @@ fn test_duplicate_insert_after_before() {
     │ ○  4048f2fbcf5c   a3
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1859,7 +1859,7 @@ fn test_duplicate_insert_after_before() {
     ├───╯
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1888,7 +1888,7 @@ fn test_duplicate_insert_after_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1920,7 +1920,7 @@ fn test_duplicate_insert_after_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1951,7 +1951,7 @@ fn test_duplicate_insert_after_before() {
     │ ├─╯
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1990,7 +1990,7 @@ fn test_duplicate_insert_after_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2025,7 +2025,7 @@ fn test_duplicate_insert_after_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2061,7 +2061,7 @@ fn test_duplicate_insert_after_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2100,7 +2100,7 @@ fn test_duplicate_insert_after_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2137,7 +2137,7 @@ fn test_duplicate_insert_after_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2171,7 +2171,7 @@ fn test_duplicate_insert_after_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2204,7 +2204,7 @@ fn test_duplicate_insert_after_before() {
     │ ○  65b6f1fe6b41   b2
     │ ○  6a9343b8797a   b1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2237,7 +2237,7 @@ fn test_duplicate_insert_after_before() {
     │ ○  fcd8320b69d9   a3
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2270,7 +2270,7 @@ fn test_duplicate_insert_after_before() {
     │ ○  7bfd9fbe959c   a2
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2303,7 +2303,7 @@ fn test_duplicate_insert_after_before() {
     │ ├─╯
     │ ○  5d93a4b8f4bd   a1
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -2328,7 +2328,7 @@ fn test_undo_after_duplicate() {
     create_commit(&work_dir, "a", &[]);
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  7d980be7a1d4   a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -2342,7 +2342,7 @@ fn test_undo_after_duplicate() {
     @  7d980be7a1d4   a
     │ ○  346a7abed73c   a
     ├─╯
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -2354,7 +2354,7 @@ fn test_undo_after_duplicate() {
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  7d980be7a1d4   a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -2374,7 +2374,7 @@ fn test_rebase_duplicates() {
     @  dffaa0d4dacc   c @ 2001-02-03 04:05:13.000 +07:00
     ○  123b4d91f6e5   b @ 2001-02-03 04:05:11.000 +07:00
     ○  7d980be7a1d4   a @ 2001-02-03 04:05:09.000 +07:00
-    ◆  000000000000    @ 1970-01-01 00:00:00.000 +00:00
+    ♦  000000000000    @ 1970-01-01 00:00:00.000 +00:00
     [EOF]
     ");
 
@@ -2398,7 +2398,7 @@ fn test_rebase_duplicates() {
     ├─╯
     ○  123b4d91f6e5   b @ 2001-02-03 04:05:11.000 +07:00
     ○  7d980be7a1d4   a @ 2001-02-03 04:05:09.000 +07:00
-    ◆  000000000000    @ 1970-01-01 00:00:00.000 +00:00
+    ♦  000000000000    @ 1970-01-01 00:00:00.000 +00:00
     [EOF]
     ");
 
@@ -2422,7 +2422,7 @@ fn test_rebase_duplicates() {
     ○  594e9d322230   b @ 2001-02-03 04:05:18.000 +07:00
     │ ○  7d980be7a1d4   a @ 2001-02-03 04:05:09.000 +07:00
     ├─╯
-    ◆  000000000000    @ 1970-01-01 00:00:00.000 +00:00
+    ♦  000000000000    @ 1970-01-01 00:00:00.000 +00:00
     [EOF]
     ");
 }
@@ -2442,7 +2442,7 @@ fn test_duplicate_description_template() {
     @  dffaa0d4dacc   c
     ○  123b4d91f6e5   b
     ○  7d980be7a1d4   a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -2515,7 +2515,7 @@ fn test_duplicate_description_template() {
     ├─╯  a
     │
     │    (cherry picked from commit 7d980be7a1d499e4d316ab4c01242885032f7eaf)
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
