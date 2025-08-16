@@ -48,6 +48,7 @@ raw_string_content = @{ (!"'" ~ ANY)* }
 raw_string_literal = ${ "'" ~ raw_string_content ~ "'" }
 
 at_op = { "@" }
+question_op = { "?" }
 pattern_kind_op = { ":" }
 
 parents_op = { "-" }
@@ -100,6 +101,7 @@ primary = {
   // "@" operator cannot be nested
   | symbol ~ at_op ~ symbol
   | symbol ~ at_op
+  | identifier ~ question_op ~ identifier
   | symbol
   | at_op
 }

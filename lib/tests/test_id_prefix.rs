@@ -21,6 +21,7 @@ use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::id_prefix::IdPrefixContext;
+use jj_lib::index::ResolvedChangeId;
 use jj_lib::object_id::HexPrefix;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::object_id::PrefixResolution::AmbiguousMatch;
@@ -182,19 +183,27 @@ fn test_id_prefix() {
         1
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("4")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("4"))
+            .filter_map(ResolvedChangeId::into_visible),
         AmbiguousMatch
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("43")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("43"))
+            .filter_map(ResolvedChangeId::into_visible),
         SingleMatch(vec![commits[2].id().clone()])
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("40")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("40"))
+            .filter_map(ResolvedChangeId::into_visible),
         NoMatch
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("430")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("430"))
+            .filter_map(ResolvedChangeId::into_visible),
         NoMatch
     );
 
@@ -224,7 +233,9 @@ fn test_id_prefix() {
         1
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("4")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("4"))
+            .filter_map(ResolvedChangeId::into_visible),
         SingleMatch(vec![commits[2].id().clone()])
     );
 
@@ -251,11 +262,15 @@ fn test_id_prefix() {
         1
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix(""))
+            .filter_map(ResolvedChangeId::into_visible),
         AmbiguousMatch
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("0")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("0"))
+            .filter_map(ResolvedChangeId::into_visible),
         SingleMatch(vec![root_commit_id.clone()])
     );
 
@@ -349,18 +364,24 @@ fn test_id_prefix_divergent() {
         3
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("a5")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("a5"))
+            .filter_map(ResolvedChangeId::into_visible),
         AmbiguousMatch
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("a53")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("a53"))
+            .filter_map(ResolvedChangeId::into_visible),
         SingleMatch(vec![first_commit.id().clone()])
     );
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("a50")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("a50"))
+            .filter_map(ResolvedChangeId::into_visible),
         SingleMatch(vec![
+            third_commit_divergent_with_second.id().clone(),
             second_commit.id().clone(),
-            third_commit_divergent_with_second.id().clone()
         ])
     );
 
@@ -382,16 +403,20 @@ fn test_id_prefix_divergent() {
     //   match is not ambiguous, even though the first commit's change id would also
     //   match the prefix.
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("a")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("a"))
+            .filter_map(ResolvedChangeId::into_visible),
         SingleMatch(vec![
+            third_commit_divergent_with_second.id().clone(),
             second_commit.id().clone(),
-            third_commit_divergent_with_second.id().clone()
         ])
     );
 
     // We can still resolve commits outside the set
     assert_eq!(
-        index.resolve_change_prefix(repo.as_ref(), &prefix("a53")),
+        index
+            .resolve_change_prefix(repo.as_ref(), &prefix("a53"))
+            .filter_map(ResolvedChangeId::into_visible),
         SingleMatch(vec![first_commit.id().clone()])
     );
     assert_eq!(
@@ -496,17 +521,21 @@ fn test_id_prefix_hidden() {
         SingleMatch(hidden_commit.id().clone())
     );
     assert_eq!(
-        index.resolve_change_prefix(
-            repo.as_ref(),
-            &prefix(&hidden_commit.change_id().hex()[..2])
-        ),
+        index
+            .resolve_change_prefix(
+                repo.as_ref(),
+                &prefix(&hidden_commit.change_id().hex()[..2])
+            )
+            .filter_map(ResolvedChangeId::into_visible),
         AmbiguousMatch
     );
     assert_eq!(
-        index.resolve_change_prefix(
-            repo.as_ref(),
-            &prefix(&hidden_commit.change_id().hex()[..3])
-        ),
+        index
+            .resolve_change_prefix(
+                repo.as_ref(),
+                &prefix(&hidden_commit.change_id().hex()[..3])
+            )
+            .filter_map(ResolvedChangeId::into_visible),
         NoMatch
     );
 
@@ -532,17 +561,21 @@ fn test_id_prefix_hidden() {
     // ambiguous if hidden commits were excluded from the disambiguation set.
     // In that case, shortest_change_prefix_len() shouldn't be 1.
     assert_eq!(
-        index.resolve_change_prefix(
-            repo.as_ref(),
-            &prefix(&hidden_commit.change_id().hex()[..1])
-        ),
+        index
+            .resolve_change_prefix(
+                repo.as_ref(),
+                &prefix(&hidden_commit.change_id().hex()[..1])
+            )
+            .filter_map(ResolvedChangeId::into_visible),
         NoMatch
     );
     assert_eq!(
-        index.resolve_change_prefix(
-            repo.as_ref(),
-            &prefix(&hidden_commit.change_id().hex()[..2])
-        ),
+        index
+            .resolve_change_prefix(
+                repo.as_ref(),
+                &prefix(&hidden_commit.change_id().hex()[..2])
+            )
+            .filter_map(ResolvedChangeId::into_visible),
         NoMatch
     );
 }
