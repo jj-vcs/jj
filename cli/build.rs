@@ -22,20 +22,20 @@ const JJ_OP_HEADS_PATH: &str = "../.jj/repo/op_heads/heads";
 fn main() {
     let version = std::env::var("CARGO_PKG_VERSION").unwrap();
 
-    if Path::new(GIT_HEAD_PATH).exists() {
-        // In colocated repo, .git/HEAD should reflect the working-copy parent.
-        println!("cargo:rerun-if-changed={GIT_HEAD_PATH}");
-    } else if Path::new(JJ_OP_HEADS_PATH).exists() {
-        // op_heads changes when working-copy files are mutated, which is way more
-        // frequent than .git/HEAD.
-        println!("cargo:rerun-if-changed={JJ_OP_HEADS_PATH}");
-    }
     println!("cargo:rerun-if-env-changed=NIX_JJ_GIT_HASH");
+    let git_hash = get_git_hash_from_nix().or_else(|| {
+        if Path::new(GIT_HEAD_PATH).exists() {
+            // In colocated repo, .git/HEAD should reflect the working-copy parent.
+            println!("cargo:rerun-if-changed={GIT_HEAD_PATH}");
+        } else if Path::new(JJ_OP_HEADS_PATH).exists() {
+            // op_heads changes when working-copy files are mutated, which is way more
+            // frequent than .git/HEAD.
+            println!("cargo:rerun-if-changed={JJ_OP_HEADS_PATH}");
+        }
+        get_git_hash_from_jj().or_else(get_git_hash_from_git)
+    });
 
-    if let Some(git_hash) = get_git_hash_from_nix()
-        .or_else(get_git_hash_from_jj)
-        .or_else(get_git_hash_from_git)
-    {
+    if let Some(git_hash) = git_hash {
         println!("cargo:rustc-env=JJ_VERSION={version}-{git_hash}");
     } else {
         println!("cargo:rustc-env=JJ_VERSION={version}");
