@@ -156,9 +156,9 @@ fn test_git_push_undo() {
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main (conflicted):
       - qpvuntsm hidden 3a44d6c5 (empty) AA
-      + qpvuntsm?? 1e742089 (empty) CC
-      + qpvuntsm?? d9a9f6a0 (empty) BB
-      @origin (behind by 1 commits): qpvuntsm?? d9a9f6a0 (empty) BB
+      + qpvuntsm divergent 1e742089 (empty) CC
+      + qpvuntsm divergent d9a9f6a0 (empty) BB
+      @origin (behind by 1 commits): qpvuntsm divergent d9a9f6a0 (empty) BB
     [EOF]
     ");
 }
@@ -330,10 +330,10 @@ fn test_git_push_undo_colocated() {
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main (conflicted):
       - qpvuntsm hidden 3a44d6c5 (empty) AA
-      + qpvuntsm?? 1e742089 (empty) CC
-      + qpvuntsm?? d9a9f6a0 (empty) BB
-      @git (behind by 1 commits): qpvuntsm?? 1e742089 (empty) CC
-      @origin (behind by 1 commits): qpvuntsm?? d9a9f6a0 (empty) BB
+      + qpvuntsm divergent 1e742089 (empty) CC
+      + qpvuntsm divergent d9a9f6a0 (empty) BB
+      @git (behind by 1 commits): qpvuntsm divergent 1e742089 (empty) CC
+      @origin (behind by 1 commits): qpvuntsm divergent d9a9f6a0 (empty) BB
     [EOF]
     ");
 }
