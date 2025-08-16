@@ -59,21 +59,23 @@ struct UserSettingsData {
 
 #[derive(Debug, Clone)]
 pub struct GitSettings {
-    pub auto_local_bookmark: bool,
     pub abandon_unreachable_commits: bool,
-    pub executable_path: PathBuf,
-    pub write_change_id_header: bool,
+    pub auto_local_bookmark: bool,
     pub colocate: bool,
+    pub executable_path: PathBuf,
+    pub trunk_remotes: Vec<String>,
+    pub write_change_id_header: bool,
 }
 
 impl GitSettings {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         Ok(Self {
-            auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
             abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
-            executable_path: settings.get("git.executable-path")?,
-            write_change_id_header: settings.get("git.write-change-id-header")?,
+            auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
             colocate: settings.get("git.colocate")?,
+            executable_path: settings.get("git.executable-path")?,
+            trunk_remotes: settings.get::<Vec<String>>("git.trunk-remotes")?,
+            write_change_id_header: settings.get("git.write-change-id-header")?,
         })
     }
 }
@@ -81,11 +83,12 @@ impl GitSettings {
 impl Default for GitSettings {
     fn default() -> Self {
         Self {
-            auto_local_bookmark: false,
             abandon_unreachable_commits: true,
-            executable_path: PathBuf::from("git"),
-            write_change_id_header: true,
+            auto_local_bookmark: false,
             colocate: false,
+            executable_path: PathBuf::from("git"),
+            trunk_remotes: vec!["upstream".to_string(), "origin".to_string()],
+            write_change_id_header: true,
         }
     }
 }

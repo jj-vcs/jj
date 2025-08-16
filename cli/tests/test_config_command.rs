@@ -1315,6 +1315,12 @@ fn test_config_get_yields_values_consistent_with_schema_defaults() {
             // `LESSCHARSET` and gives the default as a plain string.
             "ui.pager" => insta::assert_snapshot!(schema_default, @r#""less -FRX""#),
 
+            // The default for `git.trunk-remotes` is an array and `jj config get` cannot print
+            // arrays.
+            "git.trunk-remotes" => {
+                insta::assert_snapshot!(schema_default, @r#"["upstream", "origin"]"#);
+            }
+
             // The `immutable_heads()` revset actually defaults to `builtin_immutable_heads()` but
             // this would be a poor starting point for a custom revset, so the schema "inlines"
             // `builtin_immutable_heads()`.

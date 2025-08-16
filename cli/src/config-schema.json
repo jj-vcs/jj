@@ -487,6 +487,14 @@
                     "type": "boolean",
                     "description": "Whether to colocate the working copy with the git repository",
                     "default": false
+                },
+                "trunk-remotes": {
+                    "type": "array",
+                    "description": "List of remotes in order of precedence to check for default branches when setting the trunk() alias",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": ["upstream", "origin"]
                 }
             }
         },
