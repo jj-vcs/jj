@@ -55,6 +55,11 @@ and this project adheres to
 * `jj config gc` now also cleans up workspace configs whose paths no longer
   exist.
 
+* New `first_children()` and `first_descendants()` revset functions which are
+  similar to `children()` and `descendants()`, but only traverse first-parent
+  relations to commits. These serve as the dual to `first_parent()` and
+  `first_ancestors()`, walking the same revisions but in the other direction.
+
 ### Fixed bugs
 
 * Date patterns such as `after:"2024-03-10 03:30"` are now resolved with the
@@ -163,6 +168,8 @@ and this project adheres to
 
 * `jj util diff <path1> <path2>` to compare files on disk.
 
+<<<<<<< conflict 1 of 1
++++++++ qkptlvwz f27a0b6b "revset: add `parents_range` to `Descendants`" (rebased revision)
 * Aliases now support setting `aliases.<name>.enabled = false`, which will
   disable them. This can be used to disable built-in aliases or disable aliases
   in later layers (such as repo config files).
