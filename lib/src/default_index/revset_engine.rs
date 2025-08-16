@@ -820,6 +820,7 @@ impl EvaluationContext<'_> {
                 roots,
                 heads,
                 generation_from_roots,
+                parents_range,
             } => {
                 let root_set = self.evaluate(roots)?;
                 let root_positions = root_set.positions().attach(index);
@@ -833,12 +834,15 @@ impl EvaluationContext<'_> {
                         .ancestors_until_roots(root_positions.iter().copied())
                         .detach();
                     let candidates = RevWalkRevset { walk };
+                    let parents_range = parents_range.clone();
                     let predicate = as_pure_predicate_fn(move |index, pos| {
                         Ok(index
                             .commits()
                             .entry_by_pos(pos)
                             .parent_positions()
                             .iter()
+                            .skip(parents_range.start as usize)
+                            .take(parents_range.end.saturating_sub(parents_range.start) as usize)
                             .any(|parent_pos| root_positions.contains(parent_pos)))
                     });
                     // TODO: Suppose heads include all visible heads, ToPredicateFn version can be
@@ -849,6 +853,7 @@ impl EvaluationContext<'_> {
                     }))
                 } else if generation_from_roots == &GENERATION_RANGE_FULL {
                     let mut positions = builder
+                        .wanted_parents_range(parents_range.clone())
                         .descendants(root_positions.try_collect()?)
                         .collect_vec();
                     positions.reverse();
@@ -858,6 +863,7 @@ impl EvaluationContext<'_> {
                     // with generation bit set, which can be calculated incrementally from roots:
                     //   reachable[pos] = (reachable[parent_pos] | ...) << 1
                     let mut positions = builder
+                        .wanted_parents_range(parents_range.clone())
                         .descendants_filtered_by_generation(
                             root_positions.try_collect()?,
                             to_u32_generation_range(generation_from_roots)?,
