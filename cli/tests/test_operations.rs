@@ -2742,6 +2742,55 @@ fn test_op_show_patch() {
 }
 
 #[test]
+fn test_op_show_template() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file", "content\n");
+    work_dir.run_jj(["commit", "-m", "first commit"]).success();
+
+    // Test with custom template
+    let output = work_dir.run_jj([
+        "op",
+        "show",
+        "-T",
+        r#"separate(" ", id.short(), description)"#,
+        "--no-op-diff",
+    ]);
+    insta::assert_snapshot!(output, @"9c6c10441eab commit 0883ea507656cce545dbba9f23760ff72dff5174[EOF]");
+
+    // Test --no-op-diff flag suppresses the diff
+    let output = work_dir.run_jj(["op", "show", "--no-op-diff"]);
+    insta::assert_snapshot!(output, @r"
+    9c6c10441eab test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    commit 0883ea507656cce545dbba9f23760ff72dff5174
+    args: jj commit -m 'first commit'
+    [EOF]
+    ");
+
+    // Test with custom template, without --no-op-diff
+    let output = work_dir.run_jj([
+        "op",
+        "show",
+        "-T",
+        r#"separate(" ", id.short(), description)"#,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    9c6c10441eab commit 0883ea507656cce545dbba9f23760ff72dff5174
+    Changed commits:
+    ○  + rlvkpnrz e4863b8c (empty) (no description set)
+    ○  + qpvuntsm b52b7cb5 first commit
+       - qpvuntsm hidden 0883ea50 (no description set)
+
+    Changed working copy default@:
+    + rlvkpnrz e4863b8c (empty) (no description set)
+    - qpvuntsm hidden 0883ea50 (no description set)
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_op_log_parents() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

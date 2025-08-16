@@ -51,6 +51,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Add the `jj touch` command, which modifies a revision's metadata. This can be
   used to generate a new change-id, which may help resolve some divergences.
 
+* `jj op show` now accepts `-T`/`--template` option to customize the operation
+  output using template expressions, similar to `jj op log`. Also added
+  `--no-op-diff` flag to suppress the operation diff.
+
 ### Fixed bugs
 
 ### Packaging changes

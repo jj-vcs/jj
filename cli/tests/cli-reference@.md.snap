@@ -1932,9 +1932,17 @@ Show changes to the repository in an operation
 ###### **Options:**
 
 * `--no-graph` — Don't show the graph, show a flat list of modified changes
+* `-T`, `--template <TEMPLATE>` — Render the operation using the given template
+
+   You can specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
+
+   [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#operation-keywords
+
+   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
 * `-p`, `--patch` — Show patch of modifications to changes
 
    If the previous version has different parents, it will be temporarily rebased to the parents of the new version, so the diff is not contaminated by unrelated changes.
+* `--no-op-diff` — Do not show operation diff
 * `-s`, `--summary` — For each path, show only whether it was modified, added, or deleted
 * `--stat` — Show a histogram of the changes
 * `--types` — For each path, show only its type before and after
