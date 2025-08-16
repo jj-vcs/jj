@@ -240,27 +240,39 @@ fn init_git_refs(
     Ok(repo)
 }
 
-// Set repository level `trunk()` alias to the default branch for "origin".
+// Set repository level `trunk()` alias to the default branch.
+// Checks "upstream" first, then "origin" as fallback.
 pub fn maybe_set_repository_level_trunk_alias(
     ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
 ) -> Result<(), CommandError> {
     let git_repo = git::get_git_repo(workspace_command.repo().store())?;
-    if let Some(reference) = git_repo
-        .try_find_reference("refs/remotes/origin/HEAD")
-        .map_err(internal_error)?
-    {
-        if let Some(reference_name) = reference.target().try_name() {
-            if let Some((GitRefKind::Bookmark, symbol)) = str::from_utf8(reference_name.as_bstr())
-                .ok()
-                .and_then(|name| parse_git_ref(name.as_ref()))
-            {
-                // TODO: Can we assume the symbolic target points to the same remote?
-                let symbol = symbol.name.to_remote_symbol("origin".as_ref());
-                write_repository_level_trunk_alias(ui, workspace_command.repo_path(), symbol)?;
+
+    // Try "upstream" first, then fall back to "origin"
+    for remote in ["upstream", "origin"] {
+        let ref_name = format!("refs/remotes/{remote}/HEAD");
+        if let Some(reference) = git_repo
+            .try_find_reference(&ref_name)
+            .map_err(internal_error)?
+        {
+            // Found a HEAD reference for this remote. Even if we can't parse it,
+            // we should stop here and not try other remotes because it doesn't
+            // really make sense if "origin" were to be set as the default if we
+            // know "upstream" exists.
+            if let Some(reference_name) = reference.target().try_name() {
+                if let Some((GitRefKind::Bookmark, symbol)) =
+                    str::from_utf8(reference_name.as_bstr())
+                        .ok()
+                        .and_then(|name| parse_git_ref(name.as_ref()))
+                {
+                    // TODO: Can we assume the symbolic target points to the same remote?
+                    let symbol = symbol.name.to_remote_symbol(remote.as_ref());
+                    write_repository_level_trunk_alias(ui, workspace_command.repo_path(), symbol)?;
+                }
             }
-        };
-    };
+            return Ok(());
+        }
+    }
 
     Ok(())
 }
