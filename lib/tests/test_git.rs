@@ -3163,6 +3163,8 @@ fn test_expand_default_fetch_refspecs() {
             # Valid
             fetch = +refs/heads/main:refs/remotes/origin/main
             fetch = +refs/heads/foo*:refs/remotes/origin/foo*
+            fetch = ^refs/heads/excluded
+            fetch = ^refs/heads/fooqux
             # Invalid
             fetch = +refs/heads/src-only
             fetch = refs/heads/non-forced
@@ -3231,7 +3233,14 @@ fn test_expand_default_fetch_refspecs() {
                 destination: "refs/remotes/origin/main",
             },
         ],
-        negative_refspecs: [],
+        negative_refspecs: [
+            NegativeRefSpec {
+                source: "refs/heads/excluded",
+            },
+            NegativeRefSpec {
+                source: "refs/heads/fooqux",
+            },
+        ],
     }
     "#);
 }
