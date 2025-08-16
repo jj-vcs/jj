@@ -415,6 +415,8 @@ defined.
 * `.lines() -> List<String>`: Split into lines excluding newline characters.
 * `.upper() -> String`
 * `.lower() -> String`
+* `.replace(from: Stringify, to: Stringify) -> String`: Replaces all instances
+  of `from` with `to`
 * `.starts_with(needle: Stringify) -> Boolean`
 * `.ends_with(needle: Stringify) -> Boolean`
 * `.remove_prefix(needle: Stringify) -> String`: Removes the passed prefix, if
