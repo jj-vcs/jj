@@ -323,12 +323,14 @@ pub fn combine_messages_for_editing(
     ui: &Ui,
     tx: &WorkspaceCommandTransaction,
     sources: &[Commit],
-    destination: &Commit,
+    destination: Option<&Commit>,
     commit_builder: &DetachedCommitBuilder,
 ) -> Result<String, CommandError> {
     let mut combined = String::new();
-    combined.push_str("JJ: Description from the destination commit:\n");
-    combined.push_str(destination.description());
+    if let Some(destination) = destination {
+        combined.push_str("JJ: Description from the destination commit:\n");
+        combined.push_str(destination.description());
+    }
     for commit in sources {
         combined.push_str("\nJJ: Description from source commit:\n");
         combined.push_str(commit.description());
@@ -338,7 +340,7 @@ pub fn combine_messages_for_editing(
         // show the user only trailers that were not in one of the squashed commits
         let old_trailers: Vec<_> = sources
             .iter()
-            .chain(std::iter::once(destination))
+            .chain(destination)
             .flat_map(|commit| parse_description_trailers(commit.description()))
             .collect();
         let commit = commit_builder.write_hidden()?;
