@@ -821,6 +821,78 @@ fn test_describe_author() {
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
+
+    // reset the author date for multiple commits
+    work_dir
+        .run_jj([
+            "describe",
+            "@-",
+            "@--",
+            "--author-date",
+            "1995-12-19T16:39:57-08:00",
+            "--no-edit",
+        ])
+        .success();
+    insta::assert_snapshot!(get_signatures(), @r"
+    @  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:18.000 +07:00
+    │  Test User test.user@example.com 2001-02-03 04:05:20.000 +07:00
+    ○  Ove Ridder ove.ridder@example.com 1995-12-19 16:39:57.000 -08:00
+    │  Test User test.user@example.com 2001-02-03 04:05:20.000 +07:00
+    ○  Test User test.user@example.com 1995-12-19 16:39:57.000 -08:00
+    │  Test User test.user@example.com 2001-02-03 04:05:20.000 +07:00
+    ○  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:18.000 +07:00
+    │  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:18.000 +07:00
+    ~
+    [EOF]
+    ");
+
+    // set committer for multiple commits
+    work_dir
+        .run_jj([
+            "describe",
+            "@-",
+            "@--",
+            "--committer",
+            "Super Seeder <super.seeder@example.com>",
+            "--no-edit",
+        ])
+        .success();
+    insta::assert_snapshot!(get_signatures(), @r"
+    @  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:18.000 +07:00
+    │  Test User test.user@example.com 2001-02-03 04:05:20.000 +07:00
+    ○  Ove Ridder ove.ridder@example.com 1995-12-19 16:39:57.000 -08:00
+    │  Test User test.user@example.com 2001-02-03 04:05:20.000 +07:00
+    ○  Test User test.user@example.com 1995-12-19 16:39:57.000 -08:00
+    │  Test User test.user@example.com 2001-02-03 04:05:20.000 +07:00
+    ○  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:18.000 +07:00
+    │  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:18.000 +07:00
+    ~
+    [EOF]
+    ");
+
+    // reset the committer date for multiple commits
+    work_dir
+        .run_jj([
+            "describe",
+            "@-",
+            "@--",
+            "--committer-date",
+            "1995-12-19T16:39:57-08:00",
+            "--no-edit",
+        ])
+        .success();
+    insta::assert_snapshot!(get_signatures(), @r"
+    @  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:18.000 +07:00
+    │  Test User test.user@example.com 2001-02-03 04:05:20.000 +07:00
+    ○  Ove Ridder ove.ridder@example.com 1995-12-19 16:39:57.000 -08:00
+    │  Test User test.user@example.com 2001-02-03 04:05:20.000 +07:00
+    ○  Test User test.user@example.com 1995-12-19 16:39:57.000 -08:00
+    │  Test User test.user@example.com 2001-02-03 04:05:20.000 +07:00
+    ○  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:18.000 +07:00
+    │  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:18.000 +07:00
+    ~
+    [EOF]
+    ");
 }
 
 #[test]
@@ -1118,7 +1190,7 @@ fn test_add_trailer_committer() {
         format!("-----\n{editor0}-----\n"), @r#"
     -----
 
-    
+
     Signed-off-by: test.user@example.com
 
     JJ: Lines starting with "JJ:" (like this one) will be removed.

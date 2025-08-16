@@ -17,9 +17,12 @@ use std::io;
 use std::io::Read as _;
 use std::iter;
 
+use chrono::DateTime;
+use chrono::FixedOffset;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::Signature;
+use jj_lib::backend::Timestamp;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::object_id::ObjectId as _;
 use tracing::instrument;
@@ -37,6 +40,7 @@ use crate::description_util::edit_multiple_descriptions;
 use crate::description_util::join_message_paragraphs;
 use crate::description_util::parse_trailers_template;
 use crate::text_util::parse_author;
+use crate::text_util::parse_date;
 use crate::ui::Ui;
 
 /// Update the change description or other metadata [default alias: desc]
@@ -103,10 +107,60 @@ pub(crate) struct DescribeArgs {
     /// timestamp for non-discardable commits.
     #[arg(
         long,
-        conflicts_with = "reset_author",
         value_parser = parse_author
     )]
     author: Option<(String, String)>,
+    /// Set the author date to the given date either in RFC 2822 (human
+    /// readable, eg Sun, 23 Jan 2000 01:23:45 JST) or RFC 3339 (time stamp, eg
+    /// 2000-01-23T01:23:45+09:00)
+    #[arg(
+        long,
+        conflicts_with = "reset_author",
+        value_parser = parse_date
+    )]
+    author_date: Option<DateTime<FixedOffset>>,
+    /// Set committer to the provided string
+    ///
+    /// This changes committer name and email while retaining committer
+    /// timestamp for non-discardable commits.
+    #[arg(
+        long,
+        value_parser = parse_author
+    )]
+    committer: Option<(String, String)>,
+    /// Set the committer date to the given date either in RFC 2822 (human
+    /// readable, eg Sun, 23 Jan 2000 01:23:45 JST) or RFC 3339 (time stamp, eg
+    /// 2000-01-23T01:23:45+09:00)
+    #[arg(
+        long,
+        value_parser = parse_date
+    )]
+    committer_date: Option<DateTime<FixedOffset>>,
+}
+
+fn make_new_signature(
+    old_signature: &Signature,
+    author: Option<(String, String)>,
+    date: Option<DateTime<FixedOffset>>,
+) -> (bool, Signature) {
+    let mut changed_date = false;
+    let mut name = old_signature.name.clone();
+    let mut email = old_signature.email.clone();
+    let mut timestamp = old_signature.timestamp;
+    if let Some((new_name, new_email)) = author {
+        name = new_name;
+        email = new_email;
+    }
+    if let Some(author_date) = date {
+        timestamp = Timestamp::from_datetime(author_date);
+        changed_date = true;
+    }
+    let new_signature = Signature {
+        name,
+        email,
+        timestamp,
+    };
+    (changed_date, new_signature)
 }
 
 #[instrument(skip_all)]
@@ -154,6 +208,7 @@ pub(crate) fn cmd_describe(
         None
     };
 
+    let mut changed_author_date = false;
     let mut commit_builders = commits
         .iter()
         .map(|commit| {
@@ -162,16 +217,23 @@ pub(crate) fn cmd_describe(
                 commit_builder.set_description(description);
             }
             if args.reset_author {
-                let new_author = commit_builder.committer().clone();
+                commit_builder.set_author(commit_builder.committer().clone());
+            } else if args.author.is_some() || args.author_date.is_some() {
+                let (changed_date, new_author) = make_new_signature(
+                    commit_builder.author(),
+                    args.author.clone(),
+                    args.author_date,
+                );
+                changed_author_date = changed_date;
                 commit_builder.set_author(new_author);
-            }
-            if let Some((name, email)) = args.author.clone() {
-                let new_author = Signature {
-                    name,
-                    email,
-                    timestamp: commit_builder.author().timestamp,
-                };
-                commit_builder.set_author(new_author);
+            };
+            if args.committer.is_some() || args.committer_date.is_some() {
+                let (_, new_committer) = make_new_signature(
+                    commit_builder.author(),
+                    args.committer.clone(),
+                    args.committer_date,
+                );
+                commit_builder.set_committer(new_committer);
             }
             commit_builder
         })
@@ -250,8 +312,11 @@ pub(crate) fn cmd_describe(
         .filter(|(old_commit, commit_builder)| {
             old_commit.description() != commit_builder.description()
                 || args.reset_author
-                // Ignore author timestamp which could be updated if the old
+                // If we did not change author date we ignore the author timestamp which could be updated if the old
                 // commit was discardable.
+                // @TODO not sure how to handle this; there is a `is_discardable` function but I am not sure whether I should call it here. This way the optimization is preserved
+                || (old_commit.author().timestamp != commit_builder.author().timestamp
+                    && changed_author_date)
                 || old_commit.author().name != commit_builder.author().name
                 || old_commit.author().email != commit_builder.author().email
         })

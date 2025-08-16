@@ -757,6 +757,11 @@ Starts an editor to let you edit the description of changes. The editor will be 
 * `--author <AUTHOR>` — Set author to the provided string
 
    This changes author name and email while retaining author timestamp for non-discardable commits.
+* `--author-date <AUTHOR_DATE>` — Set the author date to the given date either in RFC 2822 (human readable, eg Sun, 23 Jan 2000 01:23:45 JST) or RFC 3339 (time stamp, eg 2000-01-23T01:23:45+09:00)
+* `--committer <COMMITTER>` — Set committer to the provided string
+
+   This changes committer name and email while retaining committer timestamp for non-discardable commits.
+* `--committer-date <COMMITTER_DATE>` — Set the committer date to the given date either in RFC 2822 (human readable, eg Sun, 23 Jan 2000 01:23:45 JST) or RFC 3339 (time stamp, eg 2000-01-23T01:23:45+09:00)
 
 
 
