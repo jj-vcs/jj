@@ -57,7 +57,7 @@ fn get_git_hash_from_nix() -> Option<String> {
 }
 
 fn get_git_hash_from_jj() -> Option<String> {
-    if let Ok(output) = Command::new("jj")
+    Command::new("jj")
         .args([
             "--ignore-working-copy",
             "--color=never",
@@ -67,16 +67,15 @@ fn get_git_hash_from_jj() -> Option<String> {
             "-T=commit_id ++ '-'",
         ])
         .output()
-        && output.status.success()
-    {
-        let mut parent_commits = String::from_utf8(output.stdout).unwrap();
-        // If a development version of `jj` is compiled at a merge commit, this will
-        // result in several commit ids separated by `-`s.
-        parent_commits.truncate(parent_commits.trim_end_matches('-').len());
-        return Some(parent_commits);
-    }
-
-    None
+        .ok()
+        .filter(|output| output.status.success())
+        .map(|output| {
+            let mut parent_commits = String::from_utf8(output.stdout).unwrap();
+            // If a development version of `jj` is compiled at a merge commit, this will
+            // result in several commit ids separated by `-`s.
+            parent_commits.truncate(parent_commits.trim_end_matches('-').len());
+            parent_commits
+        })
 }
 
 fn get_git_hash_from_git() -> Option<String> {
