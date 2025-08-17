@@ -51,11 +51,11 @@ For future reference, here are a couple of more complicated examples,
 
 ```toml
 # Dotted style
-template-aliases."format_short_id(id)" = "id.shortest(12)"
+templates."format_short_id(id)" = "id.shortest(12)"
 colors."commit_id prefix".bold = true
 
 # is equivalent to:
-[template-aliases]
+[templates]
 "format_short_id(id)" = "id.shortest(12)"
 
 [colors]
@@ -201,7 +201,7 @@ concat(
 
 You can override only the `default_commit_description` value if you like, e.g.:
 ```toml
-[template-aliases]
+[templates]
 default_commit_description = '''
 "
 
@@ -593,7 +593,7 @@ log-word-wrap = true
 Can be customized by the `format_short_id()` template alias.
 
 ```toml
-[template-aliases]
+[templates]
 # Highlight unique prefix and show at least 12 characters (default)
 'format_short_id(id)' = 'id.shortest(12)'
 # Just the shortest possible unique prefix
@@ -608,7 +608,7 @@ To customize these separately, use the `format_short_commit_id()` and
 `format_short_change_id()` aliases:
 
 ```toml
-[template-aliases]
+[templates]
 # Uppercase change ids. `jj` treats change and commit ids as case-insensitive.
 'format_short_change_id(id)' = 'format_short_id(id).upper()'
 ```
@@ -616,7 +616,7 @@ To customize these separately, use the `format_short_commit_id()` and
 Operation ids can be customized by the `format_short_operation_id()` alias:
 
 ```toml
-[template-aliases]
+[templates]
 # Always show 12 characters
 'format_short_operation_id(id)' = 'id.short(12)'
 ```
@@ -634,7 +634,7 @@ short-prefixes = "(main..@)::"
 Can be customized by the `format_timestamp()` template alias.
 
 ```toml
-[template-aliases]
+[templates]
 # Full timestamp in ISO 8601 format
 'format_timestamp(timestamp)' = 'timestamp'
 # Relative timestamp rendered as "x days/hours/seconds ago"
@@ -645,7 +645,7 @@ Can be customized by the `format_timestamp()` template alias.
 will need to modify the `format_time_range()` template alias.
 
 ```toml
-[template-aliases]
+[templates]
 'format_time_range(time_range)' = 'time_range.start() ++ " - " ++ time_range.end()'
 ```
 
@@ -654,7 +654,7 @@ will need to modify the `format_time_range()` template alias.
 Can be customized by the `format_short_signature()` template alias.
 
 ```toml
-[template-aliases]
+[templates]
 # Full email address (default)
 'format_short_signature(signature)' = 'signature.email()'
 # Both name and email address
@@ -673,7 +673,7 @@ The function must return a timestamp because the return value will likely be
 formatted with `format_timestamp()`.
 
 ```toml
-[template-aliases]
+[templates]
 'commit_timestamp(commit)' = 'commit.author().timestamp()'
 ```
 
@@ -693,7 +693,7 @@ available.
 # default is false
 show-cryptographic-signatures = true
 
-[template-aliases]
+[templates]
 'format_short_cryptographic_signature(sig)' = '''
   if(sig,
     sig.status(),
@@ -1808,7 +1808,7 @@ Here is an example with more advanced TOML constructs:
 # Single quotes and the '\' are interpreted by the shell and assume a Unix shell
 # Double quotes are passed to jj and are parsed as TOML syntax
 jj log --config \
-  'template-aliases."format_timestamp(timestamp)"="""timestamp.format("%Y-%m-%d %H:%M %:::z")"""'
+  'templates."format_timestamp(timestamp)"="""timestamp.format("%Y-%m-%d %H:%M %:::z")"""'
 ```
 
 To load an entire TOML document, use `--config-file`:

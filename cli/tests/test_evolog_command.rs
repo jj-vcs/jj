@@ -471,6 +471,8 @@ fn test_evolog_with_no_template() {
 
     For more information, try '--help'.
     Hint: The following template aliases are defined:
+    - backout_description
+    - bookmark_list
     - builtin_config_list
     - builtin_config_list_detailed
     - builtin_draft_commit_description
@@ -488,12 +490,31 @@ fn test_evolog_with_no_template() {
     - builtin_op_log_node_ascii
     - builtin_op_log_oneline
     - builtin_op_log_redacted
+    - commit_summary
     - commit_summary_separator
+    - commit_trailers
+    - config_list
     - default_commit_description
     - description_placeholder
+    - draft_commit_description
+    - duplicate_description
     - email_placeholder
+    - file_annotate
+    - file_list
+    - file_show
     - git_format_patch_email_headers
+    - git_push_bookmark
+    - log
+    - log_node
     - name_placeholder
+    - op_log
+    - op_log_node
+    - op_show
+    - op_summary
+    - revert_description
+    - show
+    - tag_list
+    - workspace_list
     [EOF]
     [exit status: 2]
     ");

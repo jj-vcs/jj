@@ -94,8 +94,6 @@ if(
 )
 '''
 
-[template-aliases]
-
 'format_config_item(x)' = '''
 if(x.overridden(),
   indent("# ", x.name() ++ " = " ++ x.value()),

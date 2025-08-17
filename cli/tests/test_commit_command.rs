@@ -298,7 +298,7 @@ fn test_commit_with_default_description() {
     ◆  000000000000
     [EOF]
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to templates.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
     insta::assert_snapshot!(
@@ -469,7 +469,7 @@ fn test_commit_reset_author() {
     let work_dir = test_env.work_dir("repo");
 
     test_env.add_config(
-        r#"[template-aliases]
+        r#"[templates]
 'format_signature(signature)' = 'signature.name() ++ " " ++ signature.email() ++ " " ++ signature.timestamp()'"#,
     );
     let get_signatures = || {

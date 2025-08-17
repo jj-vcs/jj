@@ -83,7 +83,7 @@ fn test_rewrite_immutable_generic() {
     // resolved
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "bookmark_that_does_not_exist""#);
     // Suppress warning in the commit summary template
-    test_env.add_config("template-aliases.'format_short_id(id)' = 'id.short(8)'");
+    test_env.add_config("templates.'format_short_id(id)' = 'id.short(8)'");
     let output = work_dir.run_jj(["new", "main"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------

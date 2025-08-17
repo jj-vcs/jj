@@ -29,6 +29,7 @@ use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigLoadError;
+use jj_lib::config::ConfigMigrateLayerError;
 use jj_lib::config::ConfigMigrationRule;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigResolutionContext;
@@ -713,7 +714,7 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
         // TODO: Delete in jj 0.35.0+
         ConfigMigrationRule::rename_update_value(
             "ui.default-description",
-            "template-aliases.default_commit_description",
+            "templates.default_commit_description",
             |old_value| {
                 let value = old_value.as_str().ok_or("expected a string")?;
                 // Trailing newline would be padded by templater (in jj < 0.31)
@@ -749,6 +750,29 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
         ConfigMigrationRule::rename_value(
             "core.watchman.register-snapshot-trigger",
             "fsmonitor.watchman.register-snapshot-trigger",
+        ),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::custom(
+            |layer| matches!(layer.look_up_table("template-aliases"), Ok(Some(_))),
+            |layer| {
+                let source_item = match layer.data.entry("template-aliases") {
+                    toml_edit::Entry::Occupied(entry) => entry.remove(),
+                    toml_edit::Entry::Vacant(_) => unreachable!("tested by match()"),
+                };
+                for (key, value) in source_item.as_table().expect("tested by match()") {
+                    layer.set_value(
+                        ConfigNamePathBuf::from_iter(["templates", key]),
+                        value
+                            .as_value()
+                            .ok_or_else(|| ConfigMigrateLayerError::Type {
+                                name: format!("template-aliases.{key}"),
+                                error: format!("Expected a value, but is a {}", value.type_name())
+                                    .into(),
+                            })?,
+                    )?;
+                }
+                Ok("'template-aliases' items are moved to 'templates'.".to_owned())
+            },
         ),
     ]
 }

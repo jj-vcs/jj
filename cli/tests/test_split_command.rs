@@ -207,7 +207,7 @@ fn test_split_with_non_empty_description() {
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to templates.default_commit_description = '"\n\nTESTED=TODO\n"'
     Selected changes : qpvuntsm c7f7b14b part 1
     Remaining changes: kkmpptxz ac33a5a9 part 2
     Working copy  (@) now at: kkmpptxz ac33a5a9 part 2
@@ -241,7 +241,7 @@ fn test_split_with_non_empty_description() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to templates.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 }
@@ -265,7 +265,7 @@ fn test_split_with_default_description() {
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to templates.default_commit_description = '"\n\nTESTED=TODO\n"'
     Selected changes : qpvuntsm ff633dcc TESTED=TODO
     Remaining changes: rlvkpnrz b1d20b7e (no description set)
     Working copy  (@) now at: rlvkpnrz b1d20b7e (no description set)
@@ -296,7 +296,7 @@ fn test_split_with_default_description() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to templates.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 }
@@ -498,7 +498,7 @@ fn test_split_parallel_no_descendants() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to templates.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 
@@ -510,7 +510,7 @@ fn test_split_parallel_no_descendants() {
     let output = work_dir.run_jj(["split", "--parallel", "file1"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to templates.default_commit_description = '"\n\nTESTED=TODO\n"'
     Selected changes : qpvuntsm 7bcd474c TESTED=TODO
     Remaining changes: kkmpptxz 431886f6 (no description set)
     Working copy  (@) now at: kkmpptxz 431886f6 (no description set)
@@ -525,7 +525,7 @@ fn test_split_parallel_no_descendants() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to templates.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 
@@ -564,7 +564,7 @@ fn test_split_parallel_no_descendants() {
        -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to templates.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 
@@ -583,7 +583,7 @@ fn test_split_parallel_no_descendants() {
        -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to templates.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 }
@@ -1064,7 +1064,7 @@ fn test_split_with_non_empty_description_and_trailers() {
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to templates.default_commit_description = '"\n\nTESTED=TODO\n"'
     Selected changes : qpvuntsm c7f7b14b part 1
     Remaining changes: kkmpptxz ac33a5a9 part 2
     Working copy  (@) now at: kkmpptxz ac33a5a9 part 2
@@ -1102,7 +1102,7 @@ fn test_split_with_non_empty_description_and_trailers() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to templates.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 }
