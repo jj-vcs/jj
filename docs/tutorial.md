@@ -410,7 +410,7 @@ an operation. By default, it will undo the most recent operation. Let's try it:
 
 ```shell
 $ jj undo
-Undid operation: d3b77addea49 (2025-05-12 00:27:27) squash commits into f7fb5943a6b9460eb106dba2fac5cac1625c6f7a
+Reverted operation: d3b77addea49 (2025-05-12 00:27:27) squash commits into f7fb5943a6b9460eb106dba2fac5cac1625c6f7a
 Working copy  (@) now at: zxoosnnp 63874fe6 (no description set)
 Parent commit (@-)      : puqltutt f7fb5943 (conflict) B2
 New conflicts appeared in 2 commits:

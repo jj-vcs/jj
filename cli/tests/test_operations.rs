@@ -1067,7 +1067,7 @@ fn test_op_summary_diff_template() {
     let output = work_dir.run_jj(["op", "revert", "--color=always"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: [38;5;4m8c2682708d2e[39m ([38;5;6m2001-02-03 08:05:08[39m) new empty commit
+    Reverted operation: [38;5;4m8c2682708d2e[39m ([38;5;6m2001-02-03 08:05:08[39m) new empty commit
     [EOF]
     ");
     let output = work_dir.run_jj([
@@ -1099,7 +1099,7 @@ fn test_op_summary_diff_template() {
     let output = work_dir.run_jj(["op", "revert", "--color=debug"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: [38;5;4m<<operation id short::c5c76cab7d34>>[39m<<operation:: (>>[38;5;6m<<operation time end local format::2001-02-03 08:05:11>>[39m<<operation::) >><<operation description first_line::new empty commit>>
+    Reverted operation: [38;5;4m<<operation id short::c5c76cab7d34>>[39m<<operation:: (>>[38;5;6m<<operation time end local format::2001-02-03 08:05:11>>[39m<<operation::) >><<operation description first_line::new empty commit>>
     [EOF]
     ");
     let output = work_dir.run_jj([

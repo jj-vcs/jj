@@ -1185,7 +1185,7 @@ fn test_git_fetch_undo() {
     let output = target_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 158b589e0e15 (2001-02-03 08:05:18) fetch from git remote(s) origin
+    Reverted operation: 158b589e0e15 (2001-02-03 08:05:18) fetch from git remote(s) origin
     [EOF]
     ");
     // The undo works as expected

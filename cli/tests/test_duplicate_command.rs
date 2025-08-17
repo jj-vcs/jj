@@ -73,7 +73,7 @@ fn test_duplicate() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 76386e059136 (2001-02-03 08:05:17) duplicate 1 commit(s)
+    Reverted operation: 76386e059136 (2001-02-03 08:05:17) duplicate 1 commit(s)
     [EOF]
     ");
     let output = work_dir.run_jj(["duplicate" /* duplicates `c` */]);
@@ -2349,7 +2349,7 @@ fn test_undo_after_duplicate() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: a6a20a8e5a46 (2001-02-03 08:05:11) duplicate 1 commit(s)
+    Reverted operation: a6a20a8e5a46 (2001-02-03 08:05:11) duplicate 1 commit(s)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"

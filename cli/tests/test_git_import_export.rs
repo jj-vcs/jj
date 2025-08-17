@@ -116,7 +116,7 @@ fn test_git_export_undo() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: b718f970b78c (2001-02-03 08:05:10) export git refs
+    Reverted operation: b718f970b78c (2001-02-03 08:05:10) export git refs
     [EOF]
     ");
     insta::assert_debug_snapshot!(get_git_repo_refs(&git_repo), @r#"

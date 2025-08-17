@@ -75,7 +75,7 @@ fn test_undo_latest_undo_implicitly() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 5b31042c020b (2001-02-03 08:05:09) revert operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
+    Reverted operation: 5b31042c020b (2001-02-03 08:05:09) revert operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
     Working copy  (@) now at: rlvkpnrz 43444d88 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
@@ -89,7 +89,7 @@ fn test_undo_latest_undo_implicitly() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: e83fef84da56 (2001-02-03 08:05:12) revert operation c9a93954e94b008f7295813623c4c12aeffd2cb81728e8d7813a37c8b6252b8f9a15ddfc6e496b393de355bd07405e740a05178cf8845af0087fb02223e4c404
+    Reverted operation: e83fef84da56 (2001-02-03 08:05:12) revert operation c9a93954e94b008f7295813623c4c12aeffd2cb81728e8d7813a37c8b6252b8f9a15ddfc6e496b393de355bd07405e740a05178cf8845af0087fb02223e4c404
     Working copy  (@) now at: mzvwutvl 8afc18ff (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
@@ -113,7 +113,7 @@ fn test_undo_latest_undo_explicitly() {
     let output = work_dir.run_jj(["undo", op_id_hex]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 5b31042c020b (2001-02-03 08:05:09) revert operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
+    Reverted operation: 5b31042c020b (2001-02-03 08:05:09) revert operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
     Working copy  (@) now at: rlvkpnrz 43444d88 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
@@ -124,7 +124,7 @@ fn test_undo_latest_undo_explicitly() {
     let output = work_dir.run_jj(["undo", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: f344a2234512 (2001-02-03 08:05:13) revert operation a6365efd7a8958525e22cd7b4fb01f308260464facdc3f03c82a151892a073e0fbf6b4d9ad49991ab7ee4f05c55c147c74841714710c87ce7a990e112fe782b8
+    Reverted operation: f344a2234512 (2001-02-03 08:05:13) revert operation a6365efd7a8958525e22cd7b4fb01f308260464facdc3f03c82a151892a073e0fbf6b4d9ad49991ab7ee4f05c55c147c74841714710c87ce7a990e112fe782b8
     Working copy  (@) now at: royxmykx ba0e5dca (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 43444d88 (empty) (no description set)
     Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
@@ -150,7 +150,7 @@ fn test_undo_an_older_undo() {
     let output = work_dir.run_jj(["undo", op_id_hex]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 5b31042c020b (2001-02-03 08:05:09) revert operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
+    Reverted operation: 5b31042c020b (2001-02-03 08:05:09) revert operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
     [EOF]
     ");
 
@@ -161,7 +161,7 @@ fn test_undo_an_older_undo() {
     let output = work_dir.run_jj(["undo", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: f2c360817b17 (2001-02-03 08:05:14) revert operation 20e354c3f097e96da28c0470b2d9e38c07370ebbae6c01b33c62a44bee913603086b66c97cb8a24a6b1df284b64a82edea14b7fa3cb124da55ebc4d743a92475
+    Reverted operation: f2c360817b17 (2001-02-03 08:05:14) revert operation 20e354c3f097e96da28c0470b2d9e38c07370ebbae6c01b33c62a44bee913603086b66c97cb8a24a6b1df284b64a82edea14b7fa3cb124da55ebc4d743a92475
     [EOF]
     ");
 }
@@ -177,7 +177,7 @@ fn test_undo_an_undo_multiple_times() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 5b31042c020b (2001-02-03 08:05:09) revert operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
+    Reverted operation: 5b31042c020b (2001-02-03 08:05:09) revert operation dbcb2561b6fee72ea6de79511b6b62f1fff2424f79d16dd30339f94621100f77c86ca7450f7b1ec1bd95d4d56b7a54fe3f3e612353e62cedc682366211b4144e
     Working copy  (@) now at: rlvkpnrz 43444d88 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
@@ -187,7 +187,7 @@ fn test_undo_an_undo_multiple_times() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: 91cc66ce7fb2 (2001-02-03 08:05:10) revert operation 5b31042c020bd6090d52b932c998a263655cd541b7922c2f56e372a0ee367aa4f7dfb0ccb89c55d2fa232ba8ff6fb22276607ccd12f03844841e6a3888f5972d
+    Reverted operation: 91cc66ce7fb2 (2001-02-03 08:05:10) revert operation 5b31042c020bd6090d52b932c998a263655cd541b7922c2f56e372a0ee367aa4f7dfb0ccb89c55d2fa232ba8ff6fb22276607ccd12f03844841e6a3888f5972d
     Working copy  (@) now at: qpvuntsm e8849ae1 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
@@ -200,7 +200,7 @@ fn test_undo_an_undo_multiple_times() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: e26664a8b05f (2001-02-03 08:05:13) revert operation 3ac3dec981c7b97070849ee22a468ec4d16b2dbb1f3df26092ea2c11289b61bc3a38a1b5e3f5a91f576feb8769e171c1905f70f39e0284648c68c7a21f439817
+    Reverted operation: e26664a8b05f (2001-02-03 08:05:13) revert operation 3ac3dec981c7b97070849ee22a468ec4d16b2dbb1f3df26092ea2c11289b61bc3a38a1b5e3f5a91f576feb8769e171c1905f70f39e0284648c68c7a21f439817
     Working copy  (@) now at: royxmykx e7d0d5fd (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
@@ -210,7 +210,7 @@ fn test_undo_an_undo_multiple_times() {
     let output = work_dir.run_jj(["undo", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: cd5fdc0df497 (2001-02-03 08:05:14) revert operation e26664a8b05f2380b6857ea564f389363bc150ddbdc6cf087908787fc3831b3aa95575baed369581f8709c5cfc63f4787ff7b601e51639e8badc8251b8b2b9f9
+    Reverted operation: cd5fdc0df497 (2001-02-03 08:05:14) revert operation e26664a8b05f2380b6857ea564f389363bc150ddbdc6cf087908787fc3831b3aa95575baed369581f8709c5cfc63f4787ff7b601e51639e8badc8251b8b2b9f9
     Working copy  (@) now at: qpvuntsm e8849ae1 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Warning: The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in the same state as it was before the second-last `jj undo`.
@@ -232,7 +232,7 @@ fn test_undo_bookmark_deletion() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: e1bcf7cd8080 (2001-02-03 08:05:09) delete bookmark foo
+    Reverted operation: e1bcf7cd8080 (2001-02-03 08:05:09) delete bookmark foo
     [EOF]
     ");
 }
