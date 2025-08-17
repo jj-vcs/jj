@@ -48,6 +48,7 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
+use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo;
@@ -1302,11 +1303,13 @@ impl CommitRef {
     pub fn local<'a>(
         name: impl Into<String>,
         target: RefTarget,
-        remote_refs: impl IntoIterator<Item = &'a RemoteRef>,
+        remote_refs: impl IntoIterator<Item = &'a (&'a RemoteName, &'a RemoteRef)>,
     ) -> Rc<Self> {
-        let synced = remote_refs
-            .into_iter()
-            .all(|remote_ref| !remote_ref.is_tracked() || remote_ref.target == target);
+        let synced = remote_refs.into_iter().all(|(name, remote_ref)| {
+            jj_lib::git::is_special_git_remote(name)
+                || !remote_ref.is_tracked()
+                || remote_ref.target == target
+        });
         Rc::new(Self {
             name: RefSymbolBuf(name.into()),
             remote: None,
@@ -1684,11 +1687,8 @@ fn build_bookmarks_index(repo: &dyn Repo) -> CommitRefsIndex {
         let local_target = bookmark_target.local_target;
         let remote_refs = bookmark_target.remote_refs;
         if local_target.is_present() {
-            let commit_ref = CommitRef::local(
-                bookmark_name,
-                local_target.clone(),
-                remote_refs.iter().map(|&(_, remote_ref)| remote_ref),
-            );
+            let commit_ref =
+                CommitRef::local(bookmark_name, local_target.clone(), remote_refs.iter());
             index.insert(local_target.added_ids(), commit_ref);
         }
         for &(remote_name, remote_ref) in &remote_refs {

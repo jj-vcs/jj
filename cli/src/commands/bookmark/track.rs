@@ -119,7 +119,7 @@ pub fn cmd_bookmark_track(
             let commit_ref = CommitRef::local(
                 name,
                 local_target.clone(),
-                bookmark_target.remote_refs.iter().map(|x| x.1),
+                bookmark_target.remote_refs.iter(),
             );
             template.format(&commit_ref, formatter.as_mut())?;
 
