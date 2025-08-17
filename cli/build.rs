@@ -80,12 +80,15 @@ fn get_git_hash_from_jj() -> Option<String> {
 }
 
 fn get_git_hash_from_git() -> Option<String> {
-    if let Ok(output) = Command::new("git").args(["rev-parse", "HEAD"]).output()
-        && output.status.success()
-    {
-        let line = str::from_utf8(&output.stdout).unwrap();
-        return Some(line.trim_end().to_owned());
-    }
-
-    None
+    Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .map(|output| {
+            str::from_utf8(&output.stdout)
+                .unwrap()
+                .trim_end()
+                .to_owned()
+        })
 }
