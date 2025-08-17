@@ -190,6 +190,8 @@ fn test_squash_partial() {
     [EOF]
     ");
 
+    let start_op_id = work_dir.current_operation_id();
+
     // If we don't make any changes in the diff-editor, the whole change is moved
     // into the parent
     std::fs::write(&edit_script, "dump JJ-INSTRUCTIONS instrs").unwrap();
@@ -197,8 +199,8 @@ fn test_squash_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: mzvwutvl 34484d82 c | (no description set)
-    Parent commit (@-)      : qpvuntsm 3141e675 a b | (no description set)
+    Working copy  (@) now at: mzvwutvl f68fa41a c | (no description set)
+    Parent commit (@-)      : qpvuntsm e5907084 a b | (no description set)
     [EOF]
     ");
 
@@ -217,8 +219,8 @@ fn test_squash_partial() {
     ");
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  34484d825f47 c
-    ○  3141e67514f6 a b
+    @  f68fa41ae180 c
+    ○  e59070841535 a b
     ◆  000000000000 (empty)
     [EOF]
     ");
@@ -229,20 +231,20 @@ fn test_squash_partial() {
     ");
 
     // Can squash only some changes in interactive mode
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &start_op_id]).success();
     std::fs::write(&edit_script, "reset file1").unwrap();
     let output = work_dir.run_jj(["squash", "-r", "b", "-i"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: mzvwutvl 37e1a0ef c | (no description set)
-    Parent commit (@-)      : kkmpptxz b41e789d b | (no description set)
+    Working copy  (@) now at: mzvwutvl 8846468b c | (no description set)
+    Parent commit (@-)      : kkmpptxz 06cb2e79 b | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  37e1a0ef57ff c
-    ○  b41e789df71c b
-    ○  3af17565155e a
+    @  8846468b7db7 c
+    ○  06cb2e79b78e b
+    ○  4a8b1bc7c58d a
     ◆  000000000000 (empty)
     [EOF]
     ");
@@ -268,21 +270,21 @@ fn test_squash_partial() {
     ");
 
     // Can squash only some changes in non-interactive mode
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &start_op_id]).success();
     // Clear the script so we know it won't be used even without -i
     std::fs::write(&edit_script, "").unwrap();
     let output = work_dir.run_jj(["squash", "-r", "b", "file2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: mzvwutvl 72ff256c c | (no description set)
-    Parent commit (@-)      : kkmpptxz dd056a92 b | (no description set)
+    Working copy  (@) now at: mzvwutvl 67c5cd3d c | (no description set)
+    Parent commit (@-)      : kkmpptxz 9c514289 b | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  72ff256cd290 c
-    ○  dd056a925eb3 b
-    ○  cf083f1d9ccf a
+    @  67c5cd3d82e9 c
+    ○  9c51428943be b
+    ○  5977675073d1 a
     ◆  000000000000 (empty)
     [EOF]
     ");
@@ -308,7 +310,7 @@ fn test_squash_partial() {
     ");
 
     // If we specify only a non-existent file, then nothing changes.
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &start_op_id]).success();
     let output = work_dir.run_jj(["squash", "-r", "b", "nonexistent"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -317,7 +319,7 @@ fn test_squash_partial() {
     ");
 
     // We get a warning if we pass a positional argument that looks like a revset
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &start_op_id]).success();
     let output = work_dir.run_jj(["squash", "b"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -327,24 +329,24 @@ fn test_squash_partial() {
     "#);
 
     // we can use --interactive and fileset together
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &start_op_id]).success();
     work_dir.write_file("file3", "foo\n");
     std::fs::write(&edit_script, "reset file1").unwrap();
     let output = work_dir.run_jj(["squash", "-i", "file1", "file3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: mzvwutvl 69c58f86 c | (no description set)
-    Parent commit (@-)      : kkmpptxz 0f38c564 b | (no description set)
+    Working copy  (@) now at: mzvwutvl a4fcdfe2 c | (no description set)
+    Parent commit (@-)      : kkmpptxz f6a8a023 b | (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-s"]);
     insta::assert_snapshot!(output, @r"
-    @  mzvwutvl test.user@example.com 2001-02-03 08:05:36 c 69c58f86
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:37 c a4fcdfe2
     │  (no description set)
     │  M file1
     │  M file2
-    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:36 b 0f38c564
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:37 b f6a8a023
     │  (no description set)
     │  M file1
     │  M file2
@@ -2002,10 +2004,10 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @r"
     ○    xlzxqlsl test.user@example.com 2001-02-03 08:05:31 8ceb6c68
     ├─╮  file 3&4
-    │ │  -- operation bce6018e7161 (2001-02-03 08:05:31) squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │ │  -- operation c91017081095 (2001-02-03 08:05:31) squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:31 c7946a56
     │ │  file4
-    │ │  -- operation bce6018e7161 (2001-02-03 08:05:31) squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │ │  -- operation c91017081095 (2001-02-03 08:05:31) squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:11 38778966
     │ │  file4
     │ │  -- operation 83489d186f66 (2001-02-03 08:05:11) commit 89a30a7539466ed176c1ef122a020fd9cb15848e
@@ -2017,7 +2019,7 @@ fn test_squash_to_new_commit() {
     │    -- operation 19d57874b952 (2001-02-03 08:05:10) commit c23c424826221bc4fdee9487926595324e50ee95
     ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:31 3ab8a4a5
     │  file3
-    │  -- operation bce6018e7161 (2001-02-03 08:05:31) squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │  -- operation c91017081095 (2001-02-03 08:05:31) squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:10 0d254956
     │  file3
     │  -- operation 19d57874b952 (2001-02-03 08:05:10) commit c23c424826221bc4fdee9487926595324e50ee95
@@ -2101,7 +2103,7 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @r"
     ○  zowrlwsv test.user@example.com 2001-02-03 08:05:38 5feda7c2
        (empty) (no description set)
-       -- operation 1b5b7f9b27ba (2001-02-03 08:05:38) squash 0 commits
+       -- operation 73edd692d095 (2001-02-03 08:05:38) squash 0 commits
     [EOF]
     ");
 
@@ -2144,7 +2146,7 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @r"
     ○  nsrwusvy test.user@example.com 2001-02-03 08:05:42 c2183685
        (empty) (no description set)
-       -- operation a8d1b9aee58e (2001-02-03 08:05:42) squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+       -- operation e951eefa2a16 (2001-02-03 08:05:42) squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     [EOF]
     ");
 
@@ -2191,10 +2193,10 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @r"
     ○  ukwxllxp test.user@example.com 2001-02-03 08:05:46 43a4b8e0
     │  (empty) (no description set)
-    │  -- operation 11bdcad3854e (2001-02-03 08:05:47) squash commit 7eff41c8d17b8b4d2e7110402719e9d245dba975
+    │  -- operation abb353cc3a72 (2001-02-03 08:05:47) squash commit 7eff41c8d17b8b4d2e7110402719e9d245dba975
     ○  wtlqussy hidden test.user@example.com 2001-02-03 08:05:46 7eff41c8
        (empty) (no description set)
-       -- operation b2ee55ac8c70 (2001-02-03 08:05:46) new empty commit
+       -- operation 14e63f462582 (2001-02-03 08:05:46) new empty commit
     [EOF]
     ");
 }

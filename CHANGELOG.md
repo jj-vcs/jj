@@ -26,6 +26,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The deprecated `--config-toml` flag has been removed. Use
   `--config=NAME=VALUE` or `--config-file=PATH` instead.
 
+* `jj undo` can now undo multiple operations progressively by calling it
+  repeatedly. While this is technically a breaking change, we don't expect
+  many people to be negatively affected, because running `jj undo` twice was
+  previously a no-op.
+
 ### Deprecations
 
 * The on-disk index format has changed. `jj` will write index files in both old
@@ -33,8 +38,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   files. This compatibility layer will be removed in a future release.
 
 * `jj op undo` is deprecated in favor of `jj op revert`. (`jj undo` is still
-  available unchanged, but we plan to enable undoing multiple operations
-  progressively by repeated calls to `jj undo`.)
+  available, but with new semantics. See also the breaking changes above.)
 
 * The argument `<operation>` of `jj undo` is deprecated in favor of
   `jj op revert <operation>`.

@@ -14,36 +14,24 @@
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
-use jj_lib::op_store::OpStoreError;
-use jj_lib::operation::Operation;
+use jj_lib::object_id::ObjectId as _;
+use jj_lib::op_store::OperationId;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
+use crate::command_error::internal_error;
 use crate::command_error::user_error;
 use crate::commands::operation::DEFAULT_REVERT_WHAT;
 use crate::commands::operation::RevertWhatToRestore;
 use crate::commands::operation::revert::OperationRevertArgs;
 use crate::commands::operation::revert::cmd_op_revert;
-use crate::commands::operation::revert::tx_description;
+use crate::commands::operation::view_with_desired_portions_restored;
 use crate::complete;
 use crate::ui::Ui;
 
-// Checks whether `op` resets the view of `parent_op` to the view of the
-// grandparent op.
-//
-// This is a necessary condition for `op` to be a revert of `parent_op` but is
-// not sufficient. For example, deleting a bookmark also resets the view
-// similarly but is not a literal `revert` operation.
-fn resets_view_of(op: &Operation, parent_op: &Operation) -> Result<bool, OpStoreError> {
-    let Ok(grandparent_op) = parent_op.parents().exactly_one() else {
-        return Ok(false);
-    };
-    Ok(op.view_id() == grandparent_op?.view_id())
-}
-
 /// Undo the last operation
 ///
-/// This undoes the last operation by applying its inverse as a new operation.
+/// This undoes the last operation by restoring its parent operation.
 #[derive(clap::Args, Clone, Debug)]
 pub struct UndoArgs {
     /// (deprecated, use `jj op revert <operation>`)
@@ -62,62 +50,132 @@ pub struct UndoArgs {
     what: Vec<RevertWhatToRestore>,
 }
 
+const UNDO_OP_DESC_PREFIX: &str = "undo: restore to operation ";
+
 pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result<(), CommandError> {
     if args.operation != "@" {
         writeln!(
             ui.warning_default(),
             "`jj undo <operation>` is deprecated; use `jj op revert <operation>` instead"
         )?;
+        let args = OperationRevertArgs {
+            operation: args.operation.clone(),
+            what: args.what.clone(),
+        };
+        return cmd_op_revert(ui, command, &args);
     }
-    let workspace_command = command.workspace_helper(ui)?;
-    let bad_op = workspace_command.resolve_single_op(&args.operation)?;
-    let parent_of_bad_op = match bad_op.parents().at_most_one() {
-        Ok(Some(parent_of_bad_op)) => parent_of_bad_op?,
+    if args.what != DEFAULT_REVERT_WHAT {
+        let args = OperationRevertArgs {
+            operation: args.operation.clone(),
+            what: args.what.clone(),
+        };
+        return cmd_op_revert(ui, command, &args);
+    }
+
+    let mut workspace_command = command.workspace_helper(ui)?;
+
+    let mut op_to_undo = workspace_command.resolve_single_op(&args.operation)?;
+
+    // Growing the "undo-stack" works like this:
+    // - If the operation to undo is a regular one (not an undo-operation), simply
+    //   undo it (== restore its parent).
+    // - If the operation to undo is an undo-operation itself, undo that operation
+    //   to which the previous undo-operation restored the repo.
+    // - If the operation to restore to is an undo-operation, restore directly to
+    //   the original operation. This avoids creating a linked list of
+    //   undo-operations, which subsequently may have to be walked with an
+    //   inefficient loop.
+    //
+    // This described behavior leads to "jumping over" old undo-stacks if the
+    // current one grows into it. Consider this op-log example:
+    //
+    // * G "undo: restore A" -------+
+    // |                            |
+    // * F "undo: restore B" -----+ |
+    // |                          | |
+    // * E                        | |
+    // |                          | |
+    // * D "undo: restore B" -+   | |
+    // |                      |   | |
+    // * C                    |   | |
+    // |                      |   | |
+    // * B   <----------------+ <-+ |
+    // |                            |
+    // * A   <----------------------+
+    //
+    // It was produced by the following sequence of events:
+    // - do normal operations A, B and C
+    // - undo C, restoring to B
+    // - do normal operation E
+    // - undo E, restoring to B again (NOT to D)
+    // - undo F, restoring to A
+    //
+    // Notice that running `undo` after having undone E leads to A being
+    // restored (as opposed to C). The undo-stack spanning from F to B was
+    // "jumped over".
+    //
+    if let Some(id_of_restored_op) = op_to_undo
+        .metadata()
+        .description
+        .strip_prefix(UNDO_OP_DESC_PREFIX)
+    {
+        let Some(id_of_restored_op) = OperationId::try_from_hex(id_of_restored_op) else {
+            return Err(internal_error(
+                "Failed to parse ID of restored operation in undo-stack",
+            ));
+        };
+        op_to_undo = workspace_command
+            .repo()
+            .loader()
+            .load_operation(&id_of_restored_op)?;
+    }
+
+    let mut op_to_restore = match op_to_undo.parents().at_most_one() {
+        Ok(Some(parent_of_op_to_undo)) => parent_of_op_to_undo?,
         Ok(None) => return Err(user_error("Cannot undo root operation")),
         Err(_) => return Err(user_error("Cannot undo a merge operation")),
     };
 
-    let args = OperationRevertArgs {
-        operation: args.operation.clone(),
-        what: args.what.clone(),
-    };
-    cmd_op_revert(ui, command, &args)?;
-
-    // Check if the user performed a "double undo", i.e. the current `undo` (C)
-    // reverts an immediately preceding `undo` (B) that is itself an `undo` of the
-    // operation preceding it (A).
-    //
-    //    C (undo of B)
-    // @  B (`bad_op` = undo of A)
-    // ○  A
-    //
-    // An exception is made for when the user specified the immediately preceding
-    // `undo` with an op set. In this situation, the user's intent is clear, so
-    // a warning is not shown.
-    //
-    // Note that undoing an older `undo` does not constitute a "double undo". For
-    // example, the current `undo` (D) here reverts an `undo` B that is not the
-    // immediately preceding operation (C). A warning is not shown in this case.
-    //
-    //    D (undo of B)
-    // @  C (unrelated operation)
-    // ○  B (`bad_op` = undo of A)
-    // ○  A
-    if args.operation == "@"
-        && resets_view_of(&bad_op, &parent_of_bad_op)?
-        && bad_op.metadata().description == tx_description(&parent_of_bad_op)
+    // Avoid the creation of a linked list by restoring to the original
+    // operation directly, if we're about to restore an undo-operation. If we
+    // didn't to this, repeated calls of `jj new ; jj undo` would create an
+    // ever-growing linked list of undo-operations that restore each other.
+    // Calling `jj undo` one more time would have to restore to the operation
+    // at the very beginning of the linked list, which would require walking the
+    // entire thing unnecessarily.
+    if let Some(original_op) = op_to_restore
+        .metadata()
+        .description
+        .strip_prefix(UNDO_OP_DESC_PREFIX)
     {
-        writeln!(
-            ui.warning_default(),
-            "The second-last `jj undo` was reverted by the latest `jj undo`. The repo is now in \
-             the same state as it was before the second-last `jj undo`."
-        )?;
-        writeln!(
-            ui.hint_default(),
-            "To undo multiple operations, use `jj op log` to see past states and `jj op restore` \
-             to restore one of these states."
-        )?;
+        let Some(id_of_original_op) = OperationId::try_from_hex(original_op) else {
+            return Err(internal_error(
+                "Failed to parse ID of restored operation in undo-stack",
+            ));
+        };
+        op_to_restore = workspace_command
+            .repo()
+            .loader()
+            .load_operation(&id_of_original_op)?;
     }
+
+    let mut tx = workspace_command.start_transaction();
+    let new_view = view_with_desired_portions_restored(
+        op_to_restore.view()?.store_view(),
+        tx.base_repo().view().store_view(),
+        &DEFAULT_REVERT_WHAT,
+    );
+    tx.repo_mut().set_view(new_view);
+    if let Some(mut formatter) = ui.status_formatter() {
+        write!(formatter, "Restored to operation: ")?;
+        let template = tx.base_workspace_helper().operation_summary_template();
+        template.format(&op_to_restore, formatter.as_mut())?;
+        writeln!(formatter)?;
+    }
+    tx.finish(
+        ui,
+        format!("{UNDO_OP_DESC_PREFIX}{}", op_to_restore.id().hex()),
+    )?;
 
     Ok(())
 }

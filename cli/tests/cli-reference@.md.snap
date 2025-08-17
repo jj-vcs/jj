@@ -2695,7 +2695,7 @@ Modify the metadata of a revision without changing its content
 
 Undo the last operation
 
-This undoes the last operation by applying its inverse as a new operation.
+This undoes the last operation by restoring its parent operation.
 
 **Usage:** `jj undo [OPTIONS] [OPERATION]`
 

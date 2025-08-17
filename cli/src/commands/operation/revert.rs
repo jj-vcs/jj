@@ -46,7 +46,7 @@ pub struct OperationRevertArgs {
     pub(crate) what: Vec<RevertWhatToRestore>, // pub for `jj undo`
 }
 
-pub(crate) fn tx_description(op: &Operation) -> String {
+fn tx_description(op: &Operation) -> String {
     format!("revert operation {}", op.id().hex())
 }
 

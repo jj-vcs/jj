@@ -93,7 +93,7 @@ pub(crate) const DEFAULT_REVERT_WHAT: [RevertWhatToRestore; 2] = [
 ];
 
 /// Restore only the portions of the view specified by the `what` argument
-fn view_with_desired_portions_restored(
+pub(crate) fn view_with_desired_portions_restored(
     view_being_restored: &jj_lib::op_store::View,
     current_view: &jj_lib::op_store::View,
     what: &[RevertWhatToRestore],

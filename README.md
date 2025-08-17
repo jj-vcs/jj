@@ -259,9 +259,9 @@ commit message of any commit (defaults to the working-copy commit).
 ### Entire repo is under version control
 
 All operations you perform in the repo are recorded, along with a snapshot of
-the repo state after the operation. This means that you can easily revert to an
-earlier repo state, or to simply undo a particular operation (which does not
-necessarily have to be the most recent operation).
+the repo state after the operation. This means that you can easily restore to
+an earlier repo state, simply undo your operations one-by-one or even _revert_ a
+particular operation which does not have to be the most recent one.
 
 <img src="demos/operation_log.png" />
 

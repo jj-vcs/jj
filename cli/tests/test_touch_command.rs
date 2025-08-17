@@ -289,7 +289,7 @@ fn test_touch() {
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "nmzmmo"]), @r"
     ○  nmzmmopx test.user@example.com 2001-02-03 08:05:26 b f4388b00
     │  (no description set)
-    │  -- operation 536f450806c8 (2001-02-03 08:05:26) touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    │  -- operation 71593b9bb78f (2001-02-03 08:05:26) touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
     ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:11 75591b18
     │  (no description set)
     │  -- operation 4b33c26502f8 (2001-02-03 08:05:11) snapshot working copy
@@ -301,7 +301,7 @@ fn test_touch() {
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "mzvwut"]), @r"
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:26 c d35b7dc2
     │  (no description set)
-    │  -- operation 536f450806c8 (2001-02-03 08:05:26) touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    │  -- operation 71593b9bb78f (2001-02-03 08:05:26) touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
     ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:13 22be6c4e
     │  (no description set)
     │  -- operation a424b73ab8eb (2001-02-03 08:05:13) snapshot working copy
