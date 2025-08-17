@@ -47,8 +47,9 @@ file_show = ''
 git_push_bookmark = '"push-" ++ change_id.short()'
 
 log = 'builtin_log_compact'
-op_log = 'builtin_op_log_compact'
 show = 'builtin_log_detailed'
+op_log = 'builtin_op_log_compact'
+op_show = 'builtin_op_log_compact'
 
 revert_description = '''
 concat(

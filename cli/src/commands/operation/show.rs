@@ -107,7 +107,7 @@ pub fn cmd_op_show(
     let template: TemplateRenderer<Operation> = {
         let text = match &args.template {
             Some(value) => value.to_owned(),
-            None => settings.get_string("templates.op_log")?,
+            None => settings.get_string("templates.op_show")?,
         };
         workspace_command
             .parse_operation_template(ui, &text)?

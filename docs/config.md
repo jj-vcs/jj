@@ -524,17 +524,20 @@ log-graph-prioritize = "coalesce(description("megamerge\n"), trunk())"
 You can configure the template used when no `-T` is specified.
 
 - `templates.log` for `jj log`
-- `templates.op_log` for `jj op log`
 - `templates.show` for `jj show`
+- `templates.op_log` for `jj op log`
+- `templates.op_show` for `jj op show`
 
 ```toml
 [templates]
 # Use builtin log template
 log = "builtin_log_compact"
-# Use builtin op log template
-op_log = "builtin_op_log_compact"
 # Use builtin show template
 show = "builtin_log_detailed"
+# Use builtin op log template
+op_log = "builtin_op_log_compact"
+# Use builtin op log template
+op_show = "builtin_op_log_compact"
 ```
 
 If you want to see the full description when you do `jj log` you can add this to

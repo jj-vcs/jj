@@ -10,6 +10,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* `jj op show` now uses `templates.op_show` configuration for its default template
+  instead of `templates.op_log`.
+
 ### Deprecations
 
 * The on-disk index format has changed. `jj` will write index files in both old
