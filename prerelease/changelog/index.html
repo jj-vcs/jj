@@ -5680,6 +5680,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   <code>builtin_log_redacted</code> and <code>builtin_op_log_redacted</code> templates.</p>
 </li>
 <li>
+<p><code>jj git init</code> now checks for an <code>upstream</code> remote in addition to <code>origin</code> when
+  setting the repository-level <code>trunk()</code> alias. The <code>upstream</code> remote takes
+  precedence over <code>origin</code> if both exist.</p>
+</li>
+<li>
 <p>Add the <code>jj touch</code> command, which modifies a revision's metadata. This can be
   used to generate a new change-id, which may help resolve some divergences.</p>
 </li>
