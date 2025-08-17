@@ -5674,7 +5674,7 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 </li>
 <li>
 <p><code>jj git remote add</code> and <code>jj git clone</code> now support <code>--fetch-tags</code> to control
-  when tags are fetched</p>
+  when tags are fetched for all subsequent fetches.</p>
 </li>
 <li>
 <p><code>jj diff --stat</code> now shows the change in size to binary files.</p>
@@ -5699,6 +5699,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 </li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>jj git clone</code> now correctly fetches all tags, unless <code>--fetch-tags</code> is
+  explicitly specified, in which case the specified option will apply for both
+  the initial clone and subsequent fetches.</li>
+</ul>
 <h3 id="packaging-changes">Packaging changes<a class="headerlink" href="#packaging-changes" title="Permanent link">&para;</a></h3>
 <ul>
 <li>The test suite no longer optionally uses Taplo CLI or jq, and packagers can
