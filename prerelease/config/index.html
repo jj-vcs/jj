@@ -3929,16 +3929,19 @@ to <code>trunk()</code> in case no such change exists:</p>
 <p>You can configure the template used when no <code>-T</code> is specified.</p>
 <ul>
 <li><code>templates.log</code> for <code>jj log</code></li>
-<li><code>templates.op_log</code> for <code>jj op log</code></li>
 <li><code>templates.show</code> for <code>jj show</code></li>
+<li><code>templates.op_log</code> for <code>jj op log</code></li>
+<li><code>templates.op_show</code> for <code>jj op show</code></li>
 </ul>
 <div class="highlight"><pre><span></span><code><span class="k">[templates]</span>
 <span class="c1"># Use builtin log template</span>
 <span class="n">log</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;builtin_log_compact&quot;</span>
-<span class="c1"># Use builtin op log template</span>
-<span class="n">op_log</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;builtin_op_log_compact&quot;</span>
 <span class="c1"># Use builtin show template</span>
 <span class="n">show</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;builtin_log_detailed&quot;</span>
+<span class="c1"># Use builtin op log template</span>
+<span class="n">op_log</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;builtin_op_log_compact&quot;</span>
+<span class="c1"># Use builtin op log template</span>
+<span class="n">op_show</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;builtin_op_log_compact&quot;</span>
 </code></pre></div>
 <p>If you want to see the full description when you do <code>jj log</code> you can add this to
 your config:</p>

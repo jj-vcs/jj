@@ -5630,6 +5630,10 @@ and this project adheres
 to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">[Unreleased]<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>jj op show</code> now uses <code>templates.op_show</code> configuration for its default template
+  instead of <code>templates.op_log</code>.</li>
+</ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
@@ -5687,6 +5691,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <li>
 <p>Add the <code>jj touch</code> command, which modifies a revision's metadata. This can be
   used to generate a new change-id, which may help resolve some divergences.</p>
+</li>
+<li>
+<p><code>jj op show</code> now accepts <code>-T</code>/<code>--template</code> option to customize the operation
+  output using template expressions, similar to <code>jj op log</code>. Also added
+  <code>--no-op-diff</code> flag to suppress the operation diff.</p>
 </li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>

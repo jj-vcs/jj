@@ -8481,12 +8481,17 @@ B   =&gt;   @
 <ul>
 <li><code>--no-graph</code> — Don't show the graph, show a flat list of modified changes</li>
 <li>
+<p><code>-T</code>, <code>--template &lt;TEMPLATE&gt;</code> — Render the operation using the given template</p>
+<p>You can specify arbitrary template expressions using the <a href="https://jj-vcs.github.io/jj/latest/templates/#commit-keywords">built-in keywords</a>. See [<code>jj help -k templates</code>] for more information.</p>
+</li>
+<li>
 <p><code>-p</code>, <code>--patch</code> — Show patch of modifications to changes</p>
 <p>If the previous version has different parents, it will be temporarily rebased to the parents of the new version, so the diff is not contaminated by unrelated changes.</p>
 </li>
 <li>
-<p><code>-s</code>, <code>--summary</code> — For each path, show only whether it was modified, added, or deleted</p>
+<p><code>--no-op-diff</code> — Do not show operation diff</p>
 </li>
+<li><code>-s</code>, <code>--summary</code> — For each path, show only whether it was modified, added, or deleted</li>
 <li><code>--stat</code> — Show a histogram of the changes</li>
 <li>
 <p><code>--types</code> — For each path, show only its type before and after</p>

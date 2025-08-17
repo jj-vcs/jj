@@ -856,6 +856,10 @@
                     "type": "string",
                     "description": "`jj op log`'s output"
                 },
+                "op_show": {
+                    "type": "string",
+                    "description": "`jj op show`'s output"
+                },
                 "op_summary": {
                     "type": "string",
                     "description": "The operation summary used by many commands"
