@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The deprecated config option `git.auto-local-branch` has been removed. Use
   `git.auto-local-bookmark` instead.
 
+* The deprecated `Signature.username()` template method has been removed. Use
+  `Signature.email().local()` instead.
+
 ### Deprecations
 
 * The on-disk index format has changed. `jj` will write index files in both old

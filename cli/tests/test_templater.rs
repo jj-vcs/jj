@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use indoc::indoc;
-
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
@@ -153,35 +151,6 @@ fn test_templater_parse_error() {
 }
 
 #[test]
-fn test_template_parse_warning() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-
-    let template = indoc! {r#"
-        separate(' ',
-          author.username(),
-        )
-    "#};
-    let output = work_dir.run_jj(["log", "-r@", "-T", template]);
-    insta::assert_snapshot!(output, @r"
-    @  test.user
-    │
-    ~
-    [EOF]
-    ------- stderr -------
-    Warning: In template expression
-     --> 2:10
-      |
-    2 |   author.username(),
-      |          ^------^
-      |
-      = username() is deprecated; use email().local() instead
-    [EOF]
-    ");
-}
-
-#[test]
 fn test_templater_upper_lower() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -213,7 +182,6 @@ fn test_templater_alias() {
     'recurse2()' = 'recurse'
     'identity(x)' = 'x'
     'coalesce(x, y)' = 'if(x, x, y)'
-    'deprecated()' = 'author.username()'
     'builtin_log_node' = '"#"'
     'builtin_op_log_node' = '"#"'
     'builtin_log_node_ascii' = '"#"'
@@ -403,29 +371,6 @@ fn test_templater_alias() {
       = Expected expression of type `Integer`, but actual type is `String`
     [EOF]
     [exit status: 1]
-    ");
-
-    let output = work_dir.run_jj(["log", "-r@", "-Tdeprecated()"]);
-    insta::assert_snapshot!(output, @r"
-    #  test.user
-    │
-    ~
-    [EOF]
-    ------- stderr -------
-    Warning: In template expression
-     --> 1:1
-      |
-    1 | deprecated()
-      | ^----------^
-      |
-      = In alias `deprecated()`
-     --> 1:8
-      |
-    1 | author.username()
-      |        ^------^
-      |
-      = username() is deprecated; use email().local() instead
-    [EOF]
     ");
 }
 
