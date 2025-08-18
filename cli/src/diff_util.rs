@@ -422,39 +422,27 @@ impl<'a> DiffRenderer<'a> {
         }
     }
 
-    /// Generates diff between `from_tree` and `to_tree`.
-    #[expect(clippy::too_many_arguments)]
+    /// Generates diff between `trees`.
     pub fn show_diff(
         &self,
         ui: &Ui, // TODO: remove Ui dependency if possible
         formatter: &mut dyn Formatter,
-        from_tree: &MergedTree,
-        to_tree: &MergedTree,
+        trees: [&MergedTree; 2],
         matcher: &dyn Matcher,
         copy_records: &CopyRecords,
         width: usize,
     ) -> Result<(), DiffRenderError> {
         formatter.with_label("diff", |formatter| {
-            self.show_diff_inner(
-                ui,
-                formatter,
-                from_tree,
-                to_tree,
-                matcher,
-                copy_records,
-                width,
-            )
-            .block_on()
+            self.show_diff_inner(ui, formatter, trees, matcher, copy_records, width)
+                .block_on()
         })
     }
 
-    #[expect(clippy::too_many_arguments)]
     async fn show_diff_inner(
         &self,
         ui: &Ui,
         formatter: &mut dyn Formatter,
-        from_tree: &MergedTree,
-        to_tree: &MergedTree,
+        [from_tree, to_tree]: [&MergedTree; 2],
         matcher: &dyn Matcher,
         copy_records: &CopyRecords,
         width: usize,
@@ -565,8 +553,7 @@ impl<'a> DiffRenderer<'a> {
         self.show_diff(
             ui,
             formatter,
-            &from_tree,
-            &to_tree,
+            [&from_tree, &to_tree],
             matcher,
             &copy_records,
             width,
@@ -592,8 +579,7 @@ impl<'a> DiffRenderer<'a> {
         self.show_diff(
             ui,
             formatter,
-            &from_tree,
-            &to_tree,
+            [&from_tree, &to_tree],
             matcher,
             &copy_records,
             width,

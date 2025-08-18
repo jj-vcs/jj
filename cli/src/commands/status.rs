@@ -94,8 +94,7 @@ pub(crate) fn cmd_status(
                 diff_renderer.show_diff(
                     ui,
                     formatter,
-                    &parent_tree,
-                    &tree,
+                    [&parent_tree, &tree],
                     &matcher,
                     &copy_records,
                     width,

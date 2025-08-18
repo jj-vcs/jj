@@ -219,8 +219,7 @@ pub(crate) fn cmd_diff(
     diff_renderer.show_diff(
         ui,
         ui.stdout_formatter().as_mut(),
-        &from_tree,
-        &to_tree,
+        [&from_tree, &to_tree],
         &matcher,
         &copy_records,
         ui.term_width(),
