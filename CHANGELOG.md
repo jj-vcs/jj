@@ -22,6 +22,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The deprecated `--config-toml` flag has been removed. Use
   `--config=NAME=VALUE` or `--config-file=PATH` instead.
 
+* It is now required to specify the target revision in `bookmark create`,
+  `bookmark move` and `bookmark set`.
+
 ### Deprecations
 
 * The on-disk index format has changed. `jj` will write index files in both old

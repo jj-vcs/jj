@@ -292,10 +292,10 @@ in the source, we consider it a rename.
 
 Let's now consider the diff from `L` to `M`. This is the same as the diff of the
 commit `M2` we'd get by running
-`jj new L; jj bookmark create M2; jj restore --from M --to M2` (which would
-result in the commit `M2` having the same tree as `M`). Diffing from `L` to
-`M` (or `M2`) finds 1,2,3,4,5 as changed copy IDs. By walking their graphs, we
-find that 1,2, and 5 are related, while 3 and 4 are not.
+`jj new L; jj bookmark create M2 --revision @; jj restore --from M --to M2`
+(which would result in the commit `M2` having the same tree as `M`). Diffing
+from `L` to `M` (or `M2`) finds 1,2,3,4,5 as changed copy IDs. By walking their
+graphs, we find that 1,2, and 5 are related, while 3 and 4 are not.
 
 The `bar` and `baz` files have unrelated copy graphs, i.e. the copy graphs for
 the `bar` file in commit `L` and the `bar` file in commit `M` are disjoint, and

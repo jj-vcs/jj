@@ -6,13 +6,13 @@ new_tmp_dir
 (
     jj debug init-local
     echo "first" > file
-    jj bookmark create first
+    jj bookmark create first -r @
     jj commit -m 'first'
     echo "second" > file
-    jj bookmark create second
+    jj bookmark create second -r @
     jj commit -m 'second'
     echo "third" > file
-    jj bookmark create third
+    jj bookmark create third -r @
     jj commit -m 'third'
 ) >/dev/null 2>&1
 

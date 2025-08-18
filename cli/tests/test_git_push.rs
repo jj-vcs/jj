@@ -2213,7 +2213,9 @@ fn test_git_push_rejected_by_remote() {
     work_dir.run_jj(["describe", "-m=update"]).success();
 
     // update bookmark
-    work_dir.run_jj(["bookmark", "move", "bookmark1"]).success();
+    work_dir
+        .run_jj(["bookmark", "move", "bookmark1", "-t@"])
+        .success();
 
     // push bookmark
     let output = work_dir.run_jj(["git", "push"]);

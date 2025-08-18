@@ -27,7 +27,7 @@ run_command "jj status"
 
 comment "Add a bookmark so we can easily refer to this
 commit:"
-run_command "jj bookmark create goodbye"
+run_command "jj bookmark create goodbye -r @"
 run_command "jj log"
 
 comment "Start working on a new change off of master:"

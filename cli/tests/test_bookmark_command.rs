@@ -2392,66 +2392,6 @@ fn test_bookmark_list_sort_overriding_config() {
     ");
 }
 
-#[test]
-fn test_bookmark_create_with_default_target_revision() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-
-    let output = work_dir.run_jj(["bookmark", "create", "foo"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Warning: Target revision was not specified, defaulting to the working copy (-r@). In the near future it will be required to explicitly specify target revision.
-    Created 1 bookmarks pointing to qpvuntsm e8849ae1 foo | (empty) (no description set)
-    [EOF]
-    ");
-}
-
-#[test]
-fn test_bookmark_set_with_default_target_revision() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-
-    let output = work_dir.run_jj(["bookmark", "set", "foo"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Warning: Target revision was not specified, defaulting to the working copy (--revision=@). In the near future it will be required to explicitly specify target revision.
-    Created 1 bookmarks pointing to qpvuntsm e8849ae1 foo | (empty) (no description set)
-    [EOF]
-    ");
-}
-
-#[test]
-fn test_bookmark_move_with_default_target_revision() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-
-    // Set up remote
-    let git_repo_path = test_env.env_root().join("git-repo");
-    git::init_bare(git_repo_path);
-    work_dir
-        .run_jj(["git", "remote", "add", "origin", "../git-repo"])
-        .success();
-
-    let output = work_dir.run_jj(["bookmark", "create", "foo", "-r@"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Created 1 bookmarks pointing to qpvuntsm e8849ae1 foo | (empty) (no description set)
-    [EOF]
-    ");
-
-    work_dir.run_jj(["new"]).success();
-    let output = work_dir.run_jj(["bookmark", "move", "foo"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Warning: Target revision was not specified, defaulting to the working copy (--to=@). In the near future it will be required to explicitly specify it.
-    Moved 1 bookmarks to zsuskuln 0e555a27 foo | (empty) (no description set)
-    [EOF]
-    ");
-}
-
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"bookmarks ++ " " ++ commit_id.short()"#;

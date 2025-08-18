@@ -291,7 +291,7 @@ See [`jj help -k bookmarks`] for more information.
 
 Create a new bookmark
 
-**Usage:** `jj bookmark create [OPTIONS] <NAMES>...`
+**Usage:** `jj bookmark create --revision <REVSET> <NAMES>...`
 
 **Command Alias:** `c`
 
@@ -420,7 +420,7 @@ Example: pull up the nearest bookmarks to the working-copy parent
 
 $ jj bookmark move --from 'heads(::@- & bookmarks())' --to @-
 
-**Usage:** `jj bookmark move [OPTIONS] <NAMES|--from <REVSETS>>`
+**Usage:** `jj bookmark move [OPTIONS] --to <REVSET> <NAMES|--from <REVSETS>>`
 
 **Command Alias:** `m`
 
@@ -461,7 +461,7 @@ The new bookmark name points at the same commit as the old bookmark name.
 
 Create or update a bookmark to point to a certain commit
 
-**Usage:** `jj bookmark set [OPTIONS] <NAMES>...`
+**Usage:** `jj bookmark set [OPTIONS] --revision <REVSET> <NAMES>...`
 
 **Command Alias:** `s`
 

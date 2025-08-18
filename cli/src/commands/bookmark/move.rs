@@ -66,16 +66,13 @@ pub struct BookmarkMoveArgs {
     )]
     from: Vec<RevisionArg>,
 
-    // TODO(#5374): Make required in jj 0.32+
     /// Move bookmarks to this revision
-    // Currently this defaults to the working copy, but in the near
-    // future it will be required to explicitly specify it.
     #[arg(
         long, short,
         value_name = "REVSET",
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
-    to: Option<RevisionArg>,
+    to: RevisionArg,
 
     /// Allow moving bookmarks backwards or sideways
     #[arg(long, short = 'B')]
@@ -89,15 +86,7 @@ pub fn cmd_bookmark_move(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
-    if args.to.is_none() {
-        writeln!(
-            ui.warning_default(),
-            "Target revision was not specified, defaulting to the working copy (--to=@). In the \
-             near future it will be required to explicitly specify it."
-        )?;
-    }
-    let target_commit =
-        workspace_command.resolve_single_rev(ui, args.to.as_ref().unwrap_or(&RevisionArg::AT))?;
+    let target_commit = workspace_command.resolve_single_rev(ui, &args.to)?;
     let matched_bookmarks = {
         let is_source_ref: Box<dyn Fn(&RefTarget) -> _> = if !args.from.is_empty() {
             let is_source_commit = workspace_command
