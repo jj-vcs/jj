@@ -695,8 +695,6 @@ fn parse_config_arg_item(item_str: &str) -> Result<(ConfigNamePathBuf, ConfigVal
 /// List of rules to migrate deprecated config variables.
 pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
     vec![
-        // TODO: Delete in jj 0.32+
-        ConfigMigrationRule::rename_value("git.auto-local-branch", "git.auto-local-bookmark"),
         // TODO: Delete in jj 0.33+
         ConfigMigrationRule::rename_update_value(
             "signing.sign-all",

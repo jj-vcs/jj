@@ -13,6 +13,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj op show` now uses `templates.op_show` configuration for its default template
   instead of `templates.op_log`.
 
+* The deprecated config option `git.auto-local-branch` has been removed. Use
+  `git.auto-local-bookmark` instead.
+
 ### Deprecations
 
 * The on-disk index format has changed. `jj` will write index files in both old
