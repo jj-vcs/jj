@@ -376,7 +376,7 @@
   Git command: Not supported
   Jujutsu command: >
     `jj undo`
-  Notes: ''
+  Notes: 'A matching `jj redo` command exists as well.'
 
 - Use case: Create a commit that cancels out a previous commit
   Git command: >

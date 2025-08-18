@@ -32,6 +32,8 @@ use crate::ui::Ui;
 /// Undo the last operation
 ///
 /// This undoes the last operation by restoring its parent operation.
+///
+/// There is also a matching `jj redo` command.
 #[derive(clap::Args, Clone, Debug)]
 pub struct UndoArgs {
     /// (deprecated, use `jj op revert <operation>`)
@@ -52,7 +54,7 @@ pub struct UndoArgs {
     what: Vec<RevertWhatToRestore>,
 }
 
-const UNDO_OP_DESC_PREFIX: &str = "undo: restore to operation ";
+pub(crate) const UNDO_OP_DESC_PREFIX: &str = "undo: restore to operation ";
 
 pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result<(), CommandError> {
     if args.operation != "@" {
@@ -82,7 +84,9 @@ pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result
 
     let mut op_to_undo = workspace_command.resolve_single_op(&args.operation)?;
 
-    // Growing the "undo-stack" works like this:
+    // Growing the "undo-stack" works as follows. See also the
+    // [redo-stack](./redo.rs), which works in a similar way.
+    //
     // - If the operation to undo is a regular one (not an undo-operation), simply
     //   undo it (== restore its parent).
     // - If the operation to undo is an undo-operation itself, undo that operation
