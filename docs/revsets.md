@@ -527,14 +527,15 @@ are defined as aliases in order to allow you to overwrite them as needed.
 See [revsets.toml](https://github.com/jj-vcs/jj/blob/main/cli/src/config/revsets.toml)
 for a comprehensive list.
 
-* `trunk()`: Resolves to the head commit for the trunk bookmark of the remote
-  named `origin` or `upstream`. The bookmarks `main`, `master`, and `trunk` are
-  tried. If more than one potential trunk commit exists, the newest one is
-  chosen. If none of the bookmarks exist, the revset evaluates to `root()`.
+* `trunk()`: Resolves to the head commit for the default bookmark of the default
+  remote, or the remote named `upstream` or `origin`. This is set at the
+  repository level upon initialization of a Jujutsu repository.
 
-  When working with an existing Git repository (via `jj git clone` or
-  `jj git init`), `trunk()` will be overridden at the repository level
-  to the default bookmark of the remote `origin`.
+  If the default bookmark cannot be resolved during initialization, the default
+  global configuration tries the bookmarks `main`, `master`, and `trunk` on the
+  `upstream` and `origin` remotes. If more than one potential trunk commit
+  exists, the newest one is chosen. If none of the bookmarks exist, the revset
+  evaluates to `root()`.
 
   You can [override](./config.md) this as appropriate. If you do, make sure it
   always resolves to exactly one commit. For example:
