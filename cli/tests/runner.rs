@@ -74,7 +74,7 @@ mod test_status_command;
 mod test_tag_command;
 mod test_templater;
 mod test_touch_command;
-mod test_undo;
+mod test_undo_redo_commands;
 mod test_util_command;
 mod test_working_copy;
 mod test_workspaces;

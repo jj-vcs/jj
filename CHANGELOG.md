@@ -104,6 +104,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj squash` has gained `--insert-before`, `--insert-after`, and `--destination`
   options.
 
+* The new command `jj redo` can progressively redo operations that were
+  previously undone by multiple calls to `jj undo`.
+
 ### Fixed bugs
 
 * `jj git clone` now correctly fetches all tags, unless `--fetch-tags` is

@@ -74,6 +74,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj parallelize`↴](#jj-parallelize)
 * [`jj prev`↴](#jj-prev)
 * [`jj rebase`↴](#jj-rebase)
+* [`jj redo`↴](#jj-redo)
 * [`jj resolve`↴](#jj-resolve)
 * [`jj restore`↴](#jj-restore)
 * [`jj revert`↴](#jj-revert)
@@ -148,6 +149,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `parallelize` — Parallelize revisions by making them siblings
 * `prev` — Change the working copy revision relative to the parent revision
 * `rebase` — Move revisions to different parent(s)
+* `redo` — Redo the most recently undone operation
 * `resolve` — Resolve conflicted files with an external merge tool
 * `restore` — Restore paths from another revision
 * `revert` — Apply the reverse of the given revision(s)
@@ -2299,6 +2301,16 @@ J           J
 
 
 
+## `jj redo`
+
+Redo the most recently undone operation
+
+This is the natural counterpart of `jj undo`.
+
+**Usage:** `jj redo`
+
+
+
 ## `jj resolve`
 
 Resolve conflicted files with an external merge tool
@@ -2694,6 +2706,8 @@ Modify the metadata of a revision without changing its content
 Undo the last operation
 
 This undoes the last operation by restoring its parent operation.
+
+There is also a matching `jj redo` command.
 
 **Usage:** `jj undo [OPERATION]`
 
