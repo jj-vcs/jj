@@ -992,7 +992,6 @@ fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
     for (kind, value) in args.early_args.merged_config_args(&arg_matches) {
         let arg = match kind {
             ConfigArgKind::Item => format!("--config={value}"),
-            ConfigArgKind::Toml => format!("--config-toml={value}"),
             ConfigArgKind::File => format!("--config-file={value}"),
         };
         cmd_args.push(arg);

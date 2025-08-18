@@ -530,7 +530,7 @@ fn config_files_for(
 /// 4. Repo config `.jj/repo/config.toml`
 /// 5. TODO: Workspace config `.jj/config.toml`
 /// 6. Override environment variables
-/// 7. Command-line arguments `--config`, `--config-toml`, `--config-file`
+/// 7. Command-line arguments `--config` and `--config-file`
 ///
 /// This function sets up 1, 2, and 6.
 pub fn config_from_environment(default_layers: impl IntoIterator<Item = ConfigLayer>) -> RawConfig {
@@ -633,8 +633,6 @@ fn env_overrides_layer() -> ConfigLayer {
 pub enum ConfigArgKind {
     /// `--config=NAME=VALUE`
     Item,
-    /// `--config-toml=TOML`
-    Toml,
     /// `--config-file=PATH`
     File,
 }
@@ -658,11 +656,6 @@ pub fn parse_config_args(
                     })?;
                 }
                 layers.push(layer);
-            }
-            ConfigArgKind::Toml => {
-                for (_, text) in chunk {
-                    layers.push(ConfigLayer::parse(source, text)?);
-                }
             }
             ConfigArgKind::File => {
                 for (_, path) in chunk {

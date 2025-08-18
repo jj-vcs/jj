@@ -19,6 +19,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The deprecated `Signature.username()` template method has been removed. Use
   `Signature.email().local()` instead.
 
+* The deprecated `--config-toml` flag has been removed. Use
+  `--config=NAME=VALUE` or `--config-file=PATH` instead.
+
 ### Deprecations
 
 * The on-disk index format has changed. `jj` will write index files in both old

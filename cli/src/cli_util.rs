@@ -3267,10 +3267,6 @@ pub struct EarlyArgs {
     /// TOML constructs (such as array notation), quotes can be omitted.
     #[arg(long, value_name = "NAME=VALUE", global = true, add = ArgValueCompleter::new(complete::leaf_config_key_value))]
     pub config: Vec<String>,
-    /// Additional configuration options (can be repeated) (DEPRECATED)
-    // TODO: delete --config-toml in jj 0.31+
-    #[arg(long, value_name = "TOML", global = true, hide = true)]
-    pub config_toml: Vec<String>,
     /// Additional configuration files (can be repeated)
     #[arg(long, value_name = "PATH", global = true, value_hint = clap::ValueHint::FilePath)]
     pub config_file: Vec<String>,
@@ -3280,14 +3276,9 @@ impl EarlyArgs {
     pub(crate) fn merged_config_args(&self, matches: &ArgMatches) -> Vec<(ConfigArgKind, &str)> {
         merge_args_with(
             matches,
-            &[
-                ("config", &self.config),
-                ("config_toml", &self.config_toml),
-                ("config_file", &self.config_file),
-            ],
+            &[("config", &self.config), ("config_file", &self.config_file)],
             |id, value| match id {
                 "config" => (ConfigArgKind::Item, value.as_ref()),
-                "config_toml" => (ConfigArgKind::Toml, value.as_ref()),
                 "config_file" => (ConfigArgKind::File, value.as_ref()),
                 _ => unreachable!("unexpected id {id:?}"),
             },
@@ -3295,7 +3286,7 @@ impl EarlyArgs {
     }
 
     fn has_config_args(&self) -> bool {
-        !self.config.is_empty() || !self.config_toml.is_empty() || !self.config_file.is_empty()
+        !self.config.is_empty() || !self.config_file.is_empty()
     }
 }
 
@@ -3875,12 +3866,6 @@ impl<'a> CliRunner<'a> {
             config = config_env.resolve_config(&raw_config)?;
             migrate_config(&mut config)?;
             ui.reset(&config)?;
-        }
-        if !args.config_toml.is_empty() {
-            writeln!(
-                ui.warning_default(),
-                "--config-toml is deprecated; use --config or --config-file instead."
-            )?;
         }
 
         if args.has_config_args() {
