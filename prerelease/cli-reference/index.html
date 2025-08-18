@@ -7047,7 +7047,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <li><code>status</code> — Show high-level repo status [default alias: st]</li>
 <li><code>tag</code> — Manage tags</li>
 <li><code>touch</code> — Modify the metadata of a revision without changing its content</li>
-<li><code>undo</code> — Undo an operation</li>
+<li><code>undo</code> — Undo the last operation</li>
 <li><code>unsign</code> — Drop a cryptographic signature</li>
 <li><code>util</code> — Infrequently used commands such as for generating shell completions</li>
 <li><code>version</code> — Display version information</li>
@@ -9087,13 +9087,14 @@ J           J
 </li>
 </ul>
 <h2 id="jj-undo"><code>jj undo</code><a class="headerlink" href="#jj-undo" title="Permanent link">&para;</a></h2>
-<p>Undo an operation</p>
-<p>This undoes an individual operation by applying the inverse of the operation.</p>
+<p>Undo the last operation</p>
+<p>This undoes the last operation by applying its inverse as a new operation.</p>
 <p><strong>Usage:</strong> <code>jj undo [OPTIONS] [OPERATION]</code></p>
 <h6 id="arguments_53"><strong>Arguments:</strong><a class="headerlink" href="#arguments_53" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
-<p><code>&lt;OPERATION&gt;</code> — The operation to undo</p>
+<p><code>&lt;OPERATION&gt;</code> — (deprecated, use <code>jj op revert &lt;operation&gt;</code>)</p>
+<p>The operation to undo</p>
 <p>Use <code>jj op log</code> to find an operation to undo.</p>
 <p>Default value: <code>@</code></p>
 </li>
