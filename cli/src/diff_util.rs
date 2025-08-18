@@ -423,7 +423,7 @@ impl<'a> DiffRenderer<'a> {
     }
 
     /// Generates diff between `trees`.
-    pub fn show_diff(
+    pub async fn show_diff(
         &self,
         ui: &Ui, // TODO: remove Ui dependency if possible
         formatter: &mut dyn Formatter,
@@ -432,10 +432,12 @@ impl<'a> DiffRenderer<'a> {
         copy_records: &CopyRecords,
         width: usize,
     ) -> Result<(), DiffRenderError> {
-        formatter.with_label("diff", |formatter| {
-            self.show_diff_inner(ui, formatter, trees, matcher, copy_records, width)
-                .block_on()
-        })
+        formatter
+            .with_label_async("diff", async |formatter| {
+                self.show_diff_inner(ui, formatter, trees, matcher, copy_records, width)
+                    .await
+            })
+            .await
     }
 
     async fn show_diff_inner(
@@ -538,7 +540,7 @@ impl<'a> DiffRenderer<'a> {
     /// Generates diff between `from_commits` and `to_commit` based off their
     /// parents. The `from_commits` will temporarily be rebased onto the
     /// `to_commit` parents to exclude unrelated changes.
-    pub fn show_inter_diff(
+    pub async fn show_inter_diff(
         &self,
         ui: &Ui,
         formatter: &mut dyn Formatter,
@@ -548,7 +550,7 @@ impl<'a> DiffRenderer<'a> {
         width: usize,
     ) -> Result<(), DiffRenderError> {
         let from_tree = rebase_to_dest_parent(self.repo, from_commits, to_commit)?;
-        let to_tree = to_commit.tree()?;
+        let to_tree = to_commit.tree_async().await?;
         let copy_records = CopyRecords::default(); // TODO
         self.show_diff(
             ui,
@@ -558,10 +560,11 @@ impl<'a> DiffRenderer<'a> {
             &copy_records,
             width,
         )
+        .await
     }
 
     /// Generates diff of the given `commit` compared to its parents.
-    pub fn show_patch(
+    pub async fn show_patch(
         &self,
         ui: &Ui,
         formatter: &mut dyn Formatter,
@@ -570,7 +573,7 @@ impl<'a> DiffRenderer<'a> {
         width: usize,
     ) -> Result<(), DiffRenderError> {
         let from_tree = commit.parent_tree(self.repo)?;
-        let to_tree = commit.tree()?;
+        let to_tree = commit.tree_async().await?;
         let mut copy_records = CopyRecords::default();
         for parent_id in commit.parent_ids() {
             let records = get_copy_records(self.repo.store(), parent_id, commit.id(), matcher)?;
@@ -584,6 +587,7 @@ impl<'a> DiffRenderer<'a> {
             &copy_records,
             width,
         )
+        .await
     }
 }
 

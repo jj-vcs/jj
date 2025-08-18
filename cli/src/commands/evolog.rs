@@ -23,6 +23,7 @@ use jj_lib::graph::GraphEdge;
 use jj_lib::graph::TopoGroupedGraphIterator;
 use jj_lib::graph::reverse_graph;
 use jj_lib::matchers::EverythingMatcher;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -191,14 +192,16 @@ pub(crate) fn cmd_evolog(
             if let Some(renderer) = &diff_renderer {
                 let predecessors: Vec<_> = entry.predecessors().try_collect()?;
                 let mut formatter = ui.new_formatter(&mut buffer);
-                renderer.show_inter_diff(
-                    ui,
-                    formatter.as_mut(),
-                    &predecessors,
-                    &entry.commit,
-                    &EverythingMatcher,
-                    within_graph.width(),
-                )?;
+                renderer
+                    .show_inter_diff(
+                        ui,
+                        formatter.as_mut(),
+                        &predecessors,
+                        &entry.commit,
+                        &EverythingMatcher,
+                        within_graph.width(),
+                    )
+                    .block_on()?;
             }
             let node_symbol = format_template(ui, &Some(entry.commit.clone()), &node_template);
             graph.add_node(
@@ -231,14 +234,16 @@ pub(crate) fn cmd_evolog(
             if let Some(renderer) = &diff_renderer {
                 let predecessors: Vec<_> = entry.predecessors().try_collect()?;
                 let width = ui.term_width();
-                renderer.show_inter_diff(
-                    ui,
-                    formatter,
-                    &predecessors,
-                    &entry.commit,
-                    &EverythingMatcher,
-                    width,
-                )?;
+                renderer
+                    .show_inter_diff(
+                        ui,
+                        formatter,
+                        &predecessors,
+                        &entry.commit,
+                        &EverythingMatcher,
+                        width,
+                    )
+                    .block_on()?;
             }
         }
     }

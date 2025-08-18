@@ -34,6 +34,7 @@ use jj_lib::refs::diff_named_remote_refs;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
+use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
@@ -216,7 +217,8 @@ pub fn show_op_diff(
                         diff_renderer,
                         modified_change,
                         within_graph.width(),
-                    )?;
+                    )
+                    .block_on()?;
                 }
 
                 // TODO: customize node symbol?
@@ -241,7 +243,8 @@ pub fn show_op_diff(
                 })?;
                 if let Some(diff_renderer) = diff_renderer {
                     let width = with_content_format.width();
-                    show_change_diff(ui, formatter, diff_renderer, modified_change, width)?;
+                    show_change_diff(ui, formatter, diff_renderer, modified_change, width)
+                        .block_on()?;
                 }
             }
         }
@@ -567,10 +570,10 @@ fn compute_operation_commits_diff(
 /// predecessor) commits and the new commit. The old commits are temporarily
 /// rebased onto the new commit's parents. For abandoned commits, the diff is
 /// shown of that commit's contents.
-fn show_change_diff(
+async fn show_change_diff(
     ui: &Ui,
     formatter: &mut dyn Formatter,
-    diff_renderer: &DiffRenderer,
+    diff_renderer: &DiffRenderer<'_>,
     change: &ModifiedChange,
     width: usize,
 ) -> Result<(), CommandError> {
@@ -579,23 +582,27 @@ fn show_change_diff(
             commit,
             predecessors,
         } => {
-            diff_renderer.show_inter_diff(
-                ui,
-                formatter,
-                // TODO: It's technically wrong to show diffs from the first
-                // predecessor, but diff of partial "squash" operation would be
-                // unreadable otherwise. We have the same problem in "evolog",
-                // but it's less of an issue there because "evolog" shows the
-                // predecessors recursively.
-                predecessors.get(..1).unwrap_or(&[]),
-                commit,
-                &EverythingMatcher,
-                width,
-            )?;
+            diff_renderer
+                .show_inter_diff(
+                    ui,
+                    formatter,
+                    // TODO: It's technically wrong to show diffs from the first
+                    // predecessor, but diff of partial "squash" operation would be
+                    // unreadable otherwise. We have the same problem in "evolog",
+                    // but it's less of an issue there because "evolog" shows the
+                    // predecessors recursively.
+                    predecessors.get(..1).unwrap_or(&[]),
+                    commit,
+                    &EverythingMatcher,
+                    width,
+                )
+                .await?;
         }
         ModifiedChange::Abandoned { commit } => {
             // TODO: Should we show a reverse diff?
-            diff_renderer.show_patch(ui, formatter, commit, &EverythingMatcher, width)?;
+            diff_renderer
+                .show_patch(ui, formatter, commit, &EverythingMatcher, width)
+                .await?;
         }
     }
     Ok(())

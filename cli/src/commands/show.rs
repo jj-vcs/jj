@@ -15,6 +15,7 @@
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use jj_lib::matchers::EverythingMatcher;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -79,7 +80,9 @@ pub(crate) fn cmd_show(
     let formatter = formatter.as_mut();
     template.format(&commit, formatter)?;
     if !args.no_patch {
-        diff_renderer.show_patch(ui, formatter, &commit, &EverythingMatcher, ui.term_width())?;
+        diff_renderer
+            .show_patch(ui, formatter, &commit, &EverythingMatcher, ui.term_width())
+            .block_on()?;
     }
     Ok(())
 }

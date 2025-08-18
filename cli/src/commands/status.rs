@@ -91,14 +91,16 @@ pub(crate) fn cmd_status(
                 }
                 let diff_renderer = workspace_command.diff_renderer(vec![DiffFormat::Summary]);
                 let width = ui.term_width();
-                diff_renderer.show_diff(
-                    ui,
-                    formatter,
-                    [&parent_tree, &tree],
-                    &matcher,
-                    &copy_records,
-                    width,
-                )?;
+                diff_renderer
+                    .show_diff(
+                        ui,
+                        formatter,
+                        [&parent_tree, &tree],
+                        &matcher,
+                        &copy_records,
+                        width,
+                    )
+                    .block_on()?;
             }
 
             if wc_has_untracked {

@@ -16,6 +16,7 @@ use std::slice;
 
 use clap::ArgGroup;
 use clap_complete::ArgValueCompleter;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -78,13 +79,15 @@ pub(crate) fn cmd_interdiff(
         .to_matcher();
     let diff_renderer = workspace_command.diff_renderer_for(&args.format)?;
     ui.request_pager();
-    diff_renderer.show_inter_diff(
-        ui,
-        ui.stdout_formatter().as_mut(),
-        slice::from_ref(&from),
-        &to,
-        matcher.as_ref(),
-        ui.term_width(),
-    )?;
+    diff_renderer
+        .show_inter_diff(
+            ui,
+            ui.stdout_formatter().as_mut(),
+            slice::from_ref(&from),
+            &to,
+            matcher.as_ref(),
+            ui.term_width(),
+        )
+        .block_on()?;
     Ok(())
 }

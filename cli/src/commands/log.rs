@@ -26,6 +26,7 @@ use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetIteratorExt as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -250,13 +251,15 @@ pub(crate) fn cmd_log(
                 }
                 if let Some(renderer) = &diff_renderer {
                     let mut formatter = ui.new_formatter(&mut buffer);
-                    renderer.show_patch(
-                        ui,
-                        formatter.as_mut(),
-                        &commit,
-                        matcher.as_ref(),
-                        within_graph.width(),
-                    )?;
+                    renderer
+                        .show_patch(
+                            ui,
+                            formatter.as_mut(),
+                            &commit,
+                            matcher.as_ref(),
+                            within_graph.width(),
+                        )
+                        .block_on()?;
                 }
 
                 let node_symbol = format_template(ui, &Some(commit), &node_template);
@@ -301,7 +304,9 @@ pub(crate) fn cmd_log(
                     .write(formatter, |formatter| template.format(&commit, formatter))?;
                 if let Some(renderer) = &diff_renderer {
                     let width = ui.term_width();
-                    renderer.show_patch(ui, formatter, &commit, matcher.as_ref(), width)?;
+                    renderer
+                        .show_patch(ui, formatter, &commit, matcher.as_ref(), width)
+                        .block_on()?;
                 }
             }
         }

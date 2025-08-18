@@ -138,7 +138,9 @@ pub(crate) fn cmd_absorb(
                 let diff_renderer = workspace_command.diff_renderer(vec![DiffFormat::Summary]);
                 let matcher = &EverythingMatcher; // also print excluded paths
                 let width = ui.term_width();
-                diff_renderer.show_patch(ui, formatter.as_mut(), commit, matcher, width)?;
+                diff_renderer
+                    .show_patch(ui, formatter.as_mut(), commit, matcher, width)
+                    .block_on()?;
             }
         }
     }

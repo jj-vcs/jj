@@ -216,14 +216,16 @@ pub(crate) fn cmd_diff(
         let tree_diff = from_tree.diff_stream_with_copies(&to_tree, &matcher, &copy_records);
         show_templated(ui.stdout_formatter().as_mut(), tree_diff, template).block_on()?;
     }
-    diff_renderer.show_diff(
-        ui,
-        ui.stdout_formatter().as_mut(),
-        [&from_tree, &to_tree],
-        &matcher,
-        &copy_records,
-        ui.term_width(),
-    )?;
+    diff_renderer
+        .show_diff(
+            ui,
+            ui.stdout_formatter().as_mut(),
+            [&from_tree, &to_tree],
+            &matcher,
+            &copy_records,
+            ui.term_width(),
+        )
+        .block_on()?;
     print_unmatched_explicit_paths(
         ui,
         &workspace_command,

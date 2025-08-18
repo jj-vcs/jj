@@ -64,6 +64,18 @@ impl dyn Formatter + '_ {
         // its error replace the one from `write_inner()`.
         write_inner(self).and(self.pop_label().map_err(Into::into))
     }
+
+    pub async fn with_label_async<E: From<io::Error>>(
+        &mut self,
+        label: &str,
+        write_inner: impl AsyncFnOnce(&mut dyn Formatter) -> Result<(), E>,
+    ) -> Result<(), E> {
+        self.push_label(label)?;
+        // Call `pop_label()` whether or not `write_inner()` fails, but don't let
+        // its error replace the one from `write_inner()`.
+        let result = write_inner(self).await;
+        result.and(self.pop_label().map_err(Into::into))
+    }
 }
 
 /// `Formatter` wrapper to write a labeled message with `write!()` or
