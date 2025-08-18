@@ -139,8 +139,8 @@ fn test_rewrite_immutable_generic() {
 #[test]
 fn test_new_wc_commit_when_wc_immutable() {
     let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init"]).success();
-    let work_dir = test_env.work_dir("");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
     work_dir
         .run_jj(["bookmark", "create", "-r@", "main"])
         .success();
@@ -149,10 +149,10 @@ fn test_new_wc_commit_when_wc_immutable() {
     let output = work_dir.run_jj(["bookmark", "set", "main", "-r@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Moved 1 bookmarks to kkmpptxz 28e8c405 main | (empty) a
+    Moved 1 bookmarks to kkmpptxz e1cb4cf3 main | (empty) a
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
-    Working copy  (@) now at: zsuskuln e9901f56 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 28e8c405 main | (empty) a
+    Working copy  (@) now at: zsuskuln 19a353fe (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz e1cb4cf3 main | (empty) a
     [EOF]
     ");
 }
@@ -160,8 +160,8 @@ fn test_new_wc_commit_when_wc_immutable() {
 #[test]
 fn test_immutable_heads_set_to_working_copy() {
     let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init"]).success();
-    let work_dir = test_env.work_dir("");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
     work_dir
         .run_jj(["bookmark", "create", "-r@", "main"])
         .success();
@@ -170,8 +170,8 @@ fn test_immutable_heads_set_to_working_copy() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
-    Working copy  (@) now at: pmmvwywv ca5945b4 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz b693e0ee (empty) a
+    Working copy  (@) now at: pmmvwywv 08e27304 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz e1cb4cf3 (empty) a
     [EOF]
     ");
 }
