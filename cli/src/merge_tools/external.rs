@@ -450,7 +450,7 @@ pub fn generate_diff(
         writer,
         tool,
         diff_wc.temp_dir(),
-        &diff_wc.to_command_variables(true),
+        diff_wc.to_command_variables(true),
     )
 }
 
@@ -460,11 +460,11 @@ pub fn invoke_external_diff(
     writer: &mut dyn Write,
     tool: &ExternalMergeTool,
     diff_dir: &Path,
-    patterns: &HashMap<&str, &str>,
+    patterns: HashMap<&str, &str>,
 ) -> Result<(), DiffGenerateError> {
     // TODO: Somehow propagate --color to the external command?
     let mut cmd = Command::new(&tool.program);
-    let mut patterns = patterns.clone();
+    let mut patterns = patterns; // Shorten the second lifetime of the `Hashmap`.
     let absolute_left_path = Path::new(diff_dir).join(patterns["left"]);
     let absolute_right_path = Path::new(diff_dir).join(patterns["right"]);
     if !tool.diff_do_chdir {
