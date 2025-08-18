@@ -253,6 +253,7 @@ fn run_mergetool_external_single_file(
         })
         .try_collect()?;
     variables.insert("marker_length", conflict_marker_len.to_string());
+    variables.insert("path", repo_path.as_internal_file_string().to_string());
 
     let mut cmd = Command::new(&editor.program);
     cmd.args(interpolate_variables(&editor.merge_args, &variables));

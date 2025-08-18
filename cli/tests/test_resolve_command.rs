@@ -1365,6 +1365,80 @@ fn test_resolve_change_delete_executable() {
 }
 
 #[test]
+fn test_pass_path_argument() {
+    let mut test_env = TestEnvironment::default();
+    let editor_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Makes it easier to read the diffs between conflicts
+    test_env.add_config("ui.conflict-marker-style = 'snapshot'");
+
+    // Create a conflict
+    create_commit_with_files(&work_dir, "base", &[], &[("file", "base\n")]);
+    create_commit_with_files(&work_dir, "a", &["base"], &[("file", "a\n")]);
+    create_commit_with_files(&work_dir, "b", &["base"], &[("file", "b\n")]);
+    create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    file    2-sided conflict
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    <<<<<<< Conflict 1 of 1
+    +++++++ Contents of side #1
+    a
+    ------- Contents of base
+    base
+    +++++++ Contents of side #2
+    b
+    >>>>>>> Conflict 1 of 1 ends
+    "
+    );
+
+    // If the merge tool accepts the "$path" argument, then it should be passed
+    std::fs::write(
+        &editor_script,
+        indoc! {b"
+        expect-arg 0
+        file\0write
+        resolution
+        \0"},
+    )
+    .unwrap();
+    let output = work_dir.run_jj([
+        "resolve",
+        "file",
+        r#"--config=merge-tools.fake-editor.merge-args=["$output", "$path"]"#,
+    ]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Resolving conflicts in: file
+    Working copy  (@) now at: vruxwmqv 682816de conflict | conflict
+    Parent commit (@-)      : zsuskuln 45537d53 a | a
+    Parent commit (@-)      : royxmykx 89d1b299 b | b
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    "###);
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    diff --git a/file b/file
+    index 0000000000..88425ec521 100644
+    --- a/file
+    +++ b/file
+    @@ -1,8 +1,1 @@
+    -<<<<<<< Conflict 1 of 1
+    -+++++++ Contents of side #1
+    -a
+    -------- Contents of base
+    -base
+    -+++++++ Contents of side #2
+    -b
+    ->>>>>>> Conflict 1 of 1 ends
+    +resolution
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_resolve_long_conflict_markers() {
     let mut test_env = TestEnvironment::default();
     let editor_script = test_env.set_up_fake_editor();

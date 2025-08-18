@@ -1147,6 +1147,10 @@ merge-tool-edits-conflict-markers = true    # See below for an explanation
   and/or generates conflict markers. Usually, `jj` uses conflict markers of
   length 7, but they can be longer if necessary to make parsing unambiguous.
 
+- `$path` is replaced with the path in the repository at which the file
+  will be eventually stored. It is relative to the root directory of the
+  repository and uses `/` as separators.
+
 Unlike `diff-args` or `edit-args`, there is no default value for `merge-args`.
 If `merge-args` are not specified, the tool cannot be used for conflict
 resolution.

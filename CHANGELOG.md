@@ -87,6 +87,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj squash` has gained `--insert-before`, `--insert-after`, and `--destination`
   options.
 
+* Merge tools can use the `$path` argument to learn where the file they
+  are merging will end up in the repository.
+
 ### Fixed bugs
 
 * `jj git clone` now correctly fetches all tags, unless `--fetch-tags` is
