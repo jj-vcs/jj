@@ -5631,8 +5631,14 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">[Unreleased]<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>jj op show</code> now uses <code>templates.op_show</code> configuration for its default template
-  instead of <code>templates.op_log</code>.</li>
+<li>
+<p><code>jj op show</code> now uses <code>templates.op_show</code> configuration for its default template
+  instead of <code>templates.op_log</code>.</p>
+</li>
+<li>
+<p>The deprecated config option <code>git.auto-local-branch</code> has been removed. Use
+  <code>git.auto-local-bookmark</code> instead.</p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <ul>
