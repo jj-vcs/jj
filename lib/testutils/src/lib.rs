@@ -42,10 +42,12 @@ use jj_lib::commit_builder::CommitBuilder;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
+use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::NothingMatcher;
+use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::MutableRepo;
@@ -440,6 +442,7 @@ impl TestTreeBuilder {
             path: path.to_owned(),
             contents: contents.as_ref().to_vec(),
             executable: false,
+            copy_id: CopyId::placeholder(),
         }
     }
 
@@ -470,11 +473,17 @@ pub struct TestTreeFileEntryBuilder<'a> {
     path: RepoPathBuf,
     contents: Vec<u8>,
     executable: bool,
+    copy_id: CopyId,
 }
 
 impl TestTreeFileEntryBuilder<'_> {
     pub fn executable(mut self, executable: bool) -> Self {
         self.executable = executable;
+        self
+    }
+
+    pub fn copy_id(mut self, copy_id: CopyId) -> Self {
+        self.copy_id = copy_id;
         self
     }
 }
@@ -493,9 +502,53 @@ impl Drop for TestTreeFileEntryBuilder<'_> {
             TreeValue::File {
                 id,
                 executable: self.executable,
-                copy_id: CopyId::placeholder(),
+                copy_id: self.copy_id.clone(),
             },
         );
+    }
+}
+
+pub struct TestThreeWayMergeTreeBuilder {
+    store: Arc<Store>,
+    base_builder: TestTreeBuilder,
+    parent1_builder: TestTreeBuilder,
+    parent2_builder: TestTreeBuilder,
+}
+
+impl TestThreeWayMergeTreeBuilder {
+    pub fn new(store: Arc<Store>) -> Self {
+        Self {
+            store: Arc::clone(&store),
+            base_builder: TestTreeBuilder::new(Arc::clone(&store)),
+            parent1_builder: TestTreeBuilder::new(Arc::clone(&store)),
+            parent2_builder: TestTreeBuilder::new(store),
+        }
+    }
+
+    pub fn base(&mut self) -> &mut TestTreeBuilder {
+        &mut self.base_builder
+    }
+
+    pub fn parent1(&mut self) -> &mut TestTreeBuilder {
+        &mut self.parent1_builder
+    }
+
+    pub fn parent2(&mut self) -> &mut TestTreeBuilder {
+        &mut self.parent2_builder
+    }
+
+    pub fn write_merged_tree(self) -> MergedTree {
+        let tree_ids = [
+            self.parent1_builder,
+            self.base_builder,
+            self.parent2_builder,
+        ]
+        .map(|builder| builder.write_single_tree().id().clone());
+        MergedTree::new(
+            self.store.clone(),
+            Merge::from_vec(tree_ids.to_vec()),
+            ConflictLabels::unlabeled(),
+        )
     }
 }
 
