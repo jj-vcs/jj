@@ -35,6 +35,7 @@ use jj_lib::rewrite::MoveCommitsTarget;
 use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RewriteRefsOptions;
 use jj_lib::rewrite::find_duplicate_divergent_commits;
+use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::rewrite::rebase_commit_with_options;
 use jj_lib::rewrite::restore_tree;
 use maplit::hashmap;
@@ -61,6 +62,53 @@ where
         name: name.as_ref(),
         remote: remote.as_ref(),
     }
+}
+
+/// Based on https://lore.kernel.org/git/Pine.LNX.4.44.0504271254120.4678-100000@wax.eds.org/
+/// (found in t/t6401-merge-criss-cross.sh in the git.git repo).
+#[test]
+fn test_merge_criss_cross() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let path = repo_path("file");
+    let tree_a = create_tree(repo, &[(path, "1\n2\n3\n4\n5\n6\n7\n8\n9\n")]);
+    let tree_b = create_tree(repo, &[(path, "1\n2\n3\n4\n5\n6\n7\n8B\n9\n")]);
+    let tree_c = create_tree(repo, &[(path, "1\n2\n3C\n4\n5\n6\n7\n8\n9\n")]);
+    let tree_d = create_tree(repo, &[(path, "1\n2\n3C\n4\n5\n6\n7\n8D\n9\n")]);
+    let tree_e = create_tree(repo, &[(path, "1\n2\n3E\n4\n5\n6\n7\n8B\n9\n")]);
+    let tree_expected = create_tree(repo, &[(path, "1\n2\n3E\n4\n5\n6\n7\n8D\n9\n")]);
+
+    let mut tx = repo.start_transaction();
+    let mut make_commit = |description, parents, tree_id| {
+        tx.repo_mut()
+            .new_commit(parents, tree_id)
+            .set_description(description)
+            .write()
+            .unwrap()
+    };
+    let commit_a = make_commit(
+        "A",
+        vec![repo.store().root_commit_id().clone()],
+        tree_a.id(),
+    );
+    let commit_b = make_commit("B", vec![commit_a.id().clone()], tree_b.id());
+    let commit_c = make_commit("C", vec![commit_a.id().clone()], tree_c.id());
+    let commit_d = make_commit(
+        "D",
+        vec![commit_b.id().clone(), commit_c.id().clone()],
+        tree_d.id(),
+    );
+    let commit_e = make_commit(
+        "E",
+        vec![commit_b.id().clone(), commit_c.id().clone()],
+        tree_e.id(),
+    );
+    let merged = merge_commit_trees(tx.repo_mut(), &[commit_d, commit_e])
+        .block_on()
+        .unwrap();
+
+    assert_eq!(merged, tree_expected);
 }
 
 #[test]
