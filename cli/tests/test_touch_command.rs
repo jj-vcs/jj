@@ -239,6 +239,28 @@ fn test_touch() {
 
     [EOF]
     ");
+}
+
+#[test]
+fn test_new_change_id() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "a"])
+        .success();
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "b"])
+        .success();
+    work_dir.write_file("file1", "b\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c"])
+        .success();
+    work_dir.write_file("file1", "c\n");
 
     // New change-id
     work_dir.run_jj(["undo"]).success();
@@ -246,26 +268,26 @@ fn test_touch() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Touched 1 commits:
-      nmzmmopx f4388b00 b | (no description set)
+      vruxwmqv 5ec4c7a6 b | (no description set)
     Rebased 1 descendant commits
-    Working copy  (@) now at: mzvwutvl d35b7dc2 c | (no description set)
-    Parent commit (@-)      : nmzmmopx f4388b00 b | (no description set)
+    Working copy  (@) now at: mzvwutvl 803d5e53 c | (empty) (no description set)
+    Parent commit (@-)      : vruxwmqv 5ec4c7a6 b | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log(&work_dir), @r"
-    @  Commit ID: d35b7dc2b8f9feb32c6429dbcb20ba1ae3901de6
+    @  Commit ID: 803d5e53afe62ea784192059777c1fd757a1b074
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:26.000 +07:00)
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:14.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:14.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: f4388b00f296491a55ec47463a09a93a6ccfd6b2
-    │  Change ID: nmzmmopxokpsnwzmtnsppxxxprozqovs
+    ○  Commit ID: 5ec4c7a6ab83904c69367902ee101a2cd06a8f37
+    │  Change ID: vruxwmqvtpmxqkrrksmzyrvxysqqlsxp
     │  Bookmarks: b
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:26.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:14.000 +07:00)
     │
     │      (no description set)
     │
@@ -286,10 +308,10 @@ fn test_touch() {
 
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "nmzmmo"]), @r"
-    ○  nmzmmopx test.user@example.com 2001-02-03 08:05:26 b f4388b00
+    insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "vruxwm"]), @r"
+    ○  vruxwmqv test.user@example.com 2001-02-03 08:05:14 b 5ec4c7a6
     │  (no description set)
-    │  -- operation ad7611da0724 (2001-02-03 08:05:26) touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    │  -- operation ee22a9be23db (2001-02-03 08:05:14) touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
     ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:11 75591b18
     │  (no description set)
     │  -- operation 4b33c26502f8 (2001-02-03 08:05:11) snapshot working copy
@@ -299,12 +321,9 @@ fn test_touch() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "mzvwut"]), @r"
-    @  mzvwutvl test.user@example.com 2001-02-03 08:05:26 c d35b7dc2
-    │  (no description set)
-    │  -- operation ad7611da0724 (2001-02-03 08:05:26) touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
-    ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:13 22be6c4e
-    │  (no description set)
-    │  -- operation e17a76105256 (2001-02-03 08:05:13) snapshot working copy
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:14 c 803d5e53
+    │  (empty) (no description set)
+    │  -- operation ee22a9be23db (2001-02-03 08:05:14) touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
     ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:11 b9f5490a
        (empty) (no description set)
        -- operation e3fbc5040416 (2001-02-03 08:05:11) new empty commit
