@@ -15,6 +15,7 @@
 use std::convert::Infallible;
 use std::fs::File;
 use std::io;
+use std::io::Write as _;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::Component;
@@ -1391,6 +1392,210 @@ fn test_snapshot_modified_materialized_conflict(
     let expected_file_contents =
         expected_file_contents.map(|contents| contents.as_deref().map(str::to_string));
     assert_eq!(actual_file_contents, expected_file_contents);
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct TreeFileMetadata {
+    executable: bool,
+    copy_id: CopyId,
+}
+
+impl Default for TreeFileMetadata {
+    fn default() -> Self {
+        Self {
+            executable: false,
+            copy_id: CopyId::placeholder(),
+        }
+    }
+}
+
+// A random unique copy ID that is unlikely to collide.
+const TEST_COPY_ID: [u8; 10] = [0x19, 0x93, 0x9e, 0x25, 0x42, 0xb0, 0x2a, 0xf3, 0x7d, 0xc6];
+#[test_case(
+    TreeFileMetadata {
+        executable: false,
+        ..Default::default()
+    },
+    TreeFileMetadata {
+        executable: false,
+        ..Default::default()
+    },
+    |metadatas: &Merge<Option<TreeFileMetadata>>| {
+        let executables = metadatas.map(|metadata| {
+            metadata
+                .as_ref()
+                .map(|TreeFileMetadata { executable, .. }| *executable)
+        });
+        assert_eq!(
+            executables,
+            Merge::from_vec(vec![Some(false), Some(false), Some(false)]),
+            "all sides of the executable fields must be present and false"
+        );
+    };
+    "parents are both not executable"
+)]
+#[test_case(
+    TreeFileMetadata {
+        executable: true,
+        ..Default::default()
+    },
+    TreeFileMetadata {
+        executable: true,
+        ..Default::default()
+    },
+    |metadatas: &Merge<Option<TreeFileMetadata>>| {
+        let executables = metadatas.map(|metadata| {
+            metadata
+                .as_ref()
+                .map(|TreeFileMetadata { executable, .. }| *executable)
+        });
+        assert_eq!(
+            executables,
+            Merge::from_vec(vec![Some(true), Some(true), Some(true)]),
+            "all sides of the executable fields must be present and true"
+        );
+    };
+    "parents are both executable"
+)]
+#[test_case(
+    TreeFileMetadata {
+        executable: true,
+        ..Default::default()
+    },
+    TreeFileMetadata {
+        executable: false,
+        ..Default::default()
+    },
+    |_: &Merge<Option<TreeFileMetadata>>| {
+        // We shouldn't panic in this case.
+    };
+    "parents have different executable bits"
+)]
+#[test_case(
+    TreeFileMetadata {
+        copy_id: CopyId::new(TEST_COPY_ID.to_vec()),
+        ..Default::default()
+    },
+    TreeFileMetadata {
+        copy_id: CopyId::new(TEST_COPY_ID.to_vec()),
+        ..Default::default()
+    },
+    |metadatas: &Merge<Option<TreeFileMetadata>>| {
+        let copy_ids = metadatas.map(|metadata| {
+            metadata
+                .as_ref()
+                .map(|TreeFileMetadata { copy_id, .. }| copy_id.clone())
+        });
+        let copy_id = CopyId::new(TEST_COPY_ID.to_vec());
+        assert_eq!(
+            copy_ids,
+            Merge::from_vec(vec![Some(copy_id.clone()), Some(copy_id.clone()), Some(copy_id)]),
+            "all sides of the copy id fields must be the same"
+        );
+    };
+    "parents have the same copy id"
+)]
+#[test_case(
+    TreeFileMetadata {
+        copy_id: CopyId::new(TEST_COPY_ID.to_vec()),
+        ..Default::default()
+    },
+    TreeFileMetadata {
+        // Another random unique copy ID that is unlikely to collide.
+        copy_id: CopyId::new(vec![0x73, 0x47, 0xcc, 0x46, 0x04, 0x90, 0x9a, 0x5c, 0x0d, 0x1f]),
+        ..Default::default()
+    },
+    |_: &Merge<Option<TreeFileMetadata>>| {
+        // We shouldn't panic in this case.
+    };
+    "parents have different copy ids"
+)]
+fn test_snapshot_modified_materialized_conflict_with_correct_file_metadata(
+    parent1_file_metadata: TreeFileMetadata,
+    parent2_file_metadata: TreeFileMetadata,
+    matcher: impl FnOnce(&Merge<Option<TreeFileMetadata>>),
+) {
+    // In this test, we create the following commits, checkout the merge commit,
+    // modify the merge contents, snapshot, and verify if the new merged tree is
+    // correct.
+
+    // D
+    // |\
+    // B C
+    // |/
+    // A
+
+    // We can't use the tokio runtime here because the test backend will create
+    // the tokio runtime in TestWorkspace::init, and tokio will panic if the
+    // tokio runtime is dropped in an async context. See
+    // https://docs.rs/tokio/1.47.1/tokio/runtime/struct.Handle.html#panics-2
+    // for details.
+    let mut test_workspace = TestWorkspace::init();
+    let file_repo_path = repo_path("test-file");
+    let file_disk_path = file_repo_path
+        .to_fs_path(test_workspace.workspace.workspace_root())
+        .unwrap();
+
+    // Create the commits with given contents.
+    let store = test_workspace.repo.store();
+
+    let mut tree_builder = testutils::TestThreeWayMergeTreeBuilder::new(Arc::clone(store));
+    // We deliberately leave the path in absence in the base tree, so that when the
+    // conflict file is appended, the file in the base tree is populated.
+    tree_builder
+        .parent1()
+        // The file content must cause a conflict to trigger the code under testing, so the parent1
+        // and parent2 commit have different contents on the same file.
+        .file(file_repo_path, "parent1\n")
+        .executable(parent1_file_metadata.executable)
+        .copy_id(parent1_file_metadata.copy_id);
+    tree_builder
+        .parent2()
+        .file(file_repo_path, "parent2\n")
+        .executable(parent2_file_metadata.executable)
+        .copy_id(parent2_file_metadata.copy_id);
+    let merge_commit = commit_with_tree(
+        test_workspace.repo.store(),
+        tree_builder.write_merged_tree(),
+    );
+
+    // Checkout the merge commit.
+    test_workspace
+        .workspace
+        .check_out(test_workspace.repo.op_id().clone(), None, &merge_commit)
+        .unwrap();
+    // Append contents to the conflict file.
+    let mut file = std::fs::File::options()
+        .append(true)
+        .open(&file_disk_path)
+        .unwrap();
+    file.write_all(b"appended contents\n").unwrap();
+    drop(file);
+
+    // Snapshot.
+    let tree = test_workspace.snapshot().unwrap();
+    let actual_file_metadatas = tree
+        .path_value_async(file_repo_path)
+        .block_on()
+        .unwrap()
+        .map(|tree_value| {
+            let Some(tree_value) = tree_value else {
+                return None;
+            };
+            let TreeValue::File {
+                executable,
+                copy_id,
+                ..
+            } = tree_value
+            else {
+                panic!("All sides of the conflict should be either a file or absent.");
+            };
+            Some(TreeFileMetadata {
+                executable: *executable,
+                copy_id: copy_id.clone(),
+            })
+        });
+    matcher(&actual_file_metadatas);
 }
 
 #[test]
