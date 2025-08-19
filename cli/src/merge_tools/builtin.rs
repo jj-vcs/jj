@@ -25,6 +25,7 @@ use jj_lib::matchers::Matcher;
 use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
+use jj_lib::merge::SameChange;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree_builder::MergedTreeBuilder;
 use jj_lib::object_id::ObjectId as _;
@@ -187,7 +188,11 @@ fn read_file_contents(
             // TODO: Render the ID somehow?
             let contents = buf_to_file_contents(None, buf);
             Ok(FileInfo {
-                file_mode: mode::NORMAL,
+                file_mode: if file.executable == Some(true) {
+                    mode::EXECUTABLE
+                } else {
+                    mode::NORMAL
+                },
                 contents,
             })
         }
@@ -388,6 +393,15 @@ async fn make_diff_files(
     Ok((changed_files, files))
 }
 
+fn resolve_file_copy_id(tree_value: &MergedTreeValue) -> Option<CopyId> {
+    tree_value.to_copy_id_merge().and_then(|copy_id| {
+        copy_id
+            .resolve_trivial(SameChange::Accept)
+            .cloned()
+            .flatten()
+    })
+}
+
 fn apply_diff_builtin(
     store: &Arc<Store>,
     left_tree: &MergedTree,
@@ -414,12 +428,13 @@ fn apply_diff_builtin(
         |path| right_tree.path_value(path),
         |path, contents, executable| {
             let old_value = left_tree.path_value(path)?;
+            let copy_id = resolve_file_copy_id(&old_value).unwrap_or_else(CopyId::placeholder);
             let new_value = if old_value.is_resolved() {
                 let id = store.write_file(path, &mut &contents[..]).block_on()?;
                 Merge::normal(TreeValue::File {
                     id,
                     executable,
-                    copy_id: CopyId::placeholder(),
+                    copy_id,
                 })
             } else if let Some(old_file_ids) = old_value.to_file_merge() {
                 // TODO: should error out if conflicts couldn't be parsed?
@@ -435,7 +450,7 @@ fn apply_diff_builtin(
                     Ok(id) => Merge::resolved(id.map(|id| TreeValue::File {
                         id,
                         executable,
-                        copy_id: CopyId::placeholder(),
+                        copy_id,
                     })),
                     Err(file_ids) => old_value.with_new_file_ids(&file_ids),
                 }
@@ -730,10 +745,12 @@ fn apply_merge_builtin(
         |path| tree.path_value(path),
         |path, contents, executable| {
             let id = store.write_file(path, &mut &contents[..]).block_on()?;
+            let copy_id =
+                resolve_file_copy_id(&tree.path_value(path)?).unwrap_or_else(CopyId::placeholder);
             Ok(Merge::normal(TreeValue::File {
                 id,
                 executable,
-                copy_id: CopyId::placeholder(),
+                copy_id,
             }))
         },
     )?;
@@ -754,6 +771,7 @@ mod tests {
     use proptest_state_machine::ReferenceStateMachine;
     use proptest_state_machine::StateMachineTest;
     use proptest_state_machine::prop_state_machine;
+    use test_case::test_matrix;
     use testutils::TestRepo;
     use testutils::assert_tree_eq;
     use testutils::dump_tree;
@@ -917,6 +935,295 @@ mod tests {
             right_tree,
             all_changes_tree,
             "all-changes tree was different",
+        );
+    }
+
+    fn create_tree_with_executable(
+        store: Arc<Store>,
+        file_path: &RepoPath,
+        contents: &[&str],
+        executable: bool,
+    ) -> MergedTree {
+        let tree_ids = contents
+            .iter()
+            .map(|contents| {
+                let mut tree_builder = testutils::TestTreeBuilder::new(store.clone());
+                tree_builder
+                    .file(file_path, *contents)
+                    .executable(executable);
+                tree_builder.write_single_tree().id().clone()
+            })
+            .collect_vec();
+        MergedTree::new(
+            store.clone(),
+            Merge::from_vec(tree_ids),
+            ConflictLabels::unlabeled(),
+        )
+    }
+
+    fn create_resolved_left_tree_with_executable(
+        store: Arc<Store>,
+        file_path: &RepoPath,
+        executable: bool,
+    ) -> MergedTree {
+        create_tree_with_executable(store, file_path, &["left\n"], executable)
+    }
+
+    fn create_conflict_left_tree_with_executable(
+        store: Arc<Store>,
+        file_path: &RepoPath,
+        executable: bool,
+    ) -> MergedTree {
+        create_tree_with_executable(
+            store,
+            file_path,
+            &["left parent1\n", "", "left parent2 \n"],
+            executable,
+        )
+    }
+
+    fn create_resolved_right_tree_with_executable(
+        store: Arc<Store>,
+        file_path: &RepoPath,
+        executable: bool,
+    ) -> MergedTree {
+        create_tree_with_executable(store, file_path, &["right\n"], executable)
+    }
+
+    fn create_conflict_right_tree_with_executable(
+        store: Arc<Store>,
+        file_path: &RepoPath,
+        executable: bool,
+    ) -> MergedTree {
+        create_tree_with_executable(
+            store,
+            file_path,
+            &["right parent1\n", "", "right parent2\n"],
+            executable,
+        )
+    }
+
+    #[test_matrix(
+        [true, false],
+        [create_resolved_left_tree_with_executable, create_conflict_left_tree_with_executable],
+        [create_resolved_right_tree_with_executable, create_conflict_right_tree_with_executable]
+    )]
+    fn test_edit_diff_builtin_no_file_mode_section_when_file_modes_are_the_same(
+        executable: bool,
+        create_left_tree: impl FnOnce(Arc<Store>, &RepoPath, bool) -> MergedTree,
+        create_right_tree: impl FnOnce(Arc<Store>, &RepoPath, bool) -> MergedTree,
+    ) {
+        // In this test, we create 2 trees that consist of only one file under the same
+        // path. The executable bits are the same. Either of the left tree and the right
+        // tree can be resolved or have conflicts. Regardless of whether the file is
+        // resolved or have conflicts, the file has the same executable bit in both
+        // trees, so we don't expect a file mode section in the diff.
+
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+
+        let file_path = repo_path("file");
+
+        let left_tree = create_left_tree(store.clone(), file_path, executable);
+        let right_tree = create_right_tree(store.clone(), file_path, executable);
+
+        let (changed_files, mut files) = make_diff(store, &left_tree, &right_tree);
+        assert_eq!(files.len(), 1);
+        for section in &files[0].sections {
+            let is_file_mode_section = matches!(section, scm_record::Section::FileMode { .. });
+            assert!(
+                !is_file_mode_section,
+                "Expect the diff to not contain a file mode section, but got: {:#?}",
+                files[0]
+            );
+        }
+
+        let get_actual_executables = |tree: &MergedTree| {
+            tree.path_value_async(file_path)
+                .block_on()
+                .unwrap()
+                .to_executable_merge()
+                .expect("The path should point to an existing file.")
+        };
+
+        let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        let actual_executables = get_actual_executables(&no_changes_tree);
+        assert_eq!(
+            actual_executables.resolve_trivial(SameChange::Accept),
+            Some(&Some(executable)),
+            "Expect the executable bit before applying any diffs to be trivially resolved to \
+             {executable}, but got {actual_executables:?}",
+        );
+
+        for file in &mut files {
+            file.toggle_all();
+        }
+        let all_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        let actual_executables = get_actual_executables(&all_changes_tree);
+        assert_eq!(
+            actual_executables.resolve_trivial(SameChange::Accept),
+            Some(&Some(executable)),
+            "Expect the executable bit after applying all diffs to be trivially resolved to \
+             {executable}, but got {actual_executables:?}",
+        );
+    }
+
+    fn create_resolved_left_tree_with_copy_id(
+        store: Arc<Store>,
+        file_path: &RepoPath,
+        copy_id: CopyId,
+    ) -> MergedTree {
+        let mut tree_builder = testutils::TestTreeBuilder::new(store.clone());
+        tree_builder.file(file_path, "left\n").copy_id(copy_id);
+        tree_builder.write_merged_tree()
+    }
+
+    fn create_conflict_left_tree_with_copy_id(
+        store: Arc<Store>,
+        file_path: &RepoPath,
+        copy_id: CopyId,
+    ) -> MergedTree {
+        let mut tree_builder = testutils::TestThreeWayMergeTreeBuilder::new(Arc::clone(&store));
+        tree_builder
+            .base()
+            .file(file_path, "")
+            .copy_id(copy_id.clone());
+        tree_builder
+            .parent1()
+            .file(file_path, "left parent1\n")
+            .copy_id(copy_id.clone());
+        tree_builder
+            .parent2()
+            .file(file_path, "left parent2\n")
+            .copy_id(copy_id);
+        tree_builder.write_merged_tree()
+    }
+
+    fn create_resolved_right_tree_with_copy_id(
+        store: Arc<Store>,
+        file_path: &RepoPath,
+        copy_id: CopyId,
+    ) -> MergedTree {
+        let mut tree_builder = testutils::TestTreeBuilder::new(store.clone());
+        tree_builder.file(file_path, "right\n").copy_id(copy_id);
+        tree_builder.write_merged_tree()
+    }
+
+    fn create_conflict_right_tree_with_copy_id(
+        store: Arc<Store>,
+        file_path: &RepoPath,
+        copy_id: CopyId,
+    ) -> MergedTree {
+        let mut tree_builder = testutils::TestThreeWayMergeTreeBuilder::new(Arc::clone(&store));
+        tree_builder
+            .base()
+            .file(file_path, "")
+            .copy_id(copy_id.clone());
+        tree_builder
+            .parent1()
+            .file(file_path, "right parent1\n")
+            .copy_id(copy_id.clone());
+        tree_builder
+            .parent2()
+            .file(file_path, "right parent2\n")
+            .copy_id(copy_id);
+        tree_builder.write_merged_tree()
+    }
+    #[test_matrix(
+        [create_resolved_left_tree_with_copy_id, create_conflict_left_tree_with_copy_id],
+        [create_resolved_right_tree_with_copy_id, create_conflict_right_tree_with_copy_id]
+    )]
+    fn test_edit_diff_builtin_apply_diff_should_preserve_copy_id(
+        create_left_tree: impl FnOnce(Arc<Store>, &RepoPath, CopyId) -> MergedTree,
+        create_right_tree: impl FnOnce(Arc<Store>, &RepoPath, CopyId) -> MergedTree,
+    ) {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+
+        // A random unique copy id that is unlikely to collide.
+        let copy_id = CopyId::from_bytes(b"\xe6\x64\x40\x71\x52\x94\x4d\xd9\x2d\xb1");
+        let file_path = repo_path("file");
+        let left_tree = create_left_tree(Arc::clone(store), file_path, copy_id.clone());
+        let right_tree = create_right_tree(
+            Arc::clone(store),
+            file_path,
+            // Another random unique copy id that is unlikely to collide.
+            CopyId::from_bytes(b"\x02\x91\xeb\xd4\xc0\xed\x71\x33\xeb\xaf"),
+        );
+
+        let (changed_files, mut files) = make_diff(store, &left_tree, &right_tree);
+        assert_eq!(files.len(), 1);
+        for section in &mut files[0].sections {
+            // We only modify the contents of the file.
+            if matches!(section, scm_record::Section::Changed { .. }) {
+                section.toggle_all();
+            }
+        }
+        let tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        let actual_copy_ids =
+            tree.path_value_async(file_path)
+                .block_on()
+                .unwrap()
+                .map(|tree_value| {
+                    let Some(TreeValue::File { copy_id, .. }) = tree_value else {
+                        panic!("The path should point to an existing file.");
+                    };
+                    copy_id.clone()
+                });
+        assert_eq!(
+            actual_copy_ids.resolve_trivial(SameChange::Accept),
+            Some(&copy_id),
+            "Expect the copy id of the file to be resolved to {copy_id:?}, but got \
+             {actual_copy_ids:?}."
+        );
+    }
+
+    #[test]
+    fn test_edit_merge_builtin_should_preserve_copy_id() {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+
+        let file_path = repo_path("test-file.txt");
+        // A random unique copy id that is unlikely to collide.
+        let new_copy_id = CopyId::from_bytes(b"\xa3\x2b\x24\x3b\xda\x42\x6b\xe3\x14\x33");
+        let mut tree_builder = testutils::TestThreeWayMergeTreeBuilder::new(Arc::clone(store));
+        tree_builder
+            .base()
+            .file(file_path, "")
+            // Another random unique copy id that is unlikely to collide.
+            .copy_id(CopyId::from_bytes(
+                b"\x10\xda\x3e\x78\x6f\x62\x83\x97\x0b\x0f",
+            ));
+        tree_builder
+            .parent1()
+            .file(file_path, "left parent1\n")
+            .copy_id(new_copy_id.clone());
+        tree_builder
+            .parent2()
+            .file(file_path, "left parent2\n")
+            .copy_id(new_copy_id.clone());
+        let tree = tree_builder.write_merged_tree();
+
+        let merge_tool_file = MergeToolFile::from_tree_and_path(&tree, file_path).unwrap();
+        let merge_file = make_merge_file(&merge_tool_file, store.merge_options()).unwrap();
+        let tree =
+            apply_merge_builtin(store, &tree, vec![file_path.to_owned()], &[merge_file]).unwrap();
+
+        let actual_copy_ids =
+            tree.path_value_async(file_path)
+                .block_on()
+                .unwrap()
+                .map(|tree_value| {
+                    let Some(TreeValue::File { copy_id, .. }) = tree_value else {
+                        panic!("The path should point to an existing file.");
+                    };
+                    copy_id.clone()
+                });
+        assert_eq!(
+            actual_copy_ids.resolve_trivial(SameChange::Accept),
+            Some(&new_copy_id),
+            "Expect the copy id of the file to be resolved to {new_copy_id:?}, but got \
+             {actual_copy_ids:?}."
         );
     }
 
