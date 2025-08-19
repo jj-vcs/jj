@@ -182,7 +182,8 @@ default-command = ["log", "--reversed"]
 ### Default description
 
 The editor content of a commit description can be populated by the
-`draft_commit_description` template.
+`draft_commit_description` template. `self` is a [`Commit`
+object](templates.md#commit-type).
 
 ```toml
 [templates]
@@ -214,7 +215,8 @@ Closes #NNNN
 
 By default, `jj duplicate` copies the descriptions from the original commits.
 You can customize this behavior by specifying the `duplicate_description`
-template, which is given a `Commit` type of the original commit.
+template, which is given a [`Commit` object](templates.md#commit-type) of the
+original commit.
 
 ```toml
 [templates]
