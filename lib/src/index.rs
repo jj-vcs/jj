@@ -26,6 +26,7 @@ use crate::commit::Commit;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::operation::Operation;
+use crate::repo_path::RepoPathBuf;
 use crate::revset::ResolvedExpression;
 use crate::revset::Revset;
 use crate::revset::RevsetEvaluationError;
@@ -125,6 +126,13 @@ pub trait Index: Send + Sync {
         &self,
         candidates: &mut dyn Iterator<Item = &CommitId>,
     ) -> Result<Vec<CommitId>, IndexError>;
+
+    /// Returns iterator over paths changed at the specified commit. The paths
+    /// are sorted. Returns `None` if the commit wasn't indexed.
+    fn changed_paths_in_commit(
+        &self,
+        commit_id: &CommitId,
+    ) -> Result<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>, IndexError>;
 
     /// Resolves the revset `expression` against the index and corresponding
     /// `store`.

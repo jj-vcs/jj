@@ -68,6 +68,7 @@ use crate::index::ReadonlyIndex;
 use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId;
 use crate::object_id::PrefixResolution;
+use crate::repo_path::RepoPathBuf;
 use crate::revset::ResolvedExpression;
 use crate::revset::Revset;
 use crate::revset::RevsetEvaluationError;
@@ -578,6 +579,13 @@ impl Index for DefaultMutableIndex {
         candidates: &mut dyn Iterator<Item = &CommitId>,
     ) -> Result<Vec<CommitId>, IndexError> {
         self.0.heads(candidates)
+    }
+
+    fn changed_paths_in_commit(
+        &self,
+        commit_id: &CommitId,
+    ) -> Result<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>, IndexError> {
+        self.0.changed_paths_in_commit(commit_id)
     }
 
     fn evaluate_revset(

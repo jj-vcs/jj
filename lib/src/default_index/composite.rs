@@ -51,6 +51,7 @@ use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId as _;
 use crate::object_id::PrefixResolution;
 use crate::object_id::id_type;
+use crate::repo_path::RepoPathBuf;
 use crate::revset::ResolvedExpression;
 use crate::revset::Revset;
 use crate::revset::RevsetEvaluationError;
@@ -611,6 +612,20 @@ impl Index for CompositeIndex {
         candidate_ids: &mut dyn Iterator<Item = &CommitId>,
     ) -> Result<Vec<CommitId>, IndexError> {
         Ok(self.commits().heads(candidate_ids))
+    }
+
+    fn changed_paths_in_commit(
+        &self,
+        commit_id: &CommitId,
+    ) -> Result<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>, IndexError> {
+        let Some(paths) = self
+            .commits()
+            .commit_id_to_pos(commit_id)
+            .and_then(|pos| self.changed_paths().changed_paths(pos))
+        else {
+            return Ok(None);
+        };
+        Ok(Some(Box::new(paths.map(|path| path.to_owned()))))
     }
 
     fn evaluate_revset(

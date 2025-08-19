@@ -37,6 +37,7 @@ use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
+use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::revset::GENERATION_RANGE_FULL;
 use jj_lib::revset::PARENTS_RANGE_FULL;
 use jj_lib::revset::ResolvedExpression;
@@ -46,6 +47,7 @@ use testutils::TestRepo;
 use testutils::commit_transactions;
 use testutils::create_tree;
 use testutils::repo_path;
+use testutils::repo_path_buf;
 use testutils::test_backend::TestBackend;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
@@ -69,6 +71,13 @@ fn enable_changed_path_index(repo: &ReadonlyRepo) -> Arc<ReadonlyRepo> {
         .block_on()
         .unwrap();
     repo.reload_at(repo.operation()).unwrap()
+}
+
+fn collect_changed_paths(repo: &ReadonlyRepo, commit_id: &CommitId) -> Option<Vec<RepoPathBuf>> {
+    repo.index()
+        .changed_paths_in_commit(commit_id)
+        .unwrap()
+        .map(|paths| paths.collect())
 }
 
 #[test]
@@ -822,7 +831,8 @@ fn test_changed_path_segments() {
 
     // Add new commit with changed-path index enabled
     let mut tx = repo.start_transaction();
-    tx.repo_mut()
+    let commit1 = tx
+        .repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree1.id())
         .write()
         .unwrap();
@@ -834,10 +844,16 @@ fn test_changed_path_segments() {
     assert_eq!(stats.changed_path_levels[0].num_commits, 1);
     assert_eq!(stats.changed_path_levels[0].num_changed_paths, 1);
     assert_eq!(stats.changed_path_levels[0].num_paths, 1);
+    assert_eq!(collect_changed_paths(&repo, root_commit_id), None);
+    assert_eq!(
+        collect_changed_paths(&repo, commit1.id()),
+        Some(vec![repo_path_buf("a")])
+    );
 
     // Add one more commit, segment files should be squashed
     let mut tx = repo.start_transaction();
-    tx.repo_mut()
+    let commit2 = tx
+        .repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree2.id())
         .write()
         .unwrap();
@@ -849,6 +865,15 @@ fn test_changed_path_segments() {
     assert_eq!(stats.changed_path_levels[0].num_commits, 2);
     assert_eq!(stats.changed_path_levels[0].num_changed_paths, 3);
     assert_eq!(stats.changed_path_levels[0].num_paths, 2);
+    assert_eq!(collect_changed_paths(&repo, root_commit_id), None);
+    assert_eq!(
+        collect_changed_paths(&repo, commit1.id()),
+        Some(vec![repo_path_buf("a")])
+    );
+    assert_eq!(
+        collect_changed_paths(&repo, commit2.id()),
+        Some(vec![repo_path_buf("a"), repo_path_buf("b")])
+    );
 }
 
 #[test]
