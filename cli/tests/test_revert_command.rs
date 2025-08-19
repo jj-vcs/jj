@@ -50,7 +50,7 @@ fn test_revert() {
     error: the following required arguments were not provided:
       <--destination <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
 
-    Usage: jj revert --revisions <REVSETS> <--destination <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
+    Usage: jj revert <--destination <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>> [REVSETS]...
 
     For more information, try '--help'.
     [EOF]
@@ -228,8 +228,8 @@ fn test_revert_multiple() {
     [EOF]
     ");
 
-    // Revert multiple commits
-    let output = work_dir.run_jj(["revert", "-rb", "-rc", "-re", "-d@"]);
+    // Revert multiple commits (some given as positional arguments)
+    let output = work_dir.run_jj(["revert", "b", "-rc", "e", "-d@"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Reverted 3 commits as follows:

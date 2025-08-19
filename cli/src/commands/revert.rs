@@ -46,11 +46,17 @@ use crate::ui::Ui;
 pub(crate) struct RevertArgs {
     /// The revision(s) to apply the reverse of
     #[arg(
-        long, short,
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
-    revisions: Vec<RevisionArg>,
+    revisions_pos: Vec<RevisionArg>,
+    #[arg(
+        long, short,
+        hide = true,
+        value_name = "REVSETS",
+        add = ArgValueCompleter::new(complete::revset_expression_all),
+    )]
+    revisions_opt: Vec<RevisionArg>,
     /// The revision(s) to apply the reverse changes on top of
     #[arg(
         long, short,
@@ -90,7 +96,7 @@ pub(crate) fn cmd_revert(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let to_revert: Vec<_> = workspace_command
-        .parse_union_revsets(ui, &args.revisions)?
+        .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
         .evaluate_to_commits()?
         .try_collect()?; // in reverse topological order
     if to_revert.is_empty() {
