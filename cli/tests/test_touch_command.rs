@@ -240,33 +240,53 @@ fn test_touch() {
 
     [EOF]
     ");
+}
 
-    // New change-id
-    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+#[test]
+fn test_new_change_id() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "a"])
+        .success();
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "b"])
+        .success();
+    work_dir.write_file("file1", "b\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c"])
+        .success();
+    work_dir.write_file("file1", "c\n");
+
     let output = work_dir.run_jj(["touch", "--update-change-id", "kkmpptxzrspx"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Touched 1 commits:
-      nmzmmopx f4388b00 b | (no description set)
+      yqosqzyt 01d6741e b | (no description set)
     Rebased 1 descendant commits
-    Working copy  (@) now at: mzvwutvl d35b7dc2 c | (no description set)
-    Parent commit (@-)      : nmzmmopx f4388b00 b | (no description set)
+    Working copy  (@) now at: mzvwutvl 0c3fe2d8 c | (no description set)
+    Parent commit (@-)      : yqosqzyt 01d6741e b | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log(&work_dir), @r"
-    @  Commit ID: d35b7dc2b8f9feb32c6429dbcb20ba1ae3901de6
+    @  Commit ID: 0c3fe2d854b2b492a053156a505d6c40fe783138
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:26.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: f4388b00f296491a55ec47463a09a93a6ccfd6b2
-    │  Change ID: nmzmmopxokpsnwzmtnsppxxxprozqovs
+    ○  Commit ID: 01d6741ed708318bcd5911320237066db4b63b53
+    │  Change ID: yqosqzytrlswkspswpqrmlplxylrzsnz
     │  Bookmarks: b
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:26.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
     │
     │      (no description set)
     │
@@ -287,10 +307,10 @@ fn test_touch() {
 
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "nmzmmo"]), @r"
-    ○  nmzmmopx test.user@example.com 2001-02-03 08:05:26 b f4388b00
+    insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "yqosqzytrlswkspswpqrmlplxylrzsnz"]), @r"
+    ○  yqosqzyt test.user@example.com 2001-02-03 08:05:13 b 01d6741e
     │  (no description set)
-    │  -- operation f9ca975be13e touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    │  -- operation c1ee90a05107 touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
     ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:11 75591b18
     │  (no description set)
     │  -- operation 4b33c26502f8 snapshot working copy
@@ -300,12 +320,12 @@ fn test_touch() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "mzvwut"]), @r"
-    @  mzvwutvl test.user@example.com 2001-02-03 08:05:26 c d35b7dc2
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:13 c 0c3fe2d8
     │  (no description set)
-    │  -- operation f9ca975be13e touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    │  -- operation c1ee90a05107 touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
     ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:13 22be6c4e
     │  (no description set)
-    │  -- operation e17a76105256 snapshot working copy
+    │  -- operation 6cd93c8c2f48 snapshot working copy
     ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:11 b9f5490a
        (empty) (no description set)
        -- operation e3fbc5040416 new empty commit
