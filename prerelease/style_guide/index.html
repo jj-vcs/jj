@@ -1332,6 +1332,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#prefer-lower-level-tests-to-end-to-end-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prefer lower-level tests to end-to-end tests
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1734,6 +1743,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#prefer-lower-level-tests-to-end-to-end-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prefer lower-level tests to end-to-end tests
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1766,6 +1784,17 @@ documented invariants. For example, if a function is documented as requiring
 a non-empty slice as input, it's fine to call <code>slice[0]</code> and panic.</p>
 <h2 id="markdown">Markdown<a class="headerlink" href="#markdown" title="Permanent link">&para;</a></h2>
 <p>Try to wrap at 80 columns. We don't have a formatter yet.</p>
+<h2 id="prefer-lower-level-tests-to-end-to-end-tests">Prefer lower-level tests to end-to-end tests<a class="headerlink" href="#prefer-lower-level-tests-to-end-to-end-tests" title="Permanent link">&para;</a></h2>
+<p>When possible, prefer lower-level tests that don't use the <code>jj</code> binary.
+End-to-end tests are much slower than similar tests that create a repo using
+<code>jj-lib</code> (roughly 100x slower). It's also often easier to test edge cases in
+lower-level tests.</p>
+<p>It can still be useful to add a test case or two to check that the lower-level
+functionality is correctly hooked up in the CLI. For example, the end-to-end
+tests for <code>jj log</code> don't need to test that all kinds of revsets are evaluated
+correctly (we have tests in <code>jj-lib</code> for that), but they should check that the
+<code>-r</code> flag is respected.</p>
+<p>Use end-to-end tests for testing the CLI commands themselves.</p>
 
 
 
