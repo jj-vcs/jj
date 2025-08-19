@@ -109,6 +109,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   output using template expressions, similar to `jj op log`. Also added
   `--no-op-diff` flag to suppress the operation diff.
 
+* `jj revert` now accepts the revisions to revert as positional arguments in
+  addition to the `--revisions` flag.
+
 ### Fixed bugs
 
 * `jj git clone` now correctly fetches all tags, unless `--fetch-tags` is
