@@ -452,7 +452,7 @@ fn apply_diff_builtin(
                         executable,
                         copy_id,
                     })),
-                    Err(file_ids) => old_value.with_new_file_ids(&file_ids),
+                    Err(file_ids) => old_value.with_new_file_ids(&file_ids, executable, copy_id),
                 }
             } else {
                 panic!("unexpected content change at {path:?}: {old_value:?}");
@@ -772,6 +772,7 @@ mod tests {
     use proptest_state_machine::ReferenceStateMachine;
     use proptest_state_machine::StateMachineTest;
     use proptest_state_machine::prop_state_machine;
+    use test_case::test_case;
     use test_case::test_matrix;
     use testutils::TestRepo;
     use testutils::assert_tree_eq;
@@ -1942,6 +1943,195 @@ mod tests {
             all_changes_tree,
             "all-changes tree was different",
         );
+    }
+
+    #[derive(Clone, PartialEq, Eq, Debug)]
+    struct TreeFileMetadata {
+        executable: bool,
+        copy_id: CopyId,
+    }
+
+    impl Default for TreeFileMetadata {
+        fn default() -> Self {
+            Self {
+                executable: false,
+                copy_id: CopyId::placeholder(),
+            }
+        }
+    }
+
+    // A random unique copy ID that is unlikely to collide.
+    const TEST_COPY_ID: [u8; 10] = [0xa7, 0x4b, 0x34, 0xc2, 0xd9, 0xed, 0xe2, 0xf3, 0xe0, 0x99];
+    #[test_case(
+        TreeFileMetadata {
+            executable: false,
+            ..Default::default()
+        },
+        TreeFileMetadata {
+            executable: false,
+            ..Default::default()
+        },
+        |metadatas: &Merge<Option<TreeFileMetadata>>| {
+            let executables = metadatas.map(|metadata| {
+                metadata
+                    .as_ref()
+                    .map(|TreeFileMetadata { executable, .. }| *executable)
+            });
+            assert_eq!(
+                executables,
+                Merge::from_vec(vec![Some(false), Some(false), Some(false)]),
+                "all sides of the executable fields must be present and false"
+            );
+        };
+        "parents are both not executable"
+    )]
+    #[test_case(
+        TreeFileMetadata {
+            executable: true,
+            ..Default::default()
+        },
+        TreeFileMetadata {
+            executable: true,
+            ..Default::default()
+        },
+        |metadatas: &Merge<Option<TreeFileMetadata>>| {
+            let executables = metadatas.map(|metadata| {
+                metadata
+                    .as_ref()
+                    .map(|TreeFileMetadata { executable, .. }| *executable)
+            });
+            assert_eq!(
+                executables,
+                Merge::from_vec(vec![Some(true), Some(true), Some(true)]),
+                "all sides of the executable fields must be present and true"
+            );
+        };
+        "parents are both executable"
+    )]
+    #[test_case(
+        TreeFileMetadata {
+            executable: true,
+            ..Default::default()
+        },
+        TreeFileMetadata {
+            executable: false,
+            ..Default::default()
+        },
+        |_: &Merge<Option<TreeFileMetadata>>| {
+            // We shouldn't panic in this case.
+        };
+        "parents have different executable bits"
+    )]
+    #[test_case(
+        TreeFileMetadata {
+            copy_id: CopyId::new(TEST_COPY_ID.to_vec()),
+            ..Default::default()
+        },
+        TreeFileMetadata {
+            copy_id: CopyId::new(TEST_COPY_ID.to_vec()),
+            ..Default::default()
+        },
+        |metadatas: &Merge<Option<TreeFileMetadata>>| {
+            let copy_ids = metadatas.map(|metadata| {
+                metadata
+                    .as_ref()
+                    .map(|TreeFileMetadata { copy_id, .. }| copy_id.clone())
+            });
+            let copy_id = CopyId::new(TEST_COPY_ID.to_vec());
+            assert_eq!(
+                copy_ids,
+                Merge::from_vec(vec![Some(copy_id.clone()), Some(copy_id.clone()), Some(copy_id)]),
+                "all sides of the copy id fields must be the same"
+            );
+        };
+        "parents have the same copy id"
+    )]
+    #[test_case(
+        TreeFileMetadata {
+            copy_id: CopyId::new(TEST_COPY_ID.to_vec()),
+            ..Default::default()
+        },
+        TreeFileMetadata {
+            copy_id: CopyId::new(vec![0x96, 0x79, 0x0f, 0xfe, 0x50, 0x80, 0xdb, 0xde, 0x9a, 0x68]),
+            ..Default::default()
+        },
+        |_: &Merge<Option<TreeFileMetadata>>| {
+            // We shouldn't panic in this case.
+        };
+        "parents have different copy ids"
+    )]
+    fn test_append_diff_builtin_conflict_file(
+        parent1_file_metadata: TreeFileMetadata,
+        parent2_file_metadata: TreeFileMetadata,
+        matcher: impl FnOnce(&Merge<Option<TreeFileMetadata>>),
+    ) {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+
+        let parent1_contents = "parent1\n";
+        let parent2_contents = "parent2\n";
+        let contents_to_append = "appended\n";
+        let file_path = repo_path("file");
+        let left_tree = {
+            let mut tree_builder = testutils::TestThreeWayMergeTreeBuilder::new(Arc::clone(store));
+            tree_builder
+                .parent1()
+                .file(file_path, parent1_contents)
+                .executable(parent1_file_metadata.executable)
+                .copy_id(parent1_file_metadata.copy_id.clone());
+            tree_builder
+                .parent2()
+                .file(file_path, parent2_contents)
+                .executable(parent2_file_metadata.executable)
+                .copy_id(parent2_file_metadata.copy_id.clone());
+            tree_builder.write_merged_tree()
+        };
+
+        // Create another tree similar to left_tree, and append contents after the
+        // conflict.
+        let right_tree = {
+            let mut tree_builder = testutils::TestThreeWayMergeTreeBuilder::new(Arc::clone(store));
+            tree_builder.base().file(file_path, contents_to_append);
+            tree_builder
+                .parent1()
+                .file(file_path, format!("{parent1_contents}{contents_to_append}"))
+                .executable(parent1_file_metadata.executable)
+                .copy_id(parent1_file_metadata.copy_id.clone());
+            tree_builder
+                .parent2()
+                .file(file_path, format!("{parent2_contents}{contents_to_append}"))
+                .executable(parent2_file_metadata.executable)
+                .copy_id(parent2_file_metadata.copy_id.clone());
+            tree_builder.write_merged_tree()
+        };
+
+        let (changed_files, mut files) = make_diff(store, &left_tree, &right_tree);
+        for file in &mut files {
+            file.toggle_all();
+        }
+        let tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        let actual_file_metadatas =
+            tree.path_value_async(file_path)
+                .block_on()
+                .unwrap()
+                .map(|tree_value| {
+                    let Some(tree_value) = tree_value else {
+                        return None;
+                    };
+                    let TreeValue::File {
+                        executable,
+                        copy_id,
+                        ..
+                    } = tree_value
+                    else {
+                        panic!("All sides of the conflict should be either a file or absent.");
+                    };
+                    Some(TreeFileMetadata {
+                        executable: *executable,
+                        copy_id: copy_id.clone(),
+                    })
+                });
+        matcher(&actual_file_metadatas);
     }
 
     #[test]

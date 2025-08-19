@@ -14,7 +14,16 @@
 
 use std::path::Path;
 
+use bstr::ByteSlice as _;
 use indoc::indoc;
+use jj_lib::merge::Merge;
+use jj_lib::ref_name::WorkspaceName;
+use jj_lib::repo::Repo as _;
+use jj_lib::repo::RepoLoader;
+use jj_lib::repo::StoreFactories;
+use pollster::FutureExt as _;
+use test_case::test_case;
+use testutils::TestTreeBuilder;
 
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
@@ -879,6 +888,132 @@ fn test_simplify_conflict_sides() {
     fileB    2-sided conflict
     [EOF]
     ");
+}
+
+#[test_case(
+    false, false => Merge::from_vec(vec![Some(false), Some(false), Some(false)]);
+    "parents are both not executable"
+)]
+#[test_case(
+    true, true => Merge::from_vec(vec![Some(true), Some(true), Some(true)]);
+    "parents are both executable"
+)]
+fn test_append_to_conflicts_should_keep_metadata(
+    parent1_file_executable: bool,
+    parent2_file_executable: bool,
+) -> Merge<Option<bool>> {
+    // In this test, we create the following commits, checkout the merge commit, use
+    // the external merge tool with the jj resolve command. We only append a new
+    // line at the end of the conflict file, and do not resolve the conflicts. We
+    // verify that the metadata of the files in the tree should be expected.
+
+    // D
+    // |\
+    // B C
+    // |/
+    // A
+    //
+    // A: empty commit
+    // B, C: create the same file with different contents, and given metadata.
+    // D: the merge change.
+
+    let repo_path = "repo";
+    let mut test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", repo_path])
+        .success();
+    let work_dir = test_env.work_dir(repo_path);
+    let repo = RepoLoader::init_from_file_system(
+        &testutils::user_settings(),
+        &work_dir.root().join(".jj").join("repo"),
+        &StoreFactories::default(),
+    )
+    .unwrap()
+    .load_at_head()
+    .unwrap();
+    let store = repo.store();
+    let base_commit = store.root_commit();
+    let file_name = "test-file";
+    let file_repo_path = testutils::repo_path(file_name);
+    let mut tx = repo.start_transaction();
+    let mut tree_builder = TestTreeBuilder::new(store.clone());
+    // The file content must cause a conflict to trigger the code under testing, so
+    // the parent1 and parent2 commit have different contents on the same file.
+    tree_builder
+        .file(file_repo_path, "parent1\n")
+        .executable(parent1_file_executable);
+    let parent1_commit = tx
+        .repo_mut()
+        .new_commit(
+            vec![base_commit.id().clone()],
+            tree_builder.write_merged_tree(),
+        )
+        .write()
+        .unwrap();
+    let mut tree_builder = TestTreeBuilder::new(store.clone());
+    tree_builder
+        .file(file_repo_path, "parent2\n")
+        .executable(parent2_file_executable);
+    let parent2_commit = tx
+        .repo_mut()
+        .new_commit(
+            vec![base_commit.id().clone()],
+            tree_builder.write_merged_tree(),
+        )
+        .write()
+        .unwrap();
+    // Update the repo to pick up the new commits.
+    tx.commit("create parent commits").unwrap();
+
+    // Create the merge commit.
+    test_env
+        .run_jj_in(
+            repo_path,
+            [
+                "new",
+                &parent1_commit.id().to_string(),
+                &parent2_commit.id().to_string(),
+            ],
+        )
+        .success();
+
+    // Append to the original changes in the external merge tool.
+    let mut contents = std::fs::read(work_dir.root().join(file_name)).unwrap();
+    contents.extend_from_slice(b"contents to append\n");
+    let contents = contents.to_str().unwrap();
+    let editor_script = test_env.set_up_fake_editor();
+    std::fs::write(editor_script, format!("write\n{contents}")).unwrap();
+    let work_dir = test_env.work_dir(repo_path);
+    work_dir
+        .run_jj([
+            "resolve",
+            // Set merge-tool-edits-conflict-markers so that the file won't be resolved.
+            "--config=merge-tools.fake-editor.merge-tool-edits-conflict-markers=true",
+            file_name,
+        ])
+        .success();
+
+    let repo = RepoLoader::init_from_file_system(
+        &testutils::user_settings(),
+        &work_dir.root().join(".jj").join("repo"),
+        &StoreFactories::default(),
+    )
+    .unwrap()
+    .load_at_head()
+    .unwrap();
+    let commit = repo
+        .view()
+        .get_wc_commit_id(WorkspaceName::DEFAULT)
+        .unwrap();
+    repo.store()
+        .get_commit(commit)
+        .unwrap()
+        .tree()
+        .path_value_async(file_repo_path)
+        .block_on()
+        .unwrap()
+        .to_executable_merge()
+        .expect("The path must point to a file")
 }
 
 #[test]
