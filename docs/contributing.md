@@ -291,6 +291,14 @@ We recommend at least these settings:
 }
 ```
 
+#### Helix
+
+```toml
+# .helix/languages.toml
+[language-server.rust-analyzer.config.rustfmt]
+extraArgs = ["+nightly"]
+```
+
 ### Alternative development setup with `mise`
 
 An experimental development setup is available using
