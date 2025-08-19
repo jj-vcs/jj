@@ -9016,6 +9016,9 @@ J           J
 <li><code>-r</code>, <code>--revision &lt;REVSET&gt;</code> — Revision to squash into its parent (default: @)</li>
 <li><code>-f</code>, <code>--from &lt;REVSETS&gt;</code> — Revision(s) to squash from (default: @)</li>
 <li><code>-t</code>, <code>--into &lt;REVSET&gt;</code> [alias: <code>to</code>] — Revision to squash into (default: @)</li>
+<li><code>-d</code>, <code>--destination &lt;REVSETS&gt;</code> — The revision(s) to use as parent for the new commit (can be repeated to create a merge commit)</li>
+<li><code>-A</code>, <code>--insert-after &lt;REVSETS&gt;</code> [alias: <code>after</code>] — The revision(s) to insert the new commit after (can be repeated to create a merge commit)</li>
+<li><code>-B</code>, <code>--insert-before &lt;REVSETS&gt;</code> [alias: <code>before</code>] — The revision(s) to insert the new commit before (can be repeated to create a merge commit)</li>
 <li><code>-m</code>, <code>--message &lt;MESSAGE&gt;</code> — The description to use for squashed revision (don't open editor)</li>
 <li><code>-u</code>, <code>--use-destination-message</code> — Use the description of the destination revision and discard the description(s) of the source revision(s)</li>
 <li><code>-i</code>, <code>--interactive</code> — Interactively choose which parts to squash</li>
