@@ -43,6 +43,7 @@ use jj_lib::revset::PARENTS_RANGE_FULL;
 use jj_lib::revset::ResolvedExpression;
 use maplit::hashset;
 use pollster::FutureExt as _;
+use test_case::test_case;
 use testutils::TestRepo;
 use testutils::commit_transactions;
 use testutils::create_tree;
@@ -1082,6 +1083,80 @@ fn test_merge_changed_path_segments_enabled_and_disabled() {
     let stats = as_readonly_index(&repo).stats();
     assert_eq!(stats.num_commits, 5);
     assert_eq!(stats.changed_path_commits_range, Some(2..3));
+}
+
+#[test_case(false; "without changed-path index")]
+#[test_case(true; "with changed-path index")]
+fn test_commit_is_empty(indexed: bool) {
+    let test_repo = TestRepo::init();
+    let repo = if indexed {
+        enable_changed_path_index(&test_repo.repo)
+    } else {
+        test_repo.repo
+    };
+    let root_commit_id = repo.store().root_commit_id();
+    let root_tree_id = repo.store().empty_merged_tree_id();
+
+    let tree2 = create_tree(&repo, &[(repo_path("a"), "")]);
+    let tree3 = create_tree(&repo, &[(repo_path("b"), "")]);
+    let tree4 = create_tree(&repo, &[(repo_path("a"), ""), (repo_path("b"), "")]);
+
+    let mut tx = repo.start_transaction();
+    let commit1 = tx
+        .repo_mut()
+        .new_commit(vec![root_commit_id.clone()], root_tree_id.clone())
+        .write()
+        .unwrap();
+    let commit2 = tx
+        .repo_mut()
+        .new_commit(vec![root_commit_id.clone()], tree2.id())
+        .write()
+        .unwrap();
+    let commit3 = tx
+        .repo_mut()
+        .new_commit(vec![root_commit_id.clone()], tree3.id())
+        .write()
+        .unwrap();
+    let commit4 = tx
+        .repo_mut()
+        .new_commit(
+            vec![
+                commit1.id().clone(),
+                commit2.id().clone(),
+                commit3.id().clone(),
+            ],
+            tree4.id(),
+        )
+        .write()
+        .unwrap();
+    let repo = tx.commit("test").unwrap();
+
+    // Sanity check
+    let stats = as_readonly_index(&repo).stats();
+    if indexed {
+        assert_eq!(stats.changed_path_commits_range, Some(1..5));
+    } else {
+        assert_eq!(stats.changed_path_commits_range, None);
+    }
+
+    assert!(commit1.is_empty(repo.as_ref()).unwrap());
+    assert!(!commit2.is_empty(repo.as_ref()).unwrap());
+    assert!(!commit3.is_empty(repo.as_ref()).unwrap());
+    assert!(commit4.is_empty(repo.as_ref()).unwrap());
+
+    assert_eq!(
+        commit1.parent_tree(repo.as_ref()).unwrap().id(),
+        root_tree_id
+    );
+    assert_eq!(
+        commit2.parent_tree(repo.as_ref()).unwrap().id(),
+        root_tree_id
+    );
+    assert_eq!(
+        commit3.parent_tree(repo.as_ref()).unwrap().id(),
+        root_tree_id
+    );
+    assert_eq!(commit4.parent_tree(repo.as_ref()).unwrap().id(), tree4.id());
 }
 
 #[test]

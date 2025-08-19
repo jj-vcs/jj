@@ -27,6 +27,7 @@ use itertools::Itertools as _;
 use pollster::FutureExt as _;
 
 use crate::backend;
+use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
@@ -127,6 +128,12 @@ impl Commit {
     /// Return the parent tree, merging the parent trees if there are multiple
     /// parents.
     pub fn parent_tree(&self, repo: &dyn Repo) -> BackendResult<MergedTree> {
+        // Avoid merging parent trees if known to be empty. The index could be
+        // queried only when parents.len() > 1, but index query would be cheaper
+        // than extracting parent commit from the store.
+        if is_commit_empty_by_index(repo, &self.id)? == Some(true) {
+            return self.tree();
+        }
         let parents: Vec<_> = self.parents().try_collect()?;
         merge_commit_trees(repo, &parents).block_on()
     }
@@ -134,6 +141,9 @@ impl Commit {
     /// Returns whether commit's content is empty. Commit description is not
     /// taken into consideration.
     pub fn is_empty(&self, repo: &dyn Repo) -> BackendResult<bool> {
+        if let Some(empty) = is_commit_empty_by_index(repo, &self.id)? {
+            return Ok(empty);
+        }
         is_backend_commit_empty(repo, &self.store, &self.data)
     }
 
@@ -207,6 +217,15 @@ pub(crate) fn is_backend_commit_empty(
         .try_collect()?;
     let parent_tree = merge_commit_trees(repo, &parents).block_on()?;
     Ok(commit.root_tree == parent_tree.id())
+}
+
+fn is_commit_empty_by_index(repo: &dyn Repo, id: &CommitId) -> BackendResult<Option<bool>> {
+    let maybe_paths = repo
+        .index()
+        .changed_paths_in_commit(id)
+        // TODO: index error shouldn't be a "BackendError"
+        .map_err(|err| BackendError::Other(err.into()))?;
+    Ok(maybe_paths.map(|mut paths| paths.next().is_none()))
 }
 
 pub trait CommitIteratorExt<'c, I> {
