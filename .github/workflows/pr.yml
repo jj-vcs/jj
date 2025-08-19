@@ -1,8 +1,13 @@
 name: Validate pull request
 
+# on:
+#   pull_request_target:
+#     types: [opened, synchronize, edited]
+
 on:
-  pull_request_target:
-    types: [opened, synchronize, edited]
+  push:
+    branches:
+      - 'gha-err'
 
 permissions:
   contents: read
