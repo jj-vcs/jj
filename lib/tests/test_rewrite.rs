@@ -35,6 +35,7 @@ use jj_lib::rewrite::MoveCommitsTarget;
 use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RewriteRefsOptions;
 use jj_lib::rewrite::find_duplicate_divergent_commits;
+use jj_lib::rewrite::find_recursive_merge_commits;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::rewrite::rebase_commit_with_options;
 use jj_lib::rewrite::restore_tree;
@@ -109,6 +110,37 @@ fn test_merge_criss_cross() {
         .unwrap();
 
     assert_eq!(merged, tree_expected);
+}
+
+#[test]
+fn test_find_recursive_merge_commits() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
+
+    let commit_id_merge = find_recursive_merge_commits(
+        tx.repo().store(),
+        tx.repo().index(),
+        vec![commit_d.id().clone(), commit_e.id().clone()],
+    )
+    .unwrap();
+
+    assert_eq!(
+        commit_id_merge,
+        Merge::from_vec(vec![
+            commit_d.id().clone(),
+            commit_b.id().clone(),
+            commit_a.id().clone(),
+            commit_c.id().clone(),
+            commit_e.id().clone(),
+        ])
+    );
 }
 
 #[test]

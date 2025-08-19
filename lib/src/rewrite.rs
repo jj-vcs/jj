@@ -39,6 +39,7 @@ use crate::index::Index;
 use crate::index::IndexError;
 use crate::matchers::Matcher;
 use crate::matchers::Visit;
+use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
 use crate::merged_tree::MergedTreeBuilder;
 use crate::merged_tree::TreeDiffEntry;
@@ -69,28 +70,44 @@ pub async fn merge_commit_trees_no_resolve_without_repo(
     index: &dyn Index,
     commits: &[Commit],
 ) -> BackendResult<MergedTree> {
-    if commits.is_empty() {
-        Ok(store
-            .get_root_tree_async(&store.empty_merged_tree_id())
-            .await?)
+    let commit_ids = commits
+        .iter()
+        .map(|commit| commit.id().clone())
+        .collect_vec();
+    let commit_id_merge = find_recursive_merge_commits(store, index, commit_ids)?;
+    let tree_merge = commit_id_merge
+        .try_map_async(async |commit_id| {
+            let commit = store.get_commit_async(commit_id).await?;
+            let tree = commit.tree_async().await?;
+            Ok::<_, BackendError>(tree.take())
+        })
+        .await?;
+    Ok(MergedTree::new(tree_merge.flatten().simplify()))
+}
+
+/// Find the commits to use as input to the recursive merge algorithm.
+pub fn find_recursive_merge_commits(
+    store: &Arc<Store>,
+    index: &dyn Index,
+    mut commit_ids: Vec<CommitId>,
+) -> BackendResult<Merge<CommitId>> {
+    if commit_ids.is_empty() {
+        Ok(Merge::resolved(store.root_commit_id().clone()))
+    } else if commit_ids.len() == 1 {
+        Ok(Merge::resolved(commit_ids.pop().unwrap()))
     } else {
-        let mut new_tree = commits[0].tree_async().await?;
-        let commit_ids = commits
-            .iter()
-            .map(|commit| commit.id().clone())
-            .collect_vec();
-        for (i, other_commit) in commits.iter().enumerate().skip(1) {
+        let mut result = Merge::resolved(commit_ids[0].clone());
+        for (i, other_commit_id) in commit_ids.iter().enumerate().skip(1) {
             let ancestor_ids = index.common_ancestors(&commit_ids[0..i], &commit_ids[i..][..1]);
-            let ancestors: Vec<_> =
-                try_join_all(ancestor_ids.iter().map(|id| store.get_commit_async(id))).await?;
-            let ancestor_tree = Box::pin(merge_commit_trees_no_resolve_without_repo(
-                store, index, &ancestors,
-            ))
-            .await?;
-            let other_tree = other_commit.tree_async().await?;
-            new_tree = new_tree.merge_no_resolve(ancestor_tree, other_tree);
+            let ancestor_merge = find_recursive_merge_commits(store, index, ancestor_ids)?;
+            result = Merge::from_vec(vec![
+                result,
+                ancestor_merge,
+                Merge::resolved(other_commit_id.clone()),
+            ])
+            .flatten();
         }
-        Ok(new_tree)
+        Ok(result)
     }
 }
 
