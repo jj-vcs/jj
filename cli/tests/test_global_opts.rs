@@ -728,15 +728,17 @@ fn test_config_args() {
     let output = list_config(&[
         "--config=test.key1=arg1",
         "--config-file=file1.toml",
+        "--config=test.key2=arg3",
         "--config-file=file2.toml",
     ]);
-    insta::assert_snapshot!(output, @r##"
+    insta::assert_snapshot!(output, @r#"
     # test.key1 = "arg1"
     test.key1 = 'file1'
-    test.key2 = 'file1'
+    # test.key2 = 'file1'
+    test.key2 = "arg3"
     test.key3 = 'file2'
     [EOF]
-    "##);
+    "#);
 
     let output = test_env.run_jj_in(".", ["config", "list", "--config=foo"]);
     insta::assert_snapshot!(output, @r"
