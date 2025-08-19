@@ -3802,7 +3802,8 @@ impl<'a> CliRunner<'a> {
             .map_err(|_| {
                 user_error_with_hint(
                     "Could not determine current directory",
-                    "Did you update to a commit where the directory doesn't exist?",
+                    "Did you update to a commit where the directory doesn't exist or can't be \
+                     accessed?",
                 )
             })?;
         let mut config_env = ConfigEnv::from_environment(ui);

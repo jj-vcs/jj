@@ -34,6 +34,7 @@ contribute or not.
 * martinvonz
 * matts1
 * matttproud
+* michaelchirico
 * mlcui-corp
 * orthros
 * prattmic
