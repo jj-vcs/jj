@@ -317,47 +317,58 @@ Done with feature A
 Working on feature B
 ```
 
-#### Step 1: Find the commit id for the "last good version"
+The goal is to restore change `lnvvtrzo` to its previous state and split the
+difference into a new child commit.
 
-<!-- TODO: Reorganize the two related questions, this one and
-  -- the one linked below
-  -->
-You can find [all the past versions of the working copy revision that `jj` has
-saved](#jj-is-said-to-record-the-working-copy-after-jj-log-and-every-other-command-where-can-i-see-these-automatic-saves)
-by running `jj evolog`. The obsolete versions will be marked as "hidden" and
-will have the same change id, but will have different commit ids. This
-represents different [commits] that are all parts of the same [change].
+#### Step 1: Find the commit ID for the "last good version"
+
+If you pushed `lnvvtrzo` already, then the version you probably want to restore
+is the version on the remote. For example, if the bookmark is `feature-a`, then
+the commit you want to restore is `feature-a@origin`.
+
+Otherwise, you can find [all the past versions of the working copy revision that
+`jj` has saved][predecessors] by running `jj evolog`, perhaps with the `--patch`
+option. The obsolete versions will be marked as "hidden" and will have the same
+change ID, but will have different commit IDs. This represents the [change]
+evolving over time.
+
+[predecessors]:
+  #jj-is-said-to-record-the-working-copy-after-jj-log-and-every-other-command-where-can-i-see-these-automatic-saves
 
 For example, this is what the evolog might look like after you made two edits to
 the same change:
 
 ```console
-$ # Note the word "hidden", the commit ids on the right,
-$ # and the unchanging change id on the left.
+$ # Note the word "hidden", the commit IDs on the right,
+$ # and the unchanging change ID on the left.
 $ jj evolog
 @  lnvvtrzo jjfan@example.org 2025-02-28 21:01:10 31a347e0
 │  featureA
+│  -- operation 3cb7392c092c snapshot working copy
 ○  lnvvtrzo hidden jjfan@example.org 2025-02-28 21:00:51 b8004ab8
 │  featureA
+│  -- operation 1280bfaec893 snapshot working copy
 ○  lnvvtrzo hidden jjfan@example.org 2025-02-28 20:50:05 e4d831d
    (no description set)
+   -- operation 0418a5aa94b5 snapshot working copy
 ```
 
 Since commit `b800` is hidden, it is considered obsolete and `jj log` (without
-arguments) will not show it, nor can it be accessed by its change id. However,
-most `jj` operations work normally on such commits if you refer to them by their
-commit id.
+arguments) will not show it, nor can it be accessed by its change ID `lnvvtrzo`.
+However, most `jj` operations work normally on such commits if you refer to them
+by their commit ID.
 
 To find out which of these versions is the last time before we started working
-on feature B (the point where we should have created a new change, but failed
-to do so), we can look at the actual changes between the `evolog` commits by
-running `jj evolog -p`:
+on feature B (the point where we should have created a new change, but failed to
+do so), we can look at the actual changes between the `evolog` commits by
+running `jj evolog --patch`:
 
 ```console
 $ # When was the last saved point before we started working on feature B?
-$ jj evolog -p --git  # We use `--git` to make diffs clear without colors
+$ jj evolog --patch --git  # We use `--git` to make diffs clear without colors
 @  lnvvtrzo jjfan@example.org 2025-02-28 21:01:10 31a347e0
 │  featureA
+│  -- operation 3cb7392c092c snapshot working copy
 │  diff --git a/file b/file
 │  index 2b455c4207..2a7e05a01a 100644
 │  --- a/file
@@ -367,6 +378,7 @@ $ jj evolog -p --git  # We use `--git` to make diffs clear without colors
 │  +Working on feature B
 ○  lnvvtrzo hidden jjfan@example.org 2025-02-28 21:00:51 b8004ab8
 │  featureA
+│  -- operation 1280bfaec893 snapshot working copy
 │  diff --git a/file b/file
 │  index cb61245109..2b455c4207
 │  --- a/file
@@ -376,6 +388,7 @@ $ jj evolog -p --git  # We use `--git` to make diffs clear without colors
 │  +Done with feature A
 ○  lnvvtrzo hidden jjfan@example.org 2025-02-28 20:50:05 e4d831d
    (no description set)
+   -- operation 0418a5aa94b5 snapshot working copy
    diff --git a/file b/file
    index 0000000000..cb61245109
    --- /dev/null
@@ -386,10 +399,10 @@ $ jj evolog -p --git  # We use `--git` to make diffs clear without colors
 
 In this example, the version of the change when we were actually done with
 feature A is when we edited the file to say "Done with feature A". This state
-was saved in the commit with id `b80` (the second one in the list). The
+was saved in the commit with ID `b80` (the second one in the list). The
 following edit (commit `31a`) belongs in a new change.
 
-#### Step 2: Create a new change for the current state and restore the existing change to the older state
+#### Step 2: Create a new change on top of the original revision
 
 The "featureA" change is currently at commit `31a`:
 
@@ -402,59 +415,45 @@ $ jj log
 
 We'd like to create a new "featureB" change with the contents of the current
 commit `31a`, and we'd like the "featureA" change to be reverted to its former
-state at commit `b80` (see step 1 above for how we found that commit id).
+state at commit `b80` (see step 1 above for how we found that commit ID).
 
-First, we create a new empty child commit. Since it is empty, it has the same
-contents as `31a`.
+First, we create a new empty child commit on top of `b80`:
 
 ```console
-$ jj new -m "featureB"
+$ jj new b80 -m "featureB"
 Working copy  (@) now at: pvnrkl 47171aa (empty) featureB
-Parent commit (@-)      : lnvvtr 31a347e featureA
+Parent commit (@-)      : lnvvtr?? b8004ab featureA
+```
+
+Notice the change ID has "??" appended to it. This indicates that change ID
+`lnvvtr` is now [divergent][glossary_divergence]: There are two visible commits
+with the same change ID (commit `b8004ab` and `31a347e0`). This is okay and will
+be resolved in the next steps.
+
+[glossary_divergence]: glossary.md#divergent-change
+
+Next, restore the contents of `31a347e0` into the working copy:
+
+```console
+$ jj restore --from 31a347e0
+Working copy  (@) now at: pvnrkl 468104c featureB
+Parent commit (@-)      : lnvvtr?? b8004ea featureA
 $ cat file
 Done with feature A
 Working on feature B
 ```
 
-Now, we `jj restore` the change `lnvvtr` to its state at commit `b80`. We use
-the `--restore-descendants` flag so that the *file contents* (AKA snapshot) of
-the "featureB" change is preserved.
+#### Step 3: Move any bookmarks to the original revision
 
 ```console
-$ # We refer to `lnvvtr` as `@-` for brevity
-$ jj restore --from b80 --into @- --restore-descendants
-Created lnvvtr 599994e featureA
-Rebased 1 descendant commits (while preserving their content)
-Working copy  (@) now at: pvnrkl 468104c featureB
-Parent commit (@-)      : lnvvtr 599994e featureA
+$ jj bookmark move --from 31a347e0 --to b8004ea8
 ```
 
-Even though `@-` was modified, `--restore-descendants` preserved the contents of
-the current change:
+#### Step 4: Abandon the unwanted revision
 
 ```console
-$ jj file show -r @ file  # Same as `cat file`
-Done with feature A
-Working on feature B
-$ jj file show -r @- file
-Done with feature A
+$ jj abandon 31a347e0
 ```
-
-??? info "More details on what `--restore-descendants` does"
-
-    When we ran the `jj restore` command, the working copy change `@` was
-    at commit `471` and `@` was the only child of `@-`. In this situation,
-
-    ```shell
-    jj restore --from b80 --into @- --restore-descendants
-    ```
-
-    is equivalent to
-
-    ```shell
-    jj restore --from b80 --into @-
-    jj restore --from 471 --into @
-    ```
 
 Now, we have achieved the exact state we desired:
 
@@ -469,7 +468,7 @@ $ jj log -p --git
 │  @@ -1,1 +1,2 @@
 │   Done with feature A
 │  +Working on feature B
-○  lnvvtrzo jjfan@example.org 2025-02-28 21:39:29 599994ee
+○  lnvvtrzo jjfan@example.org 2025-02-28 21:00:51 b8004ab8
 │  featureA
 │  diff --git a/file b/file
 │  new file mode 100644
