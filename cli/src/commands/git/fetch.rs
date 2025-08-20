@@ -148,7 +148,27 @@ pub fn cmd_git_fetch(
     };
 
     let mut tx = workspace_command.start_transaction();
-    do_git_fetch(ui, &mut tx, branches_by_remote)?;
+    let git_settings = tx.settings().git_settings()?;
+    let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
+
+    for (remote, branches) in branches_by_remote {
+        // Skip remotes with no branches to fetch
+        if branches.is_empty() {
+            continue;
+        }
+        with_remote_git_callbacks(ui, |callbacks| {
+            git_fetch.fetch(
+                remote,
+                expand_fetch_refspecs(remote, branches)?,
+                callbacks,
+                None,
+                None,
+            )
+        })?;
+    }
+
+    let import_stats = git_fetch.import_refs()?;
+    print_git_import_stats(ui, tx.repo(), &import_stats, true)?;
     warn_if_branches_not_found(ui, &tx, &args.branch, &remotes)?;
     tx.finish(
         ui,
@@ -192,35 +212,6 @@ fn get_default_fetch_remotes(
 
 fn parse_remote_pattern(remote: &str) -> Result<StringPattern, CommandError> {
     StringPattern::parse(remote).map_err(config_error)
-}
-
-fn do_git_fetch(
-    ui: &mut Ui,
-    tx: &mut WorkspaceCommandTransaction,
-    branches_by_remote: Vec<(&RemoteName, Vec<StringPattern>)>,
-) -> Result<(), CommandError> {
-    let git_settings = tx.settings().git_settings()?;
-    let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
-
-    for (remote, branches) in branches_by_remote {
-        // Skip remotes with no branches to fetch
-        if branches.is_empty() {
-            continue;
-        }
-        with_remote_git_callbacks(ui, |callbacks| {
-            git_fetch.fetch(
-                remote,
-                expand_fetch_refspecs(remote, branches)?,
-                callbacks,
-                None,
-                None,
-            )
-        })?;
-    }
-
-    let import_stats = git_fetch.import_refs()?;
-    print_git_import_stats(ui, tx.repo(), &import_stats, true)?;
-    Ok(())
 }
 
 fn warn_if_branches_not_found(
