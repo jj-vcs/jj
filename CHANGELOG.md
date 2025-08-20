@@ -737,6 +737,9 @@ Thanks to the people who made this release happen!
 * Add support for `--when.hostnames` config scopes. This allows configuration to
   be conditionally applied based on the hostname set in `operation.hostname`.
 
+* `jj squash` now has a `--restore-descendants` option to preserve the snapshots
+  of the children of the modified commits.
+
 * `jj bisect run` accepts the command and arguments to pass to the command
   directly as positional arguments, such as
   `jj bisect --range=..main -- cargo check --all-targets`.
