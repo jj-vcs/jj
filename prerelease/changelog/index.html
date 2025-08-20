@@ -5714,6 +5714,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   used to generate a new change-id, which may help resolve some divergences.</p>
 </li>
 <li>
+<p>Filesets now support case-insensitive glob patterns with the <code>glob-i:</code>, 
+  <code>cwd-glob-i:</code>, and <code>root-glob-i:</code> pattern kinds. For example, <code>glob-i:"*.rs"</code> 
+  will match both <code>file.rs</code> and <code>FILE.RS</code>.</p>
+</li>
+<li>
 <p><code>jj op show</code> now accepts <code>-T</code>/<code>--template</code> option to customize the operation
   output using template expressions, similar to <code>jj op log</code>. Also added
   <code>--no-op-diff</code> flag to suppress the operation diff.</p>
