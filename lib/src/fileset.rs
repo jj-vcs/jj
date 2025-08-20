@@ -234,16 +234,11 @@ fn is_glob_char(c: char) -> bool {
     GLOB_CHARS.contains(&c)
 }
 
-/// Checks if input contains glob metacharacters.
-fn contains_glob_chars(input: &str) -> bool {
-    input.chars().any(is_glob_char)
-}
-
 /// Splits `input` path into literal directory path and glob pattern.
 fn split_glob_path(input: &str) -> (&str, &str) {
     let prefix_len = input
         .split_inclusive(path::is_separator)
-        .take_while(|component| !contains_glob_chars(component))
+        .take_while(|component| !component.contains(is_glob_char))
         .map(|component| component.len())
         .sum();
     input.split_at(prefix_len)
@@ -255,10 +250,7 @@ fn split_glob_path_i(input: &str) -> (&str, &str) {
     let prefix_len = input
         .split_inclusive(path::is_separator)
         .take_while(|component| {
-            !component
-                .trim_end_matches(path::is_separator)
-                .chars()
-                .any(|c| c.is_ascii_alphabetic() || is_glob_char(c))
+            !component.contains(|c: char| c.is_ascii_alphabetic() || is_glob_char(c))
         })
         .map(|component| component.len())
         .sum();
