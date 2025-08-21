@@ -271,7 +271,8 @@ fn fetch_new_remote(
     with_remote_git_callbacks(ui, |cb| {
         git_fetch.fetch(
             remote_name,
-            expand_fetch_refspecs(remote_name, vec![StringPattern::everything()])?,
+            expand_fetch_refspecs(remote_name, vec![StringPattern::everything()])
+                .expect("Valid default refspec"),
             cb,
             depth,
             match fetch_tags {

@@ -2188,11 +2188,6 @@ const INVALID_REFSPEC_CHARS: [char; 5] = [':', '^', '?', '[', ']'];
 pub enum GitFetchError {
     #[error("No git remote named '{}'", .0.as_symbol())]
     NoSuchRemote(RemoteNameBuf),
-    #[error(
-        "Invalid branch pattern provided. When fetching, branch names and globs may not contain the characters `{chars}`",
-        chars = INVALID_REFSPEC_CHARS.iter().join("`, `")
-    )]
-    InvalidBranchPattern(StringPattern),
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
     #[error(transparent)]
@@ -2223,11 +2218,20 @@ pub struct ExpandedFetchRefSpecs {
     negative_refspecs: Vec<NegativeRefSpec>,
 }
 
+#[derive(Error, Debug)]
+pub enum GitRefExpansionError {
+    #[error(
+        "Invalid branch pattern provided. When fetching, branch names and globs may not contain the characters `{chars}`",
+        chars = INVALID_REFSPEC_CHARS.iter().join("`, `")
+    )]
+    InvalidBranchPattern(StringPattern),
+}
+
 /// Expand a list of branch string patterns to refspecs to fetch
 pub fn expand_fetch_refspecs(
     remote: &RemoteName,
     branch_names: Vec<StringPattern>,
-) -> Result<ExpandedFetchRefSpecs, GitFetchError> {
+) -> Result<ExpandedFetchRefSpecs, GitRefExpansionError> {
     let refspecs = branch_names
         .iter()
         .map(|pattern| {
@@ -2244,7 +2248,7 @@ pub fn expand_fetch_refspecs(
                         format!("refs/remotes/{remote}/{glob}", remote = remote.as_str()),
                     )
                 })
-                .ok_or_else(|| GitFetchError::InvalidBranchPattern(pattern.clone()))
+                .ok_or_else(|| GitRefExpansionError::InvalidBranchPattern(pattern.clone()))
         })
         .try_collect()?;
 

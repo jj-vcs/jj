@@ -146,9 +146,11 @@ fn git_fetch(
     fetch_tags_override: Option<FetchTagsOverride>,
 ) -> Result<GitFetchStats, GitFetchError> {
     let mut git_fetch = GitFetch::new(mut_repo, git_settings).unwrap();
+    let fetch_refspecs =
+        expand_fetch_refspecs(remote_name, branch_names).expect("Valid refspecs to fetch");
     git_fetch.fetch(
         remote_name,
-        expand_fetch_refspecs(remote_name, branch_names)?,
+        fetch_refspecs,
         git::RemoteCallbacks::default(),
         None,
         fetch_tags_override,

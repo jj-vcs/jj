@@ -525,6 +525,7 @@ mod git {
     use jj_lib::git::GitFetchError;
     use jj_lib::git::GitImportError;
     use jj_lib::git::GitPushError;
+    use jj_lib::git::GitRefExpansionError;
     use jj_lib::git::GitRemoteManagementError;
     use jj_lib::git::GitResetHeadError;
     use jj_lib::git::UnexpectedGitBackendError;
@@ -561,21 +562,12 @@ jj currently does not support partial clones. To use jj with this repository, tr
 
     impl From<GitFetchError> for CommandError {
         fn from(err: GitFetchError) -> Self {
-            if let GitFetchError::InvalidBranchPattern(pattern) = &err
-                && pattern.as_exact().is_some_and(|s| s.contains('*'))
-            {
-                return user_error_with_hint(
-                    "Branch names may not include `*`.",
-                    "Prefix the pattern with `glob:` to expand `*` as a glob",
-                );
-            }
             match err {
                 GitFetchError::NoSuchRemote(_) => user_error(err),
                 GitFetchError::RemoteName(_) => user_error_with_hint(
                     err,
                     "Run `jj git remote rename` to give a different name.",
                 ),
-                GitFetchError::InvalidBranchPattern(_) => user_error(err),
                 GitFetchError::Subprocess(_) => user_error(err),
             }
         }
@@ -586,6 +578,23 @@ jj currently does not support partial clones. To use jj with this repository, tr
             match err {
                 GitDefaultRefspecError::NoSuchRemote(_) => user_error(err),
                 GitDefaultRefspecError::InvalidRemoteConfiguration(_, _) => user_error(err),
+            }
+        }
+    }
+
+    impl From<GitRefExpansionError> for CommandError {
+        fn from(err: GitRefExpansionError) -> Self {
+            match &err {
+                GitRefExpansionError::InvalidBranchPattern(pattern) => {
+                    if pattern.as_exact().is_some_and(|s| s.contains('*')) {
+                        user_error_with_hint(
+                            "Branch names may not include `*`.",
+                            "Prefix the pattern with `glob:` to expand `*` as a glob",
+                        )
+                    } else {
+                        user_error(err)
+                    }
+                }
             }
         }
     }
