@@ -22,6 +22,8 @@ enum FileType {
   Executable = 2;
   Conflict = 3 [deprecated = true];
   GitSubmodule = 4;
+  NormalInRepoExecOnDisk = 5;
+  ExecInRepoNormalOnDisk = 6;
 }
 
 message MaterializedConflictData {
