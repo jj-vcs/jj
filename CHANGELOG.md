@@ -47,6 +47,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   revision is immutable, the user shouldn't take any action, so the red color
   was unnecessarily alarming.
 
+*  `jj git clone` now supports the `--branch` option to specify the branch(es)
+  to fetch during clone. If present, the first matching branch is used as the
+  working-copy parent.
+
+>>>>>>> Conflict 1 of 1 ends
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
