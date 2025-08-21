@@ -975,7 +975,7 @@ fn test_git_clone_conditional_config() {
     let output = run_jj(&new_workspace_dir, &["op", "log", "-T", op_log_template]);
     insta::assert_snapshot!(output, @r"
     @  new-repo@base new empty commit
-    ○  new-repo@base check out git remote's default branch
+    ○  new-repo@base check out git remote's branch: main
     ○  new-repo@base fetch from git remote into empty repo
     ○  new-repo@base add git remote origin
     ○  new-repo@base add workspace 'default'
@@ -1170,6 +1170,82 @@ fn test_git_clone_no_git_executable_with_path() {
     [EOF]
     [exit status: 1]
     "#);
+}
+
+#[test]
+fn test_git_clone_branch() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    test_env.add_config("git.auto-local-bookmark = true");
+    let git_repo_path = test_env.env_root().join("source");
+    let git_repo = git::init(&git_repo_path);
+    set_up_non_empty_git_repo(&git_repo);
+    let _ = git::add_commit(
+        &git_repo,
+        "refs/heads/feature1",
+        "file",
+        b"content",
+        "message",
+        &[],
+    );
+
+    // Clone the default branch by name
+    let output = root_dir.run_jj(["git", "clone", "source", "clone", "--branch", "main"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone"
+    bookmark: main@origin [new] tracked
+    Setting the revset alias `trunk()` to `main@origin`
+    Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+
+    // Clone a branch that doesn't exist
+    let output = root_dir.run_jj([
+        "git",
+        "clone",
+        "source",
+        "clone_no_such_branch",
+        "--branch",
+        "nonexistent_branch",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone_no_such_branch"
+    Error: No such branch matching pattern: nonexistent_branch
+    [EOF]
+    [exit status: 1]
+    "#);
+
+    // Clone a specific, non-default branch
+    let output = root_dir.run_jj([
+        "git",
+        "clone",
+        "source",
+        "clone_non_default",
+        "--branch",
+        "feature1",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone_non_default"
+    bookmark: feature1@origin [new] tracked
+    Working copy  (@) now at: pmmvwywv ea9c2659 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 feature1 | message
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+
+    // Perform a fetch in that same repo
+    let repo_dir = test_env.work_dir("clone_non_default");
+    let output = repo_dir.run_jj(["git", "fetch"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
 }
 
 #[must_use]

@@ -50,6 +50,7 @@ pub fn cmd_git_remote_add(
         &args.remote,
         &url,
         args.fetch_tags.as_fetch_tags(),
+        None,
     )?;
     tx.finish(ui, format!("add git remote {}", args.remote.as_symbol()))?;
     Ok(())

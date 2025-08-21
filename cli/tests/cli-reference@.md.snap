@@ -1330,6 +1330,11 @@ The Git repo will be a bare git repo stored inside the `.jj/` directory.
   - `none`:
     Do not fetch any tags
 
+* `-b`, `--branch <BRANCH>` — Name of the branch to fetch and use as the parent of the working-copy change
+
+   If not present, all branches are fetched and the repository's default branch is used as parent of the working-copy change.
+
+   By default, the specified name matches exactly. Use `glob:` prefix to expand `*` as a glob, e.g. `--branch 'glob:push-*'`. Other wildcard characters such as `?` are *not* supported. Can be repeated to specify multiple branches, in which case the first match of the first `--branch` argument is used as the working-copy parent.
 
 
 

@@ -1692,6 +1692,8 @@ pub enum GitRemoteManagementError {
     InternalGitError(#[source] Box<dyn std::error::Error + Send + Sync>),
     #[error(transparent)]
     UnexpectedBackend(#[from] UnexpectedGitBackendError),
+    #[error(transparent)]
+    RefExpansionError(#[from] GitRefExpansionError),
 }
 
 impl GitRemoteManagementError {
@@ -1907,6 +1909,7 @@ pub fn add_remote(
     remote_name: &RemoteName,
     url: &str,
     fetch_tags: gix::remote::fetch::Tags,
+    branch_patterns: Option<&[StringPattern]>,
 ) -> Result<(), GitRemoteManagementError> {
     let git_repo = get_git_repo(mut_repo.store())?;
 
@@ -1918,16 +1921,22 @@ pub fn add_remote(
         ));
     }
 
+    let fetch_refspecs = expand_fetch_refspecs(
+        remote_name,
+        branch_patterns
+            .unwrap_or(&[StringPattern::everything()])
+            .to_vec(),
+    )?
+    .refspecs
+    .into_iter()
+    .map(|spec| BString::from(spec.to_git_format()));
+
     let mut remote = git_repo
         .remote_at(url)
         .map_err(GitRemoteManagementError::from_git)?
         .with_fetch_tags(fetch_tags)
-        .with_refspecs(
-            [default_fetch_refspec(remote_name).as_bytes()],
-            gix::remote::Direction::Fetch,
-        )
-        .expect("default refspec to be valid");
-
+        .with_refspecs(fetch_refspecs, gix::remote::Direction::Fetch)
+        .expect("previously-parsed refspecs to be valid");
     let mut config = git_repo.config_snapshot().clone();
     save_remote(&mut config, remote_name, &mut remote)?;
     save_git_config(&config).map_err(GitRemoteManagementError::GitConfigSaveError)?;

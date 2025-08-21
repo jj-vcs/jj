@@ -2147,7 +2147,7 @@ fn test_op_diff_word_wrap() {
     // ui.log-word-wrap option works, and diff stat respects content width
     insta::assert_snapshot!(render(&["op", "diff", "--from=@---", "--stat"], 40, true), @r"
     From operation: f7178a5c02a1 (2001-02-03 08:05:07) add git remote origin
-      To operation: 0e0be84b744e (2001-02-03 08:05:08) snapshot working copy
+      To operation: 7ab051f85a3d (2001-02-03 08:05:08) snapshot working copy
 
     Changed commits:
     ○  + sqpuoqvx f6f32c19 (no description
@@ -2202,7 +2202,7 @@ fn test_op_diff_word_wrap() {
     insta::assert_snapshot!(
         render(&["op", "diff", "--from=@---", "--config", config], 10, true), @r"
     From operation: f7178a5c02a1 (2001-02-03 08:05:07) add git remote origin
-      To operation: 0e0be84b744e (2001-02-03 08:05:08) snapshot working copy
+      To operation: 7ab051f85a3d (2001-02-03 08:05:08) snapshot working copy
 
     Changed
     commits:

@@ -3778,6 +3778,7 @@ fn test_fetch_with_fetch_tags_override() {
         "origin".as_ref(),
         &source_git_repo.path().display().to_string(),
         gix::remote::fetch::Tags::None,
+        None,
     )
     .unwrap();
     let _repo = tx.commit("test").unwrap();
@@ -3817,6 +3818,7 @@ fn test_fetch_with_fetch_tags_override() {
         "originAllTags".as_ref(),
         &source_git_repo.path().display().to_string(),
         gix::remote::fetch::Tags::All,
+        None,
     )
     .unwrap();
     let _repo = tx.commit("test").unwrap();
@@ -4884,6 +4886,7 @@ fn test_remote_remove_refs() {
         "foo".as_ref(),
         "https://example.com/",
         Default::default(),
+        None,
     )
     .unwrap();
     let _repo = tx.commit("test").unwrap();
@@ -4933,6 +4936,7 @@ fn test_remote_rename_refs() {
         "foo".as_ref(),
         "https://example.com/",
         Default::default(),
+        None,
     )
     .unwrap();
     let _repo = tx.commit("test").unwrap();
@@ -5009,6 +5013,7 @@ fn test_remote_add_with_tags_specification() {
             remote_name.as_ref(),
             "https://example.com/",
             fetch_tags,
+            None,
         )
         .unwrap();
         let _repo = tx.commit("test").unwrap();
