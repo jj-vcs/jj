@@ -43,10 +43,12 @@ pub struct UndoArgs {
     #[arg(default_value = "@", add = ArgValueCandidates::new(complete::operations))]
     operation: String,
 
+    /// (deprecated, use `jj op revert --what`)
+    ///
     /// What portions of the local state to restore (can be repeated)
     ///
     /// This option is EXPERIMENTAL.
-    #[arg(long, value_enum, default_values_t = DEFAULT_REVERT_WHAT)]
+    #[arg(long, value_enum, hide = true, default_values_t = DEFAULT_REVERT_WHAT)]
     what: Vec<RevertWhatToRestore>,
 }
 
@@ -65,6 +67,10 @@ pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result
         return cmd_op_revert(ui, command, &args);
     }
     if args.what != DEFAULT_REVERT_WHAT {
+        writeln!(
+            ui.warning_default(),
+            "`jj undo --what` is deprecated; use `jj op revert --what` instead"
+        )?;
         let args = OperationRevertArgs {
             operation: args.operation.clone(),
             what: args.what.clone(),

@@ -43,6 +43,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The argument `<operation>` of `jj undo` is deprecated in favor of
   `jj op revert <operation>`.
 
+* The `--what` flag on `jj undo` is deprecated. Consider using
+  `jj op restore --what` instead.
+
 ### New features
 
 * Templates now support `any()` and `all()` methods on lists to check whether
