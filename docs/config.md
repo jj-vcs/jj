@@ -884,7 +884,7 @@ a `$`):
 
 `$JJ_EDITOR` > `ui.editor` > `$VISUAL` > `$EDITOR`
 
-Pico is the default editor (Notepad on Windows) in the absence of any other
+Nano is the default editor (Notepad on Windows) in the absence of any other
 setting, but you could set it explicitly too.
 
 ```toml

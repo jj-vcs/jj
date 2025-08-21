@@ -86,7 +86,7 @@ instead of "Hello". Start by describing the change (adding a commit message) so
 we don't forget what we're working on:
 
 ```shell
-# This brings up $EDITOR (or `pico` or `Notepad` by default).
+# This brings up $EDITOR (or `nano` or `Notepad` by default).
 # Enter something like "Say goodbye" in the editor and then save the file and close
 # the editor.
 $ jj describe

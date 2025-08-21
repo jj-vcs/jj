@@ -20,6 +20,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The new command `jj bisect run` uses binary search to find a commit that
   introduced a bug.
 
+* The default editor on Unix is now `nano` instead of `pico`.
+
 ### Fixed bugs
 
 ## [0.33.0] - 2025-09-03
