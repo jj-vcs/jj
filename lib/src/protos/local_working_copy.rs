@@ -81,6 +81,8 @@ pub enum FileType {
     Executable = 2,
     Conflict = 3,
     GitSubmodule = 4,
+    NormalInRepoExecOnDisk = 5,
+    ExecInRepoNormalOnDisk = 6,
 }
 impl FileType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -94,6 +96,8 @@ impl FileType {
             Self::Executable => "Executable",
             Self::Conflict => "Conflict",
             Self::GitSubmodule => "GitSubmodule",
+            Self::NormalInRepoExecOnDisk => "NormalInRepoExecOnDisk",
+            Self::ExecInRepoNormalOnDisk => "ExecInRepoNormalOnDisk",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -104,6 +108,8 @@ impl FileType {
             "Executable" => Some(Self::Executable),
             "Conflict" => Some(Self::Conflict),
             "GitSubmodule" => Some(Self::GitSubmodule),
+            "NormalInRepoExecOnDisk" => Some(Self::NormalInRepoExecOnDisk),
+            "ExecInRepoNormalOnDisk" => Some(Self::ExecInRepoNormalOnDisk),
             _ => None,
         }
     }

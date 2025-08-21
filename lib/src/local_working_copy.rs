@@ -126,24 +126,93 @@ use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
 
-/// On-disk state of file executable bit.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct ExecBit(bool);
+/// How to propagate executable bit changes in file metadata to/from the repo.
+///
+/// On Windows, executable bits are always ignored, but on Unix they are
+/// respected by default, yet may be ignored by user settings or if we find
+/// that the filesystem of the working copy doesn't support executable bits.
+#[derive(Clone, Copy, Debug)]
+pub enum ExecChangePolicy {
+    Respect,
+    Ignore,
+}
 
+impl ExecChangePolicy {
+    fn get() -> Self {
+        #[cfg(windows)]
+        return Self::Ignore;
+        #[cfg(unix)]
+        return Self::Respect;
+    }
+}
+
+/// The executable bit state for a normal file.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ExecBit {
+    in_repo: bool,
+    #[cfg(unix)]
+    on_disk: bool,
+}
+
+#[expect(clippy::unnecessary_map_or)]
+#[cfg_attr(windows, expect(unused_variables))]
 impl ExecBit {
-    fn from_bool(executable: bool) -> Self {
-        Self(executable)
+    // Helper to localize usage of `cfg(unix)` attribute.
+    fn from_repo_and_disk(in_repo: bool, on_disk: bool) -> Self {
+        Self {
+            in_repo,
+            #[cfg(unix)]
+            on_disk,
+        }
     }
 
-    /// Load the executable bit from disk or the previous executable bit.
-    #[expect(unused_variables)]
-    #[expect(clippy::unnecessary_map_or)]
-    fn from_disk(metadata: &Metadata, prev_exec: Option<Self>) -> Self {
+    // Helper to localize usage of `cfg(unix/windows)` attributes.
+    fn to_repo_and_disk(self) -> (bool, bool) {
         #[cfg(unix)]
-        let executable = metadata.permissions().mode() & 0o111 != 0;
+        return (self.in_repo, self.on_disk);
         #[cfg(windows)]
-        let executable = prev_exec.map_or(false, |prev| prev.0);
-        Self(executable)
+        return (self.in_repo, self.in_repo);
+    }
+
+    /// Load the in-repo executable bit, potentially keeping `on_disk` equal to
+    /// its previous value.
+    ///
+    /// `get_prev_exec` is a closure because it is a mildly expensive operation
+    /// in the current usage.
+    fn from_repo(
+        in_repo: bool,
+        get_prev_exec: impl FnOnce() -> Option<Self>,
+        exec_policy: ExecChangePolicy,
+    ) -> Self {
+        Self {
+            in_repo,
+            #[cfg(unix)]
+            on_disk: match exec_policy {
+                ExecChangePolicy::Respect => in_repo,
+                ExecChangePolicy::Ignore => get_prev_exec().map_or(false, |prev| prev.on_disk),
+            },
+        }
+    }
+
+    /// Load the on-disk executable bit, potentially keeping `in_repo` equal to
+    /// its previous value.
+    fn from_disk(
+        metadata: &Metadata,
+        prev_exec: Option<Self>,
+        exec_policy: ExecChangePolicy,
+    ) -> Self {
+        #[cfg(unix)]
+        let on_disk = metadata.permissions().mode() & 0o111 != 0;
+        #[cfg(windows)]
+        let on_disk = false;
+        Self {
+            in_repo: match exec_policy {
+                ExecChangePolicy::Respect => on_disk,
+                ExecChangePolicy::Ignore => prev_exec.map_or(false, |prev| prev.in_repo),
+            },
+            #[cfg(unix)]
+            on_disk,
+        }
     }
 }
 
@@ -156,7 +225,7 @@ impl ExecBit {
 fn set_executable(exec_bit: ExecBit, disk_path: &Path) -> Result<(), io::Error> {
     #[cfg(unix)]
     {
-        let mode = if exec_bit.0 { 0o755 } else { 0o644 };
+        let mode = if exec_bit.on_disk { 0o755 } else { 0o644 };
         fs::set_permissions(disk_path, fs::Permissions::from_mode(mode))?;
     }
     Ok(())
@@ -197,7 +266,7 @@ impl FileState {
     /// Indicates that a file exists in the tree but that it needs to be
     /// re-stat'ed on the next snapshot.
     fn placeholder() -> Self {
-        let exec_bit = ExecBit::from_bool(false);
+        let exec_bit = ExecBit::from_repo_and_disk(false, false);
         Self {
             file_type: FileType::Normal { exec_bit },
             mtime: MillisSinceEpoch(0),
@@ -449,24 +518,24 @@ impl<'a> IntoIterator for FileStates<'a> {
     }
 }
 
-fn file_state_from_proto(proto: &crate::protos::local_working_copy::FileState) -> FileState {
-    let file_type = match proto.file_type() {
-        crate::protos::local_working_copy::FileType::Normal => FileType::Normal {
-            exec_bit: ExecBit::from_bool(false),
-        },
-        // On Windows, FileType::Executable can exist in files written by older
-        // versions of jj
-        crate::protos::local_working_copy::FileType::Executable => FileType::Normal {
-            exec_bit: ExecBit::from_bool(true),
-        },
-        crate::protos::local_working_copy::FileType::Symlink => FileType::Symlink,
-        crate::protos::local_working_copy::FileType::Conflict => FileType::Normal {
-            exec_bit: ExecBit::from_bool(false),
-        },
-        crate::protos::local_working_copy::FileType::GitSubmodule => FileType::GitSubmodule,
+fn file_type_from_proto(proto: crate::protos::local_working_copy::FileType) -> FileType {
+    let (in_repo, on_disk) = match proto {
+        crate::protos::local_working_copy::FileType::Symlink => return FileType::Symlink,
+        crate::protos::local_working_copy::FileType::GitSubmodule => return FileType::GitSubmodule,
+        crate::protos::local_working_copy::FileType::Normal => (false, false),
+        crate::protos::local_working_copy::FileType::Executable => (true, true),
+        crate::protos::local_working_copy::FileType::Conflict => (false, false),
+        crate::protos::local_working_copy::FileType::NormalInRepoExecOnDisk => (false, true),
+        crate::protos::local_working_copy::FileType::ExecInRepoNormalOnDisk => (true, false),
     };
+    FileType::Normal {
+        exec_bit: ExecBit::from_repo_and_disk(in_repo, on_disk),
+    }
+}
+
+fn file_state_from_proto(proto: &crate::protos::local_working_copy::FileState) -> FileState {
     FileState {
-        file_type,
+        file_type: file_type_from_proto(proto.file_type()),
         mtime: MillisSinceEpoch(proto.mtime_millis_since_epoch),
         size: proto.size,
         materialized_conflict_data: proto.materialized_conflict_data.as_ref().map(|data| {
@@ -480,13 +549,12 @@ fn file_state_from_proto(proto: &crate::protos::local_working_copy::FileState) -
 fn file_state_to_proto(file_state: &FileState) -> crate::protos::local_working_copy::FileState {
     let mut proto = crate::protos::local_working_copy::FileState::default();
     let file_type = match &file_state.file_type {
-        FileType::Normal { exec_bit } => {
-            if exec_bit.0 {
-                crate::protos::local_working_copy::FileType::Executable
-            } else {
-                crate::protos::local_working_copy::FileType::Normal
-            }
-        }
+        FileType::Normal { exec_bit } => match exec_bit.to_repo_and_disk() {
+            (false, false) => crate::protos::local_working_copy::FileType::Normal,
+            (true, true) => crate::protos::local_working_copy::FileType::Executable,
+            (false, true) => crate::protos::local_working_copy::FileType::NormalInRepoExecOnDisk,
+            (true, false) => crate::protos::local_working_copy::FileType::ExecInRepoNormalOnDisk,
+        },
         FileType::Symlink => crate::protos::local_working_copy::FileType::Symlink,
         FileType::GitSubmodule => crate::protos::local_working_copy::FileType::GitSubmodule,
     };
@@ -714,14 +782,18 @@ fn mtime_from_metadata(metadata: &Metadata) -> MillisSinceEpoch {
 
 /// Create a new [`FileState`] from metadata and the previous state's
 /// executable bit.
-fn file_state(metadata: &Metadata, prev_exec: Option<ExecBit>) -> Option<FileState> {
+fn file_state(
+    metadata: &Metadata,
+    prev_exec: Option<ExecBit>,
+    exec_policy: ExecChangePolicy,
+) -> Option<FileState> {
     let metadata_file_type = metadata.file_type();
     let file_type = if metadata_file_type.is_dir() {
         None
     } else if metadata_file_type.is_symlink() {
         Some(FileType::Symlink)
     } else if metadata_file_type.is_file() {
-        let exec_bit = ExecBit::from_disk(metadata, prev_exec);
+        let exec_bit = ExecBit::from_disk(metadata, prev_exec, exec_policy);
         Some(FileType::Normal { exec_bit })
     } else {
         None
@@ -785,6 +857,7 @@ pub struct TreeState {
     watchman_clock: Option<crate::protos::local_working_copy::WatchmanClock>,
 
     conflict_marker_style: ConflictMarkerStyle,
+    exec_policy: ExecChangePolicy,
     fsmonitor_settings: FsmonitorSettings,
     target_eol_strategy: TargetEolStrategy,
 }
@@ -860,6 +933,7 @@ impl TreeState {
             symlink_support: check_symlink_support().unwrap_or(false),
             watchman_clock: None,
             conflict_marker_style,
+            exec_policy: ExecChangePolicy::get(),
             fsmonitor_settings: fsmonitor_settings.clone(),
             target_eol_strategy: TargetEolStrategy::new(eol_conversion_mode),
         }
@@ -1375,7 +1449,9 @@ impl FileSnapshotter<'_> {
                     };
                     self.untracked_paths_tx.send((path, reason)).ok();
                     Ok(None)
-                } else if let Some(new_file_state) = file_state(&metadata, prev_exec) {
+                } else if let Some(new_file_state) =
+                    file_state(&metadata, prev_exec, self.tree_state.exec_policy)
+                {
                     self.process_present_file(
                         path,
                         &entry.path(),
@@ -1414,7 +1490,9 @@ impl FileSnapshotter<'_> {
                 }
             };
             let prev_exec = current_file_state.exec_bit();
-            if let Some(new_file_state) = metadata.and_then(|m| file_state(&m, prev_exec)) {
+            if let Some(new_file_state) =
+                metadata.and_then(|m| file_state(&m, prev_exec, self.tree_state.exec_policy))
+            {
                 self.process_present_file(
                     tracked_path.to_owned(),
                     &disk_path,
@@ -1579,7 +1657,7 @@ impl FileSnapshotter<'_> {
             };
             Ok(Merge::normal(TreeValue::File {
                 id,
-                executable: exec_bit.0,
+                executable: exec_bit.in_repo,
                 copy_id,
             }))
         } else if let Some(old_file_ids) = current_tree_values.to_file_merge() {
@@ -1625,7 +1703,7 @@ impl FileSnapshotter<'_> {
             match new_file_ids.into_resolved() {
                 Ok(file_id) => Ok(Merge::normal(TreeValue::File {
                     id: file_id.unwrap(),
-                    executable: exec_bit.0,
+                    executable: exec_bit.in_repo,
                     copy_id,
                 })),
                 Err(new_file_ids) => {
@@ -1914,7 +1992,17 @@ impl TreeState {
                 MaterializedTreeValue::FileConflict(file) => file.executable.unwrap_or(false),
                 _ => false,
             };
-            let exec_bit = ExecBit::from_bool(executable);
+            let get_exec_bit = || {
+                // We must get the previous exec bit from the file states and
+                // not the tree value because only the file states store the
+                // on-disk executable bit.
+                let get_prev_exec = || {
+                    self.file_states()
+                        .get(&path)
+                        .and_then(|prev| prev.exec_bit())
+                };
+                ExecBit::from_repo(executable, get_prev_exec, self.exec_policy)
+            };
 
             // TODO: Check that the file has not changed before overwriting/removing it.
             let file_state = match after {
@@ -1930,14 +2018,14 @@ impl TreeState {
                     continue;
                 }
                 MaterializedTreeValue::File(file) => {
-                    self.write_file(&disk_path, file.reader, exec_bit, true)
+                    self.write_file(&disk_path, file.reader, get_exec_bit(), true)
                         .await?
                 }
                 MaterializedTreeValue::Symlink { id: _, target } => {
                     if self.symlink_support {
                         self.write_symlink(&disk_path, target)?
                     } else {
-                        self.write_file(&disk_path, target.as_bytes(), exec_bit, false)
+                        self.write_file(&disk_path, target.as_bytes(), get_exec_bit(), false)
                             .await?
                     }
                 }
@@ -1957,8 +2045,9 @@ impl TreeState {
                         merge: self.store.merge_options().clone(),
                     };
                     let contents = materialize_merge_result_to_bytes(&file.contents, &options);
-                    let mut file_state =
-                        self.write_conflict(&disk_path, &contents, exec_bit).await?;
+                    let mut file_state = self
+                        .write_conflict(&disk_path, &contents, get_exec_bit())
+                        .await?;
                     file_state.materialized_conflict_data = Some(MaterializedConflictData {
                         conflict_marker_len: conflict_marker_len.try_into().unwrap_or(u32::MAX),
                     });
@@ -1968,7 +2057,7 @@ impl TreeState {
                     // Unless all terms are regular files, we can't do much
                     // better than trying to describe the merge.
                     let contents = id.describe();
-                    self.write_conflict(&disk_path, contents.as_bytes(), exec_bit)
+                    self.write_conflict(&disk_path, contents.as_bytes(), get_exec_bit())
                         .await?
                 }
             };
@@ -2002,9 +2091,16 @@ impl TreeState {
                             id: _,
                             executable,
                             copy_id: _,
-                        } => FileType::Normal {
-                            exec_bit: ExecBit::from_bool(executable),
-                        },
+                        } => {
+                            let get_prev_exec = || {
+                                self.file_states()
+                                    .get(&path)
+                                    .and_then(|prev| prev.exec_bit())
+                            };
+                            let exec_bit =
+                                ExecBit::from_repo(executable, get_prev_exec, self.exec_policy);
+                            FileType::Normal { exec_bit }
+                        }
                         TreeValue::Symlink(_id) => FileType::Symlink,
                         TreeValue::GitSubmodule(_id) => {
                             eprintln!("ignoring git submodule at {path:?}");
@@ -2017,7 +2113,7 @@ impl TreeState {
                     Err(_values) => {
                         // TODO: Try to set the executable bit based on the conflict
                         FileType::Normal {
-                            exec_bit: ExecBit::from_bool(false),
+                            exec_bit: ExecBit::from_repo_and_disk(false, false),
                         }
                     }
                 };
@@ -2470,7 +2566,7 @@ mod tests {
     fn new_state(size: u64) -> FileState {
         FileState {
             file_type: FileType::Normal {
-                exec_bit: ExecBit::from_bool(false),
+                exec_bit: ExecBit::from_repo_and_disk(false, false),
             },
             mtime: MillisSinceEpoch(0),
             size,
