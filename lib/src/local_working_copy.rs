@@ -123,6 +123,40 @@ use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
 
+/// How to propagate executable bit changes in file metadata to/from the repo.
+///
+/// On Windows, executable bits are always ignored, but on Unix they are
+/// respected by default, but may be ignored by user settings or if we find
+/// that the filesystem of the working copy doesn't support executable bits.
+#[derive(Clone, Copy, Debug)]
+enum ExecChangePolicy {
+    Ignore,
+    #[cfg_attr(windows, expect(dead_code))]
+    Respect,
+}
+
+impl ExecChangePolicy {
+    /// Get the executable bit policy based on user settings and executable bit
+    /// support in the working copy's state path.
+    ///
+    /// On Unix we check whether executable bits are supported in the working
+    /// copy to determine respect/ignorance, but we default to respect.
+    #[cfg_attr(windows, expect(unused_variables))]
+    fn new(state_path: &Path) -> Self {
+        #[cfg(windows)]
+        return Self::Ignore;
+        #[cfg(unix)]
+        return match crate::file_util::check_executable_bit_support(state_path) {
+            Ok(false) => Self::Ignore,
+            Ok(true) => Self::Respect,
+            Err(err) => {
+                tracing::warn!(?err, "Error when checking for executable bit support");
+                Self::Respect
+            }
+        };
+    }
+}
+
 /// On-disk state of file executable as cached in the file states. This does
 /// *not* necessarily equal the `executable` field of [`TreeValue::File`]: the
 /// two are allowed to diverge if and only if we're ignoring executable bit
@@ -133,30 +167,45 @@ use crate::working_copy::WorkingCopyStateError;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ExecBit(bool);
 
-#[cfg_attr(windows, expect(unused_variables))]
 impl ExecBit {
     /// Get the executable bit for a tree value to write to the repo store.
     ///
     /// If we're ignoring the executable bit, then we fallback to the previous
     /// in-repo executable bit if present.
-    fn for_tree_value(self, prev_in_repo: impl FnOnce() -> Option<bool>) -> bool {
-        if cfg!(unix) {
-            self.0
-        } else {
-            prev_in_repo().unwrap_or(false)
+    fn for_tree_value(
+        self,
+        exec_policy: ExecChangePolicy,
+        prev_in_repo: impl FnOnce() -> Option<bool>,
+    ) -> bool {
+        match exec_policy {
+            ExecChangePolicy::Ignore => prev_in_repo().unwrap_or(false),
+            ExecChangePolicy::Respect => self.0,
         }
     }
 
-    /// Set the on-disk executable bit to be written based on the in-repo bit.
+    /// Set the on-disk executable bit to be written based on the in-repo bit or
+    /// the previous on-disk executable bit.
     ///
     /// On Windows, we return `false` because when we later write files, we
     /// always create them anew, and the executable bit will be `false` even if
     /// shared with a Unix machine.
-    fn new_from_repo(in_repo: bool) -> Self {
-        Self(if cfg!(unix) { in_repo } else { false })
+    ///
+    /// `prev_on_disk` is a closure because it is somewhat expensive and is only
+    /// used if ignoring the executable bit on Unix.
+    fn new_from_repo(
+        in_repo: bool,
+        exec_policy: ExecChangePolicy,
+        prev_on_disk: impl FnOnce() -> Option<Self>,
+    ) -> Self {
+        match exec_policy {
+            _ if cfg!(windows) => Self(false),
+            ExecChangePolicy::Ignore => prev_on_disk().unwrap_or(Self(false)),
+            ExecChangePolicy::Respect => Self(in_repo),
+        }
     }
 
     /// Load the on-disk executable bit from file metadata.
+    #[cfg_attr(windows, expect(unused_variables))]
     fn new_from_disk(metadata: &Metadata) -> Self {
         #[cfg(unix)]
         return Self(metadata.permissions().mode() & 0o111 != 0);
@@ -871,6 +920,7 @@ pub struct TreeState {
     watchman_clock: Option<crate::protos::local_working_copy::WatchmanClock>,
 
     conflict_marker_style: ConflictMarkerStyle,
+    exec_policy: ExecChangePolicy,
     fsmonitor_settings: FsmonitorSettings,
     target_eol_strategy: TargetEolStrategy,
 }
@@ -934,6 +984,7 @@ impl TreeState {
             ref fsmonitor_settings,
         }: &TreeStateSettings,
     ) -> Self {
+        let exec_policy = ExecChangePolicy::new(&state_path);
         Self {
             store: store.clone(),
             working_copy_path,
@@ -945,6 +996,7 @@ impl TreeState {
             symlink_support: check_symlink_support().unwrap_or(false),
             watchman_clock: None,
             conflict_marker_style,
+            exec_policy,
             fsmonitor_settings: fsmonitor_settings.clone(),
             target_eol_strategy: TargetEolStrategy::new(eol_conversion_mode),
         }
@@ -1665,7 +1717,7 @@ impl FileSnapshotter<'_> {
         if let Some(current_tree_value) = current_tree_values.as_resolved() {
             let id = self.write_file_to_store(repo_path, disk_path).await?;
             // On Windows, we preserve the executable bit from the current tree.
-            let executable = exec_bit.for_tree_value(|| {
+            let executable = exec_bit.for_tree_value(self.tree_state.exec_policy, || {
                 if let Some(TreeValue::File {
                     id: _,
                     executable,
@@ -1738,7 +1790,7 @@ impl FileSnapshotter<'_> {
             match new_file_ids.into_resolved() {
                 Ok(file_id) => {
                     // On Windows, we preserve the executable bit from the merged trees.
-                    let executable = exec_bit.for_tree_value(|| {
+                    let executable = exec_bit.for_tree_value(self.tree_state.exec_policy, || {
                         current_tree_values
                             .to_executable_merge()
                             .as_ref()
@@ -2066,6 +2118,11 @@ impl TreeState {
                 continue;
             }
 
+            // We get the previous executable bit from the file states and not
+            // the tree value because only the file states store the on-disk
+            // executable bit.
+            let get_prev_exec = || self.file_states().get_exec_bit(&path);
+
             // TODO: Check that the file has not changed before overwriting/removing it.
             let file_state = match after {
                 MaterializedTreeValue::Absent | MaterializedTreeValue::AccessDenied(_) => {
@@ -2086,7 +2143,8 @@ impl TreeState {
                     continue;
                 }
                 MaterializedTreeValue::File(file) => {
-                    let exec_bit = ExecBit::new_from_repo(file.executable);
+                    let exec_bit =
+                        ExecBit::new_from_repo(file.executable, self.exec_policy, get_prev_exec);
                     self.write_file(&disk_path, file.reader, exec_bit, true)
                         .await?
                 }
@@ -2114,7 +2172,11 @@ impl TreeState {
                         marker_len: Some(conflict_marker_len),
                         merge: self.store.merge_options().clone(),
                     };
-                    let exec_bit = ExecBit::new_from_repo(file.executable.unwrap_or(false));
+                    let exec_bit = ExecBit::new_from_repo(
+                        file.executable.unwrap_or(false),
+                        self.exec_policy,
+                        get_prev_exec,
+                    );
                     let contents = materialize_merge_result_to_bytes(&file.contents, &options);
                     let mut file_state =
                         self.write_conflict(&disk_path, &contents, exec_bit).await?;
@@ -2158,7 +2220,9 @@ impl TreeState {
                             executable,
                             copy_id: _,
                         } => {
-                            let exec_bit = ExecBit::new_from_repo(executable);
+                            let get_prev_exec = || self.file_states().get_exec_bit(&path);
+                            let exec_bit =
+                                ExecBit::new_from_repo(executable, self.exec_policy, get_prev_exec);
                             FileType::Normal { exec_bit }
                         }
                         TreeValue::Symlink(_id) => FileType::Symlink,
