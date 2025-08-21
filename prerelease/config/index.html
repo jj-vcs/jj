@@ -3928,12 +3928,15 @@ to <code>trunk()</code> in case no such change exists:</p>
 <h3 id="default-template_1">Default Template<a class="headerlink" href="#default-template_1" title="Permanent link">&para;</a></h3>
 <p>You can configure the template used when no <code>-T</code> is specified.</p>
 <ul>
+<li><code>templates.evolog</code> for <code>jj evolog</code></li>
 <li><code>templates.log</code> for <code>jj log</code></li>
 <li><code>templates.show</code> for <code>jj show</code></li>
 <li><code>templates.op_log</code> for <code>jj op log</code></li>
 <li><code>templates.op_show</code> for <code>jj op show</code></li>
 </ul>
 <div class="highlight"><pre><span></span><code><span class="k">[templates]</span>
+<span class="c1"># Use builtin evolog template</span>
+<span class="n">evolog</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;builtin_evolog_compact&quot;</span>
 <span class="c1"># Use builtin log template</span>
 <span class="n">log</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;builtin_log_compact&quot;</span>
 <span class="c1"># Use builtin show template</span>

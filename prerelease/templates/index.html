@@ -992,6 +992,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#commitevolutionentry-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      CommitEvolutionEntry type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#changeid-type" class="md-nav__link">
     <span class="md-ellipsis">
       ChangeId type
@@ -2192,6 +2201,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#commitevolutionentry-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      CommitEvolutionEntry type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#changeid-type" class="md-nav__link">
     <span class="md-ellipsis">
       ChangeId type
@@ -2542,7 +2560,7 @@ methods.</p>
 a follow-up section. In addition to context-specific keywords, the top-level
 object can be referenced as <code>self</code>.</p>
 <h3 id="commit-keywords">Commit keywords<a class="headerlink" href="#commit-keywords" title="Permanent link">&para;</a></h3>
-<p>In <code>jj log</code>/<code>jj evolog</code> templates, all 0-argument methods of <a href="#commit-type">the <code>Commit</code>
+<p>In <code>jj log</code> templates, all 0-argument methods of <a href="#commit-type">the <code>Commit</code>
 type</a> are available as keywords. For example, <code>commit_id</code> is
 equivalent to <code>self.commit_id()</code>.</p>
 <h3 id="operation-keywords">Operation keywords<a class="headerlink" href="#operation-keywords" title="Permanent link">&para;</a></h3>
@@ -2674,6 +2692,14 @@ type</a> are available as keywords. For example,
   matching <a href="../filesets/">the <code>files</code> expression</a>. Use <code>.diff().files()</code> to list
   changed files.</li>
 <li><code>.root() -&gt; Boolean</code>: True if the commit is the root commit.</li>
+</ul>
+<h3 id="commitevolutionentry-type"><code>CommitEvolutionEntry</code> type<a class="headerlink" href="#commitevolutionentry-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: no</em></p>
+<p>This type cannot be printed. The following methods are defined.</p>
+<ul>
+<li><code>.commit() -&gt; Commit</code>: New commit.</li>
+<li><code>.operation() -&gt; Operation</code>: Operation where the commit was created or
+  rewritten.</li>
 </ul>
 <h3 id="changeid-type"><code>ChangeId</code> type<a class="headerlink" href="#changeid-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>

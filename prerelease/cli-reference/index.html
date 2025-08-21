@@ -7630,8 +7630,8 @@ Martin von Zweigbergk</p>
 <li><code>--no-graph</code> — Don't show the graph, show a flat list of revisions</li>
 <li>
 <p><code>-T</code>, <code>--template &lt;TEMPLATE&gt;</code> — Render each revision using the given template</p>
-<p>Run <code>jj log -T</code> to list the built-in templates.</p>
-<p>You can also specify arbitrary template expressions using the <a href="https://jj-vcs.github.io/jj/latest/templates/#commit-keywords">built-in keywords</a>. See [<code>jj help -k templates</code>] for more information.</p>
+<p>All 0-argument methods of the [<code>CommitEvolutionEntry</code> type] are available as keywords in the template expression. See [<code>jj help -k templates</code>] for more information.</p>
+<p>If not specified, this defaults to the <code>templates.evolog</code> setting.</p>
 </li>
 <li>
 <p><code>-p</code>, <code>--patch</code> — Show patch compared to the previous version of this change</p>

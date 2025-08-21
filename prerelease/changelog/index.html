@@ -5632,6 +5632,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
+<p><code>jj evolog</code> templates now accept <code>CommitEvolutionEntry</code> as context type. To
+  get <code>Commit</code> properties, use <code>commit.&lt;method&gt;()</code>. To customize the default
+  output, set <code>templates.evolog</code> instead of <code>templates.log</code>.</p>
+</li>
+<li>
 <p><code>jj op show</code> now uses <code>templates.op_show</code> configuration for its default template
   instead of <code>templates.op_log</code>.</p>
 </li>
@@ -5701,7 +5706,7 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p><code>jj diff --stat</code> now shows the change in size to binary files.</p>
 </li>
 <li>
-<p><code>jj log</code>, <code>jj evolog</code> and <code>jj op log</code> output can now be anonymized with the
+<p><code>jj log</code> and <code>jj op log</code> output can now be anonymized with the
   <code>builtin_log_redacted</code> and <code>builtin_op_log_redacted</code> templates.</p>
 </li>
 <li>
