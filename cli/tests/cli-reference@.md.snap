@@ -725,7 +725,7 @@ Update a config file to unset the given option
 
 Update the change description or other metadata [default alias: desc]
 
-Starts an editor to let you edit the description of changes. The editor will be $EDITOR, or `pico` if that's not defined (`Notepad` on Windows).
+Starts an editor to let you edit the description of changes. The editor will be $EDITOR, or `pico` if that's not defined (`Notepad` on Windows, `nano` on Linux).
 
 **Usage:** `jj describe [OPTIONS] [REVSETS]...`
 

@@ -42,7 +42,8 @@ use crate::ui::Ui;
 /// Update the change description or other metadata [default alias: desc]
 ///
 /// Starts an editor to let you edit the description of changes. The editor
-/// will be $EDITOR, or `pico` if that's not defined (`Notepad` on Windows).
+/// will be $EDITOR, or `pico` if that's not defined (`Notepad` on Windows,
+/// `nano` on Linux).
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct DescribeArgs {
     /// The revision(s) whose description to edit (default: @)
