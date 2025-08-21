@@ -561,15 +561,6 @@ impl CompositeIndex {
     pub(super) fn changed_paths_mut(&mut self) -> &mut CompositeChangedPathIndex {
         &mut self.changed_paths
     }
-
-    pub(super) fn evaluate_revset(
-        &self,
-        expression: &ResolvedExpression,
-        store: &Arc<Store>,
-    ) -> Result<Box<dyn Revset + '_>, RevsetEvaluationError> {
-        let revset_impl = revset_engine::evaluate(expression, store, self)?;
-        Ok(Box::new(revset_impl))
-    }
 }
 
 impl AsCompositeIndex for CompositeIndex {
@@ -633,7 +624,8 @@ impl Index for CompositeIndex {
         expression: &ResolvedExpression,
         store: &Arc<Store>,
     ) -> Result<Box<dyn Revset + '_>, RevsetEvaluationError> {
-        Self::evaluate_revset(self, expression, store)
+        let revset_impl = revset_engine::evaluate(expression, store, self)?;
+        Ok(Box::new(revset_impl))
     }
 }
 
