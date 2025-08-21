@@ -594,11 +594,18 @@ impl<W: Write> Formatter for ColorFormatter<W> {
 
     fn push_label(&mut self, label: &str) -> io::Result<()> {
         self.labels.push(label.to_owned());
+        if label.eq("name") {
+            self.write_all("\u{2068}".as_bytes())?; // FSI. First Strong Isolate (Bidi algo)
+        }
         Ok(())
     }
 
     fn pop_label(&mut self) -> io::Result<()> {
-        self.labels.pop();
+        if let Some(label) = self.labels.pop() {
+            if label.eq("name") {
+                self.write_all("\u{2069}".as_bytes())?; // PDI . Pop Directional Isolate
+            }
+        }
         if self.labels.is_empty() {
             self.write_new_style()?;
         }
