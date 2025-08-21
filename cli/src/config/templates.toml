@@ -116,6 +116,7 @@ label(if(overridden, "overridden"),
 builtin_draft_commit_description = '''
 concat(
   coalesce(description, default_commit_description, "\n"),
+  "\nJJ: Change ID: " ++ format_short_change_id(change_id) ++ "",
   surround(
     "\nJJ: This commit contains the following changes:\n", "",
     indent("JJ:     ", diff.summary()),

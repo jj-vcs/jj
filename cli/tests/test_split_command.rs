@@ -84,6 +84,7 @@ fn test_split_by_paths() {
     JJ: Enter a description for the selected changes.
 
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file2
     JJ:
@@ -220,6 +221,7 @@ fn test_split_with_non_empty_description() {
     JJ: Enter a description for the selected changes.
     test
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -230,6 +232,7 @@ fn test_split_with_non_empty_description() {
     JJ: Enter a description for the remaining changes.
     test
 
+    JJ: Change ID: kkmpptxz
     JJ: This commit contains the following changes:
     JJ:     A file2
     JJ:
@@ -284,6 +287,7 @@ fn test_split_with_default_description() {
 
     TESTED=TODO
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -352,14 +356,14 @@ fn test_split_with_descendants() {
     Parent commit (@-)      : rlvkpnrz d335bd94 Add file3
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r###"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  kkmpptxzrspx false Add file4
     ○  rlvkpnrzqnoo false Add file3
     ○  royxmykxtrkr false Add file2
     ○  qpvuntsmwlqt false Add file1
     ◆  zzzzzzzzzzzz true
     [EOF]
-    "###);
+    ");
 
     // The commit we're splitting has a description, so the user will be
     // prompted to enter a description for each of the commits.
@@ -368,6 +372,7 @@ fn test_split_with_descendants() {
     JJ: Enter a description for the selected changes.
     Add file1 & file2
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -378,6 +383,7 @@ fn test_split_with_descendants() {
     JJ: Enter a description for the remaining changes.
     Add file1 & file2
 
+    JJ: Change ID: royxmykx
     JJ: This commit contains the following changes:
     JJ:     A file2
     JJ:
@@ -540,6 +546,7 @@ fn test_split_parallel_no_descendants() {
 
     TESTED=TODO
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -662,6 +669,7 @@ fn test_split_parallel_with_descendants() {
     JJ: Enter a description for the selected changes.
     Add file1 & file2
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -672,6 +680,7 @@ fn test_split_parallel_with_descendants() {
     JJ: Enter a description for the remaining changes.
     Add file1 & file2
 
+    JJ: Change ID: vruxwmqv
     JJ: This commit contains the following changes:
     JJ:     A file2
     JJ:
@@ -816,6 +825,7 @@ fn test_split_interactive() {
     JJ: Enter a description for the selected changes.
 
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -881,6 +891,7 @@ fn test_split_interactive_with_paths() {
     JJ: Enter a description for the selected changes.
 
 
+    JJ: Change ID: rlvkpnrz
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -1079,6 +1090,7 @@ fn test_split_with_non_empty_description_and_trailers() {
 
     Signed-off-by: test.user@example.com
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -1091,6 +1103,7 @@ fn test_split_with_non_empty_description_and_trailers() {
 
     Signed-off-by: test.user@example.com
 
+    JJ: Change ID: kkmpptxz
     JJ: This commit contains the following changes:
     JJ:     A file2
     JJ:

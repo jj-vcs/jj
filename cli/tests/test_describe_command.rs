@@ -57,6 +57,8 @@ fn test_describe() {
         std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
     description from CLI
 
+    JJ: Change ID: qpvuntsm
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
@@ -319,9 +321,13 @@ fn test_describe_multiple_commits() {
     JJ: describe 650ac8f249be -------
 
 
+    JJ: Change ID: rlvkpnrz
+    JJ:
     JJ: describe 4c3ccb9d4fb2 -------
     description from CLI
 
+    JJ: Change ID: kkmpptxz
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
@@ -627,6 +633,7 @@ fn test_describe_default_description() {
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     TESTED=TODO
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:     A file2
@@ -860,6 +867,8 @@ fn test_describe_with_edit_and_message_args_opens_editor() {
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     message from command line
 
+    JJ: Change ID: qpvuntsm
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 }
@@ -887,6 +896,8 @@ fn test_describe_change_with_existing_message_with_edit_and_message_args_opens_e
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     new message
 
+    JJ: Change ID: qpvuntsm
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 }
@@ -1089,6 +1100,8 @@ fn test_add_trailer_committer() {
     Signed-off-by: foo@bar.org
     Signed-off-by: foo@bar.net
 
+    JJ: Change ID: qpvuntsm
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
@@ -1118,9 +1131,11 @@ fn test_add_trailer_committer() {
         format!("-----\n{editor0}-----\n"), @r#"
     -----
 
-    
+
     Signed-off-by: test.user@example.com
 
+    JJ: Change ID: vruxwmqv
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     -----
     "#);

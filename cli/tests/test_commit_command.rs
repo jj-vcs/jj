@@ -56,6 +56,8 @@ fn test_commit_with_editor() {
         std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
     initial
 
+    JJ: Change ID: qpvuntsm
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
@@ -69,6 +71,7 @@ fn test_commit_with_editor() {
         std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
     add files
 
+    JJ: Change ID: kkmpptxz
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:     A file2
@@ -134,8 +137,11 @@ fn test_commit_with_empty_description_from_editor() {
     ");
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(),
-        @r#"JJ: Lines starting with "JJ:" (like this one) will be removed."#
-    );
+        @r#"
+    JJ: Change ID: qpvuntsm
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Hint: The commit message was left empty.
@@ -179,6 +185,7 @@ fn test_commit_interactive() {
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     add files
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -199,6 +206,7 @@ fn test_commit_interactive() {
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     add files
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -255,6 +263,7 @@ fn test_commit_interactive_with_paths() {
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     edit
 
+    JJ: Change ID: rlvkpnrz
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -305,6 +314,7 @@ fn test_commit_with_default_description() {
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     TESTED=TODO
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:     A file2
@@ -564,6 +574,8 @@ fn test_commit_trailers() {
 
     Reviewed-by: foo@bar.org
 
+    JJ: Change ID: zsuskuln
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     -----
     "#);

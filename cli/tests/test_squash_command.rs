@@ -1287,6 +1287,7 @@ fn test_squash_description() {
     JJ: Description from source commit:
     source
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:     A file2
@@ -1363,6 +1364,7 @@ fn test_squash_description() {
     JJ: Trailers not found in the squashed commits:
     CC: alice@example.com
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:     A file2
@@ -1979,6 +1981,7 @@ fn test_squash_to_new_commit() {
     JJ: Description from source commit:
     file4
 
+    JJ: Change ID: xlzxqlsl
     JJ: This commit contains the following changes:
     JJ:     A file3
     JJ:     A file4
