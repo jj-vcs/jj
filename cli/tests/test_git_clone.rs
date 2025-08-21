@@ -1173,6 +1173,67 @@ fn test_git_clone_no_git_executable_with_path() {
     "#);
 }
 
+#[test]
+fn test_git_clone_branch() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    test_env.add_config("git.auto-local-bookmark = true");
+    let git_repo_path = test_env.env_root().join("source");
+    let git_repo = git::init(&git_repo_path);
+    set_up_non_empty_git_repo(&git_repo);
+    let _ = git::add_commit(
+        &git_repo,
+        "refs/heads/feature1",
+        "file",
+        b"content",
+        "message",
+        &[],
+    );
+
+    // Clone the default branch by name
+    let output = root_dir.run_jj(["git", "clone", "source", "clone", "--branch", "main"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone"
+    bookmark: main@origin [new] tracked
+    Setting the revset alias `trunk()` to `main@origin`
+    Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+    root_dir.remove_dir_all(test_env.env_root().join("clone"));
+
+    // Clone a branch that doesn't exist
+    let output = root_dir.run_jj([
+        "git",
+        "clone",
+        "source",
+        "clone",
+        "--branch",
+        "nonexistent_branch",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone"
+    Error: No such branch: nonexistent_branch
+    [EOF]
+    [exit status: 1]
+    "#);
+
+    // Clone a specific, non-default branch
+    let output = root_dir.run_jj(["git", "clone", "source", "clone", "--branch", "feature1"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone"
+    bookmark: feature1@origin [new] tracked
+    Working copy  (@) now at: pmmvwywv ea9c2659 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 feature1 | message
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+}
+
 #[must_use]
 fn get_bookmark_output(work_dir: &TestWorkDir) -> CommandOutput {
     work_dir.run_jj(["bookmark", "list", "--all-remotes"])

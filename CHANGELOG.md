@@ -76,8 +76,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Add the `jj touch` command, which modifies a revision's metadata. This can be
   used to generate a new change-id, which may help resolve some divergences.
 
-* Filesets now support case-insensitive glob patterns with the `glob-i:`, 
-  `cwd-glob-i:`, and `root-glob-i:` pattern kinds. For example, `glob-i:"*.rs"` 
+* Filesets now support case-insensitive glob patterns with the `glob-i:`,
+  `cwd-glob-i:`, and `root-glob-i:` pattern kinds. For example, `glob-i:"*.rs"`
   will match both `file.rs` and `FILE.RS`.
 
 * `jj op show` now accepts `-T`/`--template` option to customize the operation
@@ -2879,6 +2879,9 @@ Thanks to the people who made this release happen!
   remote-tracking branch. Use `main@origin` instead.
 
 ### New features
+
+*  `jj git clone` now supports the `--branch` option to specify the sole branch
+  to fetch during clone and use as the working-copy parent.
 
 * Default template for `jj log` now does not show irrelevant information
   (timestamp, empty, message placeholder etc.) about the root commit.

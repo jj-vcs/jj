@@ -76,6 +76,13 @@ pub struct GitCloneArgs {
     /// while all subsequent fetches will only fetch included tags.
     #[arg(long, value_enum)]
     fetch_tags: Option<FetchTagsMode>,
+    /// Name of the branch to fetch and use as the parent of the working-copy
+    /// change
+    ///
+    /// If not present, all branches are fetched and the repository's default
+    /// branch is the parent of the working-copy change
+    #[arg(long)]
+    branch: Option<String>,
 }
 
 fn clone_destination_for_source(source: &str) -> Option<&str> {
@@ -145,14 +152,15 @@ pub fn cmd_git_clone(
             // included tags for future fetches.
             args.fetch_tags.unwrap_or(FetchTagsMode::Included),
         )?;
-        let default_branch = fetch_new_remote(
+        let (working_branch, fetched_default) = fetch_new_remote(
             ui,
             &mut workspace_command,
             remote_name,
+            args.branch.clone().map(RefNameBuf::from),
             args.depth,
             args.fetch_tags,
         )?;
-        Ok((workspace_command, default_branch))
+        Ok((workspace_command, working_branch, fetched_default))
     })();
     if clone_result.is_err() {
         let clean_up_dirs = || -> io::Result<()> {
@@ -176,21 +184,27 @@ pub fn cmd_git_clone(
         }
     }
 
-    let (mut workspace_command, default_branch) = clone_result?;
-    if let Some(name) = &default_branch {
-        let default_symbol = name.to_remote_symbol(remote_name);
-        write_repository_level_trunk_alias(ui, workspace_command.repo_path(), default_symbol)?;
+    let (mut workspace_command, working_branch, fetched_default) = clone_result?;
 
-        let default_branch_remote_ref = workspace_command
+    if let Some(name) = &working_branch {
+        let working_symbol = name.to_remote_symbol(remote_name);
+        if fetched_default {
+            write_repository_level_trunk_alias(ui, workspace_command.repo_path(), working_symbol)?;
+        }
+        let working_branch_remote_ref = workspace_command
             .repo()
             .view()
-            .get_remote_bookmark(default_symbol);
-        if let Some(commit_id) = default_branch_remote_ref.target.as_normal().cloned() {
+            .get_remote_bookmark(working_symbol);
+        if let Some(commit_id) = working_branch_remote_ref.target.as_normal().cloned() {
             let mut tx = workspace_command.start_transaction();
             if let Ok(commit) = tx.repo().store().get_commit(&commit_id) {
                 tx.check_out(&commit)?;
             }
-            tx.finish(ui, "check out git remote's default branch")?;
+            if fetched_default {
+                tx.finish(ui, "check out git remote's default branch")?;
+            } else {
+                tx.finish(ui, "check out specified git remote's branch")?;
+            }
         }
     }
 
@@ -252,9 +266,10 @@ fn fetch_new_remote(
     ui: &Ui,
     workspace_command: &mut WorkspaceCommandHelper,
     remote_name: &RemoteName,
+    target_branch: Option<RefNameBuf>,
     depth: Option<NonZeroU32>,
     fetch_tags: Option<FetchTagsMode>,
-) -> Result<Option<RefNameBuf>, CommandError> {
+) -> Result<(Option<RefNameBuf>, bool), CommandError> {
     writeln!(
         ui.status(),
         r#"Fetching into new repo in "{}""#,
@@ -262,13 +277,18 @@ fn fetch_new_remote(
     )?;
     let settings = workspace_command.settings();
     let git_settings = settings.git_settings()?;
-    let track_default = settings.get_bool("git.track-default-bookmark-on-clone")?;
+    let should_track_default = settings.get_bool("git.track-default-bookmark-on-clone")?;
     let mut tx = workspace_command.start_transaction();
     let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
+    let branch_pattern = match &target_branch {
+        Some(name) => StringPattern::Exact(name.into()),
+        None => StringPattern::everything(),
+    };
+
     with_remote_git_callbacks(ui, |cb| {
         git_fetch.fetch(
             remote_name,
-            &[StringPattern::everything()],
+            &[branch_pattern],
             cb,
             depth,
             match fetch_tags {
@@ -287,18 +307,28 @@ fn fetch_new_remote(
             },
         )
     })?;
+    let specified_target_branch = target_branch.is_some();
     let default_branch = git_fetch.get_default_branch(remote_name)?;
+    let fetched_branch = target_branch.or(default_branch.clone());
+    let fetched_default = fetched_branch == default_branch;
     let import_stats = git_fetch.import_refs()?;
-    if let Some(name) = &default_branch {
+    if let Some(name) = &fetched_branch {
         let remote_symbol = name.to_remote_symbol(remote_name);
         let remote_ref = tx.repo().get_remote_bookmark(remote_symbol);
-        if track_default && remote_ref.is_present() {
+
+        if specified_target_branch && !remote_ref.is_present() {
+            return Err(user_error(format!(
+                "No such branch: {}",
+                name.clone().into_string()
+            )));
+        }
+        if (fetched_default && should_track_default) || git_settings.auto_local_bookmark {
             // For convenience, create local bookmark as Git would do.
             tx.repo_mut().track_remote_bookmark(remote_symbol);
         }
     }
     print_git_import_stats(ui, tx.repo(), &import_stats, true)?;
-    if git_settings.auto_local_bookmark && !track_default {
+    if git_settings.auto_local_bookmark && !should_track_default {
         writeln!(
             ui.hint_default(),
             "`git.track-default-bookmark-on-clone=false` has no effect if \
@@ -306,5 +336,5 @@ fn fetch_new_remote(
         )?;
     }
     tx.finish(ui, "fetch from git remote into empty repo")?;
-    Ok(default_branch)
+    Ok((fetched_branch, fetched_default))
 }

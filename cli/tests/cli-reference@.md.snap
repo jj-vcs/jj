@@ -1235,6 +1235,9 @@ The Git repo will be a bare git repo stored inside the `.jj/` directory.
   - `none`:
     Do not fetch any tags
 
+* `--branch <BRANCH>` — Name of the branch to fetch and use as the parent of the working-copy change
+
+   If not present, all branches are fetched and the repository's default branch is the parent of the working-copy change
 
 
 
