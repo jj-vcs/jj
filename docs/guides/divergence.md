@@ -60,8 +60,8 @@ it:
 jj abandon <unwanted-commit-id>
 
 # You can abandon several at once with:
-# jj abandon xyz wxy vwx
-# jj abandon xyz::
+# jj abandon abc def 123
+# jj abandon abc::
 ```
 
 This is the simplest solution when you know which version to keep.
