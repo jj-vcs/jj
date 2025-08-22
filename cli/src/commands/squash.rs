@@ -67,9 +67,16 @@ use crate::ui::Ui;
 ///
 /// If a working-copy commit gets abandoned, it will be given a new, empty
 /// commit. This is true in general; it is not specific to this command.
+///
+/// EXPERIMENTAL FEATURES
+///
+/// An alternative squashing UI is available via the `-d`, `-A`, and `-B`
+/// options. They can be used together with one or more `--from` options
+/// (if no `--from` is specified, `--from @` is assumed).
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct SquashArgs {
-    /// Revision to squash into its parent (default: @)
+    /// Revision to squash into its parent (default: @). Incompatible with the
+    /// experimental `-d`/`-A`/`-B` options.
     #[arg(
         long,
         short,
