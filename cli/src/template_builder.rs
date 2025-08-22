@@ -486,25 +486,6 @@ pub fn merge_fn_map<'s, F>(base: &mut HashMap<&'s str, F>, extension: HashMap<&'
 }
 
 impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
-    /// Creates new symbol table containing the builtin functions and methods.
-    pub fn builtin() -> Self {
-        Self {
-            functions: builtin_functions(),
-            string_methods: builtin_string_methods(),
-            string_list_methods: builtin_formattable_list_methods(),
-            boolean_methods: HashMap::new(),
-            integer_methods: HashMap::new(),
-            config_value_methods: builtin_config_value_methods(),
-            signature_methods: builtin_signature_methods(),
-            email_methods: builtin_email_methods(),
-            size_hint_methods: builtin_size_hint_methods(),
-            timestamp_methods: builtin_timestamp_methods(),
-            timestamp_range_methods: builtin_timestamp_range_methods(),
-            template_methods: HashMap::new(),
-            list_template_methods: builtin_list_template_methods(),
-        }
-    }
-
     pub fn empty() -> Self {
         Self {
             functions: HashMap::new(),
@@ -523,8 +504,8 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
         }
     }
 
-    pub fn merge(&mut self, extension: Self) {
-        let CoreTemplateBuildFnTable {
+    pub fn merge(&mut self, other: Self) {
+        let Self {
             functions,
             string_methods,
             string_list_methods,
@@ -538,7 +519,7 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
             timestamp_range_methods,
             template_methods,
             list_template_methods,
-        } = extension;
+        } = other;
 
         merge_fn_map(&mut self.functions, functions);
         merge_fn_map(&mut self.string_methods, string_methods);
@@ -553,6 +534,25 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
         merge_fn_map(&mut self.timestamp_range_methods, timestamp_range_methods);
         merge_fn_map(&mut self.template_methods, template_methods);
         merge_fn_map(&mut self.list_template_methods, list_template_methods);
+    }
+
+    /// Creates new symbol table containing the builtin functions and methods.
+    pub fn builtin() -> Self {
+        Self {
+            functions: builtin_functions(),
+            string_methods: builtin_string_methods(),
+            string_list_methods: builtin_formattable_list_methods(),
+            boolean_methods: HashMap::new(),
+            integer_methods: HashMap::new(),
+            config_value_methods: builtin_config_value_methods(),
+            signature_methods: builtin_signature_methods(),
+            email_methods: builtin_email_methods(),
+            size_hint_methods: builtin_size_hint_methods(),
+            timestamp_methods: builtin_timestamp_methods(),
+            timestamp_range_methods: builtin_timestamp_range_methods(),
+            template_methods: HashMap::new(),
+            list_template_methods: builtin_list_template_methods(),
+        }
     }
 
     /// Translates the function call node `function` by using this symbol table.

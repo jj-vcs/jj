@@ -367,15 +367,6 @@ where
     L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
     L::Property: OperationTemplatePropertyVar<'a>,
 {
-    /// Creates new symbol table containing the builtin methods.
-    pub fn builtin() -> Self {
-        Self {
-            operation_methods: builtin_operation_methods(),
-            operation_list_methods: template_builder::builtin_unformattable_list_methods(),
-            operation_id_methods: builtin_operation_id_methods(),
-        }
-    }
-
     pub fn empty() -> Self {
         Self {
             operation_methods: HashMap::new(),
@@ -394,6 +385,15 @@ where
         merge_fn_map(&mut self.operation_methods, operation_methods);
         merge_fn_map(&mut self.operation_list_methods, operation_list_methods);
         merge_fn_map(&mut self.operation_id_methods, operation_id_methods);
+    }
+
+    /// Creates new symbol table containing the builtin methods.
+    pub fn builtin() -> Self {
+        Self {
+            operation_methods: builtin_operation_methods(),
+            operation_list_methods: template_builder::builtin_unformattable_list_methods(),
+            operation_id_methods: builtin_operation_id_methods(),
+        }
     }
 
     /// Applies the method call node `function` to the given `property` by using
@@ -441,14 +441,6 @@ pub struct OperationTemplateLanguageBuildFnTable {
 }
 
 impl OperationTemplateLanguageBuildFnTable {
-    /// Creates new symbol table containing the builtin methods.
-    fn builtin() -> Self {
-        Self {
-            core: CoreTemplateBuildFnTable::builtin(),
-            operation: OperationTemplateBuildFnTable::builtin(),
-        }
-    }
-
     pub fn empty() -> Self {
         Self {
             core: CoreTemplateBuildFnTable::empty(),
@@ -461,6 +453,14 @@ impl OperationTemplateLanguageBuildFnTable {
 
         self.core.merge(core);
         self.operation.merge(operation);
+    }
+
+    /// Creates new symbol table containing the builtin methods.
+    fn builtin() -> Self {
+        Self {
+            core: CoreTemplateBuildFnTable::builtin(),
+            operation: OperationTemplateBuildFnTable::builtin(),
+        }
     }
 }
 

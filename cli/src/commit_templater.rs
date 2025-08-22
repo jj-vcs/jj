@@ -779,35 +779,6 @@ pub struct CommitTemplateBuildFnTable<'repo> {
 }
 
 impl<'repo> CommitTemplateBuildFnTable<'repo> {
-    /// Creates new symbol table containing the builtin methods.
-    fn builtin() -> Self {
-        Self {
-            core: CoreTemplateBuildFnTable::builtin(),
-            operation: OperationTemplateBuildFnTable::builtin(),
-            commit_methods: builtin_commit_methods(),
-            commit_list_methods: template_builder::builtin_unformattable_list_methods(),
-            commit_evolution_entry_methods: builtin_commit_evolution_entry_methods(),
-            commit_ref_methods: builtin_commit_ref_methods(),
-            commit_ref_list_methods: template_builder::builtin_formattable_list_methods(),
-            workspace_ref_methods: builtin_workspace_ref_methods(),
-            workspace_ref_list_methods: template_builder::builtin_formattable_list_methods(),
-            repo_path_methods: builtin_repo_path_methods(),
-            change_id_methods: builtin_change_id_methods(),
-            commit_id_methods: builtin_commit_id_methods(),
-            shortest_id_prefix_methods: builtin_shortest_id_prefix_methods(),
-            tree_diff_methods: builtin_tree_diff_methods(),
-            tree_diff_entry_methods: builtin_tree_diff_entry_methods(),
-            tree_diff_entry_list_methods: template_builder::builtin_unformattable_list_methods(),
-            tree_entry_methods: builtin_tree_entry_methods(),
-            tree_entry_list_methods: template_builder::builtin_unformattable_list_methods(),
-            diff_stats_methods: builtin_diff_stats_methods(),
-            cryptographic_signature_methods: builtin_cryptographic_signature_methods(),
-            annotation_line_methods: builtin_annotation_line_methods(),
-            trailer_methods: builtin_trailer_methods(),
-            trailer_list_methods: builtin_trailer_list_methods(),
-        }
-    }
-
     pub fn empty() -> Self {
         Self {
             core: CoreTemplateBuildFnTable::empty(),
@@ -836,8 +807,8 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
         }
     }
 
-    fn merge(&mut self, extension: Self) {
-        let CommitTemplateBuildFnTable {
+    fn merge(&mut self, other: Self) {
+        let Self {
             core,
             operation,
             commit_methods,
@@ -861,7 +832,7 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
             annotation_line_methods,
             trailer_methods,
             trailer_list_methods,
-        } = extension;
+        } = other;
 
         self.core.merge(core);
         self.operation.merge(operation);
@@ -901,6 +872,35 @@ impl<'repo> CommitTemplateBuildFnTable<'repo> {
         merge_fn_map(&mut self.annotation_line_methods, annotation_line_methods);
         merge_fn_map(&mut self.trailer_methods, trailer_methods);
         merge_fn_map(&mut self.trailer_list_methods, trailer_list_methods);
+    }
+
+    /// Creates new symbol table containing the builtin methods.
+    fn builtin() -> Self {
+        Self {
+            core: CoreTemplateBuildFnTable::builtin(),
+            operation: OperationTemplateBuildFnTable::builtin(),
+            commit_methods: builtin_commit_methods(),
+            commit_list_methods: template_builder::builtin_unformattable_list_methods(),
+            commit_evolution_entry_methods: builtin_commit_evolution_entry_methods(),
+            commit_ref_methods: builtin_commit_ref_methods(),
+            commit_ref_list_methods: template_builder::builtin_formattable_list_methods(),
+            workspace_ref_methods: builtin_workspace_ref_methods(),
+            workspace_ref_list_methods: template_builder::builtin_formattable_list_methods(),
+            repo_path_methods: builtin_repo_path_methods(),
+            change_id_methods: builtin_change_id_methods(),
+            commit_id_methods: builtin_commit_id_methods(),
+            shortest_id_prefix_methods: builtin_shortest_id_prefix_methods(),
+            tree_diff_methods: builtin_tree_diff_methods(),
+            tree_diff_entry_methods: builtin_tree_diff_entry_methods(),
+            tree_diff_entry_list_methods: template_builder::builtin_unformattable_list_methods(),
+            tree_entry_methods: builtin_tree_entry_methods(),
+            tree_entry_list_methods: template_builder::builtin_unformattable_list_methods(),
+            diff_stats_methods: builtin_diff_stats_methods(),
+            cryptographic_signature_methods: builtin_cryptographic_signature_methods(),
+            annotation_line_methods: builtin_annotation_line_methods(),
+            trailer_methods: builtin_trailer_methods(),
+            trailer_list_methods: builtin_trailer_list_methods(),
+        }
     }
 }
 
