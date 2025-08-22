@@ -2590,6 +2590,10 @@ If the source was abandoned and both the source and destination had a non-empty 
 
 If a working-copy commit gets abandoned, it will be given a new, empty commit. This is true in general; it is not specific to this command.
 
+EXPERIMENTAL FEATURES
+
+An alternative squashing UI is available via the `-d`, `-A`, and `-B` options. They can be used together with one or more `--from` options (if no `--from` is specified, `--from @` is assumed).
+
 **Usage:** `jj squash [OPTIONS] [FILESETS]...`
 
 ###### **Arguments:**
@@ -2598,7 +2602,7 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 
 ###### **Options:**
 
-* `-r`, `--revision <REVSET>` — Revision to squash into its parent (default: @)
+* `-r`, `--revision <REVSET>` — Revision to squash into its parent (default: @). Incompatible with the experimental `-d`/`-A`/`-B` options
 * `-f`, `--from <REVSETS>` — Revision(s) to squash from (default: @)
 * `-t`, `--into <REVSET>` [alias: `to`] — Revision to squash into (default: @)
 * `-d`, `--destination <REVSETS>` — (Experimental) The revision(s) to use as parent for the new commit (can be repeated to create a merge commit)
