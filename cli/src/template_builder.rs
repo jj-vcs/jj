@@ -421,60 +421,57 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
 // couldn't find an easy way to expand that to the core template methods, which
 // are defined for L: TemplateLanguage<'a>. That's why the build fn table is
 // bound to a named lifetime, and therefore can't be cached statically.
-pub type TemplateBuildFunctionFn<'a, L> =
-    fn(
-        &L,
-        &mut TemplateDiagnostics,
-        &BuildContext<<L as TemplateLanguage<'a>>::Property>,
-        &FunctionCallNode,
-    ) -> TemplateParseResult<<L as TemplateLanguage<'a>>::Property>;
+pub type TemplateBuildFunctionFn<'a, L, P> =
+    fn(&L, &mut TemplateDiagnostics, &BuildContext<P>, &FunctionCallNode) -> TemplateParseResult<P>;
 
-type BuildMethodFn<'a, L, T> = fn(
+type BuildMethodFn<'a, L, T, P> = fn(
     &L,
     &mut TemplateDiagnostics,
-    &BuildContext<<L as TemplateLanguage<'a>>::Property>,
+    &BuildContext<P>,
     T,
     &FunctionCallNode,
-) -> TemplateParseResult<<L as TemplateLanguage<'a>>::Property>;
+) -> TemplateParseResult<P>;
 
 /// Function that translates method call node of self type `T`.
-pub type TemplateBuildMethodFn<'a, L, T> = BuildMethodFn<'a, L, BoxedTemplateProperty<'a, T>>;
+pub type TemplateBuildMethodFn<'a, L, T, P> = BuildMethodFn<'a, L, BoxedTemplateProperty<'a, T>, P>;
 
 /// Function that translates method call node of `Template`.
-pub type BuildTemplateMethodFn<'a, L> = BuildMethodFn<'a, L, Box<dyn Template + 'a>>;
+pub type BuildTemplateMethodFn<'a, L, P> = BuildMethodFn<'a, L, Box<dyn Template + 'a>, P>;
 
 /// Function that translates method call node of `ListTemplate`.
-pub type BuildListTemplateMethodFn<'a, L> = BuildMethodFn<'a, L, Box<dyn ListTemplate + 'a>>;
+pub type BuildListTemplateMethodFn<'a, L, P> = BuildMethodFn<'a, L, Box<dyn ListTemplate + 'a>, P>;
 
 /// Table of functions that translate global function call node.
-pub type TemplateBuildFunctionFnMap<'a, L> = HashMap<&'static str, TemplateBuildFunctionFn<'a, L>>;
+pub type TemplateBuildFunctionFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
+    HashMap<&'static str, TemplateBuildFunctionFn<'a, L, P>>;
 
 /// Table of functions that translate method call node of self type `T`.
-pub type TemplateBuildMethodFnMap<'a, L, T> =
-    HashMap<&'static str, TemplateBuildMethodFn<'a, L, T>>;
+pub type TemplateBuildMethodFnMap<'a, L, T, P = <L as TemplateLanguage<'a>>::Property> =
+    HashMap<&'static str, TemplateBuildMethodFn<'a, L, T, P>>;
 
 /// Table of functions that translate method call node of `Template`.
-pub type BuildTemplateMethodFnMap<'a, L> = HashMap<&'static str, BuildTemplateMethodFn<'a, L>>;
+pub type BuildTemplateMethodFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
+    HashMap<&'static str, BuildTemplateMethodFn<'a, L, P>>;
 
 /// Table of functions that translate method call node of `ListTemplate`.
-pub type BuildListTemplateMethodFnMap<'a, L> =
-    HashMap<&'static str, BuildListTemplateMethodFn<'a, L>>;
+pub type BuildListTemplateMethodFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
+    HashMap<&'static str, BuildListTemplateMethodFn<'a, L, P>>;
 
 /// Symbol table of functions and methods available in the core template.
-pub struct CoreTemplateBuildFnTable<'a, L: TemplateLanguage<'a> + ?Sized> {
-    pub functions: TemplateBuildFunctionFnMap<'a, L>,
-    pub string_methods: TemplateBuildMethodFnMap<'a, L, String>,
-    pub string_list_methods: TemplateBuildMethodFnMap<'a, L, Vec<String>>,
-    pub boolean_methods: TemplateBuildMethodFnMap<'a, L, bool>,
-    pub integer_methods: TemplateBuildMethodFnMap<'a, L, i64>,
-    pub config_value_methods: TemplateBuildMethodFnMap<'a, L, ConfigValue>,
-    pub email_methods: TemplateBuildMethodFnMap<'a, L, Email>,
-    pub signature_methods: TemplateBuildMethodFnMap<'a, L, Signature>,
-    pub size_hint_methods: TemplateBuildMethodFnMap<'a, L, SizeHint>,
-    pub timestamp_methods: TemplateBuildMethodFnMap<'a, L, Timestamp>,
-    pub timestamp_range_methods: TemplateBuildMethodFnMap<'a, L, TimestampRange>,
-    pub template_methods: BuildTemplateMethodFnMap<'a, L>,
-    pub list_template_methods: BuildListTemplateMethodFnMap<'a, L>,
+pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a>>::Property> {
+    pub functions: TemplateBuildFunctionFnMap<'a, L, P>,
+    pub string_methods: TemplateBuildMethodFnMap<'a, L, String, P>,
+    pub string_list_methods: TemplateBuildMethodFnMap<'a, L, Vec<String>, P>,
+    pub boolean_methods: TemplateBuildMethodFnMap<'a, L, bool, P>,
+    pub integer_methods: TemplateBuildMethodFnMap<'a, L, i64, P>,
+    pub config_value_methods: TemplateBuildMethodFnMap<'a, L, ConfigValue, P>,
+    pub email_methods: TemplateBuildMethodFnMap<'a, L, Email, P>,
+    pub signature_methods: TemplateBuildMethodFnMap<'a, L, Signature, P>,
+    pub size_hint_methods: TemplateBuildMethodFnMap<'a, L, SizeHint, P>,
+    pub timestamp_methods: TemplateBuildMethodFnMap<'a, L, Timestamp, P>,
+    pub timestamp_range_methods: TemplateBuildMethodFnMap<'a, L, TimestampRange, P>,
+    pub template_methods: BuildTemplateMethodFnMap<'a, L, P>,
+    pub list_template_methods: BuildListTemplateMethodFnMap<'a, L, P>,
 }
 
 pub fn merge_fn_map<'s, F>(base: &mut HashMap<&'s str, F>, extension: HashMap<&'s str, F>) {
@@ -485,7 +482,7 @@ pub fn merge_fn_map<'s, F>(base: &mut HashMap<&'s str, F>, extension: HashMap<&'
     }
 }
 
-impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
+impl<'a, L: ?Sized, P> CoreTemplateBuildFnTable<'a, L, P> {
     pub fn empty() -> Self {
         Self {
             functions: HashMap::new(),
@@ -535,7 +532,12 @@ impl<'a, L: TemplateLanguage<'a> + ?Sized> CoreTemplateBuildFnTable<'a, L> {
         merge_fn_map(&mut self.template_methods, template_methods);
         merge_fn_map(&mut self.list_template_methods, list_template_methods);
     }
+}
 
+impl<'a, L> CoreTemplateBuildFnTable<'a, L, L::Property>
+where
+    L: TemplateLanguage<'a> + ?Sized,
+{
     /// Creates new symbol table containing the builtin functions and methods.
     pub fn builtin() -> Self {
         Self {

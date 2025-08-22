@@ -356,17 +356,13 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplateLanguagePropertyKind 
 impl OperationTemplatePropertyVar<'static> for OperationTemplateLanguagePropertyKind {}
 
 /// Symbol table for the operation template property types.
-pub struct OperationTemplateBuildFnTable<'a, L: TemplateLanguage<'a> + ?Sized> {
-    pub operation_methods: TemplateBuildMethodFnMap<'a, L, Operation>,
-    pub operation_list_methods: TemplateBuildMethodFnMap<'a, L, Vec<Operation>>,
-    pub operation_id_methods: TemplateBuildMethodFnMap<'a, L, OperationId>,
+pub struct OperationTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a>>::Property> {
+    pub operation_methods: TemplateBuildMethodFnMap<'a, L, Operation, P>,
+    pub operation_list_methods: TemplateBuildMethodFnMap<'a, L, Vec<Operation>, P>,
+    pub operation_id_methods: TemplateBuildMethodFnMap<'a, L, OperationId, P>,
 }
 
-impl<'a, L> OperationTemplateBuildFnTable<'a, L>
-where
-    L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
-    L::Property: OperationTemplatePropertyVar<'a>,
-{
+impl<'a, L: ?Sized, P> OperationTemplateBuildFnTable<'a, L, P> {
     pub fn empty() -> Self {
         Self {
             operation_methods: HashMap::new(),
@@ -386,7 +382,13 @@ where
         merge_fn_map(&mut self.operation_list_methods, operation_list_methods);
         merge_fn_map(&mut self.operation_id_methods, operation_id_methods);
     }
+}
 
+impl<'a, L> OperationTemplateBuildFnTable<'a, L, L::Property>
+where
+    L: TemplateLanguage<'a> + OperationTemplateEnvironment + ?Sized,
+    L::Property: OperationTemplatePropertyVar<'a>,
+{
     /// Creates new symbol table containing the builtin methods.
     pub fn builtin() -> Self {
         Self {
