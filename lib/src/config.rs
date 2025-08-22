@@ -32,8 +32,8 @@ use itertools::Itertools as _;
 use serde::Deserialize;
 use serde::de::IntoDeserializer as _;
 use thiserror::Error;
+use toml_edit::Document;
 use toml_edit::DocumentMut;
-use toml_edit::ImDocument;
 
 pub use crate::config_resolver::ConfigMigrateError;
 pub use crate::config_resolver::ConfigMigrateLayerError;
@@ -336,7 +336,7 @@ impl ConfigLayer {
 
     /// Parses TOML document `text` into new layer.
     pub fn parse(source: ConfigSource, text: &str) -> Result<Self, ConfigLoadError> {
-        let data = ImDocument::parse(text).map_err(|error| ConfigLoadError::Parse {
+        let data = Document::parse(text).map_err(|error| ConfigLoadError::Parse {
             error: Box::new(error),
             source_path: None,
         })?;
@@ -348,7 +348,7 @@ impl ConfigLayer {
         let text = fs::read_to_string(&path)
             .context(&path)
             .map_err(ConfigLoadError::Read)?;
-        let data = ImDocument::parse(text).map_err(|error| ConfigLoadError::Parse {
+        let data = Document::parse(text).map_err(|error| ConfigLoadError::Parse {
             error: Box::new(error),
             source_path: Some(path.clone()),
         })?;

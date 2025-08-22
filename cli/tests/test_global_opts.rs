@@ -780,8 +780,7 @@ fn test_invalid_config() {
       |
     1 | [section]key = value-missing-quotes
       |          ^
-    invalid table header
-    expected newline, `#`
+    unexpected key or value, expected newline, `#`
 
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
     For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.

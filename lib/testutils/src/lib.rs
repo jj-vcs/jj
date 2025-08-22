@@ -708,7 +708,7 @@ pub fn assert_no_forgotten_test_files(test_dir: &Path) {
     let manifest = {
         let file_path = test_dir.parent().unwrap().join("Cargo.toml");
         let text = fs::read_to_string(&file_path).unwrap();
-        toml_edit::ImDocument::parse(text).unwrap()
+        toml_edit::Document::parse(text).unwrap()
     };
     let test_bin_mods = if let Some(item) = manifest.get("test") {
         let tables = item.as_array_of_tables().unwrap();

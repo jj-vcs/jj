@@ -554,7 +554,7 @@ fn test_config_set_bad_opts() {
       |
     1 | 
       | ^
-    invalid key
+    unquoted keys cannot be empty, expected letters, numbers, `-`, `_`
 
 
     For more information, try '--help'.
@@ -569,8 +569,7 @@ fn test_config_set_bad_opts() {
       |
     1 | ['typo'}
       |        ^
-    invalid array
-    expected `]`
+    missing comma between array elements, expected `,`
 
 
     For more information, try '--help'.
@@ -1066,7 +1065,7 @@ fn test_config_edit_invalid_config() {
       |
     1 | invalid config here
       |         ^
-    expected `.`, `=`
+    key with no value, expected `=`
 
     Do you want to keep editing the file? If not, previous config will be restored. (Yn): [EOF]
     ");
@@ -1095,7 +1094,7 @@ fn test_config_edit_invalid_config() {
       |
     1 | invalid config here
       |         ^
-    expected `.`, `=`
+    key with no value, expected `=`
 
     Do you want to keep editing the file? If not, previous config will be restored. (Yn): [EOF]
     ");
@@ -1263,19 +1262,15 @@ fn test_config_get_yields_values_consistent_with_schema_defaults() {
     let test_env = TestEnvironment::default();
     let get_true_default = move |key: &str| {
         let output = test_env.run_jj_in(".", ["config", "get", key]).success();
-        let output_doc =
-            toml_edit::ImDocument::parse(format!("test={}", output.stdout.normalized()))
-                .unwrap_or_else(|_| {
-                    // Unfortunately for this test, `config get` is "lossy" and does not print
-                    // quoted strings. This means that e.g. `false` and `"false"` are not
-                    // distinguishable. If value couldn't be parsed, it's probably a string, so
-                    // let's parse its Debug string instead.
-                    toml_edit::ImDocument::parse(format!(
-                        "test={:?}",
-                        output.stdout.normalized().trim()
-                    ))
+        let output_doc = toml_edit::Document::parse(format!("test={}", output.stdout.normalized()))
+            .unwrap_or_else(|_| {
+                // Unfortunately for this test, `config get` is "lossy" and does not print
+                // quoted strings. This means that e.g. `false` and `"false"` are not
+                // distinguishable. If value couldn't be parsed, it's probably a string, so
+                // let's parse its Debug string instead.
+                toml_edit::Document::parse(format!("test={:?}", output.stdout.normalized().trim()))
                     .unwrap()
-                });
+            });
         output_doc.get("test").unwrap().as_value().unwrap().clone()
     };
 
@@ -1427,7 +1422,7 @@ fn test_config_path_syntax() {
       |
     1 | .
       | ^
-    invalid key
+    unquoted keys cannot be empty, expected letters, numbers, `-`, `_`
 
 
     For more information, try '--help'.
@@ -1443,7 +1438,7 @@ fn test_config_path_syntax() {
       |
     1 | b c
       |   ^
-
+    unexpected content, expected nothing
 
 
     For more information, try '--help'.
@@ -1457,7 +1452,7 @@ fn test_config_path_syntax() {
       |
     1 | 
       | ^
-    invalid key
+    unquoted keys cannot be empty, expected letters, numbers, `-`, `_`
 
 
     For more information, try '--help'.

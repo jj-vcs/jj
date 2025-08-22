@@ -136,12 +136,11 @@ fn test_config_multiple_tools_with_same_name() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: Configuration cannot be parsed as TOML document
-    Caused by: TOML parse error at line 6, column 9
+    Caused by: TOML parse error at line 6, column 20
       |
     6 |         [fix.tools.my-tool]
-      |         ^
-    invalid table header
-    duplicate key `my-tool` in table `fix.tools`
+      |                    ^^^^^^^
+    duplicate key
 
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
     For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.

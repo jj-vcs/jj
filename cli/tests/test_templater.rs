@@ -456,7 +456,7 @@ fn test_templater_config_function() {
       |
     1 | invalid name
       |         ^
-
+    unexpected content, expected nothing
 
     [EOF]
     [exit status: 1]
