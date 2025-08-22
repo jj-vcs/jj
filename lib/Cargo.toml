@@ -93,6 +93,9 @@ test-case = { workspace = true }
 testutils = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 
+[target.'cfg(unix)'.dev-dependencies]
+nix = { workspace = true, features = [ "fs" ] }
+
 [features]
 default = ["git"]
 git = ["dep:gix"]

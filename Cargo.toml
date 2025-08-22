@@ -67,6 +67,7 @@ itertools = "0.14.0"
 jsonschema = { version = "0.32.1", default-features = false }
 libc = { version = "0.2.175" }
 maplit = "1.0.2"
+nix = "0.30.1"
 num_cpus = "1.17.0"
 once_cell = "1.21.3"
 os_pipe = "1.2.2"
