@@ -97,8 +97,8 @@ pub(crate) struct SquashArgs {
     )]
     into: Option<RevisionArg>,
 
-    /// The revision(s) to use as parent for the new commit (can be repeated
-    /// to create a merge commit)
+    /// (Experimental) The revision(s) to use as parent for the new commit (can
+    /// be repeated to create a merge commit)
     #[arg(
         long,
         short,
@@ -109,8 +109,8 @@ pub(crate) struct SquashArgs {
     )]
     destination: Option<Vec<RevisionArg>>,
 
-    /// The revision(s) to insert the new commit after (can be repeated to
-    /// create a merge commit)
+    /// (Experimental) The revision(s) to insert the new commit after (can be
+    /// repeated to create a merge commit)
     #[arg(
         long,
         short = 'A',
@@ -123,8 +123,8 @@ pub(crate) struct SquashArgs {
     )]
     insert_after: Option<Vec<RevisionArg>>,
 
-    /// The revision(s) to insert the new commit before (can be repeated to
-    /// create a merge commit)
+    /// (Experimental) The revision(s) to insert the new commit before (can be
+    /// repeated to create a merge commit)
     #[arg(
         long,
         short = 'B',
