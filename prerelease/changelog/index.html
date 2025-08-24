@@ -5652,6 +5652,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p>The deprecated <code>--config-toml</code> flag has been removed. Use
   <code>--config=NAME=VALUE</code> or <code>--config-file=PATH</code> instead.</p>
 </li>
+<li>
+<p><code>jj undo</code> can now undo multiple operations progressively by calling it
+  repeatedly. While this is technically a breaking change, we don't expect
+  many people to be negatively affected, because running <code>jj undo</code> twice was
+  previously a no-op.</p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <ul>
@@ -5662,8 +5668,7 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 </li>
 <li>
 <p><code>jj op undo</code> is deprecated in favor of <code>jj op revert</code>. (<code>jj undo</code> is still
-  available unchanged, but we plan to enable undoing multiple operations
-  progressively by repeated calls to <code>jj undo</code>.)</p>
+  available, but with new semantics. See also the breaking changes above.)</p>
 </li>
 <li>
 <p>The argument <code>&lt;operation&gt;</code> of <code>jj undo</code> is deprecated in favor of
@@ -5719,8 +5724,8 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   used to generate a new change-id, which may help resolve some divergences.</p>
 </li>
 <li>
-<p>Filesets now support case-insensitive glob patterns with the <code>glob-i:</code>, 
-  <code>cwd-glob-i:</code>, and <code>root-glob-i:</code> pattern kinds. For example, <code>glob-i:"*.rs"</code> 
+<p>Filesets now support case-insensitive glob patterns with the <code>glob-i:</code>,
+  <code>cwd-glob-i:</code>, and <code>root-glob-i:</code> pattern kinds. For example, <code>glob-i:"*.rs"</code>
   will match both <code>file.rs</code> and <code>FILE.RS</code>.</p>
 </li>
 <li>

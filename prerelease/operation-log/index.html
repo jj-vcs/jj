@@ -1787,9 +1787,10 @@ and the current working-copy commit in each workspace. The operation object also
 (in addition to the view) contains pointers to the operation(s) immediately
 before it, as well as metadata about the operation, such as timestamps,
 username, hostname, description.</p>
-<p>The operation log allows you to undo an operation (<code>jj undo</code>), which doesn't
-need to be the most recent one. It also lets you restore the entire repo to the
-way it looked at an earlier point (<code>jj op restore</code>).</p>
+<p>The operation log allows you to undo operations one-by-one (<code>jj undo</code>) or even
+revert a specific one which isn't the most recent operation (<code>jj op revert</code>). It
+also lets you restore the entire repo to the way it looked at an earlier point
+(<code>jj op restore</code>).</p>
 <p>When referring to operations, you can use <code>@</code> to represent the current
 operation.</p>
 <p>The following operators are supported:</p>
