@@ -57,7 +57,7 @@ fn test_split_by_paths() {
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  qpvuntsmwlqt false
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     ");
     insta::assert_snapshot!(get_recorded_dates(&work_dir, "@"), @r"
@@ -95,7 +95,7 @@ fn test_split_by_paths() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  zsuskulnrvyr false
     ○  qpvuntsmwlqt false
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     ");
 
@@ -140,7 +140,7 @@ fn test_split_by_paths() {
     @  zsuskulnrvyr false
     ○  znkkpsqqskkl true
     ○  qpvuntsmwlqt false
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     ");
 
@@ -171,7 +171,7 @@ fn test_split_by_paths() {
     @  zsuskulnrvyr false
     ○  lylxulplsnyw false
     ○  qpvuntsmwlqt true
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     ");
 
@@ -241,7 +241,7 @@ fn test_split_with_non_empty_description() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  kkmpptxzrspx false part 2
     ○  qpvuntsmwlqt false part 1
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
     Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
@@ -297,7 +297,7 @@ fn test_split_with_default_description() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  rlvkpnrzqnoo false
     ○  qpvuntsmwlqt false TESTED=TODO
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
     Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
@@ -329,7 +329,7 @@ fn test_split_with_descendants() {
     @  kkmpptxzrspx false Add file4
     ○  rlvkpnrzqnoo false Add file3
     ○  qpvuntsmwlqt false Add file1 & file2
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     "###);
 
@@ -361,7 +361,7 @@ fn test_split_with_descendants() {
     ○  rlvkpnrzqnoo false Add file3
     ○  royxmykxtrkr false Add file2
     ○  qpvuntsmwlqt false Add file1
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     ");
 
@@ -453,7 +453,7 @@ fn test_split_with_merge_child() {
     │ ○  kkmpptxzrspx false a
     ○ │  qpvuntsmwlqt true 1
     ├─╯
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     ");
 
@@ -481,7 +481,7 @@ fn test_split_with_merge_child() {
     │ ○  kkmpptxzrspx false Add file1
     ○ │  qpvuntsmwlqt true 1
     ├─╯
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     ");
 }
@@ -501,7 +501,7 @@ fn test_split_parallel_no_descendants() {
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  qpvuntsmwlqt false
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
     Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
@@ -528,7 +528,7 @@ fn test_split_parallel_no_descendants() {
     @  kkmpptxzrspx false
     │ ○  qpvuntsmwlqt false TESTED=TODO
     ├─╯
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
     Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
@@ -623,7 +623,7 @@ fn test_split_parallel_with_descendants() {
     ○  kkmpptxzrspx false Add file4
     ○  rlvkpnrzqnoo false Add file3
     @  qpvuntsmwlqt false Add file1 & file2
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     ");
 
@@ -658,7 +658,7 @@ fn test_split_parallel_with_descendants() {
     │ @  vruxwmqvtpmx false Add file2
     ○ │  qpvuntsmwlqt false Add file1
     ├─╯
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     ");
 
@@ -709,7 +709,7 @@ fn test_split_parallel_with_merge_child() {
     │ ○  kkmpptxzrspx false a
     ○ │  qpvuntsmwlqt true 1
     ├─╯
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     ");
 
@@ -739,7 +739,7 @@ fn test_split_parallel_with_merge_child() {
     │ ├─╯
     ○ │  qpvuntsmwlqt true 1
     ├─╯
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     ");
 }
@@ -840,7 +840,7 @@ fn test_split_interactive() {
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 c664a51b
     │  (no description set)
     │  A file1
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 }
@@ -911,7 +911,7 @@ fn test_split_interactive_with_paths() {
     │  (no description set)
     │  A file2
     │  A file3
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 }
@@ -945,7 +945,7 @@ fn test_split_with_multiple_workspaces_same_working_copy() {
     // node in the graph indicates the current workspace's working-copy commit.
     insta::assert_snapshot!(get_workspace_log_output(&main_dir), @r"
     @  qpvuntsmwlqt default@ second@ first-commit
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -960,7 +960,7 @@ fn test_split_with_multiple_workspaces_same_working_copy() {
     insta::assert_snapshot!(get_workspace_log_output(&main_dir), @r"
     @  royxmykxtrkr default@ second@ second-commit
     ○  qpvuntsmwlqt first-commit
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -976,7 +976,7 @@ fn test_split_with_multiple_workspaces_same_working_copy() {
     @  yostqsxwqrlt default@ second@ second-commit
     │ ○  qpvuntsmwlqt first-commit
     ├─╯
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 }
@@ -1004,7 +1004,7 @@ fn test_split_with_multiple_workspaces_different_working_copy() {
     @  qpvuntsmwlqt default@ first-commit
     │ ○  pmmvwywvzvvn second@
     ├─╯
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1021,7 +1021,7 @@ fn test_split_with_multiple_workspaces_different_working_copy() {
     ○  qpvuntsmwlqt first-commit
     │ ○  pmmvwywvzvvn second@
     ├─╯
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1039,7 +1039,7 @@ fn test_split_with_multiple_workspaces_different_working_copy() {
     ├─╯
     │ ○  pmmvwywvzvvn second@
     ├─╯
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 }
@@ -1112,7 +1112,7 @@ fn test_split_with_non_empty_description_and_trailers() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  kkmpptxzrspx false part 2
     ○  qpvuntsmwlqt false part 1
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
     Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
@@ -1143,7 +1143,7 @@ fn test_split_with_message() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  kkmpptxzrspx false my feature
     ○  qpvuntsmwlqt false fix in file1
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     ");
 
@@ -1171,7 +1171,7 @@ fn test_split_with_message() {
     ○  qpvuntsmwlqt false fix in file1
     │
     │  CC: test.user@example.com
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     ");
 }
@@ -1204,7 +1204,7 @@ fn test_split_move_first_commit() {
     │ ○  qpvuntsmwlqt file2
     ├─╯  A file1
     │    A file2
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1239,7 +1239,7 @@ fn test_split_move_first_commit() {
     │ │  A file2
     │ ○  vruxwmqvtpmx file1
     ├─╯  A file1
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1275,7 +1275,7 @@ fn test_split_move_first_commit() {
     │ │  A file1
     │ ○  qpvuntsmwlqt file2
     ├─╯  A file2
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1311,7 +1311,7 @@ fn test_split_move_first_commit() {
     │ │  A file3
     │ ○  qpvuntsmwlqt file2
     ├─╯  A file2
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1349,7 +1349,7 @@ fn test_split_move_first_commit() {
     │ ├─╯  A file3
     │ ○  qpvuntsmwlqt file2
     ├─╯  A file2
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1388,7 +1388,7 @@ fn test_split_move_first_commit() {
     │ │  A file3
     │ ○  qpvuntsmwlqt file2
     ├─╯  A file2
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1429,7 +1429,7 @@ fn test_split_move_first_commit() {
     │ │  A file2
     ○ │  mzvwutvlkqwt file5
     ├─╯  A file5
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 }
@@ -1470,7 +1470,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_log_output(&main_dir), @r#"
     @  qpvuntsmwlqt false "*le-signet*" first-commit
-    ◆  zzzzzzzzzzzz true
+    ♦  zzzzzzzzzzzz true
     [EOF]
     "#);
     }
@@ -1498,7 +1498,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
             insta::assert_snapshot!(get_log_output(&main_dir), @r#"
             @  mzvwutvlkqwt false second-commit
             ○  qpvuntsmwlqt false "*le-signet*" first-commit
-            ◆  zzzzzzzzzzzz true
+            ♦  zzzzzzzzzzzz true
             [EOF]
             "#);
             }
@@ -1518,7 +1518,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
             insta::assert_snapshot!(get_log_output(&main_dir), @r#"
             @  mzvwutvlkqwt false "*le-signet*" second-commit
             ○  qpvuntsmwlqt false first-commit
-            ◆  zzzzzzzzzzzz true
+            ♦  zzzzzzzzzzzz true
             [EOF]
             "#);
             }
@@ -1540,7 +1540,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
             @  vruxwmqvtpmx false second-commit
             │ ○  qpvuntsmwlqt false "*le-signet*" first-commit
             ├─╯
-            ◆  zzzzzzzzzzzz true
+            ♦  zzzzzzzzzzzz true
             [EOF]
             "#);
             }
@@ -1551,7 +1551,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
             @  vruxwmqvtpmx false "*le-signet*" second-commit
             │ ○  qpvuntsmwlqt false first-commit
             ├─╯
-            ◆  zzzzzzzzzzzz true
+            ♦  zzzzzzzzzzzz true
             [EOF]
             "#);
             }

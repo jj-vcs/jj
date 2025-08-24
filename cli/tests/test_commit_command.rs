@@ -29,7 +29,7 @@ fn test_commit_with_description_from_cli() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  eb9fd2ab82e7
     ○  68a505386f93 first
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -49,7 +49,7 @@ fn test_commit_with_editor() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  2094c8f2e360
     ○  a7ba1eb73836 modified
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     insta::assert_snapshot!(
@@ -108,7 +108,7 @@ fn test_commit_with_empty_description_from_cli() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  51b556e22ca0
     ○  cc8ff2284a8c
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     insta::assert_snapshot!(output, @r"
@@ -132,7 +132,7 @@ fn test_commit_with_empty_description_from_editor() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  51b556e22ca0
     ○  cc8ff2284a8c
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     insta::assert_snapshot!(
@@ -221,7 +221,7 @@ fn test_commit_interactive() {
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:11 6e6fa925
     │  add files
     │  A file1
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 }
@@ -283,7 +283,7 @@ fn test_commit_interactive_with_paths() {
     │  (no description set)
     │  A file2
     │  A file3
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 }
@@ -304,7 +304,7 @@ fn test_commit_with_default_description() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  cba559ac1a48
     ○  7276dfff8027 TESTED=TODO
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ------- stderr -------
     Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'

@@ -45,7 +45,7 @@ fn test_resolution() {
     ○ │  a
     ├─╯
     ○  base
-    ◆
+    ♦
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
@@ -560,7 +560,7 @@ fn test_normal_conflict_input_files() {
     ○ │  a
     ├─╯
     ○  base
-    ◆
+    ♦
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
@@ -600,7 +600,7 @@ fn test_baseless_conflict_input_files() {
     ○ │  a
     ├─╯
     ○  base
-    ◆
+    ♦
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
@@ -794,7 +794,7 @@ fn test_edit_delete_conflict_input_files() {
     ○ │  a
     ├─╯
     ○  base
-    ◆
+    ♦
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
@@ -836,7 +836,7 @@ fn test_file_vs_dir() {
     ○ │  a
     ├─╯
     ○  base
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -884,7 +884,7 @@ fn test_description_with_dir_and_deletion() {
     ○ │  edit
     ├─╯
     ○  base
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1263,7 +1263,7 @@ fn test_resolve_change_delete_executable() {
     │  diff --git a/file5 b/file5
     │  new file mode 100755
     │  index 0000000000..e69de29bb2
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
@@ -1657,7 +1657,7 @@ fn test_multiple_conflicts() {
     ○ │  a
     ├─╯
     ○  base
-    ◆
+    ♦
     [EOF]
     ");
     insta::assert_snapshot!(
@@ -2021,7 +2021,7 @@ fn test_resolve_with_contents_of_side() {
     ○ │  a
     ├─╯
     ○  base
-    ◆
+    ♦
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"

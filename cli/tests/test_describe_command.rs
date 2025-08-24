@@ -279,7 +279,7 @@ fn test_describe_multiple_commits() {
     @  3cd3b246e098
     ○  43444d88b009
     ○  e8849ae12c70
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -297,7 +297,7 @@ fn test_describe_multiple_commits() {
     @  4c3ccb9d4fb2 description from CLI
     ○  650ac8f249be
     ○  0ff65c91377a description from CLI
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -370,7 +370,7 @@ fn test_describe_multiple_commits() {
     │
     │  further commit message of @-
     ○  0ff65c91377a description from CLI
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -535,7 +535,7 @@ fn test_describe_multiple_commits() {
     │  further commit message of @
     ○  d1c1edbd5595 description from editor for @-
     ○  a8bf976d72fb description from editor for @--
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }

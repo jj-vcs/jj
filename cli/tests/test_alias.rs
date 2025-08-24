@@ -167,7 +167,7 @@ fn test_alias_cannot_override_builtin() {
     // Alias should give a warning
     let output = work_dir.run_jj(["log", "-r", "root()"]);
     insta::assert_snapshot!(output, @r"
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ------- stderr -------
     Warning: Cannot define an alias that overrides the built-in command 'log'
@@ -216,32 +216,32 @@ fn test_alias_global_args_before_and_after() {
     let output = work_dir.run_jj(["l"]);
     insta::assert_snapshot!(output, @r"
     @  e8849ae12c709f2321908879bc724fdb2ab8a781
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
 
     // Can pass global args before
     let output = work_dir.run_jj(["l", "--at-op", "@-"]);
     insta::assert_snapshot!(output, @r"
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
     // Can pass global args after
     let output = work_dir.run_jj(["--at-op", "@-", "l"]);
     insta::assert_snapshot!(output, @r"
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
     // Test passing global args both before and after
     let output = work_dir.run_jj(["--at-op", "abc123", "l", "--at-op", "@-"]);
     insta::assert_snapshot!(output, @r"
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
     let output = work_dir.run_jj(["-R", "../nonexistent", "l", "-R", "."]);
     insta::assert_snapshot!(output, @r"
     @  e8849ae12c709f2321908879bc724fdb2ab8a781
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
 }
@@ -258,7 +258,7 @@ fn test_alias_global_args_in_definition() {
     // The global argument in the alias is respected
     let output = work_dir.run_jj(["l"]);
     insta::assert_snapshot!(output, @r"
-    [1m[38;5;14m◆[0m  [38;5;4m0000000000000000000000000000000000000000[39m
+    [1m[38;5;14m♦[0m  [38;5;4m0000000000000000000000000000000000000000[39m
     [EOF]
     ");
 }

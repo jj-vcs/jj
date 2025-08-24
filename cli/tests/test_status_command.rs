@@ -167,7 +167,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     ├─╯  Second part of conflicting change
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 fe876a9c
     │  Initial contents
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
@@ -241,7 +241,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     ├─╯  Second part of conflicting change
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 fe876a9c
     │  Initial contents
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
@@ -277,7 +277,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     ├─╯  Second part of conflicting change
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 fe876a9c
     │  Initial contents
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 
@@ -315,7 +315,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     ├─╯  Second part of conflicting change
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:08 fe876a9c
     │  Initial contents
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 

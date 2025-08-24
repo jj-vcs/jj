@@ -1552,7 +1552,7 @@ Renders a graphical view of the project's history, ordered with children before 
 
 Spans of revisions that are not included in the graph per `--revisions` are rendered as a synthetic node labeled "(elided revisions)".
 
-The working-copy commit is indicated by a `@` symbol in the graph. [Immutable revisions] have a `◆` symbol. Other commits have a `○` symbol. All of these symbols can be [customized].
+The working-copy commit is indicated by a `@` symbol in the graph. [Immutable revisions] have a `♦` symbol. Other commits have a `○` symbol. All of these symbols can be [customized].
 
 [Immutable revisions]: https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
 

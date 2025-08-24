@@ -43,7 +43,7 @@ fn test_squash() {
     @  22be6c4e01da c
     ○  75591b1896b4 b
     ○  e6086990958c a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
 
@@ -59,7 +59,7 @@ fn test_squash() {
     @  2cf02eb82d82 (empty)
     ○  9422c8d6f294 b c
     ○  e6086990958c a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file1"]);
@@ -81,7 +81,7 @@ fn test_squash() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  441a7a3a17b0 c
     ○  105931bfedad a b
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file1", "-r", "b"]);
@@ -116,7 +116,7 @@ fn test_squash() {
     ├─╯
     ○  75591b1896b4 b
     ○  e6086990958c a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     let output = work_dir.run_jj(["squash"]);
@@ -147,7 +147,7 @@ fn test_squash() {
     ├─╯
     ○  75591b1896b4 b
     ○  e6086990958c a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file1", "-r", "e"]);
@@ -186,7 +186,7 @@ fn test_squash_partial() {
     @  87059ac9657b c
     ○  f2c9709f39e9 b
     ○  64ea60be8d77 a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
 
@@ -219,7 +219,7 @@ fn test_squash_partial() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  34484d825f47 c
     ○  3141e67514f6 a b
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file1", "-r", "a"]);
@@ -243,7 +243,7 @@ fn test_squash_partial() {
     @  37e1a0ef57ff c
     ○  b41e789df71c b
     ○  3af17565155e a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file1", "-r", "a"]);
@@ -283,7 +283,7 @@ fn test_squash_partial() {
     @  72ff256cd290 c
     ○  dd056a925eb3 b
     ○  cf083f1d9ccf a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file1", "-r", "a"]);
@@ -353,7 +353,7 @@ fn test_squash_partial() {
     │  (no description set)
     │  A file1
     │  A file2
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 }
@@ -384,7 +384,7 @@ fn test_squash_keep_emptied() {
     @  22be6c4e01da c
     ○  75591b1896b4 b
     ○  e6086990958c a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
 
@@ -401,7 +401,7 @@ fn test_squash_keep_emptied() {
     @  093590e044bd c
     ○  357946cf85df b (empty)
     ○  2269fb3b12f5 a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file1", "-r", "a"]);
@@ -469,7 +469,7 @@ fn test_squash_from_to() {
     │ ○  e31bf988d7c9 b
     ├─╯
     ○  e3e04beaf7d3 a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
 
@@ -497,7 +497,7 @@ fn test_squash_from_to() {
     │ ○  e31bf988d7c9 b c
     ├─╯
     ○  e3e04beaf7d3 a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     // The change from the source has been applied
@@ -531,7 +531,7 @@ fn test_squash_from_to() {
     │ ○  e31bf988d7c9 b
     ├─╯
     ○  e3e04beaf7d3 a d
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     // The change from the source has been applied (the file contents were already
@@ -561,7 +561,7 @@ fn test_squash_from_to() {
     │ ○  e31bf988d7c9 b
     ├─╯
     ○  e3e04beaf7d3 a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     // The change from the source has been applied
@@ -589,7 +589,7 @@ fn test_squash_from_to() {
     │ ○  e31bf988d7c9 b
     ├─╯
     ○  e3e04beaf7d3 a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     // The change from the source has been applied
@@ -643,7 +643,7 @@ fn test_squash_from_to_partial() {
     │ ○  e31bf988d7c9 b
     ├─╯
     ○  e3e04beaf7d3 a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
 
@@ -661,7 +661,7 @@ fn test_squash_from_to_partial() {
     │ ○  e31bf988d7c9 b c
     ├─╯
     ○  e3e04beaf7d3 a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     // The changes from the source has been applied
@@ -699,7 +699,7 @@ fn test_squash_from_to_partial() {
     │ ○  e31bf988d7c9 b
     ├─╯
     ○  e3e04beaf7d3 a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     // The selected change from the source has been applied
@@ -739,7 +739,7 @@ fn test_squash_from_to_partial() {
     │ ○  e31bf988d7c9 b
     ├─╯
     ○  e3e04beaf7d3 a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     // The selected change from the source has been applied
@@ -777,7 +777,7 @@ fn test_squash_from_to_partial() {
     │ ○  e12c895adba6 b
     ├─╯
     ○  e3e04beaf7d3 a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     // The selected change from the source has been applied
@@ -857,7 +857,7 @@ fn test_squash_from_multiple() {
     ○ │  8acbb71558d5 d
     ├─╯
     ○  e88768e65e67 a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
 
@@ -885,7 +885,7 @@ fn test_squash_from_multiple() {
     × │  a3221d7ae02a d
     ├─╯
     ○  e88768e65e67 a b c
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     // The changes from the sources have been applied
@@ -921,7 +921,7 @@ fn test_squash_from_multiple() {
     ○ │  8acbb71558d5 d
     ├─╯
     ○  e88768e65e67 a b c
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     // The changes from the sources have been applied to the destination
@@ -1000,7 +1000,7 @@ fn test_squash_from_multiple_partial() {
     ○ │  f6812ff8db35 d
     ├─╯
     ○  64ea60be8d77 a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
 
@@ -1031,7 +1031,7 @@ fn test_squash_from_multiple_partial() {
     × │  15efa8c069e0 d
     ├─╯
     ○  64ea60be8d77 a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     // The selected changes have been removed from the sources
@@ -1088,7 +1088,7 @@ fn test_squash_from_multiple_partial() {
     ○ │  f6812ff8db35 d
     ├─╯
     ○  64ea60be8d77 a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     // The selected changes have been removed from the sources
@@ -1147,7 +1147,7 @@ fn test_squash_from_multiple_partial_no_op() {
     │ ○  b1a17f79a1a5 b
     ├─╯
     ○  93d495c46d89 a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
 
@@ -1165,7 +1165,7 @@ fn test_squash_from_multiple_partial_no_op() {
     │ ○  0dc8cb72859d c
     ├─╯
     ○  93d495c46d89 a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
     let output = work_dir.run_jj([
@@ -1198,7 +1198,7 @@ fn test_squash_from_multiple_partial_no_op() {
     │ ○  b1a17f79a1a5 b
     ├─╯
     ○  93d495c46d89 a
-    ◆  000000000000 (empty)
+    ♦  000000000000 (empty)
     [EOF]
     ");
 }
@@ -1376,7 +1376,7 @@ fn test_squash_description() {
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
     @  b086e6e1d02c
     ○  aeace309a1bd destination
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir
@@ -1403,7 +1403,7 @@ fn test_squash_description() {
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
     @  2664d61781df source
     ○  c7a218b8d32e
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir
@@ -1428,7 +1428,7 @@ fn test_squash_description() {
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
     @  e024f101aae7
     ○  c6812e220e36
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir
@@ -1449,7 +1449,7 @@ fn test_squash_description() {
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
     @  95925ceb516a source
     ○  db0ba0f18c8f
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir
@@ -1468,7 +1468,7 @@ fn test_squash_description() {
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
     @  aeaaeb3703e0 source
     ○  aeace309a1bd destination
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
     work_dir
@@ -1556,7 +1556,7 @@ fn test_squash_use_destination_message() {
     @  cf388db088f7 c
     ○  e412ddda5587 b
     ○  b86e28cd6862 a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -1566,7 +1566,7 @@ fn test_squash_use_destination_message() {
     @  70c0f74e4486
     ○  44c1701e4ef8 b
     ○  b86e28cd6862 a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 
@@ -1585,7 +1585,7 @@ fn test_squash_use_destination_message() {
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
     @  e5a16e0e6a46
     ○  6e47254e0803 a
-    ◆  000000000000
+    ♦  000000000000
     [EOF]
     ");
 }
@@ -1745,7 +1745,7 @@ fn test_squash_to_new_commit() {
     │  A file2
     ○  qpvuntsmwlqt file1
     │  A file1
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1777,7 +1777,7 @@ fn test_squash_to_new_commit() {
     ○  yqosqzytrlsw file 3&4
     │  A file3
     │  A file4
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1810,7 +1810,7 @@ fn test_squash_to_new_commit() {
     │  A file4
     ○  qpvuntsmwlqt file1
     │  A file1
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1843,7 +1843,7 @@ fn test_squash_to_new_commit() {
     │    A file4
     ○  qpvuntsmwlqt file1
     │  A file1
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1876,7 +1876,7 @@ fn test_squash_to_new_commit() {
     │  A file2
     ○  qpvuntsmwlqt file1
     │  A file1
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1909,7 +1909,7 @@ fn test_squash_to_new_commit() {
     │  A file2
     ○  qpvuntsmwlqt file1
     │  A file1
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1944,7 +1944,7 @@ fn test_squash_to_new_commit() {
     │  A file2
     ○  qpvuntsmwlqt file1
     │  A file1
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -1994,7 +1994,7 @@ fn test_squash_to_new_commit() {
     ○  xlzxqlslvuyv file 3&4
     │  A file3
     │  A file4
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -2059,7 +2059,7 @@ fn test_squash_to_new_commit() {
     ○  pkstwlsyuyku
     │  A file3
     │  A file4
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -2093,7 +2093,7 @@ fn test_squash_to_new_commit() {
     ○  qpvuntsmwlqt file1
     │  A file1
     ○  zowrlwsvrkvk
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -2136,7 +2136,7 @@ fn test_squash_to_new_commit() {
     ○  qpvuntsmwlqt file1
     │  A file1
     ○  nsrwusvynpoy
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 
@@ -2183,7 +2183,7 @@ fn test_squash_to_new_commit() {
     │  A file1
     │ ○  ukwxllxpysvw
     ├─╯
-    ◆  zzzzzzzzzzzz
+    ♦  zzzzzzzzzzzz
     [EOF]
     ");
 

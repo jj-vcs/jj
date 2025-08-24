@@ -57,7 +57,7 @@ fn test_concurrent_operation_divergence() {
     @  message 1
     │ ○  message 2
     ├─╯
-    ◆
+    ♦
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
@@ -83,7 +83,7 @@ fn test_concurrent_operations_auto_rebase() {
     insta::assert_snapshot!(output, @r"
     ○  new child
     @  rewritten
-    ◆
+    ♦
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
@@ -113,7 +113,7 @@ fn test_concurrent_operations_wc_modified() {
     │ ○  new child2
     ├─╯
     ○  initial
-    ◆
+    ♦
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
@@ -222,7 +222,7 @@ fn test_concurrent_snapshot_wc_reloadable() {
     │  A child1
     ○  initial
     │  A base
-    ◆
+    ♦
     [EOF]
     ");
 }

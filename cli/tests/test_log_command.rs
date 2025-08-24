@@ -89,7 +89,7 @@ fn test_log_with_or_without_diff() {
     insta::assert_snapshot!(output, @r"
     @  a new commit
     ○  add a file
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -102,7 +102,7 @@ fn test_log_with_or_without_diff() {
     ○  add a file
     │  Added regular file file1:
     │          1: foo
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -125,7 +125,7 @@ fn test_log_with_or_without_diff() {
     │  A file1
     │  Added regular file file1:
     │          1: foo
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -150,7 +150,7 @@ fn test_log_with_or_without_diff() {
     │  +++ b/file1
     │  @@ -0,0 +1,1 @@
     │  +foo
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -168,7 +168,7 @@ fn test_log_with_or_without_diff() {
     │  1 file changed, 1 insertion(+), 0 deletions(-)
     │  Added regular file file1:
     │          1: foo
-    ◆
+    ♦
        0 files changed, 0 insertions(+), 0 deletions(-)
     [EOF]
     ");
@@ -196,7 +196,7 @@ fn test_log_with_or_without_diff() {
     │  +++ b/file1
     │  @@ -0,0 +1,1 @@
     │  +foo
-    ◆
+    ♦
        0 files changed, 0 insertions(+), 0 deletions(-)
     [EOF]
     ");
@@ -215,7 +215,7 @@ fn test_log_with_or_without_diff() {
     │  M file1
     ○  add a file
     │  A file1
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -229,7 +229,7 @@ fn test_log_with_or_without_diff() {
     ○  add a file
     │  Added regular file file1:
     │          1: foo
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -283,7 +283,7 @@ fn test_log_with_or_without_diff() {
     │  M file1
     ○  add a file
     │  A file1
-    ◆
+    ♦
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-T", "description", "--no-graph", "-s"]);
@@ -530,7 +530,7 @@ fn test_log_bad_short_prefixes() {
     let output = work_dir.run_jj(["log", "-Tcommit_id.shortest()"]);
     insta::assert_snapshot!(output, @r"
     @  e
-    ◆  0
+    ♦  0
     [EOF]
     ------- stderr -------
     Warning: In template expression
@@ -631,7 +631,7 @@ fn test_log_prefix_highlight_styled() {
     ○  Change [1m[38;5;5mro[0m[38;5;8myxmykxtrkr[39m commit2 [1m[38;5;4maf[0m[38;5;8m3e6a27a1d0[39m
     ○  Change [1m[38;5;5mmz[0m[38;5;8mvwutvlkqwt[39m commit1 [1m[38;5;4m04[0m[38;5;8m6c6a1df762[39m
     ○  Change [1m[38;5;5mqpv[0m[38;5;8muntsmwlqt[39m initial [1m[38;5;4m82[0m[38;5;8m16f646c36d[39m [38;5;5moriginal[39m
-    [1m[38;5;14m◆[0m  Change [1m[38;5;5mzzz[0m[38;5;8mzzzzzzzzz[39m [1m[38;5;4m00[0m[38;5;8m0000000000[39m
+    [1m[38;5;14m♦[0m  Change [1m[38;5;5mzzz[0m[38;5;8mzzzzzzzzz[39m [1m[38;5;4m00[0m[38;5;8m0000000000[39m
     [EOF]
     ");
     let output = work_dir.run_jj([
@@ -653,7 +653,7 @@ fn test_log_prefix_highlight_styled() {
     ○  Change [1m[38;5;5mro[0m[38;5;8my[39m commit2 [1m[38;5;4maf[0m[38;5;8m3[39m
     ○  Change [1m[38;5;5mmz[0m[38;5;8mv[39m commit1 [1m[38;5;4m04[0m[38;5;8m6[39m
     ○  Change [1m[38;5;5mqpv[0m initial [1m[38;5;4m82[0m[38;5;8m1[39m [38;5;5moriginal[39m
-    [1m[38;5;14m◆[0m  Change [1m[38;5;5mzzz[0m [1m[38;5;4m00[0m[38;5;8m0[39m
+    [1m[38;5;14m♦[0m  Change [1m[38;5;5mzzz[0m [1m[38;5;4m00[0m[38;5;8m0[39m
     [EOF]
     ");
     let output = work_dir.run_jj([
@@ -675,7 +675,7 @@ fn test_log_prefix_highlight_styled() {
     ○  Change [1m[38;5;5mro[0m commit2 [1m[38;5;4maf[0m
     ○  Change [1m[38;5;5mmz[0m commit1 [1m[38;5;4m04[0m
     ○  Change [1m[38;5;5mqpv[0m initial [1m[38;5;4m82[0m [38;5;5moriginal[39m
-    [1m[38;5;14m◆[0m  Change [1m[38;5;5mzzz[0m [1m[38;5;4m00[0m
+    [1m[38;5;14m♦[0m  Change [1m[38;5;5mzzz[0m [1m[38;5;4m00[0m
     [EOF]
     ");
 }
@@ -711,7 +711,7 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
         .success();
     insta::assert_snapshot!(work_dir.run_jj(["log", "-r", "all()", "-T", prefix_format]), @r"
     @  Change q[pvuntsmwlqt] initial 8[216f646c36d] original
-    ◆  Change z[zzzzzzzzzzz] 00[0000000000]
+    ♦  Change z[zzzzzzzzzzz] 00[0000000000]
     [EOF]
     ");
 
@@ -729,7 +729,7 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
     @  Change wq[nwkozpkust] 88[e8407a4f0a]
     │ ○  Change qpv[untsmwlqt] initial 82[16f646c36d] original
     ├─╯
-    ◆  Change zzz[zzzzzzzzz] 00[0000000000]
+    ♦  Change zzz[zzzzzzzzz] 00[0000000000]
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["log", "-r", "8", "-T", prefix_format]), @r"
@@ -788,7 +788,7 @@ fn test_log_divergence() {
     let output = work_dir.run_jj(["log", "-T", template]);
     insta::assert_snapshot!(output, @r"
     @  description 1
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -801,7 +801,7 @@ fn test_log_divergence() {
     @  description 1 !divergence!
     │ ○  description 2 !divergence!
     ├─╯
-    ◆
+    ♦
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
@@ -820,7 +820,7 @@ fn test_log_reversed() {
 
     let output = work_dir.run_jj(["log", "-T", "description", "--reversed"]);
     insta::assert_snapshot!(output, @r"
-    ◆
+    ♦
     ○  first
     @  second
     [EOF]
@@ -1079,7 +1079,7 @@ fn test_default_revset() {
     // Log should only contain one line (for the root commit), and not show the
     // commit created above.
     insta::assert_snapshot!(work_dir.run_jj(["log", "-T", "commit_id"]), @r"
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
 
@@ -1107,7 +1107,7 @@ fn test_default_revset_per_repo() {
     // Log should only contain one line (for the root commit), and not show the
     // commit created above.
     insta::assert_snapshot!(work_dir.run_jj(["log", "-T", "commit_id"]), @r"
-    ◆  0000000000000000000000000000000000000000
+    ♦  0000000000000000000000000000000000000000
     [EOF]
     ");
 }
@@ -1179,7 +1179,7 @@ fn test_graph_template_color() {
     ○  first line
     │  second line
     │  third line
-    ◆
+    ♦
     [EOF]
     ");
     let output = work_dir.run_jj(["--color=always", "log", "-T", template]);
@@ -1188,7 +1188,7 @@ fn test_graph_template_color() {
     ○  [38;5;1mfirst line[39m
     │  [38;5;1msecond line[39m
     │  [38;5;1mthird line[39m
-    [1m[38;5;14m◆[0m
+    [1m[38;5;14m♦[0m
     [EOF]
     ");
     let output = work_dir.run_jj(["--color=debug", "log", "-T", template]);
@@ -1197,7 +1197,7 @@ fn test_graph_template_color() {
     <<log commit node::○>>  [38;5;1m<<log commit description::first line>>[39m
     │  [38;5;1m<<log commit description::second line>>[39m
     │  [38;5;1m<<log commit description::third line>>[39m
-    [1m[38;5;14m<<log commit node immutable::◆>>[0m
+    [1m[38;5;14m<<log commit node immutable::♦>>[0m
     [EOF]
     ");
 }
@@ -1242,7 +1242,7 @@ fn test_graph_styles() {
     ├─╯
     ○  main bookmark 1
     ○  initial
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1298,7 +1298,7 @@ fn test_graph_styles() {
     ├─╯
     ○  main bookmark 1
     ○  initial
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1316,7 +1316,7 @@ fn test_graph_styles() {
     ├─┘
     ○  main bookmark 1
     ○  initial
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1409,7 +1409,7 @@ fn test_log_word_wrap() {
     ○  0 1 2 3
     │  4 5 6 7
     │  8 9
-    ◆  0 1 2 3
+    ♦  0 1 2 3
        4 5 6 7
        8 9
     [EOF]
@@ -1475,7 +1475,7 @@ fn test_log_diff_stat_width() {
     ├─╯  (no description set)
     │    file1 | 100 +++++++++++++
     │    1 file changed, 100 insertions(+), 0 deletions(-)
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
        0 files changed, 0 insertions(+), 0 deletions(-)
     [EOF]
     ");
@@ -1521,7 +1521,7 @@ fn test_elided() {
     ├─╯
     ○  initial
     │
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1548,7 +1548,7 @@ fn test_elided() {
     ╷
     ╷ ○  main bookmark 1
     ╭─╯
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -1582,7 +1582,7 @@ fn test_elided() {
     │ │
     │ ~  (elided revisions)
     ├─╯
-    ◆
+    ♦
     [EOF]
     ");
 }
@@ -1682,7 +1682,7 @@ fn test_log_full_description_template() {
     │
     │  <full description>
     │
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 }
@@ -1705,7 +1705,7 @@ fn test_log_anonymize() {
     insta::assert_snapshot!(output, @r"
     @  qpvuntsm user-78cd 2001-02-03 08:05:08 37b69cda
     │  (empty) (redacted)
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ");
 }

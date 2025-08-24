@@ -665,14 +665,14 @@ fn test_git_fetch_all() {
     │ ○  c8303692b8e2 "a1" a1
     ├─╯
     ○  382881770501 "trunk1" trunk1
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
 
     // Nothing in our repo before the fetch
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @"");
@@ -705,7 +705,7 @@ fn test_git_fetch_all() {
     │ ├─╯
     │ ○  382881770501 "trunk1" trunk1
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
 
@@ -721,7 +721,7 @@ fn test_git_fetch_all() {
     ├─╯
     @  e80d998ab04b "trunk2" trunk2
     ○  382881770501 "trunk1" trunk1
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
     // Change a bookmark in the source repo as well, so that it becomes conflicted.
@@ -739,7 +739,7 @@ fn test_git_fetch_all() {
     │ ├─╯
     │ ○  382881770501 "trunk1" trunk1
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @r"
@@ -791,7 +791,7 @@ fn test_git_fetch_all() {
     │ ├─╯
     │ ○  382881770501 "trunk1" trunk1
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
 }
@@ -823,7 +823,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     │ ○  c8303692b8e2 "a1" a1
     ├─╯
     ○  382881770501 "trunk1" trunk1
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
 
@@ -847,7 +847,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     // Nothing in our repo before the fetch
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
     // Fetch one bookmark...
@@ -862,7 +862,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     │ ○  bc83465a3090 "b" b
     │ ○  382881770501 "trunk1"
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
     // ...check what the intermediate state looks like...
@@ -888,7 +888,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     │ ├─╯
     │ ○  382881770501 "trunk1"
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
     // Fetching the same bookmark again
@@ -907,7 +907,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     │ ├─╯
     │ ○  382881770501 "trunk1"
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
 
@@ -923,7 +923,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     ├─╯
     @  756be1d31c41 "trunk2" trunk2
     ○  382881770501 "trunk1" trunk1
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
     // Change a bookmark in the source repo as well, so that it becomes conflicted.
@@ -941,7 +941,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     │ ├─╯
     │ ○  382881770501 "trunk1"
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
     let output = target_dir.run_jj(["git", "fetch", "--branch", "b", "--branch", "a1"]);
@@ -964,7 +964,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     │ ├─╯
     │ ○  382881770501 "trunk1"
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
 
@@ -1002,7 +1002,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     │ ├─╯
     │ ○  382881770501 "trunk1"
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @r"
@@ -1168,7 +1168,7 @@ fn test_git_fetch_undo() {
     │ ○  c8303692b8e2 "a1" a1
     ├─╯
     ○  382881770501 "trunk1" trunk1
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
 
@@ -1187,7 +1187,7 @@ fn test_git_fetch_undo() {
     │ ├─╯
     │ ○  382881770501 "trunk1"
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
     let output = target_dir.run_jj(["undo"]);
@@ -1199,7 +1199,7 @@ fn test_git_fetch_undo() {
     // The undo works as expected
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
     // Now try to fetch just one bookmark
@@ -1214,7 +1214,7 @@ fn test_git_fetch_undo() {
     │ ○  bc83465a3090 "b" b
     │ ○  382881770501 "trunk1"
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
 }
@@ -1247,7 +1247,7 @@ fn test_fetch_undo_what() {
     │ ○  c8303692b8e2 "a1" a1
     ├─╯
     ○  382881770501 "trunk1" trunk1
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
 
@@ -1268,7 +1268,7 @@ fn test_fetch_undo_what() {
     │ ○  bc83465a3090 "b" b
     │ ○  382881770501 "trunk1"
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
@@ -1448,7 +1448,7 @@ fn test_git_fetch_removed_bookmark() {
     │ ○  c8303692b8e2 "a1" a1
     ├─╯
     ○  382881770501 "trunk1" trunk1
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
 
@@ -1471,7 +1471,7 @@ fn test_git_fetch_removed_bookmark() {
     │ ├─╯
     │ ○  382881770501 "trunk1" trunk1
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
 
@@ -1496,7 +1496,7 @@ fn test_git_fetch_removed_bookmark() {
     │ ├─╯
     │ ○  382881770501 "trunk1" trunk1
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
 
@@ -1515,7 +1515,7 @@ fn test_git_fetch_removed_bookmark() {
     │ ├─╯
     │ ○  382881770501 "trunk1" trunk1
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
 }
@@ -1546,7 +1546,7 @@ fn test_git_fetch_removed_parent_bookmark() {
     │ ○  c8303692b8e2 "a1" a1
     ├─╯
     ○  382881770501 "trunk1" trunk1
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
 
@@ -1569,7 +1569,7 @@ fn test_git_fetch_removed_parent_bookmark() {
     │ ├─╯
     │ ○  382881770501 "trunk1" trunk1
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
 
@@ -1599,7 +1599,7 @@ fn test_git_fetch_removed_parent_bookmark() {
     │ ├─╯
     │ ○  382881770501 "trunk1"
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
 }
@@ -1653,9 +1653,9 @@ fn test_git_fetch_remote_only_bookmark() {
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  e8849ae12c70 ""
-    │ ◆  ebeb70d8c5f9 "message" feature1 feature2@origin
+    │ ♦  ebeb70d8c5f9 "message" feature1 feature2@origin
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
@@ -1694,7 +1694,7 @@ fn test_git_fetch_preserve_commits_across_repos() {
     ├─╯
     │ ○  16ec9ef2877a "message" feature
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
@@ -1753,7 +1753,7 @@ fn test_git_fetch_preserve_commits_across_repos() {
     ├───╯
     │ ○  bcd7cd779791 "message" upstream@fork
     ├─╯
-    ◆  000000000000 ""
+    ♦  000000000000 ""
     [EOF]
     "#);
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"

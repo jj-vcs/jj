@@ -62,7 +62,7 @@ fn test_touch() {
     │
     │      (no description set)
     │
-    ◆  Commit ID: 0000000000000000000000000000000000000000
+    ♦  Commit ID: 0000000000000000000000000000000000000000
        Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
        Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
        Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
@@ -99,7 +99,7 @@ fn test_touch() {
     │
     │      (no description set)
     │
-    ◆  Commit ID: 0000000000000000000000000000000000000000
+    ♦  Commit ID: 0000000000000000000000000000000000000000
        Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
        Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
        Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
@@ -145,7 +145,7 @@ fn test_touch() {
     │
     │      (no description set)
     │
-    ◆  Commit ID: 0000000000000000000000000000000000000000
+    ♦  Commit ID: 0000000000000000000000000000000000000000
        Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
        Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
        Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
@@ -185,7 +185,7 @@ fn test_touch() {
     │
     │      (no description set)
     │
-    ◆  Commit ID: 0000000000000000000000000000000000000000
+    ♦  Commit ID: 0000000000000000000000000000000000000000
        Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
        Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
        Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
@@ -230,7 +230,7 @@ fn test_touch() {
     │
     │      (no description set)
     │
-    ◆  Commit ID: 0000000000000000000000000000000000000000
+    ♦  Commit ID: 0000000000000000000000000000000000000000
        Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
        Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
        Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
@@ -277,7 +277,7 @@ fn test_touch() {
     │
     │      (no description set)
     │
-    ◆  Commit ID: 0000000000000000000000000000000000000000
+    ♦  Commit ID: 0000000000000000000000000000000000000000
        Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
        Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
        Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)

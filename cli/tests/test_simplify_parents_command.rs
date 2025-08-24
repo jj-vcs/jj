@@ -58,7 +58,7 @@ fn test_simplify_parents_no_change() {
     insta::assert_snapshot!(output, @r"
     @  b
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -73,7 +73,7 @@ fn test_simplify_parents_no_change() {
     insta::assert_snapshot!(output, @r"
     @  b
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 }
@@ -96,7 +96,7 @@ fn test_simplify_parents_no_change_diamond() {
     ○ │  b
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -115,7 +115,7 @@ fn test_simplify_parents_no_change_diamond() {
     ○ │  b
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 }
@@ -138,7 +138,7 @@ fn test_simplify_parents_redundant_parent(args: &[&str]) {
         │ ○  b
         ├─╯
         ○  a
-        ◆
+        ♦
         [EOF]
         ");
     }
@@ -159,7 +159,7 @@ fn test_simplify_parents_redundant_parent(args: &[&str]) {
         @  c
         ○  b
         ○  a
-        ◆
+        ♦
         [EOF]
         ");
     }
@@ -189,7 +189,7 @@ fn test_simplify_parents_multiple_redundant_parents() {
     │ ○  b
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     let setup_opid = work_dir.current_operation_id();
@@ -213,7 +213,7 @@ fn test_simplify_parents_multiple_redundant_parents() {
     ○  c
     ○  b
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -237,7 +237,7 @@ fn test_simplify_parents_multiple_redundant_parents() {
     ○  c
     ○  b
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 }
@@ -266,7 +266,7 @@ fn test_simplify_parents_no_args() {
     │ ○  b
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
     let setup_opid = work_dir.current_operation_id();
@@ -289,7 +289,7 @@ fn test_simplify_parents_no_args() {
     ○  c
     ○  b
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 
@@ -315,7 +315,7 @@ fn test_simplify_parents_no_args() {
     │ ○  b
     ├─╯
     ○  a
-    ◆
+    ♦
     [EOF]
     ");
 }

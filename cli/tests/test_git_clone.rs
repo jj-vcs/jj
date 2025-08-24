@@ -890,7 +890,7 @@ fn test_git_clone_trunk_deleted() {
     │  (empty) (no description set)
     ○  qomsplrm someone@example.org 1970-01-01 11:00:00 ebeb70d8
     │  message
-    ◆  zzzzzzzz root() 00000000
+    ♦  zzzzzzzz root() 00000000
     [EOF]
     ------- stderr -------
     Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@origin` doesn't exist
@@ -967,7 +967,7 @@ fn test_git_clone_conditional_config() {
     insta::assert_snapshot!(output, @r"
     @  new-repo@example.org
     ○  new-repo@example.org
-    ◆  someone@example.org message
+    ♦  someone@example.org message
     │
     ~
     [EOF]
@@ -1009,7 +1009,7 @@ fn test_git_clone_with_depth() {
     insta::assert_snapshot!(output, @r"
     @  sqpuoqvx test.user@example.com 2001-02-03 08:05:07 1ca44815
     │  (empty) (no description set)
-    ◆  qomsplrm someone@example.org 1970-01-01 11:00:00 main ebeb70d8
+    ♦  qomsplrm someone@example.org 1970-01-01 11:00:00 main ebeb70d8
     │  message
     ~
     [EOF]

@@ -311,7 +311,7 @@ new` or `jj commit` before doing some work that belongs in a new commit:
 $ jj log
 @  lnvvtrzo jjfan@example.org 2025-02-28 21:01:10 31a347e0
 │  featureA
-◆  zzzzzzzz root() 00000000
+♦  zzzzzzzz root() 00000000
 $ cat file  # Oh no, the work on "feature B" should be in a separate commit!
 Done with feature A
 Working on feature B
@@ -397,7 +397,7 @@ The "featureA" change is currently at commit `31a`:
 $ jj log
 @  lnvvtrzo jjfan@example.org 2025-02-28 21:01:10 31a347e0
 │  featureA
-◆  zzzzzzzz root() 00000000
+♦  zzzzzzzz root() 00000000
 ```
 
 We'd like to create a new "featureB" change with the contents of the current
@@ -478,7 +478,7 @@ $ jj log -p --git
 │  +++ b/file
 │  @@ -0,0 +1,1 @@
 │  +Done with feature A
-◆  zzzzzzzz root() 00000000
+♦  zzzzzzzz root() 00000000
 $ jj diff --from b80 --to @- # No output means these are identical
 $ jj diff --from 31a --to @  # No output means these are identical
 ```
