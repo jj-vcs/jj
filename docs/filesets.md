@@ -35,8 +35,8 @@ the path [has no special characters](#quoting-file-names).
 * `glob:"pattern"` or `cwd-glob:"pattern"`: Matches file paths with cwd-relative
   Unix-style shell [wildcard `pattern`][glob]. For example, `glob:"*.c"` will
   match all `.c` files in the current working directory non-recursively.
-* `glob-i:"pattern"` or `cwd-glob-i:"pattern"`: Like `glob:` but 
-  case-insensitive. For example, `glob-i:"*.TXT"` will match both `file.txt` 
+* `glob-i:"pattern"` or `cwd-glob-i:"pattern"`: Like `glob:` but
+  case-insensitive. For example, `glob-i:"*.TXT"` will match both `file.txt`
   and `FILE.TXT`.
 * `root:"path"`: Matches workspace-relative path prefix (file or files under
   directory recursively.)
