@@ -2751,15 +2751,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#options_52" class="md-nav__link">
-    <span class="md-ellipsis">
-      Options:
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -2776,7 +2767,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#options_53" class="md-nav__link">
+  <a href="#options_52" class="md-nav__link">
     <span class="md-ellipsis">
       Options:
     </span>
@@ -2881,7 +2872,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#options_54" class="md-nav__link">
+  <a href="#options_53" class="md-nav__link">
     <span class="md-ellipsis">
       Options:
     </span>
@@ -2980,7 +2971,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#options_55" class="md-nav__link">
+  <a href="#options_54" class="md-nav__link">
     <span class="md-ellipsis">
       Options:
     </span>
@@ -3028,7 +3019,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#options_56" class="md-nav__link">
+  <a href="#options_55" class="md-nav__link">
     <span class="md-ellipsis">
       Options:
     </span>
@@ -6530,15 +6521,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#options_52" class="md-nav__link">
-    <span class="md-ellipsis">
-      Options:
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -6555,7 +6537,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#options_53" class="md-nav__link">
+  <a href="#options_52" class="md-nav__link">
     <span class="md-ellipsis">
       Options:
     </span>
@@ -6660,7 +6642,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#options_54" class="md-nav__link">
+  <a href="#options_53" class="md-nav__link">
     <span class="md-ellipsis">
       Options:
     </span>
@@ -6759,7 +6741,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#options_55" class="md-nav__link">
+  <a href="#options_54" class="md-nav__link">
     <span class="md-ellipsis">
       Options:
     </span>
@@ -6807,7 +6789,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#options_56" class="md-nav__link">
+  <a href="#options_55" class="md-nav__link">
     <span class="md-ellipsis">
       Options:
     </span>
@@ -9096,7 +9078,7 @@ J           J
 <h2 id="jj-undo"><code>jj undo</code><a class="headerlink" href="#jj-undo" title="Permanent link">&para;</a></h2>
 <p>Undo the last operation</p>
 <p>This undoes the last operation by restoring its parent operation.</p>
-<p><strong>Usage:</strong> <code>jj undo [OPTIONS] [OPERATION]</code></p>
+<p><strong>Usage:</strong> <code>jj undo [OPERATION]</code></p>
 <h6 id="arguments_53"><strong>Arguments:</strong><a class="headerlink" href="#arguments_53" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
@@ -9106,26 +9088,11 @@ J           J
 <p>Default value: <code>@</code></p>
 </li>
 </ul>
-<h6 id="options_52"><strong>Options:</strong><a class="headerlink" href="#options_52" title="Permanent link">&para;</a></h6>
-<ul>
-<li>
-<p><code>--what &lt;WHAT&gt;</code> — What portions of the local state to restore (can be repeated)</p>
-<p>This option is EXPERIMENTAL.</p>
-<p>Default values: <code>repo</code>, <code>remote-tracking</code></p>
-<p>Possible values:</p>
-<ul>
-<li><code>repo</code>:
-  The jj repo state and local bookmarks</li>
-<li><code>remote-tracking</code>:
-  The remote-tracking bookmarks. Do not restore these if you'd like to push after the undo</li>
-</ul>
-</li>
-</ul>
 <h2 id="jj-unsign"><code>jj unsign</code><a class="headerlink" href="#jj-unsign" title="Permanent link">&para;</a></h2>
 <p>Drop a cryptographic signature</p>
 <p>See also <a href="https://jj-vcs.github.io/jj/latest/config/#commit-signing">commit signing</a> docs.</p>
 <p><strong>Usage:</strong> <code>jj unsign [OPTIONS]</code></p>
-<h6 id="options_53"><strong>Options:</strong><a class="headerlink" href="#options_53" title="Permanent link">&para;</a></h6>
+<h6 id="options_52"><strong>Options:</strong><a class="headerlink" href="#options_52" title="Permanent link">&para;</a></h6>
 <ul>
 <li><code>-r</code>, <code>--revisions &lt;REVSETS&gt;</code> — What revision(s) to unsign</li>
 </ul>
@@ -9214,7 +9181,7 @@ already explicitly passing your script into the right shell.</p>
 <p>Run backend-dependent garbage collection.</p>
 <p>To garbage-collect old operations and the commits/objects referenced by them, run <code>jj op abandon ..&lt;some old operation&gt;</code> before <code>jj util gc</code>.</p>
 <p><strong>Usage:</strong> <code>jj util gc [OPTIONS]</code></p>
-<h6 id="options_54"><strong>Options:</strong><a class="headerlink" href="#options_54" title="Permanent link">&para;</a></h6>
+<h6 id="options_53"><strong>Options:</strong><a class="headerlink" href="#options_53" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
 <p><code>--expire &lt;EXPIRE&gt;</code> — Time threshold</p>
@@ -9258,7 +9225,7 @@ already explicitly passing your script into the right shell.</p>
 <ul>
 <li><code>&lt;DESTINATION&gt;</code> — Where to create the new workspace</li>
 </ul>
-<h6 id="options_55"><strong>Options:</strong><a class="headerlink" href="#options_55" title="Permanent link">&para;</a></h6>
+<h6 id="options_54"><strong>Options:</strong><a class="headerlink" href="#options_54" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
 <p><code>--name &lt;NAME&gt;</code> — A name for the workspace</p>
@@ -9294,7 +9261,7 @@ already explicitly passing your script into the right shell.</p>
 <h2 id="jj-workspace-list"><code>jj workspace list</code><a class="headerlink" href="#jj-workspace-list" title="Permanent link">&para;</a></h2>
 <p>List workspaces</p>
 <p><strong>Usage:</strong> <code>jj workspace list [OPTIONS]</code></p>
-<h6 id="options_56"><strong>Options:</strong><a class="headerlink" href="#options_56" title="Permanent link">&para;</a></h6>
+<h6 id="options_55"><strong>Options:</strong><a class="headerlink" href="#options_55" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
 <p><code>-T</code>, <code>--template &lt;TEMPLATE&gt;</code> — Render each workspace using the given template</p>
