@@ -41,31 +41,31 @@ fn test_touch() {
     @  Commit ID: 22be6c4e01da7039a1a8c3adb91b8841252bb354
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
-    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:13)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:13)
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
     │
     │      (no description set)
     │
     ○  Commit ID: 75591b1896b4990e7695701fd7cdbb32dba3ff50
     │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
     │  Bookmarks: b
-    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:11)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:11)
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
     │
     │      (no description set)
     │
     ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
     │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
     │  Bookmarks: a
-    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
     │
     │      (no description set)
     │
     ◆  Commit ID: 0000000000000000000000000000000000000000
        Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
-       Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
-       Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
+       Author   : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+       Committer: (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
 
            (no description set)
 
@@ -79,31 +79,31 @@ fn test_touch() {
     @  Commit ID: b396a5373e525bd9b322cab64c65f5f67ece81e7
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
-    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:13)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:14)
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:14.000 +07:00)
     │
     │      (no description set)
     │
     ○  Commit ID: 53f5eea6f1d793859d38f1299ff10ebfb67d0a23
     │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
     │  Bookmarks: b
-    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:11)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:14)
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:14.000 +07:00)
     │
     │      (no description set)
     │
     ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
     │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
     │  Bookmarks: a
-    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
     │
     │      (no description set)
     │
     ◆  Commit ID: 0000000000000000000000000000000000000000
        Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
-       Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
-       Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
+       Author   : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+       Committer: (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
 
            (no description set)
 
@@ -125,31 +125,31 @@ fn test_touch() {
     @  Commit ID: 6f31b2555777ac2261dd17008b6fdc42619ebe1f
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
-    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:13)
-    │  Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 08:05:17)
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
+    │  Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:17.000 +07:00)
     │
     │      (no description set)
     │
     ○  Commit ID: 590c8b6945666401d01269190c1b82cd3311a0cd
     │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
     │  Bookmarks: b
-    │  Author   : Ove Ridder <ove.ridder@example.com> (2001-02-03 08:05:11)
-    │  Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 08:05:17)
+    │  Author   : Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:11.000 +07:00)
+    │  Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:17.000 +07:00)
     │
     │      (no description set)
     │
     ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
     │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
     │  Bookmarks: a
-    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
     │
     │      (no description set)
     │
     ◆  Commit ID: 0000000000000000000000000000000000000000
        Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
-       Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
-       Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
+       Author   : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+       Committer: (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
 
            (no description set)
 
@@ -165,31 +165,31 @@ fn test_touch() {
     @  Commit ID: b23f6a3f160d122f8d8dacd8d2acff2d29d5ba84
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
-    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:13)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:20)
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:20.000 +07:00)
     │
     │      (no description set)
     │
     ○  Commit ID: f121a0fb72e1790e4116b2e3b6989c795ac7f74b
     │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
     │  Bookmarks: b
-    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:20)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:20)
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:20.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:20.000 +07:00)
     │
     │      (no description set)
     │
     ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
     │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
     │  Bookmarks: a
-    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
     │
     │      (no description set)
     │
     ◆  Commit ID: 0000000000000000000000000000000000000000
        Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
-       Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
-       Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
+       Author   : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+       Committer: (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
 
            (no description set)
 
@@ -210,31 +210,31 @@ fn test_touch() {
     @  Commit ID: 74007c679b9e4f13d1e3d553ef8397586b033421
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
-    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:13)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:23)
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:23.000 +07:00)
     │
     │      (no description set)
     │
     ○  Commit ID: d070c8adbc590813c81e296591d6b2cac8f3bb41
     │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
     │  Bookmarks: b
-    │  Author   : Alice <alice@example.com> (2001-02-03 08:05:11)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:23)
+    │  Author   : Alice <alice@example.com> (2001-02-03 04:05:11.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:23.000 +07:00)
     │
     │      (no description set)
     │
     ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
     │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
     │  Bookmarks: a
-    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
     │
     │      (no description set)
     │
     ◆  Commit ID: 0000000000000000000000000000000000000000
        Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
-       Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
-       Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
+       Author   : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+       Committer: (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
 
            (no description set)
 
@@ -257,31 +257,31 @@ fn test_touch() {
     @  Commit ID: d35b7dc2b8f9feb32c6429dbcb20ba1ae3901de6
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
-    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:13)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:26)
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:26.000 +07:00)
     │
     │      (no description set)
     │
     ○  Commit ID: f4388b00f296491a55ec47463a09a93a6ccfd6b2
     │  Change ID: nmzmmopxokpsnwzmtnsppxxxprozqovs
     │  Bookmarks: b
-    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:11)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:26)
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:26.000 +07:00)
     │
     │      (no description set)
     │
     ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
     │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
     │  Bookmarks: a
-    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
     │
     │      (no description set)
     │
     ◆  Commit ID: 0000000000000000000000000000000000000000
        Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
-       Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
-       Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
+       Author   : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+       Committer: (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
 
            (no description set)
 
@@ -290,7 +290,7 @@ fn test_touch() {
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "nmzmmo"]), @r"
     ○  nmzmmopx test.user@example.com 2001-02-03 08:05:26 b f4388b00
     │  (no description set)
-    │  -- operation eb72ea651cb6 touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    │  -- operation f9ca975be13e touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
     ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:11 75591b18
     │  (no description set)
     │  -- operation 4b33c26502f8 snapshot working copy
@@ -302,10 +302,10 @@ fn test_touch() {
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "mzvwut"]), @r"
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:26 c d35b7dc2
     │  (no description set)
-    │  -- operation eb72ea651cb6 touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    │  -- operation f9ca975be13e touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
     ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:13 22be6c4e
     │  (no description set)
-    │  -- operation a424b73ab8eb snapshot working copy
+    │  -- operation e17a76105256 snapshot working copy
     ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:11 b9f5490a
        (empty) (no description set)
        -- operation e3fbc5040416 new empty commit
@@ -338,5 +338,11 @@ fn test_squash_option_mutual_exclusion() {
 
 #[must_use]
 fn get_log(work_dir: &TestWorkDir) -> CommandOutput {
-    work_dir.run_jj(["log", "-T", "builtin_log_detailed"])
+    work_dir.run_jj([
+        "--config",
+        "template-aliases.'format_timestamp(t)'='t'",
+        "log",
+        "-T",
+        "builtin_log_detailed",
+    ])
 }
