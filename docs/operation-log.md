@@ -35,7 +35,7 @@ access the repo via a distributed file system (as long as the file system
 guarantees that a write is only visible once previous writes are visible). When
 you run a `jj` command, it will start by loading the repo at the latest
 operation. It will not see any changes written by concurrent commands. If there
-are conflicts, you will be informed of them by subsequent `jj st` and/or
+are conflicts, you will be informed of them by subsequent `jj status` and/or
 `jj log` commands.
 
 As an example, let's say you had started editing the description of a change and
@@ -59,7 +59,7 @@ snapshotting that's skipped with `--at-op`).
 
 As a top-level option, `--at-op` can be passed to any command. However, you
 will typically only want to run read-only commands. For example, `jj log`,
-`jj st`, and `jj diff` all make sense. It's still possible to run e.g.
+`jj status`, and `jj diff` all make sense. It's still possible to run e.g.
 `jj --at-op=<some operation ID> describe`. That's equivalent to having started
 `jj describe` back when the specified operation was the most recent operation
 and then let it run until now (which can be done for that particular command by
