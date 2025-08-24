@@ -26,6 +26,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The deprecated `--config-toml` flag has been removed. Use
   `--config=NAME=VALUE` or `--config-file=PATH` instead.
 
+* The default editor on Linux is now `nano` instead of `pico`.
+
 ### Deprecations
 
 * The on-disk index format has changed. `jj` will write index files in both old
