@@ -271,6 +271,7 @@ impl From<ConfigLoadError> for CommandError {
     fn from(err: ConfigLoadError) -> Self {
         let hint = match &err {
             ConfigLoadError::Read(_) => None,
+            ConfigLoadError::Get { .. } => None,
             ConfigLoadError::Parse { source_path, .. } => source_path
                 .as_ref()
                 .map(|path| format!("Check the config file: {}", path.display())),
