@@ -14,8 +14,6 @@
 
 use std::fs;
 
-use clap_complete::ArgValueCompleter;
-use clap_complete::PathCompleter;
 use itertools::Itertools as _;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::file_util;
@@ -52,7 +50,7 @@ enum SparseInheritance {
 #[derive(clap::Args, Clone, Debug)]
 pub struct WorkspaceAddArgs {
     /// Where to create the new workspace
-    #[arg(add = ArgValueCompleter::new(PathCompleter::dir()))]
+    #[arg(value_hint = clap::ValueHint::DirPath)]
     destination: String,
     /// A name for the workspace
     ///
