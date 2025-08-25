@@ -5658,6 +5658,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   many people to be negatively affected, because running <code>jj undo</code> twice was
   previously a no-op.</p>
 </li>
+<li>
+<p><code>jj git fetch</code> will now only fetch the refspec patterns configured on remotes
+  when the <code>--bookmark</code> option is omitted. Only simple refspec patterns
+  are currently supported, and anything else (like refspecs which rename
+  branches) will be ignored.</p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <ul>
