@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
@@ -20,6 +20,7 @@ use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitFetch;
 use jj_lib::ref_name::RemoteName;
+use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringPattern;
 
@@ -34,6 +35,8 @@ use crate::complete;
 use crate::git_util::print_git_import_stats;
 use crate::git_util::with_remote_git_callbacks;
 use crate::ui::Ui;
+
+const DEFAULT_REMOTE: &RemoteName = RemoteName::new("origin");
 
 /// Fetch from a Git remote
 ///
@@ -92,38 +95,19 @@ pub fn cmd_git_fetch(
     args: &GitFetchArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let remote_patterns = if args.all_remotes {
-        vec![StringPattern::everything()]
-    } else if args.remotes.is_empty() {
-        get_default_fetch_remotes(ui, &workspace_command)?
-    } else {
-        args.remotes.clone()
-    };
-
     let all_remotes = git::get_all_remote_names(workspace_command.repo().store())?;
 
-    let mut matching_remotes = HashSet::new();
-    for pattern in remote_patterns {
-        let remotes = all_remotes
-            .iter()
-            .filter(|r| pattern.is_match(r.as_str()))
-            .collect_vec();
-        if remotes.is_empty() {
-            writeln!(ui.warning_default(), "No git remotes matching '{pattern}'")?;
-        } else {
-            matching_remotes.extend(remotes);
-        }
-    }
-
-    if matching_remotes.is_empty() {
-        return Err(user_error("No git remotes to fetch from"));
-    }
-
-    let remotes = matching_remotes
-        .iter()
-        .map(|r| r.as_ref())
-        .sorted()
-        .collect_vec();
+    let remotes = if args.all_remotes {
+        get_matching_remotes(ui, &all_remotes, &[StringPattern::everything()])?
+    } else if args.remotes.is_empty() {
+        get_matching_remotes(
+            ui,
+            &all_remotes,
+            &get_default_fetch_remotes(ui, &workspace_command)?,
+        )?
+    } else {
+        get_matching_remotes(ui, &all_remotes, &args.remotes)?
+    };
 
     let branches_by_remote: Vec<(&RemoteName, Vec<StringPattern>)> = if args.tracked {
         remotes
@@ -159,7 +143,31 @@ pub fn cmd_git_fetch(
     Ok(())
 }
 
-const DEFAULT_REMOTE: &RemoteName = RemoteName::new("origin");
+fn get_matching_remotes<'a>(
+    ui: &mut Ui,
+    all_remotes: &'a [RemoteNameBuf],
+    remote_patterns: &[StringPattern],
+) -> Result<BTreeSet<&'a RemoteName>, CommandError> {
+    let mut remotes = BTreeSet::new();
+    for pattern in remote_patterns {
+        let num_matched = all_remotes
+            .iter()
+            .filter(|r| pattern.is_match(r.as_str()))
+            .inspect(|&r| {
+                remotes.insert(r.as_ref());
+            })
+            .count();
+        if num_matched == 0 {
+            writeln!(ui.warning_default(), "No git remotes matching '{pattern}'")?;
+        }
+    }
+
+    if remotes.is_empty() {
+        return Err(user_error("No git remotes to fetch from"));
+    }
+
+    Ok(remotes)
+}
 
 fn get_default_fetch_remotes(
     ui: &Ui,
@@ -220,7 +228,7 @@ fn warn_if_branches_not_found(
     ui: &mut Ui,
     tx: &WorkspaceCommandTransaction,
     branches: &[StringPattern],
-    remotes: &[&RemoteName],
+    remotes: &BTreeSet<&RemoteName>,
 ) -> Result<(), CommandError> {
     let mut missing_branches = vec![];
     for branch in branches {
