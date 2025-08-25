@@ -89,6 +89,7 @@ fn test_new_merge() {
         .success();
     work_dir.write_file("file2", "b");
     work_dir.run_jj(["debug", "snapshot"]).success();
+    let setup_opid = work_dir.current_operation_id();
 
     // Create a merge commit
     work_dir.run_jj(["new", "main", "@"]).success();
@@ -107,7 +108,7 @@ fn test_new_merge() {
     insta::assert_snapshot!(output, @"b[EOF]");
 
     // Same test with `--no-edit`
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["new", "main", "@", "--no-edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -125,7 +126,7 @@ fn test_new_merge() {
     ");
 
     // Same test with `jj new`
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     work_dir.run_jj(["new", "main", "@"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @    cee60a55c085ff349af7fa1e7d6b7d4b7bdd4c3a

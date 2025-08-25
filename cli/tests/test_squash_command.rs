@@ -46,6 +46,7 @@ fn test_squash() {
     ◆  000000000000 (empty)
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     // Squashes the working copy into the parent by default
     let output = work_dir.run_jj(["squash"]);
@@ -69,7 +70,7 @@ fn test_squash() {
     ");
 
     // Can squash a given commit into its parent
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["squash", "-r", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -97,7 +98,7 @@ fn test_squash() {
 
     // Cannot squash a merge commit (because it's unclear which parent it should go
     // into)
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     work_dir.run_jj(["edit", "b"]).success();
     work_dir.run_jj(["new"]).success();
     work_dir
@@ -474,6 +475,7 @@ fn test_squash_from_to() {
     ◆  000000000000 (empty)
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     // No-op if source and destination are the same
     let output = work_dir.run_jj(["squash", "--into", "@"]);
@@ -516,7 +518,7 @@ fn test_squash_from_to() {
     ");
 
     // Can squash from ancestor
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["squash", "--from", "@--"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -545,7 +547,7 @@ fn test_squash_from_to() {
     ");
 
     // Can squash from descendant
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["squash", "--from", "e", "--into", "d"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -574,7 +576,7 @@ fn test_squash_from_to() {
     ");
 
     // Can squash into the sources
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["squash", "--from", "e::f", "--into", "d"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -648,6 +650,7 @@ fn test_squash_from_to_partial() {
     ◆  000000000000 (empty)
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     // If we don't make any changes in the diff-editor, the whole change is moved
     let output = work_dir.run_jj(["squash", "-i", "--from", "c"]);
@@ -685,7 +688,7 @@ fn test_squash_from_to_partial() {
     ");
 
     // Can squash only part of the change in interactive mode
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&edit_script, "reset file2").unwrap();
     let output = work_dir.run_jj(["squash", "-i", "--from", "c"]);
     insta::assert_snapshot!(output, @r"
@@ -724,7 +727,7 @@ fn test_squash_from_to_partial() {
     ");
 
     // Can squash only part of the change from a sibling in non-interactive mode
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     // Clear the script so we know it won't be used
     std::fs::write(&edit_script, "").unwrap();
     let output = work_dir.run_jj(["squash", "--from", "c", "file1"]);
@@ -764,7 +767,7 @@ fn test_squash_from_to_partial() {
     ");
 
     // Can squash only part of the change from a descendant in non-interactive mode
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     // Clear the script so we know it won't be used
     std::fs::write(&edit_script, "").unwrap();
     let output = work_dir.run_jj(["squash", "--from", "c", "--into", "b", "file1"]);
@@ -796,7 +799,7 @@ fn test_squash_from_to_partial() {
     ");
 
     // If we specify only a non-existent file, then nothing changes.
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["squash", "--from", "c", "nonexistent"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -862,6 +865,7 @@ fn test_squash_from_multiple() {
     ◆  000000000000 (empty)
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     // Squash a few commits sideways
     let output = work_dir.run_jj(["squash", "--from=b", "--from=c", "--into=d"]);
@@ -907,7 +911,7 @@ fn test_squash_from_multiple() {
     ");
 
     // Squash a few commits up an down
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["squash", "--from=b|c|f", "--into=e"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1005,6 +1009,7 @@ fn test_squash_from_multiple_partial() {
     ◆  000000000000 (empty)
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     // Partially squash a few commits sideways
     let output = work_dir.run_jj(["squash", "--from=b|c", "--into=d", "file1"]);
@@ -1071,7 +1076,7 @@ fn test_squash_from_multiple_partial() {
     ");
 
     // Partially squash a few commits up an down
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["squash", "--from=b|c|f", "--into=e", "file1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1152,6 +1157,7 @@ fn test_squash_from_multiple_partial_no_op() {
     ◆  000000000000 (empty)
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     // Source commits that didn't match the paths are not rewritten
     let output = work_dir.run_jj(["squash", "--from=@-+ ~ @", "--into=@", "-m=d", "b"]);
@@ -1186,7 +1192,7 @@ fn test_squash_from_multiple_partial_no_op() {
     ");
 
     // If no source commits match the paths, then the whole operation is a no-op
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["squash", "--from=@-+ ~ @", "--into=@", "-m=d", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1233,12 +1239,13 @@ fn test_squash_description() {
     work_dir.write_file("file1", "b\n");
     work_dir.write_file("file2", "b\n");
     work_dir.run_jj(["debug", "snapshot"]).success();
+    let setup_opid1 = work_dir.current_operation_id();
     work_dir.run_jj(["squash"]).success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @"");
 
     // If the destination's description is empty and the source's description is
     // non-empty, the resulting description is from the source
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid1]).success();
     work_dir.run_jj(["describe", "-m", "source"]).success();
     work_dir.run_jj(["squash"]).success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
@@ -1248,10 +1255,11 @@ fn test_squash_description() {
 
     // If the destination description is non-empty and the source's description is
     // empty, the resulting description is from the destination
-    work_dir.run_jj(["op", "restore", "@--"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid1]).success();
     work_dir
         .run_jj(["describe", "@-", "-m", "destination"])
         .success();
+    let setup_opid2 = work_dir.current_operation_id();
     work_dir.run_jj(["squash"]).success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
     destination
@@ -1259,7 +1267,7 @@ fn test_squash_description() {
     ");
 
     // An explicit description on the command-line overrides this
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid2]).success();
     work_dir.run_jj(["squash", "-m", "custom"]).success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
     custom
@@ -1267,8 +1275,9 @@ fn test_squash_description() {
     ");
 
     // If both descriptions were non-empty, we get asked for a combined description
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid2]).success();
     work_dir.run_jj(["describe", "-m", "source"]).success();
+    let setup_opid3 = work_dir.current_operation_id();
     std::fs::write(&edit_script, "dump editor0").unwrap();
     work_dir.run_jj(["squash"]).success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
@@ -1296,7 +1305,7 @@ fn test_squash_description() {
 
     // An explicit description on the command-line overrides prevents launching an
     // editor
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir.run_jj(["squash", "-m", "custom"]).success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
     custom
@@ -1305,7 +1314,7 @@ fn test_squash_description() {
 
     // An explicit description on the command-line includes the trailers when
     // templates.commit_trailers is configured
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir
         .run_jj([
             "squash",
@@ -1324,7 +1333,7 @@ fn test_squash_description() {
 
     // If the source's *content* doesn't become empty, then the source remains and
     // both descriptions are unchanged
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir.run_jj(["squash", "file1"]).success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
     destination
@@ -1337,7 +1346,7 @@ fn test_squash_description() {
 
     // A combined description should only contain the trailers from the
     // commit_trailers template that were not in the squashed commits
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir
         .run_jj(["describe", "-m", "source\n\nfoo: bar"])
         .success();
@@ -1374,7 +1383,7 @@ fn test_squash_description() {
     // If the destination description is non-empty and the source's description is
     // empty, the resulting description is from the destination, with additional
     // trailers if defined in the commit_trailers template
-    work_dir.run_jj(["op", "restore", "@--"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir.run_jj(["describe", "-m", ""]).success();
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
     @  97f34efed913
@@ -1399,7 +1408,7 @@ fn test_squash_description() {
     // If a single description is non-empty, the resulting description is
     // from the destination, with additional trailers if defined in the
     // commit_trailers template
-    work_dir.run_jj(["op", "restore", "@--"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir
         .run_jj(["describe", "-r", "@-", "-m", ""])
         .success();
@@ -1424,7 +1433,7 @@ fn test_squash_description() {
     ");
 
     // squashing messages with empty descriptions shouldn't add any trailer
-    work_dir.run_jj(["op", "restore", "@--"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir
         .run_jj(["describe", "-r", "..", "-m", ""])
         .success();
@@ -1445,7 +1454,7 @@ fn test_squash_description() {
 
     // squashing messages with --use-destination-message on a commit with an
     // empty description shouldn't add any trailer
-    work_dir.run_jj(["op", "restore", "@--"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir
         .run_jj(["describe", "-r", "@-", "-m", ""])
         .success();
@@ -1467,7 +1476,7 @@ fn test_squash_description() {
 
     // squashing with an empty message on the command line shouldn't add
     // any trailer
-    work_dir.run_jj(["op", "restore", "@--"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
     @  2a79b102bf46 source
     ○  e650dfcd7312 destination
@@ -1562,6 +1571,7 @@ fn test_squash_use_destination_message() {
     ◆  000000000000
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     // Squash the current revision using the short name for the option.
     work_dir.run_jj(["squash", "-u"]).success();
@@ -1574,7 +1584,7 @@ fn test_squash_use_destination_message() {
     ");
 
     // Undo and squash again, but this time squash both "b" and "c" into "a".
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     work_dir
         .run_jj([
             "squash",
@@ -1737,6 +1747,7 @@ fn test_squash_to_new_commit() {
     work_dir.run_jj(["commit", "-m", "file3"]).success();
     work_dir.write_file("file4", "file4\n");
     work_dir.run_jj(["commit", "-m", "file4"]).success();
+    let setup_opid = work_dir.current_operation_id();
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
     @  mzvwutvlkqwt
@@ -1785,7 +1796,7 @@ fn test_squash_to_new_commit() {
     ");
 
     // insert the commit after a commit
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "squash",
         "-m",
@@ -1818,7 +1829,7 @@ fn test_squash_to_new_commit() {
     ");
 
     // insert the commit onto another
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "squash",
         "-m",
@@ -1851,7 +1862,7 @@ fn test_squash_to_new_commit() {
     ");
 
     // insert the commit after the source commit
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "squash",
         "-m",
@@ -1884,7 +1895,7 @@ fn test_squash_to_new_commit() {
     ");
 
     // insert the commit before the source commit
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "squash",
         "-m",
@@ -1917,7 +1928,7 @@ fn test_squash_to_new_commit() {
     ");
 
     // double destination with a commit that will disappear
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "squash",
         "-m",
@@ -1952,7 +1963,7 @@ fn test_squash_to_new_commit() {
     ");
 
     // creating a new commit should open the editor to write the commit message
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(edit_script, ["dump editor1", "write\nfile 3&4"].join("\0")).unwrap();
     let output = work_dir.run_jj([
         "squash",
@@ -2005,10 +2016,10 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @r"
     ○    xlzxqlsl test.user@example.com 2001-02-03 08:05:31 8ceb6c68
     ├─╮  file 3&4
-    │ │  -- operation c91017081095 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │ │  -- operation dc662694ff45 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:31 c7946a56
     │ │  file4
-    │ │  -- operation c91017081095 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │ │  -- operation dc662694ff45 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:11 38778966
     │ │  file4
     │ │  -- operation 83489d186f66 commit 89a30a7539466ed176c1ef122a020fd9cb15848e
@@ -2020,7 +2031,7 @@ fn test_squash_to_new_commit() {
     │    -- operation 19d57874b952 commit c23c424826221bc4fdee9487926595324e50ee95
     ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:31 3ab8a4a5
     │  file3
-    │  -- operation c91017081095 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │  -- operation dc662694ff45 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:10 0d254956
     │  file3
     │  -- operation 19d57874b952 commit c23c424826221bc4fdee9487926595324e50ee95
@@ -2035,7 +2046,7 @@ fn test_squash_to_new_commit() {
 
     // creating a new commit with --use-destination-message shouldn't open the
     // editor
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "squash",
         "-f",
@@ -2067,7 +2078,7 @@ fn test_squash_to_new_commit() {
     ");
 
     // squashing 0 sources should create an empty commit
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "squash",
         "-f",
@@ -2104,12 +2115,12 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @r"
     ○  zowrlwsv test.user@example.com 2001-02-03 08:05:38 5feda7c2
        (empty) (no description set)
-       -- operation 73edd692d095 squash 0 commits
+       -- operation 8dc838fe4842 squash 0 commits
     [EOF]
     ");
 
     // squashing empty changes should create an empty commit
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "squash",
         "-f",
@@ -2147,12 +2158,12 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @r"
     ○  nsrwusvy test.user@example.com 2001-02-03 08:05:42 c2183685
        (empty) (no description set)
-       -- operation e951eefa2a16 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+       -- operation 2b93f729fd60 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     [EOF]
     ");
 
     // squashing from an empty commit should produce an empty commit
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["new", "--no-edit", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -2194,10 +2205,10 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @r"
     ○  ukwxllxp test.user@example.com 2001-02-03 08:05:46 43a4b8e0
     │  (empty) (no description set)
-    │  -- operation abb353cc3a72 squash commit 7eff41c8d17b8b4d2e7110402719e9d245dba975
+    │  -- operation ff0dd67ed609 squash commit 7eff41c8d17b8b4d2e7110402719e9d245dba975
     ○  wtlqussy hidden test.user@example.com 2001-02-03 08:05:46 7eff41c8
        (empty) (no description set)
-       -- operation 14e63f462582 new empty commit
+       -- operation a8bb9104802c new empty commit
     [EOF]
     ");
 }

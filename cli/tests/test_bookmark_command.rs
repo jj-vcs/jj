@@ -401,6 +401,7 @@ fn test_bookmark_move_matching() {
     ◆   000000000000
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     // The default could be considered "--from=all() glob:*", but is disabled
     let output = work_dir.run_jj(["bookmark", "move", "--to=@"]);
@@ -459,7 +460,7 @@ fn test_bookmark_move_matching() {
     ◆   000000000000
     [EOF]
     ");
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
     // Try to move multiple bookmarks, but one of them isn't fast-forward
     let output = work_dir.run_jj(["bookmark", "move", "glob:?1", "--to=@"]);
@@ -675,6 +676,7 @@ fn test_bookmark_forget_glob() {
     work_dir
         .run_jj(["bookmark", "create", "-r@", "foo-4"])
         .success();
+    let setup_opid = work_dir.current_operation_id();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  bar-2 foo-1 foo-3 foo-4 e8849ae12c70
@@ -687,7 +689,7 @@ fn test_bookmark_forget_glob() {
     Forgot 2 local bookmarks.
     [EOF]
     ");
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["bookmark", "forget", "glob:foo-[1-3]"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -770,6 +772,7 @@ fn test_bookmark_delete_glob() {
         .success();
     // Push to create remote-tracking bookmarks
     work_dir.run_jj(["git", "push", "--all"]).success();
+    let setup_opid = work_dir.current_operation_id();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  bar-2 foo-1 foo-3 foo-4 8e056f6b8c37
@@ -782,7 +785,7 @@ fn test_bookmark_delete_glob() {
     Deleted 2 bookmarks.
     [EOF]
     ");
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["bookmark", "delete", "glob:foo-[1-3]"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------

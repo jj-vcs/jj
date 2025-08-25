@@ -118,6 +118,7 @@ fn test_duplicate_many() {
     ◆  000000000000
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     let output = work_dir.run_jj(["duplicate", "b::"]);
     insta::assert_snapshot!(output, @r"
@@ -143,7 +144,7 @@ fn test_duplicate_many() {
     ");
 
     // Try specifying the same commit twice directly
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["duplicate", "b", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -165,7 +166,7 @@ fn test_duplicate_many() {
     ");
 
     // Try specifying the same commit twice indirectly
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["duplicate", "b::", "d::"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -192,7 +193,7 @@ fn test_duplicate_many() {
     [EOF]
     ");
 
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     // Reminder of the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @    0559be9bd4d0   e
@@ -232,7 +233,7 @@ fn test_duplicate_many() {
     ");
 
     // Check for BUG -- makes too many 'a'-s, etc.
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["duplicate", "a::"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------

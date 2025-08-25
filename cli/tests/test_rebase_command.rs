@@ -192,6 +192,7 @@ fn test_rebase_bookmark() {
     ◆
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     let output = work_dir.run_jj(["rebase", "-b", "c", "-d", "e"]);
     insta::assert_snapshot!(output, @r"
@@ -211,7 +212,7 @@ fn test_rebase_bookmark() {
     ");
 
     // Test rebasing multiple bookmarks at once
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["rebase", "-b=e", "-b=d", "-d=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -235,7 +236,7 @@ fn test_rebase_bookmark() {
     ");
 
     // Same test but with more than one revision per argument
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["rebase", "-b=e|d", "-d=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -283,6 +284,7 @@ fn test_rebase_bookmark_with_merge() {
     ◆
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     let output = work_dir.run_jj(["rebase", "-b", "d", "-d", "b"]);
     insta::assert_snapshot!(output, @r"
@@ -306,7 +308,7 @@ fn test_rebase_bookmark_with_merge() {
     [EOF]
     ");
 
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["rebase", "-d", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -353,6 +355,7 @@ fn test_rebase_single_revision() {
     ◆
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     // Descendants of the rebased commit "c" should be rebased onto parents. First
     // we test with a non-merge commit.
@@ -378,7 +381,7 @@ fn test_rebase_single_revision() {
     ◆
     [EOF]
     ");
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
     // Now, let's try moving the merge commit. After, both parents of "d" ("b" and
     // "c") should become parents of "e".
@@ -487,6 +490,7 @@ fn test_rebase_multiple_revisions() {
     ◆
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     // Test with two non-related non-merge commits.
     let output = work_dir.run_jj(["rebase", "-r", "c", "-r", "e", "-d", "a"]);
@@ -517,7 +521,7 @@ fn test_rebase_multiple_revisions() {
     ◆
     [EOF]
     ");
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
     // Test with two related non-merge commits. Since "b" is a parent of "c", when
     // rebasing commits "b" and "c", their ancestry relationship should be
@@ -549,7 +553,7 @@ fn test_rebase_multiple_revisions() {
     ◆
     [EOF]
     ");
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
     // Test with a subgraph containing a merge commit. Since the merge commit "f"
     // was extracted, its descendants which are not part of the subgraph will
@@ -585,7 +589,7 @@ fn test_rebase_multiple_revisions() {
     ◆
     [EOF]
     ");
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
     // Test with commits in a disconnected subgraph. The subgraph has the
     // relationship d->e->f->g->h, but only "d", "f" and "h" are in the set of
@@ -621,7 +625,7 @@ fn test_rebase_multiple_revisions() {
     ◆
     [EOF]
     ");
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
     // Test rebasing a subgraph onto its descendants.
     let output = work_dir.run_jj(["rebase", "-r", "d::e", "-d", "i"]);
@@ -772,6 +776,7 @@ fn test_rebase_multiple_destinations() {
     [EOF]
     ");
 
+    let setup_opid2 = work_dir.current_operation_id();
     let output = work_dir.run_jj([
         "rebase",
         "--config=ui.always-allow-large-revsets=false",
@@ -822,7 +827,7 @@ fn test_rebase_multiple_destinations() {
     ");
 
     // undo and do it again, but without 'ui.always-allow-large-revsets=false'
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid2]).success();
     work_dir.run_jj(["rebase", "-r=a", "-d=b|c"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○    a: c b
@@ -878,6 +883,7 @@ fn test_rebase_with_descendants() {
     ◆
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     let output = work_dir.run_jj(["rebase", "-s", "b", "-d", "a"]);
     insta::assert_snapshot!(output, @r"
@@ -899,7 +905,7 @@ fn test_rebase_with_descendants() {
     ");
 
     // Rebase several subtrees at once.
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["rebase", "-s=c", "-s=d", "-d=a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -920,7 +926,7 @@ fn test_rebase_with_descendants() {
     [EOF]
     ");
 
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     // Reminder of the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  d: c
@@ -956,7 +962,7 @@ fn test_rebase_with_descendants() {
     ");
 
     // Same test as above, but with multiple commits per argument
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["rebase", "-s=b|d", "-d=a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -2993,6 +2999,7 @@ fn test_rebase_skip_duplicate_divergent() {
     ◆    zzzzzzzz  00000000
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     // By default, rebase should skip the duplicate of commit B
     insta::assert_snapshot!(work_dir.run_jj(["rebase", "-r", "c::", "-d", "d"]), @r"
@@ -3012,7 +3019,7 @@ fn test_rebase_skip_duplicate_divergent() {
     ");
 
     // Rebasing should work even if the root of the target set is abandoned
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     insta::assert_snapshot!(work_dir.run_jj(["rebase", "-s", "b1", "-d", "b2"]), @r"
     ------- stderr -------
     Abandoned 1 divergent commits that were already present in the destination:
@@ -3034,7 +3041,7 @@ fn test_rebase_skip_duplicate_divergent() {
     ");
 
     // Rebase with "--keep-divergent" shouldn't skip any duplicates
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     insta::assert_snapshot!(work_dir.run_jj(["rebase", "-s", "c", "-d", "d", "--keep-divergent"]), @r"
     ------- stderr -------
     Rebased 2 commits to destination

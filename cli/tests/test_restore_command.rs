@@ -31,6 +31,7 @@ fn test_restore() {
     work_dir.write_file("file2", "c\n");
     work_dir.write_file("file3", "c\n");
     work_dir.run_jj(["debug", "snapshot"]).success();
+    let setup_opid = work_dir.current_operation_id();
 
     // There is no `-r` argument
     let output = work_dir.run_jj(["restore", "-r=@-"]);
@@ -56,7 +57,7 @@ fn test_restore() {
     insta::assert_snapshot!(output, @"");
 
     // Can restore another revision from its parents
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["diff", "-s", "-r=@-"]);
     insta::assert_snapshot!(output, @r"
     A file2
@@ -85,7 +86,7 @@ fn test_restore() {
     insta::assert_snapshot!(output, @"");
 
     // Can restore this revision from another revision
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["restore", "--from", "@--"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -101,7 +102,7 @@ fn test_restore() {
     ");
 
     // Can restore into other revision
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["restore", "--into", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -121,7 +122,7 @@ fn test_restore() {
     ");
 
     // Can combine `--from` and `--into`
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["restore", "--from", "@", "--into", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -141,7 +142,7 @@ fn test_restore() {
     ");
 
     // Can restore only specified paths
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["restore", "file2", "file3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -365,6 +366,7 @@ fn test_restore_interactive() {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     let diff_script = [
         "files-before file1 file2 file3",
@@ -408,7 +410,7 @@ fn test_restore_interactive() {
     ");
 
     // Try again with --tool, which should imply --interactive
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["restore", "--tool=fake-diff-editor"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------

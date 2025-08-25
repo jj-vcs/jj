@@ -540,6 +540,7 @@ fn test_relative_tool_path_from_subdirectory() {
     let sub_dir = work_dir.create_dir("subdir");
     work_dir.write_file("subdir/nested.txt", "nested content\n");
     work_dir.run_jj(["debug", "snapshot"]).success();
+    let setup_opid = work_dir.current_operation_id();
 
     // Run fix from workspace root
     let output = work_dir.run_jj(["fix"]);
@@ -564,7 +565,7 @@ fn test_relative_tool_path_from_subdirectory() {
     "###);
 
     // Reset so the fix tools should have an effect again
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
     // Run fix from the subdirectory
     let output = sub_dir.run_jj(["fix"]);

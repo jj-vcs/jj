@@ -41,6 +41,7 @@ fn test_basics() {
     ◆  [zzz]
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     let output = work_dir.run_jj(["abandon", "--retain-bookmarks", "d"]);
     insta::assert_snapshot!(output, @r"
@@ -66,7 +67,7 @@ fn test_basics() {
     [EOF]
     ");
 
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["abandon", "--retain-bookmarks"]); // abandons `e`
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -91,7 +92,7 @@ fn test_basics() {
     [EOF]
     ");
 
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["abandon", "descendants(d)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -118,7 +119,7 @@ fn test_basics() {
     ");
 
     // Test abandoning the same commit twice directly
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["abandon", "-rb", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -139,7 +140,7 @@ fn test_basics() {
     ");
 
     // Test abandoning the same commit twice indirectly
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["abandon", "d::", "e"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------

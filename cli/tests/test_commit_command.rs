@@ -168,6 +168,7 @@ fn test_commit_interactive() {
 
     let diff_script = ["rm file2", "dump JJ-INSTRUCTIONS instrs"].join("\0");
     std::fs::write(diff_editor, diff_script).unwrap();
+    let setup_opid = work_dir.current_operation_id();
 
     // Create a commit interactively and select only file1
     work_dir.run_jj(["commit", "-i"]).success();
@@ -193,7 +194,7 @@ fn test_commit_interactive() {
     "#);
 
     // Try again with --tool=<name>, which implies --interactive
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     work_dir
         .run_jj([
             "commit",
