@@ -1843,8 +1843,8 @@ the path <a href="#quoting-file-names">has no special characters</a>.</p>
 <li><code>glob:"pattern"</code> or <code>cwd-glob:"pattern"</code>: Matches file paths with cwd-relative
   Unix-style shell <a href="https://docs.rs/globset/latest/globset/#syntax">wildcard <code>pattern</code></a>. For example, <code>glob:"*.c"</code> will
   match all <code>.c</code> files in the current working directory non-recursively.</li>
-<li><code>glob-i:"pattern"</code> or <code>cwd-glob-i:"pattern"</code>: Like <code>glob:</code> but 
-  case-insensitive. For example, <code>glob-i:"*.TXT"</code> will match both <code>file.txt</code> 
+<li><code>glob-i:"pattern"</code> or <code>cwd-glob-i:"pattern"</code>: Like <code>glob:</code> but
+  case-insensitive. For example, <code>glob-i:"*.TXT"</code> will match both <code>file.txt</code>
   and <code>FILE.TXT</code>.</li>
 <li><code>root:"path"</code>: Matches workspace-relative path prefix (file or files under
   directory recursively.)</li>
