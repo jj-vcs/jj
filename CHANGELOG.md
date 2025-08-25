@@ -93,8 +93,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   output using template expressions, similar to `jj op log`. Also added
   `--no-op-diff` flag to suppress the operation diff.
 
-* `jj squash` has gained `--insert-before`, `--insert-after`, and `--destination`
-  options.
+* `jj squash` has gained experimental `--insert-before`, `--insert-after`, and
+  `--destination` options.
 
 ### Fixed bugs
 
