@@ -2004,31 +2004,31 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @r"
     ○    xlzxqlsl test.user@example.com 2001-02-03 08:05:31 8ceb6c68
     ├─╮  file 3&4
-    │ │  -- operation c91017081095 (2001-02-03 08:05:31) squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │ │  -- operation c91017081095 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:31 c7946a56
     │ │  file4
-    │ │  -- operation c91017081095 (2001-02-03 08:05:31) squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │ │  -- operation c91017081095 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:11 38778966
     │ │  file4
-    │ │  -- operation 83489d186f66 (2001-02-03 08:05:11) commit 89a30a7539466ed176c1ef122a020fd9cb15848e
+    │ │  -- operation 83489d186f66 commit 89a30a7539466ed176c1ef122a020fd9cb15848e
     │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:11 89a30a75
     │ │  (no description set)
-    │ │  -- operation e23fd04aab50 (2001-02-03 08:05:11) snapshot working copy
+    │ │  -- operation e23fd04aab50 snapshot working copy
     │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:10 bbf04d26
     │    (empty) (no description set)
-    │    -- operation 19d57874b952 (2001-02-03 08:05:10) commit c23c424826221bc4fdee9487926595324e50ee95
+    │    -- operation 19d57874b952 commit c23c424826221bc4fdee9487926595324e50ee95
     ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:31 3ab8a4a5
     │  file3
-    │  -- operation c91017081095 (2001-02-03 08:05:31) squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │  -- operation c91017081095 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:10 0d254956
     │  file3
-    │  -- operation 19d57874b952 (2001-02-03 08:05:10) commit c23c424826221bc4fdee9487926595324e50ee95
+    │  -- operation 19d57874b952 commit c23c424826221bc4fdee9487926595324e50ee95
     ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:10 c23c4248
     │  (no description set)
-    │  -- operation d19ad3734aa6 (2001-02-03 08:05:10) snapshot working copy
+    │  -- operation d19ad3734aa6 snapshot working copy
     ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:09 c1272e87
        (empty) (no description set)
-       -- operation fdee458ae5f2 (2001-02-03 08:05:09) commit cb58ff1c6f1af92f827661e7275941ceb4d910c5
+       -- operation fdee458ae5f2 commit cb58ff1c6f1af92f827661e7275941ceb4d910c5
     [EOF]
     ");
 
@@ -2103,7 +2103,7 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @r"
     ○  zowrlwsv test.user@example.com 2001-02-03 08:05:38 5feda7c2
        (empty) (no description set)
-       -- operation 73edd692d095 (2001-02-03 08:05:38) squash 0 commits
+       -- operation 73edd692d095 squash 0 commits
     [EOF]
     ");
 
@@ -2146,7 +2146,7 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @r"
     ○  nsrwusvy test.user@example.com 2001-02-03 08:05:42 c2183685
        (empty) (no description set)
-       -- operation e951eefa2a16 (2001-02-03 08:05:42) squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+       -- operation e951eefa2a16 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     [EOF]
     ");
 
@@ -2193,10 +2193,10 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @r"
     ○  ukwxllxp test.user@example.com 2001-02-03 08:05:46 43a4b8e0
     │  (empty) (no description set)
-    │  -- operation abb353cc3a72 (2001-02-03 08:05:47) squash commit 7eff41c8d17b8b4d2e7110402719e9d245dba975
+    │  -- operation abb353cc3a72 squash commit 7eff41c8d17b8b4d2e7110402719e9d245dba975
     ○  wtlqussy hidden test.user@example.com 2001-02-03 08:05:46 7eff41c8
        (empty) (no description set)
-       -- operation 14e63f462582 (2001-02-03 08:05:46) new empty commit
+       -- operation 14e63f462582 new empty commit
     [EOF]
     ");
 }

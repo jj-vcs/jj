@@ -890,20 +890,20 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         insta::assert_snapshot!(output, @r"
         @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 secondary@ 18851b39
         │  RECOVERY COMMIT FROM `jj workspace update-stale`
-        │  -- operation 0a26da4b0149 (2001-02-03 08:05:18) snapshot working copy
+        │  -- operation 0a26da4b0149 snapshot working copy
         ○  kmkuslsw hidden test.user@example.com 2001-02-03 08:05:18 866928d1
            (empty) RECOVERY COMMIT FROM `jj workspace update-stale`
-           -- operation 83f707034db1 (2001-02-03 08:05:18) recovery commit
+           -- operation 83f707034db1 recovery commit
         [EOF]
         ");
     } else {
         insta::assert_snapshot!(output, @r"
         @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 secondary@ 18851b39
         │  RECOVERY COMMIT FROM `jj workspace update-stale`
-        │  -- operation 0f876590219e (2001-02-03 08:05:18) snapshot working copy
+        │  -- operation 0f876590219e snapshot working copy
         ○  kmkuslsw hidden test.user@example.com 2001-02-03 08:05:18 866928d1
            (empty) RECOVERY COMMIT FROM `jj workspace update-stale`
-           -- operation 83f707034db1 (2001-02-03 08:05:18) recovery commit
+           -- operation 83f707034db1 recovery commit
         [EOF]
         ");
     }

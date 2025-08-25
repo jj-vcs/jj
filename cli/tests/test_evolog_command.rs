@@ -34,16 +34,16 @@ fn test_evolog_with_or_without_diff() {
     insta::assert_snapshot!(output, @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     │  my description
-    │  -- operation 3499115d3831 (2001-02-03 08:05:10) snapshot working copy
+    │  -- operation 3499115d3831 snapshot working copy
     ×  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 7f56b2a0 conflict
     │  my description
-    │  -- operation eb87ec366530 (2001-02-03 08:05:09) rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
+    │  -- operation eb87ec366530 rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
     ○  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 51e08f95
     │  my description
-    │  -- operation 18a971ce330a (2001-02-03 08:05:09) snapshot working copy
+    │  -- operation 18a971ce330a snapshot working copy
     ○  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:08 b955b72e
        (empty) my description
-       -- operation e0f8e58b3800 (2001-02-03 08:05:08) new empty commit
+       -- operation e0f8e58b3800 new empty commit
     [EOF]
     ");
 
@@ -52,16 +52,16 @@ fn test_evolog_with_or_without_diff() {
     insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:10[39m [38;5;12m3[38;5;8m3c10ace[39m[0m
     │  [1mmy description[0m
-    │  [38;5;8m--[39m operation [38;5;4m3499115d3831[39m ([38;5;6m2001-02-03 08:05:10[39m) snapshot working copy
+    │  [38;5;8m--[39m operation [38;5;4m3499115d3831[39m snapshot working copy
     [1m[38;5;1m×[0m  [1m[39mr[0m[38;5;8mlvkpnrz[39m hidden [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:09[39m [1m[38;5;4m7[0m[38;5;8mf56b2a0[39m [38;5;1mconflict[39m
     │  my description
-    │  [38;5;8m--[39m operation [38;5;4meb87ec366530[39m ([38;5;6m2001-02-03 08:05:09[39m) rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
+    │  [38;5;8m--[39m operation [38;5;4meb87ec366530[39m rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
     ○  [1m[39mr[0m[38;5;8mlvkpnrz[39m hidden [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:09[39m [1m[38;5;4m5[0m[38;5;8m1e08f95[39m
     │  my description
-    │  [38;5;8m--[39m operation [38;5;4m18a971ce330a[39m ([38;5;6m2001-02-03 08:05:09[39m) snapshot working copy
+    │  [38;5;8m--[39m operation [38;5;4m18a971ce330a[39m snapshot working copy
     ○  [1m[39mr[0m[38;5;8mlvkpnrz[39m hidden [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:08[39m [1m[38;5;4mb[0m[38;5;8m955b72e[39m
        [38;5;2m(empty)[39m my description
-       [38;5;8m--[39m operation [38;5;4me0f8e58b3800[39m ([38;5;6m2001-02-03 08:05:08[39m) new empty commit
+       [38;5;8m--[39m operation [38;5;4me0f8e58b3800[39m new empty commit
     [EOF]
     ");
 
@@ -71,7 +71,7 @@ fn test_evolog_with_or_without_diff() {
     insta::assert_snapshot!(output, @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     │  my description
-    │  -- operation 3499115d3831 (2001-02-03 08:05:10) snapshot working copy
+    │  -- operation 3499115d3831 snapshot working copy
     │  Resolved conflict in file1:
     │     1     : <<<<<<< Conflict 1 of 1
     │     2     : %%%%%%% Changes from base to side #1
@@ -82,10 +82,10 @@ fn test_evolog_with_or_without_diff() {
     │     7    1: >>>>>>> Conflict 1 of 1 endsresolved
     ×  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 7f56b2a0 conflict
     │  my description
-    │  -- operation eb87ec366530 (2001-02-03 08:05:09) rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
+    │  -- operation eb87ec366530 rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
     ○  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 51e08f95
     │  my description
-    │  -- operation 18a971ce330a (2001-02-03 08:05:09) snapshot working copy
+    │  -- operation 18a971ce330a snapshot working copy
     │  Modified regular file file1:
     │     1    1: foo
     │          2: bar
@@ -93,7 +93,7 @@ fn test_evolog_with_or_without_diff() {
     │          1: foo
     ○  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:08 b955b72e
        (empty) my description
-       -- operation e0f8e58b3800 (2001-02-03 08:05:08) new empty commit
+       -- operation e0f8e58b3800 new empty commit
     [EOF]
     ");
 
@@ -102,22 +102,22 @@ fn test_evolog_with_or_without_diff() {
     insta::assert_snapshot!(output, @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     │  my description
-    │  -- operation 3499115d3831 (2001-02-03 08:05:10) snapshot working copy
+    │  -- operation 3499115d3831 snapshot working copy
     ×  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 7f56b2a0 conflict
     │  my description
-    │  -- operation eb87ec366530 (2001-02-03 08:05:09) rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
+    │  -- operation eb87ec366530 rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
     ○  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 51e08f95
     │  my description
-    │  -- operation 18a971ce330a (2001-02-03 08:05:09) snapshot working copy
+    │  -- operation 18a971ce330a snapshot working copy
     ○  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:08 b955b72e
        (empty) my description
-       -- operation e0f8e58b3800 (2001-02-03 08:05:08) new empty commit
+       -- operation e0f8e58b3800 new empty commit
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 c664a51b
     │  (no description set)
-    │  -- operation ca1226de0084 (2001-02-03 08:05:08) snapshot working copy
+    │  -- operation ca1226de0084 snapshot working copy
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
-       -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+       -- operation 8f47435a3990 add workspace 'default'
     [EOF]
     ");
 
@@ -126,10 +126,10 @@ fn test_evolog_with_or_without_diff() {
     insta::assert_snapshot!(output, @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     │  my description
-    │  -- operation 3499115d3831 (2001-02-03 08:05:10) snapshot working copy
+    │  -- operation 3499115d3831 snapshot working copy
     ×  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 7f56b2a0 conflict
     │  my description
-    │  -- operation eb87ec366530 (2001-02-03 08:05:09) rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
+    │  -- operation eb87ec366530 rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
     [EOF]
     ");
 
@@ -138,16 +138,16 @@ fn test_evolog_with_or_without_diff() {
     insta::assert_snapshot!(output, @r"
     rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     my description
-    -- operation 3499115d3831 (2001-02-03 08:05:10) snapshot working copy
+    -- operation 3499115d3831 snapshot working copy
     rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 7f56b2a0 conflict
     my description
-    -- operation eb87ec366530 (2001-02-03 08:05:09) rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
+    -- operation eb87ec366530 rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
     rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 51e08f95
     my description
-    -- operation 18a971ce330a (2001-02-03 08:05:09) snapshot working copy
+    -- operation 18a971ce330a snapshot working copy
     rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:08 b955b72e
     (empty) my description
-    -- operation e0f8e58b3800 (2001-02-03 08:05:08) new empty commit
+    -- operation e0f8e58b3800 new empty commit
     [EOF]
     ");
 
@@ -156,7 +156,7 @@ fn test_evolog_with_or_without_diff() {
     insta::assert_snapshot!(output, @r"
     rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     my description
-    -- operation 3499115d3831 (2001-02-03 08:05:10) snapshot working copy
+    -- operation 3499115d3831 snapshot working copy
     diff --git a/file1 b/file1
     index 0000000000..2ab19ae607 100644
     --- a/file1
@@ -172,10 +172,10 @@ fn test_evolog_with_or_without_diff() {
     +resolved
     rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 7f56b2a0 conflict
     my description
-    -- operation eb87ec366530 (2001-02-03 08:05:09) rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
+    -- operation eb87ec366530 rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
     rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 51e08f95
     my description
-    -- operation 18a971ce330a (2001-02-03 08:05:09) snapshot working copy
+    -- operation 18a971ce330a snapshot working copy
     diff --git a/file1 b/file1
     index 257cc5642c..3bd1f0e297 100644
     --- a/file1
@@ -192,7 +192,7 @@ fn test_evolog_with_or_without_diff() {
     +foo
     rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:08 b955b72e
     (empty) my description
-    -- operation e0f8e58b3800 (2001-02-03 08:05:08) new empty commit
+    -- operation e0f8e58b3800 new empty commit
     [EOF]
     ");
 }
@@ -219,14 +219,14 @@ fn test_evolog_template() {
     insta::assert_snapshot!(output, @r"
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 2b17ac71
        (empty) (no description set)
-       -- operation 2931515731a6 (2001-02-03 08:05:09) add workspace 'default'
+       -- operation 2931515731a6 add workspace 'default'
     [EOF]
     ");
     let output = work_dir.run_jj(["evolog", "-r@", "--color=debug"]);
     insta::assert_snapshot!(output, @r"
     [1m[38;5;2m<<evolog commit node working_copy::@>>[0m  [1m[38;5;13m<<evolog working_copy commit change_id shortest prefix::k>>[38;5;8m<<evolog working_copy commit change_id shortest rest::kmpptxz>>[39m<<evolog working_copy:: >>[38;5;3m<<evolog working_copy commit author email local::test.user>><<evolog working_copy commit author email::@>><<evolog working_copy commit author email domain::example.com>>[39m<<evolog working_copy:: >>[38;5;14m<<evolog working_copy commit committer timestamp local format::2001-02-03 08:05:09>>[39m<<evolog working_copy:: >>[38;5;12m<<evolog working_copy commit commit_id shortest prefix::2>>[38;5;8m<<evolog working_copy commit commit_id shortest rest::b17ac71>>[39m<<evolog working_copy::>>[0m
        [1m[38;5;10m<<evolog working_copy empty::(empty)>>[39m<<evolog working_copy:: >>[38;5;10m<<evolog working_copy empty description placeholder::(no description set)>>[39m<<evolog working_copy::>>[0m
-       [38;5;8m<<evolog separator::-->>[39m<<evolog:: operation >>[38;5;4m<<evolog operation id short::2931515731a6>>[39m<<evolog:: (>>[38;5;6m<<evolog operation time end local format::2001-02-03 08:05:09>>[39m<<evolog::) >><<evolog operation description first_line::add workspace 'default'>><<evolog::>>
+       [38;5;8m<<evolog separator::-->>[39m<<evolog:: operation >>[38;5;4m<<evolog operation id short::2931515731a6>>[39m<<evolog:: >><<evolog operation description first_line::add workspace 'default'>><<evolog::>>
     [EOF]
     ");
 
@@ -286,16 +286,16 @@ fn test_evolog_with_custom_symbols() {
     insta::assert_snapshot!(output, @r"
     $  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     │  my description
-    │  -- operation 3622beb20303 (2001-02-03 08:05:10) snapshot working copy
+    │  -- operation 3622beb20303 snapshot working copy
     ┝  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 7f56b2a0 conflict
     │  my description
-    │  -- operation eb87ec366530 (2001-02-03 08:05:09) rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
+    │  -- operation eb87ec366530 rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
     ┝  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 51e08f95
     │  my description
-    │  -- operation 18a971ce330a (2001-02-03 08:05:09) snapshot working copy
+    │  -- operation 18a971ce330a snapshot working copy
     ┝  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:08 b955b72e
        (empty) my description
-       -- operation e0f8e58b3800 (2001-02-03 08:05:08) new empty commit
+       -- operation e0f8e58b3800 new empty commit
     [EOF]
     ");
 }
@@ -320,47 +320,47 @@ fn test_evolog_word_wrap() {
     insta::assert_snapshot!(render(&["evolog"], 40, false), @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:08 68a50538
     │  (empty) first
-    │  -- operation 75545f7ff2df (2001-02-03 08:05:08) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    │  -- operation 75545f7ff2df describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
-       -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+       -- operation 8f47435a3990 add workspace 'default'
     [EOF]
     ");
     insta::assert_snapshot!(render(&["evolog"], 40, true), @r"
     @  qpvuntsm test.user@example.com
     │  2001-02-03 08:05:08 68a50538
     │  (empty) first
-    │  -- operation 75545f7ff2df (2001-02-03
-    │  08:05:08) describe commit
+    │  -- operation 75545f7ff2df describe
+    │  commit
     │  e8849ae12c709f2321908879bc724fdb2ab8a781
     ○  qpvuntsm hidden test.user@example.com
        2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
-       -- operation 8f47435a3990 (2001-02-03
-       08:05:07) add workspace 'default'
+       -- operation 8f47435a3990 add
+       workspace 'default'
     [EOF]
     ");
     insta::assert_snapshot!(render(&["evolog", "--no-graph"], 40, false), @r"
     qpvuntsm test.user@example.com 2001-02-03 08:05:08 68a50538
     (empty) first
-    -- operation 75545f7ff2df (2001-02-03 08:05:08) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    -- operation 75545f7ff2df describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
     qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
     (empty) (no description set)
-    -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+    -- operation 8f47435a3990 add workspace 'default'
     [EOF]
     ");
     insta::assert_snapshot!(render(&["evolog", "--no-graph"], 40, true), @r"
     qpvuntsm test.user@example.com
     2001-02-03 08:05:08 68a50538
     (empty) first
-    -- operation 75545f7ff2df (2001-02-03
-    08:05:08) describe commit
+    -- operation 75545f7ff2df describe
+    commit
     e8849ae12c709f2321908879bc724fdb2ab8a781
     qpvuntsm hidden test.user@example.com
     2001-02-03 08:05:07 e8849ae1
     (empty) (no description set)
-    -- operation 8f47435a3990 (2001-02-03
-    08:05:07) add workspace 'default'
+    -- operation 8f47435a3990 add workspace
+    'default'
     [EOF]
     ");
 }
@@ -409,33 +409,33 @@ fn test_evolog_squash() {
     insta::assert_snapshot!(output, @r"
     ○      qpvuntsm test.user@example.com 2001-02-03 08:05:15 5f3281c6
     ├─┬─╮  squashed 3
-    │ │ │  -- operation 838e6d867fda (2001-02-03 08:05:15) squash commits into 5ec0619af5cb4f7707a556a71a6f96af0bc294d2
+    │ │ │  -- operation 838e6d867fda squash commits into 5ec0619af5cb4f7707a556a71a6f96af0bc294d2
     │ │ ○  vruxwmqv hidden test.user@example.com 2001-02-03 08:05:15 770795d0
     │ │ │  fifth
-    │ │ │  -- operation 1d38c000b52d (2001-02-03 08:05:15) snapshot working copy
+    │ │ │  -- operation 1d38c000b52d snapshot working copy
     │ │ │  Added regular file file5:
     │ │ │          1: foo5
     │ │ ○  vruxwmqv hidden test.user@example.com 2001-02-03 08:05:14 2e0123d1
     │ │    (empty) fifth
-    │ │    -- operation fc852ed87801 (2001-02-03 08:05:14) new empty commit
+    │ │    -- operation fc852ed87801 new empty commit
     │ ○  yqosqzyt hidden test.user@example.com 2001-02-03 08:05:14 ea8161b6
     │ │  fourth
-    │ │  -- operation 3b09d55dfa6e (2001-02-03 08:05:14) snapshot working copy
+    │ │  -- operation 3b09d55dfa6e snapshot working copy
     │ │  Added regular file file4:
     │ │          1: foo4
     │ ○  yqosqzyt hidden test.user@example.com 2001-02-03 08:05:13 1de5fdb6
     │    (empty) fourth
-    │    -- operation 9404a551035a (2001-02-03 08:05:13) new empty commit
+    │    -- operation 9404a551035a new empty commit
     ○    qpvuntsm hidden test.user@example.com 2001-02-03 08:05:12 5ec0619a
     ├─╮  squashed 2
-    │ │  -- operation fa9796d12627 (2001-02-03 08:05:12) squash commits into 690858846504af0e42fde980fdacf9851559ebb8
+    │ │  -- operation fa9796d12627 squash commits into 690858846504af0e42fde980fdacf9851559ebb8
     │ │  Removed regular file file2:
     │ │     1     : foo2
     │ │  Removed regular file file3:
     │ │     1     : foo3
     │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:12 cce957f1
     │ │  third
-    │ │  -- operation de96267cd621 (2001-02-03 08:05:12) snapshot working copy
+    │ │  -- operation de96267cd621 snapshot working copy
     │ │  Modified regular file file1:
     │ │     1    1: foo
     │ │     2    2: bar
@@ -446,33 +446,33 @@ fn test_evolog_squash() {
     │ │          1: foo3
     │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:11 3a2a4253
     │ │  (empty) third
-    │ │  -- operation 4611a6121e8a (2001-02-03 08:05:11) describe commit ebec10f449ad7ab92c7293efab5e3db2d8e9fea1
+    │ │  -- operation 4611a6121e8a describe commit ebec10f449ad7ab92c7293efab5e3db2d8e9fea1
     │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:10 ebec10f4
     │    (empty) (no description set)
-    │    -- operation 65c81703100d (2001-02-03 08:05:10) squash commits into 5878cbe03cdf599c9353e5a1a52a01f4c5e0e0fa
+    │    -- operation 65c81703100d squash commits into 5878cbe03cdf599c9353e5a1a52a01f4c5e0e0fa
     ○    qpvuntsm hidden test.user@example.com 2001-02-03 08:05:10 69085884
     ├─╮  squashed 1
-    │ │  -- operation 65c81703100d (2001-02-03 08:05:10) squash commits into 5878cbe03cdf599c9353e5a1a52a01f4c5e0e0fa
+    │ │  -- operation 65c81703100d squash commits into 5878cbe03cdf599c9353e5a1a52a01f4c5e0e0fa
     │ ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:10 a3759c9d
     │ │  second
-    │ │  -- operation a7b202f56742 (2001-02-03 08:05:10) snapshot working copy
+    │ │  -- operation a7b202f56742 snapshot working copy
     │ │  Modified regular file file1:
     │ │     1    1: foo
     │ │          2: bar
     │ ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:09 a5b2f625
     │    (empty) second
-    │    -- operation 26f649a0cdfa (2001-02-03 08:05:09) new empty commit
+    │    -- operation 26f649a0cdfa new empty commit
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:09 5878cbe0
     │  first
-    │  -- operation af15122a5868 (2001-02-03 08:05:09) snapshot working copy
+    │  -- operation af15122a5868 snapshot working copy
     │  Added regular file file1:
     │          1: foo
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 68a50538
     │  (empty) first
-    │  -- operation 75545f7ff2df (2001-02-03 08:05:08) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    │  -- operation 75545f7ff2df describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
-       -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+       -- operation 8f47435a3990 add workspace 'default'
     [EOF]
     ");
 }
@@ -491,21 +491,21 @@ fn test_evolog_abandoned_op() {
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "--summary"]), @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:09 e1869e5d
     │  file2
-    │  -- operation 043c31d6dd84 (2001-02-03 08:05:09) describe commit 32cabcfa05c604a36074d74ae59964e4e5eb18e9
+    │  -- operation 043c31d6dd84 describe commit 32cabcfa05c604a36074d74ae59964e4e5eb18e9
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:09 32cabcfa
     │  file1
-    │  -- operation baef907e5b55 (2001-02-03 08:05:09) snapshot working copy
+    │  -- operation baef907e5b55 snapshot working copy
     │  A file2
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 cb5ebdc6
     │  file1
-    │  -- operation c4cf439c43a8 (2001-02-03 08:05:08) describe commit 093c3c9624b6cfe22b310586f5638792aa80e6d7
+    │  -- operation c4cf439c43a8 describe commit 093c3c9624b6cfe22b310586f5638792aa80e6d7
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 093c3c96
     │  (no description set)
-    │  -- operation f41b80dc73b6 (2001-02-03 08:05:08) snapshot working copy
+    │  -- operation f41b80dc73b6 snapshot working copy
     │  A file1
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
-       -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+       -- operation 8f47435a3990 add workspace 'default'
     [EOF]
     ");
 
@@ -517,7 +517,7 @@ fn test_evolog_abandoned_op() {
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "--summary"]), @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:09 e1869e5d
     │  file2
-    │  -- operation ab2192a635be (2001-02-03 08:05:09) describe commit 32cabcfa05c604a36074d74ae59964e4e5eb18e9
+    │  -- operation ab2192a635be describe commit 32cabcfa05c604a36074d74ae59964e4e5eb18e9
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:09 32cabcfa
        file1
        A file1
@@ -581,16 +581,16 @@ fn test_evolog_reversed_no_graph() {
     insta::assert_snapshot!(output, @r"
     qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
     (empty) (no description set)
-    -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+    -- operation 8f47435a3990 add workspace 'default'
     qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 b86e28cd
     (empty) a
-    -- operation ab34d1de4875 (2001-02-03 08:05:08) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    -- operation ab34d1de4875 describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
     qpvuntsm hidden test.user@example.com 2001-02-03 08:05:09 9f43967b
     (empty) b
-    -- operation 3851e9877d51 (2001-02-03 08:05:09) describe commit b86e28cd6862624ad77e1aaf31e34b2c7545bebd
+    -- operation 3851e9877d51 describe commit b86e28cd6862624ad77e1aaf31e34b2c7545bebd
     qpvuntsm test.user@example.com 2001-02-03 08:05:10 b28cda4b
     (empty) c
-    -- operation 5f4c7b5cb177 (2001-02-03 08:05:10) describe commit 9f43967b1cdbce4ab322cb7b4636fc0362c38373
+    -- operation 5f4c7b5cb177 describe commit 9f43967b1cdbce4ab322cb7b4636fc0362c38373
     [EOF]
     ");
 
@@ -598,10 +598,10 @@ fn test_evolog_reversed_no_graph() {
     insta::assert_snapshot!(output, @r"
     qpvuntsm hidden test.user@example.com 2001-02-03 08:05:09 9f43967b
     (empty) b
-    -- operation 3851e9877d51 (2001-02-03 08:05:09) describe commit b86e28cd6862624ad77e1aaf31e34b2c7545bebd
+    -- operation 3851e9877d51 describe commit b86e28cd6862624ad77e1aaf31e34b2c7545bebd
     qpvuntsm test.user@example.com 2001-02-03 08:05:10 b28cda4b
     (empty) c
-    -- operation 5f4c7b5cb177 (2001-02-03 08:05:10) describe commit 9f43967b1cdbce4ab322cb7b4636fc0362c38373
+    -- operation 5f4c7b5cb177 describe commit 9f43967b1cdbce4ab322cb7b4636fc0362c38373
     [EOF]
     ");
 }
@@ -636,25 +636,25 @@ fn test_evolog_reverse_with_graph() {
     insta::assert_snapshot!(output, @r"
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
-    │  -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+    │  -- operation 8f47435a3990 add workspace 'default'
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 b86e28cd
     │  (empty) a
-    │  -- operation ab34d1de4875 (2001-02-03 08:05:08) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    │  -- operation ab34d1de4875 describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:09 9f43967b
     │  (empty) b
-    │  -- operation 3851e9877d51 (2001-02-03 08:05:09) describe commit b86e28cd6862624ad77e1aaf31e34b2c7545bebd
+    │  -- operation 3851e9877d51 describe commit b86e28cd6862624ad77e1aaf31e34b2c7545bebd
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:10 b28cda4b
     │  (empty) c
-    │  -- operation 5f4c7b5cb177 (2001-02-03 08:05:10) describe commit 9f43967b1cdbce4ab322cb7b4636fc0362c38373
+    │  -- operation 5f4c7b5cb177 describe commit 9f43967b1cdbce4ab322cb7b4636fc0362c38373
     │ ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:11 6a4ff8aa
     ├─╯  (empty) d
-    │    -- operation 774accf68695 (2001-02-03 08:05:11) new empty commit
+    │    -- operation 774accf68695 new empty commit
     │ ○  royxmykx hidden test.user@example.com 2001-02-03 08:05:12 7dea2d1d
     ├─╯  (empty) e
-    │    -- operation 4c2c3012e2c3 (2001-02-03 08:05:12) new empty commit
+    │    -- operation 4c2c3012e2c3 new empty commit
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:13 78fdd026
        (empty) c+d+e
-       -- operation 2c736b66cd16 (2001-02-03 08:05:13) squash commits into b28cda4b118fc50495ca34a24f030abc078d032e
+       -- operation 2c736b66cd16 squash commits into b28cda4b118fc50495ca34a24f030abc078d032e
     [EOF]
     ");
 
@@ -662,13 +662,13 @@ fn test_evolog_reverse_with_graph() {
     insta::assert_snapshot!(output, @r"
     ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:11 6a4ff8aa
     │  (empty) d
-    │  -- operation 774accf68695 (2001-02-03 08:05:11) new empty commit
+    │  -- operation 774accf68695 new empty commit
     │ ○  royxmykx hidden test.user@example.com 2001-02-03 08:05:12 7dea2d1d
     ├─╯  (empty) e
-    │    -- operation 4c2c3012e2c3 (2001-02-03 08:05:12) new empty commit
+    │    -- operation 4c2c3012e2c3 new empty commit
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:13 78fdd026
        (empty) c+d+e
-       -- operation 2c736b66cd16 (2001-02-03 08:05:13) squash commits into b28cda4b118fc50495ca34a24f030abc078d032e
+       -- operation 2c736b66cd16 squash commits into b28cda4b118fc50495ca34a24f030abc078d032e
     [EOF]
     ");
 }

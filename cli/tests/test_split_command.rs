@@ -399,16 +399,16 @@ fn test_split_with_descendants() {
     insta::assert_snapshot!(evolog_1, @r"
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:12 74306e35
     │  Add file1
-    │  -- operation 994b490f285d (2001-02-03 08:05:12) split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
+    │  -- operation 994b490f285d split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 1d2499e7
     │  Add file1 & file2
-    │  -- operation adf4f33386c9 (2001-02-03 08:05:08) commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
+    │  -- operation adf4f33386c9 commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
-    │  -- operation 78ead2155fcc (2001-02-03 08:05:08) snapshot working copy
+    │  -- operation 78ead2155fcc snapshot working copy
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
-       -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+       -- operation 8f47435a3990 add workspace 'default'
     [EOF]
     ");
 
@@ -418,16 +418,16 @@ fn test_split_with_descendants() {
     insta::assert_snapshot!(evolog_2, @r"
     ○  royxmykx test.user@example.com 2001-02-03 08:05:12 0a37745e
     │  Add file2
-    │  -- operation 994b490f285d (2001-02-03 08:05:12) split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
+    │  -- operation 994b490f285d split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 1d2499e7
     │  Add file1 & file2
-    │  -- operation adf4f33386c9 (2001-02-03 08:05:08) commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
+    │  -- operation adf4f33386c9 commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
-    │  -- operation 78ead2155fcc (2001-02-03 08:05:08) snapshot working copy
+    │  -- operation 78ead2155fcc snapshot working copy
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
-       -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+       -- operation 8f47435a3990 add workspace 'default'
     [EOF]
     ");
 }
@@ -562,13 +562,13 @@ fn test_split_parallel_no_descendants() {
     insta::assert_snapshot!(evolog_1, @r#"
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 7bcd474c
     │  TESTED=TODO
-    │  -- operation 2b21c33e1596 (2001-02-03 08:05:09) split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
+    │  -- operation 2b21c33e1596 split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
-    │  -- operation 1663cd1cc445 (2001-02-03 08:05:08) snapshot working copy
+    │  -- operation 1663cd1cc445 snapshot working copy
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
-       -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+       -- operation 8f47435a3990 add workspace 'default'
     [EOF]
     ------- stderr -------
     Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
@@ -581,13 +581,13 @@ fn test_split_parallel_no_descendants() {
     insta::assert_snapshot!(evolog_2, @r#"
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 431886f6
     │  (no description set)
-    │  -- operation 2b21c33e1596 (2001-02-03 08:05:09) split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
+    │  -- operation 2b21c33e1596 split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
-    │  -- operation 1663cd1cc445 (2001-02-03 08:05:08) snapshot working copy
+    │  -- operation 1663cd1cc445 snapshot working copy
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
-       -- operation 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+       -- operation 8f47435a3990 add workspace 'default'
     [EOF]
     ------- stderr -------
     Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
