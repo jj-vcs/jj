@@ -539,13 +539,14 @@ fn test_relative_tool_path_from_subdirectory() {
     work_dir.write_file("test.txt", "hello world\n");
     let sub_dir = work_dir.create_dir("subdir");
     work_dir.write_file("subdir/nested.txt", "nested content\n");
+    work_dir.run_jj(["debug", "snapshot"]).success();
 
     // Run fix from workspace root
     let output = work_dir.run_jj(["fix"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
-    Working copy  (@) now at: qpvuntsm 58961e98 (no description set)
+    Working copy  (@) now at: qpvuntsm 57a27b36 (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 2 files, removed 0 files
     [EOF]
@@ -570,7 +571,7 @@ fn test_relative_tool_path_from_subdirectory() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
-    Working copy  (@) now at: qpvuntsm 380c1b78 (no description set)
+    Working copy  (@) now at: qpvuntsm 05404d5b (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 2 files, removed 0 files
     [EOF]

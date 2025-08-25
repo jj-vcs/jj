@@ -88,11 +88,12 @@ fn test_new_merge() {
         .run_jj(["new", "root()", "-m", "add file2"])
         .success();
     work_dir.write_file("file2", "b");
+    work_dir.run_jj(["debug", "snapshot"]).success();
 
     // Create a merge commit
     work_dir.run_jj(["new", "main", "@"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @    fd495246497571ee53aa327ac3d1e7846a1eeefd
+    @    94ce38ef81dc7912c1574cc5aa2f434b9057d58a
     ├─╮
     │ ○  5bf404a038660799fae348cc31b9891349c128c1 add file2
     ○ │  96ab002e5b86c39a661adc0524df211a3dac3f1b add file1
@@ -110,11 +111,11 @@ fn test_new_merge() {
     let output = work_dir.run_jj(["new", "main", "@", "--no-edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Created new commit znkkpsqq bffdc06a (empty) (no description set)
+    Created new commit kpqxywon 061f4210 (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    ○    bffdc06aa66a747b995371bf39a4ac640c9c4386
+    ○    061f42107e030034242b424264f22985429552c1
     ├─╮
     │ @  5bf404a038660799fae348cc31b9891349c128c1 add file2
     ○ │  96ab002e5b86c39a661adc0524df211a3dac3f1b add file1
@@ -127,7 +128,7 @@ fn test_new_merge() {
     work_dir.run_jj(["undo"]).success();
     work_dir.run_jj(["new", "main", "@"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @    e6e472a9b9caff61ab319a8fb8664db62c6e65af
+    @    cee60a55c085ff349af7fa1e7d6b7d4b7bdd4c3a
     ├─╮
     │ ○  5bf404a038660799fae348cc31b9891349c128c1 add file2
     ○ │  96ab002e5b86c39a661adc0524df211a3dac3f1b add file1
@@ -148,8 +149,8 @@ fn test_new_merge() {
     let output = work_dir.run_jj(["new", "@", "visible_heads()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: nkmrtpmo 24484bf7 (empty) (no description set)
-    Parent commit (@-)      : wqnwkozp e6e472a9 (empty) (no description set)
+    Working copy  (@) now at: uyznsvlq 68a7f50c (empty) (no description set)
+    Parent commit (@-)      : lylxulpl cee60a55 (empty) (no description set)
     [EOF]
     ");
 

@@ -1232,6 +1232,7 @@ fn test_squash_description() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file1", "b\n");
     work_dir.write_file("file2", "b\n");
+    work_dir.run_jj(["debug", "snapshot"]).success();
     work_dir.run_jj(["squash"]).success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @"");
 
@@ -1376,8 +1377,8 @@ fn test_squash_description() {
     work_dir.run_jj(["op", "restore", "@--"]).success();
     work_dir.run_jj(["describe", "-m", ""]).success();
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
-    @  b086e6e1d02c
-    ○  aeace309a1bd destination
+    @  97f34efed913
+    ○  e650dfcd7312 destination
     ◆  000000000000
     [EOF]
     ");
@@ -1403,8 +1404,8 @@ fn test_squash_description() {
         .run_jj(["describe", "-r", "@-", "-m", ""])
         .success();
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
-    @  2664d61781df source
-    ○  c7a218b8d32e
+    @  40d544a674fa source
+    ○  0cd53b79bf29
     ◆  000000000000
     [EOF]
     ");
@@ -1428,8 +1429,8 @@ fn test_squash_description() {
         .run_jj(["describe", "-r", "..", "-m", ""])
         .success();
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
-    @  e024f101aae7
-    ○  c6812e220e36
+    @  40803d8a1ce7
+    ○  dd5a6e210d71
     ◆  000000000000
     [EOF]
     ");
@@ -1449,8 +1450,8 @@ fn test_squash_description() {
         .run_jj(["describe", "-r", "@-", "-m", ""])
         .success();
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
-    @  95925ceb516a source
-    ○  db0ba0f18c8f
+    @  7ce5b3a58427 source
+    ○  b9442a4ce005
     ◆  000000000000
     [EOF]
     ");
@@ -1468,8 +1469,8 @@ fn test_squash_description() {
     // any trailer
     work_dir.run_jj(["op", "restore", "@--"]).success();
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
-    @  aeaaeb3703e0 source
-    ○  aeace309a1bd destination
+    @  2a79b102bf46 source
+    ○  e650dfcd7312 destination
     ◆  000000000000
     [EOF]
     ");
