@@ -643,7 +643,7 @@ fn test_config_set_for_user_directory() {
         @r#"
     test-key = "test-val"
 
-    [template-aliases]
+    [templates]
     'format_time_range(time_range)' = 'time_range.start() ++ " - " ++ time_range.end()'
     "#);
 
@@ -666,7 +666,7 @@ fn test_config_set_for_user_directory() {
         @r#"
     test-key = "test-other-val"
 
-    [template-aliases]
+    [templates]
     'format_time_range(time_range)' = 'time_range.start() ++ " - " ++ time_range.end()'
     "#);
 

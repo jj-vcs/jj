@@ -42,7 +42,7 @@ use crate::merge_tools::get_external_tool_config;
 use crate::revset_util::load_revset_aliases;
 use crate::ui::Ui;
 
-const BOOKMARK_HELP_TEMPLATE: &str = r#"template-aliases.'bookmark_help()'='''
+const BOOKMARK_HELP_TEMPLATE: &str = r#"templates.'bookmark_help()'='''
 " " ++
 if(normal_target,
     if(normal_target.description(),

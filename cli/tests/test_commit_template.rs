@@ -779,7 +779,7 @@ fn test_log_customize_short_id() {
     work_dir.run_jj(["describe", "-m", "first"]).success();
 
     // Customize both the commit and the change id
-    let decl = "template-aliases.'format_short_id(id)'";
+    let decl = "templates.'format_short_id(id)'";
     let output = work_dir.run_jj([
         "log",
         "--config",
@@ -795,7 +795,7 @@ fn test_log_customize_short_id() {
     // Customize only the change id
     let output = work_dir.run_jj([
         "log",
-        "--config=template-aliases.'format_short_change_id(id)'='format_short_id(id).upper()'",
+        "--config=templates.'format_short_change_id(id)'='format_short_id(id).upper()'",
     ]);
     insta::assert_snapshot!(output, @r"
     @  QPVUNTSM test.user@example.com 2001-02-03 08:05:08 68a50538
@@ -1008,8 +1008,6 @@ fn test_short_prefix_in_transaction() {
         [templates]
         log = 'summary ++ "\n"'
         commit_summary = 'summary'
-
-        [template-aliases]
         'format_id(id)' = 'id.shortest(12).prefix() ++ "[" ++ id.shortest(12).rest() ++ "]"'
         'summary' = 'separate(" ", format_id(change_id), format_id(commit_id), description.first_line())'
     "#);
@@ -1560,7 +1558,7 @@ fn test_signature_templates() {
     ");
 
     // customization point
-    let config_val = r#"template-aliases."format_short_cryptographic_signature(signature)"="'status: ' ++ signature.status()""#;
+    let config_val = r#"templates."format_short_cryptographic_signature(signature)"="'status: ' ++ signature.status()""#;
     let output = work_dir.run_jj_with(|cmd| {
         cmd.args(args)
             .arg("builtin_log_oneline")
