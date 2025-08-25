@@ -265,7 +265,7 @@ fn test_no_workspace_directory() {
     ------- stderr -------
     Error: There is no jj repo in "."
     Hint: It looks like this is a git repo. You can create a jj repo backed by it by running this:
-    jj git init --colocate
+    jj git init
     [EOF]
     [exit status: 1]
     "#);
@@ -939,6 +939,7 @@ fn test_default_config() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Initialized repo in "repo"
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
@@ -959,7 +960,7 @@ fn test_default_config() {
     insta::assert_snapshot!(output, @r"
     @  <change-id> (no email set) <date-time> <id>
     │  (empty) (no description set)
-    ○  <change-id> (no email set) <date-time> <id>
+    ○  <change-id> (no email set) <date-time> git_head() <id>
     │  (empty) (no description set)
     ◆  <change-id> root() <id>
     [EOF]
