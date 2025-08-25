@@ -2889,6 +2889,9 @@ Thanks to the people who made this release happen!
 
 ### New features
 
+*  `jj git clone` now supports the `--branch` option to specify the sole branch
+  to fetch during clone and use as the working-copy parent.
+
 * Default template for `jj log` now does not show irrelevant information
   (timestamp, empty, message placeholder etc.) about the root commit.
 
