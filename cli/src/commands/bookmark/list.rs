@@ -214,11 +214,7 @@ pub fn cmd_bookmark_list(
 
         let include_local_only = !args.tracked && args.remotes.is_none();
         if include_local_only && local_target.is_present() || !tracked_remote_refs.is_empty() {
-            let primary = CommitRef::local(
-                name,
-                local_target.clone(),
-                remote_refs.iter().map(|&(_, remote_ref)| remote_ref),
-            );
+            let primary = CommitRef::local(name, local_target.clone(), remote_refs.iter());
             let tracked = tracked_remote_refs
                 .iter()
                 .map(|&(remote, remote_ref)| {

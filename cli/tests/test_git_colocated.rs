@@ -465,6 +465,40 @@ fn test_git_colocated_bookmarks() {
 }
 
 #[test]
+fn test_git_colocated_bookmark_move() {
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    git::init(work_dir.root());
+    work_dir
+        .run_jj(["git", "init", "--git-repo", "."])
+        .success();
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "foo"])
+        .success();
+    work_dir.run_jj(["new"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  401895a76740d59e394abc9537cc70aa92afb777
+    ○  43444d88b0096888ebfd664c0cf792c9d15e3f14 foo git_head()
+    ○  e8849ae12c709f2321908879bc724fdb2ab8a781
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    foo: rlvkpnrz 43444d88 (empty) (no description set)
+      @git: rlvkpnrz 43444d88 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["bookmark", "move", "foo", "--to", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Moved 1 bookmarks to zsuskuln 401895a7 foo | (empty) (no description set)
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_git_colocated_bookmark_forget() {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
@@ -534,7 +568,7 @@ fn test_git_colocated_bookmark_at_root() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Moved 1 bookmarks to zzzzzzzz 00000000 foo* | (empty) (no description set)
+    Moved 1 bookmarks to zzzzzzzz 00000000 foo | (empty) (no description set)
     Warning: Failed to export some bookmarks:
       foo@git: Ref cannot point to the root commit in Git
     [EOF]
