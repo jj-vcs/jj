@@ -83,7 +83,7 @@ fn test_gc_operation_log() {
 
     // This works before the operation is removed.
     work_dir
-        .run_jj(["debug", "operation", &op_to_remove])
+        .run_jj(["debug", "object", "operation", &op_to_remove])
         .success();
 
     // Remove some operations.
@@ -91,13 +91,16 @@ fn test_gc_operation_log() {
     work_dir.run_jj(["util", "gc", "--expire=now"]).success();
 
     // Now this doesn't work.
-    let output = work_dir.run_jj(["debug", "operation", &op_to_remove]);
-    insta::assert_snapshot!(output, @r#"
+    let output = work_dir.run_jj(["debug", "object", "operation", &op_to_remove]);
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
     ------- stderr -------
-    Error: No operation ID matching "b50d0a8f111a9d30d45d429d62c8e54016cc7c891706921a6493756c8074e883671cf3dac0ac9f94ef0fa8c79738a3dfe38c3e1f6c5e1a4a4d0857d266ef2040"
+    Internal error: Failed to load an operation
+    Caused by:
+    1: Object b50d0a8f111a9d30d45d429d62c8e54016cc7c891706921a6493756c8074e883671cf3dac0ac9f94ef0fa8c79738a3dfe38c3e1f6c5e1a4a4d0857d266ef2040 of type operation not found
+    2: Cannot access $TEST_ENV/repo/.jj/repo/op_store/operations/b50d0a8f111a9d30d45d429d62c8e54016cc7c891706921a6493756c8074e883671cf3dac0ac9f94ef0fa8c79738a3dfe38c3e1f6c5e1a4a4d0857d266ef2040
     [EOF]
-    [exit status: 1]
-    "#);
+    [exit status: 255]
+    ");
 }
 
 #[test]
