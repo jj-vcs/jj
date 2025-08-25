@@ -20,6 +20,7 @@ use std::path::PathBuf;
 
 use bstr::BString;
 use indoc::formatdoc;
+use itertools::Itertools as _;
 use regex::Captures;
 use regex::Regex;
 use tempfile::TempDir;
@@ -288,12 +289,20 @@ impl TestWorkDir<'_> {
         }
     }
 
+    /// Reads the current operation id without resolving divergence nor
+    /// snapshotting. `TestWorkDir` must be at the workspace root.
     #[track_caller]
     pub fn current_operation_id(&self) -> String {
-        let output = self
-            .run_jj(["debug", "operation", "--display=id"])
-            .success();
-        output.stdout.raw().trim_end().to_owned()
+        let heads_dir = self
+            .root()
+            .join(PathBuf::from_iter([".jj", "repo", "op_heads", "heads"]));
+        let head_entry = heads_dir
+            .read_dir()
+            .expect("TestWorkDir must point to the workspace root")
+            .exactly_one()
+            .expect("divergence not supported")
+            .unwrap();
+        head_entry.file_name().into_string().unwrap()
     }
 
     /// Returns test helper for the specified sub directory.

@@ -31,6 +31,8 @@ fn test_diffedit() {
     work_dir.run_jj(["new"]).success();
     work_dir.remove_file("file1");
     work_dir.write_file("file2", "b\n");
+    work_dir.run_jj(["debug", "snapshot"]).success();
+    let setup_opid = work_dir.current_operation_id();
 
     // Test the setup; nothing happens if we make no changes
     std::fs::write(
@@ -125,7 +127,7 @@ fn test_diffedit() {
     let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz 7ced5d33 (no description set)
+    Working copy  (@) now at: kkmpptxz 40ad4f80 (no description set)
     Parent commit (@-)      : rlvkpnrz 7e268da3 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
@@ -137,14 +139,14 @@ fn test_diffedit() {
     ");
 
     // Changes to a commit are propagated to descendants
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&edit_script, "write file3\nmodified\n").unwrap();
     let output = work_dir.run_jj(["diffedit", "-r", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: kkmpptxz c1c7453a (no description set)
-    Parent commit (@-)      : rlvkpnrz 087fca5d (no description set)
+    Working copy  (@) now at: kkmpptxz 9f0ebae1 (no description set)
+    Parent commit (@-)      : rlvkpnrz 72bcd8e9 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -152,7 +154,7 @@ fn test_diffedit() {
     insta::assert_snapshot!(contents, @"modified");
 
     // Test diffedit --from @--
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(
         &edit_script,
         "files-before file1\0files-after JJ-INSTRUCTIONS file2 file3\0reset file2",
@@ -161,7 +163,7 @@ fn test_diffedit() {
     let output = work_dir.run_jj(["diffedit", "--from", "@--"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz a6e6b3d5 (no description set)
+    Working copy  (@) now at: kkmpptxz 215fca5f (no description set)
     Parent commit (@-)      : rlvkpnrz 7e268da3 (no description set)
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
@@ -174,7 +176,7 @@ fn test_diffedit() {
     ");
 
     // Test with path restriction
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     work_dir.write_file("file3", "a\n");
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file1", "modified\n");
@@ -190,7 +192,7 @@ fn test_diffedit() {
     let output = work_dir.run_jj(["diffedit", "file2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: nmzmmopx 06497532 (no description set)
+    Working copy  (@) now at: tlkvzzqu 06bdff15 (no description set)
     Parent commit (@-)      : kkmpptxz e4245972 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
@@ -214,6 +216,8 @@ fn test_diffedit_new_file() {
     work_dir.run_jj(["new"]).success();
     work_dir.remove_file("file1");
     work_dir.write_file("file2", "b\n");
+    work_dir.run_jj(["debug", "snapshot"]).success();
+    let setup_opid = work_dir.current_operation_id();
 
     // Test the setup; nothing happens if we make no changes
     std::fs::write(
@@ -239,7 +243,7 @@ fn test_diffedit_new_file() {
     let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: rlvkpnrz e7b12828 (no description set)
+    Working copy  (@) now at: rlvkpnrz c26dcad1 (no description set)
     Parent commit (@-)      : qpvuntsm eb7b8a1f (no description set)
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
@@ -257,7 +261,7 @@ fn test_diffedit_new_file() {
     // On one hand, it is unexpected and potentially a minor BUG. On the other
     // hand, this prevents `jj` from loading any backup files the merge tool
     // generates.
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&edit_script, "write new_file\nnew file\n").unwrap();
     let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @r"
@@ -490,6 +494,8 @@ fn test_diffedit_3pane() {
     work_dir.run_jj(["new"]).success();
     work_dir.remove_file("file1");
     work_dir.write_file("file2", "b\n");
+    work_dir.run_jj(["debug", "snapshot"]).success();
+    let setup_opid = work_dir.current_operation_id();
 
     // 2 configs for a 3-pane setup. In the first, "$right" is passed to what the
     // fake diff editor considers the "after" state.
@@ -536,7 +542,7 @@ fn test_diffedit_3pane() {
     let output = work_dir.run_jj(["diffedit", "--config", config_with_output_as_after]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz f83aa6b2 (no description set)
+    Working copy  (@) now at: kkmpptxz 239413bd (no description set)
     Parent commit (@-)      : rlvkpnrz 7e268da3 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
@@ -548,12 +554,12 @@ fn test_diffedit_3pane() {
     ");
 
     // Can write something new to `file1`
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&edit_script, "write file1\nnew content").unwrap();
     let output = work_dir.run_jj(["diffedit", "--config", config_with_output_as_after]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz db662405 (no description set)
+    Working copy  (@) now at: kkmpptxz 95873a91 (no description set)
     Parent commit (@-)      : rlvkpnrz 7e268da3 (no description set)
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
@@ -566,7 +572,7 @@ fn test_diffedit_3pane() {
     ");
 
     // But nothing happens if we modify the right side
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&edit_script, "write file1\nnew content").unwrap();
     let output = work_dir.run_jj(["diffedit", "--config", config_with_right_as_after]);
     insta::assert_snapshot!(output, @r"
@@ -667,6 +673,8 @@ fn test_diffedit_old_restore_interactive_tests() {
     work_dir.remove_file("file1");
     work_dir.write_file("file2", "b\n");
     work_dir.write_file("file3", "b\n");
+    work_dir.run_jj(["debug", "snapshot"]).success();
+    let setup_opid = work_dir.current_operation_id();
 
     // Nothing happens if we make no changes
     let output = work_dir.run_jj(["diffedit", "--from", "@-"]);
@@ -706,7 +714,7 @@ fn test_diffedit_old_restore_interactive_tests() {
     let output = work_dir.run_jj(["diffedit", "--from", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: rlvkpnrz 7ef54b56 (no description set)
+    Working copy  (@) now at: rlvkpnrz 83b62f75 (no description set)
     Parent commit (@-)      : qpvuntsm fc6f5e82 (no description set)
     Added 0 files, modified 1 files, removed 1 files
     [EOF]
@@ -718,12 +726,12 @@ fn test_diffedit_old_restore_interactive_tests() {
     ");
 
     // Can make unrelated edits
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&edit_script, "write file3\nunrelated\n").unwrap();
     let output = work_dir.run_jj(["diffedit", "--from", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: rlvkpnrz fa736d13 (no description set)
+    Working copy  (@) now at: rlvkpnrz 8119c685 (no description set)
     Parent commit (@-)      : qpvuntsm fc6f5e82 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]

@@ -34,6 +34,7 @@ fn test_interdiff_basic() {
     work_dir
         .run_jj(["bookmark", "create", "-r@", "right"])
         .success();
+    let setup_opid = work_dir.current_operation_id();
 
     // implicit --to
     let output = work_dir.run_jj(["interdiff", "--from", "left"]);
@@ -53,7 +54,7 @@ fn test_interdiff_basic() {
             2: bar
     [EOF]
     ");
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
     // formats specifiers
     let output = work_dir.run_jj(["interdiff", "--from", "left", "--to", "right", "-s"]);

@@ -948,6 +948,7 @@ fn test_split_with_multiple_workspaces_same_working_copy() {
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
+    let setup_opid = main_dir.current_operation_id();
 
     // Do the split in the default workspace.
     std::fs::write(
@@ -965,7 +966,7 @@ fn test_split_with_multiple_workspaces_same_working_copy() {
     ");
 
     // Test again with a --parallel split.
-    main_dir.run_jj(["undo"]).success();
+    main_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(
         &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
@@ -1007,6 +1008,7 @@ fn test_split_with_multiple_workspaces_different_working_copy() {
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
+    let setup_opid = main_dir.current_operation_id();
 
     // Do the split in the default workspace.
     std::fs::write(
@@ -1026,7 +1028,7 @@ fn test_split_with_multiple_workspaces_different_working_copy() {
     ");
 
     // Test again with a --parallel split.
-    main_dir.run_jj(["undo"]).success();
+    main_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(
         &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
@@ -1129,6 +1131,7 @@ fn test_split_with_message() {
     work_dir.write_file("file1", "foo\n");
     work_dir.write_file("file2", "bar\n");
     work_dir.run_jj(["describe", "-m", "my feature"]).success();
+    let setup_opid = work_dir.current_operation_id();
 
     let output = work_dir.run_jj(["split", "-m", "fix in file1", "file1"]);
     insta::assert_snapshot!(output, @r"
@@ -1148,7 +1151,7 @@ fn test_split_with_message() {
     ");
 
     // trailers should be added to the message
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "split",
         "--config",
@@ -1207,6 +1210,7 @@ fn test_split_move_first_commit() {
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     // insert the commit before the source commit
     let output = work_dir.run_jj([
@@ -1244,7 +1248,7 @@ fn test_split_move_first_commit() {
     ");
 
     // insert the commit after the source commit
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "split",
         "-m",
@@ -1280,7 +1284,7 @@ fn test_split_move_first_commit() {
     ");
 
     // create a new branch anywhere in the tree
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "split",
         "-m",
@@ -1316,7 +1320,7 @@ fn test_split_move_first_commit() {
     ");
 
     // create a bubble in the tree
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "split",
         "-m",
@@ -1354,7 +1358,7 @@ fn test_split_move_first_commit() {
     ");
 
     // create a commit in another branch
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "split",
         "-m",
@@ -1393,7 +1397,7 @@ fn test_split_move_first_commit() {
     ");
 
     // merge two branches with the new commit
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "split",
         "-m",
@@ -1474,6 +1478,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
     [EOF]
     "#);
     }
+    let setup_opid = main_dir.current_operation_id();
 
     // Do the split.
     std::fs::write(
@@ -1526,7 +1531,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
     }
 
     // Test again with a --parallel split.
-    main_dir.run_jj(["undo"]).success();
+    main_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(
         &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),

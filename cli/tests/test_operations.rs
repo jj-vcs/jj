@@ -1791,9 +1791,9 @@ fn test_op_diff_divergent_change() {
     work_dir.write_file("file", "1\n2b\n");
     work_dir.run_jj(["desc", "-m2b"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["log"]), @r"
-    @  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:12 82ad1ba9
+    @  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:11 c5cad9ab
     │  2b
-    │ ○  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:10 a7e9a63b
+    │ ○  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:09 f189cafa
     ├─╯  2a
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 8a06f3b3
     │  1
@@ -1807,7 +1807,7 @@ fn test_op_diff_divergent_change() {
         .run_jj(["squash", "--from=subject(2a)", "--to=@", "-m2ab"])
         .success();
     insta::assert_snapshot!(work_dir.run_jj(["log"]), @r"
-    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:15 da3f472d
+    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:13 17d68d92
     │  2ab
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 8a06f3b3
     │  1
@@ -1827,16 +1827,16 @@ fn test_op_diff_divergent_change() {
     ]);
     insta::assert_snapshot!(output, @r"
     From operation: ef75d88dd5fe (2001-02-03 08:05:08) commit 5d86d4b609080a15077fcd723e537582d5ea6559
-      To operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+      To operation: a1af26c1d765 (2001-02-03 08:05:11) describe commit 7a72a9ad7f4d8aa8b613a9840313b0ef0632842b
 
     Changed commits:
-    ○  + rlvkpnrz?? 82ad1ba9 2b
+    ○  + rlvkpnrz?? c5cad9ab 2b
        - rlvkpnrz hidden 4f7a567a (empty) (no description set)
-    ○  + rlvkpnrz?? a7e9a63b 2a
+    ○  + rlvkpnrz?? f189cafa 2a
        - rlvkpnrz hidden 4f7a567a (empty) (no description set)
 
     Changed working copy default@:
-    + rlvkpnrz?? 82ad1ba9 2b
+    + rlvkpnrz?? c5cad9ab 2b
     - rlvkpnrz hidden 4f7a567a (empty) (no description set)
     [EOF]
     ");
@@ -1851,17 +1851,17 @@ fn test_op_diff_divergent_change() {
         &resolved_op_id,
     ]);
     insta::assert_snapshot!(output, @r"
-    From operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
-      To operation: 6a444a3d42e6 (2001-02-03 08:05:15) squash commits into 82ad1ba9ded407bab6fea1524b207f49a02779a0
+    From operation: a1af26c1d765 (2001-02-03 08:05:11) describe commit 7a72a9ad7f4d8aa8b613a9840313b0ef0632842b
+      To operation: 90aa25304059 (2001-02-03 08:05:13) squash commits into c5cad9ab7772714178c158a133a0243908545b48
 
     Changed commits:
-    ○  + rlvkpnrz da3f472d 2ab
-       - rlvkpnrz hidden 82ad1ba9 2b
-       - rlvkpnrz hidden a7e9a63b 2a
+    ○  + rlvkpnrz 17d68d92 2ab
+       - rlvkpnrz hidden c5cad9ab 2b
+       - rlvkpnrz hidden f189cafa 2a
 
     Changed working copy default@:
-    + rlvkpnrz da3f472d 2ab
-    - rlvkpnrz hidden 82ad1ba9 2b
+    + rlvkpnrz 17d68d92 2ab
+    - rlvkpnrz hidden c5cad9ab 2b
     [EOF]
     ");
 
@@ -1877,10 +1877,10 @@ fn test_op_diff_divergent_change() {
     ]);
     insta::assert_snapshot!(output, @r"
     From operation: ef75d88dd5fe (2001-02-03 08:05:08) commit 5d86d4b609080a15077fcd723e537582d5ea6559
-      To operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+      To operation: a1af26c1d765 (2001-02-03 08:05:11) describe commit 7a72a9ad7f4d8aa8b613a9840313b0ef0632842b
 
     Changed commits:
-    ○  + rlvkpnrz?? 82ad1ba9 2b
+    ○  + rlvkpnrz?? c5cad9ab 2b
        - rlvkpnrz hidden 4f7a567a (empty) (no description set)
        diff --git a/file b/file
        index d00491fd7e..5e0f51b37b 100644
@@ -1889,7 +1889,7 @@ fn test_op_diff_divergent_change() {
        @@ -1,1 +1,2 @@
         1
        +2b
-    ○  + rlvkpnrz?? a7e9a63b 2a
+    ○  + rlvkpnrz?? f189cafa 2a
        - rlvkpnrz hidden 4f7a567a (empty) (no description set)
        diff --git a/file b/file
        index d00491fd7e..13a46f22fa 100644
@@ -1900,7 +1900,7 @@ fn test_op_diff_divergent_change() {
         1
 
     Changed working copy default@:
-    + rlvkpnrz?? 82ad1ba9 2b
+    + rlvkpnrz?? c5cad9ab 2b
     - rlvkpnrz hidden 4f7a567a (empty) (no description set)
     [EOF]
     ");
@@ -1916,13 +1916,13 @@ fn test_op_diff_divergent_change() {
         &resolved_op_id,
     ]);
     insta::assert_snapshot!(output, @r"
-    From operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
-      To operation: 6a444a3d42e6 (2001-02-03 08:05:15) squash commits into 82ad1ba9ded407bab6fea1524b207f49a02779a0
+    From operation: a1af26c1d765 (2001-02-03 08:05:11) describe commit 7a72a9ad7f4d8aa8b613a9840313b0ef0632842b
+      To operation: 90aa25304059 (2001-02-03 08:05:13) squash commits into c5cad9ab7772714178c158a133a0243908545b48
 
     Changed commits:
-    ○  + rlvkpnrz da3f472d 2ab
-       - rlvkpnrz hidden 82ad1ba9 2b
-       - rlvkpnrz hidden a7e9a63b 2a
+    ○  + rlvkpnrz 17d68d92 2ab
+       - rlvkpnrz hidden c5cad9ab 2b
+       - rlvkpnrz hidden f189cafa 2a
        diff --git a/file b/file
        index 5e0f51b37b..60327514e0 100644
        --- a/file
@@ -1933,8 +1933,8 @@ fn test_op_diff_divergent_change() {
         2b
 
     Changed working copy default@:
-    + rlvkpnrz da3f472d 2ab
-    - rlvkpnrz hidden 82ad1ba9 2b
+    + rlvkpnrz 17d68d92 2ab
+    - rlvkpnrz hidden c5cad9ab 2b
     [EOF]
     ");
 
@@ -1948,18 +1948,18 @@ fn test_op_diff_divergent_change() {
         &divergent_op_id,
     ]);
     insta::assert_snapshot!(output, @r"
-    From operation: 6a444a3d42e6 (2001-02-03 08:05:15) squash commits into 82ad1ba9ded407bab6fea1524b207f49a02779a0
-      To operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+    From operation: 90aa25304059 (2001-02-03 08:05:13) squash commits into c5cad9ab7772714178c158a133a0243908545b48
+      To operation: a1af26c1d765 (2001-02-03 08:05:11) describe commit 7a72a9ad7f4d8aa8b613a9840313b0ef0632842b
 
     Changed commits:
-    ○  + rlvkpnrz?? 82ad1ba9 2b
-       - rlvkpnrz hidden da3f472d 2ab
-    ○  + rlvkpnrz?? a7e9a63b 2a
-       - rlvkpnrz hidden da3f472d 2ab
+    ○  + rlvkpnrz?? c5cad9ab 2b
+       - rlvkpnrz hidden 17d68d92 2ab
+    ○  + rlvkpnrz?? f189cafa 2a
+       - rlvkpnrz hidden 17d68d92 2ab
 
     Changed working copy default@:
-    + rlvkpnrz?? 82ad1ba9 2b
-    - rlvkpnrz hidden da3f472d 2ab
+    + rlvkpnrz?? c5cad9ab 2b
+    - rlvkpnrz hidden 17d68d92 2ab
     [EOF]
     ");
 
@@ -1973,17 +1973,17 @@ fn test_op_diff_divergent_change() {
         &initial_op_id,
     ]);
     insta::assert_snapshot!(output, @r"
-    From operation: 8bd3751c26de (2001-02-03 08:05:12) describe commit 105ead440de2cf759d89f951c6def56bde950ef7
+    From operation: a1af26c1d765 (2001-02-03 08:05:11) describe commit 7a72a9ad7f4d8aa8b613a9840313b0ef0632842b
       To operation: ef75d88dd5fe (2001-02-03 08:05:08) commit 5d86d4b609080a15077fcd723e537582d5ea6559
 
     Changed commits:
     ○  + rlvkpnrz 4f7a567a (empty) (no description set)
-       - rlvkpnrz hidden 82ad1ba9 2b
-       - rlvkpnrz hidden a7e9a63b 2a
+       - rlvkpnrz hidden f189cafa 2a
+       - rlvkpnrz hidden c5cad9ab 2b
 
     Changed working copy default@:
     + rlvkpnrz 4f7a567a (empty) (no description set)
-    - rlvkpnrz hidden 82ad1ba9 2b
+    - rlvkpnrz hidden c5cad9ab 2b
     [EOF]
     ");
 }

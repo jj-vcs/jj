@@ -474,6 +474,7 @@ fn test_prev_on_merge_commit() {
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     let output = work_dir.run_jj(["prev"]);
     insta::assert_snapshot!(output, @r"
@@ -483,7 +484,7 @@ fn test_prev_on_merge_commit() {
     [EOF]
     ");
 
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj_with(|cmd| {
         force_interactive(cmd)
             .args(["prev", "--edit"])
@@ -530,6 +531,7 @@ fn test_prev_on_merge_commit_with_parent_merge() {
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     let output = work_dir.run_jj_with(|cmd| force_interactive(cmd).arg("prev").write_stdin("2\n"));
     insta::assert_snapshot!(output, @r"
@@ -544,7 +546,7 @@ fn test_prev_on_merge_commit_with_parent_merge() {
     [EOF]
     ");
 
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj_with(|cmd| {
         force_interactive(cmd)
             .args(["prev", "--edit"])
