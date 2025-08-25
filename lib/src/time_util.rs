@@ -122,6 +122,16 @@ impl DatePattern {
     }
 }
 
+// @TODO ideally we would have this unified with the other parsing code. However
+// we use the interim crate which does not handle explicitly given time zone
+// information
+/// Parse a string with time zone information into a `Timestamp`
+pub fn parse_datetime(s: &str) -> chrono::ParseResult<Timestamp> {
+    Ok(Timestamp::from_datetime(
+        DateTime::parse_from_rfc2822(s).or_else(|_| DateTime::parse_from_rfc3339(s))?,
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -188,5 +198,11 @@ mod tests {
         test_equal(now, "yesterday 5pm", "2024-01-01T01:00:00Z");
         test_equal(now, "yesterday 10am", "2023-12-31T18:00:00Z");
         test_equal(now, "yesterday 10:30", "2023-12-31T18:30:00Z");
+    }
+
+    #[test]
+    fn test_parse_datetime_non_sense_yields_error() {
+        let parse_error = parse_datetime("aaaaa").err().unwrap();
+        assert_eq!(parse_error.kind(), chrono::format::ParseErrorKind::Invalid);
     }
 }

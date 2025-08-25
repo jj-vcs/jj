@@ -16,8 +16,10 @@ use std::collections::HashSet;
 
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
+use jj_lib::backend::Timestamp;
 use jj_lib::commit::Commit;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::time_util::parse_datetime;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -81,6 +83,26 @@ pub(crate) struct TouchArgs {
         value_parser = parse_author
     )]
     author: Option<(String, String)>,
+
+    /// Set the author date to the given date either human
+    /// readable, eg Sun, 23 Jan 2000 01:23:45 JST) or as a time stamp, eg
+    /// 2000-01-23T01:23:45+09:00)
+    #[arg(
+        long,
+        conflicts_with = "update_author_timestamp",
+        value_parser = parse_datetime
+    )]
+    author_timestamp: Option<Timestamp>,
+
+    /// Set committer to the provided string
+    ///
+    /// This changes committer name and email while retaining committer
+    /// timestamp for non-discardable commits.
+    #[arg(
+        long,
+        value_parser = parse_author
+    )]
+    committer: Option<(String, String)>,
 }
 
 #[instrument(skip_all)]
@@ -142,7 +164,22 @@ pub(crate) fn cmd_touch(
                 if args.update_author_timestamp {
                     new_author.timestamp = commit_builder.committer().timestamp;
                 }
+                if let Some(author_date) = args.author_timestamp {
+                    new_author.timestamp = author_date;
+                }
                 commit_builder = commit_builder.set_author(new_author);
+
+                commit_builder = if args.committer.is_some() {
+                    let mut new_committer = commit_builder.committer().clone();
+
+                    if let Some((committer_name, committer_email)) = args.committer.clone() {
+                        new_committer.name = committer_name;
+                        new_committer.email = committer_email;
+                    }
+                    commit_builder.set_committer(new_committer.clone())
+                } else {
+                    commit_builder
+                };
 
                 if args.update_change_id {
                     commit_builder = commit_builder.generate_new_change_id();
