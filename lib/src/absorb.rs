@@ -93,11 +93,11 @@ pub async fn split_hunks_to_trees(
     source: &AbsorbSource,
     destinations: &Rc<ResolvedRevsetExpression>,
     matcher: &dyn Matcher,
+    right_tree: MergedTree,
 ) -> Result<SelectedTrees, AbsorbError> {
     let mut selected_trees = SelectedTrees::default();
 
     let left_tree = &source.parent_tree;
-    let right_tree = source.commit.tree_async().await?;
     // TODO: enable copy tracking if we add support for annotate and merge
     let copy_records = CopyRecords::default();
     let tree_diff = left_tree.diff_stream_with_copies(&right_tree, matcher, &copy_records);
