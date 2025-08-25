@@ -96,6 +96,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj squash` has gained `--insert-before`, `--insert-after`, and `--destination`
   options.
 
+* `jj revert` now accepts the revisions to revert as positional arguments in
+  addition to the `--revisions` flag.
+
 ### Fixed bugs
 
 * `jj git clone` now correctly fetches all tags, unless `--fetch-tags` is
