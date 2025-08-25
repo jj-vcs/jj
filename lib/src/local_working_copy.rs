@@ -130,10 +130,10 @@ use crate::working_copy::WorkingCopyStateError;
 // TODO: maybe better to preserve the executable bit on all platforms, and
 // ignore conditionally? #3949
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct FileExecutableFlag(#[cfg(unix)] bool);
+pub struct ExecBit(#[cfg(unix)] bool);
 
 #[cfg(unix)]
-impl FileExecutableFlag {
+impl ExecBit {
     pub const fn from_bool_lossy(executable: bool) -> Self {
         Self(executable)
     }
@@ -145,7 +145,7 @@ impl FileExecutableFlag {
 
 // Windows doesn't support executable bit.
 #[cfg(windows)]
-impl FileExecutableFlag {
+impl ExecBit {
     pub const fn from_bool_lossy(_executable: bool) -> Self {
         Self()
     }
@@ -157,7 +157,7 @@ impl FileExecutableFlag {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum FileType {
-    Normal { executable: FileExecutableFlag },
+    Normal { exec_bit: ExecBit },
     Symlink,
     GitSubmodule,
 }
@@ -190,9 +190,9 @@ impl FileState {
     /// Indicates that a file exists in the tree but that it needs to be
     /// re-stat'ed on the next snapshot.
     fn placeholder() -> Self {
-        let executable = FileExecutableFlag::from_bool_lossy(false);
+        let exec_bit = ExecBit::from_bool_lossy(false);
         Self {
-            file_type: FileType::Normal { executable },
+            file_type: FileType::Normal { exec_bit },
             mtime: MillisSinceEpoch(0),
             size: 0,
             materialized_conflict_data: None,
@@ -200,9 +200,9 @@ impl FileState {
     }
 
     fn for_file(executable: bool, size: u64, metadata: &Metadata) -> Self {
-        let executable = FileExecutableFlag::from_bool_lossy(executable);
+        let exec_bit = ExecBit::from_bool_lossy(executable);
         Self {
-            file_type: FileType::Normal { executable },
+            file_type: FileType::Normal { exec_bit },
             mtime: mtime_from_metadata(metadata),
             size,
             materialized_conflict_data: None,
@@ -439,16 +439,16 @@ impl<'a> IntoIterator for FileStates<'a> {
 fn file_state_from_proto(proto: &crate::protos::local_working_copy::FileState) -> FileState {
     let file_type = match proto.file_type() {
         crate::protos::local_working_copy::FileType::Normal => FileType::Normal {
-            executable: FileExecutableFlag::from_bool_lossy(false),
+            exec_bit: ExecBit::from_bool_lossy(false),
         },
         // On Windows, FileType::Executable can exist in files written by older
         // versions of jj
         crate::protos::local_working_copy::FileType::Executable => FileType::Normal {
-            executable: FileExecutableFlag::from_bool_lossy(true),
+            exec_bit: ExecBit::from_bool_lossy(true),
         },
         crate::protos::local_working_copy::FileType::Symlink => FileType::Symlink,
         crate::protos::local_working_copy::FileType::Conflict => FileType::Normal {
-            executable: FileExecutableFlag::from_bool_lossy(false),
+            exec_bit: ExecBit::from_bool_lossy(false),
         },
         crate::protos::local_working_copy::FileType::GitSubmodule => FileType::GitSubmodule,
     };
@@ -467,8 +467,8 @@ fn file_state_from_proto(proto: &crate::protos::local_working_copy::FileState) -
 fn file_state_to_proto(file_state: &FileState) -> crate::protos::local_working_copy::FileState {
     let mut proto = crate::protos::local_working_copy::FileState::default();
     let file_type = match &file_state.file_type {
-        FileType::Normal { executable } => {
-            if executable.unwrap_or_else(Default::default) {
+        FileType::Normal { exec_bit } => {
+            if exec_bit.unwrap_or_else(Default::default) {
                 crate::protos::local_working_copy::FileType::Executable
             } else {
                 crate::protos::local_working_copy::FileType::Normal
@@ -710,8 +710,8 @@ fn file_state(metadata: &Metadata) -> Option<FileState> {
         let executable = metadata.permissions().mode() & 0o111 != 0;
         #[cfg(windows)]
         let executable = false;
-        let executable = FileExecutableFlag::from_bool_lossy(executable);
-        Some(FileType::Normal { executable })
+        let exec_bit = ExecBit::from_bool_lossy(executable);
+        Some(FileType::Normal { exec_bit })
     } else {
         None
     };
@@ -1510,12 +1510,12 @@ impl FileSnapshotter<'_> {
                 new_file_state.file_type.clone()
             };
             let new_tree_values = match new_file_type {
-                FileType::Normal { executable } => self
+                FileType::Normal { exec_bit } => self
                     .write_path_to_store(
                         repo_path,
                         disk_path,
                         &current_tree_values,
-                        executable,
+                        exec_bit,
                         maybe_current_file_state.and_then(|state| state.materialized_conflict_data),
                     )
                     .block_on()?,
@@ -1544,13 +1544,13 @@ impl FileSnapshotter<'_> {
         repo_path: &RepoPath,
         disk_path: &Path,
         current_tree_values: &MergedTreeValue,
-        executable: FileExecutableFlag,
+        exec_bit: ExecBit,
         materialized_conflict_data: Option<MaterializedConflictData>,
     ) -> Result<MergedTreeValue, SnapshotError> {
         if let Some(current_tree_value) = current_tree_values.as_resolved() {
             let id = self.write_file_to_store(repo_path, disk_path).await?;
             // On Windows, we preserve the executable bit from the current tree.
-            let executable = executable.unwrap_or_else(|| {
+            let executable = exec_bit.unwrap_or_else(|| {
                 if let Some(TreeValue::File {
                     id: _,
                     executable,
@@ -1623,7 +1623,7 @@ impl FileSnapshotter<'_> {
             match new_file_ids.into_resolved() {
                 Ok(file_id) => {
                     // On Windows, we preserve the executable bit from the merged trees.
-                    let executable = executable.unwrap_or_else(|| {
+                    let executable = exec_bit.unwrap_or_else(|| {
                         if let Some(merge) = current_tree_values.to_executable_merge() {
                             conflicts::resolve_file_executable(&merge).unwrap_or(false)
                         } else {
@@ -2015,7 +2015,7 @@ impl TreeState {
                             executable,
                             copy_id: _,
                         } => FileType::Normal {
-                            executable: FileExecutableFlag::from_bool_lossy(executable),
+                            exec_bit: ExecBit::from_bool_lossy(executable),
                         },
                         TreeValue::Symlink(_id) => FileType::Symlink,
                         TreeValue::GitSubmodule(_id) => {
@@ -2029,7 +2029,7 @@ impl TreeState {
                     Err(_values) => {
                         // TODO: Try to set the executable bit based on the conflict
                         FileType::Normal {
-                            executable: FileExecutableFlag::from_bool_lossy(false),
+                            exec_bit: ExecBit::from_bool_lossy(false),
                         }
                     }
                 };
@@ -2471,7 +2471,7 @@ mod tests {
     fn new_state(size: u64) -> FileState {
         FileState {
             file_type: FileType::Normal {
-                executable: FileExecutableFlag::from_bool_lossy(false),
+                exec_bit: ExecBit::from_bool_lossy(false),
             },
             mtime: MillisSinceEpoch(0),
             size,
