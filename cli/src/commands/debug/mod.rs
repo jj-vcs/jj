@@ -19,7 +19,6 @@ mod index_changed_paths;
 mod init_simple;
 mod local_working_copy;
 mod object;
-mod operation;
 mod reindex;
 mod revset;
 mod snapshot;
@@ -48,8 +47,6 @@ use self::local_working_copy::DebugLocalWorkingCopyArgs;
 use self::local_working_copy::cmd_debug_local_working_copy;
 use self::object::DebugObjectArgs;
 use self::object::cmd_debug_object;
-use self::operation::DebugOperationArgs;
-use self::operation::cmd_debug_operation;
 use self::reindex::DebugReindexArgs;
 use self::reindex::cmd_debug_reindex;
 use self::revset::DebugRevsetArgs;
@@ -81,8 +78,6 @@ pub enum DebugCommand {
     LocalWorkingCopy(DebugLocalWorkingCopyArgs),
     #[command(subcommand)]
     Object(DebugObjectArgs),
-    #[command(visible_alias = "view")]
-    Operation(DebugOperationArgs),
     Reindex(DebugReindexArgs),
     Revset(DebugRevsetArgs),
     Snapshot(DebugSnapshotArgs),
@@ -106,7 +101,6 @@ pub fn cmd_debug(
         DebugCommand::InitSimple(args) => cmd_debug_init_simple(ui, command, args),
         DebugCommand::LocalWorkingCopy(args) => cmd_debug_local_working_copy(ui, command, args),
         DebugCommand::Object(args) => cmd_debug_object(ui, command, args),
-        DebugCommand::Operation(args) => cmd_debug_operation(ui, command, args),
         DebugCommand::Reindex(args) => cmd_debug_reindex(ui, command, args),
         DebugCommand::Revset(args) => cmd_debug_revset(ui, command, args),
         DebugCommand::Snapshot(args) => cmd_debug_snapshot(ui, command, args),

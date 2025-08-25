@@ -330,18 +330,6 @@ fn test_debug_tree() {
     );
 }
 
-#[test]
-fn test_debug_operation_id() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-    let output = work_dir.run_jj(["debug", "operation", "--display", "id"]);
-    assert_snapshot!(filter_index_stats(output), @r"
-    8f47435a3990362feaf967ca6de2eb0a31c8b883dfcb66fba5c22200d12bbe61e3dc8bc855f1f6879285fcafaf85ac792f9a43bcc36e57d28737d18347d5e752
-    [EOF]
-    ");
-}
-
 fn filter_index_stats(output: CommandOutput) -> CommandOutput {
     let regex = Regex::new(r"    Name: [0-9a-z]+").unwrap();
     output.normalize_stdout_with(|text| regex.replace_all(&text, "    Name: [hash]").into_owned())
