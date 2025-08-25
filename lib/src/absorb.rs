@@ -56,13 +56,12 @@ pub struct AbsorbSource {
 }
 
 impl AbsorbSource {
-    /// Create an absorb source from a single commit.
-    pub fn from_commit(repo: &dyn Repo, commit: Commit) -> BackendResult<Self> {
-        let parent_tree = commit.parent_tree(repo)?;
-        Ok(Self {
+    /// Create an absorb source from a commit and its parent tree.
+    pub fn new(commit: Commit, parent_tree: MergedTree) -> Self {
+        Self {
             commit,
             parent_tree,
-        })
+        }
     }
 }
 
