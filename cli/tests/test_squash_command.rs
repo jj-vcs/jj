@@ -199,8 +199,8 @@ fn test_squash_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: mzvwutvl f68fa41a c | (no description set)
-    Parent commit (@-)      : qpvuntsm e5907084 a b | (no description set)
+    Working copy  (@) now at: mzvwutvl 34484d82 c | (no description set)
+    Parent commit (@-)      : qpvuntsm 3141e675 a b | (no description set)
     [EOF]
     ");
 
@@ -219,8 +219,8 @@ fn test_squash_partial() {
     ");
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  f68fa41ae180 c
-    ○  e59070841535 a b
+    @  34484d825f47 c
+    ○  3141e67514f6 a b
     ◆  000000000000 (empty)
     [EOF]
     ");
@@ -237,14 +237,14 @@ fn test_squash_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: mzvwutvl 8846468b c | (no description set)
-    Parent commit (@-)      : kkmpptxz 06cb2e79 b | (no description set)
+    Working copy  (@) now at: mzvwutvl 37e1a0ef c | (no description set)
+    Parent commit (@-)      : kkmpptxz b41e789d b | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  8846468b7db7 c
-    ○  06cb2e79b78e b
-    ○  4a8b1bc7c58d a
+    @  37e1a0ef57ff c
+    ○  b41e789df71c b
+    ○  3af17565155e a
     ◆  000000000000 (empty)
     [EOF]
     ");
@@ -277,14 +277,14 @@ fn test_squash_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: mzvwutvl 67c5cd3d c | (no description set)
-    Parent commit (@-)      : kkmpptxz 9c514289 b | (no description set)
+    Working copy  (@) now at: mzvwutvl 72ff256c c | (no description set)
+    Parent commit (@-)      : kkmpptxz dd056a92 b | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  67c5cd3d82e9 c
-    ○  9c51428943be b
-    ○  5977675073d1 a
+    @  72ff256cd290 c
+    ○  dd056a925eb3 b
+    ○  cf083f1d9ccf a
     ◆  000000000000 (empty)
     [EOF]
     ");
@@ -336,17 +336,17 @@ fn test_squash_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: mzvwutvl a4fcdfe2 c | (no description set)
-    Parent commit (@-)      : kkmpptxz f6a8a023 b | (no description set)
+    Working copy  (@) now at: mzvwutvl 69c58f86 c | (no description set)
+    Parent commit (@-)      : kkmpptxz 0f38c564 b | (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-s"]);
     insta::assert_snapshot!(output, @r"
-    @  mzvwutvl test.user@example.com 2001-02-03 08:05:37 c a4fcdfe2
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:36 c 69c58f86
     │  (no description set)
     │  M file1
     │  M file2
-    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:37 b f6a8a023
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:36 b 0f38c564
     │  (no description set)
     │  M file1
     │  M file2

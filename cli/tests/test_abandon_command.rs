@@ -244,8 +244,8 @@ fn test_bug_2600() {
       zsuskuln 67c2f714 base | base
     Deleted bookmarks: base
     Rebased 3 descendant commits onto parents of abandoned commits
-    Working copy  (@) now at: znkkpsqq 1e89909f c | c
-    Parent commit (@-)      : vruxwmqv a3a61e53 b | b
+    Working copy  (@) now at: znkkpsqq c1223866 c | c
+    Parent commit (@-)      : vruxwmqv 1dfaa834 b | b
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -270,8 +270,8 @@ fn test_bug_2600() {
       royxmykx 183dbbca a | a
     Deleted bookmarks: a
     Rebased 2 descendant commits onto parents of abandoned commits
-    Working copy  (@) now at: znkkpsqq a9a97c4c c | c
-    Parent commit (@-)      : vruxwmqv bccf7988 b | b
+    Working copy  (@) now at: znkkpsqq f863da3f c | c
+    Parent commit (@-)      : vruxwmqv d7aed853 b | b
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -295,7 +295,7 @@ fn test_bug_2600() {
       vruxwmqv cedee197 b | b
     Deleted bookmarks: b
     Rebased 1 descendant commits onto parents of abandoned commits
-    Working copy  (@) now at: znkkpsqq 8030a364 c | c
+    Working copy  (@) now at: znkkpsqq 4dc308fb c | c
     Parent commit (@-)      : zsuskuln 67c2f714 base | base
     Parent commit (@-)      : royxmykx 183dbbca a | a
     Added 0 files, modified 0 files, removed 1 files
@@ -333,7 +333,7 @@ fn test_bug_2600() {
       vruxwmqv cedee197 b | b
       royxmykx 183dbbca a | a
     Rebased 1 descendant commits onto parents of abandoned commits
-    Working copy  (@) now at: znkkpsqq 75bef1a6 c | c
+    Working copy  (@) now at: znkkpsqq b350f44b c | c
     Parent commit (@-)      : zsuskuln 67c2f714 a b base | base
     Added 0 files, modified 0 files, removed 2 files
     [EOF]

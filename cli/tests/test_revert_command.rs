@@ -62,11 +62,11 @@ fn test_revert() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Reverted 1 commits as follows:
-      lylxulpl bd658e04 Revert "a"
+      wqnwkozp 64910788 Revert "a"
     [EOF]
     "#);
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    ○  bd658e0413c5 Revert "a"
+    ○  64910788f8a5 Revert "a"
     │
     │  This reverts commit 7d980be7a1d499e4d316ab4c01242885032f7eaf.
     @  98fb6151f954 d
@@ -87,14 +87,14 @@ fn test_revert() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Reverted 1 commits as follows:
-      uyznsvlq fee69440 Revert "Revert "a""
+      nkmrtpmo 90d12316 Revert "Revert "a""
     [EOF]
     "#);
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    ○  fee69440c3d9 Revert "Revert "a""
+    ○  90d123162199 Revert "Revert "a""
     │
-    │  This reverts commit bd658e0413c590b93dcbabec38fc5d15258469a1.
-    ○  bd658e0413c5 Revert "a"
+    │  This reverts commit 64910788f8a5d322739e1e38ef35f7d06ea4b38d.
+    ○  64910788f8a5 Revert "a"
     │
     │  This reverts commit 7d980be7a1d499e4d316ab4c01242885032f7eaf.
     @  98fb6151f954 d
@@ -116,17 +116,17 @@ fn test_revert() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Reverted 1 commits as follows:
-      tlkvzzqu ccdc971f Revert "a"
+      nmzmmopx 9e7b8585 Revert "a"
     Rebased 2 descendant commits
-    Working copy  (@) now at: vruxwmqv c114bcab d | (empty) d
-    Parent commit (@-)      : royxmykx 59e91fd2 c | (empty) c
+    Working copy  (@) now at: vruxwmqv b1885396 d | (empty) d
+    Parent commit (@-)      : royxmykx efc4bd83 c | (empty) c
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     "#);
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    @  c114bcabdf5e d
-    ○  59e91fd21873 c
-    ○  ccdc971f590b Revert "a"
+    @  b18853966f79 d
+    ○  efc4bd83159f c
+    ○  9e7b85853718 Revert "a"
     │
     │  This reverts commit 7d980be7a1d499e4d316ab4c01242885032f7eaf.
     ○  58aaf278bf58 b
@@ -146,16 +146,16 @@ fn test_revert() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Reverted 1 commits as follows:
-      xlzxqlsl afc1d158 Revert "a"
+      pzsxstzt d51ea564 Revert "a"
     Rebased 1 descendant commits
-    Working copy  (@) now at: vruxwmqv cdc45e62 d | (empty) d
-    Parent commit (@-)      : xlzxqlsl afc1d158 Revert "a"
+    Working copy  (@) now at: vruxwmqv 5c5d60a6 d | (empty) d
+    Parent commit (@-)      : pzsxstzt d51ea564 Revert "a"
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     "#);
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    @  cdc45e62ac5b d
-    ○  afc1d15825d2 Revert "a"
+    @  5c5d60a69afd d
+    ○  d51ea56444ce Revert "a"
     │
     │  This reverts commit 7d980be7a1d499e4d316ab4c01242885032f7eaf.
     ○  96ff42270bbc c
@@ -176,18 +176,18 @@ fn test_revert() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Reverted 1 commits as follows:
-      pkstwlsy 6c118c03 Revert "a"
+      oupztwtk d311a8f0 Revert "a"
     Rebased 1 descendant commits
-    Working copy  (@) now at: vruxwmqv 3f3fb2f9 d | (empty) d
+    Working copy  (@) now at: vruxwmqv 5b97d572 d | (empty) d
     Parent commit (@-)      : royxmykx 96ff4227 c | (empty) c
-    Parent commit (@-)      : pkstwlsy 6c118c03 Revert "a"
+    Parent commit (@-)      : oupztwtk d311a8f0 Revert "a"
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     "#);
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    @    3f3fb2f905d3 d
+    @    5b97d572e457 d
     ├─╮
-    │ ○  6c118c03ae97 Revert "a"
+    │ ○  d311a8f0c13f Revert "a"
     │ │
     │ │  This reverts commit 7d980be7a1d499e4d316ab4c01242885032f7eaf.
     ○ │  96ff42270bbc c
