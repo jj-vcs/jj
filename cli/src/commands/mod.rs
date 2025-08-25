@@ -40,6 +40,7 @@ mod operation;
 mod parallelize;
 mod prev;
 mod rebase;
+mod redo;
 mod resolve;
 mod restore;
 mod revert;
@@ -126,6 +127,7 @@ enum Command {
     Parallelize(parallelize::ParallelizeArgs),
     Prev(prev::PrevArgs),
     Rebase(rebase::RebaseArgs),
+    Redo(redo::RedoArgs),
     Resolve(resolve::ResolveArgs),
     Restore(restore::RestoreArgs),
     Revert(revert::RevertArgs),
@@ -189,6 +191,7 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
         Command::Parallelize(args) => parallelize::cmd_parallelize(ui, command_helper, args),
         Command::Prev(args) => prev::cmd_prev(ui, command_helper, args),
         Command::Rebase(args) => rebase::cmd_rebase(ui, command_helper, args),
+        Command::Redo(args) => redo::cmd_redo(ui, command_helper, args),
         Command::Resolve(args) => resolve::cmd_resolve(ui, command_helper, args),
         Command::Restore(args) => restore::cmd_restore(ui, command_helper, args),
         Command::Revert(args) => revert::cmd_revert(ui, command_helper, args),
