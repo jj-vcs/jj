@@ -260,6 +260,8 @@ The modification made by `jj absorb` can be reviewed by `jj op show -p`.
    Only ancestors of the source revision will be considered.
 
   Default value: `mutable()`
+* `-i`, `--interactive` — Interactively choose which parts to absorb
+* `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
 
 
 
