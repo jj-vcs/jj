@@ -109,6 +109,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   output using template expressions, similar to `jj op log`. Also added
   `--no-op-diff` flag to suppress the operation diff.
 
+* `jj squash` has gained `--insert-before`, `--insert-after`, and `--destination`
+  options.
+
+* The new command `jj redo` can progressively redo operations that were
+  previously undone by multiple calls to `jj undo`.
+
+* `jj bookmark create/set/move` use the working copy as a default again and
+  no longer require an explicit revision argument. This walks back a
+  deprecation from `jj 0.26`, as the community feedback was mostly negative.
+
 ### Fixed bugs
 
 * `jj git clone` now correctly fetches all tags, unless `--fetch-tags` is
