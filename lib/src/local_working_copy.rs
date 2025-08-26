@@ -52,6 +52,7 @@ use rayon::iter::IntoParallelIterator as _;
 use rayon::prelude::IndexedParallelIterator as _;
 use rayon::prelude::ParallelIterator as _;
 use tempfile::NamedTempFile;
+use tempfile::PersistError;
 use thiserror::Error;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt as _;
@@ -934,14 +935,15 @@ impl TreeState {
         proto.sparse_patterns = Some(sparse_patterns);
         proto.watchman_clock = self.watchman_clock.clone();
 
-        let mut temp_file = NamedTempFile::new_in(&self.state_path).unwrap();
+        let wrap_write_err = |source| TreeStateError::WriteTreeState {
+            path: self.state_path.clone(),
+            source,
+        };
+        let mut temp_file = NamedTempFile::new_in(&self.state_path).map_err(wrap_write_err)?;
         temp_file
             .as_file_mut()
             .write_all(&proto.encode_to_vec())
-            .map_err(|err| TreeStateError::WriteTreeState {
-                path: self.state_path.clone(),
-                source: err,
-            })?;
+            .map_err(wrap_write_err)?;
         // update own write time while we before we rename it, so we know
         // there is no unknown data in it
         self.update_own_mtime();
@@ -1103,11 +1105,12 @@ impl TreeState {
             self.file_states
                 .merge_in(changed_file_states, &deleted_files);
         });
-        trace_span!("write tree").in_scope(|| {
-            let new_tree_id = tree_builder.write_tree(&self.store).unwrap();
+        trace_span!("write tree").in_scope(|| -> Result<(), BackendError> {
+            let new_tree_id = tree_builder.write_tree(&self.store)?;
             is_dirty |= new_tree_id != self.tree_id;
             self.tree_id = new_tree_id;
-        });
+            Ok(())
+        })?;
         if cfg!(debug_assertions) {
             let tree = self.current_tree().unwrap();
             let tree_paths: HashSet<_> = tree
@@ -2106,10 +2109,15 @@ struct CheckoutState {
 }
 
 impl CheckoutState {
-    fn load(state_path: &Path) -> Self {
-        let buf = fs::read(state_path.join("checkout")).unwrap();
-        let proto = crate::protos::local_working_copy::Checkout::decode(&*buf).unwrap();
-        Self {
+    fn load(state_path: &Path) -> Result<Self, WorkingCopyStateError> {
+        let wrap_err = |err| WorkingCopyStateError {
+            message: "Failed to read checkout state".to_owned(),
+            err,
+        };
+        let buf = fs::read(state_path.join("checkout")).map_err(|err| wrap_err(err.into()))?;
+        let proto = crate::protos::local_working_copy::Checkout::decode(&*buf)
+            .map_err(|err| wrap_err(err.into()))?;
+        Ok(Self {
             operation_id: OperationId::new(proto.operation_id),
             workspace_name: if proto.workspace_name.is_empty() {
                 // For compatibility with old working copies.
@@ -2118,23 +2126,31 @@ impl CheckoutState {
             } else {
                 proto.workspace_name.into()
             },
-        }
+        })
     }
 
     #[instrument(skip_all)]
-    fn save(&self, state_path: &Path) {
+    fn save(&self, state_path: &Path) -> Result<(), WorkingCopyStateError> {
+        let wrap_err = |err| WorkingCopyStateError {
+            message: "Failed to write checkout state".to_owned(),
+            err,
+        };
         let proto = crate::protos::local_working_copy::Checkout {
             operation_id: self.operation_id.to_bytes(),
             workspace_name: (*self.workspace_name).into(),
         };
-        let mut temp_file = NamedTempFile::new_in(state_path).unwrap();
+        let mut temp_file =
+            NamedTempFile::new_in(state_path).map_err(|err| wrap_err(err.into()))?;
         temp_file
             .as_file_mut()
             .write_all(&proto.encode_to_vec())
-            .unwrap();
+            .map_err(|err| wrap_err(err.into()))?;
         // TODO: Retry if persisting fails (it will on Windows if the file happened to
         // be open for read).
-        temp_file.persist(state_path.join("checkout")).unwrap();
+        temp_file
+            .persist(state_path.join("checkout"))
+            .map_err(|PersistError { error, file: _ }| wrap_err(error.into()))?;
+        Ok(())
     }
 }
 
@@ -2223,7 +2239,7 @@ impl LocalWorkingCopy {
             operation_id,
             workspace_name,
         };
-        checkout_state.save(&state_path);
+        checkout_state.save(&state_path)?;
         let tree_state_settings = TreeStateSettings::try_from_user_settings(user_settings)
             .map_err(|err| WorkingCopyStateError {
                 message: "Failed to read the tree state settings".to_string(),
@@ -2276,7 +2292,7 @@ impl LocalWorkingCopy {
 
     fn checkout_state(&self) -> &CheckoutState {
         self.checkout_state
-            .get_or_init(|| CheckoutState::load(&self.state_path))
+            .get_or_init(|| CheckoutState::load(&self.state_path).unwrap()) // TODO
     }
 
     #[instrument(skip_all)]
@@ -2516,7 +2532,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
                 operation_id,
                 workspace_name,
             };
-            checkout_state.save(&self.wc.state_path);
+            checkout_state.save(&self.wc.state_path)?;
             self.wc.checkout_state = OnceCell::with_value(checkout_state);
         }
         // TODO: Clear the "pending_checkout" file here.
