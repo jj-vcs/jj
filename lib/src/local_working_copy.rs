@@ -2158,7 +2158,7 @@ pub struct LocalWorkingCopy {
     store: Arc<Store>,
     working_copy_path: PathBuf,
     state_path: PathBuf,
-    checkout_state: OnceCell<CheckoutState>,
+    checkout_state: CheckoutState,
     tree_state: OnceCell<TreeState>,
     tree_state_settings: TreeStateSettings,
 }
@@ -2173,11 +2173,11 @@ impl WorkingCopy for LocalWorkingCopy {
     }
 
     fn workspace_name(&self) -> &WorkspaceName {
-        &self.checkout_state().workspace_name
+        &self.checkout_state.workspace_name
     }
 
     fn operation_id(&self) -> &OperationId {
-        &self.checkout_state().operation_id
+        &self.checkout_state.operation_id
     }
 
     fn tree_id(&self) -> Result<&MergedTreeId, WorkingCopyStateError> {
@@ -2199,8 +2199,9 @@ impl WorkingCopy for LocalWorkingCopy {
             store: self.store.clone(),
             working_copy_path: self.working_copy_path.clone(),
             state_path: self.state_path.clone(),
+            // Re-read the state after taking the lock
+            checkout_state: CheckoutState::load(&self.state_path)?,
             // Empty so we re-read the state after taking the lock
-            checkout_state: OnceCell::new(),
             // TODO: It's expensive to reload the whole tree. We should copy it from `self` if it
             // hasn't changed.
             tree_state: OnceCell::new(),
@@ -2259,7 +2260,7 @@ impl LocalWorkingCopy {
             store,
             working_copy_path,
             state_path,
-            checkout_state: OnceCell::with_value(checkout_state),
+            checkout_state,
             tree_state: OnceCell::with_value(tree_state),
             tree_state_settings,
         })
@@ -2271,6 +2272,7 @@ impl LocalWorkingCopy {
         state_path: PathBuf,
         user_settings: &UserSettings,
     ) -> Result<Self, WorkingCopyStateError> {
+        let checkout_state = CheckoutState::load(&state_path)?;
         let tree_state_settings = TreeStateSettings::try_from_user_settings(user_settings)
             .map_err(|err| WorkingCopyStateError {
                 message: "Failed to read the tree state settings".to_string(),
@@ -2280,7 +2282,7 @@ impl LocalWorkingCopy {
             store,
             working_copy_path,
             state_path,
-            checkout_state: OnceCell::new(),
+            checkout_state,
             tree_state: OnceCell::new(),
             tree_state_settings,
         })
@@ -2288,11 +2290,6 @@ impl LocalWorkingCopy {
 
     pub fn state_path(&self) -> &Path {
         &self.state_path
-    }
-
-    fn checkout_state(&self) -> &CheckoutState {
-        self.checkout_state
-            .get_or_init(|| CheckoutState::load(&self.state_path).unwrap()) // TODO
     }
 
     #[instrument(skip_all)]
@@ -2524,16 +2521,11 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
                 })?;
         }
         if self.old_operation_id != operation_id || self.new_workspace_name.is_some() {
-            let workspace_name = self
-                .new_workspace_name
-                // This saves a trip to the filesystem if the state was already loaded.
-                .unwrap_or_else(|| self.wc.workspace_name().into());
-            let checkout_state = CheckoutState {
-                operation_id,
-                workspace_name,
-            };
-            checkout_state.save(&self.wc.state_path)?;
-            self.wc.checkout_state = OnceCell::with_value(checkout_state);
+            self.wc.checkout_state.operation_id = operation_id;
+            if let Some(workspace_name) = self.new_workspace_name {
+                self.wc.checkout_state.workspace_name = workspace_name;
+            }
+            self.wc.checkout_state.save(&self.wc.state_path)?;
         }
         // TODO: Clear the "pending_checkout" file here.
         Ok(Box::new(self.wc))
