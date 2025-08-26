@@ -2219,16 +2219,11 @@ impl LocalWorkingCopy {
         workspace_name: WorkspaceNameBuf,
         user_settings: &UserSettings,
     ) -> Result<Self, WorkingCopyStateError> {
-        let proto = crate::protos::local_working_copy::Checkout {
-            operation_id: operation_id.to_bytes(),
-            workspace_name: workspace_name.into(),
+        let checkout_state = CheckoutState {
+            operation_id,
+            workspace_name,
         };
-        let mut file = OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(state_path.join("checkout"))
-            .unwrap();
-        file.write_all(&proto.encode_to_vec()).unwrap();
+        checkout_state.save(&state_path);
         let tree_state_settings = TreeStateSettings::try_from_user_settings(user_settings)
             .map_err(|err| WorkingCopyStateError {
                 message: "Failed to read the tree state settings".to_string(),
@@ -2248,7 +2243,7 @@ impl LocalWorkingCopy {
             store,
             working_copy_path,
             state_path,
-            checkout_state: OnceCell::new(),
+            checkout_state: OnceCell::with_value(checkout_state),
             tree_state: OnceCell::with_value(tree_state),
             tree_state_settings,
         })
