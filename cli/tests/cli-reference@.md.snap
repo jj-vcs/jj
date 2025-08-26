@@ -348,6 +348,8 @@ Create a new bookmark
 
 * `-r`, `--revision <REVSET>` [alias: `to`] — The bookmark's target revision
 
+  Default value: `@`
+
 
 
 ## `jj bookmark delete`
@@ -481,6 +483,8 @@ $ jj bookmark move --from 'heads(::@- & bookmarks())' --to @-
 
 * `-f`, `--from <REVSETS>` — Move bookmarks from the given revisions
 * `-t`, `--to <REVSET>` — Move bookmarks to this revision
+
+  Default value: `@`
 * `-B`, `--allow-backwards` — Allow moving bookmarks backwards or sideways
 
 
@@ -517,6 +521,8 @@ Create or update a bookmark to point to a certain commit
 ###### **Options:**
 
 * `-r`, `--revision <REVSET>` [alias: `to`] — The bookmark's target revision
+
+  Default value: `@`
 * `-B`, `--allow-backwards` — Allow moving the bookmark backwards or sideways
 
 
