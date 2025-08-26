@@ -35,7 +35,7 @@ Added 1 files, modified 0 files, removed 0 files
 $ cd Hello-World
 ```
 
-Running `jj status` (short for `jj status`) now yields something like this:
+Running `jj status` now yields something like this:
 
 ```shell
 $ jj status
