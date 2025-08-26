@@ -2298,6 +2298,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#jj-redo" class="md-nav__link">
+    <span class="md-ellipsis">
+      jj redo
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#jj-resolve" class="md-nav__link">
     <span class="md-ellipsis">
       jj resolve
@@ -6068,6 +6077,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#jj-redo" class="md-nav__link">
+    <span class="md-ellipsis">
+      jj redo
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#jj-resolve" class="md-nav__link">
     <span class="md-ellipsis">
       jj resolve
@@ -6950,6 +6968,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <li><a href="#jj-parallelize"><code>jj parallelize</code>↴</a></li>
 <li><a href="#jj-prev"><code>jj prev</code>↴</a></li>
 <li><a href="#jj-rebase"><code>jj rebase</code>↴</a></li>
+<li><a href="#jj-redo"><code>jj redo</code>↴</a></li>
 <li><a href="#jj-resolve"><code>jj resolve</code>↴</a></li>
 <li><a href="#jj-restore"><code>jj restore</code>↴</a></li>
 <li><a href="#jj-revert"><code>jj revert</code>↴</a></li>
@@ -7016,6 +7035,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <li><code>parallelize</code> — Parallelize revisions by making them siblings</li>
 <li><code>prev</code> — Change the working copy revision relative to the parent revision</li>
 <li><code>rebase</code> — Move revisions to different parent(s)</li>
+<li><code>redo</code> — Redo the most recently undone operation</li>
 <li><code>resolve</code> — Resolve conflicted files with an external merge tool</li>
 <li><code>restore</code> — Restore paths from another revision</li>
 <li><code>revert</code> — Apply the reverse of the given revision(s)</li>
@@ -8782,6 +8802,10 @@ J           J
 <p>Without this flag, divergent commits are abandoned while rebasing if another commit with the same change ID is already present in the destination with identical changes.</p>
 </li>
 </ul>
+<h2 id="jj-redo"><code>jj redo</code><a class="headerlink" href="#jj-redo" title="Permanent link">&para;</a></h2>
+<p>Redo the most recently undone operation</p>
+<p>This is the natural counterpart of <code>jj undo</code>.</p>
+<p><strong>Usage:</strong> <code>jj redo</code></p>
 <h2 id="jj-resolve"><code>jj resolve</code><a class="headerlink" href="#jj-resolve" title="Permanent link">&para;</a></h2>
 <p>Resolve conflicted files with an external merge tool</p>
 <p>Only conflicts that can be resolved with a 3-way merge are supported. See docs for merge tool configuration instructions. External merge tools will be invoked for each conflicted file one-by-one until all conflicts are resolved. To stop resolving conflicts, exit the merge tool without making any changes.</p>
@@ -9077,6 +9101,7 @@ J           J
 <h2 id="jj-undo"><code>jj undo</code><a class="headerlink" href="#jj-undo" title="Permanent link">&para;</a></h2>
 <p>Undo the last operation</p>
 <p>This undoes the last operation by restoring its parent operation.</p>
+<p>There is also a matching <code>jj redo</code> command.</p>
 <p><strong>Usage:</strong> <code>jj undo [OPERATION]</code></p>
 <h6 id="arguments_53"><strong>Arguments:</strong><a class="headerlink" href="#arguments_53" title="Permanent link">&para;</a></h6>
 <ul>
