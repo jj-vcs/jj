@@ -3471,10 +3471,12 @@ mod tests {
     #[test]
     fn test_stringify_function() {
         let mut env = TestTemplateEnv::new();
+        env.add_keyword("none_i64", || literal(None::<i64>));
         env.add_color("error", crossterm::style::Color::DarkRed);
 
         insta::assert_snapshot!(env.render_ok("stringify(false)"), @"false");
         insta::assert_snapshot!(env.render_ok("stringify(42).len()"), @"2");
+        insta::assert_snapshot!(env.render_ok("stringify(none_i64)"), @"");
         insta::assert_snapshot!(env.render_ok("stringify(label('error', 'text'))"), @"text");
     }
 

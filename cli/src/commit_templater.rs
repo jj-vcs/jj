@@ -557,8 +557,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::RefSymbol(property) => Some(property.map(|RefSymbolBuf(s)| s).into_dyn()),
             Self::RefSymbolOpt(property) => Some(
                 property
-                    .try_unwrap("RefSymbol")
-                    .map(|RefSymbolBuf(s)| s)
+                    .map(|opt| opt.map_or_else(String::new, |RefSymbolBuf(s)| s))
                     .into_dyn(),
             ),
             _ => {
@@ -2827,9 +2826,7 @@ mod tests {
         // string type were quoted/escaped. (e.g. `"foo".contains(bookmark)`)
         insta::assert_snapshot!(env.render_ok("stringify(self)", &sym("a b")), @"a b");
         insta::assert_snapshot!(env.render_ok("stringify(self)", &Some(sym("a b"))), @"a b");
-        insta::assert_snapshot!(
-            env.render_ok("stringify(self)", &None::<RefSymbolBuf>),
-            @"<Error: No RefSymbol available>");
+        insta::assert_snapshot!(env.render_ok("stringify(self)", &None::<RefSymbolBuf>), @"");
 
         // string methods
         insta::assert_snapshot!(env.render_ok("self.len()", &sym("a b")), @"3");
