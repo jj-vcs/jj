@@ -62,6 +62,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj help`↴](#jj-help)
 * [`jj interdiff`↴](#jj-interdiff)
 * [`jj log`↴](#jj-log)
+* [`jj metaedit`↴](#jj-metaedit)
 * [`jj new`↴](#jj-new)
 * [`jj next`↴](#jj-next)
 * [`jj operation`↴](#jj-operation)
@@ -92,7 +93,6 @@ This document contains the help content for the `jj` command-line program.
 * [`jj status`↴](#jj-status)
 * [`jj tag`↴](#jj-tag)
 * [`jj tag list`↴](#jj-tag-list)
-* [`jj touch`↴](#jj-touch)
 * [`jj undo`↴](#jj-undo)
 * [`jj unsign`↴](#jj-unsign)
 * [`jj util`↴](#jj-util)
@@ -143,6 +143,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `help` — Print this message or the help of the given subcommand(s)
 * `interdiff` — Compare the changes of two commits
 * `log` — Show revision history
+* `metaedit` — Modify the metadata of a revision without changing its content
 * `new` — Create a new, empty change and (by default) edit it in the working copy
 * `next` — Move the working-copy commit to the child revision
 * `operation` — Commands for working with the operation log
@@ -162,7 +163,6 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `squash` — Move changes from a revision into another revision
 * `status` — Show high-level repo status [default alias: st]
 * `tag` — Manage tags
-* `touch` — Modify the metadata of a revision without changing its content
 * `undo` — Undo the last operation
 * `unsign` — Drop a cryptographic signature
 * `util` — Infrequently used commands such as for generating shell completions
@@ -1605,6 +1605,38 @@ The working-copy commit is indicated by a `@` symbol in the graph. [Immutable re
 
 
 
+## `jj metaedit`
+
+Modify the metadata of a revision without changing its content
+
+**Usage:** `jj metaedit [OPTIONS] [REVSETS]...`
+
+###### **Arguments:**
+
+* `<REVSETS>` — The revision(s) to modify (default: @)
+
+###### **Options:**
+
+* `--update-change-id` — Generate a new change-id
+
+   This generates a new change-id for the revision.
+* `--update-author-timestamp` — Update the author timestamp
+
+   This updates the author date to now, without modifying the author.
+* `--update-author` — Update the author to the configured user
+
+   This updates the author name and email. The author timestamp is not modified – use --update-author-timestamp to update the author timestamp.
+
+   You can use it in combination with the JJ_USER and JJ_EMAIL environment variables to set a different author:
+
+   $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj metaedit --update-author
+* `--author <AUTHOR>` — Set author to the provided string
+
+   This changes author name and email while retaining author timestamp for non-discardable commits.
+* `--author-timestamp <AUTHOR_TIMESTAMP>` — Set the author date to the given date either human readable, eg Sun, 23 Jan 2000 01:23:45 JST) or as a time stamp, eg 2000-01-23T01:23:45+09:00)
+
+
+
 ## `jj new`
 
 Create a new, empty change and (by default) edit it in the working copy
@@ -2667,38 +2699,6 @@ List tags
    [`CommitRef` type]: https://jj-vcs.github.io/jj/latest/templates/#commitref-type
 
    [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
-
-
-
-## `jj touch`
-
-Modify the metadata of a revision without changing its content
-
-**Usage:** `jj touch [OPTIONS] [REVSETS]...`
-
-###### **Arguments:**
-
-* `<REVSETS>` — The revision(s) to touch (default: @)
-
-###### **Options:**
-
-* `--update-change-id` — Generate a new change-id
-
-   This generates a new change-id for the revision.
-* `--update-author-timestamp` — Update the author timestamp
-
-   This updates the author date to now, without modifying the author.
-* `--update-author` — Update the author to the configured user
-
-   This updates the author name and email. The author timestamp is not modified – use --update-author-timestamp to update the author timestamp.
-
-   You can use it in combination with the JJ_USER and JJ_EMAIL environment variables to set a different author:
-
-   $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj touch --update-author
-* `--author <AUTHOR>` — Set author to the provided string
-
-   This changes author name and email while retaining author timestamp for non-discardable commits.
-* `--author-timestamp <AUTHOR_TIMESTAMP>` — Set the author date to the given date either human readable, eg Sun, 23 Jan 2000 01:23:45 JST) or as a time stamp, eg 2000-01-23T01:23:45+09:00)
 
 
 

@@ -32,8 +32,8 @@ use crate::ui::Ui;
 
 /// Modify the metadata of a revision without changing its content
 #[derive(clap::Args, Clone, Debug)]
-pub(crate) struct TouchArgs {
-    /// The revision(s) to touch (default: @)
+pub(crate) struct MetaeditArgs {
+    /// The revision(s) to modify (default: @)
     #[arg(
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_mutable)
@@ -69,7 +69,7 @@ pub(crate) struct TouchArgs {
     /// You can use it in combination with the JJ_USER and JJ_EMAIL
     /// environment variables to set a different author:
     ///
-    /// $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj touch --update-author
+    /// $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj metaedit --update-author
     #[arg(long)]
     update_author: bool,
 
@@ -96,10 +96,10 @@ pub(crate) struct TouchArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_touch(
+pub(crate) fn cmd_metaedit(
     ui: &mut Ui,
     command: &CommandHelper,
-    args: &TouchArgs,
+    args: &MetaeditArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let commit_ids: Vec<_> = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
@@ -111,7 +111,7 @@ pub(crate) fn cmd_touch(
     .evaluate_to_commit_ids()?
     .try_collect()?;
     if commit_ids.is_empty() {
-        writeln!(ui.status(), "No revisions to touch.")?;
+        writeln!(ui.status(), "No revisions to modify.")?;
         return Ok(());
     }
     workspace_command.check_rewritable(commit_ids.iter())?;
@@ -119,10 +119,10 @@ pub(crate) fn cmd_touch(
     let mut tx = workspace_command.start_transaction();
     let tx_description = match commit_ids.as_slice() {
         [] => unreachable!(),
-        [commit] => format!("touch commit {}", commit.hex()),
+        [commit] => format!("metaedit commit {}", commit.hex()),
         [first_commit, remaining_commits @ ..] => {
             format!(
-                "touch commit {} and {} more",
+                "metaedit commit {} and {} more",
                 first_commit.hex(),
                 remaining_commits.len()
             )
@@ -131,7 +131,7 @@ pub(crate) fn cmd_touch(
 
     let mut num_reparented = 0;
     let commit_ids_set: HashSet<_> = commit_ids.iter().cloned().collect();
-    let mut touched: Vec<Commit> = Vec::new();
+    let mut modified: Vec<Commit> = Vec::new();
     // Even though `MutableRepo::rewrite_commit` and
     // `MutableRepo::rebase_descendants` can handle rewriting of a commit even
     // if it is a descendant of another commit being rewritten, using
@@ -164,17 +164,17 @@ pub(crate) fn cmd_touch(
                 }
 
                 let new_commit = commit_builder.write()?;
-                touched.push(new_commit);
+                modified.push(new_commit);
             } else {
                 commit_builder.write()?;
                 num_reparented += 1;
             }
             Ok(())
         })?;
-    if !touched.is_empty() {
-        writeln!(ui.status(), "Touched {} commits:", touched.len())?;
+    if !modified.is_empty() {
+        writeln!(ui.status(), "Modified {} commits:", modified.len())?;
         if let Some(mut formatter) = ui.status_formatter() {
-            print_updated_commits(formatter.as_mut(), &tx.commit_summary_template(), &touched)?;
+            print_updated_commits(formatter.as_mut(), &tx.commit_summary_template(), &modified)?;
         }
     }
     if num_reparented > 0 {

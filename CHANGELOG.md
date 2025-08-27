@@ -90,8 +90,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   setting the repository-level `trunk()` alias. The `upstream` remote takes
   precedence over `origin` if both exist.
 
-* Add the `jj touch` command, which modifies a revision's metadata. This can be
-  used to generate a new change-id, which may help resolve some divergences. It also has options to modify author name, email and time stamp.
+* Add the `jj metaedit` command, which modifies a revision's metadata. This can
+  be used to generate a new change-id, which may help resolve some divergences.
+  It also has options to modify author name, email and time stamp.
 
 * Filesets now support case-insensitive glob patterns with the `glob-i:`,
   `cwd-glob-i:`, and `root-glob-i:` pattern kinds. For example, `glob-i:"*.rs"`

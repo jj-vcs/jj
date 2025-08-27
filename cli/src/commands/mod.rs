@@ -34,6 +34,7 @@ mod git;
 mod help;
 mod interdiff;
 mod log;
+mod metaedit;
 mod new;
 mod next;
 mod operation;
@@ -54,7 +55,6 @@ mod split;
 mod squash;
 mod status;
 mod tag;
-mod touch;
 mod undo;
 mod unsign;
 mod util;
@@ -119,6 +119,7 @@ enum Command {
     Help(help::HelpArgs),
     Interdiff(interdiff::InterdiffArgs),
     Log(log::LogArgs),
+    Metaedit(metaedit::MetaeditArgs),
     New(new::NewArgs),
     Next(next::NextArgs),
     #[command(subcommand)]
@@ -145,7 +146,6 @@ enum Command {
     Status(status::StatusArgs),
     #[command(subcommand)]
     Tag(tag::TagCommand),
-    Touch(touch::TouchArgs),
     Undo(undo::UndoArgs),
     Unsign(unsign::UnsignArgs),
     #[command(subcommand)]
@@ -185,6 +185,7 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
         Command::Help(args) => help::cmd_help(ui, command_helper, args),
         Command::Interdiff(args) => interdiff::cmd_interdiff(ui, command_helper, args),
         Command::Log(args) => log::cmd_log(ui, command_helper, args),
+        Command::Metaedit(args) => metaedit::cmd_metaedit(ui, command_helper, args),
         Command::New(args) => new::cmd_new(ui, command_helper, args),
         Command::Next(args) => next::cmd_next(ui, command_helper, args),
         Command::Operation(args) => operation::cmd_operation(ui, command_helper, args),
@@ -207,7 +208,6 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
         Command::Squash(args) => squash::cmd_squash(ui, command_helper, args),
         Command::Status(args) => status::cmd_status(ui, command_helper, args),
         Command::Tag(args) => tag::cmd_tag(ui, command_helper, args),
-        Command::Touch(args) => touch::cmd_touch(ui, command_helper, args),
         Command::Undo(args) => undo::cmd_undo(ui, command_helper, args),
         Command::Unsign(args) => unsign::cmd_unsign(ui, command_helper, args),
         Command::Util(args) => util::cmd_util(ui, command_helper, args),

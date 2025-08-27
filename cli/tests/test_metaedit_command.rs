@@ -17,7 +17,7 @@ use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 
 #[test]
-fn test_touch() {
+fn test_metaedit() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -73,8 +73,9 @@ fn test_touch() {
     ");
     let setup_opid = work_dir.current_operation_id();
 
-    // Touch the commit (and its descendants)
-    work_dir.run_jj(["touch", "kkmpptxzrspx"]).success();
+    // Update the commit timestamp
+    // TODO: Do not update the timestamp by default. Require a flag for it.
+    work_dir.run_jj(["metaedit", "kkmpptxzrspx"]).success();
     insta::assert_snapshot!(get_log(&work_dir), @r"
     @  Commit ID: b396a5373e525bd9b322cab64c65f5f67ece81e7
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
@@ -114,7 +115,7 @@ fn test_touch() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     work_dir
         .run_jj([
-            "touch",
+            "metaedit",
             "--config=user.name=Ove Ridder",
             "--config=user.email=ove.ridder@example.com",
             "--update-author",
@@ -159,7 +160,7 @@ fn test_touch() {
     // Update author timestamp
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     work_dir
-        .run_jj(["touch", "--update-author-timestamp", "kkmpptxzrspx"])
+        .run_jj(["metaedit", "--update-author-timestamp", "kkmpptxzrspx"])
         .success();
     insta::assert_snapshot!(get_log(&work_dir), @r"
     @  Commit ID: b23f6a3f160d122f8d8dacd8d2acff2d29d5ba84
@@ -200,7 +201,7 @@ fn test_touch() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     work_dir
         .run_jj([
-            "touch",
+            "metaedit",
             "--author",
             "Alice <alice@example.com>",
             "kkmpptxzrspx",
@@ -244,7 +245,11 @@ fn test_touch() {
     // new author date
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     work_dir
-        .run_jj(["touch", "--author-timestamp", "1995-12-19T16:39:57-08:00"])
+        .run_jj([
+            "metaedit",
+            "--author-timestamp",
+            "1995-12-19T16:39:57-08:00",
+        ])
         .success();
     insta::assert_snapshot!(get_log(&work_dir), @r"
     @  Commit ID: a527219f85839d58ddb6115fbc4f0f8bc6649266
@@ -283,7 +288,7 @@ fn test_touch() {
 
     // invalid date gives an error
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    let command_result = work_dir.run_jj(["touch", "--author-timestamp", "aaaaaa"]);
+    let command_result = work_dir.run_jj(["metaedit", "--author-timestamp", "aaaaaa"]);
     assert!(!command_result.status.success());
     insta::assert_snapshot!(command_result, @r"
     ------- stderr -------
@@ -316,10 +321,10 @@ fn test_new_change_id() {
         .success();
     work_dir.write_file("file1", "c\n");
 
-    let output = work_dir.run_jj(["touch", "--update-change-id", "kkmpptxzrspx"]);
+    let output = work_dir.run_jj(["metaedit", "--update-change-id", "kkmpptxzrspx"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Touched 1 commits:
+    Modified 1 commits:
       yqosqzyt 01d6741e b | (no description set)
     Rebased 1 descendant commits
     Working copy  (@) now at: mzvwutvl 0c3fe2d8 c | (no description set)
@@ -363,7 +368,7 @@ fn test_new_change_id() {
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "yqosqzytrlswkspswpqrmlplxylrzsnz"]), @r"
     ○  yqosqzyt test.user@example.com 2001-02-03 08:05:13 b 01d6741e
     │  (no description set)
-    │  -- operation c1ee90a05107 touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    │  -- operation c5e159c3bd16 metaedit commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
     ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:11 75591b18
     │  (no description set)
     │  -- operation 4b33c26502f8 snapshot working copy
@@ -375,10 +380,10 @@ fn test_new_change_id() {
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "mzvwut"]), @r"
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:13 c 0c3fe2d8
     │  (no description set)
-    │  -- operation c1ee90a05107 touch commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    │  -- operation c5e159c3bd16 metaedit commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
     ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:13 22be6c4e
     │  (no description set)
-    │  -- operation 6cd93c8c2f48 snapshot working copy
+    │  -- operation 92fee3ece32c snapshot working copy
     ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:11 b9f5490a
        (empty) (no description set)
        -- operation e3fbc5040416 new empty commit
@@ -394,14 +399,14 @@ fn test_squash_option_mutual_exclusion() {
     work_dir.run_jj(["commit", "-m=a"]).success();
     work_dir.run_jj(["describe", "-m=b"]).success();
     insta::assert_snapshot!(work_dir.run_jj([
-        "touch",
+        "metaedit",
         "--author=Alice <alice@example.com>",
         "--update-author",
     ]), @r"
     ------- stderr -------
     error: the argument '--author <AUTHOR>' cannot be used with '--update-author'
 
-    Usage: jj touch --author <AUTHOR> [REVSETS]...
+    Usage: jj metaedit --author <AUTHOR> [REVSETS]...
 
     For more information, try '--help'.
     [EOF]
