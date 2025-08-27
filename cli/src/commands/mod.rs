@@ -177,6 +177,7 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
         Command::Diffedit(args) => diffedit::cmd_diffedit(ui, command_helper, args),
         Command::Duplicate(args) => duplicate::cmd_duplicate(ui, command_helper, args),
         Command::Edit(args) => edit::cmd_edit(ui, command_helper, args),
+        Command::Evolog(args) => evolog::cmd_evolog(ui, command_helper, args),
         Command::File(args) => file::cmd_file(ui, command_helper, args),
         Command::Fix(args) => fix::cmd_fix(ui, command_helper, args),
         #[cfg(feature = "git")]
@@ -186,7 +187,6 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
         Command::Log(args) => log::cmd_log(ui, command_helper, args),
         Command::New(args) => new::cmd_new(ui, command_helper, args),
         Command::Next(args) => next::cmd_next(ui, command_helper, args),
-        Command::Evolog(args) => evolog::cmd_evolog(ui, command_helper, args),
         Command::Operation(args) => operation::cmd_operation(ui, command_helper, args),
         Command::Parallelize(args) => parallelize::cmd_parallelize(ui, command_helper, args),
         Command::Prev(args) => prev::cmd_prev(ui, command_helper, args),
