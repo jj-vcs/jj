@@ -113,6 +113,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   explicitly specified, in which case the specified option will apply for both
   the initial clone and subsequent fetches.
 
+* `jj bookmark move` no longer always displays the moved bookmark as unsynced in
+  colocated repos.
+
 ### Packaging changes
 
 * The test suite no longer optionally uses Taplo CLI or jq, and packagers can
