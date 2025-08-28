@@ -141,6 +141,7 @@ pub(crate) fn cmd_metaedit(
     tx.repo_mut()
         .transform_descendants(commit_ids, async |rewriter| {
             if commit_ids_set.contains(rewriter.old_commit().id()) {
+                let mut has_changes = rewriter.parents_changed();
                 let mut commit_builder = rewriter.reparent();
                 let mut new_author = commit_builder.author().clone();
                 if let Some((name, email)) = args.author.clone() {
@@ -156,15 +157,21 @@ pub(crate) fn cmd_metaedit(
                 if let Some(author_date) = args.author_timestamp {
                     new_author.timestamp = author_date;
                 }
-                commit_builder = commit_builder.set_author(new_author);
+                if new_author != *commit_builder.author() {
+                    commit_builder = commit_builder.set_author(new_author);
+                    has_changes = true;
+                }
 
                 if args.update_change_id {
                     commit_builder = commit_builder.generate_new_change_id();
+                    has_changes = true;
                 }
 
-                let new_commit = commit_builder.write()?;
-                modified.push(new_commit);
-            } else {
+                if has_changes {
+                    let new_commit = commit_builder.write()?;
+                    modified.push(new_commit);
+                }
+            } else if rewriter.parents_changed() {
                 rewriter.reparent().write()?;
                 num_reparented += 1;
             }

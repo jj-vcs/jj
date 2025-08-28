@@ -73,41 +73,25 @@ fn test_metaedit() {
     ");
     let setup_opid = work_dir.current_operation_id();
 
-    // Update the commit timestamp
-    // TODO: Do not update the timestamp by default. Require a flag for it.
-    work_dir.run_jj(["metaedit", "kkmpptxzrspx"]).success();
-    insta::assert_snapshot!(get_log(&work_dir), @r"
-    @  Commit ID: b396a5373e525bd9b322cab64c65f5f67ece81e7
-    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
-    │  Bookmarks: c
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:14.000 +07:00)
-    │
-    │      (no description set)
-    │
-    ○  Commit ID: 53f5eea6f1d793859d38f1299ff10ebfb67d0a23
-    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
-    │  Bookmarks: b
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:14.000 +07:00)
-    │
-    │      (no description set)
-    │
-    ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
-    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
-    │  Bookmarks: a
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
-    │
-    │      (no description set)
-    │
-    ◆  Commit ID: 0000000000000000000000000000000000000000
-       Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
-       Author   : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
-       Committer: (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+    // Without arguments, the commits are not rewritten.
+    // TODO: Require an argument?
+    let output = work_dir.run_jj(["metaedit", "kkmpptxzrspx"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
 
-           (no description set)
-
+    // When resetting the author has no effect, the commits are not rewritten.
+    let output = work_dir.run_jj([
+        "metaedit",
+        "--config=user.name=Test User",
+        "--update-author",
+        "kkmpptxzrspx",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
     [EOF]
     ");
 
