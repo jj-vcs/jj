@@ -281,6 +281,46 @@ fn test_metaedit() {
     [EOF]
     [exit status: 2]
     ");
+
+    // Update committer timestamp
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    work_dir
+        .run_jj(["metaedit", "--update-committer-timestamp", "kkmpptxzrspx"])
+        .success();
+    insta::assert_snapshot!(get_log(&work_dir), @r"
+    @  Commit ID: 6c0aa6574ef6450eaf7eae1391cc6c769c53a50c
+    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    │  Bookmarks: c
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:31.000 +07:00)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: 0a570dfbbaf794cd15bbdbf28f94785405ef5b3b
+    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    │  Bookmarks: b
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:31.000 +07:00)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
+    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    │  Bookmarks: a
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │
+    │      (no description set)
+    │
+    ◆  Commit ID: 0000000000000000000000000000000000000000
+       Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+       Author   : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+       Committer: (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+
+           (no description set)
+
+    [EOF]
+    ");
 }
 
 #[test]

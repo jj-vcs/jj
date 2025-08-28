@@ -93,6 +93,17 @@ pub(crate) struct MetaeditArgs {
         value_parser = parse_datetime
     )]
     author_timestamp: Option<Timestamp>,
+
+    /// Update the committer timestamp
+    ///
+    /// This updates the committer date to now, without modifying the committer.
+    ///
+    /// Even if this option is not passed, the committer timestamp will be
+    /// updated if other metadata is updated. This option effectively just
+    /// forces every commit to be rewritten whether or not there are other
+    /// changes.
+    #[arg(long)]
+    update_committer_timestamp: bool,
 }
 
 #[instrument(skip_all)]
@@ -141,7 +152,7 @@ pub(crate) fn cmd_metaedit(
     tx.repo_mut()
         .transform_descendants(commit_ids, async |rewriter| {
             if commit_ids_set.contains(rewriter.old_commit().id()) {
-                let mut has_changes = rewriter.parents_changed();
+                let mut has_changes = args.update_committer_timestamp || rewriter.parents_changed();
                 let mut commit_builder = rewriter.reparent();
                 let mut new_author = commit_builder.author().clone();
                 if let Some((name, email)) = args.author.clone() {
