@@ -3665,7 +3665,8 @@ subcommand name, subcommand alias, or user-defined alias (defaults to <code>"log
 </code></pre></div>
 <h3 id="default-description">Default description<a class="headerlink" href="#default-description" title="Permanent link">&para;</a></h3>
 <p>The editor content of a commit description can be populated by the
-<code>draft_commit_description</code> template.</p>
+<code>draft_commit_description</code> template. <code>self</code> is a <a href="../templates/#commit-type"><code>Commit</code>
+object</a>.</p>
 <div class="highlight"><pre><span></span><code><span class="k">[templates]</span>
 <span class="n">draft_commit_description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;&#39;</span>
 <span class="s1">concat(</span>
@@ -3691,7 +3692,8 @@ subcommand name, subcommand alias, or user-defined alias (defaults to <code>"log
 <h3 id="duplicate-commit-description">Duplicate commit description<a class="headerlink" href="#duplicate-commit-description" title="Permanent link">&para;</a></h3>
 <p>By default, <code>jj duplicate</code> copies the descriptions from the original commits.
 You can customize this behavior by specifying the <code>duplicate_description</code>
-template, which is given a <code>Commit</code> type of the original commit.</p>
+template, which is given a <a href="../templates/#commit-type"><code>Commit</code> object</a> of the
+original commit.</p>
 <div class="highlight"><pre><span></span><code><span class="k">[templates]</span>
 <span class="n">duplicate_description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;&#39;</span>
 <span class="s1">concat(</span>
