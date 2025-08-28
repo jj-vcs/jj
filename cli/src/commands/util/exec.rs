@@ -85,14 +85,16 @@ pub fn cmd_util_exec(
                 err,
             )
         })?;
+
+    // Try to match the exit status of the executed process.
+    if let Some(exit_code) = status.code() {
+        std::process::exit(exit_code);
+    }
     if !status.success() {
-        let error_msg = if let Some(exit_code) = status.code() {
-            format!("External command exited with {exit_code}")
-        } else {
-            // signal
-            format!("External command was terminated by: {status}")
-        };
-        return Err(user_error(error_msg));
+        // signal
+        return Err(user_error(format!(
+            "External command was terminated by {status}"
+        )));
     }
     Ok(())
 }
