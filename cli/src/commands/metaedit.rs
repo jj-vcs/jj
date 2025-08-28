@@ -119,10 +119,10 @@ pub(crate) fn cmd_metaedit(
     let mut tx = workspace_command.start_transaction();
     let tx_description = match commit_ids.as_slice() {
         [] => unreachable!(),
-        [commit] => format!("metaedit commit {}", commit.hex()),
+        [commit] => format!("edit commit metadata for commit {}", commit.hex()),
         [first_commit, remaining_commits @ ..] => {
             format!(
-                "metaedit commit {} and {} more",
+                "edit commit metadata for commit {} and {} more",
                 first_commit.hex(),
                 remaining_commits.len()
             )

@@ -288,9 +288,8 @@ fn test_metaedit() {
 
     // invalid date gives an error
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    let command_result = work_dir.run_jj(["metaedit", "--author-timestamp", "aaaaaa"]);
-    assert!(!command_result.status.success());
-    insta::assert_snapshot!(command_result, @r"
+    let output = work_dir.run_jj(["metaedit", "--author-timestamp", "aaaaaa"]);
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: invalid value 'aaaaaa' for '--author-timestamp <AUTHOR_TIMESTAMP>': input contains invalid characters
 
@@ -368,7 +367,7 @@ fn test_new_change_id() {
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "yqosqzytrlswkspswpqrmlplxylrzsnz"]), @r"
     ○  yqosqzyt test.user@example.com 2001-02-03 08:05:13 b 01d6741e
     │  (no description set)
-    │  -- operation c5e159c3bd16 metaedit commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    │  -- operation adf0af78a0fd edit commit metadata for commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
     ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:11 75591b18
     │  (no description set)
     │  -- operation 4b33c26502f8 snapshot working copy
@@ -380,7 +379,7 @@ fn test_new_change_id() {
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "mzvwut"]), @r"
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:13 c 0c3fe2d8
     │  (no description set)
-    │  -- operation c5e159c3bd16 metaedit commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    │  -- operation adf0af78a0fd edit commit metadata for commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
     ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:13 22be6c4e
     │  (no description set)
     │  -- operation 92fee3ece32c snapshot working copy
