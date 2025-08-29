@@ -107,6 +107,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The new command `jj redo` can progressively redo operations that were
   previously undone by multiple calls to `jj undo`.
 
+* Gerrit support implemented with the new command `jj gerrit upload`
+
 ### Fixed bugs
 
 * `jj git clone` now correctly fetches all tags, unless `--fetch-tags` is
