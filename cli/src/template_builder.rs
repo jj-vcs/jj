@@ -485,7 +485,7 @@ pub fn merge_fn_map<'s, F>(base: &mut HashMap<&'s str, F>, extension: HashMap<&'
     }
 }
 
-impl<'a, L: ?Sized, P> CoreTemplateBuildFnTable<'a, L, P> {
+impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
     pub fn empty() -> Self {
         Self {
             functions: HashMap::new(),

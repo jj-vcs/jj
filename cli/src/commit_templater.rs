@@ -386,7 +386,7 @@ impl<'repo> CommitTemplateLanguage<'repo> {
     }
 }
 
-impl<'repo> OperationTemplateEnvironment for CommitTemplateLanguage<'repo> {
+impl OperationTemplateEnvironment for CommitTemplateLanguage<'_> {
     fn repo_loader(&self) -> &RepoLoader {
         self.repo.base_repo().loader()
     }
@@ -777,7 +777,7 @@ pub struct CommitTemplateBuildFnTable<'repo> {
     pub trailer_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<Trailer>>,
 }
 
-impl<'repo> CommitTemplateBuildFnTable<'repo> {
+impl CommitTemplateBuildFnTable<'_> {
     pub fn empty() -> Self {
         Self {
             core: CoreTemplateBuildFnTable::empty(),
