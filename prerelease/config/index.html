@@ -3559,7 +3559,7 @@ located in <code>.jj/repo/config.toml</code>.</p>
 <p>These are listed in the order they are loaded; the settings from earlier items
 in the list are overridden by the settings from later items if they disagree.
 Every type of config except for the built-in settings is optional.</p>
-<p>You can enable JSON Schema validation in your editor by adding a <code>$schema</code>
+<p>You can enable JSON Schema validation in your editor by adding a <code>#:schema</code>
 reference at the top of your TOML config files. See <a href="#json-schema-support">JSON Schema
 Support</a> for details.</p>
 <p>See the <a href="https://toml.io/en/">TOML site</a> and the <a href="https://toml.io/en/v1.0.0">syntax guide</a> for a detailed description of the
@@ -4892,7 +4892,7 @@ platform-specific path separator (<code>:</code> on Unix-like systems, <code>;</
 <p>Many popular editors support TOML file syntax highlighting and validation. To
 enable schema validation in your editor, add this line at the top of your TOML
 config files:</p>
-<div class="highlight"><pre><span></span><code><span class="s2">&quot;$schema&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;https://jj-vcs.github.io/jj/latest/config-schema.json&quot;</span>
+<div class="highlight"><pre><span></span><code><span class="c1">#:schema https://jj-vcs.github.io/jj/latest/config-schema.json</span>
 </code></pre></div>
 <p>This enables features like:</p>
 <ul>
