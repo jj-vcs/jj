@@ -23,7 +23,7 @@ These are listed in the order they are loaded; the settings from earlier items
 in the list are overridden by the settings from later items if they disagree.
 Every type of config except for the built-in settings is optional.
 
-You can enable JSON Schema validation in your editor by adding a `$schema`
+You can enable JSON Schema validation in your editor by adding a `#:schema`
 reference at the top of your TOML config files. See [JSON Schema
 Support] for details.
 
@@ -1766,7 +1766,7 @@ enable schema validation in your editor, add this line at the top of your TOML
 config files:
 
 ```toml
-"$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json"
+#:schema https://jj-vcs.github.io/jj/latest/config-schema.json
 ```
 
 This enables features like:

@@ -561,11 +561,8 @@ impl ConfigFile {
                 source: error,
             })) if error.kind() == io::ErrorKind::NotFound => {
                 let mut data = DocumentMut::new();
-                data.insert(
-                    "$schema",
-                    toml_edit::Item::Value(
-                        "https://jj-vcs.github.io/jj/latest/config-schema.json".into(),
-                    ),
+                data.decor_mut().set_prefix(
+                    "#:schema https://jj-vcs.github.io/jj/latest/config-schema.json\n\n",
                 );
                 let layer = ConfigLayer {
                     source,
