@@ -5692,6 +5692,10 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
+<p>The new command <code>jj redo</code> can progressively redo operations that were
+  previously undone by multiple calls to <code>jj undo</code>.</p>
+</li>
+<li>
 <p>Templates now support <code>any()</code> and <code>all()</code> methods on lists to check whether
   any or all elements satisfy a predicate. Example: <code>parents.any(|c| c.mine())</code>
   returns true if any parent commit is authored by the user.</p>
@@ -5753,10 +5757,6 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p><code>jj op show</code> now accepts <code>-T</code>/<code>--template</code> option to customize the operation
   output using template expressions, similar to <code>jj op log</code>. Also added
   <code>--no-op-diff</code> flag to suppress the operation diff.</p>
-</li>
-<li>
-<p>The new command <code>jj redo</code> can progressively redo operations that were
-  previously undone by multiple calls to <code>jj undo</code>.</p>
 </li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>

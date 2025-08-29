@@ -8804,7 +8804,8 @@ J           J
 </ul>
 <h2 id="jj-redo"><code>jj redo</code><a class="headerlink" href="#jj-redo" title="Permanent link">&para;</a></h2>
 <p>Redo the most recently undone operation</p>
-<p>This is the natural counterpart of <code>jj undo</code>.</p>
+<p>This is the natural counterpart of <code>jj undo</code>. Repeated invocations of <code>jj undo</code> and <code>jj redo</code> act similarly to Undo/Redo commands in a text editor.</p>
+<p>Use <code>jj op log</code> to visualize the log of past operations, including a detailed description of any past undo/redo operations. See also <code>jj op restore</code> to explicitly restore an older operation by its id (available in the operation log).</p>
 <p><strong>Usage:</strong> <code>jj redo</code></p>
 <h2 id="jj-resolve"><code>jj resolve</code><a class="headerlink" href="#jj-resolve" title="Permanent link">&para;</a></h2>
 <p>Resolve conflicted files with an external merge tool</p>
@@ -9105,8 +9106,9 @@ J           J
 </ul>
 <h2 id="jj-undo"><code>jj undo</code><a class="headerlink" href="#jj-undo" title="Permanent link">&para;</a></h2>
 <p>Undo the last operation</p>
-<p>This undoes the last operation by restoring its parent operation.</p>
-<p>There is also a matching <code>jj redo</code> command.</p>
+<p>If used once after a normal (non-<code>undo</code>) operation, this will undo that last operation by restoring its parent. If <code>jj undo</code> is used repeatedly, it will restore increasingly older operations, going further back into the past.</p>
+<p>There is also a complementary <code>jj redo</code> command that would instead move in the direction of the future after one or more <code>jj undo</code>s.</p>
+<p>Use <code>jj op log</code> to visualize the log of past operations, including a detailed description of any past undo/redo operations. See also <code>jj op restore</code> to explicitly restore an older operation by its id (available in the operation log).</p>
 <p><strong>Usage:</strong> <code>jj undo [OPERATION]</code></p>
 <h6 id="arguments_53"><strong>Arguments:</strong><a class="headerlink" href="#arguments_53" title="Permanent link">&para;</a></h6>
 <ul>
