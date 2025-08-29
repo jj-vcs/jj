@@ -338,21 +338,23 @@ pub fn combine_messages_for_editing(
 
     if let Some(template) = parse_trailers_template(ui, tx)? {
         // show the user only trailers that were not in one of the squashed commits
+        let separators = &tx.settings().get_string("trailer.separators")?;
         let old_trailers: Vec<_> = sources
             .iter()
             .chain(destination)
-            .flat_map(|commit| parse_description_trailers(commit.description()))
+            .flat_map(|commit| parse_description_trailers(commit.description(), separators))
             .collect();
         let commit = commit_builder.write_hidden()?;
         let trailer_lines = template
             .format_plain_text(&commit)
             .into_string()
             .map_err(|_| user_error("Trailers should be valid utf-8"))?;
-        let new_trailers = parse_trailers(&trailer_lines)?;
+        let (new_trailers, new_raw_trailers) = parse_trailers(&trailer_lines, separators)?;
         let trailers: String = new_trailers
             .iter()
-            .filter(|trailer| !old_trailers.contains(trailer))
-            .map(|trailer| format!("{}: {}\n", trailer.key, trailer.value))
+            .zip(new_raw_trailers.iter())
+            .filter(|(trailer, _)| !old_trailers.contains(trailer))
+            .map(|(_, raw_trailer)| raw_trailer.clone())
             .collect();
         if !trailers.is_empty() {
             combined.push_str("\nJJ: Trailers not found in the squashed commits:\n");
@@ -398,13 +400,14 @@ pub fn parse_trailers_template<'a>(
 pub fn add_trailers_with_template(
     template: &TemplateRenderer<'_, Commit>,
     commit: &Commit,
+    separators: &str,
 ) -> Result<String, CommandError> {
-    let trailers = parse_description_trailers(commit.description());
+    let trailers = parse_description_trailers(commit.description(), separators);
     let trailer_lines = template
         .format_plain_text(commit)
         .into_string()
         .map_err(|_| user_error("Trailers should be valid utf-8"))?;
-    let new_trailers = parse_trailers(&trailer_lines)?;
+    let (new_trailers, new_raw_trailers) = parse_trailers(&trailer_lines, separators)?;
     let mut description = commit.description().to_owned();
     if trailers.is_empty() && !new_trailers.is_empty() {
         if description.is_empty() {
@@ -414,9 +417,9 @@ pub fn add_trailers_with_template(
         // create a new paragraph for the trailer
         description.push('\n');
     }
-    for new_trailer in new_trailers {
-        if !trailers.contains(&new_trailer) {
-            description.push_str(&format!("{}: {}\n", new_trailer.key, new_trailer.value));
+    for (new_trailer, new_raw_trailer) in new_trailers.iter().zip(new_raw_trailers.iter()) {
+        if !trailers.contains(new_trailer) {
+            description.push_str(new_raw_trailer);
         }
     }
     Ok(description)
@@ -433,7 +436,8 @@ pub fn add_trailers(
 ) -> Result<String, CommandError> {
     if let Some(renderer) = parse_trailers_template(ui, tx)? {
         let commit = commit_builder.write_hidden()?;
-        add_trailers_with_template(&renderer, &commit)
+        let separators = &tx.settings().get_string("trailer.separators")?;
+        add_trailers_with_template(&renderer, &commit, separators)
     } else {
         Ok(commit_builder.description().to_owned())
     }
