@@ -60,7 +60,7 @@ fn test_bookmark_multiple_names() {
     ");
 
     work_dir.run_jj(["new"]).success();
-    let output = work_dir.run_jj(["bookmark", "set", "foo", "bar", "--to=@"]);
+    let output = work_dir.run_jj(["bookmark", "set", "foo", "bar"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Moved 2 bookmarks to zsuskuln 0e555a27 bar foo | (empty) (no description set)
@@ -248,7 +248,7 @@ fn test_bookmark_move() {
         .run_jj(["git", "remote", "add", "origin", "../git-repo"])
         .success();
 
-    let output = work_dir.run_jj(["bookmark", "move", "foo", "--to=@"]);
+    let output = work_dir.run_jj(["bookmark", "move", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: No such bookmark: foo
@@ -256,7 +256,7 @@ fn test_bookmark_move() {
     [exit status: 1]
     ");
 
-    let output = work_dir.run_jj(["bookmark", "set", "foo", "--to=@"]);
+    let output = work_dir.run_jj(["bookmark", "set", "foo", ""]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created 1 bookmarks pointing to qpvuntsm e8849ae1 foo | (empty) (no description set)
@@ -296,14 +296,14 @@ fn test_bookmark_move() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["bookmark", "move", "foo", "--to=@"]);
+    let output = work_dir.run_jj(["bookmark", "move", "foo", ""]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Moved 1 bookmarks to mzvwutvl 8afc18ff foo | (empty) (no description set)
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["bookmark", "move", "--to=@-", "foo"]);
+    let output = work_dir.run_jj(["bookmark", "move", "-", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Refusing to move bookmark backwards or sideways: foo
@@ -312,7 +312,7 @@ fn test_bookmark_move() {
     [exit status: 1]
     ");
 
-    let output = work_dir.run_jj(["bookmark", "move", "--to=@-", "--allow-backwards", "foo"]);
+    let output = work_dir.run_jj(["bookmark", "move", "-", "--allow-backwards", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Moved 1 bookmarks to qpvuntsm e8849ae1 foo | (empty) (no description set)
@@ -342,7 +342,7 @@ fn test_bookmark_move() {
     ");
 
     // Restoring local target shouldn't invalidate tracking state
-    let output = work_dir.run_jj(["bookmark", "set", "foo", "--to=@"]);
+    let output = work_dir.run_jj(["bookmark", "set", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Moved 1 bookmarks to mzvwutvl 91b59745 foo* | (empty) (no description set)
@@ -359,7 +359,7 @@ fn test_bookmark_move() {
         .run_jj(["bookmark", "untrack", "foo@origin"])
         .success();
     work_dir.run_jj(["bookmark", "delete", "foo"]).success();
-    let output = work_dir.run_jj(["bookmark", "create", "-r@", "foo"]);
+    let output = work_dir.run_jj(["bookmark", "create", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Created 1 bookmarks pointing to mzvwutvl 91b59745 foo | (empty) (no description set)
@@ -404,7 +404,7 @@ fn test_bookmark_move_matching() {
     let setup_opid = work_dir.current_operation_id();
 
     // The default could be considered "--from=all() glob:*", but is disabled
-    let output = work_dir.run_jj(["bookmark", "move", "--to=@"]);
+    let output = work_dir.run_jj(["bookmark", "move", ""]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the following required arguments were not provided:
@@ -418,7 +418,7 @@ fn test_bookmark_move_matching() {
     ");
 
     // No bookmarks pointing to the source revisions
-    let output = work_dir.run_jj(["bookmark", "move", "--from=none()", "--to=@"]);
+    let output = work_dir.run_jj(["bookmark", "move", "--from=none()", ""]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     No bookmarks to update.
@@ -426,7 +426,7 @@ fn test_bookmark_move_matching() {
     ");
 
     // No matching bookmarks within the source revisions
-    let output = work_dir.run_jj(["bookmark", "move", "--from=::@", "glob:a?", "--to=@"]);
+    let output = work_dir.run_jj(["bookmark", "move", "--from=::@", "glob:a?", ""]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: No matching bookmarks for patterns: a?
@@ -443,7 +443,7 @@ fn test_bookmark_move_matching() {
     ");
 
     // Move from multiple revisions
-    let output = work_dir.run_jj(["bookmark", "move", "--from=::@", "--to=@"]);
+    let output = work_dir.run_jj(["bookmark", "move", "--from=::@", ""]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Moved 2 bookmarks to vruxwmqv 0dd9a4b1 b1 c1 | (empty) head2
@@ -463,7 +463,7 @@ fn test_bookmark_move_matching() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
     // Try to move multiple bookmarks, but one of them isn't fast-forward
-    let output = work_dir.run_jj(["bookmark", "move", "glob:?1", "--to=@"]);
+    let output = work_dir.run_jj(["bookmark", "move", "glob:?1", ""]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Refusing to move bookmark backwards or sideways: a1
@@ -1558,13 +1558,7 @@ fn test_bookmark_list() {
         .run_jj(["bookmark", "untrack", "remote-untrack@origin"])
         .success();
     local_dir
-        .run_jj([
-            "bookmark",
-            "set",
-            "--allow-backwards",
-            "--to=@",
-            "remote-unsync",
-        ])
+        .run_jj(["bookmark", "set", "--allow-backwards", "", "remote-unsync"])
         .success();
 
     // Synchronized tracking remotes and non-tracking remotes aren't listed by
@@ -2030,13 +2024,7 @@ fn test_bookmark_list_much_remote_divergence() {
 
     // Mutate refs in local repository
     local_dir
-        .run_jj([
-            "bookmark",
-            "set",
-            "--allow-backwards",
-            "--to=@",
-            "remote-unsync",
-        ])
+        .run_jj(["bookmark", "set", "--allow-backwards", "", "remote-unsync"])
         .success();
 
     let output = local_dir.run_jj(["bookmark", "list"]);
@@ -2150,13 +2138,7 @@ fn test_bookmark_list_tracked() {
         ])
         .success();
     local_dir
-        .run_jj([
-            "bookmark",
-            "set",
-            "--to=@",
-            "--allow-backwards",
-            "remote-unsync",
-        ])
+        .run_jj(["bookmark", "set", "", "--allow-backwards", "remote-unsync"])
         .success();
 
     let output = local_dir.run_jj(["bookmark", "list", "--all-remotes"]);
@@ -2391,66 +2373,6 @@ fn test_bookmark_list_sort_overriding_config() {
     c: bob@g.c
     b: alice@g.c
     a: bob@g.c
-    [EOF]
-    ");
-}
-
-#[test]
-fn test_bookmark_create_with_default_target_revision() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-
-    let output = work_dir.run_jj(["bookmark", "create", "foo"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Warning: Target revision was not specified, defaulting to the working copy (-r@). In the near future it will be required to explicitly specify target revision.
-    Created 1 bookmarks pointing to qpvuntsm e8849ae1 foo | (empty) (no description set)
-    [EOF]
-    ");
-}
-
-#[test]
-fn test_bookmark_set_with_default_target_revision() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-
-    let output = work_dir.run_jj(["bookmark", "set", "foo"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Warning: Target revision was not specified, defaulting to the working copy (--revision=@). In the near future it will be required to explicitly specify target revision.
-    Created 1 bookmarks pointing to qpvuntsm e8849ae1 foo | (empty) (no description set)
-    [EOF]
-    ");
-}
-
-#[test]
-fn test_bookmark_move_with_default_target_revision() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-
-    // Set up remote
-    let git_repo_path = test_env.env_root().join("git-repo");
-    git::init_bare(git_repo_path);
-    work_dir
-        .run_jj(["git", "remote", "add", "origin", "../git-repo"])
-        .success();
-
-    let output = work_dir.run_jj(["bookmark", "create", "foo", "-r@"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Created 1 bookmarks pointing to qpvuntsm e8849ae1 foo | (empty) (no description set)
-    [EOF]
-    ");
-
-    work_dir.run_jj(["new"]).success();
-    let output = work_dir.run_jj(["bookmark", "move", "foo"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Warning: Target revision was not specified, defaulting to the working copy (--to=@). In the near future it will be required to explicitly specify it.
-    Moved 1 bookmarks to zsuskuln 0e555a27 foo | (empty) (no description set)
     [EOF]
     ");
 }
