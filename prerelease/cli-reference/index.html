@@ -9015,6 +9015,8 @@ J           J
 <p>If, after moving changes out, the source revision is empty compared to its parent(s), and <code>--keep-emptied</code> is not set, it will be abandoned. Without <code>--interactive</code> or paths, the source revision will always be empty.</p>
 <p>If the source was abandoned and both the source and destination had a non-empty description, you will be asked for the combined description. If either was empty, then the other one will be used.</p>
 <p>If a working-copy commit gets abandoned, it will be given a new, empty commit. This is true in general; it is not specific to this command.</p>
+<p>EXPERIMENTAL FEATURES</p>
+<p>An alternative squashing UI is available via the <code>-d</code>, <code>-A</code>, and <code>-B</code> options. They can be used together with one or more <code>--from</code> options (if no <code>--from</code> is specified, <code>--from @</code> is assumed).</p>
 <p><strong>Usage:</strong> <code>jj squash [OPTIONS] [FILESETS]...</code></p>
 <h6 id="arguments_49"><strong>Arguments:</strong><a class="headerlink" href="#arguments_49" title="Permanent link">&para;</a></h6>
 <ul>
@@ -9022,12 +9024,12 @@ J           J
 </ul>
 <h6 id="options_49"><strong>Options:</strong><a class="headerlink" href="#options_49" title="Permanent link">&para;</a></h6>
 <ul>
-<li><code>-r</code>, <code>--revision &lt;REVSET&gt;</code> — Revision to squash into its parent (default: @)</li>
+<li><code>-r</code>, <code>--revision &lt;REVSET&gt;</code> — Revision to squash into its parent (default: @). Incompatible with the experimental <code>-d</code>/<code>-A</code>/<code>-B</code> options</li>
 <li><code>-f</code>, <code>--from &lt;REVSETS&gt;</code> — Revision(s) to squash from (default: @)</li>
 <li><code>-t</code>, <code>--into &lt;REVSET&gt;</code> [alias: <code>to</code>] — Revision to squash into (default: @)</li>
-<li><code>-d</code>, <code>--destination &lt;REVSETS&gt;</code> — The revision(s) to use as parent for the new commit (can be repeated to create a merge commit)</li>
-<li><code>-A</code>, <code>--insert-after &lt;REVSETS&gt;</code> [alias: <code>after</code>] — The revision(s) to insert the new commit after (can be repeated to create a merge commit)</li>
-<li><code>-B</code>, <code>--insert-before &lt;REVSETS&gt;</code> [alias: <code>before</code>] — The revision(s) to insert the new commit before (can be repeated to create a merge commit)</li>
+<li><code>-d</code>, <code>--destination &lt;REVSETS&gt;</code> — (Experimental) The revision(s) to use as parent for the new commit (can be repeated to create a merge commit)</li>
+<li><code>-A</code>, <code>--insert-after &lt;REVSETS&gt;</code> [alias: <code>after</code>] — (Experimental) The revision(s) to insert the new commit after (can be repeated to create a merge commit)</li>
+<li><code>-B</code>, <code>--insert-before &lt;REVSETS&gt;</code> [alias: <code>before</code>] — (Experimental) The revision(s) to insert the new commit before (can be repeated to create a merge commit)</li>
 <li><code>-m</code>, <code>--message &lt;MESSAGE&gt;</code> — The description to use for squashed revision (don't open editor)</li>
 <li><code>-u</code>, <code>--use-destination-message</code> — Use the description of the destination revision and discard the description(s) of the source revision(s)</li>
 <li><code>-i</code>, <code>--interactive</code> — Interactively choose which parts to squash</li>
