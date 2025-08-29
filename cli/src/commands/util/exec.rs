@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
+use std::process::ExitStatus;
+
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
@@ -76,23 +80,29 @@ pub fn cmd_util_exec(
     _command: &CommandHelper,
     args: &UtilExecArgs,
 ) -> Result<(), CommandError> {
-    let status = std::process::Command::new(&args.command)
-        .args(&args.args)
-        .status()
-        .map_err(|err| {
-            user_error_with_message(
-                format!("Failed to execute external command '{}'", &args.command),
-                err,
-            )
-        })?;
-    if !status.success() {
-        let error_msg = if let Some(exit_code) = status.code() {
-            format!("External command exited with {exit_code}")
-        } else {
-            // signal
-            format!("External command was terminated by: {status}")
-        };
-        return Err(user_error(error_msg));
+    let mut cmd = std::process::Command::new(&args.command);
+    cmd.args(&args.args);
+
+    // If it's supported on the current platform, perform an execv.
+    #[cfg(unix)]
+    let status: std::io::Result<ExitStatus> = Err(CommandExt::exec(&mut cmd));
+    #[cfg(not(unix))]
+    let status: std::io::Result<ExitStatus> = cmd.status();
+
+    match status {
+        Err(err) => Err(user_error_with_message(
+            format!("Failed to execute external command '{}'", &args.command),
+            err,
+        )),
+        Ok(status) => {
+            if let Some(exit_code) = status.code() {
+                std::process::exit(exit_code)
+            } else {
+                // signal
+                Err(user_error(format!(
+                    "External command was terminated by {status}"
+                )))
+            }
+        }
     }
-    Ok(())
 }

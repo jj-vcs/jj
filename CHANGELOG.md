@@ -107,6 +107,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The new command `jj redo` can progressively redo operations that were
   previously undone by multiple calls to `jj undo`.
 
+* `jj util exec` acts more like execv and less like a wrapper script. It now
+  matches the exit status, and doesn't print anything.
+
 ### Fixed bugs
 
 * `jj git clone` now correctly fetches all tags, unless `--fetch-tags` is
