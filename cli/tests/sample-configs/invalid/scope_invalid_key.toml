@@ -1,0 +1,5 @@
+#:schema ../../../src/config-schema.json
+
+[[--scope]]
+--when.repositories = ["~/repos/employer"]
+user.email = 5 # should error because it's not a string

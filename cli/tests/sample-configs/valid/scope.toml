@@ -1,0 +1,7 @@
+#:schema ../../../src/config-schema.json
+
+# configuring the formatting of timestamps only for the log command
+
+[[--scope]]
+--when.commands = ["log"]
+template-aliases.'format_timestamp(timestamp)' = 'timestamp.ago()'
