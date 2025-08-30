@@ -172,6 +172,7 @@ nav: # This lists all the files that become part of the documentation
       - Sparse patterns v2: 'design/sparse-v2.md'
       - Tracking branches: 'design/tracking-branches.md'
       - Copy tracking and tracing: 'design/copy-tracking.md'
+      - gitattributes cornerstone: 'design/gitattributes.md'
 
   - Development roadmap: 'roadmap.md'
   - Changelog: 'changelog.md'
