@@ -291,6 +291,14 @@ We recommend at least these settings:
 }
 ```
 
+#### Helix
+
+```toml
+# .helix/languages.toml
+[language-server.rust-analyzer.config.rust-analyzer.rustfmt]
+extraArgs = ["+nightly"]
+```
+
 ## Previewing the HTML documentation
 
 The documentation for `jj` is automatically published online at
