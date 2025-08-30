@@ -18,9 +18,11 @@ use std::collections::HashMap;
 use std::env;
 use std::env::split_paths;
 use std::fmt;
+use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::Arc;
 use std::sync::LazyLock;
 
 use etcetera::BaseStrategy as _;
@@ -36,6 +38,10 @@ use jj_lib::config::ConfigSource;
 use jj_lib::config::ConfigValue;
 use jj_lib::config::StackedConfig;
 use jj_lib::dsl_util;
+use jj_lib::file_util::IoResultExt as _;
+use jj_lib::file_util::PathError;
+use jj_lib::repo_path::RepoPathBuf;
+use once_cell::unsync::OnceCell;
 use regex::Captures;
 use regex::Regex;
 use serde::Serialize as _;
@@ -374,9 +380,30 @@ impl UnresolvedConfigEnv {
 pub struct ConfigEnv {
     home_dir: Option<PathBuf>,
     repo_path: Option<PathBuf>,
+    workspace_root: Option<PathBuf>,
     user_config_paths: Vec<ConfigPath>,
     repo_config_path: Option<ConfigPath>,
     command: Option<String>,
+    repo_managed_layer: OnceCell<Result<Option<Arc<ConfigLayer>>, CommandError>>,
+}
+
+pub struct RepoManagedConfigPaths {
+    /// The path to the file managed by the repo.
+    pub managed: RepoPathBuf,
+    /// The path to the managed config that is actually in use.
+    pub config: PathBuf,
+    /// The path to the content of the file that was last reviewed.
+    pub last_reviewed: PathBuf,
+}
+
+// The same as std::fs::read, but returns None if the file was not
+// found.
+pub fn maybe_read(path: &Path) -> io::Result<Option<Vec<u8>>> {
+    match std::fs::read(path) {
+        Ok(val) => Ok(Some(val)),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e),
+    }
 }
 
 impl ConfigEnv {
@@ -419,9 +446,11 @@ impl ConfigEnv {
         Self {
             home_dir,
             repo_path: None,
+            workspace_root: None,
             user_config_paths: env.resolve(ui),
             repo_config_path: None,
             command: None,
+            repo_managed_layer: Default::default(),
         }
     }
 
@@ -489,9 +518,21 @@ impl ConfigEnv {
 
     /// Sets the directory where repo-specific config file is stored. The path
     /// is usually `.jj/repo`.
-    pub fn reset_repo_path(&mut self, path: &Path) {
-        self.repo_path = Some(path.to_owned());
-        self.repo_config_path = Some(ConfigPath::new(path.join("config.toml")));
+    pub fn reset_repo_path(&mut self, repo_path: &Path, workspace_root: &Path) {
+        self.repo_path = Some(repo_path.to_owned());
+        self.workspace_root = Some(workspace_root.to_owned());
+        self.repo_config_path = Some(ConfigPath::new(repo_path.join("config.toml")));
+    }
+
+    /// Returns all paths associated with the repo-managed configuration.
+    pub fn repo_managed_config_paths(&self) -> Option<RepoManagedConfigPaths> {
+        self.repo_path
+            .as_ref()
+            .map(|repo_path| RepoManagedConfigPaths {
+                managed: RepoPathBuf::from_internal_string(".config/jj/config.toml").unwrap(),
+                config: repo_path.join("generated_repo_config.toml"),
+                last_reviewed: repo_path.join("last_reviewed_repo_config.toml"),
+            })
     }
 
     /// Returns a path to the repo-specific config file.
@@ -528,6 +569,71 @@ impl ConfigEnv {
             .transpose()
     }
 
+    /// Loads repo-managed config file for the user into the given `config`.
+    /// Returns true if a layer was loaded, and false if no layer was loaded.
+    #[instrument(skip(ui))]
+    fn try_reload_repo_managed_config(
+        &self,
+        ui: &Ui,
+        config: &mut RawConfig,
+    ) -> Result<bool, CommandError> {
+        if let Some(paths) = self.repo_managed_config_paths() {
+            if let Some(layer) = self
+                .repo_managed_layer
+                .get_or_init(|| {
+                    let layer = match ConfigLayer::load_from_file(
+                        ConfigSource::RepoManaged,
+                        paths.config,
+                    ) {
+                        Ok(layer) => Some(Arc::new(layer)),
+                        Err(ConfigLoadError::Read(PathError { source, .. }))
+                            if source.kind() == io::ErrorKind::NotFound =>
+                        {
+                            None
+                        }
+                        Err(e) => return Err(e.into()),
+                    };
+
+                    // TODO: Currently, this relies on the file being materialized on
+                    // disk.
+                    let managed_path = paths.managed.to_fs_path_unchecked(
+                        self.workspace_root
+                            .as_ref()
+                            .expect("workspace root should be set"),
+                    );
+                    let vcs_content = maybe_read(&managed_path)
+                        .context(&managed_path)
+                        .map_err(ConfigLoadError::Read)?
+                        .unwrap_or_default();
+                    let last_reviewed_content = maybe_read(&paths.last_reviewed)
+                        .context(paths.last_reviewed)
+                        .map_err(ConfigLoadError::Read)?
+                        .unwrap_or_default();
+                    if vcs_content != last_reviewed_content {
+                        writeln!(
+                            ui.warning_default(),
+                            "Your repo-managed config is out of date"
+                        )?;
+                        writeln!(ui.hint_default(), "Run `jj config review-managed`")?;
+                    }
+                    Ok(layer)
+                })
+                .clone()?
+            {
+                let mut_config = config.as_mut();
+                mut_config.add_layer(layer);
+                // Don't allow silly things like a repo-managed-config disabling
+                // repo-managed-configs.
+                mut_config.add_layer(ConfigLayer::parse(
+                    ConfigSource::RepoManaged,
+                    "repo-managed-config.enabled = true",
+                )?);
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
     /// Loads repo-specific config file into the given `config`. The old
     /// repo-config layer will be replaced if any.
     #[instrument]
@@ -539,15 +645,39 @@ impl ConfigEnv {
         Ok(())
     }
 
-    /// Resolves conditional scopes within the current environment. Returns new
-    /// resolved config.
-    pub fn resolve_config(&self, config: &RawConfig) -> Result<StackedConfig, ConfigGetError> {
+    pub fn resolve_config_without_repo_managed(
+        &self,
+        config: &RawConfig,
+    ) -> Result<StackedConfig, ConfigGetError> {
         let context = ConfigResolutionContext {
             home_dir: self.home_dir.as_deref(),
             repo_path: self.repo_path.as_deref(),
             command: self.command.as_deref(),
         };
         jj_lib::config::resolve(config.as_ref(), &context)
+    }
+
+    /// Resolves conditional scopes within the current environment. Returns new
+    /// resolved config.
+    pub fn resolve_config(
+        &self,
+        ui: &Ui,
+        config: &mut RawConfig,
+    ) -> Result<StackedConfig, CommandError> {
+        let mut resolved = self.resolve_config_without_repo_managed(config)?;
+        // In case you call this function twice, we remove the layers so we don't
+        // duplicate.
+        resolved.remove_layers(ConfigSource::RepoManaged);
+        // The repo-managed config is enabled.
+        Ok(
+            if resolved.get("repo-managed-config.enabled")?
+                && self.try_reload_repo_managed_config(ui, config)?
+            {
+                self.resolve_config_without_repo_managed(config)?
+            } else {
+                resolved
+            },
+        )
     }
 }
 
@@ -1813,9 +1943,11 @@ mod tests {
         ConfigEnv {
             home_dir,
             repo_path: None,
+            workspace_root: None,
             user_config_paths: env.resolve(&Ui::null()),
             repo_config_path: None,
             command: None,
+            repo_managed_layer: Default::default(),
         }
     }
 }

@@ -57,3 +57,6 @@ auto-update-stale = false
 # in the future.
 [split]
 legacy-bookmark-behavior = true
+
+[repo-managed-config]
+enabled = false
