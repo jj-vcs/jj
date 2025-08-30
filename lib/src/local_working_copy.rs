@@ -162,7 +162,7 @@ pub enum FileType {
     GitSubmodule,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MaterializedConflictData {
     pub conflict_marker_len: u32,
 }
@@ -480,7 +480,7 @@ fn file_state_to_proto(file_state: &FileState) -> crate::protos::local_working_c
     proto.file_type = file_type as i32;
     proto.mtime_millis_since_epoch = file_state.mtime.0;
     proto.size = file_state.size;
-    proto.materialized_conflict_data = file_state.materialized_conflict_data.map(|data| {
+    proto.materialized_conflict_data = file_state.materialized_conflict_data.as_ref().map(|data| {
         crate::protos::local_working_copy::MaterializedConflictData {
             conflict_marker_len: data.conflict_marker_len,
         }
@@ -1414,20 +1414,14 @@ impl FileSnapshotter<'_> {
         maybe_current_file_state: Option<&FileState>,
         mut new_file_state: FileState,
     ) -> Result<(), SnapshotError> {
-        let update = self.get_updated_tree_value(
+        let (updated_tree_value, new_conflict_data) = self.get_updated_tree_value(
             &path,
             disk_path,
             maybe_current_file_state,
             &new_file_state,
         )?;
-        // Preserve materialized conflict data for normal, non-resolved files
-        if matches!(new_file_state.file_type, FileType::Normal { .. })
-            && !update.as_ref().is_some_and(|update| update.is_resolved())
-        {
-            new_file_state.materialized_conflict_data =
-                maybe_current_file_state.and_then(|state| state.materialized_conflict_data);
-        }
-        if let Some(tree_value) = update {
+        new_file_state.materialized_conflict_data = new_conflict_data;
+        if let Some(tree_value) = updated_tree_value {
             self.tree_entries_tx.send((path.clone(), tree_value)).ok();
         }
         if Some(&new_file_state) != maybe_current_file_state {
@@ -1475,7 +1469,7 @@ impl FileSnapshotter<'_> {
         disk_path: &Path,
         maybe_current_file_state: Option<&FileState>,
         new_file_state: &FileState,
-    ) -> Result<Option<MergedTreeValue>, SnapshotError> {
+    ) -> Result<(Option<MergedTreeValue>, Option<MaterializedConflictData>), SnapshotError> {
         let clean = match maybe_current_file_state {
             None => {
                 // untracked
@@ -1488,8 +1482,10 @@ impl FileSnapshotter<'_> {
                     && current_file_state.mtime < self.tree_state.own_mtime
             }
         };
+        let current_conflict_data =
+            maybe_current_file_state.and_then(|state| state.materialized_conflict_data.as_ref());
         if clean {
-            Ok(None)
+            Ok((None, current_conflict_data.cloned()))
         } else {
             let current_tree_values = self.current_tree.path_value(repo_path)?;
             let new_file_type = if !self.tree_state.symlink_support {
@@ -1503,29 +1499,27 @@ impl FileSnapshotter<'_> {
             } else {
                 new_file_state.file_type.clone()
             };
-            let new_tree_values = match new_file_type {
+            let (new_tree_values, new_conflict_data) = match new_file_type {
                 FileType::Normal { executable } => self
                     .write_path_to_store(
                         repo_path,
                         disk_path,
                         &current_tree_values,
                         executable,
-                        maybe_current_file_state.and_then(|state| state.materialized_conflict_data),
+                        current_conflict_data,
                     )
                     .block_on()?,
                 FileType::Symlink => {
                     let id = self
                         .write_symlink_to_store(repo_path, disk_path)
                         .block_on()?;
-                    Merge::normal(TreeValue::Symlink(id))
+                    (Merge::normal(TreeValue::Symlink(id)), None)
                 }
                 FileType::GitSubmodule => panic!("git submodule cannot be written to store"),
             };
-            if new_tree_values != current_tree_values {
-                Ok(Some(new_tree_values))
-            } else {
-                Ok(None)
-            }
+            let updated_tree_value =
+                (new_tree_values != current_tree_values).then_some(new_tree_values);
+            Ok((updated_tree_value, new_conflict_data))
         }
     }
 
@@ -1539,8 +1533,8 @@ impl FileSnapshotter<'_> {
         disk_path: &Path,
         current_tree_values: &MergedTreeValue,
         executable: FileExecutableFlag,
-        materialized_conflict_data: Option<MaterializedConflictData>,
-    ) -> Result<MergedTreeValue, SnapshotError> {
+        current_conflict_data: Option<&MaterializedConflictData>,
+    ) -> Result<(MergedTreeValue, Option<MaterializedConflictData>), SnapshotError> {
         if let Some(current_tree_value) = current_tree_values.as_resolved() {
             let id = self.write_file_to_store(repo_path, disk_path).await?;
             // On Windows, we preserve the executable bit from the current tree.
@@ -1569,11 +1563,12 @@ impl FileSnapshotter<'_> {
                     CopyId::placeholder()
                 }
             };
-            Ok(Merge::normal(TreeValue::File {
+            let new_tree_value = Merge::normal(TreeValue::File {
                 id,
                 executable,
                 copy_id,
-            }))
+            });
+            Ok((new_tree_value, None))
         } else if let Some(old_file_ids) = current_tree_values.to_file_merge() {
             // Safe to unwrap because the copy id exists exactly on the file variant
             let copy_id_merge = current_tree_values.to_copy_id_merge().unwrap();
@@ -1604,15 +1599,17 @@ impl FileSnapshotter<'_> {
             // If the file contained a conflict before and is a normal file on
             // disk, we try to parse any conflict markers in the file into a
             // conflict.
+            let conflict_marker_len = current_conflict_data
+                .map_or(MIN_CONFLICT_MARKER_LEN as u32, |data| {
+                    data.conflict_marker_len
+                });
             let new_file_ids = conflicts::update_from_content(
                 &old_file_ids,
                 self.store(),
                 repo_path,
                 &contents,
                 self.tree_state.conflict_marker_style,
-                materialized_conflict_data.map_or(MIN_CONFLICT_MARKER_LEN, |data| {
-                    data.conflict_marker_len as usize
-                }),
+                conflict_marker_len as usize,
             )
             .await?;
             match new_file_ids.into_resolved() {
@@ -1625,22 +1622,28 @@ impl FileSnapshotter<'_> {
                             false
                         }
                     });
-                    Ok(Merge::normal(TreeValue::File {
+                    let new_tree_value = Merge::normal(TreeValue::File {
                         id: file_id.unwrap(),
                         executable,
                         copy_id,
-                    }))
+                    });
+                    Ok((new_tree_value, None))
                 }
                 Err(new_file_ids) => {
-                    if new_file_ids != old_file_ids {
-                        Ok(current_tree_values.with_new_file_ids(&new_file_ids))
+                    let new_tree_value = if new_file_ids != old_file_ids {
+                        current_tree_values.with_new_file_ids(&new_file_ids)
                     } else {
-                        Ok(current_tree_values.clone())
-                    }
+                        current_tree_values.clone()
+                    };
+                    // Preserve conflict data for normal, non-resolved files.
+                    let new_conflict_data = MaterializedConflictData {
+                        conflict_marker_len,
+                    };
+                    Ok((new_tree_value, Some(new_conflict_data)))
                 }
             }
         } else {
-            Ok(current_tree_values.clone())
+            Ok((current_tree_values.clone(), current_conflict_data.cloned()))
         }
     }
 
