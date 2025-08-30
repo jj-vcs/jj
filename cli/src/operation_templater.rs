@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Template environment for `jj op log`.
+
 use std::any::Any;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -58,6 +60,7 @@ pub trait OperationTemplateEnvironment {
     fn current_op_id(&self) -> Option<&OperationId>;
 }
 
+/// Template environment for `jj op log`.
 pub struct OperationTemplateLanguage {
     repo_loader: RepoLoader,
     current_op_id: Option<OperationId>,
