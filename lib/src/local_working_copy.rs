@@ -1609,7 +1609,6 @@ impl FileSnapshotter<'_> {
                 self.store(),
                 repo_path,
                 &contents,
-                self.tree_state.conflict_marker_style,
                 materialized_conflict_data.map_or(MIN_CONFLICT_MARKER_LEN, |data| {
                     data.conflict_marker_len as usize
                 }),

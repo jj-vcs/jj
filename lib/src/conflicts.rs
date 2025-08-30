@@ -923,49 +923,52 @@ pub async fn update_from_content(
     store: &Store,
     path: &RepoPath,
     content: &[u8],
-    conflict_marker_style: ConflictMarkerStyle,
     conflict_marker_len: usize,
 ) -> BackendResult<Merge<Option<FileId>>> {
     let simplified_file_ids = file_ids.simplify();
 
-    // First check if the new content is unchanged compared to the old content. If
-    // it is, we don't need parse the content or write any new objects to the
-    // store. This is also a way of making sure that unchanged tree/file
-    // conflicts (for example) are not converted to regular files in the working
-    // copy.
-    let mut old_content = Vec::with_capacity(content.len());
-    let merge_hunk = extract_as_single_hunk(&simplified_file_ids, store, path).await?;
-    let materialize_options = ConflictMaterializeOptions {
-        marker_style: conflict_marker_style,
-        marker_len: Some(conflict_marker_len),
-    };
-    materialize_merge_result(&merge_hunk, &mut old_content, &materialize_options).unwrap();
-    if content == old_content {
-        return Ok(file_ids.clone());
-    }
+    let old_contents = extract_as_single_hunk(&simplified_file_ids, store, path).await?;
+    let old_hunks = files::merge_hunks(&old_contents);
 
     // Parse conflicts from the new content using the arity of the simplified
     // conflicts.
-    let Some(mut hunks) = parse_conflict(
+    let mut new_hunks = parse_conflict(
         content,
         simplified_file_ids.num_sides(),
         conflict_marker_len,
-    ) else {
-        // Either there are no markers or they don't have the expected arity
-        let file_id = store.write_file(path, &mut &content[..]).await?;
-        return Ok(Merge::normal(file_id));
-    };
+    );
 
     // If there is a conflict at the end of the file and a term ends with a newline,
     // check whether the original term ended with a newline. If it didn't, then
     // remove the newline since it was added automatically when materializing.
-    if let Some(last_hunk) = hunks.last_mut().filter(|hunk| !hunk.is_resolved()) {
-        for (original_content, term) in merge_hunk.iter().zip_eq(last_hunk.iter_mut()) {
+    if let Some(last_hunk) = new_hunks
+        .as_mut()
+        .and_then(|hunks| hunks.last_mut())
+        .filter(|hunk| !hunk.is_resolved())
+    {
+        for (original_content, term) in old_contents.iter().zip_eq(last_hunk.iter_mut()) {
             if term.last() == Some(&b'\n') && has_no_eol(original_content) {
                 term.pop();
             }
         }
     }
+
+    // Check if the new hunks are unchanged. This makes sure that unchanged file
+    // conflicts aren't updated to partially-resolved contents.
+    let unchanged = match (&old_hunks, &new_hunks) {
+        (MergeResult::Resolved(old), None) => old == content,
+        (MergeResult::Conflict(old), Some(new)) => old == new,
+        (MergeResult::Resolved(_), Some(_)) | (MergeResult::Conflict(_), None) => false,
+    };
+    if unchanged {
+        return Ok(file_ids.clone());
+    }
+
+    let Some(hunks) = new_hunks else {
+        // Either there are no markers or they don't have the expected arity
+        let file_id = store.write_file(path, &mut &content[..]).await?;
+        return Ok(Merge::normal(file_id));
+    };
 
     let mut contents = simplified_file_ids.map(|_| vec![]);
     for hunk in hunks {

@@ -386,7 +386,6 @@ fn apply_diff_builtin(
     right_tree: &MergedTree,
     changed_files: Vec<RepoPathBuf>,
     files: &[scm_record::File],
-    conflict_marker_style: ConflictMarkerStyle,
 ) -> BackendResult<MergedTreeId> {
     // Start with the right tree to match external tool behavior.
     // This ensures unmatched paths keep their values from the right tree.
@@ -421,7 +420,6 @@ fn apply_diff_builtin(
                     store,
                     path,
                     contents,
-                    conflict_marker_style,
                     MIN_CONFLICT_MARKER_LEN, // TODO: use the materialization parameter
                 )
                 .block_on()?;
@@ -559,15 +557,8 @@ pub fn edit_diff_builtin(
         &mut input,
     );
     let result = recorder.run().map_err(BuiltinToolError::Record)?;
-    let tree_id = apply_diff_builtin(
-        &store,
-        left_tree,
-        right_tree,
-        changed_files,
-        &result.files,
-        conflict_marker_style,
-    )
-    .map_err(BuiltinToolError::BackendError)?;
+    let tree_id = apply_diff_builtin(&store, left_tree, right_tree, changed_files, &result.files)
+        .map_err(BuiltinToolError::BackendError)?;
     Ok(tree_id)
 }
 
@@ -771,15 +762,7 @@ mod tests {
         changed_files: &[RepoPathBuf],
         files: &[scm_record::File],
     ) -> MergedTreeId {
-        apply_diff_builtin(
-            store,
-            left_tree,
-            right_tree,
-            changed_files.to_vec(),
-            files,
-            ConflictMarkerStyle::Diff,
-        )
-        .unwrap()
+        apply_diff_builtin(store, left_tree, right_tree, changed_files.to_vec(), files).unwrap()
     }
 
     #[test]
@@ -1809,15 +1792,8 @@ mod tests {
 
         assert_eq!(changed_files, vec![matched_path.to_owned()]);
 
-        let result_tree_id = apply_diff_builtin(
-            store,
-            &left_tree,
-            &right_tree,
-            changed_files,
-            &files,
-            ConflictMarkerStyle::Diff,
-        )
-        .unwrap();
+        let result_tree_id =
+            apply_diff_builtin(store, &left_tree, &right_tree, changed_files, &files).unwrap();
         let result_tree = store.get_root_tree(&result_tree_id).unwrap();
 
         assert_eq!(
