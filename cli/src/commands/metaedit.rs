@@ -32,8 +32,8 @@ use crate::ui::Ui;
 
 /// Modify the metadata of a revision without changing its content
 #[derive(clap::Args, Clone, Debug)]
-pub(crate) struct TouchArgs {
-    /// The revision(s) to touch (default: @)
+pub(crate) struct MetaeditArgs {
+    /// The revision(s) to modify (default: @)
     #[arg(
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_mutable)
@@ -69,7 +69,7 @@ pub(crate) struct TouchArgs {
     /// You can use it in combination with the JJ_USER and JJ_EMAIL
     /// environment variables to set a different author:
     ///
-    /// $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj touch --update-author
+    /// $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj metaedit --update-author
     #[arg(long)]
     update_author: bool,
 
@@ -93,13 +93,24 @@ pub(crate) struct TouchArgs {
         value_parser = parse_datetime
     )]
     author_timestamp: Option<Timestamp>,
+
+    /// Update the committer timestamp
+    ///
+    /// This updates the committer date to now, without modifying the committer.
+    ///
+    /// Even if this option is not passed, the committer timestamp will be
+    /// updated if other metadata is updated. This option effectively just
+    /// forces every commit to be rewritten whether or not there are other
+    /// changes.
+    #[arg(long)]
+    update_committer_timestamp: bool,
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_touch(
+pub(crate) fn cmd_metaedit(
     ui: &mut Ui,
     command: &CommandHelper,
-    args: &TouchArgs,
+    args: &MetaeditArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let commit_ids: Vec<_> = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
@@ -111,7 +122,7 @@ pub(crate) fn cmd_touch(
     .evaluate_to_commit_ids()?
     .try_collect()?;
     if commit_ids.is_empty() {
-        writeln!(ui.status(), "No revisions to touch.")?;
+        writeln!(ui.status(), "No revisions to modify.")?;
         return Ok(());
     }
     workspace_command.check_rewritable(commit_ids.iter())?;
@@ -119,10 +130,10 @@ pub(crate) fn cmd_touch(
     let mut tx = workspace_command.start_transaction();
     let tx_description = match commit_ids.as_slice() {
         [] => unreachable!(),
-        [commit] => format!("touch commit {}", commit.hex()),
+        [commit] => format!("edit commit metadata for commit {}", commit.hex()),
         [first_commit, remaining_commits @ ..] => {
             format!(
-                "touch commit {} and {} more",
+                "edit commit metadata for commit {} and {} more",
                 first_commit.hex(),
                 remaining_commits.len()
             )
@@ -131,7 +142,7 @@ pub(crate) fn cmd_touch(
 
     let mut num_reparented = 0;
     let commit_ids_set: HashSet<_> = commit_ids.iter().cloned().collect();
-    let mut touched: Vec<Commit> = Vec::new();
+    let mut modified: Vec<Commit> = Vec::new();
     // Even though `MutableRepo::rewrite_commit` and
     // `MutableRepo::rebase_descendants` can handle rewriting of a commit even
     // if it is a descendant of another commit being rewritten, using
@@ -140,9 +151,9 @@ pub(crate) fn cmd_touch(
     // chain.
     tx.repo_mut()
         .transform_descendants(commit_ids, async |rewriter| {
-            let old_commit_id = rewriter.old_commit().id().clone();
-            let mut commit_builder = rewriter.reparent();
-            if commit_ids_set.contains(&old_commit_id) {
+            if commit_ids_set.contains(rewriter.old_commit().id()) {
+                let mut has_changes = args.update_committer_timestamp || rewriter.parents_changed();
+                let mut commit_builder = rewriter.reparent();
                 let mut new_author = commit_builder.author().clone();
                 if let Some((name, email)) = args.author.clone() {
                     new_author.name = name;
@@ -157,24 +168,30 @@ pub(crate) fn cmd_touch(
                 if let Some(author_date) = args.author_timestamp {
                     new_author.timestamp = author_date;
                 }
-                commit_builder = commit_builder.set_author(new_author);
+                if new_author != *commit_builder.author() {
+                    commit_builder = commit_builder.set_author(new_author);
+                    has_changes = true;
+                }
 
                 if args.update_change_id {
                     commit_builder = commit_builder.generate_new_change_id();
+                    has_changes = true;
                 }
 
-                let new_commit = commit_builder.write()?;
-                touched.push(new_commit);
-            } else {
-                commit_builder.write()?;
+                if has_changes {
+                    let new_commit = commit_builder.write()?;
+                    modified.push(new_commit);
+                }
+            } else if rewriter.parents_changed() {
+                rewriter.reparent().write()?;
                 num_reparented += 1;
             }
             Ok(())
         })?;
-    if !touched.is_empty() {
-        writeln!(ui.status(), "Touched {} commits:", touched.len())?;
+    if !modified.is_empty() {
+        writeln!(ui.status(), "Modified {} commits:", modified.len())?;
         if let Some(mut formatter) = ui.status_formatter() {
-            print_updated_commits(formatter.as_mut(), &tx.commit_summary_template(), &touched)?;
+            print_updated_commits(formatter.as_mut(), &tx.commit_summary_template(), &modified)?;
         }
     }
     if num_reparented > 0 {
