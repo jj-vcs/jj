@@ -22,7 +22,6 @@ use jj_lib::repo::Repo as _;
 use jj_lib::repo::StoreFactories;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::settings::UserSettings;
-use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::default_working_copy_factories;
 use pollster::FutureExt as _;
@@ -146,7 +145,6 @@ fn test_eol_conversion_snapshot(
             test_workspace.repo.op_id().clone(),
             None,
             &file_removed_commit,
-            &CheckoutOptions::empty_for_test(),
         )
         .unwrap();
     assert!(!file_disk_path.exists());
@@ -174,7 +172,6 @@ fn test_eol_conversion_snapshot(
             test_workspace.repo.op_id().clone(),
             None,
             &file_added_commit,
-            &CheckoutOptions::empty_for_test(),
         )
         .unwrap();
     assert!(file_disk_path.exists());
@@ -229,12 +226,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
 
     test_workspace
         .workspace
-        .check_out(
-            test_workspace.repo.op_id().clone(),
-            None,
-            &root_commit,
-            &CheckoutOptions::empty_for_test(),
-        )
+        .check_out(test_workspace.repo.op_id().clone(), None, &root_commit)
         .unwrap();
     testutils::write_working_copy_file(
         test_workspace.workspace.workspace_root(),
@@ -261,12 +253,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     // conflict markers.
     test_workspace
         .workspace
-        .check_out(
-            test_workspace.repo.op_id().clone(),
-            None,
-            &merge_commit,
-            &CheckoutOptions::empty_for_test(),
-        )
+        .check_out(test_workspace.repo.op_id().clone(), None, &merge_commit)
         .unwrap();
     let mut file = File::options().append(true).open(&file_disk_path).unwrap();
     file.write_all(b"c\r\n").unwrap();
@@ -309,7 +296,6 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
             test_workspace.repo.op_id().clone(),
             None,
             &test_workspace.workspace.repo_loader().store().root_commit(),
-            &CheckoutOptions::empty_for_test(),
         )
         .unwrap();
     // We have to query the Commit again. The Workspace is backed by a different
@@ -322,12 +308,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
         .expect("Failed to find the commit with the test file");
     test_workspace
         .workspace
-        .check_out(
-            test_workspace.repo.op_id().clone(),
-            None,
-            &merge_commit,
-            &CheckoutOptions::empty_for_test(),
-        )
+        .check_out(test_workspace.repo.op_id().clone(), None, &merge_commit)
         .unwrap();
 
     assert!(std::fs::exists(&file_disk_path).unwrap());
@@ -462,12 +443,7 @@ fn test_eol_conversion_update_conflicts(
     // Checkout the merge commit.
     test_workspace
         .workspace
-        .check_out(
-            test_workspace.repo.op_id().clone(),
-            None,
-            &merge_commit,
-            &CheckoutOptions::empty_for_test(),
-        )
+        .check_out(test_workspace.repo.op_id().clone(), None, &merge_commit)
         .unwrap();
     let contents = std::fs::read(&file_disk_path).unwrap();
     for line in contents.lines_with_terminator() {
@@ -575,7 +551,6 @@ fn test_eol_conversion_checkout(
             test_workspace.repo.op_id().clone(),
             None,
             &test_workspace.workspace.repo_loader().store().root_commit(),
-            &CheckoutOptions::empty_for_test(),
         )
         .unwrap();
     assert!(!std::fs::exists(&file_disk_path).unwrap());
@@ -603,12 +578,7 @@ fn test_eol_conversion_checkout(
     // EOL accordingly.
     test_workspace
         .workspace
-        .check_out(
-            test_workspace.repo.op_id().clone(),
-            None,
-            &commit,
-            &CheckoutOptions::empty_for_test(),
-        )
+        .check_out(test_workspace.repo.op_id().clone(), None, &commit)
         .unwrap();
 
     // When we take a snapshot now, the tree may not be clean, because the EOL our
