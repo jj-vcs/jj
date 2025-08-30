@@ -47,6 +47,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj fix`↴](#jj-fix)
 * [`jj git`↴](#jj-git)
 * [`jj git clone`↴](#jj-git-clone)
+* [`jj git colocate`↴](#jj-git-colocate)
 * [`jj git export`↴](#jj-git-export)
 * [`jj git fetch`↴](#jj-git-fetch)
 * [`jj git import`↴](#jj-git-import)
@@ -1192,6 +1193,7 @@ See this [comparison], including a [table of commands].
 ###### **Subcommands:**
 
 * `clone` — Create a new repo backed by a clone of a Git repo
+* `colocate` — Convert a Jujutsu repository to a co-located Jujutsu/git repository
 * `export` — Update the underlying Git repo with changes made in the repo
 * `fetch` — Fetch from a Git remote
 * `import` — Update repo with changes made in the underlying Git repo
@@ -1237,6 +1239,18 @@ The Git repo will be a bare git repo stored inside the `.jj/` directory.
   - `none`:
     Do not fetch any tags
 
+
+
+
+## `jj git colocate`
+
+Convert a Jujutsu repository to a co-located Jujutsu/git repository
+
+**Usage:** `jj git colocate [OPTIONS]`
+
+###### **Options:**
+
+* `--undo` — Undo a previous colocate operation, reverting the repository back to a non-colocated git repository
 
 
 
