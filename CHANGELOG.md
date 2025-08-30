@@ -39,6 +39,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `conflict` label used for coloring log graph nodes was renamed to
   `conflicted`.
 
+* `jj` now records content hash of materialized conflict files in addition to
+  file modification time, and relies on them to detect changes. Unchanged
+  conflicts checked out by old `jj` may be snapshotted by new `jj`. Run `jj new
+  <REVISION-WITHOUT-CONFLICTS> && jj undo` to check out fresh conflict files.
+
 ### Deprecations
 
 * The on-disk index format has changed. `jj` will write index files in both old

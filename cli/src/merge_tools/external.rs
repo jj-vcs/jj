@@ -192,10 +192,6 @@ fn run_mergetool_external_single_file(
         file,
     } = merge_tool_file;
 
-    let conflict_marker_style = editor
-        .conflict_marker_style
-        .unwrap_or(default_conflict_marker_style);
-
     let uses_marker_length = find_all_variables(&editor.merge_args).contains(&"marker_length");
 
     // If the merge tool doesn't get conflict markers pre-populated in the output
@@ -209,7 +205,9 @@ fn run_mergetool_external_single_file(
     };
     let initial_output_content = if editor.merge_tool_edits_conflict_markers {
         let options = ConflictMaterializeOptions {
-            marker_style: conflict_marker_style,
+            marker_style: editor
+                .conflict_marker_style
+                .unwrap_or(default_conflict_marker_style),
             marker_len: Some(conflict_marker_len),
         };
         materialize_merge_result_to_bytes(&file.contents, &options)
@@ -294,7 +292,6 @@ fn run_mergetool_external_single_file(
             store,
             repo_path,
             output_file_contents.as_slice(),
-            conflict_marker_style,
             conflict_marker_len,
         )
         .block_on()?

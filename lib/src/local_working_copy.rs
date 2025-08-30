@@ -1621,7 +1621,14 @@ impl FileSnapshotter<'_> {
                     message: "Failed to read the EOL converted contents".to_string(),
                     err: err.into(),
                 })?;
+            // Check if the new content is unchanged. This makes sure that
+            // unchanged conflicts are not updated.
+            let old_content_hash =
+                current_conflict_data.and_then(|data| data.content_hash.as_deref());
             let new_content_hash = blake2b_hash(&contents);
+            if old_content_hash == Some(&*new_content_hash) {
+                return Ok((current_tree_values.clone(), current_conflict_data.cloned()));
+            }
             // If the file contained a conflict before and is a normal file on
             // disk, we try to parse any conflict markers in the file into a
             // conflict.
@@ -1634,7 +1641,6 @@ impl FileSnapshotter<'_> {
                 self.store(),
                 repo_path,
                 &contents,
-                self.tree_state.conflict_marker_style,
                 conflict_marker_len as usize,
             )
             .await?;

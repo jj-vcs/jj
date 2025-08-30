@@ -28,6 +28,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::store::Store;
 use pollster::FutureExt as _;
+use test_case::test_case;
 use testutils::TestRepo;
 use testutils::read_file;
 use testutils::repo_path;
@@ -537,8 +538,10 @@ fn test_materialize_parse_roundtrip() {
     "#);
 }
 
-#[test]
-fn test_materialize_parse_roundtrip_different_markers() {
+#[test_case(ConflictMarkerStyle::Diff)]
+#[test_case(ConflictMarkerStyle::Snapshot)]
+#[test_case(ConflictMarkerStyle::Git)]
+fn test_materialize_update_roundtrip(style: ConflictMarkerStyle) {
     let test_repo = TestRepo::init();
     let store = test_repo.repo.store();
 
@@ -582,35 +585,18 @@ fn test_materialize_parse_roundtrip_different_markers() {
         vec![Some(a_id.clone()), Some(b_id.clone())],
     );
 
-    let all_styles = [
-        ConflictMarkerStyle::Diff,
-        ConflictMarkerStyle::Snapshot,
-        ConflictMarkerStyle::Git,
-    ];
+    let materialized = materialize_conflict_string(store, path, &conflict, style);
+    let parsed = update_from_content(
+        &conflict,
+        store,
+        path,
+        materialized.as_bytes(),
+        MIN_CONFLICT_MARKER_LEN,
+    )
+    .block_on()
+    .unwrap();
 
-    // For every pair of conflict marker styles, materialize the conflict using the
-    // first style and parse it using the second. It should return the same result
-    // regardless of the conflict markers used for materialization and parsing.
-    for materialize_style in all_styles {
-        let materialized = materialize_conflict_string(store, path, &conflict, materialize_style);
-        for parse_style in all_styles {
-            let parsed = update_from_content(
-                &conflict,
-                store,
-                path,
-                materialized.as_bytes(),
-                parse_style,
-                MIN_CONFLICT_MARKER_LEN,
-            )
-            .block_on()
-            .unwrap();
-
-            assert_eq!(
-                parsed, conflict,
-                "parse {materialize_style:?} conflict markers with {parse_style:?}"
-            );
-        }
-    }
+    assert_eq!(parsed, conflict);
 }
 
 #[test]
@@ -1657,16 +1643,9 @@ fn test_update_conflict_from_content() {
     let materialized =
         materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
     let parse = |content| {
-        update_from_content(
-            &conflict,
-            store,
-            path,
-            content,
-            ConflictMarkerStyle::Diff,
-            MIN_CONFLICT_MARKER_LEN,
-        )
-        .block_on()
-        .unwrap()
+        update_from_content(&conflict, store, path, content, MIN_CONFLICT_MARKER_LEN)
+            .block_on()
+            .unwrap()
     };
     assert_eq!(parse(materialized.as_bytes()), conflict);
 
@@ -1714,16 +1693,9 @@ fn test_update_conflict_from_content_modify_delete() {
     let materialized =
         materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
     let parse = |content| {
-        update_from_content(
-            &conflict,
-            store,
-            path,
-            content,
-            ConflictMarkerStyle::Diff,
-            MIN_CONFLICT_MARKER_LEN,
-        )
-        .block_on()
-        .unwrap()
+        update_from_content(&conflict, store, path, content, MIN_CONFLICT_MARKER_LEN)
+            .block_on()
+            .unwrap()
     };
     assert_eq!(parse(materialized.as_bytes()), conflict);
 
@@ -1774,16 +1746,9 @@ fn test_update_conflict_from_content_simplified_conflict() {
     let materialized =
         materialize_conflict_string(store, path, &simplified_conflict, ConflictMarkerStyle::Diff);
     let parse = |content| {
-        update_from_content(
-            &conflict,
-            store,
-            path,
-            content,
-            ConflictMarkerStyle::Diff,
-            MIN_CONFLICT_MARKER_LEN,
-        )
-        .block_on()
-        .unwrap()
+        update_from_content(&conflict, store, path, content, MIN_CONFLICT_MARKER_LEN)
+            .block_on()
+            .unwrap()
     };
     insta::assert_snapshot!(
         materialized,
@@ -1916,20 +1881,10 @@ fn test_update_conflict_from_content_with_long_markers() {
     "
     );
 
-    // Parse the conflict markers using a different conflict marker style. This is
-    // to avoid the two versions of the file being obviously identical, so that we
-    // can test the actual parsing logic.
     let parse = |conflict, content| {
-        update_from_content(
-            conflict,
-            store,
-            path,
-            content,
-            ConflictMarkerStyle::Diff,
-            materialized_marker_len,
-        )
-        .block_on()
-        .unwrap()
+        update_from_content(conflict, store, path, content, materialized_marker_len)
+            .block_on()
+            .unwrap()
     };
     assert_eq!(parse(&conflict, materialized.as_bytes()), conflict);
 
@@ -2061,14 +2016,12 @@ fn test_update_conflict_from_content_no_eol() {
     >>>>>>> Conflict 2 of 2 ends
     "
     );
-    // Parse with "snapshot" markers to ensure the file is actually parsed
     assert_eq!(
         update_from_content(
             &conflict,
             store,
             path,
             materialized.as_bytes(),
-            ConflictMarkerStyle::Snapshot,
             MIN_CONFLICT_MARKER_LEN,
         )
         .block_on()
@@ -2101,14 +2054,12 @@ fn test_update_conflict_from_content_no_eol() {
     >>>>>>> Conflict 2 of 2 ends
     "
     );
-    // Parse with "diff" markers to ensure the file is actually parsed
     assert_eq!(
         update_from_content(
             &conflict,
             store,
             path,
             materialized.as_bytes(),
-            ConflictMarkerStyle::Diff,
             MIN_CONFLICT_MARKER_LEN,
         )
         .block_on()
@@ -2139,14 +2090,12 @@ fn test_update_conflict_from_content_no_eol() {
     >>>>>>> Side #2 (Conflict 2 of 2 ends)
     "
     );
-    // Parse with "diff" markers to ensure the file is actually parsed
     assert_eq!(
         update_from_content(
             &conflict,
             store,
             path,
             materialized.as_bytes(),
-            ConflictMarkerStyle::Diff,
             MIN_CONFLICT_MARKER_LEN,
         )
         .block_on()
@@ -2214,14 +2163,12 @@ fn test_update_conflict_from_content_no_eol_in_diff_hunk() {
     >>>>>>> Conflict 1 of 1 ends
     "
     );
-    // Parse with "snapshot" markers to ensure the file is actually parsed
     assert_eq!(
         update_from_content(
             &conflict,
             store,
             path,
             materialized.as_bytes(),
-            ConflictMarkerStyle::Snapshot,
             MIN_CONFLICT_MARKER_LEN,
         )
         .block_on()
@@ -2258,14 +2205,12 @@ fn test_update_conflict_from_content_only_no_eol_change() {
     >>>>>>> Conflict 1 of 1 ends
     "
     );
-    // Parse with "snapshot" markers to ensure the file is actually parsed
     assert_eq!(
         update_from_content(
             &conflict,
             store,
             path,
             materialized.as_bytes(),
-            ConflictMarkerStyle::Snapshot,
             MIN_CONFLICT_MARKER_LEN,
         )
         .block_on()
@@ -2350,16 +2295,9 @@ fn test_update_from_content_malformed_conflict() {
     );
 
     let parse = |conflict, content| {
-        update_from_content(
-            conflict,
-            store,
-            path,
-            content,
-            ConflictMarkerStyle::Diff,
-            materialized_marker_len,
-        )
-        .block_on()
-        .unwrap()
+        update_from_content(conflict, store, path, content, materialized_marker_len)
+            .block_on()
+            .unwrap()
     };
     assert_eq!(parse(&conflict, materialized.as_bytes()), conflict);
 
