@@ -45,6 +45,8 @@
 "elided" = "bright black"
 "root" = "green"
 
+"immutable description" = "bright black"
+
 "working_copy" = { bold = true }
 "working_copy commit_id" = "bright blue"
 "working_copy change_id" = "bright magenta"
