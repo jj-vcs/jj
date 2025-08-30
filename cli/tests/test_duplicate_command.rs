@@ -2487,7 +2487,7 @@ fn test_duplicate_description_template() {
         // Use an argument here so we can actually see the log in the last test
         // (We don't have a way to remove a config in TestEnvironment)
         "--config",
-        "template-aliases.description='\"alias\"'",
+        "templates.description='\"alias\"'",
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------

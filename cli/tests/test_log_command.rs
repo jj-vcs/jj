@@ -45,6 +45,8 @@ fn test_log_with_no_template() {
 
     For more information, try '--help'.
     Hint: The following template aliases are defined:
+    - backout_description
+    - bookmark_list
     - builtin_config_list
     - builtin_config_list_detailed
     - builtin_draft_commit_description
@@ -63,12 +65,31 @@ fn test_log_with_no_template() {
     - builtin_op_log_node_ascii
     - builtin_op_log_oneline
     - builtin_op_log_redacted
+    - commit_summary
     - commit_summary_separator
+    - commit_trailers
+    - config_list
     - default_commit_description
     - description_placeholder
+    - draft_commit_description
+    - duplicate_description
     - email_placeholder
+    - file_annotate
+    - file_list
+    - file_show
     - git_format_patch_email_headers
+    - git_push_bookmark
+    - log
+    - log_node
     - name_placeholder
+    - op_log
+    - op_log_node
+    - op_show
+    - op_summary
+    - revert_description
+    - show
+    - tag_list
+    - workspace_list
     [EOF]
     [exit status: 2]
     ");
@@ -388,7 +409,7 @@ fn test_log_shortest_accessors() {
     let render = |rev, template| work_dir.run_jj(["log", "--no-graph", "-r", rev, "-T", template]);
     test_env.add_config(
         r#"
-        [template-aliases]
+        [templates]
         'format_id(id)' = 'id.shortest(12).prefix() ++ "[" ++ id.shortest(12).rest() ++ "]"'
         "#,
     );
@@ -506,7 +527,7 @@ fn test_log_bad_short_prefixes() {
     let work_dir = test_env.work_dir("repo");
 
     // Suppress warning in the commit summary template
-    test_env.add_config("template-aliases.'format_short_id(id)' = 'id.short(8)'");
+    test_env.add_config("templates.'format_short_id(id)' = 'id.short(8)'");
 
     // Error on bad config of short prefixes
     test_env.add_config(r#"revsets.short-prefixes = "!nval!d""#);
@@ -689,7 +710,7 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
         r#"
         [revsets]
         short-prefixes = "" # Disable short prefixes
-        [template-aliases]
+        [templates]
         'format_id(id)' = 'id.shortest(12).prefix() ++ "[" ++ id.shortest(12).rest() ++ "]"'
         "#,
     );
@@ -759,7 +780,7 @@ fn test_log_author_format() {
     [EOF]
     ");
 
-    let decl = "template-aliases.'format_short_signature(signature)'";
+    let decl = "templates.'format_short_signature(signature)'";
     insta::assert_snapshot!(work_dir.run_jj([
         "--config",
         &format!("{decl}='signature.email().local()'"),
