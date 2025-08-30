@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fs::File;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
+use std::time::SystemTime;
 
 use assert_matches::assert_matches;
 use indoc::indoc;
@@ -934,6 +937,77 @@ fn test_materialize_snapshot_conflicted_files() {
         testutils::read_file(repo.store(), file1_path, &edited_file_file_id_4),
         b"c_edited\n"
     );
+}
+
+#[test]
+fn test_materialize_snapshot_unchanged_conflicts() {
+    let mut test_workspace = TestWorkspace::init();
+    let repo = &test_workspace.repo;
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+
+    // Both sides change "line 3" differently, right side deletes "line 5".
+    let base_content = indoc! {"
+        line 1
+        line 2
+        line 3
+        line 4
+        line 5
+    "};
+    let left_content = indoc! {"
+        line 1
+        line 2
+        left 3.1
+        left 3.2
+        left 3.3
+        line 4
+        line 5
+    "};
+    let right_content = indoc! {"
+        line 1
+        line 2
+        right 3.1
+        line 4
+    "};
+    let file_path = repo_path("file");
+    let base_tree = create_tree(repo, &[(file_path, base_content)]);
+    let left_tree = create_tree(repo, &[(file_path, left_content)]);
+    let right_tree = create_tree(repo, &[(file_path, right_content)]);
+    let merged_tree = left_tree.merge(base_tree, right_tree).block_on().unwrap();
+    let commit = commit_with_tree(repo.store(), merged_tree.id());
+
+    test_workspace
+        .workspace
+        .check_out(repo.op_id().clone(), None, &commit)
+        .unwrap();
+
+    // "line 5" should be deleted from the checked-out content.
+    let disk_path = file_path.to_fs_path_unchecked(&workspace_root);
+    let materialized_content = std::fs::read_to_string(&disk_path).unwrap();
+    insta::assert_snapshot!(materialized_content, @r"
+    line 1
+    line 2
+    <<<<<<< Conflict 1 of 1
+    +++++++ Contents of side #1
+    left 3.1
+    left 3.2
+    left 3.3
+    %%%%%%% Changes from base to side #2
+    -line 3
+    +right 3.1
+    >>>>>>> Conflict 1 of 1 ends
+    line 4
+    ");
+
+    // Update mtime to bypass file state comparison.
+    let file = File::options().write(true).open(&disk_path).unwrap();
+    file.set_modified(SystemTime::now() + Duration::from_secs(1))
+        .unwrap();
+    drop(file);
+
+    // Unchanged snapshot should be identical to the original even if "line 5"
+    // could be deleted from all sides.
+    let snapshotted_tree = test_workspace.snapshot().unwrap();
+    assert_eq!(tree_entries(&snapshotted_tree), tree_entries(&merged_tree));
 }
 
 #[test]
