@@ -25,6 +25,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The default editor on Unix is now `nano` instead of `pico`.
 
+* `jj config get` now supports displaying array and table config values.
+
 ### Fixed bugs
 
 ## [0.33.0] - 2025-09-03
