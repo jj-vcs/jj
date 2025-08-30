@@ -2380,11 +2380,14 @@ The reverse of each of the given revisions is applied sequentially in reverse to
 
 The description of the new revisions can be customized with the `templates.revert_description` config variable.
 
-**Usage:** `jj revert [OPTIONS] <--destination <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>`
+**Usage:** `jj revert <--destination <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>> [REVSETS]...`
+
+###### **Arguments:**
+
+* `<REVSETS>` — The revision(s) to apply the reverse of
 
 ###### **Options:**
 
-* `-r`, `--revisions <REVSETS>` — The revision(s) to apply the reverse of
 * `-d`, `--destination <REVSETS>` — The revision(s) to apply the reverse changes on top of
 * `-A`, `--insert-after <REVSETS>` [alias: `after`] — The revision(s) to insert the reverse changes after (can be repeated to create a merge commit)
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — The revision(s) to insert the reverse changes before (can be repeated to create a merge commit)
