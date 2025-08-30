@@ -21,6 +21,12 @@ pub use self::config_schema_defaults::default_config_from_schema;
 pub use self::test_environment::TestEnvironment;
 pub use self::test_environment::TestWorkDir;
 
+pub fn fake_bisector_path() -> String {
+    let path = assert_cmd::cargo::cargo_bin("fake-bisector");
+    assert!(path.is_file());
+    path.into_os_string().into_string().unwrap()
+}
+
 pub fn fake_editor_path() -> String {
     let path = assert_cmd::cargo::cargo_bin("fake-editor");
     assert!(path.is_file());

@@ -59,6 +59,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The new command `jj redo` can progressively redo operations that were
   previously undone by multiple calls to `jj undo`.
 
+* The new command `jj bisect run` uses binary search to find a commit that
+  introduced a bug.
+
 * Templates now support `any()` and `all()` methods on lists to check whether
   any or all elements satisfy a predicate. Example: `parents.any(|c| c.mine())`
   returns true if any parent commit is authored by the user.
