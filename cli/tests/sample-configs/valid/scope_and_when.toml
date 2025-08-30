@@ -1,0 +1,10 @@
+#:schema ../../../src/config-schema.json
+
+# --when can be used at the top-level. Useful when config is organized over
+# several files.
+--when.commands = ["log"]
+user.name = "John Doe"
+
+[[--scope]]
+--when.repositories = ["~/repos/employer"]
+user.email = "myname@employer.com"

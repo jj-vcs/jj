@@ -904,6 +904,34 @@
                     "default": "none"
                 }
             }
+        },
+        "--when": {
+            "type": "object",
+            "description": "Conditions restriction the application of the configuration",
+            "properties": {
+                "repositories": {
+                    "type": "array",
+                    "description": "List of paths to match the repository path prefix",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "commands": {
+                    "type": "array",
+                    "description": "List of subcommands to match",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "--scope": {
+            "type": "array",
+            "description": "Scoped tables for conditional configuration",
+            "items": {
+                "$comment": "https://json-schema.org/understanding-json-schema/structuring#recursion",
+                "$ref": "#"
+            }
         }
     }
 }
