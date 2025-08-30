@@ -19,6 +19,8 @@ use std::any::Any;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::error::Error;
+use std::fmt;
+use std::fmt::Debug;
 use std::fs;
 use std::fs::DirEntry;
 use std::fs::File;
@@ -77,6 +79,7 @@ use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::choose_materialized_conflict_marker_len;
 use crate::conflicts::materialize_merge_result_to_bytes;
 use crate::conflicts::materialize_tree_value;
+use crate::content_hash::blake2b_hash;
 pub use crate::eol::EolConversionMode;
 use crate::eol::TargetEolStrategy;
 use crate::file_util::BlockingAsyncReader;
@@ -90,6 +93,7 @@ use crate::fsmonitor::WatchmanConfig;
 #[cfg(feature = "watchman")]
 use crate::fsmonitor::watchman;
 use crate::gitignore::GitIgnoreFile;
+use crate::hex_util;
 use crate::lock::FileLock;
 use crate::matchers::DifferenceMatcher;
 use crate::matchers::EverythingMatcher;
@@ -162,9 +166,28 @@ pub enum FileType {
     GitSubmodule,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone)]
 pub struct MaterializedConflictData {
     pub conflict_marker_len: u32,
+    /// Blake2b hash of materialized content, before EOL conversion is applied.
+    /// `None` if materialized by jj < 0.33.
+    pub content_hash: Option<Vec<u8>>,
+}
+
+impl Debug for MaterializedConflictData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            conflict_marker_len,
+            content_hash,
+        } = self;
+        f.debug_struct("MaterializedConflictData")
+            .field("conflict_marker_len", conflict_marker_len)
+            .field(
+                "content_hash",
+                &content_hash.as_deref().map(hex_util::encode_hex),
+            )
+            .finish()
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -459,6 +482,7 @@ fn file_state_from_proto(proto: &crate::protos::local_working_copy::FileState) -
         materialized_conflict_data: proto.materialized_conflict_data.as_ref().map(|data| {
             MaterializedConflictData {
                 conflict_marker_len: data.conflict_marker_len,
+                content_hash: data.content_hash.clone(),
             }
         }),
     }
@@ -483,6 +507,7 @@ fn file_state_to_proto(file_state: &FileState) -> crate::protos::local_working_c
     proto.materialized_conflict_data = file_state.materialized_conflict_data.as_ref().map(|data| {
         crate::protos::local_working_copy::MaterializedConflictData {
             conflict_marker_len: data.conflict_marker_len,
+            content_hash: data.content_hash.clone(),
         }
     });
     proto
@@ -1596,6 +1621,7 @@ impl FileSnapshotter<'_> {
                     message: "Failed to read the EOL converted contents".to_string(),
                     err: err.into(),
                 })?;
+            let new_content_hash = blake2b_hash(&contents);
             // If the file contained a conflict before and is a normal file on
             // disk, we try to parse any conflict markers in the file into a
             // conflict.
@@ -1638,6 +1664,7 @@ impl FileSnapshotter<'_> {
                     // Preserve conflict data for normal, non-resolved files.
                     let new_conflict_data = MaterializedConflictData {
                         conflict_marker_len,
+                        content_hash: Some(new_content_hash.to_vec()),
                     };
                     Ok((new_tree_value, Some(new_conflict_data)))
                 }
@@ -1969,6 +1996,7 @@ impl TreeState {
                         .await?;
                     file_state.materialized_conflict_data = Some(MaterializedConflictData {
                         conflict_marker_len: conflict_marker_len.try_into().unwrap_or(u32::MAX),
+                        content_hash: Some(blake2b_hash(&*contents).to_vec()),
                     });
                     file_state
                 }
