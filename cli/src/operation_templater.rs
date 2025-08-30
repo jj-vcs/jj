@@ -362,7 +362,7 @@ pub struct OperationTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLangua
     pub operation_id_methods: TemplateBuildMethodFnMap<'a, L, OperationId, P>,
 }
 
-impl<'a, L: ?Sized, P> OperationTemplateBuildFnTable<'a, L, P> {
+impl<L: ?Sized, P> OperationTemplateBuildFnTable<'_, L, P> {
     pub fn empty() -> Self {
         Self {
             operation_methods: HashMap::new(),
