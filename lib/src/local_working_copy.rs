@@ -200,18 +200,13 @@ impl FileState {
         }
     }
 
-    fn for_file(
-        executable: bool,
-        size: u64,
-        metadata: &Metadata,
-        materialized_conflict_data: Option<MaterializedConflictData>,
-    ) -> Self {
+    fn for_file(executable: bool, size: u64, metadata: &Metadata) -> Self {
         let executable = FileExecutableFlag::from_bool_lossy(executable);
         Self {
             file_type: FileType::Normal { executable },
             mtime: mtime_from_metadata(metadata),
             size,
-            materialized_conflict_data,
+            materialized_conflict_data: None,
         }
     }
 
@@ -1743,12 +1738,7 @@ impl TreeState {
         let metadata = file
             .metadata()
             .map_err(|err| checkout_error_for_stat_error(err, disk_path))?;
-        Ok(FileState::for_file(
-            executable,
-            size as u64,
-            &metadata,
-            None,
-        ))
+        Ok(FileState::for_file(executable, size as u64, &metadata))
     }
 
     fn write_symlink(&self, disk_path: &Path, target: String) -> Result<FileState, CheckoutError> {
@@ -1772,7 +1762,6 @@ impl TreeState {
         disk_path: &Path,
         contents: &[u8],
         executable: bool,
-        materialized_conflict_data: Option<MaterializedConflictData>,
     ) -> Result<FileState, CheckoutError> {
         let contents = self
             .target_eol_strategy
@@ -1800,12 +1789,7 @@ impl TreeState {
         let metadata = file
             .metadata()
             .map_err(|err| checkout_error_for_stat_error(err, disk_path))?;
-        Ok(FileState::for_file(
-            executable,
-            size,
-            &metadata,
-            materialized_conflict_data,
-        ))
+        Ok(FileState::for_file(executable, size, &metadata))
     }
 
     #[cfg_attr(windows, allow(unused_variables))]
@@ -1997,23 +1981,20 @@ impl TreeState {
                         conflict_marker_style,
                         conflict_marker_len,
                     );
-                    let materialized_conflict_data = MaterializedConflictData {
+                    let mut file_state = self
+                        .write_conflict(&disk_path, &contents, file.executable.unwrap_or(false))
+                        .await?;
+                    file_state.materialized_conflict_data = Some(MaterializedConflictData {
                         conflict_marker_len: conflict_marker_len.try_into().unwrap_or(u32::MAX),
-                    };
-                    self.write_conflict(
-                        &disk_path,
-                        &contents,
-                        file.executable.unwrap_or(false),
-                        Some(materialized_conflict_data),
-                    )
-                    .await?
+                    });
+                    file_state
                 }
                 MaterializedTreeValue::OtherConflict { id } => {
                     // Unless all terms are regular files, we can't do much
                     // better than trying to describe the merge.
                     let contents = id.describe();
                     let executable = false;
-                    self.write_conflict(&disk_path, contents.as_bytes(), executable, None)
+                    self.write_conflict(&disk_path, contents.as_bytes(), executable)
                         .await?
                 }
             };
