@@ -1770,13 +1770,13 @@ impl TreeState {
     async fn write_conflict(
         &self,
         disk_path: &Path,
-        conflict_data: Vec<u8>,
+        contents: &[u8],
         executable: bool,
         materialized_conflict_data: Option<MaterializedConflictData>,
     ) -> Result<FileState, CheckoutError> {
-        let conflict_data = self
+        let contents = self
             .target_eol_strategy
-            .convert_eol_for_update(conflict_data.as_slice())
+            .convert_eol_for_update(contents)
             .await
             .map_err(|err| CheckoutError::Other {
                 message: "Failed to convert the EOL when writing a merge conflict".to_string(),
@@ -1790,7 +1790,7 @@ impl TreeState {
                 message: format!("Failed to open file {} for writing", disk_path.display()),
                 err: err.into(),
             })?;
-        let size = copy_async_to_sync(conflict_data, &mut file)
+        let size = copy_async_to_sync(contents, &mut file)
             .await
             .map_err(|err| CheckoutError::Other {
                 message: format!("Failed to write conflict to file {}", disk_path.display()),
@@ -1992,18 +1992,17 @@ impl TreeState {
                 MaterializedTreeValue::FileConflict(file) => {
                     let conflict_marker_len =
                         choose_materialized_conflict_marker_len(&file.contents);
-                    let data = materialize_merge_result_to_bytes_with_marker_len(
+                    let contents = materialize_merge_result_to_bytes_with_marker_len(
                         &file.contents,
                         conflict_marker_style,
                         conflict_marker_len,
-                    )
-                    .into();
+                    );
                     let materialized_conflict_data = MaterializedConflictData {
                         conflict_marker_len: conflict_marker_len.try_into().unwrap_or(u32::MAX),
                     };
                     self.write_conflict(
                         &disk_path,
-                        data,
+                        &contents,
                         file.executable.unwrap_or(false),
                         Some(materialized_conflict_data),
                     )
@@ -2012,9 +2011,9 @@ impl TreeState {
                 MaterializedTreeValue::OtherConflict { id } => {
                     // Unless all terms are regular files, we can't do much
                     // better than trying to describe the merge.
-                    let data = id.describe().into_bytes();
+                    let contents = id.describe();
                     let executable = false;
-                    self.write_conflict(&disk_path, data, executable, None)
+                    self.write_conflict(&disk_path, contents.as_bytes(), executable, None)
                         .await?
                 }
             };
