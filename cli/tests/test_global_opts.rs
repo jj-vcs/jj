@@ -1063,6 +1063,8 @@ fn test_help() {
                                          auto]
           --quiet                        Silence non-primary command output
           --no-pager                     Disable the pager
+          --pager                        Sets the pager to auto. This is the default behavior unless
+                                         configured otherwise
           --config <NAME=VALUE>          Additional configuration options (can be repeated)
           --config-file <PATH>           Additional configuration files (can be repeated)
     [EOF]
