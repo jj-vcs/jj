@@ -19,9 +19,9 @@ a comparison with Git, including how workflows are different, see the
   `~/.gitconfig`) that's respected is the following. Feel free to file a bug if
   you miss any particular configuration options.
   * The configuration of remotes (`[remote "<name>"]`). Only the names and URLs
-    are respected (refspecs are not respected, and
-    [only the last pushurl](https://github.com/jj-vcs/jj/issues/4889) is
-    respected).
+    are respected (simple fetch refspecs are respected when branches are not
+    explicitly specified on the CLI, and [only the last
+    pushurl](https://github.com/jj-vcs/jj/issues/4889) is respected).
   * `core.excludesFile`
 * **Authentication: Yes.** `git` is used for remote operations under the hood.
 * **Branches: Yes.** You can read more about
