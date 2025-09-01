@@ -159,7 +159,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `simplify-parents` — Simplify parent edges for the specified revision(s)
 * `sparse` — Manage which paths from the working-copy commit are present in the working copy
 * `split` — Split a revision in two
-* `squash` — Move changes from a revision into another revision
+* `squash` — Move changes from one or more revisions into another revision
 * `status` — Show high-level repo status [default alias: st]
 * `tag` — Manage tags
 * `touch` — Modify the metadata of a revision without changing its content
@@ -2580,11 +2580,13 @@ Splitting an empty commit is not supported because the same effect can be achiev
 
 ## `jj squash`
 
-Move changes from a revision into another revision
+Move changes from one or more revisions into another revision
 
-With the `-r` option, moves the changes from the specified revision to the parent revision. Fails if there are several parent revisions (i.e., the given revision is a merge).
+Without option, moves the changes from the working-copy `@` to its parent. Fails if there are several parent revisions (i.e., the  working-copy is a merge).
 
-With the `--from` and/or `--into` options, moves changes from/to the given revisions. If either is left out, it defaults to the working-copy commit. For example, `jj squash --into @--` moves changes from the working-copy commit to the grandparent.
+With the `-r` option, moves the changes from the specified revision(s) into a single revision. The destination revision is specified with the `--into`, `--destination`, `--insert-after` and/or `--insert-before` options. If none of these options is used, the changes are moved to the root of the squashed revisions.
+
+With the `--from` and/or `--into` options, moves changes from/to the given revisions. If either is left out, it defaults to the working-copy commit. For example, `jj squash --from xyz` moves changes from `xyz` to the working-copy.
 
 If, after moving changes out, the source revision is empty compared to its parent(s), and `--keep-emptied` is not set, it will be abandoned. Without `--interactive` or paths, the source revision will always be empty.
 
@@ -2594,7 +2596,7 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 
 EXPERIMENTAL FEATURES
 
-An alternative squashing UI is available via the `-d`, `-A`, and `-B` options. They can be used together with one or more `--from` options (if no `--from` is specified, `--from @` is assumed).
+An alternative squashing UI is available via the `-d`, `-A`, and `-B` options. They can be used together with one or more `-r` options (if no `-r` is specified, `-r @` is assumed).
 
 **Usage:** `jj squash [OPTIONS] [FILESETS]...`
 
@@ -2604,9 +2606,9 @@ An alternative squashing UI is available via the `-d`, `-A`, and `-B` options. T
 
 ###### **Options:**
 
-* `-r`, `--revision <REVSET>` — Revision to squash into its parent (default: @). Incompatible with the experimental `-d`/`-A`/`-B` options
-* `-f`, `--from <REVSETS>` — Revision(s) to squash from (default: @)
-* `-t`, `--into <REVSET>` [alias: `to`] — Revision to squash into (default: @)
+* `-r`, `--revisions <REVSETS>` — Revisions to squash together. Without any of the `-t` option or the experimental `-d`/`-A`/`-B` options, the revisions are squashed into their root revision
+* `-f`, `--from <REVSETS>` — Revision(s) to squash from. Without any of the `-t` option or the experimental `-d`/`-A`/`-B` options, the revisions are squashed into the working-copy `@`
+* `-t`, `--into <REVSET>` [alias: `to`] — Revision to squash into
 * `-d`, `--destination <REVSETS>` — (Experimental) The revision(s) to use as parent for the new commit (can be repeated to create a merge commit)
 * `-A`, `--insert-after <REVSETS>` [alias: `after`] — (Experimental) The revision(s) to insert the new commit after (can be repeated to create a merge commit)
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — (Experimental) The revision(s) to insert the new commit before (can be repeated to create a merge commit)
