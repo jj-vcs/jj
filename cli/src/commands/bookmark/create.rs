@@ -30,13 +30,7 @@ use crate::ui::Ui;
 /// Create a new bookmark
 #[derive(clap::Args, Clone, Debug)]
 pub struct BookmarkCreateArgs {
-    // TODO(#5374): Make required in jj 0.32+
     /// The bookmark's target revision
-    //
-    // The `--to` alias exists for making it easier for the user to switch
-    // between `bookmark create`, `bookmark move`, and `bookmark set`. Currently target revision
-    // defaults to the working copy if not specified, but in the near future it will be required to
-    // explicitly specify it.
     #[arg(
         long, short,
         visible_alias = "to",
@@ -56,13 +50,6 @@ pub fn cmd_bookmark_create(
     args: &BookmarkCreateArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    if args.revision.is_none() {
-        writeln!(
-            ui.warning_default(),
-            "Target revision was not specified, defaulting to the working copy (-r@). In the near \
-             future it will be required to explicitly specify target revision."
-        )?;
-    }
     let target_commit = workspace_command
         .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
     let view = workspace_command.repo().view();
