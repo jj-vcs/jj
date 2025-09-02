@@ -1214,6 +1214,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#stringpattern-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      StringPattern type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#template-type" class="md-nav__link">
     <span class="md-ellipsis">
       Template type
@@ -2423,6 +2432,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#stringpattern-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      StringPattern type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#template-type" class="md-nav__link">
     <span class="md-ellipsis">
       Template type
@@ -2907,8 +2925,16 @@ underlying data model is updated, the serialized output may change.</p>
 defined.</p>
 <ul>
 <li><code>.len() -&gt; Integer</code>: Length in UTF-8 bytes.</li>
-<li><code>.contains(needle: Stringify) -&gt; Boolean</code></li>
-<li><code>.first_line() -&gt; String</code></li>
+<li><code>.contains(needle: Stringify) -&gt; Boolean</code>: Whether the string contains the
+  provided stringifiable value as a substring.</li>
+<li>
+<p><code>.match(needle: StringPattern) -&gt; String</code>: Extracts
+  the first matching part of the string for the given pattern.</p>
+<p>An empty string is returned if there is no match.</p>
+</li>
+<li>
+<p><code>.first_line() -&gt; String</code></p>
+</li>
 <li><code>.lines() -&gt; List&lt;String&gt;</code>: Split into lines excluding newline characters.</li>
 <li><code>.upper() -&gt; String</code></li>
 <li><code>.lower() -&gt; String</code></li>
@@ -2951,6 +2977,14 @@ inside a single-quoted string literal.</p>
 <p>An expression that can be converted to a <code>String</code>.</p>
 <p>Any types that can be converted to <code>Template</code> can also be <code>Stringify</code>. Unlike
 <code>Template</code>, color labels are stripped.</p>
+<h3 id="stringpattern-type"><code>StringPattern</code> type<a class="headerlink" href="#stringpattern-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: no</em></p>
+<p>These are the exact same as the <a href="../revsets/#string-patterns">String pattern type</a> in revsets, except that
+quotes are mandatory.</p>
+<p>Literal strings may be used, which are interpreted as case-sensitive substring
+matching.</p>
+<p>Currently <code>StringPattern</code> values cannot be passed around as values and may
+only occur directly in the call site they are used in.</p>
 <h3 id="template-type"><code>Template</code> type<a class="headerlink" href="#template-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: yes</em></p>
 <p>Most types can be implicitly converted to <code>Template</code>. No methods are defined.</p>
