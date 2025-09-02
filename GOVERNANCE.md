@@ -63,8 +63,10 @@ In short, Maintainers are the outwardly visible stewards of the project.
 The current list of Maintainers:
 
 - Austin Seipp (@thoughtpolice)
+- Benjamin Tan (@bnjmnt4n)
 - Ilya Grigoriev (@ilyagr)
 - Martin von Zweigbergk (@martinvonz)
+- Scott Taylor (@scott2000)
 - Waleed Khan (@arxanas)
 - Yuya Nishihara (@yuja)
 
