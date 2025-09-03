@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 use assert_matches::assert_matches;
 use jj_lib::backend::CommitId;
@@ -28,7 +28,7 @@ use testutils::write_random_commit_with_parents;
 
 fn test_bisection<'a>(
     repo: &dyn Repo,
-    input_range: &Rc<ResolvedRevsetExpression>,
+    input_range: &Arc<ResolvedRevsetExpression>,
     results: impl IntoIterator<Item = (&'a CommitId, Evaluation)>,
 ) -> BisectionResult {
     let mut bisector = Bisector::new(repo, input_range.clone()).unwrap();

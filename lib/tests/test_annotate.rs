@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use std::fmt::Write as _;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use itertools::Itertools as _;
 use jj_lib::annotate::FileAnnotation;
@@ -67,7 +67,7 @@ fn annotate(repo: &dyn Repo, commit: &Commit, file_path: &RepoPath) -> String {
 fn annotate_within(
     repo: &dyn Repo,
     commit: &Commit,
-    domain: &Rc<ResolvedRevsetExpression>,
+    domain: &Arc<ResolvedRevsetExpression>,
     file_path: &RepoPath,
 ) -> String {
     let mut annotator = FileAnnotator::from_commit(commit, file_path).unwrap();

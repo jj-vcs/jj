@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::rc::Rc;
+use std::sync::Arc;
 use std::time::Instant;
 
 use criterion::BatchSize;
@@ -85,7 +85,7 @@ fn bench_revset<M: Measurement>(
         .clone();
     // Time both evaluation and iteration.
     let routine = |workspace_command: &WorkspaceCommandHelper,
-                   expression: Rc<UserRevsetExpression>| {
+                   expression: Arc<UserRevsetExpression>| {
         // Evaluate the expression without parsing/evaluating short-prefixes.
         let repo = workspace_command.repo().as_ref();
         let symbol_resolver =

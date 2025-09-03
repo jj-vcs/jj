@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use std::io::Write as _;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
@@ -118,10 +118,10 @@ impl Direction {
 
     fn build_target_revset(
         &self,
-        working_revset: &Rc<ResolvedRevsetExpression>,
-        start_revset: &Rc<ResolvedRevsetExpression>,
+        working_revset: &Arc<ResolvedRevsetExpression>,
+        start_revset: &Arc<ResolvedRevsetExpression>,
         args: &MovementArgsInternal,
-    ) -> Result<Rc<ResolvedRevsetExpression>, CommandError> {
+    ) -> Result<Arc<ResolvedRevsetExpression>, CommandError> {
         let nth = match (self, args.should_edit) {
             (Self::Next, true) => start_revset.descendants_at(args.offset),
             (Self::Next, false) => start_revset

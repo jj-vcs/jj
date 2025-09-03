@@ -782,8 +782,8 @@ pub struct WorkspaceCommandEnvironment {
     template_aliases_map: TemplateAliasesMap,
     path_converter: RepoPathUiConverter,
     workspace_name: WorkspaceNameBuf,
-    immutable_heads_expression: Rc<UserRevsetExpression>,
-    short_prefixes_expression: Option<Rc<UserRevsetExpression>>,
+    immutable_heads_expression: Arc<UserRevsetExpression>,
+    short_prefixes_expression: Option<Arc<UserRevsetExpression>>,
     conflict_marker_style: ConflictMarkerStyle,
 }
 
@@ -854,14 +854,14 @@ impl WorkspaceCommandEnvironment {
     }
 
     /// User-configured expression defining the immutable set.
-    pub fn immutable_expression(&self) -> Rc<UserRevsetExpression> {
+    pub fn immutable_expression(&self) -> Arc<UserRevsetExpression> {
         // Negated ancestors expression `~::(<heads> | root())` is slightly
         // easier to optimize than negated union `~(::<heads> | root())`.
         self.immutable_heads_expression.ancestors()
     }
 
     /// User-configured expression defining the heads of the immutable set.
-    pub fn immutable_heads_expression(&self) -> &Rc<UserRevsetExpression> {
+    pub fn immutable_heads_expression(&self) -> &Arc<UserRevsetExpression> {
         &self.immutable_heads_expression
     }
 
@@ -873,7 +873,7 @@ impl WorkspaceCommandEnvironment {
     fn load_immutable_heads_expression(
         &self,
         ui: &Ui,
-    ) -> Result<Rc<UserRevsetExpression>, CommandError> {
+    ) -> Result<Arc<UserRevsetExpression>, CommandError> {
         let mut diagnostics = RevsetDiagnostics::new();
         let expression = revset_util::parse_immutable_heads_expression(
             &mut diagnostics,
@@ -887,7 +887,7 @@ impl WorkspaceCommandEnvironment {
     fn load_short_prefixes_expression(
         &self,
         ui: &Ui,
-    ) -> Result<Option<Rc<UserRevsetExpression>>, CommandError> {
+    ) -> Result<Option<Arc<UserRevsetExpression>>, CommandError> {
         let revset_string = self
             .settings
             .get_string("revsets.short-prefixes")
@@ -1641,7 +1641,7 @@ to the current parents may contain changes from multiple commits.
 
     pub fn attach_revset_evaluator(
         &self,
-        expression: Rc<UserRevsetExpression>,
+        expression: Arc<UserRevsetExpression>,
     ) -> RevsetExpressionEvaluator<'_> {
         RevsetExpressionEvaluator::new(
             self.repo().as_ref(),
@@ -2168,7 +2168,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         let added_conflicts_expr = old_heads.range(&new_heads).intersection(&conflicts);
 
         let get_commits =
-            |expr: Rc<ResolvedRevsetExpression>| -> Result<Vec<Commit>, CommandError> {
+            |expr: Arc<ResolvedRevsetExpression>| -> Result<Vec<Commit>, CommandError> {
                 let commits = expr
                     .evaluate(new_repo)?
                     .iter()
@@ -3113,8 +3113,8 @@ pub fn compute_commit_location(
 /// parents of the given commits.
 fn ensure_no_commit_loop(
     repo: &ReadonlyRepo,
-    children_expression: &Rc<ResolvedRevsetExpression>,
-    parents_expression: &Rc<ResolvedRevsetExpression>,
+    children_expression: &Arc<ResolvedRevsetExpression>,
+    parents_expression: &Arc<ResolvedRevsetExpression>,
     commit_type: &str,
 ) -> Result<(), CommandError> {
     if let Some(commit_id) = children_expression

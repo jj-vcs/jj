@@ -22,6 +22,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::io;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use bstr::BString;
 use futures::StreamExt as _;
@@ -130,7 +131,7 @@ pub struct CommitTemplateLanguage<'repo> {
     // WorkspaceName are contained in RevsetParseContext for example.
     revset_parse_context: RevsetParseContext<'repo>,
     id_prefix_context: &'repo IdPrefixContext,
-    immutable_expression: Rc<UserRevsetExpression>,
+    immutable_expression: Arc<UserRevsetExpression>,
     conflict_marker_style: ConflictMarkerStyle,
     build_fn_table: CommitTemplateBuildFnTable<'repo>,
     keyword_cache: CommitKeywordCache<'repo>,
@@ -147,7 +148,7 @@ impl<'repo> CommitTemplateLanguage<'repo> {
         workspace_name: &WorkspaceName,
         revset_parse_context: RevsetParseContext<'repo>,
         id_prefix_context: &'repo IdPrefixContext,
-        immutable_expression: Rc<UserRevsetExpression>,
+        immutable_expression: Arc<UserRevsetExpression>,
         conflict_marker_style: ConflictMarkerStyle,
         extensions: &[impl AsRef<dyn CommitTemplateLanguageExtension>],
     ) -> Self {
@@ -2688,7 +2689,7 @@ mod tests {
         id_prefix_context: IdPrefixContext,
         revset_aliases_map: RevsetAliasesMap,
         template_aliases_map: TemplateAliasesMap,
-        immutable_expression: Rc<UserRevsetExpression>,
+        immutable_expression: Arc<UserRevsetExpression>,
         extra_functions: HashMap<&'static str, BuildFunctionFn>,
     }
 

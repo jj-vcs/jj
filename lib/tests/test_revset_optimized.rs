@@ -19,7 +19,7 @@
 //! The default is `256`, which might be too small to catch edge-case bugs.
 //! <https://proptest-rs.github.io/proptest/proptest/tutorial/config.html>
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
@@ -74,7 +74,7 @@ fn rebase_descendants(repo: &mut MutableRepo) -> Vec<Commit> {
 fn arb_expression(
     known_commits: Vec<CommitId>,
     visible_heads: Vec<Vec<CommitId>>,
-) -> impl Strategy<Value = Rc<ResolvedRevsetExpression>> {
+) -> impl Strategy<Value = Arc<ResolvedRevsetExpression>> {
     // https://proptest-rs.github.io/proptest/proptest/tutorial/recursive.html
     let max_commits = known_commits.len();
     let leaf_expr = prop_oneof![
@@ -132,7 +132,7 @@ fn arb_expression(
                     expr.clone(),
                     proptest::sample::select(visible_heads.clone())
                 )
-                    .prop_map(|(candidates, visible_heads)| Rc::new(
+                    .prop_map(|(candidates, visible_heads)| Arc::new(
                         RevsetExpression::WithinVisibility {
                             candidates,
                             visible_heads
@@ -152,7 +152,7 @@ fn arb_expression(
 
 fn verify_optimized(
     repo: &dyn Repo,
-    expression: &Rc<ResolvedRevsetExpression>,
+    expression: &Arc<ResolvedRevsetExpression>,
 ) -> Result<(), TestCaseError> {
     let optimized_revset = expression.clone().evaluate(repo).unwrap();
     let unoptimized_revset = expression.clone().evaluate_unoptimized(repo).unwrap();

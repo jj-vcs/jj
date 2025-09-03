@@ -18,7 +18,7 @@
 use std::cmp;
 use std::collections::HashMap;
 use std::ops::Range;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use bstr::BString;
 use futures::StreamExt as _;
@@ -92,7 +92,7 @@ pub struct SelectedTrees {
 pub async fn split_hunks_to_trees(
     repo: &dyn Repo,
     source: &AbsorbSource,
-    destinations: &Rc<ResolvedRevsetExpression>,
+    destinations: &Arc<ResolvedRevsetExpression>,
     matcher: &dyn Matcher,
 ) -> Result<SelectedTrees, AbsorbError> {
     let mut selected_trees = SelectedTrees::default();

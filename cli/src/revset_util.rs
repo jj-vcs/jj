@@ -15,7 +15,6 @@
 //! Utility for parsing and evaluating user-provided revset expressions.
 
 use std::io;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
@@ -66,7 +65,7 @@ pub struct RevsetExpressionEvaluator<'repo> {
     repo: &'repo dyn Repo,
     extensions: Arc<RevsetExtensions>,
     id_prefix_context: &'repo IdPrefixContext,
-    expression: Rc<UserRevsetExpression>,
+    expression: Arc<UserRevsetExpression>,
 }
 
 impl<'repo> RevsetExpressionEvaluator<'repo> {
@@ -74,7 +73,7 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
         repo: &'repo dyn Repo,
         extensions: Arc<RevsetExtensions>,
         id_prefix_context: &'repo IdPrefixContext,
-        expression: Rc<UserRevsetExpression>,
+        expression: Arc<UserRevsetExpression>,
     ) -> Self {
         Self {
             repo,
@@ -85,17 +84,17 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
     }
 
     /// Returns the underlying expression.
-    pub fn expression(&self) -> &Rc<UserRevsetExpression> {
+    pub fn expression(&self) -> &Arc<UserRevsetExpression> {
         &self.expression
     }
 
     /// Intersects the underlying expression with the `other` expression.
-    pub fn intersect_with(&mut self, other: &Rc<UserRevsetExpression>) {
+    pub fn intersect_with(&mut self, other: &Arc<UserRevsetExpression>) {
         self.expression = self.expression.intersection(other);
     }
 
     /// Resolves user symbols in the expression, returns new expression.
-    pub fn resolve(&self) -> Result<Rc<ResolvedRevsetExpression>, RevsetResolutionError> {
+    pub fn resolve(&self) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
         let symbol_resolver = default_symbol_resolver(
             self.repo,
             self.extensions.symbol_resolvers(),
@@ -218,7 +217,7 @@ pub fn default_symbol_resolver<'a>(
 pub fn parse_immutable_heads_expression(
     diagnostics: &mut RevsetDiagnostics,
     context: &RevsetParseContext,
-) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
+) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
     let (_, _, immutable_heads_str) = context
         .aliases_map
         .get_function(USER_IMMUTABLE_HEADS, 0)

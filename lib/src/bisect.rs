@@ -15,7 +15,7 @@
 //! Bisect a range of commits.
 
 use std::collections::HashSet;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use itertools::Itertools as _;
 use thiserror::Error;
@@ -51,7 +51,7 @@ pub enum Evaluation {
 /// Performs bisection to find the first bad commit in a range.
 pub struct Bisector<'repo> {
     repo: &'repo dyn Repo,
-    input_range: Rc<ResolvedRevsetExpression>,
+    input_range: Arc<ResolvedRevsetExpression>,
     good_commits: HashSet<CommitId>,
     bad_commits: HashSet<CommitId>,
     skipped_commits: HashSet<CommitId>,
@@ -82,7 +82,7 @@ impl<'repo> Bisector<'repo> {
     /// Parents of the range's roots are assumed to be good.
     pub fn new(
         repo: &'repo dyn Repo,
-        input_range: Rc<ResolvedRevsetExpression>,
+        input_range: Arc<ResolvedRevsetExpression>,
     ) -> Result<Self, BisectionError> {
         let bad_commits = input_range.heads().evaluate(repo)?.iter().try_collect()?;
         Ok(Self {

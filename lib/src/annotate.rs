@@ -22,7 +22,7 @@ use std::collections::HashMap;
 use std::collections::hash_map;
 use std::iter;
 use std::ops::Range;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use bstr::BStr;
 use bstr::BString;
@@ -212,7 +212,7 @@ impl FileAnnotator {
     pub fn compute(
         &mut self,
         repo: &dyn Repo,
-        domain: &Rc<ResolvedRevsetExpression>,
+        domain: &Arc<ResolvedRevsetExpression>,
     ) -> Result<(), RevsetEvaluationError> {
         process_commits(repo, &mut self.state, domain, &self.file_path)
     }
@@ -292,7 +292,7 @@ pub struct LineOrigin {
 fn process_commits(
     repo: &dyn Repo,
     state: &mut AnnotationState,
-    domain: &Rc<ResolvedRevsetExpression>,
+    domain: &Arc<ResolvedRevsetExpression>,
     file_name: &RepoPath,
 ) -> Result<(), RevsetEvaluationError> {
     let predicate = RevsetFilterPredicate::File(FilesetExpression::file_path(file_name.to_owned()));

@@ -16,11 +16,10 @@
 
 use std::iter;
 use std::marker::PhantomData;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
-use once_cell::unsync::OnceCell;
+use once_cell::sync::OnceCell;
 use thiserror::Error;
 
 use crate::backend::ChangeId;
@@ -47,7 +46,7 @@ pub enum IdPrefixIndexLoadError {
 }
 
 struct DisambiguationData {
-    expression: Rc<UserRevsetExpression>,
+    expression: Arc<UserRevsetExpression>,
     indexes: OnceCell<Indexes>,
 }
 
@@ -61,7 +60,7 @@ impl DisambiguationData {
     fn indexes(
         &self,
         repo: &dyn Repo,
-        extensions: &[impl AsRef<dyn SymbolResolverExtension>],
+        extensions: &[Box<dyn SymbolResolverExtension>],
     ) -> Result<&Indexes, IdPrefixIndexLoadError> {
         self.indexes.get_or_try_init(|| {
             let symbol_resolver = SymbolResolver::new(repo, extensions);
@@ -124,7 +123,7 @@ impl IdPrefixContext {
         }
     }
 
-    pub fn disambiguate_within(mut self, expression: Rc<UserRevsetExpression>) -> Self {
+    pub fn disambiguate_within(mut self, expression: Arc<UserRevsetExpression>) -> Self {
         self.disambiguation = Some(DisambiguationData {
             expression,
             indexes: OnceCell::new(),

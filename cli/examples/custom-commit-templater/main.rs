@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use std::any::Any;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use jj_cli::cli_util::CliRunner;
 use jj_cli::commit_templater::CommitTemplateBuildFnTable;
@@ -187,10 +187,10 @@ fn even_digits(
     _diagnostics: &mut RevsetDiagnostics,
     function: &FunctionCallNode,
     _context: &LoweringContext,
-) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
+) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
     function.expect_no_arguments()?;
     Ok(RevsetExpression::filter(RevsetFilterPredicate::Extension(
-        Rc::new(EvenDigitsFilter),
+        Arc::new(EvenDigitsFilter),
     )))
 }
 

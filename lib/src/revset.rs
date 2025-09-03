@@ -21,7 +21,6 @@ use std::convert::Infallible;
 use std::fmt;
 use std::ops::ControlFlow;
 use std::ops::Range;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::LazyLock;
 
@@ -162,7 +161,7 @@ pub enum RevsetCommitRef {
 }
 
 /// A custom revset filter expression, defined by an extension.
-pub trait RevsetFilterExtension: std::fmt::Debug + Any {
+pub trait RevsetFilterExtension: std::fmt::Debug + Any + Send + Sync {
     fn as_any(&self) -> &dyn Any;
 
     /// Returns true iff this filter matches the specified commit.
@@ -201,7 +200,7 @@ pub enum RevsetFilterPredicate {
     /// Commits that are cryptographically signed.
     Signed,
     /// Custom predicates provided by extensions
-    Extension(Rc<dyn RevsetFilterExtension>),
+    Extension(Arc<dyn RevsetFilterExtension>),
 }
 
 mod private {
@@ -253,217 +252,217 @@ pub enum RevsetExpression<St: ExpressionState> {
     Commits(Vec<CommitId>),
     CommitRef(St::CommitRef),
     Ancestors {
-        heads: Rc<Self>,
+        heads: Arc<Self>,
         generation: Range<u64>,
         parents_range: Range<u32>,
     },
     Descendants {
-        roots: Rc<Self>,
+        roots: Arc<Self>,
         generation: Range<u64>,
     },
     // Commits that are ancestors of "heads" but not ancestors of "roots"
     Range {
-        roots: Rc<Self>,
-        heads: Rc<Self>,
+        roots: Arc<Self>,
+        heads: Arc<Self>,
         generation: Range<u64>,
         // Parents range is only used for traversing heads, not roots
         parents_range: Range<u32>,
     },
     // Commits that are descendants of "roots" and ancestors of "heads"
     DagRange {
-        roots: Rc<Self>,
-        heads: Rc<Self>,
+        roots: Arc<Self>,
+        heads: Arc<Self>,
         // TODO: maybe add generation_from_roots/heads?
     },
     // Commits reachable from "sources" within "domain"
     Reachable {
-        sources: Rc<Self>,
-        domain: Rc<Self>,
+        sources: Arc<Self>,
+        domain: Arc<Self>,
     },
-    Heads(Rc<Self>),
+    Heads(Arc<Self>),
     /// Heads of the set of commits which are ancestors of `heads` but are not
     /// ancestors of `roots`, and which also are contained in `filter`.
     HeadsRange {
-        roots: Rc<Self>,
-        heads: Rc<Self>,
+        roots: Arc<Self>,
+        heads: Arc<Self>,
         parents_range: Range<u32>,
-        filter: Rc<Self>,
+        filter: Arc<Self>,
     },
-    Roots(Rc<Self>),
-    ForkPoint(Rc<Self>),
-    Bisect(Rc<Self>),
+    Roots(Arc<Self>),
+    ForkPoint(Arc<Self>),
+    Bisect(Arc<Self>),
     Latest {
-        candidates: Rc<Self>,
+        candidates: Arc<Self>,
         count: usize,
     },
     Filter(RevsetFilterPredicate),
     /// Marker for subtree that should be intersected as filter.
-    AsFilter(Rc<Self>),
+    AsFilter(Arc<Self>),
     /// Resolves symbols and visibility at the specified operation.
     AtOperation {
         operation: St::Operation,
-        candidates: Rc<Self>,
+        candidates: Arc<Self>,
     },
     /// Makes `All` include the commits and their ancestors in addition to the
     /// visible heads.
     WithinReference {
-        candidates: Rc<Self>,
+        candidates: Arc<Self>,
         /// Commits explicitly referenced within the scope.
         commits: Vec<CommitId>,
     },
     /// Resolves visibility within the specified repo state.
     WithinVisibility {
-        candidates: Rc<Self>,
+        candidates: Arc<Self>,
         /// Copy of `repo.view().heads()` at the operation.
         visible_heads: Vec<CommitId>,
     },
-    Coalesce(Rc<Self>, Rc<Self>),
-    Present(Rc<Self>),
-    NotIn(Rc<Self>),
-    Union(Rc<Self>, Rc<Self>),
-    Intersection(Rc<Self>, Rc<Self>),
-    Difference(Rc<Self>, Rc<Self>),
+    Coalesce(Arc<Self>, Arc<Self>),
+    Present(Arc<Self>),
+    NotIn(Arc<Self>),
+    Union(Arc<Self>, Arc<Self>),
+    Intersection(Arc<Self>, Arc<Self>),
+    Difference(Arc<Self>, Arc<Self>),
 }
 
 // Leaf expression that never contains unresolved commit refs, which can be
 // either user or resolved expression
 impl<St: ExpressionState> RevsetExpression<St> {
-    pub fn none() -> Rc<Self> {
-        Rc::new(Self::None)
+    pub fn none() -> Arc<Self> {
+        Arc::new(Self::None)
     }
 
     /// Ancestors of visible heads and all referenced commits within the current
     /// expression scope, which may include hidden commits.
-    pub fn all() -> Rc<Self> {
-        Rc::new(Self::All)
+    pub fn all() -> Arc<Self> {
+        Arc::new(Self::All)
     }
 
-    pub fn visible_heads() -> Rc<Self> {
-        Rc::new(Self::VisibleHeads)
+    pub fn visible_heads() -> Arc<Self> {
+        Arc::new(Self::VisibleHeads)
     }
 
-    fn visible_heads_or_referenced() -> Rc<Self> {
-        Rc::new(Self::VisibleHeadsOrReferenced)
+    fn visible_heads_or_referenced() -> Arc<Self> {
+        Arc::new(Self::VisibleHeadsOrReferenced)
     }
 
-    pub fn root() -> Rc<Self> {
-        Rc::new(Self::Root)
+    pub fn root() -> Arc<Self> {
+        Arc::new(Self::Root)
     }
 
-    pub fn commit(commit_id: CommitId) -> Rc<Self> {
+    pub fn commit(commit_id: CommitId) -> Arc<Self> {
         Self::commits(vec![commit_id])
     }
 
-    pub fn commits(commit_ids: Vec<CommitId>) -> Rc<Self> {
-        Rc::new(Self::Commits(commit_ids))
+    pub fn commits(commit_ids: Vec<CommitId>) -> Arc<Self> {
+        Arc::new(Self::Commits(commit_ids))
     }
 
-    pub fn filter(predicate: RevsetFilterPredicate) -> Rc<Self> {
-        Rc::new(Self::Filter(predicate))
+    pub fn filter(predicate: RevsetFilterPredicate) -> Arc<Self> {
+        Arc::new(Self::Filter(predicate))
     }
 
     /// Find any empty commits.
-    pub fn is_empty() -> Rc<Self> {
+    pub fn is_empty() -> Arc<Self> {
         Self::filter(RevsetFilterPredicate::File(FilesetExpression::all())).negated()
     }
 }
 
 // Leaf expression that represents unresolved commit refs
 impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
-    pub fn working_copy(name: WorkspaceNameBuf) -> Rc<Self> {
-        Rc::new(Self::CommitRef(RevsetCommitRef::WorkingCopy(name)))
+    pub fn working_copy(name: WorkspaceNameBuf) -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::WorkingCopy(name)))
     }
 
-    pub fn working_copies() -> Rc<Self> {
-        Rc::new(Self::CommitRef(RevsetCommitRef::WorkingCopies))
+    pub fn working_copies() -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::WorkingCopies))
     }
 
-    pub fn symbol(value: String) -> Rc<Self> {
-        Rc::new(Self::CommitRef(RevsetCommitRef::Symbol(value)))
+    pub fn symbol(value: String) -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::Symbol(value)))
     }
 
-    pub fn remote_symbol(value: RemoteRefSymbolBuf) -> Rc<Self> {
+    pub fn remote_symbol(value: RemoteRefSymbolBuf) -> Arc<Self> {
         let commit_ref = RevsetCommitRef::RemoteSymbol(value);
-        Rc::new(Self::CommitRef(commit_ref))
+        Arc::new(Self::CommitRef(commit_ref))
     }
 
-    pub fn change_id_prefix(prefix: HexPrefix) -> Rc<Self> {
+    pub fn change_id_prefix(prefix: HexPrefix) -> Arc<Self> {
         let commit_ref = RevsetCommitRef::ChangeId(prefix);
-        Rc::new(Self::CommitRef(commit_ref))
+        Arc::new(Self::CommitRef(commit_ref))
     }
 
-    pub fn commit_id_prefix(prefix: HexPrefix) -> Rc<Self> {
+    pub fn commit_id_prefix(prefix: HexPrefix) -> Arc<Self> {
         let commit_ref = RevsetCommitRef::CommitId(prefix);
-        Rc::new(Self::CommitRef(commit_ref))
+        Arc::new(Self::CommitRef(commit_ref))
     }
 
-    pub fn bookmarks(pattern: StringPattern) -> Rc<Self> {
-        Rc::new(Self::CommitRef(RevsetCommitRef::Bookmarks(pattern)))
+    pub fn bookmarks(pattern: StringPattern) -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::Bookmarks(pattern)))
     }
 
     pub fn remote_bookmarks(
         bookmark_pattern: StringPattern,
         remote_pattern: StringPattern,
         remote_ref_state: Option<RemoteRefState>,
-    ) -> Rc<Self> {
-        Rc::new(Self::CommitRef(RevsetCommitRef::RemoteBookmarks {
+    ) -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::RemoteBookmarks {
             bookmark_pattern,
             remote_pattern,
             remote_ref_state,
         }))
     }
 
-    pub fn tags(pattern: StringPattern) -> Rc<Self> {
-        Rc::new(Self::CommitRef(RevsetCommitRef::Tags(pattern)))
+    pub fn tags(pattern: StringPattern) -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::Tags(pattern)))
     }
 
-    pub fn git_refs() -> Rc<Self> {
-        Rc::new(Self::CommitRef(RevsetCommitRef::GitRefs))
+    pub fn git_refs() -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::GitRefs))
     }
 
-    pub fn git_head() -> Rc<Self> {
-        Rc::new(Self::CommitRef(RevsetCommitRef::GitHead))
+    pub fn git_head() -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::GitHead))
     }
 }
 
 // Compound expression
 impl<St: ExpressionState> RevsetExpression<St> {
-    pub fn latest(self: &Rc<Self>, count: usize) -> Rc<Self> {
-        Rc::new(Self::Latest {
+    pub fn latest(self: &Arc<Self>, count: usize) -> Arc<Self> {
+        Arc::new(Self::Latest {
             candidates: self.clone(),
             count,
         })
     }
 
     /// Commits in `self` that don't have descendants in `self`.
-    pub fn heads(self: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::Heads(self.clone()))
+    pub fn heads(self: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Heads(self.clone()))
     }
 
     /// Commits in `self` that don't have ancestors in `self`.
-    pub fn roots(self: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::Roots(self.clone()))
+    pub fn roots(self: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Roots(self.clone()))
     }
 
     /// Parents of `self`.
-    pub fn parents(self: &Rc<Self>) -> Rc<Self> {
+    pub fn parents(self: &Arc<Self>) -> Arc<Self> {
         self.ancestors_at(1)
     }
 
     /// Ancestors of `self`, including `self`.
-    pub fn ancestors(self: &Rc<Self>) -> Rc<Self> {
+    pub fn ancestors(self: &Arc<Self>) -> Arc<Self> {
         self.ancestors_range(GENERATION_RANGE_FULL)
     }
 
     /// Ancestors of `self` at an offset of `generation` behind `self`.
     /// The `generation` offset is zero-based starting from `self`.
-    pub fn ancestors_at(self: &Rc<Self>, generation: u64) -> Rc<Self> {
+    pub fn ancestors_at(self: &Arc<Self>, generation: u64) -> Arc<Self> {
         self.ancestors_range(generation..generation.saturating_add(1))
     }
 
     /// Ancestors of `self` in the given range.
-    pub fn ancestors_range(self: &Rc<Self>, generation_range: Range<u64>) -> Rc<Self> {
-        Rc::new(Self::Ancestors {
+    pub fn ancestors_range(self: &Arc<Self>, generation_range: Range<u64>) -> Arc<Self> {
+        Arc::new(Self::Ancestors {
             heads: self.clone(),
             generation: generation_range,
             parents_range: PARENTS_RANGE_FULL,
@@ -471,19 +470,19 @@ impl<St: ExpressionState> RevsetExpression<St> {
     }
 
     /// First-parent ancestors of `self`, including `self`.
-    pub fn first_ancestors(self: &Rc<Self>) -> Rc<Self> {
+    pub fn first_ancestors(self: &Arc<Self>) -> Arc<Self> {
         self.first_ancestors_range(GENERATION_RANGE_FULL)
     }
 
     /// First-parent ancestors of `self` at an offset of `generation` behind
     /// `self`. The `generation` offset is zero-based starting from `self`.
-    pub fn first_ancestors_at(self: &Rc<Self>, generation: u64) -> Rc<Self> {
+    pub fn first_ancestors_at(self: &Arc<Self>, generation: u64) -> Arc<Self> {
         self.first_ancestors_range(generation..generation.saturating_add(1))
     }
 
     /// First-parent ancestors of `self` in the given range.
-    pub fn first_ancestors_range(self: &Rc<Self>, generation_range: Range<u64>) -> Rc<Self> {
-        Rc::new(Self::Ancestors {
+    pub fn first_ancestors_range(self: &Arc<Self>, generation_range: Range<u64>) -> Arc<Self> {
+        Arc::new(Self::Ancestors {
             heads: self.clone(),
             generation: generation_range,
             parents_range: 0..1,
@@ -491,48 +490,48 @@ impl<St: ExpressionState> RevsetExpression<St> {
     }
 
     /// Children of `self`.
-    pub fn children(self: &Rc<Self>) -> Rc<Self> {
+    pub fn children(self: &Arc<Self>) -> Arc<Self> {
         self.descendants_at(1)
     }
 
     /// Descendants of `self`, including `self`.
-    pub fn descendants(self: &Rc<Self>) -> Rc<Self> {
+    pub fn descendants(self: &Arc<Self>) -> Arc<Self> {
         self.descendants_range(GENERATION_RANGE_FULL)
     }
 
     /// Descendants of `self` at an offset of `generation` ahead of `self`.
     /// The `generation` offset is zero-based starting from `self`.
-    pub fn descendants_at(self: &Rc<Self>, generation: u64) -> Rc<Self> {
+    pub fn descendants_at(self: &Arc<Self>, generation: u64) -> Arc<Self> {
         self.descendants_range(generation..generation.saturating_add(1))
     }
 
     /// Descendants of `self` in the given range.
-    pub fn descendants_range(self: &Rc<Self>, generation_range: Range<u64>) -> Rc<Self> {
-        Rc::new(Self::Descendants {
+    pub fn descendants_range(self: &Arc<Self>, generation_range: Range<u64>) -> Arc<Self> {
+        Arc::new(Self::Descendants {
             roots: self.clone(),
             generation: generation_range,
         })
     }
 
     /// Fork point (best common ancestors) of `self`.
-    pub fn fork_point(self: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::ForkPoint(self.clone()))
+    pub fn fork_point(self: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::ForkPoint(self.clone()))
     }
 
     /// Commits with ~half of the descendants in `self`.
-    pub fn bisect(self: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::Bisect(self.clone()))
+    pub fn bisect(self: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Bisect(self.clone()))
     }
 
     /// Filter all commits by `predicate` in `self`.
-    pub fn filtered(self: &Rc<Self>, predicate: RevsetFilterPredicate) -> Rc<Self> {
+    pub fn filtered(self: &Arc<Self>, predicate: RevsetFilterPredicate) -> Arc<Self> {
         self.intersection(&Self::filter(predicate))
     }
 
     /// Commits that are descendants of `self` and ancestors of `heads`, both
     /// inclusive.
-    pub fn dag_range_to(self: &Rc<Self>, heads: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::DagRange {
+    pub fn dag_range_to(self: &Arc<Self>, heads: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::DagRange {
             roots: self.clone(),
             heads: heads.clone(),
         })
@@ -540,22 +539,22 @@ impl<St: ExpressionState> RevsetExpression<St> {
 
     /// Connects any ancestors and descendants in the set by adding the commits
     /// between them.
-    pub fn connected(self: &Rc<Self>) -> Rc<Self> {
+    pub fn connected(self: &Arc<Self>) -> Arc<Self> {
         self.dag_range_to(self)
     }
 
     /// All commits within `domain` reachable from this set of commits, by
     /// traversing either parent or child edges.
-    pub fn reachable(self: &Rc<Self>, domain: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::Reachable {
+    pub fn reachable(self: &Arc<Self>, domain: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Reachable {
             sources: self.clone(),
             domain: domain.clone(),
         })
     }
 
     /// Commits reachable from `heads` but not from `self`.
-    pub fn range(self: &Rc<Self>, heads: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::Range {
+    pub fn range(self: &Arc<Self>, heads: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Range {
             roots: self.clone(),
             heads: heads.clone(),
             generation: GENERATION_RANGE_FULL,
@@ -564,43 +563,43 @@ impl<St: ExpressionState> RevsetExpression<St> {
     }
 
     /// Suppresses name resolution error within `self`.
-    pub fn present(self: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::Present(self.clone()))
+    pub fn present(self: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Present(self.clone()))
     }
 
     /// Commits that are not in `self`, i.e. the complement of `self`.
-    pub fn negated(self: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::NotIn(self.clone()))
+    pub fn negated(self: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::NotIn(self.clone()))
     }
 
     /// Commits that are in `self` or in `other` (or both).
-    pub fn union(self: &Rc<Self>, other: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::Union(self.clone(), other.clone()))
+    pub fn union(self: &Arc<Self>, other: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Union(self.clone(), other.clone()))
     }
 
     /// Commits that are in any of the `expressions`.
-    pub fn union_all(expressions: &[Rc<Self>]) -> Rc<Self> {
+    pub fn union_all(expressions: &[Arc<Self>]) -> Arc<Self> {
         to_binary_expression(expressions, &Self::none, &Self::union)
     }
 
     /// Commits that are in `self` and in `other`.
-    pub fn intersection(self: &Rc<Self>, other: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::Intersection(self.clone(), other.clone()))
+    pub fn intersection(self: &Arc<Self>, other: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Intersection(self.clone(), other.clone()))
     }
 
     /// Commits that are in `self` but not in `other`.
-    pub fn minus(self: &Rc<Self>, other: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::Difference(self.clone(), other.clone()))
+    pub fn minus(self: &Arc<Self>, other: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Difference(self.clone(), other.clone()))
     }
 
     /// Commits that are in the first expression in `expressions` that is not
     /// `none()`.
-    pub fn coalesce(expressions: &[Rc<Self>]) -> Rc<Self> {
+    pub fn coalesce(expressions: &[Arc<Self>]) -> Arc<Self> {
         to_binary_expression(expressions, &Self::none, &Self::coalesce2)
     }
 
-    fn coalesce2(self: &Rc<Self>, other: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::Coalesce(self.clone(), other.clone()))
+    fn coalesce2(self: &Arc<Self>, other: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Coalesce(self.clone(), other.clone()))
     }
 }
 
@@ -621,7 +620,7 @@ impl UserRevsetExpression {
         &self,
         repo: &dyn Repo,
         symbol_resolver: &SymbolResolver,
-    ) -> Result<Rc<ResolvedRevsetExpression>, RevsetResolutionError> {
+    ) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
         resolve_symbols(repo, self, symbol_resolver)
     }
 }
@@ -629,7 +628,7 @@ impl UserRevsetExpression {
 impl ResolvedRevsetExpression {
     /// Optimizes and evaluates this expression.
     pub fn evaluate<'index>(
-        self: Rc<Self>,
+        self: Arc<Self>,
         repo: &'index dyn Repo,
     ) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError> {
         let expr = optimize(self).to_backend_expression(repo);
@@ -641,7 +640,7 @@ impl ResolvedRevsetExpression {
     /// Use this function if `self` is already optimized, or to debug
     /// optimization pass.
     pub fn evaluate_unoptimized<'index>(
-        self: &Rc<Self>,
+        self: &Arc<Self>,
         repo: &'index dyn Repo,
     ) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError> {
         // Since referenced commits change the evaluation result, they must be
@@ -738,7 +737,7 @@ pub type RevsetFunction = fn(
     &mut RevsetDiagnostics,
     &FunctionCallNode,
     &LoweringContext,
-) -> Result<Rc<UserRevsetExpression>, RevsetParseError>;
+) -> Result<Arc<UserRevsetExpression>, RevsetParseError>;
 
 static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock::new(|| {
     // Not using maplit::hashmap!{} or custom declarative macro here because
@@ -1065,7 +1064,7 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
             Ok(node.span.as_str().to_owned())
         })?;
         let candidates = lower_expression(diagnostics, cand_arg, context)?;
-        Ok(Rc::new(RevsetExpression::AtOperation {
+        Ok(Arc::new(RevsetExpression::AtOperation {
             operation,
             candidates,
         }))
@@ -1139,7 +1138,7 @@ fn parse_remote_bookmarks_arguments(
     diagnostics: &mut RevsetDiagnostics,
     function: &FunctionCallNode,
     remote_ref_state: Option<RemoteRefState>,
-) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
+) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
     let ([], [bookmark_opt_arg, remote_opt_arg]) =
         function.expect_named_arguments(&["", "remote"])?;
     let bookmark_pattern = if let Some(bookmark_arg) = bookmark_opt_arg {
@@ -1164,7 +1163,7 @@ fn lower_function_call(
     diagnostics: &mut RevsetDiagnostics,
     function: &FunctionCallNode,
     context: &LoweringContext,
-) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
+) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
     let function_map = &context.extensions.function_map;
     if let Some(func) = function_map.get(function.name) {
         func(diagnostics, function, context)
@@ -1185,7 +1184,7 @@ pub fn lower_expression(
     diagnostics: &mut RevsetDiagnostics,
     node: &ExpressionNode,
     context: &LoweringContext,
-) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
+) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
     revset_parser::catch_aliases(diagnostics, node, |diagnostics, node| match &node.kind {
         ExpressionKind::Identifier(name) => Ok(RevsetExpression::symbol((*name).to_owned())),
         ExpressionKind::String(name) => Ok(RevsetExpression::symbol(name.to_owned())),
@@ -1259,7 +1258,7 @@ pub fn parse(
     diagnostics: &mut RevsetDiagnostics,
     revset_str: &str,
     context: &RevsetParseContext,
-) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
+) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
     let node = parse_program(revset_str)?;
     let node =
         dsl_util::expand_aliases_with_locals(node, context.aliases_map, &context.local_variables)?;
@@ -1271,7 +1270,7 @@ pub fn parse_with_modifier(
     diagnostics: &mut RevsetDiagnostics,
     revset_str: &str,
     context: &RevsetParseContext,
-) -> Result<(Rc<UserRevsetExpression>, Option<RevsetModifier>), RevsetParseError> {
+) -> Result<(Arc<UserRevsetExpression>, Option<RevsetModifier>), RevsetParseError> {
     let node = parse_program(revset_str)?;
     let node =
         dsl_util::expand_aliases_with_locals(node, context.aliases_map, &context.local_variables)?;
@@ -1326,16 +1325,16 @@ fn to_binary_expression<T: Clone>(
 }
 
 /// `Some` for rewritten expression, or `None` to reuse the original expression.
-type TransformedExpression<St> = Option<Rc<RevsetExpression<St>>>;
+type TransformedExpression<St> = Option<Arc<RevsetExpression<St>>>;
 /// `Break` to not transform subtree recursively. `Continue(Some(rewritten))`
 /// isn't allowed because it could be a source of infinite substitution bugs.
 type PreTransformedExpression<St> = ControlFlow<TransformedExpression<St>, ()>;
 
 /// Walks `expression` tree and applies `pre`/`post` transformation recursively.
 fn transform_expression<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
-    mut pre: impl FnMut(&Rc<RevsetExpression<St>>) -> PreTransformedExpression<St>,
-    mut post: impl FnMut(&Rc<RevsetExpression<St>>) -> TransformedExpression<St>,
+    expression: &Arc<RevsetExpression<St>>,
+    mut pre: impl FnMut(&Arc<RevsetExpression<St>>) -> PreTransformedExpression<St>,
+    mut post: impl FnMut(&Arc<RevsetExpression<St>>) -> TransformedExpression<St>,
 ) -> TransformedExpression<St> {
     let Ok(transformed) =
         try_transform_expression::<St, Infallible>(expression, |x| Ok(pre(x)), |x| Ok(post(x)));
@@ -1344,8 +1343,8 @@ fn transform_expression<St: ExpressionState>(
 
 /// Walks `expression` tree and applies `post` recursively from leaf nodes.
 fn transform_expression_bottom_up<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
-    post: impl FnMut(&Rc<RevsetExpression<St>>) -> TransformedExpression<St>,
+    expression: &Arc<RevsetExpression<St>>,
+    post: impl FnMut(&Arc<RevsetExpression<St>>) -> TransformedExpression<St>,
 ) -> TransformedExpression<St> {
     transform_expression(expression, |_| ControlFlow::Continue(()), post)
 }
@@ -1363,14 +1362,14 @@ fn transform_expression_bottom_up<St: ExpressionState>(
 /// `std::iter::successors()` could be used if the transformation needs to be
 /// applied repeatedly until converged.
 fn try_transform_expression<St: ExpressionState, E>(
-    expression: &Rc<RevsetExpression<St>>,
-    mut pre: impl FnMut(&Rc<RevsetExpression<St>>) -> Result<PreTransformedExpression<St>, E>,
-    mut post: impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
+    expression: &Arc<RevsetExpression<St>>,
+    mut pre: impl FnMut(&Arc<RevsetExpression<St>>) -> Result<PreTransformedExpression<St>, E>,
+    mut post: impl FnMut(&Arc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
 ) -> Result<TransformedExpression<St>, E> {
     fn transform_child_rec<St: ExpressionState, E>(
-        expression: &Rc<RevsetExpression<St>>,
-        pre: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<PreTransformedExpression<St>, E>,
-        post: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
+        expression: &Arc<RevsetExpression<St>>,
+        pre: &mut impl FnMut(&Arc<RevsetExpression<St>>) -> Result<PreTransformedExpression<St>, E>,
+        post: &mut impl FnMut(&Arc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
     ) -> Result<TransformedExpression<St>, E> {
         Ok(match expression.as_ref() {
             RevsetExpression::None => None,
@@ -1514,15 +1513,15 @@ fn try_transform_expression<St: ExpressionState, E>(
                 )
             }
         }
-        .map(Rc::new))
+        .map(Arc::new))
     }
 
     #[expect(clippy::type_complexity)]
     fn transform_rec_pair<St: ExpressionState, E>(
-        (expression1, expression2): (&Rc<RevsetExpression<St>>, &Rc<RevsetExpression<St>>),
-        pre: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<PreTransformedExpression<St>, E>,
-        post: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
-    ) -> Result<Option<(Rc<RevsetExpression<St>>, Rc<RevsetExpression<St>>)>, E> {
+        (expression1, expression2): (&Arc<RevsetExpression<St>>, &Arc<RevsetExpression<St>>),
+        pre: &mut impl FnMut(&Arc<RevsetExpression<St>>) -> Result<PreTransformedExpression<St>, E>,
+        post: &mut impl FnMut(&Arc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
+    ) -> Result<Option<(Arc<RevsetExpression<St>>, Arc<RevsetExpression<St>>)>, E> {
         match (
             transform_rec(expression1, pre, post)?,
             transform_rec(expression2, pre, post)?,
@@ -1537,9 +1536,9 @@ fn try_transform_expression<St: ExpressionState, E>(
     }
 
     fn transform_rec<St: ExpressionState, E>(
-        expression: &Rc<RevsetExpression<St>>,
-        pre: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<PreTransformedExpression<St>, E>,
-        post: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
+        expression: &Arc<RevsetExpression<St>>,
+        pre: &mut impl FnMut(&Arc<RevsetExpression<St>>) -> Result<PreTransformedExpression<St>, E>,
+        post: &mut impl FnMut(&Arc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
     ) -> Result<TransformedExpression<St>, E> {
         if let ControlFlow::Break(transformed) = pre(expression)? {
             return Ok(transformed);
@@ -1567,7 +1566,7 @@ trait ExpressionStateFolder<InSt: ExpressionState, OutSt: ExpressionState> {
     fn fold_expression(
         &mut self,
         expression: &RevsetExpression<InSt>,
-    ) -> Result<Rc<RevsetExpression<OutSt>>, Self::Error> {
+    ) -> Result<Arc<RevsetExpression<OutSt>>, Self::Error> {
         fold_child_expression_state(self, expression)
     }
 
@@ -1575,27 +1574,27 @@ trait ExpressionStateFolder<InSt: ExpressionState, OutSt: ExpressionState> {
     fn fold_commit_ref(
         &mut self,
         commit_ref: &InSt::CommitRef,
-    ) -> Result<Rc<RevsetExpression<OutSt>>, Self::Error>;
+    ) -> Result<Arc<RevsetExpression<OutSt>>, Self::Error>;
 
     /// Transforms `at_operation(operation, candidates)` expression.
     fn fold_at_operation(
         &mut self,
         operation: &InSt::Operation,
         candidates: &RevsetExpression<InSt>,
-    ) -> Result<Rc<RevsetExpression<OutSt>>, Self::Error>;
+    ) -> Result<Arc<RevsetExpression<OutSt>>, Self::Error>;
 }
 
 /// Transforms inner items of the `expression` by using the `folder`.
 fn fold_child_expression_state<InSt, OutSt, F>(
     folder: &mut F,
     expression: &RevsetExpression<InSt>,
-) -> Result<Rc<RevsetExpression<OutSt>>, F::Error>
+) -> Result<Arc<RevsetExpression<OutSt>>, F::Error>
 where
     InSt: ExpressionState,
     OutSt: ExpressionState,
     F: ExpressionStateFolder<InSt, OutSt> + ?Sized,
 {
-    let expression: Rc<_> = match expression {
+    let expression: Arc<_> = match expression {
         RevsetExpression::None => RevsetExpression::None.into(),
         RevsetExpression::All => RevsetExpression::All.into(),
         RevsetExpression::VisibleHeads => RevsetExpression::VisibleHeads.into(),
@@ -1761,7 +1760,7 @@ where
 ///
 /// User symbols and `at_operation()` scopes should have been resolved.
 fn resolve_referenced_commits<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
     // Trust precomputed value if any
     if matches!(
@@ -1797,7 +1796,7 @@ fn resolve_referenced_commits<St: ExpressionState>(
                     inner_commits.extend_from_slice(commits);
                 }
                 ControlFlow::Break(transformed.map(|candidates| {
-                    Rc::new(RevsetExpression::WithinVisibility {
+                    Arc::new(RevsetExpression::WithinVisibility {
                         candidates,
                         visible_heads: visible_heads.clone(),
                     })
@@ -1820,7 +1819,7 @@ fn resolve_referenced_commits<St: ExpressionState>(
         // Omit empty node to keep test/debug output concise
         return transformed;
     }
-    Some(Rc::new(RevsetExpression::WithinReference {
+    Some(Arc::new(RevsetExpression::WithinReference {
         candidates: transformed.unwrap_or_else(|| expression.clone()),
         commits: outer_commits,
     }))
@@ -1829,11 +1828,11 @@ fn resolve_referenced_commits<St: ExpressionState>(
 /// Flatten all intersections to be left-recursive. For instance, transforms
 /// `(a & b) & (c & d)` into `((a & b) & c) & d`.
 fn flatten_intersections<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
     fn flatten<St: ExpressionState>(
-        expression1: &Rc<RevsetExpression<St>>,
-        expression2: &Rc<RevsetExpression<St>>,
+        expression1: &Arc<RevsetExpression<St>>,
+        expression2: &Arc<RevsetExpression<St>>,
     ) -> TransformedExpression<St> {
         let recurse = |a, b| flatten(a, b).unwrap_or_else(|| a.intersection(b));
 
@@ -1858,15 +1857,15 @@ fn flatten_intersections<St: ExpressionState>(
 /// provided key. If `base` is an intersection, it must be left-recursive, and
 /// it must already be in sorted order.
 fn sort_intersection_by_key<St: ExpressionState, T: Ord>(
-    base: &Rc<RevsetExpression<St>>,
-    expression: &Rc<RevsetExpression<St>>,
+    base: &Arc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
     mut get_key: impl FnMut(&RevsetExpression<St>) -> T,
 ) -> TransformedExpression<St> {
     // We only want to compute the key for `expression` once instead of computing it
     // on every iteration.
     fn sort_intersection_helper<St: ExpressionState, T: Ord>(
-        base: &Rc<RevsetExpression<St>>,
-        expression: &Rc<RevsetExpression<St>>,
+        base: &Arc<RevsetExpression<St>>,
+        expression: &Arc<RevsetExpression<St>>,
         expression_key: T,
         mut get_key: impl FnMut(&RevsetExpression<St>) -> T,
     ) -> TransformedExpression<St> {
@@ -1891,7 +1890,7 @@ fn sort_intersection_by_key<St: ExpressionState, T: Ord>(
 /// ancestors can be converted to ranges. All other negations are moved to the
 /// right, since these negations can usually be evaluated better as differences.
 fn sort_negations_and_ancestors<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
     #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     enum AncestorsOrder {
@@ -1935,11 +1934,11 @@ fn sort_negations_and_ancestors<St: ExpressionState>(
 /// c. Wraps union of filter and set (e.g. `author(_) | heads()`), to
 ///    ensure inner filter wouldn't need to evaluate all the input sets.
 fn internalize_filter<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
     fn get_filter<St: ExpressionState>(
-        expression: &Rc<RevsetExpression<St>>,
-    ) -> Option<&Rc<RevsetExpression<St>>> {
+        expression: &Arc<RevsetExpression<St>>,
+    ) -> Option<&Arc<RevsetExpression<St>>> {
         match expression.as_ref() {
             RevsetExpression::Filter(_) => Some(expression),
             RevsetExpression::AsFilter(candidates) => Some(candidates),
@@ -1948,9 +1947,9 @@ fn internalize_filter<St: ExpressionState>(
     }
 
     fn mark_filter<St: ExpressionState>(
-        expression: Rc<RevsetExpression<St>>,
-    ) -> Rc<RevsetExpression<St>> {
-        Rc::new(RevsetExpression::AsFilter(expression))
+        expression: Arc<RevsetExpression<St>>,
+    ) -> Arc<RevsetExpression<St>> {
+        Arc::new(RevsetExpression::AsFilter(expression))
     }
 
     transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
@@ -1998,7 +1997,7 @@ fn internalize_filter<St: ExpressionState>(
 /// Since this function rewrites `x & none()` to `none()`, user symbols should
 /// have been resolved. Otherwise, an invalid symbol could be optimized out.
 fn fold_redundant_expression<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
     transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
         RevsetExpression::Commits(commits) if commits.is_empty() => Some(RevsetExpression::none()),
@@ -2035,7 +2034,7 @@ fn fold_redundant_expression<St: ExpressionState>(
 /// `ancestors(heads, 2..3)`, which is equivalent to `heads--`.
 fn ancestors_to_heads<St: ExpressionState>(
     expression: &RevsetExpression<St>,
-) -> Result<Rc<RevsetExpression<St>>, ()> {
+) -> Result<Arc<RevsetExpression<St>>, ()> {
     match ancestors_to_heads_and_parents_range(expression) {
         Ok((heads, PARENTS_RANGE_FULL)) => Ok(heads),
         _ => Err(()),
@@ -2044,7 +2043,7 @@ fn ancestors_to_heads<St: ExpressionState>(
 
 fn ancestors_to_heads_and_parents_range<St: ExpressionState>(
     expression: &RevsetExpression<St>,
-) -> Result<(Rc<RevsetExpression<St>>, Range<u32>), ()> {
+) -> Result<(Arc<RevsetExpression<St>>, Range<u32>), ()> {
     match expression {
         RevsetExpression::Ancestors {
             heads,
@@ -2059,7 +2058,7 @@ fn ancestors_to_heads_and_parents_range<St: ExpressionState>(
             },
             parents_range,
         } => Ok((
-            Rc::new(RevsetExpression::Ancestors {
+            Arc::new(RevsetExpression::Ancestors {
                 heads: heads.clone(),
                 generation: (*start)..start.saturating_add(1),
                 parents_range: parents_range.clone(),
@@ -2075,11 +2074,11 @@ fn ancestors_to_heads_and_parents_range<St: ExpressionState>(
 /// expressions, since this can result in less efficient evaluation, such as for
 /// `~::x & ~y`, which should be `x.. ~ y` instead of `~(::x | y)`.
 fn fold_ancestors_union<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
     fn union_ancestors<St: ExpressionState>(
-        expression1: &Rc<RevsetExpression<St>>,
-        expression2: &Rc<RevsetExpression<St>>,
+        expression1: &Arc<RevsetExpression<St>>,
+        expression2: &Arc<RevsetExpression<St>>,
     ) -> TransformedExpression<St> {
         let heads1 = ancestors_to_heads(expression1).ok()?;
         let heads2 = ancestors_to_heads(expression2).ok()?;
@@ -2111,17 +2110,17 @@ fn fold_ancestors_union<St: ExpressionState>(
 /// Ancestors and negated ancestors should have already been moved to the left
 /// in intersections, and negated ancestors should have been combined already.
 fn fold_heads_range<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
     // Represents `roots..heads & filter`
     struct FilteredRange<St: ExpressionState> {
-        roots: Rc<RevsetExpression<St>>,
-        heads_and_parents_range: Option<(Rc<RevsetExpression<St>>, Range<u32>)>,
-        filter: Rc<RevsetExpression<St>>,
+        roots: Arc<RevsetExpression<St>>,
+        heads_and_parents_range: Option<(Arc<RevsetExpression<St>>, Range<u32>)>,
+        filter: Arc<RevsetExpression<St>>,
     }
 
     impl<St: ExpressionState> FilteredRange<St> {
-        fn new(roots: Rc<RevsetExpression<St>>) -> Self {
+        fn new(roots: Arc<RevsetExpression<St>>) -> Self {
             // roots.. & all()
             Self {
                 roots,
@@ -2130,7 +2129,7 @@ fn fold_heads_range<St: ExpressionState>(
             }
         }
 
-        fn add(mut self, expression: &Rc<RevsetExpression<St>>) -> Self {
+        fn add(mut self, expression: &Arc<RevsetExpression<St>>) -> Self {
             if self.heads_and_parents_range.is_none() {
                 // x.. & ::y -> x..y
                 if let Ok(heads_and_parents_range) =
@@ -2143,7 +2142,7 @@ fn fold_heads_range<St: ExpressionState>(
             self.add_filter(expression)
         }
 
-        fn add_filter(mut self, expression: &Rc<RevsetExpression<St>>) -> Self {
+        fn add_filter(mut self, expression: &Arc<RevsetExpression<St>>) -> Self {
             self.filter = if let RevsetExpression::All = self.filter.as_ref() {
                 // x..y & all() & f -> x..y & f
                 expression.clone()
@@ -2155,7 +2154,7 @@ fn fold_heads_range<St: ExpressionState>(
     }
 
     fn to_filtered_range<St: ExpressionState>(
-        expression: &Rc<RevsetExpression<St>>,
+        expression: &Arc<RevsetExpression<St>>,
     ) -> Option<FilteredRange<St>> {
         // If the first expression is `ancestors(x)`, then we already know the range
         // must be `none()..x`, since any roots would've been moved to the left by an
@@ -2193,8 +2192,8 @@ fn fold_heads_range<St: ExpressionState>(
     }
 
     fn to_heads_range<St: ExpressionState>(
-        candidates: &Rc<RevsetExpression<St>>,
-    ) -> Option<Rc<RevsetExpression<St>>> {
+        candidates: &Arc<RevsetExpression<St>>,
+    ) -> Option<Arc<RevsetExpression<St>>> {
         to_filtered_range(candidates).map(|filtered_range| {
             let (heads, parents_range) =
                 filtered_range.heads_and_parents_range.unwrap_or_else(|| {
@@ -2231,8 +2230,8 @@ fn fold_heads_range<St: ExpressionState>(
 }
 
 fn to_difference_range<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
-    complement: &Rc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
+    complement: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
     let RevsetExpression::Ancestors {
         heads,
@@ -2245,7 +2244,7 @@ fn to_difference_range<St: ExpressionState>(
     let roots = ancestors_to_heads(complement).ok()?;
     // ::heads & ~(::roots) -> roots..heads
     // ::heads & ~(::roots-) -> ::heads & ~ancestors(roots, 1..) -> roots-..heads
-    Some(Rc::new(RevsetExpression::Range {
+    Some(Arc::new(RevsetExpression::Range {
         roots,
         heads: heads.clone(),
         generation: generation.clone(),
@@ -2256,12 +2255,12 @@ fn to_difference_range<St: ExpressionState>(
 /// Transforms negative intersection to difference. Redundant intersections like
 /// `all() & e` should have been removed.
 fn fold_difference<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
     fn to_difference<St: ExpressionState>(
-        expression: &Rc<RevsetExpression<St>>,
-        complement: &Rc<RevsetExpression<St>>,
-    ) -> Rc<RevsetExpression<St>> {
+        expression: &Arc<RevsetExpression<St>>,
+        complement: &Arc<RevsetExpression<St>>,
+    ) -> Arc<RevsetExpression<St>> {
         to_difference_range(expression, complement).unwrap_or_else(|| expression.minus(complement))
     }
 
@@ -2288,7 +2287,7 @@ fn fold_difference<St: ExpressionState>(
 /// Since this rule inserts redundant `visible_heads()`, negative intersections
 /// should have been transformed.
 fn fold_not_in_ancestors<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
     transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
         RevsetExpression::NotIn(complement)
@@ -2310,7 +2309,7 @@ fn fold_not_in_ancestors<St: ExpressionState>(
 /// For example, `all() ~ e` will become `all() & ~e`, which can be simplified
 /// further by `fold_redundant_expression()`.
 fn unfold_difference<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
     transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
         // roots..heads -> ::heads & ~(::roots)
@@ -2320,7 +2319,7 @@ fn unfold_difference<St: ExpressionState>(
             parents_range,
             generation,
         } => {
-            let heads_ancestors = Rc::new(RevsetExpression::Ancestors {
+            let heads_ancestors = Arc::new(RevsetExpression::Ancestors {
                 heads: heads.clone(),
                 generation: generation.clone(),
                 parents_range: parents_range.clone(),
@@ -2337,7 +2336,7 @@ fn unfold_difference<St: ExpressionState>(
 /// Transforms nested `ancestors()`/`parents()`/`descendants()`/`children()`
 /// like `h---`/`r+++`.
 fn fold_generation<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
     fn add_generation(generation1: &Range<u64>, generation2: &Range<u64>) -> Range<u64> {
         // For any (g1, g2) in (generation1, generation2), g1 + g2.
@@ -2364,7 +2363,7 @@ fn fold_generation<St: ExpressionState>(
                     heads,
                     generation: generation2,
                     parents_range: parents2,
-                } if parents2 == parents1 => Some(Rc::new(RevsetExpression::Ancestors {
+                } if parents2 == parents1 => Some(Arc::new(RevsetExpression::Ancestors {
                     heads: heads.clone(),
                     generation: add_generation(generation1, generation2),
                     parents_range: parents1.clone(),
@@ -2383,7 +2382,7 @@ fn fold_generation<St: ExpressionState>(
                 RevsetExpression::Descendants {
                     roots,
                     generation: generation2,
-                } => Some(Rc::new(RevsetExpression::Descendants {
+                } => Some(Arc::new(RevsetExpression::Descendants {
                     roots: roots.clone(),
                     generation: add_generation(generation1, generation2),
                 })),
@@ -2398,8 +2397,8 @@ fn fold_generation<St: ExpressionState>(
 /// Rewrites the given `expression` tree to reduce evaluation cost. Returns new
 /// tree.
 pub fn optimize<St: ExpressionState>(
-    expression: Rc<RevsetExpression<St>>,
-) -> Rc<RevsetExpression<St>> {
+    expression: Arc<RevsetExpression<St>>,
+) -> Arc<RevsetExpression<St>> {
     // Since fold_redundant_expression() can remove hidden commits that look
     // redundant, referenced commits should be collected earlier.
     let expression = resolve_referenced_commits(&expression).unwrap_or(expression);
@@ -2846,7 +2845,7 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
     fn fold_expression(
         &mut self,
         expression: &UserRevsetExpression,
-    ) -> Result<Rc<ResolvedRevsetExpression>, Self::Error> {
+    ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
         match expression {
             // 'present(x)' opens new symbol resolution scope to map error to 'none()'
             RevsetExpression::Present(candidates) => {
@@ -2871,7 +2870,7 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
     fn fold_commit_ref(
         &mut self,
         commit_ref: &RevsetCommitRef,
-    ) -> Result<Rc<ResolvedRevsetExpression>, Self::Error> {
+    ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
         let commit_ids = resolve_commit_ref(self.repo(), commit_ref, self.symbol_resolver)?;
         Ok(RevsetExpression::commits(commit_ids))
     }
@@ -2880,13 +2879,13 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
         &mut self,
         operation: &String,
         candidates: &UserRevsetExpression,
-    ) -> Result<Rc<ResolvedRevsetExpression>, Self::Error> {
+    ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
         let repo = reload_repo_at_operation(self.repo(), operation)?;
         self.repo_stack.push(repo);
         let candidates = self.fold_expression(candidates)?;
         let visible_heads = self.repo().view().heads().iter().cloned().collect();
         self.repo_stack.pop();
-        Ok(Rc::new(RevsetExpression::WithinVisibility {
+        Ok(Arc::new(RevsetExpression::WithinVisibility {
             candidates,
             visible_heads,
         }))
@@ -2897,7 +2896,7 @@ fn resolve_symbols(
     repo: &dyn Repo,
     expression: &UserRevsetExpression,
     symbol_resolver: &SymbolResolver,
-) -> Result<Rc<ResolvedRevsetExpression>, RevsetResolutionError> {
+) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
     let mut resolver = ExpressionSymbolResolver::new(repo, symbol_resolver);
     resolver.fold_expression(expression)
 }
@@ -3263,7 +3262,7 @@ impl RevsetExtensions {
         }
     }
 
-    pub fn symbol_resolvers(&self) -> &[impl AsRef<dyn SymbolResolverExtension> + use<>] {
+    pub fn symbol_resolvers(&self) -> &[Box<dyn SymbolResolverExtension>] {
         &self.symbol_resolvers
     }
 
@@ -3378,21 +3377,21 @@ mod tests {
 
     use super::*;
 
-    fn parse(revset_str: &str) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
+    fn parse(revset_str: &str) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
         parse_with_aliases(revset_str, [] as [(&str, &str); 0])
     }
 
     fn parse_with_workspace(
         revset_str: &str,
         workspace_name: &WorkspaceName,
-    ) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
+    ) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
         parse_with_aliases_and_workspace(revset_str, [] as [(&str, &str); 0], workspace_name)
     }
 
     fn parse_with_aliases(
         revset_str: &str,
         aliases: impl IntoIterator<Item = (impl AsRef<str>, impl Into<String>)>,
-    ) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
+    ) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
         let mut aliases_map = RevsetAliasesMap::new();
         for (decl, defn) in aliases {
             aliases_map.insert(decl, defn).unwrap();
@@ -3412,7 +3411,7 @@ mod tests {
         revset_str: &str,
         aliases: impl IntoIterator<Item = (impl AsRef<str>, impl Into<String>)>,
         workspace_name: &WorkspaceName,
-    ) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
+    ) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
         // Set up pseudo context to resolve `workspace_name@` and `file(path)`
         let path_converter = RepoPathUiConverter::Fs {
             cwd: PathBuf::from("/"),
@@ -3439,14 +3438,14 @@ mod tests {
 
     fn parse_with_modifier(
         revset_str: &str,
-    ) -> Result<(Rc<UserRevsetExpression>, Option<RevsetModifier>), RevsetParseError> {
+    ) -> Result<(Arc<UserRevsetExpression>, Option<RevsetModifier>), RevsetParseError> {
         parse_with_aliases_and_modifier(revset_str, [] as [(&str, &str); 0])
     }
 
     fn parse_with_aliases_and_modifier(
         revset_str: &str,
         aliases: impl IntoIterator<Item = (impl AsRef<str>, impl Into<String>)>,
-    ) -> Result<(Rc<UserRevsetExpression>, Option<RevsetModifier>), RevsetParseError> {
+    ) -> Result<(Arc<UserRevsetExpression>, Option<RevsetModifier>), RevsetParseError> {
         let mut aliases_map = RevsetAliasesMap::new();
         for (decl, defn) in aliases {
             aliases_map.insert(decl, defn).unwrap();
@@ -4230,11 +4229,11 @@ mod tests {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
 
-        let visibility1 = Rc::new(ResolvedRevsetExpression::WithinVisibility {
+        let visibility1 = Arc::new(ResolvedRevsetExpression::WithinVisibility {
             candidates: RevsetExpression::commit(CommitId::from_hex("100001")),
             visible_heads: vec![CommitId::from_hex("100000")],
         });
-        let visibility2 = Rc::new(ResolvedRevsetExpression::WithinVisibility {
+        let visibility2 = Arc::new(ResolvedRevsetExpression::WithinVisibility {
             candidates: RevsetExpression::filter(RevsetFilterPredicate::HasConflict),
             visible_heads: vec![CommitId::from_hex("200000")],
         });
@@ -4360,7 +4359,7 @@ mod tests {
 
         // Referenced commits should be propagated from the innermost scope.
         insta::assert_debug_snapshot!(
-            resolve_referenced_commits(&Rc::new(ResolvedRevsetExpression::WithinVisibility {
+            resolve_referenced_commits(&Arc::new(ResolvedRevsetExpression::WithinVisibility {
                 candidates: visibility1.clone(),
                 visible_heads: vec![CommitId::from_hex("400000")],
             })), @r#"
@@ -4402,7 +4401,7 @@ mod tests {
         "#);
 
         // Resolved expression should be reused.
-        let resolved = Rc::new(ResolvedRevsetExpression::WithinReference {
+        let resolved = Arc::new(ResolvedRevsetExpression::WithinReference {
             // No referenced commits within the scope to test whether the
             // precomputed value is reused.
             candidates: RevsetExpression::none(),
@@ -4430,7 +4429,7 @@ mod tests {
         )
         "#);
         insta::assert_debug_snapshot!(
-            resolve_referenced_commits(&Rc::new(ResolvedRevsetExpression::WithinVisibility {
+            resolve_referenced_commits(&Arc::new(ResolvedRevsetExpression::WithinVisibility {
                 candidates: resolved.clone(),
                 visible_heads: vec![CommitId::from_hex("400000")],
             })), @r#"
@@ -4548,7 +4547,7 @@ mod tests {
         }
         "#);
         insta::assert_debug_snapshot!(
-            optimize(Rc::new(RevsetExpression::WithinReference {
+            optimize(Arc::new(RevsetExpression::WithinReference {
                 candidates: parse("bookmarks() & all()").unwrap(),
                 commits: vec![CommitId::from_hex("012345")],
             })), @r#"
@@ -4560,7 +4559,7 @@ mod tests {
         }
         "#);
         insta::assert_debug_snapshot!(
-            optimize(Rc::new(RevsetExpression::WithinVisibility {
+            optimize(Arc::new(RevsetExpression::WithinVisibility {
                 candidates: parse("bookmarks() & all()").unwrap(),
                 visible_heads: vec![CommitId::from_hex("012345")],
             })), @r#"
@@ -4607,7 +4606,7 @@ mod tests {
     fn test_optimize_unchanged_subtree() {
         fn unwrap_union(
             expression: &UserRevsetExpression,
-        ) -> (&Rc<UserRevsetExpression>, &Rc<UserRevsetExpression>) {
+        ) -> (&Arc<UserRevsetExpression>, &Arc<UserRevsetExpression>) {
             match expression {
                 RevsetExpression::Union(left, right) => (left, right),
                 _ => panic!("unexpected expression: {expression:?}"),
@@ -4617,15 +4616,15 @@ mod tests {
         // transform_expression_bottom_up() should not recreate tree unnecessarily.
         let parsed = parse("foo-").unwrap();
         let optimized = optimize(parsed.clone());
-        assert!(Rc::ptr_eq(&parsed, &optimized));
+        assert!(Arc::ptr_eq(&parsed, &optimized));
 
         let parsed = parse("bookmarks() | tags()").unwrap();
         let optimized = optimize(parsed.clone());
-        assert!(Rc::ptr_eq(&parsed, &optimized));
+        assert!(Arc::ptr_eq(&parsed, &optimized));
 
         let parsed = parse("bookmarks() & tags()").unwrap();
         let optimized = optimize(parsed.clone());
-        assert!(Rc::ptr_eq(&parsed, &optimized));
+        assert!(Arc::ptr_eq(&parsed, &optimized));
 
         // Only left subtree should be rewritten.
         let parsed = parse("(bookmarks() & all()) | tags()").unwrap();
@@ -4634,7 +4633,7 @@ mod tests {
             unwrap_union(&optimized).0.as_ref(),
             RevsetExpression::CommitRef(RevsetCommitRef::Bookmarks(_))
         );
-        assert!(Rc::ptr_eq(
+        assert!(Arc::ptr_eq(
             unwrap_union(&parsed).1,
             unwrap_union(&optimized).1
         ));
@@ -4642,7 +4641,7 @@ mod tests {
         // Only right subtree should be rewritten.
         let parsed = parse("bookmarks() | (all() & tags())").unwrap();
         let optimized = optimize(parsed.clone());
-        assert!(Rc::ptr_eq(
+        assert!(Arc::ptr_eq(
             unwrap_union(&parsed).0,
             unwrap_union(&optimized).0
         ));
