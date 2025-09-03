@@ -1921,3 +1921,16 @@ wip = ["log", "-r", "work"]
   --when.commands = ["file show"]   # matches `jj file show` but *NOT* `jj file list`
   --when.commands = ["file", "log"] # matches `jj file` *OR* `jj log` (or subcommand of either)
   ```
+
+* `--when.platforms`: List of platforms to match.
+
+  The values are defined by both
+  [`std::env::consts::FAMILY](https://doc.rust-lang.org/std/env/consts/constant.FAMILY.html)
+  and
+  [`std::env::consts::OS](https://doc.rust-lang.org/std/env/consts/constant.OS.html).
+
+  ```toml
+  --when.platforms = ["windows"]            # matches only Windows
+  --when.platforms = ["linux", "freebsd"]   # matches Linux or and FreeBSD, but not macOS
+  --when.platforms = ["unix"]               # matches anything in the Unix family (Linux, FreeBSD, macOS, etc.)
+  ```

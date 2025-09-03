@@ -67,6 +67,9 @@ struct ScopeCondition {
     /// - `--when.commands = ["foo bar"]` -> matches "foo bar", "foo bar baz",
     ///   NOT "foo"
     pub commands: Option<Vec<String>>,
+    /// Platforms to match. The values are defined by `std::env::consts::FAMILY`
+    /// and `std::env::consts::OS`.
+    pub platforms: Option<Vec<String>>,
     // TODO: maybe add "workspaces"?
 }
 
@@ -94,6 +97,7 @@ impl ScopeCondition {
 
     fn matches(&self, context: &ConfigResolutionContext) -> bool {
         matches_path_prefix(self.repositories.as_deref(), context.repo_path)
+            && matches_platform(self.platforms.as_deref())
             && matches_command(self.commands.as_deref(), context.command)
     }
 }
@@ -114,6 +118,14 @@ fn matches_path_prefix(candidates: Option<&[PathBuf]>, actual: Option<&Path>) ->
         (Some(_), None) => false, // actual path not known (e.g. not in workspace)
         (None, _) => true,        // no constraints
     }
+}
+
+fn matches_platform(candidates: Option<&[String]>) -> bool {
+    candidates.is_none_or(|candidates| {
+        candidates
+            .iter()
+            .any(|value| value == std::env::consts::FAMILY || value == std::env::consts::OS)
+    })
 }
 
 fn matches_command(candidates: Option<&[String]>, actual: Option<&str>) -> bool {
@@ -444,6 +456,7 @@ mod tests {
         let condition = ScopeCondition {
             repositories: Some(["/foo", "/bar"].map(PathBuf::from).into()),
             commands: None,
+            platforms: None,
         };
 
         let context = ConfigResolutionContext {
@@ -483,6 +496,7 @@ mod tests {
         let condition = ScopeCondition {
             repositories: Some(["c:/foo", r"d:\bar/baz"].map(PathBuf::from).into()),
             commands: None,
+            platforms: None,
         };
 
         let context = ConfigResolutionContext {
@@ -708,6 +722,52 @@ mod tests {
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+    }
+
+    #[test]
+    fn test_resolve_os() {
+        let mut source_config = StackedConfig::empty();
+        source_config.add_layer(new_user_layer(indoc! {"
+            a = 'a none'
+            b = 'b none'
+            [[--scope]]
+            --when.platforms = ['linux']
+            a = 'a linux'
+            [[--scope]]
+            --when.platforms = ['macos']
+            a = 'a macos'
+            [[--scope]]
+            --when.platforms = ['windows']
+            a = 'a windows'
+            [[--scope]]
+            --when.platforms = ['unix']
+            b = 'b unix'
+        "}));
+
+        let context = ConfigResolutionContext {
+            home_dir: Some(Path::new("/home/dir")),
+            repo_path: None,
+            command: None,
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @r#"
+        a = 'a none'
+        b = 'b none'
+        "#);
+        if cfg!(target_os = "linux") {
+            assert_eq!(resolved_config.layers().len(), 3);
+            insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a linux'");
+            insta::assert_snapshot!(resolved_config.layers()[2].data, @"b = 'b unix'");
+        } else if cfg!(target_os = "macos") {
+            assert_eq!(resolved_config.layers().len(), 3);
+            insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a macos'");
+            insta::assert_snapshot!(resolved_config.layers()[2].data, @"b = 'b unix'");
+        } else if cfg!(target_os = "windows") {
+            assert_eq!(resolved_config.layers().len(), 2);
+            insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a windows'");
+        } else {
+            assert_eq!(resolved_config.layers().len(), 1);
+        }
     }
 
     #[test]
