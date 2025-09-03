@@ -43,9 +43,6 @@ use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::Commit;
 use crate::backend::CommitId;
-use crate::backend::Conflict;
-use crate::backend::ConflictId;
-use crate::backend::ConflictTerm;
 use crate::backend::CopyHistory;
 use crate::backend::CopyId;
 use crate::backend::CopyRecord;
@@ -149,10 +146,6 @@ impl SimpleBackend {
 
     fn commit_path(&self, id: &CommitId) -> PathBuf {
         self.path.join("commits").join(id.hex())
-    }
-
-    fn conflict_path(&self, id: &ConflictId) -> PathBuf {
-        self.path.join("conflicts").join(id.hex())
     }
 }
 
@@ -294,31 +287,6 @@ impl Backend for SimpleBackend {
         let id = TreeId::new(blake2b_hash(tree).to_vec());
 
         persist_content_addressed_temp_file(temp_file, self.tree_path(&id))
-            .map_err(to_other_err)?;
-        Ok(id)
-    }
-
-    fn read_conflict(&self, _path: &RepoPath, id: &ConflictId) -> BackendResult<Conflict> {
-        let path = self.conflict_path(id);
-        let buf = fs::read(path).map_err(|err| map_not_found_err(err, id))?;
-
-        let proto = crate::protos::simple_store::Conflict::decode(&*buf).map_err(to_other_err)?;
-        Ok(conflict_from_proto(proto))
-    }
-
-    fn write_conflict(&self, _path: &RepoPath, conflict: &Conflict) -> BackendResult<ConflictId> {
-        // TODO: Write temporary file in the destination directory (#5712)
-        let temp_file = NamedTempFile::new_in(&self.path).map_err(to_other_err)?;
-
-        let proto = conflict_to_proto(conflict);
-        temp_file
-            .as_file()
-            .write_all(&proto.encode_to_vec())
-            .map_err(to_other_err)?;
-
-        let id = ConflictId::new(blake2b_hash(conflict).to_vec());
-
-        persist_content_addressed_temp_file(temp_file, self.conflict_path(&id))
             .map_err(to_other_err)?;
         Ok(id)
     }
@@ -491,11 +459,6 @@ fn tree_value_to_proto(value: &TreeValue) -> crate::protos::simple_store::TreeVa
                 id.to_bytes(),
             ));
         }
-        TreeValue::Conflict(id) => {
-            proto.value = Some(crate::protos::simple_store::tree_value::Value::ConflictId(
-                id.to_bytes(),
-            ));
-        }
     }
     proto
 }
@@ -518,9 +481,6 @@ fn tree_value_from_proto(proto: crate::protos::simple_store::TreeValue) -> TreeV
         },
         crate::protos::simple_store::tree_value::Value::SymlinkId(id) => {
             TreeValue::Symlink(SymlinkId::new(id))
-        }
-        crate::protos::simple_store::tree_value::Value::ConflictId(id) => {
-            TreeValue::Conflict(ConflictId::new(id))
         }
     }
 }
@@ -545,43 +505,6 @@ fn signature_from_proto(proto: crate::protos::simple_store::commit::Signature) -
             timestamp: MillisSinceEpoch(timestamp.millis_since_epoch),
             tz_offset: timestamp.tz_offset,
         },
-    }
-}
-
-fn conflict_to_proto(conflict: &Conflict) -> crate::protos::simple_store::Conflict {
-    let mut proto = crate::protos::simple_store::Conflict::default();
-    for term in &conflict.removes {
-        proto.removes.push(conflict_term_to_proto(term));
-    }
-    for term in &conflict.adds {
-        proto.adds.push(conflict_term_to_proto(term));
-    }
-    proto
-}
-
-fn conflict_from_proto(proto: crate::protos::simple_store::Conflict) -> Conflict {
-    let removes = proto
-        .removes
-        .into_iter()
-        .map(conflict_term_from_proto)
-        .collect();
-    let adds = proto
-        .adds
-        .into_iter()
-        .map(conflict_term_from_proto)
-        .collect();
-    Conflict { removes, adds }
-}
-
-fn conflict_term_from_proto(proto: crate::protos::simple_store::conflict::Term) -> ConflictTerm {
-    ConflictTerm {
-        value: tree_value_from_proto(proto.content.unwrap()),
-    }
-}
-
-fn conflict_term_to_proto(part: &ConflictTerm) -> crate::protos::simple_store::conflict::Term {
-    crate::protos::simple_store::conflict::Term {
-        content: Some(tree_value_to_proto(&part.value)),
     }
 }
 

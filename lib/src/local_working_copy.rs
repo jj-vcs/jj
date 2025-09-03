@@ -2013,9 +2013,6 @@ impl TreeState {
                             executable: FileExecutableFlag::from_bool_lossy(executable),
                         },
                         TreeValue::Symlink(_id) => FileType::Symlink,
-                        TreeValue::Conflict(_id) => {
-                            panic!("unexpected conflict entry in diff at {path:?}");
-                        }
                         TreeValue::GitSubmodule(_id) => {
                             eprintln!("ignoring git submodule at {path:?}");
                             FileType::GitSubmodule

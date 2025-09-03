@@ -2421,7 +2421,7 @@ fn describe_file_type(value: &MergedTreeValue) -> &'static str {
         Some(Some(TreeValue::Tree(_))) => "tree",
         Some(Some(TreeValue::GitSubmodule(_))) => "git-submodule",
         Some(None) => "", // absent
-        None | Some(Some(TreeValue::Conflict(_))) => "conflict",
+        None => "conflict",
     }
 }
 

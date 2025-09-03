@@ -35,8 +35,6 @@ use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::Commit;
 use jj_lib::backend::CommitId;
-use jj_lib::backend::Conflict;
-use jj_lib::backend::ConflictId;
 use jj_lib::backend::CopyHistory;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::CopyRecord;
@@ -71,7 +69,6 @@ pub struct TestBackendData {
     trees: HashMap<RepoPathBuf, HashMap<TreeId, Tree>>,
     files: HashMap<RepoPathBuf, HashMap<FileId, Vec<u8>>>,
     symlinks: HashMap<RepoPathBuf, HashMap<SymlinkId, String>>,
-    conflicts: HashMap<RepoPathBuf, HashMap<ConflictId, Conflict>>,
     copies: HashMap<CopyId, CopyHistory>,
 }
 
@@ -376,33 +373,6 @@ impl Backend for TestBackend {
             Ok(id)
         })
         .await
-    }
-
-    fn read_conflict(&self, path: &RepoPath, id: &ConflictId) -> BackendResult<Conflict> {
-        match self
-            .locked_data()
-            .conflicts
-            .get(path)
-            .and_then(|items| items.get(id))
-            .cloned()
-        {
-            None => Err(BackendError::ObjectNotFound {
-                object_type: "conflict".to_string(),
-                hash: id.hex(),
-                source: format!("at path {path:?}").into(),
-            }),
-            Some(conflict) => Ok(conflict),
-        }
-    }
-
-    fn write_conflict(&self, path: &RepoPath, contents: &Conflict) -> BackendResult<ConflictId> {
-        let id = ConflictId::new(get_hash(contents));
-        self.locked_data()
-            .conflicts
-            .entry(path.to_owned())
-            .or_default()
-            .insert(id.clone(), contents.clone());
-        Ok(id)
     }
 
     async fn read_commit(&self, id: &CommitId) -> BackendResult<Commit> {

@@ -15,7 +15,6 @@
 use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
-use jj_lib::backend::CopyId;
 use jj_lib::backend::CopyRecord;
 use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeId;
@@ -29,7 +28,6 @@ use jj_lib::matchers::FilesMatcher;
 use jj_lib::matchers::Matcher;
 use jj_lib::matchers::PrefixMatcher;
 use jj_lib::merge::Merge;
-use jj_lib::merge::MergeBuilder;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
@@ -39,7 +37,6 @@ use jj_lib::merged_tree::TreeDiffStreamImpl;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
-use jj_lib::tree_builder::TreeBuilder;
 use pollster::FutureExt as _;
 use pretty_assertions::assert_eq;
 use testutils::TestRepo;
@@ -48,15 +45,6 @@ use testutils::create_tree;
 use testutils::repo_path;
 use testutils::repo_path_buf;
 use testutils::repo_path_component;
-use testutils::write_file;
-
-fn file_value(file_id: &FileId) -> TreeValue {
-    TreeValue::File {
-        id: file_id.clone(),
-        executable: false,
-        copy_id: CopyId::placeholder(),
-    }
-}
 
 fn diff_entry_tuple(diff: TreeDiffEntry) -> (RepoPathBuf, (MergedTreeValue, MergedTreeValue)) {
     (diff.path, diff.values.unwrap())
@@ -76,213 +64,6 @@ fn diff_stream_equals_iter(tree1: &MergedTree, tree2: &MergedTree, matcher: &dyn
             .collect()
             .block_on();
     assert_eq!(stream_diff, iter_diff);
-}
-
-#[test]
-fn test_from_legacy_tree() {
-    let test_repo = TestRepo::init();
-    let repo = &test_repo.repo;
-    let store = repo.store();
-
-    let mut tree_builder = TreeBuilder::new(store.clone(), repo.store().empty_tree_id().clone());
-
-    // file1: regular file without conflicts
-    let file1_path = repo_path("no_conflict");
-    let file1_id = write_file(store.as_ref(), file1_path, "foo");
-    tree_builder.set(file1_path.to_owned(), file_value(&file1_id));
-
-    // file2: 3-way conflict
-    let file2_path = repo_path("3way");
-    let file2_v1_id = write_file(store.as_ref(), file2_path, "file2_v1");
-    let file2_v2_id = write_file(store.as_ref(), file2_path, "file2_v2");
-    let file2_v3_id = write_file(store.as_ref(), file2_path, "file2_v3");
-    let file2_conflict = Merge::from_removes_adds(
-        vec![Some(file_value(&file2_v1_id))],
-        vec![
-            Some(file_value(&file2_v2_id)),
-            Some(file_value(&file2_v3_id)),
-        ],
-    );
-    let file2_conflict_id = store.write_conflict(file2_path, &file2_conflict).unwrap();
-    tree_builder.set(
-        file2_path.to_owned(),
-        TreeValue::Conflict(file2_conflict_id),
-    );
-
-    // file3: modify/delete conflict
-    let file3_path = repo_path("modify_delete");
-    let file3_v1_id = write_file(store.as_ref(), file3_path, "file3_v1");
-    let file3_v2_id = write_file(store.as_ref(), file3_path, "file3_v2");
-    let file3_conflict = Merge::from_removes_adds(
-        vec![Some(file_value(&file3_v1_id))],
-        vec![Some(file_value(&file3_v2_id)), None],
-    );
-    let file3_conflict_id = store.write_conflict(file3_path, &file3_conflict).unwrap();
-    tree_builder.set(
-        file3_path.to_owned(),
-        TreeValue::Conflict(file3_conflict_id),
-    );
-
-    // file4: add/add conflict
-    let file4_path = repo_path("add_add");
-    let file4_v1_id = write_file(store.as_ref(), file4_path, "file4_v1");
-    let file4_v2_id = write_file(store.as_ref(), file4_path, "file4_v2");
-    let file4_conflict = Merge::from_removes_adds(
-        vec![None],
-        vec![
-            Some(file_value(&file4_v1_id)),
-            Some(file_value(&file4_v2_id)),
-        ],
-    );
-    let file4_conflict_id = store.write_conflict(file4_path, &file4_conflict).unwrap();
-    tree_builder.set(
-        file4_path.to_owned(),
-        TreeValue::Conflict(file4_conflict_id),
-    );
-
-    // file5: 5-way conflict
-    let file5_path = repo_path("5way");
-    let file5_v1_id = write_file(store.as_ref(), file5_path, "file5_v1");
-    let file5_v2_id = write_file(store.as_ref(), file5_path, "file5_v2");
-    let file5_v3_id = write_file(store.as_ref(), file5_path, "file5_v3");
-    let file5_v4_id = write_file(store.as_ref(), file5_path, "file5_v4");
-    let file5_v5_id = write_file(store.as_ref(), file5_path, "file5_v5");
-    let file5_conflict = Merge::from_removes_adds(
-        vec![
-            Some(file_value(&file5_v1_id)),
-            Some(file_value(&file5_v2_id)),
-        ],
-        vec![
-            Some(file_value(&file5_v3_id)),
-            Some(file_value(&file5_v4_id)),
-            Some(file_value(&file5_v5_id)),
-        ],
-    );
-    let file5_conflict_id = store.write_conflict(file5_path, &file5_conflict).unwrap();
-    tree_builder.set(
-        file5_path.to_owned(),
-        TreeValue::Conflict(file5_conflict_id),
-    );
-
-    // dir1: directory without conflicts
-    let dir1_basename = repo_path_component("dir1");
-    let dir1_filename = RepoPath::root()
-        .join(dir1_basename)
-        .join(repo_path_component("file"));
-    let dir1_filename_id = write_file(store.as_ref(), &dir1_filename, "file5_v2");
-    tree_builder.set(dir1_filename.clone(), file_value(&dir1_filename_id));
-
-    let tree_id = tree_builder.write_tree().unwrap();
-    let tree = store.get_tree(RepoPathBuf::root(), &tree_id).unwrap();
-
-    let merged_tree = MergedTree::from_legacy_tree(tree.clone()).unwrap();
-    assert_eq!(
-        merged_tree.value(repo_path_component("missing")),
-        Merge::absent()
-    );
-    // file1: regular file without conflicts
-    assert_eq!(
-        merged_tree
-            .value(file1_path.components().next().unwrap())
-            .cloned(),
-        Merge::normal(TreeValue::File {
-            id: file1_id.clone(),
-            executable: false,
-            copy_id: CopyId::placeholder(),
-        })
-    );
-    // file2: 3-way conflict
-    assert_eq!(
-        merged_tree
-            .value(file2_path.components().next().unwrap())
-            .cloned(),
-        Merge::from_removes_adds(
-            vec![Some(file_value(&file2_v1_id)), None],
-            vec![
-                Some(file_value(&file2_v2_id)),
-                Some(file_value(&file2_v3_id)),
-                None,
-            ],
-        )
-    );
-    // file3: modify/delete conflict
-    assert_eq!(
-        merged_tree
-            .value(file3_path.components().next().unwrap())
-            .cloned(),
-        Merge::from_removes_adds(
-            vec![Some(file_value(&file3_v1_id)), None],
-            vec![Some(file_value(&file3_v2_id)), None, None],
-        )
-    );
-    // file4: add/add conflict
-    assert_eq!(
-        merged_tree
-            .value(file4_path.components().next().unwrap())
-            .cloned(),
-        Merge::from_removes_adds(
-            vec![None, None],
-            vec![
-                Some(file_value(&file4_v1_id)),
-                Some(file_value(&file4_v2_id)),
-                None
-            ],
-        )
-    );
-    // file5: 5-way conflict
-    assert_eq!(
-        merged_tree
-            .value(file5_path.components().next().unwrap())
-            .cloned(),
-        Merge::from_removes_adds(
-            vec![
-                Some(file_value(&file5_v1_id)),
-                Some(file_value(&file5_v2_id)),
-            ],
-            vec![
-                Some(file_value(&file5_v3_id)),
-                Some(file_value(&file5_v4_id)),
-                Some(file_value(&file5_v5_id)),
-            ],
-        )
-    );
-    // file6: directory without conflicts
-    assert_eq!(
-        merged_tree.value(dir1_basename),
-        Merge::resolved(tree.value(dir1_basename))
-    );
-
-    // Create the merged tree by starting from an empty merged tree and adding
-    // entries from the merged tree we created before
-    let empty_merged_id_builder: MergeBuilder<_> = std::iter::repeat_n(store.empty_tree_id(), 5)
-        .cloned()
-        .collect();
-    let empty_merged_id = MergedTreeId::Merge(empty_merged_id_builder.build());
-    let mut tree_builder = MergedTreeBuilder::new(empty_merged_id);
-    for (path, value) in merged_tree.entries() {
-        tree_builder.set_or_remove(path, value.unwrap());
-    }
-    let recreated_merged_id = tree_builder.write_tree(store).unwrap();
-    assert_eq!(recreated_merged_id, merged_tree.id());
-
-    // Create the merged tree by adding the same (variable-arity) entries as we
-    // added to the single-tree TreeBuilder.
-    let mut tree_builder = MergedTreeBuilder::new(MergedTreeId::Merge(Merge::resolved(
-        store.empty_tree_id().clone(),
-    )));
-    // Add the entries out of order, so we test both increasing and reducing the
-    // arity (going up from 1-way to 3-way to 5-way, then to 3-way again)
-    tree_builder.set_or_remove(file1_path.to_owned(), Merge::normal(file_value(&file1_id)));
-    tree_builder.set_or_remove(file2_path.to_owned(), file2_conflict);
-    tree_builder.set_or_remove(file5_path.to_owned(), file5_conflict);
-    tree_builder.set_or_remove(file3_path.to_owned(), file3_conflict);
-    tree_builder.set_or_remove(file4_path.to_owned(), file4_conflict);
-    tree_builder.set_or_remove(
-        dir1_filename.clone(),
-        Merge::normal(file_value(&dir1_filename_id)),
-    );
-    let recreated_merged_id = tree_builder.write_tree(store).unwrap();
-    assert_eq!(recreated_merged_id, merged_tree.id());
 }
 
 /// Test that a tree built with no changes on top of an add/add conflict gets

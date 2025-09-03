@@ -2638,7 +2638,6 @@ pub fn print_conflicted_paths(
                     TreeValue::Symlink(_) => "a symlink",
                     TreeValue::Tree(_) => "a directory",
                     TreeValue::GitSubmodule(_) => "a git submodule",
-                    TreeValue::Conflict(_) => "another conflict (you found a bug!)",
                 }
                 .to_string(),
                 "difficult",

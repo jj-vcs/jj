@@ -51,7 +51,6 @@ id_type!(
 id_type!(pub TreeId { hex() });
 id_type!(pub FileId { hex() });
 id_type!(pub SymlinkId { hex() });
-id_type!(pub ConflictId { hex() });
 id_type!(pub CopyId { hex() });
 
 impl ChangeId {
@@ -208,21 +207,6 @@ pub struct Commit {
     pub secure_sig: Option<SecureSig>,
 }
 
-#[derive(ContentHash, Debug, PartialEq, Eq, Clone)]
-pub struct ConflictTerm {
-    pub value: TreeValue,
-}
-
-#[derive(ContentHash, Debug, PartialEq, Eq, Clone)]
-pub struct Conflict {
-    // A conflict is represented by a list of positive and negative states that need to be applied.
-    // In a simple 3-way merge of B and C with merge base A, the conflict will be { add: [B, C],
-    // remove: [A] }. Also note that a conflict of the form { add: [A], remove: [] } is the
-    // same as non-conflict A.
-    pub removes: Vec<ConflictTerm>,
-    pub adds: Vec<ConflictTerm>,
-}
-
 /// An individual copy event, from file A -> B.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CopyRecord {
@@ -351,7 +335,6 @@ pub enum TreeValue {
     Symlink(SymlinkId),
     Tree(TreeId),
     GitSubmodule(CommitId),
-    Conflict(ConflictId),
 }
 
 impl TreeValue {
@@ -361,7 +344,6 @@ impl TreeValue {
             Self::Symlink(id) => id.hex(),
             Self::Tree(id) => id.hex(),
             Self::GitSubmodule(id) => id.hex(),
-            Self::Conflict(id) => id.hex(),
         }
     }
 }
@@ -533,12 +515,6 @@ pub trait Backend: Send + Sync + Debug {
     async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> BackendResult<Tree>;
 
     async fn write_tree(&self, path: &RepoPath, contents: &Tree) -> BackendResult<TreeId>;
-
-    // Not async because it would force `MergedTree::value()` to be async. We don't
-    // need this to be async anyway because it's only used by legacy repos.
-    fn read_conflict(&self, path: &RepoPath, id: &ConflictId) -> BackendResult<Conflict>;
-
-    fn write_conflict(&self, path: &RepoPath, contents: &Conflict) -> BackendResult<ConflictId>;
 
     async fn read_commit(&self, id: &CommitId) -> BackendResult<Commit>;
 

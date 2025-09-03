@@ -235,9 +235,6 @@ async fn materialize_tree_value_no_access_denied(
         }
         Ok(Some(TreeValue::GitSubmodule(id))) => Ok(MaterializedTreeValue::GitSubmodule(id)),
         Ok(Some(TreeValue::Tree(id))) => Ok(MaterializedTreeValue::Tree(id)),
-        Ok(Some(TreeValue::Conflict(_))) => {
-            panic!("cannot materialize legacy conflict object at path {path:?}");
-        }
         Err(conflict) => match try_materialize_file_conflict_value(store, path, &conflict).await? {
             Some(file) => Ok(MaterializedTreeValue::FileConflict(file)),
             None => Ok(MaterializedTreeValue::OtherConflict { id: conflict }),

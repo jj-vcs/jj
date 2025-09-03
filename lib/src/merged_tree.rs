@@ -15,7 +15,6 @@
 //! A lazily merged view of a set of trees.
 
 use std::borrow::Borrow;
-use std::cmp::max;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::iter;
@@ -78,7 +77,6 @@ impl MergedTree {
     /// Creates a new `MergedTree` representing a merge of a set of trees. The
     /// individual trees must not have any conflicts.
     pub fn new(trees: Merge<Tree>) -> Self {
-        debug_assert!(!trees.iter().any(|t| t.has_conflict()));
         debug_assert!(trees.iter().map(|tree| tree.dir()).all_equal());
         debug_assert!(
             trees
@@ -87,50 +85,6 @@ impl MergedTree {
                 .all_equal()
         );
         Self { trees }
-    }
-
-    /// Takes a tree in the legacy format (with path-level conflicts in the
-    /// tree) and returns a `MergedTree` with any conflicts converted to
-    /// tree-level conflicts.
-    pub fn from_legacy_tree(tree: Tree) -> BackendResult<Self> {
-        let conflict_ids = tree.conflicts();
-        if conflict_ids.is_empty() {
-            return Ok(Self::resolved(tree));
-        }
-
-        // Find the number of removes and adds in the most complex conflict.
-        let mut max_tree_count = 1;
-        let store = tree.store();
-        let mut conflicts: Vec<(&RepoPath, MergedTreeValue)> = vec![];
-        for (path, conflict_id) in &conflict_ids {
-            let conflict = store.read_conflict(path, conflict_id)?;
-            max_tree_count = max(max_tree_count, conflict.iter().len());
-            conflicts.push((path, conflict));
-        }
-        let mut tree_builders = Vec::new();
-        tree_builders.resize_with(max_tree_count, || {
-            TreeBuilder::new(store.clone(), tree.id().clone())
-        });
-        for (path, conflict) in conflicts {
-            // If there are fewer terms in this conflict than in some other conflict, we can
-            // add canceling removes and adds of any value. The simplest value is an absent
-            // value, so we use that.
-            let terms_padded = conflict.into_iter().chain(iter::repeat(None));
-            for (builder, term) in zip(&mut tree_builders, terms_padded) {
-                builder.set_or_remove(path.to_owned(), term);
-            }
-        }
-
-        let new_trees: Vec<_> = tree_builders
-            .into_iter()
-            .map(|builder| {
-                let tree_id = builder.write_tree()?;
-                store.get_tree(RepoPathBuf::root(), &tree_id)
-            })
-            .try_collect()?;
-        Ok(Self {
-            trees: Merge::from_vec(new_trees),
-        })
     }
 
     /// Returns the underlying `Merge<Tree>`.
@@ -1351,29 +1305,15 @@ impl MergedTreeBuilder {
     /// Set an override compared to  the base tree. The `values` merge must
     /// either be resolved (i.e. have 1 side) or have the same number of
     /// sides as the `base_tree_ids` used to construct this builder. Use
-    /// `Merge::absent()` to remove a value from the tree. When the base tree is
-    /// a legacy tree, conflicts can be written either as a multi-way `Merge`
-    /// value or as a resolved `Merge` value using `TreeValue::Conflict`.
+    /// `Merge::absent()` to remove a value from the tree.
     pub fn set_or_remove(&mut self, path: RepoPathBuf, values: MergedTreeValue) {
-        if let MergedTreeId::Merge(_) = &self.base_tree_id {
-            assert!(
-                !values
-                    .iter()
-                    .flatten()
-                    .any(|value| matches!(value, TreeValue::Conflict(_)))
-            );
-        }
         self.overrides.insert(path, values);
     }
 
     /// Create new tree(s) from the base tree(s) and overrides.
     pub fn write_tree(self, store: &Arc<Store>) -> BackendResult<MergedTreeId> {
         let base_tree_ids = match self.base_tree_id.clone() {
-            MergedTreeId::Legacy(base_tree_id) => {
-                let legacy_base_tree = store.get_tree(RepoPathBuf::root(), &base_tree_id)?;
-                let base_tree = MergedTree::from_legacy_tree(legacy_base_tree)?;
-                base_tree.id().to_merge()
-            }
+            MergedTreeId::Legacy(base_tree_id) => Merge::resolved(base_tree_id),
             MergedTreeId::Merge(base_tree_ids) => base_tree_ids,
         };
         let new_tree_ids = self.write_merged_trees(base_tree_ids, store)?;

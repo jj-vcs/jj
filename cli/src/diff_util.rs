@@ -2325,7 +2325,7 @@ fn diff_summary_char(value: &MergedTreeValue) -> char {
         Some(Some(TreeValue::Symlink(_))) => 'L',
         Some(Some(TreeValue::GitSubmodule(_))) => 'G',
         None => 'C',
-        Some(Some(TreeValue::Tree(_))) | Some(Some(TreeValue::Conflict(_))) => {
+        Some(Some(TreeValue::Tree(_))) => {
             panic!("Unexpected {value:?} in diff")
         }
     }

@@ -1427,7 +1427,6 @@ fn build_index_from_merged_tree(
                     return;
                 }
                 TreeValue::GitSubmodule(id) => (id.as_bytes(), gix::index::entry::Mode::COMMIT),
-                TreeValue::Conflict(_) => panic!("unexpected merged tree entry: {entry:?}"),
             };
 
             let path = BStr::new(path.as_internal_file_string());

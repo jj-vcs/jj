@@ -23,17 +23,14 @@ use std::sync::Arc;
 
 use itertools::Itertools as _;
 use tokio::io::AsyncReadExt as _;
-use tracing::instrument;
 
 use crate::backend;
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
-use crate::backend::ConflictId;
 use crate::backend::TreeEntriesNonRecursiveIterator;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::files;
-use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
 use crate::merge::MergedTreeVal;
 use crate::object_id::ObjectId as _;
@@ -172,25 +169,6 @@ impl Tree {
         // then we would have to figure out how to share Tree instances
         // across threads.
         Ok(Some(current_tree))
-    }
-
-    pub fn conflicts_matching(&self, matcher: &dyn Matcher) -> Vec<(RepoPathBuf, ConflictId)> {
-        let mut conflicts = vec![];
-        for (name, value) in self.entries_matching(matcher) {
-            if let TreeValue::Conflict(id) = value {
-                conflicts.push((name.clone(), id.clone()));
-            }
-        }
-        conflicts
-    }
-
-    #[instrument]
-    pub fn conflicts(&self) -> Vec<(RepoPathBuf, ConflictId)> {
-        self.conflicts_matching(&EverythingMatcher)
-    }
-
-    pub fn has_conflict(&self) -> bool {
-        !self.conflicts().is_empty()
     }
 }
 

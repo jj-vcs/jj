@@ -57,9 +57,6 @@ use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::Commit;
 use crate::backend::CommitId;
-use crate::backend::Conflict;
-use crate::backend::ConflictId;
-use crate::backend::ConflictTerm;
 use crate::backend::CopyHistory;
 use crate::backend::CopyId;
 use crate::backend::CopyRecord;
@@ -80,7 +77,6 @@ use crate::file_util;
 use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
-use crate::hex_util;
 use crate::index::Index;
 use crate::lock::FileLock;
 use crate::merge::Merge;
@@ -1176,9 +1172,6 @@ impl Backend for GitBackend {
                         filename: name.into(),
                         oid: gix::ObjectId::from_bytes_or_panic(id.as_bytes()),
                     },
-                    TreeValue::Conflict(_) => {
-                        panic!("Cannot write legacy conflicts");
-                    }
                 }
             })
             .sorted_unstable()
@@ -1191,32 +1184,6 @@ impl Backend for GitBackend {
                 source: Box::new(err),
             })?;
         Ok(TreeId::from_bytes(oid.as_bytes()))
-    }
-
-    fn read_conflict(&self, _path: &RepoPath, id: &ConflictId) -> BackendResult<Conflict> {
-        let data = self.read_file_sync(&FileId::new(id.to_bytes()))?;
-        let json: serde_json::Value = serde_json::from_slice(&data).unwrap();
-        Ok(Conflict {
-            removes: conflict_term_list_from_json(json.get("removes").unwrap()),
-            adds: conflict_term_list_from_json(json.get("adds").unwrap()),
-        })
-    }
-
-    fn write_conflict(&self, _path: &RepoPath, conflict: &Conflict) -> BackendResult<ConflictId> {
-        let json = serde_json::json!({
-            "removes": conflict_term_list_to_json(&conflict.removes),
-            "adds": conflict_term_list_to_json(&conflict.adds),
-        });
-        let json_string = json.to_string();
-        let bytes = json_string.as_bytes();
-        let locked_repo = self.lock_git_repo();
-        let oid = locked_repo
-            .write_blob(bytes)
-            .map_err(|err| BackendError::WriteObject {
-                object_type: "conflict",
-                source: Box::new(err),
-            })?;
-        Ok(ConflictId::from_bytes(oid.as_bytes()))
     }
 
     #[tracing::instrument(skip(self))]
@@ -1553,82 +1520,6 @@ recover.
     Ok(id.detach())
 }
 
-fn conflict_term_list_to_json(parts: &[ConflictTerm]) -> serde_json::Value {
-    serde_json::Value::Array(parts.iter().map(conflict_term_to_json).collect())
-}
-
-fn conflict_term_list_from_json(json: &serde_json::Value) -> Vec<ConflictTerm> {
-    json.as_array()
-        .unwrap()
-        .iter()
-        .map(conflict_term_from_json)
-        .collect()
-}
-
-fn conflict_term_to_json(part: &ConflictTerm) -> serde_json::Value {
-    serde_json::json!({
-        "value": tree_value_to_json(&part.value),
-    })
-}
-
-fn conflict_term_from_json(json: &serde_json::Value) -> ConflictTerm {
-    let json_value = json.get("value").unwrap();
-    ConflictTerm {
-        value: tree_value_from_json(json_value),
-    }
-}
-
-fn tree_value_to_json(value: &TreeValue) -> serde_json::Value {
-    match value {
-        TreeValue::File {
-            id,
-            executable,
-            copy_id: _,
-        } => serde_json::json!({
-             "file": {
-                 "id": id.hex(),
-                 "executable": executable,
-             },
-        }),
-        TreeValue::Symlink(id) => serde_json::json!({
-             "symlink_id": id.hex(),
-        }),
-        TreeValue::Tree(id) => serde_json::json!({
-             "tree_id": id.hex(),
-        }),
-        TreeValue::GitSubmodule(id) => serde_json::json!({
-             "submodule_id": id.hex(),
-        }),
-        TreeValue::Conflict(id) => serde_json::json!({
-             "conflict_id": id.hex(),
-        }),
-    }
-}
-
-fn tree_value_from_json(json: &serde_json::Value) -> TreeValue {
-    if let Some(json_file) = json.get("file") {
-        TreeValue::File {
-            id: FileId::new(bytes_vec_from_json(json_file.get("id").unwrap())),
-            executable: json_file.get("executable").unwrap().as_bool().unwrap(),
-            copy_id: CopyId::placeholder(),
-        }
-    } else if let Some(json_id) = json.get("symlink_id") {
-        TreeValue::Symlink(SymlinkId::new(bytes_vec_from_json(json_id)))
-    } else if let Some(json_id) = json.get("tree_id") {
-        TreeValue::Tree(TreeId::new(bytes_vec_from_json(json_id)))
-    } else if let Some(json_id) = json.get("submodule_id") {
-        TreeValue::GitSubmodule(CommitId::new(bytes_vec_from_json(json_id)))
-    } else if let Some(json_id) = json.get("conflict_id") {
-        TreeValue::Conflict(ConflictId::new(bytes_vec_from_json(json_id)))
-    } else {
-        panic!("unexpected json value in conflict: {json:#?}");
-    }
-}
-
-fn bytes_vec_from_json(value: &serde_json::Value) -> Vec<u8> {
-    hex_util::decode_hex(value.as_str().unwrap()).unwrap()
-}
-
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
@@ -1638,6 +1529,7 @@ mod tests {
     use super::*;
     use crate::config::StackedConfig;
     use crate::content_hash::blake2b_hash;
+    use crate::hex_util;
     use crate::tests::new_temp_dir;
 
     const GIT_USER: &str = "Someone";

@@ -2496,7 +2496,6 @@ dependencies = [
  "same-file",
  "sapling-renderdag",
  "serde",
- "serde_json",
  "smallvec",
  "strsim",
  "tempfile",

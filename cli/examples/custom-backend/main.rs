@@ -30,8 +30,6 @@ use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::Commit;
 use jj_lib::backend::CommitId;
-use jj_lib::backend::Conflict;
-use jj_lib::backend::ConflictId;
 use jj_lib::backend::CopyHistory;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::CopyRecord;
@@ -191,14 +189,6 @@ impl Backend for JitBackend {
 
     async fn write_tree(&self, path: &RepoPath, contents: &Tree) -> BackendResult<TreeId> {
         self.inner.write_tree(path, contents).await
-    }
-
-    fn read_conflict(&self, path: &RepoPath, id: &ConflictId) -> BackendResult<Conflict> {
-        self.inner.read_conflict(path, id)
-    }
-
-    fn write_conflict(&self, path: &RepoPath, contents: &Conflict) -> BackendResult<ConflictId> {
-        self.inner.write_conflict(path, contents)
     }
 
     async fn read_commit(&self, id: &CommitId) -> BackendResult<Commit> {

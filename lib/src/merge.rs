@@ -31,7 +31,6 @@ use itertools::Itertools as _;
 use smallvec::SmallVec;
 use smallvec::smallvec_inline;
 
-use crate::backend;
 use crate::backend::BackendResult;
 use crate::backend::CopyId;
 use crate::backend::FileId;
@@ -534,32 +533,6 @@ pub type MergedTreeVal<'a> = Merge<Option<&'a TreeValue>>;
 /// tree, it shouldn't be.
 pub type MergedTreeValue = Merge<Option<TreeValue>>;
 
-impl MergedTreeValue {
-    /// Create a `Merge` from a `backend::Conflict`, padding with `None` to
-    /// make sure that there is exactly one more `adds()` than `removes()`.
-    pub fn from_backend_conflict(conflict: backend::Conflict) -> Self {
-        let removes = conflict.removes.into_iter().map(|term| term.value);
-        let adds = conflict.adds.into_iter().map(|term| term.value);
-        Merge::from_legacy_form(removes, adds)
-    }
-
-    /// Creates a `backend::Conflict` from a `Merge` by dropping `None`
-    /// values. Note that the conversion is lossy: the order of `None` values is
-    /// not preserved when converting back to a `Merge`.
-    pub fn into_backend_conflict(self) -> backend::Conflict {
-        let (removes, adds) = self.into_legacy_form();
-        let removes = removes
-            .into_iter()
-            .map(|value| backend::ConflictTerm { value })
-            .collect();
-        let adds = adds
-            .into_iter()
-            .map(|value| backend::ConflictTerm { value })
-            .collect();
-        backend::Conflict { removes, adds }
-    }
-}
-
 impl<T> Merge<Option<T>>
 where
     T: Borrow<TreeValue>,
@@ -735,9 +708,6 @@ fn describe_conflict_term(value: &TreeValue) -> String {
         }
         TreeValue::GitSubmodule(id) => {
             format!("Git submodule with id {id}")
-        }
-        TreeValue::Conflict(id) => {
-            format!("Conflict with id {id}")
         }
     }
 }

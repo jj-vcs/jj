@@ -27,7 +27,6 @@ message TreeValue {
     File file = 2;
     bytes symlink_id = 3;
     bytes tree_id = 4;
-    bytes conflict_id = 5;
   }
 }
 
@@ -60,13 +59,4 @@ message Commit {
   Signature author = 6;
   Signature committer = 7;
   optional bytes secure_sig = 9;
-}
-
-message Conflict {
-  message Term {
-    TreeValue content = 1;
-  }
-
-  repeated Term removes = 1;
-  repeated Term adds = 2;
 }

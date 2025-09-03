@@ -30,8 +30,6 @@ use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::Commit;
 use crate::backend::CommitId;
-use crate::backend::Conflict;
-use crate::backend::ConflictId;
 use crate::backend::CopyHistory;
 use crate::backend::CopyId;
 use crate::backend::CopyRecord;
@@ -187,14 +185,6 @@ impl Backend for SecretBackend {
 
     async fn write_tree(&self, path: &RepoPath, contents: &Tree) -> BackendResult<TreeId> {
         self.inner.write_tree(path, contents).await
-    }
-
-    fn read_conflict(&self, path: &RepoPath, id: &ConflictId) -> BackendResult<Conflict> {
-        self.inner.read_conflict(path, id)
-    }
-
-    fn write_conflict(&self, path: &RepoPath, contents: &Conflict) -> BackendResult<ConflictId> {
-        self.inner.write_conflict(path, contents)
     }
 
     async fn read_commit(&self, id: &CommitId) -> BackendResult<Commit> {

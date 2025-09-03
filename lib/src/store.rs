@@ -32,7 +32,6 @@ use crate::backend::Backend;
 use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
-use crate::backend::ConflictId;
 use crate::backend::CopyRecord;
 use crate::backend::FileId;
 use crate::backend::MergedTreeId;
@@ -41,8 +40,6 @@ use crate::backend::SymlinkId;
 use crate::backend::TreeId;
 use crate::commit::Commit;
 use crate::index::Index;
-use crate::merge::Merge;
-use crate::merge::MergedTreeValue;
 use crate::merged_tree::MergedTree;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
@@ -217,7 +214,7 @@ impl Store {
         match &id {
             MergedTreeId::Legacy(id) => {
                 let tree = self.get_tree_async(RepoPathBuf::root(), id).await?;
-                MergedTree::from_legacy_tree(tree)
+                Ok(MergedTree::resolved(tree))
             }
             MergedTreeId::Merge(ids) => {
                 let trees = ids
@@ -265,24 +262,6 @@ impl Store {
 
     pub async fn write_symlink(&self, path: &RepoPath, contents: &str) -> BackendResult<SymlinkId> {
         self.backend.write_symlink(path, contents).await
-    }
-
-    pub fn read_conflict(
-        &self,
-        path: &RepoPath,
-        id: &ConflictId,
-    ) -> BackendResult<MergedTreeValue> {
-        let backend_conflict = self.backend.read_conflict(path, id)?;
-        Ok(Merge::from_backend_conflict(backend_conflict))
-    }
-
-    pub fn write_conflict(
-        &self,
-        path: &RepoPath,
-        contents: &MergedTreeValue,
-    ) -> BackendResult<ConflictId> {
-        self.backend
-            .write_conflict(path, &contents.clone().into_backend_conflict())
     }
 
     pub fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()> {

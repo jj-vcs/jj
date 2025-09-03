@@ -63,7 +63,6 @@ ref-cast = { workspace = true }
 regex = { workspace = true }
 same-file = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
 smallvec = { workspace = true }
 strsim = { workspace = true }
 tempfile = { workspace = true }
