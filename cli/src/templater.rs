@@ -806,12 +806,12 @@ impl<'a> TemplateFormatter<'a> {
         self.formatter.labeled(label)
     }
 
-    pub fn push_label(&mut self, label: &str) -> io::Result<()> {
-        self.formatter.push_label(label)
+    pub fn push_label(&mut self, label: &str) {
+        self.formatter.push_label(label);
     }
 
-    pub fn pop_label(&mut self) -> io::Result<()> {
-        self.formatter.pop_label()
+    pub fn pop_label(&mut self) {
+        self.formatter.pop_label();
     }
 
     pub fn write_fmt(&mut self, args: fmt::Arguments<'_>) -> io::Result<()> {
@@ -880,11 +880,11 @@ fn format_labeled<T: Template + ?Sized>(
     labels: &[String],
 ) -> io::Result<()> {
     for label in labels {
-        formatter.push_label(label)?;
+        formatter.push_label(label);
     }
     content.format(formatter)?;
     for _label in labels {
-        formatter.pop_label()?;
+        formatter.pop_label();
     }
     Ok(())
 }
