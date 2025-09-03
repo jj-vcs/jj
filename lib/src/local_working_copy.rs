@@ -147,6 +147,21 @@ impl ExecBit {
     }
 }
 
+/// Set the executable bit of a file on-disk. This is a no-op on Windows.
+///
+/// On Unix, we manually set the executable bit to the previous value on-disk.
+/// This is necessary because we write all files by creating them new, so files
+/// won't preserve their permissions naturally.
+#[cfg_attr(windows, expect(unused_variables))]
+fn set_executable(exec_bit: ExecBit, disk_path: &Path) -> Result<(), io::Error> {
+    #[cfg(unix)]
+    {
+        let mode = if exec_bit.0 { 0o755 } else { 0o644 };
+        fs::set_permissions(disk_path, fs::Permissions::from_mode(mode))?;
+    }
+    Ok(())
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum FileType {
     Normal { exec_bit: ExecBit },
@@ -191,8 +206,7 @@ impl FileState {
         }
     }
 
-    fn for_file(executable: bool, size: u64, metadata: &Metadata) -> Self {
-        let exec_bit = ExecBit::from_bool(executable);
+    fn for_file(exec_bit: ExecBit, size: u64, metadata: &Metadata) -> Self {
         Self {
             file_type: FileType::Normal { exec_bit },
             mtime: mtime_from_metadata(metadata),
@@ -1685,7 +1699,7 @@ impl TreeState {
         &self,
         disk_path: &Path,
         contents: impl AsyncRead + Send + Unpin,
-        executable: bool,
+        exec_bit: ExecBit,
         apply_eol_conversion: bool,
     ) -> Result<FileState, CheckoutError> {
         let mut file = File::options()
@@ -1716,7 +1730,8 @@ impl TreeState {
                 ),
                 err: err.into(),
             })?;
-        self.set_executable(disk_path, executable)?;
+        set_executable(exec_bit, disk_path)
+            .map_err(|err| checkout_error_for_stat_error(err, disk_path))?;
         // Read the file state from the file descriptor. That way, know that the file
         // exists and is of the expected type, and the stat information is most likely
         // accurate, except for other processes modifying the file concurrently (The
@@ -1724,7 +1739,7 @@ impl TreeState {
         let metadata = file
             .metadata()
             .map_err(|err| checkout_error_for_stat_error(err, disk_path))?;
-        Ok(FileState::for_file(executable, size as u64, &metadata))
+        Ok(FileState::for_file(exec_bit, size as u64, &metadata))
     }
 
     fn write_symlink(&self, disk_path: &Path, target: String) -> Result<FileState, CheckoutError> {
@@ -1747,7 +1762,7 @@ impl TreeState {
         &self,
         disk_path: &Path,
         contents: &[u8],
-        executable: bool,
+        exec_bit: ExecBit,
     ) -> Result<FileState, CheckoutError> {
         let contents = self
             .target_eol_strategy
@@ -1771,22 +1786,12 @@ impl TreeState {
                 message: format!("Failed to write conflict to file {}", disk_path.display()),
                 err: err.into(),
             })? as u64;
-        self.set_executable(disk_path, executable)?;
+        set_executable(exec_bit, disk_path)
+            .map_err(|err| checkout_error_for_stat_error(err, disk_path))?;
         let metadata = file
             .metadata()
             .map_err(|err| checkout_error_for_stat_error(err, disk_path))?;
-        Ok(FileState::for_file(executable, size, &metadata))
-    }
-
-    #[cfg_attr(windows, expect(unused_variables))]
-    fn set_executable(&self, disk_path: &Path, executable: bool) -> Result<(), CheckoutError> {
-        #[cfg(unix)]
-        {
-            let mode = if executable { 0o755 } else { 0o644 };
-            fs::set_permissions(disk_path, fs::Permissions::from_mode(mode))
-                .map_err(|err| checkout_error_for_stat_error(err, disk_path))?;
-        }
-        Ok(())
+        Ok(FileState::for_file(exec_bit, size, &metadata))
     }
 
     pub fn check_out(&mut self, new_tree: &MergedTree) -> Result<CheckoutStats, CheckoutError> {
@@ -1904,6 +1909,13 @@ impl TreeState {
                 continue;
             }
 
+            let executable = match &after {
+                MaterializedTreeValue::File(file) => file.executable,
+                MaterializedTreeValue::FileConflict(file) => file.executable.unwrap_or(false),
+                _ => false,
+            };
+            let exec_bit = ExecBit::from_bool(executable);
+
             // TODO: Check that the file has not changed before overwriting/removing it.
             let file_state = match after {
                 MaterializedTreeValue::Absent | MaterializedTreeValue::AccessDenied(_) => {
@@ -1918,14 +1930,14 @@ impl TreeState {
                     continue;
                 }
                 MaterializedTreeValue::File(file) => {
-                    self.write_file(&disk_path, file.reader, file.executable, true)
+                    self.write_file(&disk_path, file.reader, exec_bit, true)
                         .await?
                 }
                 MaterializedTreeValue::Symlink { id: _, target } => {
                     if self.symlink_support {
                         self.write_symlink(&disk_path, target)?
                     } else {
-                        self.write_file(&disk_path, target.as_bytes(), false, false)
+                        self.write_file(&disk_path, target.as_bytes(), exec_bit, false)
                             .await?
                     }
                 }
@@ -1945,9 +1957,8 @@ impl TreeState {
                         merge: self.store.merge_options().clone(),
                     };
                     let contents = materialize_merge_result_to_bytes(&file.contents, &options);
-                    let mut file_state = self
-                        .write_conflict(&disk_path, &contents, file.executable.unwrap_or(false))
-                        .await?;
+                    let mut file_state =
+                        self.write_conflict(&disk_path, &contents, exec_bit).await?;
                     file_state.materialized_conflict_data = Some(MaterializedConflictData {
                         conflict_marker_len: conflict_marker_len.try_into().unwrap_or(u32::MAX),
                     });
@@ -1957,8 +1968,7 @@ impl TreeState {
                     // Unless all terms are regular files, we can't do much
                     // better than trying to describe the merge.
                     let contents = id.describe();
-                    let executable = false;
-                    self.write_conflict(&disk_path, contents.as_bytes(), executable)
+                    self.write_conflict(&disk_path, contents.as_bytes(), exec_bit)
                         .await?
                 }
             };
