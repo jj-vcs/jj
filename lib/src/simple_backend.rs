@@ -397,11 +397,10 @@ pub fn commit_to_proto(commit: &Commit) -> crate::protos::simple_store::Commit {
         proto.predecessors.push(predecessor.to_bytes());
     }
     match &commit.root_tree {
-        MergedTreeId::Legacy(tree_id) => {
-            proto.root_tree = vec![tree_id.to_bytes()];
+        MergedTreeId::Legacy(_) => {
+            panic!("The simple backend doesn't support legacy trees");
         }
         MergedTreeId::Merge(tree_ids) => {
-            proto.uses_tree_conflict_format = true;
             proto.root_tree = tree_ids.iter().map(|id| id.to_bytes()).collect();
         }
     }
@@ -422,13 +421,8 @@ fn commit_from_proto(mut proto: crate::protos::simple_store::Commit) -> Commit {
 
     let parents = proto.parents.into_iter().map(CommitId::new).collect();
     let predecessors = proto.predecessors.into_iter().map(CommitId::new).collect();
-    let root_tree = if proto.uses_tree_conflict_format {
-        let merge_builder: MergeBuilder<_> = proto.root_tree.into_iter().map(TreeId::new).collect();
-        MergedTreeId::Merge(merge_builder.build())
-    } else {
-        assert_eq!(proto.root_tree.len(), 1);
-        MergedTreeId::Legacy(TreeId::new(proto.root_tree[0].clone()))
-    };
+    let merge_builder: MergeBuilder<_> = proto.root_tree.into_iter().map(TreeId::new).collect();
+    let root_tree = MergedTreeId::Merge(merge_builder.build());
     let change_id = ChangeId::new(proto.change_id);
     Commit {
         parents,
