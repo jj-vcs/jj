@@ -18,6 +18,8 @@ use std::io;
 use std::io::Error;
 use std::io::Write;
 use std::mem;
+use std::ops::Deref;
+use std::ops::DerefMut;
 use std::ops::Range;
 use std::sync::Arc;
 
@@ -75,15 +77,15 @@ impl<T: Formatter + ?Sized> Formatter for Box<T> {
 
 /// [`Formatter`] adapters.
 pub trait FormatterExt: Formatter {
-    fn labeled<S: AsRef<str>>(&mut self, label: S) -> LabeledWriter<&mut Self, S> {
-        LabeledWriter::new(self, label)
+    fn labeled(&mut self, label: &str) -> LabeledScope<&mut Self> {
+        LabeledScope::new(self, label)
     }
 
-    fn into_labeled<S: AsRef<str>>(self, label: S) -> LabeledWriter<Self, S>
+    fn into_labeled(self, label: &str) -> LabeledScope<Self>
     where
         Self: Sized,
     {
-        LabeledWriter::new(self, label)
+        LabeledScope::new(self, label)
     }
 }
 
@@ -115,63 +117,72 @@ impl dyn Formatter + '_ {
     }
 }
 
-/// `Formatter` wrapper to write a labeled message with `write!()` or
-/// `writeln!()`.
-pub struct LabeledWriter<T, S> {
+/// [`Formatter`] wrapper to apply a label within a lexical scope.
+#[must_use]
+pub struct LabeledScope<T: Formatter> {
     formatter: T,
-    label: S,
 }
 
-impl<T, S> LabeledWriter<T, S> {
-    pub fn new(formatter: T, label: S) -> Self {
-        Self { formatter, label }
+impl<T: Formatter> LabeledScope<T> {
+    pub fn new(mut formatter: T, label: &str) -> Self {
+        formatter.push_label(label);
+        Self { formatter }
     }
 
+    // TODO: move to FormatterExt?
     /// Turns into writer that prints labeled message with the `heading`.
-    pub fn with_heading<H>(self, heading: H) -> HeadingLabeledWriter<T, S, H> {
+    pub fn with_heading<H>(self, heading: H) -> HeadingLabeledWriter<T, H> {
         HeadingLabeledWriter::new(self, heading)
     }
 }
 
-impl<T: Formatter, S: AsRef<str>> LabeledWriter<T, S> {
-    pub fn write_fmt(&mut self, args: fmt::Arguments<'_>) -> io::Result<()> {
-        self.with_labeled(|formatter| formatter.write_fmt(args))
-    }
-
-    fn with_labeled(
-        &mut self,
-        write_inner: impl FnOnce(&mut dyn Formatter) -> io::Result<()>,
-    ) -> io::Result<()> {
-        (&mut self.formatter as &mut dyn Formatter).with_label(self.label.as_ref(), write_inner)
+impl<T: Formatter> Drop for LabeledScope<T> {
+    fn drop(&mut self) {
+        self.formatter.pop_label();
     }
 }
 
-/// Like `LabeledWriter`, but also prints the `heading` once.
+impl<T: Formatter> Deref for LabeledScope<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.formatter
+    }
+}
+
+impl<T: Formatter> DerefMut for LabeledScope<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.formatter
+    }
+}
+
+// There's no `impl Formatter for LabeledScope<T>` so nested .labeled() calls
+// wouldn't construct `LabeledScope<LabeledScope<T>>`.
+
+/// [`Formatter`] wrapper that prints the `heading` once.
 ///
 /// The `heading` will be printed within the first `write!()` or `writeln!()`
 /// invocation, which is handy because `io::Error` can be handled there.
-pub struct HeadingLabeledWriter<T, S, H> {
-    writer: LabeledWriter<T, S>,
+pub struct HeadingLabeledWriter<T: Formatter, H> {
+    formatter: LabeledScope<T>,
     heading: Option<H>,
 }
 
-impl<T, S, H> HeadingLabeledWriter<T, S, H> {
-    pub fn new(writer: LabeledWriter<T, S>, heading: H) -> Self {
+impl<T: Formatter, H> HeadingLabeledWriter<T, H> {
+    pub fn new(formatter: LabeledScope<T>, heading: H) -> Self {
         Self {
-            writer,
+            formatter,
             heading: Some(heading),
         }
     }
 }
 
-impl<T: Formatter, S: AsRef<str>, H: fmt::Display> HeadingLabeledWriter<T, S, H> {
+impl<T: Formatter, H: fmt::Display> HeadingLabeledWriter<T, H> {
     pub fn write_fmt(&mut self, args: fmt::Arguments<'_>) -> io::Result<()> {
-        self.writer.with_labeled(|formatter| {
-            if let Some(heading) = self.heading.take() {
-                write!(formatter.labeled("heading"), "{heading}")?;
-            }
-            formatter.write_fmt(args)
-        })
+        if let Some(heading) = self.heading.take() {
+            write!(self.formatter.labeled("heading"), "{heading}")?;
+        }
+        self.formatter.write_fmt(args)
     }
 }
 
@@ -1382,6 +1393,28 @@ mod tests {
     }
 
     #[test]
+    fn test_labeled_scope() {
+        let config = config_from_string(indoc! {"
+            [colors]
+            outer = 'blue'
+            inner = 'red'
+            'outer inner' = 'green'
+        "});
+        let mut output: Vec<u8> = vec![];
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        writeln!(formatter.labeled("outer"), "outer").unwrap();
+        writeln!(formatter.labeled("outer").labeled("inner"), "outer-inner").unwrap();
+        writeln!(formatter.labeled("inner"), "inner").unwrap();
+        drop(formatter);
+        insta::assert_snapshot!(to_snapshot_string(output), @r"
+        [38;5;4mouter[39m
+        [38;5;2mouter-inner[39m
+        [38;5;1minner[39m
+        [EOF]
+        ");
+    }
+
+    #[test]
     fn test_heading_labeled_writer() {
         let config = config_from_string(
             r#"
@@ -1395,6 +1428,7 @@ mod tests {
         let mut writer = formatter.labeled("inner").with_heading("Heading: ");
         write!(writer, "Message").unwrap();
         writeln!(writer, " continues").unwrap();
+        drop(writer);
         drop(formatter);
         insta::assert_snapshot!(to_snapshot_string(output), @r"
         [38;5;1mHeading: [38;5;2mMessage continues[39m
@@ -1411,6 +1445,7 @@ mod tests {
         // know if that's guaranteed, but let's record the current behavior.
         write!(writer, "").unwrap();
         write!(writer, "").unwrap();
+        drop(writer);
         insta::assert_snapshot!(to_snapshot_string(output), @"Heading: [EOF]");
     }
 

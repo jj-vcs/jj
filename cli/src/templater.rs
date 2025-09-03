@@ -33,7 +33,7 @@ use jj_lib::op_store::TimestampRange;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
-use crate::formatter::LabeledWriter;
+use crate::formatter::LabeledScope;
 use crate::formatter::PlainTextFormatter;
 use crate::text_util;
 use crate::time_util;
@@ -800,10 +800,7 @@ impl<'a> TemplateFormatter<'a> {
         self.formatter.raw()
     }
 
-    pub fn labeled<S: AsRef<str>>(
-        &mut self,
-        label: S,
-    ) -> LabeledWriter<&mut (dyn Formatter + 'a), S> {
+    pub fn labeled(&mut self, label: &str) -> LabeledScope<&mut (dyn Formatter + 'a)> {
         self.formatter.labeled(label)
     }
 
