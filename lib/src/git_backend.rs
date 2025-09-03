@@ -101,7 +101,6 @@ const HASH_LENGTH: usize = 20;
 const CHANGE_ID_LENGTH: usize = 16;
 /// Ref namespace used only for preventing GC.
 const NO_GC_REF_NAMESPACE: &str = "refs/jj/keep/";
-const CONFLICT_SUFFIX: &str = ".jjconflict";
 
 pub const JJ_TREES_COMMIT_HEADER: &str = "jj:trees";
 pub const CHANGE_ID_COMMIT_HEADER: &str = "change-id";
@@ -1096,21 +1095,14 @@ impl Backend for GitBackend {
                     }
                     gix::object::tree::EntryKind::Blob => {
                         let id = FileId::from_bytes(entry.oid().as_bytes());
-                        if let Some(basename) = name.strip_suffix(CONFLICT_SUFFIX) {
-                            (
-                                basename,
-                                TreeValue::Conflict(ConflictId::from_bytes(entry.oid().as_bytes())),
-                            )
-                        } else {
-                            (
-                                name,
-                                TreeValue::File {
-                                    id,
-                                    executable: false,
-                                    copy_id: CopyId::placeholder(),
-                                },
-                            )
-                        }
+                        (
+                            name,
+                            TreeValue::File {
+                                id,
+                                executable: false,
+                                copy_id: CopyId::placeholder(),
+                            },
+                        )
                     }
                     gix::object::tree::EntryKind::BlobExecutable => {
                         let id = FileId::from_bytes(entry.oid().as_bytes());
