@@ -1184,11 +1184,9 @@ impl Backend for GitBackend {
                         filename: name.into(),
                         oid: gix::ObjectId::from_bytes_or_panic(id.as_bytes()),
                     },
-                    TreeValue::Conflict(id) => gix::objs::tree::Entry {
-                        mode: gix::object::tree::EntryKind::Blob.into(),
-                        filename: (name.to_owned() + CONFLICT_SUFFIX).into(),
-                        oid: gix::ObjectId::from_bytes_or_panic(id.as_bytes()),
-                    },
+                    TreeValue::Conflict(_) => {
+                        panic!("Cannot write legacy conflicts");
+                    }
                 }
             })
             .sorted_unstable()
