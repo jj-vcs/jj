@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
@@ -44,6 +43,34 @@ pub trait Formatter: Write {
     fn push_label(&mut self, label: &str);
 
     fn pop_label(&mut self);
+}
+
+impl<T: Formatter + ?Sized> Formatter for &mut T {
+    fn raw(&mut self) -> io::Result<Box<dyn Write + '_>> {
+        <T as Formatter>::raw(self)
+    }
+
+    fn push_label(&mut self, label: &str) {
+        <T as Formatter>::push_label(self, label);
+    }
+
+    fn pop_label(&mut self) {
+        <T as Formatter>::pop_label(self);
+    }
+}
+
+impl<T: Formatter + ?Sized> Formatter for Box<T> {
+    fn raw(&mut self) -> io::Result<Box<dyn Write + '_>> {
+        <T as Formatter>::raw(self)
+    }
+
+    fn push_label(&mut self, label: &str) {
+        <T as Formatter>::push_label(self, label);
+    }
+
+    fn pop_label(&mut self) {
+        <T as Formatter>::pop_label(self);
+    }
 }
 
 impl dyn Formatter + '_ {
@@ -97,11 +124,7 @@ impl<T, S> LabeledWriter<T, S> {
     }
 }
 
-impl<'a, T, S> LabeledWriter<T, S>
-where
-    T: BorrowMut<dyn Formatter + 'a>,
-    S: AsRef<str>,
-{
+impl<T: Formatter, S: AsRef<str>> LabeledWriter<T, S> {
     pub fn write_fmt(&mut self, args: fmt::Arguments<'_>) -> io::Result<()> {
         self.with_labeled(|formatter| formatter.write_fmt(args))
     }
@@ -110,9 +133,7 @@ where
         &mut self,
         write_inner: impl FnOnce(&mut dyn Formatter) -> io::Result<()>,
     ) -> io::Result<()> {
-        self.formatter
-            .borrow_mut()
-            .with_label(self.label.as_ref(), write_inner)
+        (&mut self.formatter as &mut dyn Formatter).with_label(self.label.as_ref(), write_inner)
     }
 }
 
@@ -134,12 +155,7 @@ impl<T, S, H> HeadingLabeledWriter<T, S, H> {
     }
 }
 
-impl<'a, T, S, H> HeadingLabeledWriter<T, S, H>
-where
-    T: BorrowMut<dyn Formatter + 'a>,
-    S: AsRef<str>,
-    H: fmt::Display,
-{
+impl<T: Formatter, S: AsRef<str>, H: fmt::Display> HeadingLabeledWriter<T, S, H> {
     pub fn write_fmt(&mut self, args: fmt::Arguments<'_>) -> io::Result<()> {
         self.writer.with_labeled(|formatter| {
             if let Some(heading) = self.heading.take() {
