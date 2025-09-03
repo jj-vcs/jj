@@ -747,13 +747,13 @@ mod tests {
             format_colored(|formatter| {
                 write_truncated_start(formatter, &recorder, &ellipsis_recorder, 6).map(|_| ())
             }),
-            @"[38;5;1mfoo[39m[38;5;6mbar[39m"
+            @"[38;5;1mfoo[38;5;6mbar[39m"
         );
         insta::assert_snapshot!(
             format_colored(|formatter| {
                 write_truncated_start(formatter, &recorder, &ellipsis_recorder, 5).map(|_| ())
             }),
-            @"[38;5;1moo[39m[38;5;6mbar[39m"
+            @"[38;5;1moo[38;5;6mbar[39m"
         );
         insta::assert_snapshot!(
             format_colored(|formatter| {
@@ -779,13 +779,13 @@ mod tests {
             format_colored(|formatter| {
                 write_truncated_end(formatter, &recorder, &ellipsis_recorder, 6).map(|_| ())
             }),
-            @"[38;5;1mfoo[39m[38;5;6mbar[39m"
+            @"[38;5;1mfoo[38;5;6mbar[39m"
         );
         insta::assert_snapshot!(
             format_colored(|formatter| {
                 write_truncated_end(formatter, &recorder, &ellipsis_recorder, 5).map(|_| ())
             }),
-            @"[38;5;1mfoo[39m[38;5;6mba[39m"
+            @"[38;5;1mfoo[38;5;6mba[39m"
         );
         insta::assert_snapshot!(
             format_colored(|formatter| {
@@ -939,7 +939,7 @@ mod tests {
             format_colored(|formatter| {
                 write_truncated_start(formatter, &recorder, &ellipsis_recorder, 6).map(|_| ())
             }),
-            @"[38;5;1mfoo[39m[38;5;6mbar[39m"
+            @"[38;5;1mfoo[38;5;6mbar[39m"
         );
         insta::assert_snapshot!(
             format_colored(|formatter| {
@@ -977,7 +977,7 @@ mod tests {
             format_colored(|formatter| {
                 write_truncated_end(formatter, &recorder, &ellipsis_recorder, 6).map(|_| ())
             }),
-            @"[38;5;1mfoo[39m[38;5;6mbar[39m"
+            @"[38;5;1mfoo[38;5;6mbar[39m"
         );
         insta::assert_snapshot!(
             format_colored(|formatter| {
@@ -1123,47 +1123,47 @@ mod tests {
         // Pad start
         insta::assert_snapshot!(
             format_colored(|formatter| write_padded_start(formatter, &recorder, &fill, 6)),
-            @"[38;5;1mfoo[39m[38;5;6mbar[39m"
+            @"[38;5;1mfoo[38;5;6mbar[39m"
         );
         insta::assert_snapshot!(
             format_colored(|formatter| write_padded_start(formatter, &recorder, &fill, 7)),
-            @"=[38;5;1mfoo[39m[38;5;6mbar[39m"
+            @"=[38;5;1mfoo[38;5;6mbar[39m"
         );
         insta::assert_snapshot!(
             format_colored(|formatter| write_padded_start(formatter, &recorder, &fill, 8)),
-            @"==[38;5;1mfoo[39m[38;5;6mbar[39m"
+            @"==[38;5;1mfoo[38;5;6mbar[39m"
         );
 
         // Pad end
         insta::assert_snapshot!(
             format_colored(|formatter| write_padded_end(formatter, &recorder, &fill, 6)),
-            @"[38;5;1mfoo[39m[38;5;6mbar[39m"
+            @"[38;5;1mfoo[38;5;6mbar[39m"
         );
         insta::assert_snapshot!(
             format_colored(|formatter| write_padded_end(formatter, &recorder, &fill, 7)),
-            @"[38;5;1mfoo[39m[38;5;6mbar[39m="
+            @"[38;5;1mfoo[38;5;6mbar[39m="
         );
         insta::assert_snapshot!(
             format_colored(|formatter| write_padded_end(formatter, &recorder, &fill, 8)),
-            @"[38;5;1mfoo[39m[38;5;6mbar[39m=="
+            @"[38;5;1mfoo[38;5;6mbar[39m=="
         );
 
         // Pad centered
         insta::assert_snapshot!(
             format_colored(|formatter| write_padded_centered(formatter, &recorder, &fill, 6)),
-            @"[38;5;1mfoo[39m[38;5;6mbar[39m"
+            @"[38;5;1mfoo[38;5;6mbar[39m"
         );
         insta::assert_snapshot!(
             format_colored(|formatter| write_padded_centered(formatter, &recorder, &fill, 7)),
-            @"[38;5;1mfoo[39m[38;5;6mbar[39m="
+            @"[38;5;1mfoo[38;5;6mbar[39m="
         );
         insta::assert_snapshot!(
             format_colored(|formatter| write_padded_centered(formatter, &recorder, &fill, 8)),
-            @"=[38;5;1mfoo[39m[38;5;6mbar[39m="
+            @"=[38;5;1mfoo[38;5;6mbar[39m="
         );
         insta::assert_snapshot!(
             format_colored(|formatter| write_padded_centered(formatter, &recorder, &fill, 13)),
-            @"===[38;5;1mfoo[39m[38;5;6mbar[39m===="
+            @"===[38;5;1mfoo[38;5;6mbar[39m===="
         );
     }
 
@@ -1428,7 +1428,7 @@ mod tests {
         insta::assert_snapshot!(
             format_colored(|formatter| write_wrapped(formatter, &recorder, 7)),
             @r"
-        [38;5;1mfoo [39m[38;5;6mbar[39m
+        [38;5;1mfoo [38;5;6mbar[39m
         [38;5;1mbaz[39m
         [38;5;6mqux[39m
         [38;5;1mquux[39m
@@ -1482,7 +1482,7 @@ mod tests {
             format_colored(|formatter| write_wrapped(formatter, &recorder, 10)),
             @r"
         [38;5;1mfoo bar[39m
-        [38;5;1mba[39m[38;5;6mz[39m
+        [38;5;1mba[38;5;6mz[39m
         "
         );
     }

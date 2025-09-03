@@ -3395,7 +3395,7 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok(r#"indent("__", label("error", "a") ++ label("warning", "b\nc"))"#),
             @r"
-        [38;5;1m__a[39m[38;5;3mb[39m
+        [38;5;1m__a[38;5;3mb[39m
         [38;5;3m__c[39m
         ");
 
@@ -3439,13 +3439,13 @@ mod tests {
         // Labeled fill char
         insta::assert_snapshot!(
             env.render_ok(r"pad_start(5, label('red', 'foo'), fill_char=label('cyan', '='))"),
-            @"[38;5;6m==[39m[38;5;9mfoo[39m");
+            @"[38;5;6m==[38;5;9mfoo[39m");
         insta::assert_snapshot!(
             env.render_ok(r"pad_end(5, label('red', 'foo'), fill_char=label('cyan', '='))"),
-            @"[38;5;9mfoo[39m[38;5;6m==[39m");
+            @"[38;5;9mfoo[38;5;6m==[39m");
         insta::assert_snapshot!(
             env.render_ok(r"pad_centered(5, label('red', 'foo'), fill_char=label('cyan', '='))"),
-            @"[38;5;6m=[39m[38;5;9mfoo[39m[38;5;6m=[39m");
+            @"[38;5;6m=[38;5;9mfoo[38;5;6m=[39m");
 
         // Error in fill char: the output looks odd (because the error message
         // isn't 1-width character), but is still readable.
@@ -3729,7 +3729,7 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok(
                 r#"surround(label("paren", "("), label("paren", ")"), label("error", "a"))"#),
-            @"[38;5;14m([39m[38;5;1ma[39m[38;5;14m)[39m");
+            @"[38;5;14m([38;5;1ma[38;5;14m)[39m");
 
         // Keyword
         insta::assert_snapshot!(

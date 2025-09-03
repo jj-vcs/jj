@@ -582,6 +582,7 @@ impl<W: Write> Write for ColorFormatter<W> {
     }
 
     fn flush(&mut self) -> Result<(), Error> {
+        self.write_new_style()?;
         self.output.flush()
     }
 }
@@ -599,17 +600,14 @@ impl<W: Write> Formatter for ColorFormatter<W> {
 
     fn pop_label(&mut self) -> io::Result<()> {
         self.labels.pop();
-        if self.labels.is_empty() {
-            self.write_new_style()?;
-        }
         Ok(())
     }
 }
 
 impl<W: Write> Drop for ColorFormatter<W> {
     fn drop(&mut self) {
-        // If a `ColorFormatter` was dropped without popping all labels first (perhaps
-        // because of an error), let's still try to reset any currently active style.
+        // If a `ColorFormatter` was dropped without flushing, let's try to
+        // reset any currently active style.
         self.labels.clear();
         self.write_new_style().ok();
     }
@@ -1043,6 +1041,35 @@ mod tests {
     }
 
     #[test]
+    fn test_color_formatter_reset_on_flush() {
+        let config = config_from_string("colors.red = 'red'");
+        let mut output: Vec<u8> = vec![];
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        formatter.push_label("red").unwrap();
+        write!(formatter, "foo").unwrap();
+        formatter.pop_label().unwrap();
+
+        // without flush()
+        insta::assert_snapshot!(
+            to_snapshot_string(formatter.output.clone()), @"[38;5;1mfoo[EOF]");
+
+        // flush() should emit the reset sequence.
+        formatter.flush().unwrap();
+        insta::assert_snapshot!(
+            to_snapshot_string(formatter.output.clone()), @"[38;5;1mfoo[39m[EOF]");
+
+        // New color sequence should be emitted as the state was reset.
+        formatter.push_label("red").unwrap();
+        write!(formatter, "bar").unwrap();
+        formatter.pop_label().unwrap();
+
+        // drop() should emit the reset sequence.
+        drop(formatter);
+        insta::assert_snapshot!(
+            to_snapshot_string(output), @"[38;5;1mfoo[39m[38;5;1mbar[39m[EOF]");
+    }
+
+    #[test]
     fn test_color_formatter_no_space() {
         // Test that two different colors can touch.
         let config = config_from_string(
@@ -1063,7 +1090,7 @@ mod tests {
         write!(formatter, "after").unwrap();
         drop(formatter);
         insta::assert_snapshot!(
-            to_snapshot_string(output), @"before[38;5;1mfirst[39m[38;5;2msecond[39mafter[EOF]");
+            to_snapshot_string(output), @"before[38;5;1mfirst[38;5;2msecond[39mafter[EOF]");
     }
 
     #[test]
@@ -1363,7 +1390,7 @@ mod tests {
         writeln!(writer, " continues").unwrap();
         drop(formatter);
         insta::assert_snapshot!(to_snapshot_string(output), @r"
-        [38;5;1mHeading: [38;5;2mMessage[39m[38;5;2m continues[39m
+        [38;5;1mHeading: [38;5;2mMessage continues[39m
         [EOF]
         ");
     }
