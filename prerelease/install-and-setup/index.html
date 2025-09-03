@@ -560,6 +560,24 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#standard-completions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Standard completions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dynamic-completions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dynamic completions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#bash" class="md-nav__link">
     <span class="md-ellipsis">
       Bash
@@ -2114,6 +2132,24 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#standard-completions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Standard completions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dynamic-completions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dynamic completions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#bash" class="md-nav__link">
     <span class="md-ellipsis">
       Bash
@@ -2310,22 +2346,29 @@ scoop<span class="w"> </span>install<span class="w"> </span>main/jj
 $<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--user<span class="w"> </span>user.email<span class="w"> </span><span class="s2">&quot;martinvonz@google.com&quot;</span>
 </code></pre></div>
 <h2 id="command-line-completion">Command-line completion<a class="headerlink" href="#command-line-completion" title="Permanent link">&para;</a></h2>
-<p>To set up command-line completion, source the output of
-<code>jj util completion bash/zsh/fish</code>. Exactly how to source it
-depends on your shell.</p>
-<p>Improved completions are also available. They will complete things like
-bookmarks, aliases, revisions, operations and files. They can be context aware,
-for example they respect the global flags <code>--repository</code> and <code>--at-operation</code> as
-well as some command-specific ones like <code>--revision</code>, <code>--from</code> and <code>--to</code>. You
-can activate them with the alternative "dynamic" instructions below. They should
-still complete everything the static completions did, so only activate one of
-them. Please let us know if you encounter any issues, so we can ensure a smooth
-transition once we default to these new completions.</p>
+<p>Jujutsu provides 2 different command-line completion scripts.</p>
+<h3 id="standard-completions">Standard completions<a class="headerlink" href="#standard-completions" title="Permanent link">&para;</a></h3>
+<p>The standard completion script provides completions for <code>jj</code> subcommmands and
+options.</p>
+<h3 id="dynamic-completions">Dynamic completions<a class="headerlink" href="#dynamic-completions" title="Permanent link">&para;</a></h3>
+<p>The dynamic completion script provides completions for <code>jj</code> subcommands and
+options, as well as additional completions, including bookmarks,
+aliases, revisions, operations and files. Dynamic completions can be context
+aware, for example they respect the global flags <code>--repository</code> and
+<code>--at-operation</code> as well as some command-specific ones like <code>--revision</code>,
+<code>--from</code>, and <code>--to</code>.</p>
+<p>Dynamic completions are not the default/only option since the underlying engine
+<a href="https://github.com/clap-rs/clap/issues/3166">is still labelled unstable</a>. We expect to transition to them as the
+default once the engine is stabilized. Please let us know if you encounter any
+issues with dynamic completions.</p>
 <div class="admonition info">
-<p class="admonition-title">Why are the improved completions not the default?</p>
-<p>To generate the dynamic completion script, execute <code>jj</code> with <code>$COMPLETE</code> set
-to the name of your shell (see examples below). See the upstream clap issue
-<a href="https://github.com/clap-rs/clap/issues/3166">#3166</a> for the explanation.</p>
+<p class="admonition-title">Which completion script should I use?</p>
+<p>Generally, dynamic completions provide a much better completion experience.
+Although the underlying engine is deemed unstable, there have not been many
+issues in practice. Dynamic completions are the preferred option for many
+contributors and users.</p>
+<p>We recommend using the dynamic completion script, and falling back to the
+standard completion script if there are any issues.</p>
 </div>
 <!-- The content tabs formatting below is optimized for the website and not for GitHub. -->
 
