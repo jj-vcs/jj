@@ -22,5 +22,6 @@ You may want to jump to:
 - Overview of `jj` in the repo's [README](https://github.com/martinvonz/jj?tab=readme-ov-file#readme)
 - [Installation and Setup](install-and-setup.md)
 - [Tutorial and Birds-Eye View](tutorial.md)
+- [Working with Gerrit](gerrit.md)
 - [Working with GitHub](github.md)
 - [Development Roadmap](roadmap.md)
