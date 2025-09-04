@@ -1434,6 +1434,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#alternative-development-setup-with-mise" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alternative development setup with mise
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2134,6 +2143,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#alternative-development-setup-with-mise" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alternative development setup with mise
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2504,6 +2522,31 @@ multi-threaded. It should use all the CPU cores without any configuration.</p>
 <span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
+<h3 id="alternative-development-setup-with-mise">Alternative development setup with <code>mise</code><a class="headerlink" href="#alternative-development-setup-with-mise" title="Permanent link">&para;</a></h3>
+<p>An experimental development setup is available using
+<a href="https://mise.jdx.dev/"><code>mise</code></a>. If you try it, file bugs,
+PRs, or tell us on Discord/IRC/discussions if you experience problems
+or if this config is too inflexible. If we can make it work for most
+platforms and most people's needs, including people previously unfamiliar
+with <code>mise</code>, we may make <code>mise</code> the recommended way to set up a development
+environment.</p>
+<p>This tool manages the necessary dependencies for you, eliminating the need for
+a separate setup process. <code>mise</code> automatically installs the required tools when
+they are needed.</p>
+<p>Here are some of the commands you may find yourself using frequently during
+development:</p>
+<ul>
+<li><code>mise test</code>: Runs all tests.</li>
+<li><code>mise test &lt;string&gt;</code>: Runs tests that contain a specific string. For
+    example, <code>mise test squash</code> would run tests with "squash" in their name.</li>
+<li><code>mise build</code>: Compiles <code>jj</code>.</li>
+<li><code>mise build:release</code>: Compiles <code>jj</code> in release mode.</li>
+<li><code>mise build:docs</code>: Builds the documentation for <code>jj</code>.</li>
+</ul>
+<p>For a complete list of all available tasks, you can run <code>mise tasks</code> or review
+the configuration file at <code>.config/mise.toml</code>.</p>
+<p>You can customize this configuration using
+<a href="https://mise.jdx.dev/configuration.html#mise-toml">a <code>mise.local.toml</code> file</a>.</p>
 <h2 id="previewing-the-html-documentation">Previewing the HTML documentation<a class="headerlink" href="#previewing-the-html-documentation" title="Permanent link">&para;</a></h2>
 <p>The documentation for <code>jj</code> is automatically published online at
 <a href="https://jj-vcs.github.io/jj/">https://jj-vcs.github.io/jj/</a>.</p>
