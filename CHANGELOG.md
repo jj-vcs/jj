@@ -10,6 +10,28 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+### Deprecations
+
+### New features
+
+### Fixed bugs
+
+## [0.33.0] - 2025-09-03
+
+### Release highlights
+
+* `jj undo` is now *sequential*: invoking it multiple times in sequence
+  repeatedly undoes actions in the operation log. Previously, `jj undo` would
+  only undo *the most recent* operation in the operation log. As a result, a new
+  `jj redo` command has been added.
+
+* Experimental support for improving query performance over filesets and file
+  queries (like `jj log path/to/file.txt`) has been added. This is not enabled
+  by default. To enable this, you must use the `jj debug index-changed-paths`
+  command.
+
+### Breaking changes
+
 * `jj evolog` templates now accept `CommitEvolutionEntry` as context type. To
   get `Commit` properties, use `commit.<method>()`. To customize the default
   output, set `templates.evolog` instead of `templates.log`.
@@ -27,14 +49,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `--config=NAME=VALUE` or `--config-file=PATH` instead.
 
 * `jj undo` can now undo multiple operations progressively by calling it
-  repeatedly. While this is technically a breaking change, we don't expect
-  many people to be negatively affected, because running `jj undo` twice was
-  previously a no-op.
+  repeatedly, whereas previously, running `jj undo` twice was previously a no-op
+  (it only undid the last change).
 
 * `jj git fetch` will now only fetch the refspec patterns configured on remotes
-  when the `--bookmark` option is omitted. Only simple refspec patterns
-  are currently supported, and anything else (like refspecs which rename
-  branches) will be ignored.
+  when the `--bookmark` option is omitted. Only simple refspec patterns are
+  currently supported, and anything else (like refspecs which rename branches)
+  will be ignored.
 
 * The `conflict` label used for coloring log graph nodes was renamed to
   `conflicted`.
@@ -128,6 +149,32 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The test suite no longer optionally uses Taplo CLI or jq, and packagers can
   remove them as dependencies if present.
+
+### Contributors
+
+* Austin Seipp (@thoughtpolice)
+* Benjamin Tan (@bnjmnt4n)
+* Christian Hufnagel (@OvidiusCicero)
+* Clément (@drawbu)
+* Daniel Luz (@mernen)
+* Emily (@emilazy)
+* Evan Martin (@evmar)
+* Gaëtan Lehmann (@glehmann)
+* George Christou (@gechr)
+* Graham Christensen (@grahamc)
+* Hegui Dai (@Natural-selection1)
+* Ian Wrzesinski (@isuffix)
+* Ilya Grigoriev (@ilyagr)
+* Isaac Corbrey (@icorbrey)
+* Ivan Petkov (@ipetkov)
+* Joaquín Triñanes (@JoaquinTrinanes)
+* Kaiyi Li (@06393993)
+* Martin von Zweigbergk (@martinvonz)
+* Nigthknight (@nigthknight)
+* Nikhil Marathe (@nikhilm)
+* Remo Senekowitsch (@senekor)
+* Tijs-B (@Tijs-B)
+* Yuya Nishihara (@yuja)
 
 ## [0.32.0] - 2025-08-06
 
