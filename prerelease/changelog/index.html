@@ -5769,8 +5769,14 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">[Unreleased]<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
 <ul>
-<li>Git repositories are now colocated by default. Configure
-  <code>git.colocate = false</code> to keep the previous behavior.</li>
+<li>
+<p>Git repositories are now colocated by default. Configure
+  <code>git.colocate = false</code> to keep the previous behavior.</p>
+</li>
+<li>
+<p>Conflicts written by jj &lt; 0.11 are no longer supported. They will now appear
+  as regular files with a <code>.jjconflict</code> suffix and JSON contents.</p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
