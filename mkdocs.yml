@@ -115,6 +115,7 @@ nav: # This lists all the files that become part of the documentation
   - Getting started:
       - Installation and setup: 'install-and-setup.md'
       - Tutorial and bird's eye view: 'tutorial.md'
+      - 'Working with Gerrit': 'gerrit.md'
       - Working with GitHub: 'github.md'
       - Working on Windows: 'windows.md'
 
