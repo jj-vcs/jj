@@ -374,6 +374,10 @@ pub fn revset_expression_mutable(current: &std::ffi::OsStr) -> Vec<CompletionCan
     revset_expression(current, Some("mutable()"))
 }
 
+pub fn revset_expression_mutable_conflicts(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    revset_expression(current, Some("mutable() & conflicts()"))
+}
+
 /// Identifies if an incomplete expression ends with a name, or may be continued
 /// with a name.
 ///

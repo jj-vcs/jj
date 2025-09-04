@@ -761,11 +761,22 @@ fn test_revisions() {
     '''"#,
     );
 
+    work_dir.write_file("file", "A");
     work_dir
         .run_jj(["b", "c", "-r@", "mutable_bookmark"])
         .success();
-    work_dir.run_jj(["commit", "-m", "mutable"]).success();
+    work_dir.run_jj(["describe", "-m", "mutable 1"]).success();
 
+    work_dir.run_jj(["new", "immutable_bookmark"]).success();
+    work_dir.write_file("file", "B");
+    work_dir.run_jj(["describe", "-m", "mutable 2"]).success();
+    work_dir.run_jj(["new", "@", "mutable_bookmark"]).success();
+    work_dir
+        .run_jj(["b", "c", "-r@", "conflicted_bookmark"])
+        .success();
+    work_dir.run_jj(["describe", "-m", "conflicted"]).success();
+
+    work_dir.run_jj(["new", "mutable_bookmark"]).success();
     work_dir
         .run_jj(["describe", "-m", "working_copy"])
         .success();
@@ -779,10 +790,13 @@ fn test_revisions() {
     // complete all revisions
     let output = work_dir.complete_fish(["diff", "--from", ""]);
     insta::assert_snapshot!(output, @r"
+    conflicted_bookmark	conflicted
     immutable_bookmark	immutable
-    mutable_bookmark	mutable
-    k	working_copy
-    y	mutable
+    mutable_bookmark	mutable 1
+    u	working_copy
+    l	conflicted
+    k	mutable 2
+    y	mutable 1
     q	immutable
     r	remote_commit
     z	(no description set)
@@ -795,10 +809,13 @@ fn test_revisions() {
     // complete all revisions in a revset expression
     let output = work_dir.complete_fish(["log", "-r", ".."]);
     insta::assert_snapshot!(output, @r"
+    ..conflicted_bookmark	conflicted
     ..immutable_bookmark	immutable
-    ..mutable_bookmark	mutable
-    ..k	working_copy
-    ..y	mutable
+    ..mutable_bookmark	mutable 1
+    ..u	working_copy
+    ..l	conflicted
+    ..k	mutable 2
+    ..y	mutable 1
     ..q	immutable
     ..r	remote_commit
     ..z	(no description set)
@@ -811,9 +828,12 @@ fn test_revisions() {
     // complete only mutable revisions
     let output = work_dir.complete_fish(["squash", "--into", ""]);
     insta::assert_snapshot!(output, @r"
-    mutable_bookmark	mutable
-    k	working_copy
-    y	mutable
+    conflicted_bookmark	conflicted
+    mutable_bookmark	mutable 1
+    u	working_copy
+    l	conflicted
+    k	mutable 2
+    y	mutable 1
     r	remote_commit
     alias_with_newline	    roots(
     siblings	@-+ ~@
@@ -823,9 +843,12 @@ fn test_revisions() {
     // complete only mutable revisions in a revset expression
     let output = work_dir.complete_fish(["abandon", "y::"]);
     insta::assert_snapshot!(output, @r"
-    y::mutable_bookmark	mutable
-    y::k	working_copy
-    y::y	mutable
+    y::conflicted_bookmark	conflicted
+    y::mutable_bookmark	mutable 1
+    y::u	working_copy
+    y::l	conflicted
+    y::k	mutable 2
+    y::y	mutable 1
     y::r	remote_commit
     y::alias_with_newline	    roots(
     y::siblings	@-+ ~@
@@ -839,14 +862,27 @@ fn test_revisions() {
     [EOF]
     ");
 
+    // complete conflicted revisions in a revset expression
+    let output = work_dir.complete_fish(["resolve", "-r", ""]);
+    insta::assert_snapshot!(output, @r"
+    conflicted_bookmark	conflicted
+    l	conflicted
+    alias_with_newline	    roots(
+    siblings	@-+ ~@
+    [EOF]
+    ");
+
     // complete args of the default command
     test_env.add_config("ui.default-command = 'log'");
     let output = work_dir.complete_fish(["-r", ""]);
     insta::assert_snapshot!(output, @r"
+    conflicted_bookmark	conflicted
     immutable_bookmark	immutable
-    mutable_bookmark	mutable
-    k	working_copy
-    y	mutable
+    mutable_bookmark	mutable 1
+    u	working_copy
+    l	conflicted
+    k	mutable 2
+    y	mutable 1
     q	immutable
     r	remote_commit
     z	(no description set)
@@ -867,10 +903,13 @@ fn test_revisions() {
 
     let output = work_dir.complete_fish(["git", "push", "--named", "a="]);
     insta::assert_snapshot!(output, @r"
+    a=conflicted_bookmark	conflicted
     a=immutable_bookmark	immutable
-    a=mutable_bookmark	mutable
-    a=k	working_copy
-    a=y	mutable
+    a=mutable_bookmark	mutable 1
+    a=u	working_copy
+    a=l	conflicted
+    a=k	mutable 2
+    a=y	mutable 1
     a=q	immutable
     a=r	remote_commit
     a=z	(no description set)

@@ -50,7 +50,7 @@ pub(crate) struct ResolveArgs {
         long, short,
         default_value = "@",
         value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+        add = ArgValueCompleter::new(complete::revset_expression_mutable_conflicts),
     )]
     revision: RevisionArg,
     /// Instead of resolving conflicts, list all the conflicts
