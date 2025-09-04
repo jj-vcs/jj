@@ -2657,7 +2657,7 @@ impl PartialSymbolResolver for ChangePrefixResolver<'_> {
 /// is provided. Native resolvers are always invoked first. In the future, we
 /// may provide a way for extensions to override native resolvers like tags and
 /// bookmarks.
-pub trait SymbolResolverExtension {
+pub trait SymbolResolverExtension: Send + Sync {
     /// PartialSymbolResolvers can initialize some global data by using the
     /// `context_repo`, but the `context_repo` may point to a different
     /// operation from the `repo` passed into `resolve_symbol()`. For

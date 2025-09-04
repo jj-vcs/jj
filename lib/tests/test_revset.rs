@@ -455,7 +455,7 @@ fn test_resolve_symbol_in_different_disambiguation_context() {
     let repo2 = tx.commit("test").unwrap();
 
     // Set up disambiguation index which only contains the commit2.id().
-    let id_prefix_context = IdPrefixContext::new(Default::default())
+    let id_prefix_context = IdPrefixContext::new(Arc::new(RevsetExtensions::default()))
         .disambiguate_within(RevsetExpression::commit(commit2.id().clone()));
     let symbol_resolver =
         default_symbol_resolver(repo2.as_ref()).with_id_prefix_context(&id_prefix_context);

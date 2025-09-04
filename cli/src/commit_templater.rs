@@ -2702,8 +2702,6 @@ mod tests {
                 cwd: test_workspace.workspace.workspace_root().to_owned(),
                 base: test_workspace.workspace.workspace_root().to_owned(),
             };
-            // IdPrefixContext::new() expects Arc<RevsetExtensions>
-            #[expect(clippy::arc_with_non_send_sync)]
             let revset_extensions = Arc::new(RevsetExtensions::new());
             let id_prefix_context = IdPrefixContext::new(revset_extensions.clone());
             Self {
