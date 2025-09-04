@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 name = "scm-record"
 repository = "https://github.com/arxanas/scm-record"
-version = "0.8.0"
+version.workspace = true
 
 # Main consumers to consider:
 # - git-branchless: https://github.com/arxanas/git-branchless/blob/master/Cargo.toml
@@ -20,24 +20,24 @@ default = ["debug"]
 serde = ["dep:serde", "dep:serde_json"]
 
 [dependencies]
-cassowary = "0.3"
-crossterm = "0.28"
-num-traits = "0.2"
-thiserror = "2.0"
-tracing = "0.1"
-ratatui = "0.29.0"
-unicode-width = "0.2"
+cassowary.workspace = true
+crossterm.workspace = true
+num-traits.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+ratatui.workspace = true
+unicode-width.workspace = true
 
 # Features: serde
-serde = { version = "1.0", features = ["serde_derive"], optional = true }
-serde_json = { version = "1.0", optional = true }
+serde = { workspace = true, features = ["serde_derive"], optional = true }
+serde_json = { workspace = true, optional = true }
 
 [dev-dependencies]
-assert_matches = "1.5"
-criterion = "0.5"
-insta = "1.43"
-proptest = "1.7.0"
-serde_json = "1.0"
+assert_matches.workspace = true
+criterion.workspace = true
+insta.workspace = true
+proptest.workspace = true
+serde_json.workspace = true
 
 [[bench]]
 name = "benches"

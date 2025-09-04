@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 name = "scm-diff-editor"
 repository = "https://github.com/arxanas/scm-record"
-version = "0.8.0"
+version.workspace = true
 
 # Keep in sync with `scm-record/Cargo.toml`.
 rust-version = "1.74"
@@ -13,14 +13,14 @@ rust-version = "1.74"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "4.5", features = ["derive"] }
-diffy = "0.4"
-scm-record = { version = "0.8", path = "../scm-record" }
-sha1 = "0.10"
-thiserror = "2.0.3"
-tracing = "0.1.40"
-walkdir = "2.5"
+clap = { workspace = true, features = ["derive"] }
+diffy.workspace = true
+scm-record.workspace = true
+sha1.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+walkdir.workspace = true
 
 [dev-dependencies]
-insta = "1.43"
-maplit = "1.0"
+insta.workspace = true
+maplit.workspace = true
