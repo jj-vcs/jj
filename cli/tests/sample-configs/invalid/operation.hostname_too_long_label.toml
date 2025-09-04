@@ -1,0 +1,4 @@
+#:schema ../../../src/config-schema.json
+# Hostname labels (i.e. the "."-delimited tokens) must not exceed 63 octets.
+[operation]
+hostname = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"

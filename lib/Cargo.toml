@@ -1,0 +1,106 @@
+[package]
+name = "jj-lib"
+description = "Library for Jujutsu - an experimental version control system"
+autotests = false
+
+version = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+license = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+documentation = { workspace = true }
+readme = { workspace = true }
+
+include = [
+    "/LICENSE",
+    "/benches/",
+    "/src/",
+    "/tests/",
+    "!*.pending-snap",
+    "!*.snap*",
+]
+
+
+[[test]]
+name = "runner"
+
+[[bench]]
+name = "diff_bench"
+harness = false
+
+[build-dependencies]
+version_check = { workspace = true }
+
+[dependencies]
+async-trait = { workspace = true }
+blake2 = { workspace = true }
+bstr = { workspace = true }
+chrono = { workspace = true }
+clru = { workspace = true }
+digest = { workspace = true }
+dunce = { workspace = true }
+either = { workspace = true }
+futures = { workspace = true }
+gix = { workspace = true, optional = true }
+globset = { workspace = true }
+hashbrown = { workspace = true }
+ignore = { workspace = true }
+indexmap = { workspace = true }
+interim = { workspace = true }
+itertools = { workspace = true }
+jj-lib-proc-macros = { workspace = true }
+maplit = { workspace = true }
+once_cell = { workspace = true }
+pest = { workspace = true }
+pest_derive = { workspace = true }
+pollster = { workspace = true }
+prost = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+rayon = { workspace = true }
+ref-cast = { workspace = true }
+regex = { workspace = true }
+same-file = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+smallvec = { workspace = true }
+strsim = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+toml_edit = { workspace = true }
+tracing = { workspace = true }
+watchman_client = { workspace = true, optional = true }
+
+[target.'cfg(unix)'.dependencies]
+rustix = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+winreg = { workspace = true }
+
+[dev-dependencies]
+assert_matches = { workspace = true }
+criterion = { workspace = true }
+indoc = { workspace = true }
+insta = { workspace = true }
+num_cpus = { workspace = true }
+pretty_assertions = { workspace = true }
+proptest = { workspace = true }
+rustversion = { workspace = true }
+sapling-renderdag = { workspace = true }
+test-case = { workspace = true }
+testutils = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+
+[target.'cfg(unix)'.dev-dependencies]
+nix = { workspace = true, features = [ "fs" ] }
+
+[features]
+default = ["git"]
+git = ["dep:gix"]
+watchman = ["dep:watchman_client"]
+testing = ["git"]
+
+[lints]
+workspace = true

@@ -1,0 +1,9 @@
+#:schema ../../../src/config-schema.json
+[signing]
+behavior = "own"
+backend = "ssh"
+key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGj+J6N6SO+4P8dOZqfR1oiay2yxhhHnagH52avUqw5h"
+
+[signing.backends.ssh]
+allowed-signers = "/path/to/allowed-signers"
+revocation-list = "/path/to/revocation-list"

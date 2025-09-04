@@ -1,0 +1,29 @@
+#:schema ../../../src/config-schema.json
+[ui]
+always-allow-large-revsets = true
+default-command = "status"
+default-description = "feat: "
+diff-formatter = ":git"
+color = "always"
+paginate = "never"
+pager = ":builtin"
+diff-instructions = false
+log-word-wrap = true
+log-synthetic-elided-nodes = false
+editor = "hx"
+diff-editor = "meld"
+merge-editor = "meld-3"
+conflict-marker-style = "git"
+show-cryptographic-signatures = true
+bookmark-list-sort-keys = ["author-email", "author-date-", "committer-name"]
+# bookmark-list-sort-keys = "author-name"
+
+[ui.streampager]
+interface = "quit-quickly-or-clear-output"
+wrapping = "word"
+
+[ui.graph]
+style = "ascii-large"
+
+[ui.movement]
+edit = true

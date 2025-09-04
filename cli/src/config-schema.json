@@ -1,0 +1,937 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema",
+    "$comment": "`taplo` and the corresponding VS Code plugins only support version draft-04 of JSON Schema, see <https://taplo.tamasfe.dev/configuration/developing-schemas.html>. draft-07 is mostly compatible with it, newer versions may not be.",
+    "title": "Jujutsu config",
+    "type": "object",
+    "description": "User configuration for Jujutsu VCS. See https://jj-vcs.github.io/jj/latest/config/ for details",
+    "properties": {
+        "user": {
+            "type": "object",
+            "description": "Settings about the user",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Full name of the user, used in commits"
+                },
+                "email": {
+                    "type": "string",
+                    "description": "User's email address, used in commits",
+                    "format": "email"
+                }
+            }
+        },
+        "operation": {
+            "type": "object",
+            "description": "Metadata to be attached to jj operations (shown in jj op log)",
+            "properties": {
+                "hostname": {
+                    "type": "string",
+                    "format": "hostname"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "ui": {
+            "type": "object",
+            "description": "UI settings",
+            "definitions": {
+                "conflict-marker-style": {
+                    "type": "string",
+                    "description": "Conflict marker style to use when materializing conflicts in the working copy",
+                    "enum": [
+                        "diff",
+                        "snapshot",
+                        "git"
+                    ],
+                    "default": "diff"
+                },
+                "command": {
+                    "type": ["string", "array"],
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "command-env": {
+                    "type": "object",
+                    "properties": {
+                        "command": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "env": {
+                            "type": "object"
+                        }
+                    },
+                    "required": [
+                        "command",
+                        "env"
+                    ]
+                }
+            },
+            "properties": {
+                "always-allow-large-revsets": {
+                    "type": "boolean",
+                    "description": "Whether to allow large revsets to be used in all commands without the `all:` modifier",
+                    "default": true
+                },
+                "default-command": {
+                    "description": "Default command to run when no explicit command is given",
+                    "default": "log",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    ]
+                },
+                "color": {
+                    "description": "Whether to colorize command output",
+                    "enum": [
+                        "always",
+                        "never",
+                        "debug",
+                        "auto"
+                    ],
+                    "default": "auto"
+                },
+                "paginate": {
+                    "type": "string",
+                    "description": "Whether or not to use a pager",
+                    "enum": [
+                        "never",
+                        "auto"
+                    ],
+                    "default": "auto"
+                },
+                "pager": {
+                    "description": "Pager to use for displaying command output",
+                    "default": "less -FRX",
+                    "oneOf": [
+                        {
+                            "$ref": "#/properties/ui/definitions/command"
+                        },
+                        {
+                            "$ref": "#/properties/ui/definitions/command-env"
+                        }
+                    ]
+                },
+                "streampager": {
+                    "type": "object",
+                    "description": "':builtin' (streampager-based) pager configuration",
+                    "properties": {
+                        "interface": {
+                            "description": "Whether to quit automatically, whether to clear screen on startup/exit",
+                            "enum": [
+                                "quit-if-one-page",
+                                "full-screen-clear-output",
+                                "quit-quickly-or-clear-output"
+                            ],
+                            "default": "quit-if-one-page"
+                        },
+                        "wrapping": {
+                            "description": "Whether to wrap long lines",
+                            "enum": [
+                                "anywhere",
+                                "word",
+                                "none"
+                            ],
+                            "default": "anywhere"
+                        },
+                        "show-ruler": {
+                            "type": "boolean",
+                            "description": "Whether the ruler should start visible",
+                            "default": true
+                        }
+                    }
+                },
+                "diff-instructions": {
+                    "type": "boolean",
+                    "description": "Whether to generate the JJ-INSTRUCTIONS file as part of editing a diff",
+                    "default": true
+                },
+                "graph": {
+                    "type": "object",
+                    "description": "Options for rendering revision graphs from jj log etc",
+                    "properties": {
+                        "style": {
+                            "description": "Style of connectors/markings used to render the graph. See https://jj-vcs.github.io/jj/latest/config/#graph-style",
+                            "enum": [
+                                "curved",
+                                "square",
+                                "ascii",
+                                "ascii-large"
+                            ],
+                            "default": "curved"
+                        }
+                    }
+                },
+                "log-word-wrap": {
+                    "type": "boolean",
+                    "description": "Whether to wrap log template output",
+                    "default": false
+                },
+                "log-synthetic-elided-nodes": {
+                    "type": "boolean",
+                    "description": "Whether to render elided parts of the graph as synthetic nodes.",
+                    "default": true
+                },
+                "editor": {
+                    "description": "Editor to use for commands that involve editing text",
+                    "oneOf": [
+                        {
+                            "$ref": "#/properties/ui/definitions/command"
+                        },
+                        {
+                            "$ref": "#/properties/ui/definitions/command-env"
+                        }
+                    ]
+                },
+                "diff-editor": {
+                    "description": "Editor tool to use for editing diffs",
+                    "default": ":builtin",
+                    "oneOf": [
+                        {
+                            "$ref": "#/properties/ui/definitions/command"
+                        },
+                        {
+                            "$ref": "#/properties/ui/definitions/command-env"
+                        }
+                    ]
+                },
+                "diff-formatter": {
+                    "description": "Tool for displaying or generating diffs",
+                    "default": ":color-words",
+                    "oneOf": [
+                        {
+                            "$ref": "#/properties/ui/definitions/command"
+                        },
+                        {
+                            "$ref": "#/properties/ui/definitions/command-env"
+                        }
+                    ]
+                },
+                "merge-editor": {
+                    "description": "Tool to use for resolving three-way merges. Behavior for a given tool name can be configured in merge-tools.TOOL tables",
+                    "default": ":builtin",
+                    "oneOf": [
+                        {
+                            "$ref": "#/properties/ui/definitions/command"
+                        },
+                        {
+                            "$ref": "#/properties/ui/definitions/command-env"
+                        }
+                    ]
+                },
+                "conflict-marker-style": {
+                    "$ref": "#/properties/ui/definitions/conflict-marker-style"
+                },
+                "show-cryptographic-signatures": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Whether the built-in templates should show cryptographic signature information"
+                },
+                "movement": {
+                    "type": "object",
+                    "properties": {
+                        "edit": {
+                            "type": "boolean",
+                            "description": "Whether the next and prev commands should behave as if the --edit flag was passed",
+                            "default": false
+                        }
+                    }
+                },
+                "bookmark-list-sort-keys": {
+                    "type": "array",
+                    "description": "Specifies the sort keys for the bookmarks list. See the `jj bookmark list --help` for the `--sort` option",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "name",
+                            "name-",
+                            "author-name",
+                            "author-name-",
+                            "author-email",
+                            "author-email-",
+                            "author-date",
+                            "author-date-",
+                            "committer-name",
+                            "committer-name-",
+                            "committer-email",
+                            "committer-email-",
+                            "committer-date",
+                            "committer-date-"
+                        ]
+                    }
+                }
+            }
+        },
+        "fsmonitor": {
+            "type": "object",
+            "description": "External filesystem monitor settings, useful for large repos",
+            "properties": {
+                "backend": {
+                    "type": "string",
+                    "enum": ["none", "watchman"],
+                    "default": "none",
+                    "description": "Whether to use an external filesystem monitor, useful for large repos"
+                },
+                "watchman": {
+                    "type": "object",
+                    "properties": {
+                      "register-snapshot-trigger": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Whether to use triggers to monitor for changes in the background."
+                      }
+                    }
+                }
+            }
+        },
+        "colors": {
+            "type": "object",
+            "description": "Mapping from jj formatter labels to colors",
+            "definitions": {
+                "colorNames": {
+                    "enum": [
+                        "default",
+                        "black",
+                        "red",
+                        "green",
+                        "yellow",
+                        "blue",
+                        "magenta",
+                        "cyan",
+                        "white",
+                        "bright black",
+                        "bright red",
+                        "bright green",
+                        "bright yellow",
+                        "bright blue",
+                        "bright magenta",
+                        "bright cyan",
+                        "bright white"
+                    ]
+                },
+                "ansi256Color": {
+                    "type": "string",
+                    "pattern": "^ansi-color-([1-9]?[0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$"
+                },
+                "hexColor": {
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6}$"
+                },
+                "colors": {
+                  "oneOf": [
+                    {
+                        "$ref": "#/properties/colors/definitions/colorNames"
+                    },
+                    {
+                        "$ref": "#/properties/colors/definitions/ansi256Color"
+                    },
+                    {
+                        "$ref": "#/properties/colors/definitions/hexColor"
+                    }
+                  ]
+                }
+            },
+            "additionalProperties": {
+                "description": "A color profile for the given formatter label. Either a bare color name used as the foreground color or a table describing color and formatting",
+                "oneOf": [
+                    {
+                        "$ref": "#/properties/colors/definitions/colors"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "fg": {
+                                "$ref": "#/properties/colors/definitions/colors"
+                            },
+                            "bg": {
+                                "$ref": "#/properties/colors/definitions/colors"
+                            },
+                            "bold": {
+                                "type": "boolean"
+                            },
+                            "italic": {
+                                "type": "boolean"
+                            },
+                            "underline": {
+                                "type": "boolean"
+                            },
+                            "reverse": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "diff": {
+            "type": "object",
+            "description": "Builtin diff formats settings",
+            "properties": {
+                "color-words": {
+                    "type": "object",
+                    "description": "Options for color-words diffs",
+                    "properties": {
+                        "conflict": {
+                            "type": "string",
+                            "description": "How conflicts are processed and displayed",
+                            "enum": [
+                                "materialize",
+                                "pair"
+                            ],
+                            "default": "materialize"
+                        },
+                        "max-inline-alternation": {
+                            "type": "integer",
+                            "description": "Maximum number of removed/added word alternation to inline",
+                            "default": 3
+                        },
+                        "context": {
+                            "type": "integer",
+                            "description": "Number of lines of context to show",
+                            "default": 3
+                        }
+                    }
+                },
+                "git": {
+                    "type": "object",
+                    "description": "Options for git diffs",
+                    "properties": {
+                        "context": {
+                            "type": "integer",
+                            "description": "Number of lines of context to show",
+                            "default": 3
+                        }
+                    }
+                }
+            }
+        },
+        "git": {
+            "type": "object",
+            "description": "Settings for git behavior (when using git backend)",
+            "properties": {
+                "auto-local-bookmark": {
+                    "type": "boolean",
+                    "description": "Whether jj creates a local bookmark with the same name when it imports a remote-tracking branch from git. See https://jj-vcs.github.io/jj/latest/config/#automatic-local-bookmark-creation",
+                    "default": false
+                },
+                "abandon-unreachable-commits": {
+                    "type": "boolean",
+                    "description": "Whether jj should abandon commits that became unreachable in Git.",
+                    "default": true
+                },
+                "push-new-bookmarks": {
+                    "type": "boolean",
+                    "description": "Allow pushing new bookmarks without --allow-new",
+                    "default": false
+                },
+                "fetch": {
+                    "description": "The remote(s) from which commits are fetched",
+                    "default": "origin",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    ]
+                },
+                "private-commits": {
+                    "type": "string",
+                    "description": "Revset of commits to refuse to push to remotes",
+                    "default": "none()"
+                },
+                "push": {
+                    "type": "string",
+                    "description": "The remote to which commits are pushed",
+                    "default": "origin"
+                },
+                "sign-on-push": {
+                    "type": "boolean",
+                    "description": "Whether jj should sign commits before pushing",
+                    "default": false
+                },
+                "track-default-bookmark-on-clone": {
+                    "type": "boolean",
+                    "description": "Whether `jj git clone` creates a local bookmark tracking the default remote bookmark",
+                    "default": true
+                },
+                "write-change-id-header": {
+                    "type": "boolean",
+                    "description": "Whether the change id should be stored in the Git commit object",
+                    "default": true
+                },
+                "executable-path": {
+                    "type": "string",
+                    "description": "Path to the git executable",
+                    "default": "git"
+                },
+                "colocate": {
+                    "type": "boolean",
+                    "description": "Whether to colocate the working copy with the git repository",
+                    "default": false
+                }
+            }
+        },
+        "merge-tools": {
+            "type": "object",
+            "description": "Tables of custom options to pass to the given merge tool (selected in ui.merge-editor)",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "program": {
+                        "type": "string"
+                    },
+                    "diff-args": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "diff-expected-exit-codes": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "description": "Array of exit codes that do not indicate tool failure, i.e. [0, 1] for unix diff.",
+                        "default": [0]
+                    },
+                    "diff-do-chdir": {
+                      "type": "boolean",
+                      "description": "Invoke the tool in the temporary diff directory. This setting will be removed soon",
+                      "default": true
+                    },
+                    "diff-invocation-mode": {
+                      "description": "Invoke the tool with directories or individual files",
+                      "enum": [
+                        "dir",
+                        "file-by-file"
+                      ],
+                      "default": "dir"
+                    },
+                    "edit-args": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "merge-args": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "merge-conflict-exit-codes": {
+                        "type": "array",
+                        "items": {
+                            "type": "number"
+                        },
+                        "description": "Array of exit codes to indicate that the conflict was only partially resolved. See https://jj-vcs.github.io/jj/latest/config/#editing-conflict-markers-with-a-tool-or-a-text-editor",
+                        "default": []
+                    },
+                    "merge-tool-edits-conflict-markers": {
+                        "type": "boolean",
+                        "description": "Whether to populate the output file with conflict markers before starting the merge tool. See https://jj-vcs.github.io/jj/latest/config/#editing-conflict-markers-with-a-tool-or-a-text-editor",
+                        "default": false
+                    },
+                    "conflict-marker-style": {
+                        "$ref": "#/properties/ui/definitions/conflict-marker-style"
+                    }
+                }
+            }
+        },
+        "revsets": {
+            "type": "object",
+            "description": "Revset expressions used by various commands",
+            "properties": {
+                "fix": {
+                    "type": "string",
+                    "description": "Default set of revisions to fix when no explicit revset is given for jj fix",
+                    "default": "reachable(@, mutable())"
+                },
+                "log": {
+                    "type": "string",
+                    "description": "Default set of revisions to show when no explicit revset is given for jj log and similar commands",
+                    "default": "present(@) | ancestors(immutable_heads().., 2) | present(trunk())"
+                },
+                "short-prefixes": {
+                    "type": "string",
+                    "description": "Revisions to give shorter change and commit IDs to",
+                    "default": "<revsets.log>"
+                },
+                "simplify-parents": {
+                    "type": "string",
+                    "description": "Default set of revisions to simplify when no explicit revset is given for jj simplify-parents",
+                    "default": "reachable(@, mutable())"
+                },
+                "sign": {
+                    "type": "string",
+                    "description": "Default set of revisions to sign when no explicit revset is given for jj sign",
+                    "default": "reachable(@, mutable())"
+                },
+                "log-graph-prioritize": {
+                    "type": "string",
+                    "description": "Set of revisions to prioritize when rendering the graph for jj log",
+                    "default": "present(@)"
+                }
+            },
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+        "revset-aliases": {
+            "type": "object",
+            "description": "Custom symbols/function aliases that can used in revset expressions",
+            "properties": {
+                "immutable_heads()": {
+                    "type": "string",
+                    "description": "Revisions to consider immutable. Ancestors of these are also considered immutable. The root commit is always considered immutable.",
+                    "default": "present(trunk()) | tags() | untracked_remote_bookmarks()"
+                }
+            },
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+        "template-aliases": {
+            "type": "object",
+            "description": "Custom symbols/function aliases that can used in templates",
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+        "aliases": {
+            "type": "object",
+            "description": "Custom subcommand aliases to be supported by the jj command",
+            "additionalProperties": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            }
+        },
+        "snapshot": {
+            "type": "object",
+            "description": "Parameters governing automatic capture of files into the working copy commit",
+            "properties": {
+                "auto-track": {
+                    "type": "string",
+                    "description": "Fileset pattern describing what new files to automatically track on snapshotting. By default all new files are tracked.",
+                    "default": "all()"
+                },
+                "auto-update-stale": {
+                    "type": "boolean",
+                    "description": "Whether to automatically update the working copy if it is stale. See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy",
+                    "default": false
+                },
+                "max-new-file-size": {
+                    "type": [
+                        "integer",
+                        "string"
+                    ],
+                    "description": "New files with a size in bytes above this threshold are not snapshotted, unless the threshold is 0",
+                    "default": "1MiB"
+                }
+            }
+        },
+        "experimental-advance-branches": {
+            "type": "object",
+            "description": "Settings controlling the 'advance-branches' feature which moves bookmarks forward when new commits are created.",
+            "properties": {
+                "enabled-branches": {
+                    "type": "array",
+                    "description": "Patterns used to identify bookmarks which may be advanced.",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "disabled-branches": {
+                    "type": "array",
+                    "description": "Patterns used to identify bookmarks which are not advanced. Takes precedence over 'enabled-branches'.",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "signing": {
+            "type": "object",
+            "description": "Settings for verifying and creating cryptographic commit signatures",
+            "properties": {
+                "backend": {
+                    "type": "string",
+                    "enum": ["gpg", "gpgsm", "none", "ssh"],
+                    "description": "The backend to use for signing commits. The string `none` disables signing.",
+                    "default": "none"
+                },
+                "key": {
+                    "type": "string",
+                    "description": "The key the configured signing backend will use to to sign commits. Overridden by `jj sign` parameter or by the global `--sign-with` option"
+                },
+                "behavior": {
+                    "type": "string",
+                    "enum": ["drop", "keep", "own", "force"],
+                    "description": "Which commits to sign by default. Values: drop (never sign), keep (preserve existing signatures), own (sign own commits), force (sign all commits)"
+                },
+                "backends": {
+                    "type": "object",
+                    "description": "Tables of options to pass to specific signing backends",
+                    "properties": {
+                        "gpg": {
+                            "type": "object",
+                            "properties": {
+                                "program": {
+                                    "type": "string",
+                                    "description": "Path to the gpg program to be called",
+                                    "default": "gpg"
+                                },
+                                "allow-expired-keys": {
+                                    "type": "boolean",
+                                    "description": "Whether to consider signatures generated with an expired key as valid",
+                                    "default": false
+                                }
+                            }
+                        },
+                        "gpgsm": {
+                            "type": "object",
+                            "properties": {
+                                "program": {
+                                    "type": "string",
+                                    "description": "Path to the gpgsm program to be called",
+                                    "default": "gpgsm"
+                                },
+                                "allow-expired-keys": {
+                                    "type": "boolean",
+                                    "description": "Whether to consider signatures generated with an expired key as valid",
+                                    "default": false
+                                }
+                            }
+                        },
+                        "ssh": {
+                            "type": "object",
+                            "properties": {
+                                "program": {
+                                    "type": "string",
+                                    "description": "Path to the ssh-keygen program to be called",
+                                    "default": "ssh-keygen"
+                                },
+                                "allowed-signers": {
+                                    "type": "string",
+                                    "description": "Path to an allowed signers file used for signature verification"
+                                },
+                                "revocation-list": {
+                                    "type": "string",
+                                    "description": "Path to a revocation list file used for revoking public keys"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": true
+                }
+            }
+        },
+        "fix": {
+            "type": "object",
+            "description": "Settings for jj fix",
+            "properties": {
+                "tools": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "description": "Settings for how specific filesets are affected by a tool",
+                        "properties": {
+                            "command": {
+                                "description": "Arguments used to execute this tool",
+                                "oneOf": [
+                                    {
+                                        "$ref": "#/properties/ui/definitions/command"
+                                    },
+                                    {
+                                        "$ref": "#/properties/ui/definitions/command-env"
+                                    }
+                                ]
+                            },
+                            "patterns": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "description": "Filesets that will be affected by this tool"
+                            },
+                            "enabled": {
+                                "type": "boolean",
+                                "description": "Disables this tool if set to false",
+                                "default": true
+                            }
+                        }
+                    },
+                    "description": "Settings for tools run by jj fix"
+                }
+            }
+        },
+        "split": {
+            "type": "object",
+            "description": "Settings for jj split",
+            "properties": {
+                "legacy-bookmark-behavior": {
+                    "type": "boolean",
+                    "description": "If true, bookmarks will move to the second commit instead of the first.",
+                    "default": true
+                }
+            }
+        },
+        "hints": {
+            "type": "object",
+            "description": "Various hints in jj's UI that can be disabled",
+            "additionalProperties": {
+                "type": "boolean"
+            }
+        },
+        "templates": {
+            "type": "object",
+            "description": "Definitions for the templates that various jj commands use",
+            "properties": {
+                "backout_description": {
+                    "type": "string",
+                    "description": "The description of commits backed out by `jj backout` (deprecated; use `revert_description` instead)"
+                },
+                "bookmark_list": {
+                    "type": "string",
+                    "description": "`jj bookmark list`'s output"
+                },
+                "commit_summary": {
+                    "type": "string",
+                    "description": "The short commit summary used by many commands"
+                },
+                "commit_trailers": {
+                    "type": "string",
+                    "description": "Trailers that will be appended to a commit's description"
+                },
+                "file_annotate": {
+                    "type": "string",
+                    "description": "`jj file annotate`'s output"
+                },
+                "config_list": {
+                    "type": "string",
+                    "description": "`jj config list`'s output"
+                },
+                "draft_commit_description": {
+                    "type": "string",
+                    "description": "The draft commit description opened in an editor"
+                },
+                "evolog": {
+                    "type": "string",
+                    "description": "`jj evolog`'s output"
+                },
+                "file_list": {
+                    "type": "string",
+                    "description": "`jj file list`'s output"
+                },
+                "file_show": {
+                    "type": "string",
+                    "description": "`jj file show`'s output"
+                },
+                "git_push_bookmark": {
+                    "type": "string",
+                    "description": "Bookmark name to be assigned when pushing a change to Git remote"
+                },
+                "log": {
+                    "type": "string",
+                    "description": "`jj log`'s output"
+                },
+                "op_log": {
+                    "type": "string",
+                    "description": "`jj op log`'s output"
+                },
+                "op_show": {
+                    "type": "string",
+                    "description": "`jj op show`'s output"
+                },
+                "op_summary": {
+                    "type": "string",
+                    "description": "The operation summary used by many commands"
+                },
+                "show": {
+                    "type": "string",
+                    "description": "`jj show`'s output"
+                },
+                "revert_description": {
+                    "type": "string",
+                    "description": "The description of commits reverted by `jj revert`"
+                },
+                "tag_list": {
+                    "type": "string",
+                    "description": "`jj tag list`'s output"
+                },
+                "workspace_list": {
+                    "type": "string",
+                    "description": "`jj workspace list`'s output"
+                }
+            },
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+        "working-copy": {
+            "type": "object",
+            "description": "Working copy settings",
+            "properties": {
+                "eol-conversion": {
+                    "type": "string",
+                    "description": "Configuring auto-converting CRLF line endings into LF when you add a file to the backend, and vice versa when it checks out code onto your filesystem.",
+                    "enum": [
+                        "input",
+                        "input-output",
+                        "none"
+                    ],
+                    "default": "none"
+                }
+            }
+        },
+        "--when": {
+            "type": "object",
+            "description": "Conditions restriction the application of the configuration",
+            "properties": {
+                "repositories": {
+                    "type": "array",
+                    "description": "List of paths to match the repository path prefix",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "commands": {
+                    "type": "array",
+                    "description": "List of subcommands to match",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "--scope": {
+            "type": "array",
+            "description": "Scoped tables for conditional configuration",
+            "items": {
+                "$comment": "https://json-schema.org/understanding-json-schema/structuring#recursion",
+                "$ref": "#"
+            }
+        }
+    }
+}

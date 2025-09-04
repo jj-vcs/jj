@@ -1,0 +1,182 @@
+site_name: !ENV [MKDOCS_SITE_NAME, 'Jujutsu docs']
+site_dir: 'rendered-docs'
+# Not having this (or viewing the site locally, or from any place other than the
+# site_url) leads to version switching failing to preserve the current path.
+site_url: 'https://jj-vcs.github.io/jj/'
+repo_url: https://github.com/jj-vcs/jj
+repo_name: jj-vcs/jj
+edit_uri: edit/main/docs/
+theme:
+  name: 'material'
+  language: 'en'
+  favicon: images/favicon-96x96.png
+  features:
+    # - navigation.top
+    - content.action.edit
+    - content.code.copy
+    - content.tabs.link
+    - navigation.instant
+
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil
+
+  # Respect the user's default settings and add a toggle for manually choosing
+  # automatic/light/dark palette.
+  # taken from https://squidfunk.github.io/mkdocs-material/setup/changing-the-colors/#system-preference
+  palette:
+    - media: '(prefers-color-scheme)'
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to system preference
+    - media: '(prefers-color-scheme: light)'
+      scheme: default
+      primary: !ENV [MKDOCS_PRIMARY_COLOR, 'indigo']
+      toggle:
+        icon: material/brightness-7
+        name: Switch to light mode
+    - media: '(prefers-color-scheme: dark)'
+      scheme: slate
+      primary: !ENV [MKDOCS_PRIMARY_COLOR, 'indigo']
+      toggle:
+        icon: material/brightness-4
+        name: Switch to dark mode
+
+extra:
+  version:
+    provider: mike
+    alias: true
+
+validation:
+  anchors: warn
+
+plugins:
+  - group:
+      # If you plan to use the rendered docs from your file system, run:
+      #   MKDOCS_OFFLINE=true uv run mkdocs build
+      enabled: !ENV [MKDOCS_OFFLINE, false]
+      plugins:
+        - offline
+  - include-markdown # For the CLI reference
+  - mike:
+      # Should help search engines point to latest docs
+      # instead of (often obsolete) v?.??.? docs.
+      # TODO: Arguably, this could be `prerelease` when building prerelease docs.
+      canonical_version: latest
+  - redirects:
+      redirect_maps:
+        branches.md: bookmarks.md
+  - search
+  - table-reader:
+      data_path: docs
+      select_readers:
+        - read_yaml
+
+# Not all of these may be necessary, especially since the material
+# theme substitutes for some of them
+markdown_extensions:
+  - admonition
+  - codehilite:
+      guess_lang: false
+  - extra
+  # Fixes weird concatenation of list items that happens sometimes when
+  # there is not a paragraph break between them and one of them has
+  # multiple paragraphs.
+  - mdx_breakless_lists
+  # Allows list items with several paragraphs to be indented two spaces instead
+  # of four (like GitHub markdown)
+  - mdx_truly_sane_lists:
+      # No, thanks, we'd like only somewhat sane lists :)
+      # With `truly_sane: true`, together with breakless lists, it often splits
+      # a single list in two.
+      truly_sane: false
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - sane_lists
+  - toc:
+      permalink: true
+
+nav: # This lists all the files that become part of the documentation
+  - Home: 'index.md'
+
+  - Getting started:
+      - Installation and setup: 'install-and-setup.md'
+      - Tutorial and bird's eye view: 'tutorial.md'
+      - Working with GitHub: 'github.md'
+      - Working on Windows: 'windows.md'
+
+  - FAQ: 'FAQ.md'
+
+  - CLI reference: 'cli-reference.md'
+
+  - Testimonials: 'testimonials.md'
+
+  - Community-built tools: 'community_tools.md'
+
+  - Concepts:
+      - Working copy: 'working-copy.md'
+      - Bookmarks: 'bookmarks.md'
+      - Conflicts: 'conflicts.md'
+      - Operation log: 'operation-log.md'
+      - Glossary: 'glossary.md'
+
+  - Guides:
+      - Divergent changes: 'guides/divergence.md'
+
+  - Reference:
+      - Settings: 'config.md'
+      - Fileset language: 'filesets.md'
+      - Revset language: 'revsets.md'
+      - Templating language: 'templates.md'
+
+  - Comparisons:
+      - Git comparison: 'git-comparison.md'
+      - Git command table: 'git-command-table.md'
+      - Git compatibility: 'git-compatibility.md'
+      - Sapling comparison: 'sapling-comparison.md'
+      - Other related work: 'related-work.md'
+
+  - Technical details:
+      - Core tenets: 'core_tenets.md'
+      - Architecture: 'technical/architecture.md'
+      - Concurrency: 'technical/concurrency.md'
+      - Conflicts: 'technical/conflicts.md'
+
+  - Contributing:
+      - Guidelines and "How to...?": 'contributing.md'
+      - Code of conduct: 'code-of-conduct.md'
+      - Style guide: 'style_guide.md'
+      - Design docs: 'design_docs.md'
+      - Design doc blueprint: 'design_doc_blueprint.md'
+      - Releasing: 'releasing.md'
+      - Temporary voting for governance: 'governance/temporary-voting.md'
+      - Governance: 'governance/GOVERNANCE.md'
+
+  - Design docs:
+      - git-submodules: 'design/git-submodules.md'
+      - git-submodule-storage: 'design/git-submodule-storage.md'
+      - JJ run: 'design/run.md'
+      - Sparse patterns v2: 'design/sparse-v2.md'
+      - Tracking branches: 'design/tracking-branches.md'
+      - Copy tracking and tracing: 'design/copy-tracking.md'
+
+  - Development roadmap: 'roadmap.md'
+  - Changelog: 'changelog.md'
+
+# The following follow .gitignore syntax, relative
+# to the docs dir.
+not_in_nav: |
+  /paid_contributors.md

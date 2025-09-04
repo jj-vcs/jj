@@ -1,0 +1,151 @@
+[package]
+name = "jj-cli"
+description = "Jujutsu - an experimental version control system"
+default-run = "jj"
+autotests = false
+
+version = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+license = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+documentation = { workspace = true }
+keywords = { workspace = true }
+
+include = [
+    "/LICENSE",
+    "/build.rs",
+    "/examples/",
+    "/src/",
+    "/docs/**",
+    "/testing/",
+    "/tests/",
+    "!*.pending-snap",
+    "!*.snap*",
+    "/tests/cli-reference@.md.snap",
+]
+
+[[bin]]
+name = "jj"
+path = "src/main.rs"
+
+[[bin]]
+name = "fake-editor"
+path = "testing/fake-editor.rs"
+required-features = ["test-fakes"]
+
+[[bin]]
+name = "fake-diff-editor"
+path = "testing/fake-diff-editor.rs"
+required-features = ["test-fakes"]
+
+[[bin]]
+name = "fake-formatter"
+path = "testing/fake-formatter.rs"
+required-features = ["test-fakes"]
+
+[[test]]
+name = "runner"
+
+[[test]]
+name = "datatest_runner"
+harness = false
+
+[dependencies]
+bstr = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true }
+clap-markdown = { workspace = true }
+clap_complete = { workspace = true }
+clap_complete_nushell = { workspace = true }
+clap_mangen = { workspace = true }
+criterion = { workspace = true, optional = true }
+crossterm = { workspace = true }
+dunce = { workspace = true }
+erased-serde = { workspace = true }
+etcetera = { workspace = true }
+futures = { workspace = true }
+gix = { workspace = true, optional = true }
+globset = { workspace = true }
+indexmap = { workspace = true }
+indoc = { workspace = true }
+itertools = { workspace = true }
+jj-lib = { workspace = true }
+maplit = { workspace = true }
+once_cell = { workspace = true }
+os_pipe = { workspace = true }
+pest = { workspace = true }
+pest_derive = { workspace = true }
+pollster = { workspace = true }
+rayon = { workspace = true }
+regex = { workspace = true }
+rpassword = { workspace = true }
+sapling-renderdag = { workspace = true }
+sapling-streampager = { workspace = true }
+scm-record = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+slab = { workspace = true }
+strsim = { workspace = true }
+tempfile = { workspace = true }
+textwrap = { workspace = true }
+thiserror = { workspace = true }
+timeago = { workspace = true }
+tokio = { workspace = true }
+toml = { workspace = true }
+toml_edit = { workspace = true }
+tracing = { workspace = true }
+tracing-chrome = { workspace = true }
+tracing-subscriber = { workspace = true }
+unicode-width = { workspace = true }
+whoami = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+libc = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+assert_matches = { workspace = true }
+async-trait = { workspace = true }
+datatest-stable = { workspace = true }
+insta = { workspace = true }
+jsonschema = { workspace = true }
+proptest = { workspace = true }
+proptest-state-machine = { workspace = true }
+test-case = { workspace = true }
+testutils = { workspace = true }
+# https://github.com/rust-lang/cargo/issues/2911#issuecomment-1483256987
+jj-cli = { path = ".", features = ["test-fakes"], default-features = false }
+
+[features]
+default = ["watchman", "git"]
+bench = ["dep:criterion"]
+git = ["jj-lib/git", "dep:gix"]
+test-fakes = ["jj-lib/testing"]
+watchman = ["jj-lib/watchman"]
+
+[package.metadata.binstall]
+# The archive name is jj, not jj-cli. Also, `cargo binstall` gets
+# confused by the `v` before versions in archive name.
+pkg-url = "{ repo }/releases/download/v{ version }/jj-v{ version }-{ target }.{ archive-format }"
+
+[lints]
+workspace = true
+
+[package.metadata.deb]
+# Install `cargo-deb` and run `cargo deb` to create a package in `target/debian/`
+name = "jj"
+maintainer = "Unspecified Debian Maintainer <nobody@example.com>"
+copyright = "Copyright 2025 The Jujutsu Authors"
+license-file = "LICENSE"
+section = "vcs"
+priority = "optional"
+extended-description = "Distributed Version Control System inspired by Git, Mercurial and Darcs."
+assets = [
+    { source = "docs/*", dest = "usr/share/doc/jj/", mode = "644"},
+# TODO: It'd be nice to package the output of `MKDOCS_OFFLINE=true uv run mkdocs build` in the docs dir as well, but this is not trivial.
+    { source = "docs/*/*", dest = "usr/share/doc/jj/", mode = "644"},
+    { source = "target/release/jj", dest = "usr/bin/", mode = "755"},
+]
+default-features = true

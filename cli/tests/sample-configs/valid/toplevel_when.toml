@@ -1,0 +1,10 @@
+#:schema ../../../src/config-schema.json
+
+# --when can be used at the top-level. This is useful when configuration is
+# organized over several files.
+--when.repositories = ["~/repos/employer"]
+
+# This might be a file that represents all configuration that should apply to
+# the set of repositories belonging to an employer. Setting a custom work email
+# could be a common use case.
+user.email = "myname@employer.com"

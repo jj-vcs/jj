@@ -1,0 +1,134 @@
+// Copyright 2020 The Jujutsu Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Example:
+// "commit: " ++ short(commit_id) ++ "\n"
+// predecessors.map(|p| "predecessor: " ++ p.commit_id)
+// parents.map(|p| p.commit_id ++ " is a parent of " ++ commit_id)
+
+// If making significant changes to this grammar, consider also updating the
+// tree-sitter grammar: https://github.com/bryceberger/tree-sitter-jjtemplate
+
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" | "\x0c" }
+
+string_escape = @{
+  "\\"
+  ~ ("t" | "r" | "n" | "0" | "e" | ("x" ~ ASCII_HEX_DIGIT{2}) | "\"" | "\\")
+}
+string_content_char = @{ !("\"" | "\\") ~ ANY }
+string_content = @{ string_content_char+ }
+string_literal = ${ "\"" ~ (string_content | string_escape)* ~ "\"" }
+
+raw_string_content = @{ (!"'" ~ ANY)* }
+raw_string_literal = ${ "'" ~ raw_string_content ~ "'" }
+
+any_string_literal = _{ string_literal | raw_string_literal }
+
+integer_literal = @{
+  ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*
+  | "0"
+}
+
+identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+
+concat_op = { "++" }
+logical_or_op = { "||" }
+logical_and_op = { "&&" }
+eq_op = { "==" }
+ne_op = { "!=" }
+ge_op = { ">=" }
+gt_op = { ">" }
+le_op = { "<=" }
+lt_op = { "<" }
+add_op = { "+" }
+sub_op = { "-" }
+mul_op = { "*" }
+div_op = { "/" }
+rem_op = { "%" }
+logical_not_op = { "!" }
+negate_op = { "-" }
+pattern_kind_op = { ":" }
+prefix_ops = _{ logical_not_op | negate_op }
+infix_ops = _{
+  logical_or_op
+  | logical_and_op
+  | eq_op
+  | ne_op
+  | ge_op
+  | gt_op
+  | le_op
+  | lt_op
+  | add_op
+  | sub_op
+  | mul_op
+  | div_op
+  | rem_op
+}
+
+function = { identifier ~ "(" ~ function_arguments ~ ")" }
+keyword_argument = { identifier ~ "=" ~ template }
+argument = _{ keyword_argument | template }
+function_arguments = {
+  argument ~ ("," ~ argument)* ~ ","?
+  | ""
+}
+lambda = {
+  "|" ~ formal_parameters ~ "|" ~ template
+}
+formal_parameters = {
+  identifier ~ ("," ~ identifier)* ~ ","?
+  | ""
+}
+
+// NOTE: string pattern identifiers additionally allow "-" in them, which
+// results in some oddness with the `-` operator, though does not yet cause
+// ambiguity. This may prove annoying at some future point.
+string_pattern_identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_" | "-")* }
+string_pattern = ${
+    // Unlike the revset language, we're not allowing bare words here because
+    // templates are generally not written on-the-fly.
+    string_pattern_identifier ~ pattern_kind_op ~ any_string_literal
+}
+
+primary = _{
+  ("(" ~ template ~ ")")
+  | function
+  | lambda
+  | string_pattern
+  | identifier
+  | string_literal
+  | raw_string_literal
+  | integer_literal
+}
+
+term = {
+  primary ~ ("." ~ function)*
+}
+
+expression = {
+  prefix_ops* ~ term ~ (infix_ops ~ prefix_ops* ~ term)*
+}
+
+template = {
+  expression ~ (concat_op ~ expression)*
+}
+
+program = _{ SOI ~ template? ~ EOI }
+
+function_alias_declaration = {
+  identifier ~ "(" ~ formal_parameters ~ ")"
+}
+alias_declaration = _{
+  SOI ~ (function_alias_declaration | identifier) ~ EOI
+}

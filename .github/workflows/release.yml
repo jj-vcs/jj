@@ -1,0 +1,155 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions: read-all
+
+env:
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  build-release:
+    name: build-release
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        build: [linux-x86_64-musl, linux-aarch64-musl, macos-x86_64, macos-aarch64, win-x86_64, win-aarch64]
+        include:
+        - build: linux-x86_64-musl
+          os: ubuntu-24.04
+          target: x86_64-unknown-linux-musl
+        - build: linux-aarch64-musl
+          os: ubuntu-24.04-arm
+          target: aarch64-unknown-linux-musl
+        - build: macos-x86_64
+          os: macos-13
+          target: x86_64-apple-darwin
+        - build: macos-aarch64
+          os: macos-14
+          target: aarch64-apple-darwin
+        - build: win-x86_64
+          os: windows-2022
+          target: x86_64-pc-windows-msvc
+        - build: win-aarch64
+          os: windows-11-arm
+          target: aarch64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      with:
+        persist-credentials: false
+    - name: Install packages (Ubuntu)
+      if: startsWith(matrix.os, 'ubuntu')
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends xz-utils liblz4-tool musl-tools
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+      with:
+        toolchain: stable
+        target: ${{ matrix.target }}
+    - name: Build release binary
+      shell: bash
+      run: cargo build --target ${{ matrix.target }} --verbose --release
+    - name: Build archive
+      shell: bash
+      run: |
+        outdir="target/${{ matrix.target }}/release"
+        staging="jj-${RELEASE_TAG_NAME}-${{ matrix.target }}"
+        mkdir "$staging"
+        cp {README.md,LICENSE} "$staging/"
+        if [[ "${{ matrix.os }}" == windows* ]]; then
+          cp "$outdir/jj.exe" "$staging/"
+          cd "$staging"
+          7z a "../$staging.zip" .
+          echo "ASSET=$staging.zip" >> $GITHUB_ENV
+        else
+          cp "$outdir/jj" "$staging/"
+          tar czf "$staging.tar.gz" -C "$staging" .
+          echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
+        fi
+      env:
+        RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+    - name: Upload release archive
+      uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ${{ env.ASSET }}
+        asset_name: ${{ env.ASSET }}
+        asset_content_type: application/octet-stream
+
+  docs-release-archive:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Install packages (Ubuntu)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xz-utils liblz4-tool musl-tools
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: 3.11
+      - name: Install uv
+        uses: astral-sh/setup-uv@4959332f0f014c5280e7eac8b70c90cb574c9f9b
+        with:
+          version: "0.5.1"
+      - name: Compile docs and zip them up
+        run: |
+          uv run mkdocs build
+          archive="jj-${RELEASE_TAG_NAME}-docs-html.tar.gz"
+          tar czf "$archive" -C "rendered-docs" .
+          echo "ASSET=$archive" >> $GITHUB_ENV
+        env:
+          MKDOCS_OFFLINE: true
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+      - name: Upload release archive
+        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ${{ env.ASSET }}
+          asset_name: ${{ env.ASSET }}
+          asset_content_type: application/octet-stream
+
+  docs-deploy-website-latest-release:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          # `.github/scripts/docs-build-deploy` will need to `git push` to the docs branch
+          persist-credentials: true
+      - run:  "git fetch origin gh-pages --depth=1"
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: 3.11
+      - name: Install uv
+        uses: astral-sh/setup-uv@4959332f0f014c5280e7eac8b70c90cb574c9f9b
+        with:
+          version: "0.5.1"
+      - name: Install dependencies, compile and deploy docs to the "latest release" section of the website
+        run: |
+          git config user.name 'jj-docs[bot]'
+          git config user.email 'jj-docs[bot]@users.noreply.github.io'
+          # Using the 'latest' tag below makes the website default
+          # to this version.
+          .github/scripts/docs-build-deploy "${RELEASE_TAG_NAME}" latest --update-aliases --push
+        env:
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+      - name: "Show `git diff --stat`"
+        run: git diff --stat gh-pages^ gh-pages || echo "(No diffs)"

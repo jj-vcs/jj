@@ -1,0 +1,43 @@
+# The `dev` dependency group sets up tools for building `jj`
+# documentation. `uv` will install these in a virtual environment.
+
+[project]
+name = "jj-docs"
+description = "Sets up MkDocs and related Python tools"
+requires-python = ">=3.9"
+version = "0.1.0"
+dependencies = []
+
+[dependency-groups]
+# These can be updated with `uv add --dev`.
+dev = [
+    "mkdocs<1.7,>=1.6",
+    # Pin mkdocs-material to the exact version b/c it sometimes breaks thing
+    "mkdocs-material==9.6.14",
+    # Versioning of documentation
+    "mike<3,>=2.1.3",
+    # (Py)Markdown extensions
+    "mdx-truly-sane-lists<2.0,>=1.3",
+    "mdx-breakless-lists<2.0.0,>=1.0.1",
+    # Allows setting up redirects when renaming docs files
+    "mkdocs-redirects<2.0.0,>=1.2.1",
+    # Used for the CLI reference
+    "mkdocs-include-markdown-plugin<8.0.0,>=7.1.4",
+    # Used to render Markdown tables from YAML files
+    "mkdocs-table-reader-plugin>=3.1.0",
+    # Unrelated to docs
+    "codespell[toml]>=2.4.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.codespell]
+check-filenames = true
+check-hidden = true
+# Codespell does not respect .gitignore. It may be necessary to add to
+# this list by running e.g. `uv run codespell --skip=./rendered-docs`
+# if you have less common ignored files or globally ignored files present.
+# Alternatively, try `uv run codespell $(jj file list)`.
+skip = "./target,./.jj,*.lock,./.git,./.venv,./.direnv"
+ignore-words-list = "crate,ser,NotIn,Wirth,abd,ratatui"

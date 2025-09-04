@@ -1,0 +1,50 @@
+name: Configure Windows Builders
+description: |
+  This action configures the Windows builders to run tests.
+runs:
+  using: "composite"
+  steps:
+    # The GitHub Actions hosted Windows runners have a slow persistent
+    # `C:` drive and a temporary `D:` drive with better throughput. The
+    # repository checkout is placed on `D:` by default, but the user
+    # profile is on `C:`, slowing down access to temporary directories
+    # and the Rust toolchain we install. Since our build environment is
+    # ephemeral anyway, we can save a couple minutes of CI time by
+    # placing everything on `D:`.
+    #
+    # Some projects have reported even bigger wins by mounting a VHDX
+    # virtual drive with a ReFS file system on it, with or without the
+    # native Dev Drive feature available in Windows 2025, but it seems
+    # to make things slightly slower for us overall compared to `D:`.
+    # Further investigation and experimentation would be welcome!
+    #
+    # See: <https://chadgolden.com/blog/github-actions-hosted-windows-runners-slower-than-expected-ci-and-you>
+    - name: 'Set up D: drive'
+      shell: pwsh
+      run: |
+        # Set up D: drive
+
+        # Short file names are disabled by default on the `D:` drive,
+        # which breaks some of our tests. Enable them.
+        #
+        # This has a slight performance penalty, and won’t be possible
+        # if we switch to ReFS/Dev Drives. The alternatives are to
+        # reduce CI coverage for the security mitigation the tests are
+        # checking, or arrange for those tests to take a separate path
+        # to a drive that supports short file names to use instead of
+        # the primary temporary directory.
+        fsutil 8dot3name set D: 0
+
+        # Move the temporary directory to `D:\Temp`.
+        New-Item -Path D:\ -Name Temp -ItemType directory
+        # Copy the effective permissions without inheritance.
+        $Acl = Get-Acl -Path $env:TMP
+        $Acl.SetAccessRuleProtection($true, $true)
+        Set-Acl -Path D:\Temp -AclObject $Acl
+
+        Add-Content -Path $env:GITHUB_ENV @"
+        TMP=D:\Temp
+        TEMP=D:\Temp
+        RUSTUP_HOME=D:\.rustup
+        CARGO_HOME=D:\.cargo
+        "@

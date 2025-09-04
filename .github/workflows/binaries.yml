@@ -1,0 +1,78 @@
+name: binaries
+
+on:
+  push:
+    branches:
+      - main
+
+permissions: {}
+
+jobs:
+  binaries:
+    strategy:
+      fail-fast: false
+
+      matrix:
+        build: [linux-x86_64-musl, linux-x86_64-gnu, linux-aarch64-musl, linux-aarch64-gnu, macos-x86_64, macos-aarch64, win-x86_64]
+        include:
+        - build: linux-x86_64-musl
+          os: ubuntu-24.04
+          target: x86_64-unknown-linux-musl
+        - build: linux-x86_64-gnu
+          os: ubuntu-24.04
+          target: x86_64-unknown-linux-gnu
+        - build: linux-aarch64-musl
+          os: ubuntu-24.04-arm
+          target: aarch64-unknown-linux-musl
+        - build: linux-aarch64-gnu
+          os: ubuntu-24.04-arm
+          target: aarch64-unknown-linux-gnu
+        - build: macos-x86_64
+          os: macos-13
+          target: x86_64-apple-darwin
+        - build: macos-aarch64
+          os: macos-14
+          target: aarch64-apple-darwin
+        - build: win-x86_64
+          os: windows-2022
+          target: x86_64-pc-windows-msvc
+        - build: win-aarch64
+          os: windows-11-arm
+          target: aarch64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20 # NOTE (aseipp): tests aren't run but sometimes builds take a while
+
+    name: Build binary artifacts
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+      - name: Install packages (Ubuntu)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xz-utils liblz4-tool musl-tools
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+      - name: Build release binary
+        shell: bash
+        run: cargo build --target ${{ matrix.target }} --verbose --release
+
+      - name: Set up artifact directory
+        shell: bash
+        run: |
+          outdir="target/${{ matrix.target }}/release"
+          BIN=$outdir/jj
+          [[ "${{ matrix.os }}" == windows* ]] && BIN+=".exe"
+
+          mkdir -p target/out
+          cp $BIN target/out
+
+      - name: Publish binary artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jj-${{ matrix.target }}
+          path: target/out

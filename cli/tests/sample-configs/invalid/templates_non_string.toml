@@ -1,0 +1,3 @@
+#:schema ../../../src/config-schema.json
+[templates]
+log = ['builtin_log_compact', 'builtin_log_detailed']

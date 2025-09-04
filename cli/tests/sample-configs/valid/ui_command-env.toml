@@ -1,0 +1,15 @@
+#:schema ../../../src/config-schema.json
+[ui]
+editor = { command = ["C:/Program Files/Notepad++/notepad++.exe", "-multiInst", "-notabbar", "-nosession", "-noPlugin"], env = {} }
+
+[ui.diff-editor]
+command = ["diffedit3", "$left", "$right"]
+env = { RUST_LOG = "poem=debug" }
+
+[ui.merge-editor]
+command = ["diffedit3", "$left", "$base", "$right"]
+env = { RUST_LOG = "poem=debug" }
+
+[ui.diff-formatter]
+command = ["difft", "--color=always", "$left", "$right"]
+env = { DFT_BACKGROUND = "light" }

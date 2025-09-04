@@ -1,0 +1,3 @@
+#:schema ../../../src/config-schema.json
+[revsets]
+something = ["parent(@)", "mutable()"]

@@ -1,0 +1,4 @@
+#:schema ../../../src/config-schema.json
+[user]
+name = "Þrúður Hjálmarsson"
+email = "thrud@hjalmarsson.is"

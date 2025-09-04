@@ -1,0 +1,344 @@
+name: ci
+
+on:
+  pull_request:
+  merge_group:
+
+concurrency:
+  group: >-
+    ${{ github.workflow }}-${{
+      github.event.pull_request.number
+      || github.event.merge_group.head_ref
+    }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  test:
+    strategy:
+      fail-fast: ${{ github.event_name == 'merge_group' }}
+      matrix:
+        build: [linux-x86_64-gnu, linux-aarch64-gnu, macos-x86_64, macos-aarch64, windows-x86_64, windows-aarch64]
+        include:
+        - build: linux-x86_64-gnu
+          os: ubuntu-24.04
+          cargo_flags: "--all-features"
+        - build: linux-aarch64-gnu
+          os: ubuntu-24.04-arm
+          cargo_flags: "--all-features"
+        - build: macos-x86_64
+          os: macos-13
+          cargo_flags: ""
+        - build: macos-aarch64
+          os: macos-14
+          cargo_flags: ""
+        - build: windows-x86_64
+          os: windows-2022
+          cargo_flags: ""
+        - build: windows-aarch64
+          os: windows-11-arm
+          cargo_flags: ""
+    runs-on: ${{ matrix.os }}
+
+    # TODO FIXME (aseipp): keep the timeout limit to ~20 minutes. this is long
+    # enough to give us runway for the future, but also once we hit it, we're at
+    # the "builds are taking too long" stage and we should start looking at ways
+    # to optimize the CI, or the CI is flaking out on some weird spiked machine
+    #
+    # at the same time, this avoids some issues where some flaky, bugged tests
+    # seem to be causing multi-hour runs on Windows (GPG signing issues), which
+    # is a problem we should fix. in the mean time, this will make these flakes
+    # less harmful, as it won't cause builds to spin for multiple hours, requiring
+    # manual cancellation.
+    timeout-minutes: 20
+
+    steps:
+    - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      with:
+        persist-credentials: false
+    - name: Set up Windows Builders
+      if: startswith(matrix.os, 'windows-x86_64') # FIXME: aarch64 doesn't have D:\ yet
+      uses: ./.github/actions/setup-windows
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+      with:
+        toolchain: 1.85
+    - uses: taiki-e/install-action@f63c33fd96cc1e69a29bafd06541cf28588b43a4
+      with:
+        tool: nextest
+    - name: Install mold
+      uses: rui314/setup-mold@7344740a9418dcdcb481c7df83d9fbd1d5072d7d
+      with:
+        make-default: false
+    - name: Build
+      run: >-
+        cargo build
+        --config .cargo/config-ci.toml
+        --workspace
+        --all-targets
+        --verbose
+        ${{ matrix.cargo_flags }}
+    - name: Test
+      run: >-
+        cargo nextest run
+        --config .cargo/config-ci.toml
+        --workspace
+        --all-targets
+        --verbose
+        --profile ci
+        ${{ matrix.cargo_flags }}
+      env:
+        RUST_BACKTRACE: 1
+        CARGO_TERM_COLOR: always
+
+  no-git:
+    name: build (no git)
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      with:
+        persist-credentials: false
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+      with:
+        toolchain: 1.85
+    - name: Build
+      run: cargo build -p jj-cli --no-default-features --verbose
+
+  build-nix:
+    name: nix flake
+    strategy:
+      fail-fast: ${{ github.event_name == 'merge_group' }}
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-14]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@90bb610b90bf290cad97484ba341453bd1cbefea
+      - run: nix flake check -L --show-trace
+
+  check-protos:
+    name: check (protos)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: stable
+      - run: sudo apt update && sudo apt-get -y install protobuf-compiler
+      - name: Generate Rust code from .proto files
+        run: cargo run -p gen-protos
+      - name: Check for uncommitted changes
+        run: git diff --exit-code
+
+  check-rustfmt:
+    name: check (rustfmt)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: nightly
+          components: rustfmt
+      - run: cargo +nightly fmt --all -- --check
+
+  check-clippy:
+    name: check (clippy)
+    permissions:
+      checks: write
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: stable
+          components: clippy
+      - run: cargo +stable clippy --all-features --workspace --all-targets -- -D warnings
+
+  check-cargo-deny:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        checks:
+          - advisories
+          - bans
+          - licenses
+          - sources
+
+    # Prevent sudden announcement of a new advisory from failing ci:
+    continue-on-error: ${{ matrix.checks == 'advisories' }}
+
+    name: check (cargo-deny, ${{ matrix.checks }})
+    steps:
+    - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      with:
+        persist-credentials: false
+    - uses: EmbarkStudios/cargo-deny-action@f2ba7abc2abebaf185c833c3961145a3c275caad
+      with:
+        command: check ${{ matrix.checks }}
+
+  check-codespell:
+    name: check (codespell)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: 3.11
+      - name: Install uv
+        uses: astral-sh/setup-uv@4959332f0f014c5280e7eac8b70c90cb574c9f9b
+        with:
+          # If you bump the version, also update docs/contributing.md
+          # and all other workflows that install uv
+          version: "0.5.1"
+      - name: Run Codespell
+        run: uv run -- codespell && echo Codespell exited successfully
+
+  check-doctests:
+    name: check (doctests)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.85
+      # NOTE: We need to run `cargo test --doc` separately from normal tests:
+      # - `cargo build --all-targets` specifies: "Build all targets"
+      # - `cargo test --all-targets` specifies: "Test all targets (does not include doctests)"
+      - name: Run doctests
+        run: cargo test --workspace --doc
+        env:
+          RUST_BACKTRACE: 1
+      - name: Check `cargo doc` for lint issues
+        env:
+          RUSTDOCFLAGS: "--deny warnings"
+        run: cargo doc --workspace --no-deps
+
+  check-mkdocs:
+    name: check (mkdocs)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: 3.11
+      - name: Install uv
+        uses: astral-sh/setup-uv@4959332f0f014c5280e7eac8b70c90cb574c9f9b
+        with:
+          # If you bump the version, also update docs/contributing.md
+          # and all other workflows that install uv
+          version: "0.5.1"
+      - name: Check that `mkdocs` can build the docs
+        run: uv run -- mkdocs build --strict
+
+  # An optional job to alert us when uv updates break the build
+  check-mkdocs-latest:
+    name: check (latest mkdocs, optional)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@4959332f0f014c5280e7eac8b70c90cb574c9f9b
+      # 'only-managed' means that uv will always download Python, even
+      # if the runner happens to provide a compatible version
+      - name: Check that `mkdocs` can build the docs
+        run: uv run --python-preference=only-managed -- mkdocs build --strict
+
+  check-zizmor:
+    name: check (zizmor)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@4959332f0f014c5280e7eac8b70c90cb574c9f9b
+
+      - name: Run zizmor
+        run: uvx zizmor --format sarif . > results.sarif
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@3c3833e0f8c1c83d449a7478aa59c036a9165498
+        with:
+          sarif_file: results.sarif
+          category: zizmor
+
+  # Count the (very approximate) number of dependencies in Cargo.lock and bail at a certain limit.
+  check-cargo-lock-bloat:
+    name: check (Cargo.lock dependency count)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+      - name: Check total dependency count in Cargo.lock
+        run: |
+          total_deps=$(./.github/scripts/count-cargo-lock-packages)
+          if [ "$total_deps" -gt "${TOTAL_DEP_LIMIT}" ]; then
+            ./.github/scripts/dragon-bureaucrat \
+              "Cargo.lock has too many dependencies ($total_deps > ${TOTAL_DEP_LIMIT}). The Dragon banishes thee!
+
+                 You can raise the limit in \`.github/workflows/ci.yml\` if necessary, but
+                 consider whether it’s possible to trim things down first."
+          else
+            echo "Counted $total_deps Cargo.lock dependencies." \
+                 "This is within the allowed limit of ${TOTAL_DEP_LIMIT}."
+          fi
+        env:
+          # This limit *can* be raised, we just want to be aware if we exceed it
+          TOTAL_DEP_LIMIT: 550
+
+  # Block the merge if required checks fail, but only in the merge
+  # queue. See also `required-checks-hack.yml`.
+  required-checks:
+    name: required checks (merge queue)
+    if: ${{ always() && github.event_name == 'merge_group' }}
+    needs:
+    - test
+    - no-git
+    - build-nix
+    - check-protos
+    - check-rustfmt
+    - check-clippy
+    - check-cargo-deny
+    - check-codespell
+    - check-doctests
+    - check-mkdocs
+    # - check-mkdocs-latest
+    # - check-zizmor
+    - check-cargo-lock-bloat
+    runs-on: ubuntu-latest
+    steps:
+    - name: Block merge if required checks fail
+      if: >-
+        ${{
+          contains(needs.*.result, 'failure')
+          || contains(needs.*.result, 'cancelled')
+        }}
+      run: exit 1
