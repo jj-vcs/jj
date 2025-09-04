@@ -158,18 +158,18 @@ sudo port install jujutsu
 
 ### Windows
 
-#### Scoop
-
-```shell
-# To install the latest release via scoop
-scoop install main/jj
-```
-
 #### winget
 
 ```shell
 # To install the latest release via winget
 winget install jj-vcs.jj
+```
+
+#### Scoop
+
+```shell
+# To install the latest release via scoop
+scoop install main/jj
 ```
 
 #### Build from source
