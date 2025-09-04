@@ -57,14 +57,14 @@ changes.
 
 [sync-issue]: https://github.com/jj-vcs/jj/issues/1039
 
-## Working in a Git co-located repository
+## Working in a Git colocated repository
 
 After doing `jj git init`, which
-[colocates](git-compatibility.md#co-located-jujutsugit-repos) the `.jj` and
+[colocates](git-compatibility.md#colocated-jujutsugit-repos) the `.jj` and
 `.git` directories, Git will be in a [detached HEAD state][detached], which is
 unusual, as Git mainly works with named branches; jj does not.
 
-In a co-located repository, every `jj` command will automatically synchronize
+In a colocated repository, every `jj` command will automatically synchronize
 Jujutsu's view of the repo with Git's view. For example, `jj commit` updates the
 HEAD of the Git repository, enabling an incremental migration.
 
@@ -175,7 +175,7 @@ You can find more information on that setting [here][auto-bookmark].
 ## Using GitHub CLI
 
 GitHub CLI will have trouble finding the proper Git repository path in jj repos
-that aren't [co-located](./git-compatibility.md#co-located-jujutsugit-repos)
+that aren't [colocated](./git-compatibility.md#colocated-jujutsugit-repos)
 (see [issue #1008]). You can configure the `$GIT_DIR` environment variable to
 point it to the right path:
 
@@ -192,7 +192,7 @@ export GIT_DIR=$PWD/.jj/repo/store/git
 ```
 
 and run `direnv allow` to approve it for direnv to run. Then GitHub CLI will
-work automatically even in repos that aren't co-located so you can execute
+work automatically even in repos that aren't colocated so you can execute
 commands like `gh issue list` normally.
 
 [issue #1008]: https://github.com/jj-vcs/jj/issues/1008

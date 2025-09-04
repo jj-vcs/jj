@@ -93,9 +93,9 @@ Alternatively, you can use [jj-fzf](https://github.com/tim-janik/jj-fzf), where 
 
 The wiki lists additional TUIs and GUIs beyond the terminal: [GUI-and-TUI](https://github.com/jj-vcs/jj/wiki/GUI-and-TUI)
 
-### Should I co-locate my repository?
+### <a name="should-i-co-locate-my-repository"></a>Should I colocate my repository?
 
-Co-locating a Jujutsu repository allows you to use both Jujutsu and Git in the
+Colocating a Jujutsu repository allows you to use both Jujutsu and Git in the
 same working copy. The benefits of doing so are:
 
 - You can use Git commands when you're not sure how to do something with
@@ -104,8 +104,8 @@ same working copy. The benefits of doing so are:
 
 - Tooling that expects a Git repository still works (IDEs, build tooling, etc.)
 
-The [co-location documentation describes the
-drawbacks](git-compatibility.md#co-located-jujutsugit-repos) but the most
+The [colocation documentation describes the
+drawbacks](git-compatibility.md#colocated-jujutsugit-repos) but the most
 important ones are:
 
 - Interleaving `git` and `jj` commands may create confusing bookmark conflicts
@@ -125,8 +125,8 @@ important ones are:
   affected by this.
 
 If you primarily use Jujutsu to modify the repository, the drawbacks are
-unlikely to affect you. Try co-locating while you learn Jujutsu, then switch if
-you find a specific reason not to co-locate.
+unlikely to affect you. Try colocating while you learn Jujutsu, then switch if
+you find a specific reason not to colocate.
 
 ### `jj` is said to record the working copy after `jj log` and every other command. Where can I see these automatic "saves"?
 
@@ -575,7 +575,7 @@ be different from the original one, it wouldn't be deduplicated.
 You'll have to manually invoke `git push` of `HEAD` on the underlying git repository
 into the remote Gerrit bookmark `refs/for/$BRANCH`, where `$BRANCH` is the base
 bookmark you want your changes to go to (e.g., `git push origin
-HEAD:refs/for/main`). Using a [co-located][co-located] repo
+HEAD:refs/for/main`). Using a [colocated][colocated] repo
 will make the underlying git repo directly accessible from the working
 directory.
 
@@ -630,7 +630,7 @@ detect custom backends and more).
 
 [change]: glossary.md#change
 [change ID]: glossary.md#change-id
-[co-located]: glossary.md#co-located-repos
+[colocated]: glossary.md#colocated-repos
 [commit ID]: glossary.md#commit-id
 [commits]: glossary.md#commit
 [config]: config.md

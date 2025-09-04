@@ -78,7 +78,7 @@ pub struct GitInitArgs {
     /// If the specified `--git-repo` path happens to be the same as
     /// the `jj` repo path (both .jj and .git directories are in the
     /// same working directory), then both `jj` and `git` commands
-    /// will work on the same repo. This is called a co-located repo.
+    /// will work on the same repo. This is called a colocated repo.
     ///
     /// This option is mutually exclusive with `--colocate`.
     #[arg(long, conflicts_with = "colocate", value_hint = clap::ValueHint::DirPath)]

@@ -226,8 +226,8 @@ Here is how you can explore a GitHub repository with `jj`.
 
 <img src="demos/git_compat.png" />
 
-You can even have a ["co-located" local
-repository](https://jj-vcs.github.io/jj/latest/git-compatibility#co-located-jujutsugit-repos)
+You can even have a [colocated local
+repository](https://jj-vcs.github.io/jj/latest/git-compatibility#colocated-jujutsugit-repos)
 where you can use both `jj` and `git` commands interchangeably.
 
 ### The working copy is automatically committed

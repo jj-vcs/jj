@@ -102,9 +102,9 @@ By default, the remote repository will be named `origin`. You can use
 a name of your choice by adding `--remote <remote name>` to the `jj
 git clone` command.
 
-## Co-located Jujutsu/Git repos
+## <a name="co-located-jujutsugit-repos"></a>Colocated Jujutsu/Git repos
 
-A "co-located" Jujutsu repo is a hybrid Jujutsu/Git repo. This is the default
+A colocated Jujutsu repo is a hybrid Jujutsu/Git repo. This is the default
 for Git-backed repositories created with `jj git init` or `jj git clone`.
 The Git repo and the Jujutsu repo then share the same working copy. Jujutsu will
 import and export from and to the Git repo on every `jj` command automatically.
@@ -124,7 +124,7 @@ You can undo the results of mutating `git` commands using `jj undo` and `jj op
 restore`. Inside `jj op log`, changes by `git` will be represented as an "import
 git refs" operation.
 
-There are a few downsides to this mode of operation. Generally, using co-located
+There are a few downsides to this mode of operation. Generally, using colocated
 repos may require you to deal with more involved Jujutsu and Git concepts.
 You can disable colocation with the `--no-colocate` flag on the commands
 `jj git init` and `jj git clone` or by setting the configuration
@@ -139,7 +139,7 @@ You can disable colocation with the `--no-colocate` flag on the commands
   it because they automatically run `git fetch` in the background from time to
   time.
 
-* In co-located repos with a very large number of branches or other refs, `jj`
+* In colocated repos with a very large number of branches or other refs, `jj`
   commands can get noticeably slower because of the automatic `jj git import`
   executed on each command. This can be mitigated by occasionally running `jj util
   gc` to speed up the import (that command includes packing the Git refs).
@@ -169,11 +169,11 @@ You can disable colocation with the `--no-colocate` flag on the commands
   report any new ones you find, or if any of the known bugs are less minor than
   they appear.
 
-### Converting a repo into a co-located repo
+### Converting a repo into a colocated repo
 
 A Jujutsu repo backed by a Git repo has a full Git repo inside, so it is
 technically possible (though not officially supported) to convert it into a
-co-located repo like so:
+colocated repo like so:
 
 ```bash
 # Ignore the .jj directory in Git
