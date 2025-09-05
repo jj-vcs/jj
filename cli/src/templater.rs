@@ -895,16 +895,15 @@ fn format_property_error_inline(
     err: TemplatePropertyError,
 ) -> io::Result<()> {
     let TemplatePropertyError(err) = &err;
-    formatter.with_label("error", |formatter| {
-        write!(formatter, "<")?;
-        write!(formatter.labeled("heading"), "Error: ")?;
-        write!(formatter, "{err}")?;
-        for err in iter::successors(err.source(), |err| err.source()) {
-            write!(formatter, ": {err}")?;
-        }
-        write!(formatter, ">")?;
-        Ok(())
-    })
+    let mut formatter = formatter.labeled("error");
+    write!(formatter, "<")?;
+    write!(formatter.labeled("heading"), "Error: ")?;
+    write!(formatter, "{err}")?;
+    for err in iter::successors(err.source(), |err| err.source()) {
+        write!(formatter, ": {err}")?;
+    }
+    write!(formatter, ">")?;
+    Ok(())
 }
 
 fn propagate_property_error(

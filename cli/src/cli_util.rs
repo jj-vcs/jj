@@ -2294,14 +2294,14 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         };
         write!(fmt.labeled("hint").with_heading("Hint: "), "{instruction}")?;
         let format_short_change_id = self.short_change_id_template();
-        fmt.with_label("hint", |fmt| {
+        {
+            let mut fmt = fmt.labeled("hint");
             for commit in &root_conflict_commits {
                 write!(fmt, "  jj new ")?;
-                format_short_change_id.format(commit, fmt)?;
+                format_short_change_id.format(commit, *fmt)?;
                 writeln!(fmt)?;
             }
-            io::Result::Ok(())
-        })?;
+        }
         writedoc!(
             fmt.labeled("hint"),
             "
@@ -2646,12 +2646,13 @@ pub fn print_conflicted_paths(
         }
 
         write!(formatter, "{formatted_path} ")?;
-        formatter.with_label("conflict_description", |formatter| {
+        {
+            let mut formatter = formatter.labeled("conflict_description");
             let print_pair = |formatter: &mut dyn Formatter, (text, label): &(String, &str)| {
                 write!(formatter.labeled(label), "{text}")
             };
             print_pair(
-                formatter,
+                *formatter,
                 &(
                     format!("{sides}-sided"),
                     if sides > 2 { "difficult" } else { "normal" },
@@ -2664,20 +2665,19 @@ pub fn print_conflicted_paths(
                 let seen_objects = seen_objects.into_iter().collect_vec();
                 match &seen_objects[..] {
                     [] => unreachable!(),
-                    [only] => print_pair(formatter, only)?,
+                    [only] => print_pair(*formatter, only)?,
                     [first, middle @ .., last] => {
-                        print_pair(formatter, first)?;
+                        print_pair(*formatter, first)?;
                         for pair in middle {
                             write!(formatter, ", ")?;
-                            print_pair(formatter, pair)?;
+                            print_pair(*formatter, pair)?;
                         }
                         write!(formatter, " and ")?;
-                        print_pair(formatter, last)?;
+                        print_pair(*formatter, last)?;
                     }
-                };
+                }
             }
-            io::Result::Ok(())
-        })?;
+        }
         writeln!(formatter)?;
     }
     Ok(())

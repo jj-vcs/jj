@@ -91,32 +91,6 @@ pub trait FormatterExt: Formatter {
 
 impl<T: Formatter + ?Sized> FormatterExt for T {}
 
-impl dyn Formatter + '_ {
-    pub fn with_label<E>(
-        &mut self,
-        label: &str,
-        write_inner: impl FnOnce(&mut dyn Formatter) -> Result<(), E>,
-    ) -> Result<(), E> {
-        self.push_label(label);
-        // Call `pop_label()` whether or not `write_inner()` fails.
-        let result = write_inner(self);
-        self.pop_label();
-        result
-    }
-
-    pub async fn with_label_async<E>(
-        &mut self,
-        label: &str,
-        write_inner: impl AsyncFnOnce(&mut dyn Formatter) -> Result<(), E>,
-    ) -> Result<(), E> {
-        self.push_label(label);
-        // Call `pop_label()` whether or not `write_inner()` fails.
-        let result = write_inner(self).await;
-        self.pop_label();
-        result
-    }
-}
-
 /// [`Formatter`] wrapper to apply a label within a lexical scope.
 #[must_use]
 pub struct LabeledScope<T: Formatter> {

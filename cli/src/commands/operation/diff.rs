@@ -397,15 +397,13 @@ fn write_modified_change_summary(
     modified_change: &ModifiedChange,
 ) -> Result<(), std::io::Error> {
     for commit in modified_change.added_commits() {
-        formatter.with_label("diff", |formatter| write!(formatter.labeled("added"), "+"))?;
+        write!(formatter.labeled("diff").labeled("added"), "+")?;
         write!(formatter, " ")?;
         commit_summary_template.format(commit, formatter)?;
         writeln!(formatter)?;
     }
     for commit in modified_change.removed_commits() {
-        formatter.with_label("diff", |formatter| {
-            write!(formatter.labeled("removed"), "-")
-        })?;
+        write!(formatter.labeled("diff").labeled("removed"), "-")?;
         write!(formatter, " ")?;
         commit_summary_template.format(commit, formatter)?;
         writeln!(formatter)?;
@@ -426,13 +424,11 @@ fn write_ref_target_summary(
                         added: bool,
                         prefix: Option<&str>|
      -> Result<(), CommandError> {
-        formatter.with_label("diff", |formatter| {
-            write!(
-                formatter.labeled(if added { "added" } else { "removed" }),
-                "{}",
-                if added { "+" } else { "-" }
-            )
-        })?;
+        if added {
+            write!(formatter.labeled("diff").labeled("added"), "+")?;
+        } else {
+            write!(formatter.labeled("diff").labeled("removed"), "-")?;
+        }
         write!(formatter, " ")?;
         if let Some(prefix) = prefix {
             write!(formatter, "{prefix} ")?;

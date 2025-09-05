@@ -436,11 +436,8 @@ impl<'a> DiffRenderer<'a> {
         copy_records: &CopyRecords,
         width: usize,
     ) -> Result<(), DiffRenderError> {
-        formatter
-            .with_label_async("diff", async |formatter| {
-                self.show_diff_trees(ui, formatter, trees, matcher, copy_records, width)
-                    .await
-            })
+        let mut formatter = formatter.labeled("diff");
+        self.show_diff_trees(ui, *formatter, trees, matcher, copy_records, width)
             .await
     }
 
@@ -601,6 +598,7 @@ impl<'a> DiffRenderer<'a> {
         matcher: &dyn Matcher,
         width: usize,
     ) -> Result<(), DiffRenderError> {
+        let mut formatter = formatter.labeled("diff");
         let from_description = if from_commits.is_empty() {
             Merge::resolved("")
         } else {
@@ -616,23 +614,16 @@ impl<'a> DiffRenderer<'a> {
         let from_tree = rebase_to_dest_parent(self.repo, from_commits, to_commit)?;
         let to_tree = to_commit.tree_async().await?;
         let copy_records = CopyRecords::default(); // TODO
-        formatter
-            .with_label_async("diff", async |formatter| {
-                self.show_diff_commit_descriptions(
-                    formatter,
-                    [&from_description, &to_description],
-                )?;
-                self.show_diff_trees(
-                    ui,
-                    formatter,
-                    [&from_tree, &to_tree],
-                    matcher,
-                    &copy_records,
-                    width,
-                )
-                .await
-            })
-            .await
+        self.show_diff_commit_descriptions(*formatter, [&from_description, &to_description])?;
+        self.show_diff_trees(
+            ui,
+            *formatter,
+            [&from_tree, &to_tree],
+            matcher,
+            &copy_records,
+            width,
+        )
+        .await
     }
 
     /// Generates diff of the given `commit` compared to its parents.
@@ -1124,17 +1115,19 @@ fn show_color_words_line_number(
     [left_label, right_label]: [&str; 2],
 ) -> io::Result<()> {
     if let Some(line_number) = left_line_number {
-        formatter.with_label(left_label, |formatter| {
-            write!(formatter.labeled("line_number"), "{line_number:>4}")
-        })?;
+        write!(
+            formatter.labeled(left_label).labeled("line_number"),
+            "{line_number:>4}"
+        )?;
         write!(formatter, " ")?;
     } else {
         write!(formatter, "     ")?;
     }
     if let Some(line_number) = right_line_number {
-        formatter.with_label(right_label, |formatter| {
-            write!(formatter.labeled("line_number"), "{line_number:>4}",)
-        })?;
+        write!(
+            formatter.labeled(right_label).labeled("line_number"),
+            "{line_number:>4}"
+        )?;
         write!(formatter, ": ")?;
     } else {
         write!(formatter, "    : ")?;
@@ -1155,9 +1148,7 @@ fn show_color_words_inline_hunks(
             DiffLineHunkSide::Right => Some(right_label),
         };
         if let Some(label) = label {
-            formatter.with_label(label, |formatter| {
-                formatter.with_label("token", |formatter| formatter.write_all(data))
-            })?;
+            formatter.labeled(label).labeled("token").write_all(data)?;
         } else {
             formatter.write_all(data)?;
         }
@@ -1175,7 +1166,7 @@ fn show_color_words_single_sided_line(
     tokens: &[(DiffTokenType, &[u8])],
     label: &str,
 ) -> io::Result<()> {
-    formatter.with_label(label, |formatter| show_diff_line_tokens(formatter, tokens))?;
+    show_diff_line_tokens(*formatter.labeled(label), tokens)?;
     let (_, data) = tokens.last().expect("diff line must not be empty");
     if !data.ends_with(b"\n") {
         writeln!(formatter)?;
@@ -1864,10 +1855,8 @@ fn show_unified_diff_hunks(
                 DiffLineType::Removed => ("removed", "-"),
                 DiffLineType::Added => ("added", "+"),
             };
-            formatter.with_label(label, |formatter| {
-                write!(formatter, "{sigil}")?;
-                show_diff_line_tokens(formatter, tokens)
-            })?;
+            write!(formatter.labeled(label), "{sigil}")?;
+            show_diff_line_tokens(*formatter.labeled(label), tokens)?;
             let (_, content) = tokens.last().expect("hunk line must not be empty");
             if !content.ends_with(b"\n") {
                 write!(formatter, "\n\\ No newline at end of file\n")?;
@@ -1884,9 +1873,7 @@ fn show_diff_line_tokens(
     for (token_type, content) in tokens {
         match token_type {
             DiffTokenType::Matching => formatter.write_all(content)?,
-            DiffTokenType::Different => {
-                formatter.with_label("token", |formatter| formatter.write_all(content))?;
-            }
+            DiffTokenType::Different => formatter.labeled("token").write_all(content)?,
         }
     }
     Ok(())
@@ -1914,7 +1901,8 @@ pub async fn show_git_diff(
         let left_part = git_diff_part(left_path, left_value, &materialize_options)?;
         let right_part = git_diff_part(right_path, right_value, &materialize_options)?;
 
-        formatter.with_label("file_header", |formatter| {
+        {
+            let mut formatter = formatter.labeled("file_header");
             writeln!(
                 formatter,
                 "diff --git a/{left_path_string} b/{right_path_string}"
@@ -1952,8 +1940,7 @@ pub async fn show_git_diff(
                 }
                 (None, None) => panic!("either left or right part should be present"),
             }
-            Ok::<(), DiffRenderError>(())
-        })?;
+        }
 
         if left_part.content.contents == right_part.content.contents {
             continue; // no content hunks
@@ -1974,11 +1961,8 @@ pub async fn show_git_diff(
                 "Binary files {left_path} and {right_path} differ"
             )?;
         } else {
-            formatter.with_label("file_header", |formatter| {
-                writeln!(formatter, "--- {left_path}")?;
-                writeln!(formatter, "+++ {right_path}")?;
-                io::Result::Ok(())
-            })?;
+            writeln!(formatter.labeled("file_header"), "--- {left_path}")?;
+            writeln!(formatter.labeled("file_header"), "+++ {right_path}")?;
             show_unified_diff_hunks(
                 formatter,
                 [&left_part.content.contents, &right_part.content.contents].map(BStr::new),
@@ -1997,11 +1981,12 @@ fn show_git_diff_texts<T: AsRef<[u8]>>(
     options: &UnifiedDiffOptions,
     materialize_options: &ConflictMaterializeOptions,
 ) -> io::Result<()> {
-    formatter.with_label("file_header", |formatter| {
+    {
+        let mut formatter = formatter.labeled("file_header");
         writeln!(formatter, "diff --git a/{left_path} b/{right_path}")?;
         writeln!(formatter, "--- {left_path}")?;
-        writeln!(formatter, "+++ {right_path}")
-    })?;
+        writeln!(formatter, "+++ {right_path}")?;
+    }
     let [left, right] = contents.map(|content| match content.as_resolved() {
         Some(text) => Cow::Borrowed(BStr::new(text)),
         None => Cow::Owned(materialize_merge_result_to_bytes(
