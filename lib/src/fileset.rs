@@ -113,6 +113,8 @@ impl FilePattern {
             "cwd-file" | "file" => Self::cwd_file_path(path_converter, input),
             "cwd-glob" | "glob" => Self::cwd_file_glob(path_converter, input),
             "cwd-glob-i" | "glob-i" => Self::cwd_file_glob_i(path_converter, input),
+            "ext" => Self::cwd_extension_glob(path_converter, input),
+            "ext-i" => Self::cwd_extension_glob_i(path_converter, input),
             "root" => Self::root_prefix_path(input),
             "root-file" => Self::root_file_path(input),
             "root-glob" => Self::root_file_glob(input),
@@ -157,6 +159,47 @@ impl FilePattern {
         let (dir, pattern) = split_glob_path_i(input.as_ref());
         let dir = path_converter.parse_file_path(dir)?;
         Self::file_glob_at(dir, pattern, true)
+    }
+
+    /// Pattern that matches files with the given extension recursively from
+    /// cwd.
+    pub fn cwd_extension_glob(
+        path_converter: &RepoPathUiConverter,
+        extension: impl AsRef<str>,
+    ) -> Result<Self, FilePatternParseError> {
+        let ext_glob = Self::format_extension_glob(extension)?;
+        Self::cwd_file_glob(path_converter, ext_glob)
+    }
+
+    /// Pattern that matches files with the given extension recursively from cwd
+    /// (case-insensitive).
+    pub fn cwd_extension_glob_i(
+        path_converter: &RepoPathUiConverter,
+        extension: impl AsRef<str>,
+    ) -> Result<Self, FilePatternParseError> {
+        let ext_glob = Self::format_extension_glob(extension)?;
+        Self::cwd_file_glob_i(path_converter, ext_glob)
+    }
+
+    fn format_extension_glob(extension: impl AsRef<str>) -> Result<String, FilePatternParseError> {
+        let ext = extension.as_ref();
+        // Trim a single leading dot so that both "rs" and ".rs" are accepted.
+        let ext = ext.strip_prefix('.').unwrap_or(ext);
+        Self::validate_extension(ext)?;
+        Ok(format!("**/*.{ext}"))
+    }
+
+    /// Validates that an extension contains only valid filename characters.
+    fn validate_extension(extension: &str) -> Result<(), FilePatternParseError> {
+        for ch in extension.chars() {
+            if path::is_separator(ch) || is_glob_char(ch) {
+                return Err(FilePatternParseError::InvalidKind(format!(
+                    "extension '{extension}' contains invalid character '{ch}'"
+                )));
+            }
+        }
+
+        Ok(())
     }
 
     /// Pattern that matches workspace-relative file (or exact) path.
@@ -627,6 +670,42 @@ mod tests {
         insta::assert_debug_snapshot!(
             parse("root-file:bar").unwrap(),
             @r#"Pattern(FilePath("bar"))"#);
+
+        // extension patterns
+        insta::assert_debug_snapshot!(
+            parse("ext:rs").unwrap(), @r#"
+        Pattern(
+            FileGlob {
+                dir: "cur",
+                pattern: Glob {
+                    glob: "**/*.rs",
+                    re: "(?-u)^(?:/?|.*/)[^/]*\\.rs$",
+                    opts: _,
+                    tokens: _,
+                },
+            },
+        )
+        "#);
+
+        // extension validation errors
+        assert!(parse(r#"ext:"d/**""#).is_err());
+        assert!(parse(r#"ext:"*.txt""#).is_err());
+
+        // leading dot stripping - ext:.rs should be equivalent to ext:rs
+        insta::assert_debug_snapshot!(
+            parse(r#"ext:".rs""#).unwrap(), @r#"
+        Pattern(
+            FileGlob {
+                dir: "cur",
+                pattern: Glob {
+                    glob: "**/*.rs",
+                    re: "(?-u)^(?:/?|.*/)[^/]*\\.rs$",
+                    opts: _,
+                    tokens: _,
+                },
+            },
+        )
+        "#);
     }
 
     #[test]

@@ -38,6 +38,11 @@ the path [has no special characters](#quoting-file-names).
 * `glob-i:"pattern"` or `cwd-glob-i:"pattern"`: Like `glob:` but
   case-insensitive. For example, `glob-i:"*.TXT"` will match both `file.txt`
   and `FILE.TXT`.
+* `ext:"extension"`: Matches files with the specified extension recursively
+  from the current working directory (equivalent to `glob:"**/*.extension"`).
+  For example, `ext:"rs"` will match all `.rs` files.
+* `ext-i:"extension"`: Like `ext:` but case-insensitive. For example,
+  `ext-i:"RS"` will match both `.rs` and `.RS` files.
 * `root:"path"`: Matches workspace-relative path prefix (file or files under
   directory recursively.)
 * `root-file:"path"`: Matches workspace-relative file (or exact) path.
@@ -81,6 +86,12 @@ List files in `src` excluding Rust sources.
 
 ```shell
 jj file list 'src ~ glob:"**/*.rs"'
+```
+
+Show diff of all Rust files.
+
+```shell
+jj diff ext:rs
 ```
 
 Split a revision in two, putting `foo` into the second commit.
