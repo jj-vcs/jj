@@ -317,6 +317,13 @@ impl TreeValue {
             Self::GitSubmodule(id) => id.hex(),
         }
     }
+
+    pub fn copy_id(&self) -> Option<&CopyId> {
+        match self {
+            Self::File { copy_id, .. } => Some(copy_id),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
