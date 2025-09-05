@@ -49,7 +49,7 @@ a comparison with Git, including how workflows are different, see the
 * **Staging area: Kind of.** The staging area will be ignored. For example,
   `jj diff` will show a diff from the Git HEAD to the working copy. There are
   [ways of fulfilling your use cases without a staging
-  area](https://github.com/jj-vcs/jj/blob/main/docs/git-comparison.md#the-index).
+  area](git-comparison.md#the-index).
 * **Garbage collection: Yes.** It should be safe to run `git gc` in the Git
   repo, but it's not tested, so it's probably a good idea to make a backup of
   the whole workspace first. There's [no garbage collection and repacking of
@@ -68,7 +68,7 @@ a comparison with Git, including how workflows are different, see the
 * **Sparse checkouts: No.** However, there's native support for sparse
   checkouts. See the `jj sparse` command.
 * **Signed commits: Yes.**
-  You can sign commits automatically [by configuration](https://github.com/jj-vcs/jj/blob/main/docs/config.md#commit-signing),
+  You can sign commits automatically [by configuration](config.md#commit-signing),
   or use the `jj sign` command.
 * **Git LFS: No.** ([#80](https://github.com/jj-vcs/jj/issues/80))
 

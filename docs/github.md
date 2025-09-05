@@ -156,8 +156,7 @@ $ # force push
 $ jj git push --bookmark your-feature
 ```
 
-The hyphen after `your-feature` comes from the
-[revset](https://github.com/jj-vcs/jj/blob/main/docs/revsets.md) syntax.
+The hyphen after `your-feature` comes from the [revset](revsets.md) syntax.
 
 ## Working with other people's bookmarks
 
