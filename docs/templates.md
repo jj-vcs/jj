@@ -642,3 +642,9 @@ Show machine-readable list of full commit and change IDs:
 ```sh
 jj log --no-graph -T 'commit_id ++ " " ++ change_id ++ "\n"'
 ```
+
+Print the description of the current commit, defaulting to `(no description set)`:
+
+```sh
+jj log -r @ --no-graph -T 'coalesce(description, "(no description set)\n")'
+```
