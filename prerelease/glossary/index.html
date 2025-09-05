@@ -771,9 +771,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#co-located-repos" class="md-nav__link">
+  <a href="#colocated-repos" class="md-nav__link">
     <span class="md-ellipsis">
-      Co-located repos
+      Colocated repos
     </span>
   </a>
   
@@ -2023,9 +2023,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#co-located-repos" class="md-nav__link">
+  <a href="#colocated-repos" class="md-nav__link">
     <span class="md-ellipsis">
-      Co-located repos
+      Colocated repos
     </span>
   </a>
   
@@ -2255,7 +2255,7 @@ branch</a> or, less formally, a branch of the commit "tree"
 (which is itself an informal way to refer to the commit graph, parts of which
 might resemble a tree even when it's not mathematically a tree).</p>
 <p>We also sometimes discuss Git's branches and branches on Git remotes. Locally,
-these correspond to <a href="#bookmark">bookmarks</a>. In a co-located repository, each
+these correspond to <a href="#bookmark">bookmarks</a>. In a colocated repository, each
 local Git branch corresponds to a <code>jj</code> bookmark.</p>
 <h2 id="change">Change<a class="headerlink" href="#change" title="Permanent link">&para;</a></h2>
 <p>A change is a commit as it <a href="#rewrite">evolves over time</a>. Changes themselves
@@ -2285,12 +2285,12 @@ those changes onto another base commit.</p>
 long when using the Git backend. They are presented in regular hexadecimal
 format at the end of the line in <code>jj log</code>, using 12 hexadecimal digits by
 default. When using the Git backend, the commit ID is the Git commit ID.</p>
-<h2 id="co-located-repos">Co-located repos<a class="headerlink" href="#co-located-repos" title="Permanent link">&para;</a></h2>
+<h2 id="colocated-repos"><a name="co-located-repos"></a>Colocated repos<a class="headerlink" href="#colocated-repos" title="Permanent link">&para;</a></h2>
 <p>When using the Git <a href="#backend">backend</a> and the backing Git repository's <code>.git/</code>
-directory is a sibling of <code>.jj/</code>, we call the repository "co-located". Most
+directory is a sibling of <code>.jj/</code>, we call the repository colocated. Most
 tools designed for Git can be easily used on such repositories. <code>jj</code> and <code>git</code>
 commands can be used interchangeably.</p>
-<p>See <a href="../git-compatibility/#co-located-jujutsugit-repos">here</a> for details.</p>
+<p>See <a href="../git-compatibility/#colocated-jujutsugit-repos">here</a> for details.</p>
 <h2 id="conflict">Conflict<a class="headerlink" href="#conflict" title="Permanent link">&para;</a></h2>
 <p>Conflicts can occur in many places. The most common type is conflicts in files.
 Those are the conflicts that users coming from other VCSs are usually familiar
