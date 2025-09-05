@@ -2891,6 +2891,8 @@ Print the JSON schema for the jj TOML config format
 
 Execute an external command via jj
 
+This command will have access to the environment variable JJ_WORKSPACE_ROOT.
+
 This is useful for arbitrary aliases.
 
 !! WARNING !!

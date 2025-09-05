@@ -182,3 +182,27 @@ fn test_util_exec_not_found() {
     [exit status: 1]
     ");
 }
+
+#[cfg(unix)]
+#[test]
+fn test_util_exec_sets_env() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let output = test_env.run_jj_in(
+        ".",
+        [
+            "-R",
+            "repo",
+            "util",
+            "exec",
+            "--",
+            "/bin/sh",
+            "-c",
+            r#"echo "$JJ_WORKSPACE_ROOT""#,
+        ],
+    );
+    insta::assert_snapshot!(output, @r###"
+    $TEST_ENV/repo
+    [EOF]
+    "###);
+}
