@@ -469,6 +469,35 @@ edit = true
 You can pass the `--no-edit` flag to `prev` and `next` if you find yourself
 needing the original behavior.
 
+
+## Hooks
+
+You can configure arbitrary commands to run at certain points of jj operations.
+
+Currently supported hook types:
+
+- `hooks.post-commit` - Runs after a successful `jj commit` operation
+- `hooks.post-squash` - Runs after a successful `jj squash` operation
+
+Each hook is configured as an array of command and arguments:
+
+```toml
+[hooks]
+post-commit = ["echo", "Committed successfully!"]
+post-squash = ["echo", "Squashed successfully!"]
+```
+
+### Common Use Cases
+
+This will run `prek --last-commit` after each successful commit or squash operation:
+
+```toml
+[hooks]
+post-commit = ["prek", "--last-commit"]
+post-squash = ["prek", "--last-commit"]
+```
+
+
 ## List
 
 ### Default Template

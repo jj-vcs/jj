@@ -28,6 +28,7 @@ use crate::description_util::add_trailers;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
 use crate::description_util::join_message_paragraphs;
+use crate::hooks::HookEvent;
 use crate::text_util::parse_author;
 use crate::ui::Ui;
 
@@ -197,6 +198,10 @@ new working-copy commit.
             tx.repo_mut().edit(name, &new_wc_commit).unwrap();
         }
     }
-    tx.finish(ui, format!("commit {}", commit.id().hex()))?;
+    tx.finish_with_hook(
+        ui,
+        format!("commit {}", commit.id().hex()),
+        HookEvent::Commit,
+    )?;
     Ok(())
 }

@@ -50,6 +50,7 @@ mod test_git_root;
 mod test_gitignores;
 mod test_global_opts;
 mod test_help_command;
+mod test_hooks;
 mod test_immutable_commits;
 mod test_interdiff_command;
 mod test_log_command;
