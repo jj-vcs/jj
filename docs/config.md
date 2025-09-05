@@ -1207,8 +1207,8 @@ provide the name of the file in a command argument.
 ```toml
 [fix.tools.clang-format]
 command = ["/usr/bin/clang-format", "--sort-includes", "--assume-filename=$path"]
-patterns = ["glob:'**/*.c'",
-            "glob:'**/*.h'"]
+patterns = ["ext:c",
+            "ext:h"]
 ```
 
 ### Sort and remove duplicate lines from a file
@@ -1274,7 +1274,7 @@ In the user configuration, define a disabled tool for running rustfmt:
 [fix.tools.rustfmt]
 enabled = false
 command = ["rustfmt", "--emit", "stdout"]
-patterns = ["glob:'**/*.rs'"]
+patterns = ["ext:rs"]
 ```
 
 Then to use the tool in a specific repository, set the `enabled` config:

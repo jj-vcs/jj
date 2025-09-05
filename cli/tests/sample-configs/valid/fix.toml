@@ -5,5 +5,5 @@ command = [
   "--sort-includes",
   "--assume-filename=$path",
 ]
-patterns = ["glob:'**/*.c'", "glob:'**/*.h'"]
+patterns = ["ext:c", "ext:h"]
 enabled = true
