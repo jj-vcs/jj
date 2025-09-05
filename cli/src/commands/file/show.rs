@@ -143,6 +143,7 @@ fn get_single_path(expression: &FilesetExpression) -> Option<&RepoPath> {
             // select the literal <path> itself.
             FilePattern::FilePath(path) | FilePattern::PrefixPath(path) => Some(path),
             FilePattern::FileGlob { .. } => None,
+            FilePattern::NoExtension { .. } => None,
         },
         _ => None,
     }
