@@ -1,0 +1,111 @@
+{
+  "is_read_only": false,
+  "commits": [],
+  "files": [
+    {
+      "path": "foo/bar",
+      "file_mode": { "Unix": 33188 },
+      "sections": [
+        {
+          "Unchanged": {
+            "lines": [
+              "this is some text\n",
+              "this is some text\n",
+              "this is some text\n",
+              "this is some text\n",
+              "this is some text\n",
+              "this is some text\n",
+              "this is some text\n",
+              "this is some text\n",
+              "this is some text\n",
+              "this is some text\n",
+              "this is some text\n",
+              "this is some text\n",
+              "this is some text\n",
+              "this is some text\n",
+              "this is some text\n",
+              "this is some text\n",
+              "this is some text\n",
+              "this is some text\n",
+              "this is some text\n",
+              "this is some text\n"
+            ]
+          }
+        },
+        {
+          "Changed": {
+            "lines": [
+              {
+                "is_checked": true,
+                "change_type": "Removed",
+                "line": "before text 1\n"
+              },
+              {
+                "is_checked": true,
+                "change_type": "Removed",
+                "line": "before text 2\n"
+              },
+              {
+                "is_checked": true,
+                "change_type": "Added",
+                "line": "after text 1\n"
+              },
+              {
+                "is_checked": false,
+                "change_type": "Added",
+                "line": "after text 2\n"
+              }
+            ]
+          }
+        },
+        {
+          "Unchanged": {
+            "lines": ["this is some trailing text\n"]
+          }
+        }
+      ]
+    },
+    {
+      "path": "baz",
+      "file_mode": { "Unix": 33188 },
+      "sections": [
+        {
+          "Unchanged": {
+            "lines": ["Some leading text 1\n", "Some leading text 2\n"]
+          }
+        },
+        {
+          "Changed": {
+            "lines": [
+              {
+                "is_checked": true,
+                "change_type": "Removed",
+                "line": "before text 1\n"
+              },
+              {
+                "is_checked": true,
+                "change_type": "Removed",
+                "line": "before text 2\n"
+              },
+              {
+                "is_checked": true,
+                "change_type": "Added",
+                "line": "after text 1\n"
+              },
+              {
+                "is_checked": true,
+                "change_type": "Added",
+                "line": "after text 2\n"
+              }
+            ]
+          }
+        },
+        {
+          "Unchanged": {
+            "lines": ["this is some trailing text\n"]
+          }
+        }
+      ]
+    }
+  ]
+}
