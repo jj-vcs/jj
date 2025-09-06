@@ -1905,3 +1905,13 @@ wip = ["log", "-r", "work"]
   --when.commands = ["file show"]   # matches `jj file show` but *NOT* `jj file list`
   --when.commands = ["file", "log"] # matches `jj file` *OR* `jj log` (or subcommand of either)
   ```
+
+* `--when.operating-systems`: List of operating systems to match.
+
+  The values are defined by
+  [`std::env::consts::OS](https://doc.rust-lang.org/std/env/consts/constant.OS.html).
+
+  ```toml
+  --when.operating-systems = ["windows"]        # matches only Windows
+  --when.operating-systems = ["linux", "macos"] # matches Linux or macOS
+  ```

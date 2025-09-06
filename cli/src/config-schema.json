@@ -922,6 +922,13 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "operating-systems": {
+                    "type": "array",
+                    "description": "List of operating systems to match (see: https://doc.rust-lang.org/std/env/consts/constant.OS.html)",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
