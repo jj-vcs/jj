@@ -25,6 +25,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The default editor on Unix is now `nano` instead of `pico`.
 
+* Filesets now support a new `ext:` prefix for matching files by extension.
+  `ext:rs` matches all `.rs` files recursively, equivalent to `glob:"**/*.rs"`.
+
 ### Fixed bugs
 
 ## [0.33.0] - 2025-09-03

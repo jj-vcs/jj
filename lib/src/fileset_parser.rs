@@ -66,6 +66,7 @@ impl Rule {
             Self::function_name => None,
             Self::function_arguments => None,
             Self::string_pattern => None,
+            Self::ext_empty_pattern => None,
             Self::bare_string_pattern => None,
             Self::primary => None,
             Self::expression => None,
@@ -267,6 +268,10 @@ fn parse_primary_node(pair: Pair<Rule>) -> FilesetParseResult<ExpressionNode> {
             let value = parse_as_string_literal(rhs);
             ExpressionKind::StringPattern { kind, value }
         }
+        Rule::ext_empty_pattern => ExpressionKind::StringPattern {
+            kind: "ext",
+            value: String::new(),
+        },
         Rule::identifier => ExpressionKind::Identifier(first.as_str()),
         Rule::string_literal | Rule::raw_string_literal => {
             ExpressionKind::String(parse_as_string_literal(first))

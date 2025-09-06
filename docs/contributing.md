@@ -200,7 +200,7 @@ These are listed roughly in order of decreasing importance.
 Run this in the jj repo:
 
 ```shell
-jj config set --repo fix.tools.rustfmt '{ command = ["rustfmt", "+nightly"], patterns = ["glob:**/*.rs"] }'
+jj config set --repo fix.tools.rustfmt '{ command = ["rustfmt", "+nightly"], patterns = ["ext:rs"] }'
 ```
 
 > Note: users of Nix and `direnv` should drop the `"+nightly"` argument above
@@ -208,7 +208,7 @@ jj config set --repo fix.tools.rustfmt '{ command = ["rustfmt", "+nightly"], pat
 > rustfmt:
 >
 > ```shell
-> jj config set --repo fix.tools.rustfmt '{ command = ["rustfmt"], patterns = ["glob:**/*.rs"] }'
+> jj config set --repo fix.tools.rustfmt '{ command = ["rustfmt"], patterns = ["ext:rs"] }'
 > ```
 
 ### Using `mold` for faster tests on Linux

@@ -82,6 +82,12 @@ pub enum FilePattern {
         /// Glob pattern relative to `dir`.
         pattern: Box<Glob>,
     },
+    /// Matches files with no extension (files that don't contain a dot in the
+    /// basename).
+    NoExtension {
+        /// Directory to search from.
+        dir: RepoPathBuf,
+    },
     // TODO: add more patterns:
     // - FilesInPath: files in directory, non-recursively?
     // - NameGlob or SuffixGlob: file name with glob?
@@ -113,6 +119,7 @@ impl FilePattern {
             "cwd-file" | "file" => Self::cwd_file_path(path_converter, input),
             "cwd-glob" | "glob" => Self::cwd_file_glob(path_converter, input),
             "cwd-glob-i" | "glob-i" => Self::cwd_file_glob_i(path_converter, input),
+            "ext" => Self::cwd_extension_glob(path_converter, input),
             "root" => Self::root_prefix_path(input),
             "root-file" => Self::root_file_path(input),
             "root-glob" => Self::root_file_glob(input),
@@ -157,6 +164,35 @@ impl FilePattern {
         let (dir, pattern) = split_glob_path_i(input.as_ref());
         let dir = path_converter.parse_file_path(dir)?;
         Self::file_glob_at(dir, pattern, true)
+    }
+
+    /// Pattern that matches files with the given extension recursively from
+    /// cwd.
+    pub fn cwd_extension_glob(
+        path_converter: &RepoPathUiConverter,
+        extension: impl AsRef<str>,
+    ) -> Result<Self, FilePatternParseError> {
+        let ext = extension.as_ref();
+        if ext.is_empty() {
+            let dir = path_converter.parse_file_path("")?;
+            return Ok(Self::NoExtension { dir });
+        }
+        Self::validate_extension(ext)?;
+        let pattern = format!("**/*.{ext}");
+        Self::cwd_file_glob(path_converter, pattern)
+    }
+
+    /// Validates that an extension contains only valid filename characters.
+    fn validate_extension(extension: &str) -> Result<(), FilePatternParseError> {
+        for ch in extension.chars() {
+            if path::is_separator(ch) || is_glob_char(ch) {
+                return Err(FilePatternParseError::InvalidKind(format!(
+                    "extension '{extension}' contains invalid character '{ch}'"
+                )));
+            }
+        }
+
+        Ok(())
     }
 
     /// Pattern that matches workspace-relative file (or exact) path.
@@ -211,6 +247,7 @@ impl FilePattern {
             Self::FilePath(path) => Some(path),
             Self::PrefixPath(path) => Some(path),
             Self::FileGlob { .. } => None,
+            Self::NoExtension { .. } => None,
         }
     }
 }
@@ -386,6 +423,16 @@ fn build_union_matcher(expressions: &[FilesetExpression]) -> Box<dyn Matcher> {
                     FilePattern::PrefixPath(path) => prefix_paths.push(path),
                     FilePattern::FileGlob { dir, pattern } => {
                         file_globs.push((dir, pattern.clone()));
+                    }
+                    FilePattern::NoExtension { dir } => {
+                        // Create a matcher that matches all files but excludes files with
+                        // extensions
+                        let all_files = Box::new(PrefixMatcher::new(vec![dir]));
+                        let files_with_ext = Box::new(FileGlobsMatcher::new(vec![
+                            (dir, Box::new(parse_file_glob("**/[!.]*.*", false).unwrap())), /* non-hidden files with extensions */
+                            (dir, Box::new(parse_file_glob("**/.*.*", false).unwrap())), /* hidden files with extensions like .config.json */
+                        ]));
+                        return Box::new(DifferenceMatcher::new(all_files, files_with_ext));
                     }
                 }
                 continue;
@@ -627,6 +674,36 @@ mod tests {
         insta::assert_debug_snapshot!(
             parse("root-file:bar").unwrap(),
             @r#"Pattern(FilePath("bar"))"#);
+
+        // extension patterns
+        insta::assert_debug_snapshot!(
+            parse("ext:rs").unwrap(), @r#"
+        Pattern(
+            FileGlob {
+                dir: "cur",
+                pattern: Glob {
+                    glob: "**/*.rs",
+                    re: "(?-u)^(?:/?|.*/)[^/]*\\.rs$",
+                    opts: _,
+                    tokens: _,
+                },
+            },
+        )
+        "#);
+
+        // extension validation errors
+        assert!(parse(r#"ext:"d/**""#).is_err());
+        assert!(parse(r#"ext:"*.txt""#).is_err());
+
+        // empty extension means files with no extension
+        insta::assert_debug_snapshot!(
+            parse(r#"ext:"""#).unwrap(), @r#"
+        Pattern(
+            NoExtension {
+                dir: "cur",
+            },
+        )
+        "#);
     }
 
     #[test]
