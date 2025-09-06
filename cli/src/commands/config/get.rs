@@ -46,24 +46,22 @@ pub fn cmd_config_get(
     command: &CommandHelper,
     args: &ConfigGetArgs,
 ) -> Result<(), CommandError> {
-    let stringified = command
-        .settings()
-        .get_value_with(&args.name, |value| match value {
-            // Remove extra formatting from a string value
-            ConfigValue::String(v) => Ok(v.into_value()),
-            // Print other values in TOML syntax (but whitespace trimmed)
-            ConfigValue::Integer(_)
-            | ConfigValue::Float(_)
-            | ConfigValue::Boolean(_)
-            | ConfigValue::Datetime(_) => Ok(value.decorated("", "").to_string()),
-            // TODO: maybe okay to just print array or table in TOML syntax?
-            ConfigValue::Array(_) => {
-                Err("Expected a value convertible to a string, but is an array")
-            }
-            ConfigValue::InlineTable(_) => {
-                Err("Expected a value convertible to a string, but is a table")
-            }
-        })?;
+    let stringified =
+        command
+            .settings()
+            .get_value_with(&args.name, |value| -> Result<String, &str> {
+                match value {
+                    // Remove extra formatting from a string value
+                    ConfigValue::String(v) => Ok(v.into_value()),
+                    // Print other values in TOML syntax (but whitespace trimmed)
+                    ConfigValue::Integer(_)
+                    | ConfigValue::Float(_)
+                    | ConfigValue::Boolean(_)
+                    | ConfigValue::Datetime(_)
+                    | ConfigValue::Array(_)
+                    | ConfigValue::InlineTable(_) => Ok(value.decorated("", "").to_string()),
+                }
+            })?;
     writeln!(ui.stdout(), "{stringified}")?;
     Ok(())
 }
