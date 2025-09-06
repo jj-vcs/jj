@@ -166,6 +166,7 @@ use crate::diff_util::DiffFormatArgs;
 use crate::diff_util::DiffRenderer;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
+use crate::hooks::{HookEvent, run_post_hook_for_event};
 use crate::merge_tools::DiffEditor;
 use crate::merge_tools::MergeEditor;
 use crate::merge_tools::MergeToolConfigError;
@@ -2447,6 +2448,17 @@ impl WorkspaceCommandTransaction<'_> {
 
     pub fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {
         self.helper.finish_transaction(ui, self.tx, description)
+    }
+
+    pub fn finish_with_hook(
+        self,
+        ui: &Ui,
+        description: impl Into<String>,
+        event: HookEvent,
+    ) -> Result<(), CommandError> {
+        self.helper.finish_transaction(ui, self.tx, description)?;
+        run_post_hook_for_event(self.helper.settings(), event)?;
+        Ok(())
     }
 
     /// Returns the wrapped [`Transaction`] for circumstances where

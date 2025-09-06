@@ -44,6 +44,7 @@ use crate::description_util::description_template;
 use crate::description_util::edit_description;
 use crate::description_util::join_message_paragraphs;
 use crate::description_util::try_combine_messages;
+use crate::hooks::HookEvent;
 use crate::ui::Ui;
 
 /// Move changes from a revision into another revision
@@ -408,7 +409,7 @@ pub(crate) fn cmd_squash(
             }
         }
     }
-    tx.finish(ui, tx_description)?;
+    tx.finish_with_hook(ui, tx_description, HookEvent::Squash)?;
     Ok(())
 }
 

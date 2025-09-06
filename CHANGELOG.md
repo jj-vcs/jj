@@ -23,6 +23,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The new command `jj bisect run` uses binary search to find a commit that
   introduced a bug.
 
+* New hooks system allows running arbitrary commands after successful operations.
+  Currently supports `hooks.post-commit` and `hooks.post-squash` configuration
+  options. Useful for running something like `prek --last-commit` automatically.
+
 * The default editor on Unix is now `nano` instead of `pico`.
 
 ### Fixed bugs
