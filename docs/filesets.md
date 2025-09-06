@@ -40,8 +40,8 @@ the path [has no special characters](#quoting-file-names).
   and `FILE.TXT`.
 * `ext:"extension"`: Matches files with the specified extension recursively
   from the current working directory (equivalent to `glob:"**/*.extension"`).
-  For example, `ext:"rs"` will match all `.rs` files. The special case `ext:"''"`
-  matches files with no extension (equivalent to `~glob:"**/*.*"`).
+  For example, `ext:"rs"` will match all `.rs` files. The special case `ext:`
+  with no argument matches files with no extension.
 * `root:"path"`: Matches workspace-relative path prefix (file or files under
   directory recursively.)
 * `root-file:"path"`: Matches workspace-relative file (or exact) path.

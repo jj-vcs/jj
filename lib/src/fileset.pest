@@ -67,11 +67,13 @@ string_pattern = {
   ~ (identifier | string_literal | raw_string_literal)
 }
 bare_string_pattern = { strict_identifier ~ pattern_kind_op ~ bare_string }
+ext_empty_pattern = { "ext" ~ pattern_kind_op }
 
 primary = {
   "(" ~ whitespace* ~ expression ~ whitespace* ~ ")"
   | function
   | string_pattern
+  | ext_empty_pattern
   | identifier
   | string_literal
   | raw_string_literal
