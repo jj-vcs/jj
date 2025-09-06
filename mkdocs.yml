@@ -135,6 +135,7 @@ nav: # This lists all the files that become part of the documentation
 
   - Guides:
       - Divergent changes: 'guides/divergence.md'
+      - Multiple remotes: 'guides/multiple-remotes.md'
 
   - Reference:
       - Settings: 'config.md'
