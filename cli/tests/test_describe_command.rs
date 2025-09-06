@@ -647,6 +647,8 @@ fn test_describe_default_description() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
+    Warning: `jj describe --reset-author` is deprecated; use `jj metaedit --update-author` instead
     Working copy  (@) now at: kkmpptxz 7118bcb8 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -913,7 +915,7 @@ fn test_edit_cannot_be_used_with_no_edit() {
     ------- stderr -------
     error: the argument '--no-edit' cannot be used with '--edit'
 
-    Usage: jj describe --no-edit [REVSETS]...
+    Usage: jj describe [OPTIONS] [REVSETS]...
 
     For more information, try '--help'.
     [EOF]
@@ -959,6 +961,7 @@ fn test_add_trailer() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Working copy  (@) now at: qpvuntsm 2b2e302d (empty) Message from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -983,6 +986,7 @@ fn test_add_trailer() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Nothing changed.
     [EOF]
     ");
@@ -1006,6 +1010,7 @@ fn test_add_trailer() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Error: Invalid trailer line: this is an invalid trailer
     [EOF]
     [exit status: 1]
@@ -1027,6 +1032,7 @@ fn test_add_trailer() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Nothing changed.
     [EOF]
     ");
@@ -1068,6 +1074,7 @@ fn test_add_trailer_committer() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Working copy  (@) now at: qpvuntsm 05ddee5c (empty) Message from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]

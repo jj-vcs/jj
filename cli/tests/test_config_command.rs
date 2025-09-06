@@ -1717,14 +1717,14 @@ fn test_config_author_change_warning() {
     // for this test, the state (user.email) is needed
     work_dir
         .run_jj_with(|cmd| {
-            cmd.args(["describe", "--reset-author", "--no-edit"])
+            cmd.args(["metaedit", "--update-author"])
                 .env_remove("JJ_EMAIL")
         })
         .success();
 
     let output = work_dir.run_jj(["log"]);
     insta::assert_snapshot!(output, @r"
-    @  qpvuntsm Foo 2001-02-03 08:05:09 f64cf908
+    @  qpvuntsm Foo 2001-02-03 08:05:09 c2090b51
     │  (empty) (no description set)
     ◆  zzzzzzzz root() 00000000
     [EOF]

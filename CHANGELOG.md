@@ -18,6 +18,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+* Various flags on `jj describe` and `jj commit` have been deprecated in favor
+  of `jj metaedit`. They are:
+  * `describe`: `--author`, `--reset-author`, `--no-edit`
+  * `commit`:   `--author`, `--reset-author`
+
 ### New features
 
 * The new command `jj bisect run` uses binary search to find a commit that
