@@ -201,7 +201,10 @@
         pkgs.mkShell {
           name = "jujutsu";
           packages = packages ++ nativeBuildInputs ++ buildInputs ++ nativeCheckInputs;
-          inherit env shellHook;
+          env = env // {
+            NIX_JJ_GIT_HASH = self.rev or "dirty";
+          };
+          inherit shellHook;
         };
     }));
 }
