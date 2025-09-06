@@ -146,6 +146,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * A nearly identical string pattern system as revsets is now supported in the
   template language, and is exposed as `string.match(pattern)`.
 
+* `jj absorb` now supports `-i`/`--interactive` selection.
+
 ### Fixed bugs
 
 * `jj git clone` now correctly fetches all tags, unless `--fetch-tags` is
