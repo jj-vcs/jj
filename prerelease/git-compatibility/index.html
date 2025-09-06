@@ -1923,7 +1923,7 @@ a comparison with Git, including how workflows are different, see the
   parent of all commits Git would call "root commits".</li>
 <li><strong>Staging area: Kind of.</strong> The staging area will be ignored. For example,
   <code>jj diff</code> will show a diff from the Git HEAD to the working copy. There are
-  <a href="https://github.com/jj-vcs/jj/blob/main/docs/git-comparison.md#the-index">ways of fulfilling your use cases without a staging
+  <a href="../git-comparison/#the-index">ways of fulfilling your use cases without a staging
   area</a>.</li>
 <li><strong>Garbage collection: Yes.</strong> It should be safe to run <code>git gc</code> in the Git
   repo, but it's not tested, so it's probably a good idea to make a backup of
@@ -1943,7 +1943,7 @@ a comparison with Git, including how workflows are different, see the
 <li><strong>Sparse checkouts: No.</strong> However, there's native support for sparse
   checkouts. See the <code>jj sparse</code> command.</li>
 <li><strong>Signed commits: Yes.</strong>
-  You can sign commits automatically <a href="https://github.com/jj-vcs/jj/blob/main/docs/config.md#commit-signing">by configuration</a>,
+  You can sign commits automatically <a href="../config/#commit-signing">by configuration</a>,
   or use the <code>jj sign</code> command.</li>
 <li><strong>Git LFS: No.</strong> (<a href="https://github.com/jj-vcs/jj/issues/80">#80</a>)</li>
 </ul>
