@@ -33,7 +33,10 @@ use crate::ui::Ui;
 
 /// Update the description and create a new change on top [default alias: ci]
 ///
-/// This command is very similar to `jj split`. Differences include:
+/// When called without path arguments or `--interactive`, `jj commit` is
+/// equivalent to `jj describe` followed by `jj new`.
+///
+/// Otherwise, this command is very similar to `jj split`. Differences include:
 ///
 /// * `jj commit` is not interactive by default (it selects all changes).
 ///
