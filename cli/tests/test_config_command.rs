@@ -1709,7 +1709,7 @@ fn test_config_author_change_warning() {
     ------- stderr -------
     Warning: This setting will only impact future commits.
     The author of the working copy will stay "Test User <test.user@example.com>".
-    To change the working copy author, use "jj describe --reset-author --no-edit"
+    To change the working copy author, use "jj metaedit --update-author"
     [EOF]
     "#);
 
