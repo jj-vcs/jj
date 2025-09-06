@@ -65,7 +65,7 @@ impl Default for TestEnvironment {
         // current time. Use non-colocated repos by default for simplicity.
         env.add_config(
             r#"
-[template-aliases]
+[templates]
 'format_time_range(time_range)' = 'time_range.start() ++ " - " ++ time_range.end()'
 
 [git]

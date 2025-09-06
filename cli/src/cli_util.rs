@@ -2849,7 +2849,7 @@ pub fn load_template_aliases(
     ui: &Ui,
     stacked_config: &StackedConfig,
 ) -> Result<TemplateAliasesMap, CommandError> {
-    let table_name = ConfigNamePathBuf::from_iter(["template-aliases"]);
+    let table_name = ConfigNamePathBuf::from_iter(["templates"]);
     let mut aliases_map = TemplateAliasesMap::new();
     // Load from all config layers in order. 'f(x)' in default layer should be
     // overridden by 'f(a)' in user.

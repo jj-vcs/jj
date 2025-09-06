@@ -602,7 +602,7 @@ To inspect how output fragments are labeled, use `--color=debug` option.
 ## Configuration
 
 The default templates and aliases() are defined in the `[templates]` and
-`[template-aliases]` sections of the config respectively. The exact definitions
+`[templates]` sections of the config respectively. The exact definitions
 can be seen in the [`cli/src/config/templates.toml`][1] file in jj's source
 tree.
 
@@ -619,7 +619,7 @@ functions will be shadowed by name, and can't co-exist with aliases.
 For example:
 
 ```toml
-[template-aliases]
+[templates]
 'commit_change_ids' = '''
 concat(
   format_field("Commit ID", commit_id),

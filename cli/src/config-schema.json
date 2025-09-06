@@ -610,13 +610,6 @@
                 "type": "string"
             }
         },
-        "template-aliases": {
-            "type": "object",
-            "description": "Custom symbols/function aliases that can used in templates",
-            "additionalProperties": {
-                "type": "string"
-            }
-        },
         "aliases": {
             "type": "object",
             "description": "Custom subcommand aliases to be supported by the jj command",
@@ -806,7 +799,7 @@
         },
         "templates": {
             "type": "object",
-            "description": "Definitions for the templates that various jj commands use",
+            "description": "Custom symbols and function for templates, along with definitions for the templates that various jj commands use.",
             "properties": {
                 "backout_description": {
                     "type": "string",

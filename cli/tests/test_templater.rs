@@ -26,7 +26,7 @@ fn test_templater_parse_error() {
     // Typo
     test_env.add_config(
         r###"
-    [template-aliases]
+    [templates]
     'conflicting' = ''
     'shorted()' = ''
     'socat(x)' = 'x'
@@ -42,7 +42,7 @@ fn test_templater_parse_error() {
       | ^-------^
       |
       = Keyword `conflicts` doesn't exist
-    Hint: Did you mean `conflict`, `conflicting`?
+    Hint: Did you mean `config_list`, `conflict`, `conflicting`?
     [EOF]
     [exit status: 1]
     ");
@@ -160,7 +160,7 @@ fn test_templater_alias() {
 
     test_env.add_config(
         r###"
-    [template-aliases]
+    [templates]
     'my_commit_id' = 'commit_id.short()'
     'syntax_error' = 'foo.'
     'name_error' = 'unknown_id'
@@ -369,7 +369,7 @@ fn test_templater_alias_override() {
 
     test_env.add_config(
         r#"
-    [template-aliases]
+    [templates]
     'f(x)' = '"user"'
     "#,
     );
@@ -382,7 +382,7 @@ fn test_templater_alias_override() {
         "-r@",
         "-T",
         r#"f(_)"#,
-        r#"--config=template-aliases.'f(a)'='"arg"'"#,
+        r#"--config=templates.'f(a)'='"arg"'"#,
     ]);
     insta::assert_snapshot!(output, @"arg[EOF]");
 }
@@ -395,7 +395,7 @@ fn test_templater_bad_alias_decl() {
 
     test_env.add_config(
         r###"
-    [template-aliases]
+    [templates]
     'badfn(a, a)' = 'a'
     'my_commit_id' = 'commit_id.short()'
     "###,
@@ -406,7 +406,7 @@ fn test_templater_bad_alias_decl() {
     insta::assert_snapshot!(output, @r"
     000000000000[EOF]
     ------- stderr -------
-    Warning: Failed to load `template-aliases.badfn(a, a)`:  --> 1:7
+    Warning: Failed to load `templates.badfn(a, a)`:  --> 1:7
       |
     1 | badfn(a, a)
       |       ^--^

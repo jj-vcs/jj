@@ -966,8 +966,7 @@ fn test_default_config() {
     [EOF]
     ");
 
-    let time_config =
-        "--config=template-aliases.'format_time_range(t)'='format_timestamp(t.end())'";
+    let time_config = "--config=templates.'format_time_range(t)'='format_timestamp(t.end())'";
     let output = run_jj(&work_dir, &["op", "log", time_config]);
     if maskable_op_user {
         insta::assert_snapshot!(output, @r"
