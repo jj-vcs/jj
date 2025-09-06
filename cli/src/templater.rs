@@ -32,7 +32,8 @@ use jj_lib::op_store::TimestampRange;
 
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
-use crate::formatter::LabeledWriter;
+use crate::formatter::FormatterExt as _;
+use crate::formatter::LabeledScope;
 use crate::formatter::PlainTextFormatter;
 use crate::text_util;
 use crate::time_util;
@@ -799,10 +800,7 @@ impl<'a> TemplateFormatter<'a> {
         self.formatter.raw()
     }
 
-    pub fn labeled<S: AsRef<str>>(
-        &mut self,
-        label: S,
-    ) -> LabeledWriter<&mut (dyn Formatter + 'a), S> {
+    pub fn labeled(&mut self, label: &str) -> LabeledScope<&mut (dyn Formatter + 'a)> {
         self.formatter.labeled(label)
     }
 
@@ -897,16 +895,15 @@ fn format_property_error_inline(
     err: TemplatePropertyError,
 ) -> io::Result<()> {
     let TemplatePropertyError(err) = &err;
-    formatter.with_label("error", |formatter| {
-        write!(formatter, "<")?;
-        write!(formatter.labeled("heading"), "Error: ")?;
-        write!(formatter, "{err}")?;
-        for err in iter::successors(err.source(), |err| err.source()) {
-            write!(formatter, ": {err}")?;
-        }
-        write!(formatter, ">")?;
-        Ok(())
-    })
+    let mut formatter = formatter.labeled("error");
+    write!(formatter, "<")?;
+    write!(formatter.labeled("heading"), "Error: ")?;
+    write!(formatter, "{err}")?;
+    for err in iter::successors(err.source(), |err| err.source()) {
+        write!(formatter, ": {err}")?;
+    }
+    write!(formatter, ">")?;
+    Ok(())
 }
 
 fn propagate_property_error(

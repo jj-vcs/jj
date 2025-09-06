@@ -49,6 +49,7 @@ use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::user_error;
 use crate::formatter::Formatter;
+use crate::formatter::FormatterExt as _;
 use crate::ui::ProgressOutput;
 use crate::ui::Ui;
 

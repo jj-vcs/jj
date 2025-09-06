@@ -29,6 +29,7 @@ use crate::cli_util::print_snapshot_stats;
 use crate::command_error::CommandError;
 use crate::diff_util::DiffFormat;
 use crate::diff_util::get_copy_records;
+use crate::formatter::FormatterExt as _;
 use crate::ui::Ui;
 
 /// Show high-level repo status [default alias: st]
@@ -105,26 +106,24 @@ pub(crate) fn cmd_status(
 
             if wc_has_untracked {
                 writeln!(formatter, "Untracked paths:")?;
-                formatter.with_label("diff", |formatter| {
-                    visit_collapsed_untracked_files(
-                        snapshot_stats.untracked_paths.keys(),
-                        tree,
-                        |path, is_dir| {
-                            let ui_path = workspace_command.path_converter().format_file_path(path);
-                            writeln!(
-                                formatter.labeled("untracked"),
-                                "? {ui_path}{}",
-                                if is_dir {
-                                    std::path::MAIN_SEPARATOR_STR
-                                } else {
-                                    ""
-                                }
-                            )?;
-                            Ok(())
-                        },
-                    )
-                    .block_on()
-                })?;
+                visit_collapsed_untracked_files(
+                    snapshot_stats.untracked_paths.keys(),
+                    tree,
+                    |path, is_dir| {
+                        let ui_path = workspace_command.path_converter().format_file_path(path);
+                        writeln!(
+                            formatter.labeled("diff").labeled("untracked"),
+                            "? {ui_path}{}",
+                            if is_dir {
+                                std::path::MAIN_SEPARATOR_STR
+                            } else {
+                                ""
+                            }
+                        )?;
+                        Ok(())
+                    },
+                )
+                .block_on()?;
             }
         }
 

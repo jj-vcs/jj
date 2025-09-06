@@ -70,6 +70,7 @@ use crate::description_util::TextEditError;
 use crate::diff_util::DiffRenderError;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
+use crate::formatter::FormatterExt as _;
 use crate::merge_tools::ConflictResolveError;
 use crate::merge_tools::DiffEditError;
 use crate::merge_tools::MergeToolConfigError;
@@ -1017,41 +1018,37 @@ pub fn print_error_sources(ui: &Ui, source: Option<&dyn error::Error>) -> io::Re
     let Some(err) = source else {
         return Ok(());
     };
-    ui.stderr_formatter()
-        .with_label("error_source", |formatter| {
-            if err.source().is_none() {
-                write!(formatter.labeled("heading"), "Caused by: ")?;
-                writeln!(formatter, "{err}")?;
-            } else {
-                writeln!(formatter.labeled("heading"), "Caused by:")?;
-                for (i, err) in iter::successors(Some(err), |&err| err.source()).enumerate() {
-                    write!(formatter.labeled("heading"), "{}: ", i + 1)?;
-                    writeln!(formatter, "{err}")?;
-                }
-            }
-            Ok(())
-        })
+    let mut formatter = ui.stderr_formatter().into_labeled("error_source");
+    if err.source().is_none() {
+        write!(formatter.labeled("heading"), "Caused by: ")?;
+        writeln!(formatter, "{err}")?;
+    } else {
+        writeln!(formatter.labeled("heading"), "Caused by:")?;
+        for (i, err) in iter::successors(Some(err), |&err| err.source()).enumerate() {
+            write!(formatter.labeled("heading"), "{}: ", i + 1)?;
+            writeln!(formatter, "{err}")?;
+        }
+    }
+    Ok(())
 }
 
 fn print_error_hints(ui: &Ui, hints: &[ErrorHint]) -> io::Result<()> {
+    let mut formatter = ui.stderr_formatter().into_labeled("hint");
     for hint in hints {
-        ui.stderr_formatter().with_label("hint", |formatter| {
-            write!(formatter.labeled("heading"), "Hint: ")?;
-            match hint {
-                ErrorHint::PlainText(message) => {
-                    writeln!(formatter, "{message}")?;
-                }
-                ErrorHint::Formatted(recorded) => {
-                    recorded.replay(formatter)?;
-                    // Formatted hint is usually multi-line text, and it's
-                    // convenient if trailing "\n" doesn't have to be omitted.
-                    if !recorded.data().ends_with(b"\n") {
-                        writeln!(formatter)?;
-                    }
+        write!(formatter.labeled("heading"), "Hint: ")?;
+        match hint {
+            ErrorHint::PlainText(message) => {
+                writeln!(formatter, "{message}")?;
+            }
+            ErrorHint::Formatted(recorded) => {
+                recorded.replay(formatter.as_mut())?;
+                // Formatted hint is usually multi-line text, and it's
+                // convenient if trailing "\n" doesn't have to be omitted.
+                if !recorded.data().ends_with(b"\n") {
+                    writeln!(formatter)?;
                 }
             }
-            io::Result::Ok(())
-        })?;
+        }
     }
     Ok(())
 }

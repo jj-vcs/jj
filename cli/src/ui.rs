@@ -39,9 +39,10 @@ use tracing::instrument;
 use crate::command_error::CommandError;
 use crate::config::CommandNameAndArgs;
 use crate::formatter::Formatter;
+use crate::formatter::FormatterExt as _;
 use crate::formatter::FormatterFactory;
 use crate::formatter::HeadingLabeledWriter;
-use crate::formatter::LabeledWriter;
+use crate::formatter::LabeledScope;
 use crate::formatter::PlainTextFormatter;
 
 const BUILTIN_PAGER_NAME: &str = ":builtin";
@@ -496,58 +497,54 @@ impl Ui {
     }
 
     /// Writer to print hint with the default "Hint: " heading.
-    pub fn hint_default(
-        &self,
-    ) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, &'static str, &'static str> {
+    pub fn hint_default(&self) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, &'static str> {
         self.hint_with_heading("Hint: ")
     }
 
     /// Writer to print hint without the "Hint: " heading.
-    pub fn hint_no_heading(&self) -> LabeledWriter<Box<dyn Formatter + '_>, &'static str> {
+    pub fn hint_no_heading(&self) -> LabeledScope<Box<dyn Formatter + '_>> {
         let formatter = self
             .status_formatter()
             .unwrap_or_else(|| Box::new(PlainTextFormatter::new(io::sink())));
-        LabeledWriter::new(formatter, "hint")
+        formatter.into_labeled("hint")
     }
 
     /// Writer to print hint with the given heading.
     pub fn hint_with_heading<H: fmt::Display>(
         &self,
         heading: H,
-    ) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, &'static str, H> {
+    ) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, H> {
         self.hint_no_heading().with_heading(heading)
     }
 
     /// Writer to print warning with the default "Warning: " heading.
-    pub fn warning_default(
-        &self,
-    ) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, &'static str, &'static str> {
+    pub fn warning_default(&self) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, &'static str> {
         self.warning_with_heading("Warning: ")
     }
 
     /// Writer to print warning without the "Warning: " heading.
-    pub fn warning_no_heading(&self) -> LabeledWriter<Box<dyn Formatter + '_>, &'static str> {
-        LabeledWriter::new(self.stderr_formatter(), "warning")
+    pub fn warning_no_heading(&self) -> LabeledScope<Box<dyn Formatter + '_>> {
+        self.stderr_formatter().into_labeled("warning")
     }
 
     /// Writer to print warning with the given heading.
     pub fn warning_with_heading<H: fmt::Display>(
         &self,
         heading: H,
-    ) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, &'static str, H> {
+    ) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, H> {
         self.warning_no_heading().with_heading(heading)
     }
 
     /// Writer to print error without the "Error: " heading.
-    pub fn error_no_heading(&self) -> LabeledWriter<Box<dyn Formatter + '_>, &'static str> {
-        LabeledWriter::new(self.stderr_formatter(), "error")
+    pub fn error_no_heading(&self) -> LabeledScope<Box<dyn Formatter + '_>> {
+        self.stderr_formatter().into_labeled("error")
     }
 
     /// Writer to print error with the given heading.
     pub fn error_with_heading<H: fmt::Display>(
         &self,
         heading: H,
-    ) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, &'static str, H> {
+    ) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, H> {
         self.error_no_heading().with_heading(heading)
     }
 
