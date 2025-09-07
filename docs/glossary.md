@@ -79,7 +79,7 @@ long when using the Git backend. They are presented in regular hexadecimal
 format at the end of the line in `jj log`, using 12 hexadecimal digits by
 default. When using the Git backend, the commit ID is the Git commit ID.
 
-## <a name="co-located-repos"></a>Colocated repos
+## <a name="colocated-repos"></a>Colocated repos
 
 When using the Git [backend](#backend) and the backing Git repository's `.git/`
 directory is a sibling of `.jj/`, we call the repository colocated. Most

@@ -102,7 +102,7 @@ By default, the remote repository will be named `origin`. You can use
 a name of your choice by adding `--remote <remote name>` to the `jj
 git clone` command.
 
-## <a name="co-located-jujutsugit-repos"></a>Colocated Jujutsu/Git repos
+## <a name="colocated-jujutsugit-repos"></a>Colocated Jujutsu/Git repos
 
 A colocated Jujutsu repo is a hybrid Jujutsu/Git repo. This is the default
 for Git-backed repositories created with `jj git init` or `jj git clone`.

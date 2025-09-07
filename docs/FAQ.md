@@ -93,7 +93,7 @@ Alternatively, you can use [jj-fzf](https://github.com/tim-janik/jj-fzf), where 
 
 The wiki lists additional TUIs and GUIs beyond the terminal: [GUI-and-TUI](https://github.com/jj-vcs/jj/wiki/GUI-and-TUI)
 
-### <a name="should-i-co-locate-my-repository"></a>Should I colocate my repository?
+### <a name="should-i-colocate-my-repository"></a>Should I colocate my repository?
 
 Colocating a Jujutsu repository allows you to use both Jujutsu and Git in the
 same working copy. The benefits of doing so are:
