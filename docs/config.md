@@ -1158,7 +1158,7 @@ resolution.
 By default, the merge tool starts with an empty output file. If the tool puts
 anything into the output file and exits with the 0 exit code,
 `jj` assumes that the conflict is fully resolved, while if the tool exits with
-a non-zero exit code, `jj` assumes that the merge should be cancelled.
+a non-zero exit code, `jj` assumes that the merge should be canceled.
 This is appropriate for most graphical merge tools.
 
 For merge tools which try to automatically resolve conflicts without user input,

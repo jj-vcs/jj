@@ -1087,6 +1087,6 @@ fn test_debug_logging_enabled() {
         .expect("debug logging on first line")
         .split_at(36);
     // The log format is currently Pretty so we include the terminal markup.
-    // Luckily, insta will print this in colour when reviewing.
+    // Luckily, insta will print this in color when reviewing.
     insta::assert_snapshot!(log_line, @"[32m INFO[0m [2mjj_cli::cli_util[0m[2m:[0m debug logging enabled");
 }

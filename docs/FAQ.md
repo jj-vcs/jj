@@ -490,7 +490,7 @@ and `jj edit`. The first is generally recommended, but `jj edit` can be useful. 
 you use `jj edit`, the revision is directly amended with your new changes, making it
 difficult to tell what exactly you change. You should avoid using `jj edit` when the
 revision has a conflict, as you may accidentally break the plain-text annotations on
-your state without realising.
+your state without realizing.
 
 To start, use `jj new <rev>` to create a change based on that earlier revision. Make
 your edits, then use `jj squash` to update the earlier revision with those edits.

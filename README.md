@@ -141,7 +141,7 @@ use the bridge to follow IRC.
 ### News and Updates 📣
 
 - **December 2024**: The `jj` Repository has moved to the `jj-vcs` GitHub
-  organisation.
+  organization.
 - **November 2024**: Version 0.24 is released which adds `jj file annotate`,
   which is equivalent to `git blame` or `hg annotate`.
 - **September 2024**: Martin gave a [presentation about Jujutsu][merge-vid-2024] at

@@ -4010,7 +4010,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() {
         ["refs/heads/main"].map(GitRefNameBuf::from)
     );
 
-    // git is strict about honouring the expected location on --force-with-lease
+    // git is strict about honoring the expected location on --force-with-lease
     assert_eq!(
         push_status_rejected_references(
             attempt_push_expecting_parent(Some(setup.child_of_main_commit.id().clone())).unwrap()

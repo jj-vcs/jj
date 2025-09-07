@@ -68,7 +68,7 @@ pub struct ExternalMergeTool {
     /// paths to the corresponding files.
     pub merge_args: Vec<String>,
     /// By default, if a merge tool exits with a non-zero exit code, then the
-    /// merge will be cancelled. Some merge tools allow leaving some conflicts
+    /// merge will be canceled. Some merge tools allow leaving some conflicts
     /// unresolved, in which case they will be left as conflict markers in the
     /// output file. In that case, the merge tool may exit with a non-zero exit
     /// code to indicate that not all conflicts were resolved. Adding an exit

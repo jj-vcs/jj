@@ -75,7 +75,7 @@ where
     }
 
     // Collect non-zero value. Values with a count of 0 means that they have
-    // cancelled out.
+    // canceled out.
     counts.retain(|_, count| *count != 0);
     if counts.len() == 1 {
         // If there is a single value with a count of 1 left, then that is the result.

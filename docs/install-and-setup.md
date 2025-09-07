@@ -215,7 +215,7 @@ aware, for example they respect the global flags `--repository` and
 `--from`, and `--to`.
 
 Dynamic completions are not the default/only option since the underlying engine
-[is still labelled unstable][clap]. We expect to transition to them as the
+[is still labeled unstable][clap]. We expect to transition to them as the
 default once the engine is stabilized. Please let us know if you encounter any
 issues with dynamic completions.
 
