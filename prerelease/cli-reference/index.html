@@ -7439,7 +7439,8 @@ does not match the <code>jj help</code> output exactly.</p>
 </ul>
 <h2 id="jj-commit"><code>jj commit</code><a class="headerlink" href="#jj-commit" title="Permanent link">&para;</a></h2>
 <p>Update the description and create a new change on top [default alias: ci]</p>
-<p>This command is very similar to <code>jj split</code>. Differences include:</p>
+<p>When called without path arguments or <code>--interactive</code>, <code>jj commit</code> is equivalent to <code>jj describe</code> followed by <code>jj new</code>.</p>
+<p>Otherwise, this command is very similar to <code>jj split</code>. Differences include:</p>
 <ul>
 <li>
 <p><code>jj commit</code> is not interactive by default (it selects all changes).</p>
