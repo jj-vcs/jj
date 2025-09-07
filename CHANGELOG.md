@@ -2398,7 +2398,7 @@ No code changes (fixing Rust `Cargo.toml` stuff).
 * The minimum supported Rust version (MSRV) is now 1.76.0.
 
 * The on-disk index format changed. New index files will be created
-  automatically, but it can fail if the repository is co-located and predates
+  automatically, but it can fail if the repository is colocated and predates
   Git GC issues [#815](https://github.com/jj-vcs/jj/issues/815). If
   reindexing failed, you'll need to clean up corrupted operation history by
   `jj op abandon ..<bad operation ID>`.
