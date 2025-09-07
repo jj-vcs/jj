@@ -94,6 +94,12 @@ The following functions are defined.
   Surround **non-empty** content with texts such as parentheses.
 * `config(name: String) -> ConfigValue`: Look up configuration value by `name`.
 
+## Built-in Aliases
+
+* `hyperlink(url, text)`: Creates a clickable hyperlink using [OSC8 escape sequences](https://github.com/Alhadis/OSC8-Adoption).
+  The `text` will be displayed and clickable, linking to the given `url` in
+  terminals that support OSC8 hyperlinks.
+
 ## Types
 
 ### `AnnotationLine` type

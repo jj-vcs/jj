@@ -32,6 +32,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * New config option `merge.hunk-level = "word"` to enable word-level merging.
 
+* A new builtin `hyperlink(url, text)` template alias creates clickable
+  hyperlinks using [OSC8 escape sequences](https://github.com/Alhadis/OSC8-Adoption) for terminals that support them.
+
 ### Fixed bugs
 
 ## [0.33.0] - 2025-09-03

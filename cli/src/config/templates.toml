@@ -97,6 +97,13 @@ if(
 '''
 
 [template-aliases]
+'hyperlink(url, text)' = '''
+concat(
+  raw_escape_sequence("\e]8;;" ++ url ++ "\e\\"),
+  text,
+  raw_escape_sequence("\e]8;;\e\\"),
+)
+'''
 
 'format_config_item(x)' = '''
 if(x.overridden(),
