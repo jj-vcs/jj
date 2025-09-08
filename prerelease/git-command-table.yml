@@ -232,6 +232,13 @@
     `jj new @ A`
   Notes: ''
 
+- Use case: Check out a named revision (or branch) to examine source
+  Git command: >
+    `git checkout v1.0.1`
+  Jujutsu command: >
+    `jj new v1.0.1`
+  Notes: 'Creates new empty change on top (see `jj new main`)'
+
 - Use case: Move bookmark/branch A onto bookmark/branch B
   Git command: >
     `git rebase B A`
