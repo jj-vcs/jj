@@ -30,6 +30,7 @@ contribute or not.
 * lukegb
 * martinvonz
 * matts1
+* matttproud
 * mlcui-corp
 * orthros
 * qfel
