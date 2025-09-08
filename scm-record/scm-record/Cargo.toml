@@ -1,0 +1,51 @@
+[package]
+authors = ["Waleed Khan <me@waleedkhan.name>"]
+description = "UI component to interactively select changes to include in a commit."
+edition = "2021"
+license = "MIT OR Apache-2.0"
+name = "scm-record"
+repository = "https://github.com/arxanas/scm-record"
+version.workspace = true
+
+# Main consumers to consider:
+# - git-branchless: https://github.com/arxanas/git-branchless/blob/master/Cargo.toml
+# - jj: https://github.com/martinvonz/jj/blob/main/Cargo.toml
+rust-version = "1.74"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+debug = ["serde"]
+default = ["debug"]
+serde = ["dep:serde", "dep:serde_json"]
+
+[dependencies]
+cassowary.workspace = true
+crossterm.workspace = true
+num-traits.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+ratatui.workspace = true
+unicode-width.workspace = true
+
+# Features: serde
+serde = { workspace = true, features = ["serde_derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+
+[dev-dependencies]
+assert_matches.workspace = true
+criterion.workspace = true
+insta.workspace = true
+proptest.workspace = true
+serde_json.workspace = true
+
+[[bench]]
+name = "benches"
+harness = false
+
+[package.metadata.release]
+pre-release-replacements = [
+  { file = "../CHANGELOG.md", search = "Unreleased", replace = "{{version}}", min = 1 },
+  { file = "../CHANGELOG.md", search = "ReleaseDate", replace = "{{date}}", min = 1 },
+  { file = "../CHANGELOG.md", search = "<!-- next-header -->", replace = "<!-- next-header -->\n## [Unreleased] - ReleaseDate\n", exactly = 1 },
+]
