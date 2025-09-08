@@ -436,6 +436,13 @@ defined.
   the first matching part of the string for the given pattern.
 
   An empty string is returned if there is no match.
+* `.replace(pattern: StringPattern, replacement: Stringify, [limit: Integer]) -> String`:
+  Replace occurrences of the given `pattern` with the `replacement` string.
+
+  By default, all occurrences are replaced. If `limit` is specified, at most
+  that many occurrences are replaced.
+
+  Supports capture groups in patterns using `$0` (entire match), `$1`, `$2` etc.
 * `.first_line() -> String`
 * `.lines() -> List<String>`: Split into lines excluding newline characters.
 * `.upper() -> String`
