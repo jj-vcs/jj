@@ -22,7 +22,7 @@ assert_matches = "1.5.0"
 async-trait = "0.1.89"
 blake2 = "0.10.6"
 bstr = "1.11.3"
-clap = { version = "4.5.43", features = [
+clap = { version = "4.5.47", features = [
     "derive",
     "deprecated",
     "wrap_help",
@@ -34,7 +34,7 @@ clap_complete_nushell = "4.5.8"
 # will need regenerating.
 clap-markdown = "=0.1.5"
 clap_mangen = "0.2.25"
-chrono = { version = "0.4.41", default-features = false, features = [
+chrono = { version = "0.4.42", default-features = false, features = [
     "std",
     "clock",
     "serde",
@@ -61,7 +61,7 @@ hashbrown = { version = "0.15.5", default-features = false, features = ["inline-
 ignore = "0.4.23"
 indexmap = { version = "2.11.0", features = ["serde"] }
 indoc = "2.0.6"
-insta = { version = "1.43.1", features = ["filters"] }
+insta = { version = "1.43.2", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
 itertools = "0.14.0"
 jsonschema = { version = "0.32.1", default-features = false }
