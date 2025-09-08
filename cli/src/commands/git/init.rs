@@ -118,7 +118,7 @@ pub fn cmd_git_init(
     )?;
     if colocate {
         writeln!(
-            ui.hint_default(),
+            ui.warning_default(),
             r"Running `git clean -xdf` will remove `.jj/`!",
         )?;
     }
