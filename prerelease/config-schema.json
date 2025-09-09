@@ -490,6 +490,21 @@
                 }
             }
         },
+        "merge": {
+            "type": "object",
+            "description": "Merge settings",
+            "properties": {
+                "hunk-level": {
+                    "type": "string",
+                    "description": "Granularity of hunks when merging files",
+                    "enum": [
+                        "line",
+                        "word"
+                    ],
+                    "default": "line"
+                }
+            }
+        },
         "merge-tools": {
             "type": "object",
             "description": "Tables of custom options to pass to the given merge tool (selected in ui.merge-editor)",

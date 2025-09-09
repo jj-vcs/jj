@@ -1576,6 +1576,30 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#merge-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Merge settings
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Merge settings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#granularity-of-hunks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Granularity of hunks
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#filesystem-monitor" class="md-nav__link">
     <span class="md-ellipsis">
       Filesystem monitor
@@ -3346,6 +3370,30 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#merge-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Merge settings
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Merge settings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#granularity-of-hunks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Granularity of hunks
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#filesystem-monitor" class="md-nav__link">
     <span class="md-ellipsis">
       Filesystem monitor
@@ -4767,6 +4815,18 @@ If <code>git</code> is not on your OS path, or you want to specify a particular 
 you can:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[git]</span>
 <span class="n">executable-path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;/path/to/git&quot;</span>
+</code></pre></div>
+<h2 id="merge-settings">Merge settings<a class="headerlink" href="#merge-settings" title="Permanent link">&para;</a></h2>
+<h3 id="granularity-of-hunks">Granularity of hunks<a class="headerlink" href="#granularity-of-hunks" title="Permanent link">&para;</a></h3>
+<p><code>jj</code> by default resolves content conflicts by splitting text into line-level
+hunks and merge them. This can be configured to split hunks further into
+word-level hunks.</p>
+<ul>
+<li><code>line</code>: split into line hunks (default)</li>
+<li><code>word</code>: split into word hunks</li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="k">[merge]</span>
+<span class="n">hunk-level</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;line&quot;</span>
 </code></pre></div>
 <h2 id="filesystem-monitor">Filesystem monitor<a class="headerlink" href="#filesystem-monitor" title="Permanent link">&para;</a></h2>
 <p>In large repositories, it may be beneficial to use a "filesystem monitor" to
