@@ -58,6 +58,7 @@ use crate::index::IndexStore;
 use crate::index::MutableIndex;
 use crate::index::ReadonlyIndex;
 use crate::merge::MergeBuilder;
+use crate::merge::SameChange;
 use crate::merge::trivial_merge;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
@@ -1462,7 +1463,9 @@ impl MutableRepo {
         // Not using merge_ref_targets(). Since the working-copy pointer moves
         // towards random direction, it doesn't make sense to resolve conflict
         // based on ancestry.
-        let new_id = if let Some(resolved) = trivial_merge(&[self_id, base_id, other_id]) {
+        let new_id = if let Some(resolved) =
+            trivial_merge(&[self_id, base_id, other_id], SameChange::Accept)
+        {
             resolved.cloned()
         } else if self_id.is_none() || other_id.is_none() {
             // We want to remove the workspace even if the self side changed the

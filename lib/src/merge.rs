@@ -41,9 +41,26 @@ use crate::repo_path::RepoPath;
 use crate::store::Store;
 use crate::tree::Tree;
 
+/// Whether to resolve conflict that makes the same change at all sides.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum SameChange {
+    /// Leaves same-change conflict unresolved.
+    Keep,
+    /// Resolves same-change conflict as if one side were unchanged.
+    /// (i.e. `A+(A-B)=A`)
+    ///
+    /// This matches what Git and Mercurial do (in the 3-way case at least), but
+    /// not what Darcs does. It means that repeated 3-way merging of multiple
+    /// trees may give different results depending on the order of merging.
+    // TODO: Consider making Keep the default, and maybe add an option to be
+    // used when the user explicitly asks for conflict resolution. #6369
+    #[default]
+    Accept,
+}
+
 /// Attempt to resolve trivial conflicts between the inputs. There must be
 /// an odd number of terms.
-pub fn trivial_merge<T>(values: &[T]) -> Option<&T>
+pub fn trivial_merge<T>(values: &[T], same_change: SameChange) -> Option<&T>
 where
     T: Eq + Hash,
 {
@@ -55,7 +72,7 @@ where
     if let [add] = values {
         return Some(add);
     } else if let [add0, remove, add1] = values {
-        return if add0 == add1 {
+        return if add0 == add1 && same_change == SameChange::Accept {
             Some(add0)
         } else if add0 == remove {
             Some(add1)
@@ -82,14 +99,8 @@ where
         let (value, count) = counts.into_iter().next().unwrap();
         assert_eq!(count, 1);
         Some(value)
-    } else if counts.len() == 2 {
+    } else if counts.len() == 2 && same_change == SameChange::Accept {
         // All sides made the same change.
-        // This matches what Git and Mercurial do (in the 3-way case at least), but not
-        // what Darcs does. It means that repeated 3-way merging of multiple trees may
-        // give different results depending on the order of merging.
-        // TODO: Consider removing this special case, making the algorithm more strict,
-        // and maybe add a more lenient version that is used when the user explicitly
-        // asks for conflict resolution.
         let [(value1, count1), (value2, count2)] = counts.into_iter().next_array().unwrap();
         assert_eq!(count1 + count2, 1);
         if count1 > 0 {
@@ -311,7 +322,7 @@ impl<T> Merge<T> {
     where
         T: Eq + Hash,
     {
-        trivial_merge(&self.values)
+        trivial_merge(&self.values, SameChange::default())
     }
 
     /// Pads this merge with to the specified number of sides with the specified
@@ -714,72 +725,77 @@ fn describe_conflict_term(value: &TreeValue) -> String {
 
 #[cfg(test)]
 mod tests {
+    use test_case::test_case;
+
     use super::*;
 
     fn c<T: Clone>(terms: &[T]) -> Merge<T> {
         Merge::from_vec(terms.to_vec())
     }
 
-    #[test]
-    fn test_trivial_merge() {
-        assert_eq!(trivial_merge(&[0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 0, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 0, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 1, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 1]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 2]), None);
-        assert_eq!(trivial_merge(&[0, 0, 0, 0, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 0, 0, 0, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 0, 0, 1, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 0, 0, 1, 1]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 0, 0, 1, 2]), None);
-        assert_eq!(trivial_merge(&[0, 0, 1, 0, 0]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 0, 1, 0, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 0, 1, 0, 2]), None);
-        assert_eq!(trivial_merge(&[0, 0, 1, 1, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 0, 1, 1, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 0, 1, 1, 2]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 0, 1, 2, 0]), None);
-        assert_eq!(trivial_merge(&[0, 0, 1, 2, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 0, 1, 2, 2]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 0, 1, 2, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1, 0, 0, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 0, 0, 1]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 0, 0, 2]), None);
-        assert_eq!(trivial_merge(&[0, 1, 0, 1, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 0, 1, 1]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 0, 1, 2]), None);
-        assert_eq!(trivial_merge(&[0, 1, 0, 2, 0]), None);
-        assert_eq!(trivial_merge(&[0, 1, 0, 2, 1]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 0, 2, 2]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 0, 2, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1, 1, 0, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 1, 0, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 1, 1, 0, 2]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 1, 1, 1, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 1, 1, 1]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 1, 1, 2]), None);
-        assert_eq!(trivial_merge(&[0, 1, 1, 2, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 1, 2, 1]), None);
-        assert_eq!(trivial_merge(&[0, 1, 1, 2, 2]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 1, 2, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 0, 0]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 0, 1]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 1, 2, 0, 2]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 1, 2, 0, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 1, 0]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 1, 1]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 1, 2]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 1, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 2, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 2, 2, 1]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 2, 2, 2]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 2, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 3, 0]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 3, 1]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 3, 2]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 3, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 3, 4]), None);
+    #[test_case(SameChange::Keep)]
+    #[test_case(SameChange::Accept)]
+    fn test_trivial_merge(same_change: SameChange) {
+        let accept_same_change = same_change == SameChange::Accept;
+        let merge = |values| trivial_merge(values, same_change);
+        assert_eq!(merge(&[0]), Some(&0));
+        assert_eq!(merge(&[0, 0, 0]), Some(&0));
+        assert_eq!(merge(&[0, 0, 1]), Some(&1));
+        assert_eq!(merge(&[0, 1, 0]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 1, 1]), Some(&0));
+        assert_eq!(merge(&[0, 1, 2]), None);
+        assert_eq!(merge(&[0, 0, 0, 0, 0]), Some(&0));
+        assert_eq!(merge(&[0, 0, 0, 0, 1]), Some(&1));
+        assert_eq!(merge(&[0, 0, 0, 1, 0]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 0, 0, 1, 1]), Some(&0));
+        assert_eq!(merge(&[0, 0, 0, 1, 2]), None);
+        assert_eq!(merge(&[0, 0, 1, 0, 0]), Some(&1));
+        assert_eq!(merge(&[0, 0, 1, 0, 1]), accept_same_change.then_some(&1));
+        assert_eq!(merge(&[0, 0, 1, 0, 2]), None);
+        assert_eq!(merge(&[0, 0, 1, 1, 0]), Some(&0));
+        assert_eq!(merge(&[0, 0, 1, 1, 1]), Some(&1));
+        assert_eq!(merge(&[0, 0, 1, 1, 2]), Some(&2));
+        assert_eq!(merge(&[0, 0, 1, 2, 0]), None);
+        assert_eq!(merge(&[0, 0, 1, 2, 1]), accept_same_change.then_some(&1));
+        assert_eq!(merge(&[0, 0, 1, 2, 2]), Some(&1));
+        assert_eq!(merge(&[0, 0, 1, 2, 3]), None);
+        assert_eq!(merge(&[0, 1, 0, 0, 0]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 1, 0, 0, 1]), Some(&0));
+        assert_eq!(merge(&[0, 1, 0, 0, 2]), None);
+        assert_eq!(merge(&[0, 1, 0, 1, 0]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 1, 0, 1, 1]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 1, 0, 1, 2]), None);
+        assert_eq!(merge(&[0, 1, 0, 2, 0]), None);
+        assert_eq!(merge(&[0, 1, 0, 2, 1]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 1, 0, 2, 2]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 1, 0, 2, 3]), None);
+        assert_eq!(merge(&[0, 1, 1, 0, 0]), Some(&0));
+        assert_eq!(merge(&[0, 1, 1, 0, 1]), Some(&1));
+        assert_eq!(merge(&[0, 1, 1, 0, 2]), Some(&2));
+        assert_eq!(merge(&[0, 1, 1, 1, 0]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 1, 1, 1, 1]), Some(&0));
+        assert_eq!(merge(&[0, 1, 1, 1, 2]), None);
+        assert_eq!(merge(&[0, 1, 1, 2, 0]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 1, 1, 2, 1]), None);
+        assert_eq!(merge(&[0, 1, 1, 2, 2]), Some(&0));
+        assert_eq!(merge(&[0, 1, 1, 2, 3]), None);
+        assert_eq!(merge(&[0, 1, 2, 0, 0]), None);
+        assert_eq!(merge(&[0, 1, 2, 0, 1]), Some(&2));
+        assert_eq!(merge(&[0, 1, 2, 0, 2]), accept_same_change.then_some(&2));
+        assert_eq!(merge(&[0, 1, 2, 0, 3]), None);
+        assert_eq!(merge(&[0, 1, 2, 1, 0]), None);
+        assert_eq!(merge(&[0, 1, 2, 1, 1]), None);
+        assert_eq!(merge(&[0, 1, 2, 1, 2]), None);
+        assert_eq!(merge(&[0, 1, 2, 1, 3]), None);
+        assert_eq!(merge(&[0, 1, 2, 2, 0]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 1, 2, 2, 1]), Some(&0));
+        assert_eq!(merge(&[0, 1, 2, 2, 2]), None);
+        assert_eq!(merge(&[0, 1, 2, 2, 3]), None);
+        assert_eq!(merge(&[0, 1, 2, 3, 0]), None);
+        assert_eq!(merge(&[0, 1, 2, 3, 1]), None);
+        assert_eq!(merge(&[0, 1, 2, 3, 2]), None);
+        assert_eq!(merge(&[0, 1, 2, 3, 3]), None);
+        assert_eq!(merge(&[0, 1, 2, 3, 4]), None);
     }
 
     #[test]
