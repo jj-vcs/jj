@@ -106,6 +106,13 @@
     `rm filename`
   Notes: ''
 
+- Use case: Remove a previously tracked file from the current change, but keep it in the working copy
+  Git command: >
+    `git rm --cached filename`
+  Jujutsu command: >
+    `jj file untrack filename`
+  Notes: 'File name must match an ignore pattern to remain untracked. See <a href="../working-copy/#introduction">the documentation for working copies</a> for more.'
+
 - Use case: Modify a file in the current change
   Git command: >
     `echo stuff >> filename`
