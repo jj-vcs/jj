@@ -111,7 +111,7 @@
     `git rm --cached filename`
   Jujutsu command: >
     `jj file untrack filename`
-  Notes: ''
+  Notes: 'File name must match an ignore pattern to remain untracked. See <a href="../working-copy/#introduction">the documentation for working copies</a> for more.'
 
 - Use case: Modify a file in the current change
   Git command: >
