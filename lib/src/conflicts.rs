@@ -47,6 +47,7 @@ use crate::files;
 use crate::files::MergeResult;
 use crate::merge::Merge;
 use crate::merge::MergedTreeValue;
+use crate::merge::SameChange;
 use crate::merged_tree::MergeOptions;
 use crate::repo_path::RepoPath;
 use crate::store::Store;
@@ -270,7 +271,7 @@ pub async fn try_materialize_file_conflict_value(
 /// Resolves conflicts in file executable bit, returns the original state if the
 /// file is deleted and executable bit is unchanged.
 pub fn resolve_file_executable(merge: &Merge<Option<bool>>) -> Option<bool> {
-    let resolved = merge.resolve_trivial().copied()?;
+    let resolved = merge.resolve_trivial(SameChange::Accept).copied()?;
     if resolved.is_some() {
         resolved
     } else {

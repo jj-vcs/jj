@@ -121,7 +121,7 @@ pub fn merge_ref_targets(
     .simplify();
     // Suppose left = [A - C + B], base = [B], right = [A], the merge result is
     // [A - C + A], which can now be trivially resolved.
-    if let Some(resolved) = merge.resolve_trivial() {
+    if let Some(resolved) = merge.resolve_trivial(SameChange::Accept) {
         RefTarget::resolved(resolved.clone())
     } else {
         merge_ref_targets_non_trivial(index, &mut merge);

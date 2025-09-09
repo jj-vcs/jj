@@ -270,6 +270,9 @@ impl<'repo> CommitRewriter<'repo> {
                 self.old_commit.tree_id().clone(),
             )
         } else {
+            // We wouldn't need to resolve merge conflicts here if the
+            // same-change rule is "keep". See 9d4a97381f30 "rewrite: don't
+            // resolve intermediate parent tree when rebasing" for details.
             let old_base_tree_fut = merge_commit_trees(self.mut_repo, &old_parents);
             let new_base_tree_fut = merge_commit_trees(self.mut_repo, &new_parents);
             let old_tree_fut = self.old_commit.tree_async();

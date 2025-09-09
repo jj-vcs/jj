@@ -18,6 +18,7 @@ colocate = true
 
 [merge]
 hunk-level = "line"
+same-change = "accept"
 
 [operation]
 hostname = ""

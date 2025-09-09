@@ -55,6 +55,7 @@ use crate::merge::Merge;
 use crate::merge::MergeBuilder;
 use crate::merge::MergedTreeVal;
 use crate::merge::MergedTreeValue;
+use crate::merge::SameChange;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;
@@ -339,6 +340,8 @@ impl MergedTree {
 pub struct MergeOptions {
     /// Granularity of hunks when merging files.
     pub hunk_level: FileMergeHunkLevel,
+    /// Whether to resolve conflict that makes the same change at all sides.
+    pub same_change: SameChange,
 }
 
 impl MergeOptions {
@@ -348,6 +351,7 @@ impl MergeOptions {
             // Maybe we can add hunk-level=file to disable content merging if
             // needed. It wouldn't be translated to FileMergeHunkLevel.
             hunk_level: settings.get("merge.hunk-level")?,
+            same_change: settings.get("merge.same-change")?,
         })
     }
 }
@@ -382,9 +386,10 @@ fn all_tree_entries(
             .map(|entry| (entry.name(), Merge::normal(entry.value())));
         Either::Left(iter)
     } else {
-        let iter = all_merged_tree_entries(trees).map(|(name, values)| {
+        let same_change = trees.first().store().merge_options().same_change;
+        let iter = all_merged_tree_entries(trees).map(move |(name, values)| {
             // TODO: move resolve_trivial() to caller?
-            let values = match values.resolve_trivial() {
+            let values = match values.resolve_trivial(same_change) {
                 Some(resolved) => Merge::resolved(*resolved),
                 None => values,
             };
@@ -442,8 +447,9 @@ fn trees_value<'a>(trees: &'a Merge<Tree>, basename: &RepoPathComponent) -> Merg
     if let Some(tree) = trees.as_resolved() {
         return Merge::resolved(tree.value(basename));
     }
+    let same_change = trees.first().store().merge_options().same_change;
     let value = trees.map(|tree| tree.value(basename));
-    if let Some(resolved) = value.resolve_trivial() {
+    if let Some(resolved) = value.resolve_trivial(same_change) {
         return Merge::resolved(*resolved);
     }
     value
@@ -466,10 +472,15 @@ impl MergedTreeInput {
         }
     }
 
-    fn mark_completed(&mut self, basename: RepoPathComponentBuf, value: MergedTreeValue) {
+    fn mark_completed(
+        &mut self,
+        basename: RepoPathComponentBuf,
+        value: MergedTreeValue,
+        same_change: SameChange,
+    ) {
         let was_pending = self.pending_lookup.remove(&basename);
         assert!(was_pending, "No pending lookup for {basename:?}");
-        if let Some(resolved) = value.resolve_trivial() {
+        if let Some(resolved) = value.resolve_trivial(same_change) {
             if let Some(resolved) = resolved.as_ref() {
                 self.resolved.insert(basename, resolved.clone());
             }
@@ -598,10 +609,11 @@ impl TreeMerger {
     fn process_tree(&mut self, dir: RepoPathBuf, tree: Merge<Tree>) {
         // First resolve trivial merges (those that we don't need to load any more data
         // for)
+        let same_change = self.store.merge_options().same_change;
         let mut resolved = vec![];
         let mut non_trivial = vec![];
         for (basename, path_merge) in all_merged_tree_entries(&tree) {
-            if let Some(value) = path_merge.resolve_trivial() {
+            if let Some(value) = path_merge.resolve_trivial(same_change) {
                 if let Some(value) = value.cloned() {
                     resolved.push((basename.to_owned(), value));
                 }
@@ -667,7 +679,8 @@ impl TreeMerger {
     fn mark_completed(&mut self, path: &RepoPath, value: MergedTreeValue) {
         let (dir, basename) = path.split().unwrap();
         let tree = self.trees_to_resolve.get_mut(dir).unwrap();
-        tree.mark_completed(basename.to_owned(), value);
+        let same_change = self.store.merge_options().same_change;
+        tree.mark_completed(basename.to_owned(), value, same_change);
         // If all entries in this tree have been processed (either resolved or still a
         // conflict), schedule the writing of the tree(s) to the backend.
         if tree.pending_lookup.is_empty() {
@@ -746,7 +759,8 @@ pub async fn resolve_file_values(
     path: &RepoPath,
     values: MergedTreeValue,
 ) -> BackendResult<MergedTreeValue> {
-    if let Some(resolved) = values.resolve_trivial() {
+    let same_change = store.merge_options().same_change;
+    if let Some(resolved) = values.resolve_trivial(same_change) {
         return Ok(Merge::resolved(resolved.clone()));
     }
 

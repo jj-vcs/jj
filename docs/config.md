@@ -1624,6 +1624,22 @@ word-level hunks.
 hunk-level = "line"
 ```
 
+### Resolution of same-change conflicts
+
+`jj` by default resolves conflicts if all sides made the same change. This
+matches what Git and Mercurial do (in the 3-way case at least), but not what
+Darcs does. It also means that repeated 3-way merging of multiple trees may give
+different results depending on the order of merging. To turn it off, set
+`same-change = "keep"`.
+
+* `keep`: leave same-change conflict unresolved
+* `accept`: resolve same-change conflict to new value (default)
+
+```toml
+[merge]
+same-change = "accept"
+```
+
 ## Filesystem monitor
 
 In large repositories, it may be beneficial to use a "filesystem monitor" to

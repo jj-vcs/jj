@@ -1,3 +1,4 @@
 #:schema ../../../src/config-schema.json
 [merge]
 hunk-level = "line"
+same-change = "accept"

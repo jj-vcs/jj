@@ -33,6 +33,7 @@ use crate::backend::TreeValue;
 use crate::files;
 use crate::matchers::Matcher;
 use crate::merge::MergedTreeVal;
+use crate::merge::SameChange;
 use crate::object_id::ObjectId as _;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
@@ -241,6 +242,7 @@ pub async fn try_resolve_file_conflict(
     filename: &RepoPath,
     conflict: &MergedTreeVal<'_>,
 ) -> BackendResult<Option<TreeValue>> {
+    let options = store.merge_options();
     // If there are any non-file or any missing parts in the conflict, we can't
     // merge it. We check early so we don't waste time reading file contents if
     // we can't merge them anyway. At the same time we determine whether the
@@ -275,15 +277,17 @@ pub async fn try_resolve_file_conflict(
     }) else {
         return Ok(None);
     };
-    let Some(&&executable) = executable_conflict.resolve_trivial() else {
+    // TODO: Whether to respect options.same_change to merge executable and
+    // copy_id? Should also update conflicts::resolve_file_executable().
+    let Some(&&executable) = executable_conflict.resolve_trivial(SameChange::Accept) else {
         // We're unable to determine whether the result should be executable
         return Ok(None);
     };
-    let Some(&copy_id) = copy_id_conflict.resolve_trivial() else {
+    let Some(&copy_id) = copy_id_conflict.resolve_trivial(SameChange::Accept) else {
         // We're unable to determine the file's copy ID
         return Ok(None);
     };
-    if let Some(&resolved_file_id) = file_id_conflict.resolve_trivial() {
+    if let Some(&resolved_file_id) = file_id_conflict.resolve_trivial(options.same_change) {
         // Don't bother reading the file contents if the conflict can be trivially
         // resolved.
         return Ok(Some(TreeValue::File {
@@ -316,7 +320,7 @@ pub async fn try_resolve_file_conflict(
             BackendResult::Ok(content)
         })
         .await?;
-    if let Some(merged_content) = files::try_merge(&contents, store.merge_options()) {
+    if let Some(merged_content) = files::try_merge(&contents, options) {
         let id = store
             .write_file(filename, &mut merged_content.as_slice())
             .await?;

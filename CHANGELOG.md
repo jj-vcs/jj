@@ -32,6 +32,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * New config option `merge.hunk-level = "word"` to enable word-level merging.
 
+* New config option `merge.same-change = "keep"` to disable lossy resolution
+  rule for same-change conflicts.
+  [#6369](https://github.com/jj-vcs/jj/issues/6369)
+
 * A new builtin `hyperlink(url, text)` template alias creates clickable
   hyperlinks using [OSC8 escape sequences](https://github.com/Alhadis/OSC8-Adoption) for terminals that support them.
 

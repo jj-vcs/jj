@@ -42,7 +42,8 @@ use crate::store::Store;
 use crate::tree::Tree;
 
 /// Whether to resolve conflict that makes the same change at all sides.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum SameChange {
     /// Leaves same-change conflict unresolved.
     Keep,
@@ -318,11 +319,11 @@ impl<T> Merge<T> {
 
     /// If this merge can be trivially resolved, returns the value it resolves
     /// to.
-    pub fn resolve_trivial(&self) -> Option<&T>
+    pub fn resolve_trivial(&self, same_change: SameChange) -> Option<&T>
     where
         T: Eq + Hash,
     {
-        trivial_merge(&self.values, SameChange::default())
+        trivial_merge(&self.values, same_change)
     }
 
     /// Pads this merge with to the specified number of sides with the specified
@@ -1067,8 +1068,8 @@ mod tests {
             );
             // `resolve_trivial()` is unaffected by `simplify()`
             assert_eq!(
-                merge.simplify().resolve_trivial(),
-                merge.resolve_trivial(),
+                merge.simplify().resolve_trivial(SameChange::Accept),
+                merge.resolve_trivial(SameChange::Accept),
                 "simplify() changed result of resolve_trivial() for {merge:?}"
             );
         }

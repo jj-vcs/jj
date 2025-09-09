@@ -28,6 +28,7 @@ use crate::diff::Diff;
 use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::merge::Merge;
+use crate::merge::SameChange;
 use crate::merged_tree::MergeOptions;
 
 /// A diff line which may contain small hunks originating from both sides.
@@ -316,20 +317,22 @@ where
     // more than 3 parts?
     let num_diffs = inputs.removes().len();
     let diff = Diff::by_line(inputs.removes().chain(inputs.adds()));
-    let hunks = resolve_diff_hunks(&diff, num_diffs);
+    let hunks = resolve_diff_hunks(&diff, num_diffs, options.same_change);
     match options.hunk_level {
         FileMergeHunkLevel::Line => B::from_hunks(hunks.map(MergeHunk::Borrowed)),
-        FileMergeHunkLevel::Word => B::from_hunks(hunks.map(merge_hunk_by_word)),
+        FileMergeHunkLevel::Word => {
+            B::from_hunks(hunks.map(|h| merge_hunk_by_word(h, options.same_change)))
+        }
     }
 }
 
-fn merge_hunk_by_word(inputs: Merge<&BStr>) -> MergeHunk<'_> {
+fn merge_hunk_by_word(inputs: Merge<&BStr>, same_change: SameChange) -> MergeHunk<'_> {
     if inputs.is_resolved() {
         return MergeHunk::Borrowed(inputs);
     }
     let num_diffs = inputs.removes().len();
     let diff = Diff::by_word(inputs.removes().chain(inputs.adds()));
-    let hunks = resolve_diff_hunks(&diff, num_diffs);
+    let hunks = resolve_diff_hunks(&diff, num_diffs, same_change);
     // We could instead use collect_merged() to return partially-merged hunk.
     // This would be more consistent with the line-based merge function, but
     // might produce surprising results. Partially-merged conflicts would be
@@ -465,6 +468,7 @@ fn collect_resolved<'input>(hunks: impl IntoIterator<Item = MergeHunk<'input>>) 
 fn resolve_diff_hunks<'a, 'input>(
     diff: &'a Diff<'input>,
     num_diffs: usize,
+    same_change: SameChange,
 ) -> impl Iterator<Item = Merge<&'input BStr>> + use<'a, 'input> {
     diff.hunks().map(move |diff_hunk| match diff_hunk.kind {
         DiffHunkKind::Matching => {
@@ -476,7 +480,7 @@ fn resolve_diff_hunks<'a, 'input>(
                 diff_hunk.contents[..num_diffs].iter().copied(),
                 diff_hunk.contents[num_diffs..].iter().copied(),
             );
-            match merge.resolve_trivial() {
+            match merge.resolve_trivial(same_change) {
                 Some(&content) => Merge::resolved(content),
                 None => merge,
             }
@@ -1073,6 +1077,7 @@ mod tests {
     fn test_merge_hunk_by_word() {
         let options = MergeOptions {
             hunk_level: FileMergeHunkLevel::Word,
+            same_change: SameChange::Accept,
         };
         let merge = |inputs: &_| merge(inputs, &options);
         // No context line in between, but "\n" is a context word

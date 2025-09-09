@@ -100,6 +100,7 @@ use crate::matchers::PrefixMatcher;
 use crate::merge::Merge;
 use crate::merge::MergeBuilder;
 use crate::merge::MergedTreeValue;
+use crate::merge::SameChange;
 use crate::merged_tree::MergedTree;
 use crate::merged_tree::MergedTreeBuilder;
 use crate::merged_tree::TreeDiffEntry;
@@ -1584,7 +1585,7 @@ impl FileSnapshotter<'_> {
             // Safe to unwrap because the copy id exists exactly on the file variant
             let copy_id_merge = current_tree_values.to_copy_id_merge().unwrap();
             let copy_id = copy_id_merge
-                .resolve_trivial()
+                .resolve_trivial(SameChange::Accept)
                 .cloned()
                 .flatten()
                 .unwrap_or_else(CopyId::placeholder);

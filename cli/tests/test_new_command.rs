@@ -221,6 +221,56 @@ fn test_new_merge_conflicts() {
 }
 
 #[test]
+fn test_new_merge_same_change() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit_with_files(&work_dir, "1", &[], &[("file", "a\n")]);
+    create_commit_with_files(&work_dir, "2", &["1"], &[("file", "a\nb\n")]);
+    create_commit_with_files(&work_dir, "3", &["1"], &[("file", "a\nb\n")]);
+
+    // same-change conflict is resolved by default
+    let output = work_dir.run_jj(["new", "2|3"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: vruxwmqv 7bebf0fe (empty) (no description set)
+    Parent commit (@-)      : royxmykx 1b9fe696 3 | 3
+    Parent commit (@-)      : zsuskuln 829e1e90 2 | 2
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    a
+    b
+    ");
+
+    // reset working copy
+    work_dir.run_jj(["new", "root()"]).success();
+
+    // keep same-change conflict
+    let output = work_dir.run_jj(["new", "2|3", "--config=merge.same-change=keep"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: znkkpsqq 0d655a01 (conflict) (empty) (no description set)
+    Parent commit (@-)      : royxmykx 1b9fe696 3 | 3
+    Parent commit (@-)      : zsuskuln 829e1e90 2 | 2
+    Added 1 files, modified 0 files, removed 0 files
+    Warning: There are unresolved conflicts at these paths:
+    file    2-sided conflict
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    a
+    <<<<<<< Conflict 1 of 1
+    %%%%%%% Changes from base to side #1
+    +b
+    +++++++ Contents of side #2
+    b
+    >>>>>>> Conflict 1 of 1 ends
+    ");
+}
+
+#[test]
 fn test_new_insert_after() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
