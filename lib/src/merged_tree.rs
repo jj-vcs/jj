@@ -44,9 +44,11 @@ use crate::backend::BackendResult;
 use crate::backend::MergedTreeId;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
+use crate::config::ConfigGetError;
 use crate::copies::CopiesTreeDiffEntry;
 use crate::copies::CopiesTreeDiffStream;
 use crate::copies::CopyRecords;
+use crate::files::FileMergeHunkLevel;
 use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
 use crate::merge::Merge;
@@ -57,6 +59,7 @@ use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;
 use crate::repo_path::RepoPathComponentBuf;
+use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::tree::Tree;
 use crate::tree::try_resolve_file_conflict;
@@ -328,6 +331,24 @@ impl MergedTree {
         Self {
             trees: nested.flatten().simplify(),
         }
+    }
+}
+
+/// Options for tree/file conflict resolution.
+#[derive(Clone, Debug, Default)]
+pub struct MergeOptions {
+    /// Granularity of hunks when merging files.
+    pub hunk_level: FileMergeHunkLevel,
+}
+
+impl MergeOptions {
+    /// Loads merge options from `settings`.
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        Ok(Self {
+            // Maybe we can add hunk-level=file to disable content merging if
+            // needed. It wouldn't be translated to FileMergeHunkLevel.
+            hunk_level: settings.get("merge.hunk-level")?,
+        })
     }
 }
 

@@ -21,11 +21,11 @@ use jj_lib::copies::CopyRecords;
 use jj_lib::diff::Diff;
 use jj_lib::diff::DiffHunkKind;
 use jj_lib::files;
-use jj_lib::files::FileMergeOptions;
 use jj_lib::files::MergeResult;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
+use jj_lib::merged_tree::MergeOptions;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::object_id::ObjectId as _;
@@ -269,7 +269,7 @@ async fn make_diff_files(
     let materialize_options = ConflictMaterializeOptions {
         marker_style,
         marker_len: None,
-        merge: store.file_merge_options().clone(),
+        merge: store.merge_options().clone(),
     };
     let mut diff_stream = materialized_diff_stream(store, tree_diff);
     let mut changed_files = Vec::new();
@@ -647,7 +647,7 @@ fn make_merge_sections(
 
 fn make_merge_file(
     merge_tool_file: &MergeToolFile,
-    options: &FileMergeOptions,
+    options: &MergeOptions,
 ) -> Result<scm_record::File<'static>, BuiltinToolError> {
     let file = &merge_tool_file.file;
     let file_mode = if file.executable.expect("should have been resolved") {
@@ -683,7 +683,7 @@ pub fn edit_merge_builtin(
             is_read_only: false,
             files: merge_tool_files
                 .iter()
-                .map(|f| make_merge_file(f, store.file_merge_options()))
+                .map(|f| make_merge_file(f, store.merge_options()))
                 .try_collect()?,
             commits: Default::default(),
         },
@@ -1852,7 +1852,7 @@ mod tests {
         let content = extract_as_single_hunk(&merge, store, path)
             .block_on()
             .unwrap();
-        let merge_result = files::merge_hunks(&content, store.file_merge_options());
+        let merge_result = files::merge_hunks(&content, store.merge_options());
         let sections = make_merge_sections(merge_result).unwrap();
         insta::assert_debug_snapshot!(sections, @r#"
         [

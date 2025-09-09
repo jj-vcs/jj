@@ -24,12 +24,11 @@ use bstr::BString;
 use either::Either;
 use itertools::Itertools as _;
 
-use crate::config::ConfigGetError;
 use crate::diff::Diff;
 use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::merge::Merge;
-use crate::settings::UserSettings;
+use crate::merged_tree::MergeOptions;
 
 /// A diff line which may contain small hunks originating from both sides.
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -262,23 +261,6 @@ where
     })
 }
 
-/// Options for file-level merging.
-#[derive(Clone, Debug, Default)]
-pub struct FileMergeOptions {
-    /// Granularity of hunks when merging files.
-    pub hunk_level: FileMergeHunkLevel,
-}
-
-impl FileMergeOptions {
-    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
-        Ok(Self {
-            // Maybe we can add hunk-level=file to disable content merging if
-            // needed. It wouldn't be translated to FileMergeHunkLevel.
-            hunk_level: settings.get("merge.hunk-level")?,
-        })
-    }
-}
-
 /// Granularity of hunks when merging files.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -303,7 +285,7 @@ pub enum MergeResult {
 /// Splits `inputs` into hunks, resolves trivial merge conflicts for each.
 ///
 /// Returns either fully-resolved content or list of partially-resolved hunks.
-pub fn merge_hunks<T: AsRef<[u8]>>(inputs: &Merge<T>, options: &FileMergeOptions) -> MergeResult {
+pub fn merge_hunks<T: AsRef<[u8]>>(inputs: &Merge<T>, options: &MergeOptions) -> MergeResult {
     merge_inner(inputs, options)
 }
 
@@ -312,7 +294,7 @@ pub fn merge_hunks<T: AsRef<[u8]>>(inputs: &Merge<T>, options: &FileMergeOptions
 ///
 /// The returned merge object is either fully resolved or conflict having the
 /// same number of terms as the `inputs`.
-pub fn merge<T: AsRef<[u8]>>(inputs: &Merge<T>, options: &FileMergeOptions) -> Merge<BString> {
+pub fn merge<T: AsRef<[u8]>>(inputs: &Merge<T>, options: &MergeOptions) -> Merge<BString> {
     merge_inner(inputs, options)
 }
 
@@ -320,11 +302,11 @@ pub fn merge<T: AsRef<[u8]>>(inputs: &Merge<T>, options: &FileMergeOptions) -> M
 /// each.
 ///
 /// If all input hunks can be merged successfully, returns the merged content.
-pub fn try_merge<T: AsRef<[u8]>>(inputs: &Merge<T>, options: &FileMergeOptions) -> Option<BString> {
+pub fn try_merge<T: AsRef<[u8]>>(inputs: &Merge<T>, options: &MergeOptions) -> Option<BString> {
     merge_inner(inputs, options)
 }
 
-fn merge_inner<'input, T, B>(inputs: &'input Merge<T>, options: &FileMergeOptions) -> B
+fn merge_inner<'input, T, B>(inputs: &'input Merge<T>, options: &MergeOptions) -> B
 where
     T: AsRef<[u8]>,
     B: FromMergeHunks<'input>,
@@ -867,7 +849,7 @@ mod tests {
 
     #[test]
     fn test_merge_single_hunk() {
-        let options = FileMergeOptions::default();
+        let options = MergeOptions::default();
         let merge_hunks = |inputs: &_| merge_hunks(inputs, &options);
         // Unchanged and empty on all sides
         assert_eq!(
@@ -980,7 +962,7 @@ mod tests {
 
     #[test]
     fn test_merge_multi_hunk() {
-        let options = FileMergeOptions::default();
+        let options = MergeOptions::default();
         let merge_hunks = |inputs: &_| merge_hunks(inputs, &options);
         let merge = |inputs: &_| merge(inputs, &options);
         let try_merge = |inputs: &_| try_merge(inputs, &options);
@@ -1089,7 +1071,7 @@ mod tests {
 
     #[test]
     fn test_merge_hunk_by_word() {
-        let options = FileMergeOptions {
+        let options = MergeOptions {
             hunk_level: FileMergeHunkLevel::Word,
         };
         let merge = |inputs: &_| merge(inputs, &options);

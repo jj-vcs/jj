@@ -24,8 +24,8 @@ use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::conflicts::parse_conflict;
 use jj_lib::conflicts::update_from_content;
 use jj_lib::files::FileMergeHunkLevel;
-use jj_lib::files::FileMergeOptions;
 use jj_lib::merge::Merge;
+use jj_lib::merged_tree::MergeOptions;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::store::Store;
@@ -2388,7 +2388,7 @@ fn materialize_conflict_string(
     let options = ConflictMaterializeOptions {
         marker_style,
         marker_len: None,
-        merge: FileMergeOptions {
+        merge: MergeOptions {
             hunk_level: FileMergeHunkLevel::Line,
         },
     };

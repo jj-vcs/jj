@@ -49,12 +49,12 @@ use crate::conflicts::materialize_tree_value;
 use crate::diff::Diff;
 use crate::diff::DiffHunkKind;
 use crate::files;
-use crate::files::FileMergeOptions;
 use crate::graph::GraphNode;
 use crate::matchers::FilesMatcher;
 use crate::matchers::Matcher;
 use crate::matchers::Visit;
 use crate::merge::Merge;
+use crate::merged_tree::MergeOptions;
 use crate::merged_tree::resolve_file_values;
 use crate::object_id::ObjectId as _;
 use crate::repo_path::RepoPath;
@@ -1420,7 +1420,7 @@ async fn matches_diff_from_parent(
         let (left_value, right_value) = futures::try_join!(left_future, right_future)?;
         let left_contents = to_file_content(&entry.path, left_value).await?;
         let right_contents = to_file_content(&entry.path, right_value).await?;
-        let merge_options = store.file_merge_options();
+        let merge_options = store.merge_options();
         if diff_match_lines(&left_contents, &right_contents, text_pattern, merge_options)? {
             return Ok(true);
         }
@@ -1432,7 +1432,7 @@ fn diff_match_lines(
     lefts: &Merge<BString>,
     rights: &Merge<BString>,
     pattern: &StringPattern,
-    merge_options: &FileMergeOptions,
+    merge_options: &MergeOptions,
 ) -> BackendResult<bool> {
     // Filter lines prior to comparison. This might produce inferior hunks due
     // to lack of contexts, but is way faster than full diff.
@@ -1883,7 +1883,7 @@ mod tests {
         let left2 = Merge::resolved(conflict2.first().clone());
         let diff = |needle: &str| {
             let pattern = StringPattern::substring(needle);
-            let options = FileMergeOptions::default();
+            let options = MergeOptions::default();
             diff_match_lines(&left1, &left2, &pattern, &options).unwrap()
         };
 
@@ -1905,7 +1905,7 @@ mod tests {
         let (conflict1, conflict2) = diff_match_lines_samples();
         let diff = |needle: &str| {
             let pattern = StringPattern::substring(needle);
-            let options = FileMergeOptions::default();
+            let options = MergeOptions::default();
             diff_match_lines(&conflict1, &conflict2, &pattern, &options).unwrap()
         };
 
@@ -1931,7 +1931,7 @@ mod tests {
         let base = Merge::resolved(conflict2.get_remove(0).unwrap().clone());
         let diff = |needle: &str| {
             let pattern = StringPattern::substring(needle);
-            let options = FileMergeOptions::default();
+            let options = MergeOptions::default();
             diff_match_lines(&base, &conflict2, &pattern, &options).unwrap()
         };
 

@@ -1408,7 +1408,7 @@ fn test_merge_simplify_file_conflict() {
             Merge::resolved(child2_text.as_bytes()),
         ],
     );
-    assert!(files::try_merge(&text_merge.flatten(), repo.store().file_merge_options()).is_none());
+    assert!(files::try_merge(&text_merge.flatten(), repo.store().merge_options()).is_none());
 }
 
 /// Like `test_merge_simplify_file_conflict()`, but some of the conflicts are

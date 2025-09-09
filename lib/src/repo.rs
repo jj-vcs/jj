@@ -50,7 +50,6 @@ use crate::default_index::DefaultMutableIndex;
 use crate::default_submodule_store::DefaultSubmoduleStore;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
-use crate::files::FileMergeOptions;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
 use crate::index::IndexReadError;
@@ -60,6 +59,7 @@ use crate::index::ReadonlyIndex;
 use crate::merge::MergeBuilder;
 use crate::merge::SameChange;
 use crate::merge::trivial_merge;
+use crate::merged_tree::MergeOptions;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::op_heads_store;
@@ -204,9 +204,9 @@ impl ReadonlyRepo {
         let backend = backend_initializer(settings, &store_path)?;
         let backend_path = store_path.join("type");
         fs::write(&backend_path, backend.name()).context(&backend_path)?;
-        let file_merge_options = FileMergeOptions::from_settings(settings)
-            .map_err(|err| BackendInitError(err.into()))?;
-        let store = Store::new(backend, signer, file_merge_options);
+        let merge_options =
+            MergeOptions::from_settings(settings).map_err(|err| BackendInitError(err.into()))?;
+        let store = Store::new(backend, signer, merge_options);
 
         let op_store_path = repo_path.join("op_store");
         fs::create_dir(&op_store_path).context(&op_store_path)?;
@@ -678,12 +678,12 @@ impl RepoLoader {
         repo_path: &Path,
         store_factories: &StoreFactories,
     ) -> Result<Self, StoreLoadError> {
-        let file_merge_options = FileMergeOptions::from_settings(settings)
-            .map_err(|err| BackendLoadError(err.into()))?;
+        let merge_options =
+            MergeOptions::from_settings(settings).map_err(|err| BackendLoadError(err.into()))?;
         let store = Store::new(
             store_factories.load_backend(settings, &repo_path.join("store"))?,
             Signer::from_settings(settings)?,
-            file_merge_options,
+            merge_options,
         );
         let root_op_data = RootOperationData {
             root_commit_id: store.root_commit_id().clone(),

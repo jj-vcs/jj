@@ -316,7 +316,7 @@ pub async fn try_resolve_file_conflict(
             BackendResult::Ok(content)
         })
         .await?;
-    if let Some(merged_content) = files::try_merge(&contents, store.file_merge_options()) {
+    if let Some(merged_content) = files::try_merge(&contents, store.merge_options()) {
         let id = store
             .write_file(filename, &mut merged_content.as_slice())
             .await?;

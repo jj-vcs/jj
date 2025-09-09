@@ -209,7 +209,7 @@ fn run_mergetool_external_single_file(
                 .conflict_marker_style
                 .unwrap_or(default_conflict_marker_style),
             marker_len: Some(conflict_marker_len),
-            merge: store.file_merge_options().clone(),
+            merge: store.merge_options().clone(),
         };
         materialize_merge_result_to_bytes(&file.contents, &options)
     } else {

@@ -44,10 +44,10 @@ use crate::diff::Diff;
 use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::files;
-use crate::files::FileMergeOptions;
 use crate::files::MergeResult;
 use crate::merge::Merge;
 use crate::merge::MergedTreeValue;
+use crate::merged_tree::MergeOptions;
 use crate::repo_path::RepoPath;
 use crate::store::Store;
 
@@ -299,7 +299,7 @@ pub enum ConflictMarkerStyle {
 pub struct ConflictMaterializeOptions {
     pub marker_style: ConflictMarkerStyle,
     pub marker_len: Option<usize>,
-    pub merge: FileMergeOptions,
+    pub merge: MergeOptions,
 }
 
 /// Characters which can be repeated to form a conflict marker line when
@@ -927,7 +927,7 @@ pub async fn update_from_content(
     let simplified_file_ids = file_ids.simplify();
 
     let old_contents = extract_as_single_hunk(&simplified_file_ids, store, path).await?;
-    let old_hunks = files::merge_hunks(&old_contents, store.file_merge_options());
+    let old_hunks = files::merge_hunks(&old_contents, store.merge_options());
 
     // Parse conflicts from the new content using the arity of the simplified
     // conflicts.

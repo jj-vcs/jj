@@ -1964,7 +1964,7 @@ impl TreeState {
                     let options = ConflictMaterializeOptions {
                         marker_style: self.conflict_marker_style,
                         marker_len: Some(conflict_marker_len),
-                        merge: self.store.file_merge_options().clone(),
+                        merge: self.store.merge_options().clone(),
                     };
                     let contents = materialize_merge_result_to_bytes(&file.contents, &options);
                     let mut file_state = self
