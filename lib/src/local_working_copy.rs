@@ -920,7 +920,7 @@ impl TreeState {
     }
 
     #[expect(clippy::assigning_clones)]
-    fn save(&mut self) -> Result<(), TreeStateError> {
+    pub fn save(&mut self) -> Result<(), TreeStateError> {
         let mut proto: crate::protos::local_working_copy::TreeState = Default::default();
         match &self.tree_id {
             MergedTreeId::Legacy(_) => {
@@ -2462,14 +2462,6 @@ impl LockedLocalWorkingCopy {
         self.wc.tree_state_mut()?.reset_watchman();
         self.tree_state_dirty = true;
         Ok(())
-    }
-
-    /// Update the tree state's fsmonitor settings. This should only be used in
-    /// tests.
-    pub fn update_fsmonitor_settings_for_test(&mut self, fsmonitor_settings: FsmonitorSettings) {
-        let tree_state = self.wc.tree_state_mut().unwrap();
-        tree_state.fsmonitor_settings = fsmonitor_settings.clone();
-        self.wc.tree_state_settings.fsmonitor_settings = fsmonitor_settings;
     }
 }
 
