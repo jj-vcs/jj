@@ -54,6 +54,8 @@ parents_op = { "-" }
 children_op = { "+" }
 compat_parents_op = { "^" }
 
+typo_at_parents_op = { "@_" }
+
 dag_range_op = { "::" }
 dag_range_pre_op = { "::" }
 dag_range_post_op = { "::" }
@@ -97,6 +99,7 @@ primary = {
   "(" ~ whitespace* ~ expression ~ whitespace* ~ ")"
   | function
   | string_pattern
+  | typo_at_parents_op
   // "@" operator cannot be nested
   | symbol ~ at_op ~ symbol
   | symbol ~ at_op

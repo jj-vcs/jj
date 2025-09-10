@@ -100,6 +100,7 @@ impl Rule {
             Self::parents_op => Some("-"),
             Self::children_op => Some("+"),
             Self::compat_parents_op => Some("^"),
+            Self::typo_at_parents_op => Some("@_"),
             Self::dag_range_op
             | Self::dag_range_pre_op
             | Self::dag_range_post_op
@@ -301,11 +302,12 @@ fn rename_rules_in_pest_error(mut err: pest::error::Error<Rule>) -> pest::error:
         return err;
     };
 
-    // Remove duplicated symbols. Compat symbols are also removed from the
-    // (positive) suggestion.
+    // Remove compat, typo and duplicated symbols from the (positive) suggestion.
     let mut known_syms = HashSet::new();
     positives.retain(|rule| {
-        !rule.is_compat() && rule.to_symbol().is_none_or(|sym| known_syms.insert(sym))
+        !rule.is_compat()
+            && rule != &Rule::typo_at_parents_op
+            && rule.to_symbol().is_none_or(|sym| known_syms.insert(sym))
     });
     let mut known_syms = HashSet::new();
     negatives.retain(|rule| rule.to_symbol().is_none_or(|sym| known_syms.insert(sym)));
@@ -638,6 +640,10 @@ fn parse_primary_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseErr
             let kind = lhs.as_str();
             let value = parse_as_string_literal(rhs);
             ExpressionKind::StringPattern { kind, value }
+        }
+        Rule::typo_at_parents_op => {
+            let at_node = ExpressionNode::new(ExpressionKind::AtCurrentWorkspace, first.as_span());
+            ExpressionKind::Unary(UnaryOp::Parents, Box::new(at_node))
         }
         // Identifier without "@" may be substituted by aliases. Primary expression including "@"
         // is considered an indecomposable unit, and no alias substitution would be made.
@@ -1414,6 +1420,11 @@ mod tests {
                 remote: "術".into()
             }))
         );
+    }
+
+    #[test]
+    fn test_parse_typo_at_parents_op() {
+        assert_eq!(parse_normalized("@_"), parse_normalized("@-"));
     }
 
     #[test]

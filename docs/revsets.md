@@ -91,6 +91,8 @@ only symbols.
 You can use parentheses to control evaluation order, such as `(x & y) | z` or
 `x & (y | z)`.
 
+Note: As a small typo tolerance, `@_` is interpreted the same as `@-` (parents of `@`).
+
 <!-- The following format will be understood by the web site generator, and will
  generate a folded section that can be unfolded at will. -->
 

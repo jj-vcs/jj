@@ -35,6 +35,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * A new builtin `hyperlink(url, text)` template alias creates clickable
   hyperlinks using [OSC8 escape sequences](https://github.com/Alhadis/OSC8-Adoption) for terminals that support them.
 
+* Revset parser tolerates a common typo: `@_` is parsed as `@-` (parents of `@`).
+
 ### Fixed bugs
 
 ## [0.33.0] - 2025-09-03
