@@ -153,6 +153,7 @@ pub(crate) fn cmd_metaedit(
         .transform_descendants(commit_ids, async |rewriter| {
             if commit_ids_set.contains(rewriter.old_commit().id()) {
                 let mut has_changes = args.update_committer_timestamp || rewriter.parents_changed();
+                let old_author = rewriter.old_commit().author().clone();
                 let mut commit_builder = rewriter.reparent();
                 let mut new_author = commit_builder.author().clone();
                 if let Some((name, email)) = args.author.clone() {
@@ -168,7 +169,14 @@ pub(crate) fn cmd_metaedit(
                 if let Some(author_date) = args.author_timestamp {
                     new_author.timestamp = author_date;
                 }
-                if new_author != *commit_builder.author() {
+                // If the old commit had an unset author, the commit builder
+                // may already have the author updated from the current config.
+                // Thus, compare to the actual old_author to correctly detect
+                // changes.
+                if new_author.name != old_author.name
+                    || new_author.email != old_author.email
+                    || new_author.timestamp != commit_builder.author().timestamp
+                {
                     commit_builder = commit_builder.set_author(new_author);
                     has_changes = true;
                 }

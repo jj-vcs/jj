@@ -437,6 +437,54 @@ fn test_squash_option_mutual_exclusion() {
     ");
 }
 
+#[test]
+fn test_update_empty_author() {
+    let mut test_env = TestEnvironment::default();
+
+    // get rid of test author config
+    test_env.add_env_var("JJ_USER", "");
+    test_env.add_env_var("JJ_EMAIL", "");
+
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+
+    // show that commit has no author set
+    insta::assert_snapshot!(test_env.work_dir("repo").run_jj(["show"]), @r"
+    Commit ID: 42c91a3e183efb4499038d0d9aa3d14b5deafde0
+    Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    Author   : (no name set) <(no email set)> (2001-02-03 08:05:07)
+    Committer: (no name set) <(no email set)> (2001-02-03 08:05:07)
+
+        (no description set)
+
+    [EOF]
+    ");
+
+    // restore test author config
+    test_env.add_env_var("JJ_USER", "Test User");
+    test_env.add_env_var("JJ_EMAIL", "test.user@example.com");
+    let work_dir = test_env.work_dir("repo");
+
+    // update existing commit with restored test author config
+    insta::assert_snapshot!(work_dir.run_jj(["metaedit", "--update-author"]), @r"
+    ------- stderr -------
+    Modified 1 commits:
+      qpvuntsm 0f13b5f2 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm 0f13b5f2 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["show"]), @r"
+    Commit ID: 0f13b5f2ea7fad147c133c81b87d31e7b1b8c564
+    Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
+    Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+
+        (no description set)
+
+    [EOF]
+    ");
+}
+
 #[must_use]
 fn get_log(work_dir: &TestWorkDir) -> CommandOutput {
     work_dir.run_jj([
