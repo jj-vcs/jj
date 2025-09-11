@@ -42,6 +42,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added a new conditional configuration `--when.platforms` to include
   settings only on certain platforms.
 
+* External diff commands now support substitution variable `$width` for the
+  number of available terminal columns.
+
 ### Fixed bugs
 
 ## [0.33.0] - 2025-09-03

@@ -374,6 +374,9 @@ diff-args = ["--color=always", "$left", "$right"]
 - `$left` and `$right` are replaced with the paths to the left and right
   directories to diff respectively.
 
+- `$width` is replaced with the number of terminal columns available to the diff
+  content.
+
 - If `diff-args` is not specified, `["$left", "$right"]` will be used by default.
 
 - If `diff-args = []`, `jj` will refuse to use this tool for diff formatting.

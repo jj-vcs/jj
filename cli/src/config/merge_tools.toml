@@ -20,7 +20,7 @@ edit-args = ["$left", "$right", "$output", "--port", "17376-17380", "--no-browse
 diff-args = ["$left", "$right", "--port", "17376-17380", "--no-browser"]
 
 [merge-tools.difft]
-diff-args = ["--color=always", "$left", "$right"]
+diff-args = ["--color=always", "--width=$width", "$left", "$right"]
 edit-args = []  # Non-interactive diff formatter
 
 [merge-tools.kdiff3]

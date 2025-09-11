@@ -427,6 +427,7 @@ pub fn generate_diff(
     matcher: &dyn Matcher,
     tool: &ExternalMergeTool,
     default_conflict_marker_style: ConflictMarkerStyle,
+    width: usize,
 ) -> Result<(), DiffGenerateError> {
     let conflict_marker_style = tool
         .conflict_marker_style
@@ -434,13 +435,9 @@ pub fn generate_diff(
     let diff_wc = check_out_trees(trees, matcher, DiffType::TwoWay, conflict_marker_style)?;
     diff_wc.set_left_readonly()?;
     diff_wc.set_right_readonly()?;
-    invoke_external_diff(
-        ui,
-        writer,
-        tool,
-        diff_wc.temp_dir(),
-        &diff_wc.to_command_variables(true),
-    )
+    let mut patterns = diff_wc.to_command_variables(true);
+    patterns.insert("width", width.to_string());
+    invoke_external_diff(ui, writer, tool, diff_wc.temp_dir(), &patterns)
 }
 
 /// Invokes the specified `tool` directing its output into `writer`.
