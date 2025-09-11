@@ -29,7 +29,7 @@ use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::merge::Merge;
 use crate::merge::SameChange;
-use crate::merged_tree::MergeOptions;
+use crate::tree_merge::MergeOptions;
 
 /// A diff line which may contain small hunks originating from both sides.
 #[derive(PartialEq, Eq, Clone, Debug)]

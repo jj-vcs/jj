@@ -25,13 +25,13 @@ use jj_lib::files::MergeResult;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
-use jj_lib::merged_tree::MergeOptions;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::store::Store;
+use jj_lib::tree_merge::MergeOptions;
 use pollster::FutureExt as _;
 use thiserror::Error;
 

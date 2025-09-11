@@ -54,7 +54,6 @@ use crate::matchers::FilesMatcher;
 use crate::matchers::Matcher;
 use crate::matchers::Visit;
 use crate::merge::Merge;
-use crate::merged_tree::MergeOptions;
 use crate::object_id::ObjectId as _;
 use crate::repo_path::RepoPath;
 use crate::revset::GENERATION_RANGE_FULL;
@@ -67,6 +66,7 @@ use crate::revset::RevsetFilterPredicate;
 use crate::rewrite;
 use crate::store::Store;
 use crate::str_util::StringPattern;
+use crate::tree_merge::MergeOptions;
 use crate::tree_merge::resolve_file_values;
 use crate::union_find;
 

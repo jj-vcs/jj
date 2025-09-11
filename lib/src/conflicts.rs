@@ -48,9 +48,9 @@ use crate::files::MergeResult;
 use crate::merge::Merge;
 use crate::merge::MergedTreeValue;
 use crate::merge::SameChange;
-use crate::merged_tree::MergeOptions;
 use crate::repo_path::RepoPath;
 use crate::store::Store;
+use crate::tree_merge::MergeOptions;
 
 /// Minimum length of conflict markers.
 pub const MIN_CONFLICT_MARKER_LEN: usize = 7;

@@ -38,22 +38,18 @@ use crate::backend::BackendResult;
 use crate::backend::MergedTreeId;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
-use crate::config::ConfigGetError;
 use crate::copies::CopiesTreeDiffEntry;
 use crate::copies::CopiesTreeDiffStream;
 use crate::copies::CopyRecords;
-use crate::files::FileMergeHunkLevel;
 use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
 use crate::merge::Merge;
 use crate::merge::MergeBuilder;
 use crate::merge::MergedTreeVal;
 use crate::merge::MergedTreeValue;
-use crate::merge::SameChange;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;
-use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::tree::Tree;
 use crate::tree_builder::TreeBuilder;
@@ -325,27 +321,6 @@ impl MergedTree {
         Self {
             trees: nested.flatten().simplify(),
         }
-    }
-}
-
-/// Options for tree/file conflict resolution.
-#[derive(Clone, Debug, Default)]
-pub struct MergeOptions {
-    /// Granularity of hunks when merging files.
-    pub hunk_level: FileMergeHunkLevel,
-    /// Whether to resolve conflict that makes the same change at all sides.
-    pub same_change: SameChange,
-}
-
-impl MergeOptions {
-    /// Loads merge options from `settings`.
-    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
-        Ok(Self {
-            // Maybe we can add hunk-level=file to disable content merging if
-            // needed. It wouldn't be translated to FileMergeHunkLevel.
-            hunk_level: settings.get("merge.hunk-level")?,
-            same_change: settings.get("merge.same-change")?,
-        })
     }
 }
 

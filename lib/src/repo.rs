@@ -59,7 +59,6 @@ use crate::index::ReadonlyIndex;
 use crate::merge::MergeBuilder;
 use crate::merge::SameChange;
 use crate::merge::trivial_merge;
-use crate::merged_tree::MergeOptions;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::op_heads_store;
@@ -107,6 +106,7 @@ use crate::store::Store;
 use crate::submodule_store::SubmoduleStore;
 use crate::transaction::Transaction;
 use crate::transaction::TransactionCommitError;
+use crate::tree_merge::MergeOptions;
 use crate::view::RenameWorkspaceError;
 use crate::view::View;
 
