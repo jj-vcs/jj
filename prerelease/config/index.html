@@ -1594,6 +1594,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#resolution-of-same-change-conflicts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resolution of same-change conflicts
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3388,6 +3397,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#resolution-of-same-change-conflicts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resolution of same-change conflicts
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4827,6 +4845,19 @@ word-level hunks.</p>
 </ul>
 <div class="highlight"><pre><span></span><code><span class="k">[merge]</span>
 <span class="n">hunk-level</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;line&quot;</span>
+</code></pre></div>
+<h3 id="resolution-of-same-change-conflicts">Resolution of same-change conflicts<a class="headerlink" href="#resolution-of-same-change-conflicts" title="Permanent link">&para;</a></h3>
+<p><code>jj</code> by default resolves conflicts if all sides made the same change. This
+matches what Git and Mercurial do (in the 3-way case at least), but not what
+Darcs does. It also means that repeated 3-way merging of multiple trees may give
+different results depending on the order of merging. To turn it off, set
+<code>same-change = "keep"</code>.</p>
+<ul>
+<li><code>keep</code>: leave same-change conflict unresolved</li>
+<li><code>accept</code>: resolve same-change conflict to new value (default)</li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="k">[merge]</span>
+<span class="n">same-change</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;accept&quot;</span>
 </code></pre></div>
 <h2 id="filesystem-monitor">Filesystem monitor<a class="headerlink" href="#filesystem-monitor" title="Permanent link">&para;</a></h2>
 <p>In large repositories, it may be beneficial to use a "filesystem monitor" to

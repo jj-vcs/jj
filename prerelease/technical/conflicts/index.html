@@ -1847,16 +1847,14 @@ non-conflict state <code>C</code>. We then revert that change. Reverting a chang
 applying its reverse diff <code>-(E-C)</code>, so the result is <code>E+(C-E) =
 (C+(B-A))+(C-(C+(B-A)))</code>, which we can simplify to just <code>C</code> (i.e. no conflict).</p>
 <h2 id="same-change-rule">Same-change rule<a class="headerlink" href="#same-change-rule" title="Permanent link">&para;</a></h2>
-<p>When all sides of a conflict make the same change,
-<a href="https://github.com/jj-vcs/jj/blob/53272510bf879086d83bb5eea1406f75ba31f138/lib/src/merge.rs#L85-L99">we automatically consider it resolved to that value</a>. We call this
-"the same-change rule". This behavior matches what Git and Mercurial do.
-Darcs, on the other hand, considers it a  conflict. The automatic conflict
-resolution we do is lossy in terms of conflict algebra; it means that rebasing
-a commit onto a commit that has the same changes (or a subset thereof) and then
-rebasing it back will lose changes (for a real-life example see <a href="https://github.com/jj-vcs/jj/issues/6369">bug #6369</a>).
-We do it because it is more user-friendly in the vast majority of cases. We
-may at some point experiment with a config option to disable the same-change
-rule.</p>
+<p>When all sides of a conflict make the same change, <a href="https://github.com/jj-vcs/jj/blob/53272510bf879086d83bb5eea1406f75ba31f138/lib/src/merge.rs#L85-L99">we automatically consider it
+resolved to that value</a> by default. We call this "the same-change
+rule". This behavior matches what Git and Mercurial do. Darcs, on the other
+hand, considers it a conflict. The automatic conflict resolution we do is lossy
+in terms of conflict algebra; it means that rebasing a commit onto a commit that
+has the same changes (or a subset thereof) and then rebasing it back will lose
+changes (for a real-life example see <a href="https://github.com/jj-vcs/jj/issues/6369">bug #6369</a>). We do it because it is more
+user-friendly in the vast majority of cases.</p>
 
 
 

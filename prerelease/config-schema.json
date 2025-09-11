@@ -502,6 +502,15 @@
                         "word"
                     ],
                     "default": "line"
+                },
+                "same-change": {
+                    "type": "string",
+                    "description": "Whether to resolve conflict that makes the same change at all sides",
+                    "enum": [
+                        "keep",
+                        "accept"
+                    ],
+                    "default": "accept"
                 }
             }
         },
