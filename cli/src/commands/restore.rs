@@ -162,7 +162,8 @@ pub(crate) fn cmd_restore(
             to_commit = workspace_command.format_commit_summary(&to_commit),
         }
     };
-    let new_tree_id = diff_selector.select(&to_tree, &from_tree, &matcher, format_instructions)?;
+    let new_tree_id =
+        diff_selector.select([&to_tree, &from_tree], &matcher, format_instructions)?;
     if &new_tree_id == to_commit.tree_id() {
         writeln!(ui.status(), "Nothing changed.")?;
     } else {

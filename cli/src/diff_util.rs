@@ -523,8 +523,7 @@ impl<'a> DiffRenderer<'a> {
                             generate_diff(
                                 ui,
                                 writer.as_mut(),
-                                from_tree,
-                                to_tree,
+                                [from_tree, to_tree],
                                 matcher,
                                 tool,
                                 self.conflict_marker_style,

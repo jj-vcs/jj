@@ -125,8 +125,7 @@ pub(crate) enum DiffType {
 /// Check out the two trees in temporary directories. Only include changed files
 /// in the sparse checkout patterns.
 pub(crate) fn check_out_trees(
-    left_tree: &MergedTree,
-    right_tree: &MergedTree,
+    [left_tree, right_tree]: [&MergedTree; 2],
     matcher: &dyn Matcher,
     diff_type: DiffType,
     conflict_marker_style: ConflictMarkerStyle,
@@ -180,20 +179,13 @@ impl DiffEditWorkingCopies {
     /// Checks out the trees, populates JJ_INSTRUCTIONS, and makes appropriate
     /// sides readonly.
     pub fn check_out(
-        left_tree: &MergedTree,
-        right_tree: &MergedTree,
+        trees: [&MergedTree; 2],
         matcher: &dyn Matcher,
         diff_type: DiffType,
         instructions: Option<&str>,
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, DiffEditError> {
-        let working_copies = check_out_trees(
-            left_tree,
-            right_tree,
-            matcher,
-            diff_type,
-            conflict_marker_style,
-        )?;
+        let working_copies = check_out_trees(trees, matcher, diff_type, conflict_marker_style)?;
         working_copies.set_left_readonly()?;
         if diff_type == DiffType::ThreeWay {
             working_copies.set_right_readonly()?;

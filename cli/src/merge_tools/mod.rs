@@ -293,15 +293,14 @@ impl DiffEditor {
     /// Starts a diff editor on the two directories.
     pub fn edit(
         &self,
-        left_tree: &MergedTree,
-        right_tree: &MergedTree,
+        trees: [&MergedTree; 2],
         matcher: &dyn Matcher,
         format_instructions: impl FnOnce() -> String,
     ) -> Result<MergedTreeId, DiffEditError> {
         match &self.tool {
             DiffEditTool::Builtin => {
                 Ok(
-                    edit_diff_builtin(left_tree, right_tree, matcher, self.conflict_marker_style)
+                    edit_diff_builtin(trees, matcher, self.conflict_marker_style)
                         .map_err(Box::new)?,
                 )
             }
@@ -309,8 +308,7 @@ impl DiffEditor {
                 let instructions = self.use_instructions.then(format_instructions);
                 edit_diff_external(
                     editor,
-                    left_tree,
-                    right_tree,
+                    trees,
                     matcher,
                     instructions.as_deref(),
                     self.base_ignores.clone(),

@@ -376,8 +376,7 @@ pub fn run_mergetool_external(
 
 pub fn edit_diff_external(
     editor: &ExternalMergeTool,
-    left_tree: &MergedTree,
-    right_tree: &MergedTree,
+    trees: [&MergedTree; 2],
     matcher: &dyn Matcher,
     instructions: Option<&str>,
     base_ignores: Arc<GitIgnoreFile>,
@@ -394,8 +393,7 @@ pub fn edit_diff_external(
         DiffType::TwoWay
     };
     let diffedit_wc = DiffEditWorkingCopies::check_out(
-        left_tree,
-        right_tree,
+        trees,
         matcher,
         diff_type,
         instructions,
@@ -425,8 +423,7 @@ pub fn edit_diff_external(
 pub fn generate_diff(
     ui: &Ui,
     writer: &mut dyn Write,
-    left_tree: &MergedTree,
-    right_tree: &MergedTree,
+    trees: [&MergedTree; 2],
     matcher: &dyn Matcher,
     tool: &ExternalMergeTool,
     default_conflict_marker_style: ConflictMarkerStyle,
@@ -434,13 +431,7 @@ pub fn generate_diff(
     let conflict_marker_style = tool
         .conflict_marker_style
         .unwrap_or(default_conflict_marker_style);
-    let diff_wc = check_out_trees(
-        left_tree,
-        right_tree,
-        matcher,
-        DiffType::TwoWay,
-        conflict_marker_style,
-    )?;
+    let diff_wc = check_out_trees(trees, matcher, DiffType::TwoWay, conflict_marker_style)?;
     diff_wc.set_left_readonly()?;
     diff_wc.set_right_readonly()?;
     invoke_external_diff(
