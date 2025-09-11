@@ -41,12 +41,12 @@ use crate::file_util::PathError;
 use crate::file_util::persist_content_addressed_temp_file;
 use crate::index::Index;
 use crate::matchers::EverythingMatcher;
-use crate::merged_tree::resolve_file_values;
 use crate::object_id::ObjectId as _;
 use crate::object_id::id_type;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::rewrite::merge_commit_trees_no_resolve_without_repo;
+use crate::tree_merge::resolve_file_values;
 
 /// Current format version of the changed-path index segment file.
 const FILE_FORMAT_VERSION: u32 = 0;
