@@ -26,6 +26,7 @@ use jj_lib::content_hash::blake2b_hash;
 use jj_lib::hex_util;
 use jj_lib::op_store::TimestampRange;
 use jj_lib::settings::UserSettings;
+use jj_lib::str_util::StringPattern;
 use jj_lib::time_util::DatePattern;
 use serde::Deserialize;
 use serde::de::IntoDeserializer as _;
@@ -1061,6 +1062,65 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             function.expect_no_arguments()?;
             let out_property = self_property.map(|s| serde_json::to_string(&s).unwrap());
             Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "replace",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let ([pattern_node, replacement_node], [limit_node]) = function.expect_arguments()?;
+            let pattern = template_parser::expect_string_pattern(pattern_node)?;
+            let replacement_property =
+                expect_stringify_expression(language, diagnostics, build_ctx, replacement_node)?;
+
+            let is_regex = matches!(pattern, StringPattern::Regex(_) | StringPattern::RegexI(_));
+            let regex = pattern.to_regex();
+
+            let do_replace = move |haystack: &str, replace: &str, limit: Option<usize>| {
+                let haystack_bytes = haystack.as_bytes();
+                let replace_bytes = replace.as_bytes();
+                let result = match (is_regex, limit) {
+                    (true, None) => regex.replace_all(haystack_bytes, replace_bytes),
+                    (true, Some(n)) => regex.replacen(haystack_bytes, n, replace_bytes),
+                    (false, None) => {
+                        regex.replace_all(haystack_bytes, regex::bytes::NoExpand(replace_bytes))
+                    }
+                    (false, Some(n)) => {
+                        regex.replacen(haystack_bytes, n, regex::bytes::NoExpand(replace_bytes))
+                    }
+                };
+                std::str::from_utf8(&result).map(str::to_owned)
+            };
+
+            let out_property = if let Some(limit_node) = limit_node {
+                let limit_property =
+                    expect_isize_expression(language, diagnostics, build_ctx, limit_node)?;
+                (self_property, replacement_property, limit_property)
+                    .and_then(move |(pattern, replacement, limit)| {
+                        if limit == 0 {
+                            // We need to special-case zero because regex.replacen(_, 0, _) replaces
+                            // all occurrences, and we want zero to mean no occurrences are
+                            // replaced.
+                            Ok(pattern)
+                        } else {
+                            do_replace(
+                                &pattern,
+                                &replacement,
+                                (limit > 0).then_some(limit as usize),
+                            )
+                            .map_err(TemplatePropertyError::from)
+                        }
+                    })
+                    .into_dyn_wrapped()
+            } else {
+                (self_property, replacement_property)
+                    .and_then(move |(pattern, replacement)| {
+                        do_replace(&pattern, &replacement, None)
+                            .map_err(TemplatePropertyError::from)
+                    })
+                    .into_dyn_wrapped()
+            };
+
+            Ok(out_property)
         },
     );
     map
@@ -3104,6 +3164,45 @@ mod tests {
 
         insta::assert_snapshot!(env.render_ok(r#""hello".escape_json()"#), @r#""hello""#);
         insta::assert_snapshot!(env.render_ok(r#""he \n ll \n \" o".escape_json()"#), @r#""he \n ll \n \" o""#);
+
+        // simple substring replacement
+        insta::assert_snapshot!(env.render_ok(r#""hello world".replace("world", "jj")"#), @"hello jj");
+        insta::assert_snapshot!(env.render_ok(r#""hello world world".replace("world", "jj")"#), @"hello jj jj");
+        insta::assert_snapshot!(env.render_ok(r#""hello".replace("missing", "jj")"#), @"hello");
+
+        // replace with limit >=0
+        insta::assert_snapshot!(env.render_ok(r#""hello world world".replace("world", "jj", 0)"#), @"hello world world");
+        insta::assert_snapshot!(env.render_ok(r#""hello world world".replace("world", "jj", 1)"#), @"hello jj world");
+        insta::assert_snapshot!(env.render_ok(r#""hello world world world".replace("world", "jj", 2)"#), @"hello jj jj world");
+
+        // replace with limit <0 (replace all occurrences)
+        insta::assert_snapshot!(env.render_ok(r#""hello world world".replace("world", "jj", -1)"#), @"hello jj jj");
+        insta::assert_snapshot!(env.render_ok(r#""hello world world".replace("world", "jj", -5)"#), @"hello jj jj");
+
+        // replace with regex patterns
+        insta::assert_snapshot!(env.render_ok(r#""hello123world456".replace(regex:"\\d+", "X")"#), @"helloXworldX");
+        insta::assert_snapshot!(env.render_ok(r#""hello123world456".replace(regex:"\\d+", "X", 1)"#), @"helloXworld456");
+
+        // replace with regex patterns (capture groups)
+        insta::assert_snapshot!(env.render_ok(r#""HELLO    WORLD".replace(regex-i:"(hello) +(world)", "$2 $1")"#), @"WORLD HELLO");
+        insta::assert_snapshot!(env.render_ok(r#""abc123".replace(regex:"([a-z]+)([0-9]+)", "$2-$1")"#), @"123-abc");
+        insta::assert_snapshot!(env.render_ok(r#""foo123bar".replace(regex:"\\d+", "[$0]")"#), @"foo[123]bar");
+
+        // replace with regex patterns (case insensitive)
+        insta::assert_snapshot!(env.render_ok(r#""Hello World".replace(regex-i:"hello", "hi")"#), @"hi World");
+        insta::assert_snapshot!(env.render_ok(r#""Hello World Hello".replace(regex-i:"hello", "hi")"#), @"hi World hi");
+        insta::assert_snapshot!(env.render_ok(r#""Hello World Hello".replace(regex-i:"hello", "hi", 1)"#), @"hi World Hello");
+
+        // replace with strings that look regex-y but should not be treated as such
+        insta::assert_snapshot!(env.render_ok(r#""hello\\d+world".replace("\\d+", "X")"#), @"helloXworld");
+        insta::assert_snapshot!(env.render_ok(r#""(foo)($1)bar".replace("$1", "$2")"#), @"(foo)($2)bar");
+        insta::assert_snapshot!(env.render_ok(r#""test(abc)end".replace("(abc)", "X")"#), @"testXend");
+
+        // replace with templates
+        insta::assert_snapshot!(env.render_ok(r#""hello world".replace("world", description.first_line())"#), @"hello description 1");
+
+        // replace with error
+        insta::assert_snapshot!(env.render_ok(r#""hello world".replace("world", bad_string)"#), @"<Error: Bad>");
     }
 
     #[test]
