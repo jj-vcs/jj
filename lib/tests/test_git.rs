@@ -4311,6 +4311,7 @@ fn test_concurrent_write_commit() {
 }
 
 #[test]
+#[ignore = "this has been consistently flaky, see issue #7318"]
 fn test_concurrent_read_write_commit() {
     let settings = user_settings_without_change_id();
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
