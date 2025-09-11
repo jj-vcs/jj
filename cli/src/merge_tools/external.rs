@@ -393,9 +393,7 @@ pub fn edit_diff_external(
     } else {
         DiffType::TwoWay
     };
-    let store = left_tree.store();
     let diffedit_wc = DiffEditWorkingCopies::check_out(
-        store,
         left_tree,
         right_tree,
         matcher,
@@ -436,9 +434,7 @@ pub fn generate_diff(
     let conflict_marker_style = tool
         .conflict_marker_style
         .unwrap_or(default_conflict_marker_style);
-    let store = left_tree.store();
     let diff_wc = check_out_trees(
-        store,
         left_tree,
         right_tree,
         matcher,

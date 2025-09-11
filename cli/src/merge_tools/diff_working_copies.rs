@@ -17,7 +17,6 @@ use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::Matcher;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::TreeDiffEntry;
-use jj_lib::store::Store;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::SnapshotOptions;
 use pollster::FutureExt as _;
@@ -126,13 +125,13 @@ pub(crate) enum DiffType {
 /// Check out the two trees in temporary directories. Only include changed files
 /// in the sparse checkout patterns.
 pub(crate) fn check_out_trees(
-    store: &Arc<Store>,
     left_tree: &MergedTree,
     right_tree: &MergedTree,
     matcher: &dyn Matcher,
     diff_type: DiffType,
     conflict_marker_style: ConflictMarkerStyle,
 ) -> Result<DiffWorkingCopies, DiffCheckoutError> {
+    let store = left_tree.store();
     let changed_files: Vec<_> = left_tree
         .diff_stream(right_tree, matcher)
         .map(|TreeDiffEntry { path, .. }| path)
@@ -181,7 +180,6 @@ impl DiffEditWorkingCopies {
     /// Checks out the trees, populates JJ_INSTRUCTIONS, and makes appropriate
     /// sides readonly.
     pub fn check_out(
-        store: &Arc<Store>,
         left_tree: &MergedTree,
         right_tree: &MergedTree,
         matcher: &dyn Matcher,
@@ -190,7 +188,6 @@ impl DiffEditWorkingCopies {
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, DiffEditError> {
         let working_copies = check_out_trees(
-            store,
             left_tree,
             right_tree,
             matcher,
