@@ -5081,6 +5081,17 @@ workspace</code>.</p>
 <span class="n">--when</span><span class="p">.</span><span class="n">commands</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;file&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;log&quot;</span><span class="p">]</span><span class="w"> </span><span class="c1"># matches `jj file` *OR* `jj log` (or subcommand of either)</span>
 </code></pre></div>
 </li>
+<li>
+<p><code>--when.platforms</code>: List of platforms to match.</p>
+<p>The values are defined by both
+<a href="https://doc.rust-lang.org/std/env/consts/constant.OS.html"><code>std::env::consts::FAMILY](https://doc.rust-lang.org/std/env/consts/constant.FAMILY.html)
+and
+[</code>std::env::consts::OS</a>.</p>
+<div class="highlight"><pre><span></span><code><span class="n">--when</span><span class="p">.</span><span class="n">platforms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;windows&quot;</span><span class="p">]</span><span class="w">            </span><span class="c1"># matches only Windows</span>
+<span class="n">--when</span><span class="p">.</span><span class="n">platforms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;linux&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;freebsd&quot;</span><span class="p">]</span><span class="w">   </span><span class="c1"># matches Linux or and FreeBSD, but not macOS</span>
+<span class="n">--when</span><span class="p">.</span><span class="n">platforms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;unix&quot;</span><span class="p">]</span><span class="w">               </span><span class="c1"># matches anything in the Unix family (Linux, FreeBSD, macOS, etc.)</span>
+</code></pre></div>
+</li>
 </ul>
 <div class="footnote">
 <hr />

@@ -937,6 +937,52 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "platforms": {
+                    "type": "array",
+                    "description": "List of platforms to match",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "aix",
+                            "android",
+                            "apple",
+                            "dragonfly",
+                            "emscripten",
+                            "espidf",
+                            "fortanix",
+                            "freebsd",
+                            "fuchsia",
+                            "haiku",
+                            "hermit",
+                            "hermit",
+                            "horizon",
+                            "hurd",
+                            "illumos",
+                            "ios",
+                            "itron",
+                            "l4re",
+                            "linux",
+                            "macos",
+                            "netbsd",
+                            "nto",
+                            "openbsd",
+                            "redox",
+                            "solaris",
+                            "solid_asp3",
+                            "tvos",
+                            "uefi",
+                            "unix",
+                            "visionos",
+                            "vita",
+                            "vxworks",
+                            "wasi",
+                            "wasm",
+                            "watchos",
+                            "windows",
+                            "xous"
+                        ]
+                    }
                 }
             }
         },
