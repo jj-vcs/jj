@@ -1462,6 +1462,18 @@ fn test_files() {
     [EOF]
     ");
 
+    let output = work_dir.complete_fish(["file", "list", "-r=first", "f_"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    f_deleted
+    f_modified
+    f_not_yet_copied
+    f_not_yet_renamed
+    f_not_yet_renamed_2
+    f_not_yet_renamed_3
+    f_unchanged
+    [EOF]
+    ");
+
     let output = work_dir.complete_fish(["log", "f_"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_added
