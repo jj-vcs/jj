@@ -449,24 +449,26 @@ pub fn invoke_external_diff(
     writer: &mut dyn Write,
     tool: &ExternalMergeTool,
     diff_dir: &Path,
-    patterns: &HashMap<&str, &str>,
+    patterns: &HashMap<&str, String>,
 ) -> Result<(), DiffGenerateError> {
     // TODO: Somehow propagate --color to the external command?
     let mut cmd = Command::new(&tool.program);
     let mut patterns = patterns.clone();
-    let absolute_left_path = Path::new(diff_dir).join(patterns["left"]);
-    let absolute_right_path = Path::new(diff_dir).join(patterns["right"]);
     if !tool.diff_do_chdir {
+        let absolute_left_path = Path::new(diff_dir).join(&patterns["left"]);
+        let absolute_right_path = Path::new(diff_dir).join(&patterns["right"]);
         patterns.insert(
             "left",
             absolute_left_path
-                .to_str()
+                .into_os_string()
+                .into_string()
                 .expect("temp_dir should be valid utf-8"),
         );
         patterns.insert(
             "right",
             absolute_right_path
-                .to_str()
+                .into_os_string()
+                .into_string()
                 .expect("temp_dir should be valid utf-8"),
         );
     } else {
