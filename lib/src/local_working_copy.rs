@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #![allow(missing_docs)]
-#![allow(clippy::let_unit_value)]
 
 use std::any::Any;
 use std::cmp::Ordering;
