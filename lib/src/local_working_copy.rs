@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::any::Any;
 use std::cmp::Ordering;
@@ -901,7 +901,7 @@ impl TreeState {
                 source: err,
             }
         })?;
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         if proto.tree_ids.is_empty() {
             self.tree_id = MergedTreeId::resolved(TreeId::new(proto.legacy_tree_id.clone()));
         } else {
@@ -1800,7 +1800,7 @@ impl TreeState {
         Ok(FileState::for_file(executable, size, &metadata))
     }
 
-    #[cfg_attr(windows, allow(unused_variables))]
+    #[cfg_attr(windows, expect(unused_variables))]
     fn set_executable(&self, disk_path: &Path, executable: bool) -> Result<(), CheckoutError> {
         #[cfg(unix)]
         {

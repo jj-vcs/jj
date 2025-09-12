@@ -64,7 +64,7 @@ impl CommitEvolutionEntry {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 pub enum WalkPredecessorsError {
     #[error(transparent)]

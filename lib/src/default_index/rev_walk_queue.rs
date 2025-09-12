@@ -39,7 +39,7 @@ impl<P: Ord, T: Ord> RevWalkQueue<P, T> {
         }
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg_attr(not(test), expect(dead_code))]
     pub fn len(&self) -> usize {
         self.items.len() + self.scratch_item.is_some() as usize
     }

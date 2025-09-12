@@ -20,7 +20,7 @@
 //! the parent may have its own parent, and so on. The child file then
 //! represents the union of the entries.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::cmp::Ordering;
 use std::collections::BTreeMap;

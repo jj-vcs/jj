@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::borrow::Cow;
 use std::ffi::OsString;
@@ -351,7 +351,7 @@ mod platform {
     }
 }
 
-#[cfg_attr(unix, allow(dead_code))]
+#[cfg_attr(unix, expect(dead_code))]
 mod fallback {
     use std::ffi::OsStr;
     use std::str;

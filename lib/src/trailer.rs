@@ -30,7 +30,7 @@ pub struct Trailer {
     pub value: String,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Error, Debug)]
 pub enum TrailerParseError {
     #[error("The trailer paragraph can't contain a blank line")]
