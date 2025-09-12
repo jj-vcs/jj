@@ -26,23 +26,27 @@ use futures::future::BoxFuture;
 use futures::future::try_join_all;
 use futures::stream::FuturesUnordered;
 use itertools::Itertools as _;
+use tokio::io::AsyncReadExt as _;
 
 use crate::backend;
+use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::TreeValue;
 use crate::config::ConfigGetError;
+use crate::files;
 use crate::files::FileMergeHunkLevel;
 use crate::merge::Merge;
+use crate::merge::MergedTreeVal;
 use crate::merge::MergedTreeValue;
 use crate::merge::SameChange;
 use crate::merged_tree::all_merged_tree_entries;
+use crate::object_id::ObjectId as _;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponentBuf;
 use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::tree::Tree;
-use crate::tree::try_resolve_file_conflict;
 
 /// Options for tree/file conflict resolution.
 #[derive(Clone, Debug, Default)]
@@ -394,6 +398,107 @@ async fn try_resolve_file_values<T: Borrow<TreeValue>>(
         Ok(Some(Merge::normal(resolved)))
     } else {
         // Failed to merge the files, or the paths are not files
+        Ok(None)
+    }
+}
+
+/// Resolves file-level conflict by merging content hunks.
+///
+/// The input `conflict` is supposed to be simplified. It shouldn't contain
+/// non-file values that cancel each other.
+async fn try_resolve_file_conflict(
+    store: &Store,
+    filename: &RepoPath,
+    conflict: &MergedTreeVal<'_>,
+) -> BackendResult<Option<TreeValue>> {
+    let options = store.merge_options();
+    // If there are any non-file or any missing parts in the conflict, we can't
+    // merge it. We check early so we don't waste time reading file contents if
+    // we can't merge them anyway. At the same time we determine whether the
+    // resulting file should be executable.
+    let Ok(file_id_conflict) = conflict.try_map(|term| match term {
+        Some(TreeValue::File {
+            id,
+            executable: _,
+            copy_id: _,
+        }) => Ok(id),
+        _ => Err(()),
+    }) else {
+        return Ok(None);
+    };
+    let Ok(executable_conflict) = conflict.try_map(|term| match term {
+        Some(TreeValue::File {
+            id: _,
+            executable,
+            copy_id: _,
+        }) => Ok(executable),
+        _ => Err(()),
+    }) else {
+        return Ok(None);
+    };
+    let Ok(copy_id_conflict) = conflict.try_map(|term| match term {
+        Some(TreeValue::File {
+            id: _,
+            executable: _,
+            copy_id,
+        }) => Ok(copy_id),
+        _ => Err(()),
+    }) else {
+        return Ok(None);
+    };
+    // TODO: Whether to respect options.same_change to merge executable and
+    // copy_id? Should also update conflicts::resolve_file_executable().
+    let Some(&&executable) = executable_conflict.resolve_trivial(SameChange::Accept) else {
+        // We're unable to determine whether the result should be executable
+        return Ok(None);
+    };
+    let Some(&copy_id) = copy_id_conflict.resolve_trivial(SameChange::Accept) else {
+        // We're unable to determine the file's copy ID
+        return Ok(None);
+    };
+    if let Some(&resolved_file_id) = file_id_conflict.resolve_trivial(options.same_change) {
+        // Don't bother reading the file contents if the conflict can be trivially
+        // resolved.
+        return Ok(Some(TreeValue::File {
+            id: resolved_file_id.clone(),
+            executable,
+            copy_id: copy_id.clone(),
+        }));
+    }
+
+    // While the input conflict should be simplified by caller, it might contain
+    // terms which only differ in executable bits. Simplify the conflict further
+    // for two reasons:
+    // 1. Avoid reading unchanged file contents
+    // 2. The simplified conflict can sometimes be resolved when the unsimplfied one
+    //    cannot
+    let file_id_conflict = file_id_conflict.simplify();
+
+    let contents = file_id_conflict
+        .try_map_async(async |file_id| {
+            let mut content = vec![];
+            let mut reader = store.read_file(filename, file_id).await?;
+            reader
+                .read_to_end(&mut content)
+                .await
+                .map_err(|err| BackendError::ReadObject {
+                    object_type: file_id.object_type(),
+                    hash: file_id.hex(),
+                    source: err.into(),
+                })?;
+            BackendResult::Ok(content)
+        })
+        .await?;
+    if let Some(merged_content) = files::try_merge(&contents, options) {
+        let id = store
+            .write_file(filename, &mut merged_content.as_slice())
+            .await?;
+        Ok(Some(TreeValue::File {
+            id,
+            executable,
+            copy_id: copy_id.clone(),
+        }))
+    } else {
         Ok(None)
     }
 }
