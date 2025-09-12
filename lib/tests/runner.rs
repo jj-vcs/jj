@@ -15,6 +15,7 @@ mod test_conflicts;
 mod test_default_revset_graph_iterator;
 mod test_eol;
 mod test_evolution_predecessors;
+mod test_executable_bit;
 mod test_fix;
 mod test_git;
 mod test_git_backend;
