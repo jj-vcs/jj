@@ -321,6 +321,62 @@ fn test_metaedit() {
 
     [EOF]
     ");
+
+    // Set committer timestamp
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    work_dir
+        .run_jj([
+            "metaedit",
+            "--committer-timestamp",
+            "1995-12-19T16:39:57-08:00",
+        ])
+        .success();
+    insta::assert_snapshot!(get_log(&work_dir), @r"
+    @  Commit ID: e9c9f6ea8583fe636a997bd212306a7f12cbafe7
+    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    │  Bookmarks: c
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (1995-12-19 16:39:57.000 -08:00)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    │  Bookmarks: b
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
+    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    │  Bookmarks: a
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │
+    │      (no description set)
+    │
+    ◆  Commit ID: 0000000000000000000000000000000000000000
+       Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+       Author   : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+       Committer: (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+
+           (no description set)
+
+    [EOF]
+    ");
+
+    // invalid committer timestamp gives an error
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    let output = work_dir.run_jj(["metaedit", "--committer-timestamp", "aaaaaa"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    error: invalid value 'aaaaaa' for '--committer-timestamp <COMMITTER_TIMESTAMP>': input contains invalid characters
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
 }
 
 #[test]
@@ -435,6 +491,44 @@ fn test_squash_option_mutual_exclusion() {
     [EOF]
     [exit status: 2]
     ");
+}
+
+#[test]
+fn test_timestamp_option_conflicts() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["commit", "-m=a"]).success();
+    work_dir.run_jj(["describe", "-m=b"]).success();
+
+    // --committer-timestamp conflicts with --update-committer-timestamp
+    insta::assert_snapshot!(work_dir.run_jj([
+        "metaedit",
+        "--committer-timestamp",
+        "2020-01-01T10:00:00+00:00",
+        "--update-committer-timestamp",
+    ]), @r"
+    ------- stderr -------
+    error: the argument '--committer-timestamp <COMMITTER_TIMESTAMP>' cannot be used with '--update-committer-timestamp'
+
+    Usage: jj metaedit --committer-timestamp <COMMITTER_TIMESTAMP> [REVSETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    // Valid combination: --author-timestamp and --committer-timestamp can be used
+    // together
+    work_dir
+        .run_jj([
+            "metaedit",
+            "--author-timestamp",
+            "2020-05-01T15:30:00+00:00",
+            "--committer-timestamp",
+            "2020-06-01T16:45:00+00:00",
+        ])
+        .success();
 }
 
 #[test]

@@ -89,10 +89,20 @@ pub(crate) struct MetaeditArgs {
     /// 2000-01-23T01:23:45+09:00)
     #[arg(
         long,
-        conflicts_with = "update_author_timestamp",
+        conflicts_with_all = ["update_author_timestamp"],
         value_parser = parse_datetime
     )]
     author_timestamp: Option<Timestamp>,
+
+    /// Set the committer date to the given date either human
+    /// readable, eg Sun, 23 Jan 2000 01:23:45 JST) or as a time stamp, eg
+    /// 2000-01-23T01:23:45+09:00)
+    #[arg(
+        long,
+        conflicts_with_all = ["update_committer_timestamp"],
+        value_parser = parse_datetime
+    )]
+    committer_timestamp: Option<Timestamp>,
 
     /// Update the committer timestamp
     ///
@@ -178,6 +188,14 @@ pub(crate) fn cmd_metaedit(
                     || new_author.timestamp != commit_builder.author().timestamp
                 {
                     commit_builder = commit_builder.set_author(new_author);
+                    has_changes = true;
+                }
+
+                // Handle committer timestamp
+                if let Some(committer_date) = args.committer_timestamp {
+                    let mut new_committer = commit_builder.committer().clone();
+                    new_committer.timestamp = committer_date;
+                    commit_builder = commit_builder.set_committer(new_committer);
                     has_changes = true;
                 }
 
