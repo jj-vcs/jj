@@ -1977,6 +1977,7 @@ pub fn add_remote(
         .with_fetch_tags(fetch_tags)
         .with_refspecs(fetch_refspecs, gix::remote::Direction::Fetch)
         .expect("previously-parsed refspecs to be valid");
+
     let mut config = git_repo.config_snapshot().clone();
     save_remote(&mut config, remote_name, &mut remote)?;
     save_git_config(&config).map_err(GitRemoteManagementError::GitConfigSaveError)?;
@@ -2140,45 +2141,20 @@ fn rename_remote_git_refs(
     Ok(())
 }
 
-/// Set the `url` to be used when fetching data from a remote.
-///
-/// Shim for the missing `gix::Remote::fetch_url` API.
-///
-/// **TODO:** Upstream an implementation of this to `gix`.
-fn gix_remote_with_fetch_url<Url, E>(
-    remote: gix::Remote,
-    url: Url,
-) -> Result<gix::Remote, gix::remote::init::Error>
-where
-    Url: TryInto<gix::Url, Error = E>,
-    gix::url::parse::Error: From<E>,
-{
-    let mut new_remote = remote.repo().remote_at(url)?;
-    // Copy the existing data from `remote`.
-    //
-    // We don’t copy the push URL, as there does not seem to be any way to reliably
-    // detect whether one is present with the current API, and `jj git remote
-    // set-url` refuses to work with them anyway.
-    new_remote = new_remote.with_fetch_tags(remote.fetch_tags());
-    for direction in [gix::remote::Direction::Fetch, gix::remote::Direction::Push] {
-        new_remote
-            .replace_refspecs(
-                remote
-                    .refspecs(direction)
-                    .iter()
-                    .map(|refspec| refspec.to_ref().to_bstring()),
-                direction,
-            )
-            .expect("existing refspecs to be valid");
-    }
-    Ok(new_remote)
-}
-
-pub fn set_remote_url(
+/// Sets the new URLs on the remote. If a URL of given kind is not provided, it
+/// is not changed. I.e. it is not possible to remove a fetch/push URL from a
+/// remote using this method.
+pub fn set_remote_urls(
     store: &Store,
     remote_name: &RemoteName,
-    new_remote_url: &str,
+    new_url: Option<&str>,
+    new_push_url: Option<&str>,
 ) -> Result<(), GitRemoteManagementError> {
+    // quick sanity check
+    if new_url.is_none() && new_push_url.is_none() {
+        return Ok(());
+    }
+
     let git_repo = get_git_repo(store)?;
 
     validate_remote_name(remote_name)?;
@@ -2190,14 +2166,17 @@ pub fn set_remote_url(
     };
     let mut remote = result.map_err(GitRemoteManagementError::from_git)?;
 
-    if remote.url(gix::remote::Direction::Push) != remote.url(gix::remote::Direction::Fetch) {
-        return Err(GitRemoteManagementError::NonstandardConfiguration(
-            remote_name.to_owned(),
-        ));
+    if let Some(url) = new_url {
+        remote = remote
+            .with_url(url)
+            .map_err(GitRemoteManagementError::from_git)?;
     }
 
-    remote = gix_remote_with_fetch_url(remote, new_remote_url)
-        .map_err(GitRemoteManagementError::from_git)?;
+    if let Some(url) = new_push_url {
+        remote = remote
+            .with_push_url(url)
+            .map_err(GitRemoteManagementError::from_git)?;
+    }
 
     let mut config = git_repo.config_snapshot().clone();
     save_remote(&mut config, remote_name, &mut remote)?;
