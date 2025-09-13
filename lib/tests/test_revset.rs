@@ -426,13 +426,11 @@ fn test_resolve_symbol_divergent_change_id() {
         resolve_symbol(tx.repo(), &format!("{change_id}")),
         Err(RevsetResolutionError::DivergentChangeId { symbol, targets })
             if symbol == change_id.to_string()
-                && targets == vec![commit1.id().clone(), commit2.id().clone()]
+                && targets == vec![commit2.id().clone(), commit1.id().clone()]
     );
     assert_eq!(
         resolve_symbol(tx.repo(), &format!("change_id({change_id})")).unwrap(),
-        // The order is unspecified at resolution stage, but the current index
-        // implementation returns commit ids in ascending position order.
-        vec![commit1.id().clone(), commit2.id().clone()]
+        vec![commit2.id().clone(), commit1.id().clone()]
     );
 }
 
@@ -464,13 +462,13 @@ fn test_resolve_symbol_in_different_disambiguation_context() {
     let change_hex = commit2.change_id().reverse_hex();
     assert_eq!(
         symbol_resolver
-            .resolve_symbol(repo2.as_ref(), &change_hex[0..1])
+            .resolve_symbol(repo2.as_ref(), &change_hex[0..1], None)
             .unwrap(),
         commit2.id().clone()
     );
     assert_eq!(
         symbol_resolver
-            .resolve_symbol(repo2.as_ref(), &commit2.id().hex()[0..1])
+            .resolve_symbol(repo2.as_ref(), &commit2.id().hex()[0..1], None)
             .unwrap(),
         commit2.id().clone()
     );
@@ -478,7 +476,7 @@ fn test_resolve_symbol_in_different_disambiguation_context() {
     // Change ID is disambiguated within repo2, then resolved in repo1.
     assert_eq!(
         symbol_resolver
-            .resolve_symbol(repo1.as_ref(), &change_hex[0..1])
+            .resolve_symbol(repo1.as_ref(), &change_hex[0..1], None)
             .unwrap(),
         commit1.id().clone()
     );
@@ -486,7 +484,7 @@ fn test_resolve_symbol_in_different_disambiguation_context() {
     // Commit ID can be found in the disambiguation index, but doesn't exist in
     // repo1.
     assert_matches!(
-        symbol_resolver.resolve_symbol(repo1.as_ref(), &commit2.id().hex()[0..1]),
+        symbol_resolver.resolve_symbol(repo1.as_ref(), &commit2.id().hex()[0..1], None),
         Err(RevsetResolutionError::NoSuchRevision { .. })
     );
 }

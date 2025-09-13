@@ -17,8 +17,8 @@
 # Unique prefixes and the rest for change & commit ids
 "prefix" = { bold = true }
 "rest" = "bright black"
-"divergent rest" = "red"
-"divergent prefix" = { fg = "red", underline = true }
+"generation" = { bold = true }
+"divergent prefix" = { bold = true }
 "hidden prefix" = "default"
 
 "author" = "yellow"
