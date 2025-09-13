@@ -467,7 +467,7 @@ fn select_diff(
             }
         };
         let selected_tree_id =
-            diff_selector.select(&parent_tree, &source_tree, matcher, format_instructions)?;
+            diff_selector.select([&parent_tree, &source_tree], matcher, format_instructions)?;
         let selected_tree = tx.repo().store().get_root_tree(&selected_tree_id)?;
         source_commits.push(CommitWithSelection {
             commit: source.clone(),

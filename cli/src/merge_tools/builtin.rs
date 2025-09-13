@@ -538,8 +538,7 @@ fn override_file_executable_bit(
 }
 
 pub fn edit_diff_builtin(
-    left_tree: &MergedTree,
-    right_tree: &MergedTree,
+    [left_tree, right_tree]: [&MergedTree; 2],
     matcher: &dyn Matcher,
     conflict_marker_style: ConflictMarkerStyle,
 ) -> Result<MergedTreeId, BuiltinToolError> {

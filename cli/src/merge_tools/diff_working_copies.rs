@@ -17,7 +17,6 @@ use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::Matcher;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::TreeDiffEntry;
-use jj_lib::store::Store;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::SnapshotOptions;
 use pollster::FutureExt as _;
@@ -58,7 +57,7 @@ impl DiffWorkingCopies {
         self._temp_dir.path()
     }
 
-    pub fn to_command_variables(&self, relative: bool) -> HashMap<&'static str, &str> {
+    pub fn to_command_variables(&self, relative: bool) -> HashMap<&'static str, String> {
         let mut left_wc_dir = self.left.working_copy_path();
         let mut right_wc_dir = self.right.working_copy_path();
         if relative {
@@ -70,8 +69,8 @@ impl DiffWorkingCopies {
                 .expect("path should be relative to temp_dir");
         }
         let mut result = maplit::hashmap! {
-            "left" => left_wc_dir.to_str().expect("temp_dir should be valid utf-8"),
-            "right" => right_wc_dir.to_str().expect("temp_dir should be valid utf-8"),
+            "left" => left_wc_dir.to_str().expect("temp_dir should be valid utf-8").to_owned(),
+            "right" => right_wc_dir.to_str().expect("temp_dir should be valid utf-8").to_owned(),
         };
         if let Some(output_state) = &self.output {
             result.insert(
@@ -79,7 +78,8 @@ impl DiffWorkingCopies {
                 output_state
                     .working_copy_path()
                     .to_str()
-                    .expect("temp_dir should be valid utf-8"),
+                    .expect("temp_dir should be valid utf-8")
+                    .to_owned(),
             );
         }
         result
@@ -126,13 +126,12 @@ pub(crate) enum DiffType {
 /// Check out the two trees in temporary directories. Only include changed files
 /// in the sparse checkout patterns.
 pub(crate) fn check_out_trees(
-    store: &Arc<Store>,
-    left_tree: &MergedTree,
-    right_tree: &MergedTree,
+    [left_tree, right_tree]: [&MergedTree; 2],
     matcher: &dyn Matcher,
     diff_type: DiffType,
     conflict_marker_style: ConflictMarkerStyle,
 ) -> Result<DiffWorkingCopies, DiffCheckoutError> {
+    let store = left_tree.store();
     let changed_files: Vec<_> = left_tree
         .diff_stream(right_tree, matcher)
         .map(|TreeDiffEntry { path, .. }| path)
@@ -181,22 +180,13 @@ impl DiffEditWorkingCopies {
     /// Checks out the trees, populates JJ_INSTRUCTIONS, and makes appropriate
     /// sides readonly.
     pub fn check_out(
-        store: &Arc<Store>,
-        left_tree: &MergedTree,
-        right_tree: &MergedTree,
+        trees: [&MergedTree; 2],
         matcher: &dyn Matcher,
         diff_type: DiffType,
         instructions: Option<&str>,
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, DiffEditError> {
-        let working_copies = check_out_trees(
-            store,
-            left_tree,
-            right_tree,
-            matcher,
-            diff_type,
-            conflict_marker_style,
-        )?;
+        let working_copies = check_out_trees(trees, matcher, diff_type, conflict_marker_style)?;
         working_copies.set_left_readonly()?;
         if diff_type == DiffType::ThreeWay {
             working_copies.set_right_readonly()?;

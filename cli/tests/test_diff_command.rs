@@ -3273,6 +3273,50 @@ fn test_diff_do_chdir() {
 }
 
 #[test]
+fn test_diff_external_available_width() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("merge-tools.echo.diff-args = ['$width']");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("file1", "file1\n");
+    work_dir.run_jj(["new", "root()"]).success();
+    work_dir.write_file("file2", "file2\n");
+
+    // Directory diff
+    let output = work_dir.run_jj_with(|cmd| cmd.args(["diff", "--tool=echo"]).env("COLUMNS", "50"));
+    insta::assert_snapshot!(output, @r"
+    50
+    [EOF]
+    ");
+
+    // File-by-file diff
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args(["diff", "--tool=echo"])
+            .arg("--config=merge-tools.echo.diff-invocation-mode=file-by-file")
+            .env("COLUMNS", "50")
+    });
+    insta::assert_snapshot!(output, @r"
+    50
+    [EOF]
+    ");
+
+    // Graph width should be subtracted
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args(["log", "--tool=echo", "-T''"])
+            .env("COLUMNS", "50")
+    });
+    insta::assert_snapshot!(output, @r"
+    @
+    │  47
+    │ ○
+    ├─╯  45
+    ◆
+       47
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_diff_external_file_by_file_tool() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();

@@ -2958,8 +2958,7 @@ impl DiffSelector {
     /// Only files matching the `matcher` will be copied to the new tree.
     pub fn select(
         &self,
-        left_tree: &MergedTree,
-        right_tree: &MergedTree,
+        [left_tree, right_tree]: [&MergedTree; 2],
         matcher: &dyn Matcher,
         format_instructions: impl FnOnce() -> String,
     ) -> Result<MergedTreeId, CommandError> {
@@ -2971,7 +2970,7 @@ impl DiffSelector {
                 // whereas we want to update the left tree. Unmatched paths
                 // shouldn't be based off the right tree.
                 let right_tree = right_tree.store().get_root_tree(&selected_tree_id)?;
-                Ok(editor.edit(left_tree, &right_tree, matcher, format_instructions)?)
+                Ok(editor.edit([left_tree, &right_tree], matcher, format_instructions)?)
             }
         }
     }

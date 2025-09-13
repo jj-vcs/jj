@@ -515,6 +515,7 @@ impl<'a> DiffRenderer<'a> {
                                 path_converter,
                                 tool,
                                 self.conflict_marker_style,
+                                width,
                             )
                             .await
                         }
@@ -523,11 +524,11 @@ impl<'a> DiffRenderer<'a> {
                             generate_diff(
                                 ui,
                                 writer.as_mut(),
-                                from_tree,
-                                to_tree,
+                                [from_tree, to_tree],
                                 matcher,
                                 tool,
                                 self.conflict_marker_style,
+                                width,
                             )
                             .map_err(DiffRenderError::DiffGenerate)
                         }
@@ -1478,6 +1479,7 @@ pub async fn show_color_words_diff(
     Ok(())
 }
 
+#[expect(clippy::too_many_arguments)]
 pub async fn show_file_by_file_diff(
     ui: &Ui,
     formatter: &mut dyn Formatter,
@@ -1486,6 +1488,7 @@ pub async fn show_file_by_file_diff(
     path_converter: &RepoPathUiConverter,
     tool: &ExternalMergeTool,
     marker_style: ConflictMarkerStyle,
+    width: usize,
 ) -> Result<(), DiffRenderError> {
     let materialize_options = ConflictMaterializeOptions {
         marker_style,
@@ -1537,11 +1540,18 @@ pub async fn show_file_by_file_diff(
         let right_path = create_file(right_path, &right_wc_dir, right_value)?;
         let patterns = &maplit::hashmap! {
             "left" => left_path
-                .strip_prefix(temp_dir.path()).expect("path should be relative to temp_dir")
-                .to_str().expect("temp_dir should be valid utf-8"),
+                .strip_prefix(temp_dir.path())
+                .expect("path should be relative to temp_dir")
+                .to_str()
+                .expect("temp_dir should be valid utf-8")
+                .to_owned(),
             "right" => right_path
-                .strip_prefix(temp_dir.path()).expect("path should be relative to temp_dir")
-                .to_str().expect("temp_dir should be valid utf-8"),
+                .strip_prefix(temp_dir.path())
+                .expect("path should be relative to temp_dir")
+                .to_str()
+                .expect("temp_dir should be valid utf-8")
+                .to_owned(),
+            "width" => width.to_string(),
         };
 
         let mut writer = formatter.raw()?;
