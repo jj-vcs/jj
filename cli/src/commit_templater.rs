@@ -2747,7 +2747,7 @@ mod tests {
                 revset_parse_context,
                 &self.id_prefix_context,
                 self.immutable_expression.clone(),
-                ConflictMarkerStyle::default(),
+                ConflictMarkerStyle::Diff,
                 &[] as &[Box<dyn CommitTemplateLanguageExtension>],
             );
             // Not using .extend() to infer lifetime of f

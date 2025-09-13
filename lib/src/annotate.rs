@@ -33,14 +33,17 @@ use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::CommitId;
 use crate::commit::Commit;
+use crate::conflicts::ConflictMarkerStyle;
 use crate::conflicts::ConflictMaterializeOptions;
 use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::materialize_merge_result_to_bytes;
 use crate::conflicts::materialize_tree_value;
 use crate::diff::Diff;
 use crate::diff::DiffHunkKind;
+use crate::files::FileMergeHunkLevel;
 use crate::fileset::FilesetExpression;
 use crate::graph::GraphEdge;
+use crate::merge::SameChange;
 use crate::merged_tree::MergedTree;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
@@ -50,6 +53,7 @@ use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetFilterPredicate;
 use crate::store::Store;
+use crate::tree_merge::MergeOptions;
 
 /// Annotation results for a specific file
 #[derive(Clone, Debug)]
@@ -440,10 +444,18 @@ async fn get_file_contents(
     let effective_file_value = materialize_tree_value(store, path, file_value).await?;
     match effective_file_value {
         MaterializedTreeValue::File(mut file) => Ok(file.read_all(path).await?.into()),
-        MaterializedTreeValue::FileConflict(file) => Ok(materialize_merge_result_to_bytes(
-            &file.contents,
-            &ConflictMaterializeOptions::default(),
-        )),
+        MaterializedTreeValue::FileConflict(file) => {
+            // TODO: track line origins without materializing
+            let options = ConflictMaterializeOptions {
+                marker_style: ConflictMarkerStyle::Diff,
+                marker_len: None,
+                merge: MergeOptions {
+                    hunk_level: FileMergeHunkLevel::Line,
+                    same_change: SameChange::Accept,
+                },
+            };
+            Ok(materialize_merge_result_to_bytes(&file.contents, &options))
+        }
         _ => Ok(BString::default()),
     }
 }
