@@ -3785,6 +3785,7 @@ fn test_fetch_with_fetch_tags_override() {
         tx.repo_mut(),
         "origin".as_ref(),
         &source_git_repo.path().display().to_string(),
+        None,
         gix::remote::fetch::Tags::None,
         &StringExpression::all(),
     )
@@ -3825,6 +3826,7 @@ fn test_fetch_with_fetch_tags_override() {
         tx.repo_mut(),
         "originAllTags".as_ref(),
         &source_git_repo.path().display().to_string(),
+        None,
         gix::remote::fetch::Tags::All,
         &StringExpression::all(),
     )
@@ -4893,6 +4895,7 @@ fn test_remote_remove_refs() {
         tx.repo_mut(),
         "foo".as_ref(),
         "https://example.com/",
+        None,
         Default::default(),
         &StringExpression::all(),
     )
@@ -4943,6 +4946,7 @@ fn test_remote_rename_refs() {
         tx.repo_mut(),
         "foo".as_ref(),
         "https://example.com/",
+        None,
         Default::default(),
         &StringExpression::all(),
     )
@@ -5020,6 +5024,7 @@ fn test_remote_add_with_tags_specification() {
             tx.repo_mut(),
             remote_name.as_ref(),
             "https://example.com/",
+            None,
             fetch_tags,
             &StringExpression::all(),
         )
@@ -5056,6 +5061,7 @@ fn test_remote_add_with_refspecs() {
         tx.repo_mut(),
         "origin".as_ref(),
         "https://example.com/",
+        None,
         gix::remote::fetch::Tags::default(),
         &bookmark_expr,
     )
@@ -5147,8 +5153,9 @@ fn test_set_remote_urls() {
         tx.repo_mut(),
         remote_name.as_ref(),
         "https://example.com/repo/path",
-        gix::remote::fetch::Tags::None,
         None,
+        gix::remote::fetch::Tags::None,
+        &StringExpression::all(),
     )
     .unwrap();
 

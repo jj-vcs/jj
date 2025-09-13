@@ -49,6 +49,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   more information, and [#3502](https://github.com/jj-vcs/jj/issues/3502) for
   motivation.
 
+* `jj git remote` family of commands now supports different fetch and push URLs.
+
 ### Breaking changes
 
 * In [filesets or path patterns](docs/filesets.md#file-patterns), glob matching
