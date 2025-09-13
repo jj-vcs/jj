@@ -35,6 +35,7 @@ use jj_lib::fileset::FilePatternParseError;
 use jj_lib::fileset::FilesetParseError;
 use jj_lib::fileset::FilesetParseErrorKind;
 use jj_lib::fix::FixError;
+use jj_lib::gitattributes::GitAttributesError;
 use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::op_heads_store::OpHeadResolutionError;
 use jj_lib::op_heads_store::OpHeadsStoreError;
@@ -713,6 +714,12 @@ impl From<WorkingCopyStateError> for CommandError {
 impl From<GitIgnoreError> for CommandError {
     fn from(err: GitIgnoreError) -> Self {
         user_error_with_message("Failed to process .gitignore.", err)
+    }
+}
+
+impl From<GitAttributesError> for CommandError {
+    fn from(err: GitAttributesError) -> Self {
+        user_error_with_message("Failed to process .gitattributes.", err)
     }
 }
 

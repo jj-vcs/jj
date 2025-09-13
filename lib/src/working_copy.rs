@@ -29,6 +29,8 @@ use crate::backend::BackendError;
 use crate::backend::MergedTreeId;
 use crate::commit::Commit;
 use crate::dag_walk;
+use crate::gitattributes::GitAttributesError;
+use crate::gitattributes::GitAttributesFile;
 use crate::gitignore::GitIgnoreError;
 use crate::gitignore::GitIgnoreFile;
 use crate::matchers::EverythingMatcher;
@@ -180,6 +182,9 @@ pub enum SnapshotError {
     /// Checking path with ignore patterns failed.
     #[error(transparent)]
     GitIgnoreError(#[from] GitIgnoreError),
+    /// Checking path with gitattributes patterns failed.
+    #[error(transparent)]
+    GitAttributesError(#[from] GitAttributesError),
     /// Failed to load the working copy state.
     #[error(transparent)]
     WorkingCopyStateError(#[from] WorkingCopyStateError),
@@ -204,6 +209,8 @@ pub struct SnapshotOptions<'a> {
     // because the TreeState may be long-lived if the library is used in a
     // long-lived process.
     pub base_ignores: Arc<GitIgnoreFile>,
+    /// Used for ignoring LFS files - if the setting isn't enabled, this is None
+    pub base_attributes: Arc<GitAttributesFile>,
     /// A callback for the UI to display progress.
     pub progress: Option<&'a SnapshotProgress<'a>>,
     /// For new files that are not already tracked, start tracking them if they
@@ -222,6 +229,7 @@ impl SnapshotOptions<'_> {
     pub fn empty_for_test() -> Self {
         Self {
             base_ignores: GitIgnoreFile::empty(),
+            base_attributes: Arc::new(GitAttributesFile::default()),
             progress: None,
             start_tracking_matcher: &EverythingMatcher,
             max_new_file_size: u64::MAX,
