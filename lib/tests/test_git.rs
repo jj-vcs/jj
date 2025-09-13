@@ -26,6 +26,7 @@ use std::sync::mpsc;
 use std::thread;
 
 use assert_matches::assert_matches;
+use gix::refspec::RefSpec;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::ChangeId;
@@ -5027,4 +5028,147 @@ fn auto_track_all() -> HashMap<RemoteNameBuf, RemoteSettings> {
         .into_iter()
         .map(|name| (name.into(), settings.clone()))
         .collect()
+}
+
+#[track_caller]
+fn assert_fetch_and_push_urls(
+    repo: &Arc<ReadonlyRepo>,
+    remote_name: &str,
+    expected_fetch_url: Option<&str>,
+    expected_push_url: Option<&str>,
+    expected_fetch_refs: &[RefSpec],
+    expected_push_refs: &[RefSpec],
+) {
+    let git_repo = get_git_repo(repo);
+    let remote = git_repo
+        .find_remote(remote_name)
+        .expect("unable to find remote");
+    let actual_fetch_url = remote.url(gix::remote::Direction::Fetch);
+    let actual_push_url = remote.url(gix::remote::Direction::Push);
+
+    let expected_fetch_url = expected_fetch_url
+        .map(|u| gix::Url::try_from(u).expect("failed to parse the expected fetch url"));
+    let expected_push_url = expected_push_url
+        .map(|u| gix::Url::try_from(u).expect("failed to parse the expected push url"));
+
+    assert_eq!(actual_fetch_url, expected_fetch_url.as_ref());
+    assert_eq!(actual_push_url, expected_push_url.as_ref());
+    assert_eq!(
+        remote.refspecs(gix::remote::Direction::Fetch),
+        expected_fetch_refs
+    );
+    assert_eq!(
+        remote.refspecs(gix::remote::Direction::Push),
+        expected_push_refs
+    );
+}
+
+fn get_remote_refspecs(
+    repo: &Arc<ReadonlyRepo>,
+    remote_name: &str,
+) -> (Vec<RefSpec>, Vec<RefSpec>) {
+    let git_repo = get_git_repo(repo);
+    let remote = git_repo
+        .find_remote(remote_name)
+        .expect("unable to find remote");
+    let fetch_refspecs = remote.refspecs(gix::remote::Direction::Fetch).to_vec();
+    let push_refspecs = remote.refspecs(gix::remote::Direction::Push).to_vec();
+
+    (fetch_refspecs, push_refspecs)
+}
+
+#[test]
+fn test_set_remote_urls() {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let remote_name = "foo";
+    git::add_remote(
+        tx.repo_mut(),
+        remote_name.as_ref(),
+        "https://example.com/repo/path",
+        gix::remote::fetch::Tags::None,
+        None,
+    )
+    .unwrap();
+
+    // test initial state after adding the remote
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    let (expected_fetch_refspecs, expected_push_specs) = get_remote_refspecs(repo, remote_name);
+
+    assert_fetch_and_push_urls(
+        repo,
+        remote_name,
+        Some("https://example.com/repo/path"),
+        Some("https://example.com/repo/path"),
+        &expected_fetch_refspecs,
+        &expected_push_specs,
+    );
+
+    // test setting just the push url
+
+    git::set_remote_urls(
+        repo.store(),
+        remote_name.as_ref(),
+        None,
+        Some("git@example.com:repo/path"),
+    )
+    .unwrap();
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+    assert_fetch_and_push_urls(
+        repo,
+        remote_name,
+        Some("https://example.com/repo/path"),
+        Some("git@example.com:repo/path"),
+        &expected_fetch_refspecs,
+        &expected_push_specs,
+    );
+
+    // test setting just the fetch url
+
+    git::set_remote_urls(
+        repo.store(),
+        remote_name.as_ref(),
+        Some("https://example.com/repo/path2"),
+        None,
+    )
+    .unwrap();
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+    assert_fetch_and_push_urls(
+        repo,
+        remote_name,
+        Some("https://example.com/repo/path2"),
+        Some("git@example.com:repo/path"),
+        &expected_fetch_refspecs,
+        &expected_push_specs,
+    );
+
+    // test setting both the fetch and push urls
+
+    git::set_remote_urls(
+        repo.store(),
+        remote_name.as_ref(),
+        Some("https://example.com/repo/path3"),
+        Some("git@example.com:repo/path3"),
+    )
+    .unwrap();
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+    assert_fetch_and_push_urls(
+        repo,
+        remote_name,
+        Some("https://example.com/repo/path3"),
+        Some("git@example.com:repo/path3"),
+        &expected_fetch_refspecs,
+        &expected_push_specs,
+    );
 }
