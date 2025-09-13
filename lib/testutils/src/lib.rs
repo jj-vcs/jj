@@ -44,6 +44,8 @@ use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
 use jj_lib::git_backend::GitBackend;
+use jj_lib::gitignore::GitIgnoreFile;
+use jj_lib::matchers::EverythingMatcher;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::MutableRepo;
@@ -123,6 +125,16 @@ pub fn base_user_config() -> StackedConfig {
 /// needed to run basic operations.
 pub fn user_settings() -> UserSettings {
     UserSettings::from_config(base_user_config()).unwrap()
+}
+
+/// Creates [`SnapshotOptions`] for use in tests.
+pub fn empty_snapshot_options() -> SnapshotOptions<'static> {
+    SnapshotOptions {
+        base_ignores: GitIgnoreFile::empty(),
+        progress: None,
+        start_tracking_matcher: &EverythingMatcher,
+        max_new_file_size: u64::MAX,
+    }
 }
 
 /// Panic if `CI` environment variable is set to a non-empty value
@@ -339,7 +351,7 @@ impl TestWorkspace {
 
     /// Like `snapshot_with_option()` but with default options
     pub fn snapshot(&mut self) -> Result<MergedTree, SnapshotError> {
-        let (tree_id, _stats) = self.snapshot_with_options(&SnapshotOptions::empty_for_test())?;
+        let (tree_id, _stats) = self.snapshot_with_options(&empty_snapshot_options())?;
         Ok(tree_id)
     }
 }

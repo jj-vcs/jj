@@ -61,6 +61,7 @@ use testutils::TestWorkspace;
 use testutils::commit_with_tree;
 use testutils::create_tree;
 use testutils::create_tree_with;
+use testutils::empty_snapshot_options;
 use testutils::repo_path;
 use testutils::repo_path_buf;
 use testutils::repo_path_component;
@@ -1029,7 +1030,7 @@ fn test_snapshot_racy_timestamps() {
             .unwrap();
         let (new_tree_id, _stats) = locked_ws
             .locked_wc()
-            .snapshot(&SnapshotOptions::empty_for_test())
+            .snapshot(&empty_snapshot_options())
             .unwrap();
         assert_ne!(new_tree_id, previous_tree_id);
         previous_tree_id = new_tree_id;
@@ -1062,7 +1063,7 @@ fn test_snapshot_special_file() {
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
     let (tree_id, _stats) = locked_ws
         .locked_wc()
-        .snapshot(&SnapshotOptions::empty_for_test())
+        .snapshot(&empty_snapshot_options())
         .unwrap();
     locked_ws.finish(OperationId::from_hex("abc123")).unwrap();
     let tree = store.get_root_tree(&tree_id).unwrap();
@@ -1349,7 +1350,7 @@ fn test_git_submodule(gitignore_content: &str) {
         .unwrap();
     let snapshot_options = SnapshotOptions {
         base_ignores,
-        ..SnapshotOptions::empty_for_test()
+        ..empty_snapshot_options()
     };
     let mut tx = repo.start_transaction();
 
@@ -1970,9 +1971,7 @@ fn test_fsmonitor() {
             .update_fsmonitor_settings_for_test(FsmonitorSettings::Test {
                 changed_files: fs_paths,
             });
-        let (tree_id, _stats) = locked_wc
-            .snapshot(&SnapshotOptions::empty_for_test())
-            .unwrap();
+        let (tree_id, _stats) = locked_wc.snapshot(&empty_snapshot_options()).unwrap();
         tree_id
     };
 
@@ -2046,7 +2045,7 @@ fn test_snapshot_max_new_file_size() {
     .unwrap();
     let options = SnapshotOptions {
         max_new_file_size: limit as u64,
-        ..SnapshotOptions::empty_for_test()
+        ..empty_snapshot_options()
     };
     test_workspace
         .snapshot_with_options(&options)

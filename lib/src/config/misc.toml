@@ -18,6 +18,8 @@ colocate = true
 
 [merge]
 hunk-level = "line"
+# TODO: Consider making "keep" the default, and maybe add an option to be used
+# when the user explicitly asks for conflict resolution. #6369
 same-change = "accept"
 
 [operation]

@@ -42,7 +42,7 @@ use crate::store::Store;
 use crate::tree::Tree;
 
 /// Whether to resolve conflict that makes the same change at all sides.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SameChange {
     /// Leaves same-change conflict unresolved.
@@ -53,9 +53,6 @@ pub enum SameChange {
     /// This matches what Git and Mercurial do (in the 3-way case at least), but
     /// not what Darcs does. It means that repeated 3-way merging of multiple
     /// trees may give different results depending on the order of merging.
-    // TODO: Consider making Keep the default, and maybe add an option to be
-    // used when the user explicitly asks for conflict resolution. #6369
-    #[default]
     Accept,
 }
 

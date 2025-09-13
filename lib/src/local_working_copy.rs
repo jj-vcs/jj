@@ -733,7 +733,7 @@ struct FsmonitorMatcher {
 }
 
 /// Settings specific to the tree state of the [`LocalWorkingCopy`] backend.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct TreeStateSettings {
     /// Conflict marker style to use when materializing files or when checking
     /// changed files.

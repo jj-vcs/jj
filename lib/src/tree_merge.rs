@@ -49,7 +49,7 @@ use crate::store::Store;
 use crate::tree::Tree;
 
 /// Options for tree/file conflict resolution.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct MergeOptions {
     /// Granularity of hunks when merging files.
     pub hunk_level: FileMergeHunkLevel,

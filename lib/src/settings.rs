@@ -77,18 +77,6 @@ impl GitSettings {
     }
 }
 
-impl Default for GitSettings {
-    fn default() -> Self {
-        Self {
-            auto_local_bookmark: false,
-            abandon_unreachable_commits: true,
-            executable_path: PathBuf::from("git"),
-            write_change_id_header: true,
-            colocate: true,
-        }
-    }
-}
-
 /// Commit signing settings, describes how to and if to sign commits.
 #[derive(Debug, Clone)]
 pub struct SignSettings {

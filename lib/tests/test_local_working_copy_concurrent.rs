@@ -18,12 +18,12 @@ use std::thread;
 use assert_matches::assert_matches;
 use jj_lib::repo::Repo as _;
 use jj_lib::working_copy::CheckoutError;
-use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::default_working_copy_factories;
 use testutils::TestWorkspace;
 use testutils::commit_with_tree;
 use testutils::create_tree;
+use testutils::empty_snapshot_options;
 use testutils::repo_path;
 use testutils::repo_path_buf;
 use testutils::write_working_copy_file;
@@ -143,7 +143,7 @@ fn test_checkout_parallel() {
                 let mut locked_ws = workspace.start_working_copy_mutation().unwrap();
                 let (new_tree_id, _stats) = locked_ws
                     .locked_wc()
-                    .snapshot(&SnapshotOptions::empty_for_test())
+                    .snapshot(&empty_snapshot_options())
                     .unwrap();
                 assert!(tree_ids.contains(&new_tree_id));
             });

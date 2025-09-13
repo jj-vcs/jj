@@ -35,7 +35,7 @@ pub struct WatchmanConfig {
 }
 
 /// The recognized kinds of filesystem monitors.
-#[derive(Eq, PartialEq, Clone, Debug, Default)]
+#[derive(Eq, PartialEq, Clone, Debug)]
 pub enum FsmonitorSettings {
     /// The Watchman filesystem monitor (<https://facebook.github.io/watchman/>).
     Watchman(WatchmanConfig),
@@ -51,7 +51,6 @@ pub enum FsmonitorSettings {
     /// also makes it possible to turn off the monitor on a case-by-case basis
     /// when the user gives an option like `--config=fsmonitor.backend=none`;
     /// useful when e.g. doing analysis of snapshot performance.
-    #[default]
     None,
 }
 

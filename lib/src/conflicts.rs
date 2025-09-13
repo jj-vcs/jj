@@ -283,11 +283,10 @@ pub fn resolve_file_executable(merge: &Merge<Option<bool>>) -> Option<bool> {
 }
 
 /// Describes what style should be used when materializing conflicts.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ConflictMarkerStyle {
     /// Style which shows a snapshot and a series of diffs to apply.
-    #[default]
     Diff,
     /// Style which shows a snapshot for each base and side.
     Snapshot,
@@ -296,7 +295,7 @@ pub enum ConflictMarkerStyle {
 }
 
 /// Options for conflict materialization.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct ConflictMaterializeOptions {
     pub marker_style: ConflictMarkerStyle,
     pub marker_len: Option<usize>,

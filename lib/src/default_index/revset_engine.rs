@@ -1494,6 +1494,8 @@ mod tests {
     use super::*;
     use crate::default_index::DefaultMutableIndex;
     use crate::default_index::readonly::FieldLengths;
+    use crate::files::FileMergeHunkLevel;
+    use crate::merge::SameChange;
 
     const TEST_FIELD_LENGTHS: FieldLengths = FieldLengths {
         commit_id: 3,
@@ -1881,7 +1883,10 @@ mod tests {
         let left2 = Merge::resolved(conflict2.first().clone());
         let diff = |needle: &str| {
             let pattern = StringPattern::substring(needle);
-            let options = MergeOptions::default();
+            let options = MergeOptions {
+                hunk_level: FileMergeHunkLevel::Line,
+                same_change: SameChange::Accept,
+            };
             diff_match_lines(&left1, &left2, &pattern, &options).unwrap()
         };
 
@@ -1903,7 +1908,10 @@ mod tests {
         let (conflict1, conflict2) = diff_match_lines_samples();
         let diff = |needle: &str| {
             let pattern = StringPattern::substring(needle);
-            let options = MergeOptions::default();
+            let options = MergeOptions {
+                hunk_level: FileMergeHunkLevel::Line,
+                same_change: SameChange::Accept,
+            };
             diff_match_lines(&conflict1, &conflict2, &pattern, &options).unwrap()
         };
 
@@ -1929,7 +1937,10 @@ mod tests {
         let base = Merge::resolved(conflict2.get_remove(0).unwrap().clone());
         let diff = |needle: &str| {
             let pattern = StringPattern::substring(needle);
-            let options = MergeOptions::default();
+            let options = MergeOptions {
+                hunk_level: FileMergeHunkLevel::Line,
+                same_change: SameChange::Accept,
+            };
             diff_match_lines(&base, &conflict2, &pattern, &options).unwrap()
         };
 

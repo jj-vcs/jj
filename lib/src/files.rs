@@ -263,11 +263,10 @@ where
 }
 
 /// Granularity of hunks when merging files.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum FileMergeHunkLevel {
     /// Splits into line hunks.
-    #[default]
     Line,
     /// Splits into word hunks.
     Word,
@@ -853,7 +852,10 @@ mod tests {
 
     #[test]
     fn test_merge_single_hunk() {
-        let options = MergeOptions::default();
+        let options = MergeOptions {
+            hunk_level: FileMergeHunkLevel::Line,
+            same_change: SameChange::Accept,
+        };
         let merge_hunks = |inputs: &_| merge_hunks(inputs, &options);
         // Unchanged and empty on all sides
         assert_eq!(
@@ -966,7 +968,10 @@ mod tests {
 
     #[test]
     fn test_merge_multi_hunk() {
-        let options = MergeOptions::default();
+        let options = MergeOptions {
+            hunk_level: FileMergeHunkLevel::Line,
+            same_change: SameChange::Accept,
+        };
         let merge_hunks = |inputs: &_| merge_hunks(inputs, &options);
         let merge = |inputs: &_| merge(inputs, &options);
         let try_merge = |inputs: &_| try_merge(inputs, &options);

@@ -9,7 +9,9 @@ use std::sync::Arc;
 use futures::StreamExt as _;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::conflicts::ConflictMarkerStyle;
+use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
+use jj_lib::local_working_copy::EolConversionMode;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateError;
 use jj_lib::local_working_copy::TreeStateSettings;
@@ -150,7 +152,8 @@ pub(crate) fn check_out_trees(
         std::fs::create_dir(&state_dir).map_err(DiffCheckoutError::SetUpDir)?;
         let tree_state_settings = TreeStateSettings {
             conflict_marker_style,
-            ..TreeStateSettings::default()
+            eol_conversion_mode: EolConversionMode::None,
+            fsmonitor_settings: FsmonitorSettings::None,
         };
         let mut state = TreeState::init(store.clone(), wc_path, state_dir, &tree_state_settings)?;
         state.set_sparse_patterns(changed_files.clone())?;

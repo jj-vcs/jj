@@ -31,7 +31,6 @@ use crate::commit::Commit;
 use crate::dag_walk;
 use crate::gitignore::GitIgnoreError;
 use crate::gitignore::GitIgnoreFile;
-use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
 use crate::op_store::OpStoreError;
 use crate::op_store::OperationId;
@@ -215,18 +214,6 @@ pub struct SnapshotOptions<'a> {
     /// (depending on implementation)
     /// return `SnapshotError::NewFileTooLarge`.
     pub max_new_file_size: u64,
-}
-
-impl SnapshotOptions<'_> {
-    /// Create an instance for use in tests.
-    pub fn empty_for_test() -> Self {
-        Self {
-            base_ignores: GitIgnoreFile::empty(),
-            progress: None,
-            start_tracking_matcher: &EverythingMatcher,
-            max_new_file_size: u64::MAX,
-        }
-    }
 }
 
 /// A callback for getting progress updates.
