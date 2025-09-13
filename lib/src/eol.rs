@@ -106,11 +106,10 @@ impl TargetEolStrategy {
 
 /// Configuring auto-converting CRLF line endings into LF when you add a file to
 /// the backend, and vice versa when it checks out code onto your filesystem.
-#[derive(Debug, PartialEq, Eq, Copy, Clone, serde::Deserialize, Default)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, serde::Deserialize)]
 #[serde(rename_all(deserialize = "kebab-case"))]
 pub enum EolConversionMode {
     /// Do not perform EOL conversion.
-    #[default]
     None,
     /// Only perform the CRLF to LF EOL conversion when writing to the backend
     /// store from the file system.
