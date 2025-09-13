@@ -16,6 +16,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Conflicts written by jj < 0.11 are no longer supported. They will now appear
   as regular files with a `.jjconflict` suffix and JSON contents.
 
+* The new command `jj git colocate` can show the colocation state of a
+repository and convert a non-colocated git repo into
+  a colocated repo and vice-versa (using the `--enable` and `--disable` flags
+  respectively).
+
 ### Deprecations
 
 * Various flags on `jj describe` and `jj commit` have been deprecated in favor
