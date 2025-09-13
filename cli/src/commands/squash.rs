@@ -189,11 +189,11 @@ pub(crate) fn cmd_squash(
 
     let mut workspace_command = command.workspace_helper(ui)?;
 
-    let mut sources: Vec<Commit>;
+    let mut sourcs: Vec<Commit>;
     let pre_existing_destination;
 
     if !args.from.is_empty() || args.into.is_some() || insert_destination_commit {
-        sources = if args.from.is_empty() {
+        sourcs = if args.from.is_empty() {
             workspace_command.parse_revset(ui, &RevisionArg::AT)?
         } else {
             workspace_command.parse_union_revsets(ui, &args.from)?
@@ -206,13 +206,13 @@ pub(crate) fn cmd_squash(
             let destination = workspace_command
                 .resolve_single_rev(ui, args.into.as_ref().unwrap_or(&RevisionArg::AT))?;
             // remove the destination from the sources
-            sources.retain(|source| source.id() != destination.id());
+            sourcs.retain(|source| source.id() != destination.id());
             pre_existing_destination = Some(destination);
         }
         // Reverse the set so we apply the oldest commits first. It shouldn't affect the
         // result, but it avoids creating transient conflicts and is therefore probably
         // a little faster.
-        sources.reverse();
+        sourcs.reverse();
     } else {
         let source = workspace_command
             .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
@@ -223,14 +223,14 @@ pub(crate) fn cmd_squash(
                 "Use `--into` to specify which parent to squash into",
             ));
         }
-        sources = vec![source];
+        sourcs = vec![source];
         pre_existing_destination = Some(parents.pop().unwrap());
     };
 
-    workspace_command.check_rewritable(sources.iter().chain(&pre_existing_destination).ids())?;
+    workspace_command.check_rewritable(sourcs.iter().chain(&pre_existing_destination).ids())?;
 
     // prepare the tx description before possibly rebasing the source commits
-    let source_ids: Vec<_> = sources.iter().ids().collect();
+    let source_ids: Vec<_> = sourcs.iter().ids().collect();
     let tx_description = if let Some(destination) = &pre_existing_destination {
         format!("squash commits into {}", destination.id().hex())
     } else {
@@ -283,7 +283,7 @@ pub(crate) fn cmd_squash(
                 num_rebased += 1;
                 Ok(())
             })?;
-        for source in &mut *sources {
+        for source in &mut *sourcs {
             if let Some(rewritten_source) = rewritten.remove(source.id()) {
                 *source = rewritten_source;
             }
@@ -301,7 +301,7 @@ pub(crate) fn cmd_squash(
     let text_editor = tx.base_workspace_helper().text_editor()?;
     let description = SquashedDescription::from_args(args);
 
-    let source_commits = select_diff(&tx, &sources, &destination, &matcher, &diff_selector)?;
+    let source_commits = select_diff(&tx, &sourcs, &destination, &matcher, &diff_selector)?;
     if let Some(squashed) = rewrite::squash_commits(
         tx.repo_mut(),
         &source_commits,
