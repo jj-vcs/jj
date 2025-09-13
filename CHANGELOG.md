@@ -42,6 +42,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added a new conditional configuration `--when.platforms` to include
   settings only on certain platforms.
 
+* `jj metaedit` has a new `--committer-timestamp` argument to set the committer
+  timestamp to a specific value
+
+* `jj metaedit` has a new `--timestamp` argument to set the both the committer
+  and author timestamps to the the same specific value
+
 ### Fixed bugs
 
 ## [0.33.0] - 2025-09-03

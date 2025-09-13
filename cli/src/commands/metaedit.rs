@@ -89,10 +89,31 @@ pub(crate) struct MetaeditArgs {
     /// 2000-01-23T01:23:45+09:00)
     #[arg(
         long,
-        conflicts_with = "update_author_timestamp",
+        conflicts_with_all = ["update_author_timestamp", "timestamp"],
         value_parser = parse_datetime
     )]
     author_timestamp: Option<Timestamp>,
+
+    /// Set both author and committer timestamps to the given date
+    ///
+    /// This is equivalent to using both --author-timestamp and
+    /// --committer-timestamp with the same timestamp value.
+    #[arg(
+        long,
+        conflicts_with_all = ["author_timestamp", "update_author_timestamp", "committer_timestamp", "update_committer_timestamp"],
+        value_parser = parse_datetime
+    )]
+    timestamp: Option<Timestamp>,
+
+    /// Set the committer date to the given date either human
+    /// readable, eg Sun, 23 Jan 2000 01:23:45 JST) or as a time stamp, eg
+    /// 2000-01-23T01:23:45+09:00)
+    #[arg(
+        long,
+        conflicts_with_all = ["update_committer_timestamp", "timestamp"],
+        value_parser = parse_datetime
+    )]
+    committer_timestamp: Option<Timestamp>,
 
     /// Update the committer timestamp
     ///
@@ -169,6 +190,10 @@ pub(crate) fn cmd_metaedit(
                 if let Some(author_date) = args.author_timestamp {
                     new_author.timestamp = author_date;
                 }
+                // Handle --timestamp (sets both author and committer)
+                if let Some(timestamp_date) = args.timestamp {
+                    new_author.timestamp = timestamp_date;
+                }
                 // If the old commit had an unset author, the commit builder
                 // may already have the author updated from the current config.
                 // Thus, compare to the actual old_author to correctly detect
@@ -178,6 +203,21 @@ pub(crate) fn cmd_metaedit(
                     || new_author.timestamp != commit_builder.author().timestamp
                 {
                     commit_builder = commit_builder.set_author(new_author);
+                    has_changes = true;
+                }
+
+                // Handle committer timestamp
+                if let Some(committer_date) = args.committer_timestamp {
+                    let mut new_committer = commit_builder.committer().clone();
+                    new_committer.timestamp = committer_date;
+                    commit_builder = commit_builder.set_committer(new_committer);
+                    has_changes = true;
+                }
+                // Handle --timestamp (sets both author and committer)
+                if let Some(timestamp_date) = args.timestamp {
+                    let mut new_committer = commit_builder.committer().clone();
+                    new_committer.timestamp = timestamp_date;
+                    commit_builder = commit_builder.set_committer(new_committer);
                     has_changes = true;
                 }
 

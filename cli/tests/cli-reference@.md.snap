@@ -1653,6 +1653,10 @@ Modify the metadata of a revision without changing its content
 
    This changes author name and email while retaining author timestamp for non-discardable commits.
 * `--author-timestamp <AUTHOR_TIMESTAMP>` — Set the author date to the given date either human readable, eg Sun, 23 Jan 2000 01:23:45 JST) or as a time stamp, eg 2000-01-23T01:23:45+09:00)
+* `--timestamp <TIMESTAMP>` — Set both author and committer timestamps to the given date
+
+   This is equivalent to using both --author-timestamp and --committer-timestamp with the same timestamp value.
+* `--committer-timestamp <COMMITTER_TIMESTAMP>` — Set the committer date to the given date either human readable, eg Sun, 23 Jan 2000 01:23:45 JST) or as a time stamp, eg 2000-01-23T01:23:45+09:00)
 * `--update-committer-timestamp` — Update the committer timestamp
 
    This updates the committer date to now, without modifying the committer.
