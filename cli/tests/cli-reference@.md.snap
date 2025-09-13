@@ -1592,6 +1592,9 @@ Add a Git remote
   - `none`:
     Do not fetch any tags
 
+* `--push-url <PUSH_URL>` — The URL used for push
+
+   Local path will be resolved to absolute form
 
 
 
