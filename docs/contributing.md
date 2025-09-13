@@ -240,6 +240,47 @@ to use" instructions](https://github.com/rui314/mold#how-to-use).
 On recent versions of MacOS, the default linker Rust uses is already
 multi-threaded. It should use all the CPU cores without any configuration.
 
+### Set up a RAM disk for faster tests on macOS
+
+`jj` tests can be sped up significantly on macOS by using a RAM disk
+instead of the usual `/tmp` directory. You can set this up as follows:
+
+```sh
+sudo mkdir -p /Volumes/RAMDisk
+sudo chmod a+wx /Volumes/RAMDisk
+sudo mount_tmpfs /Volumes/RAMDisk  # Add `-e` to make it case-sensitive
+```
+
+(The first two commands don't need sudo if you change the dir
+to somewhere in your HOME, the last one always does)
+
+Then, you can rust tests as, for example,
+
+```sh
+TMPDIR=/Volumes/RAMDisk cargo insta test --workspace --test-runner nextest
+```
+
+You can double-check whether the RAM disk is mounted with
+
+```sh
+mount | grep tmpfs
+```
+
+<details> <summary> Some details and speculation </summary>
+
+<!-- MkDocs doesn't support Markdown markup inside `details` :( -->
+
+Hard drive speed is not the issue here. Experimentally, when <code>/tmp</code>
+is physical, Ilya experienced the tests doing writes at 60MB/s (as reported by
+the Activity Monitor) on an SSD that should be many times as fast.
+
+Instead, it seems to have something to do with file locking and
+<code>fdatasync</code>. A likely curlprit is the presence of <a
+href="https://gregoryszorc.com/blog/2018/10/29/global-kernel-locks-in-apfs/">
+global kernel locks in APFS</a>.
+
+</details>
+
 ### Editor setup
 
 #### Visual Studio Code
