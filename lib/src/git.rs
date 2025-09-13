@@ -1945,6 +1945,7 @@ pub fn add_remote(
     mut_repo: &mut MutableRepo,
     remote_name: &RemoteName,
     url: &str,
+    push_url: Option<&str>,
     fetch_tags: gix::remote::fetch::Tags,
     branch_patterns: Option<&[StringPattern]>,
 ) -> Result<(), GitRemoteManagementError> {
@@ -1972,6 +1973,12 @@ pub fn add_remote(
         .with_fetch_tags(fetch_tags)
         .with_refspecs(fetch_refspecs, gix::remote::Direction::Fetch)
         .expect("previously-parsed refspecs to be valid");
+
+    if let Some(push_url) = push_url {
+        remote = remote
+            .with_push_url(push_url)
+            .map_err(GitRemoteManagementError::from_git)?;
+    }
 
     let mut config = git_repo.config_snapshot().clone();
     save_remote(&mut config, remote_name, &mut remote)?;

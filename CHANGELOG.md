@@ -14,6 +14,8 @@ The documentation has moved from <https://jj-vcs.github.io/jj/> to
 301 redirects are being issued towards the new domain, so any existing links
 should not be broken.
 
+* `jj git remote` family of commands now supports different fetch and push URLs.
+
 ### Breaking changes
 
 * In [filesets or path patterns](docs/filesets.md#file-patterns), glob matching

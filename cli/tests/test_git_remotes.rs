@@ -55,9 +55,20 @@ fn test_git_remotes() {
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["git", "remote", "add", "bar", "http://example.com/repo/bar"]);
     insta::assert_snapshot!(output, @"");
+    let output = work_dir.run_jj([
+        "git",
+        "remote",
+        "add",
+        "baz",
+        "http://example.com/repo/baz",
+        "--push-url",
+        "git@example.com:repo/baz",
+    ]);
+    insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["git", "remote", "list"]);
     insta::assert_snapshot!(output, @r"
     bar http://example.com/repo/bar
+    baz http://example.com/repo/baz (push: git@example.com:repo/baz)
     foo http://example.com/repo/foo
     [EOF]
     ");
@@ -66,6 +77,7 @@ fn test_git_remotes() {
     let output = work_dir.run_jj(["git", "remote", "list"]);
     insta::assert_snapshot!(output, @r"
     bar http://example.com/repo/bar
+    baz http://example.com/repo/baz (push: git@example.com:repo/baz)
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "remote", "remove", "nonexistent"]);
@@ -83,6 +95,10 @@ fn test_git_remotes() {
     [remote "bar"]
     	url = http://example.com/repo/bar
     	fetch = +refs/heads/*:refs/remotes/bar/*
+    [remote "baz"]
+    	url = http://example.com/repo/baz
+    	pushurl = git@example.com:repo/baz
+    	fetch = +refs/heads/*:refs/remotes/baz/*
     "#);
 }
 
