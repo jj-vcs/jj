@@ -565,3 +565,6 @@ git_format_patch_email_headers = '''
 # Gerrit change id is 40 chars, jj change id is 32, so we need some padding.
 # `6a6a6964` is the hexadecimal of `jjid` in ASCII, just to not pad with zeros.
 "format_gerrit_change_id_trailer(commit)" = '"Change-Id: I6a6a6964" ++ commit.change_id().normal_hex() ++ "\n"'
+
+"ndjson(obj)" = 'json(obj) ++ "\n"'
+"ndjson()" = 'ndjson(self)'
