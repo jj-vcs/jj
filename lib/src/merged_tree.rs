@@ -43,6 +43,7 @@ use crate::copies::CopiesTreeDiffStream;
 use crate::copies::CopyRecords;
 use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
+use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merge::MergeBuilder;
 use crate::merge::MergedTreeVal;
@@ -329,7 +330,7 @@ pub struct TreeDiffEntry {
     /// The path.
     pub path: RepoPathBuf,
     /// The resolved tree values if available.
-    pub values: BackendResult<(MergedTreeValue, MergedTreeValue)>,
+    pub values: BackendResult<Diff<MergedTreeValue>>,
 }
 
 /// Type alias for the result from `MergedTree::diff_stream()`. We use a
@@ -397,18 +398,18 @@ pub fn all_merged_tree_entries(
 fn merged_tree_entry_diff<'a>(
     trees1: &'a Merge<Tree>,
     trees2: &'a Merge<Tree>,
-) -> impl Iterator<Item = (&'a RepoPathComponent, MergedTreeVal<'a>, MergedTreeVal<'a>)> {
+) -> impl Iterator<Item = (&'a RepoPathComponent, Diff<MergedTreeVal<'a>>)> {
     itertools::merge_join_by(
         all_tree_entries(trees1),
         all_tree_entries(trees2),
         |(name1, _), (name2, _)| name1.cmp(name2),
     )
     .map(|entry| match entry {
-        EitherOrBoth::Both((name, value1), (_, value2)) => (name, value1, value2),
-        EitherOrBoth::Left((name, value1)) => (name, value1, Merge::absent()),
-        EitherOrBoth::Right((name, value2)) => (name, Merge::absent(), value2),
+        EitherOrBoth::Both((name, value1), (_, value2)) => (name, Diff::new(value1, value2)),
+        EitherOrBoth::Left((name, value1)) => (name, Diff::new(value1, Merge::absent())),
+        EitherOrBoth::Right((name, value2)) => (name, Diff::new(Merge::absent(), value2)),
     })
-    .filter(|(_, value1, value2)| value1 != value2)
+    .filter(|(_, diff)| diff.is_changed())
 }
 
 fn trees_value<'a>(trees: &'a Merge<Tree>, basename: &RepoPathComponent) -> MergedTreeVal<'a> {
@@ -567,7 +568,7 @@ pub struct TreeDiffIterator<'matcher> {
 }
 
 struct TreeDiffDir {
-    entries: Vec<(RepoPathBuf, MergedTreeValue, MergedTreeValue)>,
+    entries: Vec<(RepoPathBuf, Diff<MergedTreeValue>)>,
 }
 
 impl<'matcher> TreeDiffIterator<'matcher> {
@@ -608,10 +609,10 @@ impl TreeDiffDir {
         matcher: &dyn Matcher,
     ) -> Self {
         let mut entries = vec![];
-        for (name, before, after) in merged_tree_entry_diff(trees1, trees2) {
+        for (name, diff) in merged_tree_entry_diff(trees1, trees2) {
             let path = dir.join(name);
-            let tree_before = before.is_tree();
-            let tree_after = after.is_tree();
+            let tree_before = diff.before.is_tree();
+            let tree_after = diff.after.is_tree();
             // Check if trees and files match, but only if either side is a tree or a file
             // (don't query the matcher unnecessarily).
             let tree_matches = (tree_before || tree_after) && !matcher.visit(&path).is_nothing();
@@ -619,19 +620,19 @@ impl TreeDiffDir {
 
             // Replace trees or files that don't match by `Merge::absent()`
             let before = if (tree_before && tree_matches) || (!tree_before && file_matches) {
-                before
+                diff.before
             } else {
                 Merge::absent()
             };
             let after = if (tree_after && tree_matches) || (!tree_after && file_matches) {
-                after
+                diff.after
             } else {
                 Merge::absent()
             };
             if before.is_absent() && after.is_absent() {
                 continue;
             }
-            entries.push((path, before.cloned(), after.cloned()));
+            entries.push((path, Diff::new(before.cloned(), after.cloned())));
         }
         entries.reverse();
         Self { entries }
@@ -643,7 +644,7 @@ impl Iterator for TreeDiffIterator<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(top) = self.stack.last_mut() {
-            let (path, before, after) = match top.entries.pop() {
+            let (path, diff) = match top.entries.pop() {
                 Some(entry) => entry,
                 None => {
                     self.stack.pop().unwrap();
@@ -651,10 +652,10 @@ impl Iterator for TreeDiffIterator<'_> {
                 }
             };
 
-            if before.is_tree() || after.is_tree() {
+            if diff.before.is_tree() || diff.after.is_tree() {
                 let (before_tree, after_tree) = match (
-                    Self::trees(&self.store, &path, &before),
-                    Self::trees(&self.store, &path, &after),
+                    Self::trees(&self.store, &path, &diff.before),
+                    Self::trees(&self.store, &path, &diff.after),
                 ) {
                     (Ok(before_tree), Ok(after_tree)) => (before_tree, after_tree),
                     (Err(before_err), _) => {
@@ -674,10 +675,10 @@ impl Iterator for TreeDiffIterator<'_> {
                     TreeDiffDir::from_trees(&path, &before_tree, &after_tree, self.matcher);
                 self.stack.push(subdir);
             };
-            if before.is_file_like() || after.is_file_like() {
+            if diff.before.is_file_like() || diff.after.is_file_like() {
                 return Some(TreeDiffEntry {
                     path,
-                    values: Ok((before, after)),
+                    values: Ok(diff),
                 });
             }
         }
@@ -696,7 +697,7 @@ pub struct TreeDiffStreamImpl<'matcher> {
     /// order we want to emit them. If either side is a tree, there will be
     /// a corresponding entry in `pending_trees`. The item is ready to emit
     /// unless there's a smaller or equal path in `pending_trees`.
-    items: BTreeMap<RepoPathBuf, BackendResult<(MergedTreeValue, MergedTreeValue)>>,
+    items: BTreeMap<RepoPathBuf, BackendResult<Diff<MergedTreeValue>>>,
     // TODO: Is it better to combine this and `items` into a single map?
     #[expect(clippy::type_complexity)]
     pending_trees:
@@ -763,10 +764,10 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
     }
 
     fn add_dir_diff_items(&mut self, dir: &RepoPath, trees1: &Merge<Tree>, trees2: &Merge<Tree>) {
-        for (basename, before, after) in merged_tree_entry_diff(trees1, trees2) {
+        for (basename, diff) in merged_tree_entry_diff(trees1, trees2) {
             let path = dir.join(basename);
-            let tree_before = before.is_tree();
-            let tree_after = after.is_tree();
+            let tree_before = diff.before.is_tree();
+            let tree_after = diff.after.is_tree();
             // Check if trees and files match, but only if either side is a tree or a file
             // (don't query the matcher unnecessarily).
             let tree_matches =
@@ -775,12 +776,12 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
 
             // Replace trees or files that don't match by `Merge::absent()`
             let before = if (tree_before && tree_matches) || (!tree_before && file_matches) {
-                before
+                diff.before
             } else {
                 Merge::absent()
             };
             let after = if (tree_after && tree_matches) || (!tree_after && file_matches) {
-                after
+                diff.after
             } else {
                 Merge::absent()
             };
@@ -801,7 +802,7 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
 
             if before.is_file_like() || after.is_file_like() {
                 self.items
-                    .insert(path, Ok((before.cloned(), after.cloned())));
+                    .insert(path, Ok(Diff::new(before.cloned(), after.cloned())));
             }
         }
     }
@@ -882,9 +883,7 @@ fn stream_without_trees(stream: TreeDiffStream) -> TreeDiffStream {
                 merge
             }
         };
-        entry.values = entry
-            .values
-            .map(|(before, after)| (skip_tree(before), skip_tree(after)));
+        entry.values = entry.values.map(|diff| diff.map(skip_tree));
         entry
     }))
 }
@@ -927,19 +926,19 @@ impl Stream for DiffStreamForFileSystem<'_> {
             }
 
             match next.values {
-                Ok((before, after)) if before.is_tree() => {
-                    assert!(after.is_present());
+                Ok(diff) if diff.before.is_tree() => {
+                    assert!(diff.after.is_present());
                     assert!(self.held_file.is_none());
                     self.held_file = Some(TreeDiffEntry {
                         path: next.path,
-                        values: Ok((Merge::absent(), after)),
+                        values: Ok(Diff::new(Merge::absent(), diff.after)),
                     });
                 }
-                Ok((before, after)) if after.is_tree() => {
-                    assert!(before.is_present());
+                Ok(diff) if diff.after.is_tree() => {
+                    assert!(diff.before.is_present());
                     return Poll::Ready(Some(TreeDiffEntry {
                         path: next.path,
-                        values: Ok((before, Merge::absent())),
+                        values: Ok(Diff::new(diff.before, Merge::absent())),
                     }));
                 }
                 _ => {

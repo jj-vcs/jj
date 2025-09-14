@@ -234,7 +234,7 @@ pub async fn fix_files(
             values,
         }) = diff_stream.next().await
         {
-            let (_before, after) = values?;
+            let after = values?.after;
             // Deleted files have no file content to fix, and they have no terms in `after`,
             // so we don't add any files-to-fix for them. Conflicted files produce one
             // file-to-fix for each side of the conflict.
