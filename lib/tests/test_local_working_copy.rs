@@ -242,7 +242,10 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
                 )
             }
             Kind::Symlink => {
-                let id = store.write_symlink(path, "target").block_on().unwrap();
+                let id = store
+                    .write_symlink(path, "symlink_target/target")
+                    .block_on()
+                    .unwrap();
                 Merge::normal(TreeValue::Symlink(id))
             }
             Kind::Tree => {
@@ -266,6 +269,23 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
         tree_builder.set_or_remove(path.to_owned(), value);
     }
 
+    fn base_tree(repo: &Arc<ReadonlyRepo>) -> MergedTreeBuilder {
+        let store = repo.store();
+        let mut tree_builder = MergedTreeBuilder::new(store.empty_merged_tree_id());
+        let copy_id = CopyId::placeholder();
+        let path = repo_path_buf("symlink_target/target");
+        let id = testutils::write_file(store, &path, "symlink target contents");
+        tree_builder.set_or_remove(
+            path,
+            Merge::normal(TreeValue::File {
+                id,
+                executable: false,
+                copy_id,
+            }),
+        );
+        tree_builder
+    }
+
     let mut kinds = vec![
         Kind::Missing,
         Kind::Normal,
@@ -279,8 +299,8 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
     if backend == TestRepoBackend::Git {
         kinds.push(Kind::GitSubmodule);
     }
-    let mut left_tree_builder = MergedTreeBuilder::new(store.empty_merged_tree_id());
-    let mut right_tree_builder = MergedTreeBuilder::new(store.empty_merged_tree_id());
+    let mut left_tree_builder = base_tree(repo);
+    let mut right_tree_builder = base_tree(repo);
     let mut files = vec![];
     for left_kind in &kinds {
         for right_kind in &kinds {
@@ -321,6 +341,10 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
                     metadata.permissions().mode() & 0o111,
                     0,
                     "{path:?} should not be executable"
+                );
+                assert_eq!(
+                    std::fs::read_to_string(&wc_path).unwrap(),
+                    "normal file contents"
                 );
             }
             Kind::Executable | Kind::ExecutableNormalContent => {
@@ -363,6 +387,10 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
                     assert!(
                         metadata.file_type().is_symlink(),
                         "{path:?} should be a symlink"
+                    );
+                    assert_eq!(
+                        std::fs::read_to_string(&wc_path).unwrap(),
+                        "symlink target contents"
                     );
                 }
             }
