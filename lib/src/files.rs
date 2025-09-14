@@ -24,7 +24,7 @@ use bstr::BString;
 use either::Either;
 use itertools::Itertools as _;
 
-use crate::diff::Diff;
+use crate::diff::ContentDiff;
 use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::merge::Merge;
@@ -315,7 +315,7 @@ where
     // usually done for 3-way conflicts. Are there better heuristics when there are
     // more than 3 parts?
     let num_diffs = inputs.removes().len();
-    let diff = Diff::by_line(inputs.removes().chain(inputs.adds()));
+    let diff = ContentDiff::by_line(inputs.removes().chain(inputs.adds()));
     let hunks = resolve_diff_hunks(&diff, num_diffs, options.same_change);
     match options.hunk_level {
         FileMergeHunkLevel::Line => B::from_hunks(hunks.map(MergeHunk::Borrowed)),
@@ -330,7 +330,7 @@ fn merge_hunk_by_word(inputs: Merge<&BStr>, same_change: SameChange) -> MergeHun
         return MergeHunk::Borrowed(inputs);
     }
     let num_diffs = inputs.removes().len();
-    let diff = Diff::by_word(inputs.removes().chain(inputs.adds()));
+    let diff = ContentDiff::by_word(inputs.removes().chain(inputs.adds()));
     let hunks = resolve_diff_hunks(&diff, num_diffs, same_change);
     // We could instead use collect_merged() to return partially-merged hunk.
     // This would be more consistent with the line-based merge function, but
@@ -465,7 +465,7 @@ fn collect_resolved<'input>(hunks: impl IntoIterator<Item = MergeHunk<'input>>) 
 
 /// Iterator that attempts to resolve trivial merge conflict for each hunk.
 fn resolve_diff_hunks<'a, 'input>(
-    diff: &'a Diff<'input>,
+    diff: &'a ContentDiff<'input>,
     num_diffs: usize,
     same_change: SameChange,
 ) -> impl Iterator<Item = Merge<&'input BStr>> + use<'a, 'input> {

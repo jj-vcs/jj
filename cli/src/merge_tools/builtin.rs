@@ -18,7 +18,7 @@ use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::conflicts::materialized_diff_stream;
 use jj_lib::copies::CopiesTreeDiffEntry;
 use jj_lib::copies::CopyRecords;
-use jj_lib::diff::Diff;
+use jj_lib::diff::ContentDiff;
 use jj_lib::diff::DiffHunkKind;
 use jj_lib::files;
 use jj_lib::files::MergeResult;
@@ -216,7 +216,7 @@ fn make_diff_sections(
     left_contents: &str,
     right_contents: &str,
 ) -> Result<Vec<scm_record::Section<'static>>, BuiltinToolError> {
-    let diff = Diff::by_line([left_contents.as_bytes(), right_contents.as_bytes()]);
+    let diff = ContentDiff::by_line([left_contents.as_bytes(), right_contents.as_bytes()]);
     let mut sections = Vec::new();
     for hunk in diff.hunks() {
         match hunk.kind {
