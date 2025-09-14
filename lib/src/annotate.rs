@@ -38,7 +38,7 @@ use crate::conflicts::ConflictMaterializeOptions;
 use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::materialize_merge_result_to_bytes;
 use crate::conflicts::materialize_tree_value;
-use crate::diff::Diff;
+use crate::diff::ContentDiff;
 use crate::diff::DiffHunkKind;
 use crate::files::FileMergeHunkLevel;
 use crate::fileset::FilesetExpression;
@@ -414,7 +414,7 @@ fn copy_same_lines_with(
     parent_contents: &[u8],
     mut copy: impl FnMut(usize, usize, usize),
 ) {
-    let diff = Diff::by_line([current_contents, parent_contents]);
+    let diff = ContentDiff::by_line([current_contents, parent_contents]);
     let mut current_line_counter: usize = 0;
     let mut parent_line_counter: usize = 0;
     for hunk in diff.hunks() {

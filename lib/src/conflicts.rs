@@ -40,7 +40,7 @@ use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::copies::CopiesTreeDiffEntry;
 use crate::copies::CopiesTreeDiffEntryPath;
-use crate::diff::Diff;
+use crate::diff::ContentDiff;
 use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::files;
@@ -616,12 +616,12 @@ fn materialize_jj_style_conflict(
             continue;
         }
 
-        let diff1 = Diff::by_line([&left, &right1]).hunks().collect_vec();
+        let diff1 = ContentDiff::by_line([&left, &right1]).hunks().collect_vec();
         // Check if the diff against the next positive term is better. Since we want to
         // preserve the order of the terms, we don't match against any later positive
         // terms.
         if let Some(right2) = hunk.get_add(add_index + 1) {
-            let diff2 = Diff::by_line([&left, &right2]).hunks().collect_vec();
+            let diff2 = ContentDiff::by_line([&left, &right2]).hunks().collect_vec();
             if diff_size(&diff2) < diff_size(&diff1) {
                 // If the next positive term is a better match, emit the current positive term
                 // as a snapshot and the next positive term as a diff.
