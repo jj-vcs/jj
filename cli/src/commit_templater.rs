@@ -47,6 +47,7 @@ use jj_lib::fileset::FilesetExpression;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::id_prefix::IdPrefixIndex;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::Diff;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
@@ -2288,40 +2289,33 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
 #[derive(Clone, Debug)]
 pub struct TreeDiffEntry {
     pub path: CopiesTreeDiffEntryPath,
-    pub source_value: MergedTreeValue,
-    pub target_value: MergedTreeValue,
+    pub values: Diff<MergedTreeValue>,
 }
 
 impl TreeDiffEntry {
     pub fn from_backend_entry_with_copies(entry: CopiesTreeDiffEntry) -> BackendResult<Self> {
-        let (source_value, target_value) = entry.values?;
         Ok(Self {
             path: entry.path,
-            source_value,
-            target_value,
+            values: entry.values?,
         })
     }
 
     fn status_label(&self) -> &'static str {
-        let (label, _sigil) = diff_util::diff_status_label_and_char(
-            &self.path,
-            &self.source_value,
-            &self.target_value,
-        );
+        let (label, _sigil) = diff_util::diff_status_label_and_char(&self.path, &self.values);
         label
     }
 
     fn into_source_entry(self) -> TreeEntry {
         TreeEntry {
             path: self.path.source.map_or(self.path.target, |(path, _)| path),
-            value: self.source_value,
+            value: self.values.before,
         }
     }
 
     fn into_target_entry(self) -> TreeEntry {
         TreeEntry {
             path: self.path.target,
-            value: self.target_value,
+            value: self.values.after,
         }
     }
 }

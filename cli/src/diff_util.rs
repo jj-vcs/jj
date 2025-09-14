@@ -61,6 +61,7 @@ use jj_lib::files::DiffLineHunkSide;
 use jj_lib::files::DiffLineIterator;
 use jj_lib::files::DiffLineNumber;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergeBuilder;
 use jj_lib::merge::MergedTreeValue;
@@ -2018,8 +2019,8 @@ pub async fn show_diff_summary(
     path_converter: &RepoPathUiConverter,
 ) -> Result<(), DiffRenderError> {
     while let Some(CopiesTreeDiffEntry { path, values }) = tree_diff.next().await {
-        let (before, after) = values?;
-        let (label, sigil) = diff_status_label_and_char(&path, &before, &after);
+        let values = values?;
+        let (label, sigil) = diff_status_label_and_char(&path, &values);
         let path = if path.copy_operation().is_some() {
             path_converter.format_copied_path(path.source(), path.target())
         } else {
@@ -2032,8 +2033,7 @@ pub async fn show_diff_summary(
 
 pub fn diff_status_label_and_char(
     path: &CopiesTreeDiffEntryPath,
-    before: &MergedTreeValue,
-    after: &MergedTreeValue,
+    values: &Diff<MergedTreeValue>,
 ) -> (&'static str, char) {
     if let Some(op) = path.copy_operation() {
         match op {
@@ -2041,7 +2041,7 @@ pub fn diff_status_label_and_char(
             CopyOperation::Rename => ("renamed", 'R'),
         }
     } else {
-        match (before.is_present(), after.is_present()) {
+        match (values.before.is_present(), values.after.is_present()) {
             (true, true) => ("modified", 'M'),
             (false, true) => ("added", 'A'),
             (true, false) => ("removed", 'D'),
@@ -2307,12 +2307,12 @@ pub async fn show_types(
     path_converter: &RepoPathUiConverter,
 ) -> Result<(), DiffRenderError> {
     while let Some(CopiesTreeDiffEntry { path, values }) = tree_diff.next().await {
-        let (before, after) = values?;
+        let values = values?;
         writeln!(
             formatter.labeled("modified"),
             "{}{} {}",
-            diff_summary_char(&before),
-            diff_summary_char(&after),
+            diff_summary_char(&values.before),
+            diff_summary_char(&values.after),
             path_converter.format_copied_path(path.source(), path.target())
         )?;
     }

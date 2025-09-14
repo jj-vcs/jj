@@ -24,6 +24,7 @@ use futures::Stream;
 
 use crate::backend::BackendResult;
 use crate::backend::CopyRecord;
+use crate::merge::Diff;
 use crate::merge::MergedTreeValue;
 use crate::merged_tree::MergedTree;
 use crate::merged_tree::TreeDiffStream;
@@ -104,7 +105,7 @@ pub struct CopiesTreeDiffEntry {
     /// The path.
     pub path: CopiesTreeDiffEntryPath,
     /// The resolved tree values if available.
-    pub values: BackendResult<(MergedTreeValue, MergedTreeValue)>,
+    pub values: BackendResult<Diff<MergedTreeValue>>,
 }
 
 /// Path and copy information of `CopiesTreeDiffEntry`.
@@ -161,9 +162,9 @@ impl<'a> CopiesTreeDiffStream<'a> {
     fn resolve_copy_source(
         &self,
         source: &RepoPath,
-        values: BackendResult<(MergedTreeValue, MergedTreeValue)>,
-    ) -> BackendResult<(CopyOperation, (MergedTreeValue, MergedTreeValue))> {
-        let (_, target_value) = values?;
+        values: BackendResult<Diff<MergedTreeValue>>,
+    ) -> BackendResult<(CopyOperation, Diff<MergedTreeValue>)> {
+        let target_value = values?.after;
         let source_value = self.source_tree.path_value(source)?;
         // If the source path is deleted in the target tree, it's a rename.
         let source_value_at_target = self.target_tree.path_value(source)?;
@@ -172,7 +173,7 @@ impl<'a> CopiesTreeDiffStream<'a> {
         } else {
             CopyOperation::Copy
         };
-        Ok((copy_op, (source_value, target_value)))
+        Ok((copy_op, Diff::new(source_value, target_value)))
     }
 }
 
@@ -184,7 +185,7 @@ impl Stream for CopiesTreeDiffStream<'_> {
             let Some(CopyRecord { source, .. }) = self.copy_records.for_target(&diff_entry.path)
             else {
                 let target_deleted =
-                    matches!(&diff_entry.values, Ok((_, target_value)) if target_value.is_absent());
+                    matches!(&diff_entry.values, Ok(diff) if diff.after.is_absent());
                 if target_deleted && self.copy_records.has_source(&diff_entry.path) {
                     // Skip the "delete" entry when there is a rename.
                     continue;

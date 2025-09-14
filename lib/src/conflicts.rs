@@ -697,9 +697,9 @@ pub fn materialized_diff_stream<'a>(
                 path,
                 values: Err(err),
             },
-            Ok((before, after)) => {
-                let before_future = materialize_tree_value(store, path.source(), before);
-                let after_future = materialize_tree_value(store, path.target(), after);
+            Ok(values) => {
+                let before_future = materialize_tree_value(store, path.source(), values.before);
+                let after_future = materialize_tree_value(store, path.target(), values.after);
                 let values = try_join!(before_future, after_future);
                 MaterializedTreeDiffEntry { path, values }
             }

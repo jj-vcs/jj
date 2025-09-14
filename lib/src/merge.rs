@@ -41,6 +41,41 @@ use crate::repo_path::RepoPath;
 use crate::store::Store;
 use crate::tree::Tree;
 
+/// A generic diff/transition from one value to another.
+///
+/// This is not a diff in the `patch(1)` sense. See `diff::ContentDiff` for
+/// that.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Diff<T> {
+    /// The state before
+    pub before: T,
+    /// The state after
+    pub after: T,
+}
+
+impl<T> Diff<T> {
+    /// Create a new diff
+    pub fn new(before: T, after: T) -> Self {
+        Self { before, after }
+    }
+
+    /// Apply a function to both values
+    pub fn map<U>(self, mut f: impl FnMut(T) -> U) -> Diff<U> {
+        Diff {
+            before: f(self.before),
+            after: f(self.after),
+        }
+    }
+}
+
+impl<T: Eq> Diff<T> {
+    /// Whether the diff represents a change, i.e. if `before` and `after` are
+    /// not equal
+    pub fn is_changed(&self) -> bool {
+        self.before != self.after
+    }
+}
+
 /// Whether to resolve conflict that makes the same change at all sides.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]

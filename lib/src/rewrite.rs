@@ -131,7 +131,7 @@ pub async fn restore_tree(
             values,
         }) = diff_stream.next().await
         {
-            let (source_value, _destination_value) = values?;
+            let source_value = values?.before;
             tree_builder.set_or_remove(repo_path, source_value);
         }
         tree_builder.write_tree(destination.store())
