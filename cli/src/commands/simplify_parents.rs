@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
-use jj_lib::revset::RevsetExpression;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -60,16 +59,15 @@ pub(crate) fn cmd_simplify_parents(
             .expression()
             .clone()
     } else {
-        RevsetExpression::descendants(
-            workspace_command
-                .parse_union_revsets(ui, &args.source)?
-                .expression(),
-        )
-        .union(
-            workspace_command
-                .parse_union_revsets(ui, &args.revisions)?
-                .expression(),
-        )
+        workspace_command
+            .parse_union_revsets(ui, &args.source)?
+            .expression()
+            .descendants()
+            .union(
+                workspace_command
+                    .parse_union_revsets(ui, &args.revisions)?
+                    .expression(),
+            )
     };
     let commit_ids: Vec<_> = workspace_command
         .attach_revset_evaluator(revs)
