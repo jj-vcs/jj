@@ -60,7 +60,7 @@ fn test_absorb_simple() {
     ------- stderr -------
     Absorbed changes into 1 revisions:
       kkmpptxz 5810eb0f 1
-    Rebased 1 descendant commits.
+    Rebased 1 descendant revisions.
     Working copy  (@) now at: vruxwmqv 48c7d8fa (empty) (no description set)
     Parent revision (@-)    : zsuskuln 8edd60a2 2
     [EOF]
@@ -177,7 +177,7 @@ fn test_absorb_replace_single_line_hunk() {
     ------- stderr -------
     Absorbed changes into 1 revisions:
       qpvuntsm 5bdb5ca1 (conflict) 1
-    Rebased 1 descendant commits.
+    Rebased 1 descendant revisions.
     Working copy  (@) now at: mzvwutvl 804fe9d9 (empty) (no description set)
     Parent revision (@-)    : kkmpptxz 6068e8fc 2
     New conflicts appeared in 1 revisions:
@@ -263,7 +263,7 @@ fn test_absorb_merge() {
     Absorbed changes into 2 revisions:
       zsuskuln a6fde7ea 2
       kkmpptxz 00ecc958 1
-    Rebased 1 descendant commits.
+    Rebased 1 descendant revisions.
     Working copy  (@) now at: mzvwutvl 30499858 (empty) 3
     Parent revision (@-)    : kkmpptxz 00ecc958 1
     Parent revision (@-)    : zsuskuln a6fde7ea 2
@@ -363,7 +363,7 @@ fn test_absorb_discardable_merge_with_descendant() {
     Absorbed changes into 2 revisions:
       zsuskuln a6cd8e87 2
       kkmpptxz 98b7d214 1
-    Rebased 1 descendant commits.
+    Rebased 1 descendant revisions.
     Working copy  (@) now at: royxmykx df946e9b 3
     Parent revision (@-)    : kkmpptxz 98b7d214 1
     Parent revision (@-)    : zsuskuln a6cd8e87 2
@@ -496,7 +496,7 @@ fn test_absorb_deleted_file() {
     ------- stderr -------
     Absorbed changes into 1 revisions:
       qpvuntsm 38af7fd3 1
-    Rebased 1 descendant commits.
+    Rebased 1 descendant revisions.
     Working copy  (@) now at: kkmpptxz efd883f6 (no description set)
     Parent revision (@-)    : qpvuntsm 38af7fd3 1
     Remaining changes:
@@ -552,7 +552,7 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     Absorbed changes into 2 revisions:
       kkmpptxz 8407ab95 (conflict) 2
       qpvuntsm f1473264 (conflict) 1
-    Rebased 1 descendant commits.
+    Rebased 1 descendant revisions.
     Working copy  (@) now at: zsuskuln b56f0c39 (no description set)
     Parent revision (@-)    : kkmpptxz 8407ab95 (conflict) 2
     New conflicts appeared in 2 revisions:
@@ -662,7 +662,7 @@ fn test_absorb_file_mode() {
     ------- stderr -------
     Absorbed changes into 1 revisions:
       qpvuntsm 2a0c7f1d 1
-    Rebased 1 descendant commits.
+    Rebased 1 descendant revisions.
     Working copy  (@) now at: zsuskuln 8ca9761d (no description set)
     Parent revision (@-)    : qpvuntsm 2a0c7f1d 1
     Remaining changes:
@@ -708,7 +708,7 @@ fn test_absorb_from_into() {
     ------- stderr -------
     Absorbed changes into 1 revisions:
       kkmpptxz cae507ef 2
-    Rebased 1 descendant commits.
+    Rebased 1 descendant revisions.
     Working copy  (@) now at: zsuskuln f02fd9ea (no description set)
     Parent revision (@-)    : kkmpptxz cae507ef 2
     Remaining changes:
@@ -753,7 +753,7 @@ fn test_absorb_from_into() {
     ------- stderr -------
     Absorbed changes into 1 revisions:
       rlvkpnrz ddaed33d 1
-    Rebased 2 descendant commits.
+    Rebased 2 descendant revisions.
     Working copy  (@) now at: zsuskuln 3652e5e5 (no description set)
     Parent revision (@-)    : kkmpptxz 7f4339e7 (empty) 2
     [EOF]
@@ -823,7 +823,7 @@ fn test_absorb_paths() {
     ------- stderr -------
     Absorbed changes into 1 revisions:
       qpvuntsm ca07fabe 1
-    Rebased 1 descendant commits.
+    Rebased 1 descendant revisions.
     Working copy  (@) now at: kkmpptxz 4d80ada8 (no description set)
     Parent revision (@-)    : qpvuntsm ca07fabe 1
     Remaining changes:
@@ -884,7 +884,7 @@ fn test_absorb_immutable() {
     ------- stderr -------
     Absorbed changes into 1 revisions:
       kkmpptxz e68cc3e2 2
-    Rebased 1 descendant commits.
+    Rebased 1 descendant revisions.
     Working copy  (@) now at: mzvwutvl 88443af7 (no description set)
     Parent revision (@-)    : kkmpptxz e68cc3e2 2
     Remaining changes:
