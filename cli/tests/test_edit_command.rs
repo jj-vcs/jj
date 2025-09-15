@@ -45,7 +45,7 @@ fn test_edit() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 1f6994f8 first
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -67,7 +67,7 @@ fn test_edit() {
     ◆  000000000000
     [EOF]
     ------- stderr -------
-    Rebased 1 descendant commits onto updated working copy
+    Rebased 1 descendant revisions onto updated working copy
     [EOF]
     ");
 }
