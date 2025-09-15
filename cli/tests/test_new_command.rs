@@ -152,7 +152,7 @@ fn test_new_merge() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: uyznsvlq 68a7f50c (empty) (no description set)
-    Parent commit (@-)      : lylxulpl cee60a55 (empty) (no description set)
+    Parent revision (@-)    : lylxulpl cee60a55 (empty) (no description set)
     [EOF]
     ");
 
@@ -181,8 +181,8 @@ fn test_new_merge_conflicts() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 5234fbf2 (conflict) (empty) (no description set)
-    Parent commit (@-)      : royxmykx 1b282e07 3 | 3
-    Parent commit (@-)      : zsuskuln 7ac709e5 2 | 2
+    Parent revision (@-)    : royxmykx 1b282e07 3 | 3
+    Parent revision (@-)    : zsuskuln 7ac709e5 2 | 2
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
@@ -208,8 +208,8 @@ fn test_new_merge_conflicts() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: znkkpsqq 892ac90f (empty) (no description set)
-    Parent commit (@-)      : royxmykx 1b282e07 3 | 3
-    Parent commit (@-)      : zsuskuln 7ac709e5 2 | 2
+    Parent revision (@-)    : royxmykx 1b282e07 3 | 3
+    Parent revision (@-)    : zsuskuln 7ac709e5 2 | 2
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -235,8 +235,8 @@ fn test_new_merge_same_change() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 7bebf0fe (empty) (no description set)
-    Parent commit (@-)      : royxmykx 1b9fe696 3 | 3
-    Parent commit (@-)      : zsuskuln 829e1e90 2 | 2
+    Parent revision (@-)    : royxmykx 1b9fe696 3 | 3
+    Parent revision (@-)    : zsuskuln 829e1e90 2 | 2
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.read_file("file"), @r"
@@ -252,8 +252,8 @@ fn test_new_merge_same_change() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: znkkpsqq 0d655a01 (conflict) (empty) (no description set)
-    Parent commit (@-)      : royxmykx 1b9fe696 3 | 3
-    Parent commit (@-)      : zsuskuln 829e1e90 2 | 2
+    Parent revision (@-)    : royxmykx 1b9fe696 3 | 3
+    Parent revision (@-)    : zsuskuln 829e1e90 2 | 2
     Added 1 files, modified 0 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
@@ -296,8 +296,8 @@ fn test_new_insert_after() {
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: kxryzmor 57acfedf (empty) G
-    Parent commit (@-)      : kkmpptxz bb98b010 B | (empty) B
-    Parent commit (@-)      : vruxwmqv 521674f5 D | (empty) D
+    Parent revision (@-)    : kkmpptxz bb98b010 B | (empty) B
+    Parent revision (@-)    : vruxwmqv 521674f5 D | (empty) D
     [EOF]
     ");
     insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
@@ -321,7 +321,7 @@ fn test_new_insert_after() {
     ------- stderr -------
     Rebased 3 descendant commits
     Working copy  (@) now at: uyznsvlq fd3f1413 (empty) H
-    Parent commit (@-)      : vruxwmqv 521674f5 D | (empty) D
+    Parent revision (@-)    : vruxwmqv 521674f5 D | (empty) D
     [EOF]
     ");
     insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
@@ -427,9 +427,9 @@ fn test_new_insert_before() {
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: kxryzmor 2f16c40d (empty) G
-    Parent commit (@-)      : kkmpptxz bb98b010 B | (empty) B
-    Parent commit (@-)      : vruxwmqv 521674f5 D | (empty) D
-    Parent commit (@-)      : znkkpsqq 56a33cd0 E | (empty) E
+    Parent revision (@-)    : kkmpptxz bb98b010 B | (empty) B
+    Parent revision (@-)    : vruxwmqv 521674f5 D | (empty) D
+    Parent revision (@-)    : znkkpsqq 56a33cd0 E | (empty) E
     [EOF]
     ");
     insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
@@ -495,7 +495,7 @@ fn test_new_insert_before_root_successors() {
     ------- stderr -------
     Rebased 5 descendant commits
     Working copy  (@) now at: kxryzmor 8c026b06 (empty) G
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
@@ -613,7 +613,7 @@ fn test_new_insert_before_root() {
     let output = work_dir.run_jj(["new", "-m", "G", "--insert-before", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: The root commit 000000000000 is immutable
+    Error: The root revision 000000000000 is immutable
     [EOF]
     [exit status: 1]
     ");
@@ -644,7 +644,7 @@ fn test_new_insert_after_before() {
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: kxryzmor 55a63f47 (empty) G
-    Parent commit (@-)      : mzvwutvl d32ebe56 C | (empty) C
+    Parent revision (@-)    : mzvwutvl d32ebe56 C | (empty) C
     [EOF]
     ");
     insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
@@ -667,7 +667,7 @@ fn test_new_insert_after_before() {
     ------- stderr -------
     Rebased 4 descendant commits
     Working copy  (@) now at: uyznsvlq fd3f1413 (empty) H
-    Parent commit (@-)      : vruxwmqv 521674f5 D | (empty) D
+    Parent revision (@-)    : vruxwmqv 521674f5 D | (empty) D
     [EOF]
     ");
     insta::assert_snapshot!(get_short_log_output(&work_dir), @r"

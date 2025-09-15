@@ -32,7 +32,7 @@ fn test_describe() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 7b186b4f (empty) description from CLI
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -68,7 +68,7 @@ fn test_describe() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 28173c3e (empty) description from editor
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -82,7 +82,7 @@ fn test_describe() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm e7488502 (empty) description among comment
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -92,7 +92,7 @@ fn test_describe() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 7438c202 (empty) line1
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
@@ -119,7 +119,7 @@ fn test_describe() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm f38e2bd7 (empty) line1
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
@@ -134,7 +134,7 @@ fn test_describe() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 7c00df81 (empty) (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     std::fs::write(&edit_script, "write\n").unwrap();
@@ -184,7 +184,7 @@ fn test_describe() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 0ec68094 (empty) description from editor
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
@@ -290,7 +290,7 @@ fn test_describe_multiple_commits() {
     Updated 2 commits
     Rebased 1 descendant commits
     Working copy  (@) now at: kkmpptxz 4c3ccb9d (empty) description from CLI
-    Parent commit (@-)      : rlvkpnrz 650ac8f2 (empty) (no description set)
+    Parent revision (@-)    : rlvkpnrz 650ac8f2 (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -359,7 +359,7 @@ fn test_describe_multiple_commits() {
     ------- stderr -------
     Updated 2 commits
     Working copy  (@) now at: kkmpptxz 87c0f3c7 (empty) description from editor of @
-    Parent commit (@-)      : rlvkpnrz 9b9041eb (empty) description from editor of @-
+    Parent revision (@-)    : rlvkpnrz 9b9041eb (empty) description from editor of @-
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -526,7 +526,7 @@ fn test_describe_multiple_commits() {
     Updated 2 commits
     Rebased 1 descendant commits
     Working copy  (@) now at: kkmpptxz 5a6249e9 (empty) description from editor of @
-    Parent commit (@-)      : rlvkpnrz d1c1edbd (empty) description from editor for @-
+    Parent revision (@-)    : rlvkpnrz d1c1edbd (empty) description from editor for @-
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -557,7 +557,7 @@ fn test_multiple_message_args() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 9b8ad205 (empty) First Paragraph from CLI
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -596,7 +596,7 @@ fn test_multiple_message_args() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm ac46ea93 (empty) First Paragraph from CLI
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -626,7 +626,7 @@ fn test_describe_default_description() {
     ------- stderr -------
     Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     Working copy  (@) now at: qpvuntsm 7276dfff TESTED=TODO
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     "#);
     insta::assert_snapshot!(
@@ -650,7 +650,7 @@ fn test_describe_default_description() {
     Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Warning: `jj describe --reset-author` is deprecated; use `jj metaedit --update-author` instead
     Working copy  (@) now at: kkmpptxz 7118bcb8 (empty) (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     "#);
 }
@@ -862,7 +862,7 @@ fn test_describe_with_edit_and_message_args_opens_editor() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm f9bee6de (empty) message from command line
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(
@@ -891,7 +891,7 @@ fn test_describe_change_with_existing_message_with_edit_and_message_args_opens_e
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm f8f14f7c (empty) new message
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(
@@ -940,7 +940,7 @@ fn test_add_trailer() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 55c6f83d (empty) Message from CLI
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -963,7 +963,7 @@ fn test_add_trailer() {
     ------- stderr -------
     Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Working copy  (@) now at: qpvuntsm 2b2e302d (empty) Message from CLI
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -1021,7 +1021,7 @@ fn test_add_trailer() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: yostqsxw dbea21e1 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 2b2e302d (empty) Message from CLI
+    Parent revision (@-)    : qpvuntsm 2b2e302d (empty) Message from CLI
     [EOF]
     ");
     let output = work_dir.run_jj([
@@ -1053,7 +1053,7 @@ fn test_add_trailer_committer() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 67458426 (empty) Message from CLI
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -1076,7 +1076,7 @@ fn test_add_trailer_committer() {
     ------- stderr -------
     Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Working copy  (@) now at: qpvuntsm 05ddee5c (empty) Message from CLI
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -1095,7 +1095,7 @@ fn test_add_trailer_committer() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm b7dafa2c (empty) Message from CLI
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -1129,7 +1129,7 @@ fn test_add_trailer_committer() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv b6148729 (empty) Signed-off-by: test.user@example.com
-    Parent commit (@-)      : qpvuntsm b7dafa2c (empty) Message from CLI
+    Parent revision (@-)    : qpvuntsm b7dafa2c (empty) Message from CLI
     [EOF]
     ");
 

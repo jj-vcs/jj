@@ -577,7 +577,7 @@ impl CommandHelper {
                         )?;
                         writeln!(
                             ui.status(),
-                            "Updated working copy to fresh commit {}",
+                            "Updated working copy to fresh revision {}",
                             short_commit_hash(desired_wc_commit.id())
                         )?;
                     }
@@ -1200,7 +1200,7 @@ impl WorkspaceCommandHelper {
         if num_rebased > 0 {
             writeln!(
                 ui.status(),
-                "Rebased {num_rebased} descendant commits off of commits rewritten from git"
+                "Rebased {num_rebased} descendant revisions off of revisions rewritten from git"
             )?;
         }
         self.finish_transaction(ui, tx, "import git refs")?;
@@ -1280,7 +1280,7 @@ to the current parents may contain changes from multiple commits.
 
         writeln!(
             ui.status(),
-            "Created and checked out recovery commit {}",
+            "Created and checked out recovery revision {}",
             short_commit_hash(new_commit.id())
         )?;
         locked_ws.finish(repo.op_id().clone())?;
@@ -1776,16 +1776,16 @@ to the current parents may contain changes from multiple commits.
             return Ok(());
         };
         let error = if &commit_id == repo.store().root_commit_id() {
-            user_error(format!("The root commit {commit_id:.12} is immutable"))
+            user_error(format!("The root revision {commit_id:.12} is immutable"))
         } else {
-            let mut error = user_error(format!("Commit {commit_id:.12} is immutable"));
+            let mut error = user_error(format!("Revision {commit_id:.12} is immutable"));
             let commit = repo.store().get_commit(&commit_id)?;
             error.add_formatted_hint_with(|formatter| {
-                write!(formatter, "Could not modify commit: ")?;
+                write!(formatter, "Could not modify revision: ")?;
                 self.write_commit_summary(formatter, &commit)?;
                 Ok(())
             });
-            error.add_hint("Immutable commits are used to protect shared history.");
+            error.add_hint("Immutable revisions are used to protect shared history.");
             error.add_hint(indoc::indoc! {"
                 For more information, see:
                       - https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
@@ -1809,7 +1809,7 @@ to the current parents may contain changes from multiple commits.
             let exact = upper_bound == Some(lower_bound);
             let or_more = if exact { "" } else { " or more" };
             error.add_hint(format!(
-                "This operation would rewrite {lower_bound}{or_more} immutable commits."
+                "This operation would rewrite {lower_bound}{or_more} immutable revisions."
             ));
 
             error
@@ -1931,7 +1931,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             if num_rebased > 0 {
                 writeln!(
                     ui.status(),
-                    "Rebased {num_rebased} descendant commits onto updated working copy"
+                    "Rebased {num_rebased} descendant revisions onto updated working copy"
                 )
                 .map_err(snapshot_command_error)?;
             }
@@ -1996,7 +1996,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             for parent in new_commit.parents() {
                 let parent = parent?;
                 //                "Working copy  (@) now at: "
-                write!(formatter, "Parent commit (@-)      : ")?;
+                write!(formatter, "Parent revision (@-)    : ")?;
                 template.format(&parent, formatter.as_mut())?;
                 writeln!(formatter)?;
             }
@@ -2038,7 +2038,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         }
         let num_rebased = tx.repo_mut().rebase_descendants()?;
         if num_rebased > 0 {
-            writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
+            writeln!(ui.status(), "Rebased {num_rebased} descendant revisions")?;
         }
 
         for (name, wc_commit_id) in &tx.repo().view().wc_commit_ids().clone() {
@@ -2203,7 +2203,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                 .sum();
             writeln!(
                 fmt,
-                "Existing conflicts were resolved or abandoned from {num_resolved} commits."
+                "Existing conflicts were resolved or abandoned from {num_resolved} revisions."
             )?;
         }
         if !new_conflicts_by_change_id.is_empty() {
@@ -2211,7 +2211,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                 .values()
                 .map(|commits| commits.len())
                 .sum();
-            writeln!(fmt, "New conflicts appeared in {num_conflicted} commits:")?;
+            writeln!(fmt, "New conflicts appeared in {num_conflicted} revisions:")?;
             print_updated_commits(
                 fmt.as_mut(),
                 &self.commit_summary_template(),
@@ -2558,7 +2558,7 @@ fn update_stale_working_copy(
     }
     let stats = locked_ws.locked_wc().check_out(new_commit).map_err(|err| {
         internal_error_with_message(
-            format!("Failed to check out commit {}", new_commit.id().hex()),
+            format!("Failed to check out revision {}", new_commit.id().hex()),
             err,
         )
     })?;
@@ -2824,7 +2824,7 @@ pub fn update_working_copy(
         .check_out(repo.op_id().clone(), old_tree_id.as_ref(), new_commit)
         .map_err(|err| {
             internal_error_with_message(
-                format!("Failed to check out commit {}", new_commit.id().hex()),
+                format!("Failed to check out revision {}", new_commit.id().hex()),
                 err,
             )
         })?;
@@ -3801,7 +3801,7 @@ impl<'a> CliRunner<'a> {
             .map_err(|_| {
                 user_error_with_hint(
                     "Could not determine current directory",
-                    "Did you update to a commit where the directory doesn't exist?",
+                    "Did you update to a revision where the directory doesn't exist?",
                 )
             })?;
         let mut config_env = ConfigEnv::from_environment(ui);
