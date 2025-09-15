@@ -757,7 +757,7 @@ fn test_new_conflicting_bookmarks() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Name `foo` is conflicted
-    Hint: Use commit ID to select single revision from: 96948328bc42, 401ea16fc3fe
+    Hint: Use revision ID to select single revision from: 96948328bc42, 401ea16fc3fe
     Hint: Use `bookmarks(exact:foo)` to select all revisions
     Hint: To set which revision the bookmark points to, run `jj bookmark set foo -r <REVISION>`
     [EOF]
@@ -783,7 +783,7 @@ fn test_new_conflicting_change_ids() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Change ID `qpvuntsm` is divergent
-    Hint: Use commit ID to select single revision from: 401ea16fc3fe, 2f175dfc5e0e
+    Hint: Use revision ID to select single revision from: 401ea16fc3fe, 2f175dfc5e0e
     Hint: Use `change_id(qpvuntsm)` to select all revisions
     Hint: To abandon unneeded revisions, run `jj abandon <commit_id>`
     [EOF]

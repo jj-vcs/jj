@@ -137,7 +137,7 @@ fn test_edit_current_wc_commit_missing() {
     let output = work_dir.run_jj(["edit", "--ignore-working-copy", &wc_child_id]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Internal error: Failed to edit a commit
+    Internal error: Failed to edit a revision
     Caused by:
     1: Current working-copy commit not found
     2: Object 68a505386f936fff6d718f55005e77ea72589bc1 of type commit not found
