@@ -40,7 +40,7 @@ fn test_simplify_parents_immutable() {
     let output = work_dir.run_jj(["simplify-parents", "-r", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: The root commit 000000000000 is immutable
+    Error: The root revision 000000000000 is immutable
     [EOF]
     [exit status: 1]
     ");
@@ -148,7 +148,7 @@ fn test_simplify_parents_redundant_parent(args: &[&str]) {
         ------- stderr -------
         Removed 1 edges from 1 out of 3 commits.
         Working copy  (@) now at: royxmykx 265f0407 c | c
-        Parent commit (@-)      : zsuskuln 123b4d91 b | b
+        Parent revision (@-)    : zsuskuln 123b4d91 b | b
         [EOF]
         ");
     }
@@ -201,7 +201,7 @@ fn test_simplify_parents_multiple_redundant_parents() {
     Removed 2 edges from 2 out of 2 commits.
     Rebased 2 descendant commits
     Working copy  (@) now at: kmkuslsw 5ad764e9 f | f
-    Parent commit (@-)      : znkkpsqq 9102487c e | e
+    Parent revision (@-)    : znkkpsqq 9102487c e | e
     [EOF]
     ");
 
@@ -225,7 +225,7 @@ fn test_simplify_parents_multiple_redundant_parents() {
     Removed 2 edges from 2 out of 4 commits.
     Rebased 2 descendant commits
     Working copy  (@) now at: kmkuslsw 2b2c1c63 f | f
-    Parent commit (@-)      : znkkpsqq 9142e3bb e | e
+    Parent revision (@-)    : znkkpsqq 9142e3bb e | e
     [EOF]
     ");
 
@@ -277,7 +277,7 @@ fn test_simplify_parents_no_args() {
     Removed 2 edges from 2 out of 6 commits.
     Rebased 2 descendant commits
     Working copy  (@) now at: kmkuslsw 5ad764e9 f | f
-    Parent commit (@-)      : znkkpsqq 9102487c e | e
+    Parent revision (@-)    : znkkpsqq 9102487c e | e
     [EOF]
     ");
 
@@ -301,7 +301,7 @@ fn test_simplify_parents_no_args() {
     ------- stderr -------
     Removed 1 edges from 1 out of 3 commits.
     Working copy  (@) now at: kmkuslsw 1180d0f5 f | f
-    Parent commit (@-)      : znkkpsqq 009aef72 e | e
+    Parent revision (@-)    : znkkpsqq 009aef72 e | e
     [EOF]
     ");
 

@@ -53,7 +53,7 @@ fn test_squash() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 2cf02eb8 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 9422c8d6 b c | (no description set)
+    Parent revision (@-)    : kkmpptxz 9422c8d6 b c | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -76,7 +76,7 @@ fn test_squash() {
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: mzvwutvl 441a7a3a c | (no description set)
-    Parent commit (@-)      : qpvuntsm 105931bf a b | (no description set)
+    Parent revision (@-)    : qpvuntsm 105931bf a b | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -136,7 +136,7 @@ fn test_squash() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: xlzxqlsl 91a81249 (empty) (no description set)
-    Parent commit (@-)      : nmzmmopx 9155baf5 e | (no description set)
+    Parent revision (@-)    : nmzmmopx 9155baf5 e | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -201,7 +201,7 @@ fn test_squash_partial() {
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: mzvwutvl 34484d82 c | (no description set)
-    Parent commit (@-)      : qpvuntsm 3141e675 a b | (no description set)
+    Parent revision (@-)    : qpvuntsm 3141e675 a b | (no description set)
     [EOF]
     ");
 
@@ -239,7 +239,7 @@ fn test_squash_partial() {
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: mzvwutvl 37e1a0ef c | (no description set)
-    Parent commit (@-)      : kkmpptxz b41e789d b | (no description set)
+    Parent revision (@-)    : kkmpptxz b41e789d b | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -279,7 +279,7 @@ fn test_squash_partial() {
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: mzvwutvl 72ff256c c | (no description set)
-    Parent commit (@-)      : kkmpptxz dd056a92 b | (no description set)
+    Parent revision (@-)    : kkmpptxz dd056a92 b | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -340,7 +340,7 @@ fn test_squash_partial() {
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: mzvwutvl 69c58f86 c | (no description set)
-    Parent commit (@-)      : kkmpptxz 0f38c564 b | (no description set)
+    Parent revision (@-)    : kkmpptxz 0f38c564 b | (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-s"]);
@@ -398,7 +398,7 @@ fn test_squash_keep_emptied() {
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: mzvwutvl 093590e0 c | (no description set)
-    Parent commit (@-)      : kkmpptxz 357946cf b | (empty) (no description set)
+    Parent revision (@-)    : kkmpptxz 357946cf b | (empty) (no description set)
     [EOF]
     ");
     // With --keep-emptied, b remains even though it is now empty.
@@ -492,7 +492,7 @@ fn test_squash_from_to() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: kmkuslsw 941ab024 f | (no description set)
-    Parent commit (@-)      : znkkpsqq 4ebe104a e | (no description set)
+    Parent revision (@-)    : znkkpsqq 4ebe104a e | (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -525,7 +525,7 @@ fn test_squash_from_to() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: kmkuslsw c102d2c4 f | (no description set)
-    Parent commit (@-)      : znkkpsqq beb7c033 e | (no description set)
+    Parent revision (@-)    : znkkpsqq beb7c033 e | (no description set)
     [EOF]
     ");
     // The change has been removed from the source (the change pointed to by 'd'
@@ -555,7 +555,7 @@ fn test_squash_from_to() {
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: kmkuslsw 1bc21d4e f | (no description set)
-    Parent commit (@-)      : vruxwmqv 8b6b080a d e | (no description set)
+    Parent revision (@-)    : vruxwmqv 8b6b080a d e | (no description set)
     [EOF]
     ");
     // The change has been removed from the source (the change pointed to by 'e'
@@ -583,7 +583,7 @@ fn test_squash_from_to() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: pkstwlsy 76baa567 (empty) (no description set)
-    Parent commit (@-)      : vruxwmqv 415e4069 d e f | (no description set)
+    Parent revision (@-)    : vruxwmqv 415e4069 d e f | (no description set)
     [EOF]
     ");
     // The change has been removed from the source (the change pointed to by 'e'
@@ -659,7 +659,7 @@ fn test_squash_from_to_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 85589465 d | (no description set)
-    Parent commit (@-)      : qpvuntsm e3e04bea a | (no description set)
+    Parent revision (@-)    : qpvuntsm e3e04bea a | (no description set)
     Added 0 files, modified 2 files, removed 0 files
     [EOF]
     ");
@@ -696,7 +696,7 @@ fn test_squash_from_to_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 62bd5cd9 d | (no description set)
-    Parent commit (@-)      : qpvuntsm e3e04bea a | (no description set)
+    Parent revision (@-)    : qpvuntsm e3e04bea a | (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -736,7 +736,7 @@ fn test_squash_from_to_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 76bf6139 d | (no description set)
-    Parent commit (@-)      : qpvuntsm e3e04bea a | (no description set)
+    Parent revision (@-)    : qpvuntsm e3e04bea a | (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -872,12 +872,12 @@ fn test_squash_from_multiple() {
 
     // Squash a few commits sideways
     let output = work_dir.run_jj(["squash", "--from=b", "--from=c", "--into=d"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: kpqxywon 703c6f0c f | (no description set)
-    Parent commit (@-)      : yostqsxw 3d6a1899 e | (no description set)
-    New conflicts appeared in 1 commits:
+    Parent revision (@-)    : yostqsxw 3d6a1899 e | (no description set)
+    New conflicts appeared in 1 revisions:
       yqosqzyt a3221d7a d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
@@ -886,7 +886,7 @@ fn test_squash_from_multiple() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  703c6f0cae6f f
     ○    3d6a18995cae e
@@ -920,7 +920,7 @@ fn test_squash_from_multiple() {
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: xznxytkn ec32238b (empty) (no description set)
-    Parent commit (@-)      : yostqsxw 5298eef6 e f | (no description set)
+    Parent revision (@-)    : yostqsxw 5298eef6 e f | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -1016,12 +1016,12 @@ fn test_squash_from_multiple_partial() {
 
     // Partially squash a few commits sideways
     let output = work_dir.run_jj(["squash", "--from=b|c", "--into=d", "file1"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: kpqxywon f3ae0274 f | (no description set)
-    Parent commit (@-)      : yostqsxw 45ad30bd e | (no description set)
-    New conflicts appeared in 1 commits:
+    Parent revision (@-)    : yostqsxw 45ad30bd e | (no description set)
+    New conflicts appeared in 1 revisions:
       yqosqzyt 15efa8c0 d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
@@ -1030,7 +1030,7 @@ fn test_squash_from_multiple_partial() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  f3ae0274fb6c f
     ○      45ad30bdccc6 e
@@ -1085,7 +1085,7 @@ fn test_squash_from_multiple_partial() {
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: kpqxywon b5a40c15 f | (no description set)
-    Parent commit (@-)      : yostqsxw 5dea187c e | (no description set)
+    Parent revision (@-)    : yostqsxw 5dea187c e | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -1167,7 +1167,7 @@ fn test_squash_from_multiple_partial_no_op() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl 6dfc239e d
-    Parent commit (@-)      : qpvuntsm 93d495c4 a
+    Parent revision (@-)    : qpvuntsm 93d495c4 a
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -1539,7 +1539,7 @@ fn test_squash_empty() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz db7ad962 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 771da191 (empty) parent
+    Parent revision (@-)    : qpvuntsm 771da191 (empty) parent
     [EOF]
     ");
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
@@ -1781,7 +1781,7 @@ fn test_squash_to_new_commit() {
     Created new commit yqosqzyt 12bb5aa1 file 3&4
     Rebased 2 descendant commits
     Working copy  (@) now at: spxsnpux 5b7a2ac3 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 269d92e4 file2
+    Parent revision (@-)    : rlvkpnrz 269d92e4 file2
     [EOF]
     ");
 
@@ -1814,7 +1814,7 @@ fn test_squash_to_new_commit() {
     Created new commit znkkpsqq 71efbc99 file 3&4
     Rebased 1 descendant commits
     Working copy  (@) now at: uuzqqzqu 4a07118a (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 800cd9f9 file2
+    Parent revision (@-)    : rlvkpnrz 800cd9f9 file2
     [EOF]
     ");
 
@@ -1846,7 +1846,7 @@ fn test_squash_to_new_commit() {
     ------- stderr -------
     Created new commit wqnwkozp e70a59b7 file 3&4
     Working copy  (@) now at: mouksmqu ecd9569d (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 27974c44 file2
+    Parent revision (@-)    : rlvkpnrz 27974c44 file2
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -1880,7 +1880,7 @@ fn test_squash_to_new_commit() {
     Created new commit nkmrtpmo dc2faadd file 3&4
     Rebased 1 descendant commits
     Working copy  (@) now at: ruktrxxu 6d045de7 (empty) (no description set)
-    Parent commit (@-)      : nkmrtpmo dc2faadd file 3&4
+    Parent revision (@-)    : nkmrtpmo dc2faadd file 3&4
     [EOF]
     ");
 
@@ -1913,7 +1913,7 @@ fn test_squash_to_new_commit() {
     Created new commit xtnwkqum 342eb9be file 3&4
     Rebased 1 descendant commits
     Working copy  (@) now at: pqrnrkux 4f456097 (empty) (no description set)
-    Parent commit (@-)      : xtnwkqum 342eb9be file 3&4
+    Parent revision (@-)    : xtnwkqum 342eb9be file 3&4
     [EOF]
     ");
 
@@ -1947,7 +1947,7 @@ fn test_squash_to_new_commit() {
     ------- stderr -------
     Created new commit wvuyspvk 8a940ae6 file 3&4
     Working copy  (@) now at: pkynqtxp 09bb6d70 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 27974c44 file2
+    Parent revision (@-)    : rlvkpnrz 27974c44 file2
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -1980,7 +1980,7 @@ fn test_squash_to_new_commit() {
     Created new commit xlzxqlsl 8ceb6c68 file 3&4
     Rebased 3 descendant commits
     Working copy  (@) now at: mzvwutvl af73b227 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz e72015b0 file2
+    Parent revision (@-)    : rlvkpnrz e72015b0 file2
     [EOF]
     ");
 
@@ -2063,7 +2063,7 @@ fn test_squash_to_new_commit() {
     Created new commit pkstwlsy 3e0cd203 (no description set)
     Rebased 3 descendant commits
     Working copy  (@) now at: mzvwutvl f52f8d55 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 8cfd575a file2
+    Parent revision (@-)    : rlvkpnrz 8cfd575a file2
     [EOF]
     ");
 
@@ -2095,7 +2095,7 @@ fn test_squash_to_new_commit() {
     Created new commit zowrlwsv 5feda7c2 (empty) (no description set)
     Rebased 5 descendant commits
     Working copy  (@) now at: mzvwutvl 95edec8e (empty) (no description set)
-    Parent commit (@-)      : zsuskuln 5abf0a51 file4
+    Parent revision (@-)    : zsuskuln 5abf0a51 file4
     [EOF]
     ");
 
@@ -2139,7 +2139,7 @@ fn test_squash_to_new_commit() {
     Created new commit nsrwusvy c2183685 (empty) (no description set)
     Rebased 5 descendant commits
     Working copy  (@) now at: mzvwutvl cb96ecf9 (empty) (no description set)
-    Parent commit (@-)      : zsuskuln 97edce13 file4
+    Parent revision (@-)    : zsuskuln 97edce13 file4
     [EOF]
     ");
 
@@ -2234,7 +2234,7 @@ fn test_squash_to_new_commit() {
     Created new commit pyoswmwk d5aa6638 file 3&4
     Rebased 1 descendant commits
     Working copy  (@) now at: yqnpwwmq 68513612 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz ed79225c file2
+    Parent revision (@-)    : rlvkpnrz ed79225c file2
     [EOF]
     ");
 

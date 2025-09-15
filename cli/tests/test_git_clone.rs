@@ -66,7 +66,7 @@ fn test_git_clone() {
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: uuqppmxq 3711b3b5 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Parent revision (@-)    : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -153,7 +153,7 @@ fn test_git_clone() {
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: uuzqqzqu c871b515 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Parent revision (@-)    : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -219,7 +219,7 @@ fn test_git_clone_colocate() {
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: uuqppmxq 3711b3b5 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Parent revision (@-)    : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
@@ -365,7 +365,7 @@ fn test_git_clone_colocate() {
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: vzqnnsmr fea36bca (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Parent revision (@-)    : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
@@ -390,7 +390,7 @@ fn test_git_clone_colocate_via_config() {
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Parent revision (@-)    : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
@@ -418,7 +418,7 @@ fn test_git_clone_no_colocate() {
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Parent revision (@-)    : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -490,7 +490,7 @@ fn test_git_clone_tags() {
     tag: v2.0@git [new] 
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: sqpuoqvx 88542a00 (empty) (no description set)
-    Parent commit (@-)      : lnmyztun e93ca54d main | message
+    Parent revision (@-)    : lnmyztun e93ca54d main | message
     Added 2 files, modified 0 files, removed 0 files
     Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
@@ -503,7 +503,7 @@ fn test_git_clone_tags() {
     tag: v2.0@git [new] 
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: uuqppmxq 676b2fd8 (empty) (no description set)
-    Parent commit (@-)      : lnmyztun e93ca54d main | message
+    Parent revision (@-)    : lnmyztun e93ca54d main | message
     Added 2 files, modified 0 files, removed 0 files
     Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
@@ -517,7 +517,7 @@ fn test_git_clone_tags() {
     tag: v2.0@git [new] 
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: pmmvwywv cd5996a2 (empty) (no description set)
-    Parent commit (@-)      : lnmyztun e93ca54d main | message
+    Parent revision (@-)    : lnmyztun e93ca54d main | message
     Added 2 files, modified 0 files, removed 0 files
     Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
@@ -529,7 +529,7 @@ fn test_git_clone_tags() {
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: rzvqmyuk 61c45a3c (empty) (no description set)
-    Parent commit (@-)      : lnmyztun e93ca54d main | message
+    Parent revision (@-)    : lnmyztun e93ca54d main | message
     Added 2 files, modified 0 files, removed 0 files
     Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
@@ -571,7 +571,7 @@ fn test_git_clone_remote_default_bookmark() {
     bookmark: main@origin     [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 feature1 main | message
+    Parent revision (@-)    : qomsplrm ebeb70d8 feature1 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -601,7 +601,7 @@ fn test_git_clone_remote_default_bookmark() {
     bookmark: main@origin     [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: rzvqmyuk 27e56779 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 feature1@origin main | message
+    Parent revision (@-)    : qomsplrm ebeb70d8 feature1@origin main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -623,7 +623,7 @@ fn test_git_clone_remote_default_bookmark() {
     bookmark: main@origin     [new] untracked
     Setting the revset alias `trunk()` to `feature1@origin`
     Working copy  (@) now at: nppvrztz b16020e9 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 feature1 main@origin | message
+    Parent revision (@-)    : qomsplrm ebeb70d8 feature1 main@origin | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -658,7 +658,7 @@ fn test_git_clone_remote_default_bookmark() {
     bookmark: main@origin     [new] untracked
     Setting the revset alias `trunk()` to `feature1@origin`
     Working copy  (@) now at: wmwvqwsz 5068d576 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 feature1@origin main@origin | message
+    Parent revision (@-)    : qomsplrm ebeb70d8 feature1@origin main@origin | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -686,7 +686,7 @@ fn test_git_clone_remote_default_bookmark() {
     Hint: `git.track-default-bookmark-on-clone=false` has no effect if `git.auto-local-bookmark` is enabled.
     Setting the revset alias `trunk()` to `feature1@origin`
     Working copy  (@) now at: vzqnnsmr fea36bca (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 feature1 main | message
+    Parent revision (@-)    : qomsplrm ebeb70d8 feature1 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -728,7 +728,7 @@ fn test_git_clone_remote_default_bookmark_with_escape() {
     bookmark: "\""@origin [new] tracked
     Setting the revset alias `trunk()` to `"\""@origin`
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 "\"" | message
+    Parent revision (@-)    : qomsplrm ebeb70d8 "\"" | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -815,7 +815,7 @@ fn test_git_clone_with_remote_name() {
     bookmark: main@upstream [new] tracked
     Setting the revset alias `trunk()` to `main@upstream`
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Parent revision (@-)    : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -869,7 +869,7 @@ fn test_git_clone_trunk_deleted() {
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Parent revision (@-)    : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -958,7 +958,7 @@ fn test_git_clone_conditional_config() {
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: zxsnswpr 5479cd52 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Parent revision (@-)    : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -1001,7 +1001,7 @@ fn test_git_clone_with_depth() {
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Parent revision (@-)    : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -1059,7 +1059,7 @@ fn test_git_clone_malformed() {
     Fetching into new repo in "$TEST_ENV/clone"
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
-    Internal error: Failed to check out commit 2f4286212884d472a0b2013a961b695a144ac65c
+    Internal error: Failed to check out revision 2f4286212884d472a0b2013a961b695a144ac65c
     Caused by: Reserved path component .jj in $TEST_ENV/clone/.jj
     [EOF]
     [exit status: 255]
@@ -1081,7 +1081,7 @@ fn test_git_clone_malformed() {
     let output = clone_dir.run_jj(["workspace", "update-stale"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Internal error: Failed to check out commit 2f4286212884d472a0b2013a961b695a144ac65c
+    Internal error: Failed to check out revision 2f4286212884d472a0b2013a961b695a144ac65c
     Caused by: Reserved path component .jj in $TEST_ENV/clone/.jj
     [EOF]
     [exit status: 255]
@@ -1121,7 +1121,7 @@ fn test_git_clone_with_global_git_remote_config() {
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Parent revision (@-)    : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -1194,7 +1194,7 @@ fn test_git_clone_branch() {
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
     Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Parent revision (@-)    : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -1230,7 +1230,7 @@ fn test_git_clone_branch() {
     Fetching into new repo in "$TEST_ENV/clone_non_default"
     bookmark: feature1@origin [new] tracked
     Working copy  (@) now at: pmmvwywv ea9c2659 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 feature1 | message
+    Parent revision (@-)    : qomsplrm ebeb70d8 feature1 | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);

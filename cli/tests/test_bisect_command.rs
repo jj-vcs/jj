@@ -75,10 +75,10 @@ fn test_bisect_run() {
     [EOF]
     ------- stderr -------
     Working copy  (@) now at: lylxulpl 68b3a16f (empty) (no description set)
-    Parent commit (@-)      : royxmykx dffaa0d4 c | c
+    Parent revision (@-)    : royxmykx dffaa0d4 c | c
     Added 0 files, modified 0 files, removed 3 files
     Working copy  (@) now at: rsllmpnm 5f328bc5 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Parent revision (@-)    : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -110,10 +110,10 @@ fn test_bisect_run() {
     ------- stderr -------
     Warning: `--command` is deprecated; use positional arguments instead: `jj bisect run --range=... -- false
     Working copy  (@) now at: nkmrtpmo 1601f7b4 (empty) (no description set)
-    Parent commit (@-)      : royxmykx dffaa0d4 c | c
+    Parent revision (@-)    : royxmykx dffaa0d4 c | c
     Added 2 files, modified 0 files, removed 0 files
     Working copy  (@) now at: ruktrxxu fb9e625c (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Parent revision (@-)    : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -157,10 +157,10 @@ fn test_bisect_run_find_first_good() {
     [EOF]
     ------- stderr -------
     Working copy  (@) now at: lylxulpl 68b3a16f (empty) (no description set)
-    Parent commit (@-)      : royxmykx dffaa0d4 c | c
+    Parent revision (@-)    : royxmykx dffaa0d4 c | c
     Added 0 files, modified 0 files, removed 3 files
     Working copy  (@) now at: rsllmpnm 5f328bc5 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Parent revision (@-)    : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -207,13 +207,13 @@ fn test_bisect_run_with_args() {
     [EOF]
     ------- stderr -------
     Working copy  (@) now at: lylxulpl 68b3a16f (empty) (no description set)
-    Parent commit (@-)      : royxmykx dffaa0d4 c | c
+    Parent revision (@-)    : royxmykx dffaa0d4 c | c
     Added 0 files, modified 0 files, removed 3 files
     Working copy  (@) now at: rsllmpnm 5f328bc5 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Parent revision (@-)    : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 2 files
     Working copy  (@) now at: zqsquwqt 042badd2 (empty) (no description set)
-    Parent commit (@-)      : zsuskuln 123b4d91 b | b
+    Parent revision (@-)    : zsuskuln 123b4d91 b | b
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -251,7 +251,7 @@ fn test_bisect_run_abort() {
     [EOF]
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 538d9e7f (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Parent revision (@-)    : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 2 files
     Error: Evaluation command returned 127 (command not found) - aborting bisection.
     [EOF]
@@ -283,7 +283,7 @@ fn test_bisect_run_skip() {
     [EOF]
     ------- stderr -------
     Working copy  (@) now at: royxmykx 2144134b (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Parent revision (@-)    : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -316,10 +316,10 @@ fn test_bisect_run_multiple_results() {
     [EOF]
     ------- stderr -------
     Working copy  (@) now at: znkkpsqq 1b117fe7 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Parent revision (@-)    : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 2 files
     Working copy  (@) now at: uuzqqzqu 6bf5f5e7 (empty) (no description set)
-    Parent commit (@-)      : royxmykx 991a7501 c | c
+    Parent revision (@-)    : royxmykx 991a7501 c | c
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -359,10 +359,10 @@ fn test_bisect_run_write_file() {
     [EOF]
     ------- stderr -------
     Working copy  (@) now at: kmkuslsw 17e2a972 (empty) (no description set)
-    Parent commit (@-)      : zsuskuln 123b4d91 b | b
+    Parent revision (@-)    : zsuskuln 123b4d91 b | b
     Added 0 files, modified 0 files, removed 3 files
     Working copy  (@) now at: msksykpx 2f6e298d (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Parent revision (@-)    : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -422,15 +422,15 @@ fn test_bisect_run_jj_command() {
     [EOF]
     ------- stderr -------
     Working copy  (@) now at: kmkuslsw 17e2a972 (empty) (no description set)
-    Parent commit (@-)      : zsuskuln 123b4d91 b | b
+    Parent revision (@-)    : zsuskuln 123b4d91 b | b
     Added 0 files, modified 0 files, removed 3 files
     Working copy  (@) now at: kmkuslsw?? 55b3b4a8 (empty) testing
-    Parent commit (@-)      : kmkuslsw?? 17e2a972 (empty) (no description set)
+    Parent revision (@-)    : kmkuslsw?? 17e2a972 (empty) (no description set)
     Working copy  (@) now at: msksykpx 2f6e298d (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Parent revision (@-)    : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 1 files
     Working copy  (@) now at: kmkuslsw?? 2f80658c (empty) testing
-    Parent commit (@-)      : msksykpx 2f6e298d (empty) (no description set)
+    Parent revision (@-)    : msksykpx 2f6e298d (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"

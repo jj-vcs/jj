@@ -151,7 +151,7 @@ fn test_undo_with_rev_arg_falls_back_to_revert() {
     ------- stderr -------
     Warning: `jj undo <operation>` is deprecated; use `jj op revert <operation>` instead
     Reverted operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
-    Rebased 1 descendant commits
+    Rebased 1 descendant revisions
     [EOF]
     ");
 

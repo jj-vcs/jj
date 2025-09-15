@@ -204,7 +204,7 @@ fn test_git_colocated_unborn_bookmark() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 2b17ac71 (empty) (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -236,7 +236,7 @@ fn test_git_colocated_unborn_bookmark() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: royxmykx c5b52bf2 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 54ca7830 (no description set)
+    Parent revision (@-)    : kkmpptxz 54ca7830 (no description set)
     [EOF]
     ");
     assert!(git_repo.head().unwrap().is_detached());
@@ -273,7 +273,7 @@ fn test_git_colocated_unborn_bookmark() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: znkkpsqq 2b2f7cb0 (empty) (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -303,7 +303,7 @@ fn test_git_colocated_unborn_bookmark() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: wqnwkozp 4253b9c0 (empty) (no description set)
-    Parent commit (@-)      : znkkpsqq b8df84db (no description set)
+    Parent revision (@-)    : znkkpsqq b8df84db (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -404,9 +404,9 @@ fn test_git_colocated_rebase_on_import() {
     [EOF]
     ------- stderr -------
     Abandoned 1 commits that are no longer reachable.
-    Rebased 1 descendant commits off of commits rewritten from git
+    Rebased 1 descendant revisions off of revisions rewritten from git
     Working copy  (@) now at: zsuskuln d4658336 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm cbd6c887 master | add a file
+    Parent revision (@-)    : qpvuntsm cbd6c887 master | add a file
     Added 0 files, modified 1 files, removed 0 files
     Done importing changes from the underlying Git repo.
     [EOF]
@@ -471,7 +471,7 @@ fn test_git_colocated_bookmarks() {
     ------- stderr -------
     Abandoned 1 commits that are no longer reachable.
     Working copy  (@) now at: yqosqzyt 507c0edc (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
+    Parent revision (@-)    : qpvuntsm e8849ae1 (empty) (no description set)
     Done importing changes from the underlying Git repo.
     [EOF]
     ");
@@ -619,7 +619,7 @@ fn test_git_colocated_checkout_non_empty_working_copy() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 986aa548 (empty) new
-    Parent commit (@-)      : slsumksp 97358f54 master | initial
+    Parent revision (@-)    : slsumksp 97358f54 master | initial
     [EOF]
     ");
 
@@ -858,7 +858,7 @@ fn test_git_colocated_concurrent_checkout() {
     Warning: Failed to update Git HEAD ref
     Caused by: The reference "HEAD" should have content dc0b92dfa0af129b2929fa1789fc896b075782b2, actual content was 091e39feb0aba632ab9a9503ceb1dddeac4dd496
     Working copy  (@) now at: mzvwutvl cf0ddbb4 (empty) (no description set)
-    Parent commit (@-)      : zsuskuln b6786455 (empty) commit3
+    Parent revision (@-)    : zsuskuln b6786455 (empty) commit3
     [EOF]
     "#);
 
@@ -985,7 +985,7 @@ fn test_git_colocated_undo_head_move() {
     ------- stderr -------
     Restored to operation: 28f10852fc94 (2001-02-03 08:05:12) new empty commit
     Working copy  (@) now at: royxmykx e7d0d5fd (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
+    Parent revision (@-)    : qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
     assert!(git_repo.head().unwrap().is_detached());
@@ -1627,7 +1627,7 @@ fn test_git_colocated_operation_cleanup() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: kmkuslsw aa14563c (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz cf3bb116 main | 2
+    Parent revision (@-)    : kkmpptxz cf3bb116 main | 2
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");

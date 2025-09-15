@@ -58,7 +58,7 @@ backend = "test"
       kkmpptxz d2174a79 (empty) three
       zsuskuln 8d7bc037 (empty) (no description set)
     Working copy  (@) now at: zsuskuln 8d7bc037 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz d2174a79 (empty) three
+    Parent revision (@-)    : kkmpptxz d2174a79 (empty) three
     [EOF]
     ");
 
@@ -87,7 +87,7 @@ backend = "test"
       kkmpptxz fc827eb8 (empty) three
       zsuskuln 66574289 (empty) (no description set)
     Working copy  (@) now at: zsuskuln 66574289 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz fc827eb8 (empty) three
+    Parent revision (@-)    : kkmpptxz fc827eb8 (empty) three
     [EOF]
     ");
 }
@@ -214,7 +214,7 @@ backend = "test"
     Warning: 3 of these commits are not authored by you
     Rebased 1 descendant commits
     Working copy  (@) now at: zsuskuln 1b3596cb (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz ed55e398 (empty) three
+    Parent revision (@-)    : kkmpptxz ed55e398 (empty) three
     [EOF]
     ");
 
@@ -262,7 +262,7 @@ backend = "test"
       kkmpptxz ab7e21e9 (empty) C
     Rebased 1 descendant commits
     Working copy  (@) now at: kkmpptxz ab7e21e9 (empty) C
-    Parent commit (@-)      : rlvkpnrz 3981b3e4 (empty) B
+    Parent revision (@-)    : rlvkpnrz 3981b3e4 (empty) B
     [EOF]
     ");
 
@@ -350,7 +350,7 @@ backend = "test"
       kkmpptxz 8c2dc912 (empty) three
       zsuskuln 9aec4578 (empty) (no description set)
     Working copy  (@) now at: zsuskuln 9aec4578 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 8c2dc912 (empty) three
+    Parent revision (@-)    : kkmpptxz 8c2dc912 (empty) three
     [EOF]
     ");
 
@@ -410,7 +410,7 @@ backend = "test"
       zsuskuln 0fda7ce2 (empty) (no description set)
     Warning: 4 of these commits are not authored by you
     Working copy  (@) now at: zsuskuln 0fda7ce2 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz f6eb4a7e (empty) three
+    Parent revision (@-)    : kkmpptxz f6eb4a7e (empty) three
     [EOF]
     ");
 

@@ -138,7 +138,7 @@ fn test_git_init_external(bare: bool) {
     ------- stderr -------
     Done importing changes from the underlying Git repo.
     Working copy  (@) now at: sqpuoqvx ed6b5138 (empty) (no description set)
-    Parent commit (@-)      : nntyzxmz e80a42cc my-bookmark | My commit message
+    Parent revision (@-)    : nntyzxmz e80a42cc my-bookmark | My commit message
     Added 1 files, modified 0 files, removed 0 files
     Initialized repo in "repo"
     [EOF]
@@ -216,7 +216,7 @@ fn test_git_init_external_import_trunk(bare: bool) {
     Done importing changes from the underlying Git repo.
     Setting the revset alias `trunk()` to `trunk@origin`
     Working copy  (@) now at: sqpuoqvx ed6b5138 (empty) (no description set)
-    Parent commit (@-)      : nntyzxmz e80a42cc my-bookmark trunk@origin | My commit message
+    Parent revision (@-)    : nntyzxmz e80a42cc my-bookmark trunk@origin | My commit message
     Added 1 files, modified 0 files, removed 0 files
     Initialized repo in "repo"
     [EOF]
@@ -294,7 +294,7 @@ fn test_git_init_external_import_trunk_upstream_takes_precedence() {
     Done importing changes from the underlying Git repo.
     Setting the revset alias `trunk()` to `develop@upstream`
     Working copy  (@) now at: sqpuoqvx ed6b5138 (empty) (no description set)
-    Parent commit (@-)      : nntyzxmz e80a42cc develop@upstream my-bookmark trunk@origin | My commit message
+    Parent revision (@-)    : nntyzxmz e80a42cc develop@upstream my-bookmark trunk@origin | My commit message
     Added 1 files, modified 0 files, removed 0 files
     Initialized repo in "repo"
     [EOF]
