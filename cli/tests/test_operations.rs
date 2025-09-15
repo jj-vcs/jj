@@ -1460,7 +1460,7 @@ fn test_op_diff() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: xlzxqlsl 731ab199 (empty) new commit
-    Parent commit (@-)      : zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
+    Parent revision (@-)    : zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
     Added 2 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -1555,7 +1555,7 @@ fn test_op_diff_patch() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz c1c924b8 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 6b57e33c (no description set)
+    Parent revision (@-)    : qpvuntsm 6b57e33c (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "diff", "--op", "@-", "-p", "--git"]);
@@ -1599,7 +1599,7 @@ fn test_op_diff_patch() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl 6cbd01ae (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 7aa2ec5d (no description set)
+    Parent revision (@-)    : qpvuntsm 7aa2ec5d (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "diff", "-p", "--git"]);
@@ -1633,7 +1633,7 @@ fn test_op_diff_patch() {
     Abandoned 1 commits:
       mzvwutvl 6cbd01ae (empty) (no description set)
     Working copy  (@) now at: yqosqzyt c97a8573 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 7aa2ec5d (no description set)
+    Parent revision (@-)    : qpvuntsm 7aa2ec5d (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "diff", "-p", "--git"]);
@@ -2506,7 +2506,7 @@ fn test_op_show() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: tlkvzzqu 8f340dd7 (empty) new commit
-    Parent commit (@-)      : zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
+    Parent revision (@-)    : zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
     Added 2 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -2622,7 +2622,7 @@ fn test_op_show_patch() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz c1c924b8 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 6b57e33c (no description set)
+    Parent revision (@-)    : qpvuntsm 6b57e33c (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "show", "@-", "-p", "--git"]);
@@ -2668,7 +2668,7 @@ fn test_op_show_patch() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl 6cbd01ae (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 7aa2ec5d (no description set)
+    Parent revision (@-)    : qpvuntsm 7aa2ec5d (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "show", "-p", "--git"]);
@@ -2703,7 +2703,7 @@ fn test_op_show_patch() {
     Abandoned 1 commits:
       mzvwutvl 6cbd01ae (empty) (no description set)
     Working copy  (@) now at: yqosqzyt c97a8573 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 7aa2ec5d (no description set)
+    Parent revision (@-)    : qpvuntsm 7aa2ec5d (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "show", "-p", "--git"]);

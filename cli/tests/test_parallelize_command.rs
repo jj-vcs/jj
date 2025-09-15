@@ -639,8 +639,8 @@ fn test_parallelize_complex_nonlinear_target() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: yostqsxw d6bb6520 (empty) 3c
-    Parent commit (@-)      : rlvkpnrz 973f85cf (empty) 0
-    Parent commit (@-)      : mzvwutvl 47ec86fe (empty) 3
+    Parent revision (@-)    : rlvkpnrz 973f85cf (empty) 0
+    Parent revision (@-)    : mzvwutvl 47ec86fe (empty) 3
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -761,13 +761,13 @@ fn test_parallelize_no_immutable_non_base_commits() {
     let output = work_dir.run_jj(["parallelize", "description(x)"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit 6d01ab1fb731 is immutable
-    Hint: Could not modify commit: kkmpptxz 6d01ab1f (empty) x1
-    Hint: Immutable commits are used to protect shared history.
+    Error: Revision 6d01ab1fb731 is immutable
+    Hint: Could not modify revision: kkmpptxz 6d01ab1f (empty) x1
+    Hint: Immutable revisions are used to protect shared history.
     Hint: For more information, see:
           - https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
           - `jj help -k config`, "Set of immutable commits"
-    Hint: This operation would rewrite 1 immutable commits.
+    Hint: This operation would rewrite 1 immutable revisions.
     [EOF]
     [exit status: 1]
     "#);
