@@ -1635,7 +1635,7 @@ fn test_log_format_trailers() {
         "-r@",
     ]);
     insta::assert_snapshot!(output, @r"
-    Change-Id: I6a6a69649a45c67d3e96a7e5007c110ede34dec5
+    Change-Id: I9a45c67d3e96a7e5007c110ede34dec56a6a6964
     Signed-off-by: Test User <test.user@example.com>
     [EOF]
     ");
@@ -1653,7 +1653,7 @@ fn test_log_format_trailers() {
     let output = work_dir.run_jj(["log", "--no-graph", "-T", r#"trailers ++ "\n""#, "-r@"]);
     insta::assert_snapshot!(output, @r"
     Signed-off-by: Test User <test.user@example.com>
-    Change-Id: I6a6a69649a45c67d3e96a7e5007c110ede34dec5
+    Change-Id: I9a45c67d3e96a7e5007c110ede34dec56a6a6964
     [EOF]
     ");
 
@@ -1673,7 +1673,7 @@ fn test_log_format_trailers() {
         "trailers.map(|t| t.value())",
         "-r@",
     ]);
-    insta::assert_snapshot!(output, @"Test User <test.user@example.com> I6a6a69649a45c67d3e96a7e5007c110ede34dec5[EOF]");
+    insta::assert_snapshot!(output, @"Test User <test.user@example.com> I9a45c67d3e96a7e5007c110ede34dec56a6a6964[EOF]");
 
     let output = work_dir.run_jj([
         "log",
