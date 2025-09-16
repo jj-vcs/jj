@@ -490,6 +490,20 @@
                 }
             }
         },
+        "gerrit": {
+            "type": "object",
+            "description": "Settings for interacting with Gerrit",
+            "properties": {
+                "default-remote": {
+                    "type": "string",
+                    "description": "The Gerrit remote to interact with"
+                },
+                "default-remote-branch": {
+                    "type": "string",
+                    "description": "The default branch to propose changes for"
+                }
+            }
+        },
         "merge": {
             "type": "object",
             "description": "Merge settings",
