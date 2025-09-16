@@ -235,7 +235,7 @@ pub fn cmd_gerrit_upload(
     }
 
     let mut old_to_new: HashMap<CommitId, Commit> = HashMap::new();
-    for original_commit in to_upload {
+    for original_commit in to_upload.into_iter().rev() {
         let trailers = parse_description_trailers(original_commit.description());
 
         let change_id_trailers: Vec<&Trailer> = trailers
