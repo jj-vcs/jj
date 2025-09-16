@@ -7392,7 +7392,10 @@ does not match the <code>jj help</code> output exactly.</p>
 </ul>
 <h6 id="options_4"><strong>Options:</strong><a class="headerlink" href="#options_4" title="Permanent link">&para;</a></h6>
 <ul>
-<li><code>-r</code>, <code>--revision &lt;REVSET&gt;</code> [alias: <code>to</code>] — The bookmark's target revision</li>
+<li>
+<p><code>-r</code>, <code>--revision &lt;REVSET&gt;</code> [alias: <code>to</code>] — The bookmark's target revision</p>
+<p>Default value: <code>@</code></p>
+</li>
 </ul>
 <h2 id="jj-bookmark-delete"><code>jj bookmark delete</code><a class="headerlink" href="#jj-bookmark-delete" title="Permanent link">&para;</a></h2>
 <p>Delete an existing bookmark and propagate the deletion to remotes on the next push</p>
@@ -7484,8 +7487,13 @@ does not match the <code>jj help</code> output exactly.</p>
 <h6 id="options_7"><strong>Options:</strong><a class="headerlink" href="#options_7" title="Permanent link">&para;</a></h6>
 <ul>
 <li><code>-f</code>, <code>--from &lt;REVSETS&gt;</code> — Move bookmarks from the given revisions</li>
-<li><code>-t</code>, <code>--to &lt;REVSET&gt;</code> — Move bookmarks to this revision</li>
-<li><code>-B</code>, <code>--allow-backwards</code> — Allow moving bookmarks backwards or sideways</li>
+<li>
+<p><code>-t</code>, <code>--to &lt;REVSET&gt;</code> — Move bookmarks to this revision</p>
+<p>Default value: <code>@</code></p>
+</li>
+<li>
+<p><code>-B</code>, <code>--allow-backwards</code> — Allow moving bookmarks backwards or sideways</p>
+</li>
 </ul>
 <h2 id="jj-bookmark-rename"><code>jj bookmark rename</code><a class="headerlink" href="#jj-bookmark-rename" title="Permanent link">&para;</a></h2>
 <p>Rename <code>old</code> bookmark name to <code>new</code> bookmark name</p>
@@ -7507,8 +7515,13 @@ does not match the <code>jj help</code> output exactly.</p>
 </ul>
 <h6 id="options_8"><strong>Options:</strong><a class="headerlink" href="#options_8" title="Permanent link">&para;</a></h6>
 <ul>
-<li><code>-r</code>, <code>--revision &lt;REVSET&gt;</code> [alias: <code>to</code>] — The bookmark's target revision</li>
-<li><code>-B</code>, <code>--allow-backwards</code> — Allow moving the bookmark backwards or sideways</li>
+<li>
+<p><code>-r</code>, <code>--revision &lt;REVSET&gt;</code> [alias: <code>to</code>] — The bookmark's target revision</p>
+<p>Default value: <code>@</code></p>
+</li>
+<li>
+<p><code>-B</code>, <code>--allow-backwards</code> — Allow moving the bookmark backwards or sideways</p>
+</li>
 </ul>
 <h2 id="jj-bookmark-track"><code>jj bookmark track</code><a class="headerlink" href="#jj-bookmark-track" title="Permanent link">&para;</a></h2>
 <p>Start tracking given remote bookmarks</p>
