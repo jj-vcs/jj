@@ -159,7 +159,7 @@ impl OpStore for SimpleOpStore {
 
         let proto = crate::protos::simple_op_store::View::decode(&*buf)
             .map_err(|err| to_read_error(err.into(), id))?;
-        Ok(view_from_proto(proto))
+        view_from_proto(proto).map_err(|err| to_read_error(err.into(), id))
     }
 
     fn write_view(&self, view: &View) -> OpStoreResult<ViewId> {
@@ -565,7 +565,7 @@ fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
     proto
 }
 
-fn view_from_proto(proto: crate::protos::simple_op_store::View) -> View {
+fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, PostDecodeError> {
     // TODO: validate commit id length?
     let mut view = View::empty();
     // For compatibility with old repos before we had support for multiple working
@@ -585,7 +585,7 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> View {
         view.head_ids.insert(CommitId::new(head_id_bytes));
     }
 
-    let (local_bookmarks, remote_views) = bookmark_views_from_proto_legacy(proto.bookmarks);
+    let (local_bookmarks, remote_views) = bookmark_views_from_proto_legacy(proto.bookmarks)?;
     view.local_bookmarks = local_bookmarks;
     view.remote_views = remote_views;
 
@@ -613,7 +613,7 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> View {
         view.git_head = RefTarget::normal(CommitId::new(proto.git_head_legacy));
     }
 
-    view
+    Ok(view)
 }
 
 fn bookmark_views_to_proto_legacy(
@@ -643,12 +643,14 @@ fn bookmark_views_to_proto_legacy(
         .collect()
 }
 
-fn bookmark_views_from_proto_legacy(
-    bookmarks_legacy: Vec<crate::protos::simple_op_store::Bookmark>,
-) -> (
+type BookmarkViews = (
     BTreeMap<RefNameBuf, RefTarget>,
     BTreeMap<RemoteNameBuf, RemoteView>,
-) {
+);
+
+fn bookmark_views_from_proto_legacy(
+    bookmarks_legacy: Vec<crate::protos::simple_op_store::Bookmark>,
+) -> Result<BookmarkViews, PostDecodeError> {
     let mut local_bookmarks: BTreeMap<RefNameBuf, RefTarget> = BTreeMap::new();
     let mut remote_views: BTreeMap<RemoteNameBuf, RemoteView> = BTreeMap::new();
     for bookmark_proto in bookmarks_legacy {
@@ -690,7 +692,7 @@ fn bookmark_views_from_proto_legacy(
             local_bookmarks.insert(bookmark_name, local_target);
         }
     }
-    (local_bookmarks, remote_views)
+    Ok((local_bookmarks, remote_views))
 }
 
 fn ref_target_to_proto(value: &RefTarget) -> Option<crate::protos::simple_op_store::RefTarget> {
@@ -990,7 +992,7 @@ mod tests {
         );
 
         let (local_bookmarks_reconstructed, remote_views_reconstructed) =
-            bookmark_views_from_proto_legacy(bookmarks_legacy);
+            bookmark_views_from_proto_legacy(bookmarks_legacy).unwrap();
         assert_eq!(local_bookmarks_reconstructed, local_bookmarks);
         assert_eq!(remote_views_reconstructed, remote_views);
     }
