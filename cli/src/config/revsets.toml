@@ -33,4 +33,6 @@ latest(
 'builtin_immutable_heads()' = 'present(trunk()) | tags() | untracked_remote_bookmarks()'
 'immutable_heads()' = 'builtin_immutable_heads()'
 'immutable()' = '::(immutable_heads() | root())'
-'mutable()' = '~immutable()'
+# Use ..visible_heads() instead of ~immutable() to prevent mutable() from
+# including hidden revisions.
+'mutable()' = 'immutable()..visible_heads()'

@@ -53,6 +53,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* The revset `mutable()` no longer includes hidden revisions.
+
 ## [0.33.0] - 2025-09-03
 
 ### Release highlights
