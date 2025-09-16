@@ -392,6 +392,8 @@ fn io_to_write_error(err: PathError, object_type: &'static str) -> OpStoreError 
 enum PostDecodeError {
     #[error("Invalid hash length (expected {expected} bytes, got {actual} bytes)")]
     InvalidHashLength { expected: usize, actual: usize },
+    #[error("Invalid remote ref state value {0}")]
+    InvalidRemoteRefStateValue(i32),
 }
 
 fn operation_id_from_proto(bytes: Vec<u8>) -> Result<OperationId, PostDecodeError> {
@@ -630,7 +632,7 @@ fn bookmark_views_to_proto_legacy(
                     |&(remote_name, remote_ref)| crate::protos::simple_op_store::RemoteBookmark {
                         remote_name: remote_name.into(),
                         target: ref_target_to_proto(&remote_ref.target),
-                        state: remote_ref_state_to_proto(remote_ref.state),
+                        state: Some(remote_ref_state_to_proto(remote_ref.state)),
                     },
                 )
                 .collect();
@@ -658,27 +660,13 @@ fn bookmark_views_from_proto_legacy(
         let local_target = ref_target_from_proto(bookmark_proto.local_target);
         for remote_bookmark in bookmark_proto.remote_bookmarks {
             let remote_name: RemoteNameBuf = remote_bookmark.remote_name.into();
-            let state = remote_ref_state_from_proto(remote_bookmark.state).unwrap_or_else(|| {
-                // If local bookmark doesn't exist, we assume that the remote bookmark hasn't
-                // been merged because git.auto-local-bookmark was off. That's
-                // probably more common than deleted but yet-to-be-pushed local
-                // bookmark. Alternatively, we could read
-                // git.auto-local-bookmark setting here, but that wouldn't always work since the
-                // setting could be toggled after the bookmark got merged.
-                let is_git_tracking = crate::git::is_special_git_remote(&remote_name);
-                let default_state = if is_git_tracking || local_target.is_present() {
-                    RemoteRefState::Tracked
-                } else {
-                    RemoteRefState::New
-                };
-                tracing::trace!(
-                    ?bookmark_name,
-                    ?remote_name,
-                    ?default_state,
-                    "generated tracking state",
-                );
-                default_state
-            });
+            let state = match remote_bookmark.state {
+                Some(n) => remote_ref_state_from_proto(n)?,
+                // Legacy view saved by jj < 0.11. The proto field is not
+                // changed to non-optional type because that would break forward
+                // compatibility. Zero may be omitted if the field is optional.
+                None => RemoteRefState::New,
+            };
             let remote_view = remote_views.entry(remote_name).or_default();
             let remote_ref = RemoteRef {
                 target: ref_target_from_proto(remote_bookmark.target),
@@ -776,21 +764,23 @@ fn ref_target_from_proto(
     }
 }
 
-fn remote_ref_state_to_proto(state: RemoteRefState) -> Option<i32> {
+fn remote_ref_state_to_proto(state: RemoteRefState) -> i32 {
     let proto_state = match state {
         RemoteRefState::New => crate::protos::simple_op_store::RemoteRefState::New,
         RemoteRefState::Tracked => crate::protos::simple_op_store::RemoteRefState::Tracked,
     };
-    Some(proto_state as i32)
+    proto_state as i32
 }
 
-fn remote_ref_state_from_proto(proto_value: Option<i32>) -> Option<RemoteRefState> {
-    let proto_state = proto_value?.try_into().ok()?;
+fn remote_ref_state_from_proto(proto_value: i32) -> Result<RemoteRefState, PostDecodeError> {
+    let proto_state = proto_value
+        .try_into()
+        .map_err(|prost::UnknownEnumValue(n)| PostDecodeError::InvalidRemoteRefStateValue(n))?;
     let state = match proto_state {
         crate::protos::simple_op_store::RemoteRefState::New => RemoteRefState::New,
         crate::protos::simple_op_store::RemoteRefState::Tracked => RemoteRefState::Tracked,
     };
-    Some(state)
+    Ok(state)
 }
 
 #[cfg(test)]
