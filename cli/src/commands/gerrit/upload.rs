@@ -273,7 +273,7 @@ pub fn cmd_gerrit_upload(
         // Gerrit change id is 40 chars, jj change id is 32, so we need padding.
         // To be consistent with `format_gerrit_change_id_trailer``, we pad with
         // 6a6a6964 (hex of "jjid").
-        let gerrit_change_id = format!("I6a6a6964{}", original_commit.change_id().hex());
+        let gerrit_change_id = format!("I{}6a6a6964", original_commit.change_id().hex());
 
         let new_description = format!(
             "{}{}Change-Id: {}\n",
