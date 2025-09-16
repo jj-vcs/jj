@@ -13,6 +13,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Git repositories are now colocated by default. Configure
   `git.colocate = false` to keep the previous behavior.
 
+* The new `jj git colocation` command provides sub-commands to show the
+  colocation state (`status`) and to convert a non-colocated git repo into
+  a colocated repo (`enable`) and vice-versa `disable`.
+
 * Conflicts written by jj < 0.11 are no longer supported. They will now appear
   as regular files with a `.jjconflict` suffix and JSON contents.
 
