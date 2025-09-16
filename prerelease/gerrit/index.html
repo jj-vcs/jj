@@ -8,13 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://jj-vcs.github.io/jj/latest/windows/">
+        <link rel="canonical" href="https://jj-vcs.github.io/jj/latest/gerrit/">
       
       
-        <link rel="prev" href="../github/">
+        <link rel="prev" href="../tutorial/">
       
       
-        <link rel="next" href="../FAQ/">
+        <link rel="next" href="../github/">
       
       
       <link rel="icon" href="../images/favicon-96x96.png">
@@ -22,7 +22,7 @@
     
     
       
-        <title>Working on Windows - Jujutsu docs (prerelease)</title>
+        <title>Working with Gerrit - Jujutsu docs (prerelease)</title>
       
     
     
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#working-on-windows" class="md-skip">
+        <a href="#using-jujutsu-with-gerrit-code-review" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Working on Windows
+              Working with Gerrit
             
           </span>
         </div>
@@ -375,10 +375,32 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../gerrit/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Working with Gerrit
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -389,6 +411,101 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#set-up-a-gerrit-remote" class="md-nav__link">
+    <span class="md-ellipsis">
+      Set up a Gerrit remote
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#basic-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic workflow
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Basic workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#upload-a-single-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      Upload a single change
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#selecting-revisions-revsets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Selecting revisions (revsets)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Selecting revisions (revsets)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#preview-without-pushing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Preview without pushing
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#target-branch-and-remote-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      Target branch and remote selection
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#updating-changes-after-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      Updating changes after review
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -421,32 +538,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    Working on Windows
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../windows/" class="md-nav__link">
         
   
   
@@ -457,71 +552,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#line-endings-conversion" class="md-nav__link">
-    <span class="md-ellipsis">
-      Line endings conversion
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pagination" class="md-nav__link">
-    <span class="md-ellipsis">
-      Pagination
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#typing-in-powershell" class="md-nav__link">
-    <span class="md-ellipsis">
-      Typing @ in PowerShell
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#wsl-sets-the-execute-bit-on-all-files" class="md-nav__link">
-    <span class="md-ellipsis">
-      WSL sets the execute bit on all files
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#symbolic-link-support" class="md-nav__link">
-    <span class="md-ellipsis">
-      Symbolic link support
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1767,45 +1797,75 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#line-endings-conversion" class="md-nav__link">
+  <a href="#set-up-a-gerrit-remote" class="md-nav__link">
     <span class="md-ellipsis">
-      Line endings conversion
+      Set up a Gerrit remote
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#pagination" class="md-nav__link">
+  <a href="#basic-workflow" class="md-nav__link">
     <span class="md-ellipsis">
-      Pagination
+      Basic workflow
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Basic workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#upload-a-single-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      Upload a single change
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#selecting-revisions-revsets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Selecting revisions (revsets)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Selecting revisions (revsets)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#preview-without-pushing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Preview without pushing
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#target-branch-and-remote-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      Target branch and remote selection
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#typing-in-powershell" class="md-nav__link">
+  <a href="#updating-changes-after-review" class="md-nav__link">
     <span class="md-ellipsis">
-      Typing @ in PowerShell
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#wsl-sets-the-execute-bit-on-all-files" class="md-nav__link">
-    <span class="md-ellipsis">
-      WSL sets the execute bit on all files
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#symbolic-link-support" class="md-nav__link">
-    <span class="md-ellipsis">
-      Symbolic link support
+      Updating changes after review
     </span>
   </a>
   
@@ -1827,7 +1887,7 @@
 
 
   
-    <a href="https://github.com/jj-vcs/jj/edit/main/docs/windows.md" title="Edit this page" class="md-content__button md-icon">
+    <a href="https://github.com/jj-vcs/jj/edit/main/docs/gerrit.md" title="Edit this page" class="md-content__button md-icon">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75z"/></svg>
     </a>
@@ -1835,107 +1895,91 @@
   
 
 
-<h1 id="working-on-windows">Working on Windows<a class="headerlink" href="#working-on-windows" title="Permanent link">&para;</a></h1>
-<p>Jujutsu works the same on all platforms, but there are some caveats that Windows
-users should be aware of.</p>
-<h2 id="line-endings-conversion">Line endings conversion<a class="headerlink" href="#line-endings-conversion" title="Permanent link">&para;</a></h2>
-<p>Jujutsu currently has a setting,
-<a href="../config/#eol-conversion-settings"><code>working-copy.eol-conversion</code></a>, similar to
-Git's <a href="https://git-scm.com/book/en/v2/Customizing-Git-Git-Configuration#_core_autocrlf"><code>core.autocrlf</code></a><sup id="fnref:1"><a class="footnote-ref" href="#fn:1">1</a></sup>, but does not currently honor
-<code>.gitattributes</code> and the <code>core.autocrlf</code> git config, so it is recommended to
-keep the <code>working-copy.eol-conversion</code> setting and the <code>core.autocrlf</code> git
-config in sync<sup id="fnref2:1"><a class="footnote-ref" href="#fn:1">1</a></sup>.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>If you created a colocated git repo, forget to keep these 2 settings in
-sync, and result in a dirty working copy with only EOL diffs, you can set
-the <code>working-copy.eol-conversion</code> setting correctly and run <code>jj abandon</code> to
-fix it.</p>
-</div>
-<p>The line endings conversion won't be applied to files detected as a binary files
-via a heuristics<sup id="fnref:2"><a class="footnote-ref" href="#fn:2">2</a></sup> regardless of the settings. This behavior is subject to
-change when we support the text git attribute.</p>
-<p>Jujutsu may make incorrect decision on whether a file is a binary file and apply
-line conversion incorrectly, but currently, Jujutsu doesn't support configuring
-line endings conversion for particular files. If this issue is hit, one should
-not enable the line conversion setting.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>If Jujutsu applies line endings conversion on incorrect files, you should
-not enable the line conversion setting and the git <code>core.autocrlf</code> setting.
-See below.</p>
-</div>
-<p>To disable line conversion, set the <code>core.autocrlf</code> setting to <code>none</code> or just
-remove the setting.</p>
-<div class="highlight"><pre><span></span><code><span class="n">PS</span><span class="p">&gt;</span> <span class="n">git</span> <span class="n">config</span> <span class="n">core</span><span class="p">.</span><span class="n">autocrlf</span> <span class="n">input</span>
-<span class="c"># We use none instead of input to avoid applying EOL conversion.</span>
-<span class="n">PS</span><span class="p">&gt;</span> <span class="n">jj</span> <span class="n">config</span> <span class="nb">set </span><span class="p">-</span><span class="n">-repo</span> <span class="n">working-copy</span><span class="p">.</span><span class="n">eol-conversion</span> <span class="n">none</span>
-<span class="c"># Abandoning the working copy will cause Jujutsu to overwrite all files with</span>
-<span class="c"># CRLF line endings with the line endings they are committed with, probably LF</span>
-<span class="n">PS</span><span class="p">&gt;</span> <span class="n">jj</span> <span class="n">abandon</span>
+<h1 id="using-jujutsu-with-gerrit-code-review">Using Jujutsu with Gerrit Code Review<a class="headerlink" href="#using-jujutsu-with-gerrit-code-review" title="Permanent link">&para;</a></h1>
+<p>JJ and Gerrit share the same mental model, which makes Gerrit feel like a
+natural collaboration tool for JJ. JJ tracks a "change identity" across
+rewrites, and Gerrit’s <code>Change-Id</code> tracks the same logical change across patch
+sets. JJ and Gerrit's <code>Change-Id</code>s aren’t natively compatible yet, but they’re
+philosophically aligned. <code>jj gerrit upload</code> bridges the gap today by adding a
+Gerrit-style <code>Change-Id</code> while JJ keeps its own notion of change identity on the
+client. In practice, that means small, clean commits that evolve over
+time, exactly how Gerrit wants you to work.</p>
+<p>This guide assumes a basic understanding of Git, Gerrit, and Jujutsu.</p>
+<h2 id="set-up-a-gerrit-remote">Set up a Gerrit remote<a class="headerlink" href="#set-up-a-gerrit-remote" title="Permanent link">&para;</a></h2>
+<p>Jujutsu communicates with Gerrit by pushing commits to a Git remote. If you're
+starting from an existing Git repository with Gerrit remotes already configured,
+you can use <code>jj git init --colocate</code> to start using JJ in that repo. Otherwise,
+set up your Gerrit remote.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Option 1: Start JJ in an existing Git repo with Gerrit remotes</span>
+$<span class="w"> </span>jj<span class="w"> </span>git<span class="w"> </span>init<span class="w"> </span>--colocate
+
+<span class="c1"># Option 2: Add a Gerrit remote to a JJ repo</span>
+$<span class="w"> </span>jj<span class="w"> </span>git<span class="w"> </span>remote<span class="w"> </span>add<span class="w"> </span>gerrit<span class="w"> </span>https://review.gerrithub.io/yourname/yourproject
+
+<span class="c1"># Option 3: Clone the repo via jj</span>
+$<span class="w"> </span>jj<span class="w"> </span>git<span class="w"> </span>clone<span class="w"> </span>https://review.gerrithub.io/your/project
 </code></pre></div>
-<p>This means that line endings will be checked out exactly as they are committed
-and committed exactly as authored.</p>
-<p>This setting ensures Git will check out files with LF line endings without
-converting them to CRLF. You'll want to make sure any tooling you use,
-especially IDEs, preserve LF line endings.</p>
-<h2 id="pagination">Pagination<a class="headerlink" href="#pagination" title="Permanent link">&para;</a></h2>
-<p>On Windows, <code>jj</code> will use its integrated pager called <code>streampager</code> by default,
-unless the environment variable <code>%PAGER%</code> or the config <code>ui.pager</code> is explicitly
-set. See the <a href="../config/#pager">pager section of the config docs</a> for more
-details.</p>
-<p>If the built-in pager doesn't meet your needs and you have Git installed, you
-can switch to using Git's pager as follows:</p>
-<div class="highlight"><pre><span></span><code><span class="n">PS</span><span class="p">&gt;</span> <span class="n">jj</span> <span class="n">config</span> <span class="nb">set </span><span class="p">-</span><span class="n">-user</span> <span class="n">ui</span><span class="p">.</span><span class="n">pager</span> <span class="s1">&#39;[&quot;C:\\Program Files\\Git\\usr\\bin\\less.exe&quot;, &quot;-FRX&quot;]&#39;</span>
-<span class="n">PS</span><span class="p">&gt;</span> <span class="n">jj</span> <span class="n">config</span> <span class="nb">set </span><span class="p">-</span><span class="n">-user</span> <span class="n">ui</span><span class="p">.</span><span class="n">paginate</span> <span class="n">auto</span>
+<p>If you used option 2 You can configure default values in your repository config
+by appending the below to <code>.jj/repo/config.toml</code>, like so:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[gerrit]</span>
+<span class="n">default-remote</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;gerrit&quot;</span><span class="w">       </span><span class="c1"># name of the Git remote to push to</span>
+<span class="n">default-remote-branch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;main&quot;</span><span class="w">  </span><span class="c1"># target branch in Gerrit</span>
 </code></pre></div>
-<h2 id="typing-in-powershell">Typing <code>@</code> in PowerShell<a class="headerlink" href="#typing-in-powershell" title="Permanent link">&para;</a></h2>
-<p>PowerShell uses <code>@</code> as part the <a href="https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_arrays?view=powershell-7.4#the-array-sub-expression-operator">array sub-expression operator</a>, so it
-often needs to be escaped or quoted in commands:</p>
-<div class="highlight"><pre><span></span><code><span class="n">PS</span><span class="p">&gt;</span> <span class="n">jj</span> <span class="n">log</span> <span class="n">-r</span> <span class="p">`@</span>
-<span class="n">PS</span><span class="p">&gt;</span> <span class="n">jj</span> <span class="n">log</span> <span class="n">-r</span> <span class="s1">&#39;@&#39;</span>
+<h2 id="basic-workflow">Basic workflow<a class="headerlink" href="#basic-workflow" title="Permanent link">&para;</a></h2>
+<p><code>jj gerrit upload</code> takes one or more revsets, and uploads the stack of commits
+ending in them to Gerrit. Each JJ change will map to a single Gerrit change
+based on the JJ change ID. This should be what you want most of the time, but if
+you want to associate a JJ change with a specific change already uploaded to
+Gerrit, you can copy the Change-Id footer from Gerrit to the bottom of the
+commit description in JJ.</p>
+<blockquote>
+<p>Note: Gerrit identifies and updates changes by the <code>Change-Id</code> trailer. When
+you re-upload a commit with the same <code>Change-Id</code>, Gerrit creates a new patch
+set.</p>
+</blockquote>
+<h3 id="upload-a-single-change">Upload a single change<a class="headerlink" href="#upload-a-single-change" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># upload the previous commit (@-) for review to main</span>
+$<span class="w"> </span>jj<span class="w"> </span>gerrit<span class="w"> </span>upload<span class="w"> </span>-r<span class="w"> </span>@-
 </code></pre></div>
-<p>One solution is to create a revset alias. For example, to make <code>HEAD</code> an alias
-for <code>@</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="n">PS</span><span class="p">&gt;</span> <span class="n">jj</span> <span class="n">config</span> <span class="nb">set </span><span class="p">-</span><span class="n">-user</span> <span class="n">revset-aliases</span><span class="p">.</span><span class="n">HEAD</span> <span class="s1">&#39;@&#39;</span>
-<span class="n">PS</span><span class="p">&gt;</span> <span class="n">jj</span> <span class="n">log</span> <span class="n">-r</span> <span class="n">HEAD</span>
+<h2 id="selecting-revisions-revsets">Selecting revisions (revsets)<a class="headerlink" href="#selecting-revisions-revsets" title="Permanent link">&para;</a></h2>
+<p><code>jj gerrit upload</code> accepts one or more <code>-r/--revisions</code> arguments. Each argument
+may expand to multiple commits. Common patterns:</p>
+<ul>
+<li><code>-r @-</code>: the commit previous to the one you're currently working on</li>
+<li><code>-r A..B</code>: commits that are ancestors of B but not of A</li>
+</ul>
+<p>See the <a href="../revsets/">revsets</a> guide for more information.</p>
+<h3 id="preview-without-pushing">Preview without pushing<a class="headerlink" href="#preview-without-pushing" title="Permanent link">&para;</a></h3>
+<p>Use <code>--dry-run</code> to see which commits would be modified and pushed, and where,
+without changing anything or contacting the remote.</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>jj<span class="w"> </span>gerrit<span class="w"> </span>upload<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;@-&#39;</span><span class="w"> </span>--for<span class="w"> </span>main<span class="w"> </span>--dry-run
 </code></pre></div>
-<h2 id="wsl-sets-the-execute-bit-on-all-files">WSL sets the execute bit on all files<a class="headerlink" href="#wsl-sets-the-execute-bit-on-all-files" title="Permanent link">&para;</a></h2>
-<p>When viewing a Windows drive from WSL (via <em>/mnt/c</em> or a similar path), Windows
-exposes all files with the execute bit set. Since Jujutsu automatically records
-changes to the working copy, this sets the execute bit on all files committed in
-your repository.</p>
-<p>If you only need to access the repository in WSL, the best solution is to clone
-the repository in the Linux file system (for example, in
-<code>~/my-repo</code>).</p>
-<p>If you need to use the repository in both WSL and Windows, one solution is to
-create a workspace in the Linux file system:</p>
-<div class="highlight"><pre><span></span><code><span class="n">PS</span><span class="p">&gt;</span> <span class="n">jj</span> <span class="n">workspace</span> <span class="n">add</span> <span class="p">-</span><span class="n">-name</span> <span class="n">wsl</span> <span class="p">~/</span><span class="n">my-repo</span>
+<h2 id="target-branch-and-remote-selection">Target branch and remote selection<a class="headerlink" href="#target-branch-and-remote-selection" title="Permanent link">&para;</a></h2>
+<p>There are a few way of specifying the target remote for your projects:</p>
+<ul>
+<li>Please run <code>jj config set --user gerrit.default-remote-branch &lt;branch name&gt;</code> to set your
+  default branch across all repos</li>
+<li>Please run <code>jj config set --repo gerrit.default-remote-branch &lt;branch name&gt;</code> to set your
+  default branch for this specific repo.</li>
+<li>Use <code>--remote-branch &lt;branch name&gt;</code> to override this for one specific occasion.</li>
+</ul>
+<p>The remote used to push is determined as follows:</p>
+<ul>
+<li>If you have more than one origin, or the origin isn't called gerrit, run
+  <code>jj config set --repo gerrit.default_remote &lt;gerrit remote name&gt;</code> to set-up a
+  default remote.</li>
+<li>To upload to a specific remote as a one-off thing, use <code>--remote &lt;remote name&gt;</code></li>
+</ul>
+<h2 id="updating-changes-after-review">Updating changes after review<a class="headerlink" href="#updating-changes-after-review" title="Permanent link">&para;</a></h2>
+<p>To address review feedback, update your revisions, then run <code>jj gerrit
+upload</code> again with the same revsets. Gerrit will add new patch sets to the
+existing changes instead of creating new ones.</p>
+<p>Examples:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Edit an earlier commit in the stack</span>
+$<span class="w"> </span>jj<span class="w"> </span>edit<span class="w"> </span>xcv<span class="w">  </span><span class="c1"># position on the stack to edit</span>
+<span class="w"> </span>---<span class="w"> </span>Apply<span class="w"> </span>needed<span class="w"> </span>edits<span class="w"> </span>---
+$<span class="w"> </span>jj<span class="w"> </span>gerrit<span class="w"> </span>upload<span class="w"> </span>-r<span class="w"> </span>xcv
 </code></pre></div>
-<p>Then only use the <code>~/my-repo</code> workspace from Linux.</p>
-<h2 id="symbolic-link-support">Symbolic link support<a class="headerlink" href="#symbolic-link-support" title="Permanent link">&para;</a></h2>
-<p><code>jj</code> supports symlinks on Windows only when they are enabled by the operating
-system. This requires Windows 10 version 14972 or higher, as well as Developer
-Mode. If those conditions are not satisfied, <code>jj</code> will materialize symlinks as
-ordinary files.</p>
-<p>For colocated repositories, Git support must also be enabled using the
-<code>git config</code> option <code>core.symlinks=true</code>.</p>
-<div class="footnote">
-<hr />
-<ol>
-<li id="fn:1">
-<p>This poses the question if we should support reading the <code>core.autocrlf</code>
-  setting in colocated repos. See details at the
-  <a href="https://github.com/jj-vcs/jj/issues/4048">issue</a>.&#160;<a class="footnote-backref" href="#fnref:1" title="Jump back to footnote 1 in the text">&#8617;</a><a class="footnote-backref" href="#fnref2:1" title="Jump back to footnote 1 in the text">&#8617;</a></p>
-</li>
-<li id="fn:2">
-<p>To detect if a file is binary, Jujutsu currently checks if there is 0 byte
-  in the file which is different from the algorithm of
-  <a href="https://github.com/GitoxideLabs/gitoxide/blob/073487b38ed40bcd7eb45dc110ae1ce84f9275a9/gix-filter/src/eol/utils.rs#L98-L100"><code>gitoxide</code></a> or <a href="https://github.com/git/git/blob/f1ca98f609f9a730b9accf24e5558a10a0b41b6c/convert.c#L94-L103"><code>git</code></a>. Jujutsu
-  doesn't plan to align the binary detection logic with git.&#160;<a class="footnote-backref" href="#fnref:2" title="Jump back to footnote 2 in the text">&#8617;</a></p>
-</li>
-</ol>
-</div>
 
 
 
