@@ -88,13 +88,13 @@ pub struct UploadArgs {
 
 fn calculate_push_remote(
     store: &Arc<Store>,
-    config: &UserSettings,
+    settings: &UserSettings,
     remote: Option<&str>,
 ) -> Result<String, CommandError> {
     let git_repo = git::get_git_repo(store)?; // will fail if not a git repo
     let remotes = git_repo.remote_names();
 
-    // case 1
+    // If --remote was provided, use that
     if let Some(remote) = remote {
         if remotes.contains(BStr::new(&remote)) {
             return Ok(remote.to_string());
@@ -104,8 +104,8 @@ fn calculate_push_remote(
         )));
     }
 
-    // case 2
-    if let Ok(remote) = config.get_string("gerrit.default-remote") {
+    // If the Gerrit-specific config was set, use that
+    if let Ok(remote) = settings.get_string("gerrit.default-remote") {
         if remotes.contains(BStr::new(&remote)) {
             return Ok(remote);
         }
@@ -114,17 +114,17 @@ fn calculate_push_remote(
         )));
     }
 
-    // case 3
+    // If a general push remote was configured, use that
     if let Some(remote) = git_repo.remote_default_name(gix::remote::Direction::Push) {
         return Ok(remote.to_string());
     }
 
-    // case 4
+    // If there is a Git remote called "gerrit", use that
     if remotes.iter().any(|r| **r == "gerrit") {
         return Ok("gerrit".to_owned());
     }
 
-    // case 5
+    // Otherwise error out
     Err(user_error(
         "No remote specified, and no 'gerrit' remote was found",
     ))
@@ -136,7 +136,7 @@ fn calculate_push_remote(
 /// 2. If the user has 'gerrit.default-remote-branch' configured, use that
 /// 3. Otherwise, bail out
 fn calculate_push_ref(
-    config: &UserSettings,
+    settings: &UserSettings,
     remote_branch: Option<String>,
 ) -> Result<String, CommandError> {
     // case 1
@@ -145,7 +145,7 @@ fn calculate_push_ref(
     }
 
     // case 2
-    if let Ok(branch) = config.get_string("gerrit.default-remote-branch") {
+    if let Ok(branch) = settings.get_string("gerrit.default-remote-branch") {
         return Ok(branch);
     }
 
