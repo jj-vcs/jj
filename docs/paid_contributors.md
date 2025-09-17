@@ -9,6 +9,7 @@ contribute or not.
 * benbrittain
 * ilyagr
 * thoughtpolice
+* ConnerPetzold
 
 ## Google
 
