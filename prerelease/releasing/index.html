@@ -1813,6 +1813,10 @@ copy-edit the changelog in order to:</p>
 <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;heads(tags())&#39;</span><span class="w">  </span><span class="c1"># Check that this shows the previous version</span>
 jj<span class="w"> </span>diff<span class="w"> </span>--from<span class="w"> </span><span class="s1">&#39;heads(tags())&#39;</span><span class="w"> </span>--to<span class="w"> </span>main<span class="w"> </span>CHANGELOG.md
 </code></pre></div>
+<p>Make sure to add a corresponding reference link at the bottom of the
+CHANGELOG for the new version's tag. It should be the github url comparing
+the previous version tag with the new version tag
+(e.g. <code>https://github.com/jj-vcs/jj/compare/v0.32.0...v0.33.0</code>).</p>
 <p>Producing the list of contributors is a bit annoying. The current suggestion is
 to run something like this:</p>
 <div class="highlight"><pre><span></span><code><span class="nv">root</span><span class="o">=</span><span class="k">$(</span>jj<span class="w"> </span>log<span class="w"> </span>--no-graph<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;heads(tags(glob:&quot;v*.*.*&quot;) &amp; ::trunk())&#39;</span><span class="w"> </span>-T<span class="w"> </span>commit_id<span class="k">)</span>
