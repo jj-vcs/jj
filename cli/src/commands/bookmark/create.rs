@@ -52,7 +52,8 @@ pub fn cmd_bookmark_create(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let target_commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
-    let view = workspace_command.repo().view();
+    let repo = workspace_command.repo().as_ref();
+    let view = repo.view();
     let bookmark_names = &args.names;
     for name in bookmark_names {
         if view.get_local_bookmark(name).is_present() {
@@ -74,6 +75,9 @@ pub fn cmd_bookmark_create(
                 ),
             ));
         }
+    }
+    if target_commit.is_discardable(repo)? {
+        writeln!(ui.warning_default(), "Target revision is empty.")?;
     }
 
     let mut tx = workspace_command.start_transaction();
