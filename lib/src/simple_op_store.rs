@@ -603,6 +603,7 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
             ref_target_from_proto(git_ref.target)
         } else {
             // Legacy format
+            #[expect(deprecated)]
             RefTarget::normal(CommitId::new(git_ref.commit_id))
         };
         view.git_refs.insert(name, target);

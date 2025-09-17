@@ -66,7 +66,7 @@ message GitRef {
   // This field is just for historical reasons (before we had the RefTarget
   // type). New GitRefs have (only) the target field.
   // TODO: Delete support for the old format.
-  bytes commit_id = 2;
+  bytes commit_id = 2 [deprecated = true];
   RefTarget target = 3;
 }
 
