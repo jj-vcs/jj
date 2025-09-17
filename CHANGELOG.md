@@ -25,6 +25,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   * `describe`: `--author`, `--reset-author`, `--no-edit`
   * `commit`:   `--author`, `--reset-author`
 
+* The storage format of remote bookmarks has changed. Remote bookmarks will be
+  written in both old and new formats to retain forward compatibility. This
+  change should be transparent, but let us know if you see anything odd.
+
 ### New features
 
 * The new command `jj bisect run` uses binary search to find a commit that

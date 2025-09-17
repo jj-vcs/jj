@@ -21,6 +21,8 @@ message RefConflictLegacy {
   repeated bytes adds = 2 [deprecated = true];
 }
 
+// This is redundant with `RefTargetTerm`. It exists for historical reasons.
+// TODO: Consider deprecating it.
 message RefConflict {
   message Term {
     optional bytes value = 1;
@@ -29,6 +31,7 @@ message RefConflict {
   repeated Term adds = 2;
 }
 
+// RefTarget that may be serialized in legacy form.
 message RefTarget {
   // New `RefConflict` type represents both `commit_id` and `conflict_legacy`.
   oneof value {
@@ -36,6 +39,12 @@ message RefTarget {
     RefConflictLegacy conflict_legacy = 2 [deprecated = true];
     RefConflict conflict = 3;
   }
+}
+
+// RefTarget term that should be serialized in native form, in which positive
+// and negative terms alternate.
+message RefTargetTerm {
+  optional bytes value = 1;
 }
 
 enum RemoteRefState {
@@ -54,7 +63,8 @@ message Bookmark {
   string name = 1;
   // Unset if the bookmark has been deleted locally.
   RefTarget local_target = 2;
-  repeated RemoteBookmark remote_bookmarks = 3;
+  // Deprecated since jj 0.34.
+  repeated RemoteBookmark remote_bookmarks = 3 [deprecated = true];
 }
 
 message GitRef {
@@ -64,6 +74,12 @@ message GitRef {
   // TODO: Delete support for the old format.
   bytes commit_id = 2 [deprecated = true];
   RefTarget target = 3;
+}
+
+message RemoteRef {
+  string name = 1;
+  repeated RefTargetTerm target_terms = 2;
+  RemoteRefState state = 3;
 }
 
 message Tag {
@@ -78,6 +94,8 @@ message View {
   map<string, bytes> wc_commit_ids = 8;
   repeated Bookmark bookmarks = 5;
   repeated Tag tags = 6;
+  // Introduced in jj 0.34.
+  repeated RemoteView remote_views = 11;
   // Only a subset of the refs. For example, does not include refs/notes/.
   repeated GitRef git_refs = 3;
   // This field is just for historical reasons (before we had the RefTarget
@@ -86,6 +104,11 @@ message View {
   bytes git_head_legacy = 7 [deprecated = true];
   RefTarget git_head = 9;
   reserved 10;
+}
+
+message RemoteView {
+  string name = 1;
+  repeated RemoteRef bookmarks = 2;
 }
 
 message Operation {
