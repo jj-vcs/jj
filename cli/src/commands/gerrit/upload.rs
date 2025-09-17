@@ -71,13 +71,14 @@ pub struct UploadArgs {
     revisions: Vec<RevisionArg>,
 
     /// The location where your changes are intended to land. This should be
-    /// a branch on the remote.
+    /// a branch on the remote. Can be configured with the
+    /// `gerrit.default-branch` repository option.
     #[arg(long = "remote-branch", short = 'b')]
     remote_branch: Option<String>,
 
-    /// The Gerrit remote to push to. Can be configured with the `gerrit.remote`
-    /// repository option as well. This is typically a full SSH URL for your
-    /// Gerrit instance.
+    /// The Gerrit remote to push to. Can be configured with the
+    /// `gerrit.default-remote` repository option as well. This is typically
+    /// a full SSH URL for your Gerrit instance.
     #[arg(long)]
     remote: Option<String>,
 
