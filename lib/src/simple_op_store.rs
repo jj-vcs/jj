@@ -28,6 +28,7 @@ use std::time::SystemTime;
 
 use itertools::Itertools as _;
 use prost::Message as _;
+use smallvec::SmallVec;
 use tempfile::NamedTempFile;
 use thiserror::Error;
 
@@ -389,6 +390,8 @@ enum PostDecodeError {
     InvalidHashLength { expected: usize, actual: usize },
     #[error("Invalid remote ref state value {0}")]
     InvalidRemoteRefStateValue(i32),
+    #[error("Invalid number of ref target terms {0}")]
+    EvenNumberOfRefTargetTerms(usize),
 }
 
 fn operation_id_from_proto(bytes: Vec<u8>) -> Result<OperationId, PostDecodeError> {
@@ -543,6 +546,8 @@ fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
         })
         .collect();
 
+    let remote_views = remote_views_to_proto(&view.remote_views);
+
     let git_refs = view
         .git_refs
         .iter()
@@ -565,6 +570,7 @@ fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
         wc_commit_ids,
         bookmarks,
         tags,
+        remote_views,
         git_refs,
         git_head_legacy: Default::default(),
         git_head,
@@ -588,7 +594,7 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
     }
     let head_ids = proto.head_ids.into_iter().map(CommitId::new).collect();
 
-    let (local_bookmarks, remote_views) = bookmark_views_from_proto_legacy(proto.bookmarks)?;
+    let (local_bookmarks, mut remote_views) = bookmark_views_from_proto_legacy(proto.bookmarks)?;
 
     let tags = proto
         .tags
@@ -614,6 +620,11 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
             (name, target)
         })
         .collect();
+
+    // Use legacy remote_views only when new data isn't available (jj < 0.34)
+    if !proto.remote_views.is_empty() {
+        remote_views = remote_views_from_proto(proto.remote_views)?;
+    }
 
     #[expect(deprecated)]
     let git_head = if proto.git_head.is_some() {
@@ -642,6 +653,7 @@ fn bookmark_views_to_proto_legacy(
     op_store::merge_join_bookmark_views(local_bookmarks, remote_views)
         .map(|(name, bookmark_target)| {
             let local_target = ref_target_to_proto(bookmark_target.local_target);
+            // TODO: Drop serialization to the old format in jj 0.40 or so.
             let remote_bookmarks = bookmark_target
                 .remote_refs
                 .iter()
@@ -653,6 +665,7 @@ fn bookmark_views_to_proto_legacy(
                     },
                 )
                 .collect();
+            #[expect(deprecated)]
             crate::protos::simple_op_store::Bookmark {
                 name: name.into(),
                 local_target,
@@ -675,7 +688,9 @@ fn bookmark_views_from_proto_legacy(
     for bookmark_proto in bookmarks_legacy {
         let bookmark_name: RefNameBuf = bookmark_proto.name.into();
         let local_target = ref_target_from_proto(bookmark_proto.local_target);
-        for remote_bookmark in bookmark_proto.remote_bookmarks {
+        #[expect(deprecated)]
+        let remote_bookmarks = bookmark_proto.remote_bookmarks;
+        for remote_bookmark in remote_bookmarks {
             let remote_name: RemoteNameBuf = remote_bookmark.remote_name.into();
             let state = match remote_bookmark.state {
                 Some(n) => remote_ref_state_from_proto(n)?,
@@ -698,6 +713,89 @@ fn bookmark_views_from_proto_legacy(
         }
     }
     Ok((local_bookmarks, remote_views))
+}
+
+fn remote_views_to_proto(
+    remote_views: &BTreeMap<RemoteNameBuf, RemoteView>,
+) -> Vec<crate::protos::simple_op_store::RemoteView> {
+    remote_views
+        .iter()
+        .map(|(name, view)| crate::protos::simple_op_store::RemoteView {
+            name: name.into(),
+            bookmarks: remote_refs_to_proto(&view.bookmarks),
+        })
+        .collect()
+}
+
+fn remote_views_from_proto(
+    remote_views_proto: Vec<crate::protos::simple_op_store::RemoteView>,
+) -> Result<BTreeMap<RemoteNameBuf, RemoteView>, PostDecodeError> {
+    remote_views_proto
+        .into_iter()
+        .map(|proto| {
+            let name: RemoteNameBuf = proto.name.into();
+            let view = RemoteView {
+                bookmarks: remote_refs_from_proto(proto.bookmarks)?,
+            };
+            Ok((name, view))
+        })
+        .collect()
+}
+
+fn remote_refs_to_proto(
+    remote_refs: &BTreeMap<RefNameBuf, RemoteRef>,
+) -> Vec<crate::protos::simple_op_store::RemoteRef> {
+    remote_refs
+        .iter()
+        .map(
+            |(name, remote_ref)| crate::protos::simple_op_store::RemoteRef {
+                name: name.into(),
+                target_terms: ref_target_to_terms_proto(&remote_ref.target),
+                state: remote_ref_state_to_proto(remote_ref.state),
+            },
+        )
+        .collect()
+}
+
+fn remote_refs_from_proto(
+    remote_refs_proto: Vec<crate::protos::simple_op_store::RemoteRef>,
+) -> Result<BTreeMap<RefNameBuf, RemoteRef>, PostDecodeError> {
+    remote_refs_proto
+        .into_iter()
+        .map(|proto| {
+            let name: RefNameBuf = proto.name.into();
+            let remote_ref = RemoteRef {
+                target: ref_target_from_terms_proto(proto.target_terms)?,
+                state: remote_ref_state_from_proto(proto.state)?,
+            };
+            Ok((name, remote_ref))
+        })
+        .collect()
+}
+
+fn ref_target_to_terms_proto(
+    value: &RefTarget,
+) -> Vec<crate::protos::simple_op_store::RefTargetTerm> {
+    value
+        .as_merge()
+        .iter()
+        .map(|term| term.as_ref().map(|id| id.to_bytes()))
+        .map(|value| crate::protos::simple_op_store::RefTargetTerm { value })
+        .collect()
+}
+
+fn ref_target_from_terms_proto(
+    proto: Vec<crate::protos::simple_op_store::RefTargetTerm>,
+) -> Result<RefTarget, PostDecodeError> {
+    let terms: SmallVec<[_; 1]> = proto
+        .into_iter()
+        .map(|crate::protos::simple_op_store::RefTargetTerm { value }| value.map(CommitId::new))
+        .collect();
+    if terms.len().is_multiple_of(2) {
+        Err(PostDecodeError::EvenNumberOfRefTargetTerms(terms.len()))
+    } else {
+        Ok(RefTarget::from_merge(Merge::from_vec(terms)))
+    }
 }
 
 fn ref_target_to_proto(value: &RefTarget) -> Option<crate::protos::simple_op_store::RefTarget> {
@@ -946,6 +1044,29 @@ mod tests {
         let op_id = store.write_operation(&operation).unwrap();
         let read_operation = store.read_operation(&op_id).unwrap();
         assert_eq!(read_operation, operation);
+    }
+
+    #[test]
+    fn test_remote_views_legacy_roundtrip() {
+        let view = create_view();
+        assert!(!view.remote_views.is_empty());
+        let mut proto = view_to_proto(&view);
+        proto.remote_views.clear(); // drop "new" format
+        let view_reconstructed = view_from_proto(proto).unwrap();
+        assert_eq!(view.remote_views, view_reconstructed.remote_views);
+    }
+
+    #[test]
+    fn test_remote_views_new_roundtrip() {
+        let view = create_view();
+        assert!(!view.remote_views.is_empty());
+        let mut proto = view_to_proto(&view);
+        for bookmark in &mut proto.bookmarks {
+            #[expect(deprecated)]
+            bookmark.remote_bookmarks.clear(); // drop "legacy" format
+        }
+        let view_reconstructed = view_from_proto(proto).unwrap();
+        assert_eq!(view.remote_views, view_reconstructed.remote_views);
     }
 
     #[test]
