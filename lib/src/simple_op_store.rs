@@ -498,17 +498,14 @@ fn operation_to_proto(operation: &Operation) -> crate::protos::simple_op_store::
         Some(map) => (commit_predecessors_map_to_proto(map), true),
         None => (vec![], false),
     };
-    let mut proto = crate::protos::simple_op_store::Operation {
+    let parents = operation.parents.iter().map(|id| id.to_bytes()).collect();
+    crate::protos::simple_op_store::Operation {
         view_id: operation.view_id.as_bytes().to_vec(),
-        parents: Default::default(),
+        parents,
         metadata: Some(operation_metadata_to_proto(&operation.metadata)),
         commit_predecessors,
         stores_commit_predecessors,
-    };
-    for parent in &operation.parents {
-        proto.parents.push(parent.to_bytes());
     }
-    proto
 }
 
 fn operation_from_proto(
@@ -533,90 +530,114 @@ fn operation_from_proto(
 }
 
 fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
-    let mut proto = crate::protos::simple_op_store::View {
-        ..Default::default()
-    };
-    for (name, commit_id) in &view.wc_commit_ids {
-        proto
-            .wc_commit_ids
-            .insert(name.into(), commit_id.to_bytes());
-    }
-    for head_id in &view.head_ids {
-        proto.head_ids.push(head_id.to_bytes());
-    }
+    let wc_commit_ids = view
+        .wc_commit_ids
+        .iter()
+        .map(|(name, id)| (name.into(), id.to_bytes()))
+        .collect();
+    let head_ids = view.head_ids.iter().map(|id| id.to_bytes()).collect();
 
-    proto.bookmarks = bookmark_views_to_proto_legacy(&view.local_bookmarks, &view.remote_views);
+    let bookmarks = bookmark_views_to_proto_legacy(&view.local_bookmarks, &view.remote_views);
 
-    for (name, target) in &view.tags {
-        proto.tags.push(crate::protos::simple_op_store::Tag {
+    let tags = view
+        .tags
+        .iter()
+        .map(|(name, target)| crate::protos::simple_op_store::Tag {
             name: name.into(),
             target: ref_target_to_proto(target),
-        });
+        })
+        .collect();
+
+    let git_refs = view
+        .git_refs
+        .iter()
+        .map(|(name, target)| {
+            #[expect(deprecated)]
+            crate::protos::simple_op_store::GitRef {
+                name: name.into(),
+                commit_id: Default::default(),
+                target: ref_target_to_proto(target),
+            }
+        })
+        .collect();
+
+    let git_head = ref_target_to_proto(&view.git_head);
+
+    #[expect(deprecated)]
+    crate::protos::simple_op_store::View {
+        head_ids,
+        wc_commit_id: Default::default(),
+        wc_commit_ids,
+        bookmarks,
+        tags,
+        git_refs,
+        git_head_legacy: Default::default(),
+        git_head,
     }
-
-    for (git_ref_name, target) in &view.git_refs {
-        proto.git_refs.push(crate::protos::simple_op_store::GitRef {
-            name: git_ref_name.into(),
-            target: ref_target_to_proto(target),
-            ..Default::default()
-        });
-    }
-
-    proto.git_head = ref_target_to_proto(&view.git_head);
-
-    proto
 }
 
 fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, PostDecodeError> {
     // TODO: validate commit id length?
-    let mut view = View::empty();
     // For compatibility with old repos before we had support for multiple working
     // copies
+    let mut wc_commit_ids = BTreeMap::new();
     #[expect(deprecated)]
     if !proto.wc_commit_id.is_empty() {
-        view.wc_commit_ids.insert(
+        wc_commit_ids.insert(
             WorkspaceName::DEFAULT.to_owned(),
             CommitId::new(proto.wc_commit_id),
         );
     }
     for (name, commit_id) in proto.wc_commit_ids {
-        view.wc_commit_ids
-            .insert(WorkspaceNameBuf::from(name), CommitId::new(commit_id));
+        wc_commit_ids.insert(WorkspaceNameBuf::from(name), CommitId::new(commit_id));
     }
-    for head_id_bytes in proto.head_ids {
-        view.head_ids.insert(CommitId::new(head_id_bytes));
-    }
+    let head_ids = proto.head_ids.into_iter().map(CommitId::new).collect();
 
     let (local_bookmarks, remote_views) = bookmark_views_from_proto_legacy(proto.bookmarks)?;
-    view.local_bookmarks = local_bookmarks;
-    view.remote_views = remote_views;
 
-    for tag_proto in proto.tags {
-        let name: RefNameBuf = tag_proto.name.into();
-        view.tags
-            .insert(name, ref_target_from_proto(tag_proto.target));
-    }
+    let tags = proto
+        .tags
+        .into_iter()
+        .map(|tag_proto| {
+            let name: RefNameBuf = tag_proto.name.into();
+            (name, ref_target_from_proto(tag_proto.target))
+        })
+        .collect();
 
-    for git_ref in proto.git_refs {
-        let name: GitRefNameBuf = git_ref.name.into();
-        let target = if git_ref.target.is_some() {
-            ref_target_from_proto(git_ref.target)
-        } else {
-            // Legacy format
-            #[expect(deprecated)]
-            RefTarget::normal(CommitId::new(git_ref.commit_id))
-        };
-        view.git_refs.insert(name, target);
-    }
+    let git_refs = proto
+        .git_refs
+        .into_iter()
+        .map(|git_ref| {
+            let name: GitRefNameBuf = git_ref.name.into();
+            let target = if git_ref.target.is_some() {
+                ref_target_from_proto(git_ref.target)
+            } else {
+                // Legacy format
+                #[expect(deprecated)]
+                RefTarget::normal(CommitId::new(git_ref.commit_id))
+            };
+            (name, target)
+        })
+        .collect();
 
     #[expect(deprecated)]
-    if proto.git_head.is_some() {
-        view.git_head = ref_target_from_proto(proto.git_head);
+    let git_head = if proto.git_head.is_some() {
+        ref_target_from_proto(proto.git_head)
     } else if !proto.git_head_legacy.is_empty() {
-        view.git_head = RefTarget::normal(CommitId::new(proto.git_head_legacy));
-    }
+        RefTarget::normal(CommitId::new(proto.git_head_legacy))
+    } else {
+        RefTarget::absent()
+    };
 
-    Ok(view)
+    Ok(View {
+        head_ids,
+        local_bookmarks,
+        tags,
+        remote_views,
+        git_refs,
+        git_head,
+        wc_commit_ids,
+    })
 }
 
 fn bookmark_views_to_proto_legacy(

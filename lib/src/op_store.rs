@@ -247,7 +247,7 @@ pub struct BookmarkTarget<'a> {
 /// object represents how the file system looks at a given time.
 #[derive(ContentHash, PartialEq, Eq, Clone, Debug)]
 pub struct View {
-    /// All head commits
+    /// All head commits. There should be at least one head commit.
     pub head_ids: HashSet<CommitId>,
     pub local_bookmarks: BTreeMap<RefNameBuf, RefTarget>,
     pub tags: BTreeMap<RefNameBuf, RefTarget>,
@@ -264,22 +264,6 @@ pub struct View {
 }
 
 impl View {
-    /// Creates new truly empty view.
-    ///
-    /// The caller should add at least one commit ID to `head_ids`. The other
-    /// fields may be empty.
-    pub fn empty() -> Self {
-        Self {
-            head_ids: HashSet::new(),
-            local_bookmarks: BTreeMap::new(),
-            tags: BTreeMap::new(),
-            remote_views: BTreeMap::new(),
-            git_refs: BTreeMap::new(),
-            git_head: RefTarget::absent(),
-            wc_commit_ids: BTreeMap::new(),
-        }
-    }
-
     /// Creates new (mostly empty) view containing the given commit as the head.
     pub fn make_root(root_commit_id: CommitId) -> Self {
         Self {
