@@ -280,6 +280,13 @@ fn test_import_refs() {
         view.get_tag("v1.0".as_ref()),
         &RefTarget::normal(jj_id(commit5))
     );
+    assert_eq!(
+        view.get_remote_tag(remote_symbol("v1.0", "git")),
+        &RemoteRef {
+            target: RefTarget::normal(jj_id(commit5)),
+            state: RemoteRefState::Tracked,
+        },
+    );
 
     assert_eq!(view.git_refs().len(), 6);
     assert_eq!(
@@ -3011,6 +3018,10 @@ fn test_fetch_success() {
         btreemap! {
             "v1.0".into() => new_commit_target.clone(),
         }
+    );
+    assert_eq!(
+        view.all_remote_tags().collect_vec(),
+        vec![(remote_symbol("v1.0", "git"), &new_commit_remote_ref)]
     );
 }
 

@@ -133,6 +133,9 @@ pub struct View {
     pub git_head_legacy: ::prost::alloc::vec::Vec<u8>,
     #[prost(message, optional, tag = "9")]
     pub git_head: ::core::option::Option<RefTarget>,
+    /// Whether "@git" tags have been migrated to remote_views.
+    #[prost(bool, tag = "12")]
+    pub has_git_refs_migrated_to_remote_tags: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RemoteView {

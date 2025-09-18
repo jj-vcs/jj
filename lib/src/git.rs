@@ -535,7 +535,9 @@ pub fn import_some_refs(
         if new_remote_ref.is_tracked() {
             mut_repo.merge_tag(symbol.name, base_target, &new_remote_ref.target);
         }
-        // TODO: If we add Git-tracking tag, it will be updated here.
+        // Remote-tracking tag is the last known state of the tag in the remote.
+        // It shouldn't diverge even if we had inconsistent view.
+        mut_repo.set_remote_tag(symbol, new_remote_ref);
     }
 
     let abandoned_commits = if git_settings.abandon_unreachable_commits {
@@ -571,7 +573,7 @@ fn abandon_unreachable_commits(
         // Local refs are usually visible, no need to filter out hidden
         RevsetExpression::commits(pinned_commit_ids(mut_repo.view())),
         RevsetExpression::commits(remotely_pinned_commit_ids(mut_repo.view()))
-            // Hidden remote branches should not contribute to pinning
+            // Hidden remote refs should not contribute to pinning
             .intersection(&RevsetExpression::visible_heads().ancestors()),
         RevsetExpression::root(),
     ]);
@@ -608,22 +610,13 @@ fn diff_refs_to_import(
             git_ref_filter(kind, symbol).then_some((full_name.as_ref(), target))
         })
         .collect();
-    // TODO: migrate tags to the remote view, and don't destructure &RemoteRef
     let mut known_remote_bookmarks = view
         .all_remote_bookmarks()
         .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Bookmark, symbol))
-        .map(|(symbol, remote_ref)| (RemoteRefKey(symbol), (&remote_ref.target, remote_ref.state)))
+        .map(|(symbol, remote_ref)| (RemoteRefKey(symbol), remote_ref))
         .collect();
-    // TODO: compare to tags stored in the "git" remote view. Since tags should
-    // never be moved locally in jj, we can consider local tags as merge base.
     let mut known_remote_tags = view
-        .tags()
-        .iter()
-        .map(|(name, target)| {
-            let symbol = name.to_remote_symbol(REMOTE_NAME_FOR_LOCAL_GIT_REPO);
-            let state = RemoteRefState::Tracked;
-            (symbol, (target, state))
-        })
+        .all_remote_tags()
         .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Tag, symbol))
         .map(|(symbol, remote_ref)| (RemoteRefKey(symbol), remote_ref))
         .collect();
@@ -663,19 +656,11 @@ fn diff_refs_to_import(
     for full_name in known_git_refs.into_keys() {
         changed_git_refs.push((full_name.to_owned(), RefTarget::absent()));
     }
-    for (RemoteRefKey(symbol), (old_target, old_state)) in known_remote_bookmarks {
-        let old_remote_ref = RemoteRef {
-            target: old_target.clone(),
-            state: old_state,
-        };
-        changed_remote_bookmarks.push((symbol.to_owned(), (old_remote_ref, RefTarget::absent())));
+    for (RemoteRefKey(symbol), old) in known_remote_bookmarks {
+        changed_remote_bookmarks.push((symbol.to_owned(), (old.clone(), RefTarget::absent())));
     }
-    for (RemoteRefKey(symbol), (old_target, old_state)) in known_remote_tags {
-        let old_remote_ref = RemoteRef {
-            target: old_target.clone(),
-            state: old_state,
-        };
-        changed_remote_tags.push((symbol.to_owned(), (old_remote_ref, RefTarget::absent())));
+    for (RemoteRefKey(symbol), old) in known_remote_tags {
+        changed_remote_tags.push((symbol.to_owned(), (old.clone(), RefTarget::absent())));
     }
 
     // Stabilize merge order and output.
@@ -694,7 +679,7 @@ fn diff_refs_to_import(
 fn collect_changed_refs_to_import(
     actual_git_refs: gix::reference::iter::Iter<'_>,
     known_git_refs: &mut HashMap<&GitRefName, &RefTarget>,
-    known_remote_refs: &mut HashMap<RemoteRefKey<'_>, (&RefTarget, RemoteRefState)>,
+    known_remote_refs: &mut HashMap<RemoteRefKey<'_>, &RemoteRef>,
     changed_git_refs: &mut Vec<(GitRefNameBuf, RefTarget)>,
     changed_remote_refs: &mut Vec<(RemoteRefSymbolBuf, (RemoteRef, RefTarget))>,
     failed_ref_names: &mut Vec<BString>,
@@ -732,15 +717,11 @@ fn collect_changed_refs_to_import(
         }
         // TODO: Make it configurable which remotes are publishing and update public
         // heads here.
-        let (old_remote_target, old_remote_state) = known_remote_refs
+        let old_remote_ref = known_remote_refs
             .remove(&symbol)
-            .unwrap_or_else(|| (RefTarget::absent_ref(), RemoteRefState::New));
-        if new_target != *old_remote_target {
-            let old_remote_ref = RemoteRef {
-                target: old_remote_target.clone(),
-                state: old_remote_state,
-            };
-            changed_remote_refs.push((symbol.to_owned(), (old_remote_ref, new_target)));
+            .unwrap_or_else(|| RemoteRef::absent_ref());
+        if new_target != old_remote_ref.target {
+            changed_remote_refs.push((symbol.to_owned(), (old_remote_ref.clone(), new_target)));
         }
     }
     Ok(())
@@ -759,6 +740,7 @@ fn default_remote_ref_state_for(
                 RemoteRefState::New
             }
         }
+        // TODO: add option to not track tags by default?
         GitRefKind::Tag => RemoteRefState::Tracked,
     }
 }
@@ -778,14 +760,14 @@ fn pinned_commit_ids(view: &View) -> Vec<CommitId> {
     .collect()
 }
 
-/// Commits referenced by untracked remote branches including hidden ones.
+/// Commits referenced by untracked remote bookmarks/tags including hidden ones.
 ///
-/// Tracked remote branches aren't included because they should have been merged
+/// Tracked remote refs aren't included because they should have been merged
 /// into the local counterparts, and the changes pulled from one remote should
-/// propagate to the other remotes on later push. OTOH, untracked remote
-/// branches are considered independent refs.
+/// propagate to the other remotes on later push. OTOH, untracked remote refs
+/// are considered independent refs.
 fn remotely_pinned_commit_ids(view: &View) -> Vec<CommitId> {
-    view.all_remote_bookmarks()
+    itertools::chain(view.all_remote_bookmarks(), view.all_remote_tags())
         .filter(|(_, remote_ref)| !remote_ref.is_tracked())
         .map(|(_, remote_ref)| &remote_ref.target)
         .flat_map(|target| target.added_ids())
@@ -1002,6 +984,8 @@ pub fn export_some_refs(
         }
     }
 
+    // TODO: export tags
+
     // Stabilize output, allow binary search.
     failed_bookmarks.sort_unstable_by(|(name1, _), (name2, _)| name1.cmp(name2));
 
@@ -1013,6 +997,7 @@ pub fn export_some_refs(
             git_ref_filter(GitRefKind::Bookmark, symbol) && get(&failed_bookmarks, symbol).is_none()
         },
     );
+    // TODO: copy exportable tags
 
     Ok(GitExportStats { failed_bookmarks })
 }
