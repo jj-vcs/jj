@@ -1730,6 +1730,27 @@ impl MutableRepo {
         view.set_tag_target(name, new_target);
     }
 
+    pub fn get_remote_tag(&self, symbol: RemoteRefSymbol<'_>) -> RemoteRef {
+        self.view.with_ref(|v| v.get_remote_tag(symbol).clone())
+    }
+
+    pub fn set_remote_tag(&mut self, symbol: RemoteRefSymbol<'_>, remote_ref: RemoteRef) {
+        self.view_mut().set_remote_tag(symbol, remote_ref);
+    }
+
+    fn merge_remote_tag(
+        &mut self,
+        symbol: RemoteRefSymbol<'_>,
+        base_ref: &RemoteRef,
+        other_ref: &RemoteRef,
+    ) {
+        let view = self.view.get_mut();
+        let index = self.index.as_index();
+        let self_ref = view.get_remote_tag(symbol);
+        let new_ref = merge_remote_refs(index, self_ref, base_ref, other_ref);
+        view.set_remote_tag(symbol, new_ref);
+    }
+
     pub fn get_git_ref(&self, name: &GitRefName) -> RefTarget {
         self.view.with_ref(|v| v.get_git_ref(name).clone())
     }
@@ -1836,6 +1857,12 @@ impl MutableRepo {
             diff_named_remote_refs(base.all_remote_bookmarks(), other.all_remote_bookmarks());
         for (symbol, (base_ref, other_ref)) in changed_remote_bookmarks {
             self.merge_remote_bookmark(symbol, base_ref, other_ref);
+        }
+
+        let changed_remote_tags =
+            diff_named_remote_refs(base.all_remote_tags(), other.all_remote_tags());
+        for (symbol, (base_ref, other_ref)) in changed_remote_tags {
+            self.merge_remote_tag(symbol, base_ref, other_ref);
         }
 
         let new_git_head_target = merge_ref_targets(

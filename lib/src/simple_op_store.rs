@@ -723,6 +723,7 @@ fn remote_views_to_proto(
         .map(|(name, view)| crate::protos::simple_op_store::RemoteView {
             name: name.into(),
             bookmarks: remote_refs_to_proto(&view.bookmarks),
+            tags: remote_refs_to_proto(&view.tags),
         })
         .collect()
 }
@@ -736,6 +737,7 @@ fn remote_views_from_proto(
             let name: RemoteNameBuf = proto.name.into();
             let view = RemoteView {
                 bookmarks: remote_refs_from_proto(proto.bookmarks)?,
+                tags: remote_refs_from_proto(proto.tags)?,
             };
             Ok((name, view))
         })
@@ -924,7 +926,9 @@ mod tests {
         let bookmark_main_local_target = RefTarget::normal(CommitId::from_hex("ccc111"));
         let bookmark_main_origin_target = RefTarget::normal(CommitId::from_hex("ccc222"));
         let bookmark_deleted_origin_target = RefTarget::normal(CommitId::from_hex("ccc333"));
-        let tag_v1_target = RefTarget::normal(CommitId::from_hex("ddd111"));
+        let tag_v1_local_target = RefTarget::normal(CommitId::from_hex("ddd111"));
+        let tag_v1_origin_target = RefTarget::normal(CommitId::from_hex("ddd222"));
+        let tag_deleted_origin_target = RefTarget::normal(CommitId::from_hex("ddd333"));
         let git_refs_main_target = RefTarget::normal(CommitId::from_hex("fff111"));
         let git_refs_feature_target = RefTarget::from_legacy_form(
             [CommitId::from_hex("fff111")],
@@ -938,13 +942,17 @@ mod tests {
                 "main".into() => bookmark_main_local_target,
             },
             tags: btreemap! {
-                "v1.0".into() => tag_v1_target,
+                "v1.0".into() => tag_v1_local_target,
             },
             remote_views: btreemap! {
                 "origin".into() => RemoteView {
                     bookmarks: btreemap! {
                         "main".into() => tracked_remote_ref(&bookmark_main_origin_target),
                         "deleted".into() => new_remote_ref(&bookmark_deleted_origin_target),
+                    },
+                    tags: btreemap! {
+                        "v1.0".into() => tracked_remote_ref(&tag_v1_origin_target),
+                        "deleted".into() => new_remote_ref(&tag_deleted_origin_target),
                     },
                 },
             },
@@ -1007,7 +1015,7 @@ mod tests {
         // Test exact output so we detect regressions in compatibility
         assert_snapshot!(
             ViewId::new(blake2b_hash(&create_view()).to_vec()).hex(),
-            @"f426676b3a2f7c6b9ec8677cb05ed249d0d244ab7e86a7c51117e2d8a4829db65e55970c761231e2107d303bf3d33a1f2afdd4ed2181f223e99753674b20a35e"
+            @"2c0b174d117ca85e7faa96f6d997362403105e8eb31e7f82ac9abd3dc48ae62683e9a76ef5d117ebc8a743d17e1945236df9ccefd7574f7e4b5336a63796b967"
         );
     }
 
@@ -1048,8 +1056,12 @@ mod tests {
 
     #[test]
     fn test_remote_views_legacy_roundtrip() {
-        let view = create_view();
+        let mut view = create_view();
         assert!(!view.remote_views.is_empty());
+        for remote_view in view.remote_views.values_mut() {
+            // remote tags cannot be preserved in "legacy" format
+            remote_view.tags.clear();
+        }
         let mut proto = view_to_proto(&view);
         proto.remote_views.clear(); // drop "new" format
         let view_reconstructed = view_from_proto(proto).unwrap();
@@ -1094,11 +1106,13 @@ mod tests {
                 bookmarks: btreemap! {
                     "bookmark1".into() => tracked_remote_ref(&git_bookmark1_target),
                 },
+                tags: btreemap! {},
             },
             "remote1".into() => RemoteView {
                 bookmarks: btreemap! {
                     "bookmark1".into() => tracked_remote_ref(&remote1_bookmark1_target),
                 },
+                tags: btreemap! {},
             },
             "remote2".into() => RemoteView {
                 bookmarks: btreemap! {
@@ -1106,6 +1120,7 @@ mod tests {
                     "bookmark2".into() => new_remote_ref(&remote2_bookmark2_target),
                     "bookmark4".into() => tracked_remote_ref(&remote2_bookmark4_target),
                 },
+                tags: btreemap! {},
             },
         };
 

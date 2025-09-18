@@ -109,6 +109,7 @@ message View {
 message RemoteView {
   string name = 1;
   repeated RemoteRef bookmarks = 2;
+  repeated RemoteRef tags = 3;
 }
 
 message Operation {

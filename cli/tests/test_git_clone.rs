@@ -1070,7 +1070,7 @@ fn test_git_clone_malformed() {
     let output = clone_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation 01e1362cd2e1).
+    Error: The working copy is stale (not updated since operation 54bcfa6d5fd7).
     Hint: Run `jj workspace update-stale` to update it.
     See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy for more information.
     [EOF]
