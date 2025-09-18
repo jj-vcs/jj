@@ -47,17 +47,17 @@ jobs:
                 + 'format `<topic>: <description>`. Please review the [commit guidelines]'
                 + '(https://jj-vcs.github.io/jj/prerelease/contributing/#commit-guidelines) for '
                 + 'more information.';
-                
-              if (latestReview.state !== 'CHANGES_REQUESTED') {
-                await github.rest.pulls.createReview({
-                  event: 'REQUEST_CHANGES',
+
+              if (latestReview) {
+                await github.rest.pulls.updateReview({
+                  review_id: latestReview.id,
                   ...pullRequest,
                   body,
                 });
               }
               else {
-                await github.rest.pulls.updateReview({
-                  review_id: latestReview.id,
+                await github.rest.pulls.createReview({
+                  event: 'REQUEST_CHANGES',
                   ...pullRequest,
                   body,
                 });
