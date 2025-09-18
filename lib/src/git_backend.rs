@@ -569,12 +569,8 @@ fn commit_from_git_without_root_parent(
 
     // If the git header has a change-id field, we attempt to convert that to a
     // valid JJ Change Id
-    let change_id = commit
-        .extra_headers()
-        .find(CHANGE_ID_COMMIT_HEADER)
-        .and_then(ChangeId::try_from_reverse_hex)
-        .filter(|val| val.as_bytes().len() == CHANGE_ID_LENGTH)
-        .unwrap_or_else(|| change_id_from_git_commit_id(id));
+    let change_id = extract_change_id_from_commit(&commit)
+        .unwrap_or_else(|| synthetic_change_id_from_git_commit_id(id));
 
     // shallow commits don't have parents their parents actually fetched, so we
     // discard them here
@@ -643,7 +639,20 @@ fn commit_from_git_without_root_parent(
     })
 }
 
-fn change_id_from_git_commit_id(id: &CommitId) -> ChangeId {
+/// Extracts change id from commit headers.
+pub fn extract_change_id_from_commit(commit: &gix::objs::CommitRef) -> Option<ChangeId> {
+    commit
+        .extra_headers()
+        .find(CHANGE_ID_COMMIT_HEADER)
+        .and_then(ChangeId::try_from_reverse_hex)
+        .filter(|val| val.as_bytes().len() == CHANGE_ID_LENGTH)
+}
+
+/// Deterministically creates a change id based on the commit id
+///
+/// Used when we get a commit without a change id. The exact algorithm for the
+/// computation should not be relied upon.
+pub fn synthetic_change_id_from_git_commit_id(id: &CommitId) -> ChangeId {
     // We reverse the bits of the commit id to create the change id. We don't
     // want to use the first bytes unmodified because then it would be ambiguous
     // if a given hash prefix refers to the commit id or the change id. It would
@@ -1519,6 +1528,8 @@ recover.
 mod tests {
     use assert_matches::assert_matches;
     use gix::date::parse::TimeBuf;
+    use gix::objs::CommitRef;
+    use indoc::indoc;
     use pollster::FutureExt as _;
 
     use super::*;
@@ -1823,6 +1834,76 @@ mod tests {
         // converting to string for nicer assert diff
         assert_eq!(std::str::from_utf8(&sig.sig).unwrap(), secure_sig);
         assert_eq!(std::str::from_utf8(&sig.data).unwrap(), commit_str);
+    }
+
+    #[test]
+    fn change_id_parsing() {
+        let id = |commit_object_bytes: &[u8]| {
+            extract_change_id_from_commit(&CommitRef::from_bytes(commit_object_bytes).unwrap())
+        };
+
+        let commit_with_id = indoc! {b"
+            tree 126799bf8058d1b5c531e93079f4fe79733920dd
+            parent bd50783bdf38406dd6143475cd1a3c27938db2ee
+            author JJ Fan <jjfan@example.com> 1757112665 -0700
+            committer JJ Fan <jjfan@example.com> 1757359886 -0700
+            extra-header blah
+            change-id lkonztmnvsxytrwkxpvuutrmompwylqq
+
+            test-commit
+        "};
+        insta::assert_compact_debug_snapshot!(
+            id(commit_with_id),
+            @r#"Some(ChangeId("efbc06dc4721683f2a45568dbda31e99"))"#
+        );
+
+        let commit_without_id = indoc! {b"
+            tree 126799bf8058d1b5c531e93079f4fe79733920dd
+            parent bd50783bdf38406dd6143475cd1a3c27938db2ee
+            author JJ Fan <jjfan@example.com> 1757112665 -0700
+            committer JJ Fan <jjfan@example.com> 1757359886 -0700
+            extra-header blah
+
+            no id in header
+        "};
+        insta::assert_compact_debug_snapshot!(
+            id(commit_without_id),
+            @"None"
+        );
+
+        let commit = indoc! {b"
+            tree 126799bf8058d1b5c531e93079f4fe79733920dd
+            parent bd50783bdf38406dd6143475cd1a3c27938db2ee
+            author JJ Fan <jjfan@example.com> 1757112665 -0700
+            committer JJ Fan <jjfan@example.com> 1757359886 -0700
+            change-id lkonztmnvsxytrwkxpvuutrmompwylqq
+            extra-header blah
+            change-id abcabcabcabcabcabcabcabcabcabcab
+
+            valid change id first
+        "};
+        insta::assert_compact_debug_snapshot!(
+            id(commit),
+            @r#"Some(ChangeId("efbc06dc4721683f2a45568dbda31e99"))"#
+        );
+
+        // We only look at the first change id if multiple are present, so this should
+        // error
+        let commit = indoc! {b"
+            tree 126799bf8058d1b5c531e93079f4fe79733920dd
+            parent bd50783bdf38406dd6143475cd1a3c27938db2ee
+            author JJ Fan <jjfan@example.com> 1757112665 -0700
+            committer JJ Fan <jjfan@example.com> 1757359886 -0700
+            change-id abcabcabcabcabcabcabcabcabcabcab
+            extra-header blah
+            change-id lkonztmnvsxytrwkxpvuutrmompwylqq
+
+            valid change id first
+        "};
+        insta::assert_compact_debug_snapshot!(
+            id(commit),
+            @"None"
+        );
     }
 
     #[test]
