@@ -14,7 +14,7 @@
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
-use jj_lib::op_store::BookmarkTarget;
+use jj_lib::op_store::LocalRemoteRefTarget;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::RefName;
@@ -107,7 +107,7 @@ pub fn cmd_bookmark_forget(
 fn find_forgettable_bookmarks<'a>(
     view: &'a View,
     name_patterns: &[StringPattern],
-) -> Result<Vec<(&'a RefName, BookmarkTarget<'a>)>, CommandError> {
+) -> Result<Vec<(&'a RefName, LocalRemoteRefTarget<'a>)>, CommandError> {
     find_bookmarks_with(name_patterns, |pattern| {
         view.bookmarks()
             .filter(|(name, _)| pattern.is_match(name.as_str()))
