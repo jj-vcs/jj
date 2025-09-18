@@ -51,6 +51,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   no longer require an explicit revision argument. This walks back a
   deprecation from `jj 0.26`, as the community feedback was mostly negative.
 
+* `jj git remote` family of commands now supports different fetch and push URLs.
+
 ### Fixed bugs
 
 ## [0.33.0] - 2025-09-03
