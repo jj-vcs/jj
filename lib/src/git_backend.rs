@@ -735,21 +735,21 @@ fn deserialize_extras(commit: &mut Commit, bytes: &[u8]) {
     if !proto.change_id.is_empty() {
         commit.change_id = ChangeId::new(proto.change_id);
     }
-    if let MergedTreeId::Legacy(legacy_tree_id) = &commit.root_tree {
-        if proto.uses_tree_conflict_format {
-            if !proto.root_tree.is_empty() {
-                let merge_builder: MergeBuilder<_> = proto
-                    .root_tree
-                    .iter()
-                    .map(|id_bytes| TreeId::from_bytes(id_bytes))
-                    .collect();
-                commit.root_tree = MergedTreeId::Merge(merge_builder.build());
-            } else {
-                // uses_tree_conflict_format was set but there was no root_tree override in the
-                // proto, which means we should just promote the tree id from the
-                // git commit to be a known-conflict-free tree
-                commit.root_tree = MergedTreeId::resolved(legacy_tree_id.clone());
-            }
+    if let MergedTreeId::Legacy(legacy_tree_id) = &commit.root_tree
+        && proto.uses_tree_conflict_format
+    {
+        if !proto.root_tree.is_empty() {
+            let merge_builder: MergeBuilder<_> = proto
+                .root_tree
+                .iter()
+                .map(|id_bytes| TreeId::from_bytes(id_bytes))
+                .collect();
+            commit.root_tree = MergedTreeId::Merge(merge_builder.build());
+        } else {
+            // uses_tree_conflict_format was set but there was no root_tree override in the
+            // proto, which means we should just promote the tree id from the
+            // git commit to be a known-conflict-free tree
+            commit.root_tree = MergedTreeId::resolved(legacy_tree_id.clone());
         }
     }
     for predecessor in &proto.predecessors {
@@ -1267,11 +1267,11 @@ impl Backend for GitBackend {
             }
         }
         let mut extra_headers: Vec<(BString, BString)> = vec![];
-        if let MergedTreeId::Merge(tree_ids) = &contents.root_tree {
-            if !tree_ids.is_resolved() {
-                let value = tree_ids.iter().map(|id| id.hex()).join(" ");
-                extra_headers.push((JJ_TREES_COMMIT_HEADER.into(), value.into()));
-            }
+        if let MergedTreeId::Merge(tree_ids) = &contents.root_tree
+            && !tree_ids.is_resolved()
+        {
+            let value = tree_ids.iter().map(|id| id.hex()).join(" ");
+            extra_headers.push((JJ_TREES_COMMIT_HEADER.into(), value.into()));
         }
         if self.write_change_id_header {
             extra_headers.push((

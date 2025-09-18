@@ -30,7 +30,7 @@ be compiled from the same source code.
 
 #### From Source
 
-First make sure that you have a Rust version >= 1.85 and that the
+First make sure that you have a Rust version >= 1.88 and that the
 `build-essential` package is installed by running something like this:
 
 ```shell
@@ -116,7 +116,7 @@ zypper install jujutsu
 
 #### From Source
 
-First make sure that you have a Rust version >= 1.85. You may also need to run:
+First make sure that you have a Rust version >= 1.88. You may also need to run:
 
 ```shell
 xcode-select --install
@@ -158,7 +158,7 @@ sudo port install jujutsu
 
 ### Windows
 
-First make sure that you have a Rust version >= 1.85. Now run either:
+First make sure that you have a Rust version >= 1.88. Now run either:
 
 ```shell
 # To install the *prerelease* version from the main branch

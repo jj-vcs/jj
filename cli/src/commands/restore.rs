@@ -182,13 +182,13 @@ pub(crate) fn cmd_restore(
         } else {
             (tx.repo_mut().rebase_descendants()?, "")
         };
-        if let Some(mut formatter) = ui.status_formatter() {
-            if num_rebased > 0 {
-                writeln!(
-                    formatter,
-                    "Rebased {num_rebased} descendant commits{extra_msg}"
-                )?;
-            }
+        if let Some(mut formatter) = ui.status_formatter()
+            && num_rebased > 0
+        {
+            writeln!(
+                formatter,
+                "Rebased {num_rebased} descendant commits{extra_msg}"
+            )?;
         }
         tx.finish(ui, format!("restore into commit {}", to_commit.id().hex()))?;
     }

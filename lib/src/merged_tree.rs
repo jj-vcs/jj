@@ -857,10 +857,10 @@ impl Stream for TreeDiffStreamImpl<'_> {
         if let Some((path, _)) = self.items.first_key_value() {
             // Check if there are any pending trees before this item that we need to finish
             // polling before we can emit this item.
-            if let Some((dir, _)) = self.pending_trees.first_key_value() {
-                if dir < path {
-                    return Poll::Pending;
-                }
+            if let Some((dir, _)) = self.pending_trees.first_key_value()
+                && dir < path
+            {
+                return Poll::Pending;
             }
 
             let (path, values) = self.items.pop_first().unwrap();

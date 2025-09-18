@@ -166,13 +166,13 @@ don't make any changes, then the operation will be aborted.",
         } else {
             (tx.repo_mut().rebase_descendants()?, "")
         };
-        if let Some(mut formatter) = ui.status_formatter() {
-            if num_rebased > 0 {
-                writeln!(
-                    formatter,
-                    "Rebased {num_rebased} descendant commits{extra_msg}"
-                )?;
-            }
+        if let Some(mut formatter) = ui.status_formatter()
+            && num_rebased > 0
+        {
+            writeln!(
+                formatter,
+                "Rebased {num_rebased} descendant commits{extra_msg}"
+            )?;
         }
         tx.finish(ui, format!("edit commit {}", target_commit.id().hex()))?;
     }

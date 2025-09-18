@@ -249,14 +249,14 @@ pub fn accumulate_predecessors(
     }
 
     // Fast path for the single forward operation case.
-    if let [op] = new_ops {
-        if op.parent_ids().iter().eq(old_ops.iter().map(|op| op.id())) {
-            let Some(map) = &op.store_operation().commit_predecessors else {
-                return Ok(BTreeMap::new());
-            };
-            return resolve_transitive_edges(map, map.keys())
-                .map_err(|id| WalkPredecessorsError::CycleDetected(id.clone()));
-        }
+    if let [op] = new_ops
+        && op.parent_ids().iter().eq(old_ops.iter().map(|op| op.id()))
+    {
+        let Some(map) = &op.store_operation().commit_predecessors else {
+            return Ok(BTreeMap::new());
+        };
+        return resolve_transitive_edges(map, map.keys())
+            .map_err(|id| WalkPredecessorsError::CycleDetected(id.clone()));
     }
 
     // Follow reverse edges from the common ancestor to old_ops. Here we use

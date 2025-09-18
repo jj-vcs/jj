@@ -87,15 +87,15 @@ pub fn cmd_unsign(
         },
     )?;
 
-    if let Some(mut formatter) = ui.status_formatter() {
-        if !unsigned_commits.is_empty() {
-            writeln!(formatter, "Unsigned {} commits:", unsigned_commits.len())?;
-            print_updated_commits(
-                formatter.as_mut(),
-                &tx.commit_summary_template(),
-                &unsigned_commits,
-            )?;
-        }
+    if let Some(mut formatter) = ui.status_formatter()
+        && !unsigned_commits.is_empty()
+    {
+        writeln!(formatter, "Unsigned {} commits:", unsigned_commits.len())?;
+        print_updated_commits(
+            formatter.as_mut(),
+            &tx.commit_summary_template(),
+            &unsigned_commits,
+        )?;
     }
 
     let num_not_authored_by_me = unsigned_commits

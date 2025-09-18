@@ -277,7 +277,9 @@ impl DiffEditor {
         base_ignores: Arc<GitIgnoreFile>,
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, MergeToolConfigError> {
-        if matches!(&tool, DiffEditTool::External(mergetool) if mergetool.edit_args.is_empty()) {
+        if let DiffEditTool::External(mergetool) = &tool
+            && mergetool.edit_args.is_empty()
+        {
             return Err(MergeToolConfigError::EditArgsNotConfigured {
                 tool_name: name.to_string(),
             });
@@ -408,7 +410,9 @@ impl MergeEditor {
         path_converter: RepoPathUiConverter,
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, MergeToolConfigError> {
-        if matches!(&tool, MergeTool::External(mergetool) if mergetool.merge_args.is_empty()) {
+        if let MergeTool::External(mergetool) = &tool
+            && mergetool.merge_args.is_empty()
+        {
             return Err(MergeToolConfigError::MergeArgsNotConfigured {
                 tool_name: name.to_string(),
             });

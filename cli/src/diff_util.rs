@@ -279,12 +279,12 @@ fn diff_formatter_tool(
     name: &str,
 ) -> Result<Option<ExternalMergeTool>, CommandError> {
     let maybe_tool = merge_tools::get_external_tool_config(settings, name)?;
-    if let Some(tool) = &maybe_tool {
-        if tool.diff_args.is_empty() {
-            return Err(cli_error(format!(
-                "The tool `{name}` cannot be used for diff formatting"
-            )));
-        };
+    if let Some(tool) = &maybe_tool
+        && tool.diff_args.is_empty()
+    {
+        return Err(cli_error(format!(
+            "The tool `{name}` cannot be used for diff formatting"
+        )));
     };
     Ok(maybe_tool)
 }

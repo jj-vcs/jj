@@ -561,13 +561,13 @@ jj currently does not support partial clones. To use jj with this repository, tr
 
     impl From<GitFetchError> for CommandError {
         fn from(err: GitFetchError) -> Self {
-            if let GitFetchError::InvalidBranchPattern(pattern) = &err {
-                if pattern.as_exact().is_some_and(|s| s.contains('*')) {
-                    return user_error_with_hint(
-                        "Branch names may not include `*`.",
-                        "Prefix the pattern with `glob:` to expand `*` as a glob",
-                    );
-                }
+            if let GitFetchError::InvalidBranchPattern(pattern) = &err
+                && pattern.as_exact().is_some_and(|s| s.contains('*'))
+            {
+                return user_error_with_hint(
+                    "Branch names may not include `*`.",
+                    "Prefix the pattern with `glob:` to expand `*` as a glob",
+                );
             }
             match err {
                 GitFetchError::NoSuchRemote(_) => user_error(err),

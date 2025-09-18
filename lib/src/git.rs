@@ -329,10 +329,14 @@ fn resolve_git_ref_to_commit_id(
     // Try fast path if we have a candidate id which is known to be a commit object.
     if let Some(id) = known_target.as_normal() {
         let raw_ref = &git_ref.inner;
-        if matches!(raw_ref.target.try_id(), Some(oid) if oid.as_bytes() == id.as_bytes()) {
+        if let Some(oid) = raw_ref.target.try_id()
+            && oid.as_bytes() == id.as_bytes()
+        {
             return Some(id.clone());
         }
-        if matches!(raw_ref.peeled, Some(oid) if oid.as_bytes() == id.as_bytes()) {
+        if let Some(oid) = raw_ref.peeled
+            && oid.as_bytes() == id.as_bytes()
+        {
             // Perhaps an annotated tag stored in packed-refs file, and pointing to the
             // already known target commit.
             return Some(id.clone());

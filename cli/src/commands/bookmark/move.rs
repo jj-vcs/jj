@@ -135,19 +135,18 @@ pub fn cmd_bookmark_move(
         return Ok(());
     }
 
-    if !args.allow_backwards {
-        if let Some((name, _)) = matched_bookmarks
+    if !args.allow_backwards
+        && let Some((name, _)) = matched_bookmarks
             .iter()
             .find(|(_, old_target)| !is_fast_forward(repo.as_ref(), old_target, target_commit.id()))
-        {
-            return Err(user_error_with_hint(
-                format!(
-                    "Refusing to move bookmark backwards or sideways: {name}",
-                    name = name.as_symbol()
-                ),
-                "Use --allow-backwards to allow it.",
-            ));
-        }
+    {
+        return Err(user_error_with_hint(
+            format!(
+                "Refusing to move bookmark backwards or sideways: {name}",
+                name = name.as_symbol()
+            ),
+            "Use --allow-backwards to allow it.",
+        ));
     }
 
     let mut tx = workspace_command.start_transaction();

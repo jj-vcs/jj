@@ -16,6 +16,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Conflicts written by jj < 0.11 are no longer supported. They will now appear
   as regular files with a `.jjconflict` suffix and JSON contents.
 
+* The minimum supported Rust version (MSRV) is now 1.88.
+
 ### Deprecations
 
 * Various flags on `jj describe` and `jj commit` have been deprecated in favor

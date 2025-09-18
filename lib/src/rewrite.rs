@@ -364,10 +364,10 @@ pub fn rebase_to_dest_parent(
     sources: &[Commit],
     destination: &Commit,
 ) -> BackendResult<MergedTree> {
-    if let [source] = sources {
-        if source.parent_ids() == destination.parent_ids() {
-            return source.tree();
-        }
+    if let [source] = sources
+        && source.parent_ids() == destination.parent_ids()
+    {
+        return source.tree();
     }
     sources.iter().try_fold(
         destination.parent_tree(repo)?,

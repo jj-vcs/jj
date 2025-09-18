@@ -57,7 +57,7 @@ pub fn decode_reverse_hex_prefix(reverse_hex: impl AsRef<[u8]>) -> Option<(Vec<u
 }
 
 fn decode_hex_inner(reverse_hex: &[u8], hex_value: impl Fn(u8) -> Option<u8>) -> Option<Vec<u8>> {
-    if reverse_hex.len() % 2 != 0 {
+    if !reverse_hex.len().is_multiple_of(2) {
         return None;
     }
     let (decoded, _) = decode_hex_prefix_inner(reverse_hex, hex_value)?;

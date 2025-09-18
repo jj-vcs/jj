@@ -436,10 +436,10 @@ impl TableStore {
         let maybe_parent_table = mut_table.parent_file.clone();
         let table = mut_table.save_in(self)?;
         self.add_head(&table)?;
-        if let Some(parent_table) = maybe_parent_table {
-            if parent_table.name != table.name {
-                self.remove_head(&parent_table);
-            }
+        if let Some(parent_table) = maybe_parent_table
+            && parent_table.name != table.name
+        {
+            self.remove_head(&parent_table);
         }
         {
             let mut locked_cache = self.cached_tables.write().unwrap();

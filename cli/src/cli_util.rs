@@ -1410,10 +1410,10 @@ to the current parents may contain changes from multiple commits.
         };
 
         fn xdg_config_home() -> Result<PathBuf, std::env::VarError> {
-            if let Ok(x) = std::env::var("XDG_CONFIG_HOME") {
-                if !x.is_empty() {
-                    return Ok(PathBuf::from(x));
-                }
+            if let Ok(x) = std::env::var("XDG_CONFIG_HOME")
+                && !x.is_empty()
+            {
+                return Ok(PathBuf::from(x));
             }
             std::env::var("HOME").map(|x| Path::new(&x).join(".config"))
         }
@@ -1426,10 +1426,10 @@ to the current parents may contain changes from multiple commits.
             }
             git_ignores = git_ignores
                 .chain_with_file("", git_backend.git_repo_path().join("info").join("exclude"))?;
-        } else if let Ok(git_config) = gix::config::File::from_globals() {
-            if let Some(excludes_file_path) = get_excludes_file_path(&git_config) {
-                git_ignores = git_ignores.chain_with_file("", excludes_file_path)?;
-            }
+        } else if let Ok(git_config) = gix::config::File::from_globals()
+            && let Some(excludes_file_path) = get_excludes_file_path(&git_config)
+        {
+            git_ignores = git_ignores.chain_with_file("", excludes_file_path)?;
         }
         Ok(git_ignores)
     }
@@ -1987,33 +1987,32 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         new_commit: &Commit,
         stats: &CheckoutStats,
     ) -> Result<(), CommandError> {
-        if Some(new_commit) != maybe_old_commit {
-            if let Some(mut formatter) = ui.status_formatter() {
-                let template = self.commit_summary_template();
-                write!(formatter, "Working copy  (@) now at: ")?;
-                template.format(new_commit, formatter.as_mut())?;
+        if Some(new_commit) != maybe_old_commit
+            && let Some(mut formatter) = ui.status_formatter()
+        {
+            let template = self.commit_summary_template();
+            write!(formatter, "Working copy  (@) now at: ")?;
+            template.format(new_commit, formatter.as_mut())?;
+            writeln!(formatter)?;
+            for parent in new_commit.parents() {
+                let parent = parent?;
+                //                "Working copy  (@) now at: "
+                write!(formatter, "Parent commit (@-)      : ")?;
+                template.format(&parent, formatter.as_mut())?;
                 writeln!(formatter)?;
-                for parent in new_commit.parents() {
-                    let parent = parent?;
-                    //                "Working copy  (@) now at: "
-                    write!(formatter, "Parent commit (@-)      : ")?;
-                    template.format(&parent, formatter.as_mut())?;
-                    writeln!(formatter)?;
-                }
             }
         }
         print_checkout_stats(ui, stats, new_commit)?;
-        if Some(new_commit) != maybe_old_commit {
-            if let Some(mut formatter) = ui.status_formatter() {
-                if new_commit.has_conflict()? {
-                    let conflicts = new_commit.tree()?.conflicts().collect_vec();
-                    writeln!(
-                        formatter.labeled("warning").with_heading("Warning: "),
-                        "There are unresolved conflicts at these paths:"
-                    )?;
-                    print_conflicted_paths(conflicts, formatter.as_mut(), self)?;
-                }
-            }
+        if Some(new_commit) != maybe_old_commit
+            && let Some(mut formatter) = ui.status_formatter()
+            && new_commit.has_conflict()?
+        {
+            let conflicts = new_commit.tree()?.conflicts().collect_vec();
+            writeln!(
+                formatter.labeled("warning").with_heading("Warning: "),
+                "There are unresolved conflicts at these paths:"
+            )?;
+            print_conflicted_paths(conflicts, formatter.as_mut(), self)?;
         }
         Ok(())
     }
@@ -3357,24 +3356,24 @@ fn resolve_default_command(
         .ignore_errors(true);
     let matches = app_clone.try_get_matches_from(&string_args).ok();
 
-    if let Some(matches) = matches {
-        if matches.subcommand_name().is_none() {
-            let args = get_string_or_array(config, "ui.default-command").optional()?;
-            if args.is_none() {
-                writeln!(
-                    ui.hint_default(),
-                    "Use `jj -h` for a list of available commands."
-                )?;
-                writeln!(
-                    ui.hint_no_heading(),
-                    "Run `jj config set --user ui.default-command log` to disable this message."
-                )?;
-            }
-            let default_command = args.unwrap_or_else(|| vec!["log".to_string()]);
-
-            // Insert the default command directly after the path to the binary.
-            string_args.splice(1..1, default_command);
+    if let Some(matches) = matches
+        && matches.subcommand_name().is_none()
+    {
+        let args = get_string_or_array(config, "ui.default-command").optional()?;
+        if args.is_none() {
+            writeln!(
+                ui.hint_default(),
+                "Use `jj -h` for a list of available commands."
+            )?;
+            writeln!(
+                ui.hint_no_heading(),
+                "Run `jj config set --user ui.default-command log` to disable this message."
+            )?;
         }
+        let default_command = args.unwrap_or_else(|| vec!["log".to_string()]);
+
+        // Insert the default command directly after the path to the binary.
+        string_args.splice(1..1, default_command);
     }
     Ok(string_args)
 }
@@ -3404,31 +3403,31 @@ fn resolve_aliases(
     loop {
         let app_clone = app.clone().allow_external_subcommands(true);
         let matches = app_clone.try_get_matches_from(&string_args).ok();
-        if let Some((command_name, submatches)) = matches.as_ref().and_then(|m| m.subcommand()) {
-            if !real_commands.contains(command_name) {
-                let alias_name = command_name.to_string();
-                let alias_args = submatches
-                    .get_many::<OsString>("")
-                    .unwrap_or_default()
-                    .map(|arg| arg.to_str().unwrap().to_string())
-                    .collect_vec();
-                if resolved_aliases.contains(&*alias_name) {
-                    return Err(user_error(format!(
-                        "Recursive alias definition involving `{alias_name}`"
-                    )));
-                }
-                if let Some(&alias_name) = defined_aliases.get(&*alias_name) {
-                    let alias_definition: Vec<String> = config.get(["aliases", alias_name])?;
-                    assert!(string_args.ends_with(&alias_args));
-                    string_args.truncate(string_args.len() - 1 - alias_args.len());
-                    string_args.extend(alias_definition);
-                    string_args.extend_from_slice(&alias_args);
-                    resolved_aliases.insert(alias_name);
-                    continue;
-                } else {
-                    // Not a real command and not an alias, so return what we've resolved so far
-                    return Ok(string_args);
-                }
+        if let Some((command_name, submatches)) = matches.as_ref().and_then(|m| m.subcommand())
+            && !real_commands.contains(command_name)
+        {
+            let alias_name = command_name.to_string();
+            let alias_args = submatches
+                .get_many::<OsString>("")
+                .unwrap_or_default()
+                .map(|arg| arg.to_str().unwrap().to_string())
+                .collect_vec();
+            if resolved_aliases.contains(&*alias_name) {
+                return Err(user_error(format!(
+                    "Recursive alias definition involving `{alias_name}`"
+                )));
+            }
+            if let Some(&alias_name) = defined_aliases.get(&*alias_name) {
+                let alias_definition: Vec<String> = config.get(["aliases", alias_name])?;
+                assert!(string_args.ends_with(&alias_args));
+                string_args.truncate(string_args.len() - 1 - alias_args.len());
+                string_args.extend(alias_definition);
+                string_args.extend_from_slice(&alias_args);
+                resolved_aliases.insert(alias_name);
+                continue;
+            } else {
+                // Not a real command and not an alias, so return what we've resolved so far
+                return Ok(string_args);
             }
         }
         // No more alias commands, or hit unknown option
@@ -3981,13 +3980,12 @@ fn map_clap_cli_error(err: clap::Error, ui: &Ui, config: &StackedConfig) -> Comm
     if let (Some(ContextValue::String(arg)), Some(ContextValue::String(value))) = (
         err.get(ContextKind::InvalidArg),
         err.get(ContextKind::InvalidValue),
-    ) {
-        if arg.as_str() == "--template <TEMPLATE>" && value.is_empty() {
-            // Suppress the error, it's less important than the original error.
-            if let Ok(template_aliases) = load_template_aliases(ui, config) {
-                return CommandError::from(err)
-                    .hinted(format_template_aliases_hint(&template_aliases));
-            }
+    ) && arg.as_str() == "--template <TEMPLATE>"
+        && value.is_empty()
+    {
+        // Suppress the error, it's less important than the original error.
+        if let Ok(template_aliases) = load_template_aliases(ui, config) {
+            return CommandError::from(err).hinted(format_template_aliases_hint(&template_aliases));
         }
     }
     CommandError::from(err)

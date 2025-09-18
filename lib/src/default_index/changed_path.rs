@@ -568,7 +568,9 @@ pub(super) async fn collect_changed_paths(
     commit: &Commit,
 ) -> BackendResult<Vec<RepoPathBuf>> {
     let parents: Vec<_> = commit.parents_async().await?;
-    if matches!(parents.as_slice(), [p] if commit.tree_id() == p.tree_id()) {
+    if let [p] = parents.as_slice()
+        && commit.tree_id() == p.tree_id()
+    {
         return Ok(vec![]);
     }
     // Don't resolve the entire tree. It's cheaper to resolve each conflict file

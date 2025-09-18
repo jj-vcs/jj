@@ -193,13 +193,12 @@ impl IdPrefixIndex<'_> {
     }
 
     pub fn shortest_commit_prefix_len_exact(&self, repo: &dyn Repo, commit_id: &CommitId) -> usize {
-        if let Some(indexes) = self.indexes {
-            if let Some(lookup) = indexes
+        if let Some(indexes) = self.indexes
+            && let Some(lookup) = indexes
                 .commit_index
                 .lookup_exact(&*indexes.commit_change_ids, commit_id)
-            {
-                return lookup.shortest_unique_prefix_len();
-            }
+        {
+            return lookup.shortest_unique_prefix_len();
         }
         repo.index().shortest_unique_commit_id_prefix_len(commit_id)
     }
@@ -242,13 +241,12 @@ impl IdPrefixIndex<'_> {
     }
 
     fn shortest_change_prefix_len_exact(&self, repo: &dyn Repo, change_id: &ChangeId) -> usize {
-        if let Some(indexes) = self.indexes {
-            if let Some(lookup) = indexes
+        if let Some(indexes) = self.indexes
+            && let Some(lookup) = indexes
                 .change_index
                 .lookup_exact(&*indexes.commit_change_ids, change_id)
-            {
-                return lookup.shortest_unique_prefix_len();
-            }
+        {
+            return lookup.shortest_unique_prefix_len();
         }
         repo.shortest_unique_change_id_prefix_len(change_id)
     }
