@@ -108,3 +108,40 @@ $ jj edit xcv  # position on the stack to edit
  --- Apply needed edits ---
 $ jj gerrit upload -r xcv
 ```
+
+## `Change-Id` management
+
+When uploading, `jj gerrit upload` adds a `Change-Id` footer based on the JJ
+change id. That means that any changes made to a JJ change will become a new
+patch set on the Gerrit change during the next upload.
+
+Keep this association in mind when splitting or squashing changes. For example,
+when splitting a change, the portion that you want associated with the
+original Gerrit change should remain in the original JJ change (the first half
+of the split). Similarly, when squashing new changes, you typically want to
+squash into the change that was previously uploaded to Gerrit.
+
+If your JJ changes no longer align with the desired mapping to Gerrit changes,
+you can manually copy a Gerrit `Change-Id` footer into your JJ change
+description to directly assign a JJ change to an exist Gerrit change.
+
+As an alternative to `jj gerrit upload`'s automatic `Change-Id` mapping, you
+can configure JJ to automatically add `Change-Id` footers to all change
+descriptions:
+
+```toml
+[templates]
+commit_trailers = '''
+if(
+  !trailers.contains_key("Change-Id"),
+  format_gerrit_change_id_trailer(self)
+)
+'''
+```
+
+In this case, the Gerrit change mapping is defined entirely by the `Change-Id`
+footers. When splitting or squashing changes, be sure to keep the `Change-Id`
+footers associated with the desired changes. Be sure not to duplicate the same
+`Change-Id` across different changes. Gerrit will reject pushes that contain
+duplicate `Change-Id`s, but if the uploads are done separately, you may
+unintentionally overwrite an existing change.

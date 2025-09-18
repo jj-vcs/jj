@@ -34,6 +34,7 @@ contribute or not.
 * matttproud
 * mlcui-corp
 * orthros
+* prattmic
 * qfel
 * Ralith
 * rdamazio

@@ -554,33 +554,6 @@ Usually, the different commits associated with the conflicted bookmark should al
 appear in the log, but if they don't you can use `jj bookmark list`to show all the
 commits associated with it.
 
-### How do I integrate Jujutsu with Gerrit?
-
-Add this to your configuration to automatically add Change-Id trailers to commit messages:
-```toml
-[templates]
-commit_trailers = '''
-if(
-  !trailers.contains_key("Change-Id"),
-  format_gerrit_change_id_trailer(self)
-)
-'''
-```
-Note: If you don't check for the presence of the "Change-Id" trailer, you might
-occasionally get duplicate trailers.
-This happens when Jujutsu's change-id isn't in sync with the "Change-Id" trailer.
-Eg. after `jj split`, the "Change-Id" trailer generated for the new change would
-be different from the original one, it wouldn't be deduplicated.
-
-You'll have to manually invoke `git push` of `HEAD` on the underlying git repository
-into the remote Gerrit bookmark `refs/for/$BRANCH`, where `$BRANCH` is the base
-bookmark you want your changes to go to (e.g., `git push origin
-HEAD:refs/for/main`). Using a [colocated][colocated] repo
-will make the underlying git repo directly accessible from the working
-directory.
-
-We hope to integrate with Gerrit natively in the future.
-
 ### I'm experiencing `jj` command issues in a Vite/Vitest project, how do I fix this?
 
 When using Vite or Vitest in a Jujutsu repository, you may experience:
