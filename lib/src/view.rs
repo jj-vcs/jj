@@ -340,6 +340,74 @@ impl View {
         }
     }
 
+    /// Iterates over `(symbol, remote_ref)` for all remote tags in
+    /// lexicographical order.
+    pub fn all_remote_tags(&self) -> impl Iterator<Item = (RemoteRefSymbol<'_>, &RemoteRef)> {
+        op_store::flatten_remote_refs(&self.data.remote_views, |view| &view.tags)
+    }
+
+    /// Iterates over `(name, remote_ref)`s for all remote tags of the specified
+    /// remote in lexicographical order.
+    pub fn remote_tags(
+        &self,
+        remote_name: &RemoteName,
+    ) -> impl Iterator<Item = (&RefName, &RemoteRef)> + use<'_> {
+        let maybe_remote_view = self.data.remote_views.get(remote_name);
+        maybe_remote_view
+            .map(|remote_view| {
+                remote_view
+                    .tags
+                    .iter()
+                    .map(|(name, remote_ref)| (name.as_ref(), remote_ref))
+            })
+            .into_iter()
+            .flatten()
+    }
+
+    /// Iterates over `(symbol, remote_ref)`s for all remote tags of the
+    /// specified remote that match the given pattern.
+    ///
+    /// Entries are sorted by `symbol`, which is `(name, remote)`.
+    pub fn remote_tags_matching<'a, 'b>(
+        &'a self,
+        tag_pattern: &'b StringPattern,
+        remote_pattern: &'b StringPattern,
+    ) -> impl Iterator<Item = (RemoteRefSymbol<'a>, &'a RemoteRef)> + use<'a, 'b> {
+        // Use kmerge instead of flat_map for consistency with all_remote_tags().
+        remote_pattern
+            .filter_btree_map_as_deref(&self.data.remote_views)
+            .map(|(remote, remote_view)| {
+                tag_pattern
+                    .filter_btree_map_as_deref(&remote_view.tags)
+                    .map(|(name, remote_ref)| (name.to_remote_symbol(remote), remote_ref))
+            })
+            .kmerge_by(|(symbol1, _), (symbol2, _)| symbol1 < symbol2)
+    }
+
+    /// Returns remote-tracking tag target and state specified by `symbol`.
+    pub fn get_remote_tag(&self, symbol: RemoteRefSymbol<'_>) -> &RemoteRef {
+        if let Some(remote_view) = self.data.remote_views.get(symbol.remote) {
+            remote_view.tags.get(symbol.name).flatten()
+        } else {
+            RemoteRef::absent_ref()
+        }
+    }
+
+    /// Sets remote-tracking tag to the given target and state. If the target is
+    /// absent, the tag will be removed.
+    pub fn set_remote_tag(&mut self, symbol: RemoteRefSymbol<'_>, remote_ref: RemoteRef) {
+        if remote_ref.is_present() {
+            let remote_view = self
+                .data
+                .remote_views
+                .entry(symbol.remote.to_owned())
+                .or_default();
+            remote_view.tags.insert(symbol.name.to_owned(), remote_ref);
+        } else if let Some(remote_view) = self.data.remote_views.get_mut(symbol.remote) {
+            remote_view.tags.remove(symbol.name);
+        }
+    }
+
     pub fn get_git_ref(&self, name: &GitRefName) -> &RefTarget {
         self.data.git_refs.get(name).flatten()
     }
@@ -391,9 +459,8 @@ impl View {
             local_bookmarks.values().flat_map(ref_target_ids),
             tags.values().flat_map(ref_target_ids),
             remote_views.values().flat_map(|remote_view| {
-                let op_store::RemoteView { bookmarks } = remote_view;
-                bookmarks
-                    .values()
+                let op_store::RemoteView { bookmarks, tags } = remote_view;
+                itertools::chain(bookmarks.values(), tags.values())
                     .flat_map(|remote_ref| ref_target_ids(&remote_ref.target))
             }),
             git_refs.values().flat_map(ref_target_ids),

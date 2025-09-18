@@ -111,6 +111,7 @@ message RemoteView {
   // be identified (here and in configs) by a UUID?
   string name = 1;
   repeated RemoteRef bookmarks = 2;
+  repeated RemoteRef tags = 3;
 }
 
 message Operation {
