@@ -25,6 +25,7 @@ mod test_init;
 mod test_load_repo;
 mod test_local_working_copy;
 mod test_local_working_copy_concurrent;
+mod test_local_working_copy_executable_bit;
 mod test_local_working_copy_sparse;
 mod test_merge_trees;
 mod test_merged_tree;
