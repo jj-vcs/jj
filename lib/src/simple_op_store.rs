@@ -650,7 +650,7 @@ fn bookmark_views_to_proto_legacy(
     local_bookmarks: &BTreeMap<RefNameBuf, RefTarget>,
     remote_views: &BTreeMap<RemoteNameBuf, RemoteView>,
 ) -> Vec<crate::protos::simple_op_store::Bookmark> {
-    op_store::merge_join_bookmark_views(local_bookmarks, remote_views)
+    op_store::merge_join_ref_views(local_bookmarks, remote_views, |view| &view.bookmarks)
         .map(|(name, bookmark_target)| {
             let local_target = ref_target_to_proto(bookmark_target.local_target);
             // TODO: Drop serialization to the old format in jj 0.40 or so.

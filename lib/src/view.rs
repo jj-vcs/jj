@@ -22,7 +22,7 @@ use thiserror::Error;
 
 use crate::backend::CommitId;
 use crate::op_store;
-use crate::op_store::BookmarkTarget;
+use crate::op_store::LocalRemoteRefTarget;
 use crate::op_store::RefTarget;
 use crate::op_store::RefTargetOptionExt as _;
 use crate::op_store::RemoteRef;
@@ -78,8 +78,12 @@ impl View {
     }
 
     /// Iterates pair of local and remote bookmarks by bookmark name.
-    pub fn bookmarks(&self) -> impl Iterator<Item = (&RefName, BookmarkTarget<'_>)> {
-        op_store::merge_join_bookmark_views(&self.data.local_bookmarks, &self.data.remote_views)
+    pub fn bookmarks(&self) -> impl Iterator<Item = (&RefName, LocalRemoteRefTarget<'_>)> {
+        op_store::merge_join_ref_views(
+            &self.data.local_bookmarks,
+            &self.data.remote_views,
+            |view| &view.bookmarks,
+        )
     }
 
     pub fn tags(&self) -> &BTreeMap<RefNameBuf, RefTarget> {
@@ -176,7 +180,7 @@ impl View {
     /// Iterates over `(symbol, remote_ref)` for all remote bookmarks in
     /// lexicographical order.
     pub fn all_remote_bookmarks(&self) -> impl Iterator<Item = (RemoteRefSymbol<'_>, &RemoteRef)> {
-        op_store::flatten_remote_bookmarks(&self.data.remote_views)
+        op_store::flatten_remote_refs(&self.data.remote_views, |view| &view.bookmarks)
     }
 
     /// Iterates over `(name, remote_ref)`s for all remote bookmarks of the

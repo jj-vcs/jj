@@ -55,7 +55,7 @@ use jj_lib::git::expand_fetch_refspecs;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::hex_util;
 use jj_lib::object_id::ObjectId as _;
-use jj_lib::op_store::BookmarkTarget;
+use jj_lib::op_store::LocalRemoteRefTarget;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
@@ -2883,7 +2883,7 @@ fn test_fetch_initial_commit_head_is_not_set() {
     assert_eq!(
         view.bookmarks().collect::<BTreeMap<_, _>>(),
         btreemap! {
-            "main".as_ref() => BookmarkTarget {
+            "main".as_ref() => LocalRemoteRefTarget {
                 local_target: &initial_commit_target,
                 remote_refs: vec![
                     ("origin".as_ref(), &initial_commit_remote_ref),
@@ -2998,7 +2998,7 @@ fn test_fetch_success() {
     assert_eq!(
         view.bookmarks().collect::<BTreeMap<_, _>>(),
         btreemap! {
-            "main".as_ref() => BookmarkTarget {
+            "main".as_ref() => LocalRemoteRefTarget {
                 local_target: &new_commit_target,
                 remote_refs: vec![
                     ("origin".as_ref(), &new_commit_remote_ref),
