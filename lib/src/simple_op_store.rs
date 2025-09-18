@@ -574,6 +574,8 @@ fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
         git_refs,
         git_head_legacy: Default::default(),
         git_head,
+        // New/loaded view should have been migrated to the latest format
+        has_git_refs_migrated_to_remote_tags: true,
     }
 }
 
@@ -605,7 +607,7 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
         })
         .collect();
 
-    let git_refs = proto
+    let git_refs: BTreeMap<_, _> = proto
         .git_refs
         .into_iter()
         .map(|git_ref| {
@@ -624,6 +626,31 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
     // Use legacy remote_views only when new data isn't available (jj < 0.34)
     if !proto.remote_views.is_empty() {
         remote_views = remote_views_from_proto(proto.remote_views)?;
+    }
+
+    #[cfg(feature = "git")]
+    if !proto.has_git_refs_migrated_to_remote_tags {
+        tracing::info!("migrating Git-tracking tags");
+        let git_tags: BTreeMap<_, _> = git_refs
+            .iter()
+            .filter_map(|(full_name, target)| {
+                let name = full_name.as_str().strip_prefix("refs/tags/")?;
+                assert!(!name.is_empty());
+                let name: RefNameBuf = name.into();
+                let remote_ref = RemoteRef {
+                    target: target.clone(),
+                    state: RemoteRefState::Tracked,
+                };
+                Some((name, remote_ref))
+            })
+            .collect();
+        if !git_tags.is_empty() {
+            let git_view = remote_views
+                .entry(crate::git::REMOTE_NAME_FOR_LOCAL_GIT_REPO.to_owned())
+                .or_default();
+            assert!(git_view.tags.is_empty());
+            git_view.tags = git_tags;
+        }
     }
 
     #[expect(deprecated)]
@@ -1079,6 +1106,67 @@ mod tests {
         }
         let view_reconstructed = view_from_proto(proto).unwrap();
         assert_eq!(view.remote_views, view_reconstructed.remote_views);
+    }
+
+    #[test]
+    fn test_migrate_git_refs_to_remote_tags() {
+        let tracked_remote_ref = |target: &RefTarget| RemoteRef {
+            target: target.clone(),
+            state: RemoteRefState::Tracked,
+        };
+        let git_ref_to_proto = |name: &str, ref_target| crate::protos::simple_op_store::GitRef {
+            name: name.to_owned(),
+            #[expect(deprecated)]
+            commit_id: Default::default(),
+            target: ref_target_to_proto(ref_target),
+        };
+        let v1_target = RefTarget::normal(CommitId::from_hex("111111"));
+        let main_target = RefTarget::normal(CommitId::from_hex("222222"));
+        let orig_remote_views = btreemap! {
+            "git".into() => RemoteView {
+                bookmarks: btreemap! {
+                    "main".into() => tracked_remote_ref(&main_target),
+                },
+                tags: btreemap! {},
+            },
+        };
+        let proto = crate::protos::simple_op_store::View {
+            remote_views: remote_views_to_proto(&orig_remote_views),
+            git_refs: vec![
+                git_ref_to_proto("refs/tags/v1.0", &v1_target),
+                git_ref_to_proto("refs/heads/main", &main_target),
+            ],
+            has_git_refs_migrated_to_remote_tags: false,
+            ..Default::default()
+        };
+
+        let view = view_from_proto(proto).unwrap();
+        if cfg!(feature = "git") {
+            assert_eq!(
+                view.remote_views,
+                btreemap! {
+                    "git".into() => RemoteView {
+                        bookmarks: btreemap! {
+                            "main".into() => tracked_remote_ref(&main_target),
+                        },
+                        tags: btreemap! {
+                            "v1.0".into() => tracked_remote_ref(&v1_target),
+                        },
+                    },
+                }
+            );
+        } else {
+            assert_eq!(view.remote_views, orig_remote_views);
+        }
+
+        // Once migrated, "git" remote tags shouldn't be populated again.
+        let mut proto = view_to_proto(&view);
+        assert!(proto.has_git_refs_migrated_to_remote_tags);
+        for view_proto in &mut proto.remote_views {
+            view_proto.tags.clear();
+        }
+        let view = view_from_proto(proto).unwrap();
+        assert_eq!(view.remote_views, orig_remote_views);
     }
 
     #[test]
