@@ -2290,6 +2290,11 @@ aren't included in <code>remote_bookmarks()</code>.</p>
   non-linear history.</p>
 </li>
 <li>
+<p><code>exactly(x, count)</code>: Evaluates <code>x</code>, and errors if it is not of exactly size
+  <code>count</code>. Otherwise, returns <code>x</code>. This is useful in particular with <code>count=1</code>
+  when you want to ensure that some revset expression has exactly one target.</p>
+</li>
+<li>
 <p><code>merges()</code>: Merge commits.</p>
 </li>
 <li>
