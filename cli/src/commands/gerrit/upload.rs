@@ -235,7 +235,9 @@ pub fn cmd_gerrit_upload(
     }
 
     let mut old_to_new: HashMap<CommitId, Commit> = HashMap::new();
-    for original_commit in to_upload {
+    // to_upload is ordered with children first, parents last. The parent of a rewritten child
+    // needs to be the rewritten parent. Therefore we must rewrite in reverse, parents first.
+    for original_commit in to_upload.iter().rev() {
         let trailers = parse_description_trailers(original_commit.description());
 
         let change_id_trailers: Vec<&Trailer> = trailers
@@ -266,7 +268,7 @@ pub fn cmd_gerrit_upload(
             }
 
             // map the old commit to itself
-            old_to_new.insert(original_commit.id().clone(), original_commit);
+            old_to_new.insert(original_commit.id().clone(), original_commit.clone());
             continue;
         }
 
