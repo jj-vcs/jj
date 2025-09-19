@@ -502,6 +502,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#change-id-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      Change-Id management
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1871,6 +1880,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#change-id-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      Change-Id management
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1980,6 +1998,35 @@ $<span class="w"> </span>jj<span class="w"> </span>edit<span class="w"> </span>x
 <span class="w"> </span>---<span class="w"> </span>Apply<span class="w"> </span>needed<span class="w"> </span>edits<span class="w"> </span>---
 $<span class="w"> </span>jj<span class="w"> </span>gerrit<span class="w"> </span>upload<span class="w"> </span>-r<span class="w"> </span>xcv
 </code></pre></div>
+<h2 id="change-id-management"><code>Change-Id</code> management<a class="headerlink" href="#change-id-management" title="Permanent link">&para;</a></h2>
+<p>When uploading, <code>jj gerrit upload</code> adds a <code>Change-Id</code> footer based on the JJ
+change id. That means that any changes made to a JJ change will become a new
+patch set on the Gerrit change during the next upload.</p>
+<p>Keep this association in mind when splitting or squashing changes. For example,
+when splitting a change, the portion that you want associated with the
+original Gerrit change should remain in the original JJ change (the first half
+of the split). Similarly, when squashing new changes, you typically want to
+squash into the change that was previously uploaded to Gerrit.</p>
+<p>If your JJ changes no longer align with the desired mapping to Gerrit changes,
+you can manually copy a Gerrit <code>Change-Id</code> footer into your JJ change
+description to directly assign a JJ change to an exist Gerrit change.</p>
+<p>As an alternative to <code>jj gerrit upload</code>'s automatic <code>Change-Id</code> mapping, you
+can configure JJ to automatically add <code>Change-Id</code> footers to all change
+descriptions:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[templates]</span>
+<span class="n">commit_trailers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;&#39;</span>
+<span class="s1">if(</span>
+<span class="s1">  !trailers.contains_key(&quot;Change-Id&quot;),</span>
+<span class="s1">  format_gerrit_change_id_trailer(self)</span>
+<span class="s1">)</span>
+<span class="s1">&#39;&#39;&#39;</span>
+</code></pre></div>
+<p>In this case, the Gerrit change mapping is defined entirely by the <code>Change-Id</code>
+footers. When splitting or squashing changes, be sure to keep the <code>Change-Id</code>
+footers associated with the desired changes. Be sure not to duplicate the same
+<code>Change-Id</code> across different changes. Gerrit will reject pushes that contain
+duplicate <code>Change-Id</code>s, but if the uploads are done separately, you may
+unintentionally overwrite an existing change.</p>
 
 
 

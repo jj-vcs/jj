@@ -716,15 +716,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#how-do-i-integrate-jujutsu-with-gerrit" class="md-nav__link">
-    <span class="md-ellipsis">
-      How do I integrate Jujutsu with Gerrit?
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#im-experiencing-jj-command-issues-in-a-vitevitest-project-how-do-i-fix-this" class="md-nav__link">
     <span class="md-ellipsis">
       I'm experiencing jj command issues in a Vite/Vitest project, how do I fix this?
@@ -2180,15 +2171,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#how-do-i-integrate-jujutsu-with-gerrit" class="md-nav__link">
-    <span class="md-ellipsis">
-      How do I integrate Jujutsu with Gerrit?
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#im-experiencing-jj-command-issues-in-a-vitevitest-project-how-do-i-fix-this" class="md-nav__link">
     <span class="md-ellipsis">
       I'm experiencing jj command issues in a Vite/Vitest project, how do I fix this?
@@ -2667,28 +2649,6 @@ correct commit using <code>jj bookmark move &lt;name&gt; --to &lt;commit ID&gt;<
 <p>Usually, the different commits associated with the conflicted bookmark should all
 appear in the log, but if they don't you can use <code>jj bookmark list</code>to show all the
 commits associated with it.</p>
-<h3 id="how-do-i-integrate-jujutsu-with-gerrit">How do I integrate Jujutsu with Gerrit?<a class="headerlink" href="#how-do-i-integrate-jujutsu-with-gerrit" title="Permanent link">&para;</a></h3>
-<p>Add this to your configuration to automatically add Change-Id trailers to commit messages:
-<div class="highlight"><pre><span></span><code><span class="k">[templates]</span>
-<span class="n">commit_trailers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;&#39;</span>
-<span class="s1">if(</span>
-<span class="s1">  !trailers.contains_key(&quot;Change-Id&quot;),</span>
-<span class="s1">  format_gerrit_change_id_trailer(self)</span>
-<span class="s1">)</span>
-<span class="s1">&#39;&#39;&#39;</span>
-</code></pre></div>
-Note: If you don't check for the presence of the "Change-Id" trailer, you might
-occasionally get duplicate trailers.
-This happens when Jujutsu's change-id isn't in sync with the "Change-Id" trailer.
-Eg. after <code>jj split</code>, the "Change-Id" trailer generated for the new change would
-be different from the original one, it wouldn't be deduplicated.</p>
-<p>You'll have to manually invoke <code>git push</code> of <code>HEAD</code> on the underlying git repository
-into the remote Gerrit bookmark <code>refs/for/$BRANCH</code>, where <code>$BRANCH</code> is the base
-bookmark you want your changes to go to (e.g., <code>git push origin
-HEAD:refs/for/main</code>). Using a <a href="../glossary/#colocated-repos">colocated</a> repo
-will make the underlying git repo directly accessible from the working
-directory.</p>
-<p>We hope to integrate with Gerrit natively in the future.</p>
 <h3 id="im-experiencing-jj-command-issues-in-a-vitevitest-project-how-do-i-fix-this">I'm experiencing <code>jj</code> command issues in a Vite/Vitest project, how do I fix this?<a class="headerlink" href="#im-experiencing-jj-command-issues-in-a-vitevitest-project-how-do-i-fix-this" title="Permanent link">&para;</a></h3>
 <p>When using Vite or Vitest in a Jujutsu repository, you may experience:</p>
 <ul>
