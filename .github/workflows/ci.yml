@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: ${{ github.event_name == 'merge_group' }}
       matrix:
-        build: [linux-x86_64-gnu, linux-aarch64-gnu, macos-x86_64, macos-aarch64, windows-x86_64, windows-aarch64]
+        build: [linux-x86_64-gnu, linux-aarch64-gnu, macos-aarch64, windows-x86_64, windows-aarch64]
         include:
         - build: linux-x86_64-gnu
           os: ubuntu-24.04
@@ -27,9 +27,6 @@ jobs:
         - build: linux-aarch64-gnu
           os: ubuntu-24.04-arm
           cargo_flags: "--all-features"
-        - build: macos-x86_64
-          os: macos-13
-          cargo_flags: ""
         - build: macos-aarch64
           os: macos-14
           cargo_flags: ""
