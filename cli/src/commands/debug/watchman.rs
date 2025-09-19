@@ -13,9 +13,6 @@
 // limitations under the License.
 
 #[cfg(feature = "watchman")]
-use std::any::Any;
-use std::fmt::Debug;
-#[cfg(feature = "watchman")]
 use std::io::Write as _;
 
 use clap::Subcommand;
@@ -25,6 +22,8 @@ use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::fsmonitor::WatchmanConfig;
 #[cfg(feature = "watchman")]
 use jj_lib::local_working_copy::LocalWorkingCopy;
+#[cfg(feature = "watchman")]
+use jj_lib::working_copy::WorkingCopy;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
@@ -89,7 +88,7 @@ pub fn cmd_debug_watchman(
                     )));
                 }
             };
-            let wc = check_local_disk_wc(workspace_command.working_copy().as_any())?;
+            let wc = check_local_disk_wc(workspace_command.working_copy())?;
             let _ = wc.query_watchman(&config)?;
             writeln!(
                 ui.stdout(),
@@ -106,12 +105,12 @@ pub fn cmd_debug_watchman(
             )?;
         }
         DebugWatchmanCommand::QueryClock => {
-            let wc = check_local_disk_wc(workspace_command.working_copy().as_any())?;
+            let wc = check_local_disk_wc(workspace_command.working_copy())?;
             let (clock, _changed_files) = wc.query_watchman(&watchman_config)?;
             writeln!(ui.stdout(), "Clock: {clock:?}")?;
         }
         DebugWatchmanCommand::QueryChangedFiles => {
-            let wc = check_local_disk_wc(workspace_command.working_copy().as_any())?;
+            let wc = check_local_disk_wc(workspace_command.working_copy())?;
             let (_clock, changed_files) = wc.query_watchman(&watchman_config)?;
             writeln!(ui.stdout(), "Changed files: {changed_files:?}")?;
         }
@@ -144,7 +143,8 @@ pub fn cmd_debug_watchman(
 }
 
 #[cfg(feature = "watchman")]
-fn check_local_disk_wc(x: &dyn Any) -> Result<&LocalWorkingCopy, CommandError> {
-    x.downcast_ref()
+fn check_local_disk_wc(x: &dyn WorkingCopy) -> Result<&LocalWorkingCopy, CommandError> {
+    x.as_any()
+        .downcast_ref()
         .ok_or_else(|| user_error("This command requires a standard local-disk working copy"))
 }

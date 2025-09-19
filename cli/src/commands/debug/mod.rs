@@ -27,11 +27,9 @@ mod tree;
 mod watchman;
 mod working_copy;
 
-use std::any::Any;
-use std::fmt::Debug;
-
 use clap::Subcommand;
 use jj_lib::local_working_copy::LocalWorkingCopy;
+use jj_lib::working_copy::WorkingCopy;
 
 use self::copy_detection::CopyDetectionArgs;
 use self::copy_detection::cmd_debug_copy_detection;
@@ -111,7 +109,8 @@ pub fn cmd_debug(
     }
 }
 
-fn check_local_disk_wc(x: &dyn Any) -> Result<&LocalWorkingCopy, CommandError> {
-    x.downcast_ref()
+fn check_local_disk_wc(x: &dyn WorkingCopy) -> Result<&LocalWorkingCopy, CommandError> {
+    x.as_any()
+        .downcast_ref()
         .ok_or_else(|| user_error("This command requires a standard local-disk working copy"))
 }
