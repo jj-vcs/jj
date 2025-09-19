@@ -17,7 +17,10 @@
 // predecessors.map(|p| "predecessor: " ++ p.commit_id)
 // parents.map(|p| p.commit_id ++ " is a parent of " ++ commit_id)
 
-whitespace = _{ " " | "\t" | "\r" | "\n" | "\x0c" }
+// If making significant changes to this grammar, consider also updating the
+// tree-sitter grammar: https://github.com/bryceberger/tree-sitter-jjtemplate
+
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" | "\x0c" }
 
 string_escape = @{
   "\\"
@@ -29,6 +32,8 @@ string_literal = ${ "\"" ~ (string_content | string_escape)* ~ "\"" }
 
 raw_string_content = @{ (!"'" ~ ANY)* }
 raw_string_literal = ${ "'" ~ raw_string_content ~ "'" }
+
+any_string_literal = _{ string_literal | raw_string_literal }
 
 integer_literal = @{
   ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*
@@ -53,6 +58,7 @@ div_op = { "/" }
 rem_op = { "%" }
 logical_not_op = { "!" }
 negate_op = { "-" }
+pattern_kind_op = { ":" }
 prefix_ops = _{ logical_not_op | negate_op }
 infix_ops = _{
   logical_or_op
@@ -70,26 +76,36 @@ infix_ops = _{
   | rem_op
 }
 
-function = { identifier ~ "(" ~ whitespace* ~ function_arguments ~ whitespace* ~ ")" }
-keyword_argument = { identifier ~ whitespace* ~ "=" ~ whitespace* ~ template }
+function = { identifier ~ "(" ~ function_arguments ~ ")" }
+keyword_argument = { identifier ~ "=" ~ template }
 argument = _{ keyword_argument | template }
 function_arguments = {
-  argument ~ (whitespace* ~ "," ~ whitespace* ~ argument)* ~ (whitespace* ~ ",")?
+  argument ~ ("," ~ argument)* ~ ","?
   | ""
 }
 lambda = {
-  "|" ~ whitespace* ~ formal_parameters ~ whitespace* ~ "|"
-  ~ whitespace* ~ template
+  "|" ~ formal_parameters ~ "|" ~ template
 }
 formal_parameters = {
-  identifier ~ (whitespace* ~ "," ~ whitespace* ~ identifier)* ~ (whitespace* ~ ",")?
+  identifier ~ ("," ~ identifier)* ~ ","?
   | ""
 }
 
+// NOTE: string pattern identifiers additionally allow "-" in them, which
+// results in some oddness with the `-` operator, though does not yet cause
+// ambiguity. This may prove annoying at some future point.
+string_pattern_identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_" | "-")* }
+string_pattern = ${
+    // Unlike the revset language, we're not allowing bare words here because
+    // templates are generally not written on-the-fly.
+    string_pattern_identifier ~ pattern_kind_op ~ any_string_literal
+}
+
 primary = _{
-  ("(" ~ whitespace* ~ template ~ whitespace* ~ ")")
+  ("(" ~ template ~ ")")
   | function
   | lambda
+  | string_pattern
   | identifier
   | string_literal
   | raw_string_literal
@@ -101,18 +117,17 @@ term = {
 }
 
 expression = {
-  (prefix_ops ~ whitespace*)* ~ term
-  ~ (whitespace* ~ infix_ops ~ whitespace* ~ (prefix_ops ~ whitespace*)* ~ term)*
+  prefix_ops* ~ term ~ (infix_ops ~ prefix_ops* ~ term)*
 }
 
 template = {
-  expression ~ (whitespace* ~ concat_op ~ whitespace* ~ expression)*
+  expression ~ (concat_op ~ expression)*
 }
 
-program = _{ SOI ~ whitespace* ~ template? ~ whitespace* ~ EOI }
+program = _{ SOI ~ template? ~ EOI }
 
 function_alias_declaration = {
-  identifier ~ "(" ~ whitespace* ~ formal_parameters ~ whitespace* ~ ")"
+  identifier ~ "(" ~ formal_parameters ~ ")"
 }
 alias_declaration = _{
   SOI ~ (function_alias_declaration | identifier) ~ EOI

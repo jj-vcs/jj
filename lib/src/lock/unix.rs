@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::fs::File;
 use std::path::PathBuf;
@@ -28,7 +28,7 @@ pub struct FileLock {
 }
 
 impl FileLock {
-    pub fn lock(path: PathBuf) -> Result<FileLock, FileLockError> {
+    pub fn lock(path: PathBuf) -> Result<Self, FileLockError> {
         loop {
             // Create lockfile, or open pre-existing one
             let file = File::create(&path).map_err(|err| FileLockError {
@@ -45,17 +45,31 @@ impl FileLock {
                 }
             })?;
 
-            let stat = rustix::fs::fstat(&file).map_err(|errno| FileLockError {
-                message: "failed to stat lock file",
-                path: path.clone(),
-                err: errno.into(),
-            })?;
-            if stat.st_nlink == 0 {
-                // Lockfile was deleted, probably by the previous holder's `Drop` impl; create a
-                // new one so our ownership is visible, rather than hidden in an
-                // unlinked file. Not always necessary, since the previous
-                // holder might have exited abruptly.
-                continue;
+            match rustix::fs::fstat(&file) {
+                Ok(stat) => {
+                    if stat.st_nlink == 0 {
+                        // Lockfile was deleted, probably by the previous holder's `Drop` impl;
+                        // create a new one so our ownership is visible,
+                        // rather than hidden in an unlinked file. Not
+                        // always necessary, since the previous holder might
+                        // have exited abruptly.
+                        continue;
+                    }
+                }
+                Err(rustix::io::Errno::STALE) => {
+                    // The file handle is stale.
+                    // This can happen when using NFS,
+                    // likely caused by a remote deletion of the lockfile.
+                    // Treat this like a normal lockfile deletion and retry.
+                    continue;
+                }
+                Err(errno) => {
+                    return Err(FileLockError {
+                        message: "failed to stat lock file",
+                        path: path.clone(),
+                        err: errno.into(),
+                    });
+                }
             }
 
             return Ok(Self { path, file });

@@ -73,6 +73,7 @@ pub struct GitRef {
     /// This field is just for historical reasons (before we had the RefTarget
     /// type). New GitRefs have (only) the target field.
     /// TODO: Delete support for the old format.
+    #[deprecated]
     #[prost(bytes = "vec", tag = "2")]
     pub commit_id: ::prost::alloc::vec::Vec<u8>,
     #[prost(message, optional, tag = "3")]

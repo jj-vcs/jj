@@ -13,16 +13,16 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCompleter;
+use jj_lib::absorb::AbsorbSource;
 use jj_lib::absorb::absorb_hunks;
 use jj_lib::absorb::split_hunks_to_trees;
-use jj_lib::absorb::AbsorbSource;
 use jj_lib::matchers::EverythingMatcher;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
-use crate::cli_util::print_updated_commits;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::diff_util::DiffFormat;
@@ -60,7 +60,11 @@ pub(crate) struct AbsorbArgs {
     )]
     into: Vec<RevisionArg>,
     /// Move only changes to these paths (instead of all paths)
-    #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
+    #[arg(
+        value_name = "FILESETS",
+        value_hint = clap::ValueHint::AnyPath,
+        add = ArgValueCompleter::new(complete::modified_from_files),
+    )]
     paths: Vec<String>,
 }
 
@@ -126,16 +130,18 @@ pub(crate) fn cmd_absorb(
         ),
     )?;
 
-    if let Some(mut formatter) = ui.status_formatter() {
-        if let Some(commit) = &stats.rewritten_source {
-            let repo = workspace_command.repo().as_ref();
-            if !commit.is_empty(repo)? {
-                writeln!(formatter, "Remaining changes:")?;
-                let diff_renderer = workspace_command.diff_renderer(vec![DiffFormat::Summary]);
-                let matcher = &EverythingMatcher; // also print excluded paths
-                let width = ui.term_width();
-                diff_renderer.show_patch(ui, formatter.as_mut(), commit, matcher, width)?;
-            }
+    if let Some(mut formatter) = ui.status_formatter()
+        && let Some(commit) = &stats.rewritten_source
+    {
+        let repo = workspace_command.repo().as_ref();
+        if !commit.is_empty(repo)? {
+            writeln!(formatter, "Remaining changes:")?;
+            let diff_renderer = workspace_command.diff_renderer(vec![DiffFormat::Summary]);
+            let matcher = &EverythingMatcher; // also print excluded paths
+            let width = ui.term_width();
+            diff_renderer
+                .show_patch(ui, formatter.as_mut(), commit, matcher, width)
+                .block_on()?;
         }
     }
     Ok(())

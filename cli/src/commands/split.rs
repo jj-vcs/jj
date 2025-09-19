@@ -14,30 +14,32 @@
 use std::collections::HashMap;
 use std::io::Write as _;
 
+use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::matchers::Matcher;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
-use jj_lib::rewrite::move_commits;
 use jj_lib::rewrite::CommitWithSelection;
-use jj_lib::rewrite::EmptyBehaviour;
+use jj_lib::rewrite::EmptyBehavior;
 use jj_lib::rewrite::MoveCommitsLocation;
 use jj_lib::rewrite::MoveCommitsTarget;
 use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RebasedCommit;
 use jj_lib::rewrite::RewriteRefsOptions;
+use jj_lib::rewrite::move_commits;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
-use crate::cli_util::compute_commit_location;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::DiffSelector;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
-use crate::command_error::user_error_with_hint;
+use crate::cli_util::compute_commit_location;
 use crate::command_error::CommandError;
+use crate::command_error::user_error_with_hint;
 use crate::complete;
 use crate::description_util::add_trailers;
 use crate::description_util::description_template;
@@ -70,7 +72,11 @@ pub(crate) struct SplitArgs {
     #[arg(long, short)]
     interactive: bool,
     /// Specify diff editor to be used (implies --interactive)
-    #[arg(long, value_name = "NAME")]
+    #[arg(
+        long,
+        value_name = "NAME",
+        add = ArgValueCandidates::new(complete::diff_editors),
+    )]
     tool: Option<String>,
     /// The revision to split
     #[arg(
@@ -80,8 +86,8 @@ pub(crate) struct SplitArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     revision: RevisionArg,
-    /// The revision(s) to rebase onto (can be repeated to create a merge
-    /// commit)
+    /// The revision(s) to base the new revision onto (can be repeated to create
+    /// a merge commit)
     #[arg(
         long,
         short,
@@ -224,10 +230,10 @@ pub(crate) fn cmd_split(
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder.set_tree_id(target.selected_tree.id());
         if use_move_flags {
-            commit_builder
-                // Generate a new change id so that the commit being split doesn't
-                // become divergent.
-                .generate_new_change_id();
+            commit_builder.clear_rewrite_source();
+            // Generate a new change id so that the commit being split doesn't
+            // become divergent.
+            commit_builder.generate_new_change_id();
         }
         let description = if !args.message_paragraphs.is_empty() {
             let description = join_message_paragraphs(&args.message_paragraphs);
@@ -257,7 +263,9 @@ pub(crate) fn cmd_split(
             // Merge the original commit tree with its parent using the tree
             // containing the user selected changes as the base for the merge.
             // This results in a tree with the changes the user didn't select.
-            target_tree.merge(&target.selected_tree, &target.parent_tree)?
+            target_tree
+                .merge(target.selected_tree.clone(), target.parent_tree.clone())
+                .block_on()?
         } else {
             target_tree
         };
@@ -271,10 +279,10 @@ pub(crate) fn cmd_split(
             .set_parents(parents)
             .set_tree_id(new_tree.id());
         if !use_move_flags {
-            commit_builder
-                // Generate a new change id so that the commit being split doesn't
-                // become divergent.
-                .generate_new_change_id();
+            commit_builder.clear_rewrite_source();
+            // Generate a new change id so that the commit being split doesn't
+            // become divergent.
+            commit_builder.generate_new_change_id();
         }
         let description = if target.commit.description().is_empty() {
             // If there was no description before, don't ask for one for the
@@ -332,9 +340,9 @@ fn move_first_commit(
     let mut rewritten_commits: HashMap<CommitId, CommitId> = HashMap::new();
     rewritten_commits.insert(target.commit.id().clone(), second_commit.id().clone());
     tx.repo_mut()
-        .transform_descendants(vec![target.commit.id().clone()], |rewriter| {
+        .transform_descendants(vec![target.commit.id().clone()], async |rewriter| {
             let old_commit_id = rewriter.old_commit().id().clone();
-            let new_commit = rewriter.rebase()?.write()?;
+            let new_commit = rewriter.rebase().await?.write()?;
             rewritten_commits.insert(old_commit_id, new_commit.id().clone());
             Ok(())
         })?;
@@ -357,7 +365,7 @@ fn move_first_commit(
             target: MoveCommitsTarget::Commits(vec![first_commit.id().clone()]),
         },
         &RebaseOptions {
-            empty: EmptyBehaviour::Keep,
+            empty: EmptyBehavior::Keep,
             rewrite_refs: RewriteRefsOptions {
                 delete_abandoned_bookmarks: false,
             },
@@ -404,8 +412,9 @@ fn rewrite_descendants(
             .set_rewritten_commit(target.commit.id().clone(), second_commit.id().clone());
     }
     let mut num_rebased = 0;
-    tx.repo_mut()
-        .transform_descendants(vec![target.commit.id().clone()], |mut rewriter| {
+    tx.repo_mut().transform_descendants(
+        vec![target.commit.id().clone()],
+        async |mut rewriter| {
             num_rebased += 1;
             if parallel && legacy_bookmark_behavior {
                 // The old_parent is the second commit due to the rewrite above.
@@ -416,9 +425,10 @@ fn rewrite_descendants(
             } else {
                 rewriter.replace_parent(first_commit.id(), [second_commit.id()]);
             }
-            rewriter.rebase()?.write()?;
+            rewriter.rebase().await?.write()?;
             Ok(())
-        })?;
+        },
+    )?;
     // Move the working copy commit (@) to the second commit for any workspaces
     // where the target commit is the working copy commit.
     for (name, working_copy_commit) in tx.base_repo().clone().view().wc_commit_ids() {
@@ -455,8 +465,7 @@ The changes that are not selected will replace the original commit.
     };
     let parent_tree = target_commit.parent_tree(tx.repo())?;
     let selected_tree_id = diff_selector.select(
-        &parent_tree,
-        &target_commit.tree()?,
+        [&parent_tree, &target_commit.tree()?],
         matcher,
         format_instructions,
     )?;

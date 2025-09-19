@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::path::Path;
 use std::path::PathBuf;
@@ -28,13 +28,13 @@ pub struct DefaultSubmoduleStore {
 impl DefaultSubmoduleStore {
     /// Load an existing SubmoduleStore
     pub fn load(store_path: &Path) -> Self {
-        DefaultSubmoduleStore {
+        Self {
             path: store_path.to_path_buf(),
         }
     }
 
     pub fn init(store_path: &Path) -> Self {
-        DefaultSubmoduleStore {
+        Self {
             path: store_path.to_path_buf(),
         }
     }

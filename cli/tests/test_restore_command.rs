@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::common::create_commit_with_files;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::create_commit_with_files;
 
 #[test]
 fn test_restore() {
@@ -30,14 +30,16 @@ fn test_restore() {
     work_dir.remove_file("file1");
     work_dir.write_file("file2", "c\n");
     work_dir.write_file("file3", "c\n");
+    work_dir.run_jj(["debug", "snapshot"]).success();
+    let setup_opid = work_dir.current_operation_id();
 
     // There is no `-r` argument
     let output = work_dir.run_jj(["restore", "-r=@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: `jj restore` does not have a `--revision`/`-r` option. If you'd like to modify
-    the *current* revision, use `--from`. If you'd like to modify a *different* revision,
-    use `--into` or `--changes-in`.
+    Error: `jj restore` does not have a `--revision`/`-r` option.
+    Hint: To modify the current revision, use `--from`.
+    Hint: To undo changes in a revision compared to its parents, use `--changes-in`.
     [EOF]
     [exit status: 1]
     ");
@@ -46,7 +48,7 @@ fn test_restore() {
     let output = work_dir.run_jj(["restore"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz 17c14d1e (empty) (no description set)
+    Working copy  (@) now at: kkmpptxz ff7ef1df (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 1d3e40a3 (no description set)
     Added 1 files, modified 1 files, removed 1 files
     [EOF]
@@ -55,23 +57,23 @@ fn test_restore() {
     insta::assert_snapshot!(output, @"");
 
     // Can restore another revision from its parents
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["diff", "-s", "-r=@-"]);
     insta::assert_snapshot!(output, @r"
     A file2
     [EOF]
     ");
     let output = work_dir.run_jj(["restore", "-c=@-"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: kkmpptxz c1d65a0f (conflict) (no description set)
-    Parent commit (@-)      : rlvkpnrz c1c000ff (empty) (no description set)
+    Working copy  (@) now at: kkmpptxz 4f7af0b0 (conflict) (no description set)
+    Parent commit (@-)      : rlvkpnrz 67841e01 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict including 1 deletion
     New conflicts appeared in 1 commits:
-      kkmpptxz c1d65a0f (conflict) (no description set)
+      kkmpptxz 4f7af0b0 (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new kkmpptxz
@@ -79,16 +81,16 @@ fn test_restore() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
     let output = work_dir.run_jj(["diff", "-s", "-r=@-"]);
     insta::assert_snapshot!(output, @"");
 
     // Can restore this revision from another revision
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["restore", "--from", "@--"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz c1acd0d0 (no description set)
+    Working copy  (@) now at: kkmpptxz 3beda426 (no description set)
     Parent commit (@-)      : rlvkpnrz 1d3e40a3 (no description set)
     Added 1 files, modified 0 files, removed 2 files
     [EOF]
@@ -100,13 +102,13 @@ fn test_restore() {
     ");
 
     // Can restore into other revision
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["restore", "--into", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: kkmpptxz dae0b693 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz fee0934c (no description set)
+    Working copy  (@) now at: kkmpptxz 5edd8125 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz e01fe0b9 (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
@@ -120,13 +122,13 @@ fn test_restore() {
     ");
 
     // Can combine `--from` and `--into`
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["restore", "--from", "@", "--into", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: kkmpptxz 9091b582 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 77d86105 (no description set)
+    Working copy  (@) now at: kkmpptxz 9807d79b (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz f3774db8 (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
@@ -140,11 +142,11 @@ fn test_restore() {
     ");
 
     // Can restore only specified paths
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["restore", "file2", "file3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz 28a274ee (no description set)
+    Working copy  (@) now at: kkmpptxz 08b04134 (no description set)
     Parent commit (@-)      : rlvkpnrz 1d3e40a3 (no description set)
     Added 0 files, modified 1 files, removed 1 files
     [EOF]
@@ -364,6 +366,7 @@ fn test_restore_interactive() {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     let diff_script = [
         "files-before file1 file2 file3",
@@ -407,7 +410,7 @@ fn test_restore_interactive() {
     ");
 
     // Try again with --tool, which should imply --interactive
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["restore", "--tool=fake-diff-editor"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------

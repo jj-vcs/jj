@@ -139,8 +139,8 @@ fn test_rewrite_immutable_generic() {
 #[test]
 fn test_new_wc_commit_when_wc_immutable() {
     let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init"]).success();
-    let work_dir = test_env.work_dir("");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
     work_dir
         .run_jj(["bookmark", "create", "-r@", "main"])
         .success();
@@ -149,10 +149,10 @@ fn test_new_wc_commit_when_wc_immutable() {
     let output = work_dir.run_jj(["bookmark", "set", "main", "-r@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Moved 1 bookmarks to kkmpptxz 28e8c405 main | (empty) a
+    Moved 1 bookmarks to kkmpptxz e1cb4cf3 main | (empty) a
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
-    Working copy  (@) now at: zsuskuln e9901f56 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 28e8c405 main | (empty) a
+    Working copy  (@) now at: zsuskuln 19a353fe (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz e1cb4cf3 main | (empty) a
     [EOF]
     ");
 }
@@ -160,8 +160,8 @@ fn test_new_wc_commit_when_wc_immutable() {
 #[test]
 fn test_immutable_heads_set_to_working_copy() {
     let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init"]).success();
-    let work_dir = test_env.work_dir("");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
     work_dir
         .run_jj(["bookmark", "create", "-r@", "main"])
         .success();
@@ -170,8 +170,8 @@ fn test_immutable_heads_set_to_working_copy() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
-    Working copy  (@) now at: pmmvwywv ca5945b4 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz b693e0ee (empty) a
+    Working copy  (@) now at: pmmvwywv 08e27304 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz e1cb4cf3 (empty) a
     [EOF]
     ");
 }
@@ -229,7 +229,7 @@ fn test_rewrite_immutable_commands() {
     work_dir.run_jj(["new", "@-", "-m=c"]).success();
     work_dir.write_file("file", "c");
     work_dir
-        .run_jj(["new", "all:visible_heads()", "-m=merge"])
+        .run_jj(["new", "visible_heads()", "-m=merge"])
         .success();
     // Create another file to make sure the merge commit isn't empty (to satisfy `jj
     // split`) and still has a conflict (to satisfy `jj resolve`).
@@ -330,6 +330,20 @@ fn test_rewrite_immutable_commands() {
     "#);
     // edit
     let output = work_dir.run_jj(["edit", "main"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Commit 4397373a0991 is immutable
+    Hint: Could not modify commit: mzvwutvl 4397373a main | (conflict) merge
+    Hint: Immutable commits are used to protect shared history.
+    Hint: For more information, see:
+          - https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
+          - `jj help -k config`, "Set of immutable commits"
+    Hint: This operation would rewrite 1 immutable commits.
+    [EOF]
+    [exit status: 1]
+    "#);
+    // metaedit
+    let output = work_dir.run_jj(["metaedit", "-r=main"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Commit 4397373a0991 is immutable
@@ -526,6 +540,34 @@ fn test_rewrite_immutable_commands() {
     "#);
     // squash --into
     let output = work_dir.run_jj(["squash", "--into=main"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Commit 4397373a0991 is immutable
+    Hint: Could not modify commit: mzvwutvl 4397373a main | (conflict) merge
+    Hint: Immutable commits are used to protect shared history.
+    Hint: For more information, see:
+          - https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
+          - `jj help -k config`, "Set of immutable commits"
+    Hint: This operation would rewrite 1 immutable commits.
+    [EOF]
+    [exit status: 1]
+    "#);
+    // squash --after
+    let output = work_dir.run_jj(["squash", "--after=main-"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Commit 4397373a0991 is immutable
+    Hint: Could not modify commit: mzvwutvl 4397373a main | (conflict) merge
+    Hint: Immutable commits are used to protect shared history.
+    Hint: For more information, see:
+          - https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
+          - `jj help -k config`, "Set of immutable commits"
+    Hint: This operation would rewrite 1 immutable commits.
+    [EOF]
+    [exit status: 1]
+    "#);
+    // squash --before
+    let output = work_dir.run_jj(["squash", "--before=main"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Commit 4397373a0991 is immutable

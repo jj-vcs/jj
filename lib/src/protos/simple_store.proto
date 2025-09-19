@@ -20,13 +20,13 @@ message TreeValue {
   message File {
     bytes id = 1;
     bool executable = 2;
+    bytes copy_id = 3;
   }
 
   oneof value {
     File file = 2;
     bytes symlink_id = 3;
     bytes tree_id = 4;
-    bytes conflict_id = 5;
   }
 }
 
@@ -44,8 +44,6 @@ message Commit {
   repeated bytes predecessors = 2;
   // Alternating positive and negative terms
   repeated bytes root_tree = 3;
-  // TODO(#1624): delete when all code paths can handle this format
-  bool uses_tree_conflict_format = 8;
   bytes change_id = 4;
   string description = 5;
 
@@ -61,13 +59,4 @@ message Commit {
   Signature author = 6;
   Signature committer = 7;
   optional bytes secure_sig = 9;
-}
-
-message Conflict {
-  message Term {
-    TreeValue content = 1;
-  }
-
-  repeated Term removes = 1;
-  repeated Term adds = 2;
 }

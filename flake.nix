@@ -77,9 +77,6 @@
 
         # for git subprocess test
         git
-
-        # for schema tests
-        taplo
       ];
 
       env = {
@@ -103,12 +100,6 @@
             "^flake\\.lock$"
             "^target/"
           ];
-
-          # Taplo requires SystemConfiguration access, as it unconditionally creates a
-          # reqwest client.
-          sandboxProfile = ''
-            (allow mach-lookup (global-name "com.apple.SystemConfiguration.configd"))
-          '';
 
           cargoLock.lockFile = ./Cargo.lock;
           nativeBuildInputs = nativeBuildInputs ++ [pkgs.installShellFiles];
@@ -176,6 +167,7 @@
           uv
           # nixos does not work with uv-installed python
           python3
+          python3Packages.numpy
         ];
 
         # on macOS and Linux, use faster parallel linkers that are much more

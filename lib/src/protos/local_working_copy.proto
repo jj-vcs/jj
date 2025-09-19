@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package working_copy;
+package local_working_copy;
 
 enum FileType {
   Normal = 0;
@@ -33,9 +33,8 @@ message FileState {
   int64 mtime_millis_since_epoch = 1;
   uint64 size = 2;
   FileType file_type = 3;
-  // Set only if file_type is Conflict
-  bytes conflict_id = 4 [deprecated = true];
   MaterializedConflictData materialized_conflict_data = 5;
+  reserved 4;
 }
 
 message FileStateEntry {
@@ -48,7 +47,7 @@ message SparsePatterns {
 }
 
 message TreeState {
-  bytes legacy_tree_id = 1;
+  bytes legacy_tree_id = 1 [deprecated = true];
   // Alternating positive and negative terms if there's a conflict, otherwise a
   // single (positive) value
   repeated bytes tree_ids = 5;

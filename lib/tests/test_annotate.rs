@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use std::fmt::Write as _;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use itertools::Itertools as _;
 use jj_lib::annotate::FileAnnotation;
@@ -30,10 +30,10 @@ use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetExpression;
+use testutils::TestRepo;
 use testutils::create_tree;
 use testutils::read_file;
 use testutils::repo_path;
-use testutils::TestRepo;
 
 fn create_commit_fn(
     mut_repo: &mut MutableRepo,
@@ -67,7 +67,7 @@ fn annotate(repo: &dyn Repo, commit: &Commit, file_path: &RepoPath) -> String {
 fn annotate_within(
     repo: &dyn Repo,
     commit: &Commit,
-    domain: &Rc<ResolvedRevsetExpression>,
+    domain: &Arc<ResolvedRevsetExpression>,
     file_path: &RepoPath,
 ) -> String {
     let mut annotator = FileAnnotator::from_commit(commit, file_path).unwrap();
@@ -88,12 +88,13 @@ fn annotate_parent_tree(repo: &dyn Repo, commit: &Commit, file_path: &RepoPath) 
 
 fn format_annotation(repo: &dyn Repo, annotation: &FileAnnotation) -> String {
     let mut output = String::new();
-    for (commit_id, line) in annotation.lines() {
-        let id = commit_id.unwrap_or_else(|id| id);
-        let commit = repo.store().get_commit(id).unwrap();
+    for (origin, line) in annotation.line_origins() {
+        let line_origin = origin.unwrap_or_else(|line_origin| line_origin);
+        let line_number = line_origin.line_number + 1;
+        let commit = repo.store().get_commit(&line_origin.commit_id).unwrap();
         let desc = commit.description().trim_end();
-        let sigil = if commit_id.is_err() { '*' } else { ' ' };
-        write!(output, "{desc}{sigil}: {line}").unwrap();
+        let sigil = if origin.is_err() { '*' } else { ' ' };
+        write!(output, "{desc}:{line_number}{sigil}: {line}").unwrap();
     }
     output
 }
@@ -122,16 +123,16 @@ fn test_annotate_linear() {
 
     insta::assert_snapshot!(annotate(tx.repo(), &commit1, file_path), @"");
     insta::assert_snapshot!(annotate(tx.repo(), &commit2, file_path), @r"
-    commit2 : 2a
-    commit2 : 2b
+    commit2:1 : 2a
+    commit2:2 : 2b
     ");
     insta::assert_snapshot!(annotate(tx.repo(), &commit3, file_path), @r"
-    commit2 : 2b
-    commit3 : 3
+    commit2:2 : 2b
+    commit3:2 : 3
     ");
     insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @r"
-    commit2 : 2b
-    commit3 : 3
+    commit2:2 : 2b
+    commit3:2 : 3
     ");
 }
 
@@ -167,9 +168,9 @@ fn test_annotate_merge_simple() {
     drop(create_commit);
 
     insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @r"
-    commit2 : 2
-    commit1 : 1
-    commit3 : 3
+    commit2:1 : 2
+    commit1:1 : 1
+    commit3:2 : 3
     ");
 
     // Exclude the fork commit and its ancestors.
@@ -177,9 +178,9 @@ fn test_annotate_merge_simple() {
         .ancestors()
         .negated();
     insta::assert_snapshot!(annotate_within(tx.repo(), &commit4, &domain, file_path), @r"
-    commit2 : 2
-    commit2*: 1
-    commit3 : 3
+    commit2:1 : 2
+    commit1:1*: 1
+    commit3:2 : 3
     ");
 
     // Exclude one side of the merge and its ancestors.
@@ -187,34 +188,34 @@ fn test_annotate_merge_simple() {
         .ancestors()
         .negated();
     insta::assert_snapshot!(annotate_within(tx.repo(), &commit4, &domain, file_path), @r"
-    commit4*: 2
-    commit4*: 1
-    commit3 : 3
+    commit2:1*: 2
+    commit2:2*: 1
+    commit3:2 : 3
     ");
 
     // Exclude both sides of the merge and their ancestors.
     let domain = RevsetExpression::commit(commit4.id().clone());
     insta::assert_snapshot!(annotate_within(tx.repo(), &commit4, &domain, file_path), @r"
-    commit4*: 2
-    commit4*: 1
-    commit4*: 3
+    commit2:1*: 2
+    commit2:2*: 1
+    commit3:2*: 3
     ");
 
     // Exclude intermediate commit, which is useless but works.
     let domain = RevsetExpression::commit(commit3.id().clone()).negated();
     insta::assert_snapshot!(annotate_within(tx.repo(), &commit4, &domain, file_path), @r"
-    commit2 : 2
-    commit1 : 1
-    commit4 : 3
+    commit2:1 : 2
+    commit1:1 : 1
+    commit4:3 : 3
     ");
 
     // Calculate incrementally
     let mut annotator = FileAnnotator::from_commit(&commit4, file_path).unwrap();
     assert_eq!(annotator.pending_commits().collect_vec(), [commit4.id()]);
     insta::assert_snapshot!(format_annotation(tx.repo(), &annotator.to_annotation()), @r"
-    commit4*: 2
-    commit4*: 1
-    commit4*: 3
+    commit4:1*: 2
+    commit4:2*: 1
+    commit4:3*: 3
     ");
     annotator
         .compute(
@@ -228,9 +229,9 @@ fn test_annotate_merge_simple() {
         .unwrap();
     assert_eq!(annotator.pending_commits().collect_vec(), [commit1.id()]);
     insta::assert_snapshot!(format_annotation(tx.repo(), &annotator.to_annotation()), @r"
-    commit2 : 2
-    commit2*: 1
-    commit3 : 3
+    commit2:1 : 2
+    commit1:1*: 1
+    commit3:2 : 3
     ");
     annotator
         .compute(
@@ -240,9 +241,9 @@ fn test_annotate_merge_simple() {
         .unwrap();
     assert!(annotator.pending_commits().next().is_none());
     insta::assert_snapshot!(format_annotation(tx.repo(), &annotator.to_annotation()), @r"
-    commit2 : 2
-    commit1 : 1
-    commit3 : 3
+    commit2:1 : 2
+    commit1:1 : 1
+    commit3:2 : 3
     ");
 }
 
@@ -278,11 +279,11 @@ fn test_annotate_merge_split() {
     drop(create_commit);
 
     insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @r"
-    commit2 : 2
-    commit1 : 1a
-    commit1 : 1b
-    commit3 : 3
-    commit4 : 4
+    commit2:1 : 2
+    commit1:1 : 1a
+    commit1:2 : 1b
+    commit3:2 : 3
+    commit4:5 : 4
     ");
 }
 
@@ -328,13 +329,13 @@ fn test_annotate_merge_split_interleaved() {
     drop(create_commit);
 
     insta::assert_snapshot!(annotate(tx.repo(), &commit6, file_path), @r"
-    commit1 : 1a
-    commit4 : 4
-    commit1 : 1b
-    commit6 : 6
-    commit2 : 2a
-    commit5 : 5
-    commit2 : 2b
+    commit1:1 : 1a
+    commit4:2 : 4
+    commit1:2 : 1b
+    commit6:4 : 6
+    commit2:1 : 2a
+    commit5:2 : 5
+    commit2:2 : 2b
     ");
 }
 
@@ -373,20 +374,20 @@ fn test_annotate_merge_dup() {
     // Alternatively, it's also good to interpret that one of the "1"s was
     // produced at commit2, commit3, or commit4.
     insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @r"
-    commit2 : 2
-    commit1 : 1
-    commit1 : 1
-    commit3 : 3
-    commit4 : 4
+    commit2:1 : 2
+    commit1:1 : 1
+    commit1:1 : 1
+    commit3:2 : 3
+    commit4:5 : 4
     ");
 
     // For example, the parent tree of commit4 doesn't contain multiple "1"s.
     // If annotation were computed compared to the parent tree, not trees of the
     // parent commits, "1" would be inserted at commit4.
     insta::assert_snapshot!(annotate_parent_tree(tx.repo(), &commit4, file_path), @r"
-    commit2 : 2
-    commit1 : 1
-    commit3 : 3
+    commit2:1 : 2
+    commit1:1 : 1
+    commit3:2 : 3
     ");
 }
 
@@ -407,5 +408,5 @@ fn test_annotate_file_directory_transition() {
     let commit2 = create_commit("commit2", &[commit1.id()], tree2.id());
     drop(create_commit);
 
-    insta::assert_snapshot!(annotate(tx.repo(), &commit2, file_path2), @"commit2 : 2");
+    insta::assert_snapshot!(annotate(tx.repo(), &commit2, file_path2), @"commit2:1 : 2");
 }

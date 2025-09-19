@@ -28,11 +28,11 @@ use std::sync::Arc;
 
 use futures::future::try_join_all;
 use itertools::Itertools as _;
-use smallvec::smallvec_inline;
 use smallvec::SmallVec;
+use smallvec::smallvec_inline;
 
-use crate::backend;
 use crate::backend::BackendResult;
+use crate::backend::CopyId;
 use crate::backend::FileId;
 use crate::backend::TreeValue;
 use crate::content_hash::ContentHash;
@@ -41,9 +41,24 @@ use crate::repo_path::RepoPath;
 use crate::store::Store;
 use crate::tree::Tree;
 
+/// Whether to resolve conflict that makes the same change at all sides.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SameChange {
+    /// Leaves same-change conflict unresolved.
+    Keep,
+    /// Resolves same-change conflict as if one side were unchanged.
+    /// (i.e. `A+(A-B)=A`)
+    ///
+    /// This matches what Git and Mercurial do (in the 3-way case at least), but
+    /// not what Darcs does. It means that repeated 3-way merging of multiple
+    /// trees may give different results depending on the order of merging.
+    Accept,
+}
+
 /// Attempt to resolve trivial conflicts between the inputs. There must be
 /// an odd number of terms.
-pub fn trivial_merge<T>(values: &[T]) -> Option<&T>
+pub fn trivial_merge<T>(values: &[T], same_change: SameChange) -> Option<&T>
 where
     T: Eq + Hash,
 {
@@ -55,7 +70,7 @@ where
     if let [add] = values {
         return Some(add);
     } else if let [add0, remove, add1] = values {
-        return if add0 == add1 {
+        return if add0 == add1 && same_change == SameChange::Accept {
             Some(add0)
         } else if add0 == remove {
             Some(add1)
@@ -75,21 +90,15 @@ where
     }
 
     // Collect non-zero value. Values with a count of 0 means that they have
-    // cancelled out.
+    // canceled out.
     counts.retain(|_, count| *count != 0);
     if counts.len() == 1 {
         // If there is a single value with a count of 1 left, then that is the result.
         let (value, count) = counts.into_iter().next().unwrap();
         assert_eq!(count, 1);
         Some(value)
-    } else if counts.len() == 2 {
+    } else if counts.len() == 2 && same_change == SameChange::Accept {
         // All sides made the same change.
-        // This matches what Git and Mercurial do (in the 3-way case at least), but not
-        // what Darcs does. It means that repeated 3-way merging of multiple trees may
-        // give different results depending on the order of merging.
-        // TODO: Consider removing this special case, making the algorithm more strict,
-        // and maybe add a more lenient version that is used when the user explicitly
-        // asks for conflict resolution.
         let [(value1, count1), (value2, count2)] = counts.into_iter().next_array().unwrap();
         assert_eq!(count1 + count2, 1);
         if count1 > 0 {
@@ -107,7 +116,8 @@ where
 /// There is exactly one more `adds()` than `removes()`. When interpreted as a
 /// series of diffs, the merge's (i+1)-st add is matched with the i-th
 /// remove. The zeroth add is considered a diff from the non-existent state.
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone, serde::Serialize)]
+#[serde(transparent)]
 pub struct Merge<T> {
     /// Alternates between positive and negative terms, starting with positive.
     values: SmallVec<[T; 1]>,
@@ -131,7 +141,7 @@ impl<T> Merge<T> {
     pub fn from_vec(values: impl Into<SmallVec<[T; 1]>>) -> Self {
         let values = values.into();
         assert!(values.len() % 2 != 0, "must have an odd number of terms");
-        Merge { values }
+        Self { values }
     }
 
     /// Creates a new merge object from the given removes and adds.
@@ -147,12 +157,12 @@ impl<T> Merge<T> {
             let (remove, add) = diff.both().expect("must have one more adds than removes");
             values.extend([remove, add]);
         }
-        Merge { values }
+        Self { values }
     }
 
     /// Creates a `Merge` with a single resolved value.
     pub const fn resolved(value: T) -> Self {
-        Merge {
+        Self {
             values: smallvec_inline![value],
         }
     }
@@ -232,7 +242,7 @@ impl<T> Merge<T> {
 
     /// Returns the resolved value, if this merge is resolved. Otherwise returns
     /// the merge itself as an `Err`. Does not resolve trivial merges.
-    pub fn into_resolved(mut self) -> Result<T, Merge<T>> {
+    pub fn into_resolved(mut self) -> Result<T, Self> {
         if self.values.len() == 1 {
             Ok(self.values.pop().unwrap())
         } else {
@@ -288,11 +298,11 @@ impl<T> Merge<T> {
             .iter()
             .map(|index| self.values[*index].clone())
             .collect();
-        Merge { values }
+        Self { values }
     }
 
     /// Updates the merge based on the given simplified merge.
-    pub fn update_from_simplified(mut self, simplified: Merge<T>) -> Self
+    pub fn update_from_simplified(mut self, simplified: Self) -> Self
     where
         T: PartialEq,
     {
@@ -306,11 +316,11 @@ impl<T> Merge<T> {
 
     /// If this merge can be trivially resolved, returns the value it resolves
     /// to.
-    pub fn resolve_trivial(&self) -> Option<&T>
+    pub fn resolve_trivial(&self, same_change: SameChange) -> Option<&T>
     where
         T: Eq + Hash,
     {
-        trivial_merge(&self.values)
+        trivial_merge(&self.values, same_change)
     }
 
     /// Pads this merge with to the specified number of sides with the specified
@@ -417,7 +427,7 @@ impl<T> IntoIterator for Merge<T> {
 
 impl<T> FromIterator<T> for MergeBuilder<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let mut builder = MergeBuilder::default();
+        let mut builder = Self::default();
         builder.extend(iter);
         builder
     }
@@ -484,15 +494,19 @@ impl<T> Merge<Merge<T>> {
     ///
     /// Let's say we have a 3-way merge of 3-way merges like this:
     ///
+    /// ```text
     /// 4 5   7 8
     ///  3     6
     ///    1 2
     ///     0
+    /// ```
     ///
     /// Flattening that results in this 9-way merge:
     ///
+    /// ```text
     /// 4 5 0 7 8
     ///  3 2 1 6
+    /// ```
     pub fn flatten(self) -> Merge<T> {
         let mut outer_values = self.values.into_iter();
         let mut result = outer_values.next().unwrap();
@@ -528,32 +542,6 @@ pub type MergedTreeVal<'a> = Merge<Option<&'a TreeValue>>;
 /// tree, it shouldn't be.
 pub type MergedTreeValue = Merge<Option<TreeValue>>;
 
-impl MergedTreeValue {
-    /// Create a `Merge` from a `backend::Conflict`, padding with `None` to
-    /// make sure that there is exactly one more `adds()` than `removes()`.
-    pub fn from_backend_conflict(conflict: backend::Conflict) -> Self {
-        let removes = conflict.removes.into_iter().map(|term| term.value);
-        let adds = conflict.adds.into_iter().map(|term| term.value);
-        Merge::from_legacy_form(removes, adds)
-    }
-
-    /// Creates a `backend::Conflict` from a `Merge` by dropping `None`
-    /// values. Note that the conversion is lossy: the order of `None` values is
-    /// not preserved when converting back to a `Merge`.
-    pub fn into_backend_conflict(self) -> backend::Conflict {
-        let (removes, adds) = self.into_legacy_form();
-        let removes = removes
-            .into_iter()
-            .map(|value| backend::ConflictTerm { value })
-            .collect();
-        let adds = adds
-            .into_iter()
-            .map(|value| backend::ConflictTerm { value })
-            .collect();
-        backend::Conflict { removes, adds }
-    }
-}
-
 impl<T> Merge<Option<T>>
 where
     T: Borrow<TreeValue>,
@@ -569,17 +557,29 @@ where
             })
     }
 
+    /// Whether this merge is present and not a tree
+    pub fn is_file_like(&self) -> bool {
+        self.is_present() && !self.is_tree()
+    }
+
     /// If this merge contains only files or absent entries, returns a merge of
-    /// the `FileId`s`. The executable bits will be ignored. Use
+    /// the `FileId`s. The executable bits and copy IDs will be ignored. Use
     /// `Merge::with_new_file_ids()` to produce a new merge with the original
     /// executable bits preserved.
     pub fn to_file_merge(&self) -> Option<Merge<Option<FileId>>> {
-        self.try_map(|term| match borrow_tree_value(term.as_ref()) {
-            None => Ok(None),
-            Some(TreeValue::File { id, executable: _ }) => Ok(Some(id.clone())),
-            _ => Err(()),
-        })
-        .ok()
+        let file_ids = self
+            .try_map(|term| match borrow_tree_value(term.as_ref()) {
+                None => Ok(None),
+                Some(TreeValue::File {
+                    id,
+                    executable: _,
+                    copy_id: _,
+                }) => Ok(Some(id.clone())),
+                _ => Err(()),
+            })
+            .ok()?;
+
+        Some(file_ids)
     }
 
     /// If this merge contains only files or absent entries, returns a merge of
@@ -587,7 +587,26 @@ where
     pub fn to_executable_merge(&self) -> Option<Merge<Option<bool>>> {
         self.try_map(|term| match borrow_tree_value(term.as_ref()) {
             None => Ok(None),
-            Some(TreeValue::File { id: _, executable }) => Ok(Some(*executable)),
+            Some(TreeValue::File {
+                id: _,
+                executable,
+                copy_id: _,
+            }) => Ok(Some(*executable)),
+            _ => Err(()),
+        })
+        .ok()
+    }
+
+    /// If this merge contains only files or absent entries, returns a merge of
+    /// the files' copy IDs.
+    pub fn to_copy_id_merge(&self) -> Option<Merge<Option<CopyId>>> {
+        self.try_map(|term| match borrow_tree_value(term.as_ref()) {
+            None => Ok(None),
+            Some(TreeValue::File {
+                id: _,
+                executable: _,
+                copy_id,
+            }) => Ok(Some(copy_id.clone())),
             _ => Err(()),
         })
         .ok()
@@ -610,7 +629,7 @@ where
         if let Ok(tree_id_merge) = tree_id_merge {
             Ok(Some(
                 tree_id_merge
-                    .try_map_async(|id| async move {
+                    .try_map_async(async |id| {
                         if let Some(id) = id {
                             store.get_tree_async(dir.to_owned(), id).await
                         } else {
@@ -634,9 +653,18 @@ where
         let values = zip(self.iter(), file_ids.iter().cloned())
             .map(
                 |(tree_value, file_id)| match (borrow_tree_value(tree_value.as_ref()), file_id) {
-                    (Some(&TreeValue::File { id: _, executable }), Some(id)) => {
-                        Some(TreeValue::File { id, executable })
-                    }
+                    (
+                        Some(TreeValue::File {
+                            id: _,
+                            executable,
+                            copy_id,
+                        }),
+                        Some(id),
+                    ) => Some(TreeValue::File {
+                        id,
+                        executable: *executable,
+                        copy_id: copy_id.clone(),
+                    }),
                     (None, None) => None,
                     (old, new) => panic!("incompatible update: {old:?} to {new:?}"),
                 },
@@ -668,13 +696,17 @@ fn describe_conflict_term(value: &TreeValue) -> String {
         TreeValue::File {
             id,
             executable: false,
+            copy_id: _,
         } => {
+            // TODO: include the copy here once we start using it
             format!("file with id {id}")
         }
         TreeValue::File {
             id,
             executable: true,
+            copy_id: _,
         } => {
+            // TODO: include the copy here once we start using it
             format!("executable file with id {id}")
         }
         TreeValue::Symlink(id) => {
@@ -686,80 +718,82 @@ fn describe_conflict_term(value: &TreeValue) -> String {
         TreeValue::GitSubmodule(id) => {
             format!("Git submodule with id {id}")
         }
-        TreeValue::Conflict(id) => {
-            format!("Conflict with id {id}")
-        }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use test_case::test_case;
+
     use super::*;
 
     fn c<T: Clone>(terms: &[T]) -> Merge<T> {
         Merge::from_vec(terms.to_vec())
     }
 
-    #[test]
-    fn test_trivial_merge() {
-        assert_eq!(trivial_merge(&[0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 0, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 0, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 1, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 1]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 2]), None);
-        assert_eq!(trivial_merge(&[0, 0, 0, 0, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 0, 0, 0, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 0, 0, 1, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 0, 0, 1, 1]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 0, 0, 1, 2]), None);
-        assert_eq!(trivial_merge(&[0, 0, 1, 0, 0]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 0, 1, 0, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 0, 1, 0, 2]), None);
-        assert_eq!(trivial_merge(&[0, 0, 1, 1, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 0, 1, 1, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 0, 1, 1, 2]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 0, 1, 2, 0]), None);
-        assert_eq!(trivial_merge(&[0, 0, 1, 2, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 0, 1, 2, 2]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 0, 1, 2, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1, 0, 0, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 0, 0, 1]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 0, 0, 2]), None);
-        assert_eq!(trivial_merge(&[0, 1, 0, 1, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 0, 1, 1]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 0, 1, 2]), None);
-        assert_eq!(trivial_merge(&[0, 1, 0, 2, 0]), None);
-        assert_eq!(trivial_merge(&[0, 1, 0, 2, 1]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 0, 2, 2]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 0, 2, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1, 1, 0, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 1, 0, 1]), Some(&1));
-        assert_eq!(trivial_merge(&[0, 1, 1, 0, 2]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 1, 1, 1, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 1, 1, 1]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 1, 1, 2]), None);
-        assert_eq!(trivial_merge(&[0, 1, 1, 2, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 1, 2, 1]), None);
-        assert_eq!(trivial_merge(&[0, 1, 1, 2, 2]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 1, 2, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 0, 0]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 0, 1]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 1, 2, 0, 2]), Some(&2));
-        assert_eq!(trivial_merge(&[0, 1, 2, 0, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 1, 0]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 1, 1]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 1, 2]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 1, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 2, 0]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 2, 2, 1]), Some(&0));
-        assert_eq!(trivial_merge(&[0, 1, 2, 2, 2]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 2, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 3, 0]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 3, 1]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 3, 2]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 3, 3]), None);
-        assert_eq!(trivial_merge(&[0, 1, 2, 3, 4]), None);
+    #[test_case(SameChange::Keep)]
+    #[test_case(SameChange::Accept)]
+    fn test_trivial_merge(same_change: SameChange) {
+        let accept_same_change = same_change == SameChange::Accept;
+        let merge = |values| trivial_merge(values, same_change);
+        assert_eq!(merge(&[0]), Some(&0));
+        assert_eq!(merge(&[0, 0, 0]), Some(&0));
+        assert_eq!(merge(&[0, 0, 1]), Some(&1));
+        assert_eq!(merge(&[0, 1, 0]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 1, 1]), Some(&0));
+        assert_eq!(merge(&[0, 1, 2]), None);
+        assert_eq!(merge(&[0, 0, 0, 0, 0]), Some(&0));
+        assert_eq!(merge(&[0, 0, 0, 0, 1]), Some(&1));
+        assert_eq!(merge(&[0, 0, 0, 1, 0]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 0, 0, 1, 1]), Some(&0));
+        assert_eq!(merge(&[0, 0, 0, 1, 2]), None);
+        assert_eq!(merge(&[0, 0, 1, 0, 0]), Some(&1));
+        assert_eq!(merge(&[0, 0, 1, 0, 1]), accept_same_change.then_some(&1));
+        assert_eq!(merge(&[0, 0, 1, 0, 2]), None);
+        assert_eq!(merge(&[0, 0, 1, 1, 0]), Some(&0));
+        assert_eq!(merge(&[0, 0, 1, 1, 1]), Some(&1));
+        assert_eq!(merge(&[0, 0, 1, 1, 2]), Some(&2));
+        assert_eq!(merge(&[0, 0, 1, 2, 0]), None);
+        assert_eq!(merge(&[0, 0, 1, 2, 1]), accept_same_change.then_some(&1));
+        assert_eq!(merge(&[0, 0, 1, 2, 2]), Some(&1));
+        assert_eq!(merge(&[0, 0, 1, 2, 3]), None);
+        assert_eq!(merge(&[0, 1, 0, 0, 0]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 1, 0, 0, 1]), Some(&0));
+        assert_eq!(merge(&[0, 1, 0, 0, 2]), None);
+        assert_eq!(merge(&[0, 1, 0, 1, 0]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 1, 0, 1, 1]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 1, 0, 1, 2]), None);
+        assert_eq!(merge(&[0, 1, 0, 2, 0]), None);
+        assert_eq!(merge(&[0, 1, 0, 2, 1]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 1, 0, 2, 2]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 1, 0, 2, 3]), None);
+        assert_eq!(merge(&[0, 1, 1, 0, 0]), Some(&0));
+        assert_eq!(merge(&[0, 1, 1, 0, 1]), Some(&1));
+        assert_eq!(merge(&[0, 1, 1, 0, 2]), Some(&2));
+        assert_eq!(merge(&[0, 1, 1, 1, 0]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 1, 1, 1, 1]), Some(&0));
+        assert_eq!(merge(&[0, 1, 1, 1, 2]), None);
+        assert_eq!(merge(&[0, 1, 1, 2, 0]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 1, 1, 2, 1]), None);
+        assert_eq!(merge(&[0, 1, 1, 2, 2]), Some(&0));
+        assert_eq!(merge(&[0, 1, 1, 2, 3]), None);
+        assert_eq!(merge(&[0, 1, 2, 0, 0]), None);
+        assert_eq!(merge(&[0, 1, 2, 0, 1]), Some(&2));
+        assert_eq!(merge(&[0, 1, 2, 0, 2]), accept_same_change.then_some(&2));
+        assert_eq!(merge(&[0, 1, 2, 0, 3]), None);
+        assert_eq!(merge(&[0, 1, 2, 1, 0]), None);
+        assert_eq!(merge(&[0, 1, 2, 1, 1]), None);
+        assert_eq!(merge(&[0, 1, 2, 1, 2]), None);
+        assert_eq!(merge(&[0, 1, 2, 1, 3]), None);
+        assert_eq!(merge(&[0, 1, 2, 2, 0]), accept_same_change.then_some(&0));
+        assert_eq!(merge(&[0, 1, 2, 2, 1]), Some(&0));
+        assert_eq!(merge(&[0, 1, 2, 2, 2]), None);
+        assert_eq!(merge(&[0, 1, 2, 2, 3]), None);
+        assert_eq!(merge(&[0, 1, 2, 3, 0]), None);
+        assert_eq!(merge(&[0, 1, 2, 3, 1]), None);
+        assert_eq!(merge(&[0, 1, 2, 3, 2]), None);
+        assert_eq!(merge(&[0, 1, 2, 3, 3]), None);
+        assert_eq!(merge(&[0, 1, 2, 3, 4]), None);
     }
 
     #[test]
@@ -1031,8 +1065,8 @@ mod tests {
             );
             // `resolve_trivial()` is unaffected by `simplify()`
             assert_eq!(
-                merge.simplify().resolve_trivial(),
-                merge.resolve_trivial(),
+                merge.simplify().resolve_trivial(SameChange::Accept),
+                merge.resolve_trivial(SameChange::Accept),
                 "simplify() changed result of resolve_trivial() for {merge:?}"
             );
         }

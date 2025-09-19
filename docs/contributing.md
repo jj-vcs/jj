@@ -141,7 +141,7 @@ recommended steps.
 One-time setup:
 
     rustup toolchain add nightly  # wanted for 'rustfmt'
-    rustup toolchain add 1.84     # also specified in Cargo.toml
+    rustup toolchain add 1.88     # also specified in Cargo.toml
     cargo install --locked bacon
     cargo install --locked cargo-insta
     cargo install --locked cargo-nextest
@@ -179,7 +179,7 @@ These are listed roughly in order of decreasing importance.
 3. Your code will be rejected if it cannot be compiled with the minimal
    supported version of Rust ("MSRV"). Currently, `jj` follows a rather
    casual MSRV policy: "The current `rustc` stable version, minus one."
-   As of this writing, that version is **1.84.0**.
+   As of this writing, that version is **1.88.0**.
 
 4. Your code needs to pass `cargo clippy`. You can also
    use `cargo +nightly clippy` if you wish to see more warnings.
@@ -202,6 +202,14 @@ Run this in the jj repo:
 ```shell
 jj config set --repo fix.tools.rustfmt '{ command = ["rustfmt", "+nightly"], patterns = ["glob:**/*.rs"] }'
 ```
+
+> Note: users of Nix and `direnv` should drop the `"+nightly"` argument above
+> since the devShell is already configured to pull in a nightly version of
+> rustfmt:
+>
+> ```shell
+> jj config set --repo fix.tools.rustfmt '{ command = ["rustfmt"], patterns = ["glob:**/*.rs"] }'
+> ```
 
 ### Using `mold` for faster tests on Linux
 
@@ -282,6 +290,44 @@ We recommend at least these settings:
   }
 }
 ```
+
+#### Helix
+
+```toml
+# .helix/languages.toml
+[language-server.rust-analyzer.config.rustfmt]
+extraArgs = ["+nightly"]
+```
+
+### Alternative development setup with `mise`
+
+An experimental development setup is available using
+[`mise`](https://mise.jdx.dev/). If you try it, file bugs,
+PRs, or tell us on Discord/IRC/discussions if you experience problems
+or if this config is too inflexible. If we can make it work for most
+platforms and most people's needs, including people previously unfamiliar
+with `mise`, we may make `mise` the recommended way to set up a development
+environment.
+
+This tool manages the necessary dependencies for you, eliminating the need for
+a separate setup process. `mise` automatically installs the required tools when
+they are needed.
+
+Here are some of the commands you may find yourself using frequently during
+development:
+
+  * `mise test`: Runs all tests.
+  * `mise test <string>`: Runs tests that contain a specific string. For
+    example, `mise test squash` would run tests with "squash" in their name.
+  * `mise build`: Compiles `jj`.
+  * `mise build:release`: Compiles `jj` in release mode.
+  * `mise build:docs`: Builds the documentation for `jj`.
+
+For a complete list of all available tasks, you can run `mise tasks` or review
+the configuration file at `.config/mise.toml`.
+
+You can customize this configuration using
+[a `mise.local.toml` file](https://mise.jdx.dev/configuration.html#mise-toml).
 
 ## Previewing the HTML documentation
 
@@ -387,9 +433,8 @@ The different versions of documentation are managed and deployed with
 On a POSIX system or WSL, one way to build the entire website is as follows (on
 Windows, you'll need to understand and adapt the shell script):
 
-1. Check out `jj` as a co-located `jj + git` repository (`jj clone --colocate`),
-cloned from your fork of `jj` (e.g. `github.com/jjfan/jj`). You can also use a
-pure Git repo if you prefer.
+1. Check out `jj` (`jj git clone`), cloned from your fork of `jj` (e.g.
+  `github.com/jjfan/jj`). You can also use a pure Git repo if you prefer.
 
 2. Make sure `github.com/jjfan/jj` includes the `gh-pages` bookmark of the jj repo
 and run `git fetch origin gh-pages`.
@@ -452,8 +497,8 @@ you can submit a PR based on the `gh-pages` bookmark of
 Previously, the version switcher would not work unless the value of the
 `site_url` config in `mkdocs.yml` matched the actual URL the site is being
 served from. This bug should now be fixed, but if you are not serving the site
-from https://jj-vcs.github.com/jj and something does not work weirdly, you might
-want to adjust the `site_url` to something like `https://jjfan.github.io/jj`.
+from <https://jj-vcs.github.com/jj> and something fails weirdly, you might want
+to adjust the `site_url` to something like `https://jjfan.github.io/jj`.
 
 
 ## Modifying protobuffers (this is not common)

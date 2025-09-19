@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
+use std::borrow::Cow;
+use std::ffi::OsString;
 use std::fs;
 use std::fs::File;
 use std::io;
@@ -32,14 +34,14 @@ use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt as _;
 use tokio::io::ReadBuf;
 
-pub use self::platform::*;
+pub use self::platform::check_symlink_support;
+pub use self::platform::try_symlink;
 
 #[derive(Debug, Error)]
 #[error("Cannot access {path}")]
 pub struct PathError {
     pub path: PathBuf,
-    #[source]
-    pub error: io::Error,
+    pub source: io::Error,
 }
 
 pub trait IoResultExt<T> {
@@ -50,7 +52,7 @@ impl<T> IoResultExt<T> for io::Result<T> {
     fn context(self, path: impl AsRef<Path>) -> Result<T, PathError> {
         self.map_err(|error| PathError {
             path: path.as_ref().to_path_buf(),
-            error,
+            source: error,
         })
     }
 }
@@ -80,12 +82,36 @@ pub fn remove_dir_contents(dirname: &Path) -> Result<(), PathError> {
     Ok(())
 }
 
+#[derive(Debug, Error)]
+#[error(transparent)]
+pub struct BadPathEncoding(platform::BadOsStrEncoding);
+
+/// Constructs [`Path`] from `bytes` in platform-specific manner.
+///
+/// On Unix, this function never fails because paths are just bytes. On Windows,
+/// this may return error if the input wasn't well-formed UTF-8.
+pub fn path_from_bytes(bytes: &[u8]) -> Result<&Path, BadPathEncoding> {
+    let s = platform::os_str_from_bytes(bytes).map_err(BadPathEncoding)?;
+    Ok(Path::new(s))
+}
+
+/// Converts `path` to bytes in platform-specific manner.
+///
+/// On Unix, this function never fails because paths are just bytes. On Windows,
+/// this may return error if the input wasn't well-formed UTF-8.
+///
+/// The returned byte sequence can be considered a superset of ASCII (such as
+/// UTF-8 bytes.)
+pub fn path_to_bytes(path: &Path) -> Result<&[u8], BadPathEncoding> {
+    platform::os_str_to_bytes(path.as_ref()).map_err(BadPathEncoding)
+}
+
 /// Expands "~/" to "$HOME/".
 pub fn expand_home_path(path_str: &str) -> PathBuf {
-    if let Some(remainder) = path_str.strip_prefix("~/") {
-        if let Ok(home_dir_str) = std::env::var("HOME") {
-            return PathBuf::from(home_dir_str).join(remainder);
-        }
+    if let Some(remainder) = path_str.strip_prefix("~/")
+        && let Ok(home_dir_str) = std::env::var("HOME")
+    {
+        return PathBuf::from(home_dir_str).join(remainder);
     }
     PathBuf::from(path_str)
 }
@@ -138,12 +164,59 @@ pub fn normalize_path(path: &Path) -> PathBuf {
     }
 }
 
-/// Like `NamedTempFile::persist()`, but doesn't try to overwrite the existing
+/// Converts the given `path` to Unix-like path separated by "/".
+///
+/// The returned path might not work on Windows if it was canonicalized. On
+/// Unix, this function is noop.
+pub fn slash_path(path: &Path) -> Cow<'_, Path> {
+    if cfg!(windows) {
+        Cow::Owned(to_slash_separated(path).into())
+    } else {
+        Cow::Borrowed(path)
+    }
+}
+
+fn to_slash_separated(path: &Path) -> OsString {
+    let mut buf = OsString::with_capacity(path.as_os_str().len());
+    let mut components = path.components();
+    match components.next() {
+        Some(c) => buf.push(c),
+        None => return buf,
+    }
+    for c in components {
+        buf.push("/");
+        buf.push(c);
+    }
+    buf
+}
+
+/// Persists the temporary file after synchronizing the content.
+///
+/// After system crash, the persisted file should have a valid content if
+/// existed. However, the persisted file name (or directory entry) could be
+/// lost. It's up to caller to synchronize the directory entries.
+///
+/// See also <https://lwn.net/Articles/457667/> for the behavior on Linux.
+pub fn persist_temp_file<P: AsRef<Path>>(
+    temp_file: NamedTempFile,
+    new_path: P,
+) -> io::Result<File> {
+    // Ensure persisted file content is flushed to disk.
+    temp_file.as_file().sync_data()?;
+    temp_file
+        .persist(new_path)
+        .map_err(|PersistError { error, file: _ }| error)
+}
+
+/// Like [`persist_temp_file()`], but doesn't try to overwrite the existing
 /// target on Windows.
 pub fn persist_content_addressed_temp_file<P: AsRef<Path>>(
     temp_file: NamedTempFile,
     new_path: P,
 ) -> io::Result<File> {
+    // Ensure new file content is flushed to disk, so the old file content
+    // wouldn't be lost if existed at the same location.
+    temp_file.as_file().sync_data()?;
     if cfg!(windows) {
         // On Windows, overwriting file can fail if the file is opened without
         // FILE_SHARE_DELETE for example. We don't need to take a risk if the
@@ -217,9 +290,22 @@ impl<R: Read + Unpin> AsyncRead for BlockingAsyncReader<R> {
 
 #[cfg(unix)]
 mod platform {
+    use std::convert::Infallible;
+    use std::ffi::OsStr;
     use std::io;
+    use std::os::unix::ffi::OsStrExt as _;
     use std::os::unix::fs::symlink;
     use std::path::Path;
+
+    pub type BadOsStrEncoding = Infallible;
+
+    pub fn os_str_from_bytes(data: &[u8]) -> Result<&OsStr, BadOsStrEncoding> {
+        Ok(OsStr::from_bytes(data))
+    }
+
+    pub fn os_str_to_bytes(data: &OsStr) -> Result<&[u8], BadOsStrEncoding> {
+        Ok(data.as_bytes())
+    }
 
     /// Symlinks are always available on UNIX
     pub fn check_symlink_support() -> io::Result<bool> {
@@ -237,8 +323,12 @@ mod platform {
     use std::os::windows::fs::symlink_file;
     use std::path::Path;
 
-    use winreg::enums::HKEY_LOCAL_MACHINE;
     use winreg::RegKey;
+    use winreg::enums::HKEY_LOCAL_MACHINE;
+
+    pub use super::fallback::BadOsStrEncoding;
+    pub use super::fallback::os_str_from_bytes;
+    pub use super::fallback::os_str_to_bytes;
 
     /// Symlinks may or may not be enabled on Windows. They require the
     /// Developer Mode setting, which is stored in the registry key below.
@@ -261,6 +351,27 @@ mod platform {
     }
 }
 
+#[cfg_attr(unix, expect(dead_code))]
+mod fallback {
+    use std::ffi::OsStr;
+    use std::str;
+
+    use thiserror::Error;
+
+    // Define error per platform so we can explicitly say UTF-8 is expected.
+    #[derive(Debug, Error)]
+    #[error("Invalid UTF-8 sequence")]
+    pub struct BadOsStrEncoding;
+
+    pub fn os_str_from_bytes(data: &[u8]) -> Result<&OsStr, BadOsStrEncoding> {
+        Ok(str::from_utf8(data).map_err(|_| BadOsStrEncoding)?.as_ref())
+    }
+
+    pub fn os_str_to_bytes(data: &OsStr) -> Result<&[u8], BadOsStrEncoding> {
+        Ok(data.to_str().ok_or(BadOsStrEncoding)?.as_ref())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;
@@ -274,6 +385,25 @@ mod tests {
     use crate::tests::new_temp_dir;
 
     #[test]
+    fn test_path_bytes_roundtrip() {
+        let bytes = b"ascii";
+        let path = path_from_bytes(bytes).unwrap();
+        assert_eq!(path_to_bytes(path).unwrap(), bytes);
+
+        let bytes = b"utf-8.\xc3\xa0";
+        let path = path_from_bytes(bytes).unwrap();
+        assert_eq!(path_to_bytes(path).unwrap(), bytes);
+
+        let bytes = b"latin1.\xe0";
+        if cfg!(unix) {
+            let path = path_from_bytes(bytes).unwrap();
+            assert_eq!(path_to_bytes(path).unwrap(), bytes);
+        } else {
+            assert!(path_from_bytes(bytes).is_err());
+        }
+    }
+
+    #[test]
     fn normalize_too_many_dot_dot() {
         assert_eq!(normalize_path(Path::new("foo/..")), Path::new("."));
         assert_eq!(normalize_path(Path::new("foo/../..")), Path::new(".."));
@@ -284,6 +414,30 @@ mod tests {
         assert_eq!(
             normalize_path(Path::new("foo/../../../bar/baz/..")),
             Path::new("../../bar")
+        );
+    }
+
+    #[test]
+    fn test_slash_path() {
+        assert_eq!(slash_path(Path::new("")), Path::new(""));
+        assert_eq!(slash_path(Path::new("foo")), Path::new("foo"));
+        assert_eq!(slash_path(Path::new("foo/bar")), Path::new("foo/bar"));
+        assert_eq!(slash_path(Path::new("foo/bar/..")), Path::new("foo/bar/.."));
+        assert_eq!(
+            slash_path(Path::new(r"foo\bar")),
+            if cfg!(windows) {
+                Path::new("foo/bar")
+            } else {
+                Path::new(r"foo\bar")
+            }
+        );
+        assert_eq!(
+            slash_path(Path::new(r"..\foo\bar")),
+            if cfg!(windows) {
+                Path::new("../foo/bar")
+            } else {
+                Path::new(r"..\foo\bar")
+            }
         );
     }
 

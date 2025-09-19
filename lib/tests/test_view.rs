@@ -26,11 +26,11 @@ use jj_lib::repo::Repo as _;
 use maplit::btreemap;
 use maplit::hashset;
 use test_case::test_case;
+use testutils::TestRepo;
 use testutils::commit_transactions;
 use testutils::create_random_commit;
 use testutils::write_random_commit;
-use testutils::CommitGraphBuilder;
-use testutils::TestRepo;
+use testutils::write_random_commit_with_parents;
 
 fn remote_symbol<'a, N, M>(name: &'a N, remote: &'a M) -> RemoteRefSymbol<'a>
 where
@@ -60,10 +60,9 @@ fn test_heads_fork() {
     let repo = &test_repo.repo;
     let mut tx = repo.start_transaction();
 
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let initial = graph_builder.initial_commit();
-    let child1 = graph_builder.commit_with_parents(&[&initial]);
-    let child2 = graph_builder.commit_with_parents(&[&initial]);
+    let initial = write_random_commit(tx.repo_mut());
+    let child1 = write_random_commit_with_parents(tx.repo_mut(), &[&initial]);
+    let child2 = write_random_commit_with_parents(tx.repo_mut(), &[&initial]);
     let repo = tx.commit("test").unwrap();
 
     assert_eq!(
@@ -81,11 +80,10 @@ fn test_heads_merge() {
     let repo = &test_repo.repo;
     let mut tx = repo.start_transaction();
 
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let initial = graph_builder.initial_commit();
-    let child1 = graph_builder.commit_with_parents(&[&initial]);
-    let child2 = graph_builder.commit_with_parents(&[&initial]);
-    let merge = graph_builder.commit_with_parents(&[&child1, &child2]);
+    let initial = write_random_commit(tx.repo_mut());
+    let child1 = write_random_commit_with_parents(tx.repo_mut(), &[&initial]);
+    let child2 = write_random_commit_with_parents(tx.repo_mut(), &[&initial]);
+    let merge = write_random_commit_with_parents(tx.repo_mut(), &[&child1, &child2]);
     let repo = tx.commit("test").unwrap();
 
     assert_eq!(*repo.view().heads(), hashset! {merge.id().clone()});
@@ -490,10 +488,7 @@ fn test_merge_views_child_on_rewritten(child_first: bool) {
     let repo = tx.commit("test").unwrap();
 
     let mut tx1 = repo.start_transaction();
-    let commit_b = create_random_commit(tx1.repo_mut())
-        .set_parents(vec![commit_a.id().clone()])
-        .write()
-        .unwrap();
+    let commit_b = write_random_commit_with_parents(tx1.repo_mut(), &[&commit_a]);
 
     let mut tx2 = repo.start_transaction();
     let commit_a2 = tx2
@@ -540,10 +535,7 @@ fn test_merge_views_child_on_rewritten_divergent(on_rewritten: bool, child_first
 
     let mut tx1 = repo.start_transaction();
     let parent = if on_rewritten { &commit_a2 } else { &commit_a3 };
-    let commit_b = create_random_commit(tx1.repo_mut())
-        .set_parents(vec![parent.id().clone()])
-        .write()
-        .unwrap();
+    let commit_b = write_random_commit_with_parents(tx1.repo_mut(), &[parent]);
 
     let mut tx2 = repo.start_transaction();
     let commit_a4 = tx2
@@ -587,17 +579,11 @@ fn test_merge_views_child_on_abandoned(child_first: bool) {
 
     let mut tx = test_repo.repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
-    let commit_b = create_random_commit(tx.repo_mut())
-        .set_parents(vec![commit_a.id().clone()])
-        .write()
-        .unwrap();
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     let repo = tx.commit("test").unwrap();
 
     let mut tx1 = repo.start_transaction();
-    let commit_c = create_random_commit(tx1.repo_mut())
-        .set_parents(vec![commit_b.id().clone()])
-        .write()
-        .unwrap();
+    let commit_c = write_random_commit_with_parents(tx1.repo_mut(), &[&commit_b]);
 
     let mut tx2 = repo.start_transaction();
     tx2.repo_mut().record_abandoned_commit(&commit_b);

@@ -113,10 +113,10 @@ fn test_git_export_undo() {
 
     // Exported refs won't be removed by undoing the export, but the git-tracking
     // bookmark is. This is the same as remote-tracking bookmarks.
-    let output = work_dir.run_jj(["op", "undo"]);
+    let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: b718f970b78c (2001-02-03 08:05:10) export git refs
+    Restored to operation: 503f3c779aff (2001-02-03 08:05:08) create bookmark a pointing to commit e8849ae12c709f2321908879bc724fdb2ab8a781
     [EOF]
     ");
     insta::assert_debug_snapshot!(get_git_repo_refs(&git_repo), @r#"
@@ -255,15 +255,15 @@ fn test_git_import_move_export_with_default_undo() {
         .run_jj(["bookmark", "set", "a", "--to=@"])
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
-    a: yqosqzyt 507c0edc (empty) (no description set)
+    a: royxmykx e7d0d5fd (empty) (no description set)
       @git (behind by 1 commits): qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "export"]);
     insta::assert_snapshot!(output, @"");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
-    a: yqosqzyt 507c0edc (empty) (no description set)
-      @git: yqosqzyt 507c0edc (empty) (no description set)
+    a: royxmykx e7d0d5fd (empty) (no description set)
+      @git: royxmykx e7d0d5fd (empty) (no description set)
     [EOF]
     ");
 
@@ -284,7 +284,7 @@ fn test_git_import_move_export_with_default_undo() {
         (
             "refs/heads/a",
             CommitId(
-                "507c0edcfc028f714f3c7a3027cb141f6610e867",
+                "e7d0d5fdaf96051d0dacec1e74d9413d64a15822",
             ),
         ),
     ]
@@ -299,8 +299,8 @@ fn test_git_import_move_export_with_default_undo() {
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
-    a: yqosqzyt 507c0edc (empty) (no description set)
-      @git: yqosqzyt 507c0edc (empty) (no description set)
+    a: royxmykx e7d0d5fd (empty) (no description set)
+      @git: royxmykx e7d0d5fd (empty) (no description set)
     [EOF]
     ");
 }

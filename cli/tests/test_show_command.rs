@@ -309,6 +309,7 @@ fn test_show_with_no_template() {
     - builtin_config_list
     - builtin_config_list_detailed
     - builtin_draft_commit_description
+    - builtin_evolog_compact
     - builtin_log_comfortable
     - builtin_log_compact
     - builtin_log_compact_full_description
@@ -316,11 +317,13 @@ fn test_show_with_no_template() {
     - builtin_log_node
     - builtin_log_node_ascii
     - builtin_log_oneline
+    - builtin_log_redacted
     - builtin_op_log_comfortable
     - builtin_op_log_compact
     - builtin_op_log_node
     - builtin_op_log_node_ascii
     - builtin_op_log_oneline
+    - builtin_op_log_redacted
     - commit_summary_separator
     - default_commit_description
     - description_placeholder

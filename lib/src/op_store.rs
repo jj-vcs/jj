@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -20,10 +20,10 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::iter;
+use std::sync::LazyLock;
 use std::time::SystemTime;
 
 use itertools::Itertools as _;
-use once_cell::sync::Lazy;
 use thiserror::Error;
 
 use crate::backend::CommitId;
@@ -31,10 +31,10 @@ use crate::backend::MillisSinceEpoch;
 use crate::backend::Timestamp;
 use crate::content_hash::ContentHash;
 use crate::merge::Merge;
-use crate::object_id::id_type;
 use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId as _;
 use crate::object_id::PrefixResolution;
+use crate::object_id::id_type;
 use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefName;
 use crate::ref_name::RefNameBuf;
@@ -46,7 +46,8 @@ use crate::ref_name::WorkspaceNameBuf;
 id_type!(pub ViewId { hex() });
 id_type!(pub OperationId { hex() });
 
-#[derive(ContentHash, PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(ContentHash, PartialEq, Eq, Hash, Clone, Debug, serde::Serialize)]
+#[serde(transparent)]
 pub struct RefTarget {
     merge: Merge<Option<CommitId>>,
 }
@@ -67,7 +68,7 @@ impl RefTarget {
     ///
     /// This will typically be used in place of `None` returned by map lookup.
     pub fn absent_ref() -> &'static Self {
-        static TARGET: Lazy<RefTarget> = Lazy::new(RefTarget::absent);
+        static TARGET: LazyLock<RefTarget> = LazyLock::new(RefTarget::absent);
         &TARGET
     }
 
@@ -90,7 +91,7 @@ impl RefTarget {
     }
 
     pub fn from_merge(merge: Merge<Option<CommitId>>) -> Self {
-        RefTarget { merge }
+        Self { merge }
     }
 
     /// Returns the underlying value if this target is non-conflicting.
@@ -142,7 +143,7 @@ pub struct RemoteRef {
 impl RemoteRef {
     /// Creates remote ref pointing to no commit.
     pub fn absent() -> Self {
-        RemoteRef {
+        Self {
             target: RefTarget::absent(),
             state: RemoteRefState::New,
         }
@@ -152,7 +153,7 @@ impl RemoteRef {
     ///
     /// This will typically be used in place of `None` returned by map lookup.
     pub fn absent_ref() -> &'static Self {
-        static TARGET: Lazy<RemoteRef> = Lazy::new(RemoteRef::absent);
+        static TARGET: LazyLock<RemoteRef> = LazyLock::new(RemoteRef::absent);
         &TARGET
     }
 
@@ -246,7 +247,7 @@ pub struct BookmarkTarget<'a> {
 /// object represents how the file system looks at a given time.
 #[derive(ContentHash, PartialEq, Eq, Clone, Debug)]
 pub struct View {
-    /// All head commits
+    /// All head commits. There should be at least one head commit.
     pub head_ids: HashSet<CommitId>,
     pub local_bookmarks: BTreeMap<RefNameBuf, RefTarget>,
     pub tags: BTreeMap<RefNameBuf, RefTarget>,
@@ -263,25 +264,9 @@ pub struct View {
 }
 
 impl View {
-    /// Creates new truly empty view.
-    ///
-    /// The caller should add at least one commit ID to `head_ids`. The other
-    /// fields may be empty.
-    pub fn empty() -> Self {
-        View {
-            head_ids: HashSet::new(),
-            local_bookmarks: BTreeMap::new(),
-            tags: BTreeMap::new(),
-            remote_views: BTreeMap::new(),
-            git_refs: BTreeMap::new(),
-            git_head: RefTarget::absent(),
-            wc_commit_ids: BTreeMap::new(),
-        }
-    }
-
     /// Creates new (mostly empty) view containing the given commit as the head.
     pub fn make_root(root_commit_id: CommitId) -> Self {
-        View {
+        Self {
             head_ids: HashSet::from([root_commit_id]),
             local_bookmarks: BTreeMap::new(),
             tags: BTreeMap::new(),
@@ -352,6 +337,13 @@ pub(crate) fn flatten_remote_bookmarks(
         .kmerge_by(|(symbol1, _), (symbol2, _)| symbol1 < symbol2)
 }
 
+#[derive(Clone, ContentHash, Debug, Eq, PartialEq, serde::Serialize)]
+pub struct TimestampRange {
+    // Could be aliased to Range<Timestamp> if needed.
+    pub start: Timestamp,
+    pub end: Timestamp,
+}
+
 /// Represents an operation (transaction) on the repo view, just like how a
 /// Commit object represents an operation on the tree.
 ///
@@ -364,10 +356,12 @@ pub(crate) fn flatten_remote_bookmarks(
 /// taken and it will be checked that the current head of the operation
 /// graph is unchanged. If the current head has changed, there has been
 /// concurrent operation.
-#[derive(ContentHash, PartialEq, Eq, Clone, Debug)]
+#[derive(ContentHash, PartialEq, Eq, Clone, Debug, serde::Serialize)]
 pub struct Operation {
+    #[serde(skip)] // TODO: should be exposed?
     pub view_id: ViewId,
     pub parents: Vec<OperationId>,
+    #[serde(flatten)]
     pub metadata: OperationMetadata,
     /// Mapping from new commit to its predecessors, or `None` if predecessors
     /// weren't recorded when the operation was written.
@@ -384,25 +378,28 @@ pub struct Operation {
     /// even if they became visible at this operation.
     // BTreeMap for ease of deterministic serialization. If the deserialization
     // cost matters, maybe this can be changed to sorted Vec.
+    #[serde(skip)] // TODO: should be exposed?
     pub commit_predecessors: Option<BTreeMap<CommitId, Vec<CommitId>>>,
 }
 
 impl Operation {
-    pub fn make_root(root_view_id: ViewId) -> Operation {
+    pub fn make_root(root_view_id: ViewId) -> Self {
         let timestamp = Timestamp {
             timestamp: MillisSinceEpoch(0),
             tz_offset: 0,
         };
         let metadata = OperationMetadata {
-            start_time: timestamp,
-            end_time: timestamp,
+            time: TimestampRange {
+                start: timestamp,
+                end: timestamp,
+            },
             description: "".to_string(),
             hostname: "".to_string(),
             username: "".to_string(),
             is_snapshot: false,
             tags: HashMap::new(),
         };
-        Operation {
+        Self {
             view_id: root_view_id,
             parents: vec![],
             metadata,
@@ -415,10 +412,9 @@ impl Operation {
     }
 }
 
-#[derive(ContentHash, PartialEq, Eq, Clone, Debug)]
+#[derive(ContentHash, PartialEq, Eq, Clone, Debug, serde::Serialize)]
 pub struct OperationMetadata {
-    pub start_time: Timestamp,
-    pub end_time: Timestamp,
+    pub time: TimestampRange,
     // Whatever is useful to the user, such as exact command line call
     pub description: String,
     pub hostname: String,
@@ -572,7 +568,7 @@ mod tests {
                 "bookmark1".as_ref(),
                 BookmarkTarget {
                     local_target: &local_bookmark1_target,
-                    remote_refs: vec![],
+                    remote_refs: vec![]
                 },
             )],
         );

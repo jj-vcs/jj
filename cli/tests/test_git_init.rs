@@ -19,10 +19,10 @@ use indoc::formatdoc;
 use test_case::test_case;
 use testutils::git;
 
-use crate::common::to_toml_value;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::to_toml_value;
 
 fn init_git_repo(git_repo_path: &Path, bare: bool) -> gix::Repository {
     let git_repo = if bare {
@@ -235,6 +235,84 @@ fn test_git_init_external_import_trunk(bare: bool) {
 }
 
 #[test]
+fn test_git_init_external_import_trunk_upstream_takes_precedence() {
+    let test_env = TestEnvironment::default();
+    let git_repo_path = test_env.env_root().join("git-repo");
+    let git_repo = init_git_repo(&git_repo_path, false);
+
+    let oid = git_repo
+        .find_reference("refs/heads/my-bookmark")
+        .unwrap()
+        .id();
+
+    // Add both upstream and origin remotes with different default branches
+    // upstream has "develop" as default
+    git_repo
+        .reference(
+            "refs/remotes/upstream/develop",
+            oid.detach(),
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            "create upstream remote ref",
+        )
+        .unwrap();
+
+    git::set_symbolic_reference(
+        &git_repo,
+        "refs/remotes/upstream/HEAD",
+        "refs/remotes/upstream/develop",
+    );
+
+    // origin has "trunk" as default
+    git_repo
+        .reference(
+            "refs/remotes/origin/trunk",
+            oid.detach(),
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            "create origin remote ref",
+        )
+        .unwrap();
+
+    git::set_symbolic_reference(
+        &git_repo,
+        "refs/remotes/origin/HEAD",
+        "refs/remotes/origin/trunk",
+    );
+
+    let output = test_env.run_jj_in(
+        ".",
+        [
+            "git",
+            "init",
+            "repo",
+            "--git-repo",
+            git_repo_path.to_str().unwrap(),
+        ],
+    );
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Done importing changes from the underlying Git repo.
+    Setting the revset alias `trunk()` to `develop@upstream`
+    Working copy  (@) now at: sqpuoqvx ed6b5138 (empty) (no description set)
+    Parent commit (@-)      : nntyzxmz e80a42cc develop@upstream my-bookmark trunk@origin | My commit message
+    Added 1 files, modified 0 files, removed 0 files
+    Initialized repo in "repo"
+    [EOF]
+    "#);
+    }
+
+    // "trunk()" alias should be set to "upstream"'s default, not "origin"'s
+    let work_dir = test_env.work_dir("repo");
+    let output = work_dir.run_jj(["config", "list", "--repo", "revset-aliases.\"trunk()\""]);
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(output, @r#"
+        revset-aliases."trunk()" = "develop@upstream"
+        [EOF]
+        "#);
+    }
+}
+
+#[test]
 fn test_git_init_external_ignore_working_copy() {
     let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("git-repo");
@@ -334,9 +412,11 @@ fn test_git_init_colocated_via_git_repo_path() {
     assert!(jj_path.join("working_copy").is_dir());
     assert!(repo_path.is_dir());
     assert!(store_path.is_dir());
-    assert!(read_git_target(&work_dir)
-        .replace('\\', "/")
-        .ends_with("../../../.git"));
+    assert!(
+        read_git_target(&work_dir)
+            .replace('\\', "/")
+            .ends_with("../../../.git")
+    );
 
     // Check that the Git repo's HEAD got checked out
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -774,6 +854,7 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
     ------- stderr -------
     Done importing changes from the underlying Git repo.
     Initialized repo in "repo"
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
@@ -797,6 +878,59 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
 }
 
 #[test]
+fn test_git_init_colocated_via_config_git_dir_exists() {
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    init_git_repo(work_dir.root(), false);
+
+    test_env.add_config("git.colocate = true");
+
+    let output = test_env.run_jj_in(".", ["git", "init", "repo"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Done importing changes from the underlying Git repo.
+    Initialized repo in "repo"
+    Hint: Running `git clean -xdf` will remove `.jj/`!
+    [EOF]
+    "#);
+
+    // Check that the Git repo's HEAD got checked out
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  f3fe58bc88cc
+    ○  e80a42cccd06 my-bookmark git_head() My commit message
+    ◆  000000000000
+    [EOF]
+    ");
+
+    // Check that the Git repo's HEAD moves
+    work_dir.run_jj(["new"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  0c77f9e21b55
+    ○  f3fe58bc88cc git_head()
+    ○  e80a42cccd06 my-bookmark My commit message
+    ◆  000000000000
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_init_no_colocate() {
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+
+    test_env.add_config("git.colocate = true");
+
+    let output = test_env.run_jj_in(".", ["git", "init", "--no-colocate", "repo"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Initialized repo in "repo"
+    [EOF]
+    "#);
+
+    assert!(!work_dir.root().join(".git").exists());
+}
+
+#[test]
 fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
@@ -804,6 +938,7 @@ fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Initialized repo in "repo"
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     // No HEAD ref is available yet

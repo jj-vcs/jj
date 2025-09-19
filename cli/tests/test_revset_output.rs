@@ -104,27 +104,27 @@ fn test_bad_function_call() {
     let output = work_dir.run_jj(["log", "-r", "parents()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Failed to parse revset: Function `parents`: Expected 1 arguments
+    Error: Failed to parse revset: Function `parents`: Expected 1 to 2 arguments
     Caused by:  --> 1:9
       |
     1 | parents()
       |         ^
       |
-      = Function `parents`: Expected 1 arguments
+      = Function `parents`: Expected 1 to 2 arguments
     [EOF]
     [exit status: 1]
     ");
 
-    let output = work_dir.run_jj(["log", "-r", "parents(foo, bar)"]);
+    let output = work_dir.run_jj(["log", "-r", "parents(foo, bar, baz)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Failed to parse revset: Function `parents`: Expected 1 arguments
+    Error: Failed to parse revset: Function `parents`: Expected 1 to 2 arguments
     Caused by:  --> 1:9
       |
-    1 | parents(foo, bar)
-      |         ^------^
+    1 | parents(foo, bar, baz)
+      |         ^-----------^
       |
-      = Function `parents`: Expected 1 arguments
+      = Function `parents`: Expected 1 to 2 arguments
     [EOF]
     [exit status: 1]
     ");
@@ -146,13 +146,13 @@ fn test_bad_function_call() {
     let output = work_dir.run_jj(["log", "-r", "latest(a, not_an_integer)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Failed to parse revset: Expected expression of type integer
+    Error: Failed to parse revset: Expected integer
     Caused by:  --> 1:11
       |
     1 | latest(a, not_an_integer)
       |           ^------------^
       |
-      = Expected expression of type integer
+      = Expected integer
     [EOF]
     [exit status: 1]
     ");
@@ -168,6 +168,34 @@ fn test_bad_function_call() {
       |           ^
       |
       = Function `ancestors`: Expected 1 to 2 arguments
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["log", "-r", "change_id(glob:a)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Failed to parse revset: Expected change ID prefix
+    Caused by:  --> 1:11
+      |
+    1 | change_id(glob:a)
+      |           ^----^
+      |
+      = Expected change ID prefix
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["log", "-r", "commit_id(xyzzy)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Failed to parse revset: Invalid commit ID prefix
+    Caused by:  --> 1:11
+      |
+    1 | commit_id(xyzzy)
+      |           ^---^
+      |
+      = Invalid commit ID prefix
     [EOF]
     [exit status: 1]
     ");
@@ -419,6 +447,71 @@ fn test_function_name_hint() {
 }
 
 #[test]
+fn test_bad_symbol_or_argument_should_not_be_optimized_out() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["log", "-r", "unknown & none()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Revision `unknown` doesn't exist
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["log", "-r", "all() | unknown"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Revision `unknown` doesn't exist
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["log", "-r", "description(regex:'(') & none()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Failed to parse revset: Invalid string pattern
+    Caused by:
+    1:  --> 1:13
+      |
+    1 | description(regex:'(') & none()
+      |             ^-------^
+      |
+      = Invalid string pattern
+    2: regex parse error:
+        (
+        ^
+    error: unclosed group
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["log", "-r", "files('..') & none()"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Error: Failed to parse revset: In fileset expression
+    Caused by:
+    1:  --> 1:7
+      |
+    1 | files('..') & none()
+      |       ^--^
+      |
+      = In fileset expression
+    2:  --> 1:1
+      |
+    1 | '..'
+      | ^--^
+      |
+      = Invalid file pattern
+    3: Path ".." is not in the repo "."
+    4: Invalid component ".." in repo-relative path "../"
+    [EOF]
+    [exit status: 1]
+    "#);
+}
+
+#[test]
 fn test_alias() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -507,7 +600,36 @@ fn test_alias() {
     1 | my_author(none())
       |           ^----^
       |
-      = Expected expression of string pattern
+      = Expected string pattern
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["log", "-r", "my_author(unknown:pat)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Failed to parse revset: In alias `my_author(x)`
+    Caused by:
+    1:  --> 1:1
+      |
+    1 | my_author(unknown:pat)
+      | ^--------------------^
+      |
+      = In alias `my_author(x)`
+    2:  --> 1:8
+      |
+    1 | author(x)
+      |        ^
+      |
+      = In function parameter `x`
+    3:  --> 1:11
+      |
+    1 | my_author(unknown:pat)
+      |           ^---------^
+      |
+      = Invalid string pattern
+    4: Invalid string pattern kind `unknown:`
+    Hint: Try prefixing with one of `exact:`, `glob:`, `regex:`, `substring:`, or one of these with `-i` suffix added (e.g. `glob-i:`) for case-insensitive matching
     [EOF]
     [exit status: 1]
     ");
@@ -610,6 +732,7 @@ fn test_bad_alias_decl() {
 #[test]
 fn test_all_modifier() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("ui.always-allow-large-revsets=false");
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
@@ -621,13 +744,19 @@ fn test_all_modifier() {
     Hint: The revset `all()` resolved to these revisions:
       qpvuntsm e8849ae1 (empty) (no description set)
       zzzzzzzz 00000000 (empty) (no description set)
-    Hint: Prefix the expression with `all:` to allow any number of revisions (i.e. `all:all()`).
     [EOF]
     [exit status: 1]
     ");
     let output = work_dir.run_jj(["new", "all:all()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: In revset expression
+     --> 1:1
+      |
+    1 | all:all()
+      | ^-^
+      |
+      = Multiple revisions are allowed by default; `all:` is planned for removal
     Error: The Git backend does not support creating merge commits with the root commit as one of the parents.
     [EOF]
     [exit status: 1]
@@ -640,18 +769,41 @@ fn test_all_modifier() {
     │  (empty) (no description set)
     ◆  zzzzzzzz root() 00000000
     [EOF]
+    ------- stderr -------
+    Warning: In revset expression
+     --> 1:1
+      |
+    1 | all:all()
+      | ^-^
+      |
+      = Multiple revisions are allowed by default; `all:` is planned for removal
+    [EOF]
     ");
 
     // Command that accepts only single revision
     let output = work_dir.run_jj(["bookmark", "create", "-rall:@", "x"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: In revset expression
+     --> 1:1
+      |
+    1 | all:@
+      | ^-^
+      |
+      = Multiple revisions are allowed by default; `all:` is planned for removal
     Created 1 bookmarks pointing to qpvuntsm e8849ae1 x | (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["bookmark", "set", "-rall:all()", "x"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: In revset expression
+     --> 1:1
+      |
+    1 | all:all()
+      | ^-^
+      |
+      = Multiple revisions are allowed by default; `all:` is planned for removal
     Error: Revset `all:all()` resolved to more than one revision
     Hint: The revset `all:all()` resolved to these revisions:
       qpvuntsm e8849ae1 x | (empty) (no description set)
@@ -665,6 +817,21 @@ fn test_all_modifier() {
     insta::assert_snapshot!(output, @r"
     @  true
     ◆  true
+    [EOF]
+    ------- stderr -------
+    Warning: In template expression
+     --> 1:19
+      |
+    1 | self.contained_in('all:all()')
+      |                   ^---------^
+      |
+      = In revset expression
+     --> 1:1
+      |
+    1 | all:all()
+      | ^-^
+      |
+      = Multiple revisions are allowed by default; `all:` is planned for removal
     [EOF]
     ");
 

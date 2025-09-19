@@ -19,7 +19,9 @@ use std::num::NonZeroU32;
 use std::path::Path;
 
 use jj_lib::git;
+use jj_lib::git::FetchTagsOverride;
 use jj_lib::git::GitFetch;
+use jj_lib::git::expand_fetch_refspecs;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
@@ -30,10 +32,11 @@ use jj_lib::workspace::Workspace;
 use super::write_repository_level_trunk_alias;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
+use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
-use crate::command_error::CommandError;
+use crate::commands::git::FetchTagsMode;
 use crate::commands::git::maybe_add_gitignore;
 use crate::git_util::absolute_git_url;
 use crate::git_util::print_git_import_stats;
@@ -62,9 +65,18 @@ pub struct GitCloneArgs {
     /// Whether or not to colocate the Jujutsu repo with the git repo
     #[arg(long)]
     colocate: bool,
+    /// Disable colocation of the Jujutsu repo with the git repo
+    #[arg(long, conflicts_with = "colocate")]
+    no_colocate: bool,
     /// Create a shallow clone of the given depth
     #[arg(long)]
     depth: Option<NonZeroU32>,
+    /// Configure when to fetch tags
+    ///
+    /// Unless otherwise specified, the initial clone will fetch all tags,
+    /// while all subsequent fetches will only fetch included tags.
+    #[arg(long, value_enum)]
+    fetch_tags: Option<FetchTagsMode>,
 }
 
 fn clone_destination_for_source(source: &str) -> Option<&str> {
@@ -111,22 +123,42 @@ pub fn cmd_git_clone(
     fs::create_dir_all(&wc_path)
         .map_err(|err| user_error_with_message(format!("Failed to create {wc_path_str}"), err))?;
 
+    let colocate = if command.settings().git_settings()?.colocate {
+        !args.no_colocate
+    } else {
+        args.colocate
+    };
+
     // Canonicalize because fs::remove_dir_all() doesn't seem to like e.g.
     // `/some/path/.`
     let canonical_wc_path = dunce::canonicalize(&wc_path)
         .map_err(|err| user_error_with_message(format!("Failed to create {wc_path_str}"), err))?;
 
     let clone_result = (|| -> Result<_, CommandError> {
-        let workspace_command = init_workspace(ui, command, &canonical_wc_path, args.colocate)?;
-        let mut workspace_command =
-            configure_remote(ui, command, workspace_command, remote_name, &source)?;
-        let default_branch = fetch_new_remote(ui, &mut workspace_command, remote_name, args.depth)?;
+        let workspace_command = init_workspace(ui, command, &canonical_wc_path, colocate)?;
+        let mut workspace_command = configure_remote(
+            ui,
+            command,
+            workspace_command,
+            remote_name,
+            &source,
+            // If not explicitly specified on the CLI, configure the remote for only fetching
+            // included tags for future fetches.
+            args.fetch_tags.unwrap_or(FetchTagsMode::Included),
+        )?;
+        let default_branch = fetch_new_remote(
+            ui,
+            &mut workspace_command,
+            remote_name,
+            args.depth,
+            args.fetch_tags,
+        )?;
         Ok((workspace_command, default_branch))
     })();
     if clone_result.is_err() {
         let clean_up_dirs = || -> io::Result<()> {
             fs::remove_dir_all(canonical_wc_path.join(".jj"))?;
-            if args.colocate {
+            if colocate {
                 fs::remove_dir_all(canonical_wc_path.join(".git"))?;
             }
             if !wc_path_existed {
@@ -162,6 +194,14 @@ pub fn cmd_git_clone(
             tx.finish(ui, "check out git remote's default branch")?;
         }
     }
+
+    if colocate {
+        writeln!(
+            ui.hint_default(),
+            r"Running `git clean -xdf` will remove `.jj/`!",
+        )?;
+    }
+
     Ok(())
 }
 
@@ -188,8 +228,14 @@ fn configure_remote(
     workspace_command: WorkspaceCommandHelper,
     remote_name: &RemoteName,
     source: &str,
+    fetch_tags: FetchTagsMode,
 ) -> Result<WorkspaceCommandHelper, CommandError> {
-    git::add_remote(workspace_command.repo().store(), remote_name, source)?;
+    git::add_remote(
+        workspace_command.repo().store(),
+        remote_name,
+        source,
+        fetch_tags.as_fetch_tags(),
+    )?;
     // Reload workspace to apply new remote configuration to
     // gix::ThreadSafeRepository behind the store.
     let workspace = command.load_workspace_at(
@@ -208,6 +254,7 @@ fn fetch_new_remote(
     workspace_command: &mut WorkspaceCommandHelper,
     remote_name: &RemoteName,
     depth: Option<NonZeroU32>,
+    fetch_tags: Option<FetchTagsMode>,
 ) -> Result<Option<RefNameBuf>, CommandError> {
     writeln!(
         ui.status(),
@@ -220,7 +267,26 @@ fn fetch_new_remote(
     let mut tx = workspace_command.start_transaction();
     let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
     with_remote_git_callbacks(ui, |cb| {
-        git_fetch.fetch(remote_name, &[StringPattern::everything()], cb, depth)
+        git_fetch.fetch(
+            remote_name,
+            expand_fetch_refspecs(remote_name, vec![StringPattern::everything()])?,
+            cb,
+            depth,
+            match fetch_tags {
+                // If not explicitly specified on the CLI, override the remote
+                // configuration and fetch all tags by default since this is
+                // the Git default behavior.
+                None => Some(FetchTagsOverride::AllTags),
+
+                // Technically by this point the remote should already be
+                // configured based on the CLI parameters so we shouldn't *need*
+                // to apply an override here but all the cases are expanded here
+                // for clarity.
+                Some(FetchTagsMode::All) => Some(FetchTagsOverride::AllTags),
+                Some(FetchTagsMode::None) => Some(FetchTagsOverride::NoTags),
+                Some(FetchTagsMode::Included) => None,
+            },
+        )
     })?;
     let default_branch = git_fetch.get_default_branch(remote_name)?;
     let import_stats = git_fetch.import_refs()?;

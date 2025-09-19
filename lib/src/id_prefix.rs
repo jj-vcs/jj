@@ -12,15 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::iter;
 use std::marker::PhantomData;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
-use once_cell::unsync::OnceCell;
+use once_cell::sync::OnceCell;
 use thiserror::Error;
 
 use crate::backend::ChangeId;
@@ -30,12 +29,13 @@ use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId;
 use crate::object_id::PrefixResolution;
 use crate::repo::Repo;
-use crate::revset::DefaultSymbolResolver;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExtensions;
 use crate::revset::RevsetResolutionError;
+use crate::revset::SymbolResolver;
 use crate::revset::SymbolResolverExtension;
 use crate::revset::UserRevsetExpression;
+use crate::view::View;
 
 #[derive(Debug, Error)]
 pub enum IdPrefixIndexLoadError {
@@ -46,7 +46,7 @@ pub enum IdPrefixIndexLoadError {
 }
 
 struct DisambiguationData {
-    expression: Rc<UserRevsetExpression>,
+    expression: Arc<UserRevsetExpression>,
     indexes: OnceCell<Indexes>,
 }
 
@@ -60,10 +60,10 @@ impl DisambiguationData {
     fn indexes(
         &self,
         repo: &dyn Repo,
-        extensions: &[impl AsRef<dyn SymbolResolverExtension>],
+        extensions: &[Box<dyn SymbolResolverExtension>],
     ) -> Result<&Indexes, IdPrefixIndexLoadError> {
         self.indexes.get_or_try_init(|| {
-            let symbol_resolver = DefaultSymbolResolver::new(repo, extensions);
+            let symbol_resolver = SymbolResolver::new(repo, extensions);
             let revset = self
                 .expression
                 .resolve_user_expression(repo, &symbol_resolver)?
@@ -123,7 +123,7 @@ impl IdPrefixContext {
         }
     }
 
-    pub fn disambiguate_within(mut self, expression: Rc<UserRevsetExpression>) -> Self {
+    pub fn disambiguate_within(mut self, expression: Arc<UserRevsetExpression>) -> Self {
         self.disambiguation = Some(DisambiguationData {
             expression,
             indexes: OnceCell::new(),
@@ -164,29 +164,41 @@ impl IdPrefixIndex<'_> {
             let resolution = indexes
                 .commit_index
                 .resolve_prefix_to_key(&*indexes.commit_change_ids, prefix);
-            if let PrefixResolution::SingleMatch(id) = resolution {
-                // The disambiguation set may be loaded from a different repo,
-                // and contain a commit that doesn't exist in the current repo.
-                if repo.index().has_id(&id) {
-                    return PrefixResolution::SingleMatch(id);
-                } else {
-                    return PrefixResolution::NoMatch;
+            match resolution {
+                PrefixResolution::NoMatch => {
+                    // Fall back to resolving in entire repo
+                }
+                PrefixResolution::SingleMatch(id) => {
+                    // The disambiguation set may be loaded from a different repo,
+                    // and contain a commit that doesn't exist in the current repo.
+                    if repo.index().has_id(&id) {
+                        return PrefixResolution::SingleMatch(id);
+                    } else {
+                        return PrefixResolution::NoMatch;
+                    }
+                }
+                PrefixResolution::AmbiguousMatch => {
+                    return PrefixResolution::AmbiguousMatch;
                 }
             }
         }
         repo.index().resolve_commit_id_prefix(prefix)
     }
 
-    /// Returns the shortest length of a prefix of `commit_id` that
-    /// can still be resolved by `resolve_commit_prefix()`.
+    /// Returns the shortest length of a prefix of `commit_id` that can still be
+    /// resolved by `resolve_commit_prefix()` and [`SymbolResolver`].
     pub fn shortest_commit_prefix_len(&self, repo: &dyn Repo, commit_id: &CommitId) -> usize {
-        if let Some(indexes) = self.indexes {
-            if let Some(lookup) = indexes
+        let len = self.shortest_commit_prefix_len_exact(repo, commit_id);
+        disambiguate_prefix_with_refs(repo.view(), &commit_id.to_string(), len)
+    }
+
+    pub fn shortest_commit_prefix_len_exact(&self, repo: &dyn Repo, commit_id: &CommitId) -> usize {
+        if let Some(indexes) = self.indexes
+            && let Some(lookup) = indexes
                 .commit_index
                 .lookup_exact(&*indexes.commit_change_ids, commit_id)
-            {
-                return lookup.shortest_unique_prefix_len();
-            }
+        {
+            return lookup.shortest_unique_prefix_len();
         }
         repo.index().shortest_unique_commit_id_prefix_len(commit_id)
     }
@@ -201,31 +213,58 @@ impl IdPrefixIndex<'_> {
             let resolution = indexes
                 .change_index
                 .resolve_prefix_to_key(&*indexes.commit_change_ids, prefix);
-            if let PrefixResolution::SingleMatch(change_id) = resolution {
-                return match repo.resolve_change_id(&change_id) {
-                    // There may be more commits with this change id outside the narrower sets.
-                    Some(commit_ids) => PrefixResolution::SingleMatch(commit_ids),
-                    // The disambiguation set may contain hidden commits.
-                    None => PrefixResolution::NoMatch,
-                };
+            match resolution {
+                PrefixResolution::NoMatch => {
+                    // Fall back to resolving in entire repo
+                }
+                PrefixResolution::SingleMatch(change_id) => {
+                    return match repo.resolve_change_id(&change_id) {
+                        // There may be more commits with this change id outside the narrower sets.
+                        Some(commit_ids) => PrefixResolution::SingleMatch(commit_ids),
+                        // The disambiguation set may contain hidden commits.
+                        None => PrefixResolution::NoMatch,
+                    };
+                }
+                PrefixResolution::AmbiguousMatch => {
+                    return PrefixResolution::AmbiguousMatch;
+                }
             }
         }
         repo.resolve_change_id_prefix(prefix)
     }
 
-    /// Returns the shortest length of a prefix of `change_id` that
-    /// can still be resolved by `resolve_change_prefix()`.
+    /// Returns the shortest length of a prefix of `change_id` that can still be
+    /// resolved by `resolve_change_prefix()` and [`SymbolResolver`].
     pub fn shortest_change_prefix_len(&self, repo: &dyn Repo, change_id: &ChangeId) -> usize {
-        if let Some(indexes) = self.indexes {
-            if let Some(lookup) = indexes
+        let len = self.shortest_change_prefix_len_exact(repo, change_id);
+        disambiguate_prefix_with_refs(repo.view(), &change_id.to_string(), len)
+    }
+
+    fn shortest_change_prefix_len_exact(&self, repo: &dyn Repo, change_id: &ChangeId) -> usize {
+        if let Some(indexes) = self.indexes
+            && let Some(lookup) = indexes
                 .change_index
                 .lookup_exact(&*indexes.commit_change_ids, change_id)
-            {
-                return lookup.shortest_unique_prefix_len();
-            }
+        {
+            return lookup.shortest_unique_prefix_len();
         }
         repo.shortest_unique_change_id_prefix_len(change_id)
     }
+}
+
+fn disambiguate_prefix_with_refs(view: &View, id_sym: &str, min_len: usize) -> usize {
+    debug_assert!(id_sym.is_ascii());
+    (min_len..id_sym.len())
+        .find(|&n| {
+            // Tags, bookmarks, and Git refs have higher priority, but Git refs
+            // should include "/" char. Extension symbols have lower priority.
+            let prefix = &id_sym[..n];
+            view.get_tag(prefix.as_ref()).is_absent()
+                && view.get_local_bookmark(prefix.as_ref()).is_absent()
+        })
+        // No need to test conflicts with the full ID. We have to return some
+        // valid length anyway.
+        .unwrap_or(id_sym.len())
 }
 
 /// In-memory immutable index to do prefix lookup of key `K` through `P`.
@@ -545,35 +584,35 @@ mod tests {
             })
         };
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("0").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("0").unwrap()),
             PrefixResolution::AmbiguousMatch,
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("00").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("00").unwrap()),
             PrefixResolution::AmbiguousMatch,
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("000").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("000").unwrap()),
             PrefixResolution::SingleMatch((ChangeId::from_hex("0000"), vec![0])),
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("0001").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("0001").unwrap()),
             PrefixResolution::NoMatch,
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("009").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("009").unwrap()),
             PrefixResolution::SingleMatch((ChangeId::from_hex("0099"), vec![1, 2])),
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("0aa").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("0aa").unwrap()),
             PrefixResolution::AmbiguousMatch,
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("0aab").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("0aab").unwrap()),
             PrefixResolution::SingleMatch((ChangeId::from_hex("0aab"), vec![4])),
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("f").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("f").unwrap()),
             PrefixResolution::NoMatch,
         );
 
@@ -588,33 +627,33 @@ mod tests {
             })
         };
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("00").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("00").unwrap()),
             PrefixResolution::AmbiguousMatch,
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("000").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("000").unwrap()),
             PrefixResolution::SingleMatch((ChangeId::from_hex("0000"), vec![0])),
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("0001").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("0001").unwrap()),
             PrefixResolution::NoMatch,
         );
         // For short key "00", ["0000", "0099", "0099"] would match. We shouldn't
         // break at "009".matches("0000").
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("009").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("009").unwrap()),
             PrefixResolution::SingleMatch((ChangeId::from_hex("0099"), vec![1, 2])),
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("0a").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("0a").unwrap()),
             PrefixResolution::AmbiguousMatch,
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("0aa").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("0aa").unwrap()),
             PrefixResolution::AmbiguousMatch,
         );
         assert_eq!(
-            resolve_prefix(&HexPrefix::new("0aab").unwrap()),
+            resolve_prefix(&HexPrefix::try_from_hex("0aab").unwrap()),
             PrefixResolution::SingleMatch((ChangeId::from_hex("0aab"), vec![4])),
         );
     }
@@ -624,30 +663,42 @@ mod tests {
         // No crash if empty
         let source: Vec<(ChangeId, ())> = vec![];
         let id_index = build_id_index::<_, 1>(&source);
-        assert!(id_index
-            .lookup_exact(&*source, &ChangeId::from_hex("00"))
-            .is_none());
+        assert!(
+            id_index
+                .lookup_exact(&*source, &ChangeId::from_hex("00"))
+                .is_none()
+        );
 
         let source = vec![
             (ChangeId::from_hex("ab00"), ()),
             (ChangeId::from_hex("ab01"), ()),
         ];
         let id_index = build_id_index::<_, 1>(&source);
-        assert!(id_index
-            .lookup_exact(&*source, &ChangeId::from_hex("aa00"))
-            .is_none());
-        assert!(id_index
-            .lookup_exact(&*source, &ChangeId::from_hex("ab00"))
-            .is_some());
-        assert!(id_index
-            .lookup_exact(&*source, &ChangeId::from_hex("ab01"))
-            .is_some());
-        assert!(id_index
-            .lookup_exact(&*source, &ChangeId::from_hex("ab02"))
-            .is_none());
-        assert!(id_index
-            .lookup_exact(&*source, &ChangeId::from_hex("ac00"))
-            .is_none());
+        assert!(
+            id_index
+                .lookup_exact(&*source, &ChangeId::from_hex("aa00"))
+                .is_none()
+        );
+        assert!(
+            id_index
+                .lookup_exact(&*source, &ChangeId::from_hex("ab00"))
+                .is_some()
+        );
+        assert!(
+            id_index
+                .lookup_exact(&*source, &ChangeId::from_hex("ab01"))
+                .is_some()
+        );
+        assert!(
+            id_index
+                .lookup_exact(&*source, &ChangeId::from_hex("ab02"))
+                .is_none()
+        );
+        assert!(
+            id_index
+                .lookup_exact(&*source, &ChangeId::from_hex("ac00"))
+                .is_none()
+        );
     }
 
     #[test]

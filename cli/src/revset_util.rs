@@ -15,7 +15,6 @@
 //! Utility for parsing and evaluating user-provided revset expressions.
 
 use std::io;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
@@ -29,7 +28,6 @@ use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::repo::Repo;
 use jj_lib::revset;
-use jj_lib::revset::DefaultSymbolResolver;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::Revset;
 use jj_lib::revset::RevsetAliasesMap;
@@ -41,12 +39,13 @@ use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetParseError;
 use jj_lib::revset::RevsetResolutionError;
+use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
 use thiserror::Error;
 
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::formatter::Formatter;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
@@ -66,7 +65,7 @@ pub struct RevsetExpressionEvaluator<'repo> {
     repo: &'repo dyn Repo,
     extensions: Arc<RevsetExtensions>,
     id_prefix_context: &'repo IdPrefixContext,
-    expression: Rc<UserRevsetExpression>,
+    expression: Arc<UserRevsetExpression>,
 }
 
 impl<'repo> RevsetExpressionEvaluator<'repo> {
@@ -74,9 +73,9 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
         repo: &'repo dyn Repo,
         extensions: Arc<RevsetExtensions>,
         id_prefix_context: &'repo IdPrefixContext,
-        expression: Rc<UserRevsetExpression>,
+        expression: Arc<UserRevsetExpression>,
     ) -> Self {
-        RevsetExpressionEvaluator {
+        Self {
             repo,
             extensions,
             id_prefix_context,
@@ -85,17 +84,17 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
     }
 
     /// Returns the underlying expression.
-    pub fn expression(&self) -> &Rc<UserRevsetExpression> {
+    pub fn expression(&self) -> &Arc<UserRevsetExpression> {
         &self.expression
     }
 
     /// Intersects the underlying expression with the `other` expression.
-    pub fn intersect_with(&mut self, other: &Rc<UserRevsetExpression>) {
+    pub fn intersect_with(&mut self, other: &Arc<UserRevsetExpression>) {
         self.expression = self.expression.intersection(other);
     }
 
     /// Resolves user symbols in the expression, returns new expression.
-    pub fn resolve(&self) -> Result<Rc<ResolvedRevsetExpression>, RevsetResolutionError> {
+    pub fn resolve(&self) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
         let symbol_resolver = default_symbol_resolver(
             self.repo,
             self.extensions.symbol_resolvers(),
@@ -210,8 +209,8 @@ pub fn default_symbol_resolver<'a>(
     repo: &'a dyn Repo,
     extensions: &[impl AsRef<dyn SymbolResolverExtension>],
     id_prefix_context: &'a IdPrefixContext,
-) -> DefaultSymbolResolver<'a> {
-    DefaultSymbolResolver::new(repo, extensions).with_id_prefix_context(id_prefix_context)
+) -> SymbolResolver<'a> {
+    SymbolResolver::new(repo, extensions).with_id_prefix_context(id_prefix_context)
 }
 
 /// Parses user-configured expression defining the heads of the immutable set.
@@ -219,7 +218,7 @@ pub fn default_symbol_resolver<'a>(
 pub fn parse_immutable_heads_expression(
     diagnostics: &mut RevsetDiagnostics,
     context: &RevsetParseContext,
-) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
+) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
     let (_, _, immutable_heads_str) = context
         .aliases_map
         .get_function(USER_IMMUTABLE_HEADS, 0)
@@ -245,7 +244,7 @@ pub(super) fn warn_unresolvable_trunk(
     };
     // Not using IdPrefixContext since trunk() revset shouldn't contain short
     // prefixes.
-    let symbol_resolver = DefaultSymbolResolver::new(repo, context.extensions.symbol_resolvers());
+    let symbol_resolver = SymbolResolver::new(repo, context.extensions.symbol_resolvers());
     if let Err(err) = expression.resolve_user_expression(repo, &symbol_resolver) {
         writeln!(
             ui.warning_default(),
@@ -263,7 +262,6 @@ pub(super) fn evaluate_revset_to_single_commit<'a>(
     revision_str: &str,
     expression: &RevsetExpressionEvaluator<'_>,
     commit_summary_template: impl FnOnce() -> TemplateRenderer<'a, Commit>,
-    should_hint_about_all_prefix: bool,
 ) -> Result<Commit, CommandError> {
     let mut iter = expression.evaluate_to_commits()?.fuse();
     match (iter.next(), iter.next()) {
@@ -277,11 +275,9 @@ pub(super) fn evaluate_revset_to_single_commit<'a>(
             let elided = iter.next().is_some();
             Err(format_multiple_revisions_error(
                 revision_str,
-                expression.expression(),
                 &commits,
                 elided,
                 &commit_summary_template(),
-                should_hint_about_all_prefix,
             ))
         }
     }
@@ -289,11 +285,9 @@ pub(super) fn evaluate_revset_to_single_commit<'a>(
 
 fn format_multiple_revisions_error(
     revision_str: &str,
-    expression: &UserRevsetExpression,
     commits: &[Commit],
     elided: bool,
     template: &TemplateRenderer<'_, Commit>,
-    should_hint_about_all_prefix: bool,
 ) -> CommandError {
     assert!(commits.len() >= 2);
     let mut cmd_err = user_error(format!(
@@ -310,48 +304,13 @@ fn format_multiple_revisions_error(
         }
         Ok(())
     };
-    if commits[0].change_id() == commits[1].change_id() {
-        // Separate hint if there's commits with same change id
-        cmd_err.add_formatted_hint_with(|formatter| {
-            writeln!(
-                formatter,
-                "The revset `{revision_str}` resolved to these revisions:"
-            )?;
-            write_commits_summary(formatter)
-        });
-        cmd_err.add_hint(
-            "Some of these commits have the same change id. Abandon the unneeded commits with `jj \
-             abandon <commit_id>`.",
-        );
-    } else if let Some(bookmark_name) = expression.as_symbol() {
-        // Separate hint if there's a conflicted bookmark
-        cmd_err.add_formatted_hint_with(|formatter| {
-            writeln!(
-                formatter,
-                "Bookmark {bookmark_name} resolved to multiple revisions because it's conflicted."
-            )?;
-            writeln!(formatter, "It resolved to these revisions:")?;
-            write_commits_summary(formatter)
-        });
-        cmd_err.add_hint(format!(
-            "Set which revision the bookmark points to with `jj bookmark set {bookmark_name} -r \
-             <REVISION>`.",
-        ));
-    } else {
-        cmd_err.add_formatted_hint_with(|formatter| {
-            writeln!(
-                formatter,
-                "The revset `{revision_str}` resolved to these revisions:"
-            )?;
-            write_commits_summary(formatter)
-        });
-        if should_hint_about_all_prefix {
-            cmd_err.add_hint(format!(
-                "Prefix the expression with `all:` to allow any number of revisions (i.e. \
-                 `all:{revision_str}`)."
-            ));
-        }
-    };
+    cmd_err.add_formatted_hint_with(|formatter| {
+        writeln!(
+            formatter,
+            "The revset `{revision_str}` resolved to these revisions:"
+        )?;
+        write_commits_summary(formatter)
+    });
     cmd_err
 }
 

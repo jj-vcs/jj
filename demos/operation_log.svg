@@ -118,14 +118,14 @@
 </tspan><tspan xml:space="preserve" x="10" y="1454" class="output">│  describe commit 8756f29849ccaf0024ff98c0605bbb1289c2992f
 </tspan><tspan xml:space="preserve" x="10" y="1472" class="output">│  <tspan class="fg5">args: jj describe -m stuff</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="1490" class="output">
-</tspan><tspan xml:space="preserve" x="10" y="1508" class="output"><tspan class="fg2"># Let's undo that rebase operation:</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1508" class="output"><tspan class="fg2"># Let's revert that rebase operation:</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="1526" class="output">
-</tspan><tspan xml:space="preserve" x="10" y="1544" class="output">$ jj undo 78f44
-</tspan><tspan xml:space="preserve" x="10" y="1562" class="output">Undid operation: <tspan class="fg4">78f44786ada8</tspan> (<tspan class="fg6">2024-10-13 19:54:55</tspan>) rebase commit ae764306f7544e<tspan class="hard-br" rotate="45" dx=".1em" dy="-.2em">↓</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1544" class="output">$ jj op revert 78f44
+</tspan><tspan xml:space="preserve" x="10" y="1562" class="output">Reverted operation: <tspan class="fg4">78f44786ada8</tspan> (<tspan class="fg6">2024-10-13 19:54:55</tspan>) rebase commit ae764306f7544e<tspan class="hard-br" rotate="45" dx=".1em" dy="-.2em">↓</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="1580" class="output">76e049d0a271449fa986e22de9 and descendants
 </tspan><tspan xml:space="preserve" x="10" y="1598" class="output">
-</tspan><tspan xml:space="preserve" x="10" y="1616" class="output"><tspan class="fg2"># Note that only the rebase was undone, and the</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="1634" class="output"><tspan class="fg2"># subsequent "other stuff" change was not undone:</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1616" class="output"><tspan class="fg2"># Note that only the rebase was reverted, and the</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1634" class="output"><tspan class="fg2"># subsequent "other stuff" change was not:</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="1652" class="output">
 </tspan><tspan xml:space="preserve" x="10" y="1670" class="output">$ jj log
 </tspan><tspan xml:space="preserve" x="10" y="1688" class="output"><tspan class="bold fg2">@</tspan>  <tspan class="bold fg13">t</tspan><tspan class="bold fg8">soomuvq</tspan><tspan class="bold"> </tspan><tspan class="bold fg3">jjfan@example.com</tspan><tspan class="bold"> </tspan><tspan class="bold fg14">2024-10-13 19:54:55</tspan><tspan class="bold"> </tspan><tspan class="bold fg12">1</tspan><tspan class="bold fg8">44081d4</tspan>

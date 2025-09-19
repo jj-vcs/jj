@@ -19,6 +19,11 @@ use itertools::Itertools as _;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitFetch;
+use jj_lib::git::IgnoredRefspec;
+use jj_lib::git::IgnoredRefspecs;
+use jj_lib::git::expand_default_fetch_refspecs;
+use jj_lib::git::expand_fetch_refspecs;
+use jj_lib::git::get_git_backend;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringPattern;
@@ -26,9 +31,9 @@ use jj_lib::str_util::StringPattern;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
+use crate::command_error::CommandError;
 use crate::command_error::config_error;
 use crate::command_error::user_error;
-use crate::command_error::CommandError;
 use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::git_util::print_git_import_stats;
@@ -45,15 +50,21 @@ pub struct GitFetchArgs {
     ///
     /// By default, the specified name matches exactly. Use `glob:` prefix to
     /// expand `*` as a glob, e.g. `--branch 'glob:push-*'`. Other wildcard
-    /// characters such as `?` are *not* supported.
+    /// characters such as `?` are *not* supported. Can be repeated to specify
+    /// multiple branches.
     #[arg(
         long, short,
         alias = "bookmark",
-        default_value = "glob:*",
         value_parser = StringPattern::parse,
         add = ArgValueCandidates::new(complete::bookmarks),
     )]
     branch: Vec<StringPattern>,
+    /// Fetch only tracked bookmarks
+    ///
+    /// This fetches only bookmarks that are already tracked from the specified
+    /// remote(s).
+    #[arg(long, conflicts_with = "branch")]
+    tracked: bool,
     /// The remote to fetch from (only named remotes are supported, can be
     /// repeated)
     ///
@@ -99,7 +110,7 @@ pub fn cmd_git_fetch(
     for pattern in remote_patterns {
         let remotes = all_remotes
             .iter()
-            .filter(|r| pattern.matches(r.as_str()))
+            .filter(|r| pattern.is_match(r.as_str()))
             .collect_vec();
         if remotes.is_empty() {
             writeln!(ui.warning_default(), "No git remotes matching '{pattern}'")?;
@@ -109,7 +120,7 @@ pub fn cmd_git_fetch(
     }
 
     if matching_remotes.is_empty() {
-        return Err(user_error("No git remotes to push"));
+        return Err(user_error("No git remotes to fetch from"));
     }
 
     let remotes = matching_remotes
@@ -119,7 +130,45 @@ pub fn cmd_git_fetch(
         .collect_vec();
 
     let mut tx = workspace_command.start_transaction();
-    do_git_fetch(ui, &mut tx, &remotes, &args.branch)?;
+
+    let mut expansions = Vec::with_capacity(remotes.len());
+    if args.tracked {
+        for remote in &remotes {
+            let tracked_branches = tx
+                .repo()
+                .view()
+                .local_remote_bookmarks(remote)
+                .filter(|(_, targets)| targets.remote_ref.is_tracked())
+                .map(|(name, _)| StringPattern::exact(name))
+                .collect_vec();
+            expansions.push((remote, expand_fetch_refspecs(remote, tracked_branches)?));
+        }
+    } else if args.branch.is_empty() {
+        let git_repo = get_git_backend(tx.repo_mut().store())?.git_repo();
+        for remote in &remotes {
+            let (ignored, expanded) = expand_default_fetch_refspecs(remote, &git_repo)?;
+            warn_ignored_refspecs(ui, remote, ignored)?;
+            expansions.push((remote, expanded));
+        }
+    } else {
+        for remote in &remotes {
+            let expanded = expand_fetch_refspecs(remote, args.branch.clone())?;
+            expansions.push((remote, expanded));
+        }
+    };
+
+    let git_settings = tx.settings().git_settings()?;
+    let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
+
+    for (remote, expanded) in expansions {
+        with_remote_git_callbacks(ui, |callbacks| {
+            git_fetch.fetch(remote, expanded, callbacks, None, None)
+        })?;
+    }
+
+    let import_stats = git_fetch.import_refs()?;
+    print_git_import_stats(ui, tx.repo(), &import_stats, true)?;
+    warn_if_branches_not_found(ui, &tx, &args.branch, &remotes)?;
     tx.finish(
         ui,
         format!(
@@ -164,31 +213,13 @@ fn parse_remote_pattern(remote: &str) -> Result<StringPattern, CommandError> {
     StringPattern::parse(remote).map_err(config_error)
 }
 
-fn do_git_fetch(
-    ui: &mut Ui,
-    tx: &mut WorkspaceCommandTransaction,
-    remotes: &[&RemoteName],
-    branch_names: &[StringPattern],
-) -> Result<(), CommandError> {
-    let git_settings = tx.settings().git_settings()?;
-    let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
-
-    for remote_name in remotes {
-        with_remote_git_callbacks(ui, |callbacks| {
-            git_fetch.fetch(remote_name, branch_names, callbacks, None)
-        })?;
-    }
-    let import_stats = git_fetch.import_refs()?;
-    print_git_import_stats(ui, tx.repo(), &import_stats, true)?;
-    warn_if_branches_not_found(ui, tx, branch_names, remotes)
-}
-
 fn warn_if_branches_not_found(
     ui: &mut Ui,
     tx: &WorkspaceCommandTransaction,
     branches: &[StringPattern],
     remotes: &[&RemoteName],
 ) -> Result<(), CommandError> {
+    let mut missing_branches = vec![];
     for branch in branches {
         let matches = remotes.iter().any(|&remote| {
             let remote = StringPattern::exact(remote);
@@ -205,11 +236,32 @@ fn warn_if_branches_not_found(
                     .is_some()
         });
         if !matches {
-            writeln!(
-                ui.warning_default(),
-                "No branch matching `{branch}` found on any specified/configured remote",
-            )?;
+            missing_branches.push(branch);
         }
+    }
+
+    if !missing_branches.is_empty() {
+        writeln!(
+            ui.warning_default(),
+            "No branch matching {} found on any specified/configured remote",
+            missing_branches.iter().map(|b| format!("`{b}`")).join(", ")
+        )?;
+    }
+
+    Ok(())
+}
+
+fn warn_ignored_refspecs(
+    ui: &Ui,
+    remote_name: &RemoteName,
+    IgnoredRefspecs(ignored_refspecs): IgnoredRefspecs,
+) -> Result<(), CommandError> {
+    let remote_name = remote_name.as_symbol();
+    for IgnoredRefspec { refspec, reason } in ignored_refspecs {
+        writeln!(
+            ui.warning_default(),
+            "Ignored refspec `{refspec}` from `{remote_name}`: {reason}",
+        )?;
     }
 
     Ok(())

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::common::create_commit_with_files;
 use crate::common::TestEnvironment;
+use crate::common::create_commit_with_files;
 
 #[test]
 fn test_status_copies() {
@@ -143,7 +143,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
 
     // CONFLICT: New commit that is conflicted by merging <CHILD1> and <CHILD2>
     work_dir
-        .run_jj(["new", "--message", "boom", "all:(@-)+"])
+        .run_jj(["new", "--message", "boom", "(@-)+"])
         .success();
     // Adding more descendants to ensure we correctly find the root ancestors with
     // conflicts, not just the parents.
@@ -392,8 +392,7 @@ fn test_status_untracked_files() {
     Untracked paths:
     ? always-untracked-file
     ? initially-untracked-file
-    ? sub/always-untracked
-    ? sub/initially-untracked
+    ? sub/
     Working copy  (@) : qpvuntsm e8849ae1 (empty) (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -449,8 +448,7 @@ fn test_status_untracked_files() {
     Untracked paths:
     ? always-untracked-file
     ? initially-untracked-file
-    ? sub/always-untracked
-    ? sub/initially-untracked
+    ? sub/
     Working copy  (@) : mzvwutvl 240f261a (no description set)
     Parent commit (@-): qpvuntsm b8c1286d (no description set)
     [EOF]
@@ -463,8 +461,18 @@ fn test_status_untracked_files() {
     Untracked paths:
     ? always-untracked-file
     ? initially-untracked-file
-    ? sub/always-untracked
-    ? sub/initially-untracked
+    ? sub/
+    Working copy  (@) : yostqsxw 50beac0d (empty) (no description set)
+    Parent commit (@-): mzvwutvl 240f261a (no description set)
+    [EOF]
+    ");
+
+    let output = work_dir.dir("sub").run_jj(["status"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    Untracked paths:
+    ? ../always-untracked-file
+    ? ../initially-untracked-file
+    ? ./
     Working copy  (@) : yostqsxw 50beac0d (empty) (no description set)
     Parent commit (@-): mzvwutvl 240f261a (no description set)
     [EOF]

@@ -103,7 +103,7 @@ impl GpgEnvironment {
             return Err(res);
         }
 
-        Ok(GpgEnvironment { homedir: dir })
+        Ok(Self { homedir: dir })
     }
 }
 
@@ -159,12 +159,34 @@ impl GpgsmEnvironment {
             return Err(res);
         }
 
-        Ok(GpgsmEnvironment { homedir: dir })
+        Ok(Self { homedir: dir })
     }
+}
+
+macro_rules! socket_path_length_guard {
+    () => {{
+        // ref: https://developer.apple.com/forums/thread/756756?answerId=790507022#790507022
+        let max_socket_len = 104;
+
+        // space needed to account for socket path suffixes
+        let socket_length = 36;
+
+        if cfg!(target_os = "macos")
+            && (std::env::temp_dir().as_os_str().len() + socket_length) > max_socket_len
+        {
+            eprintln!(
+                "Skipping test because the temporary directory's path is too long for unix domain \
+                 sockets on macOS"
+            );
+            return;
+        }
+    }};
 }
 
 macro_rules! gpg_guard {
     () => {
+        socket_path_length_guard!();
+
         if !is_external_tool_installed("gpg") {
             ensure_running_outside_ci("`gpg` must be in the PATH");
             eprintln!("Skipping test because gpg is not installed on the system");
@@ -175,6 +197,8 @@ macro_rules! gpg_guard {
 
 macro_rules! gpgsm_guard {
     () => {
+        socket_path_length_guard!();
+
         if !is_external_tool_installed("gpgsm") {
             ensure_running_outside_ci("`gpgsm` must be in the PATH");
             eprintln!("Skipping test because gpgsm is not installed on the system");

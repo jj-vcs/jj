@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::collections::BTreeMap;
 use std::collections::HashSet;
@@ -46,7 +46,7 @@ pub struct View {
 
 impl View {
     pub fn new(op_store_view: op_store::View) -> Self {
-        View {
+        Self {
             data: op_store_view,
         }
     }
@@ -359,9 +359,9 @@ impl View {
     /// Iterates all commit ids referenced by this view.
     ///
     /// This can include hidden commits referenced by remote bookmarks, previous
-    /// positions of conflicted bookmarks, etc. The ancestors and predecessors
-    /// of the returned commits should be considered reachable from the
-    /// view. Use this to build commit index from scratch.
+    /// positions of conflicted bookmarks, etc. The ancestors of the returned
+    /// commits should be considered reachable from the view. Use this to build
+    /// commit index from scratch.
     ///
     /// The iteration order is unspecified, and may include duplicated entries.
     pub fn all_referenced_commit_ids(&self) -> impl Iterator<Item = &CommitId> {

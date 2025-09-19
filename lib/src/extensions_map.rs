@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::any::Any;
 use std::any::TypeId;
@@ -44,10 +44,11 @@ impl ExtensionsMap {
     ///
     /// Requires that this type has not been inserted before.
     pub fn insert<V: Any>(&mut self, value: V) {
-        assert!(self
-            .values
-            .insert(TypeId::of::<V>(), Box::new(value))
-            .is_none());
+        assert!(
+            self.values
+                .insert(TypeId::of::<V>(), Box::new(value))
+                .is_none()
+        );
     }
 }
 

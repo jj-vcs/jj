@@ -16,6 +16,7 @@ use assert_matches::assert_matches;
 use futures::StreamExt as _;
 use indoc::indoc;
 use itertools::Itertools as _;
+use jj_lib::backend::BackendError;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::MillisSinceEpoch;
 use jj_lib::backend::Signature;
@@ -32,13 +33,14 @@ use jj_lib::rewrite::RebaseOptions;
 use jj_lib::settings::UserSettings;
 use pollster::FutureExt as _;
 use test_case::test_case;
+use testutils::TestRepo;
+use testutils::TestRepoBackend;
 use testutils::assert_rebased_onto;
 use testutils::create_tree;
 use testutils::rebase_descendants_with_options_return_map;
 use testutils::repo_path;
-use testutils::CommitGraphBuilder;
-use testutils::TestRepo;
-use testutils::TestRepoBackend;
+use testutils::write_random_commit;
+use testutils::write_random_commit_with_parents;
 
 fn config_with_commit_timestamp(timestamp: &str) -> StackedConfig {
     let mut config = testutils::base_user_config();
@@ -118,7 +120,7 @@ fn test_initial(backend: TestRepoBackend) {
 
     let parents: Vec<_> = commit.parents().try_collect().unwrap();
     assert_eq!(parents, vec![store.root_commit()]);
-    assert!(commit.predecessors().next().is_none());
+    assert!(commit.store_commit().predecessors.is_empty());
     assert_eq!(commit.description(), "description");
     assert_eq!(commit.author(), &author_signature);
     assert_eq!(commit.committer(), &committer_signature);
@@ -196,8 +198,10 @@ fn test_rewrite(backend: TestRepoBackend) {
     let repo = tx.commit("test").unwrap();
     let parents: Vec<_> = rewritten_commit.parents().try_collect().unwrap();
     assert_eq!(parents, vec![store.root_commit()]);
-    let predecessors: Vec<_> = rewritten_commit.predecessors().try_collect().unwrap();
-    assert_eq!(predecessors, vec![initial_commit.clone()]);
+    assert_eq!(
+        rewritten_commit.store_commit().predecessors,
+        [initial_commit.id().clone()]
+    );
     assert_eq!(rewritten_commit.author().name, settings.user_name());
     assert_eq!(rewritten_commit.author().email, settings.user_email());
     assert_eq!(
@@ -366,6 +370,57 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
 }
 
 #[test_case(TestRepoBackend::Simple ; "simple backend")]
+#[test_case(TestRepoBackend::Git ; "git backend")]
+fn test_rewrite_to_identical_commit(backend: TestRepoBackend) {
+    let timestamp = "2001-02-03T04:05:06+07:00";
+    let settings = UserSettings::from_config(config_with_commit_timestamp(timestamp)).unwrap();
+    let test_repo = TestRepo::init_with_backend_and_settings(backend, &settings);
+    let repo = test_repo.repo;
+    let store = repo.store();
+
+    let mut tx = repo.start_transaction();
+    let commit1 = tx
+        .repo_mut()
+        .new_commit(
+            vec![store.root_commit_id().clone()],
+            store.empty_merged_tree_id(),
+        )
+        .write()
+        .unwrap();
+    let repo = tx.commit("test").unwrap();
+
+    // Create commit identical to the original
+    let mut tx = repo.start_transaction();
+    let mut builder = tx.repo_mut().rewrite_commit(&commit1).detach();
+    builder.set_predecessors(vec![]);
+    // Writing to the store should work
+    let commit2 = builder.write_hidden().unwrap();
+    assert_eq!(commit1, commit2);
+    // Writing to the repo shouldn't work, which would create cycle in
+    // predecessors/parent mappings
+    let result = builder.write(tx.repo_mut());
+    assert_matches!(result, Err(BackendError::Other(_)));
+    tx.repo_mut().rebase_descendants().unwrap();
+    tx.commit("test").unwrap();
+
+    // Create two rewritten commits of the same content and metadata
+    let mut tx = repo.start_transaction();
+    tx.repo_mut()
+        .rewrite_commit(&commit1)
+        .set_description("rewritten")
+        .write()
+        .unwrap();
+    let result = tx
+        .repo_mut()
+        .rewrite_commit(&commit1)
+        .set_description("rewritten")
+        .write();
+    assert_matches!(result, Err(BackendError::Other(_)));
+    tx.repo_mut().rebase_descendants().unwrap();
+    tx.commit("test").unwrap();
+}
+
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
 // #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_commit_builder_descendants(backend: TestRepoBackend) {
     let test_repo = TestRepo::init_with_backend(backend);
@@ -373,10 +428,9 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
     let store = repo.store().clone();
 
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit1 = graph_builder.initial_commit();
-    let commit2 = graph_builder.commit_with_parents(&[&commit1]);
-    let commit3 = graph_builder.commit_with_parents(&[&commit2]);
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+    let commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
     let repo = tx.commit("test").unwrap();
 
     // Test with for_new_commit()
@@ -404,6 +458,7 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
     let mut tx = repo.start_transaction();
     tx.repo_mut()
         .rewrite_commit(&commit2)
+        .clear_rewrite_source()
         .generate_new_change_id()
         .write()
         .unwrap();

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::any::Any;
 use std::fmt::Debug;
@@ -27,6 +27,7 @@ use thiserror::Error;
 use crate::backend::BackendInitError;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::hex_util;
 use crate::lock::FileLock;
 use crate::object_id::ObjectId as _;
 use crate::op_heads_store::OpHeadsStore;
@@ -41,7 +42,7 @@ pub struct SimpleOpHeadsStoreInitError(#[from] pub PathError);
 
 impl From<SimpleOpHeadsStoreInitError> for BackendInitError {
     fn from(err: SimpleOpHeadsStoreInitError) -> Self {
-        BackendInitError(err.into())
+        Self(err.into())
     }
 }
 
@@ -141,7 +142,7 @@ impl OpHeadsStore for SimpleOpHeadsStore {
                     format!("Non-utf8 in op head file name: {op_head_file_name:?}").into(),
                 )
             })?;
-            if let Ok(op_head) = hex::decode(op_head_file_name) {
+            if let Some(op_head) = hex_util::decode_hex(op_head_file_name) {
                 op_heads.push(OperationId::new(op_head));
             }
         }

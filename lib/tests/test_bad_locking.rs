@@ -17,12 +17,13 @@ use std::path::Path;
 use itertools::Itertools as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo::StoreFactories;
-use jj_lib::workspace::default_working_copy_factories;
 use jj_lib::workspace::Workspace;
+use jj_lib::workspace::default_working_copy_factories;
 use test_case::test_case;
-use testutils::create_random_commit;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
+use testutils::write_random_commit;
+use testutils::write_random_commit_with_parents;
 
 fn copy_directory(src: &Path, dst: &Path) {
     std::fs::create_dir(dst).ok();
@@ -110,10 +111,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) {
     let workspace_root = test_workspace.workspace.workspace_root();
 
     let mut tx = repo.start_transaction();
-    let initial = create_random_commit(tx.repo_mut())
-        .set_parents(vec![repo.store().root_commit_id().clone()])
-        .write()
-        .unwrap();
+    let initial = write_random_commit(tx.repo_mut());
     tx.commit("test").unwrap();
 
     // Simulate a write of a commit that happens on one machine
@@ -128,10 +126,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) {
     .unwrap();
     let machine1_repo = machine1_workspace.repo_loader().load_at_head().unwrap();
     let mut machine1_tx = machine1_repo.start_transaction();
-    let child1 = create_random_commit(machine1_tx.repo_mut())
-        .set_parents(vec![initial.id().clone()])
-        .write()
-        .unwrap();
+    let child1 = write_random_commit_with_parents(machine1_tx.repo_mut(), &[&initial]);
     machine1_tx.commit("test").unwrap();
 
     // Simulate a write of a commit that happens on another machine
@@ -146,10 +141,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) {
     .unwrap();
     let machine2_repo = machine2_workspace.repo_loader().load_at_head().unwrap();
     let mut machine2_tx = machine2_repo.start_transaction();
-    let child2 = create_random_commit(machine2_tx.repo_mut())
-        .set_parents(vec![initial.id().clone()])
-        .write()
-        .unwrap();
+    let child2 = write_random_commit_with_parents(machine2_tx.repo_mut(), &[&initial]);
     machine2_tx.commit("test").unwrap();
 
     // Simulate that the distributed file system now has received the changes from
@@ -183,10 +175,7 @@ fn test_bad_locking_interrupted(backend: TestRepoBackend) {
     let repo = &test_workspace.repo;
 
     let mut tx = repo.start_transaction();
-    let initial = create_random_commit(tx.repo_mut())
-        .set_parents(vec![repo.store().root_commit_id().clone()])
-        .write()
-        .unwrap();
+    let initial = write_random_commit(tx.repo_mut());
     let repo = tx.commit("test").unwrap();
 
     // Simulate a crash that resulted in the old op-head left in place. We simulate
@@ -197,10 +186,7 @@ fn test_bad_locking_interrupted(backend: TestRepoBackend) {
     let backup_path = test_workspace.root_dir().join("backup");
     copy_directory(&op_heads_dir, &backup_path);
     let mut tx = repo.start_transaction();
-    create_random_commit(tx.repo_mut())
-        .set_parents(vec![initial.id().clone()])
-        .write()
-        .unwrap();
+    write_random_commit_with_parents(tx.repo_mut(), &[&initial]);
     let op_id = tx.commit("test").unwrap().operation().id().clone();
 
     copy_directory(&backup_path, &op_heads_dir);

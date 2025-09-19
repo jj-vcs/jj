@@ -23,15 +23,15 @@ use jj_lib::backend::CommitId;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
-use crate::cli_util::compute_commit_location;
-use crate::cli_util::print_updated_commits;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::compute_commit_location;
+use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
 use crate::complete;
-use crate::formatter::PlainTextFormatter;
 use crate::ui::Ui;
 
 /// Apply the reverse of the given revision(s)
@@ -123,12 +123,7 @@ pub(crate) fn cmd_revert(
         to_revert
             .into_iter()
             .map(|commit| {
-                let mut output = Vec::new();
-                template
-                    .format(&commit, &mut PlainTextFormatter::new(&mut output))
-                    .expect("write() to vec backed formatter should never fail");
-                // Template output is usually UTF-8, but it can contain file content.
-                let commit_description = output.into_string_lossy();
+                let commit_description = template.format_plain_text(&commit).into_string_lossy();
                 (commit, commit_description)
             })
             .collect_vec()
@@ -139,7 +134,7 @@ pub(crate) fn cmd_revert(
         .iter()
         .map(|id| tx.repo().store().get_commit(id))
         .try_collect()?;
-    let mut new_base_tree = merge_commit_trees(tx.repo(), &new_parents)?;
+    let mut new_base_tree = merge_commit_trees(tx.repo(), &new_parents).block_on()?;
     let mut parent_ids = new_parent_ids;
 
     let mut reverted_commits = vec![];
@@ -148,7 +143,7 @@ pub(crate) fn cmd_revert(
     {
         let old_base_tree = commit_to_revert.parent_tree(tx.repo())?;
         let old_tree = commit_to_revert.tree()?;
-        let new_tree = new_base_tree.merge(&old_tree, &old_base_tree)?;
+        let new_tree = new_base_tree.merge(old_tree, old_base_tree).block_on()?;
         let new_parent_ids = parent_ids.clone();
         let new_commit = tx
             .repo_mut()
@@ -165,7 +160,7 @@ pub(crate) fn cmd_revert(
     let children_commit_ids_set: HashSet<CommitId> = new_child_ids.iter().cloned().collect();
     let mut num_rebased = 0;
     tx.repo_mut()
-        .transform_descendants(new_child_ids, |mut rewriter| {
+        .transform_descendants(new_child_ids, async |mut rewriter| {
             if children_commit_ids_set.contains(rewriter.old_commit().id()) {
                 let mut child_new_parent_ids = IndexSet::new();
                 for old_parent_id in rewriter.old_commit().parent_ids() {
@@ -185,7 +180,7 @@ pub(crate) fn cmd_revert(
                 rewriter.set_new_parents(child_new_parent_ids.into_iter().collect());
             }
             num_rebased += 1;
-            rewriter.rebase()?.write()?;
+            rewriter.rebase().await?.write()?;
             Ok(())
         })?;
 

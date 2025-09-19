@@ -78,7 +78,7 @@
                 "always-allow-large-revsets": {
                     "type": "boolean",
                     "description": "Whether to allow large revsets to be used in all commands without the `all:` modifier",
-                    "default": false
+                    "default": true
                 },
                 "default-command": {
                     "description": "Default command to run when no explicit command is given",
@@ -276,10 +276,11 @@
                 }
             }
         },
-        "core": {
+        "fsmonitor": {
             "type": "object",
+            "description": "External filesystem monitor settings, useful for large repos",
             "properties": {
-                "fsmonitor": {
+                "backend": {
                     "type": "string",
                     "enum": ["none", "watchman"],
                     "default": "none",
@@ -322,6 +323,10 @@
                         "bright white"
                     ]
                 },
+                "ansi256Color": {
+                    "type": "string",
+                    "pattern": "^ansi-color-([1-9]?[0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$"
+                },
                 "hexColor": {
                     "type": "string",
                     "pattern": "^#[0-9a-fA-F]{6}$"
@@ -330,6 +335,9 @@
                   "oneOf": [
                     {
                         "$ref": "#/properties/colors/definitions/colorNames"
+                    },
+                    {
+                        "$ref": "#/properties/colors/definitions/ansi256Color"
                     },
                     {
                         "$ref": "#/properties/colors/definitions/hexColor"
@@ -425,11 +433,6 @@
                     "description": "Whether jj should abandon commits that became unreachable in Git.",
                     "default": true
                 },
-                "push-bookmark-prefix": {
-                    "type": "string",
-                    "description": "Prefix used when pushing a bookmark based on a change ID",
-                    "default": "push-"
-                },
                 "push-new-bookmarks": {
                     "type": "boolean",
                     "description": "Allow pushing new bookmarks without --allow-new",
@@ -450,6 +453,11 @@
                         }
                     ]
                 },
+                "private-commits": {
+                    "type": "string",
+                    "description": "Revset of commits to refuse to push to remotes",
+                    "default": "none()"
+                },
                 "push": {
                     "type": "string",
                     "description": "The remote to which commits are pushed",
@@ -468,12 +476,55 @@
                 "write-change-id-header": {
                     "type": "boolean",
                     "description": "Whether the change id should be stored in the Git commit object",
-                    "default": false
+                    "default": true
                 },
                 "executable-path": {
                     "type": "string",
                     "description": "Path to the git executable",
                     "default": "git"
+                },
+                "colocate": {
+                    "type": "boolean",
+                    "description": "Whether to colocate the working copy with the git repository",
+                    "default": true
+                }
+            }
+        },
+        "gerrit": {
+            "type": "object",
+            "description": "Settings for interacting with Gerrit",
+            "properties": {
+                "default-remote": {
+                    "type": "string",
+                    "description": "The Gerrit remote to interact with"
+                },
+                "default-remote-branch": {
+                    "type": "string",
+                    "description": "The default branch to propose changes for"
+                }
+            }
+        },
+        "merge": {
+            "type": "object",
+            "description": "Merge settings",
+            "properties": {
+                "hunk-level": {
+                    "type": "string",
+                    "description": "Granularity of hunks when merging files",
+                    "enum": [
+                        "line",
+                        "word"
+                    ],
+                    "default": "line"
+                },
+                "same-change": {
+                    "type": "string",
+                    "description": "Whether to resolve conflict that makes the same change at all sides",
+                    "enum": [
+                        "keep",
+                        "accept"
+                    ],
+                    "default": "accept"
                 }
             }
         },
@@ -590,7 +641,7 @@
                 "immutable_heads()": {
                     "type": "string",
                     "description": "Revisions to consider immutable. Ancestors of these are also considered immutable. The root commit is always considered immutable.",
-                    "default": "present(trunk()) | tags() | untracked_remote_branches()"
+                    "default": "present(trunk()) | tags() | untracked_remote_bookmarks()"
                 }
             },
             "additionalProperties": {
@@ -722,6 +773,10 @@
                                 "allowed-signers": {
                                     "type": "string",
                                     "description": "Path to an allowed signers file used for signature verification"
+                                },
+                                "revocation-list": {
+                                    "type": "string",
+                                    "description": "Path to a revocation list file used for revoking public keys"
                                 }
                             }
                         }
@@ -776,7 +831,7 @@
                 "legacy-bookmark-behavior": {
                     "type": "boolean",
                     "description": "If true, bookmarks will move to the second commit instead of the first.",
-                    "default": false
+                    "default": true
                 }
             }
         },
@@ -803,6 +858,10 @@
                     "type": "string",
                     "description": "The short commit summary used by many commands"
                 },
+                "commit_trailers": {
+                    "type": "string",
+                    "description": "Trailers that will be appended to a commit's description"
+                },
                 "file_annotate": {
                     "type": "string",
                     "description": "`jj file annotate`'s output"
@@ -815,9 +874,21 @@
                     "type": "string",
                     "description": "The draft commit description opened in an editor"
                 },
+                "evolog": {
+                    "type": "string",
+                    "description": "`jj evolog`'s output"
+                },
                 "file_list": {
                     "type": "string",
                     "description": "`jj file list`'s output"
+                },
+                "file_show": {
+                    "type": "string",
+                    "description": "`jj file show`'s output"
+                },
+                "git_push_bookmark": {
+                    "type": "string",
+                    "description": "Bookmark name to be assigned when pushing a change to Git remote"
                 },
                 "log": {
                     "type": "string",
@@ -826,6 +897,14 @@
                 "op_log": {
                     "type": "string",
                     "description": "`jj op log`'s output"
+                },
+                "op_show": {
+                    "type": "string",
+                    "description": "`jj op show`'s output"
+                },
+                "op_summary": {
+                    "type": "string",
+                    "description": "The operation summary used by many commands"
                 },
                 "show": {
                     "type": "string",
@@ -839,13 +918,103 @@
                     "type": "string",
                     "description": "`jj tag list`'s output"
                 },
-                "op_summary": {
+                "workspace_list": {
                     "type": "string",
-                    "description": "The operation summary used by many commands"
+                    "description": "`jj workspace list`'s output"
                 }
             },
             "additionalProperties": {
                 "type": "string"
+            }
+        },
+        "working-copy": {
+            "type": "object",
+            "description": "Working copy settings",
+            "properties": {
+                "eol-conversion": {
+                    "type": "string",
+                    "description": "Configuring auto-converting CRLF line endings into LF when you add a file to the backend, and vice versa when it checks out code onto your filesystem.",
+                    "enum": [
+                        "input",
+                        "input-output",
+                        "none"
+                    ],
+                    "default": "none"
+                }
+            }
+        },
+        "--when": {
+            "type": "object",
+            "description": "Conditions restriction the application of the configuration",
+            "properties": {
+                "repositories": {
+                    "type": "array",
+                    "description": "List of paths to match the repository path prefix",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "commands": {
+                    "type": "array",
+                    "description": "List of subcommands to match",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "platforms": {
+                    "type": "array",
+                    "description": "List of platforms to match",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "aix",
+                            "android",
+                            "apple",
+                            "dragonfly",
+                            "emscripten",
+                            "espidf",
+                            "fortanix",
+                            "freebsd",
+                            "fuchsia",
+                            "haiku",
+                            "hermit",
+                            "hermit",
+                            "horizon",
+                            "hurd",
+                            "illumos",
+                            "ios",
+                            "itron",
+                            "l4re",
+                            "linux",
+                            "macos",
+                            "netbsd",
+                            "nto",
+                            "openbsd",
+                            "redox",
+                            "solaris",
+                            "solid_asp3",
+                            "tvos",
+                            "uefi",
+                            "unix",
+                            "visionos",
+                            "vita",
+                            "vxworks",
+                            "wasi",
+                            "wasm",
+                            "watchos",
+                            "windows",
+                            "xous"
+                        ]
+                    }
+                }
+            }
+        },
+        "--scope": {
+            "type": "array",
+            "description": "Scoped tables for conditional configuration",
+            "items": {
+                "$comment": "https://json-schema.org/understanding-json-schema/structuring#recursion",
+                "$ref": "#"
             }
         }
     }

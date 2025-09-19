@@ -26,6 +26,7 @@ use crate::commit::Commit;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::operation::Operation;
+use crate::repo_path::RepoPathBuf;
 use crate::revset::ResolvedExpression;
 use crate::revset::Revset;
 use crate::revset::RevsetEvaluationError;
@@ -109,10 +110,9 @@ pub trait Index: Send + Sync {
 
     /// Heads among all indexed commits at the associated operation.
     ///
-    /// Suppose the index contains all the historical heads and their
-    /// ancestors/predecessors reachable from the associated operation, this
-    /// function returns the heads that should be preserved on garbage
-    /// collection.
+    /// Suppose the index contains all the historical heads and their ancestors
+    /// reachable from the associated operation, this function returns the heads
+    /// that should be preserved on garbage collection.
     ///
     /// The iteration order is unspecified.
     fn all_heads_for_gc(
@@ -127,13 +127,20 @@ pub trait Index: Send + Sync {
         candidates: &mut dyn Iterator<Item = &CommitId>,
     ) -> Result<Vec<CommitId>, IndexError>;
 
+    /// Returns iterator over paths changed at the specified commit. The paths
+    /// are sorted. Returns `None` if the commit wasn't indexed.
+    fn changed_paths_in_commit(
+        &self,
+        commit_id: &CommitId,
+    ) -> Result<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>, IndexError>;
+
     /// Resolves the revset `expression` against the index and corresponding
     /// `store`.
-    fn evaluate_revset<'index>(
-        &'index self,
+    fn evaluate_revset(
+        &self,
         expression: &ResolvedExpression,
         store: &Arc<Store>,
-    ) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError>;
+    ) -> Result<Box<dyn Revset + '_>, RevsetEvaluationError>;
 }
 
 #[expect(missing_docs)]
@@ -143,7 +150,7 @@ pub trait ReadonlyIndex: Send + Sync {
     fn as_index(&self) -> &dyn Index;
 
     fn change_id_index(&self, heads: &mut dyn Iterator<Item = &CommitId>)
-        -> Box<dyn ChangeIdIndex>;
+    -> Box<dyn ChangeIdIndex>;
 
     fn start_modification(&self) -> Box<dyn MutableIndex>;
 }
@@ -161,7 +168,7 @@ pub trait MutableIndex {
         heads: &mut dyn Iterator<Item = &CommitId>,
     ) -> Box<dyn ChangeIdIndex + '_>;
 
-    fn add_commit(&mut self, commit: &Commit);
+    fn add_commit(&mut self, commit: &Commit) -> Result<(), IndexError>;
 
     fn merge_in(&mut self, other: &dyn ReadonlyIndex);
 }

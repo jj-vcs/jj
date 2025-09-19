@@ -18,9 +18,9 @@ use chrono::DateTime;
 use chrono::FixedOffset;
 use chrono::Local;
 use chrono::TimeZone;
-use interim::parse_date_string;
 use interim::DateError;
 use interim::Dialect;
+use interim::parse_date_string;
 use thiserror::Error;
 
 use crate::backend::MillisSinceEpoch;
@@ -43,21 +43,21 @@ impl DatePatternContext {
         kind: &str,
     ) -> Result<DatePattern, DatePatternParseError> {
         match *self {
-            DatePatternContext::Local(dt) => DatePattern::from_str_kind(s, kind, dt),
-            DatePatternContext::Fixed(dt) => DatePattern::from_str_kind(s, kind, dt),
+            Self::Local(dt) => DatePattern::from_str_kind(s, kind, dt),
+            Self::Fixed(dt) => DatePattern::from_str_kind(s, kind, dt),
         }
     }
 }
 
 impl From<DateTime<Local>> for DatePatternContext {
     fn from(value: DateTime<Local>) -> Self {
-        DatePatternContext::Local(value)
+        Self::Local(value)
     }
 }
 
 impl From<DateTime<FixedOffset>> for DatePatternContext {
     fn from(value: DateTime<FixedOffset>) -> Self {
-        DatePatternContext::Fixed(value)
+        Self::Fixed(value)
     }
 }
 
@@ -99,7 +99,7 @@ impl DatePattern {
         s: &str,
         kind: &str,
         now: DateTime<Tz>,
-    ) -> Result<DatePattern, DatePatternParseError>
+    ) -> Result<Self, DatePatternParseError>
     where
         Tz::Offset: Copy,
     {
@@ -107,8 +107,8 @@ impl DatePattern {
             parse_date_string(s, now, Dialect::Us).map_err(DatePatternParseError::ParseError)?;
         let millis_since_epoch = MillisSinceEpoch(d.timestamp_millis());
         match kind {
-            "after" => Ok(DatePattern::AtOrAfter(millis_since_epoch)),
-            "before" => Ok(DatePattern::Before(millis_since_epoch)),
+            "after" => Ok(Self::AtOrAfter(millis_since_epoch)),
+            "before" => Ok(Self::Before(millis_since_epoch)),
             kind => Err(DatePatternParseError::InvalidKind(kind.to_owned())),
         }
     }
@@ -116,10 +116,20 @@ impl DatePattern {
     /// Determines whether a given timestamp is matched by the pattern.
     pub fn matches(&self, timestamp: &Timestamp) -> bool {
         match self {
-            DatePattern::AtOrAfter(earliest) => *earliest <= timestamp.timestamp,
-            DatePattern::Before(latest) => timestamp.timestamp < *latest,
+            Self::AtOrAfter(earliest) => *earliest <= timestamp.timestamp,
+            Self::Before(latest) => timestamp.timestamp < *latest,
         }
     }
+}
+
+// @TODO ideally we would have this unified with the other parsing code. However
+// we use the interim crate which does not handle explicitly given time zone
+// information
+/// Parse a string with time zone information into a `Timestamp`
+pub fn parse_datetime(s: &str) -> chrono::ParseResult<Timestamp> {
+    Ok(Timestamp::from_datetime(
+        DateTime::parse_from_rfc2822(s).or_else(|_| DateTime::parse_from_rfc3339(s))?,
+    ))
 }
 
 #[cfg(test)]
@@ -188,5 +198,11 @@ mod tests {
         test_equal(now, "yesterday 5pm", "2024-01-01T01:00:00Z");
         test_equal(now, "yesterday 10am", "2023-12-31T18:00:00Z");
         test_equal(now, "yesterday 10:30", "2023-12-31T18:30:00Z");
+    }
+
+    #[test]
+    fn test_parse_datetime_non_sense_yields_error() {
+        let parse_error = parse_datetime("aaaaa").err().unwrap();
+        assert_eq!(parse_error.kind(), chrono::format::ParseErrorKind::Invalid);
     }
 }

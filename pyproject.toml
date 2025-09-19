@@ -13,7 +13,7 @@ dependencies = []
 dev = [
     "mkdocs<1.7,>=1.6",
     # Pin mkdocs-material to the exact version b/c it sometimes breaks thing
-    "mkdocs-material==9.6.4",
+    "mkdocs-material==9.6.14",
     # Versioning of documentation
     "mike<3,>=2.1.3",
     # (Py)Markdown extensions
@@ -33,6 +33,8 @@ dev = [
 package = false
 
 [tool.codespell]
+# codespell must be run **from the repo root** for these settings
+# to take effect.
 check-filenames = true
 check-hidden = true
 # Codespell does not respect .gitignore. It may be necessary to add to
@@ -40,4 +42,6 @@ check-hidden = true
 # if you have less common ignored files or globally ignored files present.
 # Alternatively, try `uv run codespell $(jj file list)`.
 skip = "./target,./.jj,*.lock,./.git,./.venv,./.direnv"
-ignore-words-list = "crate,NotIn,Wirth,abd,ratatui"
+ignore-words-list = "crate,ser,NotIn,Wirth,abd,ratatui,grey"
+dictionary = ".config/codespell-additional-dict,-"
+builtin = "clear,rare,en-GB_to_en-US"

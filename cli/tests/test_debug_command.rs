@@ -58,35 +58,93 @@ fn test_debug_revset() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
+    let mut insta_settings = insta::Settings::clone_current();
+    insta_settings.add_filter(r"(?m)(^    .*\n)+", "    ..\n");
+    let _guard = insta_settings.bind_to_scope();
+
     let output = work_dir.run_jj(["debug", "revset", "root()"]);
-    insta::with_settings!({filters => vec![
-        (r"(?m)(^    .*\n)+", "    ..\n"),
-    ]}, {
-        assert_snapshot!(output, @r"
-        -- Parsed:
-        Root
+    assert_snapshot!(output, @r"
+    -- Parsed:
+    Root
 
-        -- Resolved:
-        Root
+    -- Resolved:
+    Root
 
-        -- Optimized:
-        Root
+    -- Optimized:
+    Root
 
-        -- Backend:
-        Commits(
-            ..
-        )
+    -- Backend:
+    Commits(
+        ..
+    )
 
-        -- Evaluated:
-        RevsetImpl {
-            ..
-        }
+    -- Evaluated:
+    RevsetImpl {
+        ..
+    }
 
-        -- Commit IDs:
-        0000000000000000000000000000000000000000
-        [EOF]
-        ");
-    });
+    -- Commit IDs:
+    0000000000000000000000000000000000000000
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["debug", "revset", "--no-optimize", "root() & ~@"]);
+    assert_snapshot!(output, @r"
+    -- Parsed:
+    Intersection(
+        ..
+    )
+
+    -- Resolved:
+    Intersection(
+        ..
+    )
+
+    -- Backend:
+    Intersection(
+        ..
+    )
+
+    -- Evaluated:
+    RevsetImpl {
+        ..
+    }
+
+    -- Commit IDs:
+    0000000000000000000000000000000000000000
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["debug", "revset", "--no-resolve", "foo & ~bar"]);
+    assert_snapshot!(output, @r"
+    -- Parsed:
+    Intersection(
+        ..
+    )
+
+    -- Optimized:
+    Difference(
+        ..
+    )
+
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj([
+        "debug",
+        "revset",
+        "--no-resolve",
+        "--no-optimize",
+        "foo & ~bar",
+    ]);
+    assert_snapshot!(output, @r"
+    -- Parsed:
+    Intersection(
+        ..
+    )
+
+    [EOF]
+    ");
 }
 
 #[test]
@@ -96,6 +154,7 @@ fn test_debug_index() {
     let work_dir = test_env.work_dir("repo");
     let output = work_dir.run_jj(["debug", "index"]);
     assert_snapshot!(filter_index_stats(output), @r"
+    === Commits ===
     Number of commits: 2
     Number of merges: 0
     Max generation number: 1
@@ -104,6 +163,39 @@ fn test_debug_index() {
     Stats per level:
       Level 0:
         Number of commits: 2
+        Name: [hash]
+    === Changed paths ===
+    Indexed commits: none
+    Stats per level:
+    [EOF]
+    ");
+
+    // Enable changed-path index, index one commit
+    let output = work_dir.run_jj(["debug", "index-changed-paths", "-n1"]);
+    assert_snapshot!(output, @r"
+    ------- stderr -------
+    Finished indexing 1..2 commits.
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["debug", "index"]);
+    assert_snapshot!(filter_index_stats(output), @r"
+    === Commits ===
+    Number of commits: 2
+    Number of merges: 0
+    Max generation number: 1
+    Number of heads: 1
+    Number of changes: 2
+    Stats per level:
+      Level 0:
+        Number of commits: 2
+        Name: [hash]
+    === Changed paths ===
+    Indexed commits: 1..2
+    Stats per level:
+      Level 0:
+        Number of commits: 1
+        Number of changed paths: 0
+        Number of paths: 0
         Name: [hash]
     [EOF]
     ");
@@ -118,6 +210,7 @@ fn test_debug_reindex() {
     work_dir.run_jj(["new"]).success();
     let output = work_dir.run_jj(["debug", "index"]);
     assert_snapshot!(filter_index_stats(output), @r"
+    === Commits ===
     Number of commits: 4
     Number of merges: 0
     Max generation number: 3
@@ -130,6 +223,9 @@ fn test_debug_reindex() {
       Level 1:
         Number of commits: 1
         Name: [hash]
+    === Changed paths ===
+    Indexed commits: none
+    Stats per level:
     [EOF]
     ");
     let output = work_dir.run_jj(["debug", "reindex"]);
@@ -140,6 +236,7 @@ fn test_debug_reindex() {
     ");
     let output = work_dir.run_jj(["debug", "index"]);
     assert_snapshot!(filter_index_stats(output), @r"
+    === Commits ===
     Number of commits: 4
     Number of merges: 0
     Max generation number: 3
@@ -149,6 +246,9 @@ fn test_debug_reindex() {
       Level 0:
         Number of commits: 4
         Name: [hash]
+    === Changed paths ===
+    Indexed commits: none
+    Stats per level:
     [EOF]
     ");
 }
@@ -166,8 +266,8 @@ fn test_debug_tree() {
     // Defaults to showing the tree at the current commit
     let output = work_dir.run_jj(["debug", "tree"]);
     assert_snapshot!(output.normalize_backslash(), @r#"
-    dir/subdir/file1: Ok(Resolved(Some(File { id: FileId("498e9b01d79cb8d31cdf0df1a663cc1fcefd9de3"), executable: false })))
-    dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false })))
+    dir/subdir/file1: Ok(Resolved(Some(File { id: FileId("498e9b01d79cb8d31cdf0df1a663cc1fcefd9de3"), executable: false, copy_id: CopyId("") })))
+    dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false, copy_id: CopyId("") })))
     [EOF]
     "#
     );
@@ -175,7 +275,7 @@ fn test_debug_tree() {
     // Can show the tree at another commit
     let output = work_dir.run_jj(["debug", "tree", "-r@-"]);
     assert_snapshot!(output.normalize_backslash(), @r#"
-    dir/subdir/file1: Ok(Resolved(Some(File { id: FileId("498e9b01d79cb8d31cdf0df1a663cc1fcefd9de3"), executable: false })))
+    dir/subdir/file1: Ok(Resolved(Some(File { id: FileId("498e9b01d79cb8d31cdf0df1a663cc1fcefd9de3"), executable: false, copy_id: CopyId("") })))
     [EOF]
     "#
     );
@@ -183,7 +283,7 @@ fn test_debug_tree() {
     // Can filter by paths
     let output = work_dir.run_jj(["debug", "tree", "dir/subdir/file2"]);
     assert_snapshot!(output.normalize_backslash(), @r#"
-    dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false })))
+    dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false, copy_id: CopyId("") })))
     [EOF]
     "#
     );
@@ -195,8 +295,8 @@ fn test_debug_tree() {
         "--id=0958358e3f80e794f032b25ed2be96cf5825da6c",
     ]);
     assert_snapshot!(output.normalize_backslash(), @r#"
-    dir/subdir/file1: Ok(Resolved(Some(File { id: FileId("498e9b01d79cb8d31cdf0df1a663cc1fcefd9de3"), executable: false })))
-    dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false })))
+    dir/subdir/file1: Ok(Resolved(Some(File { id: FileId("498e9b01d79cb8d31cdf0df1a663cc1fcefd9de3"), executable: false, copy_id: CopyId("") })))
+    dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false, copy_id: CopyId("") })))
     [EOF]
     "#
     );
@@ -209,8 +309,8 @@ fn test_debug_tree() {
         "--id=6ac232efa713535ae518a1a898b77e76c0478184",
     ]);
     assert_snapshot!(output.normalize_backslash(), @r#"
-    dir/subdir/file1: Ok(Resolved(Some(File { id: FileId("498e9b01d79cb8d31cdf0df1a663cc1fcefd9de3"), executable: false })))
-    dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false })))
+    dir/subdir/file1: Ok(Resolved(Some(File { id: FileId("498e9b01d79cb8d31cdf0df1a663cc1fcefd9de3"), executable: false, copy_id: CopyId("") })))
+    dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false, copy_id: CopyId("") })))
     [EOF]
     "#
     );
@@ -224,22 +324,10 @@ fn test_debug_tree() {
         "dir/subdir/file2",
     ]);
     assert_snapshot!(output.normalize_backslash(), @r#"
-    dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false })))
+    dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false, copy_id: CopyId("") })))
     [EOF]
     "#
     );
-}
-
-#[test]
-fn test_debug_operation_id() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-    let output = work_dir.run_jj(["debug", "operation", "--display", "id"]);
-    assert_snapshot!(filter_index_stats(output), @r"
-    8f47435a3990362feaf967ca6de2eb0a31c8b883dfcb66fba5c22200d12bbe61e3dc8bc855f1f6879285fcafaf85ac792f9a43bcc36e57d28737d18347d5e752
-    [EOF]
-    ");
 }
 
 fn filter_index_stats(output: CommandOutput) -> CommandOutput {

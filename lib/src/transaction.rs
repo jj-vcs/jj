@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::sync::Arc;
 
@@ -28,6 +28,7 @@ use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store;
 use crate::op_store::OpStoreError;
 use crate::op_store::OperationMetadata;
+use crate::op_store::TimestampRange;
 use crate::operation::Operation;
 use crate::repo::MutableRepo;
 use crate::repo::ReadonlyRepo;
@@ -65,11 +66,11 @@ pub struct Transaction {
 }
 
 impl Transaction {
-    pub fn new(mut_repo: MutableRepo, user_settings: &UserSettings) -> Transaction {
+    pub fn new(mut_repo: MutableRepo, user_settings: &UserSettings) -> Self {
         let parent_ops = vec![mut_repo.base_repo().operation().clone()];
         let op_metadata = create_op_metadata(user_settings, "".to_string(), false);
         let end_time = user_settings.operation_timestamp();
-        Transaction {
+        Self {
             mut_repo,
             parent_ops,
             op_metadata,
@@ -141,7 +142,7 @@ impl Transaction {
         let operation = {
             let view_id = base_repo.op_store().write_view(view.store_view())?;
             self.op_metadata.description = description.into();
-            self.op_metadata.end_time = self.end_time.unwrap_or_else(Timestamp::now);
+            self.op_metadata.time.end = self.end_time.unwrap_or_else(Timestamp::now);
             let parents = self.parent_ops.iter().map(|op| op.id().clone()).collect();
             let store_operation = op_store::Operation {
                 view_id,
@@ -164,15 +165,16 @@ pub fn create_op_metadata(
     description: String,
     is_snapshot: bool,
 ) -> OperationMetadata {
-    let start_time = user_settings
+    let timestamp = user_settings
         .operation_timestamp()
         .unwrap_or_else(Timestamp::now);
-    let end_time = start_time;
     let hostname = user_settings.operation_hostname().to_owned();
     let username = user_settings.operation_username().to_owned();
     OperationMetadata {
-        start_time,
-        end_time,
+        time: TimestampRange {
+            start: timestamp,
+            end: timestamp,
+        },
         description,
         hostname,
         username,
@@ -202,7 +204,7 @@ impl UnpublishedOperation {
         view: View,
         index: Box<dyn ReadonlyIndex>,
     ) -> Self {
-        UnpublishedOperation {
+        Self {
             op_heads_store: repo_loader.op_heads_store().clone(),
             repo: repo_loader.create_from(operation, view, index),
         }

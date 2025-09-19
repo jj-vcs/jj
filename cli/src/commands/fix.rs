@@ -24,10 +24,10 @@ use jj_lib::backend::FileId;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
-use jj_lib::fix::fix_files;
 use jj_lib::fix::FileToFix;
 use jj_lib::fix::FixError;
 use jj_lib::fix::ParallelFileFixer;
+use jj_lib::fix::fix_files;
 use jj_lib::matchers::Matcher;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::settings::UserSettings;
@@ -38,9 +38,9 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::command_error::CommandError;
 use crate::command_error::config_error;
 use crate::command_error::print_parse_diagnostics;
-use crate::command_error::CommandError;
 use crate::complete;
 use crate::config::CommandNameAndArgs;
 use crate::ui::Ui;
@@ -67,11 +67,14 @@ use crate::ui::Ui;
 /// Tools are defined in a table where the keys are arbitrary identifiers and
 /// the values have the following properties:
 ///  - `command`: The arguments used to run the tool. The first argument is the
-///    path to an executable file. Arguments can contain the substring `$path`,
-///    which will be replaced with the repo-relative path of the file being
-///    fixed. It is useful to provide the path to tools that include the path in
-///    error messages, or behave differently based on the directory or file
-///    name.
+///    path to an executable file. Arguments can contain these variables that
+///    will be replaced:
+///      - `$root` will be replaced with the workspace root path (the directory
+///        containing the .jj directory).
+///      - `$path` will be replaced with the repo-relative path of the file
+///        being fixed. It is useful to provide the path to tools that include
+///        the path in error messages, or behave differently based on the
+///        directory or file name.
 ///  - `patterns`: Determines which files the tool will affect. If this list is
 ///    empty, no files will be affected by the tool. If there are multiple
 ///    patterns, the tool is applied only once to each file in the union of the
@@ -129,6 +132,7 @@ pub(crate) fn cmd_fix(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let workspace_root = workspace_command.workspace_root().to_owned();
+    let path_converter = workspace_command.path_converter().to_owned();
     let tools_config = get_tools_config(ui, workspace_command.settings())?;
     let root_commits: Vec<CommitId> = if args.source.is_empty() {
         let revs = workspace_command.settings().get_string("revsets.fix")?;
@@ -145,7 +149,15 @@ pub(crate) fn cmd_fix(
 
     let mut tx = workspace_command.start_transaction();
     let mut parallel_fixer = ParallelFileFixer::new(|store, file_to_fix| {
-        fix_one_file(&workspace_root, &tools_config, store, file_to_fix).block_on()
+        fix_one_file(
+            ui,
+            &workspace_root,
+            &path_converter,
+            &tools_config,
+            store,
+            file_to_fix,
+        )
+        .block_on()
     });
     let summary = fix_files(
         root_commits,
@@ -153,7 +165,8 @@ pub(crate) fn cmd_fix(
         args.include_unchanged_files,
         tx.repo_mut(),
         &mut parallel_fixer,
-    )?;
+    )
+    .block_on()?;
     writeln!(
         ui.status(),
         "Fixed {} commits of {} checked.",
@@ -176,7 +189,9 @@ pub(crate) fn cmd_fix(
 /// TODO: Better error handling so we can tell the user what went wrong with
 /// each failed input.
 async fn fix_one_file(
+    ui: &Ui,
     workspace_root: &Path,
+    path_converter: &RepoPathUiConverter,
     tools_config: &ToolsConfig,
     store: &Store,
     file_to_fix: &FileToFix,
@@ -197,7 +212,9 @@ async fn fix_one_file(
         read.read_to_end(&mut old_content).await?;
         let new_content = matching_tools.fold(old_content.clone(), |prev_content, tool_config| {
             match run_tool(
+                ui,
                 workspace_root,
+                path_converter,
                 &tool_config.command,
                 file_to_fix,
                 &prev_content,
@@ -229,21 +246,29 @@ async fn fix_one_file(
 /// unless the command introduced changes. Returns `None` if there were any
 /// failures when starting, stopping, or communicating with the subprocess.
 fn run_tool(
+    ui: &Ui,
     workspace_root: &Path,
+    path_converter: &RepoPathUiConverter,
     tool_command: &CommandNameAndArgs,
     file_to_fix: &FileToFix,
     old_content: &[u8],
 ) -> Result<Vec<u8>, ()> {
-    // TODO: Pipe stderr so we can tell the user which commit, file, and tool it is
-    // associated with.
     let mut vars: HashMap<&str, &str> = HashMap::new();
     vars.insert("path", file_to_fix.repo_path.as_internal_file_string());
+    // TODO: workspace_root.to_str() returns None if the workspace path is not
+    // UTF-8, but we ignore that failure so `jj fix` still runs in that
+    // situation. Maybe we should do something like substituting bytes instead
+    // of strings so we can handle any Path here.
+    if let Some(root) = workspace_root.to_str() {
+        vars.insert("root", root);
+    }
     let mut command = tool_command.to_command_with_variables(&vars);
     tracing::debug!(?command, ?file_to_fix.repo_path, "spawning fix tool");
     let mut child = command
         .current_dir(workspace_root)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()
         .or(Err(()))?;
     let mut stdin = child.stdin.take().unwrap();
@@ -255,6 +280,17 @@ fn run_tool(
     })
     .unwrap()?;
     tracing::debug!(?command, ?output.status, "fix tool exited:");
+    if !output.stderr.is_empty() {
+        let mut stderr = ui.stderr();
+        writeln!(
+            stderr,
+            "{}:",
+            path_converter.format_file_path(&file_to_fix.repo_path)
+        )
+        .ok();
+        stderr.write_all(&output.stderr).ok();
+        writeln!(stderr).ok();
+    }
     if output.status.success() {
         Ok(output.stdout)
     } else {

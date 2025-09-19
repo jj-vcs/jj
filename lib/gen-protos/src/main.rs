@@ -17,10 +17,11 @@ use std::path::Path;
 
 fn main() -> Result<()> {
     let input = [
+        "default_index.proto",
         "git_store.proto",
+        "local_working_copy.proto",
+        "simple_op_store.proto",
         "simple_store.proto",
-        "op_store.proto",
-        "working_copy.proto",
     ];
 
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();

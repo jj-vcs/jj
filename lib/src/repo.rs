@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
-use std::collections::hash_map::Entry;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::hash_map::Entry;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fs;
@@ -27,6 +27,7 @@ use std::sync::Arc;
 
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
+use pollster::FutureExt as _;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -55,10 +56,10 @@ use crate::index::IndexReadError;
 use crate::index::IndexStore;
 use crate::index::MutableIndex;
 use crate::index::ReadonlyIndex;
-use crate::merge::trivial_merge;
 use crate::merge::MergeBuilder;
+use crate::merge::SameChange;
+use crate::merge::trivial_merge;
 use crate::object_id::HexPrefix;
-use crate::object_id::ObjectId as _;
 use crate::object_id::PrefixResolution;
 use crate::op_heads_store;
 use crate::op_heads_store::OpHeadResolutionError;
@@ -89,12 +90,12 @@ use crate::revset;
 use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetIteratorExt as _;
-use crate::rewrite::merge_commit_trees;
-use crate::rewrite::rebase_commit_with_options;
 use crate::rewrite::CommitRewriter;
 use crate::rewrite::RebaseOptions;
 use crate::rewrite::RebasedCommit;
 use crate::rewrite::RewriteRefsOptions;
+use crate::rewrite::merge_commit_trees;
+use crate::rewrite::rebase_commit_with_options;
 use crate::settings::UserSettings;
 use crate::signing::SignInitError;
 use crate::signing::Signer;
@@ -105,6 +106,7 @@ use crate::store::Store;
 use crate::submodule_store::SubmoduleStore;
 use crate::transaction::Transaction;
 use crate::transaction::TransactionCommitError;
+use crate::tree_merge::MergeOptions;
 use crate::view::RenameWorkspaceError;
 use crate::view::View;
 
@@ -125,7 +127,7 @@ pub trait Repo {
 
     fn resolve_change_id(&self, change_id: &ChangeId) -> Option<Vec<CommitId>> {
         // Replace this if we added more efficient lookup method.
-        let prefix = HexPrefix::from_bytes(change_id.as_bytes());
+        let prefix = HexPrefix::from_id(change_id);
         match self.resolve_change_id_prefix(&prefix) {
             PrefixResolution::NoMatch => None,
             PrefixResolution::SingleMatch(entries) => Some(entries),
@@ -194,7 +196,7 @@ impl ReadonlyRepo {
         op_heads_store_initializer: &OpHeadsStoreInitializer,
         index_store_initializer: &IndexStoreInitializer,
         submodule_store_initializer: &SubmoduleStoreInitializer,
-    ) -> Result<Arc<ReadonlyRepo>, RepoInitError> {
+    ) -> Result<Arc<Self>, RepoInitError> {
         let repo_path = dunce::canonicalize(repo_path).context(repo_path)?;
 
         let store_path = repo_path.join("store");
@@ -202,7 +204,9 @@ impl ReadonlyRepo {
         let backend = backend_initializer(settings, &store_path)?;
         let backend_path = store_path.join("type");
         fs::write(&backend_path, backend.name()).context(&backend_path)?;
-        let store = Store::new(backend, signer);
+        let merge_options =
+            MergeOptions::from_settings(settings).map_err(|err| BackendInitError(err.into()))?;
+        let store = Store::new(backend, signer, merge_options);
 
         let op_store_path = repo_path.join("op_store");
         fs::create_dir(&op_store_path).context(&op_store_path)?;
@@ -255,7 +259,7 @@ impl ReadonlyRepo {
             // If the root op index couldn't be read, the index backend wouldn't
             // be initialized properly.
             .map_err(|err| BackendInitError(err.into()))?;
-        Ok(Arc::new(ReadonlyRepo {
+        Ok(Arc::new(Self {
             loader,
             operation: root_operation,
             index,
@@ -305,17 +309,17 @@ impl ReadonlyRepo {
         self.loader.settings()
     }
 
-    pub fn start_transaction(self: &Arc<ReadonlyRepo>) -> Transaction {
+    pub fn start_transaction(self: &Arc<Self>) -> Transaction {
         let mut_repo = MutableRepo::new(self.clone(), self.readonly_index(), &self.view);
         Transaction::new(mut_repo, self.settings())
     }
 
-    pub fn reload_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+    pub fn reload_at_head(&self) -> Result<Arc<Self>, RepoLoaderError> {
         self.loader().load_at_head()
     }
 
     #[instrument]
-    pub fn reload_at(&self, operation: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+    pub fn reload_at(&self, operation: &Operation) -> Result<Arc<Self>, RepoLoaderError> {
         self.loader().load_at(operation)
     }
 }
@@ -402,7 +406,7 @@ pub struct StoreFactories {
 
 impl Default for StoreFactories {
     fn default() -> Self {
-        let mut factories = StoreFactories::empty();
+        let mut factories = Self::empty();
 
         // Backends
         factories.add_backend(
@@ -478,7 +482,7 @@ pub enum StoreLoadError {
 
 impl StoreFactories {
     pub fn empty() -> Self {
-        StoreFactories {
+        Self {
             backend_factories: HashMap::new(),
             op_store_factories: HashMap::new(),
             op_heads_store_factories: HashMap::new(),
@@ -487,8 +491,8 @@ impl StoreFactories {
         }
     }
 
-    pub fn merge(&mut self, ext: StoreFactories) {
-        let StoreFactories {
+    pub fn merge(&mut self, ext: Self) {
+        let Self {
             backend_factories,
             op_store_factories,
             op_heads_store_factories,
@@ -519,7 +523,7 @@ impl StoreFactories {
         let backend_factory = self.backend_factories.get(&backend_type).ok_or_else(|| {
             StoreLoadError::UnsupportedType {
                 store: "commit",
-                store_type: backend_type.to_string(),
+                store_type: backend_type.clone(),
             }
         })?;
         Ok(backend_factory(settings, store_path)?)
@@ -539,7 +543,7 @@ impl StoreFactories {
         let op_store_factory = self.op_store_factories.get(&op_store_type).ok_or_else(|| {
             StoreLoadError::UnsupportedType {
                 store: "operation",
-                store_type: op_store_type.to_string(),
+                store_type: op_store_type.clone(),
             }
         })?;
         Ok(op_store_factory(settings, store_path, root_data)?)
@@ -561,7 +565,7 @@ impl StoreFactories {
             .get(&op_heads_store_type)
             .ok_or_else(|| StoreLoadError::UnsupportedType {
                 store: "operation heads",
-                store_type: op_heads_store_type.to_string(),
+                store_type: op_heads_store_type.clone(),
             })?;
         Ok(op_heads_store_factory(settings, store_path)?)
     }
@@ -581,7 +585,7 @@ impl StoreFactories {
             .get(&index_store_type)
             .ok_or_else(|| StoreLoadError::UnsupportedType {
                 store: "index",
-                store_type: index_store_type.to_string(),
+                store_type: index_store_type.clone(),
             })?;
         Ok(index_store_factory(settings, store_path)?)
     }
@@ -602,7 +606,7 @@ impl StoreFactories {
             .get(&submodule_store_type)
             .ok_or_else(|| StoreLoadError::UnsupportedType {
                 store: "submodule_store",
-                store_type: submodule_store_type.to_string(),
+                store_type: submodule_store_type.clone(),
             })?;
 
         Ok(submodule_store_factory(settings, store_path)?)
@@ -674,9 +678,12 @@ impl RepoLoader {
         repo_path: &Path,
         store_factories: &StoreFactories,
     ) -> Result<Self, StoreLoadError> {
+        let merge_options =
+            MergeOptions::from_settings(settings).map_err(|err| BackendLoadError(err.into()))?;
         let store = Store::new(
             store_factories.load_backend(settings, &repo_path.join("store"))?,
             Signer::from_settings(settings)?,
+            merge_options,
         );
         let root_op_data = RootOperationData {
             root_commit_id: store.root_commit_id().clone(),
@@ -844,9 +851,9 @@ enum Rewrite {
 impl Rewrite {
     fn new_parent_ids(&self) -> &[CommitId] {
         match self {
-            Rewrite::Rewritten(new_parent_id) => std::slice::from_ref(new_parent_id),
-            Rewrite::Divergent(new_parent_ids) => new_parent_ids.as_slice(),
-            Rewrite::Abandoned(new_parent_ids) => new_parent_ids.as_slice(),
+            Self::Rewritten(new_parent_id) => std::slice::from_ref(new_parent_id),
+            Self::Divergent(new_parent_ids) => new_parent_ids.as_slice(),
+            Self::Abandoned(new_parent_ids) => new_parent_ids.as_slice(),
         }
     }
 }
@@ -872,14 +879,10 @@ pub struct MutableRepo {
 }
 
 impl MutableRepo {
-    pub fn new(
-        base_repo: Arc<ReadonlyRepo>,
-        index: &dyn ReadonlyIndex,
-        view: &View,
-    ) -> MutableRepo {
+    pub fn new(base_repo: Arc<ReadonlyRepo>, index: &dyn ReadonlyIndex, view: &View) -> Self {
         let mut_view = view.clone();
         let mut_index = index.start_modification();
-        MutableRepo {
+        Self {
             base_repo,
             index: mut_index,
             view: DirtyCell::with_clean(mut_view),
@@ -898,6 +901,10 @@ impl MutableRepo {
 
     pub fn mutable_index(&self) -> &dyn MutableIndex {
         self.index.as_ref()
+    }
+
+    pub(crate) fn is_backed_by_default_index(&self) -> bool {
+        self.index.as_any().is::<DefaultMutableIndex>()
     }
 
     pub fn has_changes(&self) -> bool {
@@ -919,13 +926,17 @@ impl MutableRepo {
     }
 
     /// Returns a [`CommitBuilder`] to write new commit to the repo.
-    pub fn new_commit(&mut self, parents: Vec<CommitId>, tree_id: MergedTreeId) -> CommitBuilder {
+    pub fn new_commit(
+        &mut self,
+        parents: Vec<CommitId>,
+        tree_id: MergedTreeId,
+    ) -> CommitBuilder<'_> {
         let settings = self.base_repo.settings();
         DetachedCommitBuilder::for_new_commit(self, settings, parents, tree_id).attach(self)
     }
 
     /// Returns a [`CommitBuilder`] to rewrite an existing commit in the repo.
-    pub fn rewrite_commit(&mut self, predecessor: &Commit) -> CommitBuilder {
+    pub fn rewrite_commit(&mut self, predecessor: &Commit) -> CommitBuilder<'_> {
         let settings = self.base_repo.settings();
         DetachedCommitBuilder::for_rewrite_from(self, settings, predecessor).attach(self)
         // CommitBuilder::write will record the rewrite in
@@ -1171,7 +1182,7 @@ impl MutableRepo {
                     .iter()
                     .map(|id| self.store().get_commit(id))
                     .try_collect()?;
-                let merged_parents_tree = merge_commit_trees(self, &new_commits)?;
+                let merged_parents_tree = merge_commit_trees(self, &new_commits).block_on()?;
                 let commit = self
                     .new_commit(new_commit_ids.clone(), merged_parents_tree.id().clone())
                     .write()?;
@@ -1266,6 +1277,7 @@ impl MutableRepo {
                 }
                 dependents
             },
+            |_| panic!("graph has cycle"),
         )
     }
 
@@ -1283,7 +1295,7 @@ impl MutableRepo {
     pub fn transform_descendants(
         &mut self,
         roots: Vec<CommitId>,
-        callback: impl FnMut(CommitRewriter) -> BackendResult<()>,
+        callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
     ) -> BackendResult<()> {
         let options = RewriteRefsOptions::default();
         self.transform_descendants_with_options(roots, &HashMap::new(), &options, callback)
@@ -1301,7 +1313,7 @@ impl MutableRepo {
         roots: Vec<CommitId>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
         options: &RewriteRefsOptions,
-        callback: impl FnMut(CommitRewriter) -> BackendResult<()>,
+        callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
     ) -> BackendResult<()> {
         let descendants = self.find_descendants_for_rebase(roots)?;
         self.transform_commits(descendants, new_parents_map, options, callback)
@@ -1319,7 +1331,7 @@ impl MutableRepo {
         commits: Vec<Commit>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
         options: &RewriteRefsOptions,
-        mut callback: impl FnMut(CommitRewriter) -> BackendResult<()>,
+        mut callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
     ) -> BackendResult<()> {
         let mut to_visit = self.order_commits_for_rebase(commits, new_parents_map)?;
         while let Some(old_commit) = to_visit.pop() {
@@ -1328,7 +1340,7 @@ impl MutableRepo {
                 .map_or(old_commit.parent_ids(), |parent_ids| parent_ids);
             let new_parent_ids = self.new_parents(parent_ids);
             let rewriter = CommitRewriter::new(self, old_commit, new_parent_ids);
-            callback(rewriter)?;
+            callback(rewriter).block_on()?;
         }
         self.update_rewritten_references(options)?;
         // Since we didn't necessarily visit all descendants of rewritten commits (e.g.
@@ -1348,10 +1360,10 @@ impl MutableRepo {
     /// The descendants of the commits registered in `self.parent_mappings` will
     /// be recursively rebased onto the new version of their parents.
     ///
-    /// If `options.empty` is the default (`EmptyBehaviour::Keep`), all rebased
+    /// If `options.empty` is the default (`EmptyBehavior::Keep`), all rebased
     /// descendant commits will be preserved even if they were emptied following
     /// the rebase operation. Otherwise, this function may rebase some commits
-    /// and abandon others, based on the given `EmptyBehaviour`. The behavior is
+    /// and abandon others, based on the given `EmptyBehavior`. The behavior is
     /// such that only commits with a single parent will ever be abandoned. The
     /// parent will inherit the descendants and the bookmarks of the abandoned
     /// commit.
@@ -1368,7 +1380,7 @@ impl MutableRepo {
             roots,
             &HashMap::new(),
             &options.rewrite_refs,
-            |rewriter| {
+            async |rewriter| {
                 if rewriter.parents_changed() {
                     let old_commit = rewriter.old_commit().clone();
                     let rebased_commit = rebase_commit_with_options(rewriter, options)?;
@@ -1408,7 +1420,7 @@ impl MutableRepo {
     pub fn reparent_descendants(&mut self) -> BackendResult<usize> {
         let roots = self.parent_mapping.keys().cloned().collect_vec();
         let mut num_reparented = 0;
-        self.transform_descendants(roots, |rewriter| {
+        self.transform_descendants(roots, async |rewriter| {
             if rewriter.parents_changed() {
                 let builder = rewriter.reparent();
                 builder.write()?;
@@ -1451,7 +1463,9 @@ impl MutableRepo {
         // Not using merge_ref_targets(). Since the working-copy pointer moves
         // towards random direction, it doesn't make sense to resolve conflict
         // based on ancestry.
-        let new_id = if let Some(resolved) = trivial_merge(&[self_id, base_id, other_id]) {
+        let new_id = if let Some(resolved) =
+            trivial_merge(&[self_id, base_id, other_id], SameChange::Accept)
+        {
             resolved.cloned()
         } else if self_id.is_none() || other_id.is_none() {
             // We want to remove the workspace even if the self side changed the
@@ -1579,7 +1593,10 @@ impl MutableRepo {
                     .iter()
                     .all(|parent_id| current_heads.contains(parent_id)) =>
             {
-                self.index.add_commit(head);
+                self.index
+                    .add_commit(head)
+                    // TODO: indexing error shouldn't be a "BackendError"
+                    .map_err(|err| BackendError::Other(err.into()))?;
                 self.view.get_mut().add_head(head.id());
                 for parent_id in head.parent_ids() {
                     self.view.get_mut().remove_head(parent_id);
@@ -1602,9 +1619,13 @@ impl MutableRepo {
                             .map_ok(CommitByCommitterTimestamp)
                             .collect_vec()
                     },
+                    |_| panic!("graph has cycle"),
                 )?;
                 for CommitByCommitterTimestamp(missing_commit) in missing_commits.iter().rev() {
-                    self.index.add_commit(missing_commit);
+                    self.index
+                        .add_commit(missing_commit)
+                        // TODO: indexing error shouldn't be a "BackendError"
+                        .map_err(|err| BackendError::Other(err.into()))?;
                 }
                 for head in heads {
                     self.view.get_mut().add_head(head.id());
@@ -1781,7 +1802,7 @@ impl MutableRepo {
         // feasible to walk all added and removed commits.
         // TODO: Fix this somehow. Maybe a method on `Index` to find rewritten commits
         // given `base_heads`, `own_heads` and `other_heads`?
-        if self.index.as_any().is::<DefaultMutableIndex>() {
+        if self.is_backed_by_default_index() {
             self.record_rewrites(&base_heads, &own_heads)?;
             self.record_rewrites(&base_heads, &other_heads)?;
             // No need to remove heads removed by `other` because we already
@@ -1970,7 +1991,7 @@ mod dirty_cell {
 
     impl<T> DirtyCell<T> {
         pub fn with_clean(value: T) -> Self {
-            DirtyCell {
+            Self {
                 clean: OnceCell::from(Box::new(value)),
                 dirty: RefCell::new(None),
             }

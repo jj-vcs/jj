@@ -8,10 +8,13 @@ fn test_no_forgotten_test_files() {
 
 mod test_annotate;
 mod test_bad_locking;
+mod test_bisect;
 mod test_commit_builder;
 mod test_commit_concurrent;
 mod test_conflicts;
 mod test_default_revset_graph_iterator;
+mod test_eol;
+mod test_evolution_predecessors;
 mod test_fix;
 mod test_git;
 mod test_git_backend;
@@ -29,6 +32,7 @@ mod test_mut_repo;
 mod test_operations;
 mod test_refs;
 mod test_revset;
+mod test_revset_optimized;
 mod test_rewrite;
 mod test_rewrite_duplicate;
 mod test_rewrite_transform;

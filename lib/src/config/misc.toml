@@ -1,19 +1,26 @@
-[core]
-fsmonitor = "none"
-
-[core.watchman]
-register-snapshot-trigger = false
-
 [debug]
 # commit-timestamp = <now>
 # operation-timestamp = <now>
 # randomness-seed = <random>
+
+[fsmonitor]
+backend = "none"
+
+[fsmonitor.watchman]
+register-snapshot-trigger = false
 
 [git]
 abandon-unreachable-commits = true
 auto-local-bookmark = false
 executable-path = "git"
 write-change-id-header = true
+colocate = true
+
+[merge]
+hunk-level = "line"
+# TODO: Consider making "keep" the default, and maybe add an option to be used
+# when the user explicitly asks for conflict resolution. #6369
+same-change = "accept"
 
 [operation]
 hostname = ""
@@ -36,6 +43,12 @@ program = "gpgsm"
 # allowed-signers = <unknown>
 program = "ssh-keygen"
 
+[ui]
+conflict-marker-style = "diff"
+
 [user]
 email = ""
 name = ""
+
+[working-copy]
+eol-conversion = "none"

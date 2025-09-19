@@ -16,29 +16,26 @@ use std::slice;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
-use jj_lib::config::ConfigGetError;
-use jj_lib::config::ConfigGetResultExt as _;
-use jj_lib::graph::reverse_graph;
 use jj_lib::graph::GraphEdge;
+use jj_lib::graph::reverse_graph;
 use jj_lib::op_store::OpStoreError;
 use jj_lib::op_walk;
 use jj_lib::operation::Operation;
 use jj_lib::repo::RepoLoader;
-use jj_lib::settings::UserSettings;
 
 use super::diff::show_op_diff;
-use crate::cli_util::format_template;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::WorkspaceCommandEnvironment;
+use crate::cli_util::format_template;
 use crate::command_error::CommandError;
 use crate::complete;
-use crate::diff_util::diff_formats_for_log;
 use crate::diff_util::DiffFormatArgs;
 use crate::diff_util::DiffRenderer;
+use crate::diff_util::diff_formats_for_log;
 use crate::formatter::Formatter;
-use crate::graphlog::get_graphlog;
 use crate::graphlog::GraphStyle;
+use crate::graphlog::get_graphlog;
 use crate::operation_templater::OperationTemplateLanguage;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
@@ -138,7 +135,11 @@ fn do_op_log(
             .parse_template(ui, &language, &text)?
             .labeled(["op_log", "operation"]);
         op_node_template = workspace_env
-            .parse_template(ui, &language, &get_node_template(graph_style, settings)?)?
+            .parse_template(
+                ui,
+                &language,
+                &settings.get_string("templates.op_log_node")?,
+            )?
             .labeled(["op_log", "operation", "node"]);
     }
 
@@ -149,9 +150,9 @@ fn do_op_log(
                          formatter: &mut dyn Formatter,
                          op: &Operation,
                          with_content_format: &LogContentFormat| {
-            let parents: Vec<_> = op.parents().try_collect()?;
-            let parent_op = repo_loader.merge_operations(parents, None)?;
-            let parent_repo = repo_loader.load_at(&parent_op)?;
+            let parent_ops: Vec<_> = op.parents().try_collect()?;
+            let merged_parent_op = repo_loader.merge_operations(parent_ops.clone(), None)?;
+            let parent_repo = repo_loader.load_at(&merged_parent_op)?;
             let repo = repo_loader.load_at(op)?;
 
             let id_prefix_context = workspace_env.new_id_prefix_context();
@@ -173,6 +174,11 @@ fn do_op_log(
                 )
             });
 
+            // TODO: Merged repo may have newly rebased commits, which wouldn't
+            // exist in the index. (#4465)
+            if parent_ops.len() > 1 {
+                return Ok(());
+            }
             show_op_diff(
                 ui,
                 formatter,
@@ -248,14 +254,4 @@ fn do_op_log(
     }
 
     Ok(())
-}
-
-fn get_node_template(style: GraphStyle, settings: &UserSettings) -> Result<String, ConfigGetError> {
-    let symbol = settings.get_string("templates.op_log_node").optional()?;
-    let default = if style.is_ascii() {
-        "builtin_op_log_node_ascii"
-    } else {
-        "builtin_op_log_node"
-    };
-    Ok(symbol.unwrap_or_else(|| default.to_owned()))
 }

@@ -17,6 +17,7 @@ use std::error;
 use std::fmt;
 use std::io;
 use std::io::IsTerminal as _;
+use std::io::PipeWriter;
 use std::io::Stderr;
 use std::io::StderrLock;
 use std::io::Stdout;
@@ -33,15 +34,15 @@ use std::thread::JoinHandle;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::StackedConfig;
-use os_pipe::PipeWriter;
 use tracing::instrument;
 
 use crate::command_error::CommandError;
 use crate::config::CommandNameAndArgs;
 use crate::formatter::Formatter;
+use crate::formatter::FormatterExt as _;
 use crate::formatter::FormatterFactory;
 use crate::formatter::HeadingLabeledWriter;
-use crate::formatter::LabeledWriter;
+use crate::formatter::LabeledScope;
 use crate::formatter::PlainTextFormatter;
 
 const BUILTIN_PAGER_NAME: &str = ":builtin";
@@ -64,22 +65,22 @@ enum UiOutput {
 }
 
 impl UiOutput {
-    fn new_terminal() -> UiOutput {
-        UiOutput::Terminal {
+    fn new_terminal() -> Self {
+        Self::Terminal {
             stdout: io::stdout(),
             stderr: io::stderr(),
         }
     }
 
-    fn new_paged(pager_cmd: &CommandNameAndArgs) -> io::Result<UiOutput> {
+    fn new_paged(pager_cmd: &CommandNameAndArgs) -> io::Result<Self> {
         let mut cmd = pager_cmd.to_command();
         tracing::info!(?cmd, "spawning pager");
         let mut child = cmd.stdin(Stdio::piped()).spawn()?;
         let child_stdin = child.stdin.take().unwrap();
-        Ok(UiOutput::Paged { child, child_stdin })
+        Ok(Self::Paged { child, child_stdin })
     }
 
-    fn new_builtin_paged(config: &StreampagerConfig) -> streampager::Result<UiOutput> {
+    fn new_builtin_paged(config: &StreampagerConfig) -> streampager::Result<Self> {
         let streampager_config = streampager::config::Config {
             wrapping_mode: config.wrapping.into(),
             interface_mode: config.streampager_interface_mode(),
@@ -96,12 +97,12 @@ impl UiOutput {
         // Use native pipe, which can be attached to child process. The stdout
         // stream could be an in-process channel, but the cost of extra syscalls
         // wouldn't matter.
-        let (out_rd, out_wr) = os_pipe::pipe()?;
-        let (err_rd, err_wr) = os_pipe::pipe()?;
+        let (out_rd, out_wr) = io::pipe()?;
+        let (err_rd, err_wr) = io::pipe()?;
         pager.add_stream(out_rd, "")?;
         pager.add_error_stream(err_rd, "stderr")?;
 
-        Ok(UiOutput::BuiltinPaged {
+        Ok(Self::BuiltinPaged {
             out_wr,
             err_wr,
             pager_thread: thread::spawn(|| pager.run()),
@@ -110,8 +111,8 @@ impl UiOutput {
 
     fn finalize(self, ui: &Ui) {
         match self {
-            UiOutput::Terminal { .. } => { /* no-op */ }
-            UiOutput::Paged {
+            Self::Terminal { .. } => { /* no-op */ }
+            Self::Paged {
                 mut child,
                 child_stdin,
             } => {
@@ -128,7 +129,7 @@ impl UiOutput {
                     .ok();
                 }
             }
-            UiOutput::BuiltinPaged {
+            Self::BuiltinPaged {
                 out_wr,
                 err_wr,
                 pager_thread,
@@ -150,7 +151,7 @@ impl UiOutput {
                     }
                 }
             }
-            UiOutput::Null => {}
+            Self::Null => {}
         }
     }
 }
@@ -228,10 +229,10 @@ pub enum ColorChoice {
 impl fmt::Display for ColorChoice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
-            ColorChoice::Always => "always",
-            ColorChoice::Never => "never",
-            ColorChoice::Debug => "debug",
-            ColorChoice::Auto => "auto",
+            Self::Always => "always",
+            Self::Never => "never",
+            Self::Debug => "debug",
+            Self::Auto => "auto",
         };
         write!(f, "{s}")
     }
@@ -284,11 +285,10 @@ enum StreampagerWrappingMode {
 
 impl From<StreampagerWrappingMode> for streampager::config::WrappingMode {
     fn from(val: StreampagerWrappingMode) -> Self {
-        use streampager::config::WrappingMode;
         match val {
-            StreampagerWrappingMode::None => WrappingMode::Unwrapped,
-            StreampagerWrappingMode::Word => WrappingMode::WordBoundary,
-            StreampagerWrappingMode::Anywhere => WrappingMode::GraphemeBoundary,
+            StreampagerWrappingMode::None => Self::Unwrapped,
+            StreampagerWrappingMode::Word => Self::WordBoundary,
+            StreampagerWrappingMode::Anywhere => Self::GraphemeBoundary,
         }
     }
 }
@@ -306,8 +306,8 @@ struct StreampagerConfig {
 
 impl StreampagerConfig {
     fn streampager_interface_mode(&self) -> streampager::config::InterfaceMode {
-        use streampager::config::InterfaceMode;
         use StreampagerAlternateScreenMode::*;
+        use streampager::config::InterfaceMode;
         match self.interface {
             // InterfaceMode::Direct not implemented
             FullScreenClearOutput => InterfaceMode::FullScreen,
@@ -324,22 +324,22 @@ enum PagerConfig {
 }
 
 impl PagerConfig {
-    fn from_config(config: &StackedConfig) -> Result<PagerConfig, ConfigGetError> {
+    fn from_config(config: &StackedConfig) -> Result<Self, ConfigGetError> {
         if matches!(config.get("ui.paginate")?, PaginationChoice::Never) {
-            return Ok(PagerConfig::Disabled);
+            return Ok(Self::Disabled);
         };
         let args: CommandNameAndArgs = config.get("ui.pager")?;
         if args.as_str() == Some(BUILTIN_PAGER_NAME) {
-            Ok(PagerConfig::Builtin(config.get("ui.streampager")?))
+            Ok(Self::Builtin(config.get("ui.streampager")?))
         } else {
-            Ok(PagerConfig::External(args))
+            Ok(Self::External(args))
         }
     }
 }
 
 impl Ui {
-    pub fn null() -> Ui {
-        Ui {
+    pub fn null() -> Self {
+        Self {
             quiet: true,
             pager: PagerConfig::Disabled,
             progress_indicator: false,
@@ -348,9 +348,9 @@ impl Ui {
         }
     }
 
-    pub fn with_config(config: &StackedConfig) -> Result<Ui, CommandError> {
+    pub fn with_config(config: &StackedConfig) -> Result<Self, CommandError> {
         let formatter_factory = prepare_formatter_factory(config, &io::stdout())?;
-        Ok(Ui {
+        Ok(Self {
             quiet: config.get("ui.quiet")?,
             formatter_factory,
             pager: PagerConfig::from_config(config)?,
@@ -497,58 +497,54 @@ impl Ui {
     }
 
     /// Writer to print hint with the default "Hint: " heading.
-    pub fn hint_default(
-        &self,
-    ) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, &'static str, &'static str> {
+    pub fn hint_default(&self) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, &'static str> {
         self.hint_with_heading("Hint: ")
     }
 
     /// Writer to print hint without the "Hint: " heading.
-    pub fn hint_no_heading(&self) -> LabeledWriter<Box<dyn Formatter + '_>, &'static str> {
+    pub fn hint_no_heading(&self) -> LabeledScope<Box<dyn Formatter + '_>> {
         let formatter = self
             .status_formatter()
             .unwrap_or_else(|| Box::new(PlainTextFormatter::new(io::sink())));
-        LabeledWriter::new(formatter, "hint")
+        formatter.into_labeled("hint")
     }
 
     /// Writer to print hint with the given heading.
     pub fn hint_with_heading<H: fmt::Display>(
         &self,
         heading: H,
-    ) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, &'static str, H> {
+    ) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, H> {
         self.hint_no_heading().with_heading(heading)
     }
 
     /// Writer to print warning with the default "Warning: " heading.
-    pub fn warning_default(
-        &self,
-    ) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, &'static str, &'static str> {
+    pub fn warning_default(&self) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, &'static str> {
         self.warning_with_heading("Warning: ")
     }
 
     /// Writer to print warning without the "Warning: " heading.
-    pub fn warning_no_heading(&self) -> LabeledWriter<Box<dyn Formatter + '_>, &'static str> {
-        LabeledWriter::new(self.stderr_formatter(), "warning")
+    pub fn warning_no_heading(&self) -> LabeledScope<Box<dyn Formatter + '_>> {
+        self.stderr_formatter().into_labeled("warning")
     }
 
     /// Writer to print warning with the given heading.
     pub fn warning_with_heading<H: fmt::Display>(
         &self,
         heading: H,
-    ) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, &'static str, H> {
+    ) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, H> {
         self.warning_no_heading().with_heading(heading)
     }
 
     /// Writer to print error without the "Error: " heading.
-    pub fn error_no_heading(&self) -> LabeledWriter<Box<dyn Formatter + '_>, &'static str> {
-        LabeledWriter::new(self.stderr_formatter(), "error")
+    pub fn error_no_heading(&self) -> LabeledScope<Box<dyn Formatter + '_>> {
+        self.stderr_formatter().into_labeled("error")
     }
 
     /// Writer to print error with the given heading.
     pub fn error_with_heading<H: fmt::Display>(
         &self,
         heading: H,
-    ) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, &'static str, H> {
+    ) -> HeadingLabeledWriter<Box<dyn Formatter + '_>, H> {
         self.error_no_heading().with_heading(heading)
     }
 
@@ -581,7 +577,7 @@ impl Ui {
         if buf.is_empty() {
             return Err(io::Error::new(
                 io::ErrorKind::UnexpectedEof,
-                "Prompt cancelled by EOF",
+                "Prompt canceled by EOF",
             ));
         }
 
@@ -653,12 +649,12 @@ impl Ui {
         // Parse the default to ensure that the text is valid.
         let default = default.map(|text| (parse(text).expect("default should be valid"), text));
 
-        if !Self::can_prompt() {
-            if let Some((value, text)) = default {
-                // Choose the default automatically without waiting.
-                writeln!(self.stderr(), "{prompt}: {text}")?;
-                return Ok(value);
-            }
+        if !Self::can_prompt()
+            && let Some((value, text)) = default
+        {
+            // Choose the default automatically without waiting.
+            writeln!(self.stderr(), "{prompt}: {text}")?;
+            return Ok(value);
         }
 
         loop {
@@ -700,8 +696,8 @@ pub struct ProgressOutput<W> {
 }
 
 impl ProgressOutput<io::Stderr> {
-    pub fn for_stderr() -> ProgressOutput<io::Stderr> {
-        ProgressOutput {
+    pub fn for_stderr() -> Self {
+        Self {
             output: io::stderr(),
             term_width: None,
         }

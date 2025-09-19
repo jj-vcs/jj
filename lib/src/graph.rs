@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -59,6 +59,18 @@ impl<N> GraphEdge<N> {
             edge_type: self.edge_type,
         }
     }
+
+    pub fn is_missing(&self) -> bool {
+        self.edge_type == GraphEdgeType::Missing
+    }
+
+    pub fn is_direct(&self) -> bool {
+        self.edge_type == GraphEdgeType::Direct
+    }
+
+    pub fn is_indirect(&self) -> bool {
+        self.edge_type == GraphEdgeType::Indirect
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
@@ -71,7 +83,7 @@ pub enum GraphEdgeType {
 fn reachable_targets<N>(edges: &[GraphEdge<N>]) -> impl DoubleEndedIterator<Item = &N> {
     edges
         .iter()
-        .filter(|edge| edge.edge_type != GraphEdgeType::Missing)
+        .filter(|edge| !edge.is_missing())
         .map(|edge| &edge.target)
 }
 
@@ -114,46 +126,50 @@ pub fn reverse_graph<N, ID: Clone + Eq + Hash, E>(
 ///
 /// [Git]: https://github.blog/2022-08-30-gits-database-internals-ii-commit-history-queries/#topological-sorting
 #[derive(Clone, Debug)]
-pub struct TopoGroupedGraphIterator<N, I> {
+pub struct TopoGroupedGraphIterator<N, ID, I, F> {
     input_iter: I,
+    as_id: F,
     /// Graph nodes read from the input iterator but not yet emitted.
-    nodes: HashMap<N, TopoGroupedGraphNode<N>>,
+    nodes: HashMap<ID, TopoGroupedGraphNode<N, ID>>,
     /// Stack of graph nodes to be emitted.
-    emittable_ids: Vec<N>,
+    emittable_ids: Vec<ID>,
     /// List of new head nodes found while processing unpopulated nodes, or
     /// prioritized branch nodes added by caller.
-    new_head_ids: VecDeque<N>,
+    new_head_ids: VecDeque<ID>,
     /// Set of nodes which may be ancestors of `new_head_ids`.
-    blocked_ids: HashSet<N>,
+    blocked_ids: HashSet<ID>,
 }
 
 #[derive(Clone, Debug)]
-struct TopoGroupedGraphNode<N> {
+struct TopoGroupedGraphNode<N, ID> {
     /// Graph nodes which must be emitted before.
-    child_ids: HashSet<N>,
-    /// Graph edges to parent nodes. `None` until this node is populated.
-    edges: Option<Vec<GraphEdge<N>>>,
+    child_ids: HashSet<ID>,
+    /// Graph node data and edges to parent nodes. `None` until this node is
+    /// populated.
+    item: Option<GraphNode<N, ID>>,
 }
 
-impl<N> Default for TopoGroupedGraphNode<N> {
+impl<N, ID> Default for TopoGroupedGraphNode<N, ID> {
     fn default() -> Self {
         Self {
             child_ids: Default::default(),
-            edges: None,
+            item: None,
         }
     }
 }
 
-impl<N, E, I> TopoGroupedGraphIterator<N, I>
+impl<N, ID, E, I, F> TopoGroupedGraphIterator<N, ID, I, F>
 where
-    N: Clone + Hash + Eq,
-    I: Iterator<Item = Result<GraphNode<N>, E>>,
+    ID: Clone + Hash + Eq,
+    I: Iterator<Item = Result<GraphNode<N, ID>, E>>,
+    F: Fn(&N) -> &ID,
 {
     /// Wraps the given iterator to group topological branches. The input
     /// iterator must be topologically ordered.
-    pub fn new(input_iter: I) -> Self {
-        TopoGroupedGraphIterator {
+    pub fn new(input_iter: I, as_id: F) -> Self {
+        Self {
             input_iter,
+            as_id,
             nodes: HashMap::new(),
             emittable_ids: Vec::new(),
             new_head_ids: VecDeque::new(),
@@ -169,7 +185,7 @@ where
     ///
     /// The specified node must exist in the input iterator. If it didn't, the
     /// iterator would panic.
-    pub fn prioritize_branch(&mut self, id: N) {
+    pub fn prioritize_branch(&mut self, id: ID) {
         // Mark existence of unpopulated node
         self.nodes.entry(id.clone()).or_default();
         // Push to non-emitting list so the prioritized heads wouldn't be
@@ -178,8 +194,8 @@ where
     }
 
     fn populate_one(&mut self) -> Result<Option<()>, E> {
-        let (current_id, edges) = match self.input_iter.next() {
-            Some(Ok(data)) => data,
+        let item = match self.input_iter.next() {
+            Some(Ok(item)) => item,
             Some(Err(err)) => {
                 return Err(err);
             }
@@ -187,20 +203,23 @@ where
                 return Ok(None);
             }
         };
+        let (data, edges) = &item;
+        let current_id = (self.as_id)(data);
 
         // Set up reverse reference
-        for parent_id in reachable_targets(&edges) {
+        for parent_id in reachable_targets(edges) {
             let parent_node = self.nodes.entry(parent_id.clone()).or_default();
             parent_node.child_ids.insert(current_id.clone());
         }
 
         // Populate the current node
-        if let Some(current_node) = self.nodes.get_mut(&current_id) {
-            assert!(current_node.edges.is_none());
-            current_node.edges = Some(edges);
+        if let Some(current_node) = self.nodes.get_mut(current_id) {
+            assert!(current_node.item.is_none());
+            current_node.item = Some(item);
         } else {
+            let current_id = current_id.clone();
             let current_node = TopoGroupedGraphNode {
-                edges: Some(edges),
+                item: Some(item),
                 ..Default::default()
             };
             self.nodes.insert(current_id.clone(), current_node);
@@ -226,7 +245,7 @@ where
         }
 
         // Mark descendant nodes reachable from the blocking nodes
-        let mut to_visit: Vec<&N> = self
+        let mut to_visit: Vec<&ID> = self
             .blocked_ids
             .iter()
             .map(|id| {
@@ -235,7 +254,7 @@ where
                 id
             })
             .collect();
-        let mut visited: HashSet<&N> = to_visit.iter().copied().collect();
+        let mut visited: HashSet<&ID> = to_visit.iter().copied().collect();
         while let Some(id) = to_visit.pop() {
             let node = self.nodes.get(id).unwrap();
             to_visit.extend(node.child_ids.iter().filter(|id| visited.insert(id)));
@@ -257,7 +276,7 @@ where
         visited.remove(&new_head_id);
         while let Some(id) = to_visit.pop() {
             let node = self.nodes.get(id).unwrap();
-            if let Some(edges) = &node.edges {
+            if let Some((_, edges)) = &node.item {
                 to_visit.extend(reachable_targets(edges).filter(|id| visited.remove(id)));
             }
         }
@@ -265,7 +284,7 @@ where
         self.emittable_ids.push(new_head_id);
     }
 
-    fn next_node(&mut self) -> Result<Option<GraphNode<N>>, E> {
+    fn next_node(&mut self) -> Result<Option<GraphNode<N, ID>>, E> {
         // Based on Kahn's algorithm
         loop {
             if let Some(current_id) = self.emittable_ids.last() {
@@ -280,7 +299,7 @@ where
                     self.blocked_ids.insert(current_id);
                     continue;
                 }
-                let Some(edges) = current_node.edges.take() else {
+                let Some(item) = current_node.item.take() else {
                     // Not yet populated
                     self.populate_one()?
                         .expect("parent or prioritized node should exist");
@@ -289,7 +308,8 @@ where
                 // The second (or the last) parent will be visited first
                 let current_id = self.emittable_ids.pop().unwrap();
                 self.nodes.remove(&current_id).unwrap();
-                for parent_id in reachable_targets(&edges) {
+                let (_, edges) = &item;
+                for parent_id in reachable_targets(edges) {
                     let parent_node = self.nodes.get_mut(parent_id).unwrap();
                     parent_node.child_ids.remove(&current_id);
                     if parent_node.child_ids.is_empty() {
@@ -300,7 +320,7 @@ where
                         self.blocked_ids.insert(parent_id.clone());
                     }
                 }
-                return Ok(Some((current_id, edges)));
+                return Ok(Some(item));
             } else if !self.new_head_ids.is_empty() {
                 self.flush_new_head();
             } else {
@@ -313,12 +333,13 @@ where
     }
 }
 
-impl<N, E, I> Iterator for TopoGroupedGraphIterator<N, I>
+impl<N, ID, E, I, F> Iterator for TopoGroupedGraphIterator<N, ID, I, F>
 where
-    N: Clone + Hash + Eq,
-    I: Iterator<Item = Result<GraphNode<N>, E>>,
+    ID: Clone + Hash + Eq,
+    I: Iterator<Item = Result<GraphNode<N, ID>, E>>,
+    F: Fn(&N) -> &ID,
 {
-    type Item = Result<GraphNode<N>, E>;
+    type Item = Result<GraphNode<N, ID>, E>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.next_node() {
@@ -415,11 +436,13 @@ mod tests {
         ");
     }
 
-    fn topo_grouped<I, E>(graph_iter: I) -> TopoGroupedGraphIterator<char, I::IntoIter>
+    type TopoGrouped<N, I> = TopoGroupedGraphIterator<N, N, I, fn(&N) -> &N>;
+
+    fn topo_grouped<I, E>(graph_iter: I) -> TopoGrouped<char, I::IntoIter>
     where
         I: IntoIterator<Item = Result<GraphNode<char>, E>>,
     {
-        TopoGroupedGraphIterator::new(graph_iter.into_iter())
+        TopoGroupedGraphIterator::new(graph_iter.into_iter(), |c| c)
     }
 
     #[test]

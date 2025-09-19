@@ -14,6 +14,7 @@
 
 use std::io::Write as _;
 
+use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indoc::formatdoc;
 use itertools::Itertools as _;
@@ -22,8 +23,8 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -96,7 +97,11 @@ pub(crate) struct RestoreArgs {
     #[arg(long, short)]
     interactive: bool,
     /// Specify diff editor to be used (implies --interactive)
-    #[arg(long, value_name = "NAME")]
+    #[arg(
+        long,
+        value_name = "NAME",
+        add = ArgValueCandidates::new(complete::diff_editors),
+    )]
     tool: Option<String>,
     /// Preserve the content (not the diff) when rebasing descendants
     #[arg(long)]
@@ -112,11 +117,13 @@ pub(crate) fn cmd_restore(
     let mut workspace_command = command.workspace_helper(ui)?;
     let (from_commits, from_tree, to_commit);
     if args.revision.is_some() {
-        return Err(user_error(
-            "`jj restore` does not have a `--revision`/`-r` option. If you'd like to modify\nthe \
-             *current* revision, use `--from`. If you'd like to modify a *different* \
-             revision,\nuse `--into` or `--changes-in`.",
-        ));
+        return Err(
+            user_error("`jj restore` does not have a `--revision`/`-r` option.")
+                .hinted("To modify the current revision, use `--from`.")
+                .hinted(
+                    "To undo changes in a revision compared to its parents, use `--changes-in`.",
+                ),
+        );
     }
     if args.from.is_some() || args.into.is_some() {
         to_commit = workspace_command
@@ -155,7 +162,8 @@ pub(crate) fn cmd_restore(
             to_commit = workspace_command.format_commit_summary(&to_commit),
         }
     };
-    let new_tree_id = diff_selector.select(&to_tree, &from_tree, &matcher, format_instructions)?;
+    let new_tree_id =
+        diff_selector.select([&to_tree, &from_tree], &matcher, format_instructions)?;
     if &new_tree_id == to_commit.tree_id() {
         writeln!(ui.status(), "Nothing changed.")?;
     } else {
@@ -174,13 +182,13 @@ pub(crate) fn cmd_restore(
         } else {
             (tx.repo_mut().rebase_descendants()?, "")
         };
-        if let Some(mut formatter) = ui.status_formatter() {
-            if num_rebased > 0 {
-                writeln!(
-                    formatter,
-                    "Rebased {num_rebased} descendant commits{extra_msg}"
-                )?;
-            }
+        if let Some(mut formatter) = ui.status_formatter()
+            && num_rebased > 0
+        {
+            writeln!(
+                formatter,
+                "Rebased {num_rebased} descendant commits{extra_msg}"
+            )?;
         }
         tx.finish(ui, format!("restore into commit {}", to_commit.id().hex()))?;
     }

@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// If making significant changes to this grammar, consider also updating the
+// tree-sitter grammar: https://github.com/bryceberger/tree-sitter-jjrevset
+
 whitespace = _{ " " | "\t" | "\r" | "\n" | "\x0c" }
 
 // XID_CONTINUE: https://www.unicode.org/reports/tr31/#Default_Identifier_Syntax

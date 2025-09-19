@@ -110,7 +110,7 @@ fn find_forgettable_bookmarks<'a>(
 ) -> Result<Vec<(&'a RefName, BookmarkTarget<'a>)>, CommandError> {
     find_bookmarks_with(name_patterns, |pattern| {
         view.bookmarks()
-            .filter(|(name, _)| pattern.matches(name.as_str()))
+            .filter(|(name, _)| pattern.is_match(name.as_str()))
             .map(Ok)
     })
 }

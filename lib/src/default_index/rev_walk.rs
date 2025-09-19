@@ -12,11 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
-
-use std::cmp::max;
 use std::cmp::Reverse;
-use std::collections::BinaryHeap;
+use std::cmp::max;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::iter::Fuse;
@@ -25,9 +22,13 @@ use std::ops::Range;
 
 use smallvec::SmallVec;
 
+use super::composite::CompositeCommitIndex;
 use super::composite::CompositeIndex;
-use super::entry::IndexPosition;
-use super::entry::SmallIndexPositionsVec;
+use super::entry::GlobalCommitPosition;
+use super::entry::SmallGlobalCommitPositionsVec;
+use super::rev_walk_queue::RevWalkQueue;
+use super::rev_walk_queue::RevWalkWorkItem;
+use crate::revset::PARENTS_RANGE_FULL;
 
 /// Like `Iterator`, but doesn't borrow the `index` internally.
 pub(super) trait RevWalk<I: ?Sized> {
@@ -101,7 +102,7 @@ pub(super) struct EagerRevWalk<T> {
 
 impl<T: Iterator> EagerRevWalk<T> {
     pub fn new(iter: T) -> Self {
-        EagerRevWalk { iter: iter.fuse() }
+        Self { iter: iter.fuse() }
     }
 }
 
@@ -243,32 +244,36 @@ impl<I, W: RevWalk<I>> FusedIterator for RevWalkOwnedIndexIter<I, W> {}
 
 pub(super) trait RevWalkIndex {
     type Position: Copy + Ord;
-    type AdjacentPositions: IntoIterator<Item = Self::Position>;
+    type AdjacentPositions: IntoIterator<Item = Self::Position> + AsRef<[Self::Position]>;
 
     fn adjacent_positions(&self, pos: Self::Position) -> Self::AdjacentPositions;
 }
 
 impl RevWalkIndex for CompositeIndex {
-    type Position = IndexPosition;
-    type AdjacentPositions = SmallIndexPositionsVec;
+    type Position = GlobalCommitPosition;
+    type AdjacentPositions = SmallGlobalCommitPositionsVec;
 
     fn adjacent_positions(&self, pos: Self::Position) -> Self::AdjacentPositions {
-        self.entry_by_pos(pos).parent_positions()
+        self.commits().entry_by_pos(pos).parent_positions()
     }
 }
 
 #[derive(Clone)]
 pub(super) struct RevWalkDescendantsIndex {
-    children_map: HashMap<IndexPosition, DescendantIndexPositionsVec>,
+    children_map: HashMap<GlobalCommitPosition, DescendantIndexPositionsVec>,
 }
 
-// See SmallIndexPositionsVec for the array size.
-type DescendantIndexPositionsVec = SmallVec<[Reverse<IndexPosition>; 4]>;
+// See SmallGlobalCommitPositionsVec for the array size.
+type DescendantIndexPositionsVec = SmallVec<[Reverse<GlobalCommitPosition>; 4]>;
 
 impl RevWalkDescendantsIndex {
-    fn build(index: &CompositeIndex, positions: impl IntoIterator<Item = IndexPosition>) -> Self {
+    fn build(
+        index: &CompositeCommitIndex,
+        positions: impl IntoIterator<Item = GlobalCommitPosition>,
+    ) -> Self {
         // For dense set, it's probably cheaper to use `Vec` instead of `HashMap`.
-        let mut children_map: HashMap<IndexPosition, DescendantIndexPositionsVec> = HashMap::new();
+        let mut children_map: HashMap<GlobalCommitPosition, DescendantIndexPositionsVec> =
+            HashMap::new();
         for pos in positions {
             children_map.entry(pos).or_default(); // mark head node
             for parent_pos in index.entry_by_pos(pos).parent_positions() {
@@ -277,16 +282,16 @@ impl RevWalkDescendantsIndex {
             }
         }
 
-        RevWalkDescendantsIndex { children_map }
+        Self { children_map }
     }
 
-    fn contains_pos(&self, pos: IndexPosition) -> bool {
+    fn contains_pos(&self, pos: GlobalCommitPosition) -> bool {
         self.children_map.contains_key(&pos)
     }
 }
 
 impl RevWalkIndex for RevWalkDescendantsIndex {
-    type Position = Reverse<IndexPosition>;
+    type Position = Reverse<GlobalCommitPosition>;
     type AdjacentPositions = DescendantIndexPositionsVec;
 
     fn adjacent_positions(&self, pos: Self::Position) -> Self::AdjacentPositions {
@@ -294,141 +299,63 @@ impl RevWalkIndex for RevWalkDescendantsIndex {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
-struct RevWalkWorkItem<P, T> {
-    pos: P,
-    state: RevWalkWorkItemState<T>,
-}
-
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-enum RevWalkWorkItemState<T> {
-    // Order matters: Unwanted should appear earlier in the max-heap.
-    Wanted(T),
-    Unwanted,
-}
-
-impl<P, T> RevWalkWorkItem<P, T> {
-    fn is_wanted(&self) -> bool {
-        matches!(self.state, RevWalkWorkItemState::Wanted(_))
-    }
-}
-
-#[derive(Clone)]
-struct RevWalkQueue<P, T> {
-    items: BinaryHeap<RevWalkWorkItem<P, T>>,
-    min_pos: P,
-    unwanted_count: usize,
-}
-
-impl<P: Ord, T: Ord> RevWalkQueue<P, T> {
-    fn with_min_pos(min_pos: P) -> Self {
-        Self {
-            items: BinaryHeap::new(),
-            min_pos,
-            unwanted_count: 0,
-        }
-    }
-
-    fn push_wanted(&mut self, pos: P, t: T) {
-        if pos < self.min_pos {
-            return;
-        }
-        let state = RevWalkWorkItemState::Wanted(t);
-        self.items.push(RevWalkWorkItem { pos, state });
-    }
-
-    fn push_unwanted(&mut self, pos: P) {
-        if pos < self.min_pos {
-            return;
-        }
-        let state = RevWalkWorkItemState::Unwanted;
-        self.items.push(RevWalkWorkItem { pos, state });
-        self.unwanted_count += 1;
-    }
-
-    fn extend_wanted(&mut self, positions: impl IntoIterator<Item = P>, t: T)
-    where
-        T: Clone,
-    {
-        // positions typically contains one item, and single BinaryHeap::push()
-        // appears to be slightly faster than .extend() as of rustc 1.73.0.
-        for pos in positions {
-            self.push_wanted(pos, t.clone());
-        }
-    }
-
-    fn extend_unwanted(&mut self, positions: impl IntoIterator<Item = P>) {
-        for pos in positions {
-            self.push_unwanted(pos);
-        }
-    }
-
-    fn pop(&mut self) -> Option<RevWalkWorkItem<P, T>> {
-        if let Some(x) = self.items.pop() {
-            self.unwanted_count -= !x.is_wanted() as usize;
-            Some(x)
-        } else {
-            None
-        }
-    }
-
-    fn pop_eq(&mut self, pos: &P) -> Option<RevWalkWorkItem<P, T>> {
-        if let Some(x) = self.items.peek() {
-            (x.pos == *pos).then(|| self.pop().unwrap())
-        } else {
-            None
-        }
-    }
-
-    fn skip_while_eq(&mut self, pos: &P) {
-        while self.pop_eq(pos).is_some() {
-            continue;
-        }
-    }
-}
-
 #[derive(Clone)]
 #[must_use]
 pub(super) struct RevWalkBuilder<'a> {
     index: &'a CompositeIndex,
-    wanted: Vec<IndexPosition>,
-    unwanted: Vec<IndexPosition>,
+    wanted: Vec<GlobalCommitPosition>,
+    unwanted: Vec<GlobalCommitPosition>,
+    wanted_parents_range: Range<u32>,
 }
 
 impl<'a> RevWalkBuilder<'a> {
     pub fn new(index: &'a CompositeIndex) -> Self {
-        RevWalkBuilder {
+        Self {
             index,
             wanted: Vec::new(),
             unwanted: Vec::new(),
+            wanted_parents_range: PARENTS_RANGE_FULL,
         }
     }
 
     /// Sets head positions to be included.
-    pub fn wanted_heads(mut self, positions: Vec<IndexPosition>) -> Self {
+    pub fn wanted_heads(mut self, positions: Vec<GlobalCommitPosition>) -> Self {
         self.wanted = positions;
         self
     }
 
+    /// Sets range of parents to iterate over for wanted heads.
+    pub fn wanted_parents_range(mut self, wanted_parents_range: Range<u32>) -> Self {
+        assert!(wanted_parents_range.start <= wanted_parents_range.end);
+        self.wanted_parents_range = wanted_parents_range;
+        self
+    }
+
     /// Sets root positions to be excluded. The roots precede the heads.
-    pub fn unwanted_roots(mut self, positions: Vec<IndexPosition>) -> Self {
+    pub fn unwanted_roots(mut self, positions: Vec<GlobalCommitPosition>) -> Self {
         self.unwanted = positions;
         self
     }
 
     /// Walks ancestors.
     pub fn ancestors(self) -> RevWalkAncestors<'a> {
-        self.ancestors_with_min_pos(IndexPosition::MIN)
+        self.ancestors_with_min_pos(GlobalCommitPosition::MIN)
     }
 
-    fn ancestors_with_min_pos(self, min_pos: IndexPosition) -> RevWalkAncestors<'a> {
+    fn ancestors_with_min_pos(self, min_pos: GlobalCommitPosition) -> RevWalkAncestors<'a> {
         let index = self.index;
-        let mut queue = RevWalkQueue::with_min_pos(min_pos);
-        queue.extend_wanted(self.wanted, ());
-        queue.extend_unwanted(self.unwanted);
+        let wanted_parents_range = self.wanted_parents_range;
+        let mut wanted_queue = RevWalkQueue::with_min_pos(min_pos);
+        let mut unwanted_queue = RevWalkQueue::with_min_pos(min_pos);
+        wanted_queue.extend(self.wanted, ());
+        unwanted_queue.extend(self.unwanted, ());
         RevWalkBorrowedIndexIter {
             index,
-            walk: RevWalkImpl { queue },
+            walk: RevWalkImpl {
+                wanted_queue,
+                unwanted_queue,
+                wanted_parents_range,
+            },
         }
     }
 
@@ -440,14 +367,18 @@ impl<'a> RevWalkBuilder<'a> {
         generation_range: Range<u32>,
     ) -> RevWalkAncestorsGenerationRange<'a> {
         let index = self.index;
-        let mut queue = RevWalkQueue::with_min_pos(IndexPosition::MIN);
+        let wanted_parents_range = self.wanted_parents_range;
+        let mut wanted_queue = RevWalkQueue::with_min_pos(GlobalCommitPosition::MIN);
+        let mut unwanted_queue = RevWalkQueue::with_min_pos(GlobalCommitPosition::MIN);
         let item_range = RevWalkItemGenerationRange::from_filter_range(generation_range.clone());
-        queue.extend_wanted(self.wanted, Reverse(item_range));
-        queue.extend_unwanted(self.unwanted);
+        wanted_queue.extend(self.wanted, Reverse(item_range));
+        unwanted_queue.extend(self.unwanted, ());
         RevWalkBorrowedIndexIter {
             index,
             walk: RevWalkGenerationRangeImpl {
-                queue,
+                wanted_queue,
+                unwanted_queue,
+                wanted_parents_range,
                 generation_end: generation_range.end,
             },
         }
@@ -460,7 +391,7 @@ impl<'a> RevWalkBuilder<'a> {
     /// The caller still needs to filter out unwanted entries.
     pub fn ancestors_until_roots(
         self,
-        root_positions: impl IntoIterator<Item = IndexPosition>,
+        root_positions: impl IntoIterator<Item = GlobalCommitPosition>,
     ) -> RevWalkAncestors<'a> {
         // We can also make it stop visiting based on the generation number. Maybe
         // it will perform better for unbalanced branchy history.
@@ -468,7 +399,7 @@ impl<'a> RevWalkBuilder<'a> {
         let min_pos = root_positions
             .into_iter()
             .min()
-            .unwrap_or(IndexPosition::MAX);
+            .unwrap_or(GlobalCommitPosition::MAX);
         self.ancestors_with_min_pos(min_pos)
     }
 
@@ -476,7 +407,10 @@ impl<'a> RevWalkBuilder<'a> {
     ///
     /// The returned iterator yields entries in order of ascending index
     /// position.
-    pub fn descendants(self, root_positions: HashSet<IndexPosition>) -> RevWalkDescendants<'a> {
+    pub fn descendants(
+        self,
+        root_positions: HashSet<GlobalCommitPosition>,
+    ) -> RevWalkDescendants<'a> {
         let index = self.index;
         let candidate_positions = self
             .ancestors_until_roots(root_positions.iter().copied())
@@ -500,25 +434,30 @@ impl<'a> RevWalkBuilder<'a> {
     /// position.
     pub fn descendants_filtered_by_generation(
         self,
-        root_positions: Vec<IndexPosition>,
+        root_positions: Vec<GlobalCommitPosition>,
         generation_range: Range<u32>,
     ) -> RevWalkDescendantsGenerationRange {
         let index = self.index;
         let positions = self.ancestors_until_roots(root_positions.iter().copied());
-        let descendants_index = RevWalkDescendantsIndex::build(index, positions);
+        let descendants_index = RevWalkDescendantsIndex::build(index.commits(), positions);
 
-        let mut queue = RevWalkQueue::with_min_pos(Reverse(IndexPosition::MAX));
+        let mut wanted_queue = RevWalkQueue::with_min_pos(Reverse(GlobalCommitPosition::MAX));
+        let unwanted_queue = RevWalkQueue::with_min_pos(Reverse(GlobalCommitPosition::MAX));
         let item_range = RevWalkItemGenerationRange::from_filter_range(generation_range.clone());
         for pos in root_positions {
             // Do not add unreachable roots which shouldn't be visited
             if descendants_index.contains_pos(pos) {
-                queue.push_wanted(Reverse(pos), Reverse(item_range));
+                wanted_queue.push(Reverse(pos), Reverse(item_range));
             }
         }
         RevWalkOwnedIndexIter {
             index: descendants_index,
             walk: RevWalkGenerationRangeImpl {
-                queue,
+                wanted_queue,
+                unwanted_queue,
+                // Since we're using the descendants index, this actually is a range for the
+                // children instead of the parents.
+                wanted_parents_range: PARENTS_RANGE_FULL,
                 generation_end: generation_range.end,
             },
         }
@@ -526,72 +465,79 @@ impl<'a> RevWalkBuilder<'a> {
 }
 
 pub(super) type RevWalkAncestors<'a> =
-    RevWalkBorrowedIndexIter<'a, CompositeIndex, RevWalkImpl<IndexPosition>>;
+    RevWalkBorrowedIndexIter<'a, CompositeIndex, RevWalkImpl<GlobalCommitPosition>>;
 
 #[derive(Clone)]
 #[must_use]
 pub(super) struct RevWalkImpl<P> {
-    queue: RevWalkQueue<P, ()>,
+    wanted_queue: RevWalkQueue<P, ()>,
+    unwanted_queue: RevWalkQueue<P, ()>,
+    wanted_parents_range: Range<u32>,
 }
 
 impl<I: RevWalkIndex + ?Sized> RevWalk<I> for RevWalkImpl<I::Position> {
     type Item = I::Position;
 
     fn next(&mut self, index: &I) -> Option<Self::Item> {
-        while let Some(item) = self.queue.pop() {
-            self.queue.skip_while_eq(&item.pos);
-            if item.is_wanted() {
-                self.queue
-                    .extend_wanted(index.adjacent_positions(item.pos), ());
-                return Some(item.pos);
-            } else if self.queue.items.len() == self.queue.unwanted_count {
-                // No more wanted entries to walk
-                debug_assert!(!self.queue.items.iter().any(|x| x.is_wanted()));
-                return None;
-            } else {
-                self.queue
-                    .extend_unwanted(index.adjacent_positions(item.pos));
+        while let Some(item) = self.wanted_queue.pop() {
+            self.wanted_queue.skip_while_eq(&item.pos);
+            if flush_queue_until(&mut self.unwanted_queue, index, item.pos).is_some() {
+                continue;
             }
+            let parents = index.adjacent_positions(item.pos);
+            self.wanted_queue.extend(
+                filter_slice_by_range(parents.as_ref(), &self.wanted_parents_range)
+                    .iter()
+                    .copied(),
+                (),
+            );
+            return Some(item.pos);
         }
-
-        debug_assert_eq!(
-            self.queue.items.iter().filter(|x| !x.is_wanted()).count(),
-            self.queue.unwanted_count
-        );
         None
     }
 }
 
 pub(super) type RevWalkAncestorsGenerationRange<'a> =
-    RevWalkBorrowedIndexIter<'a, CompositeIndex, RevWalkGenerationRangeImpl<IndexPosition>>;
+    RevWalkBorrowedIndexIter<'a, CompositeIndex, RevWalkGenerationRangeImpl<GlobalCommitPosition>>;
 pub(super) type RevWalkDescendantsGenerationRange = RevWalkOwnedIndexIter<
     RevWalkDescendantsIndex,
-    RevWalkGenerationRangeImpl<Reverse<IndexPosition>>,
+    RevWalkGenerationRangeImpl<Reverse<GlobalCommitPosition>>,
 >;
 
 #[derive(Clone)]
 #[must_use]
 pub(super) struct RevWalkGenerationRangeImpl<P> {
     // Sort item generations in ascending order
-    queue: RevWalkQueue<P, Reverse<RevWalkItemGenerationRange>>,
+    wanted_queue: RevWalkQueue<P, Reverse<RevWalkItemGenerationRange>>,
+    unwanted_queue: RevWalkQueue<P, ()>,
+    wanted_parents_range: Range<u32>,
     generation_end: u32,
 }
 
-impl<P: Ord> RevWalkGenerationRangeImpl<P> {
-    fn enqueue_wanted_adjacents<I>(&mut self, index: &I, pos: P, gen: RevWalkItemGenerationRange)
-    where
+impl<P: Copy + Ord> RevWalkGenerationRangeImpl<P> {
+    fn enqueue_wanted_adjacents<I>(
+        &mut self,
+        index: &I,
+        pos: P,
+        generation: RevWalkItemGenerationRange,
+    ) where
         I: RevWalkIndex<Position = P> + ?Sized,
     {
         // `gen.start` is incremented from 0, which should never overflow
-        if gen.start + 1 >= self.generation_end {
+        if generation.start + 1 >= self.generation_end {
             return;
         }
-        let succ_gen = RevWalkItemGenerationRange {
-            start: gen.start + 1,
-            end: gen.end.saturating_add(1),
+        let succ_generation = RevWalkItemGenerationRange {
+            start: generation.start + 1,
+            end: generation.end.saturating_add(1),
         };
-        self.queue
-            .extend_wanted(index.adjacent_positions(pos), Reverse(succ_gen));
+        let parents = index.adjacent_positions(pos);
+        self.wanted_queue.extend(
+            filter_slice_by_range(parents.as_ref(), &self.wanted_parents_range)
+                .iter()
+                .copied(),
+            Reverse(succ_generation),
+        );
     }
 }
 
@@ -599,45 +545,32 @@ impl<I: RevWalkIndex + ?Sized> RevWalk<I> for RevWalkGenerationRangeImpl<I::Posi
     type Item = I::Position;
 
     fn next(&mut self, index: &I) -> Option<Self::Item> {
-        while let Some(item) = self.queue.pop() {
-            if let RevWalkWorkItemState::Wanted(Reverse(mut pending_gen)) = item.state {
-                let mut some_in_range = pending_gen.contains_end(self.generation_end);
-                while let Some(x) = self.queue.pop_eq(&item.pos) {
-                    // Merge overlapped ranges to reduce number of the queued items.
-                    // For queries like `:(heads-)`, `gen.end` is close to `u32::MAX`, so
-                    // ranges can be merged into one. If this is still slow, maybe we can add
-                    // special case for upper/lower bounded ranges.
-                    if let RevWalkWorkItemState::Wanted(Reverse(gen)) = x.state {
-                        some_in_range |= gen.contains_end(self.generation_end);
-                        pending_gen = if let Some(merged) = pending_gen.try_merge_end(gen) {
-                            merged
-                        } else {
-                            self.enqueue_wanted_adjacents(index, item.pos, pending_gen);
-                            gen
-                        };
-                    } else {
-                        unreachable!("no more unwanted items of the same entry");
-                    }
-                }
-                self.enqueue_wanted_adjacents(index, item.pos, pending_gen);
-                if some_in_range {
-                    return Some(item.pos);
-                }
-            } else if self.queue.items.len() == self.queue.unwanted_count {
-                // No more wanted entries to walk
-                debug_assert!(!self.queue.items.iter().any(|x| x.is_wanted()));
-                return None;
-            } else {
-                self.queue.skip_while_eq(&item.pos);
-                self.queue
-                    .extend_unwanted(index.adjacent_positions(item.pos));
+        while let Some(item) = self.wanted_queue.pop() {
+            if flush_queue_until(&mut self.unwanted_queue, index, item.pos).is_some() {
+                self.wanted_queue.skip_while_eq(&item.pos);
+                continue;
+            }
+            let Reverse(mut pending_gen) = item.value;
+            let mut some_in_range = pending_gen.contains_end(self.generation_end);
+            while let Some(x) = self.wanted_queue.pop_eq(&item.pos) {
+                // Merge overlapped ranges to reduce number of the queued items.
+                // For queries like `:(heads-)`, `gen.end` is close to `u32::MAX`, so
+                // ranges can be merged into one. If this is still slow, maybe we can add
+                // special case for upper/lower bounded ranges.
+                let Reverse(generation) = x.value;
+                some_in_range |= generation.contains_end(self.generation_end);
+                pending_gen = if let Some(merged) = pending_gen.try_merge_end(generation) {
+                    merged
+                } else {
+                    self.enqueue_wanted_adjacents(index, item.pos, pending_gen);
+                    generation
+                };
+            }
+            self.enqueue_wanted_adjacents(index, item.pos, pending_gen);
+            if some_in_range {
+                return Some(item.pos);
             }
         }
-
-        debug_assert_eq!(
-            self.queue.items.iter().filter(|x| !x.is_wanted()).count(),
-            self.queue.unwanted_count
-        );
         None
     }
 }
@@ -660,7 +593,7 @@ impl RevWalkItemGenerationRange {
     ///     + :     :  item's generation     o=====* :  item's range
     /// ```
     fn from_filter_range(range: Range<u32>) -> Self {
-        RevWalkItemGenerationRange {
+        Self {
             start: 0,
             end: u32::saturating_sub(range.end, range.start),
         }
@@ -669,7 +602,7 @@ impl RevWalkItemGenerationRange {
     /// Suppose sorted ranges `self, other`, merges them if overlapped.
     #[must_use]
     fn try_merge_end(self, other: Self) -> Option<Self> {
-        (other.start <= self.end).then(|| RevWalkItemGenerationRange {
+        (other.start <= self.end).then(|| Self {
             start: self.start,
             end: max(self.end, other.end),
         })
@@ -681,6 +614,22 @@ impl RevWalkItemGenerationRange {
     }
 }
 
+/// Walks queue items until `bottom_pos`. Returns item if found at `bottom_pos`.
+fn flush_queue_until<I: RevWalkIndex + ?Sized>(
+    queue: &mut RevWalkQueue<I::Position, ()>,
+    index: &I,
+    bottom_pos: I::Position,
+) -> Option<RevWalkWorkItem<I::Position, ()>> {
+    while let Some(item) = queue.pop_if(|x| x.pos >= bottom_pos) {
+        queue.skip_while_eq(&item.pos);
+        queue.extend(index.adjacent_positions(item.pos), ());
+        if item.pos == bottom_pos {
+            return Some(item);
+        }
+    }
+    None
+}
+
 /// Walks descendants from the roots, in order of ascending index position.
 pub(super) type RevWalkDescendants<'a> =
     RevWalkBorrowedIndexIter<'a, CompositeIndex, RevWalkDescendantsImpl>;
@@ -688,9 +637,9 @@ pub(super) type RevWalkDescendants<'a> =
 #[derive(Clone)]
 #[must_use]
 pub(super) struct RevWalkDescendantsImpl {
-    candidate_positions: Vec<IndexPosition>,
-    root_positions: HashSet<IndexPosition>,
-    reachable_positions: HashSet<IndexPosition>,
+    candidate_positions: Vec<GlobalCommitPosition>,
+    root_positions: HashSet<GlobalCommitPosition>,
+    reachable_positions: HashSet<GlobalCommitPosition>,
 }
 
 impl RevWalkDescendants<'_> {
@@ -698,16 +647,17 @@ impl RevWalkDescendants<'_> {
     ///
     /// This is equivalent to `.collect()` on the new iterator, but returns the
     /// internal buffer instead.
-    pub fn collect_positions_set(mut self) -> HashSet<IndexPosition> {
+    pub fn collect_positions_set(mut self) -> HashSet<GlobalCommitPosition> {
         self.by_ref().for_each(drop);
         self.walk.reachable_positions
     }
 }
 
 impl RevWalk<CompositeIndex> for RevWalkDescendantsImpl {
-    type Item = IndexPosition;
+    type Item = GlobalCommitPosition;
 
     fn next(&mut self, index: &CompositeIndex) -> Option<Self::Item> {
+        let index = index.commits();
         while let Some(candidate_pos) = self.candidate_positions.pop() {
             if self.root_positions.contains(&candidate_pos)
                 || index
@@ -724,78 +674,18 @@ impl RevWalk<CompositeIndex> for RevWalkDescendantsImpl {
     }
 }
 
-/// Computes ancestors set lazily.
-///
-/// This is similar to `RevWalk` functionality-wise, but implemented with the
-/// different design goals:
-///
-/// * optimized for dense ancestors set
-/// * optimized for testing set membership
-/// * no iterator API (which could be implemented on top)
-#[derive(Clone, Debug)]
-pub(super) struct AncestorsBitSet {
-    bitset: Vec<u64>,
-    last_visited_bitset_pos: u32,
-}
-
-impl AncestorsBitSet {
-    /// Creates bit set of the specified capacity.
-    pub fn with_capacity(len: u32) -> Self {
-        let bitset_len = usize::try_from(u32::div_ceil(len, u64::BITS)).unwrap();
-        AncestorsBitSet {
-            bitset: vec![0; bitset_len], // request zeroed page
-            last_visited_bitset_pos: 0,
-        }
-    }
-
-    /// Adds head `pos` to the set.
-    ///
-    /// Panics if the `pos` exceeds the capacity.
-    pub fn add_head(&mut self, pos: IndexPosition) {
-        let bitset_pos = pos.0 / u64::BITS;
-        let bit = 1_u64 << (pos.0 % u64::BITS);
-        self.bitset[usize::try_from(bitset_pos).unwrap()] |= bit;
-        self.last_visited_bitset_pos = max(self.last_visited_bitset_pos, bitset_pos + 1);
-    }
-
-    /// Returns `true` if the given `pos` is ancestors of the heads.
-    ///
-    /// Panics if the `pos` exceeds the capacity or has not been visited yet.
-    pub fn contains(&self, pos: IndexPosition) -> bool {
-        let bitset_pos = pos.0 / u64::BITS;
-        let bit = 1_u64 << (pos.0 % u64::BITS);
-        assert!(bitset_pos >= self.last_visited_bitset_pos);
-        self.bitset[usize::try_from(bitset_pos).unwrap()] & bit != 0
-    }
-
-    /// Updates set by visiting ancestors until the given `to_visit_pos`.
-    pub fn visit_until(&mut self, index: &CompositeIndex, to_visit_pos: IndexPosition) {
-        let to_visit_bitset_pos = to_visit_pos.0 / u64::BITS;
-        if to_visit_bitset_pos >= self.last_visited_bitset_pos {
-            return;
-        }
-        for visiting_bitset_pos in (to_visit_bitset_pos..self.last_visited_bitset_pos).rev() {
-            let mut unvisited_bits = self.bitset[usize::try_from(visiting_bitset_pos).unwrap()];
-            while unvisited_bits != 0 {
-                let bit_pos = u64::BITS - unvisited_bits.leading_zeros() - 1; // from MSB
-                unvisited_bits ^= 1_u64 << bit_pos;
-                let current_pos = IndexPosition(visiting_bitset_pos * u64::BITS + bit_pos);
-                for parent_pos in index.entry_by_pos(current_pos).parent_positions() {
-                    assert!(parent_pos < current_pos);
-                    let parent_bitset_pos = parent_pos.0 / u64::BITS;
-                    let bit = 1_u64 << (parent_pos.0 % u64::BITS);
-                    self.bitset[usize::try_from(parent_bitset_pos).unwrap()] |= bit;
-                    if visiting_bitset_pos == parent_bitset_pos {
-                        unvisited_bits |= bit;
-                    }
-                }
-            }
-        }
-        self.last_visited_bitset_pos = to_visit_bitset_pos;
-    }
+/// Filter a slice by a range, clamping the range to the length of the slice.
+pub(super) fn filter_slice_by_range<'a, T: Copy>(slice: &'a [T], range: &Range<u32>) -> &'a [T] {
+    let start = (range.start as usize).min(slice.len());
+    let end = (range.end as usize).min(slice.len());
+    &slice[start..end]
 }
 
 #[cfg(test)]
+#[rustversion::attr(
+    since(1.89),
+    expect(clippy::cloned_ref_to_slice_refs, reason = "makes tests more readable")
+)]
 mod tests {
     use itertools::Itertools as _;
 
@@ -804,12 +694,13 @@ mod tests {
     use super::*;
     use crate::backend::ChangeId;
     use crate::backend::CommitId;
+    use crate::default_index::readonly::FieldLengths;
 
-    /// Generator of unique 16-byte CommitId excluding root id
-    fn commit_id_generator() -> impl FnMut() -> CommitId {
-        let mut iter = (1_u128..).map(|n| CommitId::new(n.to_le_bytes().into()));
-        move || iter.next().unwrap()
-    }
+    const TEST_FIELD_LENGTHS: FieldLengths = FieldLengths {
+        // TODO: align with commit_id_generator()?
+        commit_id: 3,
+        change_id: 16,
+    };
 
     /// Generator of unique 16-byte ChangeId excluding root id
     fn change_id_generator() -> impl FnMut() -> ChangeId {
@@ -817,10 +708,13 @@ mod tests {
         move || iter.next().unwrap()
     }
 
-    fn to_positions_vec(index: &CompositeIndex, commit_ids: &[CommitId]) -> Vec<IndexPosition> {
+    fn to_positions_vec(
+        index: &CompositeIndex,
+        commit_ids: &[CommitId],
+    ) -> Vec<GlobalCommitPosition> {
         commit_ids
             .iter()
-            .map(|id| index.commit_id_to_pos(id).unwrap())
+            .map(|id| index.commits().commit_id_to_pos(id).unwrap())
             .collect()
     }
 
@@ -873,7 +767,7 @@ mod tests {
     #[test]
     fn test_walk_ancestors() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // 5
         // |\
         // 4 | 3
@@ -900,7 +794,7 @@ mod tests {
                 .wanted_heads(to_positions_vec(index, wanted))
                 .unwanted_roots(to_positions_vec(index, unwanted))
                 .ancestors()
-                .map(|pos| index.entry_by_pos(pos).commit_id())
+                .map(|pos| index.commits().entry_by_pos(pos).commit_id())
                 .collect_vec()
         };
 
@@ -955,7 +849,7 @@ mod tests {
     #[test]
     fn test_walk_ancestors_until_roots() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         //   7
         // 6 |
         // 5 |
@@ -988,31 +882,31 @@ mod tests {
                 .wanted_heads(to_positions_vec(index, heads))
                 .ancestors_until_roots(to_positions_vec(index, roots))
         };
-        let to_commit_id = |pos| index.entry_by_pos(pos).commit_id();
+        let to_commit_id = |pos| index.commits().entry_by_pos(pos).commit_id();
 
         let mut iter = make_iter(&[id_6.clone(), id_7.clone()], &[id_3.clone()]);
-        assert_eq!(iter.walk.queue.items.len(), 2);
+        assert_eq!(iter.walk.wanted_queue.len(), 2);
         assert_eq!(iter.next().map(to_commit_id), Some(id_7.clone()));
         assert_eq!(iter.next().map(to_commit_id), Some(id_6.clone()));
         assert_eq!(iter.next().map(to_commit_id), Some(id_5.clone()));
-        assert_eq!(iter.walk.queue.items.len(), 2);
+        assert_eq!(iter.walk.wanted_queue.len(), 2);
         assert_eq!(iter.next().map(to_commit_id), Some(id_4.clone()));
-        assert_eq!(iter.walk.queue.items.len(), 1); // id_1 shouldn't be queued
+        assert_eq!(iter.walk.wanted_queue.len(), 1); // id_1 shouldn't be queued
         assert_eq!(iter.next().map(to_commit_id), Some(id_3.clone()));
-        assert_eq!(iter.walk.queue.items.len(), 0); // id_2 shouldn't be queued
+        assert_eq!(iter.walk.wanted_queue.len(), 0); // id_2 shouldn't be queued
         assert!(iter.next().is_none());
 
         let iter = make_iter(&[id_6.clone(), id_7.clone(), id_2.clone()], &[id_3.clone()]);
-        assert_eq!(iter.walk.queue.items.len(), 2); // id_2 shouldn't be queued
+        assert_eq!(iter.walk.wanted_queue.len(), 2); // id_2 shouldn't be queued
 
         let iter = make_iter(&[id_6.clone(), id_7.clone()], &[]);
-        assert!(iter.walk.queue.items.is_empty()); // no ids should be queued
+        assert_eq!(iter.walk.wanted_queue.len(), 0); // no ids should be queued
     }
 
     #[test]
     fn test_walk_ancestors_filtered_by_generation() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // 8 6
         // | |
         // 7 5
@@ -1049,7 +943,7 @@ mod tests {
                 .wanted_heads(to_positions_vec(index, wanted))
                 .unwanted_roots(to_positions_vec(index, unwanted))
                 .ancestors_filtered_by_generation(range)
-                .map(|pos| index.entry_by_pos(pos).commit_id())
+                .map(|pos| index.commits().entry_by_pos(pos).commit_id())
                 .collect_vec()
         };
 
@@ -1103,10 +997,10 @@ mod tests {
     #[expect(clippy::redundant_clone)] // allow id_n.clone()
     fn test_walk_ancestors_filtered_by_generation_range_merging() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // Long linear history with some short branches
         let ids = (0..11)
-            .map(|n| CommitId::try_from_hex(&format!("{n:06x}")).unwrap())
+            .map(|n| CommitId::try_from_hex(format!("{n:06x}")).unwrap())
             .collect_vec();
         index.add_commit_data(ids[0].clone(), new_change_id(), &[]);
         for i in 1..ids.len() {
@@ -1126,7 +1020,7 @@ mod tests {
             RevWalkBuilder::new(index)
                 .wanted_heads(to_positions_vec(index, wanted))
                 .ancestors_filtered_by_generation(range)
-                .map(|pos| index.entry_by_pos(pos).commit_id())
+                .map(|pos| index.commits().entry_by_pos(pos).commit_id())
                 .collect_vec()
         };
 
@@ -1159,7 +1053,7 @@ mod tests {
     #[test]
     fn test_walk_descendants_filtered_by_generation() {
         let mut new_change_id = change_id_generator();
-        let mut index = DefaultMutableIndex::full(3, 16);
+        let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         // 8 6
         // | |
         // 7 5
@@ -1196,7 +1090,7 @@ mod tests {
             RevWalkBuilder::new(index)
                 .wanted_heads(to_positions_vec(index, heads))
                 .descendants_filtered_by_generation(to_positions_vec(index, roots), range)
-                .map(|Reverse(pos)| index.entry_by_pos(pos).commit_id())
+                .map(|Reverse(pos)| index.commits().entry_by_pos(pos).commit_id())
                 .collect_vec()
         };
 
@@ -1217,7 +1111,10 @@ mod tests {
         // Full generation bounds
         assert_eq!(
             walk_commit_ids(&[&id_0].map(Clone::clone), &visible_heads, 0..u32::MAX),
-            [&id_0, &id_1, &id_2, &id_3, &id_4, &id_5, &id_6, &id_7, &id_8].map(Clone::clone)
+            [
+                &id_0, &id_1, &id_2, &id_3, &id_4, &id_5, &id_6, &id_7, &id_8
+            ]
+            .map(Clone::clone)
         );
 
         // Simple generation bounds
@@ -1261,136 +1158,5 @@ mod tests {
             ),
             [&id_2, &id_4, &id_7].map(Clone::clone)
         );
-    }
-
-    #[test]
-    fn test_ancestors_bit_set() {
-        let mut new_commit_id = commit_id_generator();
-        let mut new_change_id = change_id_generator();
-        let mut mutable_index = DefaultMutableIndex::full(16, 16);
-
-        // F      F = 256
-        // |\     E = 193,194,195,..,254
-        // E | D  D = 192,255
-        // | |/   C = 66,68,70,..,190
-        // B C    B = 65,67,69,..,189,191
-        // |/     A = 0,1,2,..,64
-        // A
-        let id_a0 = new_commit_id();
-        mutable_index.add_commit_data(id_a0.clone(), new_change_id(), &[]);
-        let id_a64 = (1..=64).fold(id_a0.clone(), |parent_id, i| {
-            assert_eq!(mutable_index.as_composite().num_commits(), i);
-            let id = new_commit_id();
-            mutable_index.add_commit_data(id.clone(), new_change_id(), &[parent_id]);
-            id
-        });
-        let (id_b189, id_c190) = (65..=190).step_by(2).fold(
-            (id_a64.clone(), id_a64.clone()),
-            |(parent_id_b, parent_id_c), i| {
-                assert_eq!(mutable_index.as_composite().num_commits(), i);
-                let id_b = new_commit_id();
-                let id_c = new_commit_id();
-                mutable_index.add_commit_data(id_b.clone(), new_change_id(), &[parent_id_b]);
-                mutable_index.add_commit_data(id_c.clone(), new_change_id(), &[parent_id_c]);
-                (id_b, id_c)
-            },
-        );
-        let id_b191 = new_commit_id();
-        mutable_index.add_commit_data(id_b191.clone(), new_change_id(), &[id_b189]);
-        let id_d192 = new_commit_id();
-        mutable_index.add_commit_data(id_d192.clone(), new_change_id(), &[id_c190.clone()]);
-        let id_e254 = (193..=254).fold(id_b191.clone(), |parent_id, i| {
-            assert_eq!(mutable_index.as_composite().num_commits(), i);
-            let id = new_commit_id();
-            mutable_index.add_commit_data(id.clone(), new_change_id(), &[parent_id]);
-            id
-        });
-        let id_d255 = new_commit_id();
-        mutable_index.add_commit_data(id_d255.clone(), new_change_id(), &[id_d192.clone()]);
-        let id_f256 = new_commit_id();
-        mutable_index.add_commit_data(
-            id_f256.clone(),
-            new_change_id(),
-            &[id_c190.clone(), id_e254.clone()],
-        );
-        assert_eq!(mutable_index.as_composite().num_commits(), 257);
-
-        let index = mutable_index.as_composite();
-        let to_pos = |id: &CommitId| index.commit_id_to_pos(id).unwrap();
-        let new_ancestors_set = |heads: &[&CommitId]| {
-            let mut set = AncestorsBitSet::with_capacity(index.num_commits());
-            for &id in heads {
-                set.add_head(to_pos(id));
-            }
-            set
-        };
-
-        // Nothing reachable
-        let set = new_ancestors_set(&[]);
-        assert_eq!(set.last_visited_bitset_pos, 0);
-        for pos in (0..=256).map(IndexPosition) {
-            assert!(!set.contains(pos), "{pos:?} should be unreachable");
-        }
-
-        // All reachable
-        let mut set = new_ancestors_set(&[&id_f256, &id_d255]);
-        assert_eq!(set.last_visited_bitset_pos, 5);
-        set.visit_until(index, to_pos(&id_f256));
-        assert_eq!(set.last_visited_bitset_pos, 4);
-        assert!(set.contains(to_pos(&id_f256)));
-        set.visit_until(index, to_pos(&id_d192));
-        assert_eq!(set.last_visited_bitset_pos, 3);
-        assert!(set.contains(to_pos(&id_e254)));
-        assert!(set.contains(to_pos(&id_d255)));
-        assert!(set.contains(to_pos(&id_d192)));
-        set.visit_until(index, to_pos(&id_a0));
-        assert_eq!(set.last_visited_bitset_pos, 0);
-        set.visit_until(index, to_pos(&id_f256)); // should be noop
-        assert_eq!(set.last_visited_bitset_pos, 0);
-        for pos in (0..=256).map(IndexPosition) {
-            assert!(set.contains(pos), "{pos:?} should be reachable");
-        }
-
-        // A, B, C, E, F are reachable
-        let mut set = new_ancestors_set(&[&id_f256]);
-        assert_eq!(set.last_visited_bitset_pos, 5);
-        set.visit_until(index, to_pos(&id_f256));
-        assert_eq!(set.last_visited_bitset_pos, 4);
-        assert!(set.contains(to_pos(&id_f256)));
-        set.visit_until(index, to_pos(&id_d192));
-        assert_eq!(set.last_visited_bitset_pos, 3);
-        assert!(!set.contains(to_pos(&id_d255)));
-        assert!(!set.contains(to_pos(&id_d192)));
-        set.visit_until(index, to_pos(&id_c190));
-        assert_eq!(set.last_visited_bitset_pos, 2);
-        assert!(set.contains(to_pos(&id_c190)));
-        set.visit_until(index, to_pos(&id_a64));
-        assert_eq!(set.last_visited_bitset_pos, 1);
-        assert!(set.contains(to_pos(&id_b191)));
-        assert!(set.contains(to_pos(&id_a64)));
-        set.visit_until(index, to_pos(&id_a0));
-        assert_eq!(set.last_visited_bitset_pos, 0);
-        assert!(set.contains(to_pos(&id_a0)));
-
-        // A, C, D are reachable
-        let mut set = new_ancestors_set(&[&id_d255]);
-        assert_eq!(set.last_visited_bitset_pos, 4);
-        assert!(!set.contains(to_pos(&id_f256)));
-        set.visit_until(index, to_pos(&id_e254));
-        assert_eq!(set.last_visited_bitset_pos, 3);
-        assert!(!set.contains(to_pos(&id_e254)));
-        set.visit_until(index, to_pos(&id_d255));
-        assert_eq!(set.last_visited_bitset_pos, 3);
-        assert!(set.contains(to_pos(&id_d255)));
-        set.visit_until(index, to_pos(&id_b191));
-        assert_eq!(set.last_visited_bitset_pos, 2);
-        assert!(!set.contains(to_pos(&id_b191)));
-        set.visit_until(index, to_pos(&id_c190));
-        assert_eq!(set.last_visited_bitset_pos, 2);
-        assert!(set.contains(to_pos(&id_c190)));
-        set.visit_until(index, to_pos(&id_a0));
-        assert_eq!(set.last_visited_bitset_pos, 0);
-        assert!(set.contains(to_pos(&id_a64)));
-        assert!(set.contains(to_pos(&id_a0)));
     }
 }

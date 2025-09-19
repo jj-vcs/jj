@@ -15,6 +15,7 @@
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use jj_lib::matchers::EverythingMatcher;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -67,7 +68,7 @@ pub(crate) fn cmd_show(
     let workspace_command = command.workspace_helper(ui)?;
     let commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
     let template_string = match &args.template {
-        Some(value) => value.to_string(),
+        Some(value) => value.clone(),
         None => workspace_command.settings().get_string("templates.show")?,
     };
     let template = workspace_command
@@ -79,7 +80,9 @@ pub(crate) fn cmd_show(
     let formatter = formatter.as_mut();
     template.format(&commit, formatter)?;
     if !args.no_patch {
-        diff_renderer.show_patch(ui, formatter, &commit, &EverythingMatcher, ui.term_width())?;
+        diff_renderer
+            .show_patch(ui, formatter, &commit, &EverythingMatcher, ui.term_width())
+            .block_on()?;
     }
     Ok(())
 }

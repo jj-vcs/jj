@@ -36,7 +36,6 @@ use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::store::Store;
 use jj_lib::working_copy::CheckoutError;
-use jj_lib::working_copy::CheckoutOptions;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::LockedWorkingCopy;
 use jj_lib::working_copy::ResetError;
@@ -123,6 +122,7 @@ impl ConflictsWorkingCopy {
         state_path: PathBuf,
         operation_id: OperationId,
         workspace_name: WorkspaceNameBuf,
+        user_settings: &UserSettings,
     ) -> Result<Self, WorkingCopyStateError> {
         let inner = LocalWorkingCopy::init(
             store,
@@ -130,19 +130,26 @@ impl ConflictsWorkingCopy {
             state_path,
             operation_id,
             workspace_name,
+            user_settings,
         )?;
-        Ok(ConflictsWorkingCopy {
+        Ok(Self {
             inner: Box::new(inner),
             working_copy_path,
         })
     }
 
-    fn load(store: Arc<Store>, working_copy_path: PathBuf, state_path: PathBuf) -> Self {
-        let inner = LocalWorkingCopy::load(store, working_copy_path.clone(), state_path);
-        ConflictsWorkingCopy {
+    fn load(
+        store: Arc<Store>,
+        working_copy_path: PathBuf,
+        state_path: PathBuf,
+        user_settings: &UserSettings,
+    ) -> Result<Self, WorkingCopyStateError> {
+        let inner =
+            LocalWorkingCopy::load(store, working_copy_path.clone(), state_path, user_settings)?;
+        Ok(Self {
             inner: Box::new(inner),
             working_copy_path,
-        }
+        })
     }
 }
 
@@ -190,6 +197,7 @@ impl WorkingCopyFactory for ConflictsWorkingCopyFactory {
         state_path: PathBuf,
         operation_id: OperationId,
         workspace_name: WorkspaceNameBuf,
+        settings: &UserSettings,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
         Ok(Box::new(ConflictsWorkingCopy::init(
             store,
@@ -197,6 +205,7 @@ impl WorkingCopyFactory for ConflictsWorkingCopyFactory {
             state_path,
             operation_id,
             workspace_name,
+            settings,
         )?))
     }
 
@@ -205,12 +214,14 @@ impl WorkingCopyFactory for ConflictsWorkingCopyFactory {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
+        settings: &UserSettings,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
         Ok(Box::new(ConflictsWorkingCopy::load(
             store,
             working_copy_path,
             state_path,
-        )))
+            settings,
+        )?))
     }
 }
 
@@ -251,18 +262,14 @@ impl LockedWorkingCopy for LockedConflictsWorkingCopy {
         self.inner.snapshot(&options)
     }
 
-    fn check_out(
-        &mut self,
-        commit: &Commit,
-        options: &CheckoutOptions,
-    ) -> Result<CheckoutStats, CheckoutError> {
+    fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError> {
         let conflicts = commit
             .tree()?
             .conflicts()
             .map(|(path, _value)| format!("{}\n", path.as_internal_file_string()))
             .join("");
         std::fs::write(self.wc_path.join(".conflicts"), conflicts).unwrap();
-        self.inner.check_out(commit, options)
+        self.inner.check_out(commit)
     }
 
     fn rename_workspace(&mut self, new_name: WorkspaceNameBuf) {
@@ -284,9 +291,8 @@ impl LockedWorkingCopy for LockedConflictsWorkingCopy {
     fn set_sparse_patterns(
         &mut self,
         new_sparse_patterns: Vec<RepoPathBuf>,
-        options: &CheckoutOptions,
     ) -> Result<CheckoutStats, CheckoutError> {
-        self.inner.set_sparse_patterns(new_sparse_patterns, options)
+        self.inner.set_sparse_patterns(new_sparse_patterns)
     }
 
     fn finish(

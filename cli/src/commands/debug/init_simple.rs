@@ -19,9 +19,9 @@ use jj_lib::workspace::Workspace;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
+use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::user_error_with_message;
-use crate::command_error::CommandError;
 use crate::ui::Ui;
 
 /// Create a new repo in the given directory using the proof-of-concept simple

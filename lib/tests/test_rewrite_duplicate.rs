@@ -19,9 +19,10 @@ use jj_lib::backend::CommitId;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::duplicate_commits;
 use jj_lib::transaction::Transaction;
+use pollster::FutureExt as _;
+use testutils::TestRepo;
 use testutils::create_tree;
 use testutils::repo_path;
-use testutils::TestRepo;
 
 #[test]
 fn test_duplicate_linear_contents() {
@@ -82,6 +83,7 @@ fn test_duplicate_linear_contents() {
             &parent_commit_ids.iter().copied().cloned().collect_vec(),
             &children_commit_ids.iter().copied().cloned().collect_vec(),
         )
+        .block_on()
         .unwrap()
     };
     let duplicate_onto =

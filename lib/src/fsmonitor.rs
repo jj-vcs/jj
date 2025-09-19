@@ -49,18 +49,19 @@ pub enum FsmonitorSettings {
 
     /// No filesystem monitor. This is the default if nothing is configured, but
     /// also makes it possible to turn off the monitor on a case-by-case basis
-    /// when the user gives an option like `--config=core.fsmonitor=none`;
-    /// useful when e.g. when doing analysis of snapshot performance.
+    /// when the user gives an option like `--config=fsmonitor.backend=none`;
+    /// useful when e.g. doing analysis of snapshot performance.
     None,
 }
 
 impl FsmonitorSettings {
     /// Creates an `FsmonitorSettings` from a `config`.
-    pub fn from_settings(settings: &UserSettings) -> Result<FsmonitorSettings, ConfigGetError> {
-        let name = "core.fsmonitor";
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        let name = "fsmonitor.backend";
         match settings.get_string(name)?.as_ref() {
             "watchman" => Ok(Self::Watchman(WatchmanConfig {
-                register_trigger: settings.get_bool("core.watchman.register-snapshot-trigger")?,
+                register_trigger: settings
+                    .get_bool("fsmonitor.watchman.register-snapshot-trigger")?,
             })),
             "test" => Err(ConfigGetError::Type {
                 name: name.to_owned(),
@@ -108,9 +109,9 @@ pub mod watchman {
     #[derive(Clone, Debug)]
     pub struct Clock(InnerClock);
 
-    impl From<crate::protos::working_copy::WatchmanClock> for Clock {
-        fn from(clock: crate::protos::working_copy::WatchmanClock) -> Self {
-            use crate::protos::working_copy::watchman_clock::WatchmanClock;
+    impl From<crate::protos::local_working_copy::WatchmanClock> for Clock {
+        fn from(clock: crate::protos::local_working_copy::WatchmanClock) -> Self {
+            use crate::protos::local_working_copy::watchman_clock::WatchmanClock;
             let watchman_clock = clock.watchman_clock.unwrap();
             let clock = match watchman_clock {
                 WatchmanClock::StringClock(string_clock) => {
@@ -124,10 +125,9 @@ pub mod watchman {
         }
     }
 
-    impl From<Clock> for crate::protos::working_copy::WatchmanClock {
+    impl From<Clock> for crate::protos::local_working_copy::WatchmanClock {
         fn from(clock: Clock) -> Self {
-            use crate::protos::working_copy::watchman_clock;
-            use crate::protos::working_copy::WatchmanClock;
+            use crate::protos::local_working_copy::watchman_clock;
             let Clock(clock) = clock;
             let watchman_clock = match clock {
                 InnerClock::Spec(ClockSpec::StringClock(string_clock)) => {
@@ -140,7 +140,7 @@ pub mod watchman {
                     unimplemented!("SCM-aware Watchman clocks not supported")
                 }
             };
-            WatchmanClock {
+            Self {
                 watchman_clock: Some(watchman_clock),
             }
         }
@@ -194,7 +194,7 @@ pub mod watchman {
                 .await
                 .map_err(Error::ResolveRootError)?;
 
-            let monitor = Fsmonitor {
+            let monitor = Self {
                 client,
                 resolved_root,
             };

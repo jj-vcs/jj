@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::cmp::Ordering;
 use std::fmt::Debug;
@@ -22,9 +22,12 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
+use futures::future::try_join_all;
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 
 use crate::backend;
+use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
@@ -37,10 +40,13 @@ use crate::signing::SignResult;
 use crate::signing::Verification;
 use crate::store::Store;
 
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize)]
 pub struct Commit {
+    #[serde(skip)]
     store: Arc<Store>,
+    #[serde(rename = "commit_id")]
     id: CommitId,
+    #[serde(flatten)]
     data: Arc<backend::Commit>,
 }
 
@@ -78,7 +84,7 @@ impl Hash for Commit {
 
 impl Commit {
     pub fn new(store: Arc<Store>, id: CommitId, data: Arc<backend::Commit>) -> Self {
-        Commit { store, id, data }
+        Self { store, id, data }
     }
 
     pub fn store(&self) -> &Arc<Store> {
@@ -93,23 +99,26 @@ impl Commit {
         &self.data.parents
     }
 
-    pub fn parents(&self) -> impl Iterator<Item = BackendResult<Commit>> + use<'_> {
+    pub fn parents(&self) -> impl Iterator<Item = BackendResult<Self>> + use<'_> {
         self.data.parents.iter().map(|id| self.store.get_commit(id))
     }
 
-    pub fn predecessor_ids(&self) -> &[CommitId] {
-        &self.data.predecessors
-    }
-
-    pub fn predecessors(&self) -> impl Iterator<Item = BackendResult<Commit>> + use<'_> {
-        self.data
-            .predecessors
-            .iter()
-            .map(|id| self.store.get_commit(id))
+    pub async fn parents_async(&self) -> BackendResult<Vec<Self>> {
+        try_join_all(
+            self.data
+                .parents
+                .iter()
+                .map(|id| self.store.get_commit_async(id)),
+        )
+        .await
     }
 
     pub fn tree(&self) -> BackendResult<MergedTree> {
-        self.store.get_root_tree(&self.data.root_tree)
+        self.tree_async().block_on()
+    }
+
+    pub async fn tree_async(&self) -> BackendResult<MergedTree> {
+        self.store.get_root_tree_async(&self.data.root_tree).await
     }
 
     pub fn tree_id(&self) -> &MergedTreeId {
@@ -119,13 +128,22 @@ impl Commit {
     /// Return the parent tree, merging the parent trees if there are multiple
     /// parents.
     pub fn parent_tree(&self, repo: &dyn Repo) -> BackendResult<MergedTree> {
+        // Avoid merging parent trees if known to be empty. The index could be
+        // queried only when parents.len() > 1, but index query would be cheaper
+        // than extracting parent commit from the store.
+        if is_commit_empty_by_index(repo, &self.id)? == Some(true) {
+            return self.tree();
+        }
         let parents: Vec<_> = self.parents().try_collect()?;
-        merge_commit_trees(repo, &parents)
+        merge_commit_trees(repo, &parents).block_on()
     }
 
     /// Returns whether commit's content is empty. Commit description is not
     /// taken into consideration.
     pub fn is_empty(&self, repo: &dyn Repo) -> BackendResult<bool> {
+        if let Some(empty) = is_commit_empty_by_index(repo, &self.id)? {
+            return Ok(empty);
+        }
         is_backend_commit_empty(repo, &self.store, &self.data)
     }
 
@@ -197,8 +215,17 @@ pub(crate) fn is_backend_commit_empty(
         .iter()
         .map(|id| store.get_commit(id))
         .try_collect()?;
-    let parent_tree = merge_commit_trees(repo, &parents)?;
+    let parent_tree = merge_commit_trees(repo, &parents).block_on()?;
     Ok(commit.root_tree == parent_tree.id())
+}
+
+fn is_commit_empty_by_index(repo: &dyn Repo, id: &CommitId) -> BackendResult<Option<bool>> {
+    let maybe_paths = repo
+        .index()
+        .changed_paths_in_commit(id)
+        // TODO: index error shouldn't be a "BackendError"
+        .map_err(|err| BackendError::Other(err.into()))?;
+    Ok(maybe_paths.map(|mut paths| paths.next().is_none()))
 }
 
 pub trait CommitIteratorExt<'c, I> {

@@ -36,8 +36,8 @@ use std::fmt;
 use std::fmt::Display;
 use std::ops::Deref;
 
-use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
+use ref_cast::ref_cast_custom;
 
 use crate::content_hash::ContentHash;
 use crate::revset;
@@ -95,14 +95,18 @@ pub struct RemoteName(str);
 /// Use `.as_str()` or `.as_symbol()` for displaying. Other than that, this can
 /// be considered an immutable `String`.
 // Eq, Hash, and Ord must be compatible with WorkspaceName.
-#[derive(Clone, ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, serde::Serialize)]
+#[serde(transparent)]
 pub struct WorkspaceNameBuf(String);
 
 /// Borrowed workspace name.
 ///
 /// Use `.as_str()` or `.as_symbol()` for displaying. Other than that, this can
 /// be considered an immutable `str`.
-#[derive(ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, RefCastCustom)]
+#[derive(
+    ContentHash, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, RefCastCustom, serde::Serialize,
+)]
+#[serde(transparent)]
 #[repr(transparent)]
 pub struct WorkspaceName(str);
 
@@ -311,7 +315,7 @@ impl RefName {
 
 impl WorkspaceName {
     /// Default workspace name.
-    pub const DEFAULT: &WorkspaceName = WorkspaceName::new("default");
+    pub const DEFAULT: &Self = Self::new("default");
 }
 
 /// Symbol for displaying.

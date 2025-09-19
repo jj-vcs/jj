@@ -84,6 +84,7 @@ fn test_split_by_paths() {
     JJ: Enter a description for the selected changes.
 
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file2
     JJ:
@@ -207,7 +208,7 @@ fn test_split_with_non_empty_description() {
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     Selected changes : qpvuntsm c7f7b14b part 1
     Remaining changes: kkmpptxz ac33a5a9 part 2
     Working copy  (@) now at: kkmpptxz ac33a5a9 part 2
@@ -220,6 +221,7 @@ fn test_split_with_non_empty_description() {
     JJ: Enter a description for the selected changes.
     test
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -230,6 +232,7 @@ fn test_split_with_non_empty_description() {
     JJ: Enter a description for the remaining changes.
     test
 
+    JJ: Change ID: kkmpptxz
     JJ: This commit contains the following changes:
     JJ:     A file2
     JJ:
@@ -241,7 +244,7 @@ fn test_split_with_non_empty_description() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 }
@@ -265,7 +268,7 @@ fn test_split_with_default_description() {
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     Selected changes : qpvuntsm ff633dcc TESTED=TODO
     Remaining changes: rlvkpnrz b1d20b7e (no description set)
     Working copy  (@) now at: rlvkpnrz b1d20b7e (no description set)
@@ -284,6 +287,7 @@ fn test_split_with_default_description() {
 
     TESTED=TODO
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -296,7 +300,7 @@ fn test_split_with_default_description() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 }
@@ -352,14 +356,14 @@ fn test_split_with_descendants() {
     Parent commit (@-)      : rlvkpnrz d335bd94 Add file3
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r###"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  kkmpptxzrspx false Add file4
     ○  rlvkpnrzqnoo false Add file3
     ○  royxmykxtrkr false Add file2
     ○  qpvuntsmwlqt false Add file1
     ◆  zzzzzzzzzzzz true
     [EOF]
-    "###);
+    ");
 
     // The commit we're splitting has a description, so the user will be
     // prompted to enter a description for each of the commits.
@@ -368,6 +372,7 @@ fn test_split_with_descendants() {
     JJ: Enter a description for the selected changes.
     Add file1 & file2
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -378,6 +383,7 @@ fn test_split_with_descendants() {
     JJ: Enter a description for the remaining changes.
     Add file1 & file2
 
+    JJ: Change ID: royxmykx
     JJ: This commit contains the following changes:
     JJ:     A file2
     JJ:
@@ -393,12 +399,16 @@ fn test_split_with_descendants() {
     insta::assert_snapshot!(evolog_1, @r"
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:12 74306e35
     │  Add file1
+    │  -- operation 994b490f285d split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 1d2499e7
     │  Add file1 & file2
+    │  -- operation adf4f33386c9 commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
+    │  -- operation 78ead2155fcc snapshot working copy
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
+       -- operation 8f47435a3990 add workspace 'default'
     [EOF]
     ");
 
@@ -408,12 +418,16 @@ fn test_split_with_descendants() {
     insta::assert_snapshot!(evolog_2, @r"
     ○  royxmykx test.user@example.com 2001-02-03 08:05:12 0a37745e
     │  Add file2
+    │  -- operation 994b490f285d split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 1d2499e7
     │  Add file1 & file2
+    │  -- operation adf4f33386c9 commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
+    │  -- operation 78ead2155fcc snapshot working copy
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
+       -- operation 8f47435a3990 add workspace 'default'
     [EOF]
     ");
 }
@@ -490,7 +504,7 @@ fn test_split_parallel_no_descendants() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 
@@ -502,7 +516,7 @@ fn test_split_parallel_no_descendants() {
     let output = work_dir.run_jj(["split", "--parallel", "file1"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     Selected changes : qpvuntsm 7bcd474c TESTED=TODO
     Remaining changes: kkmpptxz 431886f6 (no description set)
     Working copy  (@) now at: kkmpptxz 431886f6 (no description set)
@@ -517,7 +531,7 @@ fn test_split_parallel_no_descendants() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 
@@ -532,6 +546,7 @@ fn test_split_parallel_no_descendants() {
 
     TESTED=TODO
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -547,13 +562,16 @@ fn test_split_parallel_no_descendants() {
     insta::assert_snapshot!(evolog_1, @r#"
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 7bcd474c
     │  TESTED=TODO
+    │  -- operation 2b21c33e1596 split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
+    │  -- operation 1663cd1cc445 snapshot working copy
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
+       -- operation 8f47435a3990 add workspace 'default'
     [EOF]
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 
@@ -563,13 +581,16 @@ fn test_split_parallel_no_descendants() {
     insta::assert_snapshot!(evolog_2, @r#"
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 431886f6
     │  (no description set)
+    │  -- operation 2b21c33e1596 split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
     │  (no description set)
+    │  -- operation 1663cd1cc445 snapshot working copy
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
        (empty) (no description set)
+       -- operation 8f47435a3990 add workspace 'default'
     [EOF]
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 }
@@ -648,6 +669,7 @@ fn test_split_parallel_with_descendants() {
     JJ: Enter a description for the selected changes.
     Add file1 & file2
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -658,6 +680,7 @@ fn test_split_parallel_with_descendants() {
     JJ: Enter a description for the remaining changes.
     Add file1 & file2
 
+    JJ: Change ID: vruxwmqv
     JJ: This commit contains the following changes:
     JJ:     A file2
     JJ:
@@ -802,6 +825,7 @@ fn test_split_interactive() {
     JJ: Enter a description for the selected changes.
 
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -867,6 +891,7 @@ fn test_split_interactive_with_paths() {
     JJ: Enter a description for the selected changes.
 
 
+    JJ: Change ID: rlvkpnrz
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -923,6 +948,7 @@ fn test_split_with_multiple_workspaces_same_working_copy() {
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
+    let setup_opid = main_dir.current_operation_id();
 
     // Do the split in the default workspace.
     std::fs::write(
@@ -940,7 +966,7 @@ fn test_split_with_multiple_workspaces_same_working_copy() {
     ");
 
     // Test again with a --parallel split.
-    main_dir.run_jj(["undo"]).success();
+    main_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(
         &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
@@ -982,6 +1008,7 @@ fn test_split_with_multiple_workspaces_different_working_copy() {
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
+    let setup_opid = main_dir.current_operation_id();
 
     // Do the split in the default workspace.
     std::fs::write(
@@ -1001,7 +1028,7 @@ fn test_split_with_multiple_workspaces_different_working_copy() {
     ");
 
     // Test again with a --parallel split.
-    main_dir.run_jj(["undo"]).success();
+    main_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(
         &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),
@@ -1050,7 +1077,7 @@ fn test_split_with_non_empty_description_and_trailers() {
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     Selected changes : qpvuntsm c7f7b14b part 1
     Remaining changes: kkmpptxz ac33a5a9 part 2
     Working copy  (@) now at: kkmpptxz ac33a5a9 part 2
@@ -1065,6 +1092,7 @@ fn test_split_with_non_empty_description_and_trailers() {
 
     Signed-off-by: test.user@example.com
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:
@@ -1077,6 +1105,7 @@ fn test_split_with_non_empty_description_and_trailers() {
 
     Signed-off-by: test.user@example.com
 
+    JJ: Change ID: kkmpptxz
     JJ: This commit contains the following changes:
     JJ:     A file2
     JJ:
@@ -1088,7 +1117,7 @@ fn test_split_with_non_empty_description_and_trailers() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 }
@@ -1102,6 +1131,7 @@ fn test_split_with_message() {
     work_dir.write_file("file1", "foo\n");
     work_dir.write_file("file2", "bar\n");
     work_dir.run_jj(["describe", "-m", "my feature"]).success();
+    let setup_opid = work_dir.current_operation_id();
 
     let output = work_dir.run_jj(["split", "-m", "fix in file1", "file1"]);
     insta::assert_snapshot!(output, @r"
@@ -1121,7 +1151,7 @@ fn test_split_with_message() {
     ");
 
     // trailers should be added to the message
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "split",
         "--config",
@@ -1180,6 +1210,7 @@ fn test_split_move_first_commit() {
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     // insert the commit before the source commit
     let output = work_dir.run_jj([
@@ -1217,7 +1248,7 @@ fn test_split_move_first_commit() {
     ");
 
     // insert the commit after the source commit
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "split",
         "-m",
@@ -1253,7 +1284,7 @@ fn test_split_move_first_commit() {
     ");
 
     // create a new branch anywhere in the tree
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "split",
         "-m",
@@ -1289,7 +1320,7 @@ fn test_split_move_first_commit() {
     ");
 
     // create a bubble in the tree
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "split",
         "-m",
@@ -1327,7 +1358,7 @@ fn test_split_move_first_commit() {
     ");
 
     // create a commit in another branch
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "split",
         "-m",
@@ -1366,7 +1397,7 @@ fn test_split_move_first_commit() {
     ");
 
     // merge two branches with the new commit
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj([
         "split",
         "-m",
@@ -1447,6 +1478,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
     [EOF]
     "#);
     }
+    let setup_opid = main_dir.current_operation_id();
 
     // Do the split.
     std::fs::write(
@@ -1499,7 +1531,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
     }
 
     // Test again with a --parallel split.
-    main_dir.run_jj(["undo"]).success();
+    main_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(
         &edit_script,
         ["", "next invocation\n", "write\nsecond-commit"].join("\0"),

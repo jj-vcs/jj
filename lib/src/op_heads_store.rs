@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::any::Any;
 use std::collections::HashSet;
@@ -146,7 +146,7 @@ where
         return Ok(op_head.clone());
     }
 
-    op_heads.sort_by_key(|op| op.metadata().end_time.timestamp);
+    op_heads.sort_by_key(|op| op.metadata().time.end.timestamp);
     let new_op = resolver(op_heads)?;
     let mut old_op_heads = ancestor_op_heads;
     old_op_heads.extend_from_slice(new_op.parent_ids());

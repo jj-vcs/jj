@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
-use jj_lib::revset::RevsetExpression;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -60,16 +59,15 @@ pub(crate) fn cmd_simplify_parents(
             .expression()
             .clone()
     } else {
-        RevsetExpression::descendants(
-            workspace_command
-                .parse_union_revsets(ui, &args.source)?
-                .expression(),
-        )
-        .union(
-            workspace_command
-                .parse_union_revsets(ui, &args.revisions)?
-                .expression(),
-        )
+        workspace_command
+            .parse_union_revsets(ui, &args.source)?
+            .expression()
+            .descendants()
+            .union(
+                workspace_command
+                    .parse_union_revsets(ui, &args.revisions)?
+                    .expression(),
+            )
     };
     let commit_ids: Vec<_> = workspace_command
         .attach_revset_evaluator(revs)
@@ -85,7 +83,7 @@ pub(crate) fn cmd_simplify_parents(
     let mut reparented_descendants = 0;
 
     tx.repo_mut()
-        .transform_descendants(commit_ids, |mut rewriter| {
+        .transform_descendants(commit_ids, async |mut rewriter| {
             let num_old_heads = rewriter.new_parents().len();
             if commit_ids_set.contains(rewriter.old_commit().id()) && num_old_heads > 1 {
                 // TODO: BackendError is not the right error here because
@@ -109,19 +107,18 @@ pub(crate) fn cmd_simplify_parents(
             Ok(())
         })?;
 
-    if let Some(mut formatter) = ui.status_formatter() {
-        if simplified_commits > 0 {
+    if let Some(mut formatter) = ui.status_formatter()
+        && simplified_commits > 0
+    {
+        writeln!(
+            formatter,
+            "Removed {edges} edges from {simplified_commits} out of {num_orig_commits} commits.",
+        )?;
+        if reparented_descendants > 0 {
             writeln!(
                 formatter,
-                "Removed {edges} edges from {simplified_commits} out of {num_orig_commits} \
-                 commits.",
+                "Rebased {reparented_descendants} descendant commits",
             )?;
-            if reparented_descendants > 0 {
-                writeln!(
-                    formatter,
-                    "Rebased {reparented_descendants} descendant commits",
-                )?;
-            }
         }
     }
     tx.finish(ui, format!("simplify {num_orig_commits} commits"))?;

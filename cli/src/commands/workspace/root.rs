@@ -14,11 +14,12 @@
 
 use std::io::Write as _;
 
+use jj_lib::file_util;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::ui::Ui;
 
 /// Show the current workspace root directory
@@ -31,11 +32,9 @@ pub fn cmd_workspace_root(
     command: &CommandHelper,
     _args: &WorkspaceRootArgs,
 ) -> Result<(), CommandError> {
-    let root = command
-        .workspace_loader()?
-        .workspace_root()
-        .to_str()
-        .ok_or_else(|| user_error("The workspace root is not valid UTF-8"))?;
-    writeln!(ui.stdout(), "{root}")?;
+    let loader = command.workspace_loader()?;
+    let path_bytes = file_util::path_to_bytes(loader.workspace_root()).map_err(user_error)?;
+    ui.stdout().write_all(path_bytes)?;
+    writeln!(ui.stdout())?;
     Ok(())
 }

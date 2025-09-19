@@ -17,13 +17,14 @@ use std::io::Write as _;
 
 use clap::builder::PossibleValue;
 use clap::builder::StyledStr;
+use clap::error::ContextKind;
 use crossterm::style::Stylize as _;
 use itertools::Itertools as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
-use crate::command_error;
 use crate::command_error::CommandError;
+use crate::command_error::cli_error;
 use crate::ui::Ui;
 
 /// Print this message or the help of the given subcommand(s)
@@ -62,20 +63,33 @@ pub(crate) fn cmd_help(
         .string_args()
         .first()
         .map_or(command.app().get_name(), |name| name.as_ref());
-    let mut args_to_show_help = vec![bin_name];
-    args_to_show_help.extend(args.command.iter().map(|s| s.as_str()));
-    args_to_show_help.push("--help");
+    let mut args_to_get_command = vec![bin_name];
+    args_to_get_command.extend(args.command.iter().map(|s| s.as_str()));
 
-    // TODO: `help log -- -r` will give a cryptic error, ideally, it should state
-    // that the subcommand `log -r` doesn't exist.
-    let help_err = command
-        .app()
-        .clone()
-        .subcommand_required(true)
-        .try_get_matches_from(args_to_show_help)
-        .expect_err("Clap library should return a DisplayHelp error in this context");
+    let mut app = command.app().clone();
+    // This propagates global arguments to subcommand, and generates error if
+    // the subcommand doesn't exist.
+    if let Err(err) = app.try_get_matches_from_mut(args_to_get_command) {
+        if err.get(ContextKind::InvalidSubcommand).is_some() {
+            return Err(err.into());
+        } else {
+            // `help log -- -r`, etc. shouldn't generate an argument error.
+        }
+    }
+    let command = args
+        .command
+        .iter()
+        .try_fold(&mut app, |cmd, name| cmd.find_subcommand_mut(name))
+        .ok_or_else(|| cli_error(format!("Unknown command: {}", args.command.join(" "))))?;
 
-    Err(command_error::cli_error(help_err))
+    ui.request_pager();
+    let help_text = command.render_long_help();
+    if ui.color() {
+        write!(ui.stdout(), "{}", help_text.ansi())?;
+    } else {
+        write!(ui.stdout(), "{help_text}")?;
+    }
+    Ok(())
 }
 
 #[derive(Clone)]

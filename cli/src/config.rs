@@ -21,6 +21,7 @@ use std::fmt;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::LazyLock;
 
 use etcetera::BaseStrategy as _;
 use itertools::Itertools as _;
@@ -38,11 +39,12 @@ use jj_lib::dsl_util;
 use jj_lib::file_util::PathError;
 use regex::Captures;
 use regex::Regex;
+use serde::Serialize as _;
 use tracing::instrument;
 
+use crate::command_error::CommandError;
 use crate::command_error::config_error;
 use crate::command_error::config_error_with_message;
-use crate::command_error::CommandError;
 use crate::text_util;
 use crate::ui::Ui;
 
@@ -71,19 +73,66 @@ fn is_bare_string(value_str: &str) -> bool {
     }
 }
 
+/// Converts [`ConfigValue`] (or [`toml_edit::Value`]) to [`toml::Value`] which
+/// implements [`serde::Serialize`].
+pub fn to_serializable_value(value: ConfigValue) -> toml::Value {
+    match value {
+        ConfigValue::String(v) => toml::Value::String(v.into_value()),
+        ConfigValue::Integer(v) => toml::Value::Integer(v.into_value()),
+        ConfigValue::Float(v) => toml::Value::Float(v.into_value()),
+        ConfigValue::Boolean(v) => toml::Value::Boolean(v.into_value()),
+        ConfigValue::Datetime(v) => toml::Value::Datetime(v.into_value()),
+        ConfigValue::Array(array) => {
+            let array = array.into_iter().map(to_serializable_value).collect();
+            toml::Value::Array(array)
+        }
+        ConfigValue::InlineTable(table) => {
+            let table = table
+                .into_iter()
+                .map(|(k, v)| (k, to_serializable_value(v)))
+                .collect();
+            toml::Value::Table(table)
+        }
+    }
+}
+
 /// Configuration variable with its source information.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct AnnotatedValue {
     /// Dotted name path to the configuration variable.
+    #[serde(serialize_with = "serialize_name")]
     pub name: ConfigNamePathBuf,
     /// Configuration value.
+    #[serde(serialize_with = "serialize_value")]
     pub value: ConfigValue,
     /// Source of the configuration value.
+    #[serde(serialize_with = "serialize_source")]
     pub source: ConfigSource,
     /// Path to the source file, if available.
     pub path: Option<PathBuf>,
     /// True if this value is overridden in higher precedence layers.
     pub is_overridden: bool,
+}
+
+fn serialize_name<S>(name: &ConfigNamePathBuf, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    name.to_string().serialize(serializer)
+}
+
+fn serialize_value<S>(value: &ConfigValue, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    to_serializable_value(value.clone()).serialize(serializer)
+}
+
+fn serialize_source<S>(source: &ConfigSource, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    source.to_string().serialize(serializer)
 }
 
 /// Collects values under the given `filter_prefix` name recursively, from all
@@ -185,7 +234,7 @@ struct ConfigPath {
 impl ConfigPath {
     fn new(path: PathBuf) -> Self {
         use ConfigPathState::*;
-        ConfigPath {
+        Self {
             state: if path.exists() { Exists } else { New },
             path,
         }
@@ -261,12 +310,11 @@ impl UnresolvedConfigEnv {
             ConfigPath::new(config_dir)
         });
 
-        if let Some(path) = home_config_path {
-            if path.exists()
-                || (platform_config_path.is_none() && legacy_platform_config_path.is_none())
-            {
-                paths.push(path);
-            }
+        if let Some(path) = home_config_path
+            && (path.exists()
+                || (platform_config_path.is_none() && legacy_platform_config_path.is_none()))
+        {
+            paths.push(path);
         }
 
         // This should be the default config created if there's
@@ -277,33 +325,33 @@ impl UnresolvedConfigEnv {
 
         // theoretically these should be an `if let Some(...) = ... && ..., but that
         // isn't stable
-        if let Some(path) = platform_config_dir {
-            if path.exists() {
-                paths.push(path);
-            }
+        if let Some(path) = platform_config_dir
+            && path.exists()
+        {
+            paths.push(path);
         }
 
-        if let Some(path) = legacy_platform_config_path {
-            if path.exists() {
-                Self::warn_for_deprecated_path(
-                    ui,
-                    path.as_path(),
-                    "~/Library/Application Support/jj",
-                    "~/.config/jj",
-                );
-                paths.push(path);
-            }
+        if let Some(path) = legacy_platform_config_path
+            && path.exists()
+        {
+            Self::warn_for_deprecated_path(
+                ui,
+                path.as_path(),
+                "~/Library/Application Support/jj",
+                "~/.config/jj",
+            );
+            paths.push(path);
         }
-        if let Some(path) = legacy_platform_config_dir {
-            if path.exists() {
-                Self::warn_for_deprecated_path(
-                    ui,
-                    path.as_path(),
-                    "~/Library/Application Support/jj",
-                    "~/.config/jj",
-                );
-                paths.push(path);
-            }
+        if let Some(path) = legacy_platform_config_dir
+            && path.exists()
+        {
+            Self::warn_for_deprecated_path(
+                ui,
+                path.as_path(),
+                "~/Library/Application Support/jj",
+                "~/.config/jj",
+            );
+            paths.push(path);
         }
 
         paths
@@ -350,6 +398,10 @@ impl ConfigEnv {
                     // Library/Preferences is supposed to be exclusively plists
                     s.data_dir()
                 })
+                .filter(|data_dir| {
+                    // User might've purposefully set their config dir to the deprecated one
+                    Some(data_dir) != config_dir.as_ref()
+                })
         } else {
             None
         };
@@ -366,7 +418,7 @@ impl ConfigEnv {
             home_dir: home_dir.clone(),
             jj_config: env::var("JJ_CONFIG").ok(),
         };
-        ConfigEnv {
+        Self {
             home_dir,
             repo_path: None,
             workspace_path: None,
@@ -594,7 +646,7 @@ fn config_files_for(
 /// 4. Repo config `.jj/repo/config.toml`
 /// 5. Workspace config `.jj/workspace/config.toml`
 /// 6. Override environment variables
-/// 7. Command-line arguments `--config`, `--config-toml`, `--config-file`
+/// 7. Command-line arguments `--config` and `--config-file`
 ///
 /// This function sets up 1, 2, and 6.
 pub fn config_from_environment(default_layers: impl IntoIterator<Item = ConfigLayer>) -> RawConfig {
@@ -697,8 +749,6 @@ fn env_overrides_layer() -> ConfigLayer {
 pub enum ConfigArgKind {
     /// `--config=NAME=VALUE`
     Item,
-    /// `--config-toml=TOML`
-    Toml,
     /// `--config-file=PATH`
     File,
 }
@@ -722,11 +772,6 @@ pub fn parse_config_args(
                     })?;
                 }
                 layers.push(layer);
-            }
-            ConfigArgKind::Toml => {
-                for (_, text) in chunk {
-                    layers.push(ConfigLayer::parse(source, text)?);
-                }
             }
             ConfigArgKind::File => {
                 for (_, path) in chunk {
@@ -759,8 +804,6 @@ fn parse_config_arg_item(item_str: &str) -> Result<(ConfigNamePathBuf, ConfigVal
 /// List of rules to migrate deprecated config variables.
 pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
     vec![
-        // TODO: Delete in jj 0.32+
-        ConfigMigrationRule::rename_value("git.auto-local-branch", "git.auto-local-bookmark"),
         // TODO: Delete in jj 0.33+
         ConfigMigrationRule::rename_update_value(
             "signing.sign-all",
@@ -779,7 +822,7 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
         // TODO: Delete in jj 0.34+
         ConfigMigrationRule::rename_value(
             "core.watchman.register_snapshot_trigger",
-            "core.watchman.register-snapshot-trigger",
+            "fsmonitor.watchman.register-snapshot-trigger",
         ),
         // TODO: Delete in jj 0.34+
         ConfigMigrationRule::rename_value("diff.format", "ui.diff.format"),
@@ -789,7 +832,7 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
             "template-aliases.default_commit_description",
             |old_value| {
                 let value = old_value.as_str().ok_or("expected a string")?;
-                // Trailing newline would be padded by templater
+                // Trailing newline would be padded by templater (in jj < 0.31)
                 let value = text_util::complete_newline(value);
                 let escaped = dsl_util::escape_string(&value);
                 Ok(format!(r#""{escaped}""#).into())
@@ -805,6 +848,23 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
                 let value = old_value.as_str().ok_or("expected a string")?;
                 Ok(format!(":{value}").into())
             },
+        ),
+        // TODO: Delete in jj 0.37+
+        ConfigMigrationRule::rename_update_value(
+            "git.push-bookmark-prefix",
+            "templates.git_push_bookmark",
+            |old_value| {
+                let value = old_value.as_str().ok_or("expected a string")?;
+                let escaped = dsl_util::escape_string(value);
+                Ok(format!(r#""{escaped}" ++ change_id.short()"#).into())
+            },
+        ),
+        // TODO: Delete in jj 0.38.0+
+        ConfigMigrationRule::rename_value("core.fsmonitor", "fsmonitor.backend"),
+        // TODO: Delete in jj 0.38.0+
+        ConfigMigrationRule::rename_value(
+            "core.watchman.register-snapshot-trigger",
+            "fsmonitor.watchman.register-snapshot-trigger",
         ),
     ]
 }
@@ -823,7 +883,7 @@ pub enum CommandNameAndArgs {
 
 impl CommandNameAndArgs {
     /// Returns command name without arguments.
-    pub fn split_name(&self) -> Cow<str> {
+    pub fn split_name(&self) -> Cow<'_, str> {
         let (name, _) = self.split_name_and_args();
         name
     }
@@ -831,17 +891,15 @@ impl CommandNameAndArgs {
     /// Returns command name and arguments.
     ///
     /// The command name may be an empty string (as well as each argument.)
-    pub fn split_name_and_args(&self) -> (Cow<str>, Cow<[String]>) {
+    pub fn split_name_and_args(&self) -> (Cow<'_, str>, Cow<'_, [String]>) {
         match self {
-            CommandNameAndArgs::String(s) => {
+            Self::String(s) => {
                 // Handle things like `EDITOR=emacs -nw` (TODO: parse shell escapes)
                 let mut args = s.split(' ').map(|s| s.to_owned());
                 (args.next().unwrap().into(), args.collect())
             }
-            CommandNameAndArgs::Vec(NonEmptyCommandArgsVec(a)) => {
-                (Cow::Borrowed(&a[0]), Cow::Borrowed(&a[1..]))
-            }
-            CommandNameAndArgs::Structured {
+            Self::Vec(NonEmptyCommandArgsVec(a)) => (Cow::Borrowed(&a[0]), Cow::Borrowed(&a[1..])),
+            Self::Structured {
                 env: _,
                 command: cmd,
             } => (Cow::Borrowed(&cmd.0[0]), Cow::Borrowed(&cmd.0[1..])),
@@ -854,8 +912,8 @@ impl CommandNameAndArgs {
     /// escaped as `[":builtin"]`.
     pub fn as_str(&self) -> Option<&str> {
         match self {
-            CommandNameAndArgs::String(s) => Some(s),
-            CommandNameAndArgs::Vec(_) | CommandNameAndArgs::Structured { .. } => None,
+            Self::String(s) => Some(s),
+            Self::Vec(_) | Self::Structured { .. } => None,
         }
     }
 
@@ -872,8 +930,8 @@ impl CommandNameAndArgs {
         variables: &HashMap<&str, V>,
     ) -> Command {
         let (name, args) = self.split_name_and_args();
-        let mut cmd = Command::new(name.as_ref());
-        if let CommandNameAndArgs::Structured { env, .. } = self {
+        let mut cmd = Command::new(interpolate_variables_single(name.as_ref(), variables));
+        if let Self::Structured { env, .. } = self {
             cmd.envs(env);
         }
         cmd.args(interpolate_variables(&args, variables));
@@ -883,17 +941,17 @@ impl CommandNameAndArgs {
 
 impl<T: AsRef<str> + ?Sized> From<&T> for CommandNameAndArgs {
     fn from(s: &T) -> Self {
-        CommandNameAndArgs::String(s.as_ref().to_owned())
+        Self::String(s.as_ref().to_owned())
     }
 }
 
 impl fmt::Display for CommandNameAndArgs {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CommandNameAndArgs::String(s) => write!(f, "{s}"),
+            Self::String(s) => write!(f, "{s}"),
             // TODO: format with shell escapes
-            CommandNameAndArgs::Vec(a) => write!(f, "{}", a.0.join(" ")),
-            CommandNameAndArgs::Structured { env, command } => {
+            Self::Vec(a) => write!(f, "{}", a.0.join(" ")),
+            Self::Structured { env, command } => {
                 for (k, v) in env {
                     write!(f, "{k}={v} ")?;
                 }
@@ -904,27 +962,28 @@ impl fmt::Display for CommandNameAndArgs {
 }
 
 // Not interested in $UPPER_CASE_VARIABLES
-static VARIABLE_REGEX: once_cell::sync::Lazy<Regex> =
-    once_cell::sync::Lazy::new(|| Regex::new(r"\$([a-z0-9_]+)\b").unwrap());
+static VARIABLE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\$([a-z0-9_]+)\b").unwrap());
 
 pub fn interpolate_variables<V: AsRef<str>>(
     args: &[String],
     variables: &HashMap<&str, V>,
 ) -> Vec<String> {
     args.iter()
-        .map(|arg| {
-            VARIABLE_REGEX
-                .replace_all(arg, |caps: &Captures| {
-                    let name = &caps[1];
-                    if let Some(subst) = variables.get(name) {
-                        subst.as_ref().to_owned()
-                    } else {
-                        caps[0].to_owned()
-                    }
-                })
-                .into_owned()
-        })
+        .map(|arg| interpolate_variables_single(arg, variables))
         .collect()
+}
+
+fn interpolate_variables_single<V: AsRef<str>>(arg: &str, variables: &HashMap<&str, V>) -> String {
+    VARIABLE_REGEX
+        .replace_all(arg, |caps: &Captures| {
+            let name = &caps[1];
+            if let Some(subst) = variables.get(name) {
+                subst.as_ref().to_owned()
+            } else {
+                caps[0].to_owned()
+            }
+        })
+        .into_owned()
 }
 
 /// Return all variable names found in the args, without the dollar sign
@@ -951,7 +1010,7 @@ impl TryFrom<Vec<String>> for NonEmptyCommandArgsVec {
         if args.is_empty() {
             Err("command arguments should not be empty")
         } else {
-            Ok(NonEmptyCommandArgsVec(args))
+            Ok(Self(args))
         }
     }
 }
@@ -1435,15 +1494,15 @@ mod tests {
     }
 
     impl Want {
-        const fn new(path: &'static str) -> Want {
-            Want {
+        const fn new(path: &'static str) -> Self {
+            Self {
                 path,
                 state: WantState::New,
             }
         }
 
-        const fn existing(path: &'static str) -> Want {
-            Want {
+        const fn existing(path: &'static str) -> Self {
+            Self {
                 path,
                 state: WantState::Existing,
             }

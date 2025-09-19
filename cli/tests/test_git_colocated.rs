@@ -103,6 +103,10 @@ fn test_git_colocated_intent_to_add() {
     work_dir.run_jj(["status"]).success();
     insta::assert_snapshot!(get_index_state(work_dir.root()), @"Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 file1.txt");
 
+    // Previously, this would fail due to the empty blob not being written to the
+    // store when marking files as intent-to-add.
+    work_dir.run_jj(["util", "gc"]).success();
+
     // Another new file should be marked as intent-to-add
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file2.txt", "contents");
@@ -962,7 +966,7 @@ fn test_git_colocated_undo_head_move() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: f349e313234e (2001-02-03 08:05:13) new empty commit
+    Restored to operation: 28f10852fc94 (2001-02-03 08:05:12) new empty commit
     Working copy  (@) now at: royxmykx e7d0d5fd (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
@@ -1535,6 +1539,7 @@ fn test_git_colocated_operation_cleanup() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Initialized repo in "repo"
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 

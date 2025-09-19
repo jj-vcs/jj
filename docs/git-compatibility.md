@@ -19,9 +19,9 @@ a comparison with Git, including how workflows are different, see the
   `~/.gitconfig`) that's respected is the following. Feel free to file a bug if
   you miss any particular configuration options.
   * The configuration of remotes (`[remote "<name>"]`). Only the names and URLs
-    are respected (refspecs are not respected, and
-    [only the last pushurl](https://github.com/jj-vcs/jj/issues/4889) is
-    respected).
+    are respected (simple fetch refspecs are respected when branches are not
+    explicitly specified on the CLI, and [only the last
+    pushurl](https://github.com/jj-vcs/jj/issues/4889) is respected).
   * `core.excludesFile`
 * **Authentication: Yes.** `git` is used for remote operations under the hood.
 * **Branches: Yes.** You can read more about
@@ -39,7 +39,7 @@ a comparison with Git, including how workflows are different, see the
 * **.gitattributes: No.** There's [#53](https://github.com/jj-vcs/jj/issues/53)
   about adding support for at least the `eol` attribute.
 * **Hooks: No.** There's [#405](https://github.com/jj-vcs/jj/issues/405)
-  specifically for providing the checks from https://pre-commit.com.
+  specifically for providing the checks from <https://pre-commit.com>.
 * **Merge commits: Yes.** Octopus merges (i.e. with more than 2 parents) are
   also supported.
 * **Detached HEAD: Yes.** Jujutsu supports anonymous branches, so this is a
@@ -49,7 +49,7 @@ a comparison with Git, including how workflows are different, see the
 * **Staging area: Kind of.** The staging area will be ignored. For example,
   `jj diff` will show a diff from the Git HEAD to the working copy. There are
   [ways of fulfilling your use cases without a staging
-  area](https://github.com/jj-vcs/jj/blob/main/docs/git-comparison.md#the-index).
+  area](git-comparison.md#the-index).
 * **Garbage collection: Yes.** It should be safe to run `git gc` in the Git
   repo, but it's not tested, so it's probably a good idea to make a backup of
   the whole workspace first. There's [no garbage collection and repacking of
@@ -59,8 +59,7 @@ a comparison with Git, including how workflows are different, see the
   create a repo backed by a bare Git repo.
 * **Submodules: No.** They will not show up in the working copy, but they will
   not be lost either.
-* **Partial clones: No.** We use the [libgit2](https://libgit2.org/) library,
-  which [doesn't have support for partial clones](https://github.com/libgit2/libgit2/issues/5564).
+* **Partial clones: No.**
 * **Shallow clones: Kind of.** Shallow commits all have the virtual root commit as
   their parent. However, deepening or fully unshallowing a repository is currently not yet
   supported and will cause issues.
@@ -69,7 +68,7 @@ a comparison with Git, including how workflows are different, see the
 * **Sparse checkouts: No.** However, there's native support for sparse
   checkouts. See the `jj sparse` command.
 * **Signed commits: Yes.**
-  You can sign commits automatically [by configuration](https://github.com/jj-vcs/jj/blob/main/docs/config.md#commit-signing),
+  You can sign commits automatically [by configuration](config.md#commit-signing),
   or use the `jj sign` command.
 * **Git LFS: No.** ([#80](https://github.com/jj-vcs/jj/issues/80))
 
@@ -103,13 +102,12 @@ By default, the remote repository will be named `origin`. You can use
 a name of your choice by adding `--remote <remote name>` to the `jj
 git clone` command.
 
-## Co-located Jujutsu/Git repos
+## <a name="co-located-jujutsugit-repos"></a>Colocated Jujutsu/Git repos
 
-A "co-located" Jujutsu repo is a hybrid Jujutsu/Git repo. These can be created
-if you initialize the Jujutsu repo in an existing Git repo by running `jj git
-init --colocate` or with `jj git clone --colocate`. The Git repo and the Jujutsu
-repo then share the same working copy. Jujutsu will import and export from and
-to the Git repo on every `jj` command automatically.
+A colocated Jujutsu repo is a hybrid Jujutsu/Git repo. This is the default
+for Git-backed repositories created with `jj git init` or `jj git clone`.
+The Git repo and the Jujutsu repo then share the same working copy. Jujutsu will
+import and export from and to the Git repo on every `jj` command automatically.
 
 This mode is very convenient when tools (e.g. build tools) expect a Git repo to
 be present.
@@ -126,8 +124,11 @@ You can undo the results of mutating `git` commands using `jj undo` and `jj op
 restore`. Inside `jj op log`, changes by `git` will be represented as an "import
 git refs" operation.
 
-There are a few downsides to this mode of operation. Generally, using co-located
+There are a few downsides to this mode of operation. Generally, using colocated
 repos may require you to deal with more involved Jujutsu and Git concepts.
+You can disable colocation with the `--no-colocate` flag on the commands
+`jj git init` and `jj git clone` or by setting the configuration
+`git.colocate = false`.
 
 * Interleaving `jj` and `git` commands increases the chance of confusing branch
   conflicts or [conflicted (AKA divergent) change
@@ -138,7 +139,7 @@ repos may require you to deal with more involved Jujutsu and Git concepts.
   it because they automatically run `git fetch` in the background from time to
   time.
 
-* In co-located repos with a very large number of branches or other refs, `jj`
+* In colocated repos with a very large number of branches or other refs, `jj`
   commands can get noticeably slower because of the automatic `jj git import`
   executed on each command. This can be mitigated by occasionally running `jj util
   gc` to speed up the import (that command includes packing the Git refs).
@@ -168,24 +169,32 @@ repos may require you to deal with more involved Jujutsu and Git concepts.
   report any new ones you find, or if any of the known bugs are less minor than
   they appear.
 
-### Converting a repo into a co-located repo
+### Converting a repo into a colocated repo
 
 A Jujutsu repo backed by a Git repo has a full Git repo inside, so it is
 technically possible (though not officially supported) to convert it into a
-co-located repo like so:
+colocated repo like so:
 
 ```bash
 # Ignore the .jj directory in Git
 echo '/*' > .jj/.gitignore
 # Move the Git repo
 mv .jj/repo/store/git .git
-# Tell jj where to find it
+# Tell jj where to find it (do not use on Windows! See below.)
 echo -n '../../../.git' > .jj/repo/store/git_target
 # Make the Git repository non-bare and set HEAD
 git config --unset core.bare
 # Convince jj to update .git/HEAD to point to the working-copy commit's parent
 jj new && jj undo
 ```
+
+!!! warning
+
+    On Windows, the `echo` command will append line endings and cause `jj`
+    to complain about the contents of `git_target`.
+
+    Instead of the `echo -n ...` line, use:
+    `Set-Content -Path .jj/repo/store/git_target -Value ../../../.git -NoNewLine`
 
 We may officially support this in the future. If you try this, we would
 appreciate feedback and bug reports.

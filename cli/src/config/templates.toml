@@ -39,13 +39,19 @@ duplicate_description = 'description'
 
 commit_trailers = ''
 
+evolog = 'builtin_evolog_compact'
+
 file_list = '''
 path.display() ++ "\n"
 '''
+file_show = ''
+
+git_push_bookmark = '"push-" ++ change_id.short()'
 
 log = 'builtin_log_compact'
-op_log = 'builtin_op_log_compact'
 show = 'builtin_log_detailed'
+op_log = 'builtin_op_log_compact'
+op_show = 'builtin_op_log_compact'
 
 revert_description = '''
 concat(
@@ -59,6 +65,10 @@ tag_list = '''
 label("tag", name) ++ format_ref_targets(self) ++ "\n"
 '''
 
+workspace_list = '''
+name ++ ": " ++ format_commit_summary_with_refs(target, target.bookmarks()) ++ "\n"
+'''
+
 op_summary = '''
 separate(" ",
   self.id().short(),
@@ -70,7 +80,30 @@ separate(" ",
 )
 '''
 
+log_node = '''
+if(
+  config("ui.graph.style").as_string().starts_with("ascii"),
+  builtin_log_node_ascii,
+  builtin_log_node
+)
+'''
+
+op_log_node = '''
+if(
+  config("ui.graph.style").as_string().starts_with("ascii"),
+  builtin_op_log_node_ascii,
+  builtin_op_log_node
+)
+'''
+
 [template-aliases]
+'hyperlink(url, text)' = '''
+concat(
+  raw_escape_sequence("\e]8;;" ++ url ++ "\e\\"),
+  text,
+  raw_escape_sequence("\e]8;;\e\\"),
+)
+'''
 
 'format_config_item(x)' = '''
 if(x.overridden(),
@@ -92,34 +125,56 @@ label(if(overridden, "overridden"),
 builtin_draft_commit_description = '''
 concat(
   coalesce(description, default_commit_description, "\n"),
+  "\n",
+  "JJ: Change ID: " ++ format_short_change_id(change_id) ++ "\n",
   surround(
-    "\nJJ: This commit contains the following changes:\n", "",
+    "JJ: This commit contains the following changes:\n", "",
     indent("JJ:     ", diff.summary()),
   ),
 )
 '''
 
-builtin_log_oneline = '''
-if(root,
-  format_root_commit(self),
-  label(if(current_working_copy, "working_copy"),
+builtin_evolog_compact = '''
+concat(
+  builtin_log_compact(commit),
+  if(operation,
+    separate(" ",
+      label("separator", "--"),
+      "operation",
+      operation.id().short(),
+      operation.description().first_line(),
+    ) ++ "\n",
+  ),
+)
+'''
+
+builtin_log_oneline = 'builtin_log_oneline(self)'
+'builtin_log_oneline(commit)' = '''
+if(commit.root(),
+  format_root_commit(commit),
+  label(
+    separate(" ",
+      if(commit.current_working_copy(), "working_copy"),
+      if(commit.immutable(), "immutable", "mutable"),
+      if(commit.conflict(), "conflicted"),
+    ),
     concat(
       separate(" ",
-        format_short_change_id_with_hidden_and_divergent_info(self),
-        format_short_signature_oneline(author),
-        format_timestamp(commit_timestamp(self)),
-        bookmarks,
-        tags,
-        working_copies,
-        if(git_head, label("git_head", "git_head()")),
-        format_short_commit_id(commit_id),
-        if(conflict, label("conflict", "conflict")),
+        format_short_change_id_with_hidden_and_divergent_info(commit),
+        format_short_signature_oneline(commit.author()),
+        format_timestamp(commit_timestamp(commit)),
+        commit.bookmarks(),
+        commit.tags(),
+        commit.working_copies(),
+        if(commit.git_head(), label("git_head", "git_head()")),
+        format_short_commit_id(commit.commit_id()),
+        if(commit.conflict(), label("conflict", "conflict")),
         if(config("ui.show-cryptographic-signatures").as_boolean(),
-          format_short_cryptographic_signature(signature)),
-        if(empty, label("empty", "(empty)")),
-        if(description,
-          description.first_line(),
-          label(if(empty, "empty"), description_placeholder),
+          format_short_cryptographic_signature(commit.signature())),
+        if(commit.empty(), label("empty", "(empty)")),
+        if(commit.description(),
+          commit.description().first_line(),
+          label(if(commit.empty(), "empty"), description_placeholder),
         ),
       ) ++ "\n",
     ),
@@ -127,17 +182,23 @@ if(root,
 )
 '''
 
-builtin_log_compact = '''
-if(root,
-  format_root_commit(self),
-  label(if(current_working_copy, "working_copy"),
+builtin_log_compact = 'builtin_log_compact(self)'
+'builtin_log_compact(commit)' = '''
+if(commit.root(),
+  format_root_commit(commit),
+  label(
+    separate(" ",
+      if(commit.current_working_copy(), "working_copy"),
+      if(commit.immutable(), "immutable", "mutable"),
+      if(commit.conflict(), "conflicted"),
+    ),
     concat(
-      format_short_commit_header(self) ++ "\n",
+      format_short_commit_header(commit) ++ "\n",
       separate(" ",
-        if(empty, label("empty", "(empty)")),
-        if(description,
-          description.first_line(),
-          label(if(empty, "empty"), description_placeholder),
+        if(commit.empty(), label("empty", "(empty)")),
+        if(commit.description(),
+          commit.description().first_line(),
+          label(if(commit.empty(), "empty"), description_placeholder),
         ),
       ) ++ "\n",
     ),
@@ -145,17 +206,44 @@ if(root,
 )
 '''
 
-builtin_log_compact_full_description = '''
-if(root,
-  format_root_commit(self),
-  label(if(current_working_copy, "working_copy"),
+builtin_log_redacted = 'builtin_log_redacted(self)'
+'builtin_log_redacted(commit)' = '''
+if(commit.root(),
+  format_root_commit(commit),
+  label(
+    separate(" ",
+      if(commit.current_working_copy(), "working_copy"),
+      if(commit.immutable(), "immutable", "mutable"),
+      if(commit.conflict(), "conflicted"),
+    ),
     concat(
-      format_short_commit_header(self) ++ "\n",
+      format_short_commit_header_redacted(commit) ++ "\n",
       separate(" ",
-        if(empty, label("empty", "(empty)")),
-        if(description,
-          description,
-          label(if(empty, "empty"), description_placeholder),
+        if(commit.empty(), label("empty", "(empty)")),
+        label("description", "(redacted)"),
+      ) ++ "\n",
+    ),
+  )
+)
+'''
+
+builtin_log_compact_full_description = 'builtin_log_compact_full_description(self)'
+'builtin_log_compact_full_description(commit)' = '''
+if(commit.root(),
+  format_root_commit(commit),
+  label(
+    separate(" ",
+      if(commit.current_working_copy(), "working_copy"),
+      if(commit.immutable(), "immutable", "mutable"),
+      if(commit.conflict(), "conflicted"),
+    ),
+    concat(
+      format_short_commit_header(commit) ++ "\n",
+      separate(" ",
+        if(commit.empty(), label("empty", "(empty)")),
+        if(commit.description(),
+          commit.description().trim_end() ++ "\n",
+          label(if(commit.empty(), "empty"), description_placeholder),
         ),
       ) ++ "\n",
     ),
@@ -164,39 +252,55 @@ if(root,
 '''
 
 builtin_log_comfortable = 'builtin_log_compact ++ "\n"'
-builtin_log_detailed = '''
+builtin_log_detailed = 'builtin_log_detailed(self)'
+'builtin_log_detailed(commit)' = '''
 concat(
-  "Commit ID: " ++ commit_id ++ "\n",
-  "Change ID: " ++ change_id ++ "\n",
-  surround("Bookmarks: ", "\n", separate(" ", local_bookmarks, remote_bookmarks)),
-  surround("Tags     : ", "\n", tags),
-  "Author   : " ++ format_detailed_signature(author) ++ "\n",
-  "Committer: " ++ format_detailed_signature(committer)  ++ "\n",
+  "Commit ID: " ++ commit.commit_id() ++ "\n",
+  "Change ID: " ++ commit.change_id() ++ "\n",
+  surround("Bookmarks: ", "\n", separate(" ", commit.local_bookmarks(), commit.remote_bookmarks())),
+  surround("Tags     : ", "\n", commit.tags()),
+  "Author   : " ++ format_detailed_signature(commit.author()) ++ "\n",
+  "Committer: " ++ format_detailed_signature(commit.committer())  ++ "\n",
   if(config("ui.show-cryptographic-signatures").as_boolean(),
-    "Signature: " ++ format_detailed_cryptographic_signature(signature) ++ "\n"),
+    "Signature: " ++ format_detailed_cryptographic_signature(commit.signature()) ++ "\n"),
   "\n",
   indent("    ",
-    coalesce(description, label(if(empty, "empty"), description_placeholder) ++ "\n")),
+    if(commit.description(),
+      commit.description().trim_end(),
+      label(if(commit.empty(), "empty"), description_placeholder)) ++ "\n"),
   "\n",
 )
 '''
 
-builtin_op_log_compact = '''
-label(if(current_operation, "current_operation"),
+builtin_op_log_compact = 'builtin_op_log_compact(self)'
+'builtin_op_log_compact(op)' = '''
+label(if(op.current_operation(), "current_operation"),
   coalesce(
-    if(snapshot, format_snapshot_operation(self)),
-    if(root, format_root_operation(self)),
-    format_operation(self),
+    if(op.snapshot(), format_snapshot_operation(op)),
+    if(op.root(), format_root_operation(op)),
+    format_operation(op),
   )
 )
 '''
+
 builtin_op_log_comfortable = 'builtin_op_log_compact ++ "\n"'
-builtin_op_log_oneline = '''
+builtin_op_log_oneline = 'builtin_op_log_oneline(self)'
+'builtin_op_log_oneline(op)' = '''
 label(if(current_operation, "current_operation"),
   coalesce(
-    if(snapshot, format_snapshot_operation_oneline(self)),
-    if(root, format_root_operation(self)),
-    format_operation_oneline(self),
+    if(op.snapshot(), format_snapshot_operation_oneline(op)),
+    if(op.root(), format_root_operation(op)),
+    format_operation_oneline(op),
+  )
+)
+'''
+builtin_op_log_redacted = 'builtin_op_log_redacted(self)'
+'builtin_op_log_redacted(op)' = '''
+label(if(op.current_operation(), "current_operation"),
+  coalesce(
+    if(op.snapshot(), format_snapshot_operation_redacted(op)),
+    if(op.root(), format_root_operation(op)),
+    format_operation_redacted(op),
   )
 )
 '''
@@ -251,12 +355,14 @@ label(if(commit.current_working_copy(), "working_copy"),
 '''
 
 'format_root_commit(root)' = '''
-separate(" ",
-  format_short_change_id(root.change_id()),
-  label("root", "root()"),
-  format_short_commit_id(root.commit_id()),
-  root.bookmarks(),
-) ++ "\n"
+label("immutable",
+  separate(" ",
+    format_short_change_id(root.change_id()),
+    label("root", "root()"),
+    format_short_commit_id(root.commit_id()),
+    root.bookmarks(),
+  ) ++ "\n"
+)
 '''
 
 'format_ref_targets(ref)' = '''
@@ -290,7 +396,15 @@ concat(
   if(op.tags(), op.tags() ++ "\n"),
 )
 '''
+'format_operation_redacted(op)' = '''
+concat(
+  separate(" ", format_short_operation_id(op.id()), format_user_redacted(op.user()), format_time_range(op.time())), "\n",
+  op.description().first_line(), "\n",
+  "(redacted)",
+)
+'''
 'format_snapshot_operation(op)' = 'format_operation(op)'
+'format_snapshot_operation_redacted(op)' = 'format_operation_redacted(op)'
 'format_root_operation(root)' = 'separate(" ", root.id().short(), label("root", "root()")) ++ "\n"'
 
 
@@ -333,6 +447,22 @@ separate(" ",
 )
 '''
 
+'format_short_commit_header_redacted(commit)' = '''
+separate(" ",
+  format_short_change_id_with_hidden_and_divergent_info(commit),
+  label("author", format_user_redacted(commit.author())),
+  format_timestamp(commit_timestamp(commit)),
+  commit.bookmarks().map(|bookmark| concat("bookmark-", hash(bookmark.name()).substr(0, 4))),
+  commit.tags().map(|tag| concat("tag-", hash(tag.name()).substr(0, 4))),
+  commit.working_copies(),
+  if(commit.git_head(), label("git_head", "git_head()")),
+  format_short_commit_id(commit.commit_id()),
+  if(commit.conflict(), label("conflict", "conflict")),
+  if(config("ui.show-cryptographic-signatures").as_boolean(),
+    format_short_cryptographic_signature(commit.signature())),
+)
+''' # TODO: Possibly add some kind of repo-unique salt to the hash methods, if it makes users feel more secure (right now, `main` will always be `branch-c8c7a` for every repo)
+
 'format_detailed_cryptographic_signature(signature)' = '''
 if(signature,
   separate(" ",
@@ -358,14 +488,16 @@ if(signature,
 )
 '''
 
+'format_user_redacted(user)' = '''label("user", concat('user-', hash(user).substr(0, 4)))'''
+
 builtin_log_node = '''
 coalesce(
   if(!self, label("elided", "~")),
   label(
     separate(" ",
       if(current_working_copy, "working_copy"),
-      if(immutable, "immutable"),
-      if(conflict, "conflict"),
+      if(immutable, "immutable", "mutable"),
+      if(conflict, "conflicted"),
     ),
     coalesce(
       if(current_working_copy, "@"),
@@ -383,8 +515,8 @@ coalesce(
   label(
     separate(" ",
       if(current_working_copy, "working_copy"),
-      if(immutable, "immutable"),
-      if(conflict, "conflict"),
+      if(immutable, "immutable", "mutable"),
+      if(conflict, "conflicted"),
     ),
     coalesce(
       if(current_working_copy, "@"),
@@ -432,4 +564,4 @@ git_format_patch_email_headers = '''
 
 # Gerrit change id is 40 chars, jj change id is 32, so we need some padding.
 # `6a6a6964` is the hexadecimal of `jjid` in ASCII, just to not pad with zeros.
-"format_gerrit_change_id_trailer(commit)" = '"Change-Id: I6a6a6964" ++ commit.change_id().normal_hex() ++ "\n"'
+"format_gerrit_change_id_trailer(commit)" = '"Change-Id: I" ++ commit.change_id().normal_hex() ++ "6a6a6964\n"'

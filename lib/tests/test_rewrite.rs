@@ -28,27 +28,31 @@ use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
-use jj_lib::rewrite::find_duplicate_divergent_commits;
-use jj_lib::rewrite::rebase_commit_with_options;
-use jj_lib::rewrite::restore_tree;
 use jj_lib::rewrite::CommitRewriter;
 use jj_lib::rewrite::CommitWithSelection;
-use jj_lib::rewrite::EmptyBehaviour;
+use jj_lib::rewrite::EmptyBehavior;
 use jj_lib::rewrite::MoveCommitsTarget;
 use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RewriteRefsOptions;
+use jj_lib::rewrite::find_duplicate_divergent_commits;
+use jj_lib::rewrite::find_recursive_merge_commits;
+use jj_lib::rewrite::merge_commit_trees;
+use jj_lib::rewrite::rebase_commit_with_options;
+use jj_lib::rewrite::restore_tree;
 use maplit::hashmap;
 use maplit::hashset;
+use pollster::FutureExt as _;
 use test_case::test_case;
+use testutils::TestRepo;
 use testutils::assert_abandoned_with_parent;
 use testutils::assert_rebased_onto;
 use testutils::create_random_commit;
 use testutils::create_tree;
+use testutils::create_tree_with;
 use testutils::rebase_descendants_with_options_return_map;
 use testutils::repo_path;
 use testutils::write_random_commit;
-use testutils::CommitGraphBuilder;
-use testutils::TestRepo;
+use testutils::write_random_commit_with_parents;
 
 fn remote_symbol<'a, N, M>(name: &'a N, remote: &'a M) -> RemoteRefSymbol<'a>
 where
@@ -59,6 +63,84 @@ where
         name: name.as_ref(),
         remote: remote.as_ref(),
     }
+}
+
+/// Based on https://lore.kernel.org/git/Pine.LNX.4.44.0504271254120.4678-100000@wax.eds.org/
+/// (found in t/t6401-merge-criss-cross.sh in the git.git repo).
+#[test]
+fn test_merge_criss_cross() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let path = repo_path("file");
+    let tree_a = create_tree(repo, &[(path, "1\n2\n3\n4\n5\n6\n7\n8\n9\n")]);
+    let tree_b = create_tree(repo, &[(path, "1\n2\n3\n4\n5\n6\n7\n8B\n9\n")]);
+    let tree_c = create_tree(repo, &[(path, "1\n2\n3C\n4\n5\n6\n7\n8\n9\n")]);
+    let tree_d = create_tree(repo, &[(path, "1\n2\n3C\n4\n5\n6\n7\n8D\n9\n")]);
+    let tree_e = create_tree(repo, &[(path, "1\n2\n3E\n4\n5\n6\n7\n8B\n9\n")]);
+    let tree_expected = create_tree(repo, &[(path, "1\n2\n3E\n4\n5\n6\n7\n8D\n9\n")]);
+
+    let mut tx = repo.start_transaction();
+    let mut make_commit = |description, parents, tree_id| {
+        tx.repo_mut()
+            .new_commit(parents, tree_id)
+            .set_description(description)
+            .write()
+            .unwrap()
+    };
+    let commit_a = make_commit(
+        "A",
+        vec![repo.store().root_commit_id().clone()],
+        tree_a.id(),
+    );
+    let commit_b = make_commit("B", vec![commit_a.id().clone()], tree_b.id());
+    let commit_c = make_commit("C", vec![commit_a.id().clone()], tree_c.id());
+    let commit_d = make_commit(
+        "D",
+        vec![commit_b.id().clone(), commit_c.id().clone()],
+        tree_d.id(),
+    );
+    let commit_e = make_commit(
+        "E",
+        vec![commit_b.id().clone(), commit_c.id().clone()],
+        tree_e.id(),
+    );
+    let merged = merge_commit_trees(tx.repo_mut(), &[commit_d, commit_e])
+        .block_on()
+        .unwrap();
+
+    assert_eq!(merged, tree_expected);
+}
+
+#[test]
+fn test_find_recursive_merge_commits() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
+
+    let commit_id_merge = find_recursive_merge_commits(
+        tx.repo().store(),
+        tx.repo().index(),
+        vec![commit_d.id().clone(), commit_e.id().clone()],
+    )
+    .unwrap();
+
+    assert_eq!(
+        commit_id_merge,
+        Merge::from_vec(vec![
+            commit_d.id().clone(),
+            commit_b.id().clone(),
+            commit_a.id().clone(),
+            commit_c.id().clone(),
+            commit_e.id().clone(),
+        ])
+    );
 }
 
 #[test]
@@ -77,7 +159,9 @@ fn test_restore_tree() {
     );
 
     // Restore everything using EverythingMatcher
-    let restored = restore_tree(&left, &right, &EverythingMatcher).unwrap();
+    let restored = restore_tree(&left, &right, &EverythingMatcher)
+        .block_on()
+        .unwrap();
     assert_eq!(restored, left.id());
 
     // Restore everything using FilesMatcher
@@ -86,11 +170,14 @@ fn test_restore_tree() {
         &right,
         &FilesMatcher::new([&path1, &path2, &path3, &path4]),
     )
+    .block_on()
     .unwrap();
     assert_eq!(restored, left.id());
 
     // Restore some files
-    let restored = restore_tree(&left, &right, &FilesMatcher::new([path1, path2])).unwrap();
+    let restored = restore_tree(&left, &right, &FilesMatcher::new([path1, path2]))
+        .block_on()
+        .unwrap();
     let expected = create_tree(repo, &[(path2, "left"), (path3, "right")]);
     assert_eq!(restored, expected.id());
 }
@@ -110,13 +197,12 @@ fn test_rebase_descendants_sideways() {
     // |/
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_c]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_a]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_c]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
 
     tx.repo_mut()
         .set_rewritten_commit(commit_b.id().clone(), commit_f.id().clone());
@@ -160,14 +246,13 @@ fn test_rebase_descendants_forward() {
     // B
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_d]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_d]);
-    let commit_g = graph_builder.commit_with_parents(&[&commit_f]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d]);
+    let commit_g = write_random_commit_with_parents(tx.repo_mut(), &[&commit_f]);
 
     tx.repo_mut()
         .set_rewritten_commit(commit_b.id().clone(), commit_f.id().clone());
@@ -212,16 +297,15 @@ fn test_rebase_descendants_reorder() {
     // B
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_c]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_d]);
-    let commit_g = graph_builder.commit_with_parents(&[&commit_e]);
-    let commit_h = graph_builder.commit_with_parents(&[&commit_f]);
-    let commit_i = graph_builder.commit_with_parents(&[&commit_g]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_c]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d]);
+    let commit_g = write_random_commit_with_parents(tx.repo_mut(), &[&commit_e]);
+    let commit_h = write_random_commit_with_parents(tx.repo_mut(), &[&commit_f]);
+    let commit_i = write_random_commit_with_parents(tx.repo_mut(), &[&commit_g]);
 
     tx.repo_mut()
         .set_rewritten_commit(commit_e.id().clone(), commit_d.id().clone());
@@ -254,11 +338,10 @@ fn test_rebase_descendants_backward() {
     // B
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_c]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_c]);
 
     tx.repo_mut()
         .set_rewritten_commit(commit_c.id().clone(), commit_b.id().clone());
@@ -289,13 +372,12 @@ fn test_rebase_descendants_chain_becomes_branchy() {
     // |/
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_c]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_b]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_c]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
 
     tx.repo_mut()
         .set_rewritten_commit(commit_b.id().clone(), commit_e.id().clone());
@@ -332,13 +414,12 @@ fn test_rebase_descendants_internal_merge() {
     // |/
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_c, &commit_d]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_a]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_c, &commit_d]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
 
     tx.repo_mut()
         .set_rewritten_commit(commit_b.id().clone(), commit_f.id().clone());
@@ -377,13 +458,12 @@ fn test_rebase_descendants_external_merge() {
     // |/
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_c, &commit_d]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_a]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_c, &commit_d]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
 
     tx.repo_mut()
         .set_rewritten_commit(commit_c.id().clone(), commit_f.id().clone());
@@ -418,13 +498,12 @@ fn test_rebase_descendants_abandon() {
     // B
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_d]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_e]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_e]);
 
     tx.repo_mut().record_abandoned_commit(&commit_b);
     tx.repo_mut().record_abandoned_commit(&commit_e);
@@ -456,10 +535,9 @@ fn test_rebase_descendants_abandon_no_descendants() {
     // B
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
 
     tx.repo_mut().record_abandoned_commit(&commit_b);
     tx.repo_mut().record_abandoned_commit(&commit_c);
@@ -489,12 +567,11 @@ fn test_rebase_descendants_abandon_and_replace() {
     // |/
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_c]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_a]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_c]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
 
     tx.repo_mut()
         .set_rewritten_commit(commit_b.id().clone(), commit_e.id().clone());
@@ -524,11 +601,10 @@ fn test_rebase_descendants_abandon_degenerate_merge_simplify() {
     // |/
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_b, &commit_c]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
 
     tx.repo_mut().record_abandoned_commit(&commit_b);
     let rebase_map = rebase_descendants_with_options_return_map(
@@ -561,11 +637,10 @@ fn test_rebase_descendants_abandon_degenerate_merge_preserve() {
     // |/
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_b, &commit_c]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
 
     tx.repo_mut().record_abandoned_commit(&commit_b);
     let rebase_map = rebase_descendants_with_options_return_map(
@@ -605,13 +680,12 @@ fn test_rebase_descendants_abandon_widen_merge() {
     //  \|/
     //   A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_b, &commit_c]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_e, &commit_d]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_e, &commit_d]);
 
     tx.repo_mut().record_abandoned_commit(&commit_e);
     let rebase_map =
@@ -644,13 +718,12 @@ fn test_rebase_descendants_multiple_sideways() {
     // |/
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_d]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_a]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
 
     tx.repo_mut()
         .set_rewritten_commit(commit_b.id().clone(), commit_f.id().clone());
@@ -685,12 +758,11 @@ fn test_rebase_descendants_multiple_swap() {
     // |/
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let _commit_c = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_a]);
-    let _commit_e = graph_builder.commit_with_parents(&[&commit_d]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let _commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let _commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d]);
 
     tx.repo_mut()
         .set_rewritten_commit(commit_b.id().clone(), commit_d.id().clone());
@@ -711,10 +783,9 @@ fn test_rebase_descendants_multiple_no_descendants() {
     // |/
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_a]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
 
     tx.repo_mut()
         .set_rewritten_commit(commit_b.id().clone(), commit_c.id().clone());
@@ -749,18 +820,17 @@ fn test_rebase_descendants_divergent_rewrite() {
     // |/
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
-    let commit_d = graph_builder.commit_with_parents(&[&commit_c]);
-    let commit_e = graph_builder.commit_with_parents(&[&commit_d]);
-    let commit_f = graph_builder.commit_with_parents(&[&commit_e]);
-    let commit_g = graph_builder.commit_with_parents(&[&commit_f]);
-    let commit_b2 = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_d2 = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_d3 = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_f2 = graph_builder.commit_with_parents(&[&commit_a]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_c]);
+    let commit_e = write_random_commit_with_parents(tx.repo_mut(), &[&commit_d]);
+    let commit_f = write_random_commit_with_parents(tx.repo_mut(), &[&commit_e]);
+    let commit_g = write_random_commit_with_parents(tx.repo_mut(), &[&commit_f]);
+    let commit_b2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_d2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_d3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_f2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
 
     tx.repo_mut()
         .set_rewritten_commit(commit_b.id().clone(), commit_b2.id().clone());
@@ -808,10 +878,9 @@ fn test_rebase_descendants_repeated() {
     // |/
     // A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
 
     let commit_b2 = tx
         .repo_mut()
@@ -940,9 +1009,8 @@ fn test_rebase_descendants_basic_bookmark_update() {
     // |         =>   |
     // A              A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     tx.repo_mut()
         .set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_b.id().clone()));
     let repo = tx.commit("test").unwrap();
@@ -974,10 +1042,9 @@ fn test_rebase_descendants_bookmark_move_two_steps() {
     // |/             |
     // A              A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
     tx.repo_mut()
         .set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_c.id().clone()));
     let repo = tx.commit("test").unwrap();
@@ -1022,9 +1089,8 @@ fn test_rebase_descendants_basic_bookmark_update_with_non_local_bookmark() {
     // |                         =>   |/
     // A                              A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     let commit_b_remote_ref = RemoteRef {
         target: RefTarget::normal(commit_b.id().clone()),
         state: RemoteRefState::Tracked,
@@ -1075,10 +1141,9 @@ fn test_rebase_descendants_update_bookmark_after_abandon(delete_abandoned_bookma
     // |                    =>   |
     // A                         A main (if delete_abandoned_bookmarks = false)
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
     let commit_b_remote_ref = RemoteRef {
         target: RefTarget::normal(commit_b.id().clone()),
         state: RemoteRefState::Tracked,
@@ -1142,10 +1207,9 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
     // |         =>   |/           =>   |/
     // A              A                 A
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_b]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
     tx.repo_mut()
         .set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_b.id().clone()));
     tx.repo_mut()
@@ -1232,10 +1296,9 @@ fn test_rebase_descendants_rewrite_updates_bookmark_conflict() {
     // A gets rewritten as A2 and A3. B gets rewritten as B2 and B2. The bookmark
     // should become a conflict removing A and B, and adding B2, B3, C.
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.initial_commit();
-    let commit_c = graph_builder.initial_commit();
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit(tx.repo_mut());
+    let commit_c = write_random_commit(tx.repo_mut());
     tx.repo_mut().set_local_bookmark_target(
         "main".as_ref(),
         RefTarget::from_legacy_form(
@@ -1312,10 +1375,9 @@ fn test_rebase_descendants_rewrite_resolves_bookmark_conflict() {
     // is a descendant of A, and B2 is a descendant of C, the conflict gets
     // resolved to B2.
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_a]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     tx.repo_mut().set_local_bookmark_target(
         "main".as_ref(),
         RefTarget::from_legacy_form(
@@ -1361,9 +1423,8 @@ fn test_rebase_descendants_bookmark_delete_modify_abandon(delete_abandoned_bookm
     //
     // In both cases, the bookmark should be deleted.
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     tx.repo_mut().set_local_bookmark_target(
         "main".as_ref(),
         RefTarget::from_legacy_form([commit_a.id().clone()], [commit_b.id().clone()]),
@@ -1400,10 +1461,9 @@ fn test_rebase_descendants_bookmark_move_forward_abandon(delete_abandoned_bookma
     // - If delete_abandoned_bookmarks = true, that should result in the bookmark
     //   pointing to "0-A+C".
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.commit_with_parents(&[&commit_a]);
-    let commit_c = graph_builder.commit_with_parents(&[&commit_a]);
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     tx.repo_mut().set_local_bookmark_target(
         "main".as_ref(),
         RefTarget::from_merge(Merge::from_vec(vec![
@@ -1452,10 +1512,9 @@ fn test_rebase_descendants_bookmark_move_sideways_abandon(delete_abandoned_bookm
     // - If delete_abandoned_bookmarks = true, that should result in the bookmark
     //   pointing to "0-A+C".
     let mut tx = repo.start_transaction();
-    let mut graph_builder = CommitGraphBuilder::new(tx.repo_mut());
-    let commit_a = graph_builder.initial_commit();
-    let commit_b = graph_builder.initial_commit();
-    let commit_c = graph_builder.initial_commit();
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit(tx.repo_mut());
+    let commit_c = write_random_commit(tx.repo_mut());
     tx.repo_mut().set_local_bookmark_target(
         "main".as_ref(),
         RefTarget::from_merge(Merge::from_vec(vec![
@@ -1506,10 +1565,7 @@ fn test_rebase_descendants_update_checkout() {
     // A
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
-    let commit_b = create_random_commit(tx.repo_mut())
-        .set_parents(vec![commit_a.id().clone()])
-        .write()
-        .unwrap();
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     let ws1_name = WorkspaceNameBuf::from("ws1");
     let ws2_name = WorkspaceNameBuf::from("ws2");
     let ws3_name = WorkspaceNameBuf::from("ws3");
@@ -1554,10 +1610,7 @@ fn test_rebase_descendants_update_checkout_abandoned() {
     // A
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
-    let commit_b = create_random_commit(tx.repo_mut())
-        .set_parents(vec![commit_a.id().clone()])
-        .write()
-        .unwrap();
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     let ws1_name = WorkspaceNameBuf::from("ws1");
     let ws2_name = WorkspaceNameBuf::from("ws2");
     let ws3_name = WorkspaceNameBuf::from("ws3");
@@ -1606,18 +1659,9 @@ fn test_rebase_descendants_update_checkout_abandoned_merge() {
     // A
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
-    let commit_b = create_random_commit(tx.repo_mut())
-        .set_parents(vec![commit_a.id().clone()])
-        .write()
-        .unwrap();
-    let commit_c = create_random_commit(tx.repo_mut())
-        .set_parents(vec![commit_a.id().clone()])
-        .write()
-        .unwrap();
-    let commit_d = create_random_commit(tx.repo_mut())
-        .set_parents(vec![commit_b.id().clone(), commit_c.id().clone()])
-        .write()
-        .unwrap();
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b, &commit_c]);
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     tx.repo_mut()
         .set_wc_commit(ws_name.clone(), commit_d.id().clone())
@@ -1637,10 +1681,10 @@ fn test_rebase_descendants_update_checkout_abandoned_merge() {
     );
 }
 
-#[test_case(EmptyBehaviour::Keep; "keep all commits")]
-#[test_case(EmptyBehaviour::AbandonNewlyEmpty; "abandon newly empty commits")]
-#[test_case(EmptyBehaviour::AbandonAllEmpty ; "abandon all empty commits")]
-fn test_empty_commit_option(empty_behavior: EmptyBehaviour) {
+#[test_case(EmptyBehavior::Keep; "keep all commits")]
+#[test_case(EmptyBehavior::AbandonNewlyEmpty; "abandon newly empty commits")]
+#[test_case(EmptyBehavior::AbandonAllEmpty ; "abandon all empty commits")]
+fn test_empty_commit_option(empty_behavior: EmptyBehavior) {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -1661,8 +1705,11 @@ fn test_empty_commit_option(empty_behavior: EmptyBehaviour) {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let create_fixed_tree = |paths: &[&str]| {
-        let content_map = paths.iter().map(|&p| (repo_path(p), p)).collect_vec();
-        create_tree(repo, &content_map)
+        create_tree_with(repo, |builder| {
+            for path in paths {
+                builder.file(repo_path(path), path);
+            }
+        })
     };
 
     // The commit_with_parents function generates non-empty merge commits, so it
@@ -1673,7 +1720,7 @@ fn test_empty_commit_option(empty_behavior: EmptyBehaviour) {
     let tree_f = create_fixed_tree(&["B", "C", "D"]);
     let tree_g = create_fixed_tree(&["B", "C", "D", "G"]);
 
-    let commit_a = create_random_commit(mut_repo).write().unwrap();
+    let commit_a = write_random_commit(mut_repo);
 
     let mut create_commit = |parents: &[&Commit], tree: &MergedTree| {
         create_random_commit(mut_repo)
@@ -1710,7 +1757,7 @@ fn test_empty_commit_option(empty_behavior: EmptyBehaviour) {
     );
 
     let new_head = match empty_behavior {
-        EmptyBehaviour::Keep => {
+        EmptyBehavior::Keep => {
             // The commit C isn't empty.
             let new_commit_c =
                 assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c, &[commit_bd.id()]);
@@ -1728,7 +1775,7 @@ fn test_empty_commit_option(empty_behavior: EmptyBehaviour) {
                 assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_g, &[new_commit_f.id()]);
             assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_h, &[new_commit_g.id()])
         }
-        EmptyBehaviour::AbandonAllEmpty => {
+        EmptyBehavior::AbandonAllEmpty => {
             // The commit C isn't empty.
             let new_commit_c =
                 assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c, &[commit_bd.id()]);
@@ -1741,7 +1788,7 @@ fn test_empty_commit_option(empty_behavior: EmptyBehaviour) {
                 assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_g, &[new_commit_c.id()]);
             assert_abandoned_with_parent(tx.repo_mut(), &rebase_map, &commit_h, new_commit_g.id())
         }
-        EmptyBehaviour::AbandonNewlyEmpty => {
+        EmptyBehavior::AbandonNewlyEmpty => {
             // The commit C isn't empty.
             let new_commit_c =
                 assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c, &[commit_bd.id()]);
@@ -1797,14 +1844,8 @@ fn test_rebase_abandoning_empty() {
 
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
-    let commit_b = create_random_commit(tx.repo_mut())
-        .set_parents(vec![commit_a.id().clone()])
-        .write()
-        .unwrap();
-    let commit_c = create_random_commit(tx.repo_mut())
-        .set_parents(vec![commit_b.id().clone()])
-        .write()
-        .unwrap();
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
     let commit_d = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_c.id().clone()])
         .set_tree_id(commit_c.tree_id().clone())
@@ -1836,7 +1877,7 @@ fn test_rebase_abandoning_empty() {
         .unwrap();
 
     let rebase_options = RebaseOptions {
-        empty: EmptyBehaviour::AbandonAllEmpty,
+        empty: EmptyBehavior::AbandonAllEmpty,
         rewrite_refs: RewriteRefsOptions {
             delete_abandoned_bookmarks: false,
         },
@@ -1874,7 +1915,7 @@ fn test_commit_with_selection() {
 
     let mut tx = repo.start_transaction();
     let root_tree = repo.store().root_commit().tree().unwrap();
-    let commit = create_random_commit(tx.repo_mut()).write().unwrap();
+    let commit = write_random_commit(tx.repo_mut());
     let commit_tree = commit.tree().unwrap();
     let empty_selection = CommitWithSelection {
         commit: commit.clone(),
@@ -1996,5 +2037,5 @@ fn test_find_duplicate_divergent_commits() {
     )
     .unwrap();
     // Commit c2 is a duplicate
-    assert_eq!(duplicate_commits, &[commit_c2.clone()]);
+    assert_eq!(duplicate_commits, std::slice::from_ref(&commit_c2));
 }

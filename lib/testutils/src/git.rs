@@ -15,6 +15,8 @@
 use std::path::Path;
 use std::path::PathBuf;
 
+use gix::date::parse::TimeBuf;
+
 pub const GIT_USER: &str = "Someone";
 pub const GIT_EMAIL: &str = "someone@example.org";
 
@@ -150,8 +152,8 @@ pub fn write_commit(
 ) -> gix::ObjectId {
     let signature = signature();
     repo.commit_as(
-        &signature,
-        &signature,
+        signature.to_ref(&mut TimeBuf::default()),
+        signature.to_ref(&mut TimeBuf::default()),
         reference,
         message,
         tree_id,
@@ -247,10 +249,10 @@ pub enum WorktreeStatus {
 impl<'lhs, 'rhs> From<gix::diff::index::ChangeRef<'lhs, 'rhs>> for IndexStatus {
     fn from(value: gix::diff::index::ChangeRef<'lhs, 'rhs>) -> Self {
         match value {
-            gix::diff::index::ChangeRef::Addition { .. } => IndexStatus::Addition,
-            gix::diff::index::ChangeRef::Deletion { .. } => IndexStatus::Deletion,
-            gix::diff::index::ChangeRef::Rewrite { .. } => IndexStatus::Rename,
-            gix::diff::index::ChangeRef::Modification { .. } => IndexStatus::Modification,
+            gix::diff::index::ChangeRef::Addition { .. } => Self::Addition,
+            gix::diff::index::ChangeRef::Deletion { .. } => Self::Deletion,
+            gix::diff::index::ChangeRef::Rewrite { .. } => Self::Rename,
+            gix::diff::index::ChangeRef::Modification { .. } => Self::Modification,
         }
     }
 }
@@ -258,19 +260,15 @@ impl<'lhs, 'rhs> From<gix::diff::index::ChangeRef<'lhs, 'rhs>> for IndexStatus {
 impl From<Option<gix::status::index_worktree::iter::Summary>> for WorktreeStatus {
     fn from(value: Option<gix::status::index_worktree::iter::Summary>) -> Self {
         match value {
-            Some(gix::status::index_worktree::iter::Summary::Removed) => WorktreeStatus::Removed,
-            Some(gix::status::index_worktree::iter::Summary::Added) => WorktreeStatus::Added,
-            Some(gix::status::index_worktree::iter::Summary::Modified) => WorktreeStatus::Modified,
-            Some(gix::status::index_worktree::iter::Summary::TypeChange) => {
-                WorktreeStatus::TypeChange
-            }
-            Some(gix::status::index_worktree::iter::Summary::Renamed) => WorktreeStatus::Renamed,
-            Some(gix::status::index_worktree::iter::Summary::Copied) => WorktreeStatus::Copied,
-            Some(gix::status::index_worktree::iter::Summary::IntentToAdd) => {
-                WorktreeStatus::IntentToAdd
-            }
-            Some(gix::status::index_worktree::iter::Summary::Conflict) => WorktreeStatus::Conflict,
-            None => WorktreeStatus::Ignored,
+            Some(gix::status::index_worktree::iter::Summary::Removed) => Self::Removed,
+            Some(gix::status::index_worktree::iter::Summary::Added) => Self::Added,
+            Some(gix::status::index_worktree::iter::Summary::Modified) => Self::Modified,
+            Some(gix::status::index_worktree::iter::Summary::TypeChange) => Self::TypeChange,
+            Some(gix::status::index_worktree::iter::Summary::Renamed) => Self::Renamed,
+            Some(gix::status::index_worktree::iter::Summary::Copied) => Self::Copied,
+            Some(gix::status::index_worktree::iter::Summary::IntentToAdd) => Self::IntentToAdd,
+            Some(gix::status::index_worktree::iter::Summary::Conflict) => Self::Conflict,
+            None => Self::Ignored,
         }
     }
 }
@@ -278,10 +276,8 @@ impl From<Option<gix::status::index_worktree::iter::Summary>> for WorktreeStatus
 impl From<gix::status::Item> for GitStatusInfo {
     fn from(value: gix::status::Item) -> Self {
         match value {
-            gix::status::Item::TreeIndex(change) => GitStatusInfo::Index(change.into()),
-            gix::status::Item::IndexWorktree(item) => {
-                GitStatusInfo::Worktree(item.summary().into())
-            }
+            gix::status::Item::TreeIndex(change) => Self::Index(change.into()),
+            gix::status::Item::IndexWorktree(item) => Self::Worktree(item.summary().into()),
         }
     }
 }
@@ -296,7 +292,7 @@ impl From<gix::status::Item> for GitStatus {
     fn from(value: gix::status::Item) -> Self {
         let path = value.location().to_string();
         let status = value.into();
-        GitStatus { path, status }
+        Self { path, status }
     }
 }
 
@@ -324,12 +320,12 @@ pub struct IndexManager<'a> {
 }
 
 impl<'a> IndexManager<'a> {
-    pub fn new(repo: &'a gix::Repository) -> IndexManager<'a> {
+    pub fn new(repo: &'a gix::Repository) -> Self {
         // This would be equivalent to repo.open_index_or_empty() if such
         // function existed.
         let index = repo.index_or_empty().unwrap();
         let index = gix::index::File::clone(&index); // unshare
-        IndexManager { index, repo }
+        Self { index, repo }
     }
 
     pub fn add_file(&mut self, name: &str, data: &[u8]) {

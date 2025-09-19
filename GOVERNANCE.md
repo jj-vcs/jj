@@ -63,8 +63,10 @@ In short, Maintainers are the outwardly visible stewards of the project.
 The current list of Maintainers:
 
 - Austin Seipp (@thoughtpolice)
+- Benjamin Tan (@bnjmnt4n)
 - Ilya Grigoriev (@ilyagr)
 - Martin von Zweigbergk (@martinvonz)
+- Scott Taylor (@scott2000)
 - Waleed Khan (@arxanas)
 - Yuya Nishihara (@yuja)
 
@@ -142,3 +144,14 @@ Maintainer in question). This can be due to lack of participation or conduct
 violations, among other things. Note that Maintainers are subject to a higher
 set of behavioral and communicative standards than average contributor or
 participant.
+
+### Single-Company Influence
+
+At most 1/3 of the maintainers may be paid for their contributions by a single
+company. This is to reduce the risk of a single company controlling the
+project's direction. If the 1/3 limit gets exceeded because an existing
+maintainer gets hired by the same company as some other existing maintainer(s),
+then the maintainers will have to decide how to resolve the situation. The
+maintainer in question gets to vote, as long as this doesn't mean the company
+in question has half the votes (usually meaning there are at least 5 maintainers
+total).

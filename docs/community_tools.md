@@ -74,6 +74,12 @@ jjui is a terminal user interface for working with Jujutsu version control syste
 
 Find it [here][jjui].
 
+## Selvejj
+
+Selvejj is a JetBrains plugin for integrating Jujutsu as a first-class VCS within the IDE.
+
+Find it [here][selvejj].
+
 <!-- TODO: Add benbrittains/cultivate when its ready -->
 ## Finding other integrations
 
@@ -92,3 +98,4 @@ You can find other community contributed tools and integrations in our
 [visualjj]: https://www.visualjj.com
 [Wiki]: https://github.com/jj-vcs/jj/wiki
 [jjui]: https://github.com/idursun/jjui
+[selvejj]: https://selvejj.com

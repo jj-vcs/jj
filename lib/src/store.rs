@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::any::Any;
 use std::fmt::Debug;
@@ -32,7 +32,6 @@ use crate::backend::Backend;
 use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
-use crate::backend::ConflictId;
 use crate::backend::CopyRecord;
 use crate::backend::FileId;
 use crate::backend::MergedTreeId;
@@ -41,14 +40,12 @@ use crate::backend::SymlinkId;
 use crate::backend::TreeId;
 use crate::commit::Commit;
 use crate::index::Index;
-use crate::merge::Merge;
-use crate::merge::MergedTreeValue;
 use crate::merged_tree::MergedTree;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::signing::Signer;
 use crate::tree::Tree;
-use crate::tree_builder::TreeBuilder;
+use crate::tree_merge::MergeOptions;
 
 // There are more tree objects than commits, and trees are often shared across
 // commits.
@@ -62,6 +59,7 @@ pub struct Store {
     signer: Signer,
     commit_cache: Mutex<CLruCache<CommitId, Arc<backend::Commit>>>,
     tree_cache: Mutex<CLruCache<(RepoPathBuf, TreeId), Arc<backend::Tree>>>,
+    merge_options: MergeOptions,
 }
 
 impl Debug for Store {
@@ -73,12 +71,17 @@ impl Debug for Store {
 }
 
 impl Store {
-    pub fn new(backend: Box<dyn Backend>, signer: Signer) -> Arc<Self> {
-        Arc::new(Store {
+    pub fn new(
+        backend: Box<dyn Backend>,
+        signer: Signer,
+        merge_options: MergeOptions,
+    ) -> Arc<Self> {
+        Arc::new(Self {
             backend,
             signer,
             commit_cache: Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY.try_into().unwrap())),
             tree_cache: Mutex::new(CLruCache::new(TREE_CACHE_CAPACITY.try_into().unwrap())),
+            merge_options,
         })
     }
 
@@ -94,12 +97,17 @@ impl Store {
         &self.signer
     }
 
+    /// Default merge options to be used when resolving parent trees.
+    pub fn merge_options(&self) -> &MergeOptions {
+        &self.merge_options
+    }
+
     pub fn get_copy_records(
         &self,
         paths: Option<&[RepoPathBuf]>,
         root: &CommitId,
         head: &CommitId,
-    ) -> BackendResult<BoxStream<BackendResult<CopyRecord>>> {
+    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
         self.backend.get_copy_records(paths, root, head)
     }
 
@@ -208,13 +216,22 @@ impl Store {
     }
 
     pub fn get_root_tree(self: &Arc<Self>, id: &MergedTreeId) -> BackendResult<MergedTree> {
+        self.get_root_tree_async(id).block_on()
+    }
+
+    pub async fn get_root_tree_async(
+        self: &Arc<Self>,
+        id: &MergedTreeId,
+    ) -> BackendResult<MergedTree> {
         match &id {
             MergedTreeId::Legacy(id) => {
-                let tree = self.get_tree(RepoPathBuf::root(), id)?;
-                MergedTree::from_legacy_tree(tree)
+                let tree = self.get_tree_async(RepoPathBuf::root(), id).await?;
+                Ok(MergedTree::resolved(tree))
             }
             MergedTreeId::Merge(ids) => {
-                let trees = ids.try_map(|id| self.get_tree(RepoPathBuf::root(), id))?;
+                let trees = ids
+                    .try_map_async(|id| self.get_tree_async(RepoPathBuf::root(), id))
+                    .await?;
                 Ok(MergedTree::new(trees))
             }
         }
@@ -239,7 +256,7 @@ impl Store {
         &self,
         path: &RepoPath,
         id: &FileId,
-    ) -> BackendResult<Pin<Box<dyn AsyncRead>>> {
+    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
         self.backend.read_file(path, id).await
     }
 
@@ -259,29 +276,13 @@ impl Store {
         self.backend.write_symlink(path, contents).await
     }
 
-    pub fn read_conflict(
-        &self,
-        path: &RepoPath,
-        id: &ConflictId,
-    ) -> BackendResult<MergedTreeValue> {
-        let backend_conflict = self.backend.read_conflict(path, id)?;
-        Ok(Merge::from_backend_conflict(backend_conflict))
-    }
-
-    pub fn write_conflict(
-        &self,
-        path: &RepoPath,
-        contents: &MergedTreeValue,
-    ) -> BackendResult<ConflictId> {
-        self.backend
-            .write_conflict(path, &contents.clone().into_backend_conflict())
-    }
-
-    pub fn tree_builder(self: &Arc<Self>, base_tree_id: TreeId) -> TreeBuilder {
-        TreeBuilder::new(self.clone(), base_tree_id)
-    }
-
     pub fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()> {
         self.backend.gc(index, keep_newer)
+    }
+
+    /// Clear cached objects. Mainly intended for testing.
+    pub fn clear_caches(&self) {
+        self.commit_cache.lock().unwrap().clear();
+        self.tree_cache.lock().unwrap().clear();
     }
 }

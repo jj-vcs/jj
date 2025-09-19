@@ -15,8 +15,8 @@
 use jj_lib::object_id::HexPrefix;
 use jj_lib::repo::Repo as _;
 
-use super::run_bench;
 use super::CriterionArgs;
+use super::run_bench;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
@@ -35,7 +35,7 @@ pub fn cmd_bench_resolve_prefix(
     args: &BenchResolvePrefixArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
-    let prefix = HexPrefix::new(&args.prefix).unwrap();
+    let prefix = HexPrefix::try_from_hex(&args.prefix).unwrap();
     let index = workspace_command.repo().index();
     let routine = || index.resolve_commit_id_prefix(&prefix);
     run_bench(

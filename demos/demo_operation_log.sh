@@ -34,12 +34,12 @@ comment "The most recent portion of the operation log
 is:"
 run_command_allow_broken_pipe "jj op log --limit 4"
 
-comment "Let's undo that rebase operation:"
+comment "Let's revert that rebase operation:"
 rebase_op=$(jj --color=never op log --no-graph -T 'id.short(5)' --limit 1 --at-op @--)
-run_command "jj undo $rebase_op"
+run_command "jj op revert $rebase_op"
 
-comment "Note that only the rebase was undone, and the
-subsequent \"other stuff\" change was not undone:"
+comment "Note that only the rebase was reverted, and the
+subsequent \"other stuff\" change was not reverted:"
 run_command "jj log"
 
 comment "We can also see what the repo looked like
@@ -50,7 +50,7 @@ comment "Let's say we instead want to go back to the
 state of the repo right after the rebase:"
 run_command "jj op restore $rebase_op"
 
-# TODO: Explain and demo that undo and restore are also recorded? Remove demo
+# TODO: Explain and demo that revert and restore are also recorded? Remove demo
 # of --at-op?
 comment "We're now back to before the \"other stuff\"
 change existed:"

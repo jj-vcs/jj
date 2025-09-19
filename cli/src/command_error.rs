@@ -23,11 +23,14 @@ use std::sync::Arc;
 use itertools::Itertools as _;
 use jj_lib::absorb::AbsorbError;
 use jj_lib::backend::BackendError;
+use jj_lib::backend::CommitId;
+use jj_lib::bisect::BisectionError;
 use jj_lib::config::ConfigFileSaveError;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigLoadError;
 use jj_lib::config::ConfigMigrateError;
 use jj_lib::dsl_util::Diagnostics;
+use jj_lib::evolution::WalkPredecessorsError;
 use jj_lib::fileset::FilePatternParseError;
 use jj_lib::fileset::FilesetParseError;
 use jj_lib::fileset::FilesetParseErrorKind;
@@ -67,6 +70,7 @@ use crate::description_util::TextEditError;
 use crate::diff_util::DiffRenderError;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
+use crate::formatter::FormatterExt as _;
 use crate::merge_tools::ConflictResolveError;
 use crate::merge_tools::DiffEditError;
 use crate::merge_tools::MergeToolConfigError;
@@ -99,7 +103,7 @@ impl CommandError {
         kind: CommandErrorKind,
         err: impl Into<Box<dyn error::Error + Send + Sync>>,
     ) -> Self {
-        CommandError {
+        Self {
             kind,
             error: Arc::from(err.into()),
             hints: vec![],
@@ -166,7 +170,7 @@ impl ErrorWithMessage {
         message: impl Into<String>,
         source: impl Into<Box<dyn error::Error + Send + Sync>>,
     ) -> Self {
-        ErrorWithMessage {
+        Self {
             message: message.into(),
             source: source.into(),
         }
@@ -240,7 +244,7 @@ impl From<io::Error> for CommandError {
             io::ErrorKind::BrokenPipe => CommandErrorKind::BrokenPipe,
             _ => CommandErrorKind::User,
         };
-        CommandError::new(kind, err)
+        Self::new(kind, err)
     }
 }
 
@@ -336,9 +340,7 @@ impl From<WorkspaceInitError> for CommandError {
             WorkspaceInitError::DestinationExists(_) => {
                 user_error("The target repo already exists")
             }
-            WorkspaceInitError::NonUnicodePath => {
-                user_error("The target repo path contains non-unicode characters")
-            }
+            WorkspaceInitError::EncodeRepoPath(_) => user_error(err),
             WorkspaceInitError::CheckOutCommit(err) => {
                 internal_error_with_message("Failed to check out the initial commit", err)
             }
@@ -413,6 +415,16 @@ impl From<ResetError> for CommandError {
 impl From<TransactionCommitError> for CommandError {
     fn from(err: TransactionCommitError) -> Self {
         internal_error(err)
+    }
+}
+
+impl From<WalkPredecessorsError> for CommandError {
+    fn from(err: WalkPredecessorsError) -> Self {
+        match err {
+            WalkPredecessorsError::Backend(err) => err.into(),
+            WalkPredecessorsError::OpStore(err) => err.into(),
+            WalkPredecessorsError::CycleDetected(_) => internal_error(err),
+        }
     }
 }
 
@@ -508,6 +520,7 @@ impl From<TrailerParseError> for CommandError {
 
 #[cfg(feature = "git")]
 mod git {
+    use jj_lib::git::GitDefaultRefspecError;
     use jj_lib::git::GitExportError;
     use jj_lib::git::GitFetchError;
     use jj_lib::git::GitImportError;
@@ -548,13 +561,13 @@ jj currently does not support partial clones. To use jj with this repository, tr
 
     impl From<GitFetchError> for CommandError {
         fn from(err: GitFetchError) -> Self {
-            if let GitFetchError::InvalidBranchPattern(pattern) = &err {
-                if pattern.as_exact().is_some_and(|s| s.contains('*')) {
-                    return user_error_with_hint(
-                        "Branch names may not include `*`.",
-                        "Prefix the pattern with `glob:` to expand `*` as a glob",
-                    );
-                }
+            if let GitFetchError::InvalidBranchPattern(pattern) = &err
+                && pattern.as_exact().is_some_and(|s| s.contains('*'))
+            {
+                return user_error_with_hint(
+                    "Branch names may not include `*`.",
+                    "Prefix the pattern with `glob:` to expand `*` as a glob",
+                );
             }
             match err {
                 GitFetchError::NoSuchRemote(_) => user_error(err),
@@ -564,6 +577,15 @@ jj currently does not support partial clones. To use jj with this repository, tr
                 ),
                 GitFetchError::InvalidBranchPattern(_) => user_error(err),
                 GitFetchError::Subprocess(_) => user_error(err),
+            }
+        }
+    }
+
+    impl From<GitDefaultRefspecError> for CommandError {
+        fn from(err: GitDefaultRefspecError) -> Self {
+            match err {
+                GitDefaultRefspecError::NoSuchRemote(_) => user_error(err),
+                GitDefaultRefspecError::InvalidRemoteConfiguration(_, _) => user_error(err),
             }
         }
     }
@@ -641,9 +663,9 @@ impl From<RevsetParseError> for CommandError {
 
 impl From<RevsetResolutionError> for CommandError {
     fn from(err: RevsetResolutionError) -> Self {
-        let hint = revset_resolution_error_hint(&err);
+        let hints = revset_resolution_error_hints(&err);
         let mut cmd_err = user_error(err);
-        cmd_err.extend_hints(hint);
+        cmd_err.extend_hints(hints);
         cmd_err
     }
 }
@@ -723,6 +745,14 @@ impl From<FixError> for CommandError {
     }
 }
 
+impl From<BisectionError> for CommandError {
+    fn from(err: BisectionError) -> Self {
+        match err {
+            BisectionError::RevsetEvaluationError(_) => user_error(err),
+        }
+    }
+}
+
 fn find_source_parse_error_hint(err: &dyn error::Error) -> Option<String> {
     let source = err.source()?;
     if let Some(source) = source.downcast_ref() {
@@ -736,9 +766,11 @@ fn find_source_parse_error_hint(err: &dyn error::Error) -> Option<String> {
     } else if let Some(source) = source.downcast_ref() {
         revset_parse_error_hint(source)
     } else if let Some(source) = source.downcast_ref() {
-        revset_resolution_error_hint(source)
+        // TODO: propagate all hints?
+        revset_resolution_error_hints(source).into_iter().next()
     } else if let Some(UserRevsetEvaluationError::Resolution(source)) = source.downcast_ref() {
-        revset_resolution_error_hint(source)
+        // TODO: propagate all hints?
+        revset_resolution_error_hints(source).into_iter().next()
     } else if let Some(source) = source.downcast_ref() {
         string_pattern_parse_error_hint(source)
     } else if let Some(source) = source.downcast_ref() {
@@ -854,18 +886,46 @@ fn revset_parse_error_hint(err: &RevsetParseError) -> Option<String> {
     }
 }
 
-fn revset_resolution_error_hint(err: &RevsetResolutionError) -> Option<String> {
+fn revset_resolution_error_hints(err: &RevsetResolutionError) -> Vec<String> {
+    let multiple_targets_hint = |targets: &[CommitId]| {
+        format!(
+            "Use commit ID to select single revision from: {}",
+            targets.iter().map(|id| format!("{id:.12}")).join(", ")
+        )
+    };
     match err {
         RevsetResolutionError::NoSuchRevision {
             name: _,
             candidates,
-        } => format_similarity_hint(candidates),
+        } => format_similarity_hint(candidates).into_iter().collect(),
+        RevsetResolutionError::DivergentChangeId { symbol, targets } => vec![
+            multiple_targets_hint(targets),
+            format!("Use `change_id({symbol})` to select all revisions"),
+            "To abandon unneeded revisions, run `jj abandon <commit_id>`".to_owned(),
+        ],
+        RevsetResolutionError::ConflictedRef {
+            kind: "bookmark",
+            symbol,
+            targets,
+        } => vec![
+            multiple_targets_hint(targets),
+            format!("Use `bookmarks(exact:{symbol})` to select all revisions"),
+            format!(
+                "To set which revision the bookmark points to, run `jj bookmark set {symbol} -r \
+                 <REVISION>`"
+            ),
+        ],
+        RevsetResolutionError::ConflictedRef {
+            kind: _,
+            symbol: _,
+            targets,
+        } => vec![multiple_targets_hint(targets)],
         RevsetResolutionError::EmptyString
         | RevsetResolutionError::WorkspaceMissingWorkingCopy { .. }
         | RevsetResolutionError::AmbiguousCommitIdPrefix(_)
         | RevsetResolutionError::AmbiguousChangeIdPrefix(_)
         | RevsetResolutionError::Backend(_)
-        | RevsetResolutionError::Other(_) => None,
+        | RevsetResolutionError::Other(_) => vec![],
     }
 }
 
@@ -958,41 +1018,37 @@ pub fn print_error_sources(ui: &Ui, source: Option<&dyn error::Error>) -> io::Re
     let Some(err) = source else {
         return Ok(());
     };
-    ui.stderr_formatter()
-        .with_label("error_source", |formatter| {
-            if err.source().is_none() {
-                write!(formatter.labeled("heading"), "Caused by: ")?;
-                writeln!(formatter, "{err}")?;
-            } else {
-                writeln!(formatter.labeled("heading"), "Caused by:")?;
-                for (i, err) in iter::successors(Some(err), |&err| err.source()).enumerate() {
-                    write!(formatter.labeled("heading"), "{}: ", i + 1)?;
-                    writeln!(formatter, "{err}")?;
-                }
-            }
-            Ok(())
-        })
+    let mut formatter = ui.stderr_formatter().into_labeled("error_source");
+    if err.source().is_none() {
+        write!(formatter.labeled("heading"), "Caused by: ")?;
+        writeln!(formatter, "{err}")?;
+    } else {
+        writeln!(formatter.labeled("heading"), "Caused by:")?;
+        for (i, err) in iter::successors(Some(err), |&err| err.source()).enumerate() {
+            write!(formatter.labeled("heading"), "{}: ", i + 1)?;
+            writeln!(formatter, "{err}")?;
+        }
+    }
+    Ok(())
 }
 
 fn print_error_hints(ui: &Ui, hints: &[ErrorHint]) -> io::Result<()> {
+    let mut formatter = ui.stderr_formatter().into_labeled("hint");
     for hint in hints {
-        ui.stderr_formatter().with_label("hint", |formatter| {
-            write!(formatter.labeled("heading"), "Hint: ")?;
-            match hint {
-                ErrorHint::PlainText(message) => {
-                    writeln!(formatter, "{message}")?;
-                }
-                ErrorHint::Formatted(recorded) => {
-                    recorded.replay(formatter)?;
-                    // Formatted hint is usually multi-line text, and it's
-                    // convenient if trailing "\n" doesn't have to be omitted.
-                    if !recorded.data().ends_with(b"\n") {
-                        writeln!(formatter)?;
-                    }
+        write!(formatter.labeled("heading"), "Hint: ")?;
+        match hint {
+            ErrorHint::PlainText(message) => {
+                writeln!(formatter, "{message}")?;
+            }
+            ErrorHint::Formatted(recorded) => {
+                recorded.replay(formatter.as_mut())?;
+                // Formatted hint is usually multi-line text, and it's
+                // convenient if trailing "\n" doesn't have to be omitted.
+                if !recorded.data().ends_with(b"\n") {
+                    writeln!(formatter)?;
                 }
             }
-            io::Result::Ok(())
-        })?;
+        }
     }
     Ok(())
 }

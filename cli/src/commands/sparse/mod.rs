@@ -21,19 +21,19 @@ use clap::Subcommand;
 use jj_lib::repo_path::RepoPathBuf;
 use tracing::instrument;
 
-use self::edit::cmd_sparse_edit;
 use self::edit::SparseEditArgs;
-use self::list::cmd_sparse_list;
+use self::edit::cmd_sparse_edit;
 use self::list::SparseListArgs;
-use self::reset::cmd_sparse_reset;
+use self::list::cmd_sparse_list;
 use self::reset::SparseResetArgs;
-use self::set::cmd_sparse_set;
+use self::reset::cmd_sparse_reset;
 use self::set::SparseSetArgs;
-use crate::cli_util::print_checkout_stats;
+use self::set::cmd_sparse_set;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
-use crate::command_error::internal_error_with_message;
+use crate::cli_util::print_checkout_stats;
 use crate::command_error::CommandError;
+use crate::command_error::internal_error_with_message;
 use crate::ui::Ui;
 
 /// Manage which paths from the working-copy commit are present in the working
@@ -65,12 +65,11 @@ fn update_sparse_patterns_with(
     workspace_command: &mut WorkspaceCommandHelper,
     f: impl FnOnce(&mut Ui, &[RepoPathBuf]) -> Result<Vec<RepoPathBuf>, CommandError>,
 ) -> Result<(), CommandError> {
-    let checkout_options = workspace_command.checkout_options();
     let (mut locked_ws, wc_commit) = workspace_command.start_working_copy_mutation()?;
     let new_patterns = f(ui, locked_ws.locked_wc().sparse_patterns()?)?;
     let stats = locked_ws
         .locked_wc()
-        .set_sparse_patterns(new_patterns, &checkout_options)
+        .set_sparse_patterns(new_patterns)
         .map_err(|err| internal_error_with_message("Failed to update working copy paths", err))?;
     let operation_id = locked_ws.locked_wc().old_operation_id().clone();
     locked_ws.finish(operation_id)?;

@@ -141,7 +141,7 @@ use the bridge to follow IRC.
 ### News and Updates 📣
 
 - **December 2024**: The `jj` Repository has moved to the `jj-vcs` GitHub
-  organisation.
+  organization.
 - **November 2024**: Version 0.24 is released which adds `jj file annotate`,
   which is equivalent to `git blame` or `hg annotate`.
 - **September 2024**: Martin gave a [presentation about Jujutsu][merge-vid-2024] at
@@ -226,8 +226,8 @@ Here is how you can explore a GitHub repository with `jj`.
 
 <img src="demos/git_compat.png" />
 
-You can even have a ["co-located" local
-repository](https://jj-vcs.github.io/jj/latest/git-compatibility#co-located-jujutsugit-repos)
+You can even have a [colocated local
+repository](https://jj-vcs.github.io/jj/latest/git-compatibility#colocated-jujutsugit-repos)
 where you can use both `jj` and `git` commands interchangeably.
 
 ### The working copy is automatically committed
@@ -259,9 +259,9 @@ commit message of any commit (defaults to the working-copy commit).
 ### Entire repo is under version control
 
 All operations you perform in the repo are recorded, along with a snapshot of
-the repo state after the operation. This means that you can easily revert to an
-earlier repo state, or to simply undo a particular operation (which does not
-necessarily have to be the most recent operation).
+the repo state after the operation. This means that you can easily restore to
+an earlier repo state, simply undo your operations one-by-one or even _revert_ a
+particular operation which does not have to be the most recent one.
 
 <img src="demos/operation_log.png" />
 
@@ -313,10 +313,9 @@ January 2021. I haven't had to re-clone from source (I don't think I've even had
 to restore from backup).
 
 There *will* be changes to workflows and backward-incompatible changes to the
-on-disk formats before version 1.0.0. Even the binary's name may change (i.e.
-away from `jj`). For any format changes, we'll try to implement transparent
-upgrades (as we've done with recent changes), or provide upgrade commands or
-scripts if requested.
+on-disk formats before version 1.0.0. For any format changes, we'll try to
+implement transparent upgrades (as we've done with recent changes), or provide
+upgrade commands or scripts if requested.
 
 ## Related work
 

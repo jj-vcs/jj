@@ -26,25 +26,24 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
+use crate::description_util::ParsedBulkEditMessage;
 use crate::description_util::add_trailers_with_template;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
 use crate::description_util::edit_multiple_descriptions;
 use crate::description_util::join_message_paragraphs;
 use crate::description_util::parse_trailers_template;
-use crate::description_util::ParsedBulkEditMessage;
 use crate::text_util::parse_author;
 use crate::ui::Ui;
 
-/// Update the change description or other metadata
+/// Update the change description or other metadata [default alias: desc]
 ///
 /// Starts an editor to let you edit the description of changes. The editor
-/// will be $EDITOR, or `pico` if that's not defined (`Notepad` on Windows).
+/// will be $EDITOR, or `nano` if that's not defined (`Notepad` on Windows).
 #[derive(clap::Args, Clone, Debug)]
-#[command(visible_aliases = &["desc"])]
 pub(crate) struct DescribeArgs {
     /// The revision(s) whose description to edit (default: @)
     #[arg(
@@ -76,10 +75,11 @@ pub(crate) struct DescribeArgs {
     /// for all of them.
     #[arg(long)]
     stdin: bool,
+    // TODO: Delete in jj 0.40.0+
     /// Don't open an editor
     ///
     /// This is mainly useful in combination with e.g. `--reset-author`.
-    #[arg(long, conflicts_with = "edit")]
+    #[arg(long, hide = true, conflicts_with = "edit")]
     no_edit: bool,
     /// Open an editor
     ///
@@ -87,22 +87,26 @@ pub(crate) struct DescribeArgs {
     /// allow the message to be edited afterwards.
     #[arg(long)]
     edit: bool,
-    /// Reset the author to the configured user
+    // TODO: Delete in jj 0.40.0+
+    /// Reset the author name, email, and timestamp
     ///
-    /// This resets the author name, email, and timestamp.
+    /// This resets the author name and email to the configured user and sets
+    /// the author timestamp to the current time.
     ///
     /// You can use it in combination with the JJ_USER and JJ_EMAIL
     /// environment variables to set a different author:
     ///
     /// $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj describe --reset-author
-    #[arg(long)]
+    #[arg(long, hide = true)]
     reset_author: bool,
+    // TODO: Delete in jj 0.40.0+
     /// Set author to the provided string
     ///
     /// This changes author name and email while retaining author
     /// timestamp for non-discardable commits.
     #[arg(
         long,
+        hide = true,
         conflicts_with = "reset_author",
         value_parser = parse_author
     )]
@@ -115,6 +119,24 @@ pub(crate) fn cmd_describe(
     command: &CommandHelper,
     args: &DescribeArgs,
 ) -> Result<(), CommandError> {
+    if args.no_edit {
+        writeln!(
+            ui.warning_default(),
+            "`jj describe --no-edit` is deprecated; use `jj metaedit` instead"
+        )?;
+    }
+    if args.reset_author {
+        writeln!(
+            ui.warning_default(),
+            "`jj describe --reset-author` is deprecated; use `jj metaedit --update-author` instead"
+        )?;
+    }
+    if args.author.is_some() {
+        writeln!(
+            ui.warning_default(),
+            "`jj describe --author` is deprecated; use `jj metaedit --author` instead"
+        )?;
+    }
     let mut workspace_command = command.workspace_helper(ui)?;
     let commits: Vec<_> = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
         workspace_command
@@ -268,7 +290,7 @@ pub(crate) fn cmd_describe(
     // chain.
     tx.repo_mut().transform_descendants(
         commit_builders.keys().map(|&id| id.clone()).collect(),
-        |rewriter| {
+        async |rewriter| {
             let old_commit_id = rewriter.old_commit().id().clone();
             let commit_builder = rewriter.reparent();
             if let Some(temp_builder) = commit_builders.get(&old_commit_id) {

@@ -21,9 +21,9 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::command_error::CommandError;
 use crate::complete;
-use crate::diff_util::diff_formats_for_log;
 use crate::diff_util::DiffFormatArgs;
 use crate::diff_util::DiffRenderer;
+use crate::diff_util::diff_formats_for_log;
 use crate::graphlog::GraphStyle;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
@@ -37,6 +37,19 @@ pub struct OperationShowArgs {
     /// Don't show the graph, show a flat list of modified changes
     #[arg(long)]
     no_graph: bool,
+    /// Render the operation using the given template
+    ///
+    /// You can specify arbitrary template expressions using the
+    /// [built-in keywords]. See [`jj help -k templates`] for more
+    /// information.
+    ///
+    /// [built-in keywords]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/#operation-keywords
+    ///
+    /// [`jj help -k templates`]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/
+    #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
+    template: Option<String>,
     /// Show patch of modifications to changes
     ///
     /// If the previous version has different parents, it will be temporarily
@@ -44,6 +57,9 @@ pub struct OperationShowArgs {
     /// contaminated by unrelated changes.
     #[arg(long, short = 'p')]
     patch: bool,
+    /// Do not show operation diff
+    #[arg(long, conflicts_with_all = ["patch", "DiffFormatArgs"])]
+    no_op_diff: bool,
     #[command(flatten)]
     diff_format: DiffFormatArgs,
 }
@@ -58,9 +74,9 @@ pub fn cmd_op_show(
     let repo_loader = workspace_command.workspace().repo_loader();
     let settings = workspace_command.settings();
     let op = workspace_command.resolve_single_op(&args.operation)?;
-    let parents: Vec<_> = op.parents().try_collect()?;
-    let parent_op = repo_loader.merge_operations(parents, None)?;
-    let parent_repo = repo_loader.load_at(&parent_op)?;
+    let parent_ops: Vec<_> = op.parents().try_collect()?;
+    let merged_parent_op = repo_loader.merge_operations(parent_ops.clone(), None)?;
+    let parent_repo = repo_loader.load_at(&merged_parent_op)?;
     let repo = repo_loader.load_at(&op)?;
 
     let id_prefix_context = workspace_env.new_id_prefix_context();
@@ -88,9 +104,11 @@ pub fn cmd_op_show(
         })
     };
 
-    // TODO: Should we make this customizable via clap arg?
     let template: TemplateRenderer<Operation> = {
-        let text = settings.get_string("templates.op_log")?;
+        let text = match &args.template {
+            Some(value) => value.to_owned(),
+            None => settings.get_string("templates.op_show")?,
+        };
         workspace_command
             .parse_operation_template(ui, &text)?
             .labeled(["op_show", "operation"])
@@ -100,15 +118,23 @@ pub fn cmd_op_show(
     let mut formatter = ui.stdout_formatter();
     template.format(&op, formatter.as_mut())?;
 
-    show_op_diff(
-        ui,
-        formatter.as_mut(),
-        repo.as_ref(),
-        &parent_repo,
-        &repo,
-        &commit_summary_template,
-        (!args.no_graph).then_some(graph_style),
-        &with_content_format,
-        diff_renderer.as_ref(),
-    )
+    if !args.no_op_diff {
+        // TODO: Merged repo may have newly rebased commits, which wouldn't exist in
+        // the index. (#4465)
+        if parent_ops.len() > 1 {
+            return Ok(());
+        }
+        show_op_diff(
+            ui,
+            formatter.as_mut(),
+            repo.as_ref(),
+            &parent_repo,
+            &repo,
+            &commit_summary_template,
+            (!args.no_graph).then_some(graph_style),
+            &with_content_format,
+            diff_renderer.as_ref(),
+        )?;
+    }
+    Ok(())
 }

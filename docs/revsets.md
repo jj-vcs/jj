@@ -6,15 +6,22 @@ Expressions in this language are called "revsets" (the idea comes from
 consists of symbols, operators, and functions.
 
 Most `jj` commands accept a revset (or multiple). Many commands, such as
-`jj diff -r <revset>` expect the revset to resolve to a single commit; it is
-an error to pass a revset that resolves to more than one commit (or zero
-commits) to such commands.
+`jj edit <revset>` expect the revset to resolve to a single commit; it is an
+error to pass a revset that resolves to more than one commit (or zero commits)
+to such commands.
 
 The words "revisions" and "commits" are used interchangeably in this document.
 
+## Hidden revisions
+
 Most revsets search only the [visible commits](glossary.md#visible-commits).
 Other commits are only included if you explicitly mention them (e.g. by commit
-ID or a Git ref pointing to them).
+ID, `<name>@<remote>` symbol, or `at_operation()` function).
+
+If hidden commits are specified, their ancestors also become available to the
+search space. They are included in `all()`, `x..`, `~x`, etc., but not in
+`..visible_heads()`, etc. For example, `hidden_id | all()` is equivalent to
+`hidden_id | ::(hidden_id | visible_heads())`.
 
 ## Symbols
 
@@ -25,15 +32,16 @@ workspace. Use `<name>@<remote>` to refer to a remote-tracking bookmark.
 A full commit ID refers to a single commit. A unique prefix of the full commit
 ID can also be used. It is an error to use a non-unique prefix.
 
-A full change ID refers to all visible commits with that change ID (there is
-typically only one visible commit with a given change ID). A unique prefix of
-the full change ID can also be used. It is an error to use a non-unique prefix.
+A full change ID refers to a visible commit with that change ID. A unique prefix
+of the full change ID can also be used. It is an error to use a non-unique
+prefix or [a divergent change ID][divergent-change].
 
 Use [single or double quotes][string-literals] to prevent a symbol from being
 interpreted as an expression. For example, `"x-"` is the symbol `x-`, not the
 parents of symbol `x`. Taking shell quoting into account, you may need to use
 something like `jj log -r '"x-"'`.
 
+[divergent-change]: glossary.md#divergent-change
 [string-literals]: templates.md#string-literals
 
 ### Priority
@@ -45,6 +53,10 @@ Jujutsu attempts to resolve a symbol in the following order:
 3. Git ref
 4. Commit ID or change ID
 
+To override the priority, use the appropriate [revset function](#functions). For
+example, to resolve `abc` as a commit ID even if there happens to be a bookmark
+by the same name, use `commit_id(abc)`. This is particularly useful in scripts.
+
 ## Operators
 
 The following operators are supported. `x` and `y` below can be any revset, not
@@ -52,10 +64,10 @@ only symbols.
 
 * `x-`: Parents of `x`, can be empty.
 * `x+`: Children of `x`, can be empty.
-* `x::`: Descendants of `x`, including the commits in `x` itself. Shorthand for
-  `x::visible_heads()`.
-* `x..`: Revisions that are not ancestors of `x`. Shorthand for
-  `x..visible_heads()`.
+* `x::`: Descendants of `x`, including the commits in `x` itself. Equivalent to
+  `x::visible_heads()` if no hidden revisions are mentioned.
+* `x..`: Revisions that are not ancestors of `x`. Equivalent to `~::x`, and
+  `x..visible_heads()` if no hidden revisions are mentioned.
 * `::x`: Ancestors of `x`, including the commits in `x` itself. Shorthand for
   `root()::x`.
 * `..x`: Ancestors of `x`, including the commits in `x` itself, but excluding
@@ -64,10 +76,11 @@ only symbols.
    to `x:: & ::y`. This is what `git log` calls `--ancestry-path x..y`.
 * `x..y`: Ancestors of `y` that are not also ancestors of `x`. Equivalent to
   `::y ~ ::x`. This is what `git log` calls `x..y` (i.e. the same as we call it).
-* `::`: All visible commits in the repo. Shorthand for
-  `root()::visible_heads()`. Equivalent to `all()`.
+* `::`: All visible commits in the repo. Equivalent to `all()`, and
+  `root()::visible_heads()` if no hidden revisions are mentioned.
 * `..`: All visible commits in the repo, but excluding the root commit.
-  Shorthand for `root()..visible_heads()`. Equivalent to `~root()`.
+  Equivalent to `~root()`, and `root()..visible_heads()` if no hidden revisions
+  are mentioned.
 * `~x`: Revisions that are not in `x`.
 * `x & y`: Revisions that are in both `x` and `y`.
 * `x ~ y`: Revisions that are in `x` but not in `y`.
@@ -156,6 +169,7 @@ You can use parentheses to control evaluation order, such as `(x & y) | z` or
 
     * `D::D` ⇒ `{D}`
     * `B::D` ⇒ `{D,B}` (note that, unlike `B..D`, this includes `B` and excludes `C`)
+    * `B::C` ⇒ `{}` (empty set) (note that, unlike `B..C`, this excludes `C`)
     * `A::D` ⇒ `{D,C,B,A}`
     * `root()::D` ⇒ `{D,C,B,A,root()}`
     * `none()::D` ⇒ `{}` (empty set)
@@ -166,6 +180,7 @@ You can use parentheses to control evaluation order, such as `(x & y) | z` or
 
     * `D..D` ⇒ `{}` (empty set)
     * `B..D` ⇒ `{D,C}` (note that, unlike `B::D`, this includes `C` and excludes `B`)
+    * `B..C` ⇒ `{C}` (note that, unlike `B::C`, this includes `C`)
     * `A..D` ⇒ `{D,C,B}`
     * `root()..D` ⇒ `{D,C,B,A}`
     * `none()..D` ⇒ `{D,C,B,A,root()}`
@@ -177,27 +192,63 @@ You can use parentheses to control evaluation order, such as `(x & y) | z` or
 You can also specify revisions by using functions. Some functions take other
 revsets (expressions) as arguments.
 
-* `parents(x)`: Same as `x-`.
+??? note "Function argument syntax"
 
-* `children(x)`: Same as `x+`.
+    In this documentation, optional arguments are indicated with square
+    brackets like `[arg]`. Some arguments also have an optional label which can
+    be used to specify that argument without specifying all previous arguments.
 
-* `ancestors(x[, depth])`: `ancestors(x)` is the same as `::x`.
+    For instance, `remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`
+    indicates that all of the following usages are valid:
+
+    * `remote_bookmarks()`
+    * `remote_bookmarks("main")`
+    * `remote_bookmarks("main", "origin")`
+    * `remote_bookmarks("main", remote="origin")`
+    * `remote_bookmarks(remote="origin")`
+
+* `parents(x, [depth])`: `parents(x)` is the same as `x-`.
+  `parents(x, depth)` returns the parents of `x` at the given `depth`. For
+  instance, `parents(x, 3)` is equivalent to `x---`.
+
+* `children(x, [depth])`: `children(x)` is the same as `x+`.
+  `children(x, depth)` returns the children of `x` at the given `depth`. For
+  instance, `children(x, 3)` is equivalent to `x+++`.
+
+* `ancestors(x, [depth])`: `ancestors(x)` is the same as `::x`.
   `ancestors(x, depth)` returns the ancestors of `x` limited to the given
   `depth`.
 
-* `descendants(x[, depth])`: `descendants(x)` is the same as `x::`.
+* `descendants(x, [depth])`: `descendants(x)` is the same as `x::`.
   `descendants(x, depth)` returns the descendants of `x` limited to the given
   `depth`.
+
+* `first_parent(x, [depth])`: `first_parent(x)` is similar to `parents(x)`, but
+  for merges, it only returns the first parent instead of returning all parents.
+  The `depth` argument also works similarly, so `first_parent(x, 2)` is
+  equivalent to `first_parent(first_parent(x))`.
+
+* `first_ancestors(x, [depth])`: Similar to `ancestors(x, [depth])`, but only
+  traverses the first parent of each commit. In Git, the first parent of a merge
+  commit is conventionally the branch into which changes are being merged, so
+  `first_ancestors()` can be used to exclude changes made on other branches.
 
 * `reachable(srcs, domain)`: All commits reachable from `srcs` within
   `domain`, traversing all parent and child edges.
 
 * `connected(x)`: Same as `x::x`. Useful when `x` includes several commits.
 
-* `all()`: All visible commits in the repo.
+* `all()`: All visible commits and ancestors of commits explicitly mentioned.
 
 * `none()`: No commits. This function is rarely useful; it is provided for
   completeness.
+
+* `change_id(prefix)`: Commits with the given change ID prefix. If the specified
+  change is divergent, this resolves to multiple commits. It is an error to use a
+  non-unique prefix. Unmatched prefix isn't an error.
+
+* `commit_id(prefix)`: Commits with the given commit ID prefix. It is an error
+  to use a non-unique prefix. Unmatched prefix isn't an error.
 
 * `bookmarks([pattern])`: All local bookmark targets. If `pattern` is specified,
   this selects the bookmarks whose name match the given [string
@@ -205,7 +256,7 @@ revsets (expressions) as arguments.
   bookmarks `push-123` and `repushed` but not the bookmark `main`. If a bookmark is
   in a conflicted state, all its possible targets are included.
 
-* `remote_bookmarks([bookmark_pattern[, [remote=]remote_pattern]])`: All remote
+* `remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`: All remote
   bookmarks targets across all remotes. If just the `bookmark_pattern` is
   specified, the bookmarks whose names match the given [string
   pattern](#string-patterns) across all remotes are selected. If both
@@ -220,11 +271,11 @@ revsets (expressions) as arguments.
   While Git-tracking bookmarks can be selected by `<name>@git`, these bookmarks
   aren't included in `remote_bookmarks()`.
 
-* `tracked_remote_bookmarks([bookmark_pattern[, [remote=]remote_pattern]])`: All
+* `tracked_remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`: All
   targets of tracked remote bookmarks. Supports the same optional arguments as
   `remote_bookmarks()`.
 
-* `untracked_remote_bookmarks([bookmark_pattern[, [remote=]remote_pattern]])`:
+* `untracked_remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`:
   All targets of untracked remote bookmarks. Supports the same optional arguments
   as `remote_bookmarks()`.
 
@@ -239,21 +290,22 @@ revsets (expressions) as arguments.
 
 * `git_head()`: The Git `HEAD` target as of the last import.
 
-* `visible_heads()`: All visible heads (same as `heads(all())`).
+* `visible_heads()`: All visible heads (same as `heads(all())` if no hidden
+  revisions are mentioned).
 
 * `root()`: The virtual commit that is the oldest ancestor of all other commits.
 
 * `heads(x)`: Commits in `x` that are not ancestors of other commits in `x`.
-  Note that this is different from
+  Equivalent to `x ~ ::x-`. Note that this is different from
   [Mercurial's](https://repo.mercurial-scm.org/hg/help/revsets) `heads(x)`
   function, which is equivalent to `x ~ x-`.
 
 * `roots(x)`: Commits in `x` that are not descendants of other commits in `x`.
-  Note that this is different from
+  Equivalent to `x ~ x+::`. Note that this is different from
   [Mercurial's](https://repo.mercurial-scm.org/hg/help/revsets) `roots(x)`
   function, which is equivalent to `x ~ x+`.
 
-* `latest(x[, count])`: Latest `count` commits in `x`, based on committer
+* `latest(x, [count])`: Latest `count` commits in `x`, based on committer
   timestamp. The default `count` is 1.
 
 * `fork_point(x)`: The fork point of all commits in `x`. The fork point is the
@@ -261,6 +313,14 @@ revsets (expressions) as arguments.
   that are also common ancestors of all commits in `x`. It is equivalent to
   the revset `heads(::x_1 & ::x_2 & ... & ::x_N)`, where `x_{1..N}` are commits
   in `x`. If `x` resolves to a single commit, `fork_point(x)` resolves to `x`.
+
+* `bisect(x)`: Finds commits in the input set for which about half of the input
+  set are descendants. The current implementation deals somewhat poorly with
+  non-linear history.
+
+* `exactly(x, count)`: Evaluates `x`, and errors if it is not of exactly size
+  `count`. Otherwise, returns `x`. This is useful in particular with `count=1`
+  when you want to ensure that some revset expression has exactly one target.
 
 * `merges()`: Merge commits.
 
@@ -321,7 +381,7 @@ revsets (expressions) as arguments.
   Some file patterns might need quoting because the `expression` must also be
   parsable as a revset. For example, `.` has to be quoted in `files(".")`.
 
-* `diff_contains(text[, files])`: Commits containing diffs matching the given
+* `diff_contains(text, [files])`: Commits containing diffs matching the given
   `text` pattern line by line.
 
   The search paths can be narrowed by the `files` expression. All modified files
@@ -345,6 +405,11 @@ revsets (expressions) as arguments.
 * `at_operation(op, x)`: Evaluates `x` at the specified [operation][]. For
   example, `at_operation(@-, visible_heads())` will return all heads which were
   visible at the previous operation.
+
+  Since `at_operation(op, x)` brings all commits that were visible at the
+  operation to the search space, `at_operation(op, x) | all()` is equivalent to
+  `at_operation(op, x) | ::(at_operation(op, x | visible_heads()) |
+  visible_heads())`.
 
 [operation]: glossary.md#operation
 
@@ -402,7 +467,7 @@ revsets (expressions) as arguments.
     * `fork_point(E|B)` ⇒ `{B}`
     * `fork_point(E|A)` ⇒ `{A}`
     * `fork_point(D|C)` ⇒ `{C}`
-    * `fork_point(D|B)` ⇒ `{A}`
+    * `fork_point(D|B)` ⇒ `{B}`
     * `fork_point(B|C)` ⇒ `{A}`
     * `fork_point(A)` ⇒ `{A}`
     * `fork_point(none())` ⇒ `{}`
@@ -415,7 +480,7 @@ quotes are optional):
 * `"string"` or `substring:"string"`: Matches strings that contain `string`.
 * `exact:"string"`: Matches strings exactly equal to `string`.
 * `glob:"pattern"`: Matches strings with Unix-style shell [wildcard
-  `pattern`](https://docs.rs/glob/latest/glob/struct.Pattern.html).
+  `pattern`](https://docs.rs/globset/latest/globset/#syntax).
 * `regex:"pattern"`: Matches substrings with [regular
   expression `pattern`](https://docs.rs/regex/latest/regex/#syntax).
 
@@ -466,14 +531,15 @@ are defined as aliases in order to allow you to overwrite them as needed.
 See [revsets.toml](https://github.com/jj-vcs/jj/blob/main/cli/src/config/revsets.toml)
 for a comprehensive list.
 
-* `trunk()`: Resolves to the head commit for the trunk bookmark of the remote
-  named `origin` or `upstream`. The bookmarks `main`, `master`, and `trunk` are
-  tried. If more than one potential trunk commit exists, the newest one is
-  chosen. If none of the bookmarks exist, the revset evaluates to `root()`.
+* `trunk()`: Resolves to the head commit for the default bookmark of the default
+  remote, or the remote named `upstream` or `origin`. This is set at the
+  repository level upon initialization of a Jujutsu repository.
 
-  When working with an existing Git repository (via `jj git clone` or
-  `jj git init`), `trunk()` will be overridden at the repository level
-  to the default bookmark of the remote `origin`.
+  If the default bookmark cannot be resolved during initialization, the default
+  global configuration tries the bookmarks `main`, `master`, and `trunk` on the
+  `upstream` and `origin` remotes. If more than one potential trunk commit
+  exists, the newest one is chosen. If none of the bookmarks exist, the revset
+  evaluates to `root()`.
 
   You can [override](./config.md) this as appropriate. If you do, make sure it
   always resolves to exactly one commit. For example:
@@ -507,13 +573,12 @@ for a comprehensive list.
 ## The `all:` modifier
 
 Certain commands (such as `jj rebase`) can take multiple revset arguments, and
-each of these may resolve to one-or-many revisions. By default, `jj` will not
+each of these may resolve to one-or-many revisions.
+
+If you set the `ui.always-allow-large-revsets` option to `false`, `jj` will not
 allow revsets that resolve to more than one revision &mdash; a so-called "large
 revset" &mdash; and will ask you to confirm that you want to proceed by
-prefixing it with the `all:` modifier.
-
-If you set the `ui.always-allow-large-revsets` option to `true`, `jj` will
-behave as though the `all:` modifier was used every time it would matter.
+prefixing it with the `all:` modifier. *This option is planned to be removed.*
 
 An `all:` modifier before a revset expression does not otherwise change its
 meaning. Strictly speaking, it is not part of the revset language. The notation
@@ -524,11 +589,11 @@ For example, `jj rebase -r w -d xyz+` will rebase `w` on top of the child of
 `xyz` as long as `xyz` has exactly one child.
 
 If `xyz` has more than one child, the `all:` modifier is *not* specified, and
-`ui.always-allow-large-revsets` is `false` (the default), `jj rebase -r w -d
-xyz+` will return an error.
+`ui.always-allow-large-revsets` is `false`, `jj rebase -r w -d xyz+` will return
+an error.
 
-If `ui.always-allow-large-revsets` was `true`, the above command would act as if
-`all:` was set (see the next paragraph).
+If `ui.always-allow-large-revsets` was `true` (the default), the above command
+would act as if `all:` was set (see the next paragraph).
 
 With the `all:` modifier, `jj rebase -r w -d all:xyz+` will make `w` into a merge
 commit if `xyz` has more than one child. The `all:` modifier confirms that the

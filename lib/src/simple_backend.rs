@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::any::Any;
 use std::fmt::Debug;
@@ -37,16 +37,14 @@ use tempfile::NamedTempFile;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt as _;
 
-use crate::backend::make_root_commit;
 use crate::backend::Backend;
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::Commit;
 use crate::backend::CommitId;
-use crate::backend::Conflict;
-use crate::backend::ConflictId;
-use crate::backend::ConflictTerm;
+use crate::backend::CopyHistory;
+use crate::backend::CopyId;
 use crate::backend::CopyRecord;
 use crate::backend::FileId;
 use crate::backend::MergedTreeId;
@@ -59,6 +57,7 @@ use crate::backend::Timestamp;
 use crate::backend::Tree;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
+use crate::backend::make_root_commit;
 use crate::content_hash::blake2b_hash;
 use crate::file_util::persist_content_addressed_temp_file;
 use crate::index::Index;
@@ -125,7 +124,7 @@ impl SimpleBackend {
         let empty_tree_id = TreeId::from_hex(
             "482ae5a29fbe856c7272f2071b8b0f0359ee2d89ff392b8a900643fbd0836eccd067b8bf41909e206c90d45d6e7d8b6686b93ecaee5fe1a9060d87b672101310",
         );
-        SimpleBackend {
+        Self {
             path: store_path.to_path_buf(),
             root_commit_id,
             root_change_id,
@@ -147,10 +146,6 @@ impl SimpleBackend {
 
     fn commit_path(&self, id: &CommitId) -> PathBuf {
         self.path.join("commits").join(id.hex())
-    }
-
-    fn conflict_path(&self, id: &ConflictId) -> PathBuf {
-        self.path.join("conflicts").join(id.hex())
     }
 }
 
@@ -192,7 +187,7 @@ impl Backend for SimpleBackend {
         &self,
         path: &RepoPath,
         id: &FileId,
-    ) -> BackendResult<Pin<Box<dyn AsyncRead>>> {
+    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
         let disk_path = self.file_path(id);
         let mut file = File::open(disk_path).map_err(|err| map_not_found_err(err, id))?;
         let mut buf = vec![];
@@ -253,6 +248,24 @@ impl Backend for SimpleBackend {
         Ok(id)
     }
 
+    async fn read_copy(&self, _id: &CopyId) -> BackendResult<CopyHistory> {
+        Err(BackendError::Unsupported(
+            "The simple backend doesn't support copies".to_string(),
+        ))
+    }
+
+    async fn write_copy(&self, _contents: &CopyHistory) -> BackendResult<CopyId> {
+        Err(BackendError::Unsupported(
+            "The simple backend doesn't support copies".to_string(),
+        ))
+    }
+
+    async fn get_related_copies(&self, _copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>> {
+        Err(BackendError::Unsupported(
+            "The simple backend doesn't support copies".to_string(),
+        ))
+    }
+
     async fn read_tree(&self, _path: &RepoPath, id: &TreeId) -> BackendResult<Tree> {
         let path = self.tree_path(id);
         let buf = fs::read(path).map_err(|err| map_not_found_err(err, id))?;
@@ -274,31 +287,6 @@ impl Backend for SimpleBackend {
         let id = TreeId::new(blake2b_hash(tree).to_vec());
 
         persist_content_addressed_temp_file(temp_file, self.tree_path(&id))
-            .map_err(to_other_err)?;
-        Ok(id)
-    }
-
-    fn read_conflict(&self, _path: &RepoPath, id: &ConflictId) -> BackendResult<Conflict> {
-        let path = self.conflict_path(id);
-        let buf = fs::read(path).map_err(|err| map_not_found_err(err, id))?;
-
-        let proto = crate::protos::simple_store::Conflict::decode(&*buf).map_err(to_other_err)?;
-        Ok(conflict_from_proto(proto))
-    }
-
-    fn write_conflict(&self, _path: &RepoPath, conflict: &Conflict) -> BackendResult<ConflictId> {
-        // TODO: Write temporary file in the destination directory (#5712)
-        let temp_file = NamedTempFile::new_in(&self.path).map_err(to_other_err)?;
-
-        let proto = conflict_to_proto(conflict);
-        temp_file
-            .as_file()
-            .write_all(&proto.encode_to_vec())
-            .map_err(to_other_err)?;
-
-        let id = ConflictId::new(blake2b_hash(conflict).to_vec());
-
-        persist_content_addressed_temp_file(temp_file, self.conflict_path(&id))
             .map_err(to_other_err)?;
         Ok(id)
     }
@@ -358,7 +346,7 @@ impl Backend for SimpleBackend {
         _paths: Option<&[RepoPathBuf]>,
         _root: &CommitId,
         _head: &CommitId,
-    ) -> BackendResult<BoxStream<BackendResult<CopyRecord>>> {
+    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
         Ok(Box::pin(stream::empty()))
     }
 
@@ -367,7 +355,7 @@ impl Backend for SimpleBackend {
     }
 }
 
-#[allow(clippy::assigning_clones)]
+#[expect(clippy::assigning_clones)]
 pub fn commit_to_proto(commit: &Commit) -> crate::protos::simple_store::Commit {
     let mut proto = crate::protos::simple_store::Commit::default();
     for parent in &commit.parents {
@@ -377,11 +365,10 @@ pub fn commit_to_proto(commit: &Commit) -> crate::protos::simple_store::Commit {
         proto.predecessors.push(predecessor.to_bytes());
     }
     match &commit.root_tree {
-        MergedTreeId::Legacy(tree_id) => {
-            proto.root_tree = vec![tree_id.to_bytes()];
+        MergedTreeId::Legacy(_) => {
+            panic!("The simple backend doesn't support legacy trees");
         }
         MergedTreeId::Merge(tree_ids) => {
-            proto.uses_tree_conflict_format = true;
             proto.root_tree = tree_ids.iter().map(|id| id.to_bytes()).collect();
         }
     }
@@ -402,13 +389,8 @@ fn commit_from_proto(mut proto: crate::protos::simple_store::Commit) -> Commit {
 
     let parents = proto.parents.into_iter().map(CommitId::new).collect();
     let predecessors = proto.predecessors.into_iter().map(CommitId::new).collect();
-    let root_tree = if proto.uses_tree_conflict_format {
-        let merge_builder: MergeBuilder<_> = proto.root_tree.into_iter().map(TreeId::new).collect();
-        MergedTreeId::Merge(merge_builder.build())
-    } else {
-        assert_eq!(proto.root_tree.len(), 1);
-        MergedTreeId::Legacy(TreeId::new(proto.root_tree[0].clone()))
-    };
+    let merge_builder: MergeBuilder<_> = proto.root_tree.into_iter().map(TreeId::new).collect();
+    let root_tree = MergedTreeId::Merge(merge_builder.build());
     let change_id = ChangeId::new(proto.change_id);
     Commit {
         parents,
@@ -436,22 +418,31 @@ fn tree_to_proto(tree: &Tree) -> crate::protos::simple_store::Tree {
 }
 
 fn tree_from_proto(proto: crate::protos::simple_store::Tree) -> Tree {
-    let mut tree = Tree::default();
-    for proto_entry in proto.entries {
-        let value = tree_value_from_proto(proto_entry.value.unwrap());
-        tree.set(RepoPathComponentBuf::new(proto_entry.name).unwrap(), value);
-    }
-    tree
+    // Serialized data should be sorted
+    let entries = proto
+        .entries
+        .into_iter()
+        .map(|proto_entry| {
+            let value = tree_value_from_proto(proto_entry.value.unwrap());
+            (RepoPathComponentBuf::new(proto_entry.name).unwrap(), value)
+        })
+        .collect();
+    Tree::from_sorted_entries(entries)
 }
 
 fn tree_value_to_proto(value: &TreeValue) -> crate::protos::simple_store::TreeValue {
     let mut proto = crate::protos::simple_store::TreeValue::default();
     match value {
-        TreeValue::File { id, executable } => {
+        TreeValue::File {
+            id,
+            executable,
+            copy_id,
+        } => {
             proto.value = Some(crate::protos::simple_store::tree_value::Value::File(
                 crate::protos::simple_store::tree_value::File {
                     id: id.to_bytes(),
                     executable: *executable,
+                    copy_id: copy_id.to_bytes(),
                 },
             ));
         }
@@ -468,11 +459,6 @@ fn tree_value_to_proto(value: &TreeValue) -> crate::protos::simple_store::TreeVa
                 id.to_bytes(),
             ));
         }
-        TreeValue::Conflict(id) => {
-            proto.value = Some(crate::protos::simple_store::tree_value::Value::ConflictId(
-                id.to_bytes(),
-            ));
-        }
     }
     proto
 }
@@ -483,16 +469,18 @@ fn tree_value_from_proto(proto: crate::protos::simple_store::TreeValue) -> TreeV
             TreeValue::Tree(TreeId::new(id))
         }
         crate::protos::simple_store::tree_value::Value::File(
-            crate::protos::simple_store::tree_value::File { id, executable, .. },
+            crate::protos::simple_store::tree_value::File {
+                id,
+                executable,
+                copy_id,
+            },
         ) => TreeValue::File {
             id: FileId::new(id),
             executable,
+            copy_id: CopyId::new(copy_id),
         },
         crate::protos::simple_store::tree_value::Value::SymlinkId(id) => {
             TreeValue::Symlink(SymlinkId::new(id))
-        }
-        crate::protos::simple_store::tree_value::Value::ConflictId(id) => {
-            TreeValue::Conflict(ConflictId::new(id))
         }
     }
 }
@@ -517,43 +505,6 @@ fn signature_from_proto(proto: crate::protos::simple_store::commit::Signature) -
             timestamp: MillisSinceEpoch(timestamp.millis_since_epoch),
             tz_offset: timestamp.tz_offset,
         },
-    }
-}
-
-fn conflict_to_proto(conflict: &Conflict) -> crate::protos::simple_store::Conflict {
-    let mut proto = crate::protos::simple_store::Conflict::default();
-    for term in &conflict.removes {
-        proto.removes.push(conflict_term_to_proto(term));
-    }
-    for term in &conflict.adds {
-        proto.adds.push(conflict_term_to_proto(term));
-    }
-    proto
-}
-
-fn conflict_from_proto(proto: crate::protos::simple_store::Conflict) -> Conflict {
-    let removes = proto
-        .removes
-        .into_iter()
-        .map(conflict_term_from_proto)
-        .collect();
-    let adds = proto
-        .adds
-        .into_iter()
-        .map(conflict_term_from_proto)
-        .collect();
-    Conflict { removes, adds }
-}
-
-fn conflict_term_from_proto(proto: crate::protos::simple_store::conflict::Term) -> ConflictTerm {
-    ConflictTerm {
-        value: tree_value_from_proto(proto.content.unwrap()),
-    }
-}
-
-fn conflict_term_to_proto(part: &ConflictTerm) -> crate::protos::simple_store::conflict::Term {
-    crate::protos::simple_store::conflict::Term {
-        content: Some(tree_value_to_proto(&part.value)),
     }
 }
 

@@ -20,6 +20,7 @@ use std::path::PathBuf;
 
 use bstr::BString;
 use indoc::formatdoc;
+use itertools::Itertools as _;
 use regex::Captures;
 use regex::Regex;
 use tempfile::TempDir;
@@ -61,11 +62,14 @@ impl Default for TestEnvironment {
             command_number: RefCell::new(0),
         };
         // Use absolute timestamps in the operation log to make tests independent of the
-        // current time.
+        // current time. Use non-colocated repos by default for simplicity.
         env.add_config(
             r#"
 [template-aliases]
 'format_time_range(time_range)' = 'time_range.start() ++ " - " ++ time_range.end()'
+
+[git]
+colocate = false
         "#,
         );
 
@@ -198,6 +202,15 @@ impl TestEnvironment {
         self.env_vars.insert(key.into(), val.into());
     }
 
+    /// Sets up the fake bisection test command to read a script from the
+    /// returned path
+    pub fn set_up_fake_bisector(&mut self) -> PathBuf {
+        let bisection_script = self.env_root().join("bisection_script");
+        std::fs::write(&bisection_script, "").unwrap();
+        self.add_env_var("BISECTION_SCRIPT", bisection_script.to_str().unwrap());
+        bisection_script
+    }
+
     /// Sets up the fake editor to read an edit script from the returned path
     /// Also sets up the fake editor as a merge tool named "fake-editor"
     pub fn set_up_fake_editor(&mut self) -> PathBuf {
@@ -288,12 +301,20 @@ impl TestWorkDir<'_> {
         }
     }
 
+    /// Reads the current operation id without resolving divergence nor
+    /// snapshotting. `TestWorkDir` must be at the workspace root.
     #[track_caller]
     pub fn current_operation_id(&self) -> String {
-        let output = self
-            .run_jj(["debug", "operation", "--display=id"])
-            .success();
-        output.stdout.raw().trim_end().to_owned()
+        let heads_dir = self
+            .root()
+            .join(PathBuf::from_iter([".jj", "repo", "op_heads", "heads"]));
+        let head_entry = heads_dir
+            .read_dir()
+            .expect("TestWorkDir must point to the workspace root")
+            .exactly_one()
+            .expect("divergence not supported")
+            .unwrap();
+        head_entry.file_name().into_string().unwrap()
     }
 
     /// Returns test helper for the specified sub directory.

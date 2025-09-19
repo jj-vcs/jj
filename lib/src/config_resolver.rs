@@ -19,14 +19,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
-use serde::de::IntoDeserializer as _;
 use serde::Deserialize as _;
+use serde::de::IntoDeserializer as _;
 use thiserror::Error;
 use toml_edit::DocumentMut;
 
 use crate::config::ConfigGetError;
 use crate::config::ConfigLayer;
 use crate::config::ConfigNamePathBuf;
+use crate::config::ConfigSource;
 use crate::config::ConfigUpdateError;
 use crate::config::ConfigValue;
 use crate::config::StackedConfig;
@@ -66,6 +67,9 @@ struct ScopeCondition {
     /// - `--when.commands = ["foo bar"]` -> matches "foo bar", "foo bar baz",
     ///   NOT "foo"
     pub commands: Option<Vec<String>>,
+    /// Platforms to match. The values are defined by `std::env::consts::FAMILY`
+    /// and `std::env::consts::OS`.
+    pub platforms: Option<Vec<String>>,
     // TODO: maybe add "workspaces"?
 }
 
@@ -93,6 +97,7 @@ impl ScopeCondition {
 
     fn matches(&self, context: &ConfigResolutionContext) -> bool {
         matches_path_prefix(self.repositories.as_deref(), context.repo_path)
+            && matches_platform(self.platforms.as_deref())
             && matches_command(self.commands.as_deref(), context.command)
     }
 }
@@ -113,6 +118,14 @@ fn matches_path_prefix(candidates: Option<&[PathBuf]>, actual: Option<&Path>) ->
         (Some(_), None) => false, // actual path not known (e.g. not in workspace)
         (None, _) => true,        // no constraints
     }
+}
+
+fn matches_platform(candidates: Option<&[String]>) -> bool {
+    candidates.is_none_or(|candidates| {
+        candidates
+            .iter()
+            .any(|value| value == std::env::consts::FAMILY || value == std::env::consts::OS)
+    })
 }
 
 fn matches_command(candidates: Option<&[String]>, actual: Option<&str>) -> bool {
@@ -268,7 +281,7 @@ impl ConfigMigrationRule {
             old_name: old_name.into_name_path().into(),
             new_name: new_name.into_name_path().into(),
         };
-        ConfigMigrationRule { inner }
+        Self { inner }
     }
 
     /// Creates rule that moves value from `old_name` to `new_name`, and updates
@@ -286,7 +299,7 @@ impl ConfigMigrationRule {
             new_name: new_name.into_name_path().into(),
             new_value_fn: Box::new(new_value_fn),
         };
-        ConfigMigrationRule { inner }
+        Self { inner }
     }
 
     // TODO: update value, etc.
@@ -301,7 +314,7 @@ impl ConfigMigrationRule {
             matches_fn: Box::new(matches_fn),
             apply_fn: Box::new(apply_fn),
         };
-        ConfigMigrationRule { inner }
+        Self { inner }
     }
 
     /// Returns true if `layer` contains an item to be migrated.
@@ -367,7 +380,7 @@ fn rename_update_value(
 pub fn migrate(
     config: &mut StackedConfig,
     rules: &[ConfigMigrationRule],
-) -> Result<Vec<String>, ConfigMigrateError> {
+) -> Result<Vec<(ConfigSource, String)>, ConfigMigrateError> {
     let mut descriptions = Vec::new();
     for layer in config.layers_mut() {
         migrate_layer(layer, rules, &mut descriptions)
@@ -379,7 +392,7 @@ pub fn migrate(
 fn migrate_layer(
     layer: &mut Arc<ConfigLayer>,
     rules: &[ConfigMigrationRule],
-    descriptions: &mut Vec<String>,
+    descriptions: &mut Vec<(ConfigSource, String)>,
 ) -> Result<(), ConfigMigrateLayerError> {
     let rules_to_apply = rules
         .iter()
@@ -391,7 +404,7 @@ fn migrate_layer(
     let layer_mut = Arc::make_mut(layer);
     for rule in rules_to_apply {
         let desc = rule.apply(layer_mut)?;
-        descriptions.push(desc);
+        descriptions.push((layer_mut.source, desc));
     }
     Ok(())
 }
@@ -443,6 +456,7 @@ mod tests {
         let condition = ScopeCondition {
             repositories: Some(["/foo", "/bar"].map(PathBuf::from).into()),
             commands: None,
+            platforms: None,
         };
 
         let context = ConfigResolutionContext {
@@ -482,6 +496,7 @@ mod tests {
         let condition = ScopeCondition {
             repositories: Some(["c:/foo", r"d:\bar/baz"].map(PathBuf::from).into()),
             commands: None,
+            platforms: None,
         };
 
         let context = ConfigResolutionContext {
@@ -710,6 +725,52 @@ mod tests {
     }
 
     #[test]
+    fn test_resolve_os() {
+        let mut source_config = StackedConfig::empty();
+        source_config.add_layer(new_user_layer(indoc! {"
+            a = 'a none'
+            b = 'b none'
+            [[--scope]]
+            --when.platforms = ['linux']
+            a = 'a linux'
+            [[--scope]]
+            --when.platforms = ['macos']
+            a = 'a macos'
+            [[--scope]]
+            --when.platforms = ['windows']
+            a = 'a windows'
+            [[--scope]]
+            --when.platforms = ['unix']
+            b = 'b unix'
+        "}));
+
+        let context = ConfigResolutionContext {
+            home_dir: Some(Path::new("/home/dir")),
+            repo_path: None,
+            command: None,
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @r#"
+        a = 'a none'
+        b = 'b none'
+        "#);
+        if cfg!(target_os = "linux") {
+            assert_eq!(resolved_config.layers().len(), 3);
+            insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a linux'");
+            insta::assert_snapshot!(resolved_config.layers()[2].data, @"b = 'b unix'");
+        } else if cfg!(target_os = "macos") {
+            assert_eq!(resolved_config.layers().len(), 3);
+            insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a macos'");
+            insta::assert_snapshot!(resolved_config.layers()[2].data, @"b = 'b unix'");
+        } else if cfg!(target_os = "windows") {
+            assert_eq!(resolved_config.layers().len(), 2);
+            insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a windows'");
+        } else {
+            assert_eq!(resolved_config.layers().len(), 1);
+        }
+    }
+
+    #[test]
     fn test_resolve_repo_path_and_command() {
         let mut source_config = StackedConfig::empty();
         source_config.add_layer(new_user_layer(indoc! {"
@@ -862,9 +923,18 @@ mod tests {
         let descriptions = migrate(&mut config, &rules).unwrap();
         insta::assert_debug_snapshot!(descriptions, @r#"
         [
-            "foo.old is renamed to foo.new",
-            "bar.old is deleted (superseded by baz.new)",
-            "bar.old is renamed to baz.new",
+            (
+                User,
+                "foo.old is renamed to foo.new",
+            ),
+            (
+                User,
+                "bar.old is deleted (superseded by baz.new)",
+            ),
+            (
+                User,
+                "bar.old is renamed to baz.new",
+            ),
         ]
         "#);
         insta::assert_snapshot!(config.layers()[0].data, @r"
@@ -913,9 +983,18 @@ mod tests {
         let descriptions = migrate(&mut config, &rules).unwrap();
         insta::assert_debug_snapshot!(descriptions, @r#"
         [
-            "foo.old is updated to foo.new = ['foo.old #0']",
-            "bar.old is deleted (superseded by baz.new)",
-            "bar.old is updated to baz.new = \"bar.old #1 updated\"",
+            (
+                User,
+                "foo.old is updated to foo.new = ['foo.old #0']",
+            ),
+            (
+                User,
+                "bar.old is deleted (superseded by baz.new)",
+            ),
+            (
+                User,
+                "bar.old is updated to baz.new = \"bar.old #1 updated\"",
+            ),
         ]
         "#);
         insta::assert_snapshot!(config.layers()[0].data, @r"

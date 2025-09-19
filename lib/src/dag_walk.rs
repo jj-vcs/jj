@@ -23,6 +23,8 @@ use std::iter;
 use std::mem;
 
 use itertools::Itertools as _;
+use smallvec::SmallVec;
+use smallvec::smallvec_inline;
 
 /// Traverses nodes from `start` in depth-first order.
 pub fn dfs<T, ID, II, NI>(
@@ -55,25 +57,29 @@ where
 {
     let mut work: Vec<Result<T, E>> = start.into_iter().collect();
     let mut visited: HashSet<ID> = HashSet::new();
-    iter::from_fn(move || loop {
-        let c = match work.pop() {
-            Some(Ok(c)) => c,
-            r @ (Some(Err(_)) | None) => return r,
-        };
-        let id = id_fn(&c);
-        if visited.contains(&id) {
-            continue;
+    iter::from_fn(move || {
+        loop {
+            let c = match work.pop() {
+                Some(Ok(c)) => c,
+                r @ (Some(Err(_)) | None) => return r,
+            };
+            let id = id_fn(&c);
+            if visited.contains(&id) {
+                continue;
+            }
+            for p in neighbors_fn(&c) {
+                work.push(p);
+            }
+            visited.insert(id);
+            return Some(Ok(c));
         }
-        for p in neighbors_fn(&c) {
-            work.push(p);
-        }
-        visited.insert(id);
-        return Some(Ok(c));
     })
 }
 
 /// Builds a list of nodes reachable from the `start` where neighbors come
 /// before the node itself.
+///
+/// Panics if the graph has cycle.
 pub fn topo_order_forward<T, ID, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
@@ -85,18 +91,21 @@ where
     NI: IntoIterator<Item = T>,
 {
     let neighbors_fn = move |node: &T| to_ok_iter(neighbors_fn(node));
-    topo_order_forward_ok(to_ok_iter(start), id_fn, neighbors_fn).unwrap()
+    let cycle_fn = |_| panic!("graph has cycle");
+    topo_order_forward_ok(to_ok_iter(start), id_fn, neighbors_fn, cycle_fn).unwrap()
 }
 
 /// Builds a list of `Ok` nodes reachable from the `start` where neighbors come
 /// before the node itself.
 ///
 /// If `start` or `neighbors_fn()` yields an `Err`, this function terminates and
-/// returns the error.
+/// returns the error. If the graph has cycle, `cycle_fn()` is called with one
+/// of the nodes involved in the cycle.
 pub fn topo_order_forward_ok<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
     mut neighbors_fn: impl FnMut(&T) -> NI,
+    cycle_fn: impl FnOnce(T) -> E,
 ) -> Result<Vec<T>, E>
 where
     ID: Hash + Eq + Clone,
@@ -113,7 +122,9 @@ where
             continue;
         }
         if !neighbors_visited {
-            assert!(visiting.insert(id.clone()), "graph has cycle");
+            if !visiting.insert(id.clone()) {
+                return Err(cycle_fn(node));
+            }
             let neighbors_iter = neighbors_fn(&node).into_iter();
             stack.reserve(neighbors_iter.size_hint().0 + 1);
             stack.push((node, true));
@@ -131,6 +142,8 @@ where
 
 /// Builds a list of nodes reachable from the `start` where neighbors come after
 /// the node itself.
+///
+/// Panics if the graph has cycle.
 pub fn topo_order_reverse<T, ID, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
@@ -142,25 +155,28 @@ where
     NI: IntoIterator<Item = T>,
 {
     let neighbors_fn = move |node: &T| to_ok_iter(neighbors_fn(node));
-    topo_order_reverse_ok(to_ok_iter(start), id_fn, neighbors_fn).unwrap()
+    let cycle_fn = |_| panic!("graph has cycle");
+    topo_order_reverse_ok(to_ok_iter(start), id_fn, neighbors_fn, cycle_fn).unwrap()
 }
 
 /// Builds a list of `Ok` nodes reachable from the `start` where neighbors come
 /// after the node itself.
 ///
 /// If `start` or `neighbors_fn()` yields an `Err`, this function terminates and
-/// returns the error.
+/// returns the error. If the graph has cycle, `cycle_fn()` is called with one
+/// of the nodes involved in the cycle.
 pub fn topo_order_reverse_ok<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
     neighbors_fn: impl FnMut(&T) -> NI,
+    cycle_fn: impl FnOnce(T) -> E,
 ) -> Result<Vec<T>, E>
 where
     ID: Hash + Eq + Clone,
     II: IntoIterator<Item = Result<T, E>>,
     NI: IntoIterator<Item = Result<T, E>>,
 {
-    let mut result = topo_order_forward_ok(start, id_fn, neighbors_fn)?;
+    let mut result = topo_order_forward_ok(start, id_fn, neighbors_fn, cycle_fn)?;
     result.reverse();
     Ok(result)
 }
@@ -173,6 +189,8 @@ where
 ///
 /// Use `topo_order_reverse()` if the DAG is heavily branched. This can
 /// only process linear part lazily.
+///
+/// Panics if the graph has cycle.
 pub fn topo_order_reverse_lazy<T, ID, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
@@ -185,17 +203,20 @@ where
     NI: IntoIterator<Item = T>,
 {
     let neighbors_fn = move |node: &T| to_ok_iter(neighbors_fn(node));
-    topo_order_reverse_lazy_ok(to_ok_iter(start), id_fn, neighbors_fn).map(Result::unwrap)
+    let cycle_fn = |_| panic!("graph has cycle");
+    topo_order_reverse_lazy_ok(to_ok_iter(start), id_fn, neighbors_fn, cycle_fn).map(Result::unwrap)
 }
 
 /// Like `topo_order_reverse_ok()`, but can iterate linear DAG lazily.
 ///
 /// The returned iterator short-circuits at an `Err`. Pending non-linear nodes
-/// before the `Err` will be discarded.
+/// before the `Err` will be discarded. If the graph has cycle, `cycle_fn()` is
+/// called with one of the nodes involved in the cycle.
 pub fn topo_order_reverse_lazy_ok<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
     mut neighbors_fn: impl FnMut(&T) -> NI,
+    mut cycle_fn: impl FnMut(T) -> E,
 ) -> impl Iterator<Item = Result<T, E>>
 where
     T: Ord,
@@ -205,7 +226,7 @@ where
 {
     let mut inner = TopoOrderReverseLazyInner::empty();
     inner.extend(start);
-    iter::from_fn(move || inner.next(&id_fn, &mut neighbors_fn))
+    iter::from_fn(move || inner.next(&id_fn, &mut neighbors_fn, &mut cycle_fn))
 }
 
 #[derive(Clone, Debug)]
@@ -217,7 +238,7 @@ struct TopoOrderReverseLazyInner<T, ID, E> {
 
 impl<T: Ord, ID: Hash + Eq + Clone, E> TopoOrderReverseLazyInner<T, ID, E> {
     fn empty() -> Self {
-        TopoOrderReverseLazyInner {
+        Self {
             start: Vec::new(),
             result: Vec::new(),
             emitted: HashSet::new(),
@@ -243,6 +264,7 @@ impl<T: Ord, ID: Hash + Eq + Clone, E> TopoOrderReverseLazyInner<T, ID, E> {
         &mut self,
         id_fn: impl Fn(&T) -> ID,
         mut neighbors_fn: impl FnMut(&T) -> NI,
+        mut cycle_fn: impl FnMut(T) -> E,
     ) -> Option<Result<T, E>> {
         if let Some(res) = self.result.pop() {
             return Some(res);
@@ -252,8 +274,11 @@ impl<T: Ord, ID: Hash + Eq + Clone, E> TopoOrderReverseLazyInner<T, ID, E> {
         if self.start.len() <= 1 {
             let node = self.start.pop()?;
             self.extend(neighbors_fn(&node));
-            assert!(self.emitted.insert(id_fn(&node)), "graph has cycle");
-            return Some(Ok(node));
+            if self.emitted.insert(id_fn(&node)) {
+                return Some(Ok(node));
+            } else {
+                return Some(Err(cycle_fn(node)));
+            }
         }
 
         // Extract graph nodes based on T's order, and sort them by using ids
@@ -262,19 +287,82 @@ impl<T: Ord, ID: Hash + Eq + Clone, E> TopoOrderReverseLazyInner<T, ID, E> {
         match look_ahead_sub_graph(mem::take(&mut self.start), &id_fn, &mut neighbors_fn) {
             Ok((mut node_map, neighbor_ids_map, remainder)) => {
                 self.start = remainder;
-                let sorted_ids =
-                    topo_order_forward(&start_ids, |id| *id, |id| &neighbor_ids_map[id]);
+                let sorted_ids = match topo_order_forward_ok(
+                    start_ids.iter().map(Ok),
+                    |id| *id,
+                    |id| neighbor_ids_map[id].iter().map(Ok),
+                    |id| cycle_fn(node_map.remove(id).unwrap()),
+                ) {
+                    Ok(ids) => ids,
+                    Err(err) => return Some(Err(err)),
+                };
                 self.result.reserve(sorted_ids.len());
                 for id in sorted_ids {
                     let (id, node) = node_map.remove_entry(id).unwrap();
-                    assert!(self.emitted.insert(id), "graph has cycle");
-                    self.result.push(Ok(node));
+                    if self.emitted.insert(id) {
+                        self.result.push(Ok(node));
+                    } else {
+                        self.result.push(Err(cycle_fn(node)));
+                    }
                 }
                 self.result.pop()
             }
             Err(err) => Some(Err(err)),
         }
     }
+}
+
+/// Splits DAG at the first single fork point, and builds a list of nodes
+/// reachable from the `start` where neighbors come after the node itself.
+///
+/// This is a building block for lazy DAG iterators similar to
+/// [`topo_order_reverse_lazy()`]. The `start` list will be updated to include
+/// the next nodes to visit.
+///
+/// If the split chunk of the graph has cycle, `cycle_fn()` is called with one
+/// of the nodes involved in the cycle.
+pub fn topo_order_reverse_chunked<T, ID, E, NI>(
+    start: &mut Vec<T>,
+    id_fn: impl Fn(&T) -> ID,
+    mut neighbors_fn: impl FnMut(&T) -> NI,
+    mut cycle_fn: impl FnMut(T) -> E,
+) -> Result<SmallVec<[T; 1]>, E>
+where
+    T: Ord,
+    ID: Hash + Eq + Clone,
+    NI: IntoIterator<Item = Result<T, E>>,
+{
+    // Fast path for linear DAG
+    if start.len() <= 1 {
+        let Some(node) = start.pop() else {
+            return Ok(SmallVec::new());
+        };
+        let neighbors_iter = neighbors_fn(&node).into_iter();
+        start.reserve(neighbors_iter.size_hint().0);
+        for neighbor in neighbors_iter {
+            start.push(neighbor?);
+        }
+        return Ok(smallvec_inline![node]);
+    }
+
+    // Extract graph nodes based on T's order, and sort them by using ids
+    // (because we wouldn't want to clone T itself)
+    let start_ids = start.iter().map(&id_fn).collect_vec();
+    let (mut node_map, neighbor_ids_map, remainder) =
+        look_ahead_sub_graph(mem::take(start), &id_fn, &mut neighbors_fn)?;
+    *start = remainder;
+    let sorted_ids = topo_order_forward_ok(
+        start_ids.iter().map(Ok),
+        |id| *id,
+        |id| neighbor_ids_map[id].iter().map(Ok),
+        |id| cycle_fn(node_map.remove(id).unwrap()),
+    )?;
+    let sorted_nodes = sorted_ids
+        .iter()
+        .rev()
+        .map(|&id| node_map.remove(id).unwrap())
+        .collect();
+    Ok(sorted_nodes)
 }
 
 /// Splits DAG at single fork point, and extracts branchy part as sub graph.
@@ -353,6 +441,8 @@ where
 ///
 /// Unlike `topo_order_reverse()`, nodes are sorted in reverse `T: Ord` order so
 /// long as they can respect the topological requirement.
+///
+/// Panics if the graph has cycle.
 pub fn topo_order_reverse_ord<T, ID, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
@@ -365,7 +455,8 @@ where
     NI: IntoIterator<Item = T>,
 {
     let neighbors_fn = move |node: &T| to_ok_iter(neighbors_fn(node));
-    topo_order_reverse_ord_ok(to_ok_iter(start), id_fn, neighbors_fn).unwrap()
+    let cycle_fn = |_| panic!("graph has cycle");
+    topo_order_reverse_ord_ok(to_ok_iter(start), id_fn, neighbors_fn, cycle_fn).unwrap()
 }
 
 /// Builds a list of `Ok` nodes reachable from the `start` where neighbors come
@@ -375,11 +466,13 @@ where
 /// so long as they can respect the topological requirement.
 ///
 /// If `start` or `neighbors_fn()` yields an `Err`, this function terminates and
-/// returns the error.
+/// returns the error. If the graph has cycle, `cycle_fn()` is called with one
+/// of the nodes involved in the cycle.
 pub fn topo_order_reverse_ord_ok<T, ID, E, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
     mut neighbors_fn: impl FnMut(&T) -> NI,
+    cycle_fn: impl FnOnce(T) -> E,
 ) -> Result<Vec<T>, E>
 where
     T: Ord,
@@ -430,9 +523,11 @@ where
         neighbor_ids_map.insert(node_id, neighbor_ids);
     }
 
-    debug_assert!(head_node_map
-        .keys()
-        .all(|id| !inner_node_map.contains_key(id)));
+    debug_assert!(
+        head_node_map
+            .keys()
+            .all(|id| !inner_node_map.contains_key(id))
+    );
     debug_assert!(inner_node_map.values().all(|inner| inner.node.is_some()));
     debug_assert!(inner_node_map.values().all(|inner| inner.indegree > 0));
 
@@ -452,8 +547,11 @@ where
         }
     }
 
-    assert!(inner_node_map.is_empty(), "graph has cycle");
-    Ok(result)
+    if let Some(inner) = inner_node_map.into_values().next() {
+        Err(cycle_fn(inner.node.unwrap()))
+    } else {
+        Ok(result)
+    }
 }
 
 /// Find nodes in the start set that are not reachable from other nodes in the
@@ -598,6 +696,7 @@ fn to_ok_iter<T>(iter: impl IntoIterator<Item = T>) -> impl Iterator<Item = Resu
 mod tests {
     use std::panic;
 
+    use assert_matches::assert_matches;
     use maplit::hashmap;
     use maplit::hashset;
 
@@ -853,19 +952,39 @@ mod tests {
 
         // Iterator can be lazy for linear chunks.
         let neighbors_fn = |node: &char| to_ok_iter(neighbors[node].iter().copied());
+        let cycle_fn = |_| panic!("graph has cycle");
         let mut inner_iter = TopoOrderReverseLazyInner::empty();
         inner_iter.extend([Ok('G')]);
-        assert_eq!(inner_iter.next(id_fn, neighbors_fn), Some(Ok('G')));
+        assert_eq!(
+            inner_iter.next(id_fn, neighbors_fn, cycle_fn),
+            Some(Ok('G'))
+        );
         assert!(!inner_iter.start.is_empty());
         assert!(inner_iter.result.is_empty());
         assert_eq!(
-            iter::from_fn(|| inner_iter.next(id_fn, neighbors_fn))
+            iter::from_fn(|| inner_iter.next(id_fn, neighbors_fn, cycle_fn))
                 .take(4)
                 .collect_vec(),
             ['E', 'F', 'D', 'C'].map(Ok),
         );
         assert!(!inner_iter.start.is_empty());
         assert!(inner_iter.result.is_empty());
+
+        // Run each step of lazy iterator by using low-level function.
+        let mut start = vec!['G'];
+        let next = |start: &mut Vec<char>| {
+            topo_order_reverse_chunked(start, id_fn, neighbors_fn, cycle_fn).unwrap()
+        };
+        assert_eq!(next(&mut start), ['G'].into());
+        assert_eq!(start, ['E', 'F']);
+        assert_eq!(next(&mut start), ['E', 'F', 'D', 'C'].into());
+        assert_eq!(start, ['B']);
+        assert_eq!(next(&mut start), ['B'].into());
+        assert_eq!(start, ['A']);
+        assert_eq!(next(&mut start), ['A'].into());
+        assert!(start.is_empty());
+        assert!(next(&mut start).is_empty());
+        assert!(start.is_empty());
     }
 
     #[test]
@@ -905,19 +1024,39 @@ mod tests {
         // Iterator can be lazy for linear chunks. The node 'c' is visited before 'D',
         // but it will be processed lazily.
         let neighbors_fn = |node: &char| to_ok_iter(neighbors[node].iter().copied());
+        let cycle_fn = |_| panic!("graph has cycle");
         let mut inner_iter = TopoOrderReverseLazyInner::empty();
         inner_iter.extend([Ok('G')]);
-        assert_eq!(inner_iter.next(id_fn, neighbors_fn), Some(Ok('G')));
+        assert_eq!(
+            inner_iter.next(id_fn, neighbors_fn, cycle_fn),
+            Some(Ok('G'))
+        );
         assert!(!inner_iter.start.is_empty());
         assert!(inner_iter.result.is_empty());
         assert_eq!(
-            iter::from_fn(|| inner_iter.next(id_fn, neighbors_fn))
+            iter::from_fn(|| inner_iter.next(id_fn, neighbors_fn, cycle_fn))
                 .take(4)
                 .collect_vec(),
             ['F', 'E', 'D', 'c'].map(Ok),
         );
         assert!(!inner_iter.start.is_empty());
         assert!(inner_iter.result.is_empty());
+
+        // Run each step of lazy iterator by using low-level function.
+        let mut start = vec!['G'];
+        let next = |start: &mut Vec<char>| {
+            topo_order_reverse_chunked(start, id_fn, neighbors_fn, cycle_fn).unwrap()
+        };
+        assert_eq!(next(&mut start), ['G'].into());
+        assert_eq!(start, ['F', 'D']);
+        assert_eq!(next(&mut start), ['F', 'E', 'D', 'c'].into());
+        assert_eq!(start, ['B']);
+        assert_eq!(next(&mut start), ['B'].into());
+        assert_eq!(start, ['A']);
+        assert_eq!(next(&mut start), ['A'].into());
+        assert!(start.is_empty());
+        assert!(next(&mut start).is_empty());
+        assert!(start.is_empty());
     }
 
     #[test]
@@ -956,19 +1095,39 @@ mod tests {
 
         // Iterator can be lazy for linear chunks.
         let neighbors_fn = |node: &char| to_ok_iter(neighbors[node].iter().copied());
+        let cycle_fn = |_| panic!("graph has cycle");
         let mut inner_iter = TopoOrderReverseLazyInner::empty();
         inner_iter.extend([Ok('G')]);
-        assert_eq!(inner_iter.next(id_fn, neighbors_fn), Some(Ok('G')));
+        assert_eq!(
+            inner_iter.next(id_fn, neighbors_fn, cycle_fn),
+            Some(Ok('G'))
+        );
         assert!(!inner_iter.start.is_empty());
         assert!(inner_iter.result.is_empty());
         assert_eq!(
-            iter::from_fn(|| inner_iter.next(id_fn, neighbors_fn))
+            iter::from_fn(|| inner_iter.next(id_fn, neighbors_fn, cycle_fn))
                 .take(4)
                 .collect_vec(),
             ['f', 'e', 'd', 'C'].map(Ok),
         );
         assert!(!inner_iter.start.is_empty());
         assert!(inner_iter.result.is_empty());
+
+        // Run each step of lazy iterator by using low-level function.
+        let mut start = vec!['G'];
+        let next = |start: &mut Vec<char>| {
+            topo_order_reverse_chunked(start, id_fn, neighbors_fn, cycle_fn).unwrap()
+        };
+        assert_eq!(next(&mut start), ['G'].into());
+        assert_eq!(start, ['f', 'd']);
+        assert_eq!(next(&mut start), ['f', 'e', 'd', 'C'].into());
+        assert_eq!(start, ['B']);
+        assert_eq!(next(&mut start), ['B'].into());
+        assert_eq!(start, ['A']);
+        assert_eq!(next(&mut start), ['A'].into());
+        assert!(start.is_empty());
+        assert!(next(&mut start).is_empty());
+        assert!(start.is_empty());
     }
 
     #[test]
@@ -1064,6 +1223,22 @@ mod tests {
 
         let result = panic::catch_unwind(|| topo_order_reverse_ord(vec!['C'], id_fn, neighbors_fn));
         assert!(result.is_err());
+
+        // Try again with non-panicking cycle handler
+        let neighbors_fn = |node: &char| neighbors[node].iter().copied().map(Ok);
+        let cycle_fn = |node: char| node;
+        assert_matches!(
+            topo_order_reverse_ok([Ok('C')], id_fn, neighbors_fn, cycle_fn),
+            Err('C' | 'B' | 'A')
+        );
+        assert_matches!(
+            topo_order_reverse_lazy_ok([Ok('C')], id_fn, neighbors_fn, cycle_fn).nth(3),
+            Some(Err('C' | 'B' | 'A'))
+        );
+        assert_matches!(
+            topo_order_reverse_ord_ok([Ok('C')], id_fn, neighbors_fn, cycle_fn),
+            Err('C' | 'B' | 'A')
+        );
     }
 
     #[test]
@@ -1100,6 +1275,62 @@ mod tests {
 
         let result = panic::catch_unwind(|| topo_order_reverse_ord(vec!['D'], id_fn, neighbors_fn));
         assert!(result.is_err());
+
+        // Try again with non-panicking cycle handler
+        let neighbors_fn = |node: &char| neighbors[node].iter().copied().map(Ok);
+        let cycle_fn = |node: char| node;
+        assert_matches!(
+            topo_order_reverse_ok([Ok('D')], id_fn, neighbors_fn, cycle_fn),
+            Err('C' | 'B' | 'A')
+        );
+        assert_matches!(
+            topo_order_reverse_lazy_ok([Ok('D')], id_fn, neighbors_fn, cycle_fn).nth(4),
+            Some(Err('C' | 'B' | 'A'))
+        );
+        assert_matches!(
+            topo_order_reverse_ord_ok([Ok('D')], id_fn, neighbors_fn, cycle_fn),
+            Err('C' | 'B' | 'A')
+        );
+    }
+
+    #[test]
+    fn test_topo_order_reverse_lazy_cycle_within_branchy_sub_graph() {
+        // This graph:
+        //  o D
+        //  |\
+        //  | o C
+        //  |/
+        //  o B (to C)
+        //  o A
+
+        let neighbors = hashmap! {
+            'A' => vec![],
+            'B' => vec!['A', 'C'],
+            'C' => vec!['B'],
+            'D' => vec!['B', 'C'],
+        };
+        let id_fn = |node: &char| *node;
+        let neighbors_fn = |node: &char| neighbors[node].clone();
+
+        let result =
+            panic::catch_unwind(|| topo_order_reverse_lazy(['D'], id_fn, neighbors_fn).nth(1));
+        assert!(result.is_err());
+
+        // Try again with non-panicking cycle handler
+        let neighbors_fn = |node: &char| neighbors[node].iter().copied().map(Ok);
+        let cycle_fn = |node: char| node;
+        assert_matches!(
+            topo_order_reverse_lazy_ok([Ok('D')], id_fn, neighbors_fn, cycle_fn).nth(1),
+            Some(Err('C' | 'B'))
+        );
+
+        // Try again with low-level function
+        let mut start = vec!['D'];
+        topo_order_reverse_chunked(&mut start, id_fn, neighbors_fn, cycle_fn).unwrap();
+        assert_matches!(
+            topo_order_reverse_chunked(&mut start, id_fn, neighbors_fn, cycle_fn),
+            Err('C' | 'B')
+        );
     }
 
     #[test]
@@ -1111,16 +1342,18 @@ mod tests {
         };
         let id_fn = |node: &char| *node;
         let neighbors_fn = |node: &char| neighbors[node].clone();
+        let cycle_fn = |_| panic!("graph has cycle");
 
         // Terminates at Err('X') no matter if the sorting order is forward or
         // reverse. The visiting order matters.
-        let result = topo_order_forward_ok([Ok('C')], id_fn, neighbors_fn);
+        let result = topo_order_forward_ok([Ok('C')], id_fn, neighbors_fn, cycle_fn);
         assert_eq!(result, Err('X'));
-        let result = topo_order_reverse_ok([Ok('C')], id_fn, neighbors_fn);
+        let result = topo_order_reverse_ok([Ok('C')], id_fn, neighbors_fn, cycle_fn);
         assert_eq!(result, Err('X'));
-        let nodes = topo_order_reverse_lazy_ok([Ok('C')], id_fn, neighbors_fn).collect_vec();
+        let nodes =
+            topo_order_reverse_lazy_ok([Ok('C')], id_fn, neighbors_fn, cycle_fn).collect_vec();
         assert_eq!(nodes, [Ok('C'), Ok('B'), Err('X')]);
-        let result = topo_order_reverse_ord_ok([Ok('C')], id_fn, neighbors_fn);
+        let result = topo_order_reverse_ord_ok([Ok('C')], id_fn, neighbors_fn, cycle_fn);
         assert_eq!(result, Err('X'));
     }
 

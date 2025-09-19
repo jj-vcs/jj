@@ -27,7 +27,7 @@ These are listed in the order they are loaded; the settings from earlier items
 in the list are overridden by the settings from later items if they disagree.
 Every type of config except for the built-in settings is optional.
 
-You can enable JSON Schema validation in your editor by adding a `$schema`
+You can enable JSON Schema validation in your editor by adding a `#:schema`
 reference at the top of your TOML config files. See [JSON Schema
 Support] for details.
 
@@ -132,6 +132,16 @@ You can also use a 6-digit hex code for more control over the exact color used:
 change_id = "#ff1525"
 ```
 
+`jj` also supports colors from the [ANSI 256-color palette] as `ansi-color-<N>`,
+where `<N>` is a number between 0 and 255:
+
+```toml
+[colors]
+commit_id = "ansi-color-81"
+```
+
+[ANSI 256-color palette]: https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
+
 If you use a string value for a color, as in the examples above, it will be used
 for the foreground color. You can also set the background color, reverse colors
 (swap foreground and background), or make the text bold, italic, or underlined.
@@ -176,7 +186,8 @@ default-command = ["log", "--reversed"]
 ### Default description
 
 The editor content of a commit description can be populated by the
-`draft_commit_description` template.
+`draft_commit_description` template. `self` is a [`Commit`
+object](templates.md#commit-type).
 
 ```toml
 [templates]
@@ -208,7 +219,8 @@ Closes #NNNN
 
 By default, `jj duplicate` copies the descriptions from the original commits.
 You can customize this behavior by specifying the `duplicate_description`
-template, which is given a `Commit` type of the original commit.
+template, which is given a [`Commit` object](templates.md#commit-type) of the
+original commit.
 
 ```toml
 [templates]
@@ -366,6 +378,15 @@ diff-args = ["--color=always", "$left", "$right"]
 - `$left` and `$right` are replaced with the paths to the left and right
   directories to diff respectively.
 
+- `$width` is replaced with the number of terminal columns available to the diff
+  content.
+
+- If `diff-args` is not specified, `["$left", "$right"]` will be used by default.
+
+- If `diff-args = []`, `jj` will refuse to use this tool for diff formatting.
+  This is a way to explicitly state that a certain tool (e.g. `mergiraf`) does
+  not work for viewing diffs.
+
 By default `jj` will invoke external tools with a directory containing the left
 and right sides.  The `diff-invocation-mode` config can change this to file by file
 invocations as follows:
@@ -493,22 +514,42 @@ log = "main@origin.."
 The default value for `revsets.log` is
 `'present(@) | ancestors(immutable_heads().., 2) | present(trunk())'`.
 
+### Prioritize Revsets in the Log over @
+
+In some situations the default graph can be hard to read, for example when working with big merges.
+To improve this behavior you can configure which revset in the `jj log` graph is displayed on
+the left instead of `@`.
+
+The following example will prioritize the change with the description "megamerge" with a fallback
+to `trunk()` in case no such change exists:
+
+```toml
+[revsets]
+log-graph-prioritize = "coalesce(description("megamerge\n"), trunk())"
+```
+
 ### Default Template
 
 You can configure the template used when no `-T` is specified.
 
+- `templates.evolog` for `jj evolog`
 - `templates.log` for `jj log`
-- `templates.op_log` for `jj op log`
 - `templates.show` for `jj show`
+- `templates.op_log` for `jj op log`
+- `templates.op_show` for `jj op show`
 
 ```toml
 [templates]
+# Use builtin evolog template
+evolog = "builtin_evolog_compact"
 # Use builtin log template
 log = "builtin_log_compact"
-# Use builtin op log template
-op_log = "builtin_op_log_compact"
 # Use builtin show template
 show = "builtin_log_detailed"
+# Use builtin op log template
+op_log = "builtin_op_log_compact"
+# Use builtin op log template
+op_show = "builtin_op_log_compact"
 ```
 
 If you want to see the full description when you do `jj log` you can add this to
@@ -673,24 +714,6 @@ show-cryptographic-signatures = true
 '''
 ```
 
-## Allow "large" revsets by default
-
-Certain commands (such as `jj rebase`) can take multiple revset arguments, but
-default to requiring each of those revsets to expand to a *single* revision.
-This restriction can be overridden by prefixing a revset that the user wants to
-be able to expand to more than one revision with the [`all:`
-modifier](revsets.md#the-all-modifier).
-
-Another way you can override this check is by setting
-`ui.always-allow-large-revsets` to `true`. Then, `jj` will allow every one of
-the revset arguments of such commands to expand to any number of revisions.
-
-```toml
-[ui]
-# Assume `all:` prefix before revsets whenever it would make a difference
-always-allow-large-revsets = true
-```
-
 ## Pager
 
 The default pager is can be set via `ui.pager` or the `PAGER` environment
@@ -804,14 +827,12 @@ pager = ["sh", "-c", "diff-so-fancy | less -RFX"]
 
 Some formatters (like [`delta`](https://github.com/dandavison/delta)) require
 git style diffs for formatting. You can configure this style of
-diff as the default with the `ui.diff` setting. For example:
+diff as the default with the `ui.diff-formatter` setting. For example:
 
 ```toml
 [ui]
 pager = "delta"
-
-[ui.diff]
-format = "git"
+diff-formatter = ":git"
 ```
 
 ## Aliases
@@ -870,7 +891,7 @@ a `$`):
 
 `$JJ_EDITOR` > `ui.editor` > `$VISUAL` > `$EDITOR`
 
-Pico is the default editor (Notepad on Windows) in the absence of any other
+Nano is the default editor (Notepad on Windows) in the absence of any other
 setting, but you could set it explicitly too.
 
 ```toml
@@ -940,6 +961,8 @@ edit-args = ["--newtab", "$left", "$right"]
   directories to diff respectively.
 
 - If no `edit-args` are specified, `["$left", "$right"]` are set by default.
+
+- If `edit-args = []`, `jj` will refuse to use this tool for diff editing. This is a way to explicitly state that a certain tool (e.g. `mergiraf`) does not work for diff editing.
 
 Finally, `ui.diff-editor` can be a list that specifies a command and its arguments.
 
@@ -1133,12 +1156,16 @@ merge-tool-edits-conflict-markers = true    # See below for an explanation
   and/or generates conflict markers. Usually, `jj` uses conflict markers of
   length 7, but they can be longer if necessary to make parsing unambiguous.
 
+Unlike `diff-args` or `edit-args`, there is no default value for `merge-args`.
+If `merge-args` are not specified, the tool cannot be used for conflict
+resolution.
+
 ### Editing conflict markers with a tool or a text editor
 
 By default, the merge tool starts with an empty output file. If the tool puts
 anything into the output file and exits with the 0 exit code,
 `jj` assumes that the conflict is fully resolved, while if the tool exits with
-a non-zero exit code, `jj` assumes that the merge should be cancelled.
+a non-zero exit code, `jj` assumes that the merge should be canceled.
 This is appropriate for most graphical merge tools.
 
 For merge tools which try to automatically resolve conflicts without user input,
@@ -1202,6 +1229,22 @@ to keep the file sorted alphabetically and remove any duplicate words.
 [fix.tools.sort-word-list]
 command = ["sort", "-u"]
 patterns = ["word_list.txt"]
+```
+
+### Tools stored inside the workspace
+
+Some fix tools may be stored inside the workspace. For example, a binary may be
+stored inside `node_modules`. Use the `$root` variable to create an absolute
+path to such a program:
+
+```toml
+[fix.tools.biome]
+
+# Linux and macOS
+command = ["$root/node_modules/@biomejs/cli-linux-x64/biome"]
+
+# Windows
+command = ["$root\\node_modules\\@biomejs\\cli-win32-x64\\biome.exe"]
 ```
 
 ### Execution order of tools
@@ -1345,6 +1388,16 @@ as follows:
 backends.ssh.allowed-signers = "/path/to/allowed-signers"
 ```
 
+Additionally, an SSH KRL or list of revoked public keys (see
+[ssh-keygen man page](https://man.openbsd.org/ssh-keygen#KEY_REVOCATION_LISTS)) can be provided
+with the `revocation-list` option. If a public key is found in this file then any signature
+relating to it is marked as invalid.
+
+```toml
+[signing]
+backends.ssh.revocation-list = "/path/to/revocation-list"
+```
+
 ### Manually signing commits
 
 You can use [`jj sign`](./cli-reference.md#jj-sign)/[`jj unsign`](./cli-reference.md#jj-unsign)
@@ -1402,6 +1455,18 @@ signature details.
 
 ## Git settings
 
+### Default colocation
+
+When creating a git-backed Jujutsu repository, you can disable colocation which
+places the `.git` directory next to the `.jj` directory. Colocation allows some
+amount of two-way interoperability, but it can perform worse in large repos.
+
+The setting `git.colocate` is a boolean option that controls whether or not the
+`jj git init` and `jj git clone` commands should create colocated repositories
+by default. By default, `git.colocate` is set to `true`.
+
+See [Colocated Jujutsu/Git repos](git-compatibility.md#colocated-jujutsugit-repos) for more information.
+
 ### Default remotes for `jj git fetch` and `jj git push`
 
 By default, if a single remote exists it is used for `jj git fetch` and `jj git
@@ -1444,7 +1509,7 @@ local bookmark with the same name. This feature is disabled by default because i
 may be undesirable in some repositories, e.g.:
 
 - There is a remote with a lot of historical bookmarks that you don't
-  want to be exported to the co-located Git repo.
+  want to be exported to the colocated Git repo.
 - There are multiple remotes with conflicting views of that bookmark,
   resulting in an unhelpful conflicted state.
 
@@ -1495,16 +1560,30 @@ abandon-unreachable-commits = false
 
 [reachable]: https://git-scm.com/docs/gitglossary/#Documentation/gitglossary.txt-aiddefreachableareachable
 
-### Prefix for generated bookmarks on push
+### Allow pushing new bookmarks
 
-`jj git push --change` generates bookmark names with a prefix of "push-" by
-default. You can pick a different prefix by setting `git.push-bookmark-prefix`. For
-example:
+`jj git push` does not push newly-created bookmarks by default.
+If you do not want to specify `--allow-new` every time you have created a new
+bookmark, you may want to allow new bookmarks to be pushed by default:
 
 ```toml
 [git]
-push-bookmark-prefix = "martinvonz/push-"
+push-new-bookmarks = true
 ```
+
+### Generated bookmark names on push
+
+`jj git push --change` generates bookmark names with a prefix of "push-" by
+default. You can pick a different prefix and formatting by setting the
+`templates.git_push_bookmark` template. For example:
+
+```toml
+[templates]
+git_push_bookmark = '"martinvonz/push-" ++ change_id.short()'
+```
+
+This template should include expressions like `change_id` to generate unique and
+stable bookmark.
 
 ### Set of private commits
 
@@ -1525,7 +1604,7 @@ from the private set.
 Private commits prevent their descendants from being pushed, since doing so
 would require pushing the private commit as well.
 
-### Git subprocessing behaviour
+### Git subprocessing behavior
 
 Git remote interactions are handled by spawning a `git` subprocess.
 If `git` is not on your OS path, or you want to specify a particular binary,
@@ -1536,27 +1615,64 @@ you can:
 executable-path = "/path/to/git"
 ```
 
+## Merge settings
+
+### Granularity of hunks
+
+`jj` by default resolves content conflicts by splitting text into line-level
+hunks and merge them. This can be configured to split hunks further into
+word-level hunks.
+
+* `line`: split into line hunks (default)
+* `word`: split into word hunks
+
+```toml
+[merge]
+hunk-level = "line"
+```
+
+### Resolution of same-change conflicts
+
+`jj` by default resolves conflicts if all sides made the same change. This
+matches what Git and Mercurial do (in the 3-way case at least), but not what
+Darcs does. It also means that repeated 3-way merging of multiple trees may give
+different results depending on the order of merging. To turn it off, set
+`same-change = "keep"`.
+
+* `keep`: leave same-change conflict unresolved
+* `accept`: resolve same-change conflict to new value (default)
+
+```toml
+[merge]
+same-change = "accept"
+```
+
 ## Filesystem monitor
 
 In large repositories, it may be beneficial to use a "filesystem monitor" to
 track changes to the working copy. This allows `jj` to take working copy
 snapshots without having to rescan the entire working copy.
 
-This is governed by the `core.fsmonitor` option. Currently, the valid values are
-`"none"` or `"watchman"`.
+This is governed by the `fsmonitor.backend` option. Currently, the valid values
+are `"none"` or `"watchman"`.
 
 ### Watchman
 
 To configure the Watchman filesystem monitor, set
-`core.fsmonitor = "watchman"`. Ensure that you have [installed the Watchman
+`fsmonitor.backend = "watchman"`. Ensure that you have [installed the Watchman
 executable on your system](https://facebook.github.io/watchman/docs/install).
 
 You can configure `jj` to use watchman triggers to automatically create
 snapshots on filesystem changes by setting
-`core.watchman.register-snapshot-trigger = true`.
+`fsmonitor.watchman.register-snapshot-trigger = true`.
 
 You can check whether Watchman is enabled and whether it is installed correctly
 using `jj debug watchman status`.
+
+Note: `watchman` heavily uses `inotify` and sets up a user watch per-file. On
+large repositories, this may cause `watchman` to fail and commands like
+`jj status` to take longer than expected. If you experience this run
+`jj debug watchman status` and tune your `inotify` limits.
 
 ## Snapshot settings
 
@@ -1567,6 +1683,9 @@ tracked by default. You can set the `snapshot.auto-track` to set which paths
 get automatically tracked when they're added to the working copy. See the
 [fileset documentation](filesets.md) for the syntax. Files with paths matching
 [ignore files](working-copy.md#ignored-files) are never tracked automatically.
+
+If you set `snapshot.auto-track` to a non-default value, untracked files can be
+tracked with `jj file track`.
 
 You can use `jj file untrack` to untrack a file while keeping it in the working
 copy. However, first [ignore](working-copy.md#ignored-files) them or remove them
@@ -1594,6 +1713,39 @@ raw integer literal, the value is interpreted as if it were specified in bytes.
 Files that already exist in the working copy are not subject to this limit.
 
 Setting this value to zero will disable the limit entirely.
+
+## Working copy settings
+
+### EOL conversion settings
+
+This settings serves the same purpose as the [`core.autocrlf`][git-autocrlf] git
+config.
+
+The line endings conversion won't be applied to files detected as binary files
+via a heuristics[^1] regardless of the settings. This is similar to git.
+
+```toml
+[working-copy]
+# No EOL conversion. Similar to core.autocrlf = false.
+eol-conversion = "none"
+# Apply CRLF to LF EOL conversion when we check files in the backend store from
+# the local file system but not apply EOL conversion when we check out the code
+# from the backend store to the local file system. Similar to core.autocrlf =
+# input.
+eol-conversion = "input"
+# Setting this to "input-output" if you want to have CRLF line endings in your
+# working directory and the repository has LF line endings. Similar to
+# core.autocrlf = true.
+eol-conversion = "input-output"
+```
+
+[git-autocrlf]: https://git-scm.com/book/en/v2/Customizing-Git-Git-Configuration#_core_autocrlf
+[^1]: To detect if a file is binary, Jujutsu currently checks if there is NULL
+      byte in the file which is different from the algorithm of
+      [`gitoxide`][gitoxide-is-binary] or [`git`][git-is-binary]. Jujutsu
+      doesn't plan to align the binary detection logic with git.
+[gitoxide-is-binary]: https://github.com/GitoxideLabs/gitoxide/blob/073487b38ed40bcd7eb45dc110ae1ce84f9275a9/gix-filter/src/eol/utils.rs#L98-L100
+[git-is-binary]: https://github.com/git/git/blob/f1ca98f609f9a730b9accf24e5558a10a0b41b6c/convert.c#L94-L103
 
 ## Ways to specify `jj` config: details
 
@@ -1652,7 +1804,7 @@ enable schema validation in your editor, add this line at the top of your TOML
 config files:
 
 ```toml
-"$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json"
+#:schema https://jj-vcs.github.io/jj/latest/config-schema.json
 ```
 
 This enables features like:
@@ -1665,20 +1817,20 @@ This enables features like:
 Here are some popular editors with TOML schema validation support:
 
 - VS Code
-  - Install [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml)
+    - Install [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml)
 
 - Neovim/Vim
-  - Use with [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) and [taplo](https://github.com/tamasfe/taplo)
+    - Use with [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) and [taplo](https://github.com/tamasfe/taplo)
 
 - Helix
-  - Install [taplo](https://github.com/tamasfe/taplo)
+    - Install [taplo](https://github.com/tamasfe/taplo)
 
 - JetBrains IDEs (IntelliJ, PyCharm, etc)
-  - Install [TOML](https://plugins.jetbrains.com/plugin/8195-toml) plugin
+    - Install [TOML](https://plugins.jetbrains.com/plugin/8195-toml) plugin
 
 - Emacs
-  - Install [lsp-mode](https://github.com/emacs-lsp/lsp-mode) and [toml-mode](https://github.com/dryman/toml-mode.el)
-  - Configure [taplo](https://github.com/tamasfe/taplo) as the LSP server
+    - Install [lsp-mode](https://github.com/emacs-lsp/lsp-mode) and [toml-mode](https://github.com/dryman/toml-mode.el)
+    - Configure [taplo](https://github.com/tamasfe/taplo) as the LSP server
 
 ### Specifying config on the command-line
 
@@ -1791,4 +1943,17 @@ wip = ["log", "-r", "work"]
   --when.commands = ["file"]        # matches `jj file show`, `jj file list`, etc
   --when.commands = ["file show"]   # matches `jj file show` but *NOT* `jj file list`
   --when.commands = ["file", "log"] # matches `jj file` *OR* `jj log` (or subcommand of either)
+  ```
+
+* `--when.platforms`: List of platforms to match.
+
+  The values are defined by both
+  [`std::env::consts::FAMILY](https://doc.rust-lang.org/std/env/consts/constant.FAMILY.html)
+  and
+  [`std::env::consts::OS](https://doc.rust-lang.org/std/env/consts/constant.OS.html).
+
+  ```toml
+  --when.platforms = ["windows"]            # matches only Windows
+  --when.platforms = ["linux", "freebsd"]   # matches Linux or and FreeBSD, but not macOS
+  --when.platforms = ["unix"]               # matches anything in the Unix family (Linux, FreeBSD, macOS, etc.)
   ```

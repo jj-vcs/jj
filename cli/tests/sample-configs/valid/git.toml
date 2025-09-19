@@ -2,7 +2,6 @@
 [git]
 auto-local-bookmark = true
 abandon-unreachable-commits = false
-push-bookmark-prefix = ""
 push-new-bookmarks = true
 fetch = ["origin", "fork"]
 push = "fork"

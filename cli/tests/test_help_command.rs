@@ -21,7 +21,12 @@ fn test_help() {
     let help_cmd = test_env.run_jj_in(".", ["help"]).success();
     // The help command output should be equal to the long --help flag
     let help_flag = test_env.run_jj_in(".", ["--help"]);
-    assert_eq!(help_cmd, help_flag);
+    // TODO: fix --help to not show COMMAND as required
+    assert_eq!(
+        help_cmd.stdout.raw(),
+        help_flag.stdout.raw().replace("<COMMAND>", "[COMMAND]")
+    );
+    assert_eq!(help_cmd.stderr.raw(), help_flag.stderr.raw());
 
     // Help command should work with commands
     let help_cmd = test_env.run_jj_in(".", ["help", "log"]).success();
@@ -68,7 +73,12 @@ fn test_help() {
     let help_cmd = test_env.run_jj_in(".", ["help", "nonexistent"]);
     let help_flag = test_env.run_jj_in(".", ["nonexistent", "--help"]);
     assert_eq!(help_cmd.status.code(), Some(2), "{help_cmd}");
-    assert_eq!(help_cmd, help_flag);
+    // TODO: fix --help to not show COMMAND as required
+    assert_eq!(help_cmd.stdout.raw(), help_flag.stdout.raw());
+    assert_eq!(
+        help_cmd.stderr.raw(),
+        help_flag.stderr.raw().replace("<COMMAND>", "[COMMAND]")
+    );
 
     // Some edge cases
     let help_cmd = test_env.run_jj_in(".", ["help", "help"]).success();
@@ -82,7 +92,7 @@ fn test_help() {
 
       tip: a similar subcommand exists: 'undo'
 
-    Usage: jj [OPTIONS] <COMMAND>
+    Usage: jj [OPTIONS] [COMMAND]
 
     For more information, try '--help'.
     [EOF]
@@ -92,9 +102,7 @@ fn test_help() {
     let output = test_env.run_jj_in(".", ["help", "log", "--", "-r"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    error: a value is required for '--revisions <REVSETS>' but none was supplied
-
-    For more information, try '--help'.
+    Error: Unknown command: log -r
     [EOF]
     [exit status: 2]
     ");
@@ -163,7 +171,7 @@ fn test_help_keyword() {
 
       tip: some similar subcommands exist: 'resolve', 'prev', 'restore', 'rebase', 'revert'
 
-    Usage: jj [OPTIONS] <COMMAND>
+    Usage: jj [OPTIONS] [COMMAND]
 
     For more information, try '--help'.
     [EOF]

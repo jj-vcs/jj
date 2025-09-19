@@ -21,9 +21,11 @@ mod push;
 mod remote;
 mod root;
 
+use std::io::Write as _;
 use std::path::Path;
 
 use clap::Subcommand;
+use clap::ValueEnum;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
 use jj_lib::git;
@@ -32,26 +34,26 @@ use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::store::Store;
 
-use self::clone::cmd_git_clone;
 use self::clone::GitCloneArgs;
-use self::export::cmd_git_export;
+use self::clone::cmd_git_clone;
 use self::export::GitExportArgs;
-use self::fetch::cmd_git_fetch;
+use self::export::cmd_git_export;
 use self::fetch::GitFetchArgs;
-use self::import::cmd_git_import;
+use self::fetch::cmd_git_fetch;
 use self::import::GitImportArgs;
-use self::init::cmd_git_init;
+use self::import::cmd_git_import;
 use self::init::GitInitArgs;
-use self::push::cmd_git_push;
+use self::init::cmd_git_init;
 use self::push::GitPushArgs;
-use self::remote::cmd_git_remote;
+use self::push::cmd_git_push;
 use self::remote::RemoteCommand;
-use self::root::cmd_git_root;
+use self::remote::cmd_git_remote;
 use self::root::GitRootArgs;
+use self::root::cmd_git_root;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
-use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
+use crate::command_error::user_error_with_message;
 use crate::ui::Ui;
 
 /// Commands for working with Git remotes and the underlying Git repo
@@ -131,4 +133,27 @@ fn write_repository_level_trunk_alias(
         "Setting the revset alias `trunk()` to `{symbol}`",
     )?;
     Ok(())
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
+enum FetchTagsMode {
+    /// Always fetch all tags
+    All,
+
+    /// Only fetch tags that point to objects that are already being
+    /// transmitted.
+    Included,
+
+    /// Do not fetch any tags
+    None,
+}
+
+impl FetchTagsMode {
+    fn as_fetch_tags(&self) -> gix::remote::fetch::Tags {
+        match self {
+            Self::All => gix::remote::fetch::Tags::All,
+            Self::Included => gix::remote::fetch::Tags::Included,
+            Self::None => gix::remote::fetch::Tags::None,
+        }
+    }
 }

@@ -19,10 +19,10 @@ use itertools::Itertools as _;
 use regex::Regex;
 use testutils::git;
 
-use crate::common::to_toml_value;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::to_toml_value;
 
 #[test]
 fn test_op_log() {
@@ -193,6 +193,7 @@ fn test_op_log_with_no_template() {
     - builtin_config_list
     - builtin_config_list_detailed
     - builtin_draft_commit_description
+    - builtin_evolog_compact
     - builtin_log_comfortable
     - builtin_log_compact
     - builtin_log_compact_full_description
@@ -200,11 +201,13 @@ fn test_op_log_with_no_template() {
     - builtin_log_node
     - builtin_log_node_ascii
     - builtin_log_oneline
+    - builtin_log_redacted
     - builtin_op_log_comfortable
     - builtin_op_log_compact
     - builtin_op_log_node
     - builtin_op_log_node_ascii
     - builtin_op_log_oneline
+    - builtin_op_log_redacted
     - commit_summary_separator
     - default_commit_description
     - description_placeholder
@@ -397,6 +400,12 @@ fn test_op_log_template() {
     [EOF]
     ");
 
+    insta::assert_snapshot!(render(r#"json(self) ++ "\n""#), @r#"
+    @  {"id":"8f47435a3990362feaf967ca6de2eb0a31c8b883dfcb66fba5c22200d12bbe61e3dc8bc855f1f6879285fcafaf85ac792f9a43bcc36e57d28737d18347d5e752","parents":["00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"],"time":{"start":"2001-02-03T04:05:07+07:00","end":"2001-02-03T04:05:07+07:00"},"description":"add workspace 'default'","hostname":"host.example.com","username":"test-username","is_snapshot":false,"tags":{}}
+    ○  {"id":"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","parents":[],"time":{"start":"1970-01-01T00:00:00Z","end":"1970-01-01T00:00:00Z"},"description":"","hostname":"","username":"","is_snapshot":false,"tags":{}}
+    [EOF]
+    "#);
+
     // Test the default template, i.e. with relative start time and duration. We
     // don't generally use that template because it depends on the current time,
     // so we need to reset the time range format here.
@@ -554,7 +563,7 @@ fn test_op_log_word_wrap() {
     │     description set)
     │     - qpvuntsm hidden e8849ae1 (empty)
     │     (no description set)
-    │     file1 | 100 +++++++++++++++++++
+    │     file1 | 100 ++++++++++++++++++++++
     │     1 file changed, 100 insertions(+), 0 deletions(-)
     │
     │  Changed working copy default@:
@@ -576,7 +585,7 @@ fn test_op_log_word_wrap() {
     + qpvuntsm 79f0968d (no description set)
     - qpvuntsm hidden e8849ae1 (empty) (no
     description set)
-    file1 | 100 +++++++++++++++++++++++++
+    file1 | 100 ++++++++++++++++++++++++++++
     1 file changed, 100 insertions(+), 0 deletions(-)
 
     Changed working copy default@:
@@ -719,8 +728,8 @@ fn test_op_abandon_ancestors() {
     [exit status: 2]
     ");
 
-    // Abandon the current operation by undoing it first.
-    work_dir.run_jj(["undo"]).success();
+    // Abandon the current operation by reverting it first.
+    work_dir.run_jj(["op", "revert"]).success();
     let output = work_dir.run_jj(["op", "abandon", "@-"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -728,14 +737,14 @@ fn test_op_abandon_ancestors() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["debug", "local-working-copy", "--ignore-working-copy"]), @r#"
-    Current operation: OperationId("4666f57b051cb0d73145999d689331e34224bf6bad69c367498d7fc25f0d89d230146e7234526004426d515b396b13b9de8daadf54003eaf678f4264c0a7d992")
+    Current operation: OperationId("ce6a0300b7346109e75a6dcc97e3ff9e1488ce43a4073dd9eb81afb7f463b4543d3f15cf9a42a9864a4aaf6daab900b6b037dbdcb95f87422e891f7e884641aa")
     Current tree: Merge(Resolved(TreeId("4b825dc642cb6eb9a060e54bf8d69288fbee4904")))
     [EOF]
     "#);
     insta::assert_snapshot!(work_dir.run_jj(["op", "log"]), @r"
-    @  4666f57b051c test-username@host.example.com 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
-    │  undo operation 9df33337d49450b21bf694025557ede1ac4c63c7b17f593add0d7adc81b394d363f1edffa025b323f88ec947dcd9214f46e82e742e7a74adbfff4c2d96321133
-    │  args: jj undo
+    @  ce6a0300b734 test-username@host.example.com 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
+    │  revert operation 9df33337d49450b21bf694025557ede1ac4c63c7b17f593add0d7adc81b394d363f1edffa025b323f88ec947dcd9214f46e82e742e7a74adbfff4c2d96321133
+    │  args: jj op revert
     ○  1675333b7de8 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │  commit 4e0592f3dd52e7a4998a97d9a1f354e2727a856b
     │  args: jj commit -m 'commit 2'
@@ -751,9 +760,9 @@ fn test_op_abandon_ancestors() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["op", "log", "-n1"]), @r"
-    @  4666f57b051c test-username@host.example.com 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
-    │  undo operation 9df33337d49450b21bf694025557ede1ac4c63c7b17f593add0d7adc81b394d363f1edffa025b323f88ec947dcd9214f46e82e742e7a74adbfff4c2d96321133
-    │  args: jj undo
+    @  ce6a0300b734 test-username@host.example.com 2001-02-03 04:05:21.000 +07:00 - 2001-02-03 04:05:21.000 +07:00
+    │  revert operation 9df33337d49450b21bf694025557ede1ac4c63c7b17f593add0d7adc81b394d363f1edffa025b323f88ec947dcd9214f46e82e742e7a74adbfff4c2d96321133
+    │  args: jj op revert
     [EOF]
     ");
 }
@@ -1056,10 +1065,10 @@ fn test_op_summary_diff_template() {
     work_dir
         .run_jj(["new", "--no-edit", "-m=scratch"])
         .success();
-    let output = work_dir.run_jj(["op", "undo", "--color=always"]);
+    let output = work_dir.run_jj(["op", "revert", "--color=always"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: [38;5;4m8c2682708d2e[39m ([38;5;6m2001-02-03 08:05:08[39m) new empty commit
+    Reverted operation: [38;5;4m8c2682708d2e[39m ([38;5;6m2001-02-03 08:05:08[39m) new empty commit
     [EOF]
     ");
     let output = work_dir.run_jj([
@@ -1073,7 +1082,7 @@ fn test_op_summary_diff_template() {
     ]);
     insta::assert_snapshot!(output, @r"
     From operation: [38;5;4m000000000000[39m [38;5;2mroot()[39m
-      To operation: [38;5;4m5b09d908ed2f[39m ([38;5;6m2001-02-03 08:05:09[39m) undo operation 8c2682708d2e786e9c489d18b4cfc68c675d0d49b9be85de9540a973b775c7ef715c0a37c760fe74ee6a31e50487f6d64e392944124a1d288ca31493bf9e36f2
+      To operation: [38;5;4mad76b56af140[39m ([38;5;6m2001-02-03 08:05:09[39m) revert operation 8c2682708d2e786e9c489d18b4cfc68c675d0d49b9be85de9540a973b775c7ef715c0a37c760fe74ee6a31e50487f6d64e392944124a1d288ca31493bf9e36f2
 
     Changed commits:
     ○  [38;5;2m+[39m [1m[38;5;13mq[38;5;8mpvuntsm[39m [38;5;12me[38;5;8m8849ae1[39m [38;5;10m(empty)[39m [38;5;10m(no description set)[0m
@@ -1088,10 +1097,10 @@ fn test_op_summary_diff_template() {
     work_dir
         .run_jj(["new", "--no-edit", "-m=scratch"])
         .success();
-    let output = work_dir.run_jj(["op", "undo", "--color=debug"]);
+    let output = work_dir.run_jj(["op", "revert", "--color=debug"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Undid operation: [38;5;4m<<operation id short::0f553bee92fc>>[39m<<operation:: (>>[38;5;6m<<operation time end local format::2001-02-03 08:05:11>>[39m<<operation::) >><<operation description first_line::new empty commit>>
+    Reverted operation: [38;5;4m<<operation id short::c5c76cab7d34>>[39m<<operation:: (>>[38;5;6m<<operation time end local format::2001-02-03 08:05:11>>[39m<<operation::) >><<operation description first_line::new empty commit>>
     [EOF]
     ");
     let output = work_dir.run_jj([
@@ -1105,7 +1114,7 @@ fn test_op_summary_diff_template() {
     ]);
     insta::assert_snapshot!(output, @r"
     From operation: [38;5;4m<<op_diff operation id short::000000000000>>[39m<<op_diff operation:: >>[38;5;2m<<op_diff operation root::root()>>[39m
-      To operation: [38;5;4m<<op_diff operation id short::8840c54e3995>>[39m<<op_diff operation:: (>>[38;5;6m<<op_diff operation time end local format::2001-02-03 08:05:12>>[39m<<op_diff operation::) >><<op_diff operation description first_line::undo operation 0f553bee92fc9d54642c987c93e78aa1f391225cf8b82a5a0198782a4e49753e65fae15bc648b81b913f514a11ca15840e9a6a083e2e3a9198cebf09ebde06f2>>
+      To operation: [38;5;4m<<op_diff operation id short::f8b6a7ee554b>>[39m<<op_diff operation:: (>>[38;5;6m<<op_diff operation time end local format::2001-02-03 08:05:12>>[39m<<op_diff operation::) >><<op_diff operation description first_line::revert operation c5c76cab7d34a454ae4edcf362f6cc7387c87cb20b328e6d50cbcb6c893c6ea9bf76ff792c34e75f1259a33b066fed38df2561e880661d2b35db1bd65e95b877>>
 
     Changed commits:
     ○  [38;5;2m<<diff added::+>>[39m [1m[38;5;13m<<op_diff commit working_copy change_id shortest prefix::q>>[38;5;8m<<op_diff commit working_copy change_id shortest rest::pvuntsm>>[39m<<op_diff commit working_copy:: >>[38;5;12m<<op_diff commit working_copy commit_id shortest prefix::e>>[38;5;8m<<op_diff commit working_copy commit_id shortest rest::8849ae1>>[39m<<op_diff commit working_copy:: >>[38;5;10m<<op_diff commit working_copy empty::(empty)>>[39m<<op_diff commit working_copy:: >>[38;5;10m<<op_diff commit working_copy empty description placeholder::(no description set)>>[0m
@@ -1593,16 +1602,9 @@ fn test_op_diff_patch() {
 
     Changed commits:
     ○  + mzvwutvl 6cbd01ae (empty) (no description set)
-    │ ○  - rlvkpnrz hidden 05a2969e (no description set)
-    ├─╯  diff --git a/file b/file
-    │    index 7898192261..6178079822 100644
-    │    --- a/file
-    │    +++ b/file
-    │    @@ -1,1 +1,1 @@
-    │    -a
-    │    +b
     ○  + qpvuntsm 7aa2ec5d (no description set)
        - qpvuntsm hidden 6b57e33c (no description set)
+       - rlvkpnrz hidden 05a2969e (no description set)
        diff --git a/file b/file
        index 7898192261..6178079822 100644
        --- a/file
@@ -1661,7 +1663,7 @@ fn test_op_diff_sibling() {
     work_dir.write_file("file1", "a\n");
     work_dir.run_jj(["new", "root()", "-mA.2"]).success();
     work_dir.write_file("file2", "a\n");
-    work_dir.run_jj(["new", "all:@-+", "-mA"]).success();
+    work_dir.run_jj(["new", "@-+", "-mA"]).success();
 
     // Create another operation diverged from the base operation.
     work_dir
@@ -1670,15 +1672,15 @@ fn test_op_diff_sibling() {
 
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @r"
-    @    0fce99d88f9f test-username@host.example.com 2001-02-03 04:05:13.000 +07:00 - 2001-02-03 04:05:13.000 +07:00
+    @    d566adf20e48 test-username@host.example.com 2001-02-03 04:05:13.000 +07:00 - 2001-02-03 04:05:13.000 +07:00
     ├─╮  reconcile divergent operations
     │ │  args: jj op log
-    ○ │  9f1e89c03a5b test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    ○ │  7bba3a63b73b test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     │ │  new empty commit
-    │ │  args: jj new 'all:@-+' -mA
-    ○ │  1f3ff302e831 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    │ │  args: jj new '@-+' -mA
+    ○ │  613137e2652f test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     │ │  snapshot working copy
-    │ │  args: jj new 'all:@-+' -mA
+    │ │  args: jj new '@-+' -mA
     ○ │  a625f0ff4f09 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     │ │  new empty commit
     │ │  args: jj new 'root()' -mA.2
@@ -1704,8 +1706,8 @@ fn test_op_diff_sibling() {
         .success();
     let [head_op_id, p1_op_id, _, _, _, _, p2_op_id] =
         output.stdout.raw().lines().next_array().unwrap();
-    insta::assert_snapshot!(head_op_id, @"0fce99d88f9f");
-    insta::assert_snapshot!(p1_op_id, @"9f1e89c03a5b");
+    insta::assert_snapshot!(head_op_id, @"d566adf20e48");
+    insta::assert_snapshot!(p1_op_id, @"7bba3a63b73b");
     insta::assert_snapshot!(p2_op_id, @"252ff3a5a0e6");
 
     // Diff between p1 and p2 operations should work no matter if p2 is chosen
@@ -1722,17 +1724,18 @@ fn test_op_diff_sibling() {
         "--summary",
     ]);
     insta::assert_snapshot!(output, @r"
-    From operation: 9f1e89c03a5b (2001-02-03 08:05:11) new empty commit
+    From operation: 7bba3a63b73b (2001-02-03 08:05:11) new empty commit
       To operation: 252ff3a5a0e6 (2001-02-03 08:05:12) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
 
     Changed commits:
-    ○  + qpvuntsm b1ca67e2 (empty) B
     ○    - mzvwutvl hidden 08c63613 (empty) A
     ├─╮
     │ ○  - kkmpptxz hidden 6c70a4f7 A.1
     │    A file1
     ○  - zsuskuln hidden 47b9525e A.2
        A file2
+    ○  + qpvuntsm b1ca67e2 (empty) B
+       - qpvuntsm hidden e8849ae1 (empty) (no description set)
 
     Changed working copy default@:
     + qpvuntsm b1ca67e2 (empty) B
@@ -1752,20 +1755,331 @@ fn test_op_diff_sibling() {
     ]);
     insta::assert_snapshot!(output, @r"
     From operation: 252ff3a5a0e6 (2001-02-03 08:05:12) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
-      To operation: 9f1e89c03a5b (2001-02-03 08:05:11) new empty commit
+      To operation: 7bba3a63b73b (2001-02-03 08:05:11) new empty commit
 
     Changed commits:
+    ○  - qpvuntsm hidden b1ca67e2 (empty) B
     ○    + mzvwutvl 08c63613 (empty) A
     ├─╮
     │ ○  + kkmpptxz 6c70a4f7 A.1
     │    A file1
     ○  + zsuskuln 47b9525e A.2
        A file2
-    ○  - qpvuntsm hidden b1ca67e2 (empty) B
 
     Changed working copy default@:
     + mzvwutvl 08c63613 (empty) A
     - qpvuntsm hidden b1ca67e2 (empty) B
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_op_diff_divergent_change() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Initial change
+    work_dir.write_file("file", "1\n");
+    work_dir.run_jj(["commit", "-m1"]).success();
+    let initial_op_id = work_dir.current_operation_id();
+
+    // Create divergent change
+    work_dir.write_file("file", "2a\n1\n");
+    work_dir.run_jj(["desc", "-m2a"]).success();
+    work_dir.run_jj(["edit", "at_operation(@--, @)"]).success();
+    work_dir.write_file("file", "1\n2b\n");
+    work_dir.run_jj(["desc", "-m2b"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["log"]), @r"
+    @  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:11 c5cad9ab
+    │  2b
+    │ ○  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:09 f189cafa
+    ├─╯  2a
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 8a06f3b3
+    │  1
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+    let divergent_op_id = work_dir.current_operation_id();
+
+    // Resolve divergence by squashing commits
+    work_dir
+        .run_jj(["squash", "--from=subject(2a)", "--to=@", "-m2ab"])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["log"]), @r"
+    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:13 17d68d92
+    │  2ab
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 8a06f3b3
+    │  1
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+    let resolved_op_id = work_dir.current_operation_id();
+
+    // Diff of new divergence
+    let output = work_dir.run_jj([
+        "op",
+        "diff",
+        "--from",
+        &initial_op_id,
+        "--to",
+        &divergent_op_id,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    From operation: ef75d88dd5fe (2001-02-03 08:05:08) commit 5d86d4b609080a15077fcd723e537582d5ea6559
+      To operation: a1af26c1d765 (2001-02-03 08:05:11) describe commit 7a72a9ad7f4d8aa8b613a9840313b0ef0632842b
+
+    Changed commits:
+    ○  + rlvkpnrz?? c5cad9ab 2b
+       - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+    ○  + rlvkpnrz?? f189cafa 2a
+       - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+
+    Changed working copy default@:
+    + rlvkpnrz?? c5cad9ab 2b
+    - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+    [EOF]
+    ");
+
+    // Diff of old divergence
+    let output = work_dir.run_jj([
+        "op",
+        "diff",
+        "--from",
+        &divergent_op_id,
+        "--to",
+        &resolved_op_id,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    From operation: a1af26c1d765 (2001-02-03 08:05:11) describe commit 7a72a9ad7f4d8aa8b613a9840313b0ef0632842b
+      To operation: 90aa25304059 (2001-02-03 08:05:13) squash commits into c5cad9ab7772714178c158a133a0243908545b48
+
+    Changed commits:
+    ○  + rlvkpnrz 17d68d92 2ab
+       - rlvkpnrz hidden c5cad9ab 2b
+       - rlvkpnrz hidden f189cafa 2a
+
+    Changed working copy default@:
+    + rlvkpnrz 17d68d92 2ab
+    - rlvkpnrz hidden c5cad9ab 2b
+    [EOF]
+    ");
+
+    // Diff of new divergence with patch
+    let output = work_dir.run_jj([
+        "op",
+        "diff",
+        "--git",
+        "--from",
+        &initial_op_id,
+        "--to",
+        &divergent_op_id,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    From operation: ef75d88dd5fe (2001-02-03 08:05:08) commit 5d86d4b609080a15077fcd723e537582d5ea6559
+      To operation: a1af26c1d765 (2001-02-03 08:05:11) describe commit 7a72a9ad7f4d8aa8b613a9840313b0ef0632842b
+
+    Changed commits:
+    ○  + rlvkpnrz?? c5cad9ab 2b
+       - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+       diff --git a/JJ-COMMIT-DESCRIPTION b/JJ-COMMIT-DESCRIPTION
+       --- JJ-COMMIT-DESCRIPTION
+       +++ JJ-COMMIT-DESCRIPTION
+       @@ -0,0 +1,1 @@
+       +2b
+       diff --git a/file b/file
+       index d00491fd7e..5e0f51b37b 100644
+       --- a/file
+       +++ b/file
+       @@ -1,1 +1,2 @@
+        1
+       +2b
+    ○  + rlvkpnrz?? f189cafa 2a
+       - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+       diff --git a/JJ-COMMIT-DESCRIPTION b/JJ-COMMIT-DESCRIPTION
+       --- JJ-COMMIT-DESCRIPTION
+       +++ JJ-COMMIT-DESCRIPTION
+       @@ -0,0 +1,1 @@
+       +2a
+       diff --git a/file b/file
+       index d00491fd7e..13a46f22fa 100644
+       --- a/file
+       +++ b/file
+       @@ -1,1 +1,2 @@
+       +2a
+        1
+
+    Changed working copy default@:
+    + rlvkpnrz?? c5cad9ab 2b
+    - rlvkpnrz hidden 4f7a567a (empty) (no description set)
+    [EOF]
+    ");
+
+    // Diff of old divergence with patch
+    let output = work_dir.run_jj([
+        "op",
+        "diff",
+        "--git",
+        "--from",
+        &divergent_op_id,
+        "--to",
+        &resolved_op_id,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    From operation: a1af26c1d765 (2001-02-03 08:05:11) describe commit 7a72a9ad7f4d8aa8b613a9840313b0ef0632842b
+      To operation: 90aa25304059 (2001-02-03 08:05:13) squash commits into c5cad9ab7772714178c158a133a0243908545b48
+
+    Changed commits:
+    ○  + rlvkpnrz 17d68d92 2ab
+       - rlvkpnrz hidden c5cad9ab 2b
+       - rlvkpnrz hidden f189cafa 2a
+       diff --git a/JJ-COMMIT-DESCRIPTION b/JJ-COMMIT-DESCRIPTION
+       --- JJ-COMMIT-DESCRIPTION
+       +++ JJ-COMMIT-DESCRIPTION
+       @@ -1,1 +1,1 @@
+       -2b
+       +2ab
+       diff --git a/file b/file
+       index 5e0f51b37b..60327514e0 100644
+       --- a/file
+       +++ b/file
+       @@ -1,2 +1,3 @@
+       +2a
+        1
+        2b
+
+    Changed working copy default@:
+    + rlvkpnrz 17d68d92 2ab
+    - rlvkpnrz hidden c5cad9ab 2b
+    [EOF]
+    ");
+
+    // Reverse diff of old divergence
+    let output = work_dir.run_jj([
+        "op",
+        "diff",
+        "--from",
+        &resolved_op_id,
+        "--to",
+        &divergent_op_id,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    From operation: 90aa25304059 (2001-02-03 08:05:13) squash commits into c5cad9ab7772714178c158a133a0243908545b48
+      To operation: a1af26c1d765 (2001-02-03 08:05:11) describe commit 7a72a9ad7f4d8aa8b613a9840313b0ef0632842b
+
+    Changed commits:
+    ○  + rlvkpnrz?? c5cad9ab 2b
+       - rlvkpnrz hidden 17d68d92 2ab
+    ○  + rlvkpnrz?? f189cafa 2a
+       - rlvkpnrz hidden 17d68d92 2ab
+
+    Changed working copy default@:
+    + rlvkpnrz?? c5cad9ab 2b
+    - rlvkpnrz hidden 17d68d92 2ab
+    [EOF]
+    ");
+
+    // Reverse diff of new divergence
+    let output = work_dir.run_jj([
+        "op",
+        "diff",
+        "--from",
+        &divergent_op_id,
+        "--to",
+        &initial_op_id,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    From operation: a1af26c1d765 (2001-02-03 08:05:11) describe commit 7a72a9ad7f4d8aa8b613a9840313b0ef0632842b
+      To operation: ef75d88dd5fe (2001-02-03 08:05:08) commit 5d86d4b609080a15077fcd723e537582d5ea6559
+
+    Changed commits:
+    ○  + rlvkpnrz 4f7a567a (empty) (no description set)
+       - rlvkpnrz hidden f189cafa 2a
+       - rlvkpnrz hidden c5cad9ab 2b
+
+    Changed working copy default@:
+    + rlvkpnrz 4f7a567a (empty) (no description set)
+    - rlvkpnrz hidden c5cad9ab 2b
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_op_diff_at_merge_op_with_rebased_commits() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create merge operation that rebases descendant commits
+    work_dir.run_jj(["new", "-m2a"]).success();
+    work_dir.run_jj(["desc", "-r@-", "-m1"]).success();
+    work_dir.run_jj(["desc", "--at-op=@-", "-m2b"]).success();
+
+    insta::assert_snapshot!(work_dir.run_jj(["log"]), @r"
+    @  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:09 7ed5a610
+    │  (empty) 2a
+    │ ○  rlvkpnrz?? test.user@example.com 2001-02-03 08:05:11 8f35f6a6
+    ├─╯  (empty) 2b
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 6666e5c3
+    │  (empty) 1
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    Rebased 1 descendant commits onto commits rewritten by other operation
+    [EOF]
+    ");
+
+    // FIXME: the diff should be empty
+    let output = work_dir.run_jj(["op", "diff"]);
+    insta::assert_snapshot!(output, @r"
+    From operation: 69ec49158b0e (2001-02-03 08:05:09) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    From operation: 0c5076ddf77d (2001-02-03 08:05:10) describe commit ab92d1a87bebb4300165a16a753c5403bd7bc578
+      To operation: ac3c7e679e31 (2001-02-03 08:05:11) reconcile divergent operations
+
+    Changed commits:
+    ○  + rlvkpnrz?? 8f35f6a6 (empty) 2b
+       - rlvkpnrz hidden 4545eaf5 (empty) 2b
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["op", "show"]);
+    insta::assert_snapshot!(output, @r"
+    ac3c7e679e31 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    reconcile divergent operations
+    args: jj log
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["op", "log", "--op-diff", "--limit=3"]);
+    insta::assert_snapshot!(output, @r"
+    @    ac3c7e679e31 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    ├─╮  reconcile divergent operations
+    │ │  args: jj log
+    ○ │  69ec49158b0e test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    │ │  describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    │ │  args: jj describe -r@- -m1
+    │ │
+    │ │  Changed commits:
+    │ │  ○  + rlvkpnrz 7ed5a610 (empty) 2a
+    │ │  │  - rlvkpnrz hidden ab92d1a8 (empty) 2a
+    │ │  ○  + qpvuntsm 6666e5c3 (empty) 1
+    │ │     - qpvuntsm hidden e8849ae1 (empty) (no description set)
+    │ │
+    │ │  Changed working copy default@:
+    │ │  + rlvkpnrz 7ed5a610 (empty) 2a
+    │ │  - rlvkpnrz hidden ab92d1a8 (empty) 2a
+    │ ○  0c5076ddf77d test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    ├─╯  describe commit ab92d1a87bebb4300165a16a753c5403bd7bc578
+    │    args: jj describe '--at-op=@-' -m2b
+    │
+    │    Changed commits:
+    │    ○  + rlvkpnrz 50ec12eb (empty) 2b
+    │       - rlvkpnrz hidden ab92d1a8 (empty) 2a
+    │
+    │    Changed working copy default@:
+    │    + rlvkpnrz 50ec12eb (empty) 2b
+    │    - rlvkpnrz hidden ab92d1a8 (empty) 2a
     [EOF]
     ");
 }
@@ -1800,7 +2114,7 @@ fn test_op_diff_word_wrap() {
     Changed commits:
     ○  + sqpuoqvx f6f32c19 (no description
     │  set)
-    │  file1 | 100 ++++++++++++++++++++++
+    │  file1 | 100 +++++++++++++++++++++++++
     │  1 file changed, 100 insertions(+), 0 deletions(-)
     ○  + pukowqtp 0cb7e07e bookmark-1 |
        Commit 1
@@ -2307,16 +2621,9 @@ fn test_op_show_patch() {
 
     Changed commits:
     ○  + mzvwutvl 6cbd01ae (empty) (no description set)
-    │ ○  - rlvkpnrz hidden 05a2969e (no description set)
-    ├─╯  diff --git a/file b/file
-    │    index 7898192261..6178079822 100644
-    │    --- a/file
-    │    +++ b/file
-    │    @@ -1,1 +1,1 @@
-    │    -a
-    │    +b
     ○  + qpvuntsm 7aa2ec5d (no description set)
        - qpvuntsm hidden 6b57e33c (no description set)
+       - rlvkpnrz hidden 05a2969e (no description set)
        diff --git a/file b/file
        index 7898192261..6178079822 100644
        --- a/file
@@ -2377,16 +2684,9 @@ fn test_op_show_patch() {
     │
     │  Changed commits:
     │  ○  + mzvwutvl 6cbd01ae (empty) (no description set)
-    │  │ ○  - rlvkpnrz hidden 05a2969e (no description set)
-    │  ├─╯  diff --git a/file b/file
-    │  │    index 7898192261..6178079822 100644
-    │  │    --- a/file
-    │  │    +++ b/file
-    │  │    @@ -1,1 +1,1 @@
-    │  │    -a
-    │  │    +b
     │  ○  + qpvuntsm 7aa2ec5d (no description set)
     │     - qpvuntsm hidden 6b57e33c (no description set)
+    │     - rlvkpnrz hidden 05a2969e (no description set)
     │     diff --git a/file b/file
     │     index 7898192261..6178079822 100644
     │     --- a/file
@@ -2453,6 +2753,109 @@ fn test_op_show_patch() {
     │  Changed working copy default@:
     │  + qpvuntsm e8849ae1 (empty) (no description set)
     │  - (absent)
+    ○  000000000000 root()
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_op_show_template() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file", "content\n");
+    work_dir.run_jj(["commit", "-m", "first commit"]).success();
+
+    // Test with custom template
+    let output = work_dir.run_jj([
+        "op",
+        "show",
+        "-T",
+        r#"separate(" ", id.short(), description)"#,
+        "--no-op-diff",
+    ]);
+    insta::assert_snapshot!(output, @"9c6c10441eab commit 0883ea507656cce545dbba9f23760ff72dff5174[EOF]");
+
+    // Test --no-op-diff flag suppresses the diff
+    let output = work_dir.run_jj(["op", "show", "--no-op-diff"]);
+    insta::assert_snapshot!(output, @r"
+    9c6c10441eab test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    commit 0883ea507656cce545dbba9f23760ff72dff5174
+    args: jj commit -m 'first commit'
+    [EOF]
+    ");
+
+    // Test with custom template, without --no-op-diff
+    let output = work_dir.run_jj([
+        "op",
+        "show",
+        "-T",
+        r#"separate(" ", id.short(), description)"#,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    9c6c10441eab commit 0883ea507656cce545dbba9f23760ff72dff5174
+    Changed commits:
+    ○  + rlvkpnrz e4863b8c (empty) (no description set)
+    ○  + qpvuntsm b52b7cb5 first commit
+       - qpvuntsm hidden 0883ea50 (no description set)
+
+    Changed working copy default@:
+    + rlvkpnrz e4863b8c (empty) (no description set)
+    - qpvuntsm hidden 0883ea50 (no description set)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_op_log_parents() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir
+        .run_jj(["describe", "-m", "description 0"])
+        .success();
+
+    work_dir
+        .run_jj(["describe", "-m", "description 1", "--at-op", "@-"])
+        .success();
+    let template = r#"id.short() ++ "\nP: " ++ parents.len() ++ " " ++ parents.map(|o| o.id().short()) ++ "\n""#;
+    let output = work_dir.run_jj(["op", "log", "-T", template]);
+    insta::assert_snapshot!(output, @r###"
+    @    ea1c99c7c4a9
+    ├─╮  P: 2 12f7cbba4278 dd1534c4b064
+    ○ │  12f7cbba4278
+    │ │  P: 1 8f47435a3990
+    │ ○  dd1534c4b064
+    ├─╯  P: 1 8f47435a3990
+    ○  8f47435a3990
+    │  P: 1 000000000000
+    ○  000000000000
+       P: 0
+    [EOF]
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    [EOF]
+    "###);
+}
+
+#[test]
+fn test_op_log_anonymize() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir
+        .run_jj(["describe", "-m", "description 0"])
+        .success();
+
+    let output = work_dir.run_jj(["op", "log", "-Tbuiltin_op_log_redacted"]);
+    insta::assert_snapshot!(output, @r"
+    @  12f7cbba4278 user-5910 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    │  describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    │  (redacted)
+    ○  8f47435a3990 user-5910 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    │  add workspace 'default'
+    │  (redacted)
     ○  000000000000 root()
     [EOF]
     ");

@@ -12,34 +12,86 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+//! Hex string helpers.
 
+const FORWARD_HEX_CHARS: &[u8; 16] = b"0123456789abcdef";
 const REVERSE_HEX_CHARS: &[u8; 16] = b"zyxwvutsrqponmlk";
 
-fn to_forward_hex_digit(b: u8) -> Option<u8> {
-    let value = match b {
-        b'k'..=b'z' => b'z' - b,
-        b'K'..=b'Z' => b'Z' - b,
-        _ => return None,
-    };
-    if value < 10 {
-        Some(b'0' + value)
-    } else {
-        Some(b'a' + value - 10)
+fn forward_hex_value(b: u8) -> Option<u8> {
+    match b {
+        b'0'..=b'9' => Some(b - b'0'),
+        b'a'..=b'f' => Some(b - b'a' + 10),
+        b'A'..=b'F' => Some(b - b'A' + 10),
+        _ => None,
     }
 }
 
-pub fn to_forward_hex(reverse_hex: impl AsRef<[u8]>) -> Option<String> {
-    reverse_hex
-        .as_ref()
-        .iter()
-        .map(|b| to_forward_hex_digit(*b).map(char::from))
-        .collect()
+fn reverse_hex_value(b: u8) -> Option<u8> {
+    match b {
+        b'k'..=b'z' => Some(b'z' - b),
+        b'K'..=b'Z' => Some(b'Z' - b),
+        _ => None,
+    }
+}
+
+/// Decodes `hex` as normal hex string.
+pub fn decode_hex(hex: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+    decode_hex_inner(hex.as_ref(), forward_hex_value)
+}
+
+/// Decodes `hex` as normal hex string prefix. The output may have odd-length
+/// byte. Returns `(bytes, has_odd_byte)`.
+pub fn decode_hex_prefix(hex: impl AsRef<[u8]>) -> Option<(Vec<u8>, bool)> {
+    decode_hex_prefix_inner(hex.as_ref(), forward_hex_value)
+}
+
+/// Decodes `reverse_hex` as hex string using `z-k` "digits".
+pub fn decode_reverse_hex(reverse_hex: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+    decode_hex_inner(reverse_hex.as_ref(), reverse_hex_value)
+}
+
+/// Decodes `reverse_hex` as hex string prefix using `z-k` "digits". The output
+/// may have odd-length byte. Returns `(bytes, has_odd_byte)`.
+pub fn decode_reverse_hex_prefix(reverse_hex: impl AsRef<[u8]>) -> Option<(Vec<u8>, bool)> {
+    decode_hex_prefix_inner(reverse_hex.as_ref(), reverse_hex_value)
+}
+
+fn decode_hex_inner(reverse_hex: &[u8], hex_value: impl Fn(u8) -> Option<u8>) -> Option<Vec<u8>> {
+    if !reverse_hex.len().is_multiple_of(2) {
+        return None;
+    }
+    let (decoded, _) = decode_hex_prefix_inner(reverse_hex, hex_value)?;
+    Some(decoded)
+}
+
+fn decode_hex_prefix_inner(
+    reverse_hex: &[u8],
+    hex_value: impl Fn(u8) -> Option<u8>,
+) -> Option<(Vec<u8>, bool)> {
+    let mut decoded = Vec::with_capacity(usize::div_ceil(reverse_hex.len(), 2));
+    let (chunks, remainder) = reverse_hex.as_chunks();
+    for &[hi, lo] in chunks {
+        decoded.push(hex_value(hi)? << 4 | hex_value(lo)?);
+    }
+    if let &[hi] = remainder {
+        decoded.push(hex_value(hi)? << 4);
+        Some((decoded, true))
+    } else {
+        Some((decoded, false))
+    }
+}
+
+/// Encodes `data` as normal hex string.
+pub fn encode_hex(data: &[u8]) -> String {
+    encode_hex_inner(data, FORWARD_HEX_CHARS)
 }
 
 /// Encodes `data` as hex string using `z-k` "digits".
 pub fn encode_reverse_hex(data: &[u8]) -> String {
-    let chars = REVERSE_HEX_CHARS;
+    encode_hex_inner(data, REVERSE_HEX_CHARS)
+}
+
+fn encode_hex_inner(data: &[u8], chars: &[u8; 16]) -> String {
     let encoded = data
         .iter()
         .flat_map(|b| [chars[usize::from(b >> 4)], chars[usize::from(b & 0xf)]])
@@ -65,25 +117,62 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_reverse_hex() {
+    fn test_forward_hex() {
         // Empty string
-        assert_eq!(encode_reverse_hex(b""), "".to_string());
-        assert_eq!(to_forward_hex(""), Some("".to_string()));
+        assert_eq!(decode_hex(""), Some(vec![]));
+        assert_eq!(decode_hex_prefix(""), Some((vec![], false)));
+        assert_eq!(encode_hex(b""), "".to_string());
 
         // Single digit
-        assert_eq!(to_forward_hex("z"), Some("0".to_string()));
+        assert_eq!(decode_hex("0"), None);
+        assert_eq!(decode_hex_prefix("f"), Some((vec![0xf0], true)));
 
         // All digits
+        assert_eq!(
+            decode_hex("0123456789abcDEF"),
+            Some(b"\x01\x23\x45\x67\x89\xab\xcd\xef".to_vec())
+        );
+        assert_eq!(
+            decode_hex_prefix("0123456789ABCdef"),
+            Some((b"\x01\x23\x45\x67\x89\xab\xcd\xef".to_vec(), false))
+        );
+        assert_eq!(
+            encode_hex(b"\x01\x23\x45\x67\x89\xab\xcd\xef"),
+            "0123456789abcdef".to_string()
+        );
+
+        // Invalid digit
+        assert_eq!(decode_hex("gg"), None);
+        assert_eq!(decode_hex_prefix("gg"), None);
+    }
+
+    #[test]
+    fn test_reverse_hex() {
+        // Empty string
+        assert_eq!(decode_reverse_hex(""), Some(vec![]));
+        assert_eq!(decode_reverse_hex_prefix(""), Some((vec![], false)));
+        assert_eq!(encode_reverse_hex(b""), "".to_string());
+
+        // Single digit
+        assert_eq!(decode_reverse_hex("z"), None);
+        assert_eq!(decode_reverse_hex_prefix("k"), Some((vec![0xf0], true)));
+
+        // All digits
+        assert_eq!(
+            decode_reverse_hex("zyxwvutsRQPONMLK"),
+            Some(b"\x01\x23\x45\x67\x89\xab\xcd\xef".to_vec())
+        );
+        assert_eq!(
+            decode_reverse_hex_prefix("ZYXWVUTSrqponmlk"),
+            Some((b"\x01\x23\x45\x67\x89\xab\xcd\xef".to_vec(), false))
+        );
         assert_eq!(
             encode_reverse_hex(b"\x01\x23\x45\x67\x89\xab\xcd\xef"),
             "zyxwvutsrqponmlk".to_string()
         );
-        assert_eq!(
-            to_forward_hex("zyxwvutsrqponmlkPONMLK"),
-            Some("0123456789abcdefabcdef".to_string())
-        );
 
         // Invalid digit
-        assert_eq!(to_forward_hex("j"), None);
+        assert_eq!(decode_reverse_hex("jj"), None);
+        assert_eq!(decode_reverse_hex_prefix("jj"), None);
     }
 }

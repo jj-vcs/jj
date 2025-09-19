@@ -13,6 +13,8 @@ This document contains the help content for the `jj` command-line program.
 * [`jj`↴](#jj)
 * [`jj abandon`↴](#jj-abandon)
 * [`jj absorb`↴](#jj-absorb)
+* [`jj bisect`↴](#jj-bisect)
+* [`jj bisect run`↴](#jj-bisect-run)
 * [`jj bookmark`↴](#jj-bookmark)
 * [`jj bookmark create`↴](#jj-bookmark-create)
 * [`jj bookmark delete`↴](#jj-bookmark-delete)
@@ -45,6 +47,8 @@ This document contains the help content for the `jj` command-line program.
 * [`jj file track`↴](#jj-file-track)
 * [`jj file untrack`↴](#jj-file-untrack)
 * [`jj fix`↴](#jj-fix)
+* [`jj gerrit`↴](#jj-gerrit)
+* [`jj gerrit upload`↴](#jj-gerrit-upload)
 * [`jj git`↴](#jj-git)
 * [`jj git clone`↴](#jj-git-clone)
 * [`jj git export`↴](#jj-git-export)
@@ -62,6 +66,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj help`↴](#jj-help)
 * [`jj interdiff`↴](#jj-interdiff)
 * [`jj log`↴](#jj-log)
+* [`jj metaedit`↴](#jj-metaedit)
 * [`jj new`↴](#jj-new)
 * [`jj next`↴](#jj-next)
 * [`jj operation`↴](#jj-operation)
@@ -69,11 +74,12 @@ This document contains the help content for the `jj` command-line program.
 * [`jj operation diff`↴](#jj-operation-diff)
 * [`jj operation log`↴](#jj-operation-log)
 * [`jj operation restore`↴](#jj-operation-restore)
+* [`jj operation revert`↴](#jj-operation-revert)
 * [`jj operation show`↴](#jj-operation-show)
-* [`jj operation undo`↴](#jj-operation-undo)
 * [`jj parallelize`↴](#jj-parallelize)
 * [`jj prev`↴](#jj-prev)
 * [`jj rebase`↴](#jj-rebase)
+* [`jj redo`↴](#jj-redo)
 * [`jj resolve`↴](#jj-resolve)
 * [`jj restore`↴](#jj-restore)
 * [`jj revert`↴](#jj-revert)
@@ -126,10 +132,11 @@ To get started, see the tutorial [`jj help -k tutorial`].
 
 * `abandon` — Abandon a revision
 * `absorb` — Move changes from a revision into the stack of mutable revisions
+* `bisect` — Find a bad revision by bisection
 * `bookmark` — Manage bookmarks [default alias: b]
-* `commit` — Update the description and create a new change on top
+* `commit` — Update the description and create a new change on top [default alias: ci]
 * `config` — Manage config options
-* `describe` — Update the change description or other metadata
+* `describe` — Update the change description or other metadata [default alias: desc]
 * `diff` — Compare file contents between two revisions
 * `diffedit` — Touch up the content changes in a revision with a diff editor
 * `duplicate` — Create new changes with the same content as existing ones
@@ -137,16 +144,19 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `evolog` — Show how a change has evolved over time
 * `file` — File operations
 * `fix` — Update files with formatting fixes or other changes
+* `gerrit` — Interact with Gerrit Code Review
 * `git` — Commands for working with Git remotes and the underlying Git repo
 * `help` — Print this message or the help of the given subcommand(s)
 * `interdiff` — Compare the changes of two commits
 * `log` — Show revision history
+* `metaedit` — Modify the metadata of a revision without changing its content
 * `new` — Create a new, empty change and (by default) edit it in the working copy
 * `next` — Move the working-copy commit to the child revision
 * `operation` — Commands for working with the operation log
 * `parallelize` — Parallelize revisions by making them siblings
 * `prev` — Change the working copy revision relative to the parent revision
 * `rebase` — Move revisions to different parent(s)
+* `redo` — Redo the most recently undone operation
 * `resolve` — Resolve conflicted files with an external merge tool
 * `restore` — Restore paths from another revision
 * `revert` — Apply the reverse of the given revision(s)
@@ -157,9 +167,9 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `sparse` — Manage which paths from the working-copy commit are present in the working copy
 * `split` — Split a revision in two
 * `squash` — Move changes from a revision into another revision
-* `status` — Show high-level repo status
+* `status` — Show high-level repo status [default alias: st]
 * `tag` — Manage tags
-* `undo` — Undo an operation (shortcut for `jj op undo`)
+* `undo` — Undo the last operation
 * `unsign` — Drop a cryptographic signature
 * `util` — Infrequently used commands such as for generating shell completions
 * `version` — Display version information
@@ -261,6 +271,43 @@ The modification made by `jj absorb` can be reviewed by `jj op show -p`.
 
 
 
+## `jj bisect`
+
+Find a bad revision by bisection
+
+**Usage:** `jj bisect <COMMAND>`
+
+###### **Subcommands:**
+
+* `run` — Run a given command to find the first bad revision
+
+
+
+## `jj bisect run`
+
+Run a given command to find the first bad revision.
+
+Uses binary search to find the first bad revision. Revisions are evaluated by running a given command (see the documentation for `--command` for details).
+
+It is assumed that if a given revision is bad, then all its descendants in the input range are also bad.
+
+Hint: You can pass your shell as evaluation command. You can then run manual tests in the shell and make sure to exit the shell with appropriate error code depending on the outcome (e.g. `exit 0` to mark the revision as good in Bash or Fish).
+
+**Usage:** `jj bisect run --range <REVSETS> --command <COMMAND>`
+
+###### **Options:**
+
+* `-r`, `--range <REVSETS>` — Range of revisions to bisect
+
+   This is typically a range like `v1.0..main`. The heads of the range are assumed to be bad. Ancestors of the range that are not also in the range are assumed to be good.
+* `--command <COMMAND>` — Command to run to determine whether the bug is present
+
+   The command will be run from the workspace root. The exit status of the command will be used to mark revisions as good or bad: status 0 means good, 125 means to skip the revision, 127 (command not found) will abort the bisection, and any other non-zero exit status means the revision is bad.
+
+   The target's commit ID is available to the command in the `$JJ_BISECT_TARGET` environment variable.
+
+
+
 ## `jj bookmark`
 
 Manage bookmarks [default alias: b]
@@ -300,6 +347,8 @@ Create a new bookmark
 ###### **Options:**
 
 * `-r`, `--revision <REVSET>` [alias: `to`] — The bookmark's target revision
+
+  Default value: `@`
 
 
 
@@ -434,6 +483,8 @@ $ jj bookmark move --from 'heads(::@- & bookmarks())' --to @-
 
 * `-f`, `--from <REVSETS>` — Move bookmarks from the given revisions
 * `-t`, `--to <REVSET>` — Move bookmarks to this revision
+
+  Default value: `@`
 * `-B`, `--allow-backwards` — Allow moving bookmarks backwards or sideways
 
 
@@ -470,6 +521,8 @@ Create or update a bookmark to point to a certain commit
 ###### **Options:**
 
 * `-r`, `--revision <REVSET>` [alias: `to`] — The bookmark's target revision
+
+  Default value: `@`
 * `-B`, `--allow-backwards` — Allow moving the bookmark backwards or sideways
 
 
@@ -520,7 +573,19 @@ If you want to forget a local bookmark while also untracking the corresponding r
 
 ## `jj commit`
 
-Update the description and create a new change on top
+Update the description and create a new change on top [default alias: ci]
+
+When called without path arguments or `--interactive`, `jj commit` is equivalent to `jj describe` followed by `jj new`.
+
+Otherwise, this command is very similar to `jj split`. Differences include:
+
+* `jj commit` is not interactive by default (it selects all changes).
+
+* `jj commit` doesn't have a `-r` option. It always acts on the working-copy commit (@).
+
+* `jj split` (without `-d/-A/-B`) will move bookmarks forward from the old change to the child change. `jj commit` doesn't move bookmarks forward.
+
+* `jj split` allows you to move the selected changes to a different destination with `-d/-A/-B`.
 
 **Usage:** `jj commit [OPTIONS] [FILESETS]...`
 
@@ -533,16 +598,6 @@ Update the description and create a new change on top
 * `-i`, `--interactive` — Interactively choose which changes to include in the first commit
 * `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
 * `-m`, `--message <MESSAGE>` — The change description to use (don't open editor)
-* `--reset-author` — Reset the author to the configured user
-
-   This resets the author name, email, and timestamp.
-
-   You can use it in combination with the JJ_USER and JJ_EMAIL environment variables to set a different author:
-
-   $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj commit --reset-author
-* `--author <AUTHOR>` — Set author to the provided string
-
-   This changes author name and email while retaining author timestamp for non-discardable commits.
 
 
 
@@ -716,13 +771,11 @@ Update a config file to unset the given option
 
 ## `jj describe`
 
-Update the change description or other metadata
+Update the change description or other metadata [default alias: desc]
 
-Starts an editor to let you edit the description of changes. The editor will be $EDITOR, or `pico` if that's not defined (`Notepad` on Windows).
+Starts an editor to let you edit the description of changes. The editor will be $EDITOR, or `nano` if that's not defined (`Notepad` on Windows).
 
 **Usage:** `jj describe [OPTIONS] [REVSETS]...`
-
-**Command Alias:** `desc`
 
 ###### **Arguments:**
 
@@ -736,22 +789,9 @@ Starts an editor to let you edit the description of changes. The editor will be 
 * `--stdin` — Read the change description from stdin
 
    If multiple revisions are specified, the same description will be used for all of them.
-* `--no-edit` — Don't open an editor
-
-   This is mainly useful in combination with e.g. `--reset-author`.
 * `--edit` — Open an editor
 
    Forces an editor to open when using `--stdin` or `--message` to allow the message to be edited afterwards.
-* `--reset-author` — Reset the author to the configured user
-
-   This resets the author name, email, and timestamp.
-
-   You can use it in combination with the JJ_USER and JJ_EMAIL environment variables to set a different author:
-
-   $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj describe --reset-author
-* `--author <AUTHOR>` — Set author to the provided string
-
-   This changes author name and email while retaining author timestamp for non-discardable commits.
 
 
 
@@ -775,7 +815,7 @@ If no option is specified, it defaults to `-r @`.
 
 * `-r`, `--revisions <REVSETS>` — Show changes in these revisions
 
-   If there are multiple revisions, then then total diff for all of them will be shown. For example, if you have a linear chain of revisions A..D, then `jj diff -r B::D` equals `jj diff --from A --to D`. Multiple heads and/or roots are supported, but gaps in the revset are not supported (e.g. `jj diff -r 'A|C'` in a linear chain A..C).
+   If there are multiple revisions, then the total diff for all of them will be shown. For example, if you have a linear chain of revisions A..D, then `jj diff -r B::D` equals `jj diff --from A --to D`. Multiple heads and/or roots are supported, but gaps in the revset are not supported (e.g. `jj diff -r 'A|C'` in a linear chain A..C).
 
    If a revision is a merge commit, this shows changes *from* the automatic merge of the contents of all of its parents *to* the contents of the revision itself.
 
@@ -786,6 +826,13 @@ If no option is specified, it defaults to `-r @`.
 * `-t`, `--to <REVSET>` — Show changes to this revision
 
    If none of `-r`, `-f`, or `-t` is provided, then the default is `-r @`.
+* `-T`, `--template <TEMPLATE>` — Render each file diff entry using the given template
+
+   All 0-argument methods of the [`TreeDiffEntry` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
+
+   [`TreeDiffEntry` type]: https://jj-vcs.github.io/jj/latest/templates/#treediffentry-type
+
+   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
 * `-s`, `--summary` — For each path, show only whether it was modified, added, or deleted
 * `--stat` — Show a histogram of the changes
 * `--types` — For each path, show only its type before and after
@@ -819,7 +866,11 @@ Edit the right side of the diff until it looks the way you want. Once you close 
 
 See `jj restore` if you want to move entire files from one revision to another. For moving changes between revisions, see `jj squash -i`.
 
-**Usage:** `jj diffedit [OPTIONS]`
+**Usage:** `jj diffedit [OPTIONS] [FILESETS]...`
+
+###### **Arguments:**
+
+* `<FILESETS>` — Edit only these paths (unmatched paths will remain unchanged)
 
 ###### **Options:**
 
@@ -891,7 +942,7 @@ Lists the previous commits which a change has pointed to. The current commit of 
 
 ###### **Options:**
 
-* `-r`, `--revision <REVSET>`
+* `-r`, `--revisions <REVSETS>` — Follow changes from these revisions
 
   Default value: `@`
 * `-n`, `--limit <LIMIT>` — Limit number of revisions to show
@@ -901,11 +952,11 @@ Lists the previous commits which a change has pointed to. The current commit of 
 * `--no-graph` — Don't show the graph, show a flat list of revisions
 * `-T`, `--template <TEMPLATE>` — Render each revision using the given template
 
-   Run `jj log -T` to list the built-in templates.
+   All 0-argument methods of the [`CommitEvolutionEntry` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
-   You can also specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
+   If not specified, this defaults to the `templates.evolog` setting.
 
-   [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
+   [`CommitEvolutionEntry` type]: https://jj-vcs.github.io/jj/latest/templates/#commitevolutionentry-type
 
    [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
 * `-p`, `--patch` — Show patch compared to the previous version of this change
@@ -1044,6 +1095,15 @@ If the given path is a directory, files in the directory will be visited recursi
 * `-r`, `--revision <REVSET>` — The revision to get the file contents from
 
   Default value: `@`
+* `-T`, `--template <TEMPLATE>` — Render each file metadata using the given template
+
+   All 0-argument methods of the [`TreeEntry` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
+
+   If not specified, this defaults to the `templates.file_show` setting.
+
+   [`TreeEntry` type]: https://jj-vcs.github.io/jj/latest/templates/#treeentry-type
+
+   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
 
 
 
@@ -1053,7 +1113,7 @@ Start tracking specified paths in the working copy
 
 Without arguments, all paths that are not ignored will be tracked.
 
-New files in the working copy can be automatically tracked. You can configure which paths to automatically track by setting `snapshot.auto-track` (e.g. to `"none()"` or `"glob:**/*.rs"`). Files that don't match the pattern can be manually tracked using this command. The default pattern is `all()` and this command has no effect.
+By default, new files in the working copy are automatically tracked, so this command has no effect. You can configure which paths to automatically track by setting `snapshot.auto-track` (e.g. to `"none()"` or `"glob:**/*.rs"`). Files that don't match the pattern can be manually tracked using this command. The default pattern is `all()`.
 
 **Usage:** `jj file track <FILESETS>...`
 
@@ -1101,11 +1161,14 @@ error will be passed through to the terminal.
 Tools are defined in a table where the keys are arbitrary identifiers and
 the values have the following properties:
  - `command`: The arguments used to run the tool. The first argument is the
-   path to an executable file. Arguments can contain the substring `$path`,
-   which will be replaced with the repo-relative path of the file being
-   fixed. It is useful to provide the path to tools that include the path in
-   error messages, or behave differently based on the directory or file
-   name.
+   path to an executable file. Arguments can contain these variables that
+   will be replaced:
+     - `$root` will be replaced with the workspace root path (the directory
+       containing the .jj directory).
+     - `$path` will be replaced with the repo-relative path of the file
+       being fixed. It is useful to provide the path to tools that include
+       the path in error messages, or behave differently based on the
+       directory or file name.
  - `patterns`: Determines which files the tool will affect. If this list is
    empty, no files will be affected by the tool. If there are multiple
    patterns, the tool is applied only once to each file in the union of the
@@ -1144,6 +1207,47 @@ output of the first tool.
 
 * `-s`, `--source <REVSETS>` — Fix files in the specified revision(s) and their descendants. If no revisions are specified, this defaults to the `revsets.fix` setting, or `reachable(@, mutable())` if it is not set
 * `--include-unchanged-files` — Fix unchanged files in addition to changed ones. If no paths are specified, all files in the repo will be fixed
+
+
+
+## `jj gerrit`
+
+Interact with Gerrit Code Review
+
+**Usage:** `jj gerrit <COMMAND>`
+
+###### **Subcommands:**
+
+* `upload` — Upload changes to Gerrit for code review, or update existing changes
+
+
+
+## `jj gerrit upload`
+
+Upload changes to Gerrit for code review, or update existing changes.
+
+Uploading in a set of revisions to Gerrit creates a single "change" for each revision included in the revset. These changes are then available for review on your Gerrit instance.
+
+Note: The gerrit commit Id may not match that of your local commit Id, since we add a `Change-Id` footer to the commit message if one does not already exist. This ID is based off the jj Change-Id, but is not the same.
+
+If a change already exists for a given revision (i.e. it contains the same `Change-Id`), this command will update the contents of the existing change to match.
+
+Note: this command takes 1-or-more revsets arguments, each of which can resolve to multiple revisions; so you may post trees or ranges of commits to Gerrit for review all at once.
+
+**Usage:** `jj gerrit upload [OPTIONS]`
+
+###### **Options:**
+
+* `-r`, `--revisions <REVISIONS>` — The revset, selecting which revisions are sent in to Gerrit
+
+   This can be any arbitrary set of commits. Note that when you push a commit at the head of a stack, all ancestors are pushed too. This means that `jj gerrit upload -r foo` is equivalent to `jj gerrit upload -r 'mutable()::foo`.
+* `-b`, `--remote-branch <REMOTE_BRANCH>` — The location where your changes are intended to land
+
+   This should be a branch on the remote. Can be configured with the `gerrit.default-branch` repository option.
+* `--remote <REMOTE>` — The Gerrit remote to push to
+
+   Can be configured with the `gerrit.default-remote` repository option as well. This is typically a full SSH URL for your Gerrit instance.
+* `-n`, `--dry-run` — Do not actually push the changes to Gerrit
 
 
 
@@ -1193,7 +1297,20 @@ The Git repo will be a bare git repo stored inside the `.jj/` directory.
 
   Default value: `origin`
 * `--colocate` — Whether or not to colocate the Jujutsu repo with the git repo
+* `--no-colocate` — Disable colocation of the Jujutsu repo with the git repo
 * `--depth <DEPTH>` — Create a shallow clone of the given depth
+* `--fetch-tags <FETCH_TAGS>` — Configure when to fetch tags
+
+   Unless otherwise specified, the initial clone will fetch all tags, while all subsequent fetches will only fetch included tags.
+
+  Possible values:
+  - `all`:
+    Always fetch all tags
+  - `included`:
+    Only fetch tags that point to objects that are already being transmitted
+  - `none`:
+    Do not fetch any tags
+
 
 
 
@@ -1217,9 +1334,10 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 
 * `-b`, `--branch <BRANCH>` — Fetch only some of the branches
 
-   By default, the specified name matches exactly. Use `glob:` prefix to expand `*` as a glob, e.g. `--branch 'glob:push-*'`. Other wildcard characters such as `?` are *not* supported.
+   By default, the specified name matches exactly. Use `glob:` prefix to expand `*` as a glob, e.g. `--branch 'glob:push-*'`. Other wildcard characters such as `?` are *not* supported. Can be repeated to specify multiple branches.
+* `--tracked` — Fetch only tracked bookmarks
 
-  Default value: `glob:*`
+   This fetches only bookmarks that are already tracked from the specified remote(s).
 * `--remote <REMOTE>` — The remote to fetch from (only named remotes are supported, can be repeated)
 
    This defaults to the `git.fetch` setting. If that is not configured, and if there are multiple remotes, the remote named "origin" will be used.
@@ -1262,9 +1380,10 @@ Create a new Git backed repo
    This is done by placing the backing git repo into a `.git` directory in the root of the `jj` repo along with the `.jj` directory. If the `.git` directory already exists, all the existing commits will be imported.
 
    This option is mutually exclusive with `--git-repo`.
+* `--no-colocate` — Disable colocation of the Jujutsu repo with the git repo
 * `--git-repo <GIT_REPO>` — Specifies a path to an **existing** git repository to be used as the backing git repo for the newly created `jj` repo.
 
-   If the specified `--git-repo` path happens to be the same as the `jj` repo path (both .jj and .git directories are in the same working directory), then both `jj` and `git` commands will work on the same repo. This is called a co-located repo.
+   If the specified `--git-repo` path happens to be the same as the `jj` repo path (both .jj and .git directories are in the same working directory), then both `jj` and `git` commands will work on the same repo. This is called a colocated repo.
 
    This option is mutually exclusive with `--colocate`.
 
@@ -1315,9 +1434,9 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
 
    The set of private commits can be configured by the `git.private-commits` setting. The default is `none()`, meaning all commits are eligible to be pushed.
 * `-r`, `--revisions <REVSETS>` — Push bookmarks pointing to these commits (can be repeated)
-* `-c`, `--change <REVSETS>` — Push this commit by creating a bookmark based on its change ID (can be repeated)
+* `-c`, `--change <REVSETS>` — Push this commit by creating a bookmark (can be repeated)
 
-   The created bookmark will be tracked automatically. Use the `git.push-bookmark-prefix` setting to change the prefix for generated names.
+   The created bookmark will be tracked automatically. Use the `templates.git_push_bookmark` setting to customize the generated bookmark name. The default is `"push-" ++ change_id.short()`.
 * `--named <NAME=REVISION>` — Specify a new bookmark name and a revision to push under that name, e.g. '--named myfeature=@'
 
    Does not require --allow-new.
@@ -1347,7 +1466,7 @@ The Git repo will be a bare git repo stored inside the `.jj/` directory.
 
 Add a Git remote
 
-**Usage:** `jj git remote add <REMOTE> <URL>`
+**Usage:** `jj git remote add [OPTIONS] <REMOTE> <URL>`
 
 ###### **Arguments:**
 
@@ -1355,6 +1474,21 @@ Add a Git remote
 * `<URL>` — The remote's URL or path
 
    Local path will be resolved to absolute form.
+
+###### **Options:**
+
+* `--fetch-tags <FETCH_TAGS>` — Configure when to fetch tags
+
+  Default value: `included`
+
+  Possible values:
+  - `all`:
+    Always fetch all tags
+  - `included`:
+    Only fetch tags that point to objects that are already being transmitted
+  - `none`:
+    Do not fetch any tags
+
 
 
 
@@ -1545,6 +1679,43 @@ The working-copy commit is indicated by a `@` symbol in the graph. [Immutable re
 
 
 
+## `jj metaedit`
+
+Modify the metadata of a revision without changing its content
+
+**Usage:** `jj metaedit [OPTIONS] [REVSETS]...`
+
+###### **Arguments:**
+
+* `<REVSETS>` — The revision(s) to modify (default: @)
+
+###### **Options:**
+
+* `--update-change-id` — Generate a new change-id
+
+   This generates a new change-id for the revision.
+* `--update-author-timestamp` — Update the author timestamp
+
+   This updates the author date to now, without modifying the author.
+* `--update-author` — Update the author to the configured user
+
+   This updates the author name and email. The author timestamp is not modified – use --update-author-timestamp to update the author timestamp.
+
+   You can use it in combination with the JJ_USER and JJ_EMAIL environment variables to set a different author:
+
+   $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj metaedit --update-author
+* `--author <AUTHOR>` — Set author to the provided string
+
+   This changes author name and email while retaining author timestamp for non-discardable commits.
+* `--author-timestamp <AUTHOR_TIMESTAMP>` — Set the author date to the given date either human readable, eg Sun, 23 Jan 2000 01:23:45 JST) or as a time stamp, eg 2000-01-23T01:23:45+09:00)
+* `--update-committer-timestamp` — Update the committer timestamp
+
+   This updates the committer date to now, without modifying the committer.
+
+   Even if this option is not passed, the committer timestamp will be updated if other metadata is updated. This option effectively just forces every commit to be rewritten whether or not there are other changes.
+
+
+
 ## `jj new`
 
 Create a new, empty change and (by default) edit it in the working copy
@@ -1694,8 +1865,8 @@ See the [operation log documentation] for more information.
 * `diff` — Compare changes to the repository between two operations
 * `log` — Show the operation log
 * `restore` — Create a new operation that restores the repo to an earlier state
+* `revert` — Create a new operation that reverts an earlier operation
 * `show` — Show changes to the repository in an operation
-* `undo` — Create a new operation that undoes an earlier operation
 
 
 
@@ -1707,7 +1878,7 @@ To discard old operation history, use `jj op abandon ..<operation ID>`. It will 
 
 To discard recent operations, use `jj op restore <operation ID>` followed by `jj op abandon <operation ID>..@-`.
 
-The abandoned operations, commits, and other unreachable objects can later be garbage collected by using `jj util gc` command.
+Previous versions of a change (or predecessors) are also discarded if they become unreachable from the operation history. The abandoned operations, commits, and other unreachable objects can later be garbage collected by using `jj util gc` command.
 
 **Usage:** `jj operation abandon <OPERATION>`
 
@@ -1827,56 +1998,19 @@ This restores the repo to the state at the specified operation, effectively undo
 
 
 
-## `jj operation show`
+## `jj operation revert`
 
-Show changes to the repository in an operation
+Create a new operation that reverts an earlier operation
 
-**Usage:** `jj operation show [OPTIONS] [OPERATION]`
+This reverts an individual operation by applying the inverse of the operation.
 
-###### **Arguments:**
-
-* `<OPERATION>` — Show repository changes in this operation, compared to its parent(s)
-
-  Default value: `@`
-
-###### **Options:**
-
-* `--no-graph` — Don't show the graph, show a flat list of modified changes
-* `-p`, `--patch` — Show patch of modifications to changes
-
-   If the previous version has different parents, it will be temporarily rebased to the parents of the new version, so the diff is not contaminated by unrelated changes.
-* `-s`, `--summary` — For each path, show only whether it was modified, added, or deleted
-* `--stat` — Show a histogram of the changes
-* `--types` — For each path, show only its type before and after
-
-   The diff is shown as two letters. The first letter indicates the type before and the second letter indicates the type after. '-' indicates that the path was not present, 'F' represents a regular file, `L' represents a symlink, 'C' represents a conflict, and 'G' represents a Git submodule.
-* `--name-only` — For each path, show only its path
-
-   Typically useful for shell commands like: `jj diff -r @- --name-only | xargs perl -pi -e's/OLD/NEW/g`
-* `--git` — Show a Git-format diff
-* `--color-words` — Show a word-level diff with changes indicated only by color
-* `--tool <TOOL>` — Generate diff by external command
-
-   A builtin format can also be specified as `:<name>`. For example, `--tool=:git` is equivalent to `--git`.
-* `--context <CONTEXT>` — Number of lines of context to show
-* `--ignore-all-space` — Ignore whitespace when comparing lines
-* `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
-
-
-
-## `jj operation undo`
-
-Create a new operation that undoes an earlier operation
-
-This undoes an individual operation by applying the inverse of the operation.
-
-**Usage:** `jj operation undo [OPTIONS] [OPERATION]`
+**Usage:** `jj operation revert [OPTIONS] [OPERATION]`
 
 ###### **Arguments:**
 
-* `<OPERATION>` — The operation to undo
+* `<OPERATION>` — The operation to revert
 
-   Use `jj op log` to find an operation to undo.
+   Use `jj op log` to find an operation to revert.
 
   Default value: `@`
 
@@ -1894,6 +2028,51 @@ This undoes an individual operation by applying the inverse of the operation.
   - `remote-tracking`:
     The remote-tracking bookmarks. Do not restore these if you'd like to push after the undo
 
+
+
+
+## `jj operation show`
+
+Show changes to the repository in an operation
+
+**Usage:** `jj operation show [OPTIONS] [OPERATION]`
+
+###### **Arguments:**
+
+* `<OPERATION>` — Show repository changes in this operation, compared to its parent(s)
+
+  Default value: `@`
+
+###### **Options:**
+
+* `--no-graph` — Don't show the graph, show a flat list of modified changes
+* `-T`, `--template <TEMPLATE>` — Render the operation using the given template
+
+   You can specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
+
+   [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#operation-keywords
+
+   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
+* `-p`, `--patch` — Show patch of modifications to changes
+
+   If the previous version has different parents, it will be temporarily rebased to the parents of the new version, so the diff is not contaminated by unrelated changes.
+* `--no-op-diff` — Do not show operation diff
+* `-s`, `--summary` — For each path, show only whether it was modified, added, or deleted
+* `--stat` — Show a histogram of the changes
+* `--types` — For each path, show only its type before and after
+
+   The diff is shown as two letters. The first letter indicates the type before and the second letter indicates the type after. '-' indicates that the path was not present, 'F' represents a regular file, `L' represents a symlink, 'C' represents a conflict, and 'G' represents a Git submodule.
+* `--name-only` — For each path, show only its path
+
+   Typically useful for shell commands like: `jj diff -r @- --name-only | xargs perl -pi -e's/OLD/NEW/g`
+* `--git` — Show a Git-format diff
+* `--color-words` — Show a word-level diff with changes indicated only by color
+* `--tool <TOOL>` — Generate diff by external command
+
+   A builtin format can also be specified as `:<name>`. For example, `--tool=:git` is equivalent to `--git`.
+* `--context <CONTEXT>` — Number of lines of context to show
+* `--ignore-all-space` — Ignore whitespace when comparing lines
+* `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
 
 
 
@@ -2038,9 +2217,8 @@ J           J
 ```
 
 Each revision passed to `-s` will become a direct child of the destination,
-so if you instead run `jj rebase -s M -s N -d O` (or
-`jj rebase -s 'all:M|N' -d O`) in the example above, then N' would instead
-be a direct child of O.
+so if you instead run `jj rebase -s M -s N -d O` (or `jj rebase -s 'M|N' -d
+O`) in the example above, then N' would instead be a direct child of O.
 
 With `--branch/-b`, the command rebases the whole "branch" containing the
 specified revision. A "branch" is the set of revisions that includes:
@@ -2231,6 +2409,18 @@ J           J
 * `--keep-divergent` — Keep divergent commits while rebasing
 
    Without this flag, divergent commits are abandoned while rebasing if another commit with the same change ID is already present in the destination with identical changes.
+
+
+
+## `jj redo`
+
+Redo the most recently undone operation
+
+This is the natural counterpart of `jj undo`. Repeated invocations of `jj undo` and `jj redo` act similarly to Undo/Redo commands in a text editor.
+
+Use `jj op log` to visualize the log of past operations, including a detailed description of any past undo/redo operations. See also `jj op restore` to explicitly restore an older operation by its id (available in the operation log).
+
+**Usage:** `jj redo`
 
 
 
@@ -2489,7 +2679,7 @@ Splitting an empty commit is not supported because the same effect can be achiev
 * `-r`, `--revision <REVSET>` — The revision to split
 
   Default value: `@`
-* `-d`, `--destination <REVSETS>` — The revision(s) to rebase onto (can be repeated to create a merge commit)
+* `-d`, `--destination <REVSETS>` — The revision(s) to base the new revision onto (can be repeated to create a merge commit)
 * `-A`, `--insert-after <REVSETS>` [alias: `after`] — The revision(s) to insert after (can be repeated to create a merge commit)
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — The revision(s) to insert before (can be repeated to create a merge commit)
 * `-m`, `--message <MESSAGE>` — The change description to use (don't open editor)
@@ -2513,6 +2703,10 @@ If the source was abandoned and both the source and destination had a non-empty 
 
 If a working-copy commit gets abandoned, it will be given a new, empty commit. This is true in general; it is not specific to this command.
 
+EXPERIMENTAL FEATURES
+
+An alternative squashing UI is available via the `-d`, `-A`, and `-B` options. They can be used together with one or more `--from` options (if no `--from` is specified, `--from @` is assumed).
+
 **Usage:** `jj squash [OPTIONS] [FILESETS]...`
 
 ###### **Arguments:**
@@ -2521,9 +2715,12 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 
 ###### **Options:**
 
-* `-r`, `--revision <REVSET>` — Revision to squash into its parent (default: @)
+* `-r`, `--revision <REVSET>` — Revision to squash into its parent (default: @). Incompatible with the experimental `-d`/`-A`/`-B` options
 * `-f`, `--from <REVSETS>` — Revision(s) to squash from (default: @)
 * `-t`, `--into <REVSET>` [alias: `to`] — Revision to squash into (default: @)
+* `-d`, `--destination <REVSETS>` — (Experimental) The revision(s) to use as parent for the new commit (can be repeated to create a merge commit)
+* `-A`, `--insert-after <REVSETS>` [alias: `after`] — (Experimental) The revision(s) to insert the new commit after (can be repeated to create a merge commit)
+* `-B`, `--insert-before <REVSETS>` [alias: `before`] — (Experimental) The revision(s) to insert the new commit before (can be repeated to create a merge commit)
 * `-m`, `--message <MESSAGE>` — The description to use for squashed revision (don't open editor)
 * `-u`, `--use-destination-message` — Use the description of the destination revision and discard the description(s) of the source revision(s)
 * `-i`, `--interactive` — Interactively choose which parts to squash
@@ -2534,17 +2731,19 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 
 ## `jj status`
 
-Show high-level repo status
+Show high-level repo status [default alias: st]
 
 This includes:
 
-* The working copy commit and its parents, and a summary of the changes in the working copy (compared to the merged parents) * Conflicts in the working copy * [Conflicted bookmarks]
+* The working copy commit and its parents, and a summary of the changes in the working copy (compared to the merged parents)
+
+* Conflicts in the working copy
+
+* [Conflicted bookmarks]
 
 [Conflicted bookmarks]: https://jj-vcs.github.io/jj/latest/bookmarks/#conflicts
 
 **Usage:** `jj status [FILESETS]...`
-
-**Command Alias:** `st`
 
 ###### **Arguments:**
 
@@ -2594,32 +2793,25 @@ List tags
 
 ## `jj undo`
 
-Undo an operation (shortcut for `jj op undo`)
+Undo the last operation
 
-**Usage:** `jj undo [OPTIONS] [OPERATION]`
+If used once after a normal (non-`undo`) operation, this will undo that last operation by restoring its parent. If `jj undo` is used repeatedly, it will restore increasingly older operations, going further back into the past.
+
+There is also a complementary `jj redo` command that would instead move in the direction of the future after one or more `jj undo`s.
+
+Use `jj op log` to visualize the log of past operations, including a detailed description of any past undo/redo operations. See also `jj op restore` to explicitly restore an older operation by its id (available in the operation log).
+
+**Usage:** `jj undo [OPERATION]`
 
 ###### **Arguments:**
 
-* `<OPERATION>` — The operation to undo
+* `<OPERATION>` — (deprecated, use `jj op revert <operation>`)
+
+   The operation to undo
 
    Use `jj op log` to find an operation to undo.
 
   Default value: `@`
-
-###### **Options:**
-
-* `--what <WHAT>` — What portions of the local state to restore (can be repeated)
-
-   This option is EXPERIMENTAL.
-
-  Default values: `repo`, `remote-tracking`
-
-  Possible values:
-  - `repo`:
-    The jj repo state and local bookmarks
-  - `remote-tracking`:
-    The remote-tracking bookmarks. Do not restore these if you'd like to push after the undo
-
 
 
 
@@ -2761,8 +2953,6 @@ Run backend-dependent garbage collection.
 
 To garbage-collect old operations and the commits/objects referenced by them, run `jj op abandon ..<some old operation>` before `jj util gc`.
 
-Previous versions of a change that are reachable via the evolution log are not garbage-collected.
-
 **Usage:** `jj util gc [OPTIONS]`
 
 ###### **Options:**
@@ -2881,7 +3071,17 @@ The workspace will not be touched on disk. It can be deleted from disk before or
 
 List workspaces
 
-**Usage:** `jj workspace list`
+**Usage:** `jj workspace list [OPTIONS]`
+
+###### **Options:**
+
+* `-T`, `--template <TEMPLATE>` — Render each workspace using the given template
+
+   All 0-argument methods of the [`WorkspaceRef` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
+
+   [`WorkspaceRef` type]: https://jj-vcs.github.io/jj/latest/templates/#workspaceref-type
+
+   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
 
 
 

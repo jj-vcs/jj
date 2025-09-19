@@ -949,6 +949,6 @@ fn get_diffs(work_dir: &TestWorkDir, revision: &str) -> CommandOutput {
 
 #[must_use]
 fn get_evolog(work_dir: &TestWorkDir, revision: &str) -> CommandOutput {
-    let template = r#"format_commit_summary_with_refs(self, "") ++ "\n""#;
+    let template = r#"format_commit_summary_with_refs(commit, "") ++ "\n""#;
     work_dir.run_jj(["evolog", "-r", revision, "-T", template])
 }

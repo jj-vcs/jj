@@ -145,7 +145,7 @@ pub fn cmd_bookmark_list(
                     .filter(|(name, _)| {
                         patterns
                             .iter()
-                            .any(|pattern| pattern.matches(name.as_str()))
+                            .any(|pattern| pattern.is_match(name.as_str()))
                     })
                     .map(|(name, _)| name),
             );
@@ -201,7 +201,7 @@ pub fn cmd_bookmark_list(
                 args.remotes.as_ref().is_none_or(|patterns| {
                     patterns
                         .iter()
-                        .any(|pattern| pattern.matches(remote_name.as_str()))
+                        .any(|pattern| pattern.is_match(remote_name.as_str()))
                 })
             })
             .partition::<Vec<_>, _>(|&(_, remote_ref)| remote_ref.is_tracked());
@@ -343,19 +343,19 @@ enum SortKey {
 impl SortKey {
     fn is_commit_dependant(&self) -> bool {
         match self {
-            SortKey::Name | SortKey::NameDesc => false,
-            SortKey::AuthorName
-            | SortKey::AuthorNameDesc
-            | SortKey::AuthorEmail
-            | SortKey::AuthorEmailDesc
-            | SortKey::AuthorDate
-            | SortKey::AuthorDateDesc
-            | SortKey::CommitterName
-            | SortKey::CommitterNameDesc
-            | SortKey::CommitterEmail
-            | SortKey::CommitterEmailDesc
-            | SortKey::CommitterDate
-            | SortKey::CommitterDateDesc => true,
+            Self::Name | Self::NameDesc => false,
+            Self::AuthorName
+            | Self::AuthorNameDesc
+            | Self::AuthorEmail
+            | Self::AuthorEmailDesc
+            | Self::AuthorDate
+            | Self::AuthorDateDesc
+            | Self::CommitterName
+            | Self::CommitterNameDesc
+            | Self::CommitterEmail
+            | Self::CommitterEmailDesc
+            | Self::CommitterDate
+            | Self::CommitterDateDesc => true,
         }
     }
 }

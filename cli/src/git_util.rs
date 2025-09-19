@@ -45,10 +45,11 @@ use jj_lib::workspace::Workspace;
 use unicode_width::UnicodeWidthStr as _;
 
 use crate::cleanup_guard::CleanupGuard;
+use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::user_error;
-use crate::command_error::CommandError;
 use crate::formatter::Formatter;
+use crate::formatter::FormatterExt as _;
 use crate::ui::ProgressOutput;
 use crate::ui::Ui;
 
@@ -176,7 +177,7 @@ impl GitSidebandProgressMessageWriter {
     pub fn new(ui: &Ui) -> Self {
         let is_terminal = ui.use_progress_indicator();
 
-        GitSidebandProgressMessageWriter {
+        Self {
             display_prefix: "remote: ".as_bytes(),
             suffix: if is_terminal { "\x1B[K" } else { "        " }.as_bytes(),
             scratch: Vec::new(),
@@ -447,7 +448,7 @@ struct RateEstimate {
 
 impl RateEstimate {
     pub fn new() -> Self {
-        RateEstimate { state: None }
+        Self { state: None }
     }
 
     /// Compute smoothed rate from an update

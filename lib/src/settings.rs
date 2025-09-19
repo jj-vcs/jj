@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -35,7 +35,6 @@ use crate::config::ConfigValue;
 use crate::config::StackedConfig;
 use crate::config::ToConfigNamePath;
 use crate::fmt_util::binary_prefix;
-use crate::fsmonitor::FsmonitorSettings;
 use crate::signing::SignBehavior;
 
 #[derive(Debug, Clone)]
@@ -63,27 +62,18 @@ pub struct GitSettings {
     pub abandon_unreachable_commits: bool,
     pub executable_path: PathBuf,
     pub write_change_id_header: bool,
+    pub colocate: bool,
 }
 
 impl GitSettings {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
-        Ok(GitSettings {
+        Ok(Self {
             auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
             abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
             executable_path: settings.get("git.executable-path")?,
             write_change_id_header: settings.get("git.write-change-id-header")?,
+            colocate: settings.get("git.colocate")?,
         })
-    }
-}
-
-impl Default for GitSettings {
-    fn default() -> Self {
-        GitSettings {
-            auto_local_bookmark: false,
-            abandon_unreachable_commits: true,
-            executable_path: PathBuf::from("git"),
-            write_change_id_header: true,
-        }
     }
 }
 
@@ -158,7 +148,7 @@ impl UserSettings {
             signing_behavior,
             signing_key,
         };
-        Ok(UserSettings {
+        Ok(Self {
             config: Arc::new(config),
             data: Arc::new(data),
             rng,
@@ -182,19 +172,15 @@ impl UserSettings {
     }
 
     // Must not be changed to avoid git pushing older commits with no set name
-    pub const USER_NAME_PLACEHOLDER: &'static str = "(no name configured)";
+    pub const USER_NAME_PLACEHOLDER: &str = "(no name configured)";
 
     pub fn user_email(&self) -> &str {
         &self.data.user_email
     }
 
-    pub fn fsmonitor_settings(&self) -> Result<FsmonitorSettings, ConfigGetError> {
-        FsmonitorSettings::from_settings(self)
-    }
-
     // Must not be changed to avoid git pushing older commits with no set email
     // address
-    pub const USER_EMAIL_PLACEHOLDER: &'static str = "(no email configured)";
+    pub const USER_EMAIL_PLACEHOLDER: &str = "(no email configured)";
 
     pub fn commit_timestamp(&self) -> Option<Timestamp> {
         self.data.commit_timestamp
@@ -316,7 +302,7 @@ impl JJRng {
     /// Creates a new RNGs. Could be made public, but we'd like to encourage all
     /// RNGs references to point to the same RNG.
     fn new(seed: Option<u64>) -> Self {
-        Self(Mutex::new(JJRng::internal_rng_from_seed(seed)))
+        Self(Mutex::new(Self::internal_rng_from_seed(seed)))
     }
 
     fn internal_rng_from_seed(seed: Option<u64>) -> ChaCha20Rng {
@@ -343,10 +329,10 @@ impl FromStr for HumanByteSize {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.parse() {
-            Ok(bytes) => Ok(HumanByteSize(bytes)),
+            Ok(bytes) => Ok(Self(bytes)),
             Err(_) => {
                 let bytes = parse_human_byte_size(s)?;
-                Ok(HumanByteSize(bytes))
+                Ok(Self(bytes))
             }
         }
     }
@@ -358,7 +344,7 @@ impl TryFrom<ConfigValue> for HumanByteSize {
     fn try_from(value: ConfigValue) -> Result<Self, Self::Error> {
         if let Some(n) = value.as_integer() {
             let n = u64::try_from(n).map_err(|_| "Integer out of range")?;
-            Ok(HumanByteSize(n))
+            Ok(Self(n))
         } else if let Some(s) = value.as_str() {
             s.parse()
         } else {

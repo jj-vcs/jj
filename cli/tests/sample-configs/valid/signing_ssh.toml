@@ -6,3 +6,4 @@ key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGj+J6N6SO+4P8dOZqfR1oiay2yxhhHnagH52
 
 [signing.backends.ssh]
 allowed-signers = "/path/to/allowed-signers"
+revocation-list = "/path/to/revocation-list"

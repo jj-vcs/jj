@@ -16,12 +16,14 @@ use std::env::join_paths;
 use std::path::PathBuf;
 
 use indoc::indoc;
+use itertools::Itertools as _;
 use regex::Regex;
 
+use crate::common::TestEnvironment;
+use crate::common::default_config_from_schema;
 use crate::common::fake_editor_path;
 use crate::common::force_interactive;
 use crate::common::to_toml_value;
-use crate::common::TestEnvironment;
 
 #[test]
 fn test_config_list_single() {
@@ -231,7 +233,6 @@ fn test_config_list_layer() {
 
     let output = work_dir.run_jj(["config", "list", "--user"]);
     insta::assert_snapshot!(output, @r#"
-    "$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json"
     test-key = "test-val"
     test-layered-key = "test-original-val"
     [EOF]
@@ -256,7 +257,6 @@ fn test_config_list_layer() {
 
     let output = work_dir.run_jj(["config", "list", "--repo"]);
     insta::assert_snapshot!(output, @r#"
-    "$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json"
     test-layered-key = "test-layered-val"
     [EOF]
     "#);
@@ -333,7 +333,6 @@ fn test_config_list_origin() {
     ]);
     insta::assert_snapshot!(output, @r#"
     test-key = "test-val" # user $TEST_ENV/config/config.toml
-    "$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json" # repo $TEST_ENV/repo/.jj/repo/config.toml
     test-layered-key = "test-layered-val" # repo $TEST_ENV/repo/.jj/repo/config.toml
     user.name = "Test User" # env
     user.email = "test.user@example.com" # env
@@ -361,6 +360,27 @@ fn test_config_list_origin() {
     [38;5;2m<<config_list name::test-key>>[39m<<config_list:: = >>[38;5;3m<<config_list value::"test-cli-val">>[39m<<config_list:: # >>[38;5;4m<<config_list source::cli>>[39m<<config_list::>>
     [EOF]
     "#);
+
+    let output = work_dir.run_jj([
+        "config",
+        "list",
+        r#"-Tjson(self) ++ "\n""#,
+        "--include-defaults",
+        "--include-overridden",
+        "--config=test-key=test-cli-val",
+        "test-key",
+    ]);
+    insta::with_settings!({
+        // Windows paths will be escaped in JSON syntax, which cannot be
+        // normalized as $TEST_ENV.
+        filters => [(r#""path":"[^"]*","#, r#""path":"<redacted>","#)],
+    }, {
+        insta::assert_snapshot!(output, @r#"
+        {"name":"test-key","value":"test-val","source":"user","path":"<redacted>","is_overridden":true}
+        {"name":"test-key","value":"test-cli-val","source":"cli","path":null,"is_overridden":false}
+        [EOF]
+        "#);
+    });
 }
 
 #[test]
@@ -579,7 +599,7 @@ fn test_config_set_bad_opts() {
       |
     1 | 
       | ^
-    invalid key
+    unquoted keys cannot be empty, expected letters, numbers, `-`, `_`
 
 
     For more information, try '--help'.
@@ -594,8 +614,7 @@ fn test_config_set_bad_opts() {
       |
     1 | ['typo'}
       |        ^
-    invalid array
-    expected `]`
+    missing comma between array elements, expected `,`
 
 
     For more information, try '--help'.
@@ -627,7 +646,8 @@ fn test_config_set_for_user() {
     let user_config_toml = std::fs::read_to_string(&user_config_path)
         .unwrap_or_else(|_| panic!("Failed to read file {}", user_config_path.display()));
     insta::assert_snapshot!(user_config_toml, @r#"
-    "$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json"
+    #:schema https://jj-vcs.github.io/jj/latest/config-schema.json
+
     test-key = "test-val"
 
     [test-table]
@@ -650,6 +670,9 @@ fn test_config_set_for_user_directory() {
 
     [template-aliases]
     'format_time_range(time_range)' = 'time_range.start() ++ " - " ++ time_range.end()'
+
+    [git]
+    colocate = false
     "#);
 
     // Add one more config file to the directory
@@ -673,6 +696,9 @@ fn test_config_set_for_user_directory() {
 
     [template-aliases]
     'format_time_range(time_range)' = 'time_range.start() ++ " - " ++ time_range.end()'
+
+    [git]
+    colocate = false
     "#);
 
     insta::assert_snapshot!(
@@ -694,7 +720,8 @@ fn test_config_set_for_repo() {
     // Ensure test-key successfully written to user config.
     let repo_config_toml = work_dir.read_file(".jj/repo/config.toml");
     insta::assert_snapshot!(repo_config_toml, @r#"
-    "$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json"
+    #:schema https://jj-vcs.github.io/jj/latest/config-schema.json
+
     test-key = "test-val"
 
     [test-table]
@@ -747,7 +774,7 @@ fn test_config_set_toml_types() {
     set_value("test-table.string", r#""foo""#);
     set_value("test-table.invalid", r"a + b");
     insta::assert_snapshot!(std::fs::read_to_string(&user_config_path).unwrap(), @r#"
-    "$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json"
+    #:schema https://jj-vcs.github.io/jj/latest/config-schema.json
 
     [test-table]
     integer = 42
@@ -842,10 +869,11 @@ fn test_config_unset_inline_table_key() {
         .run_jj(["config", "unset", "--user", "inline-table.foo"])
         .success();
     let user_config_toml = std::fs::read_to_string(&user_config_path).unwrap();
-    insta::assert_snapshot!(user_config_toml, @r#"
-    "$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json"
+    insta::assert_snapshot!(user_config_toml, @r"
+    #:schema https://jj-vcs.github.io/jj/latest/config-schema.json
+
     inline-table = {}
-    "#);
+    ");
 }
 
 #[test]
@@ -917,11 +945,7 @@ fn test_config_unset_for_user() {
         .success();
 
     let user_config_toml = std::fs::read_to_string(&user_config_path).unwrap();
-    insta::assert_snapshot!(user_config_toml, @r#"
-    "$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json"
-
-    [table]
-    "#);
+    insta::assert_snapshot!(user_config_toml, @"[table]");
 }
 
 #[test]
@@ -938,7 +962,7 @@ fn test_config_unset_for_repo() {
         .success();
 
     let repo_config_toml = work_dir.read_file(".jj/repo/config.toml");
-    insta::assert_snapshot!(repo_config_toml, @r#""$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json""#);
+    insta::assert_snapshot!(repo_config_toml, @"");
 }
 
 #[test]
@@ -1053,6 +1077,21 @@ fn test_config_edit_user_deprecated_file() {
     [EOF]
     ");
 
+    // if XDG_CONFIG_HOME is ~/Library/Application Support,
+    // you shouldn't get a warning
+    let output = test_env.run_jj_with(|cmd| {
+        cmd.env_remove("JJ_CONFIG")
+            .env(
+                "XDG_CONFIG_HOME",
+                test_env.home_dir().join("Library/Application Support"),
+            )
+            .args(["config", "get", "foo.bar"])
+    });
+    insta::assert_snapshot!(output, @r"
+    Make sure I can pick this up
+    [EOF]
+    ");
+
     // if you set JJ_CONFIG, you shouldn't get a warning
     let output = test_env.run_jj_with(|cmd| {
         cmd.env("JJ_CONFIG", &user_config_path)
@@ -1124,7 +1163,7 @@ fn test_config_edit_invalid_config() {
       |
     1 | invalid config here
       |         ^
-    expected `.`, `=`
+    key with no value, expected `=`
 
     Do you want to keep editing the file? If not, previous config will be restored. (Yn): [EOF]
     ");
@@ -1153,7 +1192,7 @@ fn test_config_edit_invalid_config() {
       |
     1 | invalid config here
       |         ^
-    expected `.`, `=`
+    key with no value, expected `=`
 
     Do you want to keep editing the file? If not, previous config will be restored. (Yn): [EOF]
     ");
@@ -1317,6 +1356,93 @@ fn test_config_get() {
 }
 
 #[test]
+fn test_config_get_yields_values_consistent_with_schema_defaults() {
+    let mut test_env = TestEnvironment::default();
+
+    // The default test environment may already contain configuration that's
+    // different from the true default, e.g. `git.colocate = false`. So we
+    // explicitly set the config to an empty one in order to test the true
+    // default config values.
+    let config_dir = test_env.env_root().join("empty-config");
+    std::fs::create_dir(&config_dir).unwrap();
+    test_env.set_config_path(&config_dir);
+
+    let get_true_default = move |key: &str| {
+        let output = test_env.run_jj_in(".", ["config", "get", key]).success();
+        let output_doc = toml_edit::Document::parse(format!("test={}", output.stdout.normalized()))
+            .unwrap_or_else(|_| {
+                // Unfortunately for this test, `config get` is "lossy" and does not print
+                // quoted strings. This means that e.g. `false` and `"false"` are not
+                // distinguishable. If value couldn't be parsed, it's probably a string, so
+                // let's parse its Debug string instead.
+                toml_edit::Document::parse(format!("test={:?}", output.stdout.normalized().trim()))
+                    .unwrap()
+            });
+        output_doc.get("test").unwrap().as_value().unwrap().clone()
+    };
+
+    let mut schema_defaults = toml_edit::ser::to_document(&default_config_from_schema()).unwrap();
+
+    // Ensure that `get_values()` flattens the entire configuration.
+    struct SetDotted;
+    impl toml_edit::visit_mut::VisitMut for SetDotted {
+        fn visit_table_like_mut(&mut self, node: &mut dyn toml_edit::TableLike) {
+            node.set_dotted(true);
+            toml_edit::visit_mut::visit_table_like_mut(self, node);
+        }
+    }
+    toml_edit::visit_mut::visit_document_mut(&mut SetDotted, &mut schema_defaults);
+
+    for (key, schema_default) in schema_defaults.into_table().get_values() {
+        let key = key.iter().join(".");
+        match key.as_str() {
+            // These keys technically don't have a default value, but they exhibit a default
+            // behavior consistent with the value claimed by the schema. When these defaults are
+            // used, a hint is printed to stdout.
+            "ui.default-command" => insta::assert_snapshot!(schema_default, @r#""log""#),
+            "ui.diff-editor" => insta::assert_snapshot!(schema_default, @r#"":builtin""#),
+            "ui.merge-editor" => insta::assert_snapshot!(schema_default, @r#"":builtin""#),
+            "git.fetch" => insta::assert_snapshot!(schema_default, @r#""origin""#),
+            "git.push" => insta::assert_snapshot!(schema_default, @r#""origin""#),
+
+            // When no `short-prefixes` revset is explicitly configured, the revset for `log` is
+            // used instead, even if that has a value different from the default. The schema
+            // represents this behavior with a symbolic default value.
+            "revsets.short-prefixes" => {
+                insta::assert_snapshot!(schema_default, @r#""<revsets.log>""#);
+            }
+
+            // The default for `ui.pager` is a table; `ui.pager.command` is an array and `jj config
+            // get` currently cannot print that. The schema default omits the env variable
+            // `LESSCHARSET` and gives the default as a plain string.
+            "ui.pager" => insta::assert_snapshot!(schema_default, @r#""less -FRX""#),
+
+            // The `immutable_heads()` revset actually defaults to `builtin_immutable_heads()` but
+            // this would be a poor starting point for a custom revset, so the schema "inlines"
+            // `builtin_immutable_heads()`.
+            r#"revset-aliases."immutable_heads()""# => {
+                let builtin_default =
+                    get_true_default("revset-aliases.'builtin_immutable_heads()'");
+                assert!(
+                    builtin_default.to_string() == schema_default.to_string(),
+                    "{key}: the schema claims a default ({schema_default}) which is different \
+                     from what builtin_immutable_heads() resolves to ({builtin_default})"
+                );
+            }
+
+            _ => {
+                let true_default = get_true_default(&key);
+                assert!(
+                    true_default.to_string() == schema_default.to_string(),
+                    "{key}: true default value ({true_default}) is not consistent with default \
+                     claimed by schema ({schema_default})"
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn test_config_path_syntax() {
     let test_env = TestEnvironment::default();
     test_env.add_config(
@@ -1403,7 +1529,7 @@ fn test_config_path_syntax() {
       |
     1 | .
       | ^
-    invalid key
+    unquoted keys cannot be empty, expected letters, numbers, `-`, `_`
 
 
     For more information, try '--help'.
@@ -1419,7 +1545,7 @@ fn test_config_path_syntax() {
       |
     1 | b c
       |   ^
-
+    unexpected content, expected nothing
 
 
     For more information, try '--help'.
@@ -1433,7 +1559,7 @@ fn test_config_path_syntax() {
       |
     1 | 
       | ^
-    invalid key
+    unquoted keys cannot be empty, expected letters, numbers, `-`, `_`
 
 
     For more information, try '--help'.
@@ -1658,7 +1784,7 @@ fn test_config_author_change_warning() {
     ------- stderr -------
     Warning: This setting will only impact future commits.
     The author of the working copy will stay "Test User <test.user@example.com>".
-    To change the working copy author, use "jj describe --reset-author --no-edit"
+    To change the working copy author, use "jj metaedit --update-author"
     [EOF]
     "#);
 
@@ -1666,14 +1792,14 @@ fn test_config_author_change_warning() {
     // for this test, the state (user.email) is needed
     work_dir
         .run_jj_with(|cmd| {
-            cmd.args(["describe", "--reset-author", "--no-edit"])
+            cmd.args(["metaedit", "--update-author"])
                 .env_remove("JJ_EMAIL")
         })
         .success();
 
     let output = work_dir.run_jj(["log"]);
     insta::assert_snapshot!(output, @r"
-    @  qpvuntsm Foo 2001-02-03 08:05:09 f64cf908
+    @  qpvuntsm Foo 2001-02-03 08:05:09 c2090b51
     │  (empty) (no description set)
     ◆  zzzzzzzz root() 00000000
     [EOF]

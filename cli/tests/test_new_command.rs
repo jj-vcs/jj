@@ -15,6 +15,7 @@
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::create_commit_with_files;
 
 #[test]
 fn test_new() {
@@ -88,11 +89,13 @@ fn test_new_merge() {
         .run_jj(["new", "root()", "-m", "add file2"])
         .success();
     work_dir.write_file("file2", "b");
+    work_dir.run_jj(["debug", "snapshot"]).success();
+    let setup_opid = work_dir.current_operation_id();
 
     // Create a merge commit
     work_dir.run_jj(["new", "main", "@"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @    fd495246497571ee53aa327ac3d1e7846a1eeefd
+    @    94ce38ef81dc7912c1574cc5aa2f434b9057d58a
     ├─╮
     │ ○  5bf404a038660799fae348cc31b9891349c128c1 add file2
     ○ │  96ab002e5b86c39a661adc0524df211a3dac3f1b add file1
@@ -106,15 +109,15 @@ fn test_new_merge() {
     insta::assert_snapshot!(output, @"b[EOF]");
 
     // Same test with `--no-edit`
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["new", "main", "@", "--no-edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Created new commit znkkpsqq bffdc06a (empty) (no description set)
+    Created new commit kpqxywon 061f4210 (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    ○    bffdc06aa66a747b995371bf39a4ac640c9c4386
+    ○    061f42107e030034242b424264f22985429552c1
     ├─╮
     │ @  5bf404a038660799fae348cc31b9891349c128c1 add file2
     ○ │  96ab002e5b86c39a661adc0524df211a3dac3f1b add file1
@@ -124,10 +127,10 @@ fn test_new_merge() {
     ");
 
     // Same test with `jj new`
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     work_dir.run_jj(["new", "main", "@"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @    e6e472a9b9caff61ab319a8fb8664db62c6e65af
+    @    cee60a55c085ff349af7fa1e7d6b7d4b7bdd4c3a
     ├─╮
     │ ○  5bf404a038660799fae348cc31b9891349c128c1 add file2
     ○ │  96ab002e5b86c39a661adc0524df211a3dac3f1b add file1
@@ -144,12 +147,12 @@ fn test_new_merge() {
     [EOF]
     [exit status: 1]
     ");
-    // if prefixed with all:, duplicates are allowed
-    let output = work_dir.run_jj(["new", "@", "all:visible_heads()"]);
+    // duplicates are allowed
+    let output = work_dir.run_jj(["new", "@", "visible_heads()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: nkmrtpmo 24484bf7 (empty) (no description set)
-    Parent commit (@-)      : wqnwkozp e6e472a9 (empty) (no description set)
+    Working copy  (@) now at: uyznsvlq 68a7f50c (empty) (no description set)
+    Parent commit (@-)      : lylxulpl cee60a55 (empty) (no description set)
     [EOF]
     ");
 
@@ -160,6 +163,110 @@ fn test_new_merge() {
     Error: The Git backend does not support creating merge commits with the root commit as one of the parents.
     [EOF]
     [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_new_merge_conflicts() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit_with_files(&work_dir, "1", &[], &[("file", "1a\n1b\n")]);
+    create_commit_with_files(&work_dir, "2", &["1"], &[("file", "1a 2a\n1b\n2c\n")]);
+    create_commit_with_files(&work_dir, "3", &["1"], &[("file", "3a 1a\n1b\n")]);
+
+    // merge line by line by default
+    let output = work_dir.run_jj(["new", "2|3"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: vruxwmqv 5234fbf2 (conflict) (empty) (no description set)
+    Parent commit (@-)      : royxmykx 1b282e07 3 | 3
+    Parent commit (@-)      : zsuskuln 7ac709e5 2 | 2
+    Added 0 files, modified 1 files, removed 0 files
+    Warning: There are unresolved conflicts at these paths:
+    file    2-sided conflict
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    <<<<<<< Conflict 1 of 1
+    %%%%%%% Changes from base to side #1
+    -1a
+    +3a 1a
+    +++++++ Contents of side #2
+    1a 2a
+    >>>>>>> Conflict 1 of 1 ends
+    1b
+    2c
+    ");
+
+    // reset working copy
+    work_dir.run_jj(["new", "root()"]).success();
+
+    // merge word by word
+    let output = work_dir.run_jj(["new", "2|3", "--config=merge.hunk-level=word"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: znkkpsqq 892ac90f (empty) (no description set)
+    Parent commit (@-)      : royxmykx 1b282e07 3 | 3
+    Parent commit (@-)      : zsuskuln 7ac709e5 2 | 2
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    3a 1a 2a
+    1b
+    2c
+    ");
+}
+
+#[test]
+fn test_new_merge_same_change() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit_with_files(&work_dir, "1", &[], &[("file", "a\n")]);
+    create_commit_with_files(&work_dir, "2", &["1"], &[("file", "a\nb\n")]);
+    create_commit_with_files(&work_dir, "3", &["1"], &[("file", "a\nb\n")]);
+
+    // same-change conflict is resolved by default
+    let output = work_dir.run_jj(["new", "2|3"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: vruxwmqv 7bebf0fe (empty) (no description set)
+    Parent commit (@-)      : royxmykx 1b9fe696 3 | 3
+    Parent commit (@-)      : zsuskuln 829e1e90 2 | 2
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    a
+    b
+    ");
+
+    // reset working copy
+    work_dir.run_jj(["new", "root()"]).success();
+
+    // keep same-change conflict
+    let output = work_dir.run_jj(["new", "2|3", "--config=merge.same-change=keep"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: znkkpsqq 0d655a01 (conflict) (empty) (no description set)
+    Parent commit (@-)      : royxmykx 1b9fe696 3 | 3
+    Parent commit (@-)      : zsuskuln 829e1e90 2 | 2
+    Added 1 files, modified 0 files, removed 0 files
+    Warning: There are unresolved conflicts at these paths:
+    file    2-sided conflict
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    a
+    <<<<<<< Conflict 1 of 1
+    %%%%%%% Changes from base to side #1
+    +b
+    +++++++ Contents of side #2
+    b
+    >>>>>>> Conflict 1 of 1 ends
     ");
 }
 
@@ -649,12 +756,10 @@ fn test_new_conflicting_bookmarks() {
     let output = work_dir.run_jj(["new", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Revset `foo` resolved to more than one revision
-    Hint: Bookmark foo resolved to multiple revisions because it's conflicted.
-    It resolved to these revisions:
-      kkmpptxz 96948328 foo?? | (empty) two
-      qpvuntsm 401ea16f foo?? | (empty) one
-    Hint: Set which revision the bookmark points to with `jj bookmark set foo -r <REVISION>`.
+    Error: Name `foo` is conflicted
+    Hint: Use commit ID to select single revision from: 96948328bc42, 401ea16fc3fe
+    Hint: Use `bookmarks(exact:foo)` to select all revisions
+    Hint: To set which revision the bookmark points to, run `jj bookmark set foo -r <REVISION>`
     [EOF]
     [exit status: 1]
     ");
@@ -677,11 +782,10 @@ fn test_new_conflicting_change_ids() {
     let output = work_dir.run_jj(["new", "qpvuntsm"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Revset `qpvuntsm` resolved to more than one revision
-    Hint: The revset `qpvuntsm` resolved to these revisions:
-      qpvuntsm?? 2f175dfc (empty) two
-      qpvuntsm?? 401ea16f (empty) one
-    Hint: Some of these commits have the same change id. Abandon the unneeded commits with `jj abandon <commit_id>`.
+    Error: Change ID `qpvuntsm` is divergent
+    Hint: Use commit ID to select single revision from: 401ea16fc3fe, 2f175dfc5e0e
+    Hint: Use `change_id(qpvuntsm)` to select all revisions
+    Hint: To abandon unneeded revisions, run `jj abandon <commit_id>`
     [EOF]
     [exit status: 1]
     ");

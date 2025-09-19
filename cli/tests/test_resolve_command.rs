@@ -16,10 +16,10 @@ use std::path::Path;
 
 use indoc::indoc;
 
-use crate::common::create_commit_with_files;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::create_commit_with_files;
 
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
@@ -61,6 +61,7 @@ fn test_resolution() {
     b
     >>>>>>> Conflict 1 of 1 ends
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     // Check that output file starts out empty and resolve the conflict
     std::fs::write(
@@ -104,7 +105,7 @@ fn test_resolution() {
     ");
 
     // Try again with --tool=<name>
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&editor_script, "write\nresolution\n").unwrap();
     let output = work_dir.run_jj([
         "resolve",
@@ -145,7 +146,7 @@ fn test_resolution() {
 
     // Check that the output file starts with conflict markers if
     // `merge-tool-edits-conflict-markers=true`
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     std::fs::write(
         &editor_script,
@@ -187,7 +188,7 @@ fn test_resolution() {
 
     // Check that if merge tool leaves conflict markers in output file and
     // `merge-tool-edits-conflict-markers=true`, these markers are properly parsed.
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     std::fs::write(
         &editor_script,
@@ -266,7 +267,7 @@ fn test_resolution() {
     // Check that if merge tool leaves conflict markers in output file but
     // `merge-tool-edits-conflict-markers=false` or is not specified,
     // `jj` considers the conflict resolved.
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     std::fs::write(
         &editor_script,
@@ -330,7 +331,7 @@ fn test_resolution() {
 
     // Check that merge tool can override conflict marker style setting, and that
     // the merge tool can output Git-style conflict markers
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     std::fs::write(
         &editor_script,
@@ -409,7 +410,7 @@ fn test_resolution() {
     // Check that merge tool can leave conflict markers by returning exit code 1
     // when using `merge-conflict-exit-codes = [1]`. The Git "diff3" conflict
     // markers should also be parsed correctly.
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     std::fs::write(
         &editor_script,
@@ -479,7 +480,7 @@ fn test_resolution() {
 
     // Check that an error is reported if a merge tool indicated it would leave
     // conflict markers, but the output file didn't contain valid conflict markers.
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     std::fs::write(
         &editor_script,
@@ -680,8 +681,8 @@ fn test_simplify_conflict_sides() {
     // Even though the tree-level conflict is a 4-sided conflict, each file is
     // materialized as a 2-sided conflict.
     insta::assert_snapshot!(work_dir.run_jj(["debug", "tree"]), @r#"
-    fileA: Ok(Conflicted([Some(File { id: FileId("d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("0cfbf08886fca9a91cb753ec8734c84fcbe52c9f"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false })]))
-    fileB: Ok(Conflicted([Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"), executable: false }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false }), Some(File { id: FileId("0cfbf08886fca9a91cb753ec8734c84fcbe52c9f"), executable: false })]))
+    fileA: Ok(Conflicted([Some(File { id: FileId("d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("0cfbf08886fca9a91cb753ec8734c84fcbe52c9f"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false, copy_id: CopyId("") })]))
+    fileB: Ok(Conflicted([Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("0cfbf08886fca9a91cb753ec8734c84fcbe52c9f"), executable: false, copy_id: CopyId("") })]))
     [EOF]
     "#);
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
@@ -968,6 +969,7 @@ fn test_resolve_conflicts_with_executable() {
     >>>>>>> Conflict 1 of 1 ends
     "
     );
+    let setup_opid = work_dir.current_operation_id();
 
     // Test resolving the conflict in "file1", which should produce an executable
     std::fs::write(&editor_script, b"write\nresolution1\n").unwrap();
@@ -1013,7 +1015,7 @@ fn test_resolve_conflicts_with_executable() {
     ");
 
     // Test resolving the conflict in "file2", which should produce an executable
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&editor_script, b"write\nresolution2\n").unwrap();
     let output = work_dir.run_jj(["resolve", "file2"]);
     insta::assert_snapshot!(output, @r###"
@@ -1057,7 +1059,7 @@ fn test_resolve_conflicts_with_executable() {
     ");
 
     // Pick "our" contents, but merges executable bits
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["resolve", "--tool=:ours"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1098,7 +1100,7 @@ fn test_resolve_conflicts_with_executable() {
     ");
 
     // Pick "their" contents, but merges executable bits
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["resolve", "--tool=:theirs"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1394,6 +1396,7 @@ fn test_resolve_long_conflict_markers() {
     >>>>>>>>>>> Conflict 1 of 1 ends
     "
     );
+    let setup_opid = work_dir.current_operation_id();
     // Allow signaling that conflict markers were produced even if not editing
     // conflict markers materialized in the output file
     test_env.add_config("merge-tools.fake-editor.merge-conflict-exit-codes = [1]");
@@ -1465,7 +1468,7 @@ fn test_resolve_long_conflict_markers() {
 
     // If the merge tool edits the output file with materialized markers, the
     // markers must match the length of the materialized markers to be parsed
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(
         &editor_script,
         indoc! {b"
@@ -1541,7 +1544,7 @@ fn test_resolve_long_conflict_markers() {
 
     // If the merge tool accepts the marker length as an argument, then the conflict
     // markers should be at least as long as "$marker_length"
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(
         &editor_script,
         indoc! {b"
@@ -1679,6 +1682,7 @@ fn test_multiple_conflicts() {
     second b
     >>>>>>> Conflict 1 of 1 ends
     ");
+    let setup_opid = work_dir.current_operation_id();
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     another_file                        2-sided conflict
     this_file_has_a_very_long_name_to_test_padding 2-sided conflict
@@ -1735,13 +1739,13 @@ fn test_multiple_conflicts() {
     ");
 
     // Repeat the above with the `--quiet` option.
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&editor_script, "expect\n\0write\nresolution another_file\n").unwrap();
     let output = work_dir.run_jj(["resolve", "--quiet", "another_file"]);
     insta::assert_snapshot!(output, @"");
 
     // Without a path, `jj resolve` should call the merge tool multiple times
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     std::fs::write(
         &editor_script,
@@ -1856,6 +1860,7 @@ fn test_multiple_conflicts_with_error() {
     >>>>>>> Conflict 1 of 1 ends
     "
     );
+    let setup_opid = work_dir.current_operation_id();
 
     // Test resolving one conflict, then exiting without resolving the second one
     std::fs::write(
@@ -1909,7 +1914,7 @@ fn test_multiple_conflicts_with_error() {
     ");
 
     // Test resolving one conflict, then failing during the second resolution
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(
         &editor_script,
         ["write\nresolution1\n", "next invocation\n", "fail"].join("\0"),
@@ -1961,7 +1966,7 @@ fn test_multiple_conflicts_with_error() {
     ");
 
     // Test immediately failing to resolve any conflict
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&editor_script, "fail").unwrap();
     let output = work_dir.run_jj(["resolve"]);
     insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
@@ -2047,6 +2052,7 @@ fn test_resolve_with_contents_of_side() {
     right
     >>>>>>> Conflict 1 of 1 ends
     ");
+    let setup_opid = work_dir.current_operation_id();
 
     // Check that ":ours" merge tool works correctly
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
@@ -2070,7 +2076,7 @@ fn test_resolve_with_contents_of_side() {
     "#);
 
     // Check that ":theirs" merge tool works correctly
-    work_dir.run_jj(["undo"]).success();
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     let output = work_dir.run_jj(["resolve", "--tool", ":theirs"]);
     insta::assert_snapshot!(output, @r"

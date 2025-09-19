@@ -12,28 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::convert::Infallible;
-
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
-use jj_lib::dag_walk::topo_order_reverse_ok;
-use jj_lib::graph::reverse_graph;
+use jj_lib::evolution::CommitEvolutionEntry;
+use jj_lib::evolution::walk_predecessors;
 use jj_lib::graph::GraphEdge;
+use jj_lib::graph::TopoGroupedGraphIterator;
+use jj_lib::graph::reverse_graph;
 use jj_lib::matchers::EverythingMatcher;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
-use super::log::get_node_template;
-use crate::cli_util::format_template;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::format_template;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
-use crate::graphlog::get_graphlog;
 use crate::graphlog::GraphStyle;
+use crate::graphlog::get_graphlog;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
@@ -43,13 +43,15 @@ use crate::ui::Ui;
 /// of a change evolves when the change is updated, rebased, etc.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct EvologArgs {
+    /// Follow changes from these revisions
     #[arg(
         long, short,
         default_value = "@",
-        value_name = "REVSET",
+        value_name = "REVSETS",
+        alias = "revision",
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
-    revision: RevisionArg,
+    revisions: Vec<RevisionArg>,
     /// Limit number of revisions to show
     ///
     /// Applied after revisions are reordered topologically, but before being
@@ -64,14 +66,14 @@ pub(crate) struct EvologArgs {
     no_graph: bool,
     /// Render each revision using the given template
     ///
-    /// Run `jj log -T` to list the built-in templates.
+    /// All 0-argument methods of the [`CommitEvolutionEntry` type] are
+    /// available as keywords in the template expression. See [`jj help -k
+    /// templates`] for more information.
     ///
-    /// You can also specify arbitrary template expressions using the
-    /// [built-in keywords]. See [`jj help -k templates`] for more
-    /// information.
+    /// If not specified, this defaults to the `templates.evolog` setting.
     ///
-    /// [built-in keywords]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
+    /// [`CommitEvolutionEntry` type]:
+    ///     https://jj-vcs.github.io/jj/latest/templates/#commitevolutionentry-type
     ///
     /// [`jj help -k templates`]:
     ///     https://jj-vcs.github.io/jj/latest/templates/
@@ -96,130 +98,132 @@ pub(crate) fn cmd_evolog(
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
 
-    let start_commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
+    let start_commit_ids: Vec<_> = workspace_command
+        .parse_union_revsets(ui, &args.revisions)?
+        .evaluate_to_commit_ids()?
+        .try_collect()?;
 
     let diff_renderer = workspace_command.diff_renderer_for_log(&args.diff_format, args.patch)?;
     let graph_style = GraphStyle::from_settings(workspace_command.settings())?;
     let with_content_format = LogContentFormat::new(ui, workspace_command.settings())?;
 
-    let template: TemplateRenderer<Commit>;
+    let template: TemplateRenderer<CommitEvolutionEntry>;
     let node_template: TemplateRenderer<Option<Commit>>;
     {
         let language = workspace_command.commit_template_language();
         let template_string = match &args.template {
-            Some(value) => value.to_string(),
-            None => workspace_command.settings().get_string("templates.log")?,
+            Some(value) => value.clone(),
+            None => workspace_command.settings().get("templates.evolog")?,
         };
         template = workspace_command
             .parse_template(ui, &language, &template_string)?
-            .labeled(["log", "commit"]);
+            .labeled(["evolog"]); // TODO: add label for the context type?
         node_template = workspace_command
             .parse_template(
                 ui,
                 &language,
-                &get_node_template(graph_style, workspace_command.settings())?,
+                // TODO: should we add templates.evolog_node?
+                &workspace_command
+                    .settings()
+                    .get_string("templates.log_node")?,
             )?
-            .labeled(["log", "commit", "node"]);
+            .labeled(["evolog", "commit", "node"]);
     }
 
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
 
-    let mut commits = topo_order_reverse_ok(
-        vec![Ok(start_commit)],
-        |commit: &Commit| commit.id().clone(),
-        |commit: &Commit| {
-            let mut predecessors = commit.predecessors().collect_vec();
-            // Predecessors don't need to follow any defined order. However in
-            // practice, if there are multiple predecessors, then usually the
-            // first predecessor is the previous version of the same change, and
-            // the other predecessors are commits that were squashed into it. If
-            // multiple commits are squashed at once, then they are usually
-            // recorded in chronological order. We want to show squashed commits
-            // in reverse chronological order, and we also want to show squashed
-            // commits before the squash destination (since the destination's
-            // subgraph may contain earlier squashed commits as well), so we
-            // visit the predecessors in reverse order.
-            predecessors.reverse();
-            predecessors
-        },
-    )?;
-    if let Some(n) = args.limit {
-        commits.truncate(n);
-    }
+    let repo = workspace_command.repo();
+    let evolution_entries = walk_predecessors(repo, &start_commit_ids);
     if !args.no_graph {
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
 
-        let commit_nodes = commits
-            .into_iter()
-            .map(|c| {
-                let ids = c.predecessor_ids();
-                let edges = ids.iter().cloned().map(GraphEdge::direct).collect_vec();
-                (c, edges)
-            })
-            .collect_vec();
+        let evolution_nodes = evolution_entries.map_ok(|entry| {
+            let ids = entry.predecessor_ids();
+            let edges = ids.iter().cloned().map(GraphEdge::direct).collect_vec();
+            (entry, edges)
+        });
+        // TopoGroupedGraphIterator also helps emit squashed commits in reverse
+        // chronological order. Predecessors don't need to follow any defined
+        // order. However in practice, if there are multiple predecessors, then
+        // usually the first predecessor is the previous version of the same
+        // change, and the other predecessors are commits that were squashed
+        // into it. If multiple commits are squashed at once, then they are
+        // usually recorded in chronological order. We want to show squashed
+        // commits in reverse chronological order, and we also want to show
+        // squashed commits before the squash destination (since the
+        // destination's subgraph may contain earlier squashed commits as well.
+        let evolution_nodes =
+            TopoGroupedGraphIterator::new(evolution_nodes, |node| node.commit.id());
 
-        let commit_nodes = if args.reversed {
-            reverse_graph(
-                commit_nodes.into_iter().map(Result::<_, Infallible>::Ok),
-                Commit::id,
-            )
-            .unwrap()
+        let evolution_nodes = evolution_nodes.take(args.limit.unwrap_or(usize::MAX));
+        let evolution_nodes: Box<dyn Iterator<Item = _>> = if args.reversed {
+            let nodes = reverse_graph(evolution_nodes, |entry| entry.commit.id())?;
+            Box::new(nodes.into_iter().map(Ok))
         } else {
-            commit_nodes
+            Box::new(evolution_nodes)
         };
 
-        for node in commit_nodes {
-            let (commit, edges) = node;
+        for node in evolution_nodes {
+            let (entry, edges) = node?;
             let mut buffer = vec![];
-            let within_graph = with_content_format.sub_width(graph.width(commit.id(), &edges));
+            let within_graph =
+                with_content_format.sub_width(graph.width(entry.commit.id(), &edges));
             within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
-                template.format(&commit, formatter)
+                template.format(&entry, formatter)
             })?;
             if !buffer.ends_with(b"\n") {
                 buffer.push(b'\n');
             }
             if let Some(renderer) = &diff_renderer {
-                let predecessors: Vec<_> = commit.predecessors().try_collect()?;
+                let predecessors: Vec<_> = entry.predecessors().try_collect()?;
                 let mut formatter = ui.new_formatter(&mut buffer);
-                renderer.show_inter_diff(
-                    ui,
-                    formatter.as_mut(),
-                    &predecessors,
-                    &commit,
-                    &EverythingMatcher,
-                    within_graph.width(),
-                )?;
+                renderer
+                    .show_inter_diff(
+                        ui,
+                        formatter.as_mut(),
+                        &predecessors,
+                        &entry.commit,
+                        &EverythingMatcher,
+                        within_graph.width(),
+                    )
+                    .block_on()?;
             }
-            let node_symbol = format_template(ui, &Some(commit.clone()), &node_template);
+            let node_symbol = format_template(ui, &Some(entry.commit.clone()), &node_template);
             graph.add_node(
-                commit.id(),
+                entry.commit.id(),
                 &edges,
                 &node_symbol,
                 &String::from_utf8_lossy(&buffer),
             )?;
         }
     } else {
-        if args.reversed {
-            commits.reverse();
-        }
+        let evolution_entries = evolution_entries.take(args.limit.unwrap_or(usize::MAX));
+        let evolution_entries: Box<dyn Iterator<Item = _>> = if args.reversed {
+            let entries: Vec<_> = evolution_entries.try_collect()?;
+            Box::new(entries.into_iter().rev().map(Ok))
+        } else {
+            Box::new(evolution_entries)
+        };
 
-        for commit in commits {
-            with_content_format
-                .write(formatter, |formatter| template.format(&commit, formatter))?;
+        for entry in evolution_entries {
+            let entry = entry?;
+            with_content_format.write(formatter, |formatter| template.format(&entry, formatter))?;
             if let Some(renderer) = &diff_renderer {
-                let predecessors: Vec<_> = commit.predecessors().try_collect()?;
+                let predecessors: Vec<_> = entry.predecessors().try_collect()?;
                 let width = ui.term_width();
-                renderer.show_inter_diff(
-                    ui,
-                    formatter,
-                    &predecessors,
-                    &commit,
-                    &EverythingMatcher,
-                    width,
-                )?;
+                renderer
+                    .show_inter_diff(
+                        ui,
+                        formatter,
+                        &predecessors,
+                        &entry.commit,
+                        &EverythingMatcher,
+                        width,
+                    )
+                    .block_on()?;
             }
         }
     }

@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Tools for lazily evaluating templates that produce text in a fallible
+//! manner.
+
 use std::cell::RefCell;
 use std::error;
 use std::fmt;
@@ -25,15 +28,21 @@ use bstr::BString;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigValue;
+use jj_lib::op_store::TimestampRange;
 
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
-use crate::formatter::LabeledWriter;
+use crate::formatter::FormatterExt as _;
+use crate::formatter::LabeledScope;
 use crate::formatter::PlainTextFormatter;
 use crate::text_util;
 use crate::time_util;
 
-/// Represents printable type or compiled template containing placeholder value.
+/// Represents a printable type or a compiled template containing a placeholder
+/// value.
+///
+/// This is analogous to [`std::fmt::Display`], but with customized error
+/// handling.
 pub trait Template {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()>;
 }
@@ -105,7 +114,8 @@ impl Template for Signature {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
+#[serde(transparent)]
 pub struct Email(pub String);
 
 impl Template for Email {
@@ -142,27 +152,6 @@ impl Template for Timestamp {
         match time_util::format_absolute_timestamp(self) {
             Ok(formatted) => write!(formatter, "{formatted}"),
             Err(err) => formatter.handle_error(err.into()),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TimestampRange {
-    // Could be aliased to Range<Timestamp> if needed.
-    pub start: Timestamp,
-    pub end: Timestamp,
-}
-
-impl TimestampRange {
-    // TODO: Introduce duration type, and move formatting to it.
-    pub fn duration(&self) -> Result<String, time_util::TimestampOutOfRange> {
-        let mut f = timeago::Formatter::new();
-        f.min_unit(timeago::TimeUnit::Microseconds).ago("");
-        let duration = time_util::format_duration(&self.start, &self.end, &f)?;
-        if duration == "now" {
-            Ok("less than a microsecond".to_owned())
-        } else {
-            Ok(duration)
         }
     }
 }
@@ -206,7 +195,7 @@ impl<T, L> LabelTemplate<T, L> {
         T: Template,
         L: TemplateProperty<Output = Vec<String>>,
     {
-        LabelTemplate { content, labels }
+        Self { content, labels }
     }
 }
 
@@ -273,7 +262,7 @@ impl<T, F> ReformatTemplate<T, F> {
         T: Template,
         F: Fn(&mut TemplateFormatter, &FormatRecorder) -> io::Result<()>,
     {
-        ReformatTemplate { content, reformat }
+        Self { content, reformat }
     }
 }
 
@@ -302,7 +291,7 @@ impl<S, T> SeparateTemplate<S, T> {
         S: Template,
         T: Template,
     {
-        SeparateTemplate {
+        Self {
             separator,
             contents,
         }
@@ -334,16 +323,17 @@ pub struct TemplatePropertyError(pub Box<dyn error::Error + Send + Sync>);
 
 // Implements conversion from any error type to support `expr?` in function
 // binding. This type doesn't implement `std::error::Error` instead.
-// https://github.com/dtolnay/anyhow/issues/25#issuecomment-544140480
+// <https://github.com/dtolnay/anyhow/issues/25#issuecomment-544140480>
 impl<E> From<E> for TemplatePropertyError
 where
     E: error::Error + Send + Sync + 'static,
 {
     fn from(err: E) -> Self {
-        TemplatePropertyError(err.into())
+        Self(err.into())
     }
 }
 
+/// Lazily evaluated value which can fail to evaluate.
 pub trait TemplateProperty {
     type Output;
 
@@ -388,9 +378,12 @@ tuple_impls! {
     (0 T0, 1 T1, 2 T2, 3 T3)
 }
 
+/// Type-erased [`TemplateProperty`].
 pub type BoxedTemplateProperty<'a, O> = Box<dyn TemplateProperty<Output = O> + 'a>;
+pub type BoxedSerializeProperty<'a> =
+    BoxedTemplateProperty<'a, Box<dyn erased_serde::Serialize + 'a>>;
 
-/// `TemplateProperty` adapters that are useful when implementing methods.
+/// [`TemplateProperty`] adapters that are useful when implementing methods.
 pub trait TemplatePropertyExt: TemplateProperty {
     /// Translates to a property that will apply fallible `function` to an
     /// extracted value.
@@ -421,6 +414,15 @@ pub trait TemplatePropertyExt: TemplateProperty {
         self.and_then(move |opt| {
             opt.ok_or_else(|| TemplatePropertyError(format!("No {type_name} available").into()))
         })
+    }
+
+    /// Converts this property into boxed serialize property.
+    fn into_serialize<'a>(self) -> BoxedSerializeProperty<'a>
+    where
+        Self: Sized + 'a,
+        Self::Output: serde::Serialize,
+    {
+        Box::new(self.map(|value| Box::new(value) as Box<dyn erased_serde::Serialize>))
     }
 
     /// Converts this property into `Template`.
@@ -456,8 +458,8 @@ impl<P: TemplateProperty + ?Sized> TemplatePropertyExt for P {}
 
 /// Wraps template property of type `O` in tagged type.
 ///
-/// This is basically `From<BoxedTemplateProperty<'a, O>>`, but is restricted to
-/// property types.
+/// This is basically [`From<BoxedTemplateProperty<'a, O>>`], but is restricted
+/// to property types.
 #[diagnostic::on_unimplemented(
     message = "the template property of type `{O}` cannot be wrapped in `{Self}`"
 )]
@@ -493,7 +495,7 @@ impl<P> FormattablePropertyTemplate<P> {
         P: TemplateProperty,
         P::Output: Template,
     {
-        FormattablePropertyTemplate { property }
+        Self { property }
     }
 }
 
@@ -517,7 +519,7 @@ pub struct PlainTextFormattedProperty<T> {
 
 impl<T> PlainTextFormattedProperty<T> {
     pub fn new(template: T) -> Self {
-        PlainTextFormattedProperty { template }
+        Self { template }
     }
 }
 
@@ -550,7 +552,7 @@ impl<P, S, F> ListPropertyTemplate<P, S, F> {
         S: Template,
         F: Fn(&mut TemplateFormatter, O) -> io::Result<()>,
     {
-        ListPropertyTemplate {
+        Self {
             property,
             separator,
             format_item,
@@ -602,6 +604,10 @@ where
     }
 }
 
+/// Template which selects an output based on a boolean condition.
+///
+/// When `None` is specified for the false template and the condition is false,
+/// this writes nothing.
 pub struct ConditionalTemplate<P, T, U> {
     pub condition: P,
     pub true_template: T,
@@ -615,7 +621,7 @@ impl<P, T, U> ConditionalTemplate<P, T, U> {
         T: Template,
         U: Template,
     {
-        ConditionalTemplate {
+        Self {
             condition,
             true_template,
             false_template,
@@ -657,7 +663,7 @@ impl<P, F> TemplateFunction<P, F> {
         P: TemplateProperty,
         F: Fn(P::Output) -> Result<O, TemplatePropertyError>,
     {
-        TemplateFunction { property, function }
+        Self { property, function }
     }
 }
 
@@ -681,7 +687,7 @@ pub struct PropertyPlaceholder<O> {
 
 impl<O> PropertyPlaceholder<O> {
     pub fn new() -> Self {
-        PropertyPlaceholder {
+        Self {
             value: Rc::new(RefCell::new(None)),
         }
     }
@@ -729,7 +735,7 @@ pub struct TemplateRenderer<'a, C> {
 
 impl<'a, C: Clone> TemplateRenderer<'a, C> {
     pub fn new(template: Box<dyn Template + 'a>, placeholder: PropertyPlaceholder<C>) -> Self {
-        TemplateRenderer {
+        Self {
             template,
             placeholder,
             labels: Vec::new(),
@@ -753,6 +759,17 @@ impl<'a, C: Clone> TemplateRenderer<'a, C> {
             format_labeled(&mut wrapper, &self.template, &self.labels)
         })
     }
+
+    /// Renders template into buffer ignoring any color labels.
+    ///
+    /// The output is usually UTF-8, but it can contain arbitrary bytes such as
+    /// file content.
+    pub fn format_plain_text(&self, context: &C) -> Vec<u8> {
+        let mut output = Vec::new();
+        self.format(context, &mut PlainTextFormatter::new(&mut output))
+            .expect("write() to vec backed formatter should never fail");
+        output
+    }
 }
 
 /// Wrapper to pass around `Formatter` and error handler.
@@ -763,7 +780,7 @@ pub struct TemplateFormatter<'a> {
 
 impl<'a> TemplateFormatter<'a> {
     fn new(formatter: &'a mut dyn Formatter, error_handler: PropertyErrorHandler) -> Self {
-        TemplateFormatter {
+        Self {
             formatter,
             error_handler,
         }
@@ -783,19 +800,16 @@ impl<'a> TemplateFormatter<'a> {
         self.formatter.raw()
     }
 
-    pub fn labeled<S: AsRef<str>>(
-        &mut self,
-        label: S,
-    ) -> LabeledWriter<&mut (dyn Formatter + 'a), S> {
+    pub fn labeled(&mut self, label: &str) -> LabeledScope<&mut (dyn Formatter + 'a)> {
         self.formatter.labeled(label)
     }
 
-    pub fn push_label(&mut self, label: &str) -> io::Result<()> {
-        self.formatter.push_label(label)
+    pub fn push_label(&mut self, label: &str) {
+        self.formatter.push_label(label);
     }
 
-    pub fn pop_label(&mut self) -> io::Result<()> {
-        self.formatter.pop_label()
+    pub fn pop_label(&mut self) {
+        self.formatter.pop_label();
     }
 
     pub fn write_fmt(&mut self, args: fmt::Arguments<'_>) -> io::Result<()> {
@@ -864,11 +878,11 @@ fn format_labeled<T: Template + ?Sized>(
     labels: &[String],
 ) -> io::Result<()> {
     for label in labels {
-        formatter.push_label(label)?;
+        formatter.push_label(label);
     }
     content.format(formatter)?;
     for _label in labels {
-        formatter.pop_label()?;
+        formatter.pop_label();
     }
     Ok(())
 }
@@ -881,16 +895,15 @@ fn format_property_error_inline(
     err: TemplatePropertyError,
 ) -> io::Result<()> {
     let TemplatePropertyError(err) = &err;
-    formatter.with_label("error", |formatter| {
-        write!(formatter, "<")?;
-        write!(formatter.labeled("heading"), "Error: ")?;
-        write!(formatter, "{err}")?;
-        for err in iter::successors(err.source(), |err| err.source()) {
-            write!(formatter, ": {err}")?;
-        }
-        write!(formatter, ">")?;
-        Ok(())
-    })
+    let mut formatter = formatter.labeled("error");
+    write!(formatter, "<")?;
+    write!(formatter.labeled("heading"), "Error: ")?;
+    write!(formatter, "{err}")?;
+    for err in iter::successors(err.source(), |err| err.source()) {
+        write!(formatter, ": {err}")?;
+    }
+    write!(formatter, ">")?;
+    Ok(())
 }
 
 fn propagate_property_error(

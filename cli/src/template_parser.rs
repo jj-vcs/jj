@@ -15,10 +15,10 @@
 use std::collections::HashMap;
 use std::error;
 use std::mem;
+use std::sync::LazyLock;
 
 use itertools::Itertools as _;
 use jj_lib::dsl_util;
-use jj_lib::dsl_util::collect_similar;
 use jj_lib::dsl_util::AliasDeclaration;
 use jj_lib::dsl_util::AliasDeclarationParser;
 use jj_lib::dsl_util::AliasDefinitionParser;
@@ -32,13 +32,14 @@ use jj_lib::dsl_util::FoldableExpression;
 use jj_lib::dsl_util::FunctionCallParser;
 use jj_lib::dsl_util::InvalidArguments;
 use jj_lib::dsl_util::StringLiteralParser;
-use once_cell::sync::Lazy;
+use jj_lib::dsl_util::collect_similar;
+use jj_lib::str_util::StringPattern;
+use pest::Parser as _;
 use pest::iterators::Pair;
 use pest::iterators::Pairs;
 use pest::pratt_parser::Assoc;
 use pest::pratt_parser::Op;
 use pest::pratt_parser::PrattParser;
-use pest::Parser as _;
 use pest_derive::Parser;
 use thiserror::Error;
 
@@ -61,47 +62,51 @@ const FUNCTION_CALL_PARSER: FunctionCallParser<Rule> = FunctionCallParser {
 impl Rule {
     fn to_symbol(self) -> Option<&'static str> {
         match self {
-            Rule::EOI => None,
-            Rule::whitespace => None,
-            Rule::string_escape => None,
-            Rule::string_content_char => None,
-            Rule::string_content => None,
-            Rule::string_literal => None,
-            Rule::raw_string_content => None,
-            Rule::raw_string_literal => None,
-            Rule::integer_literal => None,
-            Rule::identifier => None,
-            Rule::concat_op => Some("++"),
-            Rule::logical_or_op => Some("||"),
-            Rule::logical_and_op => Some("&&"),
-            Rule::eq_op => Some("=="),
-            Rule::ne_op => Some("!="),
-            Rule::ge_op => Some(">="),
-            Rule::gt_op => Some(">"),
-            Rule::le_op => Some("<="),
-            Rule::lt_op => Some("<"),
-            Rule::add_op => Some("+"),
-            Rule::sub_op => Some("-"),
-            Rule::mul_op => Some("*"),
-            Rule::div_op => Some("/"),
-            Rule::rem_op => Some("%"),
-            Rule::logical_not_op => Some("!"),
-            Rule::negate_op => Some("-"),
-            Rule::prefix_ops => None,
-            Rule::infix_ops => None,
-            Rule::function => None,
-            Rule::keyword_argument => None,
-            Rule::argument => None,
-            Rule::function_arguments => None,
-            Rule::lambda => None,
-            Rule::formal_parameters => None,
-            Rule::primary => None,
-            Rule::term => None,
-            Rule::expression => None,
-            Rule::template => None,
-            Rule::program => None,
-            Rule::function_alias_declaration => None,
-            Rule::alias_declaration => None,
+            Self::EOI => None,
+            Self::WHITESPACE => None,
+            Self::string_escape => None,
+            Self::string_content_char => None,
+            Self::string_content => None,
+            Self::string_literal => None,
+            Self::raw_string_content => None,
+            Self::raw_string_literal => None,
+            Self::any_string_literal => None,
+            Self::integer_literal => None,
+            Self::identifier => None,
+            Self::concat_op => Some("++"),
+            Self::logical_or_op => Some("||"),
+            Self::logical_and_op => Some("&&"),
+            Self::eq_op => Some("=="),
+            Self::ne_op => Some("!="),
+            Self::ge_op => Some(">="),
+            Self::gt_op => Some(">"),
+            Self::le_op => Some("<="),
+            Self::lt_op => Some("<"),
+            Self::add_op => Some("+"),
+            Self::sub_op => Some("-"),
+            Self::mul_op => Some("*"),
+            Self::div_op => Some("/"),
+            Self::rem_op => Some("%"),
+            Self::logical_not_op => Some("!"),
+            Self::negate_op => Some("-"),
+            Self::pattern_kind_op => Some(":"),
+            Self::prefix_ops => None,
+            Self::infix_ops => None,
+            Self::function => None,
+            Self::keyword_argument => None,
+            Self::argument => None,
+            Self::function_arguments => None,
+            Self::lambda => None,
+            Self::formal_parameters => None,
+            Self::string_pattern_identifier => None,
+            Self::string_pattern => None,
+            Self::primary => None,
+            Self::term => None,
+            Self::expression => None,
+            Self::template => None,
+            Self::program => None,
+            Self::function_alias_declaration => None,
+            Self::alias_declaration => None,
         }
     }
 }
@@ -160,7 +165,7 @@ impl TemplateParseError {
             pest::error::ErrorVariant::CustomError { message },
             span,
         ));
-        TemplateParseError {
+        Self {
             kind,
             pest_error,
             source: None,
@@ -175,12 +180,12 @@ impl TemplateParseError {
     pub fn expected_type(expected: &str, actual: &str, span: pest::Span<'_>) -> Self {
         let message =
             format!("Expected expression of type `{expected}`, but actual type is `{actual}`");
-        TemplateParseError::expression(message, span)
+        Self::expression(message, span)
     }
 
     /// Some other expression error.
     pub fn expression(message: impl Into<String>, span: pest::Span<'_>) -> Self {
-        TemplateParseError::with_span(TemplateParseErrorKind::Expression(message.into()), span)
+        Self::with_span(TemplateParseErrorKind::Expression(message.into()), span)
     }
 
     /// If this is a `NoSuchKeyword` error, expands the candidates list with the
@@ -253,7 +258,7 @@ impl AliasExpandError for TemplateParseError {
 
 impl From<pest::error::Error<Rule>> for TemplateParseError {
     fn from(err: pest::error::Error<Rule>) -> Self {
-        TemplateParseError {
+        Self {
             kind: TemplateParseErrorKind::SyntaxError,
             pest_error: Box::new(rename_rules_in_pest_error(err)),
             source: None,
@@ -285,6 +290,11 @@ pub enum ExpressionKind<'i> {
     Boolean(bool),
     Integer(i64),
     String(String),
+    /// `<kind>:"<value>"`
+    StringPattern {
+        kind: &'i str,
+        value: String,
+    },
     Unary(UnaryOp, Box<ExpressionNode<'i>>),
     Binary(BinaryOp, Box<ExpressionNode<'i>>, Box<ExpressionNode<'i>>),
     Concat(Vec<ExpressionNode<'i>>),
@@ -301,42 +311,43 @@ impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
         F: ExpressionFolder<'i, Self> + ?Sized,
     {
         match self {
-            ExpressionKind::Identifier(name) => folder.fold_identifier(name, span),
-            ExpressionKind::Boolean(_) | ExpressionKind::Integer(_) | ExpressionKind::String(_) => {
-                Ok(self)
-            }
-            ExpressionKind::Unary(op, arg) => {
+            Self::Identifier(name) => folder.fold_identifier(name, span),
+            ExpressionKind::Boolean(_)
+            | ExpressionKind::Integer(_)
+            | ExpressionKind::String(_)
+            | ExpressionKind::StringPattern { .. } => Ok(self),
+            Self::Unary(op, arg) => {
                 let arg = Box::new(folder.fold_expression(*arg)?);
-                Ok(ExpressionKind::Unary(op, arg))
+                Ok(Self::Unary(op, arg))
             }
-            ExpressionKind::Binary(op, lhs, rhs) => {
+            Self::Binary(op, lhs, rhs) => {
                 let lhs = Box::new(folder.fold_expression(*lhs)?);
                 let rhs = Box::new(folder.fold_expression(*rhs)?);
-                Ok(ExpressionKind::Binary(op, lhs, rhs))
+                Ok(Self::Binary(op, lhs, rhs))
             }
-            ExpressionKind::Concat(nodes) => Ok(ExpressionKind::Concat(
-                dsl_util::fold_expression_nodes(folder, nodes)?,
-            )),
-            ExpressionKind::FunctionCall(function) => folder.fold_function_call(function, span),
-            ExpressionKind::MethodCall(method) => {
+            Self::Concat(nodes) => Ok(Self::Concat(dsl_util::fold_expression_nodes(
+                folder, nodes,
+            )?)),
+            Self::FunctionCall(function) => folder.fold_function_call(function, span),
+            Self::MethodCall(method) => {
                 // Method call is syntactically different from function call.
                 let method = Box::new(MethodCallNode {
                     object: folder.fold_expression(method.object)?,
                     function: dsl_util::fold_function_call_args(folder, method.function)?,
                 });
-                Ok(ExpressionKind::MethodCall(method))
+                Ok(Self::MethodCall(method))
             }
-            ExpressionKind::Lambda(lambda) => {
+            Self::Lambda(lambda) => {
                 let lambda = Box::new(LambdaNode {
                     params: lambda.params,
                     params_span: lambda.params_span,
                     body: folder.fold_expression(lambda.body)?,
                 });
-                Ok(ExpressionKind::Lambda(lambda))
+                Ok(Self::Lambda(lambda))
             }
-            ExpressionKind::AliasExpanded(id, subst) => {
+            Self::AliasExpanded(id, subst) => {
                 let subst = Box::new(folder.fold_expression(*subst)?);
-                Ok(ExpressionKind::AliasExpanded(id, subst))
+                Ok(Self::AliasExpanded(id, subst))
             }
         }
     }
@@ -419,7 +430,7 @@ fn parse_identifier_or_literal(pair: Pair<Rule>) -> ExpressionKind {
     }
 }
 
-fn parse_identifier_name(pair: Pair<Rule>) -> TemplateParseResult<&str> {
+fn parse_identifier_name(pair: Pair<'_, Rule>) -> TemplateParseResult<&str> {
     let span = pair.as_span();
     if let ExpressionKind::Identifier(name) = parse_identifier_or_literal(pair) {
         Ok(name)
@@ -428,7 +439,7 @@ fn parse_identifier_name(pair: Pair<Rule>) -> TemplateParseResult<&str> {
     }
 }
 
-fn parse_formal_parameters(params_pair: Pair<Rule>) -> TemplateParseResult<Vec<&str>> {
+fn parse_formal_parameters(params_pair: Pair<'_, Rule>) -> TemplateParseResult<Vec<&str>> {
     assert_eq!(params_pair.as_rule(), Rule::formal_parameters);
     let params_span = params_pair.as_span();
     let params: Vec<_> = params_pair
@@ -460,6 +471,12 @@ fn parse_lambda_node(pair: Pair<Rule>) -> TemplateParseResult<LambdaNode> {
     })
 }
 
+fn parse_raw_string_literal(pair: Pair<Rule>) -> String {
+    let [content] = pair.into_inner().collect_array().unwrap();
+    assert_eq!(content.as_rule(), Rule::raw_string_content);
+    content.as_str().to_owned()
+}
+
 fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
     assert_eq!(pair.as_rule(), Rule::term);
     let mut inner = pair.into_inner();
@@ -471,9 +488,7 @@ fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
             ExpressionNode::new(ExpressionKind::String(text), span)
         }
         Rule::raw_string_literal => {
-            let [content] = expr.into_inner().collect_array().unwrap();
-            assert_eq!(content.as_rule(), Rule::raw_string_content);
-            let text = content.as_str().to_owned();
+            let text = parse_raw_string_literal(expr);
             ExpressionNode::new(ExpressionKind::String(text), span)
         }
         Rule::integer_literal => {
@@ -481,6 +496,21 @@ fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
                 TemplateParseError::expression("Invalid integer literal", span).with_source(err)
             })?;
             ExpressionNode::new(ExpressionKind::Integer(value), span)
+        }
+        Rule::string_pattern => {
+            let [kind, op, literal] = expr.into_inner().collect_array().unwrap();
+            assert_eq!(kind.as_rule(), Rule::string_pattern_identifier);
+            assert_eq!(op.as_rule(), Rule::pattern_kind_op);
+            let kind = kind.as_str();
+            let text = match literal.as_rule() {
+                Rule::string_literal => STRING_LITERAL_PARSER.parse(literal.into_inner()),
+                Rule::raw_string_literal => parse_raw_string_literal(literal),
+                other => {
+                    panic!("Unexpected literal rule in string pattern: {other:?}")
+                }
+            };
+            // The actual parsing and construction of the pattern is deferred to later.
+            ExpressionNode::new(ExpressionKind::StringPattern { kind, value: text }, span)
         }
         Rule::identifier => ExpressionNode::new(parse_identifier_or_literal(expr), span),
         Rule::function => {
@@ -518,7 +548,7 @@ fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
 
 fn parse_expression_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
     assert_eq!(pair.as_rule(), Rule::expression);
-    static PRATT: Lazy<PrattParser<Rule>> = Lazy::new(|| {
+    static PRATT: LazyLock<PrattParser<Rule>> = LazyLock::new(|| {
         PrattParser::new()
             .op(Op::infix(Rule::logical_or_op, Assoc::Left))
             .op(Op::infix(Rule::logical_and_op, Assoc::Left))
@@ -591,7 +621,7 @@ fn parse_template_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> 
 }
 
 /// Parses text into AST nodes. No type/name checking is made at this stage.
-pub fn parse_template(template_text: &str) -> TemplateParseResult<ExpressionNode> {
+pub fn parse_template(template_text: &str) -> TemplateParseResult<ExpressionNode<'_>> {
     let mut pairs: Pairs<Rule> = TemplateParser::parse(Rule::program, template_text)?;
     let first_pair = pairs.next().unwrap();
     if first_pair.as_rule() == Rule::EOI {
@@ -654,53 +684,91 @@ pub fn parse<'i>(
     dsl_util::expand_aliases(node, aliases_map)
 }
 
-/// Applies the given function if the `node` is a string literal.
-pub fn expect_string_literal_with<'a, 'i, T>(
-    node: &'a ExpressionNode<'i>,
-    f: impl FnOnce(&'a str, pest::Span<'i>) -> TemplateParseResult<T>,
-) -> TemplateParseResult<T> {
-    match &node.kind {
-        ExpressionKind::String(s) => f(s, node.span),
-        ExpressionKind::Identifier(_)
-        | ExpressionKind::Boolean(_)
-        | ExpressionKind::Integer(_)
-        | ExpressionKind::Unary(..)
-        | ExpressionKind::Binary(..)
-        | ExpressionKind::Concat(_)
-        | ExpressionKind::FunctionCall(_)
-        | ExpressionKind::MethodCall(_)
-        | ExpressionKind::Lambda(_) => Err(TemplateParseError::expression(
+/// Unwraps inner value if the given `node` is a string literal.
+pub fn expect_string_literal<'a>(node: &'a ExpressionNode<'_>) -> TemplateParseResult<&'a str> {
+    catch_aliases_no_diagnostics(node, |node| match &node.kind {
+        ExpressionKind::String(s) => Ok(s.as_str()),
+        _ => Err(TemplateParseError::expression(
             "Expected string literal",
             node.span,
         )),
-        ExpressionKind::AliasExpanded(id, subst) => expect_string_literal_with(subst, f)
-            .map_err(|e| e.within_alias_expansion(*id, node.span)),
-    }
+    })
 }
 
-/// Applies the given function if the `node` is a lambda.
-pub fn expect_lambda_with<'a, 'i, T>(
+/// Unwraps inner value if the given `node` is a string pattern
+///
+/// This forces it to be static so that it need not be part of the type system.
+pub fn expect_string_pattern(node: &ExpressionNode<'_>) -> TemplateParseResult<StringPattern> {
+    catch_aliases_no_diagnostics(node, |node| match &node.kind {
+        ExpressionKind::StringPattern { kind, value } => StringPattern::from_str_kind(value, kind)
+            .map_err(|err| {
+                TemplateParseError::expression("Bad string pattern", node.span).with_source(err)
+            }),
+        ExpressionKind::String(string) => Ok(StringPattern::Substring(string.clone())),
+        _ => Err(TemplateParseError::expression(
+            "Expected string pattern",
+            node.span,
+        )),
+    })
+}
+
+/// Unwraps inner node if the given `node` is a lambda.
+pub fn expect_lambda<'a, 'i>(
     node: &'a ExpressionNode<'i>,
-    f: impl FnOnce(&'a LambdaNode<'i>, pest::Span<'i>) -> TemplateParseResult<T>,
-) -> TemplateParseResult<T> {
-    match &node.kind {
-        ExpressionKind::Lambda(lambda) => f(lambda, node.span),
-        ExpressionKind::Identifier(_)
-        | ExpressionKind::Boolean(_)
-        | ExpressionKind::Integer(_)
-        | ExpressionKind::String(_)
-        | ExpressionKind::Unary(..)
-        | ExpressionKind::Binary(..)
-        | ExpressionKind::Concat(_)
-        | ExpressionKind::FunctionCall(_)
-        | ExpressionKind::MethodCall(_) => Err(TemplateParseError::expression(
+) -> TemplateParseResult<&'a LambdaNode<'i>> {
+    catch_aliases_no_diagnostics(node, |node| match &node.kind {
+        ExpressionKind::Lambda(lambda) => Ok(lambda.as_ref()),
+        _ => Err(TemplateParseError::expression(
             "Expected lambda expression",
             node.span,
         )),
-        ExpressionKind::AliasExpanded(id, subst) => {
-            expect_lambda_with(subst, f).map_err(|e| e.within_alias_expansion(*id, node.span))
-        }
+    })
+}
+
+/// Applies the given function to the innermost `node` by unwrapping alias
+/// expansion nodes. Appends alias expansion stack to error and diagnostics.
+pub fn catch_aliases<'a, 'i, T>(
+    diagnostics: &mut TemplateDiagnostics,
+    node: &'a ExpressionNode<'i>,
+    f: impl FnOnce(&mut TemplateDiagnostics, &'a ExpressionNode<'i>) -> TemplateParseResult<T>,
+) -> TemplateParseResult<T> {
+    let (node, stack) = skip_aliases(node);
+    if stack.is_empty() {
+        f(diagnostics, node)
+    } else {
+        let mut inner_diagnostics = TemplateDiagnostics::new();
+        let result = f(&mut inner_diagnostics, node);
+        diagnostics.extend_with(inner_diagnostics, |diag| attach_aliases_err(diag, &stack));
+        result.map_err(|err| attach_aliases_err(err, &stack))
     }
+}
+
+fn catch_aliases_no_diagnostics<'a, 'i, T>(
+    node: &'a ExpressionNode<'i>,
+    f: impl FnOnce(&'a ExpressionNode<'i>) -> TemplateParseResult<T>,
+) -> TemplateParseResult<T> {
+    let (node, stack) = skip_aliases(node);
+    f(node).map_err(|err| attach_aliases_err(err, &stack))
+}
+
+fn skip_aliases<'a, 'i>(
+    mut node: &'a ExpressionNode<'i>,
+) -> (&'a ExpressionNode<'i>, Vec<(AliasId<'i>, pest::Span<'i>)>) {
+    let mut stack = Vec::new();
+    while let ExpressionKind::AliasExpanded(id, subst) = &node.kind {
+        stack.push((*id, node.span));
+        node = subst;
+    }
+    (node, stack)
+}
+
+fn attach_aliases_err(
+    err: TemplateParseError,
+    stack: &[(AliasId<'_>, pest::Span<'_>)],
+) -> TemplateParseError {
+    stack
+        .iter()
+        .rfold(err, |err, &(id, span)| err.within_alias_expansion(id, span))
 }
 
 /// Looks up `table` by the given function name.
@@ -773,13 +841,13 @@ mod tests {
         WithTemplateAliasesMap(aliases_map)
     }
 
-    fn parse_into_kind(template_text: &str) -> Result<ExpressionKind, TemplateParseErrorKind> {
+    fn parse_into_kind(template_text: &str) -> Result<ExpressionKind<'_>, TemplateParseErrorKind> {
         parse_template(template_text)
             .map(|node| node.kind)
             .map_err(|err| err.kind)
     }
 
-    fn parse_normalized(template_text: &str) -> ExpressionNode {
+    fn parse_normalized(template_text: &str) -> ExpressionNode<'_> {
         normalize_tree(parse_template(template_text).unwrap())
     }
 
@@ -816,6 +884,7 @@ mod tests {
             | ExpressionKind::Boolean(_)
             | ExpressionKind::Integer(_)
             | ExpressionKind::String(_) => node.kind,
+            ExpressionKind::StringPattern { .. } => node.kind,
             ExpressionKind::Unary(op, arg) => {
                 let arg = Box::new(normalize_tree(*arg));
                 ExpressionKind::Unary(op, arg)
@@ -1057,6 +1126,16 @@ mod tests {
 
     #[test]
     fn test_string_literal() {
+        // Whitespace in string literal should be preserved
+        assert_eq!(
+            parse_into_kind(r#" " " "#),
+            Ok(ExpressionKind::String(" ".to_owned())),
+        );
+        assert_eq!(
+            parse_into_kind(r#" ' ' "#),
+            Ok(ExpressionKind::String(" ".to_owned())),
+        );
+
         // "\<char>" escapes
         assert_eq!(
             parse_into_kind(r#" "\t\r\n\"\\\0\e" "#),
@@ -1107,6 +1186,51 @@ mod tests {
         assert_eq!(
             parse_into_kind(r#""\xgg""#),
             Err(TemplateParseErrorKind::SyntaxError),
+        );
+    }
+
+    #[test]
+    fn test_string_pattern() {
+        assert_eq!(
+            parse_into_kind(r#"regex:"meow""#),
+            Ok(ExpressionKind::StringPattern {
+                kind: "regex",
+                value: "meow".to_owned()
+            }),
+        );
+        assert_eq!(
+            parse_into_kind(r#"regex:'\r\n'"#),
+            Ok(ExpressionKind::StringPattern {
+                kind: "regex",
+                value: r#"\r\n"#.to_owned()
+            })
+        );
+        assert_eq!(
+            parse_into_kind(r#"regex-i:'\r\n'"#),
+            Ok(ExpressionKind::StringPattern {
+                kind: "regex-i",
+                value: r#"\r\n"#.to_owned()
+            })
+        );
+        assert_eq!(
+            parse_into_kind("regex:meow"),
+            Err(TemplateParseErrorKind::SyntaxError),
+            "no bare words in string patterns in templates"
+        );
+        assert_eq!(
+            parse_into_kind("regex: 'with spaces'"),
+            Err(TemplateParseErrorKind::SyntaxError),
+            "no spaces after"
+        );
+        assert_eq!(
+            parse_into_kind("regex :'with spaces'"),
+            Err(TemplateParseErrorKind::SyntaxError),
+            "no spaces before either"
+        );
+        assert_eq!(
+            parse_into_kind("regex : 'with spaces'"),
+            Err(TemplateParseErrorKind::SyntaxError),
+            "certainly not both"
         );
     }
 

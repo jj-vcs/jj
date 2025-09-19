@@ -23,10 +23,10 @@ use jj_lib::repo::Repo as _;
 use jj_lib::settings::UserSettings;
 use jj_lib::workspace::Workspace;
 use test_case::test_case;
-use testutils::git;
-use testutils::write_random_commit;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
+use testutils::git;
+use testutils::write_random_commit;
 
 fn canonicalize(input: &Path) -> (PathBuf, PathBuf) {
     let uncanonical = input.join("..").join(input.file_name().unwrap());
@@ -40,11 +40,12 @@ fn test_init_local() {
     let temp_dir = testutils::new_temp_dir();
     let (canonical, uncanonical) = canonicalize(temp_dir.path());
     let (workspace, repo) = Workspace::init_simple(&settings, &uncanonical).unwrap();
-    assert!(repo
-        .store()
-        .backend_impl()
-        .downcast_ref::<GitBackend>()
-        .is_none());
+    assert!(
+        repo.store()
+            .backend_impl()
+            .downcast_ref::<GitBackend>()
+            .is_none()
+    );
     assert_eq!(workspace.workspace_root(), &canonical);
 
     // Just test that we can write a commit to the store
@@ -174,7 +175,7 @@ fn test_init_checkout(backend: TestRepoBackend) {
         wc_commit.store_commit().parents,
         vec![repo.store().root_commit_id().clone()]
     );
-    assert!(wc_commit.predecessors().next().is_none());
+    assert!(wc_commit.store_commit().predecessors.is_empty());
     assert_eq!(wc_commit.description(), "");
     assert_eq!(wc_commit.author().name, settings.user_name());
     assert_eq!(wc_commit.author().email, settings.user_email());
@@ -184,4 +185,41 @@ fn test_init_checkout(backend: TestRepoBackend) {
         repo.operation().predecessors_for_commit(wc_commit.id()),
         Some([])
     );
+}
+
+#[cfg(unix)]
+#[cfg_attr(target_os = "macos", ignore = "APFS/HFS+ don't like non-UTF-8 paths")]
+#[test]
+fn test_init_load_non_utf8_path() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt as _;
+
+    use jj_lib::workspace::default_working_copy_factories;
+    use testutils::TestEnvironment;
+
+    let settings = testutils::user_settings();
+    let test_env = TestEnvironment::init();
+
+    let git_repo_path = test_env.root().join(OsStr::from_bytes(b"git\xe0"));
+    assert!(git_repo_path.to_str().is_none());
+    git::init(&git_repo_path);
+
+    // Workspace can be created
+    let workspace_root = test_env.root().join(OsStr::from_bytes(b"jj\xe0"));
+    std::fs::create_dir(&workspace_root).unwrap();
+    Workspace::init_external_git(&settings, &workspace_root, &git_repo_path.join(".git")).unwrap();
+
+    // Workspace can be loaded
+    let workspace = Workspace::load(
+        &settings,
+        &workspace_root,
+        &test_env.default_store_factories(),
+        &default_working_copy_factories(),
+    )
+    .unwrap();
+
+    // Just test that we can write a commit to the store
+    let repo = workspace.repo_loader().load_at_head().unwrap();
+    let mut tx = repo.start_transaction();
+    write_random_commit(tx.repo_mut());
 }

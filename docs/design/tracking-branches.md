@@ -39,7 +39,7 @@ git_head: target?
   `git_refs["refs/remotes"]`. These two are mostly kept in sync, but there
   are two scenarios where remote-tracking branches and git refs can diverge:
   1. `jj branch forget`
-  2. `jj op undo`/`restore` in colocated repo
+  2. `jj op revert`/`restore` in colocated repo
 * Pseudo `@git` tracking branches are stored in `git_refs["refs/heads"]`. We
   need special case to resolve `@git` branches, and their behavior is slightly
   different from the other remote-tracking branches.
@@ -352,7 +352,7 @@ Note: desired behavior of `jj branch forget` is to
 
 ## Remaining issues
 
-* https://github.com/jj-vcs/jj/issues/1278 pushing to tracked remote
+* <https://github.com/jj-vcs/jj/issues/1278> pushing to tracked remote
   * Option could be added to push to all `tracking` remotes?
 * Track remote branch locally with different name
   * Local branch name could be stored per remote branch
@@ -365,8 +365,8 @@ Note: desired behavior of `jj branch forget` is to
 
 ## References
 
-* https://github.com/jj-vcs/jj/issues/1136
-* https://github.com/jj-vcs/jj/issues/1666
-* https://github.com/jj-vcs/jj/issues/1690
-* https://github.com/jj-vcs/jj/issues/1734
-* https://github.com/jj-vcs/jj/pull/1739
+* <https://github.com/jj-vcs/jj/issues/1136>
+* <https://github.com/jj-vcs/jj/issues/1666>
+* <https://github.com/jj-vcs/jj/issues/1690>
+* <https://github.com/jj-vcs/jj/issues/1734>
+* <https://github.com/jj-vcs/jj/pull/1739>

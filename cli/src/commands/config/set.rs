@@ -24,8 +24,8 @@ use tracing::instrument;
 use super::ConfigLevelArgs;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
-use crate::command_error::user_error_with_message;
 use crate::command_error::CommandError;
+use crate::command_error::user_error_with_message;
 use crate::complete;
 use crate::config::parse_value_or_bare_string;
 use crate::ui::Ui;
@@ -118,7 +118,7 @@ fn warn_wc_author(ui: &Ui, user_name: &str, user_email: &str) -> io::Result<()> 
     Ok(writeln!(
         ui.warning_default(),
         "This setting will only impact future commits.\nThe author of the working copy will stay \
-         \"{user_name} <{user_email}>\".\nTo change the working copy author, use \"jj describe \
-         --reset-author --no-edit\""
+         \"{user_name} <{user_email}>\".\nTo change the working copy author, use \"jj metaedit \
+         --update-author\""
     )?)
 }

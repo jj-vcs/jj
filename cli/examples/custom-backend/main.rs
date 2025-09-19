@@ -30,8 +30,8 @@ use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::Commit;
 use jj_lib::backend::CommitId;
-use jj_lib::backend::Conflict;
-use jj_lib::backend::ConflictId;
+use jj_lib::backend::CopyHistory;
+use jj_lib::backend::CopyId;
 use jj_lib::backend::CopyRecord;
 use jj_lib::backend::FileId;
 use jj_lib::backend::SigningFn;
@@ -104,12 +104,12 @@ struct JitBackend {
 impl JitBackend {
     fn init(settings: &UserSettings, store_path: &Path) -> Result<Self, BackendInitError> {
         let inner = GitBackend::init_internal(settings, store_path)?;
-        Ok(JitBackend { inner })
+        Ok(Self { inner })
     }
 
     fn load(settings: &UserSettings, store_path: &Path) -> Result<Self, BackendLoadError> {
         let inner = GitBackend::load(settings, store_path)?;
-        Ok(JitBackend { inner })
+        Ok(Self { inner })
     }
 }
 
@@ -151,7 +151,7 @@ impl Backend for JitBackend {
         &self,
         path: &RepoPath,
         id: &FileId,
-    ) -> BackendResult<Pin<Box<dyn AsyncRead>>> {
+    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
         self.inner.read_file(path, id).await
     }
 
@@ -171,20 +171,24 @@ impl Backend for JitBackend {
         self.inner.write_symlink(path, target).await
     }
 
+    async fn read_copy(&self, id: &CopyId) -> BackendResult<CopyHistory> {
+        self.inner.read_copy(id).await
+    }
+
+    async fn write_copy(&self, contents: &CopyHistory) -> BackendResult<CopyId> {
+        self.inner.write_copy(contents).await
+    }
+
+    async fn get_related_copies(&self, copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>> {
+        self.inner.get_related_copies(copy_id).await
+    }
+
     async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> BackendResult<Tree> {
         self.inner.read_tree(path, id).await
     }
 
     async fn write_tree(&self, path: &RepoPath, contents: &Tree) -> BackendResult<TreeId> {
         self.inner.write_tree(path, contents).await
-    }
-
-    fn read_conflict(&self, path: &RepoPath, id: &ConflictId) -> BackendResult<Conflict> {
-        self.inner.read_conflict(path, id)
-    }
-
-    fn write_conflict(&self, path: &RepoPath, contents: &Conflict) -> BackendResult<ConflictId> {
-        self.inner.write_conflict(path, contents)
     }
 
     async fn read_commit(&self, id: &CommitId) -> BackendResult<Commit> {
@@ -204,7 +208,7 @@ impl Backend for JitBackend {
         paths: Option<&[RepoPathBuf]>,
         root: &CommitId,
         head: &CommitId,
-    ) -> BackendResult<BoxStream<BackendResult<CopyRecord>>> {
+    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
         self.inner.get_copy_records(paths, root, head)
     }
 

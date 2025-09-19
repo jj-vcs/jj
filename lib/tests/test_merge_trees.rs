@@ -14,12 +14,18 @@
 
 use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
+use jj_lib::config::ConfigLayer;
+use jj_lib::config::ConfigSource;
 use jj_lib::merge::Merge;
+use jj_lib::merge::SameChange;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::rebase_commit;
+use jj_lib::settings::UserSettings;
+use pollster::FutureExt as _;
+use test_case::test_case;
+use testutils::TestRepo;
 use testutils::create_tree;
 use testutils::repo_path;
-use testutils::TestRepo;
 
 #[test]
 fn test_simplify_conflict_after_resolving_parent() {
@@ -65,8 +71,12 @@ fn test_simplify_conflict_after_resolving_parent() {
         .write()
         .unwrap();
 
-    let commit_b2 = rebase_commit(tx.repo_mut(), commit_b, vec![commit_d.id().clone()]).unwrap();
-    let commit_c2 = rebase_commit(tx.repo_mut(), commit_c, vec![commit_b2.id().clone()]).unwrap();
+    let commit_b2 = rebase_commit(tx.repo_mut(), commit_b, vec![commit_d.id().clone()])
+        .block_on()
+        .unwrap();
+    let commit_c2 = rebase_commit(tx.repo_mut(), commit_c, vec![commit_b2.id().clone()])
+        .block_on()
+        .unwrap();
 
     // Test the setup: Both B and C should have conflicts.
     let tree_b2 = commit_b2.tree().unwrap();
@@ -82,7 +92,9 @@ fn test_simplify_conflict_after_resolving_parent() {
         .set_tree_id(tree_b3.id())
         .write()
         .unwrap();
-    let commit_c3 = rebase_commit(tx.repo_mut(), commit_c2, vec![commit_b3.id().clone()]).unwrap();
+    let commit_c3 = rebase_commit(tx.repo_mut(), commit_c2, vec![commit_b3.id().clone()])
+        .block_on()
+        .unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     let repo = tx.commit("test").unwrap();
 
@@ -93,6 +105,7 @@ fn test_simplify_conflict_after_resolving_parent() {
         Ok(Some(TreeValue::File {
             id,
             executable: false,
+            copy_id: _,
         })) => {
             assert_eq!(
                 testutils::read_file(repo.store(), path, &id),
@@ -108,13 +121,15 @@ fn test_simplify_conflict_after_resolving_parent() {
 // TODO: Add tests for simplification of multi-way conflicts. Both the content
 // and the executable bit need testing.
 
-#[test]
-fn test_rebase_linearize_lossy_merge() {
-    let test_repo = TestRepo::init();
+#[test_case(SameChange::Keep)]
+#[test_case(SameChange::Accept)]
+fn test_rebase_linearize_lossy_merge(same_change: SameChange) {
+    let settings = settings_with_same_change(same_change);
+    let test_repo = TestRepo::init_with_settings(&settings);
     let repo = &test_repo.repo;
 
     // Test this rebase:
-    // D    foo=2          D' foo=2
+    // D    foo=2          D' foo=1 or 2
     // |\                  |
     // | C  foo=2          |
     // | |           =>    B  foo=2
@@ -123,12 +138,10 @@ fn test_rebase_linearize_lossy_merge() {
     // A    foo=1          A  foo=1
     //
     // Since both B and C changed "1" to "2" but only one "2" remains in D, it
-    // effectively discarded a change from "1" to "2". One reasonable result in
-    // D' is therefore "1". However, since `jj show D` etc. currently don't tell
-    // the user about the discarded change, it's surprising that the change in
-    // commit D is interpreted that way. If we're going to change that, we will
-    // probably also need to drop the "A+(A-B)=A" rule so it requires an
-    // explicit action from the user to resolve such conflicts.
+    // effectively discarded a change from "1" to "2". With `SameChange::Keep`,
+    // D' is therefore "1". However, with `SameChange::Accept`, `jj show D` etc.
+    // currently don't tell the user about the discarded change, so it's
+    // surprising that the change in commit D is interpreted that way.
     let path = repo_path("foo");
     let mut tx = repo.start_transaction();
     let repo_mut = tx.repo_mut();
@@ -154,18 +167,30 @@ fn test_rebase_linearize_lossy_merge() {
         .write()
         .unwrap();
 
-    let commit_d2 = rebase_commit(repo_mut, commit_d, vec![commit_b.id().clone()]).unwrap();
+    match same_change {
+        SameChange::Keep => assert!(!commit_d.is_empty(repo_mut).unwrap()),
+        SameChange::Accept => assert!(commit_d.is_empty(repo_mut).unwrap()),
+    }
 
-    assert_eq!(*commit_d2.tree_id(), tree_2.id());
+    let commit_d2 = rebase_commit(repo_mut, commit_d, vec![commit_b.id().clone()])
+        .block_on()
+        .unwrap();
+
+    match same_change {
+        SameChange::Keep => assert_eq!(*commit_d2.tree_id(), tree_1.id()),
+        SameChange::Accept => assert_eq!(*commit_d2.tree_id(), tree_2.id()),
+    }
 }
 
-#[test]
-fn test_rebase_on_lossy_merge() {
-    let test_repo = TestRepo::init();
+#[test_case(SameChange::Keep)]
+#[test_case(SameChange::Accept)]
+fn test_rebase_on_lossy_merge(same_change: SameChange) {
+    let settings = settings_with_same_change(same_change);
+    let test_repo = TestRepo::init_with_settings(&settings);
     let repo = &test_repo.repo;
 
     // Test this rebase:
-    // D    foo=2          D'   foo=2+(3-1) (conflict)
+    // D    foo=2          D'   foo=3 or 2+(3-1) (conflict)
     // |\                  |\
     // | C  foo=2          | C' foo=3
     // | |           =>    | |
@@ -174,11 +199,11 @@ fn test_rebase_on_lossy_merge() {
     // A    foo=1          A    foo=1
     //
     // Commit D effectively discarded a change from "1" to "2", so one
-    // reasonable result in D' is "3". That's what the result would be if we
-    // didn't have the "A+(A-B)=A" rule. However, because we resolve the
+    // reasonable result in D' is "3". That's the result with
+    // `SameChange::Keep`. However, with `SameChange::Accept`, we resolve the
     // auto-merged parents to just "2" before the rebase in order to be
-    // consistent with `jj show D` and other commands for inspecting the
-    // commit, we instead get a conflict after the rebase.
+    // consistent with `jj show D` and other commands for inspecting the commit,
+    // so we instead get a conflict after the rebase.
     let path = repo_path("foo");
     let mut tx = repo.start_transaction();
     let repo_mut = tx.repo_mut();
@@ -205,6 +230,11 @@ fn test_rebase_on_lossy_merge() {
         .write()
         .unwrap();
 
+    match same_change {
+        SameChange::Keep => assert!(!commit_d.is_empty(repo_mut).unwrap()),
+        SameChange::Accept => assert!(commit_d.is_empty(repo_mut).unwrap()),
+    }
+
     let commit_c2 = repo_mut
         .new_commit(vec![commit_a.id().clone()], tree_3.id())
         .write()
@@ -214,13 +244,33 @@ fn test_rebase_on_lossy_merge() {
         commit_d,
         vec![commit_b.id().clone(), commit_c2.id().clone()],
     )
+    .block_on()
     .unwrap();
 
-    let expected_tree_id = Merge::from_vec(vec![
-        tree_2.id().to_merge(),
-        tree_1.id().to_merge(),
-        tree_3.id().to_merge(),
-    ])
-    .flatten();
-    assert_eq!(*commit_d2.tree_id(), MergedTreeId::Merge(expected_tree_id));
+    match same_change {
+        SameChange::Keep => assert_eq!(*commit_d2.tree_id(), tree_3.id()),
+        SameChange::Accept => {
+            let expected_tree_id = Merge::from_vec(vec![
+                tree_2.id().to_merge(),
+                tree_1.id().to_merge(),
+                tree_3.id().to_merge(),
+            ])
+            .flatten();
+            assert_eq!(*commit_d2.tree_id(), MergedTreeId::Merge(expected_tree_id));
+        }
+    }
+}
+
+fn settings_with_same_change(same_change: SameChange) -> UserSettings {
+    let mut config = testutils::base_user_config();
+    let mut layer = ConfigLayer::empty(ConfigSource::User);
+    let same_change_str = match same_change {
+        SameChange::Keep => "keep",
+        SameChange::Accept => "accept",
+    };
+    layer
+        .set_value("merge.same-change", same_change_str)
+        .unwrap();
+    config.add_layer(layer);
+    UserSettings::from_config(config).unwrap()
 }

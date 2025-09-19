@@ -9,13 +9,15 @@ use std::sync::Arc;
 
 use bstr::BString;
 use itertools::Itertools as _;
+use jj_lib::backend::CopyId;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::conflicts;
-use jj_lib::conflicts::choose_materialized_conflict_marker_len;
-use jj_lib::conflicts::materialize_merge_result_to_bytes_with_marker_len;
 use jj_lib::conflicts::ConflictMarkerStyle;
+use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN;
+use jj_lib::conflicts::choose_materialized_conflict_marker_len;
+use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Merge;
@@ -23,23 +25,22 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::store::Store;
-use jj_lib::working_copy::CheckoutOptions;
 use pollster::FutureExt as _;
 use thiserror::Error;
 
-use super::diff_working_copies::check_out_trees;
-use super::diff_working_copies::new_utf8_temp_dir;
-use super::diff_working_copies::set_readonly_recursively;
-use super::diff_working_copies::DiffEditWorkingCopies;
-use super::diff_working_copies::DiffSide;
 use super::ConflictResolveError;
 use super::DiffEditError;
 use super::DiffGenerateError;
 use super::MergeToolFile;
 use super::MergeToolPartialResolutionError;
+use super::diff_working_copies::DiffEditWorkingCopies;
+use super::diff_working_copies::DiffType;
+use super::diff_working_copies::check_out_trees;
+use super::diff_working_copies::new_utf8_temp_dir;
+use super::diff_working_copies::set_readonly_recursively;
+use crate::config::CommandNameAndArgs;
 use crate::config::find_all_variables;
 use crate::config::interpolate_variables;
-use crate::config::CommandNameAndArgs;
 use crate::ui::Ui;
 
 /// Merge/diff tool loaded from the settings.
@@ -67,7 +68,7 @@ pub struct ExternalMergeTool {
     /// paths to the corresponding files.
     pub merge_args: Vec<String>,
     /// By default, if a merge tool exits with a non-zero exit code, then the
-    /// merge will be cancelled. Some merge tools allow leaving some conflicts
+    /// merge will be canceled. Some merge tools allow leaving some conflicts
     /// unresolved, in which case they will be left as conflict markers in the
     /// output file. In that case, the merge tool may exit with a non-zero exit
     /// code to indicate that not all conflicts were resolved. Adding an exit
@@ -191,10 +192,6 @@ fn run_mergetool_external_single_file(
         file,
     } = merge_tool_file;
 
-    let conflict_marker_style = editor
-        .conflict_marker_style
-        .unwrap_or(default_conflict_marker_style);
-
     let uses_marker_length = find_all_variables(&editor.merge_args).contains(&"marker_length");
 
     // If the merge tool doesn't get conflict markers pre-populated in the output
@@ -207,11 +204,14 @@ fn run_mergetool_external_single_file(
         MIN_CONFLICT_MARKER_LEN
     };
     let initial_output_content = if editor.merge_tool_edits_conflict_markers {
-        materialize_merge_result_to_bytes_with_marker_len(
-            &file.contents,
-            conflict_marker_style,
-            conflict_marker_len,
-        )
+        let options = ConflictMaterializeOptions {
+            marker_style: editor
+                .conflict_marker_style
+                .unwrap_or(default_conflict_marker_style),
+            marker_len: Some(conflict_marker_len),
+            merge: store.merge_options().clone(),
+        };
+        materialize_merge_result_to_bytes(&file.contents, &options)
     } else {
         BString::default()
     };
@@ -293,7 +293,6 @@ fn run_mergetool_external_single_file(
             store,
             repo_path,
             output_file_contents.as_slice(),
-            conflict_marker_style,
             conflict_marker_len,
         )
         .block_on()?
@@ -317,7 +316,11 @@ fn run_mergetool_external_single_file(
     let new_tree_value = match new_file_ids.into_resolved() {
         Ok(file_id) => {
             let executable = file.executable.expect("should have been resolved");
-            Merge::resolved(file_id.map(|id| TreeValue::File { id, executable }))
+            Merge::resolved(file_id.map(|id| TreeValue::File {
+                id,
+                executable,
+                copy_id: CopyId::placeholder(),
+            }))
         }
         // Update the file ids only, leaving the executable flags unchanged
         Err(file_ids) => conflict.with_new_file_ids(&file_ids),
@@ -373,8 +376,7 @@ pub fn run_mergetool_external(
 
 pub fn edit_diff_external(
     editor: &ExternalMergeTool,
-    left_tree: &MergedTree,
-    right_tree: &MergedTree,
+    trees: [&MergedTree; 2],
     matcher: &dyn Matcher,
     instructions: Option<&str>,
     base_ignores: Arc<GitIgnoreFile>,
@@ -383,20 +385,19 @@ pub fn edit_diff_external(
     let conflict_marker_style = editor
         .conflict_marker_style
         .unwrap_or(default_conflict_marker_style);
-    let options = CheckoutOptions {
-        conflict_marker_style,
-    };
 
     let got_output_field = find_all_variables(&editor.edit_args).contains(&"output");
-    let store = left_tree.store();
+    let diff_type = if got_output_field {
+        DiffType::ThreeWay
+    } else {
+        DiffType::TwoWay
+    };
     let diffedit_wc = DiffEditWorkingCopies::check_out(
-        store,
-        left_tree,
-        right_tree,
+        trees,
         matcher,
-        got_output_field.then_some(DiffSide::Right),
+        diff_type,
         instructions,
-        &options,
+        conflict_marker_style,
     )?;
 
     let patterns = diffedit_wc.working_copies.to_command_variables(false);
@@ -415,38 +416,28 @@ pub fn edit_diff_external(
         }));
     }
 
-    diffedit_wc.snapshot_results(base_ignores, options.conflict_marker_style)
+    diffedit_wc.snapshot_results(base_ignores)
 }
 
 /// Generates textual diff by the specified `tool` and writes into `writer`.
 pub fn generate_diff(
     ui: &Ui,
     writer: &mut dyn Write,
-    left_tree: &MergedTree,
-    right_tree: &MergedTree,
+    trees: [&MergedTree; 2],
     matcher: &dyn Matcher,
     tool: &ExternalMergeTool,
     default_conflict_marker_style: ConflictMarkerStyle,
+    width: usize,
 ) -> Result<(), DiffGenerateError> {
     let conflict_marker_style = tool
         .conflict_marker_style
         .unwrap_or(default_conflict_marker_style);
-    let options = CheckoutOptions {
-        conflict_marker_style,
-    };
-    let store = left_tree.store();
-    let diff_wc = check_out_trees(store, left_tree, right_tree, matcher, None, &options)?;
-    set_readonly_recursively(diff_wc.left_working_copy_path())
-        .map_err(ExternalToolError::SetUpDir)?;
-    set_readonly_recursively(diff_wc.right_working_copy_path())
-        .map_err(ExternalToolError::SetUpDir)?;
-    invoke_external_diff(
-        ui,
-        writer,
-        tool,
-        diff_wc.temp_dir(),
-        &diff_wc.to_command_variables(true),
-    )
+    let diff_wc = check_out_trees(trees, matcher, DiffType::TwoWay, conflict_marker_style)?;
+    diff_wc.set_left_readonly()?;
+    diff_wc.set_right_readonly()?;
+    let mut patterns = diff_wc.to_command_variables(true);
+    patterns.insert("width", width.to_string());
+    invoke_external_diff(ui, writer, tool, diff_wc.temp_dir(), &patterns)
 }
 
 /// Invokes the specified `tool` directing its output into `writer`.
@@ -455,24 +446,26 @@ pub fn invoke_external_diff(
     writer: &mut dyn Write,
     tool: &ExternalMergeTool,
     diff_dir: &Path,
-    patterns: &HashMap<&str, &str>,
+    patterns: &HashMap<&str, String>,
 ) -> Result<(), DiffGenerateError> {
     // TODO: Somehow propagate --color to the external command?
     let mut cmd = Command::new(&tool.program);
     let mut patterns = patterns.clone();
-    let absolute_left_path = Path::new(diff_dir).join(patterns["left"]);
-    let absolute_right_path = Path::new(diff_dir).join(patterns["right"]);
     if !tool.diff_do_chdir {
+        let absolute_left_path = Path::new(diff_dir).join(&patterns["left"]);
+        let absolute_right_path = Path::new(diff_dir).join(&patterns["right"]);
         patterns.insert(
             "left",
             absolute_left_path
-                .to_str()
+                .into_os_string()
+                .into_string()
                 .expect("temp_dir should be valid utf-8"),
         );
         patterns.insert(
             "right",
             absolute_right_path
-                .to_str()
+                .into_os_string()
+                .into_string()
                 .expect("temp_dir should be valid utf-8"),
         );
     } else {

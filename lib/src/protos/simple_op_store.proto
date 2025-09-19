@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package op_store;
+package simple_op_store;
 
 message RefConflictLegacy {
   repeated bytes removes = 1 [deprecated = true];
@@ -66,7 +66,7 @@ message GitRef {
   // This field is just for historical reasons (before we had the RefTarget
   // type). New GitRefs have (only) the target field.
   // TODO: Delete support for the old format.
-  bytes commit_id = 2;
+  bytes commit_id = 2 [deprecated = true];
   RefTarget target = 3;
 }
 

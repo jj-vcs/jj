@@ -57,6 +57,8 @@ fn test_describe() {
         std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
     description from CLI
 
+    JJ: Change ID: qpvuntsm
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
@@ -319,9 +321,13 @@ fn test_describe_multiple_commits() {
     JJ: describe 650ac8f249be -------
 
 
+    JJ: Change ID: rlvkpnrz
+    JJ:
     JJ: describe 4c3ccb9d4fb2 -------
     description from CLI
 
+    JJ: Change ID: kkmpptxz
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
@@ -618,7 +624,7 @@ fn test_describe_default_description() {
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     Working copy  (@) now at: qpvuntsm 7276dfff TESTED=TODO
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -627,6 +633,7 @@ fn test_describe_default_description() {
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     TESTED=TODO
 
+    JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1
     JJ:     A file2
@@ -639,7 +646,9 @@ fn test_describe_default_description() {
     let output = work_dir.run_jj(["describe", "--no-edit", "--reset-author"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
+    Warning: `jj describe --reset-author` is deprecated; use `jj metaedit --update-author` instead
     Working copy  (@) now at: kkmpptxz 7118bcb8 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -860,6 +869,8 @@ fn test_describe_with_edit_and_message_args_opens_editor() {
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     message from command line
 
+    JJ: Change ID: qpvuntsm
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 }
@@ -887,6 +898,8 @@ fn test_describe_change_with_existing_message_with_edit_and_message_args_opens_e
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     new message
 
+    JJ: Change ID: qpvuntsm
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 }
@@ -902,7 +915,7 @@ fn test_edit_cannot_be_used_with_no_edit() {
     ------- stderr -------
     error: the argument '--no-edit' cannot be used with '--edit'
 
-    Usage: jj describe --no-edit [REVSETS]...
+    Usage: jj describe [OPTIONS] [REVSETS]...
 
     For more information, try '--help'.
     [EOF]
@@ -948,6 +961,7 @@ fn test_add_trailer() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Working copy  (@) now at: qpvuntsm 2b2e302d (empty) Message from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -972,6 +986,7 @@ fn test_add_trailer() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Nothing changed.
     [EOF]
     ");
@@ -995,6 +1010,7 @@ fn test_add_trailer() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Error: Invalid trailer line: this is an invalid trailer
     [EOF]
     [exit status: 1]
@@ -1016,6 +1032,7 @@ fn test_add_trailer() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Nothing changed.
     [EOF]
     ");
@@ -1057,6 +1074,7 @@ fn test_add_trailer_committer() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Working copy  (@) now at: qpvuntsm 05ddee5c (empty) Message from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -1089,6 +1107,8 @@ fn test_add_trailer_committer() {
     Signed-off-by: foo@bar.org
     Signed-off-by: foo@bar.net
 
+    JJ: Change ID: qpvuntsm
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
@@ -1118,9 +1138,11 @@ fn test_add_trailer_committer() {
         format!("-----\n{editor0}-----\n"), @r#"
     -----
 
-    
+
     Signed-off-by: test.user@example.com
 
+    JJ: Change ID: vruxwmqv
+    JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     -----
     "#);

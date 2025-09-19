@@ -761,11 +761,22 @@ fn test_revisions() {
     '''"#,
     );
 
+    work_dir.write_file("file", "A");
     work_dir
         .run_jj(["b", "c", "-r@", "mutable_bookmark"])
         .success();
-    work_dir.run_jj(["commit", "-m", "mutable"]).success();
+    work_dir.run_jj(["describe", "-m", "mutable 1"]).success();
 
+    work_dir.run_jj(["new", "immutable_bookmark"]).success();
+    work_dir.write_file("file", "B");
+    work_dir.run_jj(["describe", "-m", "mutable 2"]).success();
+    work_dir.run_jj(["new", "@", "mutable_bookmark"]).success();
+    work_dir
+        .run_jj(["b", "c", "-r@", "conflicted_bookmark"])
+        .success();
+    work_dir.run_jj(["describe", "-m", "conflicted"]).success();
+
+    work_dir.run_jj(["new", "mutable_bookmark"]).success();
     work_dir
         .run_jj(["describe", "-m", "working_copy"])
         .success();
@@ -779,10 +790,13 @@ fn test_revisions() {
     // complete all revisions
     let output = work_dir.complete_fish(["diff", "--from", ""]);
     insta::assert_snapshot!(output, @r"
+    conflicted_bookmark	conflicted
     immutable_bookmark	immutable
-    mutable_bookmark	mutable
-    k	working_copy
-    y	mutable
+    mutable_bookmark	mutable 1
+    u	working_copy
+    l	conflicted
+    k	mutable 2
+    y	mutable 1
     q	immutable
     r	remote_commit
     z	(no description set)
@@ -795,10 +809,13 @@ fn test_revisions() {
     // complete all revisions in a revset expression
     let output = work_dir.complete_fish(["log", "-r", ".."]);
     insta::assert_snapshot!(output, @r"
+    ..conflicted_bookmark	conflicted
     ..immutable_bookmark	immutable
-    ..mutable_bookmark	mutable
-    ..k	working_copy
-    ..y	mutable
+    ..mutable_bookmark	mutable 1
+    ..u	working_copy
+    ..l	conflicted
+    ..k	mutable 2
+    ..y	mutable 1
     ..q	immutable
     ..r	remote_commit
     ..z	(no description set)
@@ -811,9 +828,12 @@ fn test_revisions() {
     // complete only mutable revisions
     let output = work_dir.complete_fish(["squash", "--into", ""]);
     insta::assert_snapshot!(output, @r"
-    mutable_bookmark	mutable
-    k	working_copy
-    y	mutable
+    conflicted_bookmark	conflicted
+    mutable_bookmark	mutable 1
+    u	working_copy
+    l	conflicted
+    k	mutable 2
+    y	mutable 1
     r	remote_commit
     alias_with_newline	    roots(
     siblings	@-+ ~@
@@ -823,9 +843,12 @@ fn test_revisions() {
     // complete only mutable revisions in a revset expression
     let output = work_dir.complete_fish(["abandon", "y::"]);
     insta::assert_snapshot!(output, @r"
-    y::mutable_bookmark	mutable
-    y::k	working_copy
-    y::y	mutable
+    y::conflicted_bookmark	conflicted
+    y::mutable_bookmark	mutable 1
+    y::u	working_copy
+    y::l	conflicted
+    y::k	mutable 2
+    y::y	mutable 1
     y::r	remote_commit
     y::alias_with_newline	    roots(
     y::siblings	@-+ ~@
@@ -839,14 +862,27 @@ fn test_revisions() {
     [EOF]
     ");
 
+    // complete conflicted revisions in a revset expression
+    let output = work_dir.complete_fish(["resolve", "-r", ""]);
+    insta::assert_snapshot!(output, @r"
+    conflicted_bookmark	conflicted
+    l	conflicted
+    alias_with_newline	    roots(
+    siblings	@-+ ~@
+    [EOF]
+    ");
+
     // complete args of the default command
     test_env.add_config("ui.default-command = 'log'");
     let output = work_dir.complete_fish(["-r", ""]);
     insta::assert_snapshot!(output, @r"
+    conflicted_bookmark	conflicted
     immutable_bookmark	immutable
-    mutable_bookmark	mutable
-    k	working_copy
-    y	mutable
+    mutable_bookmark	mutable 1
+    u	working_copy
+    l	conflicted
+    k	mutable 2
+    y	mutable 1
     q	immutable
     r	remote_commit
     z	(no description set)
@@ -867,10 +903,13 @@ fn test_revisions() {
 
     let output = work_dir.complete_fish(["git", "push", "--named", "a="]);
     insta::assert_snapshot!(output, @r"
+    a=conflicted_bookmark	conflicted
     a=immutable_bookmark	immutable
-    a=mutable_bookmark	mutable
-    a=k	working_copy
-    a=y	mutable
+    a=mutable_bookmark	mutable 1
+    a=u	working_copy
+    a=l	conflicted
+    a=k	mutable 2
+    a=y	mutable 1
     a=q	immutable
     a=r	remote_commit
     a=z	(no description set)
@@ -977,7 +1016,7 @@ fn test_operations() {
     [EOF]
     ");
 
-    let output = work_dir.complete_fish(["op", "undo", "8e"]);
+    let output = work_dir.complete_fish(["op", "revert", "8e"]);
     insta::assert_snapshot!(output, @r"
     8ed8c16786e6	(2001-02-03 08:05:11) describe commit 3725536d0ae06d69e46911258cee591dbdb66478
     [EOF]
@@ -1002,8 +1041,8 @@ fn test_workspaces() {
 
     let output = main_dir.complete_fish(["workspace", "forget", "def"]);
     insta::assert_snapshot!(output, @r"
-    def-second	(no description set)
-    default	initial
+    def-second	(no description set)	
+    default	initial	
     [EOF]
     ");
 }
@@ -1012,27 +1051,26 @@ fn test_workspaces() {
 fn test_config() {
     let test_env = TestEnvironment::default();
 
-    let output = test_env.complete_fish(["config", "get", "c"]);
+    let output = test_env.complete_fish(["config", "get", "f"]);
     insta::assert_snapshot!(output, @r"
-    core.fsmonitor	Whether to use an external filesystem monitor, useful for large repos
-    core.watchman.register-snapshot-trigger	Whether to use triggers to monitor for changes in the background.
+    fsmonitor.backend	Whether to use an external filesystem monitor, useful for large repos
+    fsmonitor.watchman.register-snapshot-trigger	Whether to use triggers to monitor for changes in the background.
     [EOF]
     ");
 
-    let output = test_env.complete_fish(["config", "list", "c"]);
+    let output = test_env.complete_fish(["config", "list", "fs"]);
     insta::assert_snapshot!(output, @r"
-    colors	Mapping from jj formatter labels to colors
-    core
-    core.fsmonitor	Whether to use an external filesystem monitor, useful for large repos
-    core.watchman
-    core.watchman.register-snapshot-trigger	Whether to use triggers to monitor for changes in the background.
+    fsmonitor	External filesystem monitor settings, useful for large repos
+    fsmonitor.backend	Whether to use an external filesystem monitor, useful for large repos
+    fsmonitor.watchman
+    fsmonitor.watchman.register-snapshot-trigger	Whether to use triggers to monitor for changes in the background.
     [EOF]
     ");
 
-    let output = test_env.complete_fish(["log", "--config", "c"]);
+    let output = test_env.complete_fish(["log", "--config", "f"]);
     insta::assert_snapshot!(output, @r"
-    core.fsmonitor=	Whether to use an external filesystem monitor, useful for large repos
-    core.watchman.register-snapshot-trigger=	Whether to use triggers to monitor for changes in the background.
+    fsmonitor.backend=	Whether to use an external filesystem monitor, useful for large repos
+    fsmonitor.watchman.register-snapshot-trigger=	Whether to use triggers to monitor for changes in the background.
     [EOF]
     ");
 
@@ -1067,6 +1105,7 @@ fn test_template_alias() {
     builtin_config_list
     builtin_config_list_detailed
     builtin_draft_commit_description
+    builtin_evolog_compact
     builtin_log_comfortable
     builtin_log_compact
     builtin_log_compact_full_description
@@ -1074,17 +1113,78 @@ fn test_template_alias() {
     builtin_log_node
     builtin_log_node_ascii
     builtin_log_oneline
+    builtin_log_redacted
     builtin_op_log_comfortable
     builtin_op_log_compact
     builtin_op_log_node
     builtin_op_log_node_ascii
     builtin_op_log_oneline
+    builtin_op_log_redacted
     commit_summary_separator
     default_commit_description
     description_placeholder
     email_placeholder
     git_format_patch_email_headers
     name_placeholder
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_merge_tools() {
+    let mut test_env = TestEnvironment::default();
+    // A tool without configured arguments is assumed to function as a diff
+    // editor and formatter, but not as a merge editor.
+    test_env.add_config("merge-tools.abracadabra={}");
+    test_env.add_env_var("COMPLETE", "fish");
+    let dir = test_env.env_root();
+
+    let output = test_env.run_jj_in(dir, ["--", "jj", "diff", "--tool", ""]);
+    // Includes `difft`, excludes merge tools like `mergiraf`
+    insta::assert_snapshot!(output, @r"
+    :summary
+    :stat
+    :types
+    :name-only
+    :git
+    :color-words
+    diffedit3
+    diffedit3-ssh
+    difft
+    kdiff3
+    meld
+    meld-3
+    vscode
+    vscodium
+    abracadabra
+    [EOF]
+    ");
+    // Excludes `difft` and `mergiraf`
+    let output = test_env.run_jj_in(dir, ["--", "jj", "diffedit", "--tool", ""]);
+    insta::assert_snapshot!(output, @r"
+    :builtin
+    diffedit3
+    diffedit3-ssh
+    kdiff3
+    meld
+    meld-3
+    vimdiff
+    abracadabra
+    [EOF]
+    ");
+    // Includes `mergiraf`, but not `difft` or `abracadabra`
+    let output = test_env.run_jj_in(dir, ["--", "jj", "resolve", "--tool", ""]);
+    insta::assert_snapshot!(output, @r"
+    :builtin
+    :ours
+    :theirs
+    kdiff3
+    meld
+    mergiraf
+    smerge
+    vimdiff
+    vscode
+    vscodium
     [EOF]
     ");
 }
@@ -1129,7 +1229,10 @@ fn test_files() {
         &[
             ("f_unchanged", Some("unchanged\n")),
             ("f_modified", Some("not_yet_modified\n")),
+            ("f_not_yet_copied", Some("copied\n")),
             ("f_not_yet_renamed", Some("renamed\n")),
+            ("f_not_yet_renamed_2", Some("renamed_2\n")),
+            ("f_not_yet_renamed_3", Some("renamed_3\n")),
             ("f_deleted", Some("not_yet_deleted\n")),
             // not yet: "added" file
         ],
@@ -1141,13 +1244,21 @@ fn test_files() {
         &[
             // "unchanged" file
             ("f_modified", Some("modified\n")),
+            ("f_not_yet_copied", Some("copied\n\n")),
             ("f_not_yet_renamed", None),
+            ("f_not_yet_renamed_2", None),
+            ("f_not_yet_renamed_3", None),
+            ("f_copied", Some("copied\n")),
+            // f_not_yet_renamed < f_renamed
             ("f_renamed", Some("renamed\n")),
+            // f_another_renamed_2 < f_not_yet_renamed_2
+            ("f_another_renamed_2", Some("renamed_2\n")),
             ("f_deleted", None),
             ("f_added", Some("added\n")),
             ("f_dir/dir_file_1", Some("foo\n")),
             ("f_dir/dir_file_2", Some("foo\n")),
             ("f_dir/dir_file_3", Some("foo\n")),
+            ("f_dir/f_renamed_3", Some("renamed_3\n")),
         ],
     );
 
@@ -1199,31 +1310,38 @@ fn test_files() {
 
     let output = work_dir.run_jj(["log", "-r", "all()", "--summary"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
-    @  wqnwkozp test.user@example.com 2001-02-03 08:05:20 working_copy 440dd927
+    @  wqnwkozp test.user@example.com 2001-02-03 08:05:20 working_copy 5e0882cf
     │  working_copy
     │  A f_added_2
     │  M f_modified
-    ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 second 90bb4e13
+    ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 second 5d65dc93
     │  second
     │  A f_added
+    │  R {f_not_yet_renamed_2 => f_another_renamed_2}
+    │  C {f_not_yet_copied => f_copied}
     │  D f_deleted
     │  A f_dir/dir_file_1
     │  A f_dir/dir_file_2
     │  A f_dir/dir_file_3
+    │  R {f_not_yet_renamed_3 => f_dir/f_renamed_3}
     │  M f_modified
+    │  M f_not_yet_copied
     │  R {f_not_yet_renamed => f_renamed}
-    │ ×  royxmykx test.user@example.com 2001-02-03 08:05:14 conflicted b259cb83 conflict
+    │ ×  royxmykx test.user@example.com 2001-02-03 08:05:14 conflicted cf10549a conflict
     ├─╯  conflicted
     │    A f_added_2
     │    A f_dir/dir_file_1
     │    A f_dir/dir_file_2
     │    A f_dir/dir_file_3
     │    M f_modified
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 first 0600c83e
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 first 221854a7
     │  first
     │  A f_deleted
     │  A f_modified
+    │  A f_not_yet_copied
     │  A f_not_yet_renamed
+    │  A f_not_yet_renamed_2
+    │  A f_not_yet_renamed_3
     │  A f_unchanged
     │ ○  kpqxywon test.user@example.com 2001-02-03 08:05:18 interdiff_to 5e448a34
     ├─╯  interdiff_to
@@ -1243,8 +1361,11 @@ fn test_files() {
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_added
     f_added_2
+    f_another_renamed_2
+    f_copied
     f_dir/
     f_modified
+    f_not_yet_copied
     f_renamed
     f_unchanged
     [EOF]
@@ -1253,8 +1374,11 @@ fn test_files() {
     let output = work_dir.complete_fish(["file", "annotate", "-r@-", "f_"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_added
+    f_another_renamed_2
+    f_copied
     f_dir/
     f_modified
+    f_not_yet_copied
     f_renamed
     f_unchanged
     [EOF]
@@ -1263,10 +1387,15 @@ fn test_files() {
     let output = work_dir.complete_fish(["diff", "-r", "@-", "f_"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_added	Added
+    f_another_renamed_2	Renamed
+    f_copied	Copied
     f_deleted	Deleted
     f_dir/
     f_modified	Modified
+    f_not_yet_copied	Modified
     f_not_yet_renamed	Renamed
+    f_not_yet_renamed_2	Renamed
+    f_not_yet_renamed_3	Renamed
     f_renamed	Renamed
     [EOF]
     ");
@@ -1281,14 +1410,18 @@ fn test_files() {
     f_dir/dir_file_1	Added
     f_dir/dir_file_2	Added
     f_dir/dir_file_3	Added
+    f_dir/f_renamed_3	Renamed
     [EOF]
     ");
 
     let output = work_dir.complete_fish(["diff", "--from", "root()", "--to", "@-", "f_"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_added	Added
+    f_another_renamed_2	Added
+    f_copied	Added
     f_dir/
     f_modified	Added
+    f_not_yet_copied	Added
     f_renamed	Added
     f_unchanged	Added
     [EOF]
@@ -1314,7 +1447,10 @@ fn test_files() {
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_deleted	Added
     f_modified	Added
+    f_not_yet_copied	Added
     f_not_yet_renamed	Added
+    f_not_yet_renamed_2	Added
+    f_not_yet_renamed_3	Added
     f_unchanged	Added
     [EOF]
     ");
@@ -1326,12 +1462,27 @@ fn test_files() {
     [EOF]
     ");
 
+    let output = work_dir.complete_fish(["file", "list", "-r=first", "f_"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    f_deleted
+    f_modified
+    f_not_yet_copied
+    f_not_yet_renamed
+    f_not_yet_renamed_2
+    f_not_yet_renamed_3
+    f_unchanged
+    [EOF]
+    ");
+
     let output = work_dir.complete_fish(["log", "f_"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_added
     f_added_2
+    f_another_renamed_2
+    f_copied
     f_dir/
     f_modified
+    f_not_yet_copied
     f_renamed
     f_unchanged
     [EOF]
@@ -1343,7 +1494,10 @@ fn test_files() {
     f_deleted
     f_dir/
     f_modified
+    f_not_yet_copied
     f_not_yet_renamed
+    f_not_yet_renamed_2
+    f_not_yet_renamed_3
     f_unchanged
     [EOF]
     ");
@@ -1351,4 +1505,41 @@ fn test_files() {
     let outside_repo = test_env.env_root();
     let output = test_env.work_dir(outside_repo).complete_fish(["log", "f_"]);
     insta::assert_snapshot!(output, @"");
+
+    let output = work_dir.complete_fish(["absorb", "f_"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    f_added_2	Added
+    f_modified	Modified
+    [EOF]
+    ");
+
+    let output = work_dir.complete_fish(["absorb", "-f=conflicted", "f_"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    f_added_2	Added
+    f_dir/
+    f_modified	Modified
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_command_alias_with_exec() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    test_env.add_config(r#"aliases.my-script = ["util", "exec", "--", "my-jj-script"]"#);
+
+    work_dir.write_file("file1", "contents");
+    work_dir.write_file("file2", "contents");
+    work_dir.create_dir("folder");
+    work_dir.write_file("folder/subfile", "contents");
+
+    let output = work_dir.complete_fish(["my-script", "f"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    file1
+    file2
+    folder/
+    [EOF]
+    ");
 }

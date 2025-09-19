@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indoc::writedoc;
 use jj_lib::backend::Signature;
@@ -20,8 +21,8 @@ use jj_lib::repo::Repo as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::description_util::add_trailers;
 use crate::description_util::description_template;
@@ -30,14 +31,34 @@ use crate::description_util::join_message_paragraphs;
 use crate::text_util::parse_author;
 use crate::ui::Ui;
 
-/// Update the description and create a new change on top.
+/// Update the description and create a new change on top [default alias: ci]
+///
+/// When called without path arguments or `--interactive`, `jj commit` is
+/// equivalent to `jj describe` followed by `jj new`.
+///
+/// Otherwise, this command is very similar to `jj split`. Differences include:
+///
+/// * `jj commit` is not interactive by default (it selects all changes).
+///
+/// * `jj commit` doesn't have a `-r` option. It always acts on the working-copy
+///   commit (@).
+///
+/// * `jj split` (without `-d/-A/-B`) will move bookmarks forward from the old
+///   change to the child change. `jj commit` doesn't move bookmarks forward.
+///
+/// * `jj split` allows you to move the selected changes to a different
+///   destination with `-d/-A/-B`.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct CommitArgs {
     /// Interactively choose which changes to include in the first commit
     #[arg(short, long)]
     interactive: bool,
     /// Specify diff editor to be used (implies --interactive)
-    #[arg(long, value_name = "NAME")]
+    #[arg(
+        long,
+        value_name = "NAME",
+        add = ArgValueCandidates::new(complete::diff_editors),
+    )]
     tool: Option<String>,
     /// The change description to use (don't open editor)
     #[arg(long = "message", short, value_name = "MESSAGE")]
@@ -49,6 +70,7 @@ pub(crate) struct CommitArgs {
         add = ArgValueCompleter::new(complete::modified_files),
     )]
     paths: Vec<String>,
+    // TODO: Delete in jj 0.40.0+
     /// Reset the author to the configured user
     ///
     /// This resets the author name, email, and timestamp.
@@ -57,14 +79,16 @@ pub(crate) struct CommitArgs {
     /// environment variables to set a different author:
     ///
     /// $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj commit --reset-author
-    #[arg(long)]
+    #[arg(long, hide = true)]
     reset_author: bool,
+    // TODO: Delete in jj 0.40.0+
     /// Set author to the provided string
     ///
     /// This changes author name and email while retaining author
     /// timestamp for non-discardable commits.
     #[arg(
         long,
+        hide = true,
         conflicts_with = "reset_author",
         value_parser = parse_author
     )]
@@ -77,6 +101,18 @@ pub(crate) fn cmd_commit(
     command: &CommandHelper,
     args: &CommitArgs,
 ) -> Result<(), CommandError> {
+    if args.reset_author {
+        writeln!(
+            ui.warning_default(),
+            "`jj commit --reset-author` is deprecated; use `jj metaedit --update-author` instead"
+        )?;
+    }
+    if args.author.is_some() {
+        writeln!(
+            ui.warning_default(),
+            "`jj commit --author` is deprecated; use `jj metaedit --author` instead"
+        )?;
+    }
     let mut workspace_command = command.workspace_helper(ui)?;
 
     let commit_id = workspace_command
@@ -105,8 +141,7 @@ new working-copy commit.
         )
     };
     let tree_id = diff_selector.select(
-        &base_tree,
-        &commit.tree()?,
+        [&base_tree, &commit.tree()?],
         matcher.as_ref(),
         format_instructions,
     )?;

@@ -21,10 +21,10 @@ use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::repo::Repo as _;
 use tracing::instrument;
 
-use crate::cli_util::print_snapshot_stats;
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error_with_hint;
+use crate::cli_util::print_snapshot_stats;
 use crate::command_error::CommandError;
+use crate::command_error::user_error_with_hint;
 use crate::complete;
 use crate::ui::Ui;
 

@@ -18,10 +18,10 @@ use indoc::formatdoc;
 use indoc::indoc;
 use testutils::git;
 
-use crate::common::to_toml_value;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::to_toml_value;
 
 fn set_up_non_empty_git_repo(git_repo: &gix::Repository) {
     set_up_git_repo_with_file(git_repo, "file");
@@ -197,6 +197,7 @@ fn test_git_clone_colocate() {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/empty"
     Nothing changed.
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
@@ -220,6 +221,7 @@ fn test_git_clone_colocate() {
     Working copy  (@) now at: uuqppmxq 3711b3b5 (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     let clone_dir = test_env.work_dir("clone");
@@ -365,8 +367,178 @@ fn test_git_clone_colocate() {
     Working copy  (@) now at: vzqnnsmr fea36bca (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
+}
+
+#[test]
+fn test_git_clone_colocate_via_config() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    let git_repo_path = test_env.env_root().join("source");
+    let git_repo = git::init(git_repo_path);
+
+    test_env.add_config("git.colocate = true");
+
+    set_up_non_empty_git_repo(&git_repo);
+
+    let output = root_dir.run_jj(["git", "clone", "source", "clone"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone"
+    bookmark: main@origin [new] tracked
+    Setting the revset alias `trunk()` to `main@origin`
+    Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Added 1 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
+    [EOF]
+    "#);
+    let clone_dir = test_env.work_dir("clone");
+    assert!(clone_dir.root().join("file").exists());
+    assert!(clone_dir.root().join(".git").exists());
+}
+
+#[test]
+fn test_git_clone_no_colocate() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    let git_repo_path = test_env.env_root().join("source");
+    let git_repo = git::init(git_repo_path);
+
+    test_env.add_config("git.colocate = true");
+
+    set_up_non_empty_git_repo(&git_repo);
+
+    let output = root_dir.run_jj(["git", "clone", "--no-colocate", "source", "clone"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone"
+    bookmark: main@origin [new] tracked
+    Setting the revset alias `trunk()` to `main@origin`
+    Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+    let clone_dir = test_env.work_dir("clone");
+    assert!(clone_dir.root().join("file").exists());
+    assert!(!clone_dir.root().join(".git").exists());
+}
+
+#[test]
+fn test_git_clone_tags() {
+    use gix::remote::fetch::Tags;
+
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    let git_repo_path = test_env.env_root().join("source");
+    let source_git_repo = git::init(git_repo_path);
+
+    git::add_commit(
+        &source_git_repo,
+        "refs/tags/v1.0",
+        "foo",
+        b"content",
+        "message",
+        &[],
+    );
+
+    let commit = git::add_commit(
+        &source_git_repo,
+        "refs/tags/v2.0",
+        "bar",
+        b"content",
+        "message",
+        &[],
+    )
+    .commit_id;
+
+    git::add_commit(
+        &source_git_repo,
+        "refs/heads/main",
+        "baz",
+        b"content",
+        "message",
+        &[commit],
+    );
+
+    git::set_symbolic_reference(&source_git_repo, "HEAD", "refs/heads/main");
+
+    let run_test = |name, args: &[_]| {
+        // Clone an empty repo
+        root_dir.run_jj(
+            ["git", "clone", "source", name, "--colocate"]
+                .iter()
+                .chain(args),
+        )
+    };
+
+    let get_remote_fetch_tags = |name| {
+        git::open(test_env.env_root().join(name))
+            .find_remote("origin")
+            .unwrap()
+            .fetch_tags()
+    };
+
+    insta::assert_snapshot!(run_test("default", &[]), @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/default"
+    bookmark: main@origin [new] tracked
+    tag: v1.0@git [new] 
+    tag: v2.0@git [new] 
+    Setting the revset alias `trunk()` to `main@origin`
+    Working copy  (@) now at: sqpuoqvx 88542a00 (empty) (no description set)
+    Parent commit (@-)      : lnmyztun e93ca54d main | message
+    Added 2 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
+    [EOF]
+    "#);
+
+    insta::assert_snapshot!(run_test("included", &["--fetch-tags", "included"]), @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/included"
+    bookmark: main@origin [new] tracked
+    tag: v2.0@git [new] 
+    Setting the revset alias `trunk()` to `main@origin`
+    Working copy  (@) now at: uuqppmxq 676b2fd8 (empty) (no description set)
+    Parent commit (@-)      : lnmyztun e93ca54d main | message
+    Added 2 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
+    [EOF]
+    "#);
+
+    insta::assert_snapshot!(run_test("all", &["--fetch-tags", "all"]), @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/all"
+    bookmark: main@origin [new] tracked
+    tag: v1.0@git [new] 
+    tag: v2.0@git [new] 
+    Setting the revset alias `trunk()` to `main@origin`
+    Working copy  (@) now at: pmmvwywv cd5996a2 (empty) (no description set)
+    Parent commit (@-)      : lnmyztun e93ca54d main | message
+    Added 2 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
+    [EOF]
+    "#);
+
+    insta::assert_snapshot!(run_test("none", &["--fetch-tags", "none"]), @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/none"
+    bookmark: main@origin [new] tracked
+    Setting the revset alias `trunk()` to `main@origin`
+    Working copy  (@) now at: rzvqmyuk 61c45a3c (empty) (no description set)
+    Parent commit (@-)      : lnmyztun e93ca54d main | message
+    Added 2 files, modified 0 files, removed 0 files
+    Hint: Running `git clean -xdf` will remove `.jj/`!
+    [EOF]
+    "#);
+
+    assert_eq!(Tags::Included, get_remote_fetch_tags("default"));
+    assert_eq!(Tags::Included, get_remote_fetch_tags("included"));
+    assert_eq!(Tags::All, get_remote_fetch_tags("all"));
+    assert_eq!(Tags::None, get_remote_fetch_tags("none"));
 }
 
 #[test]

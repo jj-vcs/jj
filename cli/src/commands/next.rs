@@ -14,9 +14,9 @@
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
-use crate::movement_util::move_to_commit;
 use crate::movement_util::Direction;
 use crate::movement_util::MovementArgs;
+use crate::movement_util::move_to_commit;
 use crate::ui::Ui;
 
 /// Move the working-copy commit to the child revision
@@ -75,7 +75,7 @@ pub(crate) struct NextArgs {
 
 impl From<&NextArgs> for MovementArgs {
     fn from(val: &NextArgs) -> Self {
-        MovementArgs {
+        Self {
             offset: val.offset,
             edit: val.edit,
             no_edit: val.no_edit,

@@ -15,13 +15,12 @@
 use std::fmt::Debug;
 use std::io::Write as _;
 
-use jj_lib::default_index::AsCompositeIndex as _;
 use jj_lib::default_index::DefaultReadonlyIndex;
 
 use crate::cli_util::CommandHelper;
+use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error;
-use crate::command_error::CommandError;
 use crate::ui::Ui;
 
 /// Show commit index stats
@@ -43,7 +42,8 @@ pub fn cmd_debug_index(
         .get_index_at_op(&op, repo_loader.store())
         .map_err(internal_error)?;
     if let Some(default_index) = index.as_any().downcast_ref::<DefaultReadonlyIndex>() {
-        let stats = default_index.as_composite().stats();
+        let stats = default_index.stats();
+        writeln!(ui.stdout(), "=== Commits ===")?;
         writeln!(ui.stdout(), "Number of commits: {}", stats.num_commits)?;
         writeln!(ui.stdout(), "Number of merges: {}", stats.num_merges)?;
         writeln!(
@@ -54,10 +54,29 @@ pub fn cmd_debug_index(
         writeln!(ui.stdout(), "Number of heads: {}", stats.num_heads)?;
         writeln!(ui.stdout(), "Number of changes: {}", stats.num_changes)?;
         writeln!(ui.stdout(), "Stats per level:")?;
-        for (i, level) in stats.levels.iter().enumerate() {
+        for (i, level) in stats.commit_levels.iter().enumerate() {
             writeln!(ui.stdout(), "  Level {i}:")?;
             writeln!(ui.stdout(), "    Number of commits: {}", level.num_commits)?;
-            writeln!(ui.stdout(), "    Name: {}", level.name.as_ref().unwrap())?;
+            writeln!(ui.stdout(), "    Name: {}", level.name)?;
+        }
+
+        writeln!(ui.stdout(), "=== Changed paths ===")?;
+        if let Some(range) = &stats.changed_path_commits_range {
+            writeln!(ui.stdout(), "Indexed commits: {range:?}")?;
+        } else {
+            writeln!(ui.stdout(), "Indexed commits: none")?;
+        }
+        writeln!(ui.stdout(), "Stats per level:")?;
+        for (i, level) in stats.changed_path_levels.iter().enumerate() {
+            writeln!(ui.stdout(), "  Level {i}:")?;
+            writeln!(ui.stdout(), "    Number of commits: {}", level.num_commits)?;
+            writeln!(
+                ui.stdout(),
+                "    Number of changed paths: {}",
+                level.num_changed_paths
+            )?;
+            writeln!(ui.stdout(), "    Number of paths: {}", level.num_paths)?;
+            writeln!(ui.stdout(), "    Name: {}", level.name)?;
         }
     } else {
         return Err(user_error(format!(

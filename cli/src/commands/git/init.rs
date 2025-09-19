@@ -23,23 +23,24 @@ use indoc::writedoc;
 use itertools::Itertools as _;
 use jj_lib::file_util;
 use jj_lib::git;
-use jj_lib::git::parse_git_ref;
 use jj_lib::git::GitRefKind;
+use jj_lib::git::parse_git_ref;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::view::View;
 use jj_lib::workspace::Workspace;
 
 use super::write_repository_level_trunk_alias;
-use crate::cli_util::start_repo_transaction;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
+use crate::cli_util::start_repo_transaction;
+use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::internal_error;
 use crate::command_error::user_error_with_hint;
 use crate::command_error::user_error_with_message;
-use crate::command_error::CommandError;
 use crate::commands::git::maybe_add_gitignore;
+use crate::formatter::FormatterExt as _;
 use crate::git_util::is_colocated_git_workspace;
 use crate::git_util::print_git_export_stats;
 use crate::git_util::print_git_import_stats;
@@ -68,13 +69,17 @@ pub struct GitInitArgs {
     #[arg(long, conflicts_with = "git_repo")]
     colocate: bool,
 
+    /// Disable colocation of the Jujutsu repo with the git repo
+    #[arg(long, conflicts_with = "colocate")]
+    no_colocate: bool,
+
     /// Specifies a path to an **existing** git repository to be
     /// used as the backing git repo for the newly created `jj` repo.
     ///
     /// If the specified `--git-repo` path happens to be the same as
     /// the `jj` repo path (both .jj and .git directories are in the
     /// same working directory), then both `jj` and `git` commands
-    /// will work on the same repo. This is called a co-located repo.
+    /// will work on the same repo. This is called a colocated repo.
     ///
     /// This option is mutually exclusive with `--colocate`.
     #[arg(long, conflicts_with = "colocate", value_hint = clap::ValueHint::DirPath)]
@@ -98,13 +103,13 @@ pub fn cmd_git_init(
         .and_then(|_| dunce::canonicalize(wc_path))
         .map_err(|e| user_error_with_message("Failed to create workspace", e))?;
 
-    do_init(
-        ui,
-        command,
-        &wc_path,
-        args.colocate,
-        args.git_repo.as_deref(),
-    )?;
+    let colocate = if command.settings().git_settings()?.colocate {
+        !args.no_colocate
+    } else {
+        args.colocate
+    };
+
+    do_init(ui, command, &wc_path, colocate, args.git_repo.as_deref())?;
 
     let relative_wc_path = file_util::relative_path(cwd, &wc_path);
     writeln!(
@@ -112,6 +117,12 @@ pub fn cmd_git_init(
         r#"Initialized repo in "{}""#,
         relative_wc_path.display()
     )?;
+    if colocate {
+        writeln!(
+            ui.hint_default(),
+            r"Running `git clean -xdf` will remove `.jj/`!",
+        )?;
+    }
 
     Ok(())
 }
@@ -230,27 +241,38 @@ fn init_git_refs(
     Ok(repo)
 }
 
-// Set repository level `trunk()` alias to the default branch for "origin".
+// Set repository level `trunk()` alias to the default branch.
+// Checks "upstream" first, then "origin" as fallback.
 pub fn maybe_set_repository_level_trunk_alias(
     ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
 ) -> Result<(), CommandError> {
     let git_repo = git::get_git_repo(workspace_command.repo().store())?;
-    if let Some(reference) = git_repo
-        .try_find_reference("refs/remotes/origin/HEAD")
-        .map_err(internal_error)?
-    {
-        if let Some(reference_name) = reference.target().try_name() {
-            if let Some((GitRefKind::Bookmark, symbol)) = str::from_utf8(reference_name.as_bstr())
-                .ok()
-                .and_then(|name| parse_git_ref(name.as_ref()))
+
+    // Try "upstream" first, then fall back to "origin"
+    for remote in ["upstream", "origin"] {
+        let ref_name = format!("refs/remotes/{remote}/HEAD");
+        if let Some(reference) = git_repo
+            .try_find_reference(&ref_name)
+            .map_err(internal_error)?
+        {
+            // Found a HEAD reference for this remote. Even if we can't parse it,
+            // we should stop here and not try other remotes because it doesn't
+            // really make sense if "origin" were to be set as the default if we
+            // know "upstream" exists.
+            if let Some(reference_name) = reference.target().try_name()
+                && let Some((GitRefKind::Bookmark, symbol)) =
+                    str::from_utf8(reference_name.as_bstr())
+                        .ok()
+                        .and_then(|name| parse_git_ref(name.as_ref()))
             {
                 // TODO: Can we assume the symbolic target points to the same remote?
-                let symbol = symbol.name.to_remote_symbol("origin".as_ref());
+                let symbol = symbol.name.to_remote_symbol(remote.as_ref());
                 write_repository_level_trunk_alias(ui, workspace_command.repo_path(), symbol)?;
             }
-        };
-    };
+            return Ok(());
+        }
+    }
 
     Ok(())
 }

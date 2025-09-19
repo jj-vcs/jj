@@ -36,7 +36,6 @@ use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::store::Store;
 use jj_lib::tree::Tree;
-use pollster::FutureExt as _;
 use rayon::iter::IntoParallelIterator as _;
 use rayon::prelude::ParallelIterator as _;
 
@@ -173,7 +172,7 @@ where
 /// that the fixes are not lost. This will never result in new conflicts. Files
 /// with existing conflicts are updated on all sides of the conflict, which
 /// can potentially increase or decrease the number of conflict markers.
-pub fn fix_files(
+pub async fn fix_files(
     root_commits: Vec<CommitId>,
     matcher: &dyn Matcher,
     include_unchanged_files: bool,
@@ -229,35 +228,36 @@ pub fn fix_files(
             commit.parent_tree(repo_mut)?
         };
         // TODO: handle copy tracking
-        let mut diff_stream = parent_tree.diff_stream(&commit.tree()?, &matcher);
-        async {
-            while let Some(TreeDiffEntry {
-                path: repo_path,
-                values,
-            }) = diff_stream.next().await
-            {
-                let (_before, after) = values?;
-                // Deleted files have no file content to fix, and they have no terms in `after`,
-                // so we don't add any files-to-fix for them. Conflicted files produce one
-                // file-to-fix for each side of the conflict.
-                for term in after.into_iter().flatten() {
-                    // We currently only support fixing the content of normal files, so we skip
-                    // directories and symlinks, and we ignore the executable bit.
-                    if let TreeValue::File { id, executable: _ } = term {
-                        // TODO: Skip the file if its content is larger than some configured size,
-                        // preferably without actually reading it yet.
-                        let file_to_fix = FileToFix {
-                            file_id: id.clone(),
-                            repo_path: repo_path.clone(),
-                        };
-                        unique_files_to_fix.insert(file_to_fix.clone());
-                        paths.insert(repo_path.clone());
-                    }
+        let mut diff_stream = parent_tree.diff_stream(&commit.tree_async().await?, &matcher);
+        while let Some(TreeDiffEntry {
+            path: repo_path,
+            values,
+        }) = diff_stream.next().await
+        {
+            let (_before, after) = values?;
+            // Deleted files have no file content to fix, and they have no terms in `after`,
+            // so we don't add any files-to-fix for them. Conflicted files produce one
+            // file-to-fix for each side of the conflict.
+            for term in after.into_iter().flatten() {
+                // We currently only support fixing the content of normal files, so we skip
+                // directories and symlinks, and we ignore the executable bit.
+                if let TreeValue::File {
+                    id,
+                    executable: _,
+                    copy_id: _,
+                } = term
+                {
+                    // TODO: Skip the file if its content is larger than some configured size,
+                    // preferably without actually reading it yet.
+                    let file_to_fix = FileToFix {
+                        file_id: id.clone(),
+                        repo_path: repo_path.clone(),
+                    };
+                    unique_files_to_fix.insert(file_to_fix.clone());
+                    paths.insert(repo_path.clone());
                 }
             }
-            Ok::<(), BackendError>(())
         }
-        .block_on()?;
 
         commit_paths.insert(commit.id().clone(), paths);
     }
@@ -275,18 +275,23 @@ pub fn fix_files(
     // Substitute the fixed file IDs into all of the affected commits. Currently,
     // fixes cannot delete or rename files, change the executable bit, or modify
     // other parts of the commit like the description.
-    repo_mut.transform_descendants(root_commits, |mut rewriter| {
+    repo_mut.transform_descendants(root_commits, async |mut rewriter| {
         // TODO: Build the trees in parallel before `transform_descendants()` and only
         // keep the tree IDs in memory, so we can pass them to the rewriter.
         let old_commit_id = rewriter.old_commit().id().clone();
         let repo_paths = commit_paths.get(&old_commit_id).unwrap();
-        let old_tree = rewriter.old_commit().tree()?;
+        let old_tree = rewriter.old_commit().tree_async().await?;
         let mut tree_builder = MergedTreeBuilder::new(old_tree.id().clone());
         let mut has_changes = false;
         for repo_path in repo_paths {
-            let old_value = old_tree.path_value(repo_path)?;
+            let old_value = old_tree.path_value_async(repo_path).await?;
             let new_value = old_value.map(|old_term| {
-                if let Some(TreeValue::File { id, executable }) = old_term {
+                if let Some(TreeValue::File {
+                    id,
+                    executable,
+                    copy_id,
+                }) = old_term
+                {
                     let file_to_fix = FileToFix {
                         file_id: id.clone(),
                         repo_path: repo_path.clone(),
@@ -295,6 +300,7 @@ pub fn fix_files(
                         return Some(TreeValue::File {
                             id: new_id.clone(),
                             executable: *executable,
+                            copy_id: copy_id.clone(),
                         });
                     }
                 }
@@ -308,7 +314,7 @@ pub fn fix_files(
         summary.num_checked_commits += 1;
         if has_changes {
             summary.num_fixed_commits += 1;
-            let new_tree = tree_builder.write_tree(rewriter.mut_repo().store())?;
+            let new_tree = tree_builder.write_tree(rewriter.repo_mut().store())?;
             let builder = rewriter.reparent();
             let new_commit = builder.set_tree_id(new_tree).write()?;
             summary

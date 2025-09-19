@@ -28,12 +28,9 @@ use tracing::instrument;
 use crate::backend::BackendError;
 use crate::backend::MergedTreeId;
 use crate::commit::Commit;
-use crate::conflicts::ConflictMarkerStyle;
 use crate::dag_walk;
-use crate::fsmonitor::FsmonitorSettings;
 use crate::gitignore::GitIgnoreError;
 use crate::gitignore::GitIgnoreFile;
-use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
 use crate::op_store::OpStoreError;
 use crate::op_store::OperationId;
@@ -46,6 +43,7 @@ use crate::repo::RewriteRootCommit;
 use crate::repo_path::InvalidRepoPathError;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
+use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::transaction::TransactionCommitError;
 
@@ -88,6 +86,7 @@ pub trait WorkingCopyFactory {
         state_path: PathBuf,
         operation_id: OperationId,
         workspace_name: WorkspaceNameBuf,
+        settings: &UserSettings,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
 
     /// Load an existing working copy.
@@ -96,6 +95,7 @@ pub trait WorkingCopyFactory {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
+        settings: &UserSettings,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
 }
 
@@ -120,11 +120,7 @@ pub trait LockedWorkingCopy {
     ) -> Result<(MergedTreeId, SnapshotStats), SnapshotError>;
 
     /// Check out the specified commit in the working copy.
-    fn check_out(
-        &mut self,
-        commit: &Commit,
-        options: &CheckoutOptions,
-    ) -> Result<CheckoutStats, CheckoutError>;
+    fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError>;
 
     /// Update the workspace name.
     fn rename_workspace(&mut self, new_workspace_name: WorkspaceNameBuf);
@@ -148,7 +144,6 @@ pub trait LockedWorkingCopy {
     fn set_sparse_patterns(
         &mut self,
         new_sparse_patterns: Vec<RepoPathBuf>,
-        options: &CheckoutOptions,
     ) -> Result<CheckoutStats, CheckoutError>;
 
     /// Finish the modifications to the working copy by writing the updated
@@ -184,6 +179,9 @@ pub enum SnapshotError {
     /// Checking path with ignore patterns failed.
     #[error(transparent)]
     GitIgnoreError(#[from] GitIgnoreError),
+    /// Failed to load the working copy state.
+    #[error(transparent)]
+    WorkingCopyStateError(#[from] WorkingCopyStateError),
     /// Some other error happened while snapshotting the working copy.
     #[error("{message}")]
     Other {
@@ -205,10 +203,6 @@ pub struct SnapshotOptions<'a> {
     // because the TreeState may be long-lived if the library is used in a
     // long-lived process.
     pub base_ignores: Arc<GitIgnoreFile>,
-    /// The fsmonitor (e.g. Watchman) to use, if any.
-    // TODO: Should we make this a field on `LocalWorkingCopy` instead since it's quite specific to
-    // that implementation?
-    pub fsmonitor_settings: FsmonitorSettings,
     /// A callback for the UI to display progress.
     pub progress: Option<&'a SnapshotProgress<'a>>,
     /// For new files that are not already tracked, start tracking them if they
@@ -220,22 +214,6 @@ pub struct SnapshotOptions<'a> {
     /// (depending on implementation)
     /// return `SnapshotError::NewFileTooLarge`.
     pub max_new_file_size: u64,
-    /// Expected conflict marker style for checking for changed files.
-    pub conflict_marker_style: ConflictMarkerStyle,
-}
-
-impl SnapshotOptions<'_> {
-    /// Create an instance for use in tests.
-    pub fn empty_for_test() -> Self {
-        SnapshotOptions {
-            base_ignores: GitIgnoreFile::empty(),
-            fsmonitor_settings: FsmonitorSettings::None,
-            progress: None,
-            start_tracking_matcher: &EverythingMatcher,
-            max_new_file_size: u64::MAX,
-            conflict_marker_style: ConflictMarkerStyle::default(),
-        }
-    }
 }
 
 /// A callback for getting progress updates.
@@ -260,22 +238,6 @@ pub enum UntrackedReason {
     },
     /// File does not match the fileset specified in snapshot.auto-track.
     FileNotAutoTracked,
-}
-
-/// Options used when checking out a tree in the working copy.
-#[derive(Clone)]
-pub struct CheckoutOptions {
-    /// Conflict marker style to use when materializing files
-    pub conflict_marker_style: ConflictMarkerStyle,
-}
-
-impl CheckoutOptions {
-    /// Create an instance for use in tests.
-    pub fn empty_for_test() -> Self {
-        CheckoutOptions {
-            conflict_marker_style: ConflictMarkerStyle::default(),
-        }
-    }
 }
 
 /// Stats about a checkout operation on a working copy. All "files" mentioned
@@ -323,6 +285,9 @@ pub enum CheckoutError {
     /// Reading or writing from the commit backend failed.
     #[error("Internal backend error")]
     InternalBackendError(#[from] BackendError),
+    /// Failed to load the working copy state.
+    #[error(transparent)]
+    WorkingCopyStateError(#[from] WorkingCopyStateError),
     /// Some other error happened while checking out the working copy.
     #[error("{message}")]
     Other {
@@ -347,7 +312,10 @@ pub enum ResetError {
     /// Reading or writing from the commit backend failed.
     #[error("Internal error")]
     InternalBackendError(#[from] BackendError),
-    /// Some other error happened while checking out the working copy.
+    /// Failed to load the working copy state.
+    #[error(transparent)]
+    WorkingCopyStateError(#[from] WorkingCopyStateError),
+    /// Some other error happened while resetting the working copy.
     #[error("{message}")]
     Other {
         /// Error message.

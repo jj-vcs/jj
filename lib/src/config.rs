@@ -26,21 +26,21 @@ use std::path::PathBuf;
 use std::slice;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use itertools::Itertools as _;
-use once_cell::sync::Lazy;
-use serde::de::IntoDeserializer as _;
 use serde::Deserialize;
+use serde::de::IntoDeserializer as _;
 use thiserror::Error;
+use toml_edit::Document;
 use toml_edit::DocumentMut;
-use toml_edit::ImDocument;
 
-pub use crate::config_resolver::migrate;
-pub use crate::config_resolver::resolve;
 pub use crate::config_resolver::ConfigMigrateError;
 pub use crate::config_resolver::ConfigMigrateLayerError;
 pub use crate::config_resolver::ConfigMigrationRule;
 pub use crate::config_resolver::ConfigResolutionContext;
+pub use crate::config_resolver::migrate;
+pub use crate::config_resolver::resolve;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 
@@ -64,7 +64,7 @@ pub enum ConfigLoadError {
     Parse {
         /// Source error.
         #[source]
-        error: toml_edit::TomlError,
+        error: Box<toml_edit::TomlError>,
         /// Source file path.
         source_path: Option<PathBuf>,
     },
@@ -146,7 +146,7 @@ impl ConfigNamePathBuf {
     ///
     /// This isn't a valid TOML key expression, but provided for convenience.
     pub fn root() -> Self {
-        ConfigNamePathBuf(vec![])
+        Self(vec![])
     }
 
     /// Returns true if the path is empty (i.e. pointing to the root table.)
@@ -172,8 +172,8 @@ impl ConfigNamePathBuf {
 
 // Help obtain owned value from ToConfigNamePath::Output. If we add a slice
 // type (like &Path for PathBuf), this will be From<&ConfigNamePath>.
-impl From<&ConfigNamePathBuf> for ConfigNamePathBuf {
-    fn from(value: &ConfigNamePathBuf) -> Self {
+impl From<&Self> for ConfigNamePathBuf {
+    fn from(value: &Self) -> Self {
         value.clone()
     }
 }
@@ -181,7 +181,7 @@ impl From<&ConfigNamePathBuf> for ConfigNamePathBuf {
 impl<K: Into<toml_edit::Key>> FromIterator<K> for ConfigNamePathBuf {
     fn from_iter<I: IntoIterator<Item = K>>(iter: I) -> Self {
         let keys = iter.into_iter().map(|k| k.into()).collect();
-        ConfigNamePathBuf(keys)
+        Self(keys)
     }
 }
 
@@ -330,7 +330,7 @@ impl ConfigLayer {
 
     /// Creates new layer with the configuration variables `data`.
     pub fn with_data(source: ConfigSource, data: DocumentMut) -> Self {
-        ConfigLayer {
+        Self {
             source,
             path: None,
             data,
@@ -339,8 +339,8 @@ impl ConfigLayer {
 
     /// Parses TOML document `text` into new layer.
     pub fn parse(source: ConfigSource, text: &str) -> Result<Self, ConfigLoadError> {
-        let data = ImDocument::parse(text).map_err(|error| ConfigLoadError::Parse {
-            error,
+        let data = Document::parse(text).map_err(|error| ConfigLoadError::Parse {
+            error: Box::new(error),
             source_path: None,
         })?;
         Ok(Self::with_data(source, data.into_mut()))
@@ -351,11 +351,11 @@ impl ConfigLayer {
         let text = fs::read_to_string(&path)
             .context(&path)
             .map_err(ConfigLoadError::Read)?;
-        let data = ImDocument::parse(text).map_err(|error| ConfigLoadError::Parse {
-            error,
+        let data = Document::parse(text).map_err(|error| ConfigLoadError::Parse {
+            error: Box::new(error),
             source_path: Some(path.clone()),
         })?;
-        Ok(ConfigLayer {
+        Ok(Self {
             source,
             path: Some(path),
             data: data.into_mut(),
@@ -394,7 +394,7 @@ impl ConfigLayer {
     pub fn look_up_table(
         &self,
         name: impl ToConfigNamePath,
-    ) -> Result<Option<&ConfigTableLike>, &ConfigItem> {
+    ) -> Result<Option<&ConfigTableLike<'_>>, &ConfigItem> {
         match self.look_up_item(name) {
             Ok(Some(item)) => match item.as_table_like() {
                 Some(table) => Ok(Some(table)),
@@ -495,7 +495,7 @@ impl ConfigLayer {
     pub fn ensure_table(
         &mut self,
         name: impl ToConfigNamePath,
-    ) -> Result<&mut ConfigTableLike, ConfigUpdateError> {
+    ) -> Result<&mut ConfigTableLike<'_>, ConfigUpdateError> {
         let would_overwrite_table = |name| ConfigUpdateError::WouldOverwriteValue { name };
         let name = name.into_name_path();
         let name = name.borrow();
@@ -559,15 +559,13 @@ impl ConfigFile {
     ) -> Result<Self, ConfigLoadError> {
         let layer = match ConfigLayer::load_from_file(source, path.into()) {
             Ok(layer) => Arc::new(layer),
-            Err(ConfigLoadError::Read(PathError { path, error }))
-                if error.kind() == io::ErrorKind::NotFound =>
-            {
+            Err(ConfigLoadError::Read(PathError {
+                path,
+                source: error,
+            })) if error.kind() == io::ErrorKind::NotFound => {
                 let mut data = DocumentMut::new();
-                data.insert(
-                    "$schema",
-                    toml_edit::Item::Value(
-                        "https://jj-vcs.github.io/jj/latest/config-schema.json".into(),
-                    ),
+                data.decor_mut().set_prefix(
+                    "#:schema https://jj-vcs.github.io/jj/latest/config-schema.json\n\n",
                 );
                 let layer = ConfigLayer {
                     source,
@@ -578,14 +576,14 @@ impl ConfigFile {
             }
             Err(err) => return Err(err),
         };
-        Ok(ConfigFile { layer })
+        Ok(Self { layer })
     }
 
     /// Wraps file-based [`ConfigLayer`] for modification. Returns `Err(layer)`
     /// if the source `path` is unknown.
     pub fn from_layer(layer: Arc<ConfigLayer>) -> Result<Self, Arc<ConfigLayer>> {
         if layer.path.is_some() {
-            Ok(ConfigFile { layer })
+            Ok(Self { layer })
         } else {
             Err(layer)
         }
@@ -648,13 +646,13 @@ pub struct StackedConfig {
 impl StackedConfig {
     /// Creates an empty stack of configuration layers.
     pub fn empty() -> Self {
-        StackedConfig { layers: vec![] }
+        Self { layers: vec![] }
     }
 
     /// Creates a stack of configuration layers containing the default variables
     /// referred to by `jj-lib`.
     pub fn with_defaults() -> Self {
-        StackedConfig {
+        Self {
             layers: DEFAULT_CONFIG_LAYERS.to_vec(),
         }
     }
@@ -900,7 +898,7 @@ fn merge_items(lower_item: &mut ConfigItem, upper_item: &ConfigItem) {
     }
 }
 
-static DEFAULT_CONFIG_LAYERS: Lazy<[Arc<ConfigLayer>; 1]> = Lazy::new(|| {
+static DEFAULT_CONFIG_LAYERS: LazyLock<[Arc<ConfigLayer>; 1]> = LazyLock::new(|| {
     let parse = |text: &str| Arc::new(ConfigLayer::parse(ConfigSource::Default, text).unwrap());
     [parse(include_str!("config/misc.toml"))]
 });
@@ -1000,6 +998,19 @@ mod tests {
         'baz' = "new value"
         blah = 0
         "#);
+    }
+
+    #[test]
+    fn test_config_layer_set_value_inline_table() {
+        let mut layer = ConfigLayer::empty(ConfigSource::User);
+        layer
+            .set_value("a", ConfigValue::from_iter([("b", "a.b")]))
+            .unwrap();
+        insta::assert_snapshot!(layer.data, @r#"a = { b = "a.b" }"#);
+
+        // Should create nested inline tables
+        layer.set_value("a.c.d", "a.c.d").unwrap();
+        insta::assert_snapshot!(layer.data, @r#"a = { b = "a.b", c.d = "a.c.d" }"#);
     }
 
     #[test]

@@ -18,6 +18,7 @@ use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
+use crate::commands::git::FetchTagsMode;
 use crate::git_util::absolute_git_url;
 use crate::ui::Ui;
 
@@ -31,6 +32,10 @@ pub struct GitRemoteAddArgs {
     /// Local path will be resolved to absolute form.
     #[arg(value_hint = clap::ValueHint::Url)]
     url: String,
+
+    /// Configure when to fetch tags
+    #[arg(long, value_enum, default_value_t = FetchTagsMode::Included)]
+    fetch_tags: FetchTagsMode,
 }
 
 pub fn cmd_git_remote_add(
@@ -40,6 +45,11 @@ pub fn cmd_git_remote_add(
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
     let url = absolute_git_url(command.cwd(), &args.url)?;
-    git::add_remote(workspace_command.repo().store(), &args.remote, &url)?;
+    git::add_remote(
+        workspace_command.repo().store(),
+        &args.remote,
+        &url,
+        args.fetch_tags.as_fetch_tags(),
+    )?;
     Ok(())
 }

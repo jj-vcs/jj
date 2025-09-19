@@ -19,17 +19,14 @@ use std::time::SystemTime;
 use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::ui::Ui;
 
 /// Run backend-dependent garbage collection.
 ///
 /// To garbage-collect old operations and the commits/objects referenced by
 /// them, run `jj op abandon ..<some old operation>` before `jj util gc`.
-///
-/// Previous versions of a change that are reachable via the evolution log are
-/// not garbage-collected.
 #[derive(clap::Args, Clone, Debug)]
 pub struct UtilGcArgs {
     /// Time threshold

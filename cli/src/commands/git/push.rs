@@ -17,6 +17,7 @@ use std::collections::HashSet;
 use std::fmt;
 use std::io;
 use std::io::Write as _;
+use std::iter;
 
 use clap::ArgGroup;
 use clap_complete::ArgValueCandidates;
@@ -36,10 +37,10 @@ use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::ref_name::RemoteRefSymbol;
-use jj_lib::refs::classify_bookmark_push_action;
 use jj_lib::refs::BookmarkPushAction;
 use jj_lib::refs::BookmarkPushUpdate;
 use jj_lib::refs::LocalAndRemoteRef;
+use jj_lib::refs::classify_bookmark_push_action;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::settings::UserSettings;
@@ -47,21 +48,22 @@ use jj_lib::signing::SignBehavior;
 use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
 
-use crate::cli_util::has_tracked_remote_bookmarks;
-use crate::cli_util::short_change_hash;
-use crate::cli_util::short_commit_hash;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
+use crate::cli_util::has_tracked_remote_bookmarks;
+use crate::cli_util::short_commit_hash;
+use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::cli_error_with_message;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
-use crate::command_error::CommandError;
+use crate::command_error::user_error_with_message;
 use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::formatter::Formatter;
+use crate::formatter::FormatterExt as _;
 use crate::git_util::with_remote_git_callbacks;
 use crate::revset_util::parse_bookmark_name;
 use crate::ui::Ui;
@@ -161,12 +163,11 @@ pub struct GitPushArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revisions: Vec<RevisionArg>,
-    /// Push this commit by creating a bookmark based on its change ID (can be
-    /// repeated)
+    /// Push this commit by creating a bookmark (can be repeated)
     ///
     /// The created bookmark will be tracked automatically. Use the
-    /// `git.push-bookmark-prefix` setting to change the prefix for generated
-    /// names.
+    /// `templates.git_push_bookmark` setting to customize the generated
+    /// bookmark name. The default is `"push-" ++ change_id.short()`.
     #[arg(
         long,
         short,
@@ -294,9 +295,7 @@ pub fn cmd_git_push(
 
         // --change and --named don't move existing bookmarks. If they did, be
         // careful to not select old state by -r/--revisions and bookmark names.
-        let bookmark_prefix = tx.settings().get_string("git.push-bookmark-prefix")?;
-        let change_bookmark_names =
-            create_change_bookmarks(ui, &mut tx, &args.change, &bookmark_prefix)?;
+        let change_bookmark_names = create_change_bookmarks(ui, &mut tx, &args.change)?;
         let created_bookmark_names: Vec<RefNameBuf> = args
             .named
             .iter()
@@ -402,27 +401,24 @@ pub fn cmd_git_push(
     };
     let commits_to_sign =
         validate_commits_ready_to_push(ui, &bookmark_updates, remote, &tx, args, sign_behavior)?;
-    if !args.dry_run && !commits_to_sign.is_empty() {
-        if let Some(sign_behavior) = sign_behavior {
-            let num_updated_signatures = commits_to_sign.len();
-            let num_rebased_descendants;
-            (num_rebased_descendants, bookmark_updates) = sign_commits_before_push(
-                &mut tx,
-                commits_to_sign,
-                sign_behavior,
-                bookmark_updates,
+    if !args.dry_run
+        && !commits_to_sign.is_empty()
+        && let Some(sign_behavior) = sign_behavior
+    {
+        let num_updated_signatures = commits_to_sign.len();
+        let num_rebased_descendants;
+        (num_rebased_descendants, bookmark_updates) =
+            sign_commits_before_push(&mut tx, commits_to_sign, sign_behavior, bookmark_updates)?;
+        if let Some(mut formatter) = ui.status_formatter() {
+            writeln!(
+                formatter,
+                "Updated signatures of {num_updated_signatures} commits"
             )?;
-            if let Some(mut formatter) = ui.status_formatter() {
+            if num_rebased_descendants > 0 {
                 writeln!(
                     formatter,
-                    "Updated signatures of {num_updated_signatures} commits"
+                    "Rebased {num_rebased_descendants} descendant commits"
                 )?;
-                if num_rebased_descendants > 0 {
-                    writeln!(
-                        formatter,
-                        "Rebased {num_rebased_descendants} descendant commits"
-                    )?;
-                }
             }
         }
     }
@@ -586,10 +582,11 @@ fn validate_commits_ready_to_push(
             }
             return Err(error);
         }
-        if let Some(sign_settings) = &sign_settings {
-            if !commit.is_signed() && sign_settings.should_sign(commit.store_commit()) {
-                commits_to_sign.push(commit);
-            }
+        if let Some(sign_settings) = &sign_settings
+            && !commit.is_signed()
+            && sign_settings.should_sign(commit.store_commit())
+        {
+            commits_to_sign.push(commit);
         }
     }
     Ok(commits_to_sign)
@@ -608,8 +605,9 @@ fn sign_commits_before_push(
     let commit_ids: IndexSet<CommitId> = commits_to_sign.iter().ids().cloned().collect();
     let mut old_to_new_commits_map: HashMap<CommitId, CommitId> = HashMap::new();
     let mut num_rebased_descendants = 0;
-    tx.repo_mut()
-        .transform_descendants(commit_ids.iter().cloned().collect_vec(), |rewriter| {
+    tx.repo_mut().transform_descendants(
+        commit_ids.iter().cloned().collect_vec(),
+        async |rewriter| {
             let old_commit_id = rewriter.old_commit().id().clone();
             if commit_ids.contains(&old_commit_id) {
                 let commit = rewriter
@@ -623,7 +621,8 @@ fn sign_commits_before_push(
                 old_to_new_commits_map.insert(old_commit_id, commit.id().clone());
             }
             Ok(())
-        })?;
+        },
+    )?;
 
     let bookmark_updates = bookmark_updates
         .into_iter()
@@ -878,7 +877,6 @@ fn create_change_bookmarks(
     ui: &Ui,
     tx: &mut WorkspaceCommandTransaction,
     changes: &[RevisionArg],
-    bookmark_prefix: &str,
 ) -> Result<Vec<RefNameBuf>, CommandError> {
     if changes.is_empty() {
         // NOTE: we don't want resolve_some_revsets_default_single to fail if the
@@ -886,31 +884,45 @@ fn create_change_bookmarks(
         return Ok(vec![]);
     }
 
-    let mut bookmark_names = Vec::new();
     let all_commits: Vec<_> = tx
         .base_workspace_helper()
         .resolve_some_revsets_default_single(ui, changes)?
         .iter()
         .map(|id| tx.repo().store().get_commit(id))
         .try_collect()?;
+    let bookmark_names: Vec<_> = {
+        let template_text = tx.settings().get_string("templates.git_push_bookmark")?;
+        let template = tx.parse_commit_template(ui, &template_text)?;
+        all_commits
+            .iter()
+            .map(|commit| {
+                let output = template.format_plain_text(commit);
+                let name = String::from_utf8(output).map_err(|err| {
+                    user_error_with_message("Invalid character in bookmark name", err.utf8_error())
+                })?;
+                if name.is_empty() {
+                    return Err(user_error("Empty bookmark name generated"));
+                }
+                Ok(RefNameBuf::from(name))
+            })
+            .try_collect()?
+    };
 
-    for commit in all_commits {
-        let short_change_id = short_change_hash(commit.change_id());
-        let name: RefNameBuf = format!("{bookmark_prefix}{short_change_id}").into();
+    for (commit, name) in iter::zip(&all_commits, &bookmark_names) {
         let target = RefTarget::normal(commit.id().clone());
         let view = tx.base_repo().view();
-        if view.get_local_bookmark(&name) == &target {
+        if view.get_local_bookmark(name) == &target {
             // Existing bookmark pointing to the commit, which is allowed
-        } else {
-            ensure_new_bookmark_name(view, &name)?;
-            writeln!(
-                ui.status(),
-                "Creating bookmark {name} for revision {short_change_id}",
-                name = name.as_symbol()
-            )?;
-            tx.repo_mut().set_local_bookmark_target(&name, target);
+            continue;
         }
-        bookmark_names.push(name);
+        ensure_new_bookmark_name(view, name)?;
+        writeln!(
+            ui.status(),
+            "Creating bookmark {name} for revision {change_id:.12}",
+            name = name.as_symbol(),
+            change_id = commit.change_id()
+        )?;
+        tx.repo_mut().set_local_bookmark_target(name, target);
     }
     Ok(bookmark_names)
 }

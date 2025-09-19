@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::cmp::Ordering;
 use std::fmt::Debug;
@@ -20,6 +20,7 @@ use std::fmt::Error;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::iter;
 use std::sync::Arc;
 
 use crate::backend::CommitId;
@@ -33,10 +34,12 @@ use crate::view::View;
 
 /// A wrapper around [`op_store::Operation`] that defines additional methods and
 /// stores a pointer to the `OpStore` the operation belongs to.
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize)]
 pub struct Operation {
+    #[serde(skip)]
     op_store: Arc<dyn OpStore>,
     id: OperationId,
+    #[serde(flatten)]
     data: Arc<op_store::Operation>, // allow cheap clone
 }
 
@@ -78,7 +81,7 @@ impl Operation {
         id: OperationId,
         data: impl Into<Arc<op_store::Operation>>,
     ) -> Self {
-        Operation {
+        Self {
             op_store,
             id,
             data: data.into(),
@@ -101,11 +104,11 @@ impl Operation {
         &self.data.parents
     }
 
-    pub fn parents(&self) -> impl ExactSizeIterator<Item = OpStoreResult<Operation>> + use<'_> {
+    pub fn parents(&self) -> impl ExactSizeIterator<Item = OpStoreResult<Self>> + use<'_> {
         let op_store = &self.op_store;
         self.data.parents.iter().map(|parent_id| {
             let data = op_store.read_operation(parent_id)?;
-            Ok(Operation::new(op_store.clone(), parent_id.clone(), data))
+            Ok(Self::new(op_store.clone(), parent_id.clone(), data))
         })
     }
 
@@ -129,6 +132,21 @@ impl Operation {
     pub fn predecessors_for_commit(&self, commit_id: &CommitId) -> Option<&[CommitId]> {
         let map = self.data.commit_predecessors.as_ref()?;
         Some(map.get(commit_id)?)
+    }
+
+    /// Iterates all commit ids referenced by this operation ignoring the view.
+    ///
+    /// Use this in addition to [`View::all_referenced_commit_ids()`] to build
+    /// commit index from scratch. The predecessor commit ids are also included,
+    /// which ensures that the old commits to be returned by
+    /// [`Self::predecessors_for_commit()`] are still reachable.
+    ///
+    /// The iteration order is unspecified.
+    pub fn all_referenced_commit_ids(&self) -> impl Iterator<Item = &CommitId> {
+        self.data.commit_predecessors.iter().flat_map(|map| {
+            map.iter()
+                .flat_map(|(new_id, old_ids)| iter::once(new_id).chain(old_ids))
+        })
     }
 
     pub fn store_operation(&self) -> &op_store::Operation {

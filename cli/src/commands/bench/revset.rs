@@ -12,19 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::rc::Rc;
+use std::sync::Arc;
 use std::time::Instant;
 
-use criterion::measurement::Measurement;
 use criterion::BatchSize;
 use criterion::BenchmarkGroup;
 use criterion::BenchmarkId;
-use jj_lib::revset::DefaultSymbolResolver;
+use criterion::measurement::Measurement;
+use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
 
-use super::new_criterion;
 use super::CriterionArgs;
+use super::new_criterion;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::WorkspaceCommandHelper;
@@ -85,11 +85,11 @@ fn bench_revset<M: Measurement>(
         .clone();
     // Time both evaluation and iteration.
     let routine = |workspace_command: &WorkspaceCommandHelper,
-                   expression: Rc<UserRevsetExpression>| {
+                   expression: Arc<UserRevsetExpression>| {
         // Evaluate the expression without parsing/evaluating short-prefixes.
         let repo = workspace_command.repo().as_ref();
         let symbol_resolver =
-            DefaultSymbolResolver::new(repo, &([] as [Box<dyn SymbolResolverExtension>; 0]));
+            SymbolResolver::new(repo, &([] as [Box<dyn SymbolResolverExtension>; 0]));
         let resolved = expression
             .resolve_user_expression(repo, &symbol_resolver)
             .unwrap();

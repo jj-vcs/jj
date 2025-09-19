@@ -17,8 +17,8 @@ use tracing::instrument;
 
 use super::ConfigLevelArgs;
 use crate::cli_util::CommandHelper;
-use crate::command_error::print_error_sources;
 use crate::command_error::CommandError;
+use crate::command_error::print_error_sources;
 use crate::ui::Ui;
 
 /// Start an editor on a jj config file.

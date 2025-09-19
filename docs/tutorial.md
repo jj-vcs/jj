@@ -86,7 +86,7 @@ instead of "Hello". Start by describing the change (adding a commit message) so
 we don't forget what we're working on:
 
 ```shell
-# This brings up $EDITOR (or `pico` or `Notepad` by default).
+# This brings up $EDITOR (or `nano` or `Notepad` by default).
 # Enter something like "Say goodbye" in the editor and then save the file and close
 # the editor.
 $ jj describe
@@ -405,12 +405,11 @@ $ jj op log
 [many more lines]
 ```
 
-The most useful command is `jj undo` (alias for `jj op undo`), which will undo
-an operation. By default, it will undo the most recent operation. Let's try it:
+The most useful command is `jj undo`, which will undo your last operation.
 
 ```shell
 $ jj undo
-Undid operation: d3b77addea49 (2025-05-12 00:27:27) squash commits into f7fb5943a6b9460eb106dba2fac5cac1625c6f7a
+Reverted operation: d3b77addea49 (2025-05-12 00:27:27) squash commits into f7fb5943a6b9460eb106dba2fac5cac1625c6f7a
 Working copy  (@) now at: zxoosnnp 63874fe6 (no description set)
 Parent commit (@-)      : puqltutt f7fb5943 (conflict) B2
 New conflicts appeared in 2 commits:
@@ -418,7 +417,7 @@ New conflicts appeared in 2 commits:
   puqltutt f7fb5943 (conflict) B2
 Hint: To resolve the conflicts, start by creating a commit on top of
 the first conflicted commit:
-  jj new nprznkxy
+  jj new puqltutt
 Then use `jj resolve`, or edit the conflict markers in the file directly.
 Once the conflicts are resolved, you can inspect the result with `jj diff`.
 Then run `jj squash` to move the resolution into the conflicted commit.
@@ -538,7 +537,7 @@ the `jj squash` command. That means that you can move any changes you want into
 the parent change, even if they touch the same word, and it won't cause any
 conflicts.
 
-Let's try one final command for changing the contents of an exiting commit. That
+Let's try one final command for changing the contents of an existing commit. That
 command is `jj diffedit`, which lets you edit the changes in a commit without
 checking it out.
 

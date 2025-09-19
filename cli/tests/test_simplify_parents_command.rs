@@ -14,8 +14,8 @@
 
 use test_case::test_case;
 
-use crate::common::create_commit;
 use crate::common::TestEnvironment;
+use crate::common::create_commit;
 
 #[test]
 fn test_simplify_parents_no_commits() {
@@ -200,8 +200,8 @@ fn test_simplify_parents_multiple_redundant_parents() {
     ------- stderr -------
     Removed 2 edges from 2 out of 2 commits.
     Rebased 2 descendant commits
-    Working copy  (@) now at: kmkuslsw 58e098e5 f | f
-    Parent commit (@-)      : znkkpsqq 374f4ddc e | e
+    Working copy  (@) now at: kmkuslsw 5ad764e9 f | f
+    Parent commit (@-)      : znkkpsqq 9102487c e | e
     [EOF]
     ");
 
@@ -224,8 +224,8 @@ fn test_simplify_parents_multiple_redundant_parents() {
     ------- stderr -------
     Removed 2 edges from 2 out of 4 commits.
     Rebased 2 descendant commits
-    Working copy  (@) now at: kmkuslsw 37ef137f f | f
-    Parent commit (@-)      : znkkpsqq b982b07d e | e
+    Working copy  (@) now at: kmkuslsw 2b2c1c63 f | f
+    Parent commit (@-)      : znkkpsqq 9142e3bb e | e
     [EOF]
     ");
 
@@ -276,8 +276,8 @@ fn test_simplify_parents_no_args() {
     ------- stderr -------
     Removed 2 edges from 2 out of 6 commits.
     Rebased 2 descendant commits
-    Working copy  (@) now at: kmkuslsw 58e098e5 f | f
-    Parent commit (@-)      : znkkpsqq 374f4ddc e | e
+    Working copy  (@) now at: kmkuslsw 5ad764e9 f | f
+    Parent commit (@-)      : znkkpsqq 9102487c e | e
     [EOF]
     ");
 
@@ -300,7 +300,7 @@ fn test_simplify_parents_no_args() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Removed 1 edges from 1 out of 3 commits.
-    Working copy  (@) now at: kmkuslsw 78ceb6e1 f | f
+    Working copy  (@) now at: kmkuslsw 1180d0f5 f | f
     Parent commit (@-)      : znkkpsqq 009aef72 e | e
     [EOF]
     ");

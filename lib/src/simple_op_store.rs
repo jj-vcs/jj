@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -38,9 +38,9 @@ use crate::backend::MillisSinceEpoch;
 use crate::backend::Timestamp;
 use crate::content_hash::blake2b_hash;
 use crate::dag_walk;
-use crate::file_util::persist_content_addressed_temp_file;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::file_util::persist_content_addressed_temp_file;
 use crate::merge::Merge;
 use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId;
@@ -57,6 +57,7 @@ use crate::op_store::RemoteRef;
 use crate::op_store::RemoteRefState;
 use crate::op_store::RemoteView;
 use crate::op_store::RootOperationData;
+use crate::op_store::TimestampRange;
 use crate::op_store::View;
 use crate::op_store::ViewId;
 use crate::ref_name::GitRefNameBuf;
@@ -76,7 +77,7 @@ pub struct SimpleOpStoreInitError(#[from] pub PathError);
 
 impl From<SimpleOpStoreInitError> for BackendInitError {
     fn from(err: SimpleOpStoreInitError) -> Self {
-        BackendInitError(err.into())
+        Self(err.into())
     }
 }
 
@@ -109,7 +110,7 @@ impl SimpleOpStore {
     }
 
     fn new(store_path: &Path, root_data: RootOperationData) -> Self {
-        SimpleOpStore {
+        Self {
             path: store_path.to_path_buf(),
             root_data,
             root_operation_id: OperationId::from_bytes(&[0; OPERATION_ID_LENGTH]),
@@ -156,9 +157,9 @@ impl OpStore for SimpleOpStore {
             .context(&path)
             .map_err(|err| io_to_read_error(err, id))?;
 
-        let proto = crate::protos::op_store::View::decode(&*buf)
+        let proto = crate::protos::simple_op_store::View::decode(&*buf)
             .map_err(|err| to_read_error(err.into(), id))?;
-        Ok(view_from_proto(proto))
+        view_from_proto(proto).map_err(|err| to_read_error(err.into(), id))
     }
 
     fn write_view(&self, view: &View) -> OpStoreResult<ViewId> {
@@ -193,7 +194,7 @@ impl OpStore for SimpleOpStore {
             .context(&path)
             .map_err(|err| io_to_read_error(err, id))?;
 
-        let proto = crate::protos::op_store::Operation::decode(&*buf)
+        let proto = crate::protos::simple_op_store::Operation::decode(&*buf)
             .map_err(|err| to_read_error(err.into(), id))?;
         let mut operation =
             operation_from_proto(proto).map_err(|err| to_read_error(err.into(), id))?;
@@ -254,7 +255,7 @@ impl OpStore for SimpleOpStore {
                 if !name.starts_with(&hex_prefix) {
                     continue;
                 }
-                let Ok(id) = OperationId::try_from_hex(&name) else {
+                let Some(id) = OperationId::try_from_hex(&name) else {
                     continue; // Skip invalid hex
                 };
                 if matched.is_some() {
@@ -277,11 +278,11 @@ impl OpStore for SimpleOpStore {
     fn gc(&self, head_ids: &[OperationId], keep_newer: SystemTime) -> OpStoreResult<()> {
         let to_op_id = |entry: &fs::DirEntry| -> Option<OperationId> {
             let name = entry.file_name().into_string().ok()?;
-            OperationId::try_from_hex(&name).ok()
+            OperationId::try_from_hex(name)
         };
         let to_view_id = |entry: &fs::DirEntry| -> Option<ViewId> {
             let name = entry.file_name().into_string().ok()?;
-            ViewId::try_from_hex(&name).ok()
+            ViewId::try_from_hex(name)
         };
         let remove_file_if_not_new = |entry: &fs::DirEntry| -> Result<(), PathError> {
             let path = entry.path();
@@ -358,7 +359,7 @@ impl OpStore for SimpleOpStore {
 }
 
 fn io_to_read_error(err: PathError, id: &impl ObjectId) -> OpStoreError {
-    if err.error.kind() == ErrorKind::NotFound {
+    if err.source.kind() == ErrorKind::NotFound {
         OpStoreError::ObjectNotFound {
             object_type: id.object_type(),
             hash: id.hex(),
@@ -391,6 +392,8 @@ fn io_to_write_error(err: PathError, object_type: &'static str) -> OpStoreError 
 enum PostDecodeError {
     #[error("Invalid hash length (expected {expected} bytes, got {actual} bytes)")]
     InvalidHashLength { expected: usize, actual: usize },
+    #[error("Invalid remote ref state value {0}")]
+    InvalidRemoteRefStateValue(i32),
 }
 
 fn operation_id_from_proto(bytes: Vec<u8>) -> Result<OperationId, PostDecodeError> {
@@ -415,14 +418,14 @@ fn view_id_from_proto(bytes: Vec<u8>) -> Result<ViewId, PostDecodeError> {
     }
 }
 
-fn timestamp_to_proto(timestamp: &Timestamp) -> crate::protos::op_store::Timestamp {
-    crate::protos::op_store::Timestamp {
+fn timestamp_to_proto(timestamp: &Timestamp) -> crate::protos::simple_op_store::Timestamp {
+    crate::protos::simple_op_store::Timestamp {
         millis_since_epoch: timestamp.timestamp.0,
         tz_offset: timestamp.tz_offset,
     }
 }
 
-fn timestamp_from_proto(proto: crate::protos::op_store::Timestamp) -> Timestamp {
+fn timestamp_from_proto(proto: crate::protos::simple_op_store::Timestamp) -> Timestamp {
     Timestamp {
         timestamp: MillisSinceEpoch(proto.millis_since_epoch),
         tz_offset: proto.tz_offset,
@@ -431,10 +434,10 @@ fn timestamp_from_proto(proto: crate::protos::op_store::Timestamp) -> Timestamp 
 
 fn operation_metadata_to_proto(
     metadata: &OperationMetadata,
-) -> crate::protos::op_store::OperationMetadata {
-    crate::protos::op_store::OperationMetadata {
-        start_time: Some(timestamp_to_proto(&metadata.start_time)),
-        end_time: Some(timestamp_to_proto(&metadata.end_time)),
+) -> crate::protos::simple_op_store::OperationMetadata {
+    crate::protos::simple_op_store::OperationMetadata {
+        start_time: Some(timestamp_to_proto(&metadata.time.start)),
+        end_time: Some(timestamp_to_proto(&metadata.time.end)),
         description: metadata.description.clone(),
         hostname: metadata.hostname.clone(),
         username: metadata.username.clone(),
@@ -444,13 +447,14 @@ fn operation_metadata_to_proto(
 }
 
 fn operation_metadata_from_proto(
-    proto: crate::protos::op_store::OperationMetadata,
+    proto: crate::protos::simple_op_store::OperationMetadata,
 ) -> OperationMetadata {
-    let start_time = timestamp_from_proto(proto.start_time.unwrap_or_default());
-    let end_time = timestamp_from_proto(proto.end_time.unwrap_or_default());
+    let time = TimestampRange {
+        start: timestamp_from_proto(proto.start_time.unwrap_or_default()),
+        end: timestamp_from_proto(proto.end_time.unwrap_or_default()),
+    };
     OperationMetadata {
-        start_time,
-        end_time,
+        time,
         description: proto.description,
         hostname: proto.hostname,
         username: proto.username,
@@ -461,10 +465,10 @@ fn operation_metadata_from_proto(
 
 fn commit_predecessors_map_to_proto(
     map: &BTreeMap<CommitId, Vec<CommitId>>,
-) -> Vec<crate::protos::op_store::CommitPredecessors> {
+) -> Vec<crate::protos::simple_op_store::CommitPredecessors> {
     map.iter()
         .map(
-            |(commit_id, predecessor_ids)| crate::protos::op_store::CommitPredecessors {
+            |(commit_id, predecessor_ids)| crate::protos::simple_op_store::CommitPredecessors {
                 commit_id: commit_id.to_bytes(),
                 predecessor_ids: predecessor_ids.iter().map(|id| id.to_bytes()).collect(),
             },
@@ -473,7 +477,7 @@ fn commit_predecessors_map_to_proto(
 }
 
 fn commit_predecessors_map_from_proto(
-    proto: Vec<crate::protos::op_store::CommitPredecessors>,
+    proto: Vec<crate::protos::simple_op_store::CommitPredecessors>,
 ) -> BTreeMap<CommitId, Vec<CommitId>> {
     proto
         .into_iter()
@@ -489,26 +493,23 @@ fn commit_predecessors_map_from_proto(
         .collect()
 }
 
-fn operation_to_proto(operation: &Operation) -> crate::protos::op_store::Operation {
+fn operation_to_proto(operation: &Operation) -> crate::protos::simple_op_store::Operation {
     let (commit_predecessors, stores_commit_predecessors) = match &operation.commit_predecessors {
         Some(map) => (commit_predecessors_map_to_proto(map), true),
         None => (vec![], false),
     };
-    let mut proto = crate::protos::op_store::Operation {
+    let parents = operation.parents.iter().map(|id| id.to_bytes()).collect();
+    crate::protos::simple_op_store::Operation {
         view_id: operation.view_id.as_bytes().to_vec(),
-        parents: Default::default(),
+        parents,
         metadata: Some(operation_metadata_to_proto(&operation.metadata)),
         commit_predecessors,
         stores_commit_predecessors,
-    };
-    for parent in &operation.parents {
-        proto.parents.push(parent.to_bytes());
     }
-    proto
 }
 
 fn operation_from_proto(
-    proto: crate::protos::op_store::Operation,
+    proto: crate::protos::simple_op_store::Operation,
 ) -> Result<Operation, PostDecodeError> {
     let parents = proto
         .parents
@@ -528,96 +529,121 @@ fn operation_from_proto(
     })
 }
 
-fn view_to_proto(view: &View) -> crate::protos::op_store::View {
-    let mut proto = crate::protos::op_store::View {
-        ..Default::default()
-    };
-    for (name, commit_id) in &view.wc_commit_ids {
-        proto
-            .wc_commit_ids
-            .insert(name.into(), commit_id.to_bytes());
-    }
-    for head_id in &view.head_ids {
-        proto.head_ids.push(head_id.to_bytes());
-    }
+fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
+    let wc_commit_ids = view
+        .wc_commit_ids
+        .iter()
+        .map(|(name, id)| (name.into(), id.to_bytes()))
+        .collect();
+    let head_ids = view.head_ids.iter().map(|id| id.to_bytes()).collect();
 
-    proto.bookmarks = bookmark_views_to_proto_legacy(&view.local_bookmarks, &view.remote_views);
+    let bookmarks = bookmark_views_to_proto_legacy(&view.local_bookmarks, &view.remote_views);
 
-    for (name, target) in &view.tags {
-        proto.tags.push(crate::protos::op_store::Tag {
+    let tags = view
+        .tags
+        .iter()
+        .map(|(name, target)| crate::protos::simple_op_store::Tag {
             name: name.into(),
             target: ref_target_to_proto(target),
-        });
+        })
+        .collect();
+
+    let git_refs = view
+        .git_refs
+        .iter()
+        .map(|(name, target)| {
+            #[expect(deprecated)]
+            crate::protos::simple_op_store::GitRef {
+                name: name.into(),
+                commit_id: Default::default(),
+                target: ref_target_to_proto(target),
+            }
+        })
+        .collect();
+
+    let git_head = ref_target_to_proto(&view.git_head);
+
+    #[expect(deprecated)]
+    crate::protos::simple_op_store::View {
+        head_ids,
+        wc_commit_id: Default::default(),
+        wc_commit_ids,
+        bookmarks,
+        tags,
+        git_refs,
+        git_head_legacy: Default::default(),
+        git_head,
     }
-
-    for (git_ref_name, target) in &view.git_refs {
-        proto.git_refs.push(crate::protos::op_store::GitRef {
-            name: git_ref_name.into(),
-            target: ref_target_to_proto(target),
-            ..Default::default()
-        });
-    }
-
-    proto.git_head = ref_target_to_proto(&view.git_head);
-
-    proto
 }
 
-fn view_from_proto(proto: crate::protos::op_store::View) -> View {
+fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, PostDecodeError> {
     // TODO: validate commit id length?
-    let mut view = View::empty();
     // For compatibility with old repos before we had support for multiple working
     // copies
+    let mut wc_commit_ids = BTreeMap::new();
     #[expect(deprecated)]
     if !proto.wc_commit_id.is_empty() {
-        view.wc_commit_ids.insert(
+        wc_commit_ids.insert(
             WorkspaceName::DEFAULT.to_owned(),
             CommitId::new(proto.wc_commit_id),
         );
     }
     for (name, commit_id) in proto.wc_commit_ids {
-        view.wc_commit_ids
-            .insert(WorkspaceNameBuf::from(name), CommitId::new(commit_id));
+        wc_commit_ids.insert(WorkspaceNameBuf::from(name), CommitId::new(commit_id));
     }
-    for head_id_bytes in proto.head_ids {
-        view.head_ids.insert(CommitId::new(head_id_bytes));
-    }
+    let head_ids = proto.head_ids.into_iter().map(CommitId::new).collect();
 
-    let (local_bookmarks, remote_views) = bookmark_views_from_proto_legacy(proto.bookmarks);
-    view.local_bookmarks = local_bookmarks;
-    view.remote_views = remote_views;
+    let (local_bookmarks, remote_views) = bookmark_views_from_proto_legacy(proto.bookmarks)?;
 
-    for tag_proto in proto.tags {
-        let name: RefNameBuf = tag_proto.name.into();
-        view.tags
-            .insert(name, ref_target_from_proto(tag_proto.target));
-    }
+    let tags = proto
+        .tags
+        .into_iter()
+        .map(|tag_proto| {
+            let name: RefNameBuf = tag_proto.name.into();
+            (name, ref_target_from_proto(tag_proto.target))
+        })
+        .collect();
 
-    for git_ref in proto.git_refs {
-        let name: GitRefNameBuf = git_ref.name.into();
-        let target = if git_ref.target.is_some() {
-            ref_target_from_proto(git_ref.target)
-        } else {
-            // Legacy format
-            RefTarget::normal(CommitId::new(git_ref.commit_id))
-        };
-        view.git_refs.insert(name, target);
-    }
+    let git_refs = proto
+        .git_refs
+        .into_iter()
+        .map(|git_ref| {
+            let name: GitRefNameBuf = git_ref.name.into();
+            let target = if git_ref.target.is_some() {
+                ref_target_from_proto(git_ref.target)
+            } else {
+                // Legacy format
+                #[expect(deprecated)]
+                RefTarget::normal(CommitId::new(git_ref.commit_id))
+            };
+            (name, target)
+        })
+        .collect();
 
     #[expect(deprecated)]
-    if proto.git_head.is_some() {
-        view.git_head = ref_target_from_proto(proto.git_head);
+    let git_head = if proto.git_head.is_some() {
+        ref_target_from_proto(proto.git_head)
     } else if !proto.git_head_legacy.is_empty() {
-        view.git_head = RefTarget::normal(CommitId::new(proto.git_head_legacy));
-    }
+        RefTarget::normal(CommitId::new(proto.git_head_legacy))
+    } else {
+        RefTarget::absent()
+    };
 
-    view
+    Ok(View {
+        head_ids,
+        local_bookmarks,
+        tags,
+        remote_views,
+        git_refs,
+        git_head,
+        wc_commit_ids,
+    })
 }
 
 fn bookmark_views_to_proto_legacy(
     local_bookmarks: &BTreeMap<RefNameBuf, RefTarget>,
     remote_views: &BTreeMap<RemoteNameBuf, RemoteView>,
-) -> Vec<crate::protos::op_store::Bookmark> {
+) -> Vec<crate::protos::simple_op_store::Bookmark> {
     op_store::merge_join_bookmark_views(local_bookmarks, remote_views)
         .map(|(name, bookmark_target)| {
             let local_target = ref_target_to_proto(bookmark_target.local_target);
@@ -625,14 +651,14 @@ fn bookmark_views_to_proto_legacy(
                 .remote_refs
                 .iter()
                 .map(
-                    |&(remote_name, remote_ref)| crate::protos::op_store::RemoteBookmark {
+                    |&(remote_name, remote_ref)| crate::protos::simple_op_store::RemoteBookmark {
                         remote_name: remote_name.into(),
                         target: ref_target_to_proto(&remote_ref.target),
-                        state: remote_ref_state_to_proto(remote_ref.state),
+                        state: Some(remote_ref_state_to_proto(remote_ref.state)),
                     },
                 )
                 .collect();
-            crate::protos::op_store::Bookmark {
+            crate::protos::simple_op_store::Bookmark {
                 name: name.into(),
                 local_target,
                 remote_bookmarks,
@@ -641,12 +667,14 @@ fn bookmark_views_to_proto_legacy(
         .collect()
 }
 
-fn bookmark_views_from_proto_legacy(
-    bookmarks_legacy: Vec<crate::protos::op_store::Bookmark>,
-) -> (
+type BookmarkViews = (
     BTreeMap<RefNameBuf, RefTarget>,
     BTreeMap<RemoteNameBuf, RemoteView>,
-) {
+);
+
+fn bookmark_views_from_proto_legacy(
+    bookmarks_legacy: Vec<crate::protos::simple_op_store::Bookmark>,
+) -> Result<BookmarkViews, PostDecodeError> {
     let mut local_bookmarks: BTreeMap<RefNameBuf, RefTarget> = BTreeMap::new();
     let mut remote_views: BTreeMap<RemoteNameBuf, RemoteView> = BTreeMap::new();
     for bookmark_proto in bookmarks_legacy {
@@ -654,27 +682,13 @@ fn bookmark_views_from_proto_legacy(
         let local_target = ref_target_from_proto(bookmark_proto.local_target);
         for remote_bookmark in bookmark_proto.remote_bookmarks {
             let remote_name: RemoteNameBuf = remote_bookmark.remote_name.into();
-            let state = remote_ref_state_from_proto(remote_bookmark.state).unwrap_or_else(|| {
-                // If local bookmark doesn't exist, we assume that the remote bookmark hasn't
-                // been merged because git.auto-local-bookmark was off. That's
-                // probably more common than deleted but yet-to-be-pushed local
-                // bookmark. Alternatively, we could read
-                // git.auto-local-bookmark setting here, but that wouldn't always work since the
-                // setting could be toggled after the bookmark got merged.
-                let is_git_tracking = crate::git::is_special_git_remote(&remote_name);
-                let default_state = if is_git_tracking || local_target.is_present() {
-                    RemoteRefState::Tracked
-                } else {
-                    RemoteRefState::New
-                };
-                tracing::trace!(
-                    ?bookmark_name,
-                    ?remote_name,
-                    ?default_state,
-                    "generated tracking state",
-                );
-                default_state
-            });
+            let state = match remote_bookmark.state {
+                Some(n) => remote_ref_state_from_proto(n)?,
+                // Legacy view saved by jj < 0.11. The proto field is not
+                // changed to non-optional type because that would break forward
+                // compatibility. Zero may be omitted if the field is optional.
+                None => RemoteRefState::New,
+            };
             let remote_view = remote_views.entry(remote_name).or_default();
             let remote_ref = RemoteRef {
                 target: ref_target_from_proto(remote_bookmark.target),
@@ -688,20 +702,21 @@ fn bookmark_views_from_proto_legacy(
             local_bookmarks.insert(bookmark_name, local_target);
         }
     }
-    (local_bookmarks, remote_views)
+    Ok((local_bookmarks, remote_views))
 }
 
-fn ref_target_to_proto(value: &RefTarget) -> Option<crate::protos::op_store::RefTarget> {
-    let term_to_proto = |term: &Option<CommitId>| crate::protos::op_store::ref_conflict::Term {
-        value: term.as_ref().map(|id| id.to_bytes()),
-    };
+fn ref_target_to_proto(value: &RefTarget) -> Option<crate::protos::simple_op_store::RefTarget> {
+    let term_to_proto =
+        |term: &Option<CommitId>| crate::protos::simple_op_store::ref_conflict::Term {
+            value: term.as_ref().map(|id| id.to_bytes()),
+        };
     let merge = value.as_merge();
-    let conflict_proto = crate::protos::op_store::RefConflict {
+    let conflict_proto = crate::protos::simple_op_store::RefConflict {
         removes: merge.removes().map(term_to_proto).collect(),
         adds: merge.adds().map(term_to_proto).collect(),
     };
-    let proto = crate::protos::op_store::RefTarget {
-        value: Some(crate::protos::op_store::ref_target::Value::Conflict(
+    let proto = crate::protos::simple_op_store::RefTarget {
+        value: Some(crate::protos::simple_op_store::ref_target::Value::Conflict(
             conflict_proto,
         )),
     };
@@ -710,23 +725,27 @@ fn ref_target_to_proto(value: &RefTarget) -> Option<crate::protos::op_store::Ref
 
 #[expect(deprecated)]
 #[cfg(test)]
-fn ref_target_to_proto_legacy(value: &RefTarget) -> Option<crate::protos::op_store::RefTarget> {
+fn ref_target_to_proto_legacy(
+    value: &RefTarget,
+) -> Option<crate::protos::simple_op_store::RefTarget> {
     if let Some(id) = value.as_normal() {
-        let proto = crate::protos::op_store::RefTarget {
-            value: Some(crate::protos::op_store::ref_target::Value::CommitId(
+        let proto = crate::protos::simple_op_store::RefTarget {
+            value: Some(crate::protos::simple_op_store::ref_target::Value::CommitId(
                 id.to_bytes(),
             )),
         };
         Some(proto)
     } else if value.has_conflict() {
-        let ref_conflict_proto = crate::protos::op_store::RefConflictLegacy {
+        let ref_conflict_proto = crate::protos::simple_op_store::RefConflictLegacy {
             removes: value.removed_ids().map(|id| id.to_bytes()).collect(),
             adds: value.added_ids().map(|id| id.to_bytes()).collect(),
         };
-        let proto = crate::protos::op_store::RefTarget {
-            value: Some(crate::protos::op_store::ref_target::Value::ConflictLegacy(
-                ref_conflict_proto,
-            )),
+        let proto = crate::protos::simple_op_store::RefTarget {
+            value: Some(
+                crate::protos::simple_op_store::ref_target::Value::ConflictLegacy(
+                    ref_conflict_proto,
+                ),
+            ),
         };
         Some(proto)
     } else {
@@ -735,7 +754,9 @@ fn ref_target_to_proto_legacy(value: &RefTarget) -> Option<crate::protos::op_sto
     }
 }
 
-fn ref_target_from_proto(maybe_proto: Option<crate::protos::op_store::RefTarget>) -> RefTarget {
+fn ref_target_from_proto(
+    maybe_proto: Option<crate::protos::simple_op_store::RefTarget>,
+) -> RefTarget {
     // TODO: Delete legacy format handling when we decide to drop support for views
     // saved by jj <= 0.8.
     let Some(proto) = maybe_proto else {
@@ -743,20 +764,21 @@ fn ref_target_from_proto(maybe_proto: Option<crate::protos::op_store::RefTarget>
         return RefTarget::absent();
     };
     match proto.value.unwrap() {
-        crate::protos::op_store::ref_target::Value::CommitId(id) => {
+        crate::protos::simple_op_store::ref_target::Value::CommitId(id) => {
             // Legacy non-conflicting id
             RefTarget::normal(CommitId::new(id))
         }
         #[expect(deprecated)]
-        crate::protos::op_store::ref_target::Value::ConflictLegacy(conflict) => {
+        crate::protos::simple_op_store::ref_target::Value::ConflictLegacy(conflict) => {
             // Legacy conflicting ids
             let removes = conflict.removes.into_iter().map(CommitId::new);
             let adds = conflict.adds.into_iter().map(CommitId::new);
             RefTarget::from_legacy_form(removes, adds)
         }
-        crate::protos::op_store::ref_target::Value::Conflict(conflict) => {
-            let term_from_proto =
-                |term: crate::protos::op_store::ref_conflict::Term| term.value.map(CommitId::new);
+        crate::protos::simple_op_store::ref_target::Value::Conflict(conflict) => {
+            let term_from_proto = |term: crate::protos::simple_op_store::ref_conflict::Term| {
+                term.value.map(CommitId::new)
+            };
             let removes = conflict.removes.into_iter().map(term_from_proto);
             let adds = conflict.adds.into_iter().map(term_from_proto);
             RefTarget::from_merge(Merge::from_removes_adds(removes, adds))
@@ -764,21 +786,23 @@ fn ref_target_from_proto(maybe_proto: Option<crate::protos::op_store::RefTarget>
     }
 }
 
-fn remote_ref_state_to_proto(state: RemoteRefState) -> Option<i32> {
+fn remote_ref_state_to_proto(state: RemoteRefState) -> i32 {
     let proto_state = match state {
-        RemoteRefState::New => crate::protos::op_store::RemoteRefState::New,
-        RemoteRefState::Tracked => crate::protos::op_store::RemoteRefState::Tracked,
+        RemoteRefState::New => crate::protos::simple_op_store::RemoteRefState::New,
+        RemoteRefState::Tracked => crate::protos::simple_op_store::RemoteRefState::Tracked,
     };
-    Some(proto_state as i32)
+    proto_state as i32
 }
 
-fn remote_ref_state_from_proto(proto_value: Option<i32>) -> Option<RemoteRefState> {
-    let proto_state = proto_value?.try_into().ok()?;
+fn remote_ref_state_from_proto(proto_value: i32) -> Result<RemoteRefState, PostDecodeError> {
+    let proto_state = proto_value
+        .try_into()
+        .map_err(|prost::UnknownEnumValue(n)| PostDecodeError::InvalidRemoteRefStateValue(n))?;
     let state = match proto_state {
-        crate::protos::op_store::RemoteRefState::New => RemoteRefState::New,
-        crate::protos::op_store::RemoteRefState::Tracked => RemoteRefState::Tracked,
+        crate::protos::simple_op_store::RemoteRefState::New => RemoteRefState::New,
+        crate::protos::simple_op_store::RemoteRefState::Tracked => RemoteRefState::Tracked,
     };
-    Some(state)
+    Ok(state)
 }
 
 #[cfg(test)]
@@ -790,6 +814,7 @@ mod tests {
     use maplit::hashset;
 
     use super::*;
+    use crate::hex_util;
     use crate::tests::new_temp_dir;
 
     fn create_view() -> View {
@@ -844,7 +869,7 @@ mod tests {
 
     fn create_operation() -> Operation {
         let pad_id_bytes = |hex: &str, len: usize| {
-            let mut bytes = hex::decode(hex).unwrap();
+            let mut bytes = hex_util::decode_hex(hex).unwrap();
             bytes.resize(len, b'\0');
             bytes
         };
@@ -855,13 +880,15 @@ mod tests {
                 OperationId::new(pad_id_bytes("bbb222", OPERATION_ID_LENGTH)),
             ],
             metadata: OperationMetadata {
-                start_time: Timestamp {
-                    timestamp: MillisSinceEpoch(123456789),
-                    tz_offset: 3600,
-                },
-                end_time: Timestamp {
-                    timestamp: MillisSinceEpoch(123456800),
-                    tz_offset: 3600,
+                time: TimestampRange {
+                    start: Timestamp {
+                        timestamp: MillisSinceEpoch(123456789),
+                        tz_offset: 3600,
+                    },
+                    end: Timestamp {
+                        timestamp: MillisSinceEpoch(123456800),
+                        tz_offset: 3600,
+                    },
                 },
                 description: "check out foo".to_string(),
                 hostname: "some.host.example.com".to_string(),
@@ -977,7 +1004,7 @@ mod tests {
         );
 
         let (local_bookmarks_reconstructed, remote_views_reconstructed) =
-            bookmark_views_from_proto_legacy(bookmarks_legacy);
+            bookmark_views_from_proto_legacy(bookmarks_legacy).unwrap();
         assert_eq!(local_bookmarks_reconstructed, local_bookmarks);
         assert_eq!(remote_views_reconstructed, remote_views);
     }

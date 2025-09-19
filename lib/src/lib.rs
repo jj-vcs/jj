@@ -31,6 +31,7 @@ pub mod content_hash;
 pub mod absorb;
 pub mod annotate;
 pub mod backend;
+pub mod bisect;
 pub mod commit;
 pub mod commit_builder;
 pub mod config;
@@ -42,6 +43,8 @@ pub mod default_index;
 pub mod default_submodule_store;
 pub mod diff;
 pub mod dsl_util;
+pub(crate) mod eol;
+pub mod evolution;
 pub mod extensions_map;
 pub mod file_util;
 pub mod files;
@@ -98,6 +101,7 @@ pub mod rewrite;
 pub mod secret_backend;
 pub mod settings;
 pub mod signing;
+pub mod tree_merge;
 // TODO: This file is mostly used for testing, whenever we no longer require it
 // in the lib it should be moved to the examples (e.g
 // "examples/simple-backend/").

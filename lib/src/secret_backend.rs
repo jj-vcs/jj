@@ -30,8 +30,8 @@ use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::Commit;
 use crate::backend::CommitId;
-use crate::backend::Conflict;
-use crate::backend::ConflictId;
+use crate::backend::CopyHistory;
+use crate::backend::CopyId;
 use crate::backend::CopyRecord;
 use crate::backend::FileId;
 use crate::backend::SigningFn;
@@ -67,7 +67,7 @@ impl SecretBackend {
     /// Loads the backend from the given path.
     pub fn load(settings: &UserSettings, store_path: &Path) -> Result<Self, BackendLoadError> {
         let inner = GitBackend::load(settings, store_path)?;
-        Ok(SecretBackend { inner })
+        Ok(Self { inner })
     }
 
     /// Convert a git repo to using `SecretBackend`
@@ -92,7 +92,7 @@ impl Backend for SecretBackend {
     }
 
     fn name(&self) -> &str {
-        SecretBackend::name()
+        Self::name()
     }
 
     fn commit_id_length(&self) -> usize {
@@ -123,7 +123,7 @@ impl Backend for SecretBackend {
         &self,
         path: &RepoPath,
         id: &FileId,
-    ) -> BackendResult<Pin<Box<dyn AsyncRead>>> {
+    ) -> BackendResult<Pin<Box<dyn AsyncRead + Send>>> {
         if path.as_internal_file_string().contains("secret")
             || SECRET_CONTENTS_HEX.contains(&id.hex().as_ref())
         {
@@ -161,20 +161,30 @@ impl Backend for SecretBackend {
         self.inner.write_symlink(path, target).await
     }
 
+    async fn read_copy(&self, _id: &CopyId) -> BackendResult<CopyHistory> {
+        Err(BackendError::Unsupported(
+            "The secret backend doesn't support copies".to_string(),
+        ))
+    }
+
+    async fn write_copy(&self, _contents: &CopyHistory) -> BackendResult<CopyId> {
+        Err(BackendError::Unsupported(
+            "The secret backend doesn't support copies".to_string(),
+        ))
+    }
+
+    async fn get_related_copies(&self, _copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>> {
+        Err(BackendError::Unsupported(
+            "The secret backend doesn't support copies".to_string(),
+        ))
+    }
+
     async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> BackendResult<Tree> {
         self.inner.read_tree(path, id).await
     }
 
     async fn write_tree(&self, path: &RepoPath, contents: &Tree) -> BackendResult<TreeId> {
         self.inner.write_tree(path, contents).await
-    }
-
-    fn read_conflict(&self, path: &RepoPath, id: &ConflictId) -> BackendResult<Conflict> {
-        self.inner.read_conflict(path, id)
-    }
-
-    fn write_conflict(&self, path: &RepoPath, contents: &Conflict) -> BackendResult<ConflictId> {
-        self.inner.write_conflict(path, contents)
     }
 
     async fn read_commit(&self, id: &CommitId) -> BackendResult<Commit> {
@@ -194,7 +204,7 @@ impl Backend for SecretBackend {
         paths: Option<&[RepoPathBuf]>,
         root: &CommitId,
         head: &CommitId,
-    ) -> BackendResult<BoxStream<BackendResult<CopyRecord>>> {
+    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
         self.inner.get_copy_records(paths, root, head)
     }
 

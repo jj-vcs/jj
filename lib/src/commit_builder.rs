@@ -12,20 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::sync::Arc;
 
 use pollster::FutureExt as _;
 
 use crate::backend;
+use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::backend::MergedTreeId;
 use crate::backend::Signature;
-use crate::commit::is_backend_commit_empty;
 use crate::commit::Commit;
+use crate::commit::is_backend_commit_empty;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::settings::JJRng;
@@ -45,6 +46,14 @@ impl CommitBuilder<'_> {
     /// order to obtain a temporary commit object.
     pub fn detach(self) -> DetachedCommitBuilder {
         self.inner
+    }
+
+    /// Clears the source commit to not record new commit as rewritten from it.
+    ///
+    /// The caller should also assign new change id to not create divergence.
+    pub fn clear_rewrite_source(mut self) -> Self {
+        self.inner.clear_rewrite_source();
+        self
     }
 
     pub fn parents(&self) -> &[CommitId] {
@@ -188,7 +197,7 @@ impl DetachedCommitBuilder {
             committer: signature,
             secure_sig: None,
         };
-        DetachedCommitBuilder {
+        Self {
             store,
             rng,
             commit,
@@ -231,7 +240,7 @@ impl DetachedCommitBuilder {
             commit.author.timestamp = commit.committer.timestamp;
         }
 
-        DetachedCommitBuilder {
+        Self {
             store,
             commit,
             rng: settings.get_rng(),
@@ -247,6 +256,13 @@ impl DetachedCommitBuilder {
             mut_repo,
             inner: self,
         }
+    }
+
+    /// Clears the source commit to not record new commit as rewritten from it.
+    ///
+    /// The caller should also assign new change id to not create divergence.
+    pub fn clear_rewrite_source(&mut self) {
+        self.rewrite_source = None;
     }
 
     pub fn parents(&self) -> &[CommitId] {
@@ -349,13 +365,21 @@ impl DetachedCommitBuilder {
 
     /// Writes new commit and makes it visible in the `mut_repo`.
     pub fn write(self, mut_repo: &mut MutableRepo) -> BackendResult<Commit> {
+        let predecessors = self.commit.predecessors.clone();
         let commit = write_to_store(&self.store, self.commit, &self.sign_settings)?;
+        // FIXME: Google's index.has_id() always returns true.
+        if mut_repo.is_backed_by_default_index() && mut_repo.index().has_id(commit.id()) {
+            // Recording existing commit as new would create cycle in
+            // predecessors/parent mappings within the current transaction, and
+            // in predecessors graph globally.
+            return Err(BackendError::Other(
+                format!("Newly-created commit {id} already exists", id = commit.id()).into(),
+            ));
+        }
         mut_repo.add_head(&commit)?;
-        mut_repo.set_predecessors(commit.id().clone(), commit.predecessor_ids().to_vec());
+        mut_repo.set_predecessors(commit.id().clone(), predecessors);
         if let Some(rewrite_source) = self.rewrite_source {
-            if rewrite_source.change_id() == commit.change_id() {
-                mut_repo.set_rewritten_commit(rewrite_source.id().clone(), commit.id().clone());
-            }
+            mut_repo.set_rewritten_commit(rewrite_source.id().clone(), commit.id().clone());
         }
         Ok(commit)
     }
@@ -375,12 +399,8 @@ impl DetachedCommitBuilder {
     pub fn abandon(self, mut_repo: &mut MutableRepo) {
         let commit = self.commit;
         if let Some(rewrite_source) = &self.rewrite_source {
-            if rewrite_source.change_id() == &commit.change_id {
-                mut_repo.record_abandoned_commit_with_parents(
-                    rewrite_source.id().clone(),
-                    commit.parents,
-                );
-            }
+            mut_repo
+                .record_abandoned_commit_with_parents(rewrite_source.id().clone(), commit.parents);
         }
     }
 }

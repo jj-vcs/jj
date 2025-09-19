@@ -36,12 +36,15 @@ jobs:
         - build: win-x86_64
           os: windows-2022
           target: x86_64-pc-windows-msvc
+        - build: win-aarch64
+          os: windows-11-arm
+          target: aarch64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20 # NOTE (aseipp): tests aren't run but sometimes builds take a while
 
     name: Build binary artifacts
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
         with:
           persist-credentials: false
       - name: Install packages (Ubuntu)
@@ -50,7 +53,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends xz-utils liblz4-tool musl-tools
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
           toolchain: stable
           target: ${{ matrix.target }}
@@ -63,7 +66,7 @@ jobs:
         run: |
           outdir="target/${{ matrix.target }}/release"
           BIN=$outdir/jj
-          [[ "${{ matrix.os }}" == "windows-latest" ]] && BIN+=".exe"
+          [[ "${{ matrix.os }}" == windows* ]] && BIN+=".exe"
 
           mkdir -p target/out
           cp $BIN target/out

@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use indoc::indoc;
-
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
@@ -24,19 +22,6 @@ fn test_templater_parse_error() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     let render = |template| get_template_output(&work_dir, "@-", template);
-
-    insta::assert_snapshot!(render(r#"description ()"#), @r"
-    ------- stderr -------
-    Error: Failed to parse template: Syntax error
-    Caused by:  --> 1:13
-      |
-    1 | description ()
-      |             ^---
-      |
-      = expected <EOI>, `++`, `||`, `&&`, `==`, `!=`, `>=`, `>`, `<=`, `<`, `+`, `-`, `*`, `/`, or `%`
-    [EOF]
-    [exit status: 1]
-    ");
 
     // Typo
     test_env.add_config(
@@ -146,38 +131,9 @@ fn test_templater_parse_error() {
       | ^-----^
       |
       = Keyword `builtin` doesn't exist
-    Hint: Did you mean `builtin_config_list`, `builtin_config_list_detailed`, `builtin_draft_commit_description`, `builtin_log_comfortable`, `builtin_log_compact`, `builtin_log_compact_full_description`, `builtin_log_detailed`, `builtin_log_node`, `builtin_log_node_ascii`, `builtin_log_oneline`, `builtin_op_log_comfortable`, `builtin_op_log_compact`, `builtin_op_log_node`, `builtin_op_log_node_ascii`, `builtin_op_log_oneline`?
+    Hint: Did you mean `builtin_config_list`, `builtin_config_list_detailed`, `builtin_draft_commit_description`, `builtin_evolog_compact`, `builtin_log_comfortable`, `builtin_log_compact`, `builtin_log_compact_full_description`, `builtin_log_detailed`, `builtin_log_node`, `builtin_log_node_ascii`, `builtin_log_oneline`, `builtin_log_redacted`, `builtin_op_log_comfortable`, `builtin_op_log_compact`, `builtin_op_log_node`, `builtin_op_log_node_ascii`, `builtin_op_log_oneline`, `builtin_op_log_redacted`?
     [EOF]
     [exit status: 1]
-    ");
-}
-
-#[test]
-fn test_template_parse_warning() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-
-    let template = indoc! {r#"
-        separate(' ',
-          author.username(),
-        )
-    "#};
-    let output = work_dir.run_jj(["log", "-r@", "-T", template]);
-    insta::assert_snapshot!(output, @r"
-    @  test.user
-    │
-    ~
-    [EOF]
-    ------- stderr -------
-    Warning: In template expression
-     --> 2:10
-      |
-    2 |   author.username(),
-      |          ^------^
-      |
-      = username() is deprecated; use email().local() instead
-    [EOF]
     ");
 }
 
@@ -213,9 +169,10 @@ fn test_templater_alias() {
     'recurse2()' = 'recurse'
     'identity(x)' = 'x'
     'coalesce(x, y)' = 'if(x, x, y)'
-    'deprecated()' = 'author.username()'
     'builtin_log_node' = '"#"'
     'builtin_op_log_node' = '"#"'
+    'builtin_log_node_ascii' = '"#"'
+    'builtin_op_log_node_ascii' = '"#"'
     "###,
     );
 
@@ -402,29 +359,6 @@ fn test_templater_alias() {
     [EOF]
     [exit status: 1]
     ");
-
-    let output = work_dir.run_jj(["log", "-r@", "-Tdeprecated()"]);
-    insta::assert_snapshot!(output, @r"
-    #  test.user
-    │
-    ~
-    [EOF]
-    ------- stderr -------
-    Warning: In template expression
-     --> 1:1
-      |
-    1 | deprecated()
-      | ^----------^
-      |
-      = In alias `deprecated()`
-     --> 1:8
-      |
-    1 | author.username()
-      |        ^------^
-      |
-      = username() is deprecated; use email().local() instead
-    [EOF]
-    ");
 }
 
 #[test]
@@ -509,7 +443,7 @@ fn test_templater_config_function() {
       |
     1 | invalid name
       |         ^
-
+    unexpected content, expected nothing
 
     [EOF]
     [exit status: 1]

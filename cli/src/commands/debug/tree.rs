@@ -22,8 +22,8 @@ use jj_lib::repo_path::RepoPathBuf;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::ui::Ui;
 
 /// List the recursive entries of a tree.
@@ -48,7 +48,7 @@ pub fn cmd_debug_tree(
     let workspace_command = command.workspace_helper(ui)?;
     let tree = if let Some(tree_id_hex) = &args.id {
         let tree_id =
-            TreeId::try_from_hex(tree_id_hex).map_err(|_| user_error("Invalid tree id"))?;
+            TreeId::try_from_hex(tree_id_hex).ok_or_else(|| user_error("Invalid tree id"))?;
         let dir = if let Some(dir_str) = &args.dir {
             workspace_command.parse_file_path(dir_str)?
         } else {

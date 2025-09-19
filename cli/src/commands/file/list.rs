@@ -50,7 +50,11 @@ pub(crate) struct FileListArgs {
     template: Option<String>,
 
     /// Only list files matching these prefixes (instead of all files)
-    #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
+    #[arg(
+        value_name = "FILESETS",
+        value_hint = clap::ValueHint::AnyPath,
+        add = ArgValueCompleter::new(complete::all_revision_files)
+    )]
     paths: Vec<String>,
 }
 

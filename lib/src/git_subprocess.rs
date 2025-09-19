@@ -28,7 +28,9 @@ use bstr::ByteSlice as _;
 use itertools::Itertools as _;
 use thiserror::Error;
 
+use crate::git::FetchTagsOverride;
 use crate::git::GitPushStats;
+use crate::git::NegativeRefSpec;
 use crate::git::Progress;
 use crate::git::RefSpec;
 use crate::git::RefToPush;
@@ -82,7 +84,7 @@ pub(crate) struct GitSubprocessContext<'a> {
 
 impl<'a> GitSubprocessContext<'a> {
     pub(crate) fn new(git_dir: impl Into<PathBuf>, git_executable_path: &'a Path) -> Self {
-        GitSubprocessContext {
+        Self {
             git_dir: git_dir.into(),
             git_executable_path,
         }
@@ -101,7 +103,7 @@ impl<'a> GitSubprocessContext<'a> {
         // Hide console window on Windows (https://stackoverflow.com/a/60958956)
         #[cfg(windows)]
         {
-            use std::os::windows::process::CommandExt;
+            use std::os::windows::process::CommandExt as _;
             const CREATE_NO_WINDOW: u32 = 0x08000000;
             git_cmd.creation_flags(CREATE_NO_WINDOW);
         }
@@ -159,8 +161,10 @@ impl<'a> GitSubprocessContext<'a> {
         &self,
         remote_name: &RemoteName,
         refspecs: &[RefSpec],
+        negative_refspecs: &[NegativeRefSpec],
         callbacks: &mut RemoteCallbacks<'_>,
         depth: Option<NonZeroU32>,
+        fetch_tags_override: Option<FetchTagsOverride>,
     ) -> Result<Option<String>, GitSubprocessError> {
         if refspecs.is_empty() {
             return Ok(None);
@@ -176,8 +180,22 @@ impl<'a> GitSubprocessContext<'a> {
         if let Some(d) = depth {
             command.arg(format!("--depth={d}"));
         }
+        match fetch_tags_override {
+            Some(FetchTagsOverride::AllTags) => {
+                command.arg("--tags");
+            }
+            Some(FetchTagsOverride::NoTags) => {
+                command.arg("--no-tags");
+            }
+            None => {}
+        }
         command.arg("--").arg(remote_name.as_str());
-        command.args(refspecs.iter().map(|x| x.to_git_format()));
+        command.args(
+            refspecs
+                .iter()
+                .map(|x| x.to_git_format())
+                .chain(negative_refspecs.iter().map(|x| x.to_git_format())),
+        );
 
         let output = wait_with_progress(self.spawn_cmd(command)?, callbacks)?;
 
@@ -625,7 +643,11 @@ impl GitProgress {
     fn to_progress(&self) -> Progress {
         Progress {
             bytes_downloaded: None,
-            overall: self.fraction() as f32 / self.total() as f32,
+            overall: if self.total() != 0 {
+                self.fraction() as f32 / self.total() as f32
+            } else {
+                0.0
+            },
         }
     }
 
@@ -917,8 +939,10 @@ Done";
         let (output, sideband, progress) = read(sample.as_bytes());
         assert_eq!(
             sideband,
-            ["line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"]
-                .map(|s| s.as_bytes().to_owned())
+            [
+                "line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"
+            ]
+            .map(|s| s.as_bytes().to_owned())
         );
         assert_eq!(output, b"blah blah\nsome error message\n");
         insta::assert_debug_snapshot!(progress, @r"
@@ -934,8 +958,10 @@ Done";
         let (output, sideband, _progress) = read(sample.as_bytes().trim_end());
         assert_eq!(
             sideband,
-            ["line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"]
-                .map(|s| s.as_bytes().to_owned())
+            [
+                "line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"
+            ]
+            .map(|s| s.as_bytes().to_owned())
         );
         assert_eq!(output, b"blah blah\nsome error message");
     }
@@ -969,5 +995,10 @@ Done";
             "abc".to_string()
         );
         assert!(parse_unknown_option(b"error: unknown option: 'abc'").is_none());
+    }
+
+    #[test]
+    fn test_initial_overall_progress_is_zero() {
+        assert_eq!(GitProgress::default().to_progress().overall, 0.0);
     }
 }

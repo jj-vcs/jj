@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::fmt::Debug;
 use std::fmt::Error;
@@ -22,21 +22,13 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
-use tokio::io::AsyncReadExt as _;
-use tracing::instrument;
 
 use crate::backend;
-use crate::backend::BackendError;
 use crate::backend::BackendResult;
-use crate::backend::ConflictId;
 use crate::backend::TreeEntriesNonRecursiveIterator;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
-use crate::files;
-use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
-use crate::merge::MergedTreeVal;
-use crate::object_id::ObjectId as _;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;
@@ -76,7 +68,7 @@ impl Hash for Tree {
 
 impl Tree {
     pub fn new(store: Arc<Store>, dir: RepoPathBuf, id: TreeId, data: Arc<backend::Tree>) -> Self {
-        Tree {
+        Self {
             store,
             dir,
             id,
@@ -86,7 +78,7 @@ impl Tree {
 
     pub fn empty(store: Arc<Store>, dir: RepoPathBuf) -> Self {
         let id = store.empty_tree_id().clone();
-        Tree {
+        Self {
             store,
             dir,
             id,
@@ -110,7 +102,7 @@ impl Tree {
         &self.data
     }
 
-    pub fn entries_non_recursive(&self) -> TreeEntriesNonRecursiveIterator {
+    pub fn entries_non_recursive(&self) -> TreeEntriesNonRecursiveIterator<'_> {
         self.data.entries()
     }
 
@@ -136,7 +128,7 @@ impl Tree {
         }
     }
 
-    pub fn sub_tree(&self, name: &RepoPathComponent) -> BackendResult<Option<Tree>> {
+    pub fn sub_tree(&self, name: &RepoPathComponent) -> BackendResult<Option<Self>> {
         if let Some(sub_tree) = self.data.value(name) {
             match sub_tree {
                 TreeValue::Tree(sub_tree_id) => {
@@ -151,12 +143,12 @@ impl Tree {
         }
     }
 
-    fn known_sub_tree(&self, subdir: RepoPathBuf, id: &TreeId) -> Tree {
+    fn known_sub_tree(&self, subdir: RepoPathBuf, id: &TreeId) -> Self {
         self.store.get_tree(subdir, id).unwrap()
     }
 
     /// Look up the tree at the given path.
-    pub fn sub_tree_recursive(&self, path: &RepoPath) -> BackendResult<Option<Tree>> {
+    pub fn sub_tree_recursive(&self, path: &RepoPath) -> BackendResult<Option<Self>> {
         let mut current_tree = self.clone();
         for name in path.components() {
             match current_tree.sub_tree(name)? {
@@ -172,25 +164,6 @@ impl Tree {
         // then we would have to figure out how to share Tree instances
         // across threads.
         Ok(Some(current_tree))
-    }
-
-    pub fn conflicts_matching(&self, matcher: &dyn Matcher) -> Vec<(RepoPathBuf, ConflictId)> {
-        let mut conflicts = vec![];
-        for (name, value) in self.entries_matching(matcher) {
-            if let TreeValue::Conflict(id) = value {
-                conflicts.push((name.clone(), id.clone()));
-            }
-        }
-        conflicts
-    }
-
-    #[instrument]
-    pub fn conflicts(&self) -> Vec<(RepoPathBuf, ConflictId)> {
-        self.conflicts_matching(&EverythingMatcher)
-    }
-
-    pub fn has_conflict(&self) -> bool {
-        !self.conflicts().is_empty()
     }
 }
 
@@ -251,76 +224,5 @@ impl Iterator for TreeEntriesIterator<'_> {
             }
         }
         None
-    }
-}
-
-/// Resolves file-level conflict by merging content hunks.
-///
-/// The input `conflict` is supposed to be simplified. It shouldn't contain
-/// non-file values that cancel each other.
-pub async fn try_resolve_file_conflict(
-    store: &Store,
-    filename: &RepoPath,
-    conflict: &MergedTreeVal<'_>,
-) -> BackendResult<Option<TreeValue>> {
-    // If there are any non-file or any missing parts in the conflict, we can't
-    // merge it. We check early so we don't waste time reading file contents if
-    // we can't merge them anyway. At the same time we determine whether the
-    // resulting file should be executable.
-    let Ok(file_id_conflict) = conflict.try_map(|term| match term {
-        Some(TreeValue::File { id, executable: _ }) => Ok(id),
-        _ => Err(()),
-    }) else {
-        return Ok(None);
-    };
-    let Ok(executable_conflict) = conflict.try_map(|term| match term {
-        Some(TreeValue::File { id: _, executable }) => Ok(executable),
-        _ => Err(()),
-    }) else {
-        return Ok(None);
-    };
-    let Some(&&executable) = executable_conflict.resolve_trivial() else {
-        // We're unable to determine whether the result should be executable
-        return Ok(None);
-    };
-    if let Some(&resolved_file_id) = file_id_conflict.resolve_trivial() {
-        // Don't bother reading the file contents if the conflict can be trivially
-        // resolved.
-        return Ok(Some(TreeValue::File {
-            id: resolved_file_id.clone(),
-            executable,
-        }));
-    }
-
-    // While the input conflict should be simplified by caller, it might contain
-    // terms which only differ in executable bits. Simplify the conflict further
-    // for two reasons:
-    // 1. Avoid reading unchanged file contents
-    // 2. The simplified conflict can sometimes be resolved when the unsimplfied one
-    //    cannot
-    let file_id_conflict = file_id_conflict.simplify();
-
-    let contents = file_id_conflict
-        .try_map_async(|file_id| async {
-            let mut content = vec![];
-            let mut reader = store.read_file(filename, file_id).await?;
-            reader
-                .read_to_end(&mut content)
-                .await
-                .map_err(|err| BackendError::ReadObject {
-                    object_type: file_id.object_type(),
-                    hash: file_id.hex(),
-                    source: err.into(),
-                })?;
-            BackendResult::Ok(content)
-        })
-        .await?;
-    if let Some(merged_content) = files::try_merge(&contents) {
-        let id = store
-            .write_file(filename, &mut merged_content.as_slice())
-            .await?;
-        Ok(Some(TreeValue::File { id, executable }))
-    } else {
-        Ok(None)
     }
 }

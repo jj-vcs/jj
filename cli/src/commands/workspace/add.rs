@@ -22,13 +22,14 @@ use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::workspace::Workspace;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::command_error::CommandError;
 use crate::command_error::internal_error_with_message;
 use crate::command_error::user_error;
-use crate::command_error::CommandError;
 use crate::ui::Ui;
 
 /// How to handle sparse patterns when creating a new workspace.
@@ -49,6 +50,7 @@ enum SparseInheritance {
 #[derive(clap::Args, Clone, Debug)]
 pub struct WorkspaceAddArgs {
     /// Where to create the new workspace
+    #[arg(value_hint = clap::ValueHint::DirPath)]
     destination: String,
     /// A name for the workspace
     ///
@@ -147,11 +149,10 @@ pub fn cmd_workspace_add(
     };
 
     if let Some(sparse_patterns) = sparsity {
-        let checkout_options = new_workspace_command.checkout_options();
         let (mut locked_ws, _wc_commit) = new_workspace_command.start_working_copy_mutation()?;
         locked_ws
             .locked_wc()
-            .set_sparse_patterns(sparse_patterns, &checkout_options)
+            .set_sparse_patterns(sparse_patterns)
             .map_err(|err| internal_error_with_message("Failed to set sparse patterns", err))?;
         let operation_id = locked_ws.locked_wc().old_operation_id().clone();
         locked_ws.finish(operation_id)?;
@@ -185,7 +186,7 @@ pub fn cmd_workspace_add(
             .try_collect()?
     };
 
-    let tree = merge_commit_trees(tx.repo(), &parents)?;
+    let tree = merge_commit_trees(tx.repo(), &parents).block_on()?;
     let parent_ids = parents.iter().ids().cloned().collect_vec();
     let new_wc_commit = tx.repo_mut().new_commit(parent_ids, tree.id()).write()?;
 

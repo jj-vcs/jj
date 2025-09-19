@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::io;
 use std::io::Write;
@@ -21,10 +21,10 @@ use std::pin::Pin;
 
 use bstr::BString;
 use bstr::ByteSlice as _;
-use futures::stream::BoxStream;
-use futures::try_join;
 use futures::Stream;
 use futures::StreamExt as _;
+use futures::stream::BoxStream;
+use futures::try_join;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use tokio::io::AsyncRead;
@@ -33,6 +33,7 @@ use tokio::io::AsyncReadExt as _;
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::CommitId;
+use crate::backend::CopyId;
 use crate::backend::FileId;
 use crate::backend::SymlinkId;
 use crate::backend::TreeId;
@@ -46,8 +47,10 @@ use crate::files;
 use crate::files::MergeResult;
 use crate::merge::Merge;
 use crate::merge::MergedTreeValue;
+use crate::merge::SameChange;
 use crate::repo_path::RepoPath;
 use crate::store::Store;
+use crate::tree_merge::MergeOptions;
 
 /// Minimum length of conflict markers.
 pub const MIN_CONFLICT_MARKER_LEN: usize = 7;
@@ -142,7 +145,7 @@ pub enum MaterializedTreeValue {
 
 impl MaterializedTreeValue {
     pub fn is_absent(&self) -> bool {
-        matches!(self, MaterializedTreeValue::Absent)
+        matches!(self, Self::Absent)
     }
 
     pub fn is_present(&self) -> bool {
@@ -154,7 +157,8 @@ impl MaterializedTreeValue {
 pub struct MaterializedFileValue {
     pub id: FileId,
     pub executable: bool,
-    pub reader: Pin<Box<dyn AsyncRead>>,
+    pub copy_id: CopyId,
+    pub reader: Pin<Box<dyn AsyncRead + Send>>,
 }
 
 impl MaterializedFileValue {
@@ -188,6 +192,8 @@ pub struct MaterializedFileConflictValue {
     /// Merged executable bit. `None` if there are changes in both executable
     /// bit and file absence.
     pub executable: Option<bool>,
+    /// Merged copy id. `None` if no single value could be determined.
+    pub copy_id: Option<CopyId>,
 }
 
 /// Reads the data associated with a `MergedTreeValue` so it can be written to
@@ -212,11 +218,16 @@ async fn materialize_tree_value_no_access_denied(
 ) -> BackendResult<MaterializedTreeValue> {
     match value.into_resolved() {
         Ok(None) => Ok(MaterializedTreeValue::Absent),
-        Ok(Some(TreeValue::File { id, executable })) => {
+        Ok(Some(TreeValue::File {
+            id,
+            executable,
+            copy_id,
+        })) => {
             let reader = store.read_file(path, &id).await?;
             Ok(MaterializedTreeValue::File(MaterializedFileValue {
                 id,
                 executable,
+                copy_id,
                 reader,
             }))
         }
@@ -226,9 +237,6 @@ async fn materialize_tree_value_no_access_denied(
         }
         Ok(Some(TreeValue::GitSubmodule(id))) => Ok(MaterializedTreeValue::GitSubmodule(id)),
         Ok(Some(TreeValue::Tree(id))) => Ok(MaterializedTreeValue::Tree(id)),
-        Ok(Some(TreeValue::Conflict(_))) => {
-            panic!("cannot materialize legacy conflict object at path {path:?}");
-        }
         Err(conflict) => match try_materialize_file_conflict_value(store, path, &conflict).await? {
             Some(file) => Ok(MaterializedTreeValue::FileConflict(file)),
             None => Ok(MaterializedTreeValue::OtherConflict { id: conflict }),
@@ -256,13 +264,14 @@ pub async fn try_materialize_file_conflict_value(
         ids,
         contents,
         executable,
+        copy_id: Some(CopyId::placeholder()),
     }))
 }
 
 /// Resolves conflicts in file executable bit, returns the original state if the
 /// file is deleted and executable bit is unchanged.
 pub fn resolve_file_executable(merge: &Merge<Option<bool>>) -> Option<bool> {
-    let resolved = merge.resolve_trivial().copied()?;
+    let resolved = merge.resolve_trivial(SameChange::Accept).copied()?;
     if resolved.is_some() {
         resolved
     } else {
@@ -274,16 +283,23 @@ pub fn resolve_file_executable(merge: &Merge<Option<bool>>) -> Option<bool> {
 }
 
 /// Describes what style should be used when materializing conflicts.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ConflictMarkerStyle {
     /// Style which shows a snapshot and a series of diffs to apply.
-    #[default]
     Diff,
     /// Style which shows a snapshot for each base and side.
     Snapshot,
     /// Style which replicates Git's "diff3" style to support external tools.
     Git,
+}
+
+/// Options for conflict materialization.
+#[derive(Clone, Debug)]
+pub struct ConflictMaterializeOptions {
+    pub marker_style: ConflictMarkerStyle,
+    pub marker_len: Option<usize>,
+    pub merge: MergeOptions,
 }
 
 /// Characters which can be repeated to form a conflict marker line when
@@ -387,73 +403,35 @@ pub fn choose_materialized_conflict_marker_len<T: AsRef<[u8]>>(single_hunk: &Mer
 
 pub fn materialize_merge_result<T: AsRef<[u8]>>(
     single_hunk: &Merge<T>,
-    conflict_marker_style: ConflictMarkerStyle,
     output: &mut dyn Write,
+    options: &ConflictMaterializeOptions,
 ) -> io::Result<()> {
-    let merge_result = files::merge_hunks(single_hunk);
+    let merge_result = files::merge_hunks(single_hunk, &options.merge);
     match &merge_result {
         MergeResult::Resolved(content) => output.write_all(content),
         MergeResult::Conflict(hunks) => {
-            let conflict_marker_len = choose_materialized_conflict_marker_len(single_hunk);
-            materialize_conflict_hunks(hunks, conflict_marker_style, conflict_marker_len, output)
-        }
-    }
-}
-
-pub fn materialize_merge_result_with_marker_len<T: AsRef<[u8]>>(
-    single_hunk: &Merge<T>,
-    conflict_marker_style: ConflictMarkerStyle,
-    conflict_marker_len: usize,
-    output: &mut dyn Write,
-) -> io::Result<()> {
-    let merge_result = files::merge_hunks(single_hunk);
-    match &merge_result {
-        MergeResult::Resolved(content) => output.write_all(content),
-        MergeResult::Conflict(hunks) => {
-            materialize_conflict_hunks(hunks, conflict_marker_style, conflict_marker_len, output)
+            let marker_len = options
+                .marker_len
+                .unwrap_or_else(|| choose_materialized_conflict_marker_len(single_hunk));
+            materialize_conflict_hunks(hunks, options.marker_style, marker_len, output)
         }
     }
 }
 
 pub fn materialize_merge_result_to_bytes<T: AsRef<[u8]>>(
     single_hunk: &Merge<T>,
-    conflict_marker_style: ConflictMarkerStyle,
+    options: &ConflictMaterializeOptions,
 ) -> BString {
-    let merge_result = files::merge_hunks(single_hunk);
+    let merge_result = files::merge_hunks(single_hunk, &options.merge);
     match merge_result {
         MergeResult::Resolved(content) => content,
         MergeResult::Conflict(hunks) => {
-            let conflict_marker_len = choose_materialized_conflict_marker_len(single_hunk);
+            let marker_len = options
+                .marker_len
+                .unwrap_or_else(|| choose_materialized_conflict_marker_len(single_hunk));
             let mut output = Vec::new();
-            materialize_conflict_hunks(
-                &hunks,
-                conflict_marker_style,
-                conflict_marker_len,
-                &mut output,
-            )
-            .expect("writing to an in-memory buffer should never fail");
-            output.into()
-        }
-    }
-}
-
-pub fn materialize_merge_result_to_bytes_with_marker_len<T: AsRef<[u8]>>(
-    single_hunk: &Merge<T>,
-    conflict_marker_style: ConflictMarkerStyle,
-    conflict_marker_len: usize,
-) -> BString {
-    let merge_result = files::merge_hunks(single_hunk);
-    match merge_result {
-        MergeResult::Resolved(content) => content,
-        MergeResult::Conflict(hunks) => {
-            let mut output = Vec::new();
-            materialize_conflict_hunks(
-                &hunks,
-                conflict_marker_style,
-                conflict_marker_len,
-                &mut output,
-            )
-            .expect("writing to an in-memory buffer should never fail");
+            materialize_conflict_hunks(&hunks, options.marker_style, marker_len, &mut output)
+                .expect("writing to an in-memory buffer should never fail");
             output.into()
         }
     }
@@ -714,18 +692,16 @@ pub fn materialized_diff_stream<'a>(
     tree_diff: BoxStream<'a, CopiesTreeDiffEntry>,
 ) -> impl Stream<Item = MaterializedTreeDiffEntry> + use<'a> {
     tree_diff
-        .map(|CopiesTreeDiffEntry { path, values }| async {
-            match values {
-                Err(err) => MaterializedTreeDiffEntry {
-                    path,
-                    values: Err(err),
-                },
-                Ok((before, after)) => {
-                    let before_future = materialize_tree_value(store, path.source(), before);
-                    let after_future = materialize_tree_value(store, path.target(), after);
-                    let values = try_join!(before_future, after_future);
-                    MaterializedTreeDiffEntry { path, values }
-                }
+        .map(async |CopiesTreeDiffEntry { path, values }| match values {
+            Err(err) => MaterializedTreeDiffEntry {
+                path,
+                values: Err(err),
+            },
+            Ok((before, after)) => {
+                let before_future = materialize_tree_value(store, path.source(), before);
+                let after_future = materialize_tree_value(store, path.target(), after);
+                let values = try_join!(before_future, after_future);
+                MaterializedTreeDiffEntry { path, values }
             }
         })
         .buffered((store.concurrency() / 2).max(1))
@@ -946,51 +922,52 @@ pub async fn update_from_content(
     store: &Store,
     path: &RepoPath,
     content: &[u8],
-    conflict_marker_style: ConflictMarkerStyle,
     conflict_marker_len: usize,
 ) -> BackendResult<Merge<Option<FileId>>> {
     let simplified_file_ids = file_ids.simplify();
 
-    // First check if the new content is unchanged compared to the old content. If
-    // it is, we don't need parse the content or write any new objects to the
-    // store. This is also a way of making sure that unchanged tree/file
-    // conflicts (for example) are not converted to regular files in the working
-    // copy.
-    let mut old_content = Vec::with_capacity(content.len());
-    let merge_hunk = extract_as_single_hunk(&simplified_file_ids, store, path).await?;
-    materialize_merge_result_with_marker_len(
-        &merge_hunk,
-        conflict_marker_style,
-        conflict_marker_len,
-        &mut old_content,
-    )
-    .unwrap();
-    if content == old_content {
-        return Ok(file_ids.clone());
-    }
+    let old_contents = extract_as_single_hunk(&simplified_file_ids, store, path).await?;
+    let old_hunks = files::merge_hunks(&old_contents, store.merge_options());
 
     // Parse conflicts from the new content using the arity of the simplified
     // conflicts.
-    let Some(mut hunks) = parse_conflict(
+    let mut new_hunks = parse_conflict(
         content,
         simplified_file_ids.num_sides(),
         conflict_marker_len,
-    ) else {
-        // Either there are no markers or they don't have the expected arity
-        let file_id = store.write_file(path, &mut &content[..]).await?;
-        return Ok(Merge::normal(file_id));
-    };
+    );
 
     // If there is a conflict at the end of the file and a term ends with a newline,
     // check whether the original term ended with a newline. If it didn't, then
     // remove the newline since it was added automatically when materializing.
-    if let Some(last_hunk) = hunks.last_mut().filter(|hunk| !hunk.is_resolved()) {
-        for (original_content, term) in merge_hunk.iter().zip_eq(last_hunk.iter_mut()) {
+    if let Some(last_hunk) = new_hunks
+        .as_mut()
+        .and_then(|hunks| hunks.last_mut())
+        .filter(|hunk| !hunk.is_resolved())
+    {
+        for (original_content, term) in old_contents.iter().zip_eq(last_hunk.iter_mut()) {
             if term.last() == Some(&b'\n') && has_no_eol(original_content) {
                 term.pop();
             }
         }
     }
+
+    // Check if the new hunks are unchanged. This makes sure that unchanged file
+    // conflicts aren't updated to partially-resolved contents.
+    let unchanged = match (&old_hunks, &new_hunks) {
+        (MergeResult::Resolved(old), None) => old == content,
+        (MergeResult::Conflict(old), Some(new)) => old == new,
+        (MergeResult::Resolved(_), Some(_)) | (MergeResult::Conflict(_), None) => false,
+    };
+    if unchanged {
+        return Ok(file_ids.clone());
+    }
+
+    let Some(hunks) = new_hunks else {
+        // Either there are no markers or they don't have the expected arity
+        let file_id = store.write_file(path, &mut &content[..]).await?;
+        return Ok(Merge::normal(file_id));
+    };
 
     let mut contents = simplified_file_ids.map(|_| vec![]);
     for hunk in hunks {

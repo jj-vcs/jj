@@ -2,7 +2,7 @@
   Git command: >
     `git init`
   Jujutsu command: >
-    `jj git init [--colocate]`
+    `jj git init [--no-colocate]`
   Notes: ''
 
 - Use case: Clone an existing repo
@@ -141,6 +141,13 @@
     `jj log`
   Notes: ''
 
+- Use case: Show log of commits adding/removing the string "stuff"
+  Git command: >
+    `git log -G stuff`
+  Jujutsu command: >
+    `jj log -r 'diff_contains(stuff)'`
+  Notes: ''
+
 - Use case: List versioned files in the working copy
   Git command: >
     `git ls-files --cached`
@@ -224,6 +231,13 @@
   Jujutsu command: >
     `jj new @ A`
   Notes: ''
+
+- Use case: Check out a named revision (or branch) to examine source
+  Git command: >
+    `git checkout v1.0.1`
+  Jujutsu command: >
+    `jj new v1.0.1`
+  Notes: 'Creates new empty change on top (see `jj new main`)'
 
 - Use case: Move bookmark/branch A onto bookmark/branch B
   Git command: >
@@ -368,9 +382,8 @@
 - Use case: Undo an earlier operation
   Git command: Not supported
   Jujutsu command: >
-    `jj [op] undo <operation ID>`
-  Notes: >
-    `jj undo` is an alias for `jj op undo`.
+    `jj undo`
+  Notes: 'A matching `jj redo` command exists as well.'
 
 - Use case: Create a commit that cancels out a previous commit
   Git command: >

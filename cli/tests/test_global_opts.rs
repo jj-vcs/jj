@@ -53,6 +53,10 @@ fn test_version() {
     let expected = [
         "jj ?.??.?\n",
         "jj ?.??.?-????????????????????????????????????????\n",
+        // This test could be made to succeed when `jj` is compiled at a merge commit by adding a
+        // few entries like "jj ?.??.?-????????????????????????????????????????-?????????????????
+        // ???????????????????????\n" here. However, it might be best to keep it failing, so that
+        // we avoid releasing `jj` with such `--version` output.
     ];
     assert!(
         expected.contains(&sanitized.as_str()),
@@ -261,7 +265,7 @@ fn test_no_workspace_directory() {
     ------- stderr -------
     Error: There is no jj repo in "."
     Hint: It looks like this is a git repo. You can create a jj repo backed by it by running this:
-    jj git init --colocate
+    jj git init
     [EOF]
     [exit status: 1]
     "#);
@@ -580,19 +584,18 @@ fn test_color_ui_messages() {
     ");
 
     // formatted hint
-    let output = work_dir.run_jj(["new", ".."]);
+    let output = work_dir.run_jj(["edit", ".."]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     [1m[38;5;1mError: [39mRevset `..` resolved to more than one revision[0m
     [1m[38;5;6mHint: [0m[39mThe revset `..` resolved to these revisions:[39m
     [39m  [1m[38;5;13mm[38;5;8mzvwutvl[39m [38;5;12m8[38;5;8mafc18ff[39m [38;5;10m(empty)[39m [38;5;10m(no description set)[0m[39m[39m
     [39m  [1m[38;5;5mq[0m[38;5;8mpvuntsm[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m [38;5;2m(empty)[39m [38;5;2m(no description set)[39m[39m
-    [1m[38;5;6mHint: [0m[39mPrefix the expression with `all:` to allow any number of revisions (i.e. `all:..`).[39m
     [EOF]
     [exit status: 1]
     ");
 
-    // debugging colors
+    // commit_summary template with debugging colors
     let output = work_dir.run_jj(["st", "--color", "debug"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
@@ -600,6 +603,15 @@ fn test_color_ui_messages() {
     Parent commit (@-): [1m[38;5;5m<<commit change_id shortest prefix::q>>[0m[38;5;8m<<commit change_id shortest rest::pvuntsm>>[39m<<commit:: >>[1m[38;5;4m<<commit commit_id shortest prefix::e>>[0m[38;5;8m<<commit commit_id shortest rest::8849ae1>>[39m<<commit:: >>[38;5;2m<<commit empty::(empty)>>[39m<<commit:: >>[38;5;2m<<commit empty description placeholder::(no description set)>>[39m
     [EOF]
     ");
+
+    // commit_summary template in transaction
+    let output = work_dir.run_jj(["revert", "--color=debug", "-r@", "-d@"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Reverted 1 commits as follows:
+      [1m[38;5;5m<<commit change_id shortest prefix::y>>[0m[38;5;8m<<commit change_id shortest rest::ostqsxw>>[39m<<commit:: >>[1m[38;5;4m<<commit commit_id shortest prefix::8b>>[0m[38;5;8m<<commit commit_id shortest rest::f82eec>>[39m<<commit:: >>[38;5;2m<<commit empty::(empty)>>[39m<<commit:: >><<commit description first_line::Revert "">>
+    [EOF]
+    "#);
 }
 
 #[test]
@@ -693,14 +705,6 @@ fn test_config_args() {
     test.key1 = "arg1"
     [EOF]
     "#);
-    let output = list_config(&["--config-toml=test.key1='arg1'"]);
-    insta::assert_snapshot!(output, @r"
-    test.key1 = 'arg1'
-    [EOF]
-    ------- stderr -------
-    Warning: --config-toml is deprecated; use --config or --config-file instead.
-    [EOF]
-    ");
     let output = list_config(&["--config-file=file1.toml"]);
     insta::assert_snapshot!(output, @r"
     test.key1 = 'file1'
@@ -724,29 +728,17 @@ fn test_config_args() {
     let output = list_config(&[
         "--config=test.key1=arg1",
         "--config-file=file1.toml",
-        "--config-toml=test.key2='arg3'",
+        "--config=test.key2=arg3",
         "--config-file=file2.toml",
     ]);
-    insta::assert_snapshot!(output, @r##"
+    insta::assert_snapshot!(output, @r#"
     # test.key1 = "arg1"
     test.key1 = 'file1'
     # test.key2 = 'file1'
-    test.key2 = 'arg3'
+    test.key2 = "arg3"
     test.key3 = 'file2'
     [EOF]
-    ------- stderr -------
-    Warning: --config-toml is deprecated; use --config or --config-file instead.
-    [EOF]
-    "##);
-
-    let output = test_env.run_jj_in(".", ["config", "list", "foo", "--config-toml=foo='bar'"]);
-    insta::assert_snapshot!(output, @r"
-    foo = 'bar'
-    [EOF]
-    ------- stderr -------
-    Warning: --config-toml is deprecated; use --config or --config-file instead.
-    [EOF]
-    ");
+    "#);
 
     let output = test_env.run_jj_in(".", ["config", "list", "--config=foo"]);
     insta::assert_snapshot!(output, @r"
@@ -788,8 +780,7 @@ fn test_invalid_config() {
       |
     1 | [section]key = value-missing-quotes
       |          ^
-    invalid table header
-    expected newline, `#`
+    unexpected key or value, expected newline, `#`
 
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
     For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
@@ -948,6 +939,7 @@ fn test_default_config() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Initialized repo in "repo"
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
@@ -968,7 +960,7 @@ fn test_default_config() {
     insta::assert_snapshot!(output, @r"
     @  <change-id> (no email set) <date-time> <id>
     │  (empty) (no description set)
-    ○  <change-id> (no email set) <date-time> <id>
+    ○  <change-id> (no email set) <date-time> git_head() <id>
     │  (empty) (no description set)
     ◆  <change-id> root() <id>
     [EOF]
@@ -1049,7 +1041,10 @@ fn test_help() {
     insta::assert_snapshot!(output, @r"
     Touch up the content changes in a revision with a diff editor
 
-    Usage: jj diffedit [OPTIONS]
+    Usage: jj diffedit [OPTIONS] [FILESETS]...
+
+    Arguments:
+      [FILESETS]...  Edit only these paths (unmatched paths will remain unchanged)
 
     Options:
       -r, --revision <REVSET>    The revision to touch up
@@ -1092,6 +1087,6 @@ fn test_debug_logging_enabled() {
         .expect("debug logging on first line")
         .split_at(36);
     // The log format is currently Pretty so we include the terminal markup.
-    // Luckily, insta will print this in colour when reviewing.
+    // Luckily, insta will print this in color when reviewing.
     insta::assert_snapshot!(log_line, @"[32m INFO[0m [2mjj_cli::cli_util[0m[2m:[0m debug logging enabled");
 }

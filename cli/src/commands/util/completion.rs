@@ -75,8 +75,8 @@ enum ShellCompletion {
 
 impl ShellCompletion {
     fn generate(&self, cmd: &mut Command) -> Vec<u8> {
-        use clap_complete::generate;
         use clap_complete::Shell;
+        use clap_complete::generate;
         use clap_complete_nushell::Nushell;
 
         let mut buf = Vec::new();

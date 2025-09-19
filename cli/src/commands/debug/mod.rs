@@ -15,9 +15,10 @@
 mod copy_detection;
 mod fileset;
 mod index;
+mod index_changed_paths;
 mod init_simple;
 mod local_working_copy;
-mod operation;
+mod object;
 mod reindex;
 mod revset;
 mod snapshot;
@@ -32,35 +33,37 @@ use std::fmt::Debug;
 use clap::Subcommand;
 use jj_lib::local_working_copy::LocalWorkingCopy;
 
-use self::copy_detection::cmd_debug_copy_detection;
 use self::copy_detection::CopyDetectionArgs;
-use self::fileset::cmd_debug_fileset;
+use self::copy_detection::cmd_debug_copy_detection;
 use self::fileset::DebugFilesetArgs;
-use self::index::cmd_debug_index;
+use self::fileset::cmd_debug_fileset;
 use self::index::DebugIndexArgs;
-use self::init_simple::cmd_debug_init_simple;
+use self::index::cmd_debug_index;
+use self::index_changed_paths::DebugIndexChangedPathsArgs;
+use self::index_changed_paths::cmd_debug_index_changed_paths;
 use self::init_simple::DebugInitSimpleArgs;
-use self::local_working_copy::cmd_debug_local_working_copy;
+use self::init_simple::cmd_debug_init_simple;
 use self::local_working_copy::DebugLocalWorkingCopyArgs;
-use self::operation::cmd_debug_operation;
-use self::operation::DebugOperationArgs;
-use self::reindex::cmd_debug_reindex;
+use self::local_working_copy::cmd_debug_local_working_copy;
+use self::object::DebugObjectArgs;
+use self::object::cmd_debug_object;
 use self::reindex::DebugReindexArgs;
-use self::revset::cmd_debug_revset;
+use self::reindex::cmd_debug_reindex;
 use self::revset::DebugRevsetArgs;
-use self::snapshot::cmd_debug_snapshot;
+use self::revset::cmd_debug_revset;
 use self::snapshot::DebugSnapshotArgs;
-use self::template::cmd_debug_template;
+use self::snapshot::cmd_debug_snapshot;
 use self::template::DebugTemplateArgs;
-use self::tree::cmd_debug_tree;
+use self::template::cmd_debug_template;
 use self::tree::DebugTreeArgs;
-use self::watchman::cmd_debug_watchman;
+use self::tree::cmd_debug_tree;
 use self::watchman::DebugWatchmanCommand;
-use self::working_copy::cmd_debug_working_copy;
+use self::watchman::cmd_debug_watchman;
 use self::working_copy::DebugWorkingCopyArgs;
+use self::working_copy::cmd_debug_working_copy;
 use crate::cli_util::CommandHelper;
-use crate::command_error::user_error;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::ui::Ui;
 
 /// Low-level commands not intended for users
@@ -70,10 +73,11 @@ pub enum DebugCommand {
     CopyDetection(CopyDetectionArgs),
     Fileset(DebugFilesetArgs),
     Index(DebugIndexArgs),
+    IndexChangedPaths(DebugIndexChangedPathsArgs),
     InitSimple(DebugInitSimpleArgs),
     LocalWorkingCopy(DebugLocalWorkingCopyArgs),
-    #[command(visible_alias = "view")]
-    Operation(DebugOperationArgs),
+    #[command(subcommand)]
+    Object(DebugObjectArgs),
     Reindex(DebugReindexArgs),
     Revset(DebugRevsetArgs),
     Snapshot(DebugSnapshotArgs),
@@ -93,9 +97,10 @@ pub fn cmd_debug(
         DebugCommand::CopyDetection(args) => cmd_debug_copy_detection(ui, command, args),
         DebugCommand::Fileset(args) => cmd_debug_fileset(ui, command, args),
         DebugCommand::Index(args) => cmd_debug_index(ui, command, args),
+        DebugCommand::IndexChangedPaths(args) => cmd_debug_index_changed_paths(ui, command, args),
         DebugCommand::InitSimple(args) => cmd_debug_init_simple(ui, command, args),
         DebugCommand::LocalWorkingCopy(args) => cmd_debug_local_working_copy(ui, command, args),
-        DebugCommand::Operation(args) => cmd_debug_operation(ui, command, args),
+        DebugCommand::Object(args) => cmd_debug_object(ui, command, args),
         DebugCommand::Reindex(args) => cmd_debug_reindex(ui, command, args),
         DebugCommand::Revset(args) => cmd_debug_revset(ui, command, args),
         DebugCommand::Snapshot(args) => cmd_debug_snapshot(ui, command, args),

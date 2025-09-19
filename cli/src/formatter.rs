@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
 use std::io::Error;
 use std::io::Write;
 use std::mem;
+use std::ops::Deref;
+use std::ops::DerefMut;
 use std::ops::Range;
 use std::sync::Arc;
 
@@ -41,99 +42,121 @@ pub trait Formatter: Write {
     /// already formatted, such as in the graphical log.
     fn raw(&mut self) -> io::Result<Box<dyn Write + '_>>;
 
-    fn push_label(&mut self, label: &str) -> io::Result<()>;
+    fn push_label(&mut self, label: &str);
 
-    fn pop_label(&mut self) -> io::Result<()>;
+    fn pop_label(&mut self);
 }
 
-impl dyn Formatter + '_ {
-    pub fn labeled<S: AsRef<str>>(&mut self, label: S) -> LabeledWriter<&mut Self, S> {
-        LabeledWriter {
-            formatter: self,
-            label,
-        }
+impl<T: Formatter + ?Sized> Formatter for &mut T {
+    fn raw(&mut self) -> io::Result<Box<dyn Write + '_>> {
+        <T as Formatter>::raw(self)
     }
 
-    pub fn with_label<E: From<io::Error>>(
-        &mut self,
-        label: &str,
-        write_inner: impl FnOnce(&mut dyn Formatter) -> Result<(), E>,
-    ) -> Result<(), E> {
-        self.push_label(label)?;
-        // Call `pop_label()` whether or not `write_inner()` fails, but don't let
-        // its error replace the one from `write_inner()`.
-        write_inner(self).and(self.pop_label().map_err(Into::into))
+    fn push_label(&mut self, label: &str) {
+        <T as Formatter>::push_label(self, label);
+    }
+
+    fn pop_label(&mut self) {
+        <T as Formatter>::pop_label(self);
     }
 }
 
-/// `Formatter` wrapper to write a labeled message with `write!()` or
-/// `writeln!()`.
-pub struct LabeledWriter<T, S> {
+impl<T: Formatter + ?Sized> Formatter for Box<T> {
+    fn raw(&mut self) -> io::Result<Box<dyn Write + '_>> {
+        <T as Formatter>::raw(self)
+    }
+
+    fn push_label(&mut self, label: &str) {
+        <T as Formatter>::push_label(self, label);
+    }
+
+    fn pop_label(&mut self) {
+        <T as Formatter>::pop_label(self);
+    }
+}
+
+/// [`Formatter`] adapters.
+pub trait FormatterExt: Formatter {
+    fn labeled(&mut self, label: &str) -> LabeledScope<&mut Self> {
+        LabeledScope::new(self, label)
+    }
+
+    fn into_labeled(self, label: &str) -> LabeledScope<Self>
+    where
+        Self: Sized,
+    {
+        LabeledScope::new(self, label)
+    }
+}
+
+impl<T: Formatter + ?Sized> FormatterExt for T {}
+
+/// [`Formatter`] wrapper to apply a label within a lexical scope.
+#[must_use]
+pub struct LabeledScope<T: Formatter> {
     formatter: T,
-    label: S,
 }
 
-impl<T, S> LabeledWriter<T, S> {
-    pub fn new(formatter: T, label: S) -> Self {
-        LabeledWriter { formatter, label }
+impl<T: Formatter> LabeledScope<T> {
+    pub fn new(mut formatter: T, label: &str) -> Self {
+        formatter.push_label(label);
+        Self { formatter }
     }
 
+    // TODO: move to FormatterExt?
     /// Turns into writer that prints labeled message with the `heading`.
-    pub fn with_heading<H>(self, heading: H) -> HeadingLabeledWriter<T, S, H> {
+    pub fn with_heading<H>(self, heading: H) -> HeadingLabeledWriter<T, H> {
         HeadingLabeledWriter::new(self, heading)
     }
 }
 
-impl<'a, T, S> LabeledWriter<T, S>
-where
-    T: BorrowMut<dyn Formatter + 'a>,
-    S: AsRef<str>,
-{
-    pub fn write_fmt(&mut self, args: fmt::Arguments<'_>) -> io::Result<()> {
-        self.with_labeled(|formatter| formatter.write_fmt(args))
-    }
-
-    fn with_labeled(
-        &mut self,
-        write_inner: impl FnOnce(&mut dyn Formatter) -> io::Result<()>,
-    ) -> io::Result<()> {
-        self.formatter
-            .borrow_mut()
-            .with_label(self.label.as_ref(), write_inner)
+impl<T: Formatter> Drop for LabeledScope<T> {
+    fn drop(&mut self) {
+        self.formatter.pop_label();
     }
 }
 
-/// Like `LabeledWriter`, but also prints the `heading` once.
+impl<T: Formatter> Deref for LabeledScope<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.formatter
+    }
+}
+
+impl<T: Formatter> DerefMut for LabeledScope<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.formatter
+    }
+}
+
+// There's no `impl Formatter for LabeledScope<T>` so nested .labeled() calls
+// wouldn't construct `LabeledScope<LabeledScope<T>>`.
+
+/// [`Formatter`] wrapper that prints the `heading` once.
 ///
 /// The `heading` will be printed within the first `write!()` or `writeln!()`
 /// invocation, which is handy because `io::Error` can be handled there.
-pub struct HeadingLabeledWriter<T, S, H> {
-    writer: LabeledWriter<T, S>,
+pub struct HeadingLabeledWriter<T: Formatter, H> {
+    formatter: LabeledScope<T>,
     heading: Option<H>,
 }
 
-impl<T, S, H> HeadingLabeledWriter<T, S, H> {
-    pub fn new(writer: LabeledWriter<T, S>, heading: H) -> Self {
-        HeadingLabeledWriter {
-            writer,
+impl<T: Formatter, H> HeadingLabeledWriter<T, H> {
+    pub fn new(formatter: LabeledScope<T>, heading: H) -> Self {
+        Self {
+            formatter,
             heading: Some(heading),
         }
     }
 }
 
-impl<'a, T, S, H> HeadingLabeledWriter<T, S, H>
-where
-    T: BorrowMut<dyn Formatter + 'a>,
-    S: AsRef<str>,
-    H: fmt::Display,
-{
+impl<T: Formatter, H: fmt::Display> HeadingLabeledWriter<T, H> {
     pub fn write_fmt(&mut self, args: fmt::Arguments<'_>) -> io::Result<()> {
-        self.writer.with_labeled(|formatter| {
-            if let Some(heading) = self.heading.take() {
-                write!(formatter.labeled("heading"), "{heading}")?;
-            }
-            formatter.write_fmt(args)
-        })
+        if let Some(heading) = self.heading.take() {
+            write!(self.formatter.labeled("heading"), "{heading}")?;
+        }
+        self.formatter.write_fmt(args)
     }
 }
 
@@ -155,18 +178,18 @@ enum FormatterFactoryKind {
 impl FormatterFactory {
     pub fn plain_text() -> Self {
         let kind = FormatterFactoryKind::PlainText;
-        FormatterFactory { kind }
+        Self { kind }
     }
 
     pub fn sanitized() -> Self {
         let kind = FormatterFactoryKind::Sanitized;
-        FormatterFactory { kind }
+        Self { kind }
     }
 
     pub fn color(config: &StackedConfig, debug: bool) -> Result<Self, ConfigGetError> {
         let rules = Arc::new(rules_from_config(config)?);
         let kind = FormatterFactoryKind::Color { rules, debug };
-        Ok(FormatterFactory { kind })
+        Ok(Self { kind })
     }
 
     pub fn new_formatter<'output, W: Write + 'output>(
@@ -192,7 +215,7 @@ pub struct PlainTextFormatter<W> {
 }
 
 impl<W> PlainTextFormatter<W> {
-    pub fn new(output: W) -> PlainTextFormatter<W> {
+    pub fn new(output: W) -> Self {
         Self { output }
     }
 }
@@ -212,13 +235,9 @@ impl<W: Write> Formatter for PlainTextFormatter<W> {
         Ok(Box::new(self.output.by_ref()))
     }
 
-    fn push_label(&mut self, _label: &str) -> io::Result<()> {
-        Ok(())
-    }
+    fn push_label(&mut self, _label: &str) {}
 
-    fn pop_label(&mut self) -> io::Result<()> {
-        Ok(())
-    }
+    fn pop_label(&mut self) {}
 }
 
 pub struct SanitizingFormatter<W> {
@@ -226,7 +245,7 @@ pub struct SanitizingFormatter<W> {
 }
 
 impl<W> SanitizingFormatter<W> {
-    pub fn new(output: W) -> SanitizingFormatter<W> {
+    pub fn new(output: W) -> Self {
         Self { output }
     }
 }
@@ -247,13 +266,9 @@ impl<W: Write> Formatter for SanitizingFormatter<W> {
         Ok(Box::new(self.output.by_ref()))
     }
 
-    fn push_label(&mut self, _label: &str) -> io::Result<()> {
-        Ok(())
-    }
+    fn push_label(&mut self, _label: &str) {}
 
-    fn pop_label(&mut self) -> io::Result<()> {
-        Ok(())
-    }
+    fn pop_label(&mut self) {}
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize)]
@@ -270,7 +285,7 @@ pub struct Style {
 }
 
 impl Style {
-    fn merge(&mut self, other: &Style) {
+    fn merge(&mut self, other: &Self) {
         self.fg = other.fg.or(self.fg);
         self.bg = other.bg.or(self.bg);
         self.bold = other.bold.or(self.bold);
@@ -296,8 +311,8 @@ pub struct ColorFormatter<W: Write> {
 }
 
 impl<W: Write> ColorFormatter<W> {
-    pub fn new(output: W, rules: Arc<Rules>, debug: bool) -> ColorFormatter<W> {
-        ColorFormatter {
+    pub fn new(output: W, rules: Arc<Rules>, debug: bool) -> Self {
+        Self {
             output,
             rules,
             labels: vec![],
@@ -465,8 +480,8 @@ fn deserialize_color<'de, D>(deserializer: D) -> Result<Color, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let name_or_hex = String::deserialize(deserializer)?;
-    color_for_name_or_hex(&name_or_hex).map_err(D::Error::custom)
+    let color_str = String::deserialize(deserializer)?;
+    color_for_string(&color_str).map_err(D::Error::custom)
 }
 
 fn deserialize_color_opt<'de, D>(deserializer: D) -> Result<Option<Color>, D::Error>
@@ -476,8 +491,8 @@ where
     deserialize_color(deserializer).map(Some)
 }
 
-fn color_for_name_or_hex(name_or_hex: &str) -> Result<Color, String> {
-    match name_or_hex {
+fn color_for_string(color_str: &str) -> Result<Color, String> {
+    match color_str {
         "default" => Ok(Color::Reset),
         "black" => Ok(Color::Black),
         "red" => Ok(Color::DarkRed),
@@ -495,8 +510,18 @@ fn color_for_name_or_hex(name_or_hex: &str) -> Result<Color, String> {
         "bright magenta" => Ok(Color::Magenta),
         "bright cyan" => Ok(Color::Cyan),
         "bright white" => Ok(Color::White),
-        _ => color_for_hex(name_or_hex).ok_or_else(|| format!("Invalid color: {name_or_hex}")),
+        _ => color_for_ansi256_index(color_str)
+            .or_else(|| color_for_hex(color_str))
+            .ok_or_else(|| format!("Invalid color: {color_str}")),
     }
+}
+
+fn color_for_ansi256_index(color: &str) -> Option<Color> {
+    color
+        .strip_prefix("ansi-color-")
+        .filter(|s| *s == "0" || !s.starts_with('0'))
+        .and_then(|n| n.parse::<u8>().ok())
+        .map(Color::AnsiValue)
 }
 
 fn color_for_hex(color: &str) -> Option<Color> {
@@ -560,6 +585,7 @@ impl<W: Write> Write for ColorFormatter<W> {
     }
 
     fn flush(&mut self) -> Result<(), Error> {
+        self.write_new_style()?;
         self.output.flush()
     }
 }
@@ -570,24 +596,19 @@ impl<W: Write> Formatter for ColorFormatter<W> {
         Ok(Box::new(self.output.by_ref()))
     }
 
-    fn push_label(&mut self, label: &str) -> io::Result<()> {
+    fn push_label(&mut self, label: &str) {
         self.labels.push(label.to_owned());
-        Ok(())
     }
 
-    fn pop_label(&mut self) -> io::Result<()> {
+    fn pop_label(&mut self) {
         self.labels.pop();
-        if self.labels.is_empty() {
-            self.write_new_style()?;
-        }
-        Ok(())
     }
 }
 
 impl<W: Write> Drop for ColorFormatter<W> {
     fn drop(&mut self) {
-        // If a `ColorFormatter` was dropped without popping all labels first (perhaps
-        // because of an error), let's still try to reset any currently active style.
+        // If a `ColorFormatter` was dropped without flushing, let's try to
+        // reset any currently active style.
         self.labels.clear();
         self.write_new_style().ok();
     }
@@ -615,12 +636,12 @@ enum FormatOp {
 
 impl FormatRecorder {
     pub fn new() -> Self {
-        FormatRecorder::default()
+        Self::default()
     }
 
     /// Creates new buffer containing the given `data`.
     pub fn with_data(data: impl Into<Vec<u8>>) -> Self {
-        FormatRecorder {
+        Self {
             data: data.into(),
             ops: vec![],
         }
@@ -656,8 +677,8 @@ impl FormatRecorder {
         for (pos, op) in &self.ops {
             flush_data(formatter, *pos)?;
             match op {
-                FormatOp::PushLabel(label) => formatter.push_label(label)?,
-                FormatOp::PopLabel => formatter.pop_label()?,
+                FormatOp::PushLabel(label) => formatter.push_label(label),
+                FormatOp::PopLabel => formatter.pop_label(),
                 FormatOp::RawEscapeSequence(raw_escape_sequence) => {
                     formatter.raw()?.write_all(raw_escape_sequence)?;
                 }
@@ -696,14 +717,12 @@ impl Formatter for FormatRecorder {
         Ok(Box::new(RawEscapeSequenceRecorder(self)))
     }
 
-    fn push_label(&mut self, label: &str) -> io::Result<()> {
+    fn push_label(&mut self, label: &str) {
         self.push_op(FormatOp::PushLabel(label.to_owned()));
-        Ok(())
     }
 
-    fn pop_label(&mut self) -> io::Result<()> {
+    fn pop_label(&mut self) {
         self.push_op(FormatOp::PopLabel);
-        Ok(())
     }
 }
 
@@ -757,9 +776,9 @@ mod tests {
         // Test that PlainTextFormatter ignores labels.
         let mut output: Vec<u8> = vec![];
         let mut formatter = PlainTextFormatter::new(&mut output);
-        formatter.push_label("warning").unwrap();
+        formatter.push_label("warning");
         write!(formatter, "hello").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         insta::assert_snapshot!(to_snapshot_string(output), @"hello[EOF]");
     }
 
@@ -808,9 +827,9 @@ mod tests {
         let mut output: Vec<u8> = vec![];
         let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
         for (label, color) in &colors {
-            formatter.push_label(label).unwrap();
+            formatter.push_label(label);
             write!(formatter, " {color} ").unwrap();
-            formatter.pop_label().unwrap();
+            formatter.pop_label();
             writeln!(formatter).unwrap();
         }
         drop(formatter);
@@ -836,6 +855,54 @@ mod tests {
     }
 
     #[test]
+    fn test_color_for_ansi256_index() {
+        assert_eq!(
+            color_for_ansi256_index("ansi-color-0"),
+            Some(Color::AnsiValue(0))
+        );
+        assert_eq!(
+            color_for_ansi256_index("ansi-color-10"),
+            Some(Color::AnsiValue(10))
+        );
+        assert_eq!(
+            color_for_ansi256_index("ansi-color-255"),
+            Some(Color::AnsiValue(255))
+        );
+        assert_eq!(color_for_ansi256_index("ansi-color-256"), None);
+
+        assert_eq!(color_for_ansi256_index("ansi-color-00"), None);
+        assert_eq!(color_for_ansi256_index("ansi-color-010"), None);
+        assert_eq!(color_for_ansi256_index("ansi-color-0255"), None);
+    }
+
+    #[test]
+    fn test_color_formatter_ansi256() {
+        let config = config_from_string(
+            r#"
+        [colors]
+        purple-bg = { fg = "ansi-color-15", bg = "ansi-color-93" }
+        gray = "ansi-color-244"
+        "#,
+        );
+        let mut output: Vec<u8> = vec![];
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        formatter.push_label("purple-bg");
+        write!(formatter, " purple background ").unwrap();
+        formatter.pop_label();
+        writeln!(formatter).unwrap();
+        formatter.push_label("gray");
+        write!(formatter, " gray ").unwrap();
+        formatter.pop_label();
+        writeln!(formatter).unwrap();
+        drop(formatter);
+        insta::assert_snapshot!(to_snapshot_string(output), @r"
+        [38;5;15m[48;5;93m purple background [39m[49m
+        [38;5;244m gray [39m
+        [EOF]
+        ");
+    }
+
+    #[test]
     fn test_color_formatter_hex_colors() {
         // Test the color code for each color.
         let config = config_from_string(indoc! {"
@@ -848,9 +915,9 @@ mod tests {
         let mut output: Vec<u8> = vec![];
         let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
         for label in colors.keys() {
-            formatter.push_label(&label.replace(' ', "-")).unwrap();
+            formatter.push_label(&label.replace(' ', "-"));
             write!(formatter, " {label} ").unwrap();
-            formatter.pop_label().unwrap();
+            formatter.pop_label();
             writeln!(formatter).unwrap();
         }
         drop(formatter);
@@ -874,9 +941,9 @@ mod tests {
         let mut output: Vec<u8> = vec![];
         let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
         write!(formatter, " before ").unwrap();
-        formatter.push_label("inside").unwrap();
+        formatter.push_label("inside");
         write!(formatter, " inside ").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         write!(formatter, " after ").unwrap();
         drop(formatter);
         insta::assert_snapshot!(
@@ -900,39 +967,39 @@ mod tests {
         );
         let mut output: Vec<u8> = vec![];
         let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
-        formatter.push_label("red_fg").unwrap();
+        formatter.push_label("red_fg");
         write!(formatter, " fg only ").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         writeln!(formatter).unwrap();
-        formatter.push_label("blue_bg").unwrap();
+        formatter.push_label("blue_bg");
         write!(formatter, " bg only ").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         writeln!(formatter).unwrap();
-        formatter.push_label("bold_font").unwrap();
+        formatter.push_label("bold_font");
         write!(formatter, " bold only ").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         writeln!(formatter).unwrap();
-        formatter.push_label("italic_text").unwrap();
+        formatter.push_label("italic_text");
         write!(formatter, " italic only ").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         writeln!(formatter).unwrap();
-        formatter.push_label("underlined_text").unwrap();
+        formatter.push_label("underlined_text");
         write!(formatter, " underlined only ").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         writeln!(formatter).unwrap();
-        formatter.push_label("reversed_colors").unwrap();
+        formatter.push_label("reversed_colors");
         write!(formatter, " reverse only ").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         writeln!(formatter).unwrap();
-        formatter.push_label("multiple").unwrap();
+        formatter.push_label("multiple");
         write!(formatter, " single rule ").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         writeln!(formatter).unwrap();
-        formatter.push_label("red_fg").unwrap();
-        formatter.push_label("blue_bg").unwrap();
+        formatter.push_label("red_fg");
+        formatter.push_label("blue_bg");
         write!(formatter, " two rules ").unwrap();
-        formatter.pop_label().unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
+        formatter.pop_label();
         writeln!(formatter).unwrap();
         drop(formatter);
         insta::assert_snapshot!(to_snapshot_string(output), @r"
@@ -959,17 +1026,46 @@ mod tests {
         );
         let mut output: Vec<u8> = vec![];
         let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
-        formatter.push_label("not_bold").unwrap();
+        formatter.push_label("not_bold");
         write!(formatter, " not bold ").unwrap();
-        formatter.push_label("bold_font").unwrap();
+        formatter.push_label("bold_font");
         write!(formatter, " bold ").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         write!(formatter, " not bold again ").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         drop(formatter);
         insta::assert_snapshot!(
             to_snapshot_string(output),
             @"[3m[4m[38;5;1m[48;5;4m not bold [1m bold [0m[3m[4m[38;5;1m[48;5;4m not bold again [23m[24m[39m[49m[EOF]");
+    }
+
+    #[test]
+    fn test_color_formatter_reset_on_flush() {
+        let config = config_from_string("colors.red = 'red'");
+        let mut output: Vec<u8> = vec![];
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        formatter.push_label("red");
+        write!(formatter, "foo").unwrap();
+        formatter.pop_label();
+
+        // without flush()
+        insta::assert_snapshot!(
+            to_snapshot_string(formatter.output.clone()), @"[38;5;1mfoo[EOF]");
+
+        // flush() should emit the reset sequence.
+        formatter.flush().unwrap();
+        insta::assert_snapshot!(
+            to_snapshot_string(formatter.output.clone()), @"[38;5;1mfoo[39m[EOF]");
+
+        // New color sequence should be emitted as the state was reset.
+        formatter.push_label("red");
+        write!(formatter, "bar").unwrap();
+        formatter.pop_label();
+
+        // drop() should emit the reset sequence.
+        drop(formatter);
+        insta::assert_snapshot!(
+            to_snapshot_string(output), @"[38;5;1mfoo[39m[38;5;1mbar[39m[EOF]");
     }
 
     #[test]
@@ -984,16 +1080,16 @@ mod tests {
         let mut output: Vec<u8> = vec![];
         let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
         write!(formatter, "before").unwrap();
-        formatter.push_label("red").unwrap();
+        formatter.push_label("red");
         write!(formatter, "first").unwrap();
-        formatter.pop_label().unwrap();
-        formatter.push_label("green").unwrap();
+        formatter.pop_label();
+        formatter.push_label("green");
         write!(formatter, "second").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         write!(formatter, "after").unwrap();
         drop(formatter);
         insta::assert_snapshot!(
-            to_snapshot_string(output), @"before[38;5;1mfirst[39m[38;5;2msecond[39mafter[EOF]");
+            to_snapshot_string(output), @"before[38;5;1mfirst[38;5;2msecond[39mafter[EOF]");
     }
 
     #[test]
@@ -1006,9 +1102,9 @@ mod tests {
         );
         let mut output: Vec<u8> = vec![];
         let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
-        formatter.push_label("red").unwrap();
+        formatter.push_label("red");
         write!(formatter, "\x1b[1mnot actually bold\x1b[0m").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         drop(formatter);
         insta::assert_snapshot!(
             to_snapshot_string(output), @"[38;5;1m␛[1mnot actually bold␛[0m[39m[EOF]");
@@ -1029,13 +1125,13 @@ mod tests {
         let mut output: Vec<u8> = vec![];
         let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
         write!(formatter, " before outer ").unwrap();
-        formatter.push_label("outer").unwrap();
+        formatter.push_label("outer");
         write!(formatter, " before inner ").unwrap();
-        formatter.push_label("inner").unwrap();
+        formatter.push_label("inner");
         write!(formatter, " inside inner ").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         write!(formatter, " after inner ").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         write!(formatter, " after outer ").unwrap();
         drop(formatter);
         insta::assert_snapshot!(
@@ -1053,13 +1149,13 @@ mod tests {
         );
         let mut output: Vec<u8> = vec![];
         let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
-        formatter.push_label("outer").unwrap();
+        formatter.push_label("outer");
         write!(formatter, " not colored ").unwrap();
-        formatter.push_label("inner").unwrap();
+        formatter.push_label("inner");
         write!(formatter, " colored ").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         write!(formatter, " not colored ").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         drop(formatter);
         insta::assert_snapshot!(
             to_snapshot_string(output),
@@ -1079,6 +1175,21 @@ mod tests {
         let err = ColorFormatter::for_config(&mut output, &config, false).unwrap_err();
         insta::assert_snapshot!(err, @r#"Invalid type or value for colors."outer inner""#);
         insta::assert_snapshot!(err.source().unwrap(), @"Invalid color: bloo");
+    }
+
+    #[test]
+    fn test_color_formatter_unrecognized_ansi256_color() {
+        // An unrecognized ANSI color causes an error.
+        let config = config_from_string(
+            r##"
+            colors."outer" = "red"
+            colors."outer inner" = "ansi-color-256"
+            "##,
+        );
+        let mut output: Vec<u8> = vec![];
+        let err = ColorFormatter::for_config(&mut output, &config, false).unwrap_err();
+        insta::assert_snapshot!(err, @r#"Invalid type or value for colors."outer inner""#);
+        insta::assert_snapshot!(err.source().unwrap(), @"Invalid color: ansi-color-256");
     }
 
     #[test]
@@ -1130,15 +1241,15 @@ mod tests {
         );
         let mut output: Vec<u8> = vec![];
         let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
-        formatter.push_label("outer").unwrap();
+        formatter.push_label("outer");
         write!(formatter, "Blue on yellow, ").unwrap();
-        formatter.push_label("default_fg").unwrap();
+        formatter.push_label("default_fg");
         write!(formatter, " default fg, ").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         write!(formatter, " and back.\nBlue on yellow, ").unwrap();
-        formatter.push_label("default_bg").unwrap();
+        formatter.push_label("default_bg");
         write!(formatter, " default bg, ").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         write!(formatter, " and back.").unwrap();
         drop(formatter);
         insta::assert_snapshot!(to_snapshot_string(output), @r"
@@ -1158,11 +1269,11 @@ mod tests {
         );
         let mut output: Vec<u8> = vec![];
         let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
-        formatter.push_label("outer1").unwrap();
-        formatter.push_label("inner2").unwrap();
+        formatter.push_label("outer1");
+        formatter.push_label("inner2");
         write!(formatter, " hello ").unwrap();
-        formatter.pop_label().unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
+        formatter.pop_label();
         drop(formatter);
         insta::assert_snapshot!(to_snapshot_string(output), @"[38;5;2m hello [39m[EOF]");
     }
@@ -1177,11 +1288,11 @@ mod tests {
         );
         let mut output: Vec<u8> = vec![];
         let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
-        formatter.push_label("outer").unwrap();
-        formatter.push_label("inner").unwrap();
+        formatter.push_label("outer");
+        formatter.push_label("inner");
         write!(formatter, " hello ").unwrap();
-        formatter.pop_label().unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
+        formatter.pop_label();
         drop(formatter);
         insta::assert_snapshot!(to_snapshot_string(output), @" hello [EOF]");
     }
@@ -1199,17 +1310,17 @@ mod tests {
         );
         let mut output: Vec<u8> = vec![];
         let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
-        formatter.push_label("a").unwrap();
+        formatter.push_label("a");
         write!(formatter, " a1 ").unwrap();
-        formatter.push_label("b").unwrap();
+        formatter.push_label("b");
         write!(formatter, " b1 ").unwrap();
-        formatter.push_label("c").unwrap();
+        formatter.push_label("c");
         write!(formatter, " c ").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         write!(formatter, " b2 ").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         write!(formatter, " a2 ").unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
         drop(formatter);
         insta::assert_snapshot!(
             to_snapshot_string(output),
@@ -1227,8 +1338,8 @@ mod tests {
         );
         let mut output: Vec<u8> = vec![];
         let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
-        formatter.push_label("outer").unwrap();
-        formatter.push_label("inner").unwrap();
+        formatter.push_label("outer");
+        formatter.push_label("inner");
         write!(formatter, " inside ").unwrap();
         drop(formatter);
         insta::assert_snapshot!(to_snapshot_string(output), @"[38;5;2m inside [39m[EOF]");
@@ -1245,14 +1356,36 @@ mod tests {
         );
         let mut output: Vec<u8> = vec![];
         let mut formatter = ColorFormatter::for_config(&mut output, &config, true).unwrap();
-        formatter.push_label("outer").unwrap();
-        formatter.push_label("inner").unwrap();
+        formatter.push_label("outer");
+        formatter.push_label("inner");
         write!(formatter, " inside ").unwrap();
-        formatter.pop_label().unwrap();
-        formatter.pop_label().unwrap();
+        formatter.pop_label();
+        formatter.pop_label();
         drop(formatter);
         insta::assert_snapshot!(
             to_snapshot_string(output), @"[38;5;2m<<outer inner:: inside >>[39m[EOF]");
+    }
+
+    #[test]
+    fn test_labeled_scope() {
+        let config = config_from_string(indoc! {"
+            [colors]
+            outer = 'blue'
+            inner = 'red'
+            'outer inner' = 'green'
+        "});
+        let mut output: Vec<u8> = vec![];
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        writeln!(formatter.labeled("outer"), "outer").unwrap();
+        writeln!(formatter.labeled("outer").labeled("inner"), "outer-inner").unwrap();
+        writeln!(formatter.labeled("inner"), "inner").unwrap();
+        drop(formatter);
+        insta::assert_snapshot!(to_snapshot_string(output), @r"
+        [38;5;4mouter[39m
+        [38;5;2mouter-inner[39m
+        [38;5;1minner[39m
+        [EOF]
+        ");
     }
 
     #[test]
@@ -1264,21 +1397,15 @@ mod tests {
         "#,
         );
         let mut output: Vec<u8> = vec![];
-        let mut formatter: Box<dyn Formatter> =
-            Box::new(ColorFormatter::for_config(&mut output, &config, false).unwrap());
-        formatter
-            .as_mut()
-            .labeled("inner")
-            .with_heading("Should be noop: ");
-        let mut writer = formatter
-            .as_mut()
-            .labeled("inner")
-            .with_heading("Heading: ");
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        formatter.labeled("inner").with_heading("Should be noop: ");
+        let mut writer = formatter.labeled("inner").with_heading("Heading: ");
         write!(writer, "Message").unwrap();
         writeln!(writer, " continues").unwrap();
+        drop(writer);
         drop(formatter);
         insta::assert_snapshot!(to_snapshot_string(output), @r"
-        [38;5;1mHeading: [38;5;2mMessage[39m[38;5;2m continues[39m
+        [38;5;1mHeading: [38;5;2mMessage continues[39m
         [EOF]
         ");
     }
@@ -1286,16 +1413,13 @@ mod tests {
     #[test]
     fn test_heading_labeled_writer_empty_string() {
         let mut output: Vec<u8> = vec![];
-        let mut formatter: Box<dyn Formatter> = Box::new(PlainTextFormatter::new(&mut output));
-        let mut writer = formatter
-            .as_mut()
-            .labeled("inner")
-            .with_heading("Heading: ");
+        let mut formatter = PlainTextFormatter::new(&mut output);
+        let mut writer = formatter.labeled("inner").with_heading("Heading: ");
         // write_fmt() is called even if the format string is empty. I don't
         // know if that's guaranteed, but let's record the current behavior.
         write!(writer, "").unwrap();
         write!(writer, "").unwrap();
-        drop(formatter);
+        drop(writer);
         insta::assert_snapshot!(to_snapshot_string(output), @"Heading: [EOF]");
     }
 
@@ -1303,10 +1427,10 @@ mod tests {
     fn test_format_recorder() {
         let mut recorder = FormatRecorder::new();
         write!(recorder, " outer1 ").unwrap();
-        recorder.push_label("inner").unwrap();
+        recorder.push_label("inner");
         write!(recorder, " inner1 ").unwrap();
         write!(recorder, " inner2 ").unwrap();
-        recorder.pop_label().unwrap();
+        recorder.pop_label();
         write!(recorder, " outer2 ").unwrap();
 
         insta::assert_snapshot!(
@@ -1343,10 +1467,10 @@ mod tests {
         // Note: similar to test_format_recorder above
         let mut recorder = FormatRecorder::new();
         write!(recorder.raw().unwrap(), " outer1 ").unwrap();
-        recorder.push_label("inner").unwrap();
+        recorder.push_label("inner");
         write!(recorder.raw().unwrap(), " inner1 ").unwrap();
         write!(recorder.raw().unwrap(), " inner2 ").unwrap();
-        recorder.pop_label().unwrap();
+        recorder.pop_label();
         write!(recorder.raw().unwrap(), " outer2 ").unwrap();
 
         // Replayed raw escape sequences are labeled.

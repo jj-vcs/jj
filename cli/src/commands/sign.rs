@@ -20,11 +20,11 @@ use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::signing::SignBehavior;
 
-use crate::cli_util::print_updated_commits;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
-use crate::command_error::user_error_with_hint;
+use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
+use crate::command_error::user_error_with_hint;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -89,7 +89,7 @@ pub fn cmd_sign(ui: &mut Ui, command: &CommandHelper, args: &SignArgs) -> Result
 
     tx.repo_mut().transform_descendants(
         to_sign.iter().ids().cloned().collect_vec(),
-        |rewriter| {
+        async |rewriter| {
             let old_commit = rewriter.old_commit().clone();
             let mut commit_builder = rewriter.reparent();
 
@@ -112,15 +112,15 @@ pub fn cmd_sign(ui: &mut Ui, command: &CommandHelper, args: &SignArgs) -> Result
         },
     )?;
 
-    if let Some(mut formatter) = ui.status_formatter() {
-        if !signed_commits.is_empty() {
-            writeln!(formatter, "Signed {} commits:", signed_commits.len())?;
-            print_updated_commits(
-                formatter.as_mut(),
-                &tx.commit_summary_template(),
-                &signed_commits,
-            )?;
-        }
+    if let Some(mut formatter) = ui.status_formatter()
+        && !signed_commits.is_empty()
+    {
+        writeln!(formatter, "Signed {} commits:", signed_commits.len())?;
+        print_updated_commits(
+            formatter.as_mut(),
+            &tx.commit_summary_template(),
+            &signed_commits,
+        )?;
     }
 
     let num_not_authored_by_me = signed_commits

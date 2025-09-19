@@ -15,9 +15,9 @@
 use clap_complete::ArgValueCandidates;
 use jj_lib::object_id::ObjectId as _;
 
+use super::DEFAULT_REVERT_WHAT;
+use super::RevertWhatToRestore;
 use super::view_with_desired_portions_restored;
-use super::UndoWhatToRestore;
-use super::DEFAULT_UNDO_WHAT;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::complete;
@@ -40,8 +40,8 @@ pub struct OperationRestoreArgs {
     /// What portions of the local state to restore (can be repeated)
     ///
     /// This option is EXPERIMENTAL.
-    #[arg(long, value_enum, default_values_t = DEFAULT_UNDO_WHAT)]
-    what: Vec<UndoWhatToRestore>,
+    #[arg(long, value_enum, default_values_t = DEFAULT_REVERT_WHAT)]
+    what: Vec<RevertWhatToRestore>,
 }
 
 pub fn cmd_op_restore(

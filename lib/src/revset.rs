@@ -12,19 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::any::Any;
-use std::collections::hash_map;
 use std::collections::HashMap;
+use std::collections::hash_map;
 use std::convert::Infallible;
 use std::fmt;
+use std::ops::ControlFlow;
 use std::ops::Range;
-use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use itertools::Itertools as _;
-use once_cell::sync::Lazy;
 use thiserror::Error;
 
 use crate::backend::BackendError;
@@ -33,16 +33,15 @@ use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::dsl_util;
 use crate::dsl_util::collect_similar;
-use crate::dsl_util::AliasExpandError as _;
 use crate::fileset;
 use crate::fileset::FilesetDiagnostics;
 use crate::fileset::FilesetExpression;
 use crate::graph::GraphNode;
-use crate::hex_util::to_forward_hex;
 use crate::id_prefix::IdPrefixContext;
 use crate::id_prefix::IdPrefixIndex;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
+use crate::op_store::RefTarget;
 use crate::op_store::RemoteRefState;
 use crate::op_walk;
 use crate::ref_name::RemoteRefSymbol;
@@ -54,9 +53,6 @@ use crate::repo::Repo;
 use crate::repo::RepoLoaderError;
 use crate::repo_path::RepoPathUiConverter;
 use crate::revset_parser;
-pub use crate::revset_parser::expect_literal;
-pub use crate::revset_parser::parse_program;
-pub use crate::revset_parser::parse_symbol;
 pub use crate::revset_parser::BinaryOp;
 pub use crate::revset_parser::ExpressionKind;
 pub use crate::revset_parser::ExpressionNode;
@@ -66,6 +62,9 @@ pub use crate::revset_parser::RevsetDiagnostics;
 pub use crate::revset_parser::RevsetParseError;
 pub use crate::revset_parser::RevsetParseErrorKind;
 pub use crate::revset_parser::UnaryOp;
+pub use crate::revset_parser::expect_literal;
+pub use crate::revset_parser::parse_program;
+pub use crate::revset_parser::parse_symbol;
 use crate::store::Store;
 use crate::str_util::StringPattern;
 use crate::time_util::DatePattern;
@@ -87,6 +86,17 @@ pub enum RevsetResolutionError {
     AmbiguousCommitIdPrefix(String),
     #[error("Change ID prefix `{0}` is ambiguous")]
     AmbiguousChangeIdPrefix(String),
+    #[error("Change ID `{symbol}` is divergent")]
+    DivergentChangeId {
+        symbol: String,
+        targets: Vec<CommitId>,
+    },
+    #[error("Name `{symbol}` is conflicted")]
+    ConflictedRef {
+        kind: &'static str,
+        symbol: String,
+        targets: Vec<CommitId>,
+    },
     #[error("Unexpected error from commit backend")]
     Backend(#[source] BackendError),
     #[error(transparent)]
@@ -117,6 +127,8 @@ impl RevsetEvaluationError {
 pub const GENERATION_RANGE_FULL: Range<u64> = 0..u64::MAX;
 pub const GENERATION_RANGE_EMPTY: Range<u64> = 0..0;
 
+pub const PARENTS_RANGE_FULL: Range<u32> = 0..u32::MAX;
+
 /// Global flag applied to the entire expression.
 ///
 /// The core revset engine doesn't use this value. It's up to caller to
@@ -135,6 +147,8 @@ pub enum RevsetCommitRef {
     WorkingCopies,
     Symbol(String),
     RemoteSymbol(RemoteRefSymbolBuf),
+    ChangeId(HexPrefix),
+    CommitId(HexPrefix),
     Bookmarks(StringPattern),
     RemoteBookmarks {
         bookmark_pattern: StringPattern,
@@ -147,7 +161,7 @@ pub enum RevsetCommitRef {
 }
 
 /// A custom revset filter expression, defined by an extension.
-pub trait RevsetFilterExtension: std::fmt::Debug + Any {
+pub trait RevsetFilterExtension: std::fmt::Debug + Any + Send + Sync {
     fn as_any(&self) -> &dyn Any;
 
     /// Returns true iff this filter matches the specified commit.
@@ -186,7 +200,7 @@ pub enum RevsetFilterPredicate {
     /// Commits that are cryptographically signed.
     Signed,
     /// Custom predicates provided by extensions
-    Extension(Rc<dyn RevsetFilterExtension>),
+    Extension(Arc<dyn RevsetFilterExtension>),
 }
 
 mod private {
@@ -231,229 +245,305 @@ pub enum RevsetExpression<St: ExpressionState> {
     None,
     All,
     VisibleHeads,
+    /// Visible heads and all referenced commits within the current expression
+    /// scope. Used as the default of `Range`/`DagRange` heads.
+    VisibleHeadsOrReferenced,
     Root,
     Commits(Vec<CommitId>),
     CommitRef(St::CommitRef),
     Ancestors {
-        heads: Rc<Self>,
+        heads: Arc<Self>,
         generation: Range<u64>,
+        parents_range: Range<u32>,
     },
     Descendants {
-        roots: Rc<Self>,
+        roots: Arc<Self>,
         generation: Range<u64>,
     },
     // Commits that are ancestors of "heads" but not ancestors of "roots"
     Range {
-        roots: Rc<Self>,
-        heads: Rc<Self>,
+        roots: Arc<Self>,
+        heads: Arc<Self>,
         generation: Range<u64>,
+        // Parents range is only used for traversing heads, not roots
+        parents_range: Range<u32>,
     },
     // Commits that are descendants of "roots" and ancestors of "heads"
     DagRange {
-        roots: Rc<Self>,
-        heads: Rc<Self>,
+        roots: Arc<Self>,
+        heads: Arc<Self>,
         // TODO: maybe add generation_from_roots/heads?
     },
     // Commits reachable from "sources" within "domain"
     Reachable {
-        sources: Rc<Self>,
-        domain: Rc<Self>,
+        sources: Arc<Self>,
+        domain: Arc<Self>,
     },
-    Heads(Rc<Self>),
-    Roots(Rc<Self>),
-    ForkPoint(Rc<Self>),
+    Heads(Arc<Self>),
+    /// Heads of the set of commits which are ancestors of `heads` but are not
+    /// ancestors of `roots`, and which also are contained in `filter`.
+    HeadsRange {
+        roots: Arc<Self>,
+        heads: Arc<Self>,
+        parents_range: Range<u32>,
+        filter: Arc<Self>,
+    },
+    Roots(Arc<Self>),
+    ForkPoint(Arc<Self>),
+    Bisect(Arc<Self>),
+    HasSize {
+        candidates: Arc<Self>,
+        count: usize,
+    },
     Latest {
-        candidates: Rc<Self>,
+        candidates: Arc<Self>,
         count: usize,
     },
     Filter(RevsetFilterPredicate),
     /// Marker for subtree that should be intersected as filter.
-    AsFilter(Rc<Self>),
+    AsFilter(Arc<Self>),
     /// Resolves symbols and visibility at the specified operation.
     AtOperation {
         operation: St::Operation,
-        candidates: Rc<Self>,
+        candidates: Arc<Self>,
+    },
+    /// Makes `All` include the commits and their ancestors in addition to the
+    /// visible heads.
+    WithinReference {
+        candidates: Arc<Self>,
+        /// Commits explicitly referenced within the scope.
+        commits: Vec<CommitId>,
     },
     /// Resolves visibility within the specified repo state.
     WithinVisibility {
-        candidates: Rc<Self>,
+        candidates: Arc<Self>,
         /// Copy of `repo.view().heads()` at the operation.
         visible_heads: Vec<CommitId>,
     },
-    Coalesce(Rc<Self>, Rc<Self>),
-    Present(Rc<Self>),
-    NotIn(Rc<Self>),
-    Union(Rc<Self>, Rc<Self>),
-    Intersection(Rc<Self>, Rc<Self>),
-    Difference(Rc<Self>, Rc<Self>),
+    Coalesce(Arc<Self>, Arc<Self>),
+    Present(Arc<Self>),
+    NotIn(Arc<Self>),
+    Union(Arc<Self>, Arc<Self>),
+    Intersection(Arc<Self>, Arc<Self>),
+    Difference(Arc<Self>, Arc<Self>),
 }
 
 // Leaf expression that never contains unresolved commit refs, which can be
 // either user or resolved expression
 impl<St: ExpressionState> RevsetExpression<St> {
-    pub fn none() -> Rc<Self> {
-        Rc::new(Self::None)
+    pub fn none() -> Arc<Self> {
+        Arc::new(Self::None)
     }
 
-    pub fn all() -> Rc<Self> {
-        Rc::new(Self::All)
+    /// Ancestors of visible heads and all referenced commits within the current
+    /// expression scope, which may include hidden commits.
+    pub fn all() -> Arc<Self> {
+        Arc::new(Self::All)
     }
 
-    pub fn visible_heads() -> Rc<Self> {
-        Rc::new(Self::VisibleHeads)
+    pub fn visible_heads() -> Arc<Self> {
+        Arc::new(Self::VisibleHeads)
     }
 
-    pub fn root() -> Rc<Self> {
-        Rc::new(Self::Root)
+    fn visible_heads_or_referenced() -> Arc<Self> {
+        Arc::new(Self::VisibleHeadsOrReferenced)
     }
 
-    pub fn commit(commit_id: CommitId) -> Rc<Self> {
+    pub fn root() -> Arc<Self> {
+        Arc::new(Self::Root)
+    }
+
+    pub fn commit(commit_id: CommitId) -> Arc<Self> {
         Self::commits(vec![commit_id])
     }
 
-    pub fn commits(commit_ids: Vec<CommitId>) -> Rc<Self> {
-        Rc::new(Self::Commits(commit_ids))
+    pub fn commits(commit_ids: Vec<CommitId>) -> Arc<Self> {
+        Arc::new(Self::Commits(commit_ids))
     }
 
-    pub fn filter(predicate: RevsetFilterPredicate) -> Rc<Self> {
-        Rc::new(Self::Filter(predicate))
+    pub fn filter(predicate: RevsetFilterPredicate) -> Arc<Self> {
+        Arc::new(Self::Filter(predicate))
     }
 
     /// Find any empty commits.
-    pub fn is_empty() -> Rc<Self> {
+    pub fn is_empty() -> Arc<Self> {
         Self::filter(RevsetFilterPredicate::File(FilesetExpression::all())).negated()
     }
 }
 
 // Leaf expression that represents unresolved commit refs
 impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
-    pub fn working_copy(name: WorkspaceNameBuf) -> Rc<Self> {
-        Rc::new(Self::CommitRef(RevsetCommitRef::WorkingCopy(name)))
+    pub fn working_copy(name: WorkspaceNameBuf) -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::WorkingCopy(name)))
     }
 
-    pub fn working_copies() -> Rc<Self> {
-        Rc::new(Self::CommitRef(RevsetCommitRef::WorkingCopies))
+    pub fn working_copies() -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::WorkingCopies))
     }
 
-    pub fn symbol(value: String) -> Rc<Self> {
-        Rc::new(Self::CommitRef(RevsetCommitRef::Symbol(value)))
+    pub fn symbol(value: String) -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::Symbol(value)))
     }
 
-    pub fn remote_symbol(value: RemoteRefSymbolBuf) -> Rc<Self> {
+    pub fn remote_symbol(value: RemoteRefSymbolBuf) -> Arc<Self> {
         let commit_ref = RevsetCommitRef::RemoteSymbol(value);
-        Rc::new(Self::CommitRef(commit_ref))
+        Arc::new(Self::CommitRef(commit_ref))
     }
 
-    pub fn bookmarks(pattern: StringPattern) -> Rc<Self> {
-        Rc::new(Self::CommitRef(RevsetCommitRef::Bookmarks(pattern)))
+    pub fn change_id_prefix(prefix: HexPrefix) -> Arc<Self> {
+        let commit_ref = RevsetCommitRef::ChangeId(prefix);
+        Arc::new(Self::CommitRef(commit_ref))
+    }
+
+    pub fn commit_id_prefix(prefix: HexPrefix) -> Arc<Self> {
+        let commit_ref = RevsetCommitRef::CommitId(prefix);
+        Arc::new(Self::CommitRef(commit_ref))
+    }
+
+    pub fn bookmarks(pattern: StringPattern) -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::Bookmarks(pattern)))
     }
 
     pub fn remote_bookmarks(
         bookmark_pattern: StringPattern,
         remote_pattern: StringPattern,
         remote_ref_state: Option<RemoteRefState>,
-    ) -> Rc<Self> {
-        Rc::new(Self::CommitRef(RevsetCommitRef::RemoteBookmarks {
+    ) -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::RemoteBookmarks {
             bookmark_pattern,
             remote_pattern,
             remote_ref_state,
         }))
     }
 
-    pub fn tags(pattern: StringPattern) -> Rc<Self> {
-        Rc::new(Self::CommitRef(RevsetCommitRef::Tags(pattern)))
+    pub fn tags(pattern: StringPattern) -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::Tags(pattern)))
     }
 
-    pub fn git_refs() -> Rc<Self> {
-        Rc::new(Self::CommitRef(RevsetCommitRef::GitRefs))
+    pub fn git_refs() -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::GitRefs))
     }
 
-    pub fn git_head() -> Rc<Self> {
-        Rc::new(Self::CommitRef(RevsetCommitRef::GitHead))
+    pub fn git_head() -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::GitHead))
     }
 }
 
 // Compound expression
 impl<St: ExpressionState> RevsetExpression<St> {
-    pub fn latest(self: &Rc<Self>, count: usize) -> Rc<Self> {
-        Rc::new(Self::Latest {
+    pub fn latest(self: &Arc<Self>, count: usize) -> Arc<Self> {
+        Arc::new(Self::Latest {
             candidates: self.clone(),
             count,
         })
     }
 
     /// Commits in `self` that don't have descendants in `self`.
-    pub fn heads(self: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::Heads(self.clone()))
+    pub fn heads(self: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Heads(self.clone()))
     }
 
     /// Commits in `self` that don't have ancestors in `self`.
-    pub fn roots(self: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::Roots(self.clone()))
+    pub fn roots(self: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Roots(self.clone()))
     }
 
     /// Parents of `self`.
-    pub fn parents(self: &Rc<Self>) -> Rc<Self> {
+    pub fn parents(self: &Arc<Self>) -> Arc<Self> {
         self.ancestors_at(1)
     }
 
     /// Ancestors of `self`, including `self`.
-    pub fn ancestors(self: &Rc<Self>) -> Rc<Self> {
+    pub fn ancestors(self: &Arc<Self>) -> Arc<Self> {
         self.ancestors_range(GENERATION_RANGE_FULL)
     }
 
     /// Ancestors of `self` at an offset of `generation` behind `self`.
     /// The `generation` offset is zero-based starting from `self`.
-    pub fn ancestors_at(self: &Rc<Self>, generation: u64) -> Rc<Self> {
-        self.ancestors_range(generation..(generation + 1))
+    pub fn ancestors_at(self: &Arc<Self>, generation: u64) -> Arc<Self> {
+        self.ancestors_range(generation..generation.saturating_add(1))
     }
 
     /// Ancestors of `self` in the given range.
-    pub fn ancestors_range(self: &Rc<Self>, generation_range: Range<u64>) -> Rc<Self> {
-        Rc::new(Self::Ancestors {
+    pub fn ancestors_range(self: &Arc<Self>, generation_range: Range<u64>) -> Arc<Self> {
+        Arc::new(Self::Ancestors {
             heads: self.clone(),
             generation: generation_range,
+            parents_range: PARENTS_RANGE_FULL,
+        })
+    }
+
+    /// First-parent ancestors of `self`, including `self`.
+    pub fn first_ancestors(self: &Arc<Self>) -> Arc<Self> {
+        self.first_ancestors_range(GENERATION_RANGE_FULL)
+    }
+
+    /// First-parent ancestors of `self` at an offset of `generation` behind
+    /// `self`. The `generation` offset is zero-based starting from `self`.
+    pub fn first_ancestors_at(self: &Arc<Self>, generation: u64) -> Arc<Self> {
+        self.first_ancestors_range(generation..generation.saturating_add(1))
+    }
+
+    /// First-parent ancestors of `self` in the given range.
+    pub fn first_ancestors_range(self: &Arc<Self>, generation_range: Range<u64>) -> Arc<Self> {
+        Arc::new(Self::Ancestors {
+            heads: self.clone(),
+            generation: generation_range,
+            parents_range: 0..1,
         })
     }
 
     /// Children of `self`.
-    pub fn children(self: &Rc<Self>) -> Rc<Self> {
+    pub fn children(self: &Arc<Self>) -> Arc<Self> {
         self.descendants_at(1)
     }
 
     /// Descendants of `self`, including `self`.
-    pub fn descendants(self: &Rc<Self>) -> Rc<Self> {
+    pub fn descendants(self: &Arc<Self>) -> Arc<Self> {
         self.descendants_range(GENERATION_RANGE_FULL)
     }
 
     /// Descendants of `self` at an offset of `generation` ahead of `self`.
     /// The `generation` offset is zero-based starting from `self`.
-    pub fn descendants_at(self: &Rc<Self>, generation: u64) -> Rc<Self> {
-        self.descendants_range(generation..(generation + 1))
+    pub fn descendants_at(self: &Arc<Self>, generation: u64) -> Arc<Self> {
+        self.descendants_range(generation..generation.saturating_add(1))
     }
 
     /// Descendants of `self` in the given range.
-    pub fn descendants_range(self: &Rc<Self>, generation_range: Range<u64>) -> Rc<Self> {
-        Rc::new(Self::Descendants {
+    pub fn descendants_range(self: &Arc<Self>, generation_range: Range<u64>) -> Arc<Self> {
+        Arc::new(Self::Descendants {
             roots: self.clone(),
             generation: generation_range,
         })
     }
 
     /// Fork point (best common ancestors) of `self`.
-    pub fn fork_point(self: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::ForkPoint(self.clone()))
+    pub fn fork_point(self: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::ForkPoint(self.clone()))
+    }
+
+    /// Commits with ~half of the descendants in `self`.
+    pub fn bisect(self: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Bisect(self.clone()))
+    }
+
+    /// Commits in `self`, the number of which must be exactly equal to `count`.
+    pub fn has_size(self: &Arc<Self>, count: usize) -> Arc<Self> {
+        Arc::new(Self::HasSize {
+            candidates: self.clone(),
+            count,
+        })
     }
 
     /// Filter all commits by `predicate` in `self`.
-    pub fn filtered(self: &Rc<Self>, predicate: RevsetFilterPredicate) -> Rc<Self> {
+    pub fn filtered(self: &Arc<Self>, predicate: RevsetFilterPredicate) -> Arc<Self> {
         self.intersection(&Self::filter(predicate))
     }
 
     /// Commits that are descendants of `self` and ancestors of `heads`, both
     /// inclusive.
-    pub fn dag_range_to(self: &Rc<Self>, heads: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::DagRange {
+    pub fn dag_range_to(self: &Arc<Self>, heads: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::DagRange {
             roots: self.clone(),
             heads: heads.clone(),
         })
@@ -461,78 +551,67 @@ impl<St: ExpressionState> RevsetExpression<St> {
 
     /// Connects any ancestors and descendants in the set by adding the commits
     /// between them.
-    pub fn connected(self: &Rc<Self>) -> Rc<Self> {
+    pub fn connected(self: &Arc<Self>) -> Arc<Self> {
         self.dag_range_to(self)
     }
 
     /// All commits within `domain` reachable from this set of commits, by
     /// traversing either parent or child edges.
-    pub fn reachable(self: &Rc<Self>, domain: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::Reachable {
+    pub fn reachable(self: &Arc<Self>, domain: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Reachable {
             sources: self.clone(),
             domain: domain.clone(),
         })
     }
 
     /// Commits reachable from `heads` but not from `self`.
-    pub fn range(self: &Rc<Self>, heads: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::Range {
+    pub fn range(self: &Arc<Self>, heads: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Range {
             roots: self.clone(),
             heads: heads.clone(),
             generation: GENERATION_RANGE_FULL,
+            parents_range: PARENTS_RANGE_FULL,
         })
     }
 
     /// Suppresses name resolution error within `self`.
-    pub fn present(self: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::Present(self.clone()))
+    pub fn present(self: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Present(self.clone()))
     }
 
     /// Commits that are not in `self`, i.e. the complement of `self`.
-    pub fn negated(self: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::NotIn(self.clone()))
+    pub fn negated(self: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::NotIn(self.clone()))
     }
 
     /// Commits that are in `self` or in `other` (or both).
-    pub fn union(self: &Rc<Self>, other: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::Union(self.clone(), other.clone()))
+    pub fn union(self: &Arc<Self>, other: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Union(self.clone(), other.clone()))
     }
 
     /// Commits that are in any of the `expressions`.
-    pub fn union_all(expressions: &[Rc<Self>]) -> Rc<Self> {
-        match expressions {
-            [] => Self::none(),
-            [expression] => expression.clone(),
-            _ => {
-                // Build balanced tree to minimize the recursion depth.
-                let (left, right) = expressions.split_at(expressions.len() / 2);
-                Self::union(&Self::union_all(left), &Self::union_all(right))
-            }
-        }
+    pub fn union_all(expressions: &[Arc<Self>]) -> Arc<Self> {
+        to_binary_expression(expressions, &Self::none, &Self::union)
     }
 
     /// Commits that are in `self` and in `other`.
-    pub fn intersection(self: &Rc<Self>, other: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::Intersection(self.clone(), other.clone()))
+    pub fn intersection(self: &Arc<Self>, other: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Intersection(self.clone(), other.clone()))
     }
 
     /// Commits that are in `self` but not in `other`.
-    pub fn minus(self: &Rc<Self>, other: &Rc<Self>) -> Rc<Self> {
-        Rc::new(Self::Difference(self.clone(), other.clone()))
+    pub fn minus(self: &Arc<Self>, other: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Difference(self.clone(), other.clone()))
     }
 
     /// Commits that are in the first expression in `expressions` that is not
     /// `none()`.
-    pub fn coalesce(expressions: &[Rc<Self>]) -> Rc<Self> {
-        match expressions {
-            [] => Self::none(),
-            [expression] => expression.clone(),
-            _ => {
-                // Build balanced tree to minimize the recursion depth.
-                let (left, right) = expressions.split_at(expressions.len() / 2);
-                Rc::new(Self::Coalesce(Self::coalesce(left), Self::coalesce(right)))
-            }
-        }
+    pub fn coalesce(expressions: &[Arc<Self>]) -> Arc<Self> {
+        to_binary_expression(expressions, &Self::none, &Self::coalesce2)
+    }
+
+    fn coalesce2(self: &Arc<Self>, other: &Arc<Self>) -> Arc<Self> {
+        Arc::new(Self::Coalesce(self.clone(), other.clone()))
     }
 }
 
@@ -540,7 +619,7 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
     /// Returns symbol string if this expression is of that type.
     pub fn as_symbol(&self) -> Option<&str> {
         match self {
-            RevsetExpression::CommitRef(RevsetCommitRef::Symbol(name)) => Some(name),
+            Self::CommitRef(RevsetCommitRef::Symbol(name)) => Some(name),
             _ => None,
         }
     }
@@ -548,12 +627,12 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
 
 impl UserRevsetExpression {
     /// Resolve a user-provided expression. Symbols will be resolved using the
-    /// provided `SymbolResolver`.
+    /// provided [`SymbolResolver`].
     pub fn resolve_user_expression(
         &self,
         repo: &dyn Repo,
-        symbol_resolver: &dyn SymbolResolver,
-    ) -> Result<Rc<ResolvedRevsetExpression>, RevsetResolutionError> {
+        symbol_resolver: &SymbolResolver,
+    ) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
         resolve_symbols(repo, self, symbol_resolver)
     }
 }
@@ -561,10 +640,11 @@ impl UserRevsetExpression {
 impl ResolvedRevsetExpression {
     /// Optimizes and evaluates this expression.
     pub fn evaluate<'index>(
-        self: Rc<Self>,
+        self: Arc<Self>,
         repo: &'index dyn Repo,
     ) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError> {
-        optimize(self).evaluate_unoptimized(repo)
+        let expr = optimize(self).to_backend_expression(repo);
+        repo.index().evaluate_revset(&expr, repo.store())
     }
 
     /// Evaluates this expression without optimizing it.
@@ -572,10 +652,15 @@ impl ResolvedRevsetExpression {
     /// Use this function if `self` is already optimized, or to debug
     /// optimization pass.
     pub fn evaluate_unoptimized<'index>(
-        &self,
+        self: &Arc<Self>,
         repo: &'index dyn Repo,
     ) -> Result<Box<dyn Revset + 'index>, RevsetEvaluationError> {
-        let expr = self.to_backend_expression(repo);
+        // Since referenced commits change the evaluation result, they must be
+        // collected no matter if optimization is disabled.
+        let expr = resolve_referenced_commits(self)
+            .as_ref()
+            .unwrap_or(self)
+            .to_backend_expression(repo);
         repo.index().evaluate_revset(&expr, repo.store())
     }
 
@@ -593,11 +678,9 @@ pub enum ResolvedPredicateExpression {
     /// Set expression to be evaluated as filter. This is typically a subtree
     /// node of `Union` with a pure filter predicate.
     Set(Box<ResolvedExpression>),
-    NotIn(Box<ResolvedPredicateExpression>),
-    Union(
-        Box<ResolvedPredicateExpression>,
-        Box<ResolvedPredicateExpression>,
-    ),
+    NotIn(Box<Self>),
+    Union(Box<Self>, Box<Self>),
+    Intersection(Box<Self>, Box<Self>),
 }
 
 /// Describes evaluation plan of revset expression.
@@ -613,12 +696,15 @@ pub enum ResolvedExpression {
     Ancestors {
         heads: Box<Self>,
         generation: Range<u64>,
+        parents_range: Range<u32>,
     },
     /// Commits that are ancestors of `heads` but not ancestors of `roots`.
     Range {
         roots: Box<Self>,
         heads: Box<Self>,
         generation: Range<u64>,
+        // Parents range is only used for traversing heads, not roots
+        parents_range: Range<u32>,
     },
     /// Commits that are descendants of `roots` and ancestors of `heads`.
     DagRange {
@@ -632,8 +718,21 @@ pub enum ResolvedExpression {
         domain: Box<Self>,
     },
     Heads(Box<Self>),
+    /// Heads of the set of commits which are ancestors of `heads` but are not
+    /// ancestors of `roots`, and which also are contained in `filter`.
+    HeadsRange {
+        roots: Box<Self>,
+        heads: Box<Self>,
+        parents_range: Range<u32>,
+        filter: Option<ResolvedPredicateExpression>,
+    },
     Roots(Box<Self>),
     ForkPoint(Box<Self>),
+    Bisect(Box<Self>),
+    HasSize {
+        candidates: Box<Self>,
+        count: usize,
+    },
     Latest {
         candidates: Box<Self>,
         count: usize,
@@ -654,27 +753,37 @@ pub type RevsetFunction = fn(
     &mut RevsetDiagnostics,
     &FunctionCallNode,
     &LoweringContext,
-) -> Result<Rc<UserRevsetExpression>, RevsetParseError>;
+) -> Result<Arc<UserRevsetExpression>, RevsetParseError>;
 
-static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy::new(|| {
+static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock::new(|| {
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map: HashMap<&'static str, RevsetFunction> = HashMap::new();
+    let mut map: HashMap<&str, RevsetFunction> = HashMap::new();
     map.insert("parents", |diagnostics, function, context| {
-        let [arg] = function.expect_exact_arguments()?;
+        let ([arg], [depth_opt_arg]) = function.expect_arguments()?;
         let expression = lower_expression(diagnostics, arg, context)?;
-        Ok(expression.parents())
+        if let Some(depth_arg) = depth_opt_arg {
+            let depth = expect_literal("integer", depth_arg)?;
+            Ok(expression.ancestors_at(depth))
+        } else {
+            Ok(expression.parents())
+        }
     });
     map.insert("children", |diagnostics, function, context| {
-        let [arg] = function.expect_exact_arguments()?;
+        let ([arg], [depth_opt_arg]) = function.expect_arguments()?;
         let expression = lower_expression(diagnostics, arg, context)?;
-        Ok(expression.children())
+        if let Some(depth_arg) = depth_opt_arg {
+            let depth = expect_literal("integer", depth_arg)?;
+            Ok(expression.descendants_at(depth))
+        } else {
+            Ok(expression.children())
+        }
     });
     map.insert("ancestors", |diagnostics, function, context| {
         let ([heads_arg], [depth_opt_arg]) = function.expect_arguments()?;
         let heads = lower_expression(diagnostics, heads_arg, context)?;
         let generation = if let Some(depth_arg) = depth_opt_arg {
-            let depth = expect_literal(diagnostics, "integer", depth_arg)?;
+            let depth = expect_literal("integer", depth_arg)?;
             0..depth
         } else {
             GENERATION_RANGE_FULL
@@ -685,12 +794,33 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
         let ([roots_arg], [depth_opt_arg]) = function.expect_arguments()?;
         let roots = lower_expression(diagnostics, roots_arg, context)?;
         let generation = if let Some(depth_arg) = depth_opt_arg {
-            let depth = expect_literal(diagnostics, "integer", depth_arg)?;
+            let depth = expect_literal("integer", depth_arg)?;
             0..depth
         } else {
             GENERATION_RANGE_FULL
         };
         Ok(roots.descendants_range(generation))
+    });
+    map.insert("first_parent", |diagnostics, function, context| {
+        let ([arg], [depth_opt_arg]) = function.expect_arguments()?;
+        let expression = lower_expression(diagnostics, arg, context)?;
+        let depth = if let Some(depth_arg) = depth_opt_arg {
+            expect_literal("integer", depth_arg)?
+        } else {
+            1
+        };
+        Ok(expression.first_ancestors_at(depth))
+    });
+    map.insert("first_ancestors", |diagnostics, function, context| {
+        let ([heads_arg], [depth_opt_arg]) = function.expect_arguments()?;
+        let heads = lower_expression(diagnostics, heads_arg, context)?;
+        let generation = if let Some(depth_arg) = depth_opt_arg {
+            let depth = expect_literal("integer", depth_arg)?;
+            0..depth
+        } else {
+            GENERATION_RANGE_FULL
+        };
+        Ok(heads.first_ancestors_range(generation))
     });
     map.insert("connected", |diagnostics, function, context| {
         let [arg] = function.expect_exact_arguments()?;
@@ -732,6 +862,24 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
     map.insert("root", |_diagnostics, function, _context| {
         function.expect_no_arguments()?;
         Ok(RevsetExpression::root())
+    });
+    map.insert("change_id", |diagnostics, function, _context| {
+        let [arg] = function.expect_exact_arguments()?;
+        let prefix = revset_parser::catch_aliases(diagnostics, arg, |_diagnostics, arg| {
+            let value = revset_parser::expect_string_literal("change ID prefix", arg)?;
+            HexPrefix::try_from_reverse_hex(value)
+                .ok_or_else(|| RevsetParseError::expression("Invalid change ID prefix", arg.span))
+        })?;
+        Ok(RevsetExpression::change_id_prefix(prefix))
+    });
+    map.insert("commit_id", |diagnostics, function, _context| {
+        let [arg] = function.expect_exact_arguments()?;
+        let prefix = revset_parser::catch_aliases(diagnostics, arg, |_diagnostics, arg| {
+            let value = revset_parser::expect_string_literal("commit ID prefix", arg)?;
+            HexPrefix::try_from_hex(value)
+                .ok_or_else(|| RevsetParseError::expression("Invalid commit ID prefix", arg.span))
+        })?;
+        Ok(RevsetExpression::commit_id_prefix(prefix))
     });
     map.insert("bookmarks", |diagnostics, function, _context| {
         let ([], [opt_arg]) = function.expect_arguments()?;
@@ -778,7 +926,7 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
         let ([candidates_arg], [count_opt_arg]) = function.expect_arguments()?;
         let candidates = lower_expression(diagnostics, candidates_arg, context)?;
         let count = if let Some(count_arg) = count_opt_arg {
-            expect_literal(diagnostics, "integer", count_arg)?
+            expect_literal("integer", count_arg)?
         } else {
             1
         };
@@ -788,6 +936,17 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
         let [expression_arg] = function.expect_exact_arguments()?;
         let expression = lower_expression(diagnostics, expression_arg, context)?;
         Ok(RevsetExpression::fork_point(&expression))
+    });
+    map.insert("bisect", |diagnostics, function, context| {
+        let [expression_arg] = function.expect_exact_arguments()?;
+        let expression = lower_expression(diagnostics, expression_arg, context)?;
+        Ok(RevsetExpression::bisect(&expression))
+    });
+    map.insert("exactly", |diagnostics, function, context| {
+        let ([candidates_arg, count_arg], []) = function.expect_arguments()?;
+        let candidates = lower_expression(diagnostics, candidates_arg, context)?;
+        let count = expect_literal("integer", count_arg)?;
+        Ok(candidates.has_size(count))
     });
     map.insert("merges", |_diagnostics, function, _context| {
         function.expect_no_arguments()?;
@@ -923,12 +1082,11 @@ static BUILTIN_FUNCTION_MAP: Lazy<HashMap<&'static str, RevsetFunction>> = Lazy:
     map.insert("at_operation", |diagnostics, function, context| {
         let [op_arg, cand_arg] = function.expect_exact_arguments()?;
         // TODO: Parse "opset" here if we add proper language support.
-        let operation =
-            revset_parser::expect_expression_with(diagnostics, op_arg, |_diagnostics, node| {
-                Ok(node.span.as_str().to_owned())
-            })?;
+        let operation = revset_parser::catch_aliases(diagnostics, op_arg, |_diagnostics, node| {
+            Ok(node.span.as_str().to_owned())
+        })?;
         let candidates = lower_expression(diagnostics, cand_arg, context)?;
-        Ok(Rc::new(RevsetExpression::AtOperation {
+        Ok(Arc::new(RevsetExpression::AtOperation {
             operation,
             candidates,
         }))
@@ -953,7 +1111,7 @@ pub fn expect_fileset_expression(
     // Alias handling is a bit tricky. The outermost expression `alias` is
     // substituted, but inner expressions `x & alias` aren't. If this seemed
     // weird, we can either transform AST or turn off revset aliases completely.
-    revset_parser::expect_expression_with(diagnostics, node, |diagnostics, node| {
+    revset_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
         let mut inner_diagnostics = FilesetDiagnostics::new();
         let expression = fileset::parse(&mut inner_diagnostics, node.span.as_str(), path_converter)
             .map_err(|err| {
@@ -970,15 +1128,16 @@ pub fn expect_string_pattern(
     diagnostics: &mut RevsetDiagnostics,
     node: &ExpressionNode,
 ) -> Result<StringPattern, RevsetParseError> {
-    revset_parser::expect_pattern_with(
-        diagnostics,
-        "string pattern",
-        node,
-        |_diagnostics, value, kind| match kind {
-            Some(kind) => StringPattern::from_str_kind(value, kind),
-            None => Ok(StringPattern::Substring(value.to_owned())),
-        },
-    )
+    revset_parser::catch_aliases(diagnostics, node, |_diagnostics, node| {
+        let (value, kind) = revset_parser::expect_string_pattern("string pattern", node)?;
+        if let Some(kind) = kind {
+            StringPattern::from_str_kind(value, kind).map_err(|err| {
+                RevsetParseError::expression("Invalid string pattern", node.span).with_source(err)
+            })
+        } else {
+            Ok(StringPattern::Substring(value.to_owned()))
+        }
+    })
 }
 
 pub fn expect_date_pattern(
@@ -986,24 +1145,22 @@ pub fn expect_date_pattern(
     node: &ExpressionNode,
     context: &DatePatternContext,
 ) -> Result<DatePattern, RevsetParseError> {
-    revset_parser::expect_pattern_with(
-        diagnostics,
-        "date pattern",
-        node,
-        |_diagnostics, value, kind| -> Result<_, Box<dyn std::error::Error + Send + Sync>> {
-            match kind {
-                None => Err("Date pattern must specify 'after' or 'before'".into()),
-                Some(kind) => Ok(context.parse_relative(value, kind)?),
-            }
-        },
-    )
+    revset_parser::catch_aliases(diagnostics, node, |_diagnostics, node| {
+        let (value, kind) = revset_parser::expect_string_pattern("date pattern", node)?;
+        let kind = kind.ok_or_else(|| {
+            RevsetParseError::expression("Date pattern must specify 'after' or 'before'", node.span)
+        })?;
+        context.parse_relative(value, kind).map_err(|err| {
+            RevsetParseError::expression("Invalid date pattern", node.span).with_source(err)
+        })
+    })
 }
 
 fn parse_remote_bookmarks_arguments(
     diagnostics: &mut RevsetDiagnostics,
     function: &FunctionCallNode,
     remote_ref_state: Option<RemoteRefState>,
-) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
+) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
     let ([], [bookmark_opt_arg, remote_opt_arg]) =
         function.expect_named_arguments(&["", "remote"])?;
     let bookmark_pattern = if let Some(bookmark_arg) = bookmark_opt_arg {
@@ -1028,7 +1185,7 @@ fn lower_function_call(
     diagnostics: &mut RevsetDiagnostics,
     function: &FunctionCallNode,
     context: &LoweringContext,
-) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
+) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
     let function_map = &context.extensions.function_map;
     if let Some(func) = function_map.get(function.name) {
         func(diagnostics, function, context)
@@ -1049,8 +1206,8 @@ pub fn lower_expression(
     diagnostics: &mut RevsetDiagnostics,
     node: &ExpressionNode,
     context: &LoweringContext,
-) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
-    match &node.kind {
+) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
+    revset_parser::catch_aliases(diagnostics, node, |diagnostics, node| match &node.kind {
         ExpressionKind::Identifier(name) => Ok(RevsetExpression::symbol((*name).to_owned())),
         ExpressionKind::String(name) => Ok(RevsetExpression::symbol(name.to_owned())),
         ExpressionKind::StringPattern { .. } => Err(RevsetParseError::with_span(
@@ -1075,9 +1232,7 @@ pub fn lower_expression(
             ))
         }
         ExpressionKind::DagRangeAll => Ok(RevsetExpression::all()),
-        ExpressionKind::RangeAll => {
-            Ok(RevsetExpression::root().range(&RevsetExpression::visible_heads()))
-        }
+        ExpressionKind::RangeAll => Ok(RevsetExpression::root().negated()),
         ExpressionKind::Unary(op, arg_node) => {
             let arg = lower_expression(diagnostics, arg_node, context)?;
             match op {
@@ -1085,7 +1240,7 @@ pub fn lower_expression(
                 UnaryOp::DagRangePre => Ok(arg.ancestors()),
                 UnaryOp::DagRangePost => Ok(arg.descendants()),
                 UnaryOp::RangePre => Ok(RevsetExpression::root().range(&arg)),
-                UnaryOp::RangePost => Ok(arg.range(&RevsetExpression::visible_heads())),
+                UnaryOp::RangePost => Ok(arg.ancestors().negated()),
                 UnaryOp::Parents => Ok(arg.parents()),
                 UnaryOp::Children => Ok(arg.children()),
             }
@@ -1117,23 +1272,15 @@ pub fn lower_expression(
                 modifier.name_span,
             ))
         }
-        ExpressionKind::AliasExpanded(id, subst) => {
-            let mut inner_diagnostics = RevsetDiagnostics::new();
-            let expression = lower_expression(&mut inner_diagnostics, subst, context)
-                .map_err(|e| e.within_alias_expansion(*id, node.span))?;
-            diagnostics.extend_with(inner_diagnostics, |diag| {
-                diag.within_alias_expansion(*id, node.span)
-            });
-            Ok(expression)
-        }
-    }
+        ExpressionKind::AliasExpanded(..) => unreachable!(),
+    })
 }
 
 pub fn parse(
     diagnostics: &mut RevsetDiagnostics,
     revset_str: &str,
     context: &RevsetParseContext,
-) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
+) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
     let node = parse_program(revset_str)?;
     let node =
         dsl_util::expand_aliases_with_locals(node, context.aliases_map, &context.local_variables)?;
@@ -1145,46 +1292,90 @@ pub fn parse_with_modifier(
     diagnostics: &mut RevsetDiagnostics,
     revset_str: &str,
     context: &RevsetParseContext,
-) -> Result<(Rc<UserRevsetExpression>, Option<RevsetModifier>), RevsetParseError> {
+) -> Result<(Arc<UserRevsetExpression>, Option<RevsetModifier>), RevsetParseError> {
     let node = parse_program(revset_str)?;
     let node =
         dsl_util::expand_aliases_with_locals(node, context.aliases_map, &context.local_variables)?;
-    revset_parser::expect_program_with(
-        diagnostics,
-        &node,
-        |diagnostics, node| lower_expression(diagnostics, node, &context.to_lowering_context()),
-        |_diagnostics, name, span| match name {
-            "all" => Ok(RevsetModifier::All),
-            _ => Err(RevsetParseError::with_span(
-                RevsetParseErrorKind::NoSuchModifier(name.to_owned()),
-                span,
-            )),
-        },
-    )
+    revset_parser::catch_aliases(diagnostics, &node, |diagnostics, node| match &node.kind {
+        ExpressionKind::Modifier(modifier) => {
+            let parsed_modifier = match modifier.name {
+                "all" => {
+                    diagnostics.add_warning(RevsetParseError::expression(
+                        "Multiple revisions are allowed by default; `all:` is planned for removal",
+                        modifier.name_span,
+                    ));
+                    RevsetModifier::All
+                }
+                _ => {
+                    return Err(RevsetParseError::with_span(
+                        RevsetParseErrorKind::NoSuchModifier(modifier.name.to_owned()),
+                        modifier.name_span,
+                    ));
+                }
+            };
+            let parsed_body =
+                lower_expression(diagnostics, &modifier.body, &context.to_lowering_context())?;
+            Ok((parsed_body, Some(parsed_modifier)))
+        }
+        _ => {
+            let parsed_body = lower_expression(diagnostics, node, &context.to_lowering_context())?;
+            Ok((parsed_body, None))
+        }
+    })
     .map_err(|err| err.extend_function_candidates(context.aliases_map.function_names()))
 }
 
-/// `Some` for rewritten expression, or `None` to reuse the original expression.
-type TransformedExpression<St> = Option<Rc<RevsetExpression<St>>>;
+/// Constructs binary tree from `expressions` list, `unit` node, and associative
+/// `binary` operation.
+fn to_binary_expression<T: Clone>(
+    expressions: &[T],
+    unit: &impl Fn() -> T,
+    binary: &impl Fn(&T, &T) -> T,
+) -> T {
+    match expressions {
+        [] => unit(),
+        [expression] => expression.clone(),
+        _ => {
+            // Build balanced tree to minimize the recursion depth.
+            let (left, right) = expressions.split_at(expressions.len() / 2);
+            binary(
+                &to_binary_expression(left, unit, binary),
+                &to_binary_expression(right, unit, binary),
+            )
+        }
+    }
+}
 
-/// Walks `expression` tree and applies `f` recursively from leaf nodes.
-fn transform_expression_bottom_up<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
-    mut f: impl FnMut(&Rc<RevsetExpression<St>>) -> TransformedExpression<St>,
+/// `Some` for rewritten expression, or `None` to reuse the original expression.
+type TransformedExpression<St> = Option<Arc<RevsetExpression<St>>>;
+/// `Break` to not transform subtree recursively. `Continue(Some(rewritten))`
+/// isn't allowed because it could be a source of infinite substitution bugs.
+type PreTransformedExpression<St> = ControlFlow<TransformedExpression<St>, ()>;
+
+/// Walks `expression` tree and applies `pre`/`post` transformation recursively.
+fn transform_expression<St: ExpressionState>(
+    expression: &Arc<RevsetExpression<St>>,
+    mut pre: impl FnMut(&Arc<RevsetExpression<St>>) -> PreTransformedExpression<St>,
+    mut post: impl FnMut(&Arc<RevsetExpression<St>>) -> TransformedExpression<St>,
 ) -> TransformedExpression<St> {
-    try_transform_expression::<St, Infallible>(
-        expression,
-        |_| Ok(None),
-        |expression| Ok(f(expression)),
-    )
-    .unwrap()
+    let Ok(transformed) =
+        try_transform_expression::<St, Infallible>(expression, |x| Ok(pre(x)), |x| Ok(post(x)));
+    transformed
+}
+
+/// Walks `expression` tree and applies `post` recursively from leaf nodes.
+fn transform_expression_bottom_up<St: ExpressionState>(
+    expression: &Arc<RevsetExpression<St>>,
+    post: impl FnMut(&Arc<RevsetExpression<St>>) -> TransformedExpression<St>,
+) -> TransformedExpression<St> {
+    transform_expression(expression, |_| ControlFlow::Continue(()), post)
 }
 
 /// Walks `expression` tree and applies transformation recursively.
 ///
-/// `pre` is the callback to rewrite subtree including children. It is
-/// invoked before visiting the child nodes. If returned `Some`, children
-/// won't be visited.
+/// `pre` is the callback to rewrite subtree including children. It is invoked
+/// before visiting the child nodes. If returned `Break`, children won't be
+/// visited.
 ///
 /// `post` is the callback to rewrite from leaf nodes. If returned `None`,
 /// the original expression node will be reused.
@@ -1193,27 +1384,32 @@ fn transform_expression_bottom_up<St: ExpressionState>(
 /// `std::iter::successors()` could be used if the transformation needs to be
 /// applied repeatedly until converged.
 fn try_transform_expression<St: ExpressionState, E>(
-    expression: &Rc<RevsetExpression<St>>,
-    mut pre: impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
-    mut post: impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
+    expression: &Arc<RevsetExpression<St>>,
+    mut pre: impl FnMut(&Arc<RevsetExpression<St>>) -> Result<PreTransformedExpression<St>, E>,
+    mut post: impl FnMut(&Arc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
 ) -> Result<TransformedExpression<St>, E> {
     fn transform_child_rec<St: ExpressionState, E>(
-        expression: &Rc<RevsetExpression<St>>,
-        pre: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
-        post: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
+        expression: &Arc<RevsetExpression<St>>,
+        pre: &mut impl FnMut(&Arc<RevsetExpression<St>>) -> Result<PreTransformedExpression<St>, E>,
+        post: &mut impl FnMut(&Arc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
     ) -> Result<TransformedExpression<St>, E> {
         Ok(match expression.as_ref() {
             RevsetExpression::None => None,
             RevsetExpression::All => None,
             RevsetExpression::VisibleHeads => None,
+            RevsetExpression::VisibleHeadsOrReferenced => None,
             RevsetExpression::Root => None,
             RevsetExpression::Commits(_) => None,
             RevsetExpression::CommitRef(_) => None,
-            RevsetExpression::Ancestors { heads, generation } => transform_rec(heads, pre, post)?
-                .map(|heads| RevsetExpression::Ancestors {
-                    heads,
-                    generation: generation.clone(),
-                }),
+            RevsetExpression::Ancestors {
+                heads,
+                generation,
+                parents_range,
+            } => transform_rec(heads, pre, post)?.map(|heads| RevsetExpression::Ancestors {
+                heads,
+                generation: generation.clone(),
+                parents_range: parents_range.clone(),
+            }),
             RevsetExpression::Descendants { roots, generation } => transform_rec(roots, pre, post)?
                 .map(|roots| RevsetExpression::Descendants {
                     roots,
@@ -1223,11 +1419,13 @@ fn try_transform_expression<St: ExpressionState, E>(
                 roots,
                 heads,
                 generation,
+                parents_range,
             } => transform_rec_pair((roots, heads), pre, post)?.map(|(roots, heads)| {
                 RevsetExpression::Range {
                     roots,
                     heads,
                     generation: generation.clone(),
+                    parents_range: parents_range.clone(),
                 }
             }),
             RevsetExpression::DagRange { roots, heads } => {
@@ -1241,11 +1439,39 @@ fn try_transform_expression<St: ExpressionState, E>(
             RevsetExpression::Heads(candidates) => {
                 transform_rec(candidates, pre, post)?.map(RevsetExpression::Heads)
             }
+            RevsetExpression::HeadsRange {
+                roots,
+                heads,
+                parents_range,
+                filter,
+            } => {
+                let transformed_roots = transform_rec(roots, pre, post)?;
+                let transformed_heads = transform_rec(heads, pre, post)?;
+                let transformed_filter = transform_rec(filter, pre, post)?;
+                (transformed_roots.is_some()
+                    || transformed_heads.is_some()
+                    || transformed_filter.is_some())
+                .then(|| RevsetExpression::HeadsRange {
+                    roots: transformed_roots.unwrap_or_else(|| roots.clone()),
+                    heads: transformed_heads.unwrap_or_else(|| heads.clone()),
+                    parents_range: parents_range.clone(),
+                    filter: transformed_filter.unwrap_or_else(|| filter.clone()),
+                })
+            }
             RevsetExpression::Roots(candidates) => {
                 transform_rec(candidates, pre, post)?.map(RevsetExpression::Roots)
             }
             RevsetExpression::ForkPoint(expression) => {
                 transform_rec(expression, pre, post)?.map(RevsetExpression::ForkPoint)
+            }
+            RevsetExpression::Bisect(expression) => {
+                transform_rec(expression, pre, post)?.map(RevsetExpression::Bisect)
+            }
+            RevsetExpression::HasSize { candidates, count } => {
+                transform_rec(candidates, pre, post)?.map(|candidates| RevsetExpression::HasSize {
+                    candidates,
+                    count: *count,
+                })
             }
             RevsetExpression::Latest { candidates, count } => transform_rec(candidates, pre, post)?
                 .map(|candidates| RevsetExpression::Latest {
@@ -1263,6 +1489,15 @@ fn try_transform_expression<St: ExpressionState, E>(
                 RevsetExpression::AtOperation {
                     operation: operation.clone(),
                     candidates,
+                }
+            }),
+            RevsetExpression::WithinReference {
+                candidates,
+                commits,
+            } => transform_rec(candidates, pre, post)?.map(|candidates| {
+                RevsetExpression::WithinReference {
+                    candidates,
+                    commits: commits.clone(),
                 }
             }),
             RevsetExpression::WithinVisibility {
@@ -1306,15 +1541,15 @@ fn try_transform_expression<St: ExpressionState, E>(
                 )
             }
         }
-        .map(Rc::new))
+        .map(Arc::new))
     }
 
     #[expect(clippy::type_complexity)]
     fn transform_rec_pair<St: ExpressionState, E>(
-        (expression1, expression2): (&Rc<RevsetExpression<St>>, &Rc<RevsetExpression<St>>),
-        pre: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
-        post: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
-    ) -> Result<Option<(Rc<RevsetExpression<St>>, Rc<RevsetExpression<St>>)>, E> {
+        (expression1, expression2): (&Arc<RevsetExpression<St>>, &Arc<RevsetExpression<St>>),
+        pre: &mut impl FnMut(&Arc<RevsetExpression<St>>) -> Result<PreTransformedExpression<St>, E>,
+        post: &mut impl FnMut(&Arc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
+    ) -> Result<Option<(Arc<RevsetExpression<St>>, Arc<RevsetExpression<St>>)>, E> {
         match (
             transform_rec(expression1, pre, post)?,
             transform_rec(expression2, pre, post)?,
@@ -1329,12 +1564,12 @@ fn try_transform_expression<St: ExpressionState, E>(
     }
 
     fn transform_rec<St: ExpressionState, E>(
-        expression: &Rc<RevsetExpression<St>>,
-        pre: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
-        post: &mut impl FnMut(&Rc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
+        expression: &Arc<RevsetExpression<St>>,
+        pre: &mut impl FnMut(&Arc<RevsetExpression<St>>) -> Result<PreTransformedExpression<St>, E>,
+        post: &mut impl FnMut(&Arc<RevsetExpression<St>>) -> Result<TransformedExpression<St>, E>,
     ) -> Result<TransformedExpression<St>, E> {
-        if let Some(new_expression) = pre(expression)? {
-            return Ok(Some(new_expression));
+        if let ControlFlow::Break(transformed) = pre(expression)? {
+            return Ok(transformed);
         }
         if let Some(new_expression) = transform_child_rec(expression, pre, post)? {
             // must propagate new expression tree
@@ -1359,7 +1594,7 @@ trait ExpressionStateFolder<InSt: ExpressionState, OutSt: ExpressionState> {
     fn fold_expression(
         &mut self,
         expression: &RevsetExpression<InSt>,
-    ) -> Result<Rc<RevsetExpression<OutSt>>, Self::Error> {
+    ) -> Result<Arc<RevsetExpression<OutSt>>, Self::Error> {
         fold_child_expression_state(self, expression)
     }
 
@@ -1367,37 +1602,50 @@ trait ExpressionStateFolder<InSt: ExpressionState, OutSt: ExpressionState> {
     fn fold_commit_ref(
         &mut self,
         commit_ref: &InSt::CommitRef,
-    ) -> Result<Rc<RevsetExpression<OutSt>>, Self::Error>;
+    ) -> Result<Arc<RevsetExpression<OutSt>>, Self::Error>;
 
     /// Transforms `at_operation(operation, candidates)` expression.
     fn fold_at_operation(
         &mut self,
         operation: &InSt::Operation,
         candidates: &RevsetExpression<InSt>,
-    ) -> Result<Rc<RevsetExpression<OutSt>>, Self::Error>;
+    ) -> Result<Arc<RevsetExpression<OutSt>>, Self::Error>;
 }
 
 /// Transforms inner items of the `expression` by using the `folder`.
 fn fold_child_expression_state<InSt, OutSt, F>(
     folder: &mut F,
     expression: &RevsetExpression<InSt>,
-) -> Result<Rc<RevsetExpression<OutSt>>, F::Error>
+) -> Result<Arc<RevsetExpression<OutSt>>, F::Error>
 where
     InSt: ExpressionState,
     OutSt: ExpressionState,
     F: ExpressionStateFolder<InSt, OutSt> + ?Sized,
 {
-    let expression: Rc<_> = match expression {
+    let expression: Arc<_> = match expression {
         RevsetExpression::None => RevsetExpression::None.into(),
         RevsetExpression::All => RevsetExpression::All.into(),
         RevsetExpression::VisibleHeads => RevsetExpression::VisibleHeads.into(),
+        RevsetExpression::VisibleHeadsOrReferenced => {
+            RevsetExpression::VisibleHeadsOrReferenced.into()
+        }
         RevsetExpression::Root => RevsetExpression::Root.into(),
         RevsetExpression::Commits(ids) => RevsetExpression::Commits(ids.clone()).into(),
         RevsetExpression::CommitRef(commit_ref) => folder.fold_commit_ref(commit_ref)?,
-        RevsetExpression::Ancestors { heads, generation } => {
+        RevsetExpression::Ancestors {
+            heads,
+            generation,
+            parents_range,
+        } => {
             let heads = folder.fold_expression(heads)?;
             let generation = generation.clone();
-            RevsetExpression::Ancestors { heads, generation }.into()
+            let parents_range = parents_range.clone();
+            RevsetExpression::Ancestors {
+                heads,
+                generation,
+                parents_range,
+            }
+            .into()
         }
         RevsetExpression::Descendants { roots, generation } => {
             let roots = folder.fold_expression(roots)?;
@@ -1408,14 +1656,17 @@ where
             roots,
             heads,
             generation,
+            parents_range,
         } => {
             let roots = folder.fold_expression(roots)?;
             let heads = folder.fold_expression(heads)?;
             let generation = generation.clone();
+            let parents_range = parents_range.clone();
             RevsetExpression::Range {
                 roots,
                 heads,
                 generation,
+                parents_range,
             }
             .into()
         }
@@ -1433,6 +1684,24 @@ where
             let heads = folder.fold_expression(heads)?;
             RevsetExpression::Heads(heads).into()
         }
+        RevsetExpression::HeadsRange {
+            roots,
+            heads,
+            parents_range,
+            filter,
+        } => {
+            let roots = folder.fold_expression(roots)?;
+            let heads = folder.fold_expression(heads)?;
+            let parents_range = parents_range.clone();
+            let filter = folder.fold_expression(filter)?;
+            RevsetExpression::HeadsRange {
+                roots,
+                heads,
+                parents_range,
+                filter,
+            }
+            .into()
+        }
         RevsetExpression::Roots(roots) => {
             let roots = folder.fold_expression(roots)?;
             RevsetExpression::Roots(roots).into()
@@ -1440,6 +1709,18 @@ where
         RevsetExpression::ForkPoint(expression) => {
             let expression = folder.fold_expression(expression)?;
             RevsetExpression::ForkPoint(expression).into()
+        }
+        RevsetExpression::Bisect(expression) => {
+            let expression = folder.fold_expression(expression)?;
+            RevsetExpression::Bisect(expression).into()
+        }
+        RevsetExpression::HasSize { candidates, count } => {
+            let candidates = folder.fold_expression(candidates)?;
+            RevsetExpression::HasSize {
+                candidates,
+                count: *count,
+            }
+            .into()
         }
         RevsetExpression::Latest { candidates, count } => {
             let candidates = folder.fold_expression(candidates)?;
@@ -1455,6 +1736,18 @@ where
             operation,
             candidates,
         } => folder.fold_at_operation(operation, candidates)?,
+        RevsetExpression::WithinReference {
+            candidates,
+            commits,
+        } => {
+            let candidates = folder.fold_expression(candidates)?;
+            let commits = commits.clone();
+            RevsetExpression::WithinReference {
+                candidates,
+                commits,
+            }
+            .into()
+        }
         RevsetExpression::WithinVisibility {
             candidates,
             visible_heads,
@@ -1499,6 +1792,175 @@ where
     Ok(expression)
 }
 
+/// Collects explicitly-referenced commits, inserts marker nodes.
+///
+/// User symbols and `at_operation()` scopes should have been resolved.
+fn resolve_referenced_commits<St: ExpressionState>(
+    expression: &Arc<RevsetExpression<St>>,
+) -> TransformedExpression<St> {
+    // Trust precomputed value if any
+    if matches!(
+        expression.as_ref(),
+        RevsetExpression::WithinReference { .. }
+    ) {
+        return None;
+    }
+
+    // Use separate Vec to get around borrowing issue
+    let mut inner_commits = Vec::new();
+    let mut outer_commits = Vec::new();
+    let transformed = transform_expression(
+        expression,
+        |expression| match expression.as_ref() {
+            // Trust precomputed value
+            RevsetExpression::WithinReference { commits, .. } => {
+                inner_commits.extend_from_slice(commits);
+                ControlFlow::Break(None)
+            }
+            // at_operation() scope shouldn't be affected by outer
+            RevsetExpression::WithinVisibility {
+                candidates,
+                visible_heads,
+            } => {
+                // ::visible_heads shouldn't be filtered out by outer
+                inner_commits.extend_from_slice(visible_heads);
+                let transformed = resolve_referenced_commits(candidates);
+                // Referenced commits shouldn't be filtered out by outer
+                if let RevsetExpression::WithinReference { commits, .. } =
+                    transformed.as_deref().unwrap_or(candidates)
+                {
+                    inner_commits.extend_from_slice(commits);
+                }
+                ControlFlow::Break(transformed.map(|candidates| {
+                    Arc::new(RevsetExpression::WithinVisibility {
+                        candidates,
+                        visible_heads: visible_heads.clone(),
+                    })
+                }))
+            }
+            _ => ControlFlow::Continue(()),
+        },
+        |expression| {
+            if let RevsetExpression::Commits(commits) = expression.as_ref() {
+                outer_commits.extend_from_slice(commits);
+            }
+            None
+        },
+    );
+
+    // Commits could be deduplicated here, but they'll be concatenated with
+    // the visible heads later, which may have duplicates.
+    outer_commits.extend(inner_commits);
+    if outer_commits.is_empty() {
+        // Omit empty node to keep test/debug output concise
+        return transformed;
+    }
+    Some(Arc::new(RevsetExpression::WithinReference {
+        candidates: transformed.unwrap_or_else(|| expression.clone()),
+        commits: outer_commits,
+    }))
+}
+
+/// Flatten all intersections to be left-recursive. For instance, transforms
+/// `(a & b) & (c & d)` into `((a & b) & c) & d`.
+fn flatten_intersections<St: ExpressionState>(
+    expression: &Arc<RevsetExpression<St>>,
+) -> TransformedExpression<St> {
+    fn flatten<St: ExpressionState>(
+        expression1: &Arc<RevsetExpression<St>>,
+        expression2: &Arc<RevsetExpression<St>>,
+    ) -> TransformedExpression<St> {
+        let recurse = |a, b| flatten(a, b).unwrap_or_else(|| a.intersection(b));
+
+        match expression2.as_ref() {
+            // flatten(a & (b & c)) -> flatten(a & b) & c
+            RevsetExpression::Intersection(inner1, inner2) => {
+                Some(recurse(expression1, inner1).intersection(inner2))
+            }
+            _ => None,
+        }
+    }
+
+    transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
+        RevsetExpression::Intersection(expression1, expression2) => {
+            flatten(expression1, expression2)
+        }
+        _ => None,
+    })
+}
+
+/// Intersects `expression` with `base`, maintaining sorted order using the
+/// provided key. If `base` is an intersection, it must be left-recursive, and
+/// it must already be in sorted order.
+fn sort_intersection_by_key<St: ExpressionState, T: Ord>(
+    base: &Arc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
+    mut get_key: impl FnMut(&RevsetExpression<St>) -> T,
+) -> TransformedExpression<St> {
+    // We only want to compute the key for `expression` once instead of computing it
+    // on every iteration.
+    fn sort_intersection_helper<St: ExpressionState, T: Ord>(
+        base: &Arc<RevsetExpression<St>>,
+        expression: &Arc<RevsetExpression<St>>,
+        expression_key: T,
+        mut get_key: impl FnMut(&RevsetExpression<St>) -> T,
+    ) -> TransformedExpression<St> {
+        if let RevsetExpression::Intersection(inner1, inner2) = base.as_ref() {
+            // sort_intersection(a & b, c) -> sort_intersection(a, c) & b
+            (expression_key < get_key(inner2)).then(|| {
+                sort_intersection_helper(inner1, expression, expression_key, get_key)
+                    .unwrap_or_else(|| inner1.intersection(expression))
+                    .intersection(inner2)
+            })
+        } else {
+            // a & b -> b & a
+            (expression_key < get_key(base)).then(|| expression.intersection(base))
+        }
+    }
+
+    sort_intersection_helper(base, expression, get_key(expression), get_key)
+}
+
+/// Push `ancestors(x)` and `~ancestors(x)` down (to the left) in intersections.
+/// All `~ancestors(x)` will be moved before `ancestors(x)`, since negated
+/// ancestors can be converted to ranges. All other negations are moved to the
+/// right, since these negations can usually be evaluated better as differences.
+fn sort_negations_and_ancestors<St: ExpressionState>(
+    expression: &Arc<RevsetExpression<St>>,
+) -> TransformedExpression<St> {
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    enum AncestorsOrder {
+        NegatedAncestors,
+        Ancestors,
+        Other,
+        NegatedOther,
+    }
+
+    transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
+        RevsetExpression::Intersection(expression1, expression2) => {
+            sort_intersection_by_key(expression1, expression2, |expression| match expression {
+                RevsetExpression::Ancestors {
+                    heads: _,
+                    generation: Range { end: u64::MAX, .. },
+                    parents_range: _,
+                } => AncestorsOrder::Ancestors,
+                RevsetExpression::NotIn(complement) => match complement.as_ref() {
+                    RevsetExpression::Ancestors {
+                        heads: _,
+                        generation: Range { end: u64::MAX, .. },
+                        // We only want to move negated ancestors with a full parents range, since
+                        // these are the only negated ancestors which can be converted to a range.
+                        parents_range: PARENTS_RANGE_FULL,
+                    } => AncestorsOrder::NegatedAncestors,
+                    _ => AncestorsOrder::NegatedOther,
+                },
+                _ => AncestorsOrder::Other,
+            })
+        }
+        _ => None,
+    })
+}
+
 /// Transforms filter expressions, by applying the following rules.
 ///
 /// a. Moves as many sets to left of filter intersection as possible, to
@@ -1508,74 +1970,59 @@ where
 /// c. Wraps union of filter and set (e.g. `author(_) | heads()`), to
 ///    ensure inner filter wouldn't need to evaluate all the input sets.
 fn internalize_filter<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
-    fn is_filter<St: ExpressionState>(expression: &RevsetExpression<St>) -> bool {
-        matches!(
-            expression,
-            RevsetExpression::Filter(_) | RevsetExpression::AsFilter(_)
-        )
-    }
-
-    fn is_filter_tree<St: ExpressionState>(expression: &RevsetExpression<St>) -> bool {
-        is_filter(expression) || as_filter_intersection(expression).is_some()
-    }
-
-    // Extracts 'c & f' from intersect_down()-ed node.
-    #[expect(clippy::type_complexity)]
-    fn as_filter_intersection<St: ExpressionState>(
-        expression: &RevsetExpression<St>,
-    ) -> Option<(&Rc<RevsetExpression<St>>, &Rc<RevsetExpression<St>>)> {
-        if let RevsetExpression::Intersection(expression1, expression2) = expression {
-            is_filter(expression2).then_some((expression1, expression2))
-        } else {
-            None
+    fn get_filter<St: ExpressionState>(
+        expression: &Arc<RevsetExpression<St>>,
+    ) -> Option<&Arc<RevsetExpression<St>>> {
+        match expression.as_ref() {
+            RevsetExpression::Filter(_) => Some(expression),
+            RevsetExpression::AsFilter(candidates) => Some(candidates),
+            _ => None,
         }
     }
 
-    // Since both sides must have already been intersect_down()-ed, we don't need to
-    // apply the whole bottom-up pass to new intersection node. Instead, just push
-    // new 'c & (d & g)' down-left to '(c & d) & g' while either side is
-    // an intersection of filter node.
-    fn intersect_down<St: ExpressionState>(
-        expression1: &Rc<RevsetExpression<St>>,
-        expression2: &Rc<RevsetExpression<St>>,
-    ) -> TransformedExpression<St> {
-        let recurse = |e1, e2| intersect_down(e1, e2).unwrap_or_else(|| e1.intersection(e2));
-        match (expression1.as_ref(), expression2.as_ref()) {
-            // Don't reorder 'f1 & f2'
-            (_, e2) if is_filter(e2) => None,
-            // f1 & e2 -> e2 & f1
-            (e1, _) if is_filter(e1) => Some(expression2.intersection(expression1)),
-            (e1, e2) => match (as_filter_intersection(e1), as_filter_intersection(e2)) {
-                // e1 & (c2 & f2) -> (e1 & c2) & f2
-                // (c1 & f1) & (c2 & f2) -> ((c1 & f1) & c2) & f2 -> ((c1 & c2) & f1) & f2
-                (_, Some((c2, f2))) => Some(recurse(expression1, c2).intersection(f2)),
-                // (c1 & f1) & e2 -> (c1 & e2) & f1
-                // ((c1 & f1) & g1) & e2 -> ((c1 & f1) & e2) & g1 -> ((c1 & e2) & f1) & g1
-                (Some((c1, f1)), _) => Some(recurse(c1, expression2).intersection(f1)),
-                (None, None) => None,
-            },
-        }
+    fn mark_filter<St: ExpressionState>(
+        expression: Arc<RevsetExpression<St>>,
+    ) -> Arc<RevsetExpression<St>> {
+        Arc::new(RevsetExpression::AsFilter(expression))
     }
 
-    // Bottom-up pass pulls up-right filter node from leaf '(c & f) & e' ->
-    // '(c & e) & f', so that an intersection of filter node can be found as
-    // a direct child of another intersection node. However, the rewritten
-    // intersection node 'c & e' can also be a rewrite target if 'e' contains
-    // a filter node. That's why intersect_down() is also recursive.
     transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
-        RevsetExpression::Present(e) => {
-            is_filter_tree(e).then(|| Rc::new(RevsetExpression::AsFilter(expression.clone())))
+        // Mark expression as filter if any of the child nodes are filter.
+        RevsetExpression::Present(e) => get_filter(e).map(|f| mark_filter(f.present())),
+        RevsetExpression::NotIn(e) => get_filter(e).map(|f| mark_filter(f.negated())),
+        RevsetExpression::Union(e1, e2) => {
+            let f1 = get_filter(e1);
+            let f2 = get_filter(e2);
+            (f1.is_some() || f2.is_some())
+                .then(|| mark_filter(f1.unwrap_or(e1).union(f2.unwrap_or(e2))))
         }
-        RevsetExpression::NotIn(e) => {
-            is_filter_tree(e).then(|| Rc::new(RevsetExpression::AsFilter(expression.clone())))
-        }
-        RevsetExpression::Union(e1, e2) => (is_filter_tree(e1) || is_filter_tree(e2))
-            .then(|| Rc::new(RevsetExpression::AsFilter(expression.clone()))),
-        RevsetExpression::Intersection(expression1, expression2) => {
-            intersect_down(expression1, expression2)
-        }
+        // Bottom-up pass pulls up-right filter node from leaf '(c & f) & e' ->
+        // '(c & e) & f', so that an intersection of filter node can be found as
+        // a direct child of another intersection node. Suppose intersection is
+        // left-recursive, e2 shouldn't be an intersection node. e1 may be set,
+        // filter, (set & filter), ((set & set) & filter), ...
+        RevsetExpression::Intersection(e1, e2) => match (get_filter(e1), get_filter(e2)) {
+            // f1 & f2 -> filter(f1 & f2)
+            (Some(f1), Some(f2)) => Some(mark_filter(f1.intersection(f2))),
+            // f1 & s2 -> s2 & filter(f1)
+            (Some(_), None) => Some(e2.intersection(e1)),
+            // (s1a & f1b) & f2 -> s1a & filter(f1b & f2)
+            (None, Some(f2)) => match e1.as_ref() {
+                RevsetExpression::Intersection(e1a, e1b) => {
+                    get_filter(e1b).map(|f1b| e1a.intersection(&mark_filter(f1b.intersection(f2))))
+                }
+                _ => None,
+            },
+            // (s1a & f1b) & s2 -> (s1a & s2) & filter(f1b)
+            (None, None) => match e1.as_ref() {
+                RevsetExpression::Intersection(e1a, e1b) => {
+                    get_filter(e1b).map(|_| e1a.intersection(e2).intersection(e1b))
+                }
+                _ => None,
+            },
+        },
         // Difference(e1, e2) should have been unfolded to Intersection(e1, NotIn(e2)).
         _ => None,
     })
@@ -1583,18 +2030,32 @@ fn internalize_filter<St: ExpressionState>(
 
 /// Eliminates redundant nodes like `x & all()`, `~~x`.
 ///
-/// This does not rewrite 'x & none()' to 'none()' because 'x' may be an invalid
-/// symbol.
+/// Since this function rewrites `x & none()` to `none()`, user symbols should
+/// have been resolved. Otherwise, an invalid symbol could be optimized out.
 fn fold_redundant_expression<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
     transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
+        RevsetExpression::Commits(commits) if commits.is_empty() => Some(RevsetExpression::none()),
         RevsetExpression::NotIn(outer) => match outer.as_ref() {
             RevsetExpression::NotIn(inner) => Some(inner.clone()),
+            RevsetExpression::None => Some(RevsetExpression::all()),
+            RevsetExpression::All => Some(RevsetExpression::none()),
             _ => None,
         },
+        RevsetExpression::Union(expression1, expression2) => {
+            match (expression1.as_ref(), expression2.as_ref()) {
+                (_, RevsetExpression::None) => Some(expression1.clone()),
+                (RevsetExpression::None, _) => Some(expression2.clone()),
+                (RevsetExpression::All, _) => Some(RevsetExpression::all()),
+                (_, RevsetExpression::All) => Some(RevsetExpression::all()),
+                _ => None,
+            }
+        }
         RevsetExpression::Intersection(expression1, expression2) => {
             match (expression1.as_ref(), expression2.as_ref()) {
+                (RevsetExpression::None, _) => Some(RevsetExpression::none()),
+                (_, RevsetExpression::None) => Some(RevsetExpression::none()),
                 (_, RevsetExpression::All) => Some(expression1.clone()),
                 (RevsetExpression::All, _) => Some(expression2.clone()),
                 _ => None,
@@ -1604,52 +2065,238 @@ fn fold_redundant_expression<St: ExpressionState>(
     })
 }
 
-fn to_difference_range<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
-    complement: &Rc<RevsetExpression<St>>,
-) -> TransformedExpression<St> {
-    match (expression.as_ref(), complement.as_ref()) {
-        // ::heads & ~(::roots) -> roots..heads
-        (
-            RevsetExpression::Ancestors { heads, generation },
-            RevsetExpression::Ancestors {
-                heads: roots,
-                generation: GENERATION_RANGE_FULL,
-            },
-        ) => Some(Rc::new(RevsetExpression::Range {
-            roots: roots.clone(),
-            heads: heads.clone(),
-            generation: generation.clone(),
-        })),
-        // ::heads & ~(::roots-) -> ::heads & ~ancestors(roots, 1..) -> roots-..heads
-        (
-            RevsetExpression::Ancestors { heads, generation },
-            RevsetExpression::Ancestors {
-                heads: roots,
-                generation:
-                    Range {
-                        start: roots_start,
-                        end: u64::MAX,
-                    },
-            },
-        ) => Some(Rc::new(RevsetExpression::Range {
-            roots: roots.ancestors_at(*roots_start),
-            heads: heads.clone(),
-            generation: generation.clone(),
-        })),
-        _ => None,
+/// Extracts `heads` from a revset expression `ancestors(heads)`. Unfolds
+/// generations as necessary, so `ancestors(heads, 2..)` would return
+/// `ancestors(heads, 2..3)`, which is equivalent to `heads--`.
+fn ancestors_to_heads<St: ExpressionState>(
+    expression: &RevsetExpression<St>,
+) -> Result<Arc<RevsetExpression<St>>, ()> {
+    match ancestors_to_heads_and_parents_range(expression) {
+        Ok((heads, PARENTS_RANGE_FULL)) => Ok(heads),
+        _ => Err(()),
     }
+}
+
+fn ancestors_to_heads_and_parents_range<St: ExpressionState>(
+    expression: &RevsetExpression<St>,
+) -> Result<(Arc<RevsetExpression<St>>, Range<u32>), ()> {
+    match expression {
+        RevsetExpression::Ancestors {
+            heads,
+            generation: GENERATION_RANGE_FULL,
+            parents_range,
+        } => Ok((heads.clone(), parents_range.clone())),
+        RevsetExpression::Ancestors {
+            heads,
+            generation: Range {
+                start,
+                end: u64::MAX,
+            },
+            parents_range,
+        } => Ok((
+            Arc::new(RevsetExpression::Ancestors {
+                heads: heads.clone(),
+                generation: (*start)..start.saturating_add(1),
+                parents_range: parents_range.clone(),
+            }),
+            parents_range.clone(),
+        )),
+        _ => Err(()),
+    }
+}
+
+/// Folds `::x | ::y` into `::(x | y)`, and `~::x & ~::y` into `~::(x | y)`.
+/// Does not fold intersections of negations involving non-ancestors
+/// expressions, since this can result in less efficient evaluation, such as for
+/// `~::x & ~y`, which should be `x.. ~ y` instead of `~(::x | y)`.
+fn fold_ancestors_union<St: ExpressionState>(
+    expression: &Arc<RevsetExpression<St>>,
+) -> TransformedExpression<St> {
+    fn union_ancestors<St: ExpressionState>(
+        expression1: &Arc<RevsetExpression<St>>,
+        expression2: &Arc<RevsetExpression<St>>,
+    ) -> TransformedExpression<St> {
+        let heads1 = ancestors_to_heads(expression1).ok()?;
+        let heads2 = ancestors_to_heads(expression2).ok()?;
+        Some(heads1.union(&heads2).ancestors())
+    }
+
+    transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
+        RevsetExpression::Union(expression1, expression2) => {
+            // ::x | ::y -> ::(x | y)
+            union_ancestors(expression1, expression2)
+        }
+        RevsetExpression::Intersection(expression1, expression2) => {
+            match (expression1.as_ref(), expression2.as_ref()) {
+                // ~::x & ~::y -> ~(::x | ::y) -> ~::(x | y)
+                (RevsetExpression::NotIn(complement1), RevsetExpression::NotIn(complement2)) => {
+                    union_ancestors(complement1, complement2).map(|expression| expression.negated())
+                }
+                _ => None,
+            }
+        }
+        _ => None,
+    })
+}
+
+/// Transforms expressions like `heads(roots..heads & filters)` into a combined
+/// operation where possible. Also optimizes the heads of ancestors expressions
+/// involving ranges or filters such as `::(foo..bar)` or `::mine()`.
+///
+/// Ancestors and negated ancestors should have already been moved to the left
+/// in intersections, and negated ancestors should have been combined already.
+fn fold_heads_range<St: ExpressionState>(
+    expression: &Arc<RevsetExpression<St>>,
+) -> TransformedExpression<St> {
+    // Represents `roots..heads & filter`
+    struct FilteredRange<St: ExpressionState> {
+        roots: Arc<RevsetExpression<St>>,
+        heads_and_parents_range: Option<(Arc<RevsetExpression<St>>, Range<u32>)>,
+        filter: Arc<RevsetExpression<St>>,
+    }
+
+    impl<St: ExpressionState> FilteredRange<St> {
+        fn new(roots: Arc<RevsetExpression<St>>) -> Self {
+            // roots.. & all()
+            Self {
+                roots,
+                heads_and_parents_range: None,
+                filter: RevsetExpression::all(),
+            }
+        }
+
+        fn add(mut self, expression: &Arc<RevsetExpression<St>>) -> Self {
+            if self.heads_and_parents_range.is_none() {
+                // x.. & ::y -> x..y
+                if let Ok(heads_and_parents_range) =
+                    ancestors_to_heads_and_parents_range(expression)
+                {
+                    self.heads_and_parents_range = Some(heads_and_parents_range);
+                    return self;
+                }
+            }
+            self.add_filter(expression)
+        }
+
+        fn add_filter(mut self, expression: &Arc<RevsetExpression<St>>) -> Self {
+            self.filter = if let RevsetExpression::All = self.filter.as_ref() {
+                // x..y & all() & f -> x..y & f
+                expression.clone()
+            } else {
+                self.filter.intersection(expression)
+            };
+            self
+        }
+    }
+
+    fn to_filtered_range<St: ExpressionState>(
+        expression: &Arc<RevsetExpression<St>>,
+    ) -> Option<FilteredRange<St>> {
+        // If the first expression is `ancestors(x)`, then we already know the range
+        // must be `none()..x`, since any roots would've been moved to the left by an
+        // earlier pass.
+        if let Ok(heads_and_parents_range) = ancestors_to_heads_and_parents_range(expression) {
+            return Some(FilteredRange {
+                roots: RevsetExpression::none(),
+                heads_and_parents_range: Some(heads_and_parents_range),
+                filter: RevsetExpression::all(),
+            });
+        }
+        match expression.as_ref() {
+            // All roots should have been moved to the start of the intersection by an earlier pass,
+            // so we can set the roots based on the first expression in the intersection.
+            RevsetExpression::NotIn(complement) => {
+                if let Ok(roots) = ancestors_to_heads(complement) {
+                    Some(FilteredRange::new(roots))
+                } else {
+                    // If the first expression is a non-ancestors negation, we still want to use
+                    // `HeadsRange` since `~x` is equivalent to `::visible_heads() ~ x`.
+                    Some(FilteredRange::new(RevsetExpression::none()).add_filter(expression))
+                }
+            }
+            // We also want to optimize `heads()` if the first expression is `all()` or a filter.
+            RevsetExpression::All | RevsetExpression::Filter(_) | RevsetExpression::AsFilter(_) => {
+                Some(FilteredRange::new(RevsetExpression::none()).add_filter(expression))
+            }
+            // We only need to handle intersections recursively. Differences will have been
+            // unfolded already.
+            RevsetExpression::Intersection(expression1, expression2) => {
+                to_filtered_range(expression1).map(|filtered_range| filtered_range.add(expression2))
+            }
+            _ => None,
+        }
+    }
+
+    fn to_heads_range<St: ExpressionState>(
+        candidates: &Arc<RevsetExpression<St>>,
+    ) -> Option<Arc<RevsetExpression<St>>> {
+        to_filtered_range(candidates).map(|filtered_range| {
+            let (heads, parents_range) =
+                filtered_range.heads_and_parents_range.unwrap_or_else(|| {
+                    (
+                        RevsetExpression::visible_heads_or_referenced(),
+                        PARENTS_RANGE_FULL,
+                    )
+                });
+            RevsetExpression::HeadsRange {
+                roots: filtered_range.roots,
+                heads,
+                parents_range,
+                filter: filtered_range.filter,
+            }
+            .into()
+        })
+    }
+
+    transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
+        // ::(x..y & filter) -> ::heads_range(x, y, filter)
+        // ::filter -> ::heads_range(none(), visible_heads_or_referenced(), filter)
+        RevsetExpression::Ancestors {
+            heads,
+            // This optimization is only valid for full generation and parents ranges, since
+            // otherwise adding `heads()` would change the result.
+            generation: GENERATION_RANGE_FULL,
+            parents_range: PARENTS_RANGE_FULL,
+        } => to_heads_range(heads).map(|heads| heads.ancestors()),
+        // heads(x..y & filter) -> heads_range(x, y, filter)
+        // heads(filter) -> heads_range(none(), visible_heads_or_referenced(), filter)
+        RevsetExpression::Heads(candidates) => to_heads_range(candidates),
+        _ => None,
+    })
+}
+
+fn to_difference_range<St: ExpressionState>(
+    expression: &Arc<RevsetExpression<St>>,
+    complement: &Arc<RevsetExpression<St>>,
+) -> TransformedExpression<St> {
+    let RevsetExpression::Ancestors {
+        heads,
+        generation,
+        parents_range,
+    } = expression.as_ref()
+    else {
+        return None;
+    };
+    let roots = ancestors_to_heads(complement).ok()?;
+    // ::heads & ~(::roots) -> roots..heads
+    // ::heads & ~(::roots-) -> ::heads & ~ancestors(roots, 1..) -> roots-..heads
+    Some(Arc::new(RevsetExpression::Range {
+        roots,
+        heads: heads.clone(),
+        generation: generation.clone(),
+        parents_range: parents_range.clone(),
+    }))
 }
 
 /// Transforms negative intersection to difference. Redundant intersections like
 /// `all() & e` should have been removed.
 fn fold_difference<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
     fn to_difference<St: ExpressionState>(
-        expression: &Rc<RevsetExpression<St>>,
-        complement: &Rc<RevsetExpression<St>>,
-    ) -> Rc<RevsetExpression<St>> {
+        expression: &Arc<RevsetExpression<St>>,
+        complement: &Arc<RevsetExpression<St>>,
+    ) -> Arc<RevsetExpression<St>> {
         to_difference_range(expression, complement).unwrap_or_else(|| expression.minus(complement))
     }
 
@@ -1676,7 +2323,7 @@ fn fold_difference<St: ExpressionState>(
 /// Since this rule inserts redundant `visible_heads()`, negative intersections
 /// should have been transformed.
 fn fold_not_in_ancestors<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
     transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
         RevsetExpression::NotIn(complement)
@@ -1684,7 +2331,10 @@ fn fold_not_in_ancestors<St: ExpressionState>(
         {
             // ~(::heads) -> heads..
             // ~(::heads-) -> ~ancestors(heads, 1..) -> heads-..
-            to_difference_range(&RevsetExpression::visible_heads().ancestors(), complement)
+            to_difference_range(
+                &RevsetExpression::visible_heads_or_referenced().ancestors(),
+                complement,
+            )
         }
         _ => None,
     })
@@ -1695,18 +2345,20 @@ fn fold_not_in_ancestors<St: ExpressionState>(
 /// For example, `all() ~ e` will become `all() & ~e`, which can be simplified
 /// further by `fold_redundant_expression()`.
 fn unfold_difference<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
     transform_expression_bottom_up(expression, |expression| match expression.as_ref() {
         // roots..heads -> ::heads & ~(::roots)
         RevsetExpression::Range {
             roots,
             heads,
+            parents_range,
             generation,
         } => {
-            let heads_ancestors = Rc::new(RevsetExpression::Ancestors {
+            let heads_ancestors = Arc::new(RevsetExpression::Ancestors {
                 heads: heads.clone(),
                 generation: generation.clone(),
+                parents_range: parents_range.clone(),
             });
             Some(heads_ancestors.intersection(&roots.ancestors().negated()))
         }
@@ -1720,7 +2372,7 @@ fn unfold_difference<St: ExpressionState>(
 /// Transforms nested `ancestors()`/`parents()`/`descendants()`/`children()`
 /// like `h---`/`r+++`.
 fn fold_generation<St: ExpressionState>(
-    expression: &Rc<RevsetExpression<St>>,
+    expression: &Arc<RevsetExpression<St>>,
 ) -> TransformedExpression<St> {
     fn add_generation(generation1: &Range<u64>, generation2: &Range<u64>) -> Range<u64> {
         // For any (g1, g2) in (generation1, generation2), g1 + g2.
@@ -1737,6 +2389,7 @@ fn fold_generation<St: ExpressionState>(
         RevsetExpression::Ancestors {
             heads,
             generation: generation1,
+            parents_range: parents1,
         } => {
             match heads.as_ref() {
                 // (h-)- -> ancestors(ancestors(h, 1), 1) -> ancestors(h, 2)
@@ -1745,9 +2398,11 @@ fn fold_generation<St: ExpressionState>(
                 RevsetExpression::Ancestors {
                     heads,
                     generation: generation2,
-                } => Some(Rc::new(RevsetExpression::Ancestors {
+                    parents_range: parents2,
+                } if parents2 == parents1 => Some(Arc::new(RevsetExpression::Ancestors {
                     heads: heads.clone(),
                     generation: add_generation(generation1, generation2),
+                    parents_range: parents1.clone(),
                 })),
                 _ => None,
             }
@@ -1763,7 +2418,7 @@ fn fold_generation<St: ExpressionState>(
                 RevsetExpression::Descendants {
                     roots,
                     generation: generation2,
-                } => Some(Rc::new(RevsetExpression::Descendants {
+                } => Some(Arc::new(RevsetExpression::Descendants {
                     roots: roots.clone(),
                     generation: add_generation(generation1, generation2),
                 })),
@@ -1778,12 +2433,19 @@ fn fold_generation<St: ExpressionState>(
 /// Rewrites the given `expression` tree to reduce evaluation cost. Returns new
 /// tree.
 pub fn optimize<St: ExpressionState>(
-    expression: Rc<RevsetExpression<St>>,
-) -> Rc<RevsetExpression<St>> {
+    expression: Arc<RevsetExpression<St>>,
+) -> Arc<RevsetExpression<St>> {
+    // Since fold_redundant_expression() can remove hidden commits that look
+    // redundant, referenced commits should be collected earlier.
+    let expression = resolve_referenced_commits(&expression).unwrap_or(expression);
     let expression = unfold_difference(&expression).unwrap_or(expression);
     let expression = fold_redundant_expression(&expression).unwrap_or(expression);
     let expression = fold_generation(&expression).unwrap_or(expression);
+    let expression = flatten_intersections(&expression).unwrap_or(expression);
+    let expression = sort_negations_and_ancestors(&expression).unwrap_or(expression);
+    let expression = fold_ancestors_union(&expression).unwrap_or(expression);
     let expression = internalize_filter(&expression).unwrap_or(expression);
+    let expression = fold_heads_range(&expression).unwrap_or(expression);
     let expression = fold_difference(&expression).unwrap_or(expression);
     fold_not_in_ancestors(&expression).unwrap_or(expression)
 }
@@ -1821,11 +2483,29 @@ fn reload_repo_at_operation(
     })
 }
 
-fn resolve_remote_bookmark(repo: &dyn Repo, symbol: RemoteRefSymbol<'_>) -> Option<Vec<CommitId>> {
+fn resolve_remote_bookmark(
+    repo: &dyn Repo,
+    symbol: RemoteRefSymbol<'_>,
+) -> Result<CommitId, RevsetResolutionError> {
     let target = &repo.view().get_remote_bookmark(symbol).target;
-    target
-        .is_present()
-        .then(|| target.added_ids().cloned().collect())
+    to_resolved_ref("remote_bookmark", symbol, target)?
+        .ok_or_else(|| make_no_such_symbol_error(repo, symbol.to_string()))
+}
+
+fn to_resolved_ref(
+    kind: &'static str,
+    symbol: impl ToString,
+    target: &RefTarget,
+) -> Result<Option<CommitId>, RevsetResolutionError> {
+    match target.as_resolved() {
+        Some(Some(id)) => Ok(Some(id.clone())),
+        Some(None) => Ok(None),
+        None => Err(RevsetResolutionError::ConflictedRef {
+            kind,
+            symbol: symbol.to_string(),
+            targets: target.added_ids().cloned().collect(),
+        }),
+    }
 }
 
 fn all_formatted_bookmark_symbols(
@@ -1858,34 +2538,6 @@ fn make_no_such_symbol_error(repo: &dyn Repo, name: String) -> RevsetResolutionE
     RevsetResolutionError::NoSuchRevision { name, candidates }
 }
 
-pub trait SymbolResolver {
-    /// Looks up `symbol` in the given `repo`.
-    fn resolve_symbol(
-        &self,
-        repo: &dyn Repo,
-        symbol: &str,
-    ) -> Result<Vec<CommitId>, RevsetResolutionError>;
-}
-
-/// Fails on any attempt to resolve a symbol.
-pub struct FailingSymbolResolver;
-
-impl SymbolResolver for FailingSymbolResolver {
-    fn resolve_symbol(
-        &self,
-        _repo: &dyn Repo,
-        symbol: &str,
-    ) -> Result<Vec<CommitId>, RevsetResolutionError> {
-        Err(RevsetResolutionError::NoSuchRevision {
-            name: format!(
-                "Won't resolve symbol {symbol:?}. When creating revsets programmatically, avoid \
-                 using RevsetExpression::symbol(); use RevsetExpression::commits() instead."
-            ),
-            candidates: Default::default(),
-        })
-    }
-}
-
 /// A symbol resolver for a specific namespace of labels.
 ///
 /// Returns None if it cannot handle the symbol.
@@ -1894,7 +2546,7 @@ pub trait PartialSymbolResolver {
         &self,
         repo: &dyn Repo,
         symbol: &str,
-    ) -> Result<Option<Vec<CommitId>>, RevsetResolutionError>;
+    ) -> Result<Option<CommitId>, RevsetResolutionError>;
 }
 
 struct TagResolver;
@@ -1904,11 +2556,9 @@ impl PartialSymbolResolver for TagResolver {
         &self,
         repo: &dyn Repo,
         symbol: &str,
-    ) -> Result<Option<Vec<CommitId>>, RevsetResolutionError> {
+    ) -> Result<Option<CommitId>, RevsetResolutionError> {
         let target = repo.view().get_tag(symbol.as_ref());
-        Ok(target
-            .is_present()
-            .then(|| target.added_ids().cloned().collect()))
+        to_resolved_ref("tag", symbol, target)
     }
 }
 
@@ -1919,11 +2569,9 @@ impl PartialSymbolResolver for BookmarkResolver {
         &self,
         repo: &dyn Repo,
         symbol: &str,
-    ) -> Result<Option<Vec<CommitId>>, RevsetResolutionError> {
+    ) -> Result<Option<CommitId>, RevsetResolutionError> {
         let target = repo.view().get_local_bookmark(symbol.as_ref());
-        Ok(target
-            .is_present()
-            .then(|| target.added_ids().cloned().collect()))
+        to_resolved_ref("bookmark", symbol, target)
     }
 }
 
@@ -1934,20 +2582,19 @@ impl PartialSymbolResolver for GitRefResolver {
         &self,
         repo: &dyn Repo,
         symbol: &str,
-    ) -> Result<Option<Vec<CommitId>>, RevsetResolutionError> {
+    ) -> Result<Option<CommitId>, RevsetResolutionError> {
         let view = repo.view();
         for git_ref_prefix in &["", "refs/"] {
             let target = view.get_git_ref([git_ref_prefix, symbol].concat().as_ref());
-            if target.is_present() {
-                return Ok(Some(target.added_ids().cloned().collect()));
+            if let Some(id) = to_resolved_ref("git_ref", symbol, target)? {
+                return Ok(Some(id));
             }
         }
-
         Ok(None)
     }
 }
 
-const DEFAULT_RESOLVERS: &[&'static dyn PartialSymbolResolver] =
+const DEFAULT_RESOLVERS: &[&dyn PartialSymbolResolver] =
     &[&TagResolver, &BookmarkResolver, &GitRefResolver];
 
 struct CommitPrefixResolver<'a> {
@@ -1955,26 +2602,36 @@ struct CommitPrefixResolver<'a> {
     context: Option<&'a IdPrefixContext>,
 }
 
+impl CommitPrefixResolver<'_> {
+    fn try_resolve(
+        &self,
+        repo: &dyn Repo,
+        prefix: &HexPrefix,
+    ) -> Result<Option<CommitId>, RevsetResolutionError> {
+        let index = self
+            .context
+            .map(|ctx| ctx.populate(self.context_repo))
+            .transpose()
+            .map_err(|err| RevsetResolutionError::Other(err.into()))?
+            .unwrap_or(IdPrefixIndex::empty());
+        match index.resolve_commit_prefix(repo, prefix) {
+            PrefixResolution::AmbiguousMatch => {
+                Err(RevsetResolutionError::AmbiguousCommitIdPrefix(prefix.hex()))
+            }
+            PrefixResolution::SingleMatch(id) => Ok(Some(id)),
+            PrefixResolution::NoMatch => Ok(None),
+        }
+    }
+}
+
 impl PartialSymbolResolver for CommitPrefixResolver<'_> {
     fn resolve_symbol(
         &self,
         repo: &dyn Repo,
         symbol: &str,
-    ) -> Result<Option<Vec<CommitId>>, RevsetResolutionError> {
-        if let Some(prefix) = HexPrefix::new(symbol) {
-            let index = self
-                .context
-                .map(|ctx| ctx.populate(self.context_repo))
-                .transpose()
-                .map_err(|err| RevsetResolutionError::Other(err.into()))?
-                .unwrap_or(IdPrefixIndex::empty());
-            match index.resolve_commit_prefix(repo, &prefix) {
-                PrefixResolution::AmbiguousMatch => Err(
-                    RevsetResolutionError::AmbiguousCommitIdPrefix(symbol.to_owned()),
-                ),
-                PrefixResolution::SingleMatch(id) => Ok(Some(vec![id])),
-                PrefixResolution::NoMatch => Ok(None),
-            }
+    ) -> Result<Option<CommitId>, RevsetResolutionError> {
+        if let Some(prefix) = HexPrefix::try_from_hex(symbol) {
+            self.try_resolve(repo, &prefix)
         } else {
             Ok(None)
         }
@@ -1986,25 +2643,42 @@ struct ChangePrefixResolver<'a> {
     context: Option<&'a IdPrefixContext>,
 }
 
+impl ChangePrefixResolver<'_> {
+    fn try_resolve(
+        &self,
+        repo: &dyn Repo,
+        prefix: &HexPrefix,
+    ) -> Result<Option<Vec<CommitId>>, RevsetResolutionError> {
+        let index = self
+            .context
+            .map(|ctx| ctx.populate(self.context_repo))
+            .transpose()
+            .map_err(|err| RevsetResolutionError::Other(err.into()))?
+            .unwrap_or(IdPrefixIndex::empty());
+        match index.resolve_change_prefix(repo, prefix) {
+            PrefixResolution::AmbiguousMatch => Err(
+                RevsetResolutionError::AmbiguousChangeIdPrefix(prefix.reverse_hex()),
+            ),
+            PrefixResolution::SingleMatch(ids) => Ok(Some(ids)),
+            PrefixResolution::NoMatch => Ok(None),
+        }
+    }
+}
+
 impl PartialSymbolResolver for ChangePrefixResolver<'_> {
     fn resolve_symbol(
         &self,
         repo: &dyn Repo,
         symbol: &str,
-    ) -> Result<Option<Vec<CommitId>>, RevsetResolutionError> {
-        if let Some(prefix) = to_forward_hex(symbol).as_deref().and_then(HexPrefix::new) {
-            let index = self
-                .context
-                .map(|ctx| ctx.populate(self.context_repo))
-                .transpose()
-                .map_err(|err| RevsetResolutionError::Other(err.into()))?
-                .unwrap_or(IdPrefixIndex::empty());
-            match index.resolve_change_prefix(repo, &prefix) {
-                PrefixResolution::AmbiguousMatch => Err(
-                    RevsetResolutionError::AmbiguousChangeIdPrefix(symbol.to_owned()),
-                ),
-                PrefixResolution::SingleMatch(ids) => Ok(Some(ids)),
-                PrefixResolution::NoMatch => Ok(None),
+    ) -> Result<Option<CommitId>, RevsetResolutionError> {
+        if let Some(prefix) = HexPrefix::try_from_reverse_hex(symbol) {
+            match self.try_resolve(repo, &prefix)? {
+                Some(targets) if targets.len() == 1 => Ok(targets.into_iter().next()),
+                Some(targets) => Err(RevsetResolutionError::DivergentChangeId {
+                    symbol: symbol.to_owned(),
+                    targets,
+                }),
+                None => Ok(None),
             }
         } else {
             Ok(None)
@@ -2012,13 +2686,13 @@ impl PartialSymbolResolver for ChangePrefixResolver<'_> {
     }
 }
 
-/// An extension of the DefaultSymbolResolver.
+/// An extension of the [`SymbolResolver`].
 ///
 /// Each PartialSymbolResolver will be invoked in order, its result used if one
 /// is provided. Native resolvers are always invoked first. In the future, we
 /// may provide a way for extensions to override native resolvers like tags and
 /// bookmarks.
-pub trait SymbolResolverExtension {
+pub trait SymbolResolverExtension: Send + Sync {
     /// PartialSymbolResolvers can initialize some global data by using the
     /// `context_repo`, but the `context_repo` may point to a different
     /// operation from the `repo` passed into `resolve_symbol()`. For
@@ -2031,20 +2705,20 @@ pub trait SymbolResolverExtension {
 
 /// Resolves bookmarks, remote bookmarks, tags, git refs, and full and
 /// abbreviated commit and change ids.
-pub struct DefaultSymbolResolver<'a> {
+pub struct SymbolResolver<'a> {
     commit_id_resolver: CommitPrefixResolver<'a>,
     change_id_resolver: ChangePrefixResolver<'a>,
     extensions: Vec<Box<dyn PartialSymbolResolver + 'a>>,
 }
 
-impl<'a> DefaultSymbolResolver<'a> {
+impl<'a> SymbolResolver<'a> {
     /// Creates new symbol resolver that will first disambiguate short ID
     /// prefixes within the given `context_repo` if configured.
     pub fn new(
         context_repo: &'a dyn Repo,
         extensions: &[impl AsRef<dyn SymbolResolverExtension>],
     ) -> Self {
-        DefaultSymbolResolver {
+        SymbolResolver {
             commit_id_resolver: CommitPrefixResolver {
                 context_repo,
                 context: None,
@@ -2075,21 +2749,20 @@ impl<'a> DefaultSymbolResolver<'a> {
             self.extensions.iter().map(|e| e.as_ref())
         )
     }
-}
 
-impl SymbolResolver for DefaultSymbolResolver<'_> {
-    fn resolve_symbol(
+    /// Looks up `symbol` in the given `repo`.
+    pub fn resolve_symbol(
         &self,
         repo: &dyn Repo,
         symbol: &str,
-    ) -> Result<Vec<CommitId>, RevsetResolutionError> {
+    ) -> Result<CommitId, RevsetResolutionError> {
         if symbol.is_empty() {
             return Err(RevsetResolutionError::EmptyString);
         }
 
         for partial_resolver in self.partial_resolvers() {
-            if let Some(ids) = partial_resolver.resolve_symbol(repo, symbol)? {
-                return Ok(ids);
+            if let Some(id) = partial_resolver.resolve_symbol(repo, symbol)? {
+                return Ok(id);
             }
         }
 
@@ -2100,12 +2773,17 @@ impl SymbolResolver for DefaultSymbolResolver<'_> {
 fn resolve_commit_ref(
     repo: &dyn Repo,
     commit_ref: &RevsetCommitRef,
-    symbol_resolver: &dyn SymbolResolver,
+    symbol_resolver: &SymbolResolver,
 ) -> Result<Vec<CommitId>, RevsetResolutionError> {
     match commit_ref {
-        RevsetCommitRef::Symbol(symbol) => symbol_resolver.resolve_symbol(repo, symbol),
-        RevsetCommitRef::RemoteSymbol(symbol) => resolve_remote_bookmark(repo, symbol.as_ref())
-            .ok_or_else(|| make_no_such_symbol_error(repo, symbol.to_string())),
+        RevsetCommitRef::Symbol(symbol) => {
+            let commit_id = symbol_resolver.resolve_symbol(repo, symbol)?;
+            Ok(vec![commit_id])
+        }
+        RevsetCommitRef::RemoteSymbol(symbol) => {
+            let commit_id = resolve_remote_bookmark(repo, symbol.as_ref())?;
+            Ok(vec![commit_id])
+        }
         RevsetCommitRef::WorkingCopy(name) => {
             if let Some(commit_id) = repo.view().get_wc_commit_id(name) {
                 Ok(vec![commit_id.clone()])
@@ -2116,6 +2794,14 @@ fn resolve_commit_ref(
         RevsetCommitRef::WorkingCopies => {
             let wc_commits = repo.view().wc_commit_ids().values().cloned().collect_vec();
             Ok(wc_commits)
+        }
+        RevsetCommitRef::ChangeId(prefix) => {
+            let resolver = &symbol_resolver.change_id_resolver;
+            Ok(resolver.try_resolve(repo, prefix)?.unwrap_or_else(Vec::new))
+        }
+        RevsetCommitRef::CommitId(prefix) => {
+            let resolver = &symbol_resolver.commit_id_resolver;
+            Ok(resolver.try_resolve(repo, prefix)?.into_iter().collect())
         }
         RevsetCommitRef::Bookmarks(pattern) => {
             let commit_ids = repo
@@ -2165,15 +2851,15 @@ fn resolve_commit_ref(
 }
 
 /// Resolves symbols and commit refs recursively.
-struct ExpressionSymbolResolver<'a> {
+struct ExpressionSymbolResolver<'a, 'b> {
     base_repo: &'a dyn Repo,
     repo_stack: Vec<Arc<ReadonlyRepo>>,
-    symbol_resolver: &'a dyn SymbolResolver,
+    symbol_resolver: &'a SymbolResolver<'b>,
 }
 
-impl<'a> ExpressionSymbolResolver<'a> {
-    fn new(base_repo: &'a dyn Repo, symbol_resolver: &'a dyn SymbolResolver) -> Self {
-        ExpressionSymbolResolver {
+impl<'a, 'b> ExpressionSymbolResolver<'a, 'b> {
+    fn new(base_repo: &'a dyn Repo, symbol_resolver: &'a SymbolResolver<'b>) -> Self {
+        Self {
             base_repo,
             repo_stack: vec![],
             symbol_resolver,
@@ -2188,14 +2874,14 @@ impl<'a> ExpressionSymbolResolver<'a> {
 }
 
 impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
-    for ExpressionSymbolResolver<'_>
+    for ExpressionSymbolResolver<'_, '_>
 {
     type Error = RevsetResolutionError;
 
     fn fold_expression(
         &mut self,
         expression: &UserRevsetExpression,
-    ) -> Result<Rc<ResolvedRevsetExpression>, Self::Error> {
+    ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
         match expression {
             // 'present(x)' opens new symbol resolution scope to map error to 'none()'
             RevsetExpression::Present(candidates) => {
@@ -2207,6 +2893,8 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
                     RevsetResolutionError::EmptyString
                     | RevsetResolutionError::AmbiguousCommitIdPrefix(_)
                     | RevsetResolutionError::AmbiguousChangeIdPrefix(_)
+                    | RevsetResolutionError::DivergentChangeId { .. }
+                    | RevsetResolutionError::ConflictedRef { .. }
                     | RevsetResolutionError::Backend(_)
                     | RevsetResolutionError::Other(_) => Err(err),
                 })
@@ -2218,7 +2906,7 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
     fn fold_commit_ref(
         &mut self,
         commit_ref: &RevsetCommitRef,
-    ) -> Result<Rc<ResolvedRevsetExpression>, Self::Error> {
+    ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
         let commit_ids = resolve_commit_ref(self.repo(), commit_ref, self.symbol_resolver)?;
         Ok(RevsetExpression::commits(commit_ids))
     }
@@ -2227,13 +2915,13 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
         &mut self,
         operation: &String,
         candidates: &UserRevsetExpression,
-    ) -> Result<Rc<ResolvedRevsetExpression>, Self::Error> {
+    ) -> Result<Arc<ResolvedRevsetExpression>, Self::Error> {
         let repo = reload_repo_at_operation(self.repo(), operation)?;
         self.repo_stack.push(repo);
         let candidates = self.fold_expression(candidates)?;
         let visible_heads = self.repo().view().heads().iter().cloned().collect();
         self.repo_stack.pop();
-        Ok(Rc::new(RevsetExpression::WithinVisibility {
+        Ok(Arc::new(RevsetExpression::WithinVisibility {
             candidates,
             visible_heads,
         }))
@@ -2243,8 +2931,8 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
 fn resolve_symbols(
     repo: &dyn Repo,
     expression: &UserRevsetExpression,
-    symbol_resolver: &dyn SymbolResolver,
-) -> Result<Rc<ResolvedRevsetExpression>, RevsetResolutionError> {
+    symbol_resolver: &SymbolResolver,
+) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
     let mut resolver = ExpressionSymbolResolver::new(repo, symbol_resolver);
     resolver.fold_expression(expression)
 }
@@ -2253,7 +2941,7 @@ fn resolve_symbols(
 ///
 /// Symbols and commit refs in the `expression` should have been resolved.
 ///
-/// This is a separate step because a symbol-resolved `expression` could be
+/// This is a separate step because a symbol-resolved `expression` may be
 /// transformed further to e.g. combine OR-ed `Commits(_)`, or to collect
 /// commit ids to make `all()` include hidden-but-specified commits. The
 /// return type `ResolvedExpression` is stricter than `RevsetExpression`,
@@ -2263,6 +2951,7 @@ fn resolve_visibility(
     expression: &ResolvedRevsetExpression,
 ) -> ResolvedExpression {
     let context = VisibilityResolutionContext {
+        referenced_commits: &[],
         visible_heads: &repo.view().heads().iter().cloned().collect_vec(),
         root: repo.store().root_commit_id(),
     };
@@ -2271,6 +2960,7 @@ fn resolve_visibility(
 
 #[derive(Clone, Debug)]
 struct VisibilityResolutionContext<'a> {
+    referenced_commits: &'a [CommitId],
     visible_heads: &'a [CommitId],
     root: &'a CommitId,
 }
@@ -2282,28 +2972,38 @@ impl VisibilityResolutionContext<'_> {
             RevsetExpression::None => ResolvedExpression::Commits(vec![]),
             RevsetExpression::All => self.resolve_all(),
             RevsetExpression::VisibleHeads => self.resolve_visible_heads(),
+            RevsetExpression::VisibleHeadsOrReferenced => {
+                self.resolve_visible_heads_or_referenced()
+            }
             RevsetExpression::Root => self.resolve_root(),
             RevsetExpression::Commits(commit_ids) => {
                 ResolvedExpression::Commits(commit_ids.clone())
             }
             RevsetExpression::CommitRef(commit_ref) => match *commit_ref {},
-            RevsetExpression::Ancestors { heads, generation } => ResolvedExpression::Ancestors {
+            RevsetExpression::Ancestors {
+                heads,
+                generation,
+                parents_range,
+            } => ResolvedExpression::Ancestors {
                 heads: self.resolve(heads).into(),
                 generation: generation.clone(),
+                parents_range: parents_range.clone(),
             },
             RevsetExpression::Descendants { roots, generation } => ResolvedExpression::DagRange {
                 roots: self.resolve(roots).into(),
-                heads: self.resolve_visible_heads().into(),
+                heads: self.resolve_visible_heads_or_referenced().into(),
                 generation_from_roots: generation.clone(),
             },
             RevsetExpression::Range {
                 roots,
                 heads,
                 generation,
+                parents_range,
             } => ResolvedExpression::Range {
                 roots: self.resolve(roots).into(),
                 heads: self.resolve(heads).into(),
                 generation: generation.clone(),
+                parents_range: parents_range.clone(),
             },
             RevsetExpression::DagRange { roots, heads } => ResolvedExpression::DagRange {
                 roots: self.resolve(roots).into(),
@@ -2317,13 +3017,32 @@ impl VisibilityResolutionContext<'_> {
             RevsetExpression::Heads(candidates) => {
                 ResolvedExpression::Heads(self.resolve(candidates).into())
             }
+            RevsetExpression::HeadsRange {
+                roots,
+                heads,
+                parents_range,
+                filter,
+            } => ResolvedExpression::HeadsRange {
+                roots: self.resolve(roots).into(),
+                heads: self.resolve(heads).into(),
+                parents_range: parents_range.clone(),
+                filter: (!matches!(filter.as_ref(), RevsetExpression::All))
+                    .then(|| self.resolve_predicate(filter)),
+            },
             RevsetExpression::Roots(candidates) => {
                 ResolvedExpression::Roots(self.resolve(candidates).into())
             }
             RevsetExpression::ForkPoint(expression) => {
                 ResolvedExpression::ForkPoint(self.resolve(expression).into())
             }
+            RevsetExpression::Bisect(expression) => {
+                ResolvedExpression::Bisect(self.resolve(expression).into())
+            }
             RevsetExpression::Latest { candidates, count } => ResolvedExpression::Latest {
+                candidates: self.resolve(candidates).into(),
+                count: *count,
+            },
+            RevsetExpression::HasSize { candidates, count } => ResolvedExpression::HasSize {
                 candidates: self.resolve(candidates).into(),
                 count: *count,
             },
@@ -2336,11 +3055,23 @@ impl VisibilityResolutionContext<'_> {
                 }
             }
             RevsetExpression::AtOperation { operation, .. } => match *operation {},
+            RevsetExpression::WithinReference {
+                candidates,
+                commits,
+            } => {
+                let context = VisibilityResolutionContext {
+                    referenced_commits: commits,
+                    visible_heads: self.visible_heads,
+                    root: self.root,
+                };
+                context.resolve(candidates)
+            }
             RevsetExpression::WithinVisibility {
                 candidates,
                 visible_heads,
             } => {
                 let context = VisibilityResolutionContext {
+                    referenced_commits: self.referenced_commits,
                     visible_heads,
                     root: self.root,
                 };
@@ -2384,21 +3115,26 @@ impl VisibilityResolutionContext<'_> {
     }
 
     fn resolve_all(&self) -> ResolvedExpression {
-        // Since `all()` does not include hidden commits, some of the logical
-        // transformation rules may subtly change the evaluated set. For example,
-        // `all() & x` is not `x` if `x` is hidden. This wouldn't matter in practice,
-        // but if it does, the heads set could be extended to include the commits
-        // (and `remote_bookmarks()`) specified in the revset expression. Alternatively,
-        // some optimization rules could be removed, but that means `author(_) & x`
-        // would have to test `::visible_heads() & x`.
         ResolvedExpression::Ancestors {
-            heads: self.resolve_visible_heads().into(),
+            heads: self.resolve_visible_heads_or_referenced().into(),
             generation: GENERATION_RANGE_FULL,
+            parents_range: PARENTS_RANGE_FULL,
         }
     }
 
     fn resolve_visible_heads(&self) -> ResolvedExpression {
         ResolvedExpression::Commits(self.visible_heads.to_owned())
+    }
+
+    fn resolve_visible_heads_or_referenced(&self) -> ResolvedExpression {
+        // The referenced commits may be hidden. If they weren't included in
+        // `all()`, some of the logical transformation rules might subtly change
+        // the evaluated set. For example, `all() & x` wouldn't be `x` if `x`
+        // were hidden and if not included in `all()`.
+        let commits = itertools::chain(self.referenced_commits, self.visible_heads)
+            .cloned()
+            .collect();
+        ResolvedExpression::Commits(commits)
     }
 
     fn resolve_root(&self) -> ResolvedExpression {
@@ -2417,6 +3153,7 @@ impl VisibilityResolutionContext<'_> {
             RevsetExpression::None
             | RevsetExpression::All
             | RevsetExpression::VisibleHeads
+            | RevsetExpression::VisibleHeadsOrReferenced
             | RevsetExpression::Root
             | RevsetExpression::Commits(_)
             | RevsetExpression::CommitRef(_)
@@ -2426,8 +3163,11 @@ impl VisibilityResolutionContext<'_> {
             | RevsetExpression::DagRange { .. }
             | RevsetExpression::Reachable { .. }
             | RevsetExpression::Heads(_)
+            | RevsetExpression::HeadsRange { .. }
             | RevsetExpression::Roots(_)
             | RevsetExpression::ForkPoint(_)
+            | RevsetExpression::Bisect(_)
+            | RevsetExpression::HasSize { .. }
             | RevsetExpression::Latest { .. } => {
                 ResolvedPredicateExpression::Set(self.resolve(expression).into())
             }
@@ -2437,7 +3177,8 @@ impl VisibilityResolutionContext<'_> {
             RevsetExpression::AsFilter(candidates) => self.resolve_predicate(candidates),
             RevsetExpression::AtOperation { operation, .. } => match *operation {},
             // Filters should be intersected with all() within the at-op repo.
-            RevsetExpression::WithinVisibility { .. } => {
+            RevsetExpression::WithinReference { .. }
+            | RevsetExpression::WithinVisibility { .. } => {
                 ResolvedPredicateExpression::Set(self.resolve(expression).into())
             }
             RevsetExpression::Coalesce(_, _) => {
@@ -2453,10 +3194,16 @@ impl VisibilityResolutionContext<'_> {
                 let predicate2 = self.resolve_predicate(expression2);
                 ResolvedPredicateExpression::Union(predicate1.into(), predicate2.into())
             }
-            // Intersection of filters should have been substituted by optimize().
-            // If it weren't, just fall back to the set evaluation path.
-            RevsetExpression::Intersection(..) | RevsetExpression::Difference(..) => {
-                ResolvedPredicateExpression::Set(self.resolve(expression).into())
+            RevsetExpression::Intersection(expression1, expression2) => {
+                let predicate1 = self.resolve_predicate(expression1);
+                let predicate2 = self.resolve_predicate(expression2);
+                ResolvedPredicateExpression::Intersection(predicate1.into(), predicate2.into())
+            }
+            RevsetExpression::Difference(expression1, expression2) => {
+                let predicate1 = self.resolve_predicate(expression1);
+                let predicate2 = self.resolve_predicate(expression2);
+                let predicate2 = ResolvedPredicateExpression::NotIn(predicate2.into());
+                ResolvedPredicateExpression::Intersection(predicate1.into(), predicate2.into())
             }
         }
     }
@@ -2556,7 +3303,7 @@ impl RevsetExtensions {
         }
     }
 
-    pub fn symbol_resolvers(&self) -> &[impl AsRef<dyn SymbolResolverExtension> + use<>] {
+    pub fn symbol_resolvers(&self) -> &[Box<dyn SymbolResolverExtension>] {
         &self.symbol_resolvers
     }
 
@@ -2660,6 +3407,10 @@ pub fn format_remote_symbol(name: &str, remote: &str) -> String {
 }
 
 #[cfg(test)]
+#[rustversion::attr(
+    since(1.89),
+    expect(clippy::cloned_ref_to_slice_refs, reason = "makes tests more readable")
+)]
 mod tests {
     use std::path::PathBuf;
 
@@ -2667,21 +3418,21 @@ mod tests {
 
     use super::*;
 
-    fn parse(revset_str: &str) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
+    fn parse(revset_str: &str) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
         parse_with_aliases(revset_str, [] as [(&str, &str); 0])
     }
 
     fn parse_with_workspace(
         revset_str: &str,
         workspace_name: &WorkspaceName,
-    ) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
+    ) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
         parse_with_aliases_and_workspace(revset_str, [] as [(&str, &str); 0], workspace_name)
     }
 
     fn parse_with_aliases(
         revset_str: &str,
         aliases: impl IntoIterator<Item = (impl AsRef<str>, impl Into<String>)>,
-    ) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
+    ) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
         let mut aliases_map = RevsetAliasesMap::new();
         for (decl, defn) in aliases {
             aliases_map.insert(decl, defn).unwrap();
@@ -2701,7 +3452,7 @@ mod tests {
         revset_str: &str,
         aliases: impl IntoIterator<Item = (impl AsRef<str>, impl Into<String>)>,
         workspace_name: &WorkspaceName,
-    ) -> Result<Rc<UserRevsetExpression>, RevsetParseError> {
+    ) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
         // Set up pseudo context to resolve `workspace_name@` and `file(path)`
         let path_converter = RepoPathUiConverter::Fs {
             cwd: PathBuf::from("/"),
@@ -2728,14 +3479,14 @@ mod tests {
 
     fn parse_with_modifier(
         revset_str: &str,
-    ) -> Result<(Rc<UserRevsetExpression>, Option<RevsetModifier>), RevsetParseError> {
+    ) -> Result<(Arc<UserRevsetExpression>, Option<RevsetModifier>), RevsetParseError> {
         parse_with_aliases_and_modifier(revset_str, [] as [(&str, &str); 0])
     }
 
     fn parse_with_aliases_and_modifier(
         revset_str: &str,
         aliases: impl IntoIterator<Item = (impl AsRef<str>, impl Into<String>)>,
-    ) -> Result<(Rc<UserRevsetExpression>, Option<RevsetModifier>), RevsetParseError> {
+    ) -> Result<(Arc<UserRevsetExpression>, Option<RevsetModifier>), RevsetParseError> {
         let mut aliases_map = RevsetAliasesMap::new();
         for (decl, defn) in aliases {
             aliases_map.insert(decl, defn).unwrap();
@@ -2791,6 +3542,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(WorkingCopy(WorkspaceNameBuf("default"))),
             generation: 1..2,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -2798,6 +3550,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(WorkingCopy(WorkspaceNameBuf("default"))),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -2834,6 +3587,7 @@ mod tests {
             roots: CommitRef(Symbol("foo")),
             heads: CommitRef(WorkingCopy(WorkspaceNameBuf("default"))),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -2962,7 +3716,7 @@ mod tests {
         // "@" in function argument must be quoted
         insta::assert_debug_snapshot!(
             parse("author_name(foo@)").unwrap_err().kind(),
-            @r#"Expression("Expected expression of string pattern")"#);
+            @r#"Expression("Expected string pattern")"#);
         insta::assert_debug_snapshot!(
             parse(r#"author_name("foo@")"#).unwrap(),
             @r#"Filter(AuthorName(Substring("foo@")))"#);
@@ -3014,6 +3768,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(Symbol("foo")),
             generation: 1..2,
+            parents_range: 0..4294967295,
         }
         "#);
         // Parse the "children" operator
@@ -3028,6 +3783,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(Symbol("foo")),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         // Parse the "descendants" operator
@@ -3052,30 +3808,28 @@ mod tests {
             roots: Root,
             heads: CommitRef(Symbol("foo")),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(parse("foo..").unwrap(), @r#"
-        Range {
-            roots: CommitRef(Symbol("foo")),
-            heads: VisibleHeads,
-            generation: 0..18446744073709551615,
-        }
+        NotIn(
+            Ancestors {
+                heads: CommitRef(Symbol("foo")),
+                generation: 0..18446744073709551615,
+                parents_range: 0..4294967295,
+            },
+        )
         "#);
         insta::assert_debug_snapshot!(parse("foo..bar").unwrap(), @r#"
         Range {
             roots: CommitRef(Symbol("foo")),
             heads: CommitRef(Symbol("bar")),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         // Parse the nullary "range" operator
-        insta::assert_debug_snapshot!(parse("..").unwrap(), @r"
-        Range {
-            roots: Root,
-            heads: VisibleHeads,
-            generation: 0..18446744073709551615,
-        }
-        ");
+        insta::assert_debug_snapshot!(parse("..").unwrap(), @r#"NotIn(Root)"#);
         // Parse the "negate" operator
         insta::assert_debug_snapshot!(
             parse("~ foo").unwrap(),
@@ -3141,10 +3895,10 @@ mod tests {
             @r#"Expression("Invalid string pattern")"#);
         insta::assert_debug_snapshot!(
             parse(r#"bookmarks(exact::"foo")"#).unwrap_err().kind(),
-            @r#"Expression("Expected expression of string pattern")"#);
+            @r#"Expression("Expected string pattern")"#);
         insta::assert_debug_snapshot!(
             parse(r#"bookmarks(exact:"foo"+)"#).unwrap_err().kind(),
-            @r#"Expression("Expected expression of string pattern")"#);
+            @r#"Expression("Expected string pattern")"#);
 
         insta::assert_debug_snapshot!(
             parse(r#"tags("foo")"#).unwrap(),
@@ -3160,10 +3914,10 @@ mod tests {
             @r#"Expression("Invalid string pattern")"#);
         insta::assert_debug_snapshot!(
             parse(r#"tags(exact::"foo")"#).unwrap_err().kind(),
-            @r#"Expression("Expected expression of string pattern")"#);
+            @r#"Expression("Expected string pattern")"#);
         insta::assert_debug_snapshot!(
             parse(r#"tags(exact:"foo"+)"#).unwrap_err().kind(),
-            @r#"Expression("Expected expression of string pattern")"#);
+            @r#"Expression("Expected string pattern")"#);
 
         // String pattern isn't allowed at top level.
         assert_matches!(
@@ -3182,6 +3936,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(Symbol("foo")),
             generation: 1..2,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -3189,6 +3944,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(Symbol("foo")),
             generation: 1..2,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -3197,15 +3953,25 @@ mod tests {
             heads: Ancestors {
                 heads: CommitRef(Symbol("foo")),
                 generation: 1..2,
+                parents_range: 0..4294967295,
             },
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
-            parse("parents(foo,foo)").unwrap_err().kind(), @r#"
+            parse("parents(foo, bar, baz)").unwrap_err().kind(), @r#"
         InvalidFunctionArguments {
             name: "parents",
-            message: "Expected 1 arguments",
+            message: "Expected 1 to 2 arguments",
+        }
+        "#);
+        insta::assert_debug_snapshot!(
+            parse("parents(foo, 2)").unwrap(), @r#"
+        Ancestors {
+            heads: CommitRef(Symbol("foo")),
+            generation: 2..3,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -3220,7 +3986,7 @@ mod tests {
             @r#"Filter(Description(Substring("foo")))"#);
         insta::assert_debug_snapshot!(
             parse("description(visible_heads())").unwrap_err().kind(),
-            @r#"Expression("Expected expression of string pattern")"#);
+            @r#"Expression("Expected string pattern")"#);
         insta::assert_debug_snapshot!(
             parse("description(\"(foo)\")").unwrap(),
             @r#"Filter(Description(Substring("(foo)")))"#);
@@ -3256,6 +4022,32 @@ mod tests {
         )
         "#);
         insta::assert_debug_snapshot!(parse("signed()").unwrap(), @"Filter(Signed)");
+    }
+
+    #[test]
+    fn test_parse_revset_change_commit_id_functions() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+
+        insta::assert_debug_snapshot!(
+            parse("change_id(z)").unwrap(),
+            @r#"CommitRef(ChangeId(HexPrefix("0")))"#);
+        insta::assert_debug_snapshot!(
+            parse("change_id('zk')").unwrap(),
+            @r#"CommitRef(ChangeId(HexPrefix("0f")))"#);
+        insta::assert_debug_snapshot!(
+            parse("change_id(01234)").unwrap_err().kind(),
+            @r#"Expression("Invalid change ID prefix")"#);
+
+        insta::assert_debug_snapshot!(
+            parse("commit_id(0)").unwrap(),
+            @r#"CommitRef(CommitId(HexPrefix("0")))"#);
+        insta::assert_debug_snapshot!(
+            parse("commit_id('0f')").unwrap(),
+            @r#"CommitRef(CommitId(HexPrefix("0f")))"#);
+        insta::assert_debug_snapshot!(
+            parse("commit_id(xyzzy)").unwrap_err().kind(),
+            @r#"Expression("Invalid commit ID prefix")"#);
     }
 
     #[test]
@@ -3430,6 +4222,281 @@ mod tests {
     }
 
     #[test]
+    fn test_transform_expression() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+
+        // Break without pre transformation
+        insta::assert_debug_snapshot!(
+            transform_expression(
+                &ResolvedRevsetExpression::root(),
+                |_| ControlFlow::Break(None),
+                |_| Some(RevsetExpression::none()),
+            ), @"None");
+
+        // Break with pre transformation
+        insta::assert_debug_snapshot!(
+            transform_expression(
+                &ResolvedRevsetExpression::root(),
+                |_| ControlFlow::Break(Some(RevsetExpression::all())),
+                |_| Some(RevsetExpression::none()),
+            ), @"Some(All)");
+
+        // Continue without pre transformation, do transform child
+        insta::assert_debug_snapshot!(
+            transform_expression(
+                &ResolvedRevsetExpression::root().heads(),
+                |_| ControlFlow::Continue(()),
+                |x| match x.as_ref() {
+                    RevsetExpression::Root => Some(RevsetExpression::none()),
+                    _ => None,
+                },
+            ), @"Some(Heads(None))");
+
+        // Continue without pre transformation, do transform self
+        insta::assert_debug_snapshot!(
+            transform_expression(
+                &ResolvedRevsetExpression::root().heads(),
+                |_| ControlFlow::Continue(()),
+                |x| match x.as_ref() {
+                    RevsetExpression::Heads(y) => Some(y.clone()),
+                    _ => None,
+                },
+            ), @"Some(Root)");
+    }
+
+    #[test]
+    fn test_resolve_referenced_commits() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+
+        let visibility1 = Arc::new(ResolvedRevsetExpression::WithinVisibility {
+            candidates: RevsetExpression::commit(CommitId::from_hex("100001")),
+            visible_heads: vec![CommitId::from_hex("100000")],
+        });
+        let visibility2 = Arc::new(ResolvedRevsetExpression::WithinVisibility {
+            candidates: RevsetExpression::filter(RevsetFilterPredicate::HasConflict),
+            visible_heads: vec![CommitId::from_hex("200000")],
+        });
+        let commit3 = RevsetExpression::commit(CommitId::from_hex("000003"));
+
+        // Inner commits should be scoped. Both inner commits and visible heads
+        // should be added to the outer scope.
+        insta::assert_debug_snapshot!(
+            resolve_referenced_commits(&visibility1.intersection(&RevsetExpression::all())), @r#"
+        Some(
+            WithinReference {
+                candidates: Intersection(
+                    WithinVisibility {
+                        candidates: WithinReference {
+                            candidates: Commits(
+                                [
+                                    CommitId("100001"),
+                                ],
+                            ),
+                            commits: [
+                                CommitId("100001"),
+                            ],
+                        },
+                        visible_heads: [
+                            CommitId("100000"),
+                        ],
+                    },
+                    All,
+                ),
+                commits: [
+                    CommitId("100000"),
+                    CommitId("100001"),
+                ],
+            },
+        )
+        "#);
+
+        // Inner scope has no references, so WithinReference should be omitted.
+        insta::assert_debug_snapshot!(
+            resolve_referenced_commits(
+                &visibility2
+                    .intersection(&RevsetExpression::all())
+                    .union(&commit3),
+            ), @r#"
+        Some(
+            WithinReference {
+                candidates: Union(
+                    Intersection(
+                        WithinVisibility {
+                            candidates: Filter(HasConflict),
+                            visible_heads: [
+                                CommitId("200000"),
+                            ],
+                        },
+                        All,
+                    ),
+                    Commits(
+                        [
+                            CommitId("000003"),
+                        ],
+                    ),
+                ),
+                commits: [
+                    CommitId("000003"),
+                    CommitId("200000"),
+                ],
+            },
+        )
+        "#);
+
+        // Sibling scopes should track referenced commits individually.
+        insta::assert_debug_snapshot!(
+            resolve_referenced_commits(
+                &visibility1
+                    .union(&visibility2)
+                    .union(&commit3)
+                    .intersection(&RevsetExpression::all())
+            ), @r#"
+        Some(
+            WithinReference {
+                candidates: Intersection(
+                    Union(
+                        Union(
+                            WithinVisibility {
+                                candidates: WithinReference {
+                                    candidates: Commits(
+                                        [
+                                            CommitId("100001"),
+                                        ],
+                                    ),
+                                    commits: [
+                                        CommitId("100001"),
+                                    ],
+                                },
+                                visible_heads: [
+                                    CommitId("100000"),
+                                ],
+                            },
+                            WithinVisibility {
+                                candidates: Filter(HasConflict),
+                                visible_heads: [
+                                    CommitId("200000"),
+                                ],
+                            },
+                        ),
+                        Commits(
+                            [
+                                CommitId("000003"),
+                            ],
+                        ),
+                    ),
+                    All,
+                ),
+                commits: [
+                    CommitId("000003"),
+                    CommitId("100000"),
+                    CommitId("100001"),
+                    CommitId("200000"),
+                ],
+            },
+        )
+        "#);
+
+        // Referenced commits should be propagated from the innermost scope.
+        insta::assert_debug_snapshot!(
+            resolve_referenced_commits(&Arc::new(ResolvedRevsetExpression::WithinVisibility {
+                candidates: visibility1.clone(),
+                visible_heads: vec![CommitId::from_hex("400000")],
+            })), @r#"
+        Some(
+            WithinReference {
+                candidates: WithinVisibility {
+                    candidates: WithinReference {
+                        candidates: WithinVisibility {
+                            candidates: WithinReference {
+                                candidates: Commits(
+                                    [
+                                        CommitId("100001"),
+                                    ],
+                                ),
+                                commits: [
+                                    CommitId("100001"),
+                                ],
+                            },
+                            visible_heads: [
+                                CommitId("100000"),
+                            ],
+                        },
+                        commits: [
+                            CommitId("100000"),
+                            CommitId("100001"),
+                        ],
+                    },
+                    visible_heads: [
+                        CommitId("400000"),
+                    ],
+                },
+                commits: [
+                    CommitId("400000"),
+                    CommitId("100000"),
+                    CommitId("100001"),
+                ],
+            },
+        )
+        "#);
+
+        // Resolved expression should be reused.
+        let resolved = Arc::new(ResolvedRevsetExpression::WithinReference {
+            // No referenced commits within the scope to test whether the
+            // precomputed value is reused.
+            candidates: RevsetExpression::none(),
+            commits: vec![CommitId::from_hex("100000")],
+        });
+        insta::assert_debug_snapshot!(
+            resolve_referenced_commits(&resolved), @"None");
+        insta::assert_debug_snapshot!(
+            resolve_referenced_commits(&resolved.intersection(&RevsetExpression::all())), @r#"
+        Some(
+            WithinReference {
+                candidates: Intersection(
+                    WithinReference {
+                        candidates: None,
+                        commits: [
+                            CommitId("100000"),
+                        ],
+                    },
+                    All,
+                ),
+                commits: [
+                    CommitId("100000"),
+                ],
+            },
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            resolve_referenced_commits(&Arc::new(ResolvedRevsetExpression::WithinVisibility {
+                candidates: resolved.clone(),
+                visible_heads: vec![CommitId::from_hex("400000")],
+            })), @r#"
+        Some(
+            WithinReference {
+                candidates: WithinVisibility {
+                    candidates: WithinReference {
+                        candidates: None,
+                        commits: [
+                            CommitId("100000"),
+                        ],
+                    },
+                    visible_heads: [
+                        CommitId("400000"),
+                    ],
+                },
+                commits: [
+                    CommitId("400000"),
+                    CommitId("100000"),
+                ],
+            },
+        )
+        "#);
+    }
+
+    #[test]
     fn test_optimize_subtree() {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
@@ -3442,6 +4509,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(Bookmarks(Substring(""))),
             generation: 1..2,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -3456,6 +4524,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(Bookmarks(Substring(""))),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -3472,6 +4541,7 @@ mod tests {
             roots: CommitRef(Bookmarks(Substring(""))),
             heads: CommitRef(Tags(Substring(""))),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -3518,13 +4588,30 @@ mod tests {
         }
         "#);
         insta::assert_debug_snapshot!(
-            optimize(Rc::new(RevsetExpression::WithinVisibility {
+            optimize(Arc::new(RevsetExpression::WithinReference {
+                candidates: parse("bookmarks() & all()").unwrap(),
+                commits: vec![CommitId::from_hex("012345")],
+            })), @r#"
+        WithinReference {
+            candidates: CommitRef(Bookmarks(Substring(""))),
+            commits: [
+                CommitId("012345"),
+            ],
+        }
+        "#);
+        insta::assert_debug_snapshot!(
+            optimize(Arc::new(RevsetExpression::WithinVisibility {
                 candidates: parse("bookmarks() & all()").unwrap(),
                 visible_heads: vec![CommitId::from_hex("012345")],
             })), @r#"
-        WithinVisibility {
-            candidates: CommitRef(Bookmarks(Substring(""))),
-            visible_heads: [
+        WithinReference {
+            candidates: WithinVisibility {
+                candidates: CommitRef(Bookmarks(Substring(""))),
+                visible_heads: [
+                    CommitId("012345"),
+                ],
+            },
+            commits: [
                 CommitId("012345"),
             ],
         }
@@ -3560,7 +4647,7 @@ mod tests {
     fn test_optimize_unchanged_subtree() {
         fn unwrap_union(
             expression: &UserRevsetExpression,
-        ) -> (&Rc<UserRevsetExpression>, &Rc<UserRevsetExpression>) {
+        ) -> (&Arc<UserRevsetExpression>, &Arc<UserRevsetExpression>) {
             match expression {
                 RevsetExpression::Union(left, right) => (left, right),
                 _ => panic!("unexpected expression: {expression:?}"),
@@ -3570,15 +4657,15 @@ mod tests {
         // transform_expression_bottom_up() should not recreate tree unnecessarily.
         let parsed = parse("foo-").unwrap();
         let optimized = optimize(parsed.clone());
-        assert!(Rc::ptr_eq(&parsed, &optimized));
+        assert!(Arc::ptr_eq(&parsed, &optimized));
 
         let parsed = parse("bookmarks() | tags()").unwrap();
         let optimized = optimize(parsed.clone());
-        assert!(Rc::ptr_eq(&parsed, &optimized));
+        assert!(Arc::ptr_eq(&parsed, &optimized));
 
         let parsed = parse("bookmarks() & tags()").unwrap();
         let optimized = optimize(parsed.clone());
-        assert!(Rc::ptr_eq(&parsed, &optimized));
+        assert!(Arc::ptr_eq(&parsed, &optimized));
 
         // Only left subtree should be rewritten.
         let parsed = parse("(bookmarks() & all()) | tags()").unwrap();
@@ -3587,7 +4674,7 @@ mod tests {
             unwrap_union(&optimized).0.as_ref(),
             RevsetExpression::CommitRef(RevsetCommitRef::Bookmarks(_))
         );
-        assert!(Rc::ptr_eq(
+        assert!(Arc::ptr_eq(
             unwrap_union(&parsed).1,
             unwrap_union(&optimized).1
         ));
@@ -3595,7 +4682,7 @@ mod tests {
         // Only right subtree should be rewritten.
         let parsed = parse("bookmarks() | (all() & tags())").unwrap();
         let optimized = optimize(parsed.clone());
-        assert!(Rc::ptr_eq(
+        assert!(Arc::ptr_eq(
             unwrap_union(&parsed).0,
             unwrap_union(&optimized).0
         ));
@@ -3603,6 +4690,30 @@ mod tests {
             unwrap_union(&optimized).1.as_ref(),
             RevsetExpression::CommitRef(RevsetCommitRef::Tags(_))
         );
+    }
+
+    #[test]
+    fn test_optimize_basic() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+
+        insta::assert_debug_snapshot!(optimize(parse("all() | none()").unwrap()), @"All");
+        insta::assert_debug_snapshot!(optimize(parse("all() & none()").unwrap()), @"None");
+        insta::assert_debug_snapshot!(optimize(parse("root() | all()").unwrap()), @"All");
+        insta::assert_debug_snapshot!(optimize(parse("root() & all()").unwrap()), @"Root");
+        insta::assert_debug_snapshot!(optimize(parse("none() | root()").unwrap()), @"Root");
+        insta::assert_debug_snapshot!(optimize(parse("none() & root()").unwrap()), @"None");
+        insta::assert_debug_snapshot!(optimize(parse("~none()").unwrap()), @"All");
+        insta::assert_debug_snapshot!(optimize(parse("~~none()").unwrap()), @"None");
+        insta::assert_debug_snapshot!(optimize(parse("~all()").unwrap()), @"None");
+        insta::assert_debug_snapshot!(optimize(parse("~~all()").unwrap()), @"All");
+        insta::assert_debug_snapshot!(optimize(parse("~~foo").unwrap()), @r#"CommitRef(Symbol("foo"))"#);
+        insta::assert_debug_snapshot!(
+            optimize(parse("(root() | none()) & (visible_heads() | ~~all())").unwrap()), @"Root");
+        insta::assert_debug_snapshot!(
+            optimize(UserRevsetExpression::commits(vec![])), @"None");
+        insta::assert_debug_snapshot!(
+            optimize(UserRevsetExpression::commits(vec![]).negated()), @"All");
     }
 
     #[test]
@@ -3661,6 +4772,7 @@ mod tests {
             roots: CommitRef(Symbol("bar")),
             heads: CommitRef(Symbol("foo")),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("~::foo & ::bar").unwrap()), @r#"
@@ -3668,13 +4780,15 @@ mod tests {
             roots: CommitRef(Symbol("foo")),
             heads: CommitRef(Symbol("bar")),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("foo..").unwrap()), @r#"
         Range {
             roots: CommitRef(Symbol("foo")),
-            heads: VisibleHeads,
+            heads: VisibleHeadsOrReferenced,
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("foo..bar").unwrap()), @r#"
@@ -3682,6 +4796,23 @@ mod tests {
             roots: CommitRef(Symbol("foo")),
             heads: CommitRef(Symbol("bar")),
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("foo.. & ::bar").unwrap()), @r#"
+        Range {
+            roots: CommitRef(Symbol("foo")),
+            heads: CommitRef(Symbol("bar")),
+            generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("foo.. & first_ancestors(bar)").unwrap()), @r#"
+        Range {
+            roots: CommitRef(Symbol("foo")),
+            heads: CommitRef(Symbol("bar")),
+            generation: 0..18446744073709551615,
+            parents_range: 0..1,
         }
         "#);
 
@@ -3712,6 +4843,73 @@ mod tests {
             CommitRef(Symbol("bar")),
         )
         "#);
+
+        // The roots of multiple ranges can be folded after being unfolded.
+        insta::assert_debug_snapshot!(optimize(parse("a..b & c..d").unwrap()), @r#"
+        Intersection(
+            Range {
+                roots: Union(
+                    CommitRef(Symbol("a")),
+                    CommitRef(Symbol("c")),
+                ),
+                heads: CommitRef(Symbol("b")),
+                generation: 0..18446744073709551615,
+                parents_range: 0..4294967295,
+            },
+            Ancestors {
+                heads: CommitRef(Symbol("d")),
+                generation: 0..18446744073709551615,
+                parents_range: 0..4294967295,
+            },
+        )
+        "#);
+
+        // Negated `first_ancestors()` doesn't prevent re-folding.
+        insta::assert_debug_snapshot!(optimize(parse("foo..bar ~ first_ancestors(baz)").unwrap()), @r#"
+        Difference(
+            Range {
+                roots: CommitRef(Symbol("foo")),
+                heads: CommitRef(Symbol("bar")),
+                generation: 0..18446744073709551615,
+                parents_range: 0..4294967295,
+            },
+            Ancestors {
+                heads: CommitRef(Symbol("baz")),
+                generation: 0..18446744073709551615,
+                parents_range: 0..1,
+            },
+        )
+        "#);
+
+        // Negated ancestors can be combined into a range regardless of intersection
+        // grouping order and intervening expressions.
+        insta::assert_debug_snapshot!(optimize(parse("foo ~ ::a & (::b & bar & ::c) & (baz ~ ::d)").unwrap()), @r#"
+        Intersection(
+            Intersection(
+                Intersection(
+                    Intersection(
+                        Range {
+                            roots: Union(
+                                CommitRef(Symbol("a")),
+                                CommitRef(Symbol("d")),
+                            ),
+                            heads: CommitRef(Symbol("b")),
+                            generation: 0..18446744073709551615,
+                            parents_range: 0..4294967295,
+                        },
+                        Ancestors {
+                            heads: CommitRef(Symbol("c")),
+                            generation: 0..18446744073709551615,
+                            parents_range: 0..4294967295,
+                        },
+                    ),
+                    CommitRef(Symbol("foo")),
+                ),
+                CommitRef(Symbol("bar")),
+            ),
+            CommitRef(Symbol("baz")),
+        )
+        "#);
     }
 
     #[test]
@@ -3723,8 +4921,9 @@ mod tests {
         insta::assert_debug_snapshot!(optimize(parse("~(::foo)").unwrap()), @r#"
         Range {
             roots: CommitRef(Symbol("foo")),
-            heads: VisibleHeads,
+            heads: VisibleHeadsOrReferenced,
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
 
@@ -3734,9 +4933,11 @@ mod tests {
             roots: Ancestors {
                 heads: CommitRef(Symbol("foo")),
                 generation: 1..2,
+                parents_range: 0..4294967295,
             },
-            heads: VisibleHeads,
+            heads: VisibleHeadsOrReferenced,
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("~(::foo--)").unwrap()), @r#"
@@ -3744,9 +4945,11 @@ mod tests {
             roots: Ancestors {
                 heads: CommitRef(Symbol("foo")),
                 generation: 2..3,
+                parents_range: 0..4294967295,
             },
-            heads: VisibleHeads,
+            heads: VisibleHeadsOrReferenced,
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
 
@@ -3756,6 +4959,7 @@ mod tests {
             Ancestors {
                 heads: CommitRef(Symbol("foo")),
                 generation: 0..1,
+                parents_range: 0..4294967295,
             },
         )
         "#);
@@ -3764,6 +4968,7 @@ mod tests {
             Ancestors {
                 heads: CommitRef(Symbol("foo")),
                 generation: 1..2,
+                parents_range: 0..4294967295,
             },
         )
         "#);
@@ -3843,30 +5048,36 @@ mod tests {
         "#);
         insta::assert_debug_snapshot!(
             optimize(parse("author_name(foo) & committer_name(bar)").unwrap()), @r#"
-        Intersection(
-            Filter(AuthorName(Substring("foo"))),
-            Filter(CommitterName(Substring("bar"))),
+        AsFilter(
+            Intersection(
+                Filter(AuthorName(Substring("foo"))),
+                Filter(CommitterName(Substring("bar"))),
+            ),
         )
         "#);
 
         insta::assert_debug_snapshot!(
             optimize(parse("foo & description(bar) & author_name(baz)").unwrap()), @r#"
         Intersection(
-            Intersection(
-                CommitRef(Symbol("foo")),
-                Filter(Description(Substring("bar"))),
+            CommitRef(Symbol("foo")),
+            AsFilter(
+                Intersection(
+                    Filter(Description(Substring("bar"))),
+                    Filter(AuthorName(Substring("baz"))),
+                ),
             ),
-            Filter(AuthorName(Substring("baz"))),
         )
         "#);
         insta::assert_debug_snapshot!(
             optimize(parse("committer_name(foo) & bar & author_name(baz)").unwrap()), @r#"
         Intersection(
-            Intersection(
-                CommitRef(Symbol("bar")),
-                Filter(CommitterName(Substring("foo"))),
+            CommitRef(Symbol("bar")),
+            AsFilter(
+                Intersection(
+                    Filter(CommitterName(Substring("foo"))),
+                    Filter(AuthorName(Substring("baz"))),
+                ),
             ),
-            Filter(AuthorName(Substring("baz"))),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -3875,11 +5086,13 @@ mod tests {
                 WorkspaceName::DEFAULT).unwrap(),
             ), @r#"
         Intersection(
-            Intersection(
-                CommitRef(Symbol("baz")),
-                Filter(CommitterName(Substring("foo"))),
+            CommitRef(Symbol("baz")),
+            AsFilter(
+                Intersection(
+                    Filter(CommitterName(Substring("foo"))),
+                    Filter(File(Pattern(PrefixPath("bar")))),
+                ),
             ),
-            Filter(File(Pattern(PrefixPath("bar")))),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -3887,12 +5100,14 @@ mod tests {
                 "committer_name(foo) & files(bar) & author_name(baz)",
                 WorkspaceName::DEFAULT).unwrap(),
             ), @r#"
-        Intersection(
+        AsFilter(
             Intersection(
-                Filter(CommitterName(Substring("foo"))),
-                Filter(File(Pattern(PrefixPath("bar")))),
+                Intersection(
+                    Filter(CommitterName(Substring("foo"))),
+                    Filter(File(Pattern(PrefixPath("bar")))),
+                ),
+                Filter(AuthorName(Substring("baz"))),
             ),
-            Filter(AuthorName(Substring("baz"))),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -3913,13 +5128,15 @@ mod tests {
             optimize(parse("foo & description(bar) & author_name(baz) & qux").unwrap()), @r#"
         Intersection(
             Intersection(
-                Intersection(
-                    CommitRef(Symbol("foo")),
-                    CommitRef(Symbol("qux")),
-                ),
-                Filter(Description(Substring("bar"))),
+                CommitRef(Symbol("foo")),
+                CommitRef(Symbol("qux")),
             ),
-            Filter(AuthorName(Substring("baz"))),
+            AsFilter(
+                Intersection(
+                    Filter(Description(Substring("bar"))),
+                    Filter(AuthorName(Substring("baz"))),
+                ),
+            ),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -3932,6 +5149,7 @@ mod tests {
                     Ancestors {
                         heads: Filter(AuthorName(Substring("baz"))),
                         generation: 1..2,
+                        parents_range: 0..4294967295,
                     },
                 ),
                 CommitRef(Symbol("qux")),
@@ -3951,6 +5169,7 @@ mod tests {
                         Filter(AuthorName(Substring("baz"))),
                     ),
                     generation: 1..2,
+                    parents_range: 0..4294967295,
                 },
             ),
             Filter(Description(Substring("bar"))),
@@ -3964,18 +5183,20 @@ mod tests {
         Intersection(
             Intersection(
                 Intersection(
-                    Intersection(
-                        Intersection(
-                            CommitRef(Symbol("a")),
-                            CommitRef(Symbol("b")),
-                        ),
-                        CommitRef(Symbol("c")),
-                    ),
-                    Filter(AuthorName(Substring("A"))),
+                    CommitRef(Symbol("a")),
+                    CommitRef(Symbol("b")),
                 ),
-                Filter(AuthorName(Substring("B"))),
+                CommitRef(Symbol("c")),
             ),
-            Filter(AuthorName(Substring("C"))),
+            AsFilter(
+                Intersection(
+                    Intersection(
+                        Filter(AuthorName(Substring("A"))),
+                        Filter(AuthorName(Substring("B"))),
+                    ),
+                    Filter(AuthorName(Substring("C"))),
+                ),
+            ),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -3985,20 +5206,22 @@ mod tests {
             Intersection(
                 Intersection(
                     Intersection(
-                        Intersection(
-                            CommitRef(Symbol("a")),
-                            Intersection(
-                                CommitRef(Symbol("b")),
-                                CommitRef(Symbol("c")),
-                            ),
-                        ),
-                        CommitRef(Symbol("d")),
+                        CommitRef(Symbol("a")),
+                        CommitRef(Symbol("b")),
                     ),
-                    Filter(AuthorName(Substring("A"))),
+                    CommitRef(Symbol("c")),
                 ),
-                Filter(AuthorName(Substring("B"))),
+                CommitRef(Symbol("d")),
             ),
-            Filter(AuthorName(Substring("C"))),
+            AsFilter(
+                Intersection(
+                    Intersection(
+                        Filter(AuthorName(Substring("A"))),
+                        Filter(AuthorName(Substring("B"))),
+                    ),
+                    Filter(AuthorName(Substring("C"))),
+                ),
+            ),
         )
         "#);
 
@@ -4007,11 +5230,13 @@ mod tests {
             optimize(parse("foo & (all() & description(bar)) & (author_name(baz) & all())").unwrap()),
             @r#"
         Intersection(
-            Intersection(
-                CommitRef(Symbol("foo")),
-                Filter(Description(Substring("bar"))),
+            CommitRef(Symbol("foo")),
+            AsFilter(
+                Intersection(
+                    Filter(Description(Substring("bar"))),
+                    Filter(AuthorName(Substring("baz"))),
+                ),
             ),
-            Filter(AuthorName(Substring("baz"))),
         )
         "#);
 
@@ -4050,37 +5275,78 @@ mod tests {
         )
         "#);
 
+        // 'merges() & foo' can be evaluated independently
         insta::assert_debug_snapshot!(
-            optimize(parse("(foo | committer_name(bar)) & description(baz) & qux").unwrap()), @r#"
-        Intersection(
+            optimize(parse("merges() & foo | bar").unwrap()), @r#"
+        Union(
             Intersection(
-                CommitRef(Symbol("qux")),
-                AsFilter(
-                    Union(
-                        CommitRef(Symbol("foo")),
-                        Filter(CommitterName(Substring("bar"))),
+                CommitRef(Symbol("foo")),
+                Filter(ParentCount(2..4294967295)),
+            ),
+            CommitRef(Symbol("bar")),
+        )
+        "#);
+
+        // 'merges() & foo' can be evaluated independently, but 'conflicts()'
+        // can't. We'll need implicit 'all() & _' anyway.
+        insta::assert_debug_snapshot!(
+            optimize(parse("merges() & foo | conflicts()").unwrap()), @r#"
+        AsFilter(
+            Union(
+                Intersection(
+                    CommitRef(Symbol("foo")),
+                    Filter(ParentCount(2..4294967295)),
+                ),
+                Filter(HasConflict),
+            ),
+        )
+        "#);
+
+        // Nested filter intersection with union
+        insta::assert_debug_snapshot!(
+            optimize(parse("foo | conflicts() & merges() & signed()").unwrap()), @r#"
+        AsFilter(
+            Union(
+                CommitRef(Symbol("foo")),
+                Intersection(
+                    Intersection(
+                        Filter(HasConflict),
+                        Filter(ParentCount(2..4294967295)),
                     ),
+                    Filter(Signed),
                 ),
             ),
-            Filter(Description(Substring("baz"))),
         )
         "#);
 
         insta::assert_debug_snapshot!(
-            optimize(parse("(~present(author_name(foo) & bar) | baz) & qux").unwrap()), @r#"
+            optimize(parse("(foo | committer_name(bar)) & description(baz) & qux").unwrap()), @r#"
+        Intersection(
+            CommitRef(Symbol("qux")),
+            AsFilter(
+                Intersection(
+                    Union(
+                        CommitRef(Symbol("foo")),
+                        Filter(CommitterName(Substring("bar"))),
+                    ),
+                    Filter(Description(Substring("baz"))),
+                ),
+            ),
+        )
+        "#);
+
+        insta::assert_debug_snapshot!(
+            optimize(parse(
+                "(~present(author_name(foo) & description(bar)) | baz) & qux").unwrap()), @r#"
         Intersection(
             CommitRef(Symbol("qux")),
             AsFilter(
                 Union(
-                    AsFilter(
-                        NotIn(
-                            AsFilter(
-                                Present(
-                                    Intersection(
-                                        CommitRef(Symbol("bar")),
-                                        Filter(AuthorName(Substring("foo"))),
-                                    ),
-                                ),
+                    NotIn(
+                        Present(
+                            Intersection(
+                                Filter(AuthorName(Substring("foo"))),
+                                Filter(Description(Substring("bar"))),
                             ),
                         ),
                     ),
@@ -4098,34 +5364,49 @@ mod tests {
         Intersection(
             Intersection(
                 Intersection(
+                    CommitRef(Symbol("a")),
+                    CommitRef(Symbol("b")),
+                ),
+                CommitRef(Symbol("c")),
+            ),
+            AsFilter(
+                Intersection(
                     Intersection(
-                        Intersection(
-                            CommitRef(Symbol("a")),
-                            CommitRef(Symbol("b")),
-                        ),
-                        CommitRef(Symbol("c")),
-                    ),
-                    AsFilter(
                         Union(
                             Filter(AuthorName(Substring("A"))),
                             CommitRef(Symbol("0")),
                         ),
+                        Union(
+                            Filter(AuthorName(Substring("B"))),
+                            CommitRef(Symbol("1")),
+                        ),
                     ),
-                ),
-                AsFilter(
                     Union(
-                        Filter(AuthorName(Substring("B"))),
-                        CommitRef(Symbol("1")),
+                        Filter(AuthorName(Substring("C"))),
+                        CommitRef(Symbol("2")),
                     ),
-                ),
-            ),
-            AsFilter(
-                Union(
-                    Filter(AuthorName(Substring("C"))),
-                    CommitRef(Symbol("2")),
                 ),
             ),
         )
+        "#);
+
+        // Filters can be merged after ancestor unions are folded.
+        insta::assert_debug_snapshot!(optimize(parse("::foo | ::author_name(bar)").unwrap()), @r#"
+        Ancestors {
+            heads: HeadsRange {
+                roots: None,
+                heads: VisibleHeadsOrReferenced,
+                parents_range: 0..4294967295,
+                filter: AsFilter(
+                    Union(
+                        CommitRef(Symbol("foo")),
+                        Filter(AuthorName(Substring("bar"))),
+                    ),
+                ),
+            },
+            generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
+        }
         "#);
     }
 
@@ -4139,18 +5420,21 @@ mod tests {
         Ancestors {
             heads: CommitRef(Symbol("foo")),
             generation: 2..3,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("::(foo---)").unwrap()), @r#"
         Ancestors {
             heads: CommitRef(Symbol("foo")),
             generation: 3..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("(::foo)---").unwrap()), @r#"
         Ancestors {
             heads: CommitRef(Symbol("foo")),
             generation: 3..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
 
@@ -4160,6 +5444,7 @@ mod tests {
             roots: Ancestors {
                 heads: CommitRef(Symbol("foo")),
                 generation: 3..4,
+                parents_range: 0..4294967295,
             },
             generation: 1..2,
         }
@@ -4171,6 +5456,7 @@ mod tests {
             roots: CommitRef(Symbol("foo")),
             heads: CommitRef(Symbol("bar")),
             generation: 2..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         // roots can also be folded, and the range expression is reconstructed.
@@ -4179,9 +5465,11 @@ mod tests {
             roots: Ancestors {
                 heads: CommitRef(Symbol("foo")),
                 generation: 2..3,
+                parents_range: 0..4294967295,
             },
             heads: CommitRef(Symbol("bar")),
             generation: 3..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
         // Bounded ancestors shouldn't be substituted to range.
@@ -4191,10 +5479,12 @@ mod tests {
             Ancestors {
                 heads: CommitRef(Symbol("bar")),
                 generation: 0..18446744073709551615,
+                parents_range: 0..4294967295,
             },
             Ancestors {
                 heads: CommitRef(Symbol("foo")),
                 generation: 0..2,
+                parents_range: 0..4294967295,
             },
         )
         "#);
@@ -4207,19 +5497,23 @@ mod tests {
                 roots: CommitRef(Symbol("foo")),
                 heads: CommitRef(Symbol("bar")),
                 generation: 0..18446744073709551615,
+                parents_range: 0..4294967295,
             },
             generation: 2..3,
+            parents_range: 0..4294967295,
         }
         "#);
         insta::assert_debug_snapshot!(optimize(parse("foo..(bar..baz)").unwrap()), @r#"
         Range {
             roots: CommitRef(Symbol("foo")),
-            heads: Range {
+            heads: HeadsRange {
                 roots: CommitRef(Symbol("bar")),
                 heads: CommitRef(Symbol("baz")),
-                generation: 0..18446744073709551615,
+                parents_range: 0..4294967295,
+                filter: All,
             },
             generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
         }
         "#);
 
@@ -4229,6 +5523,7 @@ mod tests {
         Ancestors {
             heads: CommitRef(Symbol("foo")),
             generation: 0..0,
+            parents_range: 0..4294967295,
         }
         "#
         );
@@ -4237,6 +5532,53 @@ mod tests {
         Ancestors {
             heads: CommitRef(Symbol("foo")),
             generation: 0..0,
+            parents_range: 0..4294967295,
+        }
+        "#
+        );
+
+        // Ancestors can only be folded if parent ranges match.
+        insta::assert_debug_snapshot!(
+            optimize(parse("first_ancestors(first_ancestors(foo, 5), 5)").unwrap()), @r#"
+        Ancestors {
+            heads: CommitRef(Symbol("foo")),
+            generation: 0..9,
+            parents_range: 0..1,
+        }
+        "#
+        );
+        insta::assert_debug_snapshot!(
+            optimize(parse("first_ancestors(first_parent(foo), 5)").unwrap()), @r#"
+        Ancestors {
+            heads: CommitRef(Symbol("foo")),
+            generation: 1..6,
+            parents_range: 0..1,
+        }
+        "#
+        );
+        insta::assert_debug_snapshot!(
+            optimize(parse("first_ancestors(ancestors(foo, 5), 5)").unwrap()), @r#"
+        Ancestors {
+            heads: Ancestors {
+                heads: CommitRef(Symbol("foo")),
+                generation: 0..5,
+                parents_range: 0..4294967295,
+            },
+            generation: 0..5,
+            parents_range: 0..1,
+        }
+        "#
+        );
+        insta::assert_debug_snapshot!(
+            optimize(parse("ancestors(first_ancestors(foo, 5), 5)").unwrap()), @r#"
+        Ancestors {
+            heads: Ancestors {
+                heads: CommitRef(Symbol("foo")),
+                generation: 0..5,
+                parents_range: 0..1,
+            },
+            generation: 0..5,
+            parents_range: 0..4294967295,
         }
         "#
         );
@@ -4275,6 +5617,7 @@ mod tests {
                 generation: 3..4,
             },
             generation: 1..2,
+            parents_range: 0..4294967295,
         }
         "#);
 
@@ -4288,6 +5631,478 @@ mod tests {
                 generation: 2..3,
             },
             heads: CommitRef(Symbol("bar")),
+        }
+        "#);
+    }
+
+    #[test]
+    fn test_optimize_flatten_intersection() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+
+        // Nested intersections should be flattened.
+        insta::assert_debug_snapshot!(optimize(parse("a & ((b & c) & (d & e))").unwrap()), @r#"
+        Intersection(
+            Intersection(
+                Intersection(
+                    Intersection(
+                        CommitRef(Symbol("a")),
+                        CommitRef(Symbol("b")),
+                    ),
+                    CommitRef(Symbol("c")),
+                ),
+                CommitRef(Symbol("d")),
+            ),
+            CommitRef(Symbol("e")),
+        )
+        "#);
+    }
+
+    #[test]
+    fn test_optimize_ancestors_union() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+
+        // Ancestors should be folded in unions.
+        insta::assert_debug_snapshot!(optimize(parse("::a | ::b | ::c | ::d").unwrap()), @r#"
+        Ancestors {
+            heads: Union(
+                Union(
+                    CommitRef(Symbol("a")),
+                    CommitRef(Symbol("b")),
+                ),
+                Union(
+                    CommitRef(Symbol("c")),
+                    CommitRef(Symbol("d")),
+                ),
+            ),
+            generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("ancestors(a-) | ancestors(b)").unwrap()), @r#"
+        Ancestors {
+            heads: Union(
+                Ancestors {
+                    heads: CommitRef(Symbol("a")),
+                    generation: 1..2,
+                    parents_range: 0..4294967295,
+                },
+                CommitRef(Symbol("b")),
+            ),
+            generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
+        }
+        "#);
+
+        // Negated ancestors should be folded.
+        insta::assert_debug_snapshot!(optimize(parse("~::a- & ~::b & ~::c & ::d").unwrap()), @r#"
+        Range {
+            roots: Union(
+                Union(
+                    Ancestors {
+                        heads: CommitRef(Symbol("a")),
+                        generation: 1..2,
+                        parents_range: 0..4294967295,
+                    },
+                    CommitRef(Symbol("b")),
+                ),
+                CommitRef(Symbol("c")),
+            ),
+            heads: CommitRef(Symbol("d")),
+            generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("a..b ~ ::c- ~ ::d").unwrap()), @r#"
+        Range {
+            roots: Union(
+                Union(
+                    CommitRef(Symbol("a")),
+                    Ancestors {
+                        heads: CommitRef(Symbol("c")),
+                        generation: 1..2,
+                        parents_range: 0..4294967295,
+                    },
+                ),
+                CommitRef(Symbol("d")),
+            ),
+            heads: CommitRef(Symbol("b")),
+            generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
+        }
+        "#);
+
+        // Ancestors with a bounded generation range should not be merged.
+        insta::assert_debug_snapshot!(optimize(parse("ancestors(a, 2) | ancestors(b)").unwrap()), @r#"
+        Union(
+            Ancestors {
+                heads: CommitRef(Symbol("a")),
+                generation: 0..2,
+                parents_range: 0..4294967295,
+            },
+            Ancestors {
+                heads: CommitRef(Symbol("b")),
+                generation: 0..18446744073709551615,
+                parents_range: 0..4294967295,
+            },
+        )
+        "#);
+    }
+
+    #[test]
+    fn test_optimize_sort_negations_and_ancestors() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+
+        // Negated ancestors and ancestors should be moved to the left, and other
+        // negations should be moved to the right.
+        insta::assert_debug_snapshot!(optimize(parse("~a & ::b & ~::c & d ~ e & f & ::g & ~::h").unwrap()), @r#"
+        Difference(
+            Difference(
+                Intersection(
+                    Intersection(
+                        Intersection(
+                            Range {
+                                roots: Union(
+                                    CommitRef(Symbol("c")),
+                                    CommitRef(Symbol("h")),
+                                ),
+                                heads: CommitRef(Symbol("b")),
+                                generation: 0..18446744073709551615,
+                                parents_range: 0..4294967295,
+                            },
+                            Ancestors {
+                                heads: CommitRef(Symbol("g")),
+                                generation: 0..18446744073709551615,
+                                parents_range: 0..4294967295,
+                            },
+                        ),
+                        CommitRef(Symbol("d")),
+                    ),
+                    CommitRef(Symbol("f")),
+                ),
+                CommitRef(Symbol("a")),
+            ),
+            CommitRef(Symbol("e")),
+        )
+        "#);
+    }
+
+    #[test]
+    fn test_optimize_heads_range() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+
+        // Heads of basic range operators can be folded.
+        insta::assert_debug_snapshot!(optimize(parse("heads(::)").unwrap()), @r"
+        HeadsRange {
+            roots: None,
+            heads: VisibleHeadsOrReferenced,
+            parents_range: 0..4294967295,
+            filter: All,
+        }
+        ");
+        insta::assert_debug_snapshot!(optimize(parse("heads(::foo)").unwrap()), @r#"
+        HeadsRange {
+            roots: None,
+            heads: CommitRef(Symbol("foo")),
+            parents_range: 0..4294967295,
+            filter: All,
+        }
+        "#);
+        // It might be better to use `roots: Root`, but it would require adding a
+        // special case for `~root()`, and this should be similar in performance.
+        insta::assert_debug_snapshot!(optimize(parse("heads(..)").unwrap()), @r"
+        HeadsRange {
+            roots: None,
+            heads: VisibleHeadsOrReferenced,
+            parents_range: 0..4294967295,
+            filter: NotIn(Root),
+        }
+        ");
+        insta::assert_debug_snapshot!(optimize(parse("heads(foo..)").unwrap()), @r#"
+        HeadsRange {
+            roots: CommitRef(Symbol("foo")),
+            heads: VisibleHeadsOrReferenced,
+            parents_range: 0..4294967295,
+            filter: All,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("heads(..bar)").unwrap()), @r#"
+        HeadsRange {
+            roots: Root,
+            heads: CommitRef(Symbol("bar")),
+            parents_range: 0..4294967295,
+            filter: All,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("heads(foo..bar)").unwrap()), @r#"
+        HeadsRange {
+            roots: CommitRef(Symbol("foo")),
+            heads: CommitRef(Symbol("bar")),
+            parents_range: 0..4294967295,
+            filter: All,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("heads(~::foo & ::bar)").unwrap()), @r#"
+        HeadsRange {
+            roots: CommitRef(Symbol("foo")),
+            heads: CommitRef(Symbol("bar")),
+            parents_range: 0..4294967295,
+            filter: All,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("heads(~::foo)").unwrap()), @r#"
+        HeadsRange {
+            roots: CommitRef(Symbol("foo")),
+            heads: VisibleHeadsOrReferenced,
+            parents_range: 0..4294967295,
+            filter: All,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("heads(a..b & c..d)").unwrap()), @r#"
+        HeadsRange {
+            roots: Union(
+                CommitRef(Symbol("a")),
+                CommitRef(Symbol("c")),
+            ),
+            heads: CommitRef(Symbol("b")),
+            parents_range: 0..4294967295,
+            filter: Ancestors {
+                heads: CommitRef(Symbol("d")),
+                generation: 0..18446744073709551615,
+                parents_range: 0..4294967295,
+            },
+        }
+        "#);
+
+        // Heads of first-parent ancestors can also be folded.
+        insta::assert_debug_snapshot!(optimize(parse("heads(first_ancestors(foo))").unwrap()), @r#"
+        HeadsRange {
+            roots: None,
+            heads: CommitRef(Symbol("foo")),
+            parents_range: 0..1,
+            filter: All,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("heads(first_ancestors(foo) & bar..)").unwrap()), @r#"
+        HeadsRange {
+            roots: CommitRef(Symbol("bar")),
+            heads: CommitRef(Symbol("foo")),
+            parents_range: 0..1,
+            filter: All,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("heads(foo.. & first_ancestors(bar) & ::baz)").unwrap()), @r#"
+        HeadsRange {
+            roots: CommitRef(Symbol("foo")),
+            heads: CommitRef(Symbol("bar")),
+            parents_range: 0..1,
+            filter: Ancestors {
+                heads: CommitRef(Symbol("baz")),
+                generation: 0..18446744073709551615,
+                parents_range: 0..4294967295,
+            },
+        }
+        "#);
+
+        // Ancestors with a limited depth should not be optimized.
+        insta::assert_debug_snapshot!(optimize(parse("heads(ancestors(foo, 2))").unwrap()), @r#"
+        Heads(
+            Ancestors {
+                heads: CommitRef(Symbol("foo")),
+                generation: 0..2,
+                parents_range: 0..4294967295,
+            },
+        )
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("heads(first_ancestors(foo, 2))").unwrap()), @r#"
+        Heads(
+            Ancestors {
+                heads: CommitRef(Symbol("foo")),
+                generation: 0..2,
+                parents_range: 0..1,
+            },
+        )
+        "#);
+
+        // Generation folding should not prevent optimizing heads.
+        insta::assert_debug_snapshot!(optimize(parse("heads(ancestors(foo--))").unwrap()), @r#"
+        HeadsRange {
+            roots: None,
+            heads: Ancestors {
+                heads: CommitRef(Symbol("foo")),
+                generation: 2..3,
+                parents_range: 0..4294967295,
+            },
+            parents_range: 0..4294967295,
+            filter: All,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("heads(first_ancestors(first_parent(foo, 2)))").unwrap()), @r#"
+        HeadsRange {
+            roots: None,
+            heads: Ancestors {
+                heads: CommitRef(Symbol("foo")),
+                generation: 2..3,
+                parents_range: 0..1,
+            },
+            parents_range: 0..1,
+            filter: All,
+        }
+        "#);
+
+        // Heads of filters and negations can be folded.
+        insta::assert_debug_snapshot!(optimize(parse("heads(author_name(A) | author_name(B))").unwrap()), @r#"
+        HeadsRange {
+            roots: None,
+            heads: VisibleHeadsOrReferenced,
+            parents_range: 0..4294967295,
+            filter: AsFilter(
+                Union(
+                    Filter(AuthorName(Substring("A"))),
+                    Filter(AuthorName(Substring("B"))),
+                ),
+            ),
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("heads(~author_name(A))").unwrap()), @r#"
+        HeadsRange {
+            roots: None,
+            heads: VisibleHeadsOrReferenced,
+            parents_range: 0..4294967295,
+            filter: AsFilter(
+                NotIn(Filter(AuthorName(Substring("A")))),
+            ),
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("heads(~foo)").unwrap()), @r#"
+        HeadsRange {
+            roots: None,
+            heads: VisibleHeadsOrReferenced,
+            parents_range: 0..4294967295,
+            filter: NotIn(CommitRef(Symbol("foo"))),
+        }
+        "#);
+
+        // Heads of intersections with filters can be folded.
+        insta::assert_debug_snapshot!(optimize(parse("heads(author_name(A) & ::foo ~ author_name(B))").unwrap()), @r#"
+        HeadsRange {
+            roots: None,
+            heads: CommitRef(Symbol("foo")),
+            parents_range: 0..4294967295,
+            filter: AsFilter(
+                Difference(
+                    Filter(AuthorName(Substring("A"))),
+                    Filter(AuthorName(Substring("B"))),
+                ),
+            ),
+        }
+        "#);
+
+        // Heads of intersections with negations can be folded.
+        insta::assert_debug_snapshot!(optimize(parse("heads(~foo & ~roots(bar) & ::baz)").unwrap()), @r#"
+        HeadsRange {
+            roots: None,
+            heads: CommitRef(Symbol("baz")),
+            parents_range: 0..4294967295,
+            filter: Difference(
+                NotIn(CommitRef(Symbol("foo"))),
+                Roots(CommitRef(Symbol("bar"))),
+            ),
+        }
+        "#);
+    }
+
+    #[test]
+    fn test_optimize_ancestors_heads_range() {
+        // Can use heads range to optimize ancestors of filter.
+        insta::assert_debug_snapshot!(optimize(parse("::description(bar)").unwrap()), @r#"
+        Ancestors {
+            heads: HeadsRange {
+                roots: None,
+                heads: VisibleHeadsOrReferenced,
+                parents_range: 0..4294967295,
+                filter: Filter(
+                    Description(
+                        Substring(
+                            "bar",
+                        ),
+                    ),
+                ),
+            },
+            generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("author_name(foo)..").unwrap()), @r#"
+        Range {
+            roots: HeadsRange {
+                roots: None,
+                heads: VisibleHeadsOrReferenced,
+                parents_range: 0..4294967295,
+                filter: Filter(
+                    AuthorName(
+                        Substring(
+                            "foo",
+                        ),
+                    ),
+                ),
+            },
+            heads: VisibleHeadsOrReferenced,
+            generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
+        }
+        "#);
+
+        // Can use heads range to optimize ancestors of range.
+        insta::assert_debug_snapshot!(optimize(parse("::(foo..bar)").unwrap()), @r#"
+        Ancestors {
+            heads: HeadsRange {
+                roots: CommitRef(
+                    Symbol(
+                        "foo",
+                    ),
+                ),
+                heads: CommitRef(
+                    Symbol(
+                        "bar",
+                    ),
+                ),
+                parents_range: 0..4294967295,
+                filter: All,
+            },
+            generation: 0..18446744073709551615,
+            parents_range: 0..4294967295,
+        }
+        "#);
+
+        // Can't optimize if not using full generation and parents ranges.
+        insta::assert_debug_snapshot!(optimize(parse("ancestors(author_name(foo), 5)").unwrap()), @r#"
+        Ancestors {
+            heads: Filter(
+                AuthorName(
+                    Substring(
+                        "foo",
+                    ),
+                ),
+            ),
+            generation: 0..5,
+            parents_range: 0..4294967295,
+        }
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("first_ancestors(author_name(foo))").unwrap()), @r#"
+        Ancestors {
+            heads: Filter(
+                AuthorName(
+                    Substring(
+                        "foo",
+                    ),
+                ),
+            ),
+            generation: 0..18446744073709551615,
+            parents_range: 0..1,
         }
         "#);
     }
