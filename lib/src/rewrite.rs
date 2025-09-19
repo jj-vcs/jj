@@ -1280,6 +1280,7 @@ pub fn find_duplicate_divergent_commits(
         .map(|target_commit| {
             let mut ancestor_candidates = repo
                 .resolve_change_id(target_commit.change_id())
+                .map(|resolved| resolved.visible)
                 .unwrap_or_default();
             ancestor_candidates.retain(|commit_id| !target_commit_ids.contains(commit_id));
             (target_commit, ancestor_candidates)

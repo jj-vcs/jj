@@ -25,6 +25,7 @@ use thiserror::Error;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::hex_util;
+use crate::index::ResolvedChangeId;
 use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId;
 use crate::object_id::PrefixResolution;
@@ -208,7 +209,7 @@ impl IdPrefixIndex<'_> {
         &self,
         repo: &dyn Repo,
         prefix: &HexPrefix,
-    ) -> PrefixResolution<Vec<CommitId>> {
+    ) -> PrefixResolution<ResolvedChangeId> {
         if let Some(indexes) = self.indexes {
             let resolution = indexes
                 .change_index
