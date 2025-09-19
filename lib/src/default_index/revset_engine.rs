@@ -98,10 +98,6 @@ trait InternalRevset: fmt::Debug + ToPredicateFn {
     fn positions<'a>(&self) -> BoxedRevWalk<'a>
     where
         Self: 'a;
-
-    fn into_predicate<'a>(self: Box<Self>) -> Box<dyn ToPredicateFn + 'a>
-    where
-        Self: 'a;
 }
 
 impl<T: InternalRevset + ?Sized> InternalRevset for Box<T> {
@@ -110,13 +106,6 @@ impl<T: InternalRevset + ?Sized> InternalRevset for Box<T> {
         Self: 'a,
     {
         <T as InternalRevset>::positions(self)
-    }
-
-    fn into_predicate<'a>(self: Box<Self>) -> Box<dyn ToPredicateFn + 'a>
-    where
-        Self: 'a,
-    {
-        <T as InternalRevset>::into_predicate(*self)
     }
 }
 
@@ -312,13 +301,6 @@ impl InternalRevset for EagerRevset {
         let walk = EagerRevWalk::new(self.positions.clone().into_iter());
         Box::new(walk.map(|_index, pos| Ok(pos)))
     }
-
-    fn into_predicate<'a>(self: Box<Self>) -> Box<dyn ToPredicateFn + 'a>
-    where
-        Self: 'a,
-    {
-        self
-    }
 }
 
 impl ToPredicateFn for EagerRevset {
@@ -351,13 +333,6 @@ where
         Self: 'a,
     {
         Box::new(self.walk.clone().map(|_index, pos| Ok(pos)))
-    }
-
-    fn into_predicate<'a>(self: Box<Self>) -> Box<dyn ToPredicateFn + 'a>
-    where
-        Self: 'a,
-    {
-        self
     }
 }
 
@@ -406,13 +381,6 @@ where
             pos.and_then(|pos| Ok(p(index, pos)?.then_some(pos)))
                 .transpose()
         }))
-    }
-
-    fn into_predicate<'a>(self: Box<Self>) -> Box<dyn ToPredicateFn + 'a>
-    where
-        Self: 'a,
-    {
-        self
     }
 }
 
@@ -464,13 +432,6 @@ where
             self.set2.positions(),
             |pos1, pos2| pos1.cmp(pos2).reverse(),
         ))
-    }
-
-    fn into_predicate<'a>(self: Box<Self>) -> Box<dyn ToPredicateFn + 'a>
-    where
-        Self: 'a,
-    {
-        self
     }
 }
 
@@ -559,13 +520,6 @@ where
             self.set2.positions(),
             |pos1, pos2| pos1.cmp(pos2).reverse(),
         ))
-    }
-
-    fn into_predicate<'a>(self: Box<Self>) -> Box<dyn ToPredicateFn + 'a>
-    where
-        Self: 'a,
-    {
-        self
     }
 }
 
@@ -674,13 +628,6 @@ where
             self.set2.positions(),
             |pos1, pos2| pos1.cmp(pos2).reverse(),
         ))
-    }
-
-    fn into_predicate<'a>(self: Box<Self>) -> Box<dyn ToPredicateFn + 'a>
-    where
-        Self: 'a,
-    {
-        self
     }
 }
 
@@ -1116,9 +1063,7 @@ impl EvaluationContext<'_> {
             ResolvedPredicateExpression::Filter(predicate) => {
                 Ok(build_predicate_fn(self.store.clone(), predicate))
             }
-            ResolvedPredicateExpression::Set(expression) => {
-                Ok(self.evaluate(expression)?.into_predicate())
-            }
+            ResolvedPredicateExpression::Set(expression) => Ok(self.evaluate(expression)?),
             ResolvedPredicateExpression::NotIn(complement) => {
                 let set = self.evaluate_predicate(complement)?;
                 Ok(Box::new(NotInPredicate(set)))
