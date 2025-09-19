@@ -62,27 +62,30 @@ use crate::ui::Ui;
 /// commits to Gerrit for review all at once.
 #[derive(clap::Args, Clone, Debug)]
 pub struct UploadArgs {
-    /// The revset, selecting which revisions are sent in to Gerrit. This can be
-    /// any arbitrary set of commits.
-    /// Note that when you push a commit at the head of a stack, all ancestors
-    /// are pushed too. This means that `jj gerrit upload -r foo` is equivalent
-    /// to `jj gerrit upload -r 'mutable()::foo`
+    /// The revset, selecting which revisions are sent in to Gerrit
+    ///
+    /// This can be any arbitrary set of commits. Note that when you push a
+    /// commit at the head of a stack, all ancestors are pushed too. This means
+    /// that `jj gerrit upload -r foo` is equivalent to `jj gerrit upload -r
+    /// 'mutable()::foo`.
     #[arg(long, short = 'r')]
     revisions: Vec<RevisionArg>,
 
-    /// The location where your changes are intended to land. This should be
-    /// a branch on the remote. Can be configured with the
+    /// The location where your changes are intended to land
+    ///
+    /// This should be a branch on the remote. Can be configured with the
     /// `gerrit.default-branch` repository option.
     #[arg(long = "remote-branch", short = 'b')]
     remote_branch: Option<String>,
 
-    /// The Gerrit remote to push to. Can be configured with the
-    /// `gerrit.default-remote` repository option as well. This is typically
-    /// a full SSH URL for your Gerrit instance.
+    /// The Gerrit remote to push to
+    ///
+    /// Can be configured with the `gerrit.default-remote` repository option as
+    /// well. This is typically a full SSH URL for your Gerrit instance.
     #[arg(long)]
     remote: Option<String>,
 
-    /// If true, do not actually push the changes to Gerrit.
+    /// Do not actually push the changes to Gerrit
     #[arg(long = "dry-run", short = 'n')]
     dry_run: bool,
 }
