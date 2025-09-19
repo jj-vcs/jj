@@ -56,13 +56,12 @@ pub struct AbsorbSource {
 }
 
 impl AbsorbSource {
-    /// Create an absorb source from a single commit.
-    pub fn from_commit(repo: &dyn Repo, commit: Commit) -> BackendResult<Self> {
-        let parent_tree = commit.parent_tree(repo)?;
-        Ok(Self {
+    /// Create an absorb source from a commit and its parent tree.
+    pub fn new(commit: Commit, parent_tree: MergedTree) -> Self {
+        Self {
             commit,
             parent_tree,
-        })
+        }
     }
 }
 
@@ -94,11 +93,11 @@ pub async fn split_hunks_to_trees(
     source: &AbsorbSource,
     destinations: &Arc<ResolvedRevsetExpression>,
     matcher: &dyn Matcher,
+    right_tree: MergedTree,
 ) -> Result<SelectedTrees, AbsorbError> {
     let mut selected_trees = SelectedTrees::default();
 
     let left_tree = &source.parent_tree;
-    let right_tree = source.commit.tree_async().await?;
     // TODO: enable copy tracking if we add support for annotate and merge
     let copy_records = CopyRecords::default();
     let tree_diff = left_tree.diff_stream_with_copies(&right_tree, matcher, &copy_records);
