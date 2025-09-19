@@ -2978,7 +2978,12 @@ Print the CLI help for all subcommands in Markdown
 
 Display version information
 
-**Usage:** `jj version`
+**Usage:** `jj version [OPTIONS]`
+
+###### **Options:**
+
+* `--numeric-only` — Display only the version number and nothing else
+* `--details` — Display build information
 
 
 
