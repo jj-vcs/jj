@@ -130,10 +130,7 @@ where
 }
 
 fn get_git_backend(repo: &Arc<ReadonlyRepo>) -> &GitBackend {
-    repo.store()
-        .backend_impl()
-        .downcast_ref::<GitBackend>()
-        .unwrap()
+    repo.store().backend_impl().unwrap()
 }
 
 fn get_git_repo(repo: &Arc<ReadonlyRepo>) -> gix::Repository {

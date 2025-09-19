@@ -751,7 +751,7 @@ fn test_reindex_missing_commit() {
     let repo = tx.commit("test").unwrap();
 
     // Remove historical head commit to simulate bad GC.
-    let test_backend: &TestBackend = repo.store().backend_impl().downcast_ref().unwrap();
+    let test_backend: &TestBackend = repo.store().backend_impl().unwrap();
     test_backend.remove_commit_unchecked(missing_commit.id());
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path()); // discard cache
     assert!(repo.store().get_commit(missing_commit.id()).is_err());

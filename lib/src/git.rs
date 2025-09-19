@@ -305,10 +305,7 @@ pub struct UnexpectedGitBackendError;
 
 /// Returns the underlying `GitBackend` implementation.
 pub fn get_git_backend(store: &Store) -> Result<&GitBackend, UnexpectedGitBackendError> {
-    store
-        .backend_impl()
-        .downcast_ref()
-        .ok_or(UnexpectedGitBackendError)
+    store.backend_impl().ok_or(UnexpectedGitBackendError)
 }
 
 /// Returns new thread-local instance to access to the underlying Git repo.

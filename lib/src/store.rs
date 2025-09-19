@@ -14,7 +14,6 @@
 
 #![expect(missing_docs)]
 
-use std::any::Any;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::pin::Pin;
@@ -89,8 +88,9 @@ impl Store {
         self.backend.as_ref()
     }
 
-    pub fn backend_impl(&self) -> &dyn Any {
-        self.backend.as_any()
+    /// Returns backend as the implementation type.
+    pub fn backend_impl<T: Backend>(&self) -> Option<&T> {
+        self.backend.as_any().downcast_ref()
     }
 
     pub fn signer(&self) -> &Signer {
