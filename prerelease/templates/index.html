@@ -2980,6 +2980,13 @@ defined.</p>
 <p>An empty string is returned if there is no match.</p>
 </li>
 <li>
+<p><code>.replace(pattern: StringPattern, replacement: Stringify, [limit: Integer]) -&gt; String</code>:
+  Replace occurrences of the given <code>pattern</code> with the <code>replacement</code> string.</p>
+<p>By default, all occurrences are replaced. If <code>limit</code> is specified, at most
+that many occurrences are replaced.</p>
+<p>Supports capture groups in patterns using <code>$0</code> (entire match), <code>$1</code>, <code>$2</code> etc.</p>
+</li>
+<li>
 <p><code>.first_line() -&gt; String</code></p>
 </li>
 <li><code>.lines() -&gt; List&lt;String&gt;</code>: Split into lines excluding newline characters.</li>

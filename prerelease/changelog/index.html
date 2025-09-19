@@ -5829,6 +5829,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   <a href="https://github.com/jj-vcs/jj/issues/6369">#6369</a></p>
 </li>
 <li>
+<p>Templates now support a <code>replace()</code> method on strings for pattern-based
+  string replacement with optional limits. Supports all string patterns, including
+  regex with capture groups (e.g. <code>"hello world".replace(regex:'(\w+) (\w+)', "$2 $1")</code>).</p>
+</li>
+<li>
 <p>A new builtin <code>hyperlink(url, text)</code> template alias creates clickable
   hyperlinks using <a href="https://github.com/Alhadis/OSC8-Adoption">OSC8 escape sequences</a> for terminals that support them.</p>
 </li>
