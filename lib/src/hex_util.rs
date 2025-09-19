@@ -69,12 +69,11 @@ fn decode_hex_prefix_inner(
     hex_value: impl Fn(u8) -> Option<u8>,
 ) -> Option<(Vec<u8>, bool)> {
     let mut decoded = Vec::with_capacity(usize::div_ceil(reverse_hex.len(), 2));
-    let mut chunks = reverse_hex.chunks_exact(2);
-    for chunk in &mut chunks {
-        let [hi, lo] = chunk.try_into().unwrap();
+    let (chunks, remainder) = reverse_hex.as_chunks();
+    for &[hi, lo] in chunks {
         decoded.push(hex_value(hi)? << 4 | hex_value(lo)?);
     }
-    if let &[hi] = chunks.remainder() {
+    if let &[hi] = remainder {
         decoded.push(hex_value(hi)? << 4);
         Some((decoded, true))
     } else {

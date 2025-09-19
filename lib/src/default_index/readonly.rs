@@ -448,9 +448,10 @@ impl ReadonlyCommitIndexSegment {
         let table = &self.data[self.parent_overflow_base..self.change_overflow_base];
         let offset = (overflow_pos as usize) * 4;
         let size = (num_parents as usize) * 4;
-        table[offset..][..size]
-            .chunks_exact(4)
-            .map(|chunk| GlobalCommitPosition(u32::from_le_bytes(chunk.try_into().unwrap())))
+        let (chunks, _remainder) = table[offset..][..size].as_chunks();
+        chunks
+            .iter()
+            .map(|&chunk: &[u8; 4]| GlobalCommitPosition(u32::from_le_bytes(chunk)))
             .collect()
     }
 
@@ -461,9 +462,10 @@ impl ReadonlyCommitIndexSegment {
     ) -> impl Iterator<Item = LocalCommitPosition> + use<'_> {
         let table = &self.data[self.change_overflow_base..];
         let offset = (overflow_pos as usize) * 4;
-        table[offset..]
-            .chunks_exact(4)
-            .map(|chunk| LocalCommitPosition(u32::from_le_bytes(chunk.try_into().unwrap())))
+        let (chunks, _remainder) = table[offset..].as_chunks();
+        chunks
+            .iter()
+            .map(|&chunk: &[u8; 4]| LocalCommitPosition(u32::from_le_bytes(chunk)))
     }
 
     /// Binary searches commit id by `prefix`. Returns the lookup position.

@@ -211,9 +211,10 @@ impl ReadonlyChangedPathIndexSegment {
 
     fn changed_paths(&self, pos: CommitPosition) -> impl ExactSizeIterator<Item = &RepoPath> {
         let table = self.changed_paths_table(pos);
-        table
-            .chunks_exact(4)
-            .map(|x| PathPosition(u32::from_le_bytes(x.try_into().unwrap())))
+        let (chunks, _remainder) = table.as_chunks();
+        chunks
+            .iter()
+            .map(|&chunk: &[u8; 4]| PathPosition(u32::from_le_bytes(chunk)))
             .map(|pos| self.path(pos))
     }
 
