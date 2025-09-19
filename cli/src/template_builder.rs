@@ -344,7 +344,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Timestamp(property) => Some(property.into_template()),
             Self::TimestampRange(property) => Some(property.into_template()),
             Self::Template(template) => Some(template),
-            Self::ListTemplate(template) => Some(template.into_template()),
+            Self::ListTemplate(template) => Some(template),
         }
     }
 
