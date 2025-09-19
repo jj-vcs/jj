@@ -2430,7 +2430,7 @@ recommended steps.</p>
 <h3 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h3>
 <p>One-time setup:</p>
 <div class="codehilite"><pre><span></span><code>rustup toolchain add nightly  # wanted for &#39;rustfmt&#39;
-rustup toolchain add 1.85     # also specified in Cargo.toml
+rustup toolchain add 1.88     # also specified in Cargo.toml
 cargo install --locked bacon
 cargo install --locked cargo-insta
 cargo install --locked cargo-nextest
@@ -2471,7 +2471,7 @@ Cargo will happily use up your entire hard drive. If this happens, run
 <p>Your code will be rejected if it cannot be compiled with the minimal
    supported version of Rust ("MSRV"). Currently, <code>jj</code> follows a rather
    casual MSRV policy: "The current <code>rustc</code> stable version, minus one."
-   As of this writing, that version is <strong>1.85.0</strong>.</p>
+   As of this writing, that version is <strong>1.88.0</strong>.</p>
 </li>
 <li>
 <p>Your code needs to pass <code>cargo clippy</code>. You can also
