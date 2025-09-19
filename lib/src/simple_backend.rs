@@ -14,7 +14,6 @@
 
 #![expect(missing_docs)]
 
-use std::any::Any;
 use std::fmt::Debug;
 use std::fs;
 use std::fs::File;
@@ -151,10 +150,6 @@ impl SimpleBackend {
 
 #[async_trait]
 impl Backend for SimpleBackend {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn name(&self) -> &str {
         Self::name()
     }

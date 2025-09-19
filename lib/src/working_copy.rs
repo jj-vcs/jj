@@ -48,10 +48,7 @@ use crate::store::Store;
 use crate::transaction::TransactionCommitError;
 
 /// The trait all working-copy implementations must implement.
-pub trait WorkingCopy: Send {
-    /// Should return `self`. For down-casting purposes.
-    fn as_any(&self) -> &dyn Any;
-
+pub trait WorkingCopy: Any + Send {
     /// The name/id of the implementation. Used for choosing the right
     /// implementation when loading a working copy.
     fn name(&self) -> &str;
@@ -74,6 +71,13 @@ pub trait WorkingCopy: Send {
     /// Locks the working copy and returns an instance with methods for updating
     /// the working copy files and state.
     fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError>;
+}
+
+impl dyn WorkingCopy {
+    /// Returns reference of the implementation type.
+    pub fn downcast_ref<T: WorkingCopy>(&self) -> Option<&T> {
+        (self as &dyn Any).downcast_ref()
+    }
 }
 
 /// The factory which creates and loads a specific type of working copy.
@@ -100,13 +104,7 @@ pub trait WorkingCopyFactory {
 }
 
 /// A working copy that's being modified.
-pub trait LockedWorkingCopy {
-    /// Should return `self`. For down-casting purposes.
-    fn as_any(&self) -> &dyn Any;
-
-    /// Should return `self`. For down-casting purposes.
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-
+pub trait LockedWorkingCopy: Any {
     /// The operation at the time the lock was taken
     fn old_operation_id(&self) -> &OperationId;
 
@@ -152,6 +150,18 @@ pub trait LockedWorkingCopy {
         self: Box<Self>,
         operation_id: OperationId,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
+}
+
+impl dyn LockedWorkingCopy {
+    /// Returns reference of the implementation type.
+    pub fn downcast_ref<T: LockedWorkingCopy>(&self) -> Option<&T> {
+        (self as &dyn Any).downcast_ref()
+    }
+
+    /// Returns mutable reference of the implementation type.
+    pub fn downcast_mut<T: LockedWorkingCopy>(&mut self) -> Option<&mut T> {
+        (self as &mut dyn Any).downcast_mut()
+    }
 }
 
 /// An error while snapshotting the working copy.

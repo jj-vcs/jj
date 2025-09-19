@@ -457,9 +457,7 @@ pub enum OpStoreError {
 
 pub type OpStoreResult<T> = Result<T, OpStoreError>;
 
-pub trait OpStore: Send + Sync + Debug {
-    fn as_any(&self) -> &dyn Any;
-
+pub trait OpStore: Any + Send + Sync + Debug {
     fn name(&self) -> &str;
 
     fn root_operation_id(&self) -> &OperationId;
@@ -486,6 +484,13 @@ pub trait OpStore: Send + Sync + Debug {
     /// concurrently by another process.
     // TODO: return stats?
     fn gc(&self, head_ids: &[OperationId], keep_newer: SystemTime) -> OpStoreResult<()>;
+}
+
+impl dyn OpStore {
+    /// Returns reference of the implementation type.
+    pub fn downcast_ref<T: OpStore>(&self) -> Option<&T> {
+        (self as &dyn Any).downcast_ref()
+    }
 }
 
 #[cfg(test)]

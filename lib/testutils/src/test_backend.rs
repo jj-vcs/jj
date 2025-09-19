@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Error;
@@ -169,10 +168,6 @@ impl Debug for TestBackend {
 
 #[async_trait]
 impl Backend for TestBackend {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn name(&self) -> &str {
         "test"
     }

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::any::Any;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -154,10 +153,6 @@ impl ConflictsWorkingCopy {
 }
 
 impl WorkingCopy for ConflictsWorkingCopy {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn name(&self) -> &str {
         Self::name()
     }
@@ -231,14 +226,6 @@ struct LockedConflictsWorkingCopy {
 }
 
 impl LockedWorkingCopy for LockedConflictsWorkingCopy {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
     fn old_operation_id(&self) -> &OperationId {
         self.inner.old_operation_id()
     }

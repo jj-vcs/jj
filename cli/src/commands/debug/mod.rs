@@ -110,7 +110,6 @@ pub fn cmd_debug(
 }
 
 fn check_local_disk_wc(x: &dyn WorkingCopy) -> Result<&LocalWorkingCopy, CommandError> {
-    x.as_any()
-        .downcast_ref()
+    x.downcast_ref()
         .ok_or_else(|| user_error("This command requires a standard local-disk working copy"))
 }

@@ -162,10 +162,15 @@ pub enum RevsetCommitRef {
 
 /// A custom revset filter expression, defined by an extension.
 pub trait RevsetFilterExtension: std::fmt::Debug + Any + Send + Sync {
-    fn as_any(&self) -> &dyn Any;
-
     /// Returns true iff this filter matches the specified commit.
     fn matches_commit(&self, commit: &Commit) -> bool;
+}
+
+impl dyn RevsetFilterExtension {
+    /// Returns reference of the implementation type.
+    pub fn downcast_ref<T: RevsetFilterExtension>(&self) -> Option<&T> {
+        (self as &dyn Any).downcast_ref()
+    }
 }
 
 #[derive(Clone, Debug)]

@@ -90,7 +90,7 @@ impl Store {
 
     /// Returns backend as the implementation type.
     pub fn backend_impl<T: Backend>(&self) -> Option<&T> {
-        self.backend.as_any().downcast_ref()
+        self.backend.downcast_ref()
     }
 
     pub fn signer(&self) -> &Signer {

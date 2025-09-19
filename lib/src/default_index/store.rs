@@ -14,7 +14,6 @@
 
 #![expect(missing_docs)]
 
-use std::any::Any;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs;
@@ -555,10 +554,6 @@ impl DefaultIndexStore {
 }
 
 impl IndexStore for DefaultIndexStore {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn name(&self) -> &str {
         Self::name()
     }
@@ -610,9 +605,8 @@ impl IndexStore for DefaultIndexStore {
         index: Box<dyn MutableIndex>,
         op: &Operation,
     ) -> Result<Box<dyn ReadonlyIndex>, IndexWriteError> {
-        let index = index
-            .into_any()
-            .downcast::<DefaultMutableIndex>()
+        let index: Box<DefaultMutableIndex> = index
+            .downcast()
             .expect("index to merge in must be a DefaultMutableIndex");
         let index = self
             .save_mutable_index(*index, op.id())

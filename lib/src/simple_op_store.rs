@@ -14,7 +14,6 @@
 
 #![expect(missing_docs)]
 
-use std::any::Any;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -135,10 +134,6 @@ impl SimpleOpStore {
 }
 
 impl OpStore for SimpleOpStore {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn name(&self) -> &str {
         Self::name()
     }

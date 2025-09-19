@@ -39,7 +39,7 @@ pub fn cmd_debug_index_changed_paths(
     let repo = workspace_command.repo();
     let repo_loader = workspace_command.workspace().repo_loader();
     let index_store = repo_loader.index_store();
-    let Some(default_index_store) = index_store.as_any().downcast_ref::<DefaultIndexStore>() else {
+    let Some(default_index_store) = index_store.downcast_ref::<DefaultIndexStore>() else {
         return Err(user_error(format!(
             "Unsupported index type '{}'",
             index_store.name()

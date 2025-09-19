@@ -904,7 +904,7 @@ impl MutableRepo {
     }
 
     pub(crate) fn is_backed_by_default_index(&self) -> bool {
-        self.index.as_any().is::<DefaultMutableIndex>()
+        self.index.downcast_ref::<DefaultMutableIndex>().is_some()
     }
 
     pub fn has_changes(&self) -> bool {

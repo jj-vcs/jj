@@ -14,7 +14,6 @@
 
 #![expect(missing_docs)]
 
-use std::any::Any;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fmt;
@@ -762,10 +761,6 @@ impl Index for DefaultReadonlyIndex {
 }
 
 impl ReadonlyIndex for DefaultReadonlyIndex {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn as_index(&self) -> &dyn Index {
         self
     }

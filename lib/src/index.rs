@@ -55,10 +55,7 @@ pub struct AllHeadsForGcUnsupported;
 
 /// Defines the interface for types that provide persistent storage for an
 /// index.
-pub trait IndexStore: Send + Sync + Debug {
-    #[expect(missing_docs)]
-    fn as_any(&self) -> &dyn Any;
-
+pub trait IndexStore: Any + Send + Sync + Debug {
     /// Returns a name representing the type of index that the `IndexStore` is
     /// compatible with. For example, the `IndexStore` for the default index
     /// returns "default".
@@ -78,6 +75,13 @@ pub trait IndexStore: Send + Sync + Debug {
         index: Box<dyn MutableIndex>,
         op: &Operation,
     ) -> Result<Box<dyn ReadonlyIndex>, IndexWriteError>;
+}
+
+impl dyn IndexStore {
+    /// Returns reference of the implementation type.
+    pub fn downcast_ref<T: IndexStore>(&self) -> Option<&T> {
+        (self as &dyn Any).downcast_ref()
+    }
 }
 
 /// Defines the interface for types that provide an index of the commits in a
@@ -144,9 +148,7 @@ pub trait Index: Send + Sync {
 }
 
 #[expect(missing_docs)]
-pub trait ReadonlyIndex: Send + Sync {
-    fn as_any(&self) -> &dyn Any;
-
+pub trait ReadonlyIndex: Any + Send + Sync {
     fn as_index(&self) -> &dyn Index;
 
     fn change_id_index(&self, heads: &mut dyn Iterator<Item = &CommitId>)
@@ -155,12 +157,15 @@ pub trait ReadonlyIndex: Send + Sync {
     fn start_modification(&self) -> Box<dyn MutableIndex>;
 }
 
+impl dyn ReadonlyIndex {
+    /// Returns reference of the implementation type.
+    pub fn downcast_ref<T: ReadonlyIndex>(&self) -> Option<&T> {
+        (self as &dyn Any).downcast_ref()
+    }
+}
+
 #[expect(missing_docs)]
-pub trait MutableIndex {
-    fn as_any(&self) -> &dyn Any;
-
-    fn into_any(self: Box<Self>) -> Box<dyn Any>;
-
+pub trait MutableIndex: Any {
     fn as_index(&self) -> &dyn Index;
 
     fn change_id_index(
@@ -171,6 +176,18 @@ pub trait MutableIndex {
     fn add_commit(&mut self, commit: &Commit) -> Result<(), IndexError>;
 
     fn merge_in(&mut self, other: &dyn ReadonlyIndex);
+}
+
+impl dyn MutableIndex {
+    /// Downcasts to the implementation type.
+    pub fn downcast<T: MutableIndex>(self: Box<Self>) -> Option<Box<T>> {
+        (self as Box<dyn Any>).downcast().ok()
+    }
+
+    /// Returns reference of the implementation type.
+    pub fn downcast_ref<T: MutableIndex>(&self) -> Option<&T> {
+        (self as &dyn Any).downcast_ref()
+    }
 }
 
 /// Defines the interface for types that provide an index of the commits in a

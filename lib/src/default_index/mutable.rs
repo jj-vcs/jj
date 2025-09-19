@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::any::Any;
 use std::cmp::max;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -596,14 +595,6 @@ impl Index for DefaultMutableIndex {
 }
 
 impl MutableIndex for DefaultMutableIndex {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        Box::new(*self)
-    }
-
     fn as_index(&self) -> &dyn Index {
         self
     }
@@ -622,9 +613,8 @@ impl MutableIndex for DefaultMutableIndex {
     }
 
     fn merge_in(&mut self, other: &dyn ReadonlyIndex) {
-        let other = other
-            .as_any()
-            .downcast_ref::<DefaultReadonlyIndex>()
+        let other: &DefaultReadonlyIndex = other
+            .downcast_ref()
             .expect("index to merge in must be a DefaultReadonlyIndex");
         Self::merge_in(self, other);
     }

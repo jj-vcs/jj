@@ -14,7 +14,6 @@
 
 #![expect(missing_docs)]
 
-use std::any::Any;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::error::Error;
@@ -2124,10 +2123,6 @@ pub struct LocalWorkingCopy {
 }
 
 impl WorkingCopy for LocalWorkingCopy {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn name(&self) -> &str {
         Self::name()
     }
@@ -2354,14 +2349,6 @@ pub struct LockedLocalWorkingCopy {
 }
 
 impl LockedWorkingCopy for LockedLocalWorkingCopy {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
     fn old_operation_id(&self) -> &OperationId {
         &self.old_operation_id
     }

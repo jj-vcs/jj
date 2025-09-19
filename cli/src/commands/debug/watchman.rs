@@ -117,7 +117,7 @@ pub fn cmd_debug_watchman(
         DebugWatchmanCommand::ResetClock => {
             let (mut locked_ws, _commit) = workspace_command.start_working_copy_mutation()?;
             let Some(locked_local_wc): Option<&mut LockedLocalWorkingCopy> =
-                locked_ws.locked_wc().as_any_mut().downcast_mut()
+                locked_ws.locked_wc().downcast_mut()
             else {
                 return Err(user_error(
                     "This command requires a standard local-disk working copy",
@@ -144,7 +144,6 @@ pub fn cmd_debug_watchman(
 
 #[cfg(feature = "watchman")]
 fn check_local_disk_wc(x: &dyn WorkingCopy) -> Result<&LocalWorkingCopy, CommandError> {
-    x.as_any()
-        .downcast_ref()
+    x.downcast_ref()
         .ok_or_else(|| user_error("This command requires a standard local-disk working copy"))
 }

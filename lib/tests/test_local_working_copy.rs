@@ -397,7 +397,7 @@ fn test_checkout_no_op() {
     ws.check_out(repo.op_id().clone(), None, &commit1).unwrap();
 
     // Test the setup: the file should exist on in the tree state.
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(wc.file_states().unwrap().contains_path(file_path));
 
     // Update to commit2 (same tree as commit1)
@@ -406,7 +406,7 @@ fn test_checkout_no_op() {
     assert_eq!(stats, CheckoutStats::default());
 
     // The tree state is unchanged but the recorded operation id is updated.
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(wc.file_states().unwrap().contains_path(file_path));
     assert_eq!(*wc.operation_id(), new_op_id);
 }
@@ -695,7 +695,7 @@ fn test_reset() {
 
     // Test the setup: the file should exist on disk and in the tree state.
     assert!(ignored_path.to_fs_path_unchecked(&workspace_root).is_file());
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(wc.file_states().unwrap().contains_path(ignored_path));
 
     // After we reset to the commit without the file, it should still exist on disk,
@@ -705,7 +705,7 @@ fn test_reset() {
     locked_ws.locked_wc().reset(&commit_without_file).unwrap();
     locked_ws.finish(op_id.clone()).unwrap();
     assert!(ignored_path.to_fs_path_unchecked(&workspace_root).is_file());
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(!wc.file_states().unwrap().contains_path(ignored_path));
     let new_tree = test_workspace.snapshot().unwrap();
     assert_eq!(new_tree.id(), tree_without_file.id());
@@ -717,7 +717,7 @@ fn test_reset() {
     locked_ws.locked_wc().reset(&commit_with_file).unwrap();
     locked_ws.finish(op_id.clone()).unwrap();
     assert!(ignored_path.to_fs_path_unchecked(&workspace_root).is_file());
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(wc.file_states().unwrap().contains_path(ignored_path));
     let new_tree = test_workspace.snapshot().unwrap();
     assert_eq!(new_tree.id(), tree_with_file.id());
@@ -743,12 +743,12 @@ fn test_checkout_discard() {
 
     let ws = &mut test_workspace.workspace;
     ws.check_out(repo.op_id().clone(), None, &commit1).unwrap();
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     let state_path = wc.state_path().to_path_buf();
 
     // Test the setup: the file should exist on disk and in the tree state.
     assert!(file1_path.to_fs_path_unchecked(&workspace_root).is_file());
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(wc.file_states().unwrap().contains_path(file1_path));
 
     // Start a checkout
@@ -769,7 +769,7 @@ fn test_checkout_discard() {
     drop(locked_ws);
 
     // The change should remain in the working copy, but not in memory and not saved
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(wc.file_states().unwrap().contains_path(file1_path));
     assert!(!wc.file_states().unwrap().contains_path(file2_path));
     assert!(!file1_path.to_fs_path_unchecked(&workspace_root).is_file());
@@ -1073,7 +1073,7 @@ fn test_snapshot_special_file() {
         tree.entries().map(|(path, _value)| path).collect_vec(),
         to_owned_path_vec(&[file1_path, file2_path])
     );
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert_eq!(
         wc.file_states().unwrap().paths().collect_vec(),
         vec![file1_path, file2_path]
@@ -1089,7 +1089,7 @@ fn test_snapshot_special_file() {
         to_owned_path_vec(&[file2_path])
     );
     let ws = &mut test_workspace.workspace;
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert_eq!(
         wc.file_states().unwrap().paths().collect_vec(),
         vec![file2_path]

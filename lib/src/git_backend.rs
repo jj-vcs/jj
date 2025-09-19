@@ -14,7 +14,6 @@
 
 #![expect(missing_docs)]
 
-use std::any::Any;
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fmt::Debug;
@@ -965,10 +964,6 @@ impl Debug for GitBackend {
 
 #[async_trait]
 impl Backend for GitBackend {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn name(&self) -> &str {
         Self::name()
     }

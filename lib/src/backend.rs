@@ -445,9 +445,7 @@ pub fn make_root_commit(root_change_id: ChangeId, empty_tree_id: TreeId) -> Comm
 
 /// Defines the interface for commit backends.
 #[async_trait]
-pub trait Backend: Send + Sync + Debug {
-    fn as_any(&self) -> &dyn Any;
-
+pub trait Backend: Any + Send + Sync + Debug {
     /// A unique name that identifies this backend. Written to
     /// `.jj/repo/store/type` when the repo is created.
     fn name(&self) -> &str;
@@ -562,4 +560,11 @@ pub trait Backend: Send + Sync + Debug {
     /// objects created after `keep_newer` will be preserved. This mitigates a
     /// risk of deleting new commits created concurrently by another process.
     fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()>;
+}
+
+impl dyn Backend {
+    /// Returns reference of the implementation type.
+    pub fn downcast_ref<T: Backend>(&self) -> Option<&T> {
+        (self as &dyn Any).downcast_ref()
+    }
 }
