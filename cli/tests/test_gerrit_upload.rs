@@ -118,8 +118,6 @@ fn test_gerrit_upload_local() {
     [EOF]
     "###);
 
-    // The output should be unchanged because we only add Change-Id trailers
-    // transiently
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
     insta::assert_snapshot!(output, @r###"
     ------- stderr -------
@@ -130,6 +128,8 @@ fn test_gerrit_upload_local() {
     [EOF]
     "###);
 
+    // The output should be unchanged because we only add Change-Id trailers
+    // transiently
     let output = local_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @r###"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:14 c 9590bf26
