@@ -251,11 +251,10 @@ pub fn cmd_bookmark_list(
         commits = bookmark_list_items
             .iter()
             .filter_map(|item| item.primary.target().added_ids().next())
-            .cloned()
             .map(|commit_id| {
                 store
-                    .get_commit(&commit_id)
-                    .map(|commit| (commit_id, commit.store_commit().clone()))
+                    .get_commit(commit_id)
+                    .map(|commit| (commit_id.clone(), commit.store_commit().clone()))
             })
             .try_collect()?;
     }
