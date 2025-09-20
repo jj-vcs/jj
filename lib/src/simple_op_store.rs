@@ -28,6 +28,7 @@ use std::time::SystemTime;
 
 use itertools::Itertools as _;
 use prost::Message as _;
+use smallvec::SmallVec;
 use tempfile::NamedTempFile;
 use thiserror::Error;
 
@@ -389,6 +390,8 @@ enum PostDecodeError {
     InvalidHashLength { expected: usize, actual: usize },
     #[error("Invalid remote ref state value {0}")]
     InvalidRemoteRefStateValue(i32),
+    #[error("Invalid number of ref target terms {0}")]
+    EvenNumberOfRefTargetTerms(usize),
 }
 
 fn operation_id_from_proto(bytes: Vec<u8>) -> Result<OperationId, PostDecodeError> {
@@ -543,6 +546,8 @@ fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
         })
         .collect();
 
+    let remote_views = remote_views_to_proto(&view.remote_views);
+
     let git_refs = view
         .git_refs
         .iter()
@@ -565,9 +570,12 @@ fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
         wc_commit_ids,
         bookmarks,
         tags,
+        remote_views,
         git_refs,
         git_head_legacy: Default::default(),
         git_head,
+        // New/loaded view should have been migrated to the latest format
+        has_git_refs_migrated_to_remote_tags: true,
     }
 }
 
@@ -588,7 +596,7 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
     }
     let head_ids = proto.head_ids.into_iter().map(CommitId::new).collect();
 
-    let (local_bookmarks, remote_views) = bookmark_views_from_proto_legacy(proto.bookmarks)?;
+    let (local_bookmarks, mut remote_views) = bookmark_views_from_proto_legacy(proto.bookmarks)?;
 
     let tags = proto
         .tags
@@ -599,7 +607,7 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
         })
         .collect();
 
-    let git_refs = proto
+    let git_refs: BTreeMap<_, _> = proto
         .git_refs
         .into_iter()
         .map(|git_ref| {
@@ -614,6 +622,36 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
             (name, target)
         })
         .collect();
+
+    // Use legacy remote_views only when new data isn't available (jj < 0.34)
+    if !proto.remote_views.is_empty() {
+        remote_views = remote_views_from_proto(proto.remote_views)?;
+    }
+
+    #[cfg(feature = "git")]
+    if !proto.has_git_refs_migrated_to_remote_tags {
+        tracing::info!("migrating Git-tracking tags");
+        let git_tags: BTreeMap<_, _> = git_refs
+            .iter()
+            .filter_map(|(full_name, target)| {
+                let name = full_name.as_str().strip_prefix("refs/tags/")?;
+                assert!(!name.is_empty());
+                let name: RefNameBuf = name.into();
+                let remote_ref = RemoteRef {
+                    target: target.clone(),
+                    state: RemoteRefState::Tracked,
+                };
+                Some((name, remote_ref))
+            })
+            .collect();
+        if !git_tags.is_empty() {
+            let git_view = remote_views
+                .entry(crate::git::REMOTE_NAME_FOR_LOCAL_GIT_REPO.to_owned())
+                .or_default();
+            assert!(git_view.tags.is_empty());
+            git_view.tags = git_tags;
+        }
+    }
 
     #[expect(deprecated)]
     let git_head = if proto.git_head.is_some() {
@@ -639,9 +677,10 @@ fn bookmark_views_to_proto_legacy(
     local_bookmarks: &BTreeMap<RefNameBuf, RefTarget>,
     remote_views: &BTreeMap<RemoteNameBuf, RemoteView>,
 ) -> Vec<crate::protos::simple_op_store::Bookmark> {
-    op_store::merge_join_bookmark_views(local_bookmarks, remote_views)
+    op_store::merge_join_ref_views(local_bookmarks, remote_views, |view| &view.bookmarks)
         .map(|(name, bookmark_target)| {
             let local_target = ref_target_to_proto(bookmark_target.local_target);
+            // TODO: Drop serialization to the old format in jj 0.40 or so.
             let remote_bookmarks = bookmark_target
                 .remote_refs
                 .iter()
@@ -653,6 +692,7 @@ fn bookmark_views_to_proto_legacy(
                     },
                 )
                 .collect();
+            #[expect(deprecated)]
             crate::protos::simple_op_store::Bookmark {
                 name: name.into(),
                 local_target,
@@ -675,7 +715,9 @@ fn bookmark_views_from_proto_legacy(
     for bookmark_proto in bookmarks_legacy {
         let bookmark_name: RefNameBuf = bookmark_proto.name.into();
         let local_target = ref_target_from_proto(bookmark_proto.local_target);
-        for remote_bookmark in bookmark_proto.remote_bookmarks {
+        #[expect(deprecated)]
+        let remote_bookmarks = bookmark_proto.remote_bookmarks;
+        for remote_bookmark in remote_bookmarks {
             let remote_name: RemoteNameBuf = remote_bookmark.remote_name.into();
             let state = match remote_bookmark.state {
                 Some(n) => remote_ref_state_from_proto(n)?,
@@ -698,6 +740,91 @@ fn bookmark_views_from_proto_legacy(
         }
     }
     Ok((local_bookmarks, remote_views))
+}
+
+fn remote_views_to_proto(
+    remote_views: &BTreeMap<RemoteNameBuf, RemoteView>,
+) -> Vec<crate::protos::simple_op_store::RemoteView> {
+    remote_views
+        .iter()
+        .map(|(name, view)| crate::protos::simple_op_store::RemoteView {
+            name: name.into(),
+            bookmarks: remote_refs_to_proto(&view.bookmarks),
+            tags: remote_refs_to_proto(&view.tags),
+        })
+        .collect()
+}
+
+fn remote_views_from_proto(
+    remote_views_proto: Vec<crate::protos::simple_op_store::RemoteView>,
+) -> Result<BTreeMap<RemoteNameBuf, RemoteView>, PostDecodeError> {
+    remote_views_proto
+        .into_iter()
+        .map(|proto| {
+            let name: RemoteNameBuf = proto.name.into();
+            let view = RemoteView {
+                bookmarks: remote_refs_from_proto(proto.bookmarks)?,
+                tags: remote_refs_from_proto(proto.tags)?,
+            };
+            Ok((name, view))
+        })
+        .collect()
+}
+
+fn remote_refs_to_proto(
+    remote_refs: &BTreeMap<RefNameBuf, RemoteRef>,
+) -> Vec<crate::protos::simple_op_store::RemoteRef> {
+    remote_refs
+        .iter()
+        .map(
+            |(name, remote_ref)| crate::protos::simple_op_store::RemoteRef {
+                name: name.into(),
+                target_terms: ref_target_to_terms_proto(&remote_ref.target),
+                state: remote_ref_state_to_proto(remote_ref.state),
+            },
+        )
+        .collect()
+}
+
+fn remote_refs_from_proto(
+    remote_refs_proto: Vec<crate::protos::simple_op_store::RemoteRef>,
+) -> Result<BTreeMap<RefNameBuf, RemoteRef>, PostDecodeError> {
+    remote_refs_proto
+        .into_iter()
+        .map(|proto| {
+            let name: RefNameBuf = proto.name.into();
+            let remote_ref = RemoteRef {
+                target: ref_target_from_terms_proto(proto.target_terms)?,
+                state: remote_ref_state_from_proto(proto.state)?,
+            };
+            Ok((name, remote_ref))
+        })
+        .collect()
+}
+
+fn ref_target_to_terms_proto(
+    value: &RefTarget,
+) -> Vec<crate::protos::simple_op_store::RefTargetTerm> {
+    value
+        .as_merge()
+        .iter()
+        .map(|term| term.as_ref().map(|id| id.to_bytes()))
+        .map(|value| crate::protos::simple_op_store::RefTargetTerm { value })
+        .collect()
+}
+
+fn ref_target_from_terms_proto(
+    proto: Vec<crate::protos::simple_op_store::RefTargetTerm>,
+) -> Result<RefTarget, PostDecodeError> {
+    let terms: SmallVec<[_; 1]> = proto
+        .into_iter()
+        .map(|crate::protos::simple_op_store::RefTargetTerm { value }| value.map(CommitId::new))
+        .collect();
+    if terms.len().is_multiple_of(2) {
+        Err(PostDecodeError::EvenNumberOfRefTargetTerms(terms.len()))
+    } else {
+        Ok(RefTarget::from_merge(Merge::from_vec(terms)))
+    }
 }
 
 fn ref_target_to_proto(value: &RefTarget) -> Option<crate::protos::simple_op_store::RefTarget> {
@@ -826,7 +953,9 @@ mod tests {
         let bookmark_main_local_target = RefTarget::normal(CommitId::from_hex("ccc111"));
         let bookmark_main_origin_target = RefTarget::normal(CommitId::from_hex("ccc222"));
         let bookmark_deleted_origin_target = RefTarget::normal(CommitId::from_hex("ccc333"));
-        let tag_v1_target = RefTarget::normal(CommitId::from_hex("ddd111"));
+        let tag_v1_local_target = RefTarget::normal(CommitId::from_hex("ddd111"));
+        let tag_v1_origin_target = RefTarget::normal(CommitId::from_hex("ddd222"));
+        let tag_deleted_origin_target = RefTarget::normal(CommitId::from_hex("ddd333"));
         let git_refs_main_target = RefTarget::normal(CommitId::from_hex("fff111"));
         let git_refs_feature_target = RefTarget::from_legacy_form(
             [CommitId::from_hex("fff111")],
@@ -840,13 +969,17 @@ mod tests {
                 "main".into() => bookmark_main_local_target,
             },
             tags: btreemap! {
-                "v1.0".into() => tag_v1_target,
+                "v1.0".into() => tag_v1_local_target,
             },
             remote_views: btreemap! {
                 "origin".into() => RemoteView {
                     bookmarks: btreemap! {
                         "main".into() => tracked_remote_ref(&bookmark_main_origin_target),
                         "deleted".into() => new_remote_ref(&bookmark_deleted_origin_target),
+                    },
+                    tags: btreemap! {
+                        "v1.0".into() => tracked_remote_ref(&tag_v1_origin_target),
+                        "deleted".into() => new_remote_ref(&tag_deleted_origin_target),
                     },
                 },
             },
@@ -909,7 +1042,7 @@ mod tests {
         // Test exact output so we detect regressions in compatibility
         assert_snapshot!(
             ViewId::new(blake2b_hash(&create_view()).to_vec()).hex(),
-            @"f426676b3a2f7c6b9ec8677cb05ed249d0d244ab7e86a7c51117e2d8a4829db65e55970c761231e2107d303bf3d33a1f2afdd4ed2181f223e99753674b20a35e"
+            @"2c0b174d117ca85e7faa96f6d997362403105e8eb31e7f82ac9abd3dc48ae62683e9a76ef5d117ebc8a743d17e1945236df9ccefd7574f7e4b5336a63796b967"
         );
     }
 
@@ -949,6 +1082,94 @@ mod tests {
     }
 
     #[test]
+    fn test_remote_views_legacy_roundtrip() {
+        let mut view = create_view();
+        assert!(!view.remote_views.is_empty());
+        for remote_view in view.remote_views.values_mut() {
+            // remote tags cannot be preserved in "legacy" format
+            remote_view.tags.clear();
+        }
+        let mut proto = view_to_proto(&view);
+        proto.remote_views.clear(); // drop "new" format
+        let view_reconstructed = view_from_proto(proto).unwrap();
+        assert_eq!(view.remote_views, view_reconstructed.remote_views);
+    }
+
+    #[test]
+    fn test_remote_views_new_roundtrip() {
+        let view = create_view();
+        assert!(!view.remote_views.is_empty());
+        let mut proto = view_to_proto(&view);
+        for bookmark in &mut proto.bookmarks {
+            #[expect(deprecated)]
+            bookmark.remote_bookmarks.clear(); // drop "legacy" format
+        }
+        let view_reconstructed = view_from_proto(proto).unwrap();
+        assert_eq!(view.remote_views, view_reconstructed.remote_views);
+    }
+
+    #[test]
+    fn test_migrate_git_refs_to_remote_tags() {
+        let tracked_remote_ref = |target: &RefTarget| RemoteRef {
+            target: target.clone(),
+            state: RemoteRefState::Tracked,
+        };
+        let git_ref_to_proto = |name: &str, ref_target| crate::protos::simple_op_store::GitRef {
+            name: name.to_owned(),
+            #[expect(deprecated)]
+            commit_id: Default::default(),
+            target: ref_target_to_proto(ref_target),
+        };
+        let v1_target = RefTarget::normal(CommitId::from_hex("111111"));
+        let main_target = RefTarget::normal(CommitId::from_hex("222222"));
+        let orig_remote_views = btreemap! {
+            "git".into() => RemoteView {
+                bookmarks: btreemap! {
+                    "main".into() => tracked_remote_ref(&main_target),
+                },
+                tags: btreemap! {},
+            },
+        };
+        let proto = crate::protos::simple_op_store::View {
+            remote_views: remote_views_to_proto(&orig_remote_views),
+            git_refs: vec![
+                git_ref_to_proto("refs/tags/v1.0", &v1_target),
+                git_ref_to_proto("refs/heads/main", &main_target),
+            ],
+            has_git_refs_migrated_to_remote_tags: false,
+            ..Default::default()
+        };
+
+        let view = view_from_proto(proto).unwrap();
+        if cfg!(feature = "git") {
+            assert_eq!(
+                view.remote_views,
+                btreemap! {
+                    "git".into() => RemoteView {
+                        bookmarks: btreemap! {
+                            "main".into() => tracked_remote_ref(&main_target),
+                        },
+                        tags: btreemap! {
+                            "v1.0".into() => tracked_remote_ref(&v1_target),
+                        },
+                    },
+                }
+            );
+        } else {
+            assert_eq!(view.remote_views, orig_remote_views);
+        }
+
+        // Once migrated, "git" remote tags shouldn't be populated again.
+        let mut proto = view_to_proto(&view);
+        assert!(proto.has_git_refs_migrated_to_remote_tags);
+        for view_proto in &mut proto.remote_views {
+            view_proto.tags.clear();
+        }
+        let view = view_from_proto(proto).unwrap();
+        assert_eq!(view.remote_views, orig_remote_views);
+    }
+
+    #[test]
     fn test_bookmark_views_legacy_roundtrip() {
         let new_remote_ref = |target: &RefTarget| RemoteRef {
             target: target.clone(),
@@ -973,11 +1194,13 @@ mod tests {
                 bookmarks: btreemap! {
                     "bookmark1".into() => tracked_remote_ref(&git_bookmark1_target),
                 },
+                tags: btreemap! {},
             },
             "remote1".into() => RemoteView {
                 bookmarks: btreemap! {
                     "bookmark1".into() => tracked_remote_ref(&remote1_bookmark1_target),
                 },
+                tags: btreemap! {},
             },
             "remote2".into() => RemoteView {
                 bookmarks: btreemap! {
@@ -985,6 +1208,7 @@ mod tests {
                     "bookmark2".into() => new_remote_ref(&remote2_bookmark2_target),
                     "bookmark4".into() => tracked_remote_ref(&remote2_bookmark4_target),
                 },
+                tags: btreemap! {},
             },
         };
 
