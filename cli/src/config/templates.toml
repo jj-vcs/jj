@@ -12,7 +12,7 @@ if(remote,
 ) ++ "\n"
 '''
 
-commit_summary = 'format_commit_summary_with_refs(self, bookmarks)'
+revision_summary = 'format_commit_summary_with_refs(self, bookmarks)'
 
 file_annotate = '''
 separate(" ",

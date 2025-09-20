@@ -865,9 +865,9 @@
                     "type": "string",
                     "description": "`jj bookmark list`'s output"
                 },
-                "commit_summary": {
+                "revision_summary": {
                     "type": "string",
-                    "description": "The short commit summary used by many commands"
+                    "description": "The short revision summary used by many commands"
                 },
                 "commit_trailers": {
                     "type": "string",

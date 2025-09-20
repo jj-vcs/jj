@@ -765,6 +765,8 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
             "core.watchman.register-snapshot-trigger",
             "fsmonitor.watchman.register-snapshot-trigger",
         ),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::rename_value("templates.commit_summary", "templates.revision_summary"),
     ]
 }
 
