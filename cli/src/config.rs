@@ -777,6 +777,12 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
             "templates.draft_commit_description",
             "templates.draft_revision_description",
         ),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::rename_template_alias(
+            "template-aliases.builtin_draft_commit_description",
+            "template-aliases.builtin_draft_revision_description",
+            "template-aliases.builtin_draft_revision_description",
+        ),
     ]
 }
 

@@ -1133,7 +1133,7 @@ fn test_template_alias() {
     insta::assert_snapshot!(output, @r"
     builtin_config_list
     builtin_config_list_detailed
-    builtin_draft_commit_description
+    builtin_draft_revision_description
     builtin_evolog_compact
     builtin_log_comfortable
     builtin_log_compact

@@ -933,6 +933,7 @@ fn test_default_config() {
     insta::assert_snapshot!(output, @r"
     operation.hostname
     operation.username
+    template-aliases.builtin_draft_commit_description
     [EOF]
     ");
 
