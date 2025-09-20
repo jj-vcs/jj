@@ -1296,7 +1296,7 @@ fn test_squash_description() {
     source
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:     A file2
     JJ:
@@ -1373,7 +1373,7 @@ fn test_squash_description() {
     CC: alice@example.com
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:     A file2
     JJ:
@@ -1992,7 +1992,7 @@ fn test_squash_to_new_commit() {
     file4
 
     JJ: Change ID: xlzxqlsl
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file3
     JJ:     A file4
     JJ:

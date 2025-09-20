@@ -72,7 +72,7 @@ fn test_commit_with_editor() {
     add files
 
     JJ: Change ID: kkmpptxz
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:     A file2
     JJ:
@@ -187,7 +187,7 @@ fn test_commit_interactive() {
     add files
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -208,7 +208,7 @@ fn test_commit_interactive() {
     add files
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -265,7 +265,7 @@ fn test_commit_interactive_with_paths() {
     edit
 
     JJ: Change ID: rlvkpnrz
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -316,7 +316,7 @@ fn test_commit_with_default_description() {
     TESTED=TODO
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:     A file2
     JJ:

@@ -614,7 +614,7 @@ fn test_git_fetch_conflicting_bookmarks() {
     rem1 (conflicted):
       + kkmpptxz 2b17ac71 (empty) (no description set)
       + ppspxspk 4acd0343 message
-      @rem1 (behind by 1 commits): ppspxspk 4acd0343 message
+      @rem1 (behind by 1 revisions): ppspxspk 4acd0343 message
     [EOF]
     ");
 }
@@ -652,8 +652,8 @@ fn test_git_fetch_conflicting_bookmarks_colocated() {
     rem1 (conflicted):
       + zsuskuln c2934cfb (empty) (no description set)
       + ppspxspk 4acd0343 message
-      @git (behind by 1 commits): zsuskuln c2934cfb (empty) (no description set)
-      @rem1 (behind by 1 commits): ppspxspk 4acd0343 message
+      @git (behind by 1 revisions): zsuskuln c2934cfb (empty) (no description set)
+      @rem1 (behind by 1 revisions): ppspxspk 4acd0343 message
     [EOF]
     ");
 }
@@ -798,7 +798,7 @@ fn test_git_fetch_all() {
     a2: yqosqzyt d4d535f1 a2
       @origin: yqosqzyt d4d535f1 a2
     b: yostqsxw 0fbbc495 new_descr_for_b_to_create_conflict
-      @origin (ahead by 1 commits, behind by 1 commits): yostqsxw hidden bc83465a b
+      @origin (ahead by 1 revisions, behind by 1 revisions): yostqsxw hidden bc83465a b
     trunk1: kkmpptxz 38288177 trunk1
       @origin: kkmpptxz 38288177 trunk1
     [EOF]
@@ -822,7 +822,7 @@ fn test_git_fetch_all() {
       - yostqsxw hidden bc83465a b
       + yostqsxw?? 0fbbc495 new_descr_for_b_to_create_conflict
       + yostqsxw?? 6fc6fe17 b
-      @origin (behind by 1 commits): yostqsxw?? 6fc6fe17 b
+      @origin (behind by 1 revisions): yostqsxw?? 6fc6fe17 b
     trunk1: kkmpptxz 38288177 trunk1
       @origin: kkmpptxz 38288177 trunk1
     trunk2: uyznsvlq e80d998a trunk2
@@ -1028,7 +1028,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
       - yostqsxw hidden bc83465a b
       + yostqsxw?? c62db311 new_descr_for_b_to_create_conflict
       + yostqsxw?? 2b30dbc9 b
-      @origin (behind by 1 commits): yostqsxw?? 2b30dbc9 b
+      @origin (behind by 1 revisions): yostqsxw?? 2b30dbc9 b
     [EOF]
     ");
     // Now, let's fetch a2 and double-check that fetching a1 and b again doesn't do
@@ -1064,7 +1064,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
       - yostqsxw hidden bc83465a b
       + yostqsxw?? c62db311 new_descr_for_b_to_create_conflict
       + yostqsxw?? 2b30dbc9 b
-      @origin (behind by 1 commits): yostqsxw?? 2b30dbc9 b
+      @origin (behind by 1 revisions): yostqsxw?? 2b30dbc9 b
     [EOF]
     ");
 }
@@ -1393,7 +1393,7 @@ fn test_git_fetch_remove_fetch() {
     origin (conflicted):
       + qpvuntsm e8849ae1 (empty) (no description set)
       + qmyrypzk ab8b299e message
-      @origin (behind by 1 commits): qmyrypzk ab8b299e message
+      @origin (behind by 1 revisions): qmyrypzk ab8b299e message
     [EOF]
     ");
 
@@ -1422,7 +1422,7 @@ fn test_git_fetch_remove_fetch() {
     origin (conflicted):
       + qpvuntsm e8849ae1 (empty) (no description set)
       + qmyrypzk ab8b299e message
-      @origin (behind by 1 commits): qmyrypzk ab8b299e message
+      @origin (behind by 1 revisions): qmyrypzk ab8b299e message
     [EOF]
     ");
 }
@@ -1448,7 +1448,7 @@ fn test_git_fetch_rename_fetch() {
     origin (conflicted):
       + qpvuntsm e8849ae1 (empty) (no description set)
       + qmyrypzk ab8b299e message
-      @origin (behind by 1 commits): qmyrypzk ab8b299e message
+      @origin (behind by 1 revisions): qmyrypzk ab8b299e message
     [EOF]
     ");
 
@@ -1459,7 +1459,7 @@ fn test_git_fetch_rename_fetch() {
     origin (conflicted):
       + qpvuntsm e8849ae1 (empty) (no description set)
       + qmyrypzk ab8b299e message
-      @upstream (behind by 1 commits): qmyrypzk ab8b299e message
+      @upstream (behind by 1 revisions): qmyrypzk ab8b299e message
     [EOF]
     ");
 
@@ -1808,7 +1808,7 @@ fn test_git_fetch_preserve_commits_across_repos() {
     "#);
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     upstream: trrkvuqr f3e9250b merge
-      @fork (behind by 2 commits): zkvzklqn bcd7cd77 message
+      @fork (behind by 2 revisions): zkvzklqn bcd7cd77 message
       @upstream: trrkvuqr f3e9250b merge
     [EOF]
     ");
@@ -1998,8 +1998,8 @@ fn test_git_fetch_tracked_multiple_remotes() {
     main (conflicted):
       + orvppysl 25f66480 origin main commit
       + nrlvptqt f241ccf9 upstream main commit
-      @origin (behind by 1 commits): orvppysl 25f66480 origin main commit
-      @upstream (behind by 1 commits): nrlvptqt f241ccf9 upstream main commit
+      @origin (behind by 1 revisions): orvppysl 25f66480 origin main commit
+      @upstream (behind by 1 revisions): nrlvptqt f241ccf9 upstream main commit
     [EOF]
     ");
 
@@ -2030,8 +2030,8 @@ fn test_git_fetch_tracked_multiple_remotes() {
     main (conflicted):
       + orvppysl 25f66480 origin main commit
       + nrlvptqt f241ccf9 upstream main commit
-      @origin (behind by 1 commits): orvppysl 25f66480 origin main commit
-      @upstream (behind by 1 commits): nrlvptqt f241ccf9 upstream main commit
+      @origin (behind by 1 revisions): orvppysl 25f66480 origin main commit
+      @upstream (behind by 1 revisions): nrlvptqt f241ccf9 upstream main commit
     [EOF]
     ");
 }

@@ -85,7 +85,7 @@ fn test_split_by_paths() {
 
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file2
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -222,7 +222,7 @@ fn test_split_with_non_empty_description() {
     test
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -233,7 +233,7 @@ fn test_split_with_non_empty_description() {
     test
 
     JJ: Change ID: kkmpptxz
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file2
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -288,7 +288,7 @@ fn test_split_with_default_description() {
     TESTED=TODO
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -373,7 +373,7 @@ fn test_split_with_descendants() {
     Add file1 & file2
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -384,7 +384,7 @@ fn test_split_with_descendants() {
     Add file1 & file2
 
     JJ: Change ID: royxmykx
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file2
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -547,7 +547,7 @@ fn test_split_parallel_no_descendants() {
     TESTED=TODO
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -670,7 +670,7 @@ fn test_split_parallel_with_descendants() {
     Add file1 & file2
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -681,7 +681,7 @@ fn test_split_parallel_with_descendants() {
     Add file1 & file2
 
     JJ: Change ID: vruxwmqv
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file2
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -826,7 +826,7 @@ fn test_split_interactive() {
 
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -892,7 +892,7 @@ fn test_split_interactive_with_paths() {
 
 
     JJ: Change ID: rlvkpnrz
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -1093,7 +1093,7 @@ fn test_split_with_non_empty_description_and_trailers() {
     Signed-off-by: test.user@example.com
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -1106,7 +1106,7 @@ fn test_split_with_non_empty_description_and_trailers() {
     Signed-off-by: test.user@example.com
 
     JJ: Change ID: kkmpptxz
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file2
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
