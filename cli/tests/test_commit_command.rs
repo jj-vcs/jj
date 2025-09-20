@@ -513,14 +513,14 @@ fn test_commit_reset_author() {
 }
 
 #[test]
-fn test_commit_trailers() {
+fn test_revision_trailers() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     test_env.add_config(
         r#"[templates]
-        commit_trailers = '''"Reviewed-by: " ++ self.committer().email()'''"#,
+        revision_trailers = '''"Reviewed-by: " ++ self.committer().email()'''"#,
     );
     work_dir.write_file("file1", "foo\n");
 
