@@ -317,6 +317,9 @@ Thanks to the people who made this release happen!
 
 * `jj util exec` sets the environment variable `JJ_WORKSPACE_ROOT`
 
+* New `revision_id()` revset function to return the revisions with the given
+  revision ID prefix. `commit_id()` is still available as an alias.
+
 ### Fixed bugs
 
 * Fetching repositories that have submodules no longer errors even if

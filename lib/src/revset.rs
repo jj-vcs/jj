@@ -84,7 +84,7 @@ pub enum RevsetResolutionError {
     WorkspaceMissingWorkingCopy { name: WorkspaceNameBuf },
     #[error("An empty string is not a valid revision")]
     EmptyString,
-    #[error("Commit ID prefix `{0}` is ambiguous")]
+    #[error("Revision ID prefix `{0}` is ambiguous")]
     AmbiguousCommitIdPrefix(String),
     #[error("Change ID prefix `{0}` is ambiguous")]
     AmbiguousChangeIdPrefix(String),
@@ -885,6 +885,15 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
             let value = revset_parser::expect_string_literal("commit ID prefix", arg)?;
             HexPrefix::try_from_hex(value)
                 .ok_or_else(|| RevsetParseError::expression("Invalid commit ID prefix", arg.span))
+        })?;
+        Ok(RevsetExpression::commit_id_prefix(prefix))
+    });
+    map.insert("revision_id", |diagnostics, function, _context| {
+        let [arg] = function.expect_exact_arguments()?;
+        let prefix = revset_parser::catch_aliases(diagnostics, arg, |_diagnostics, arg| {
+            let value = revset_parser::expect_string_literal("revision ID prefix", arg)?;
+            HexPrefix::try_from_hex(value)
+                .ok_or_else(|| RevsetParseError::expression("Invalid revision ID prefix", arg.span))
         })?;
         Ok(RevsetExpression::commit_id_prefix(prefix))
     });
@@ -4199,6 +4208,16 @@ mod tests {
         insta::assert_debug_snapshot!(
             parse("commit_id(xyzzy)").unwrap_err().kind(),
             @r#"Expression("Invalid commit ID prefix")"#);
+
+        insta::assert_debug_snapshot!(
+            parse("revision_id(0)").unwrap(),
+            @r#"CommitRef(CommitId(HexPrefix("0")))"#);
+        insta::assert_debug_snapshot!(
+            parse("revision_id('0f')").unwrap(),
+            @r#"CommitRef(CommitId(HexPrefix("0f")))"#);
+        insta::assert_debug_snapshot!(
+            parse("revision_id(xyzzy)").unwrap_err().kind(),
+            @r#"Expression("Invalid revision ID prefix")"#);
     }
 
     #[test]
