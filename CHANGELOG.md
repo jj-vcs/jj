@@ -95,6 +95,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj util exec` sets the environment variable `JJ_WORKSPACE_ROOT`
 
+* New `revision_id()` revset function to return the revisions with the given
+  revision ID prefix. `commit_id()` is still available as an alias.
+
 ### Fixed bugs
 
 * Fetching repositories that have submodules no longer errors even if
