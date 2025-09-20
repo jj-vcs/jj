@@ -930,13 +930,14 @@ fn test_default_config() {
         &test_env.work_dir(""),
         &["config", "list", r#"-Tname ++ "\n""#],
     );
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r#"
     operation.hostname
     operation.username
     template-aliases.builtin_draft_commit_description
     template-aliases.commit_summary_separator
+    template-aliases."commit_timestamp(commit)"
     [EOF]
-    ");
+    "#);
 
     let output = run_jj(&test_env.work_dir(""), &["git", "init", "repo"]);
     insta::assert_snapshot!(output, @r#"

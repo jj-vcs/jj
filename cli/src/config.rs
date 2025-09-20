@@ -789,6 +789,12 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
             "template-aliases.revision_summary_separator",
             "template-aliases.revision_summary_separator",
         ),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::rename_template_alias(
+            "template-aliases.\"commit_timestamp(commit)\"",
+            "template-aliases.\"revision_timestamp(revision)\"",
+            "template-aliases.\"revision_timestamp(commit)\"",
+        ),
     ]
 }
 

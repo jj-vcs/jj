@@ -343,6 +343,7 @@ fn test_config_list_origin() {
     test-cli-key = "test-cli-val" # cli
     template-aliases.builtin_draft_commit_description = "builtin_draft_revision_description" # cli
     template-aliases.commit_summary_separator = "revision_summary_separator" # cli
+    template-aliases."commit_timestamp(commit)" = "revision_timestamp(commit)" # cli
     [EOF]
     "#);
 
