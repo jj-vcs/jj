@@ -141,32 +141,32 @@ concat(
 '''
 
 builtin_log_oneline = 'builtin_log_oneline(self)'
-'builtin_log_oneline(commit)' = '''
-if(commit.root(),
-  format_root_revision(commit),
+'builtin_log_oneline(revision)' = '''
+if(revision.root(),
+  format_root_revision(revision),
   label(
     separate(" ",
-      if(commit.current_working_copy(), "working_copy"),
-      if(commit.immutable(), "immutable", "mutable"),
-      if(commit.conflict(), "conflicted"),
+      if(revision.current_working_copy(), "working_copy"),
+      if(revision.immutable(), "immutable", "mutable"),
+      if(revision.conflict(), "conflicted"),
     ),
     concat(
       separate(" ",
-        format_short_change_id_with_hidden_and_divergent_info(commit),
-        format_short_signature_oneline(commit.author()),
-        format_timestamp(revision_timestamp(commit)),
-        commit.bookmarks(),
-        commit.tags(),
-        commit.working_copies(),
-        if(commit.git_head(), label("git_head", "git_head()")),
-        format_short_revision_id(commit.commit_id()),
-        if(commit.conflict(), label("conflict", "conflict")),
+        format_short_change_id_with_hidden_and_divergent_info(revision),
+        format_short_signature_oneline(revision.author()),
+        format_timestamp(revision_timestamp(revision)),
+        revision.bookmarks(),
+        revision.tags(),
+        revision.working_copies(),
+        if(revision.git_head(), label("git_head", "git_head()")),
+        format_short_revision_id(revision.commit_id()),
+        if(revision.conflict(), label("conflict", "conflict")),
         if(config("ui.show-cryptographic-signatures").as_boolean(),
-          format_short_cryptographic_signature(commit.signature())),
-        if(commit.empty(), empty_commit_marker),
-        if(commit.description(),
-          commit.description().first_line(),
-          label(if(commit.empty(), "empty"), description_placeholder),
+          format_short_cryptographic_signature(revision.signature())),
+        if(revision.empty(), empty_commit_marker),
+        if(revision.description(),
+          revision.description().first_line(),
+          label(if(revision.empty(), "empty"), description_placeholder),
         ),
       ) ++ "\n",
     ),
@@ -175,22 +175,22 @@ if(commit.root(),
 '''
 
 builtin_log_compact = 'builtin_log_compact(self)'
-'builtin_log_compact(commit)' = '''
-if(commit.root(),
-  format_root_revision(commit),
+'builtin_log_compact(revision)' = '''
+if(revision.root(),
+  format_root_revision(revision),
   label(
     separate(" ",
-      if(commit.current_working_copy(), "working_copy"),
-      if(commit.immutable(), "immutable", "mutable"),
-      if(commit.conflict(), "conflicted"),
+      if(revision.current_working_copy(), "working_copy"),
+      if(revision.immutable(), "immutable", "mutable"),
+      if(revision.conflict(), "conflicted"),
     ),
     concat(
-      format_short_revision_header(commit) ++ "\n",
+      format_short_revision_header(revision) ++ "\n",
       separate(" ",
-        if(commit.empty(), empty_commit_marker),
-        if(commit.description(),
-          commit.description().first_line(),
-          label(if(commit.empty(), "empty"), description_placeholder),
+        if(revision.empty(), empty_commit_marker),
+        if(revision.description(),
+          revision.description().first_line(),
+          label(if(revision.empty(), "empty"), description_placeholder),
         ),
       ) ++ "\n",
     ),
@@ -199,19 +199,19 @@ if(commit.root(),
 '''
 
 builtin_log_redacted = 'builtin_log_redacted(self)'
-'builtin_log_redacted(commit)' = '''
-if(commit.root(),
-  format_root_revision(commit),
+'builtin_log_redacted(revision)' = '''
+if(revision.root(),
+  format_root_revision(revision),
   label(
     separate(" ",
-      if(commit.current_working_copy(), "working_copy"),
-      if(commit.immutable(), "immutable", "mutable"),
-      if(commit.conflict(), "conflicted"),
+      if(revision.current_working_copy(), "working_copy"),
+      if(revision.immutable(), "immutable", "mutable"),
+      if(revision.conflict(), "conflicted"),
     ),
     concat(
-      format_short_revision_header_redacted(commit) ++ "\n",
+      format_short_revision_header_redacted(revision) ++ "\n",
       separate(" ",
-        if(commit.empty(), empty_commit_marker),
+        if(revision.empty(), empty_commit_marker),
         label("description", "(redacted)"),
       ) ++ "\n",
     ),
@@ -220,22 +220,22 @@ if(commit.root(),
 '''
 
 builtin_log_compact_full_description = 'builtin_log_compact_full_description(self)'
-'builtin_log_compact_full_description(commit)' = '''
-if(commit.root(),
-  format_root_revision(commit),
+'builtin_log_compact_full_description(revision)' = '''
+if(revision.root(),
+  format_root_revision(revision),
   label(
     separate(" ",
-      if(commit.current_working_copy(), "working_copy"),
-      if(commit.immutable(), "immutable", "mutable"),
-      if(commit.conflict(), "conflicted"),
+      if(revision.current_working_copy(), "working_copy"),
+      if(revision.immutable(), "immutable", "mutable"),
+      if(revision.conflict(), "conflicted"),
     ),
     concat(
-      format_short_revision_header(commit) ++ "\n",
+      format_short_revision_header(revision) ++ "\n",
       separate(" ",
-        if(commit.empty(), empty_commit_marker),
-        if(commit.description(),
-          commit.description().trim_end() ++ "\n",
-          label(if(commit.empty(), "empty"), description_placeholder),
+        if(revision.empty(), empty_commit_marker),
+        if(revision.description(),
+          revision.description().trim_end() ++ "\n",
+          label(if(revision.empty(), "empty"), description_placeholder),
         ),
       ) ++ "\n",
     ),
@@ -245,21 +245,21 @@ if(commit.root(),
 
 builtin_log_comfortable = 'builtin_log_compact ++ "\n"'
 builtin_log_detailed = 'builtin_log_detailed(self)'
-'builtin_log_detailed(commit)' = '''
+'builtin_log_detailed(revision)' = '''
 concat(
-  "Commit ID: " ++ commit.commit_id() ++ "\n",
-  "Change ID: " ++ commit.change_id() ++ "\n",
-  surround("Bookmarks: ", "\n", separate(" ", commit.local_bookmarks(), commit.remote_bookmarks())),
-  surround("Tags     : ", "\n", commit.tags()),
-  "Author   : " ++ format_detailed_signature(commit.author()) ++ "\n",
-  "Committer: " ++ format_detailed_signature(commit.committer())  ++ "\n",
+  "Commit ID: " ++ revision.commit_id() ++ "\n",
+  "Change ID: " ++ revision.change_id() ++ "\n",
+  surround("Bookmarks: ", "\n", separate(" ", revision.local_bookmarks(), revision.remote_bookmarks())),
+  surround("Tags     : ", "\n", revision.tags()),
+  "Author   : " ++ format_detailed_signature(revision.author()) ++ "\n",
+  "Committer: " ++ format_detailed_signature(revision.committer())  ++ "\n",
   if(config("ui.show-cryptographic-signatures").as_boolean(),
-    "Signature: " ++ format_detailed_cryptographic_signature(commit.signature()) ++ "\n"),
+    "Signature: " ++ format_detailed_cryptographic_signature(revision.signature()) ++ "\n"),
   "\n",
   indent("    ",
-    if(commit.description(),
-      commit.description().trim_end(),
-      label(if(commit.empty(), "empty"), description_placeholder)) ++ "\n"),
+    if(revision.description(),
+      revision.description().trim_end(),
+      label(if(revision.empty(), "empty"), description_placeholder)) ++ "\n"),
   "\n",
 )
 '''
@@ -413,14 +413,14 @@ separate(" ",
 
 # We have "hidden" override "divergent", since a hidden revision does not cause
 # change id conflicts and is not affected by such conflicts; you have to use the
-# commit id to refer to a hidden revision regardless.
-'format_short_change_id_with_hidden_and_divergent_info(commit)' = '''
-if(commit.hidden(),
+# revision id to refer to a hidden revision regardless.
+'format_short_change_id_with_hidden_and_divergent_info(revision)' = '''
+if(revision.hidden(),
   label("hidden",
-    format_short_change_id(commit.change_id()) ++ " hidden"
+    format_short_change_id(revision.change_id()) ++ " hidden"
   ),
-  label(if(commit.divergent(), "divergent"),
-    format_short_change_id(commit.change_id()) ++ if(commit.divergent(), "??")
+  label(if(revision.divergent(), "divergent"),
+    format_short_change_id(revision.change_id()) ++ if(revision.divergent(), "??")
   )
 )
 '''
@@ -560,8 +560,8 @@ git_format_patch_email_headers = '''
   )
 '''
 
-"format_signed_off_by_trailer(commit)" = '"Signed-off-by: " ++ commit.committer() ++ "\n"'
+"format_signed_off_by_trailer(revision)" = '"Signed-off-by: " ++ revision.committer() ++ "\n"'
 
 # Gerrit change id is 40 chars, jj change id is 32, so we need some padding.
 # `6a6a6964` is the hexadecimal of `jjid` in ASCII, just to not pad with zeros.
-"format_gerrit_change_id_trailer(commit)" = '"Change-Id: I" ++ commit.change_id().normal_hex() ++ "6a6a6964\n"'
+"format_gerrit_change_id_trailer(revision)" = '"Change-Id: I" ++ revision.change_id().normal_hex() ++ "6a6a6964\n"'
