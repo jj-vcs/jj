@@ -383,7 +383,7 @@ pub fn parse_trailers_template<'a>(
     ui: &Ui,
     tx: &'a WorkspaceCommandTransaction,
 ) -> Result<Option<TemplateRenderer<'a, Commit>>, CommandError> {
-    let trailer_template = tx.settings().get_string("templates.commit_trailers")?;
+    let trailer_template = tx.settings().get_string("templates.revision_trailers")?;
     if trailer_template.is_empty() {
         Ok(None)
     } else {
@@ -422,7 +422,7 @@ pub fn add_trailers_with_template(
     Ok(description)
 }
 
-/// Add the trailers from `templates.commit_trailers` in the last paragraph of
+/// Add the trailers from `templates.revision_trailers` in the last paragraph of
 /// the description
 ///
 /// It just lets the description untouched if the trailers are already there.
