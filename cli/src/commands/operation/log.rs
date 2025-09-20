@@ -145,7 +145,7 @@ fn do_op_log(
 
     let diff_formats = diff_formats_for_log(settings, &args.diff_format, args.patch)?;
     let maybe_show_op_diff = if args.op_diff || !diff_formats.is_empty() {
-        let template_text = settings.get_string("templates.commit_summary")?;
+        let template_text = settings.get_string("templates.revision_summary")?;
         let show = move |ui: &Ui,
                          formatter: &mut dyn Formatter,
                          op: &Operation,
