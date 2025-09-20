@@ -1043,7 +1043,7 @@ fn test_short_prefix_in_transaction() {
 
         [templates]
         log = 'summary ++ "\n"'
-        commit_summary = 'summary'
+        revision_summary = 'summary'
 
         [template-aliases]
         'format_id(id)' = 'id.shortest(12).prefix() ++ "[" ++ id.shortest(12).rest() ++ "]"'
