@@ -44,7 +44,7 @@ use crate::backend::MillisSinceEpoch;
 use crate::commit::Commit;
 use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::materialize_tree_value;
-use crate::diff::Diff;
+use crate::diff::ContentDiff;
 use crate::diff::DiffHunkKind;
 use crate::files;
 use crate::graph::GraphNode;
@@ -1355,9 +1355,9 @@ async fn has_diff_from_parent(
     let mut tree_diff = from_tree.diff_stream(&to_tree, matcher);
     // TODO: Resolve values concurrently
     while let Some(entry) = tree_diff.next().await {
-        let (from_value, to_value) = entry.values?;
-        let from_value = resolve_file_values(store, &entry.path, from_value).await?;
-        if from_value == to_value {
+        let mut values = entry.values?;
+        values.before = resolve_file_values(store, &entry.path, values.before).await?;
+        if !values.is_changed() {
             continue;
         }
         return Ok(true);
@@ -1381,13 +1381,13 @@ async fn matches_diff_from_parent(
     let mut tree_diff = from_tree.diff_stream(&to_tree, files_matcher);
     // TODO: Resolve values concurrently
     while let Some(entry) = tree_diff.next().await {
-        let (left_value, right_value) = entry.values?;
-        let left_value = resolve_file_values(store, &entry.path, left_value).await?;
-        if left_value == right_value {
+        let mut values = entry.values?;
+        values.before = resolve_file_values(store, &entry.path, values.before).await?;
+        if !values.is_changed() {
             continue;
         }
-        let left_future = materialize_tree_value(store, &entry.path, left_value);
-        let right_future = materialize_tree_value(store, &entry.path, right_value);
+        let left_future = materialize_tree_value(store, &entry.path, values.before);
+        let right_future = materialize_tree_value(store, &entry.path, values.after);
         let (left_value, right_value) = futures::try_join!(left_future, right_future)?;
         let left_contents = to_file_content(&entry.path, left_value).await?;
         let right_contents = to_file_content(&entry.path, right_value).await?;
@@ -1416,7 +1416,7 @@ fn diff_match_lines(
         let rights: Merge<BString> = rights.map(|text| match_lines(text, pattern).collect());
         let lefts = files::merge(&lefts, merge_options);
         let rights = files::merge(&rights, merge_options);
-        let diff = Diff::by_line(lefts.iter().chain(rights.iter()));
+        let diff = ContentDiff::by_line(lefts.iter().chain(rights.iter()));
         let different = files::conflict_diff_hunks(diff.hunks(), lefts.as_slice().len())
             .any(|hunk| hunk.kind == DiffHunkKind::Different);
         Ok(different)

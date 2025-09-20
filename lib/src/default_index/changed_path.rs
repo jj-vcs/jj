@@ -583,9 +583,9 @@ pub(super) async fn collect_changed_paths(
     let tree_diff = from_tree.diff_stream(&to_tree, &EverythingMatcher);
     let paths = tree_diff
         .map(|entry| entry.values.map(|values| (entry.path, values)))
-        .try_filter_map(async |(path, (from_value, to_value))| {
-            let from_value = resolve_file_values(store, &path, from_value).await?;
-            Ok((from_value != to_value).then_some(path))
+        .try_filter_map(async |(path, mut diff)| {
+            diff.before = resolve_file_values(store, &path, diff.before).await?;
+            Ok(diff.is_changed().then_some(path))
         })
         .try_collect()
         .await?;

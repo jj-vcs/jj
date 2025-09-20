@@ -1541,9 +1541,9 @@ async fn update_intent_to_add_impl(
     let mut added_paths = vec![];
     let mut removed_paths = HashSet::new();
     while let Some(TreeDiffEntry { path, values }) = diff_stream.next().await {
-        let (before, after) = values?;
-        if before.is_absent() {
-            let executable = match after.as_normal() {
+        let values = values?;
+        if values.before.is_absent() {
+            let executable = match values.after.as_normal() {
                 Some(TreeValue::File {
                     id: _,
                     executable,
@@ -1560,7 +1560,7 @@ async fn update_intent_to_add_impl(
             {
                 added_paths.push((BString::from(path.into_internal_string()), executable));
             }
-        } else if after.is_absent() {
+        } else if values.after.is_absent() {
             removed_paths.insert(BString::from(path.into_internal_string()));
         }
     }

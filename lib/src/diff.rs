@@ -598,7 +598,7 @@ impl UnchangedRange {
 /// Takes any number of inputs and finds regions that are them same between all
 /// of them.
 #[derive(Clone, Debug)]
-pub struct Diff<'input> {
+pub struct ContentDiff<'input> {
     base_input: &'input BStr,
     other_inputs: SmallVec<[&'input BStr; 1]>,
     /// Sorted list of ranges of unchanged regions in bytes.
@@ -608,7 +608,7 @@ pub struct Diff<'input> {
     unchanged_regions: Vec<UnchangedRange>,
 }
 
-impl<'input> Diff<'input> {
+impl<'input> ContentDiff<'input> {
     pub fn for_tokenizer<T: AsRef<[u8]> + ?Sized + 'input>(
         inputs: impl IntoIterator<Item = &'input T>,
         tokenizer: impl Fn(&[u8]) -> Vec<Range<usize>>,
@@ -746,14 +746,14 @@ impl<'input> Diff<'input> {
     pub fn unrefined<T: AsRef<[u8]> + ?Sized + 'input>(
         inputs: impl IntoIterator<Item = &'input T>,
     ) -> Self {
-        Diff::for_tokenizer(inputs, |_| vec![], CompareBytesExactly)
+        ContentDiff::for_tokenizer(inputs, |_| vec![], CompareBytesExactly)
     }
 
     /// Compares `inputs` line by line.
     pub fn by_line<T: AsRef<[u8]> + ?Sized + 'input>(
         inputs: impl IntoIterator<Item = &'input T>,
     ) -> Self {
-        Diff::for_tokenizer(inputs, find_line_ranges, CompareBytesExactly)
+        ContentDiff::for_tokenizer(inputs, find_line_ranges, CompareBytesExactly)
     }
 
     /// Compares `inputs` word by word.
@@ -763,7 +763,7 @@ impl<'input> Diff<'input> {
     pub fn by_word<T: AsRef<[u8]> + ?Sized + 'input>(
         inputs: impl IntoIterator<Item = &'input T>,
     ) -> Self {
-        let mut diff = Diff::for_tokenizer(inputs, find_word_ranges, CompareBytesExactly);
+        let mut diff = ContentDiff::for_tokenizer(inputs, find_word_ranges, CompareBytesExactly);
         diff.refine_changed_regions(find_nonword_ranges, CompareBytesExactly);
         diff
     }
@@ -817,8 +817,11 @@ impl<'input> Diff<'input> {
             // create a new Diff instance. Then adjust the start positions and
             // offsets to be valid in the context of the larger Diff instance
             // (`self`).
-            let refined_diff =
-                Diff::for_tokenizer(self.hunk_between(previous, current), &tokenizer, &compare);
+            let refined_diff = ContentDiff::for_tokenizer(
+                self.hunk_between(previous, current),
+                &tokenizer,
+                &compare,
+            );
             for refined in &refined_diff.unchanged_regions {
                 let new_base_start = refined.base.start + previous.base.end;
                 let new_base_end = refined.base.end + previous.base.end;
@@ -903,7 +906,7 @@ pub type DiffHunkContentVec<'input> = SmallVec<[&'input BStr; 2]>;
 /// Iterator over matching and different texts.
 #[derive(Clone, Debug)]
 pub struct DiffHunkIterator<'diff, 'input> {
-    diff: &'diff Diff<'input>,
+    diff: &'diff ContentDiff<'input>,
     ranges: DiffHunkRangeIterator<'diff>,
 }
 
@@ -950,7 +953,7 @@ pub struct DiffHunkRangeIterator<'diff> {
 }
 
 impl<'diff> DiffHunkRangeIterator<'diff> {
-    fn new(diff: &'diff Diff) -> Self {
+    fn new(diff: &'diff ContentDiff) -> Self {
         let mut unchanged_iter = diff.unchanged_regions.iter();
         let previous = unchanged_iter.next().unwrap();
         Self {
@@ -1017,7 +1020,7 @@ impl Iterator for DiffHunkRangeIterator<'_> {
 pub fn diff<'a, T: AsRef<[u8]> + ?Sized + 'a>(
     inputs: impl IntoIterator<Item = &'a T>,
 ) -> Vec<DiffHunk<'a>> {
-    let mut diff = Diff::for_tokenizer(inputs, find_line_ranges, CompareBytesExactly);
+    let mut diff = ContentDiff::for_tokenizer(inputs, find_line_ranges, CompareBytesExactly);
     diff.refine_changed_regions(find_word_ranges, CompareBytesExactly);
     diff.refine_changed_regions(find_nonword_ranges, CompareBytesExactly);
     diff.hunks().collect()
@@ -1413,7 +1416,7 @@ mod tests {
     #[test]
     fn test_diff_for_tokenizer_compacted() {
         // Tests that unchanged regions are compacted when using for_tokenizer()
-        let diff = Diff::for_tokenizer(
+        let diff = ContentDiff::for_tokenizer(
             ["a\nb\nc\nd\ne\nf\ng", "a\nb\nc\nX\ne\nf\ng"],
             find_line_ranges,
             CompareBytesExactly,
@@ -1490,8 +1493,11 @@ mod tests {
     #[test]
     fn test_diff_ignore_all_whitespace() {
         fn diff(inputs: [&str; 2]) -> Vec<DiffHunk<'_>> {
-            let diff =
-                Diff::for_tokenizer(inputs, find_line_ranges, CompareBytesIgnoreAllWhitespace);
+            let diff = ContentDiff::for_tokenizer(
+                inputs,
+                find_line_ranges,
+                CompareBytesIgnoreAllWhitespace,
+            );
             diff.hunks().collect()
         }
 
@@ -1528,8 +1534,11 @@ mod tests {
     #[test]
     fn test_diff_ignore_whitespace_amount() {
         fn diff(inputs: [&str; 2]) -> Vec<DiffHunk<'_>> {
-            let diff =
-                Diff::for_tokenizer(inputs, find_line_ranges, CompareBytesIgnoreWhitespaceAmount);
+            let diff = ContentDiff::for_tokenizer(
+                inputs,
+                find_line_ranges,
+                CompareBytesIgnoreWhitespaceAmount,
+            );
             diff.hunks().collect()
         }
 
@@ -1555,7 +1564,7 @@ mod tests {
 
     #[test]
     fn test_diff_hunk_iterator() {
-        let diff = Diff::by_word(["a b c", "a XX c", "a b "]);
+        let diff = ContentDiff::by_word(["a b c", "a XX c", "a b "]);
         assert_eq!(
             diff.hunks().collect_vec(),
             vec![

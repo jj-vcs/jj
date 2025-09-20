@@ -51,7 +51,7 @@ use jj_lib::copies::CopyRecords;
 use jj_lib::diff::CompareBytesExactly;
 use jj_lib::diff::CompareBytesIgnoreAllWhitespace;
 use jj_lib::diff::CompareBytesIgnoreWhitespaceAmount;
-use jj_lib::diff::Diff;
+use jj_lib::diff::ContentDiff;
 use jj_lib::diff::DiffHunk;
 use jj_lib::diff::DiffHunkKind;
 use jj_lib::diff::find_line_ranges;
@@ -61,6 +61,7 @@ use jj_lib::files::DiffLineHunkSide;
 use jj_lib::files::DiffLineIterator;
 use jj_lib::files::DiffLineNumber;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergeBuilder;
 use jj_lib::merge::MergedTreeValue;
@@ -712,20 +713,20 @@ pub enum LineCompareMode {
 fn diff_by_line<'input, T: AsRef<[u8]> + ?Sized + 'input>(
     inputs: impl IntoIterator<Item = &'input T>,
     options: &LineDiffOptions,
-) -> Diff<'input> {
+) -> ContentDiff<'input> {
     // TODO: If we add --ignore-blank-lines, its tokenizer will have to attach
     // blank lines to the preceding range. Maybe it can also be implemented as a
     // post-process (similar to refine_changed_regions()) that expands unchanged
     // regions across blank lines.
     match options.compare_mode {
         LineCompareMode::Exact => {
-            Diff::for_tokenizer(inputs, find_line_ranges, CompareBytesExactly)
+            ContentDiff::for_tokenizer(inputs, find_line_ranges, CompareBytesExactly)
         }
         LineCompareMode::IgnoreAllSpace => {
-            Diff::for_tokenizer(inputs, find_line_ranges, CompareBytesIgnoreAllWhitespace)
+            ContentDiff::for_tokenizer(inputs, find_line_ranges, CompareBytesIgnoreAllWhitespace)
         }
         LineCompareMode::IgnoreSpaceChange => {
-            Diff::for_tokenizer(inputs, find_line_ranges, CompareBytesIgnoreWhitespaceAmount)
+            ContentDiff::for_tokenizer(inputs, find_line_ranges, CompareBytesIgnoreWhitespaceAmount)
         }
     }
 }
@@ -1066,7 +1067,7 @@ fn show_color_words_diff_lines(
     labels: [&str; 2],
     options: &ColorWordsDiffOptions,
 ) -> io::Result<DiffLineNumber> {
-    let word_diff_hunks = Diff::by_word(contents).hunks().collect_vec();
+    let word_diff_hunks = ContentDiff::by_word(contents).hunks().collect_vec();
     let can_inline = match options.max_inline_alternation {
         None => true,     // unlimited
         Some(0) => false, // no need to count alternation
@@ -1766,7 +1767,7 @@ fn unified_diff_hunks<'content>(
             }
             DiffHunkKind::Different => {
                 let [left_lines, right_lines] =
-                    unzip_diff_hunks_to_lines(Diff::by_word(hunk.contents).hunks());
+                    unzip_diff_hunks_to_lines(ContentDiff::by_word(hunk.contents).hunks());
                 current_hunk.extend_removed_lines(left_lines);
                 current_hunk.extend_added_lines(right_lines);
             }
@@ -2018,8 +2019,8 @@ pub async fn show_diff_summary(
     path_converter: &RepoPathUiConverter,
 ) -> Result<(), DiffRenderError> {
     while let Some(CopiesTreeDiffEntry { path, values }) = tree_diff.next().await {
-        let (before, after) = values?;
-        let (label, sigil) = diff_status_label_and_char(&path, &before, &after);
+        let values = values?;
+        let (label, sigil) = diff_status_label_and_char(&path, &values);
         let path = if path.copy_operation().is_some() {
             path_converter.format_copied_path(path.source(), path.target())
         } else {
@@ -2032,8 +2033,7 @@ pub async fn show_diff_summary(
 
 pub fn diff_status_label_and_char(
     path: &CopiesTreeDiffEntryPath,
-    before: &MergedTreeValue,
-    after: &MergedTreeValue,
+    values: &Diff<MergedTreeValue>,
 ) -> (&'static str, char) {
     if let Some(op) = path.copy_operation() {
         match op {
@@ -2041,7 +2041,7 @@ pub fn diff_status_label_and_char(
             CopyOperation::Rename => ("renamed", 'R'),
         }
     } else {
-        match (before.is_present(), after.is_present()) {
+        match (values.before.is_present(), values.after.is_present()) {
             (true, true) => ("modified", 'M'),
             (false, true) => ("added", 'A'),
             (true, false) => ("removed", 'D'),
@@ -2307,12 +2307,12 @@ pub async fn show_types(
     path_converter: &RepoPathUiConverter,
 ) -> Result<(), DiffRenderError> {
     while let Some(CopiesTreeDiffEntry { path, values }) = tree_diff.next().await {
-        let (before, after) = values?;
+        let values = values?;
         writeln!(
             formatter.labeled("modified"),
             "{}{} {}",
-            diff_summary_char(&before),
-            diff_summary_char(&after),
+            diff_summary_char(&values.before),
+            diff_summary_char(&values.after),
             path_converter.format_copied_path(path.source(), path.target())
         )?;
     }
