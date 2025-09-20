@@ -601,6 +601,7 @@ fn test_evolog_with_no_template() {
     - builtin_op_log_redacted
     - commit_summary_separator
     - default_commit_description
+    - default_revision_description
     - description_placeholder
     - email_placeholder
     - empty_commit_marker
