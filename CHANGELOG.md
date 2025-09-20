@@ -60,6 +60,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The revset function `exactly(x, n)` will now evaluate `x` and error if it does
   not have exactly `n` elements.
 
+* New `revision_id()` revset function to return the revisions with the given
+  revision ID prefix. `commit_id()` is still available as an alias.
+
 ### Fixed bugs
 
 ## [0.33.0] - 2025-09-03
