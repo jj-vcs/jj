@@ -365,25 +365,25 @@ fn test_log_builtin_templates() {
     ");
 
     insta::assert_snapshot!(render(r#"builtin_log_detailed"#), @r"
-    Commit ID: aec3ec964d0771edea9da48a2a170bc6ffa1c725
-    Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
-    Bookmarks: my-bookmark
-    Author   : (no name set) <(no email set)> (2001-02-03 08:05:08)
-    Committer: (no name set) <(no email set)> (2001-02-03 08:05:08)
+    Revision ID: aec3ec964d0771edea9da48a2a170bc6ffa1c725
+    Change ID  : rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    Bookmarks  : my-bookmark
+    Author     : (no name set) <(no email set)> (2001-02-03 08:05:08)
+    Committer  : (no name set) <(no email set)> (2001-02-03 08:05:08)
 
         (no description set)
 
-    Commit ID: e8849ae12c709f2321908879bc724fdb2ab8a781
-    Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
-    Author   : Test User <test.user@example.com> (2001-02-03 08:05:07)
-    Committer: Test User <test.user@example.com> (2001-02-03 08:05:07)
+    Revision ID: e8849ae12c709f2321908879bc724fdb2ab8a781
+    Change ID  : qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    Author     : Test User <test.user@example.com> (2001-02-03 08:05:07)
+    Committer  : Test User <test.user@example.com> (2001-02-03 08:05:07)
 
         (no description set)
 
-    Commit ID: 0000000000000000000000000000000000000000
-    Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
-    Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
-    Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
+    Revision ID: 0000000000000000000000000000000000000000
+    Change ID  : zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+    Author     : (no name set) <(no email set)> (1970-01-01 11:00:00)
+    Committer  : (no name set) <(no email set)> (1970-01-01 11:00:00)
 
         (no description set)
 
@@ -434,25 +434,25 @@ fn test_log_builtin_templates_colored() {
     ");
 
     insta::assert_snapshot!(render(r#"builtin_log_detailed"#), @r"
-    [1m[38;5;2m@[0m  Commit ID: [38;5;4maec3ec964d0771edea9da48a2a170bc6ffa1c725[39m
-    │  Change ID: [38;5;5mrlvkpnrzqnoowoytxnquwvuryrwnrmlp[39m
-    │  Bookmarks: [38;5;5mmy-bookmark[39m
-    │  Author   : [38;5;1m(no name set)[39m <[38;5;1m(no email set)[39m> ([38;5;6m2001-02-03 08:05:08[39m)
-    │  Committer: [38;5;1m(no name set)[39m <[38;5;1m(no email set)[39m> ([38;5;6m2001-02-03 08:05:08[39m)
+    [1m[38;5;2m@[0m  Revision ID: [38;5;4maec3ec964d0771edea9da48a2a170bc6ffa1c725[39m
+    │  Change ID  : [38;5;5mrlvkpnrzqnoowoytxnquwvuryrwnrmlp[39m
+    │  Bookmarks  : [38;5;5mmy-bookmark[39m
+    │  Author     : [38;5;1m(no name set)[39m <[38;5;1m(no email set)[39m> ([38;5;6m2001-02-03 08:05:08[39m)
+    │  Committer  : [38;5;1m(no name set)[39m <[38;5;1m(no email set)[39m> ([38;5;6m2001-02-03 08:05:08[39m)
     │
     │  [38;5;2m    (no description set)[39m
     │
-    ○  Commit ID: [38;5;4me8849ae12c709f2321908879bc724fdb2ab8a781[39m
-    │  Change ID: [38;5;5mqpvuntsmwlqtpsluzzsnyyzlmlwvmlnu[39m
-    │  Author   : [38;5;3mTest User[39m <[38;5;3mtest.user@example.com[39m> ([38;5;6m2001-02-03 08:05:07[39m)
-    │  Committer: [38;5;3mTest User[39m <[38;5;3mtest.user@example.com[39m> ([38;5;6m2001-02-03 08:05:07[39m)
+    ○  Revision ID: [38;5;4me8849ae12c709f2321908879bc724fdb2ab8a781[39m
+    │  Change ID  : [38;5;5mqpvuntsmwlqtpsluzzsnyyzlmlwvmlnu[39m
+    │  Author     : [38;5;3mTest User[39m <[38;5;3mtest.user@example.com[39m> ([38;5;6m2001-02-03 08:05:07[39m)
+    │  Committer  : [38;5;3mTest User[39m <[38;5;3mtest.user@example.com[39m> ([38;5;6m2001-02-03 08:05:07[39m)
     │
     │  [38;5;2m    (no description set)[39m
     │
-    [1m[38;5;14m◆[0m  Commit ID: [38;5;4m0000000000000000000000000000000000000000[39m
-       Change ID: [38;5;5mzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz[39m
-       Author   : [38;5;1m(no name set)[39m <[38;5;1m(no email set)[39m> ([38;5;6m1970-01-01 11:00:00[39m)
-       Committer: [38;5;1m(no name set)[39m <[38;5;1m(no email set)[39m> ([38;5;6m1970-01-01 11:00:00[39m)
+    [1m[38;5;14m◆[0m  Revision ID: [38;5;4m0000000000000000000000000000000000000000[39m
+       Change ID  : [38;5;5mzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz[39m
+       Author     : [38;5;1m(no name set)[39m <[38;5;1m(no email set)[39m> ([38;5;6m1970-01-01 11:00:00[39m)
+       Committer  : [38;5;1m(no name set)[39m <[38;5;1m(no email set)[39m> ([38;5;6m1970-01-01 11:00:00[39m)
 
        [38;5;2m    (no description set)[39m
 
@@ -503,25 +503,25 @@ fn test_log_builtin_templates_colored_debug() {
     ");
 
     insta::assert_snapshot!(render(r#"builtin_log_detailed"#), @r"
-    [1m[38;5;2m<<log commit node working_copy mutable::@>>[0m  <<log commit::Commit ID: >>[38;5;4m<<log commit commit_id::aec3ec964d0771edea9da48a2a170bc6ffa1c725>>[39m<<log commit::>>
-    │  <<log commit::Change ID: >>[38;5;5m<<log commit change_id::rlvkpnrzqnoowoytxnquwvuryrwnrmlp>>[39m<<log commit::>>
-    │  <<log commit::Bookmarks: >>[38;5;5m<<log commit local_bookmarks name::my-bookmark>>[39m<<log commit::>>
-    │  <<log commit::Author   : >>[38;5;1m<<log commit name placeholder::(no name set)>>[39m<<log commit:: <>>[38;5;1m<<log commit email placeholder::(no email set)>>[39m<<log commit::> (>>[38;5;6m<<log commit author timestamp local format::2001-02-03 08:05:08>>[39m<<log commit::)>>
-    │  <<log commit::Committer: >>[38;5;1m<<log commit name placeholder::(no name set)>>[39m<<log commit:: <>>[38;5;1m<<log commit email placeholder::(no email set)>>[39m<<log commit::> (>>[38;5;6m<<log commit committer timestamp local format::2001-02-03 08:05:08>>[39m<<log commit::)>>
+    [1m[38;5;2m<<log commit node working_copy mutable::@>>[0m  <<log commit::Revision ID: >>[38;5;4m<<log commit commit_id::aec3ec964d0771edea9da48a2a170bc6ffa1c725>>[39m<<log commit::>>
+    │  <<log commit::Change ID  : >>[38;5;5m<<log commit change_id::rlvkpnrzqnoowoytxnquwvuryrwnrmlp>>[39m<<log commit::>>
+    │  <<log commit::Bookmarks  : >>[38;5;5m<<log commit local_bookmarks name::my-bookmark>>[39m<<log commit::>>
+    │  <<log commit::Author     : >>[38;5;1m<<log commit name placeholder::(no name set)>>[39m<<log commit:: <>>[38;5;1m<<log commit email placeholder::(no email set)>>[39m<<log commit::> (>>[38;5;6m<<log commit author timestamp local format::2001-02-03 08:05:08>>[39m<<log commit::)>>
+    │  <<log commit::Committer  : >>[38;5;1m<<log commit name placeholder::(no name set)>>[39m<<log commit:: <>>[38;5;1m<<log commit email placeholder::(no email set)>>[39m<<log commit::> (>>[38;5;6m<<log commit committer timestamp local format::2001-02-03 08:05:08>>[39m<<log commit::)>>
     │  <<log commit::>>
     │  [38;5;2m<<log commit empty description placeholder::    (no description set)>>[39m<<log commit::>>
     │  <<log commit::>>
-    <<log commit node mutable::○>>  <<log commit::Commit ID: >>[38;5;4m<<log commit commit_id::e8849ae12c709f2321908879bc724fdb2ab8a781>>[39m<<log commit::>>
-    │  <<log commit::Change ID: >>[38;5;5m<<log commit change_id::qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu>>[39m<<log commit::>>
-    │  <<log commit::Author   : >>[38;5;3m<<log commit author name::Test User>>[39m<<log commit:: <>>[38;5;3m<<log commit author email local::test.user>><<log commit author email::@>><<log commit author email domain::example.com>>[39m<<log commit::> (>>[38;5;6m<<log commit author timestamp local format::2001-02-03 08:05:07>>[39m<<log commit::)>>
-    │  <<log commit::Committer: >>[38;5;3m<<log commit committer name::Test User>>[39m<<log commit:: <>>[38;5;3m<<log commit committer email local::test.user>><<log commit committer email::@>><<log commit committer email domain::example.com>>[39m<<log commit::> (>>[38;5;6m<<log commit committer timestamp local format::2001-02-03 08:05:07>>[39m<<log commit::)>>
+    <<log commit node mutable::○>>  <<log commit::Revision ID: >>[38;5;4m<<log commit commit_id::e8849ae12c709f2321908879bc724fdb2ab8a781>>[39m<<log commit::>>
+    │  <<log commit::Change ID  : >>[38;5;5m<<log commit change_id::qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu>>[39m<<log commit::>>
+    │  <<log commit::Author     : >>[38;5;3m<<log commit author name::Test User>>[39m<<log commit:: <>>[38;5;3m<<log commit author email local::test.user>><<log commit author email::@>><<log commit author email domain::example.com>>[39m<<log commit::> (>>[38;5;6m<<log commit author timestamp local format::2001-02-03 08:05:07>>[39m<<log commit::)>>
+    │  <<log commit::Committer  : >>[38;5;3m<<log commit committer name::Test User>>[39m<<log commit:: <>>[38;5;3m<<log commit committer email local::test.user>><<log commit committer email::@>><<log commit committer email domain::example.com>>[39m<<log commit::> (>>[38;5;6m<<log commit committer timestamp local format::2001-02-03 08:05:07>>[39m<<log commit::)>>
     │  <<log commit::>>
     │  [38;5;2m<<log commit empty description placeholder::    (no description set)>>[39m<<log commit::>>
     │  <<log commit::>>
-    [1m[38;5;14m<<log commit node immutable::◆>>[0m  <<log commit::Commit ID: >>[38;5;4m<<log commit commit_id::0000000000000000000000000000000000000000>>[39m<<log commit::>>
-       <<log commit::Change ID: >>[38;5;5m<<log commit change_id::zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz>>[39m<<log commit::>>
-       <<log commit::Author   : >>[38;5;1m<<log commit name placeholder::(no name set)>>[39m<<log commit:: <>>[38;5;1m<<log commit email placeholder::(no email set)>>[39m<<log commit::> (>>[38;5;6m<<log commit author timestamp local format::1970-01-01 11:00:00>>[39m<<log commit::)>>
-       <<log commit::Committer: >>[38;5;1m<<log commit name placeholder::(no name set)>>[39m<<log commit:: <>>[38;5;1m<<log commit email placeholder::(no email set)>>[39m<<log commit::> (>>[38;5;6m<<log commit committer timestamp local format::1970-01-01 11:00:00>>[39m<<log commit::)>>
+    [1m[38;5;14m<<log commit node immutable::◆>>[0m  <<log commit::Revision ID: >>[38;5;4m<<log commit commit_id::0000000000000000000000000000000000000000>>[39m<<log commit::>>
+       <<log commit::Change ID  : >>[38;5;5m<<log commit change_id::zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz>>[39m<<log commit::>>
+       <<log commit::Author     : >>[38;5;1m<<log commit name placeholder::(no name set)>>[39m<<log commit:: <>>[38;5;1m<<log commit email placeholder::(no email set)>>[39m<<log commit::> (>>[38;5;6m<<log commit author timestamp local format::1970-01-01 11:00:00>>[39m<<log commit::)>>
+       <<log commit::Committer  : >>[38;5;1m<<log commit name placeholder::(no name set)>>[39m<<log commit:: <>>[38;5;1m<<log commit email placeholder::(no email set)>>[39m<<log commit::> (>>[38;5;6m<<log commit committer timestamp local format::1970-01-01 11:00:00>>[39m<<log commit::)>>
        <<log commit::>>
        [38;5;2m<<log commit empty description placeholder::    (no description set)>>[39m<<log commit::>>
        <<log commit::>>
@@ -1576,19 +1576,19 @@ fn test_signature_templates() {
 
     let output = work_dir.run_jj_with(|cmd| cmd.args(args).arg("builtin_log_detailed"));
     insta::assert_snapshot!(output, @r"
-    @  Commit ID: eb0e9b58b724003df03b4277d3066c1c20187ce5
-    │  Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
-    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
-    │  Signature: good signature by test-display
+    @  Revision ID: eb0e9b58b724003df03b4277d3066c1c20187ce5
+    │  Change ID  : rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    │  Author     : Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │  Signature  : good signature by test-display
     │
     │      signed
     │
-    ○  Commit ID: 0604e056feaf8ee553fae4e06d4bfc57cdd319d6
-    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
-    ~  Author   : Test User <test.user@example.com> (2001-02-03 08:05:08)
-       Committer: Test User <test.user@example.com> (2001-02-03 08:05:08)
-       Signature: (no signature)
+    ○  Revision ID: 0604e056feaf8ee553fae4e06d4bfc57cdd319d6
+    │  Change ID  : qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    ~  Author     : Test User <test.user@example.com> (2001-02-03 08:05:08)
+       Committer  : Test User <test.user@example.com> (2001-02-03 08:05:08)
+       Signature  : (no signature)
 
            unsigned
 
