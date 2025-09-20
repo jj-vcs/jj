@@ -345,6 +345,7 @@ fn test_config_list_origin() {
     template-aliases.commit_summary_separator = "revision_summary_separator" # cli
     template-aliases."commit_timestamp(commit)" = "revision_timestamp(commit)" # cli
     template-aliases.default_commit_description = "default_revision_description" # cli
+    template-aliases."format_commit_summary_with_refs(commit, refs)" = "format_revision_summary_with_refs(commit, refs)" # cli
     [EOF]
     "#);
 

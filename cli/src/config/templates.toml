@@ -12,7 +12,7 @@ if(remote,
 ) ++ "\n"
 '''
 
-revision_summary = 'format_commit_summary_with_refs(self, bookmarks)'
+revision_summary = 'format_revision_summary_with_refs(self, bookmarks)'
 
 file_annotate = '''
 separate(" ",
@@ -58,7 +58,7 @@ label("tag", name) ++ format_ref_targets(self) ++ "\n"
 '''
 
 workspace_list = '''
-name ++ ": " ++ format_commit_summary_with_refs(target, target.bookmarks()) ++ "\n"
+name ++ ": " ++ format_revision_summary_with_refs(target, target.bookmarks()) ++ "\n"
 '''
 
 op_summary = '''
@@ -328,19 +328,19 @@ revision_summary_separator = 'label("separator", " | ")'
   time_range.end().ago() ++ label("time", ", lasted ") ++ time_range.duration()'''
 'format_timestamp(timestamp)' = 'timestamp.local().format("%Y-%m-%d %H:%M:%S")'
 
-'format_commit_summary_with_refs(commit, refs)' = '''
-label(if(commit.current_working_copy(), "working_copy"),
+'format_revision_summary_with_refs(revision, refs)' = '''
+label(if(revision.current_working_copy(), "working_copy"),
   separate(" ",
-    format_short_change_id_with_hidden_and_divergent_info(commit),
-    format_short_commit_id(commit.commit_id()),
+    format_short_change_id_with_hidden_and_divergent_info(revision),
+    format_short_commit_id(revision.commit_id()),
     separate(revision_summary_separator,
       refs,
       separate(" ",
-        if(commit.conflict(), label("conflict", "(conflict)")),
-        if(commit.empty(), empty_commit_marker),
-        if(commit.description(),
-          commit.description().first_line(),
-          label(if(commit.empty(), "empty"), description_placeholder),
+        if(revision.conflict(), label("conflict", "(conflict)")),
+        if(revision.empty(), empty_commit_marker),
+        if(revision.description(),
+          revision.description().first_line(),
+          label(if(revision.empty(), "empty"), description_placeholder),
         ),
       ),
     ),
@@ -363,10 +363,10 @@ label("immutable",
 if(ref.conflict(),
   separate("\n",
     " " ++ label("conflict", "(conflicted)") ++ ":",
-    ref.removed_targets().map(|c| "  - " ++ format_commit_summary_with_refs(c, "")).join("\n"),
-    ref.added_targets().map(|c| "  + " ++ format_commit_summary_with_refs(c, "")).join("\n"),
+    ref.removed_targets().map(|c| "  - " ++ format_revision_summary_with_refs(c, "")).join("\n"),
+    ref.added_targets().map(|c| "  + " ++ format_revision_summary_with_refs(c, "")).join("\n"),
   ),
-  ": " ++ format_commit_summary_with_refs(ref.normal_target(), ""),
+  ": " ++ format_revision_summary_with_refs(ref.normal_target(), ""),
 )
 '''
 
