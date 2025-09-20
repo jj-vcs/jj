@@ -143,7 +143,7 @@ concat(
 builtin_log_oneline = 'builtin_log_oneline(self)'
 'builtin_log_oneline(commit)' = '''
 if(commit.root(),
-  format_root_commit(commit),
+  format_root_revision(commit),
   label(
     separate(" ",
       if(commit.current_working_copy(), "working_copy"),
@@ -177,7 +177,7 @@ if(commit.root(),
 builtin_log_compact = 'builtin_log_compact(self)'
 'builtin_log_compact(commit)' = '''
 if(commit.root(),
-  format_root_commit(commit),
+  format_root_revision(commit),
   label(
     separate(" ",
       if(commit.current_working_copy(), "working_copy"),
@@ -201,7 +201,7 @@ if(commit.root(),
 builtin_log_redacted = 'builtin_log_redacted(self)'
 'builtin_log_redacted(commit)' = '''
 if(commit.root(),
-  format_root_commit(commit),
+  format_root_revision(commit),
   label(
     separate(" ",
       if(commit.current_working_copy(), "working_copy"),
@@ -222,7 +222,7 @@ if(commit.root(),
 builtin_log_compact_full_description = 'builtin_log_compact_full_description(self)'
 'builtin_log_compact_full_description(commit)' = '''
 if(commit.root(),
-  format_root_commit(commit),
+  format_root_revision(commit),
   label(
     separate(" ",
       if(commit.current_working_copy(), "working_copy"),
@@ -348,7 +348,7 @@ label(if(revision.current_working_copy(), "working_copy"),
 )
 '''
 
-'format_root_commit(root)' = '''
+'format_root_revision(root)' = '''
 label("immutable",
   separate(" ",
     format_short_change_id(root.change_id()),

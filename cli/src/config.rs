@@ -807,6 +807,12 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
             "template-aliases.\"format_revision_summary_with_refs(revision, refs)\"",
             "template-aliases.\"format_revision_summary_with_refs(commit, refs)\"",
         ),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::rename_template_alias(
+            "template-aliases.\"format_root_commit(root)\"",
+            "template-aliases.\"format_root_revision(root)\"",
+            "template-aliases.\"format_root_revision(root)\"",
+        ),
     ]
 }
 

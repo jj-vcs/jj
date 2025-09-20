@@ -938,6 +938,7 @@ fn test_default_config() {
     template-aliases."commit_timestamp(commit)"
     template-aliases.default_commit_description
     template-aliases."format_commit_summary_with_refs(commit, refs)"
+    template-aliases."format_root_commit(root)"
     [EOF]
     "#);
 
