@@ -991,7 +991,7 @@ fn test_add_trailer() {
         "-m",
         "Message from CLI",
         "--config",
-        r#"templates.commit_trailers='"Signed-off-by: " ++ committer'"#,
+        r#"templates.revision_trailers='"Signed-off-by: " ++ committer'"#,
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1013,7 +1013,7 @@ fn test_add_trailer() {
         "describe",
         "--no-edit",
         "--config",
-        r#"templates.commit_trailers='"CC: alice@example.com\nChange-Id: I6a6a6964" ++ self.change_id().normal_hex()'"#,
+        r#"templates.revision_trailers='"CC: alice@example.com\nChange-Id: I6a6a6964" ++ self.change_id().normal_hex()'"#,
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1038,7 +1038,7 @@ fn test_add_trailer() {
         "describe",
         "--no-edit",
         "--config",
-        r#"templates.commit_trailers='"CC: alice@example.com"'"#,
+        r#"templates.revision_trailers='"CC: alice@example.com"'"#,
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1062,7 +1062,7 @@ fn test_add_trailer() {
         "describe",
         "--no-edit",
         "--config",
-        r#"templates.commit_trailers='"this is an invalid trailer"'"#,
+        r#"templates.revision_trailers='"this is an invalid trailer"'"#,
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1084,7 +1084,7 @@ fn test_add_trailer() {
         "describe",
         "--no-edit",
         "--config",
-        r#"templates.commit_trailers='"CC: alice@example.com"'"#,
+        r#"templates.revision_trailers='"CC: alice@example.com"'"#,
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1102,7 +1102,7 @@ fn test_add_trailer_committer() {
     let work_dir = test_env.work_dir("repo");
     test_env.add_config(
         r#"[templates]
-        commit_trailers = '''"Signed-off-by: " ++ committer.email()'''"#,
+        revision_trailers = '''"Signed-off-by: " ++ committer.email()'''"#,
     );
 
     let output = work_dir.run_jj(["describe", "-m", "Message from CLI"]);

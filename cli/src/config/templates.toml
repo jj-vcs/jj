@@ -29,7 +29,7 @@ draft_commit_description = 'builtin_draft_commit_description'
 
 duplicate_description = 'description'
 
-commit_trailers = ''
+revision_trailers = ''
 
 evolog = 'builtin_evolog_compact'
 

@@ -1087,7 +1087,7 @@ fn test_split_with_non_empty_description_and_trailers() {
 
     test_env.add_config(
         r#"[templates]
-        commit_trailers = '''"Signed-off-by: " ++ committer.email()'''"#,
+        revision_trailers = '''"Signed-off-by: " ++ committer.email()'''"#,
     );
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @r#"
@@ -1170,7 +1170,7 @@ fn test_split_with_message() {
     let output = work_dir.run_jj([
         "split",
         "--config",
-        r#"templates.commit_trailers='"CC: " ++ committer.email()'"#,
+        r#"templates.revision_trailers='"CC: " ++ committer.email()'"#,
         "-m",
         "fix in file1",
         "file1",

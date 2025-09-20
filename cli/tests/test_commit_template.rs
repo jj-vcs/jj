@@ -1682,7 +1682,7 @@ fn test_log_format_trailers() {
             "-r@",
             "-m",
             "a change with trailers",
-            r#"--config=templates.commit_trailers="format_signed_off_by_trailer(self) ++ format_gerrit_change_id_trailer(self)""#,
+            r#"--config=templates.revision_trailers="format_signed_off_by_trailer(self) ++ format_gerrit_change_id_trailer(self)""#,
         ])
         .success();
 

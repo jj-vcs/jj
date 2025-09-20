@@ -869,7 +869,7 @@
                     "type": "string",
                     "description": "The short revision summary used by many commands"
                 },
-                "commit_trailers": {
+                "revision_trailers": {
                     "type": "string",
                     "description": "Trailers that will be appended to a commit's description"
                 },

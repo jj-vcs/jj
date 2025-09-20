@@ -819,7 +819,7 @@ fn test_new_with_trailers() {
 
     test_env.add_config(
         r#"[templates]
-        commit_trailers = '"Signed-off-by: " ++ committer.email()'
+        revision_trailers = '"Signed-off-by: " ++ committer.email()'
         "#,
     );
     work_dir.run_jj(["new", "-m", "two"]).success();
