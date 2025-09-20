@@ -347,6 +347,7 @@ fn test_config_list_origin() {
     template-aliases.default_commit_description = "default_revision_description" # cli
     template-aliases."format_commit_summary_with_refs(commit, refs)" = "format_revision_summary_with_refs(commit, refs)" # cli
     template-aliases."format_root_commit(root)" = "format_root_revision(root)" # cli
+    template-aliases."format_short_commit_header_redacted(commit)" = "format_short_revision_header_redacted(commit)" # cli
     [EOF]
     "#);
 

@@ -939,6 +939,7 @@ fn test_default_config() {
     template-aliases.default_commit_description
     template-aliases."format_commit_summary_with_refs(commit, refs)"
     template-aliases."format_root_commit(root)"
+    template-aliases."format_short_commit_header_redacted(commit)"
     [EOF]
     "#);
 

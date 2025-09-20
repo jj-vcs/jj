@@ -209,7 +209,7 @@ if(commit.root(),
       if(commit.conflict(), "conflicted"),
     ),
     concat(
-      format_short_commit_header_redacted(commit) ++ "\n",
+      format_short_revision_header_redacted(commit) ++ "\n",
       separate(" ",
         if(commit.empty(), empty_commit_marker),
         label("description", "(redacted)"),
@@ -441,25 +441,25 @@ separate(" ",
 )
 '''
 
-'format_short_commit_header_redacted(commit)' = '''
+'format_short_revision_header_redacted(revision)' = '''
 separate(" ",
-  format_short_change_id_with_hidden_and_divergent_info(commit),
-  label("author", format_user_redacted(commit.author())),
-  format_timestamp(revision_timestamp(commit)),
-  commit.bookmarks().map(|bookmark| concat(
+  format_short_change_id_with_hidden_and_divergent_info(revision),
+  label("author", format_user_redacted(revision.author())),
+  format_timestamp(revision_timestamp(revision)),
+  revision.bookmarks().map(|bookmark| concat(
     "bookmark-", hash(bookmark.name()).substr(0, 4),
     if(bookmark.remote(),
       "@remote-" ++ hash(bookmark.remote()).substr(0, 4),
       if(!bookmark.synced(), "*")
     )
   )),
-  commit.tags().map(|tag| concat("tag-", hash(tag.name()).substr(0, 4))),
-  commit.working_copies(),
-  if(commit.git_head(), label("git_head", "git_head()")),
-  format_short_commit_id(commit.commit_id()),
-  if(commit.conflict(), label("conflict", "conflict")),
+  revision.tags().map(|tag| concat("tag-", hash(tag.name()).substr(0, 4))),
+  revision.working_copies(),
+  if(revision.git_head(), label("git_head", "git_head()")),
+  format_short_commit_id(revision.commit_id()),
+  if(revision.conflict(), label("conflict", "conflict")),
   if(config("ui.show-cryptographic-signatures").as_boolean(),
-    format_short_cryptographic_signature(commit.signature())),
+    format_short_cryptographic_signature(revision.signature())),
 )
 ''' # TODO: Possibly add some kind of repo-unique salt to the hash methods, if it makes users feel more secure (right now, `main` will always be `branch-c8c7a` for every repo)
 
