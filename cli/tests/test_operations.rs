@@ -216,6 +216,7 @@ fn test_op_log_with_no_template() {
     - empty_commit_marker
     - git_format_patch_email_headers
     - name_placeholder
+    - revision_summary_separator
     [EOF]
     [exit status: 2]
     ");

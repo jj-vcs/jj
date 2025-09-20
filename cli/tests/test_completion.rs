@@ -1149,13 +1149,13 @@ fn test_template_alias() {
     builtin_op_log_node_ascii
     builtin_op_log_oneline
     builtin_op_log_redacted
-    commit_summary_separator
     default_commit_description
     description_placeholder
     email_placeholder
     empty_commit_marker
     git_format_patch_email_headers
     name_placeholder
+    revision_summary_separator
     [EOF]
     ");
 }

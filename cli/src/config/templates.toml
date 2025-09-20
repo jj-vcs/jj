@@ -302,7 +302,7 @@ empty_commit_marker = 'label("empty", "(empty)")'
 description_placeholder = 'label("description placeholder", "(no description set)")'
 email_placeholder = 'label("email placeholder", "(no email set)")'
 name_placeholder = 'label("name placeholder", "(no name set)")'
-commit_summary_separator = 'label("separator", " | ")'
+revision_summary_separator = 'label("separator", " | ")'
 
 # Hook points for users to customize the default templates:
 'commit_timestamp(commit)' = 'commit.committer().timestamp()'
@@ -333,7 +333,7 @@ label(if(commit.current_working_copy(), "working_copy"),
   separate(" ",
     format_short_change_id_with_hidden_and_divergent_info(commit),
     format_short_commit_id(commit.commit_id()),
-    separate(commit_summary_separator,
+    separate(revision_summary_separator,
       refs,
       separate(" ",
         if(commit.conflict(), label("conflict", "(conflict)")),
