@@ -54,6 +54,10 @@ pub(crate) struct ConfigLevelArgs {
     /// Target the repo-level config
     #[arg(long)]
     repo: bool,
+
+    /// Target the workspace-level config
+    #[arg(long)]
+    workspace: bool,
 }
 
 impl ConfigLevelArgs {
@@ -62,6 +66,8 @@ impl ConfigLevelArgs {
             Some(ConfigSource::User)
         } else if self.repo {
             Some(ConfigSource::Repo)
+        } else if self.workspace {
+            Some(ConfigSource::Workspace)
         } else {
             None
         }
@@ -79,6 +85,11 @@ impl ConfigLevelArgs {
                 .repo_config_path()
                 .map(|p| vec![p])
                 .ok_or_else(|| user_error("No repo config path found"))
+        } else if self.workspace {
+            config_env
+                .workspace_config_path()
+                .map(|p| vec![p])
+                .ok_or_else(|| user_error("No workspace config path found"))
         } else {
             panic!("No config_level provided")
         }
@@ -115,6 +126,11 @@ impl ConfigLevelArgs {
             pick_one(
                 config_env.repo_config_files(config)?,
                 "No repo config path found to edit",
+            )
+        } else if self.workspace {
+            pick_one(
+                config_env.workspace_config_files(config)?,
+                "No workspace config path found to edit",
             )
         } else {
             panic!("No config_level provided")
