@@ -52,6 +52,7 @@ use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetParseError;
 use jj_lib::revset::RevsetParseErrorKind;
 use jj_lib::revset::RevsetResolutionError;
+use jj_lib::rewrite::SquashCommitsError;
 use jj_lib::str_util::StringPatternParseError;
 use jj_lib::trailer::TrailerParseError;
 use jj_lib::transaction::TransactionCommitError;
@@ -324,6 +325,24 @@ impl From<BackendError> for CommandError {
         match &err {
             BackendError::Unsupported(_) => user_error(err),
             _ => internal_error_with_message("Unexpected error from backend", err),
+        }
+    }
+}
+
+impl From<SquashCommitsError> for CommandError {
+    fn from(err: SquashCommitsError) -> Self {
+        match err {
+            SquashCommitsError::BackendError(err) => err.into(),
+            SquashCommitsError::RestoreDescendantsPartialGrandparentSquash { .. } => user_error(
+                err,
+            )
+            .hinted(SquashCommitsError::HINT_RESTORE_DESCENDANTS_UNSUPPORTED_SQUASH_WORKAROUND)
+            .hinted(SquashCommitsError::HINT_RESTORE_DESCENDANTS_PARTIAL_GRADNPARENT_SQUASH_REASON),
+            SquashCommitsError::RestoreDescendantsMultipleParentSquashUnimplemented { .. } => {
+                user_error(err).hinted(
+                    SquashCommitsError::HINT_RESTORE_DESCENDANTS_UNSUPPORTED_SQUASH_WORKAROUND,
+                )
+            }
         }
     }
 }
