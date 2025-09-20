@@ -447,7 +447,7 @@ pub fn description_template(
     commit: &Commit,
 ) -> Result<String, CommandError> {
     // Named as "draft" because the output can contain "JJ:" comment lines.
-    let template_key = "templates.draft_commit_description";
+    let template_key = "templates.draft_revision_description";
     let template_text = tx.settings().get_string(template_key)?;
     let template = tx.parse_commit_template(ui, &template_text)?;
 
