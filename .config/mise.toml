@@ -14,6 +14,12 @@ uv_version = "0.8.13"
 # We need cargo-binstall so that Mise would download "cargo:" tools instead of building them.
 "cargo-binstall" = "latest"
 
+[tasks."review:cli-reference"]
+description = "Build and review the changes to the command line reference (cli/tests/cli-reference@.md.snap)"
+tools.rust = "{{vars.rust_version}}"
+tools."cargo:cargo-insta" = "{{vars.cargo_insta_version}}"
+run = "cargo insta test --review --workspace -- test_generate_md_cli_help"
+
 [tasks."build:cli-reference"]
 description = "Build the command line reference (cli/tests/cli-reference@.md.snap)"
 tools.rust = "{{vars.rust_version}}"
