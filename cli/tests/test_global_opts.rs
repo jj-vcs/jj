@@ -941,6 +941,7 @@ fn test_default_config() {
     template-aliases."format_root_commit(root)"
     template-aliases."format_short_commit_header_redacted(commit)"
     template-aliases."format_short_commit_header(commit)"
+    template-aliases."format_short_commit_id(id)"
     [EOF]
     "#);
 
