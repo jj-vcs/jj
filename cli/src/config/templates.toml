@@ -185,7 +185,7 @@ if(commit.root(),
       if(commit.conflict(), "conflicted"),
     ),
     concat(
-      format_short_commit_header(commit) ++ "\n",
+      format_short_revision_header(commit) ++ "\n",
       separate(" ",
         if(commit.empty(), empty_commit_marker),
         if(commit.description(),
@@ -230,7 +230,7 @@ if(commit.root(),
       if(commit.conflict(), "conflicted"),
     ),
     concat(
-      format_short_commit_header(commit) ++ "\n",
+      format_short_revision_header(commit) ++ "\n",
       separate(" ",
         if(commit.empty(), empty_commit_marker),
         if(commit.description(),
@@ -425,19 +425,19 @@ if(commit.hidden(),
 )
 '''
 
-'format_short_commit_header(commit)' = '''
+'format_short_revision_header(revision)' = '''
 separate(" ",
-  format_short_change_id_with_hidden_and_divergent_info(commit),
-  format_short_signature(commit.author()),
-  format_timestamp(revision_timestamp(commit)),
-  commit.bookmarks(),
-  commit.tags(),
-  commit.working_copies(),
-  if(commit.git_head(), label("git_head", "git_head()")),
-  format_short_commit_id(commit.commit_id()),
-  if(commit.conflict(), label("conflict", "conflict")),
+  format_short_change_id_with_hidden_and_divergent_info(revision),
+  format_short_signature(revision.author()),
+  format_timestamp(revision_timestamp(revision)),
+  revision.bookmarks(),
+  revision.tags(),
+  revision.working_copies(),
+  if(revision.git_head(), label("git_head", "git_head()")),
+  format_short_commit_id(revision.commit_id()),
+  if(revision.conflict(), label("conflict", "conflict")),
   if(config("ui.show-cryptographic-signatures").as_boolean(),
-    format_short_cryptographic_signature(commit.signature())),
+    format_short_cryptographic_signature(revision.signature())),
 )
 '''
 
