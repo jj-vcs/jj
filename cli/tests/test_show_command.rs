@@ -331,6 +331,7 @@ fn test_show_with_no_template() {
     - email_placeholder
     - git_format_patch_email_headers
     - name_placeholder
+    - revision_summary_separator
     [EOF]
     [exit status: 2]
     ");
