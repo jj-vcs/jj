@@ -936,6 +936,7 @@ fn test_default_config() {
     template-aliases.builtin_draft_commit_description
     template-aliases.commit_summary_separator
     template-aliases."commit_timestamp(commit)"
+    template-aliases.default_commit_description
     [EOF]
     "#);
 

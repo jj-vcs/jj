@@ -116,7 +116,7 @@ label(if(overridden, "overridden"),
 
 builtin_draft_revision_description = '''
 concat(
-  coalesce(description, default_commit_description, "\n"),
+  coalesce(description, default_revision_description, "\n"),
   "\n",
   "JJ: Change ID: " ++ format_short_change_id(change_id) ++ "\n",
   surround(
@@ -297,7 +297,7 @@ label(if(op.current_operation(), "current_operation"),
 )
 '''
 
-default_commit_description = '""'
+default_revision_description = '""'
 empty_commit_marker = 'label("empty", "(empty)")'
 description_placeholder = 'label("description placeholder", "(no description set)")'
 email_placeholder = 'label("email placeholder", "(no email set)")'

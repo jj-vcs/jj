@@ -1149,7 +1149,7 @@ fn test_template_alias() {
     builtin_op_log_node_ascii
     builtin_op_log_oneline
     builtin_op_log_redacted
-    default_commit_description
+    default_revision_description
     description_placeholder
     email_placeholder
     empty_commit_marker

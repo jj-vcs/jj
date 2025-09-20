@@ -728,7 +728,7 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
         // TODO: Delete in jj 0.35.0+
         ConfigMigrationRule::rename_update_value(
             "ui.default-description",
-            "template-aliases.default_commit_description",
+            "template-aliases.default_revision_description",
             |old_value| {
                 let value = old_value.as_str().ok_or("expected a string")?;
                 // Trailing newline would be padded by templater (in jj < 0.31)
@@ -794,6 +794,12 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
             "template-aliases.\"commit_timestamp(commit)\"",
             "template-aliases.\"revision_timestamp(revision)\"",
             "template-aliases.\"revision_timestamp(commit)\"",
+        ),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::rename_template_alias(
+            "template-aliases.default_commit_description",
+            "template-aliases.default_revision_description",
+            "template-aliases.default_revision_description",
         ),
     ]
 }
