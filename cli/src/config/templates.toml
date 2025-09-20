@@ -49,7 +49,7 @@ revert_description = '''
 concat(
   'Revert "' ++ description.first_line() ++ '"' ++ "\n",
   "\n",
-  "This reverts commit " ++ commit_id ++ ".\n",
+  "This reverts revision " ++ commit_id ++ ".\n",
 )
 '''
 
@@ -120,7 +120,7 @@ concat(
   "\n",
   "JJ: Change ID: " ++ format_short_change_id(change_id) ++ "\n",
   surround(
-    "JJ: This commit contains the following changes:\n", "",
+    "JJ: This revision contains the following changes:\n", "",
     indent("JJ:     ", diff.summary()),
   ),
 )
@@ -247,14 +247,14 @@ builtin_log_comfortable = 'builtin_log_compact ++ "\n"'
 builtin_log_detailed = 'builtin_log_detailed(self)'
 'builtin_log_detailed(revision)' = '''
 concat(
-  "Commit ID: " ++ revision.commit_id() ++ "\n",
-  "Change ID: " ++ revision.change_id() ++ "\n",
-  surround("Bookmarks: ", "\n", separate(" ", revision.local_bookmarks(), revision.remote_bookmarks())),
-  surround("Tags     : ", "\n", revision.tags()),
-  "Author   : " ++ format_detailed_signature(revision.author()) ++ "\n",
-  "Committer: " ++ format_detailed_signature(revision.committer())  ++ "\n",
+  "Revision ID: " ++ revision.commit_id() ++ "\n",
+  "Change ID  : " ++ revision.change_id() ++ "\n",
+  surround("Bookmarks  : ", "\n", separate(" ", revision.local_bookmarks(), revision.remote_bookmarks())),
+  surround("Tags       : ", "\n", revision.tags()),
+  "Author     : " ++ format_detailed_signature(revision.author()) ++ "\n",
+  "Committer  : " ++ format_detailed_signature(revision.committer())  ++ "\n",
   if(config("ui.show-cryptographic-signatures").as_boolean(),
-    "Signature: " ++ format_detailed_cryptographic_signature(revision.signature()) ++ "\n"),
+    "Signature  : " ++ format_detailed_cryptographic_signature(revision.signature()) ++ "\n"),
   "\n",
   indent("    ",
     if(revision.description(),
@@ -374,12 +374,12 @@ if(ref.conflict(),
 if(ref.tracking_present(), surround("(", ")", separate(", ",
   if(!ref.tracking_ahead_count().zero(),
     if(ref.tracking_ahead_count().exact(),
-      "ahead by " ++ ref.tracking_ahead_count().exact() ++ " commits",
-      "ahead by at least " ++ ref.tracking_ahead_count().lower() ++ " commits")),
+      "ahead by " ++ ref.tracking_ahead_count().exact() ++ " revisions",
+      "ahead by at least " ++ ref.tracking_ahead_count().lower() ++ " revisions")),
   if(!ref.tracking_behind_count().zero(),
     if(ref.tracking_behind_count().exact(),
-      "behind by " ++ ref.tracking_behind_count().exact() ++ " commits",
-      "behind by at least " ++ ref.tracking_behind_count().lower() ++ " commits")),
+      "behind by " ++ ref.tracking_behind_count().exact() ++ " revisions",
+      "behind by at least " ++ ref.tracking_behind_count().lower() ++ " revisions")),
 )))
 '''
 

@@ -1299,7 +1299,7 @@ fn test_squash_description() {
     source
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:     A file2
     JJ:
@@ -1376,7 +1376,7 @@ fn test_squash_description() {
     CC: alice@example.com
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:     A file2
     JJ:
@@ -1995,7 +1995,7 @@ fn test_squash_to_new_commit() {
     file4
 
     JJ: Change ID: xlzxqlsl
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file3
     JJ:     A file4
     JJ:
@@ -2284,7 +2284,7 @@ fn test_squash_with_editor_combine_messages() {
     source
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -2319,7 +2319,7 @@ fn test_squash_with_editor_and_message_args() {
     message from command line
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -2359,11 +2359,10 @@ fn test_squash_with_editor_and_empty_message() {
     // Verify editor was opened with trailers added to the empty message
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
-
     Trailer: value
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.

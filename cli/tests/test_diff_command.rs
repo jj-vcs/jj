@@ -3131,10 +3131,10 @@ fn test_diff_external_tool() {
     ");
 
     insta::assert_snapshot!(work_dir.run_jj(["show", "--tool=fake-diff-editor"]), @r"
-    Commit ID: b1e84e171e795eeb9cea971f052a30a21255a0a5
-    Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
-    Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
-    Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+    Revision ID: b1e84e171e795eeb9cea971f052a30a21255a0a5
+    Change ID  : rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    Author     : Test User <test.user@example.com> (2001-02-03 08:05:09)
+    Committer  : Test User <test.user@example.com> (2001-02-03 08:05:09)
 
         (no description set)
 
@@ -3181,10 +3181,10 @@ fn test_diff_external_tool() {
     std::fs::write(&edit_script, "print diff\0fail").unwrap();
     let output = work_dir.run_jj(["show", "--tool=fake-diff-editor"]);
     insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
-    Commit ID: b1e84e171e795eeb9cea971f052a30a21255a0a5
-    Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
-    Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
-    Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+    Revision ID: b1e84e171e795eeb9cea971f052a30a21255a0a5
+    Change ID  : rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    Author     : Test User <test.user@example.com> (2001-02-03 08:05:09)
+    Committer  : Test User <test.user@example.com> (2001-02-03 08:05:09)
 
         (no description set)
 
@@ -3400,10 +3400,10 @@ fn test_diff_external_file_by_file_tool() {
     ");
 
     insta::assert_snapshot!(work_dir.run_jj_with(|cmd| cmd.arg("show").args(configs)), @r"
-    Commit ID: 6e901d9d82f5cdfab386fc2b601186158d12cab7
-    Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
-    Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
-    Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+    Revision ID: 6e901d9d82f5cdfab386fc2b601186158d12cab7
+    Change ID  : rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    Author     : Test User <test.user@example.com> (2001-02-03 08:05:09)
+    Committer  : Test User <test.user@example.com> (2001-02-03 08:05:09)
 
         (no description set)
 

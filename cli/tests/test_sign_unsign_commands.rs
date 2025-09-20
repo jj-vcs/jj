@@ -154,19 +154,19 @@ key = "some-key"
 
     let output = work_dir.run_jj(["log", "-r", "@-|@--", "-Tbuiltin_log_detailed"]);
     insta::assert_snapshot!(output, @r"
-    ○  Commit ID: 810ff318afe002ce54260260e4d4f7071eb476ed
-    │  Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
-    │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 08:05:11)
-    │  Signature: good signature by test-display some-key
+    ○  Revision ID: 810ff318afe002ce54260260e4d4f7071eb476ed
+    │  Change ID  : rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    │  Author     : Test User <test.user@example.com> (2001-02-03 08:05:09)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 08:05:11)
+    │  Signature  : good signature by test-display some-key
     │
     │      two
     │
-    ○  Commit ID: eec44cafe0dc853b67cc7e14ca4fe3b80d3687f1
-    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
-    ~  Author   : Test User <test.user@example.com> (2001-02-03 08:05:08)
-       Committer: Test User <test.user@example.com> (2001-02-03 08:05:11)
-       Signature: good signature by test-display another-key
+    ○  Revision ID: eec44cafe0dc853b67cc7e14ca4fe3b80d3687f1
+    │  Change ID  : qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    ~  Author     : Test User <test.user@example.com> (2001-02-03 08:05:08)
+       Committer  : Test User <test.user@example.com> (2001-02-03 08:05:11)
+       Signature  : good signature by test-display another-key
 
            one
 
