@@ -85,6 +85,9 @@ pub fn cmd_bookmark_set(
             ));
         }
     }
+    if target_commit.is_discardable(repo)? {
+        writeln!(ui.warning_default(), "Target revision is empty.")?;
+    }
 
     let mut tx = workspace_command.start_transaction();
     for bookmark_name in bookmark_names {

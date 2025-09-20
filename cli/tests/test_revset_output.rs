@@ -791,6 +791,7 @@ fn test_all_modifier() {
       | ^-^
       |
       = Multiple revisions are allowed by default; `all:` is planned for removal
+    Warning: Target revision is empty.
     Created 1 bookmarks pointing to qpvuntsm e8849ae1 x | (empty) (no description set)
     [EOF]
     ");

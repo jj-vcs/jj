@@ -512,6 +512,7 @@ fn test_git_colocated_bookmark_at_root() {
     let output = work_dir.run_jj(["bookmark", "create", "foo", "-r=root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Target revision is empty.
     Created 1 bookmarks pointing to zzzzzzzz 00000000 foo | (empty) (no description set)
     Warning: Failed to export some bookmarks:
       foo@git: Ref cannot point to the root commit in Git
@@ -521,6 +522,7 @@ fn test_git_colocated_bookmark_at_root() {
     let output = work_dir.run_jj(["bookmark", "move", "foo", "--to=@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Target revision is empty.
     Moved 1 bookmarks to qpvuntsm e8849ae1 foo | (empty) (no description set)
     [EOF]
     ");
@@ -534,6 +536,7 @@ fn test_git_colocated_bookmark_at_root() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Target revision is empty.
     Moved 1 bookmarks to zzzzzzzz 00000000 foo* | (empty) (no description set)
     Warning: Failed to export some bookmarks:
       foo@git: Ref cannot point to the root commit in Git
@@ -556,6 +559,7 @@ fn test_git_colocated_conflicting_git_refs() {
     insta::with_settings!({filters => vec![("Failed to set: .*", "Failed to set: ...")]}, {
         insta::assert_snapshot!(output, @r#"
         ------- stderr -------
+        Warning: Target revision is empty.
         Created 1 bookmarks pointing to qpvuntsm e8849ae1 main main/sub | (empty) (no description set)
         Warning: Failed to export some bookmarks:
           main/sub@git: Failed to set: ...

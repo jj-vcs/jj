@@ -50,6 +50,7 @@ fn test_bookmark_multiple_names() {
     let output = work_dir.run_jj(["bookmark", "create", "-r@", "foo", "bar"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Target revision is empty.
     Created 2 bookmarks pointing to qpvuntsm e8849ae1 bar foo | (empty) (no description set)
     [EOF]
     ");
@@ -63,6 +64,7 @@ fn test_bookmark_multiple_names() {
     let output = work_dir.run_jj(["bookmark", "set", "foo", "bar"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Target revision is empty.
     Moved 2 bookmarks to zsuskuln 0e555a27 bar foo | (empty) (no description set)
     [EOF]
     ");
@@ -90,6 +92,7 @@ fn test_bookmark_multiple_names() {
     let output = work_dir.run_jj(["bookmark", "create", "-r@-", "foo", "bar"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Target revision is empty.
     Created 2 bookmarks pointing to qpvuntsm e8849ae1 bar foo | (empty) (no description set)
     [EOF]
     ");
@@ -98,6 +101,7 @@ fn test_bookmark_multiple_names() {
     let output = work_dir.run_jj(["bookmark", "set", "-r@", "bar", "baz"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Target revision is empty.
     Created 1 bookmarks pointing to zsuskuln 0e555a27 bar baz | (empty) (no description set)
     Moved 1 bookmarks to zsuskuln 0e555a27 bar baz | (empty) (no description set)
     [EOF]
@@ -107,6 +111,7 @@ fn test_bookmark_multiple_names() {
     let output = work_dir.run_jj(["bookmark", "set", "-r@", "foo", "bar", "baz"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Target revision is empty.
     Moved 1 bookmarks to zsuskuln 0e555a27 bar baz foo | (empty) (no description set)
     [EOF]
     ");
@@ -121,6 +126,7 @@ fn test_bookmark_at_root() {
     let output = work_dir.run_jj(["bookmark", "create", "fred", "-r=root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Target revision is empty.
     Created 1 bookmarks pointing to zzzzzzzz 00000000 fred | (empty) (no description set)
     [EOF]
     ");
@@ -230,6 +236,7 @@ fn test_bookmark_bad_name() {
     let output = work_dir.run_jj(["bookmark", "create", "'foo@bar'"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
+    Warning: Target revision is empty.
     Created 1 bookmarks pointing to qpvuntsm e8849ae1 "foo@bar" | (empty) (no description set)
     [EOF]
     "#);
@@ -259,6 +266,7 @@ fn test_bookmark_move() {
     let output = work_dir.run_jj(["bookmark", "set", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Target revision is empty.
     Created 1 bookmarks pointing to qpvuntsm e8849ae1 foo | (empty) (no description set)
     [EOF]
     ");
@@ -276,6 +284,7 @@ fn test_bookmark_move() {
     let output = work_dir.run_jj(["bookmark", "set", "foo", "--revision", "@"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Target revision is empty.
     Moved 1 bookmarks to mzvwutvl 8afc18ff foo | (empty) (no description set)
     [EOF]
     ");
@@ -292,6 +301,7 @@ fn test_bookmark_move() {
     let output = work_dir.run_jj(["bookmark", "set", "-r@-", "--allow-backwards", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Target revision is empty.
     Moved 1 bookmarks to qpvuntsm e8849ae1 foo | (empty) (no description set)
     [EOF]
     ");
@@ -299,6 +309,7 @@ fn test_bookmark_move() {
     let output = work_dir.run_jj(["bookmark", "move", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Target revision is empty.
     Moved 1 bookmarks to mzvwutvl 8afc18ff foo | (empty) (no description set)
     [EOF]
     ");
@@ -315,6 +326,7 @@ fn test_bookmark_move() {
     let output = work_dir.run_jj(["bookmark", "move", "--to=@-", "--allow-backwards", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Target revision is empty.
     Moved 1 bookmarks to qpvuntsm e8849ae1 foo | (empty) (no description set)
     [EOF]
     ");
@@ -345,6 +357,7 @@ fn test_bookmark_move() {
     let output = work_dir.run_jj(["bookmark", "set", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Target revision is empty.
     Moved 1 bookmarks to mzvwutvl 91b59745 foo* | (empty) (no description set)
     [EOF]
     ");
@@ -362,6 +375,7 @@ fn test_bookmark_move() {
     let output = work_dir.run_jj(["bookmark", "create", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Target revision is empty.
     Created 1 bookmarks pointing to mzvwutvl 91b59745 foo | (empty) (no description set)
     [EOF]
     ");

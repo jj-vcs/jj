@@ -148,6 +148,9 @@ pub fn cmd_bookmark_move(
             "Use --allow-backwards to allow it.",
         ));
     }
+    if target_commit.is_discardable(repo.as_ref())? {
+        writeln!(ui.warning_default(), "Target revision is empty.")?;
+    }
 
     let mut tx = workspace_command.start_transaction();
     for (name, _) in &matched_bookmarks {
