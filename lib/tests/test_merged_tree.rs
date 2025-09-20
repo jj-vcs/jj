@@ -15,6 +15,7 @@
 use futures::StreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
+use jj_lib::backend::CopyHistory;
 use jj_lib::backend::CopyRecord;
 use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeId;
@@ -29,6 +30,9 @@ use jj_lib::matchers::Matcher;
 use jj_lib::matchers::PrefixMatcher;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
+use jj_lib::merged_tree::CopyHistoryDiffTerm;
+use jj_lib::merged_tree::CopyHistorySource;
+use jj_lib::merged_tree::CopyHistoryTreeDiffEntry;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::merged_tree::TreeDiffEntry;
@@ -48,6 +52,12 @@ use testutils::repo_path_component;
 
 fn diff_entry_tuple(diff: TreeDiffEntry) -> (RepoPathBuf, (MergedTreeValue, MergedTreeValue)) {
     (diff.path, diff.values.unwrap())
+}
+
+fn copy_diff_entry_tuple(
+    diff: CopyHistoryTreeDiffEntry,
+) -> (RepoPathBuf, Merge<CopyHistoryDiffTerm>) {
+    (diff.target_path, diff.diffs.unwrap())
 }
 
 fn diff_stream_equals_iter(tree1: &MergedTree, tree2: &MergedTree, matcher: &dyn Matcher) {
@@ -1443,4 +1453,382 @@ fn test_merge_simplify_file_conflict_with_absent() {
         .block_on()
         .unwrap();
     assert_eq!(merged, expected_merged);
+}
+
+#[test]
+fn test_copy_diffstream() {
+    let test_repo = testutils::TestRepo::init();
+    let repo = &test_repo.repo;
+
+    // CASE 1: Copy foo.txt -> bar.txt
+    let foo_path = testutils::repo_path("foo.txt");
+    let foo_history = CopyHistory {
+        current_path: foo_path.to_owned(),
+        parents: vec![],
+        salt: vec![],
+    };
+    let base_tree = testutils::create_tree_with_copy_history(
+        repo,
+        &[(foo_path, "foo or maybe bar", &foo_history)],
+    );
+    let foo_copy_id = base_tree
+        .path_value(foo_path)
+        .unwrap()
+        .first()
+        .as_ref()
+        .unwrap()
+        .copy_id()
+        .unwrap();
+
+    let bar_path = testutils::repo_path("bar.txt");
+    let bar_history = CopyHistory {
+        current_path: bar_path.to_owned(),
+        parents: vec![foo_copy_id.clone()],
+        salt: vec![],
+    };
+
+    let edit_tree = testutils::create_tree_with_copy_history(
+        repo,
+        &[
+            (foo_path, "foo or maybe bar", &foo_history),
+            (bar_path, "definitely bar", &bar_history),
+        ],
+    );
+
+    let diffstream = base_tree
+        .diff_stream_with_copy_history(&edit_tree, &EverythingMatcher)
+        .map(copy_diff_entry_tuple)
+        .collect::<Vec<_>>()
+        .block_on();
+
+    let expected = [(
+        repo_path_buf("bar.txt"),
+        Merge::resolved(CopyHistoryDiffTerm {
+            target_value: edit_tree.path_value(bar_path).unwrap().first().clone(),
+            sources: vec![(
+                CopyHistorySource::Copy(foo_path.to_owned()),
+                Merge::resolved(base_tree.path_value(foo_path).unwrap().first().clone()),
+            )],
+        }),
+    )];
+    assert_eq!(diffstream, expected);
+
+    // CASE 2: reverse diff of Case 1
+    let diffstream = edit_tree
+        .diff_stream_with_copy_history(&base_tree, &EverythingMatcher)
+        .map(copy_diff_entry_tuple)
+        .collect::<Vec<_>>()
+        .block_on();
+
+    let expected = [(
+        repo_path_buf("bar.txt"),
+        Merge::resolved(CopyHistoryDiffTerm {
+            target_value: None,
+            sources: vec![(
+                CopyHistorySource::Normal,
+                Merge::resolved(edit_tree.path_value(bar_path).unwrap().first().clone()),
+            )],
+        }),
+    )];
+    assert_eq!(diffstream, expected);
+
+    // CASE 3: edit foo.txt contents, no history changes
+    let foo_tree = testutils::create_tree_with_copy_history(
+        repo,
+        &[
+            (foo_path, "definitely foo", &foo_history),
+            (bar_path, "definitely bar", &bar_history),
+        ],
+    );
+    let diffstream = edit_tree
+        .diff_stream_with_copy_history(&foo_tree, &EverythingMatcher)
+        .map(copy_diff_entry_tuple)
+        .collect::<Vec<_>>()
+        .block_on();
+    let expected = [(
+        repo_path_buf("foo.txt"),
+        Merge::resolved(CopyHistoryDiffTerm {
+            target_value: foo_tree.path_value(foo_path).unwrap().first().clone(),
+            sources: vec![(
+                CopyHistorySource::Normal,
+                Merge::resolved(edit_tree.path_value(foo_path).unwrap().first().clone()),
+            )],
+        }),
+    )];
+    assert_eq!(diffstream, expected);
+
+    // CASE 4: remove foo.txt; bar.txt should now show up as a Rename
+    let rm_tree = testutils::create_tree_with_copy_history(
+        repo,
+        &[(bar_path, "definitely bar", &bar_history)],
+    );
+    let diffstream = base_tree
+        .diff_stream_with_copy_history(&rm_tree, &EverythingMatcher)
+        .map(copy_diff_entry_tuple)
+        .collect::<Vec<_>>()
+        .block_on();
+    let expected = [(
+        bar_path.to_owned(),
+        Merge::resolved(CopyHistoryDiffTerm {
+            target_value: rm_tree.path_value(bar_path).unwrap().first().clone(),
+            sources: vec![(
+                CopyHistorySource::Rename(foo_path.to_owned()),
+                Merge::resolved(base_tree.path_value(foo_path).unwrap().first().clone()),
+            )],
+        }),
+    )];
+    assert_eq!(diffstream, expected);
+
+    // CASE 5: file / dir mismatch
+    let file_dir_path = repo_path("file_or_dir");
+    let history = CopyHistory {
+        current_path: file_dir_path.to_owned(),
+        parents: vec![],
+        salt: vec![],
+    };
+    let file_dir_subpath = repo_path("file_or_dir/file");
+    let history2 = CopyHistory {
+        current_path: file_dir_subpath.to_owned(),
+        parents: vec![],
+        salt: vec![],
+    };
+    let base_tree = testutils::create_tree_with_copy_history(
+        repo,
+        &[(file_dir_path, "a file for now", &history)],
+    );
+    let edit_tree = testutils::create_tree_with_copy_history(
+        repo,
+        &[(file_dir_subpath, "parent is a dir", &history2)],
+    );
+    let diffstream = base_tree
+        .diff_stream_with_copy_history(&edit_tree, &EverythingMatcher)
+        .map(copy_diff_entry_tuple)
+        .collect::<Vec<_>>()
+        .block_on();
+    // TODO: will the ordering here be flaky? No failures in 1000 runs, but I think
+    // this is still nondeterministic, and I suspect I just haven't figured out
+    // how to trigger a reordering.
+    let expected = [
+        (
+            file_dir_path.to_owned(),
+            Merge::resolved(CopyHistoryDiffTerm {
+                target_value: None,
+                sources: vec![(
+                    CopyHistorySource::Normal,
+                    Merge::resolved(base_tree.path_value(file_dir_path).unwrap().first().clone()),
+                )],
+            }),
+        ),
+        (
+            file_dir_subpath.to_owned(),
+            Merge::resolved(CopyHistoryDiffTerm {
+                target_value: edit_tree
+                    .path_value(file_dir_subpath)
+                    .unwrap()
+                    .first()
+                    .clone(),
+                sources: vec![],
+            }),
+        ),
+    ];
+    assert_eq!(diffstream, expected);
+
+    // CASE 6: same path, unrelated ancestries; e.g. a path is created, then
+    // deleted, then recreated.
+    let base_tree =
+        testutils::create_tree_with_copy_history(repo, &[(foo_path, "foo", &foo_history)]);
+    let foo2_history = CopyHistory {
+        current_path: foo_path.to_owned(),
+        parents: vec![],
+        salt: vec![1], // Use a salt to create a distinct CopyHistory
+    };
+    let edit_tree = testutils::create_tree_with_copy_history(
+        repo,
+        &[(foo_path, "a different foo", &foo2_history)],
+    );
+    let diffstream = base_tree
+        .diff_stream_with_copy_history(&edit_tree, &EverythingMatcher)
+        .map(copy_diff_entry_tuple)
+        .collect::<Vec<_>>()
+        .block_on();
+    // TODO: do we really want to split the diff entries in this case? Or if there
+    // are no history matches in either direction, should we stick with a single
+    // diff entry??
+    let expected = [
+        (
+            foo_path.to_owned(),
+            Merge::resolved(CopyHistoryDiffTerm {
+                target_value: None,
+                sources: vec![(
+                    CopyHistorySource::Normal,
+                    Merge::resolved(base_tree.path_value(foo_path).unwrap().first().clone()),
+                )],
+            }),
+        ),
+        (
+            foo_path.to_owned(),
+            Merge::resolved(CopyHistoryDiffTerm {
+                target_value: edit_tree.path_value(foo_path).unwrap().first().clone(),
+                sources: vec![],
+            }),
+        ),
+    ];
+    assert_eq!(diffstream, expected);
+
+    // CASE 7: skip rename detection when there are conflicts
+    let edit_tree1 =
+        testutils::create_tree_with_copy_history(repo, &[(bar_path, "foobar", &bar_history)]);
+    let edit_tree2 =
+        testutils::create_tree_with_copy_history(repo, &[(bar_path, "foobaz", &bar_history)]);
+    let edit_tree = edit_tree1
+        .clone()
+        .merge(base_tree.clone(), edit_tree2.clone())
+        .block_on()
+        .expect("Expected successful merge");
+    let diffstream = base_tree
+        .diff_stream_with_copy_history(&edit_tree, &EverythingMatcher)
+        .map(copy_diff_entry_tuple)
+        .collect::<Vec<_>>()
+        .block_on();
+    let expected = [
+        // bar.txt is conflicted, and does not show copy-history sources despite being renamed from
+        // foo.txt
+        (
+            bar_path.to_owned(),
+            Merge::from_removes_adds(
+                [CopyHistoryDiffTerm {
+                    target_value: None,
+                    sources: vec![],
+                }],
+                [
+                    CopyHistoryDiffTerm {
+                        target_value: edit_tree1.path_value(bar_path).unwrap().first().clone(),
+                        sources: vec![],
+                    },
+                    CopyHistoryDiffTerm {
+                        target_value: edit_tree2.path_value(bar_path).unwrap().first().clone(),
+                        sources: vec![],
+                    },
+                ],
+            ),
+        ),
+        // foo.txt is deleted; it is not matched against a conflicted target, despite being renamed
+        // to bar.txt
+        (
+            foo_path.to_owned(),
+            Merge::resolved(CopyHistoryDiffTerm {
+                target_value: None,
+                sources: vec![(
+                    CopyHistorySource::Normal,
+                    Merge::resolved(base_tree.path_value(foo_path).unwrap().first().clone()),
+                )],
+            }),
+        ),
+    ];
+    assert_eq!(diffstream, expected);
+
+    // CASE 8: conflict in source rather than target
+    let src_tree1 =
+        testutils::create_tree_with_copy_history(repo, &[(foo_path, "Foo V1", &foo_history)]);
+    let src_tree2 =
+        testutils::create_tree_with_copy_history(repo, &[(foo_path, "foo vX", &foo_history)]);
+    let src_tree = src_tree1
+        .clone()
+        .merge(base_tree.clone(), src_tree2.clone())
+        .block_on()
+        .expect("Expected successful merge");
+    // Rename foo.txt to bar.txt, with resolved contents
+    let edit_tree =
+        testutils::create_tree_with_copy_history(repo, &[(bar_path, "Foo v1.X", &bar_history)]);
+    let diffstream = src_tree
+        .diff_stream_with_copy_history(&edit_tree, &EverythingMatcher)
+        .map(copy_diff_entry_tuple)
+        .collect::<Vec<_>>()
+        .block_on();
+    let expected = [
+        // Conflicted foo.txt is deleted
+        (
+            foo_path.to_owned(),
+            Merge::resolved(CopyHistoryDiffTerm {
+                target_value: None,
+                sources: vec![(
+                    CopyHistorySource::Normal,
+                    Merge::from_removes_adds(
+                        [base_tree.path_value(foo_path).unwrap().first().clone()],
+                        [
+                            src_tree1.path_value(foo_path).unwrap().first().clone(),
+                            src_tree2.path_value(foo_path).unwrap().first().clone(),
+                        ],
+                    ),
+                )],
+            }),
+        ),
+        // bar.txt is not matched against a conflicted source, despite being renamed from foo.txt
+        (
+            bar_path.to_owned(),
+            Merge::resolved(CopyHistoryDiffTerm {
+                target_value: edit_tree.path_value(bar_path).unwrap().first().clone(),
+                sources: vec![],
+            }),
+        ),
+    ];
+    assert_eq!(diffstream, expected);
+
+    // CASE 9: conflict in both source and target
+    let edit_tree1 =
+        testutils::create_tree_with_copy_history(repo, &[(bar_path, "foobar", &bar_history)]);
+    let edit_tree2 =
+        testutils::create_tree_with_copy_history(repo, &[(bar_path, "foobaz", &bar_history)]);
+    let edit_tree = edit_tree1
+        .clone()
+        .merge(base_tree.clone(), edit_tree2.clone())
+        .block_on()
+        .expect("Expected successful merge");
+    let diffstream = src_tree
+        .diff_stream_with_copy_history(&edit_tree, &EverythingMatcher)
+        .map(copy_diff_entry_tuple)
+        .collect::<Vec<_>>()
+        .block_on();
+    let expected = [
+        (
+            bar_path.to_owned(),
+            Merge::from_removes_adds(
+                [CopyHistoryDiffTerm {
+                    target_value: None,
+                    sources: vec![],
+                }],
+                [
+                    CopyHistoryDiffTerm {
+                        target_value: edit_tree1.path_value(bar_path).unwrap().first().clone(),
+                        sources: vec![],
+                    },
+                    CopyHistoryDiffTerm {
+                        target_value: edit_tree2.path_value(bar_path).unwrap().first().clone(),
+                        sources: vec![],
+                    },
+                ],
+            ),
+        ),
+        (
+            foo_path.to_owned(),
+            Merge::resolved(CopyHistoryDiffTerm {
+                target_value: None,
+                sources: vec![(
+                    CopyHistorySource::Normal,
+                    Merge::from_removes_adds(
+                        [base_tree.path_value(foo_path).unwrap().first().clone()],
+                        [
+                            src_tree1.path_value(foo_path).unwrap().first().clone(),
+                            src_tree2.path_value(foo_path).unwrap().first().clone(),
+                        ],
+                    ),
+                )],
+            }),
+        ),
+    ];
+    assert_eq!(diffstream, expected);
+
+    // TODO: split test cases
+    // TODO: test longer copy histories / more branchy histories
+    // TODO: test file <-> symlink diffs
 }

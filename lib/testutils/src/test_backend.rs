@@ -306,7 +306,10 @@ impl Backend for TestBackend {
         .await
     }
 
-    async fn get_related_copies(&self, copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>> {
+    async fn get_related_copies(
+        &self,
+        copy_id: &CopyId,
+    ) -> BackendResult<Vec<(CopyId, CopyHistory)>> {
         let copy_id = copy_id.clone();
         self.run_async(move |data| {
             let copies = &data.copies;
@@ -325,7 +328,7 @@ impl Backend for TestBackend {
                 |id| *id,
                 |id| copies.get(*id).unwrap().parents.iter(),
             ) {
-                histories.push(copies.get(id).unwrap().clone());
+                histories.push((id.clone(), copies.get(id).unwrap().clone()));
             }
             Ok(histories)
         })
@@ -462,9 +465,21 @@ mod tests {
 
         // Looking up by any id returns the related copies in the same order (children
         // before parents)
-        let related = backend.get_related_copies(&copy1_id).block_on().unwrap();
+        let related: Vec<CopyHistory> = backend
+            .get_related_copies(&copy1_id)
+            .block_on()
+            .unwrap()
+            .into_iter()
+            .map(|(_, h)| h)
+            .collect();
         assert_eq!(related, vec![copy3.clone(), copy2.clone(), copy1.clone()]);
-        let related: Vec<CopyHistory> = backend.get_related_copies(&copy3_id).block_on().unwrap();
+        let related: Vec<CopyHistory> = backend
+            .get_related_copies(&copy3_id)
+            .block_on()
+            .unwrap()
+            .into_iter()
+            .map(|(_, h)| h)
+            .collect();
         assert_eq!(related, vec![copy3.clone(), copy2.clone(), copy1.clone()]);
     }
 }
