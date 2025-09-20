@@ -707,7 +707,7 @@ fn test_describe_author() {
         'format_signature(signature)' = 'signature.name() ++ " " ++ signature.email() ++ " " ++ signature.timestamp()'
 
         [templates]
-        draft_commit_description = '''
+        draft_revision_description = '''
         concat(
           description,
           "\n",

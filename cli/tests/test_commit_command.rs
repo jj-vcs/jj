@@ -332,7 +332,7 @@ fn test_commit_with_description_template() {
     test_env.add_config(
         r#"
         [templates]
-        draft_commit_description = '''
+        draft_revision_description = '''
         concat(
           description,
           "\n",

@@ -881,7 +881,7 @@
                     "type": "string",
                     "description": "`jj config list`'s output"
                 },
-                "draft_commit_description": {
+                "draft_revision_description": {
                     "type": "string",
                     "description": "The draft commit description opened in an editor"
                 },

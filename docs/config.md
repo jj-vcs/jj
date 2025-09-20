@@ -185,12 +185,12 @@ default-command = ["log", "--reversed"]
 ### Default description
 
 The editor content of a commit description can be populated by the
-`draft_commit_description` template. `self` is a [`Commit`
+`draft_revision_description` template. `self` is a [`Commit`
 object](templates.md#commit-type).
 
 ```toml
 [templates]
-draft_commit_description = '''
+draft_revision_description = '''
 concat(
   builtin_draft_commit_description,
   "\nJJ: ignore-rest\n",
