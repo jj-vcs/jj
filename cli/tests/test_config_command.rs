@@ -349,6 +349,7 @@ fn test_config_list_origin() {
     template-aliases."format_root_commit(root)" = "format_root_revision(root)" # cli
     template-aliases."format_short_commit_header_redacted(commit)" = "format_short_revision_header_redacted(commit)" # cli
     template-aliases."format_short_commit_header(commit)" = "format_short_revision_header(commit)" # cli
+    template-aliases."format_short_commit_id(id)" = "format_short_revision_id(id)" # cli
     [EOF]
     "#);
 
