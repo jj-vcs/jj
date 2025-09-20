@@ -25,7 +25,7 @@ separate(" ",
 
 config_list = 'builtin_config_list'
 
-draft_revision_description = 'builtin_draft_commit_description'
+draft_revision_description = 'builtin_draft_revision_description'
 
 duplicate_description = 'description'
 
@@ -114,7 +114,7 @@ label(if(overridden, "overridden"),
   format_config_item(self) ++ " # " ++ separate(" ", source, path) ++ "\n")
 '''
 
-builtin_draft_commit_description = '''
+builtin_draft_revision_description = '''
 concat(
   coalesce(description, default_commit_description, "\n"),
   "\n",

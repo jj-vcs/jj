@@ -341,6 +341,7 @@ fn test_config_list_origin() {
     operation.hostname = "host.example.com" # env
     operation.username = "test-username" # env
     test-cli-key = "test-cli-val" # cli
+    template-aliases.builtin_draft_commit_description = "builtin_draft_revision_description" # cli
     [EOF]
     "#);
 
