@@ -56,6 +56,8 @@ jobs:
     - name: Build release binary
       shell: bash
       run: cargo build --target ${{ matrix.target }} --verbose --release
+      env:
+        JJ_RELEASE_BUILD: "1"
     - name: Build archive
       shell: bash
       run: |

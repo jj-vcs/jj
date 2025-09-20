@@ -60,7 +60,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The revset function `exactly(x, n)` will now evaluate `x` and error if it does
   not have exactly `n` elements.
 
+* `jj version` now has better output; the flags `--numeric-only` and `--details`
+  provide various levels of fidelity.
+
 ### Fixed bugs
+
+### Packaging changes
+
+* Packagers may set the environment variables `JJ_RELEASE_BUILD=1` and
+  `JJ_BUILD_SUFFIX=your-suffix-here` in their build scripts in order to get more
+  detailed output from `jj version`. We encourage all downstream distributions
+  to always provide `JJ_BUILD_SUFFIX` with an appropriate name.
 
 ## [0.33.0] - 2025-09-03
 

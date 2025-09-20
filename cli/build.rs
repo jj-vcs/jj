@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::env;
 use std::path::Path;
 use std::process::Command;
 use std::str;
@@ -32,10 +33,25 @@ fn main() {
     }
     println!("cargo:rerun-if-env-changed=NIX_JJ_GIT_HASH");
 
+    // build information
+    println!("cargo:rustc-env=JJ_VERSION={version}");
+    println!(
+        "cargo:rustc-env=JJ_CARGO_TARGET={}",
+        std::env::var("TARGET").unwrap()
+    );
+
+    // if JJ_RELEASE_BUILD, propagate
+    if env::var("JJ_RELEASE_BUILD").is_ok() {
+        println!("cargo:rustc-env=JJ_RELEASE_BUILD=1");
+    }
+
+    // if the user/packager wants to provide some suffix, allow them to here
+    if let Ok(suffix) = env::var("JJ_BUILD_SUFFIX") {
+        println!("cargo:rustc-env=JJ_BUILD_SUFFIX={suffix}");
+    }
+
     if let Some(git_hash) = get_git_hash() {
-        println!("cargo:rustc-env=JJ_VERSION={version}-{git_hash}");
-    } else {
-        println!("cargo:rustc-env=JJ_VERSION={version}");
+        println!("cargo:rustc-env=JJ_GIT_COMMIT=g{git_hash}");
     }
 
     let docs_symlink_path = Path::new("docs");
