@@ -49,7 +49,7 @@ revert_description = '''
 concat(
   'Revert "' ++ description.first_line() ++ '"' ++ "\n",
   "\n",
-  "This reverts revision " ++ commit_id ++ ".\n",
+  "This reverts revision " ++ revision_id ++ ".\n",
 )
 '''
 
@@ -159,7 +159,7 @@ if(revision.root(),
         revision.tags(),
         revision.working_copies(),
         if(revision.git_head(), label("git_head", "git_head()")),
-        format_short_revision_id(revision.commit_id()),
+        format_short_revision_id(revision.revision_id()),
         if(revision.conflict(), label("conflict", "conflict")),
         if(config("ui.show-cryptographic-signatures").as_boolean(),
           format_short_cryptographic_signature(revision.signature())),
@@ -247,7 +247,7 @@ builtin_log_comfortable = 'builtin_log_compact ++ "\n"'
 builtin_log_detailed = 'builtin_log_detailed(self)'
 'builtin_log_detailed(revision)' = '''
 concat(
-  "Revision ID: " ++ revision.commit_id() ++ "\n",
+  "Revision ID: " ++ revision.revision_id() ++ "\n",
   "Change ID  : " ++ revision.change_id() ++ "\n",
   surround("Bookmarks  : ", "\n", separate(" ", revision.local_bookmarks(), revision.remote_bookmarks())),
   surround("Tags       : ", "\n", revision.tags()),
@@ -332,7 +332,7 @@ revision_summary_separator = 'label("separator", " | ")'
 label(if(revision.current_working_copy(), "working_copy"),
   separate(" ",
     format_short_change_id_with_hidden_and_divergent_info(revision),
-    format_short_revision_id(revision.commit_id()),
+    format_short_revision_id(revision.revision_id()),
     separate(revision_summary_separator,
       refs,
       separate(" ",
@@ -353,7 +353,7 @@ label("immutable",
   separate(" ",
     format_short_change_id(root.change_id()),
     label("root", "root()"),
-    format_short_revision_id(root.commit_id()),
+    format_short_revision_id(root.revision_id()),
     root.bookmarks(),
   ) ++ "\n"
 )
@@ -434,7 +434,7 @@ separate(" ",
   revision.tags(),
   revision.working_copies(),
   if(revision.git_head(), label("git_head", "git_head()")),
-  format_short_revision_id(revision.commit_id()),
+  format_short_revision_id(revision.revision_id()),
   if(revision.conflict(), label("conflict", "conflict")),
   if(config("ui.show-cryptographic-signatures").as_boolean(),
     format_short_cryptographic_signature(revision.signature())),
@@ -456,7 +456,7 @@ separate(" ",
   revision.tags().map(|tag| concat("tag-", hash(tag.name()).substr(0, 4))),
   revision.working_copies(),
   if(revision.git_head(), label("git_head", "git_head()")),
-  format_short_revision_id(revision.commit_id()),
+  format_short_revision_id(revision.revision_id()),
   if(revision.conflict(), label("conflict", "conflict")),
   if(config("ui.show-cryptographic-signatures").as_boolean(),
     format_short_cryptographic_signature(revision.signature())),
@@ -548,7 +548,7 @@ coalesce(
 # See https://git-scm.com/docs/git-format-patch#_description
 git_format_patch_email_headers = '''
   concat(
-    "From " ++ commit_id ++ " Mon Sep 17 00:00:00 2001\n",
+    "From " ++ revision_id ++ " Mon Sep 17 00:00:00 2001\n",
     "From: " ++ author ++ "\n",
     "Date: " ++ author.timestamp().format("%a, %-e %b %Y %T %z") ++ "\n",
     "Subject: [PATCH] " ++ description.first_line() ++ "\n",

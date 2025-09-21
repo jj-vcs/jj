@@ -990,6 +990,14 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         },
     );
     map.insert(
+        "revision_id",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|commit| commit.id().to_owned());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
         "parents",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
