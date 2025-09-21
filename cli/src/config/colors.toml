@@ -12,6 +12,7 @@
 "conflict_description difficult" = "red"
 
 "commit_id" = "blue"
+"revision_id" = "blue"
 "change_id" = "magenta"
 
 # Unique prefixes and the rest for change & commit ids
@@ -47,6 +48,7 @@
 
 "working_copy" = { bold = true }
 "working_copy commit_id" = "bright blue"
+"working_copy revision_id" = "bright blue"
 "working_copy change_id" = "bright magenta"
 # We do not use bright yellow because of how it looks on xterm's default theme.
 # https://github.com/jj-vcs/jj/issues/528
