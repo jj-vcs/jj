@@ -3,6 +3,8 @@
 > **Hint:** This tutorial has become somewhat out of date. Many people find
 > the alternative (not quite finished) [tutorial by Steve
 > Klabnik](https://steveklabnik.github.io/jujutsu-tutorial/) helpful.
+> If you're looking for a tutorial that doesn't require experience with Git,
+> take a look at [Jujutsu for everyone](https://jj-for-everyone.github.io).
 
 This text assumes that the reader is familiar with Git.
 
