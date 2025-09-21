@@ -12,6 +12,7 @@
 "conflict_description difficult" = "red"
 
 "commit_id" = "blue"
+"revision_id" = "blue"
 "change_id" = "magenta"
 
 # Unique prefixes and the rest for change & commit ids
