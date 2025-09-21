@@ -84,6 +84,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj bookmark create/set/move` use the working copy as a default again and
   no longer require an explicit revision argument. This walks back a
   deprecation from `jj 0.26`, as the community feedback was mostly negative.
+  Instead, bookmarking an empty revision now produces a warning, to help you
+  catch the case where you meant to bookmark the parent revision.
 
 * The revset function `exactly(x, n)` will now evaluate `x` and error if it does
   not have exactly `n` elements.
