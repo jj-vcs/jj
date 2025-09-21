@@ -59,10 +59,6 @@ pub struct Bookmark {
     /// Unset if the bookmark has been deleted locally.
     #[prost(message, optional, tag = "2")]
     pub local_target: ::core::option::Option<RefTarget>,
-    /// TODO: How would we support renaming remotes while having undo work? If
-    /// the remote name is stored in config, it's going to become a mess if the
-    /// remote is renamed but the configs are left unchanged. Should each remote
-    /// be identified (here and in configs) by a UUID?
     #[prost(message, repeated, tag = "3")]
     pub remote_bookmarks: ::prost::alloc::vec::Vec<RemoteBookmark>,
 }
