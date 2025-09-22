@@ -859,6 +859,75 @@ fn test_absorb_paths() {
 }
 
 #[test]
+fn test_absorb_interactive() {
+    let mut test_env = TestEnvironment::default();
+    let diff_editor = test_env.set_up_fake_diff_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m1"]).success();
+    work_dir.write_file("file1", "1a\n1b\n1c\n");
+
+    work_dir.run_jj(["new", "-m2"]).success();
+    work_dir.write_file("file1", "1A\n1B\n1C\n");
+
+    let diff_script = [
+        "files-before file1",
+        "files-after JJ-INSTRUCTIONS file1",
+        // Only select 2 lines from the diff.
+        "write file1\n1A\n1b\n1C\n",
+        "dump JJ-INSTRUCTIONS instrs",
+    ]
+    .join("\0");
+    std::fs::write(diff_editor, diff_script).unwrap();
+
+    let output = work_dir.run_jj(["absorb", "-i"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Absorbed changes into 1 revisions:
+      qpvuntsm 7151d71d 1
+    Rebased 1 descendant commits.
+    Working copy  (@) now at: kkmpptxz 0c19679d 2
+    Parent commit (@-)      : qpvuntsm 7151d71d 1
+    Remaining changes:
+    M file1
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r"
+    You are selecting changes to be absorbed from: kkmpptxz 025b6229 2
+
+    The diff initially shows all changes to be absorbed. Adjust the right side until it
+    shows only the contents you want to be absorbed.
+    ");
+
+    insta::assert_snapshot!(get_diffs(&work_dir, "@-::"), @r"
+    @  kkmpptxz 0c19679d 2
+    │  diff --git a/file1 b/file1
+    │  index 105eac8f86..f1270dfd8d 100644
+    │  --- a/file1
+    │  +++ b/file1
+    │  @@ -1,3 +1,3 @@
+    │   1A
+    │  -1b
+    │  +1B
+    │   1C
+    ○  qpvuntsm 7151d71d 1
+    │  diff --git a/file1 b/file1
+    ~  new file mode 100644
+       index 0000000000..105eac8f86
+       --- /dev/null
+       +++ b/file1
+       @@ -0,0 +1,3 @@
+       +1A
+       +1b
+       +1C
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_absorb_immutable() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
