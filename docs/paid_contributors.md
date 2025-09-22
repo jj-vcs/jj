@@ -7,9 +7,11 @@ contribute or not.
 ## East River Source Control
 
 * benbrittain
+* bts
+* ConnerPetzold
+* davidbarsky
 * ilyagr
 * thoughtpolice
-* ConnerPetzold
 
 ## Google
 
