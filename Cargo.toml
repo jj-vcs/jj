@@ -22,13 +22,13 @@ assert_matches = "1.5.0"
 async-trait = "0.1.89"
 blake2 = "0.10.6"
 bstr = "1.11.3"
-clap = { version = "4.5.47", features = [
+clap = { version = "4.5.48", features = [
     "derive",
     "deprecated",
     "wrap_help",
     "string",
 ] }
-clap_complete = { version = "4.5.56", features = ["unstable-dynamic"] }
+clap_complete = { version = "4.5.58", features = ["unstable-dynamic"] }
 clap_complete_nushell = "4.5.8"
 # Update clap-markdown manually since test_generate_md_cli_help snapshot
 # will need regenerating.
@@ -59,7 +59,7 @@ gix = { version = "0.73.0", default-features = false, features = [
 globset = "0.4.16"
 hashbrown = { version = "0.15.5", default-features = false, features = ["inline-more"] }
 ignore = "0.4.23"
-indexmap = { version = "2.11.1", features = ["serde"] }
+indexmap = { version = "2.11.4", features = ["serde"] }
 indoc = "2.0.6"
 insta = { version = "1.43.2", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
@@ -75,7 +75,7 @@ pest_derive = "2.8.2"
 pollster = "0.4.0"
 pretty_assertions = "1.4.1"
 proc-macro2 = "1.0.96"
-proptest = "1.7.0"
+proptest = "1.8.0"
 proptest-derive = "0.6.0"
 proptest-state-machine = "0.3.1"
 prost = "0.13.5"
@@ -110,8 +110,8 @@ textwrap = "0.16.2"
 thiserror = "2.0.16"
 timeago = { version = "0.4.2", default-features = false }
 tokio = { version = "1.47.1", features = ["io-util"] }
-toml = "0.9.6"
-toml_edit = { version = "0.23.5", features = ["serde"] }
+toml = "0.9.7"
+toml_edit = { version = "0.23.6", features = ["serde"] }
 tracing = "0.1.41"
 tracing-chrome = "0.7.2"
 tracing-subscriber = { version = "0.3.20", default-features = false, features = [
