@@ -65,6 +65,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* Fetching repositories that have submodules no longer errors even if
+`submodule.recurse=true`
+  is set in `.gitconfig` (but jj still isn't able to fetch the submodules
+  or to operate on them).
+
 ## [0.33.0] - 2025-09-03
 
 ### Release highlights
