@@ -64,7 +64,7 @@ jobs:
       uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
       with:
         toolchain: 1.88
-    - uses: taiki-e/install-action@849bd009f730a24e9db18262f4e9f062591dee39
+    - uses: taiki-e/install-action@d6912b47771be2c443ec90dbb3d28e023987e782
       with:
         tool: nextest
     - name: Install mold
@@ -120,7 +120,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: cachix/install-nix-action@7be5dee1421f63d07e71ce6e0a9f8a4b07c2a487
+      - uses: cachix/install-nix-action@a809471b5c7c913aa67bec8f459a11a0decc3fce
       - run: nix flake check -L --show-trace
 
   check-protos:
