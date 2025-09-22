@@ -935,7 +935,7 @@ fn test_add_trailer() {
         "-m",
         "Message from CLI",
         "--config",
-        r#"templates.commit_trailers='"Signed-off-by: " ++ committer'"#,
+        r#"templates.commit_trailers='"JJ: Ignore\nSigned-off-by: " ++ committer'"#,
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
