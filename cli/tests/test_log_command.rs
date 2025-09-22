@@ -734,7 +734,7 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
     ");
     insta::assert_snapshot!(work_dir.run_jj(["log", "-r", "8", "-T", prefix_format]), @r"
     ------- stderr -------
-    Error: Commit ID prefix `8` is ambiguous
+    Error: Revision ID prefix `8` is ambiguous
     [EOF]
     [exit status: 1]
     ");
