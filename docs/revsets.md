@@ -317,12 +317,12 @@ revsets (expressions) as arguments.
 Functions that perform string matching support the following pattern syntax (the
 quotes are optional):
 
-* `"string"` or `substring:"string"`: Matches strings that contain `string`.
-* `exact:"string"`: Matches strings exactly equal to `string`.
-* `glob:"pattern"`: Matches strings with Unix-style shell [wildcard
-  `pattern`](https://docs.rs/globset/latest/globset/#syntax).
-* `regex:"pattern"`: Matches substrings with [regular
-  expression `pattern`](https://docs.rs/regex/latest/regex/#syntax).
+| String pattern                         | Description                                                                                                 |
+|----------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| `"string"` or<br/>`substring:"string"` | Matches strings that contain `string`.                                                                      |
+| `exact:"string"`                       | Matches strings exactly equal to `string`.                                                                  |
+| `glob:"pattern"`                       | Matches strings with Unix-style shell [wildcard `pattern`](https://docs.rs/globset/latest/globset/#syntax). |
+| `regex:"pattern"`                      | Matches substrings with [regular expression `pattern`](https://docs.rs/regex/latest/regex/#syntax).         |
 
 You can append `-i` after the kind to match case‐insensitively (e.g.
 `glob-i:"fix*jpeg*"`).
