@@ -532,7 +532,7 @@ pub fn import_some_refs(
             },
         };
         if new_remote_ref.is_tracked() {
-            mut_repo.merge_tag(symbol.name, base_target, &new_remote_ref.target);
+            mut_repo.merge_local_tag(symbol.name, base_target, &new_remote_ref.target);
         }
         // Remote-tracking tag is the last known state of the tag in the remote.
         // It shouldn't diverge even if we had inconsistent view.

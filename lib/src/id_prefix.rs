@@ -259,7 +259,7 @@ fn disambiguate_prefix_with_refs(view: &View, id_sym: &str, min_len: usize) -> u
             // Tags, bookmarks, and Git refs have higher priority, but Git refs
             // should include "/" char. Extension symbols have lower priority.
             let prefix = &id_sym[..n];
-            view.get_tag(prefix.as_ref()).is_absent()
+            view.get_local_tag(prefix.as_ref()).is_absent()
                 && view.get_local_bookmark(prefix.as_ref()).is_absent()
         })
         // No need to test conflicts with the full ID. We have to return some

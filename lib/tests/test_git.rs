@@ -277,7 +277,7 @@ fn test_import_refs() {
     );
 
     assert_eq!(
-        view.get_tag("v1.0".as_ref()),
+        view.get_local_tag("v1.0".as_ref()),
         &RefTarget::normal(jj_id(commit5))
     );
     assert_eq!(

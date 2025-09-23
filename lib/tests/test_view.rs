@@ -318,23 +318,23 @@ fn test_merge_views_tags() {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let v1_tx0 = write_random_commit(mut_repo);
-    mut_repo.set_tag_target("v1.0".as_ref(), RefTarget::normal(v1_tx0.id().clone()));
+    mut_repo.set_local_tag_target("v1.0".as_ref(), RefTarget::normal(v1_tx0.id().clone()));
     let v2_tx0 = write_random_commit(mut_repo);
-    mut_repo.set_tag_target("v2.0".as_ref(), RefTarget::normal(v2_tx0.id().clone()));
+    mut_repo.set_local_tag_target("v2.0".as_ref(), RefTarget::normal(v2_tx0.id().clone()));
     let repo = tx.commit("test").unwrap();
 
     let mut tx1 = repo.start_transaction();
     let v1_tx1 = write_random_commit(tx1.repo_mut());
     tx1.repo_mut()
-        .set_tag_target("v1.0".as_ref(), RefTarget::normal(v1_tx1.id().clone()));
+        .set_local_tag_target("v1.0".as_ref(), RefTarget::normal(v1_tx1.id().clone()));
     let v2_tx1 = write_random_commit(tx1.repo_mut());
     tx1.repo_mut()
-        .set_tag_target("v2.0".as_ref(), RefTarget::normal(v2_tx1.id().clone()));
+        .set_local_tag_target("v2.0".as_ref(), RefTarget::normal(v2_tx1.id().clone()));
 
     let mut tx2 = repo.start_transaction();
     let v1_tx2 = write_random_commit(tx2.repo_mut());
     tx2.repo_mut()
-        .set_tag_target("v1.0".as_ref(), RefTarget::normal(v1_tx2.id().clone()));
+        .set_local_tag_target("v1.0".as_ref(), RefTarget::normal(v1_tx2.id().clone()));
 
     let repo = commit_transactions(vec![tx1, tx2]);
     let expected_v1 = RefTarget::from_legacy_form(

@@ -318,13 +318,13 @@ impl View {
             .map(|(name, target)| (name.as_ref(), target))
     }
 
-    pub fn get_tag(&self, name: &RefName) -> &RefTarget {
+    pub fn get_local_tag(&self, name: &RefName) -> &RefTarget {
         self.data.local_tags.get(name).flatten()
     }
 
-    /// Iterates tags `(name, target)`s matching the given pattern. Entries
+    /// Iterates local tag `(name, target)`s matching the given pattern. Entries
     /// are sorted by `name`.
-    pub fn tags_matching<'a, 'b>(
+    pub fn local_tags_matching<'a, 'b>(
         &'a self,
         pattern: &'b StringPattern,
     ) -> impl Iterator<Item = (&'a RefName, &'a RefTarget)> + use<'a, 'b> {
@@ -333,9 +333,9 @@ impl View {
             .map(|(name, target)| (name.as_ref(), target))
     }
 
-    /// Sets tag to point to the given target. If the target is absent, the tag
-    /// will be removed.
-    pub fn set_tag_target(&mut self, name: &RefName, target: RefTarget) {
+    /// Sets local tag to point to the given target. If the target is absent,
+    /// the local tag will be removed.
+    pub fn set_local_tag_target(&mut self, name: &RefName, target: RefTarget) {
         if target.is_present() {
             self.data.local_tags.insert(name.to_owned(), target);
         } else {

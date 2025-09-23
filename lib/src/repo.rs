@@ -1714,20 +1714,25 @@ impl MutableRepo {
         self.view_mut().rename_remote(old, new);
     }
 
-    pub fn get_tag(&self, name: &RefName) -> RefTarget {
-        self.view.with_ref(|v| v.get_tag(name).clone())
+    pub fn get_local_tag(&self, name: &RefName) -> RefTarget {
+        self.view.with_ref(|v| v.get_local_tag(name).clone())
     }
 
-    pub fn set_tag_target(&mut self, name: &RefName, target: RefTarget) {
-        self.view_mut().set_tag_target(name, target);
+    pub fn set_local_tag_target(&mut self, name: &RefName, target: RefTarget) {
+        self.view_mut().set_local_tag_target(name, target);
     }
 
-    pub fn merge_tag(&mut self, name: &RefName, base_target: &RefTarget, other_target: &RefTarget) {
+    pub fn merge_local_tag(
+        &mut self,
+        name: &RefName,
+        base_target: &RefTarget,
+        other_target: &RefTarget,
+    ) {
         let view = self.view.get_mut();
         let index = self.index.as_index();
-        let self_target = view.get_tag(name);
+        let self_target = view.get_local_tag(name);
         let new_target = merge_ref_targets(index, self_target, base_target, other_target);
-        view.set_tag_target(name, new_target);
+        view.set_local_tag_target(name, new_target);
     }
 
     pub fn get_remote_tag(&self, symbol: RemoteRefSymbol<'_>) -> RemoteRef {
@@ -1845,7 +1850,7 @@ impl MutableRepo {
 
         let changed_local_tags = diff_named_ref_targets(base.local_tags(), other.local_tags());
         for (name, (base_target, other_target)) in changed_local_tags {
-            self.merge_tag(name, base_target, other_target);
+            self.merge_local_tag(name, base_target, other_target);
         }
 
         let changed_git_refs = diff_named_ref_targets(base.git_refs(), other.git_refs());

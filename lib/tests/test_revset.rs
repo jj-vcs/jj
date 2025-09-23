@@ -855,7 +855,7 @@ fn test_resolve_symbol_tags() {
     let commit2 = write_random_commit(mut_repo);
     let commit3 = write_random_commit(mut_repo);
 
-    mut_repo.set_tag_target(
+    mut_repo.set_local_tag_target(
         "tag-bookmark".as_ref(),
         RefTarget::normal(commit1.id().clone()),
     );
@@ -884,8 +884,8 @@ fn test_resolve_symbol_tags() {
     mut_repo
         .set_wc_commit(ws_name.clone(), commit1.id().clone())
         .unwrap();
-    mut_repo.set_tag_target("@".as_ref(), RefTarget::normal(commit2.id().clone()));
-    mut_repo.set_tag_target("root".as_ref(), RefTarget::normal(commit3.id().clone()));
+    mut_repo.set_local_tag_target("@".as_ref(), RefTarget::normal(commit2.id().clone()));
+    mut_repo.set_local_tag_target("root".as_ref(), RefTarget::normal(commit3.id().clone()));
     assert_eq!(
         resolve_symbol(mut_repo, r#""@""#).unwrap(),
         vec![commit2.id().clone()]
@@ -2727,8 +2727,8 @@ fn test_evaluate_expression_tags() {
     // Can get tags when there are none
     assert_eq!(resolve_commit_ids(mut_repo, "tags()"), vec![]);
     // Can get a few tags
-    mut_repo.set_tag_target("tag1".as_ref(), RefTarget::normal(commit1.id().clone()));
-    mut_repo.set_tag_target("tag2".as_ref(), RefTarget::normal(commit2.id().clone()));
+    mut_repo.set_local_tag_target("tag1".as_ref(), RefTarget::normal(commit1.id().clone()));
+    mut_repo.set_local_tag_target("tag2".as_ref(), RefTarget::normal(commit2.id().clone()));
     assert_eq!(
         resolve_commit_ids(mut_repo, "tags()"),
         vec![commit2.id().clone(), commit1.id().clone()]
@@ -2764,27 +2764,27 @@ fn test_evaluate_expression_tags() {
     assert_eq!(resolve_commit_ids(mut_repo, "tags(exact:ag1)"), vec![]);
     // Two tags pointing to the same commit does not result in a duplicate in
     // the revset
-    mut_repo.set_tag_target("tag3".as_ref(), RefTarget::normal(commit2.id().clone()));
+    mut_repo.set_local_tag_target("tag3".as_ref(), RefTarget::normal(commit2.id().clone()));
     assert_eq!(
         resolve_commit_ids(mut_repo, "tags()"),
         vec![commit2.id().clone(), commit1.id().clone()]
     );
     // Can get tags when there are conflicted refs
-    mut_repo.set_tag_target(
+    mut_repo.set_local_tag_target(
         "tag1".as_ref(),
         RefTarget::from_legacy_form(
             [commit1.id().clone()],
             [commit2.id().clone(), commit3.id().clone()],
         ),
     );
-    mut_repo.set_tag_target(
+    mut_repo.set_local_tag_target(
         "tag2".as_ref(),
         RefTarget::from_legacy_form(
             [commit2.id().clone()],
             [commit3.id().clone(), commit4.id().clone()],
         ),
     );
-    mut_repo.set_tag_target("tag3".as_ref(), RefTarget::absent());
+    mut_repo.set_local_tag_target("tag3".as_ref(), RefTarget::absent());
     assert_eq!(
         resolve_commit_ids(mut_repo, "tags()"),
         vec![

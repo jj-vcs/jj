@@ -2562,7 +2562,7 @@ impl PartialSymbolResolver for TagResolver {
         repo: &dyn Repo,
         symbol: &str,
     ) -> Result<Option<CommitId>, RevsetResolutionError> {
-        let target = repo.view().get_tag(symbol.as_ref());
+        let target = repo.view().get_local_tag(symbol.as_ref());
         to_resolved_ref("tag", symbol, target)
     }
 }
@@ -2838,7 +2838,7 @@ fn resolve_commit_ref(
         RevsetCommitRef::Tags(pattern) => {
             let commit_ids = repo
                 .view()
-                .tags_matching(pattern)
+                .local_tags_matching(pattern)
                 .flat_map(|(_, target)| target.added_ids())
                 .cloned()
                 .collect();
