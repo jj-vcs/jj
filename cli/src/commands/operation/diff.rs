@@ -317,7 +317,9 @@ pub fn show_op_diff(
             .collect_vec();
     if !changed_local_tags.is_empty() {
         writeln!(formatter)?;
-        with_content_format.write(formatter, |formatter| writeln!(formatter, "Changed tags:"))?;
+        with_content_format.write(formatter, |formatter| {
+            writeln!(formatter, "Changed local tags:")
+        })?;
         for (name, (from_target, to_target)) in changed_local_tags {
             with_content_format.write(formatter, |formatter| {
                 writeln!(formatter, "{name}:", name = name.as_symbol())?;
@@ -342,6 +344,11 @@ pub fn show_op_diff(
     }
 
     let ignored_remote = default_ignored_remote_name(current_repo.store());
+    let get_remote_ref_prefix = |remote_ref: &RemoteRef| match remote_ref.state {
+        RemoteRefState::New => "untracked",
+        RemoteRefState::Tracked => "tracked",
+    };
+
     let changed_remote_bookmarks = diff_named_remote_refs(
         from_repo.view().all_remote_bookmarks(),
         to_repo.view().all_remote_bookmarks(),
@@ -355,11 +362,43 @@ pub fn show_op_diff(
         with_content_format.write(formatter, |formatter| {
             writeln!(formatter, "Changed remote bookmarks:")
         })?;
-        let get_remote_ref_prefix = |remote_ref: &RemoteRef| match remote_ref.state {
-            RemoteRefState::New => "untracked",
-            RemoteRefState::Tracked => "tracked",
-        };
         for (symbol, (from_ref, to_ref)) in changed_remote_bookmarks {
+            with_content_format.write(formatter, |formatter| {
+                writeln!(formatter, "{symbol}:")?;
+                write_ref_target_summary(
+                    formatter,
+                    current_repo,
+                    commit_summary_template,
+                    &to_ref.target,
+                    true,
+                    Some(get_remote_ref_prefix(to_ref)),
+                )?;
+                write_ref_target_summary(
+                    formatter,
+                    current_repo,
+                    commit_summary_template,
+                    &from_ref.target,
+                    false,
+                    Some(get_remote_ref_prefix(from_ref)),
+                )
+            })?;
+        }
+    }
+
+    let changed_remote_tags = diff_named_remote_refs(
+        from_repo.view().all_remote_tags(),
+        to_repo.view().all_remote_tags(),
+    )
+    // Skip updates to the local git repo, since they should typically be covered in
+    // local tags.
+    .filter(|(symbol, _)| ignored_remote.is_none_or(|ignored| symbol.remote != ignored))
+    .collect_vec();
+    if !changed_remote_tags.is_empty() {
+        writeln!(formatter)?;
+        with_content_format.write(formatter, |formatter| {
+            writeln!(formatter, "Changed remote tags:")
+        })?;
+        for (symbol, (from_ref, to_ref)) in changed_remote_tags {
             with_content_format.write(formatter, |formatter| {
                 writeln!(formatter, "{symbol}:")?;
                 write_ref_target_summary(
