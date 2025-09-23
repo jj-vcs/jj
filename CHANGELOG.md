@@ -68,6 +68,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj util exec` now matches the exit status of the program it runs, and
   doesn't print anything.
 
+* `jj config get` now supports displaying array and table config values.
+
 ### Fixed bugs
 
 * Fetching repositories that have submodules no longer errors even if
