@@ -8,13 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://jj-vcs.github.io/jj/latest/guides/divergence/">
+        <link rel="canonical" href="https://jj-vcs.github.io/jj/latest/guides/multiple-remotes/">
       
       
-        <link rel="prev" href="../../glossary/">
+        <link rel="prev" href="../divergence/">
       
       
-        <link rel="next" href="../multiple-remotes/">
+        <link rel="next" href="../../config/">
       
       
       <link rel="icon" href="../../images/favicon-96x96.png">
@@ -22,7 +22,7 @@
     
     
       
-        <title>Divergent changes - Jujutsu docs (prerelease)</title>
+        <title>Multiple remotes - Jujutsu docs (prerelease)</title>
       
     
     
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#handling-divergent-changes" class="md-skip">
+        <a href="#multiple-remotes" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Divergent changes
+              Multiple remotes
             
           </span>
         </div>
@@ -737,6 +737,29 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../divergence/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Divergent changes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -754,7 +777,7 @@
   
   
   <span class="md-ellipsis">
-    Divergent changes
+    Multiple remotes
     
   </span>
   
@@ -767,7 +790,7 @@
   
   
   <span class="md-ellipsis">
-    Divergent changes
+    Multiple remotes
     
   </span>
   
@@ -790,62 +813,38 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#what-are-divergent-changes" class="md-nav__link">
+  <a href="#nomenclature" class="md-nav__link">
     <span class="md-ellipsis">
-      What are divergent changes?
+      Nomenclature
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#how-do-i-resolve-divergent-changes" class="md-nav__link">
+  <a href="#contributing-upstream-with-a-github-style-fork" class="md-nav__link">
     <span class="md-ellipsis">
-      How do I resolve divergent changes?
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="How do I resolve divergent changes?">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#strategy-1-abandon-one-of-the-commits" class="md-nav__link">
-    <span class="md-ellipsis">
-      Strategy 1: Abandon one of the commits
+      Contributing upstream with a GitHub-style fork
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#strategy-2-duplicate-and-abandon" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#maintaining-an-independent-repository-that-integrates-changes-from-upstream" class="md-nav__link">
     <span class="md-ellipsis">
-      Strategy 2: Duplicate and abandon
+      Maintaining an independent repository that integrates changes from upstream
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#strategy-3-squash-the-commits-together" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#other-workflows" class="md-nav__link">
     <span class="md-ellipsis">
-      Strategy 3: Squash the commits together
+      Other workflows
     </span>
   </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#strategy-4-ignore-the-divergence" class="md-nav__link">
-    <span class="md-ellipsis">
-      Strategy 4: Ignore the divergence
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -853,29 +852,6 @@
   
 </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../multiple-remotes/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Multiple remotes
-    
-  </span>
-  
-
-      </a>
     </li>
   
 
@@ -1805,62 +1781,38 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#what-are-divergent-changes" class="md-nav__link">
+  <a href="#nomenclature" class="md-nav__link">
     <span class="md-ellipsis">
-      What are divergent changes?
+      Nomenclature
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#how-do-i-resolve-divergent-changes" class="md-nav__link">
+  <a href="#contributing-upstream-with-a-github-style-fork" class="md-nav__link">
     <span class="md-ellipsis">
-      How do I resolve divergent changes?
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="How do I resolve divergent changes?">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#strategy-1-abandon-one-of-the-commits" class="md-nav__link">
-    <span class="md-ellipsis">
-      Strategy 1: Abandon one of the commits
+      Contributing upstream with a GitHub-style fork
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#strategy-2-duplicate-and-abandon" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#maintaining-an-independent-repository-that-integrates-changes-from-upstream" class="md-nav__link">
     <span class="md-ellipsis">
-      Strategy 2: Duplicate and abandon
+      Maintaining an independent repository that integrates changes from upstream
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#strategy-3-squash-the-commits-together" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#other-workflows" class="md-nav__link">
     <span class="md-ellipsis">
-      Strategy 3: Squash the commits together
+      Other workflows
     </span>
   </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#strategy-4-ignore-the-divergence" class="md-nav__link">
-    <span class="md-ellipsis">
-      Strategy 4: Ignore the divergence
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1880,7 +1832,7 @@
 
 
   
-    <a href="https://github.com/jj-vcs/jj/edit/main/docs/guides/divergence.md" title="Edit this page" class="md-content__button md-icon">
+    <a href="https://github.com/jj-vcs/jj/edit/main/docs/guides/multiple-remotes.md" title="Edit this page" class="md-content__button md-icon">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75z"/></svg>
     </a>
@@ -1888,92 +1840,102 @@
   
 
 
-<h1 id="handling-divergent-changes">Handling divergent changes<a class="headerlink" href="#handling-divergent-changes" title="Permanent link">&para;</a></h1>
-<h2 id="what-are-divergent-changes">What are divergent changes?<a class="headerlink" href="#what-are-divergent-changes" title="Permanent link">&para;</a></h2>
-<p>A <a href="../../glossary/#divergent-change">divergent change</a> occurs when multiple <a href="../../glossary/#visible-commits">visible commits</a> have the same change
-ID.</p>
-<p>Normally, when commits are rewritten, the original version (the "predecessor")
-becomes hidden and the new commit (the "successor") is visible. Thus, only one
-commit with a given change ID is visible at a time.</p>
-<p>But, a hidden commit can become visible again. This can happen if:</p>
+<h1 id="multiple-remotes">Multiple remotes<a class="headerlink" href="#multiple-remotes" title="Permanent link">&para;</a></h1>
+<p>When using multiple <a href="../../glossary/#remote">remote repositories</a>, how you configure them in Jujutsu
+depends on your workflow and the role each remote plays.</p>
+<p>The setup varies based on whether you are contributing to an upstream project,
+or integrating changes from another repository.</p>
+<h2 id="nomenclature">Nomenclature<a class="headerlink" href="#nomenclature" title="Permanent link">&para;</a></h2>
+<p>A remote named <code>origin</code> is one you have write-access to and is usually where you
+push changes.</p>
+<p>A remote named <code>upstream</code> is the more well-known repository. You may not be able
+to push to this repository.</p>
+<p>The trunk in each repository is assumed to be <code>main</code>, so the remote bookmarks
+are <code>main@origin</code> and <code>main@upstream</code>.</p>
+<h2 id="contributing-upstream-with-a-github-style-fork">Contributing upstream with a GitHub-style fork<a class="headerlink" href="#contributing-upstream-with-a-github-style-fork" title="Permanent link">&para;</a></h2>
+<p>This is a GitHub-style fork used to contribute to the upstream repository.
+<code>upstream</code> is the canonical upstream remote, and <code>origin</code> is where you push
+contributions, most likely so you can open pull requests.</p>
+<p>Actions you might take:</p>
+<ul>
+<li>Fetch from <code>upstream</code> to get the latest changes.</li>
+<li>Push <code>main</code> to <code>origin</code> to keep it up-to-date.</li>
+<li>Push <code>my-feature</code> to <code>origin</code>, then open a pull request to <code>upstream</code>.</li>
+</ul>
+<p>To support this scenario, you should:</p>
+<ul>
+<li>Track <code>main@upstream</code> so your local <code>main</code> branch is updated whenever you
+  fetch from <code>upstream</code>.</li>
+<li>Track <code>main@origin</code> so when you <code>jj git push</code>, your fork's <code>main</code> branch is
+  updated.</li>
+<li>Set <code>main@upstream</code> as the <code>trunk()</code> revset alias so it is immutable.</li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="c1"># Fetch from both remotes by default</span>
+$<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span>git.fetch<span class="w"> </span><span class="s1">&#39;[&quot;upstream&quot;, &quot;origin&quot;]&#39;</span>
+
+<span class="c1"># Push only to the fork by default</span>
+$<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span>git.push<span class="w"> </span>origin
+
+<span class="c1"># Track both remote bookmarks</span>
+$<span class="w"> </span>jj<span class="w"> </span>bookmark<span class="w"> </span>track<span class="w"> </span>main@upstream<span class="w"> </span>main@origin
+
+<span class="c1"># The upstream repository defines the trunk</span>
+$<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span><span class="s1">&#39;revset-aliases.&quot;trunk()&quot;&#39;</span><span class="w"> </span>main@upstream
+</code></pre></div>
+<h2 id="maintaining-an-independent-repository-that-integrates-changes-from-upstream">Maintaining an independent repository that integrates changes from upstream<a class="headerlink" href="#maintaining-an-independent-repository-that-integrates-changes-from-upstream" title="Permanent link">&para;</a></h2>
+<p>This is a repository that was originally cloned from upstream, but now contains
+changes in its <code>main</code> branch that are not upstream and might never be
+contributed back.</p>
+<ul>
+<li><code>origin</code> is the repository you are working in.</li>
+<li><code>upstream</code> is the repository you periodically integrate changes from.</li>
+</ul>
+<p>Actions you might take:</p>
+<ul>
+<li>Fetch from <code>origin</code> to get the latest changes.</li>
+<li>Push bookmarks to <code>origin</code>.</li>
+<li>Merge pull requests into <code>main@origin</code>.</li>
+<li>Periodically fetch from <code>main@upstream</code> and merge, rebase, or duplicate its
+  changes into <code>main@origin</code>.</li>
+</ul>
+<p>To support this scenario, you should:</p>
+<ul>
+<li>Track only <code>main@origin</code> so your local <code>main</code> branch is updated whenever you
+  fetch from <code>origin</code>, and so you can push to it if necessary.</li>
+<li><em>Do not</em> track <code>main@upstream</code>.</li>
+<li>Set <code>main@origin</code> as the <code>trunk()</code> revset alias so it is immutable.</li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="c1"># Fetch from origin or both remotes by default</span>
+$<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span>git.fetch<span class="w"> </span><span class="s1">&#39;[&quot;origin&quot;]&#39;</span>
+<span class="c1"># or: jj config set --repo git.fetch &#39;[&quot;upstream&quot;, &quot;origin&quot;]&#39;</span>
+
+<span class="c1"># Push only to origin by default</span>
+$<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span>git.push<span class="w"> </span>origin
+
+<span class="c1"># Track only the origin bookmark</span>
+$<span class="w"> </span>jj<span class="w"> </span>bookmark<span class="w"> </span>track<span class="w"> </span>main@origin
+$<span class="w"> </span>jj<span class="w"> </span>bookmark<span class="w"> </span>untrack<span class="w"> </span>main@upstream
+
+<span class="c1"># The origin repository defines the trunk</span>
+$<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span><span class="s1">&#39;revset-aliases.&quot;trunk()&quot;&#39;</span><span class="w"> </span>main@origin
+</code></pre></div>
+<h2 id="other-workflows">Other workflows<a class="headerlink" href="#other-workflows" title="Permanent link">&para;</a></h2>
+<p>Other workflows may be supported. Some general guidance for this:</p>
 <ul>
 <li>
-<p>A visible descendant is added locally. For example, <code>jj new REV</code> will make
-  <code>REV</code> visible even if it was hidden before.</p>
+<p>Set <code>trunk()</code> to be the remote bookmark you usually rebase upon. If you always
+  rebase against upstream, set it to <code>main@upstream</code>.</p>
 </li>
 <li>
-<p>A visible descendant is fetched from a remote. If the hidden commit was pushed
-  to a remote, others may base new commits off of them. When their new commits are
-  fetched, their visibility makes the hidden commit visible again.</p>
-</li>
-<li>
-<p>It is made the working copy. <code>jj edit REV</code> will make <code>REV</code> and all its
-  ancestors visible if it wasn't already.</p>
-</li>
-<li>
-<p>Some other operations make hidden commits visible. For example, adding a
-  bookmark to a hidden commit makes it visible with the assumption that you are
-  now working with that commit again.</p>
+<p>Tracking a remote bookmark <code>main@origin</code> means it and <code>main</code> represent the
+  same branch. When one moves, the other should move with it. If you want them to
+  <em>automatically</em> move together, you should track the remote bookmark. If not, do
+  not track it.</p>
 </li>
 </ul>
-<p>Divergent changes also occur if two different users or processes amend the same
-change, creating two visible successors. This can happen when:</p>
-<ul>
-<li>
-<p>Another author modifies commits in a branch that you have also modified
-  locally.</p>
-</li>
-<li>
-<p>You perform operations on the same change from different workspaces of the
-  same repository.</p>
-</li>
-<li>
-<p>Two programs modify the repository at the same time. For example, you run
-  <code>jj describe</code> and, while writing your commit description, an IDE integration
-  fetches and rebases the branch you're working on.</p>
-</li>
-</ul>
-<h2 id="how-do-i-resolve-divergent-changes">How do I resolve divergent changes?<a class="headerlink" href="#how-do-i-resolve-divergent-changes" title="Permanent link">&para;</a></h2>
-<p>When you encounter divergent changes, you have several strategies to choose
-from. The best approach depends on whether you want to keep the content from one
-commit, both commits, or merge them together.</p>
-<p>Note that revsets must refer to the divergent commit using its commit ID since
-the change ID is ambiguous.</p>
-<h3 id="strategy-1-abandon-one-of-the-commits">Strategy 1: Abandon one of the commits<a class="headerlink" href="#strategy-1-abandon-one-of-the-commits" title="Permanent link">&para;</a></h3>
-<p>If one of the divergent commits is clearly obsolete or incorrect, simply abandon
-it:</p>
-<div class="highlight"><pre><span></span><code><span class="c1"># Abandon the unwanted commit using its commit ID</span>
-jj<span class="w"> </span>abandon<span class="w"> </span>&lt;unwanted-commit-id&gt;
-
-<span class="c1"># You can abandon several at once with:</span>
-<span class="c1"># jj abandon abc def 123</span>
-<span class="c1"># jj abandon abc::</span>
-</code></pre></div>
-<p>This is the simplest solution when you know which version to keep.</p>
-<h3 id="strategy-2-duplicate-and-abandon">Strategy 2: Duplicate and abandon<a class="headerlink" href="#strategy-2-duplicate-and-abandon" title="Permanent link">&para;</a></h3>
-<p>If you want to keep both versions as separate changes with different change IDs,
-you can duplicate one of the commits to generate a new change ID, then abandon
-the original:</p>
-<div class="highlight"><pre><span></span><code><span class="c1"># Duplicate one of the commits to create a new change ID</span>
-jj<span class="w"> </span>duplicate<span class="w"> </span>&lt;commit-id&gt;
-
-<span class="c1"># Abandon the original commit</span>
-jj<span class="w"> </span>abandon<span class="w"> </span>&lt;commit-id&gt;
-</code></pre></div>
-<p>This preserves both versions of the content while resolving the divergence.</p>
-<h3 id="strategy-3-squash-the-commits-together">Strategy 3: Squash the commits together<a class="headerlink" href="#strategy-3-squash-the-commits-together" title="Permanent link">&para;</a></h3>
-<p>When you want to combine the content from both divergent commits:</p>
-<div class="highlight"><pre><span></span><code><span class="c1"># Squash one commit into the other</span>
-jj<span class="w"> </span>squash<span class="w"> </span>--from<span class="w"> </span>&lt;source-commit-id&gt;<span class="w"> </span>--into<span class="w"> </span>&lt;target-commit-id&gt;
-</code></pre></div>
-<p>This combines the changes from both commits into a single commit. The source
-commit will be abandoned.</p>
-<h3 id="strategy-4-ignore-the-divergence">Strategy 4: Ignore the divergence<a class="headerlink" href="#strategy-4-ignore-the-divergence" title="Permanent link">&para;</a></h3>
-<p>Divergence isn't an error. If the divergence doesn't cause immediate problems,
-you can leave it as-is. If both commits are part of immutable history, this may
-be your only option.</p>
-<p>However, it can be inconvenient since you cannot refer to divergent changes
-unambiguously using their change ID.</p>
+<p>If you have a workflow that is not well-supported, discussion is welcome in
+<a href="https://discord.gg/dkmfj3aGQN">Discord</a>. There is also an <a href="https://github.com/jj-vcs/jj/issues/7072">open discussion</a> for enhancing how bookmark
+tracking works.</p>
 
 
 
