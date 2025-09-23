@@ -200,209 +200,56 @@ revsets (expressions) as arguments.
     * `remote_bookmarks("main", remote="origin")`
     * `remote_bookmarks(remote="origin")`
 
-* `parents(x, [depth])`: `parents(x)` is the same as `x-`.
-  `parents(x, depth)` returns the parents of `x` at the given `depth`. For
-  instance, `parents(x, 3)` is equivalent to `x---`.
-
-* `children(x, [depth])`: `children(x)` is the same as `x+`.
-  `children(x, depth)` returns the children of `x` at the given `depth`. For
-  instance, `children(x, 3)` is equivalent to `x+++`.
-
-* `ancestors(x, [depth])`: `ancestors(x)` is the same as `::x`.
-  `ancestors(x, depth)` returns the ancestors of `x` limited to the given
-  `depth`.
-
-* `descendants(x, [depth])`: `descendants(x)` is the same as `x::`.
-  `descendants(x, depth)` returns the descendants of `x` limited to the given
-  `depth`.
-
-* `first_parent(x, [depth])`: `first_parent(x)` is similar to `parents(x)`, but
-  for merges, it only returns the first parent instead of returning all parents.
-  The `depth` argument also works similarly, so `first_parent(x, 2)` is
-  equivalent to `first_parent(first_parent(x))`.
-
-* `first_ancestors(x, [depth])`: Similar to `ancestors(x, [depth])`, but only
-  traverses the first parent of each commit. In Git, the first parent of a merge
-  commit is conventionally the branch into which changes are being merged, so
-  `first_ancestors()` can be used to exclude changes made on other branches.
-
-* `reachable(srcs, domain)`: All commits reachable from `srcs` within
-  `domain`, traversing all parent and child edges.
-
-* `connected(x)`: Same as `x::x`. Useful when `x` includes several commits.
-
-* `all()`: All visible commits and ancestors of commits explicitly mentioned.
-
-* `none()`: No commits. This function is rarely useful; it is provided for
-  completeness.
-
-* `change_id(prefix)`: Commits with the given change ID prefix. If the specified
-  change is divergent, this resolves to multiple commits. It is an error to use a
-  non-unique prefix. Unmatched prefix isn't an error.
-
-* `commit_id(prefix)`: Commits with the given commit ID prefix. It is an error
-  to use a non-unique prefix. Unmatched prefix isn't an error.
-
-* `bookmarks([pattern])`: All local bookmark targets. If `pattern` is specified,
-  this selects the bookmarks whose name match the given [string
-  pattern](#string-patterns). For example, `bookmarks(push)` would match the
-  bookmarks `push-123` and `repushed` but not the bookmark `main`. If a bookmark is
-  in a conflicted state, all its possible targets are included.
-
-* `remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`: All remote
-  bookmarks targets across all remotes. If just the `bookmark_pattern` is
-  specified, the bookmarks whose names match the given [string
-  pattern](#string-patterns) across all remotes are selected. If both
-  `bookmark_pattern` and `remote_pattern` are specified, the selection is
-  further restricted to just the remotes whose names match `remote_pattern`.
-
-  For example, `remote_bookmarks(push, ri)` would match the bookmarks
-  `push-123@origin` and `repushed@private` but not `push-123@upstream` or
-  `main@origin` or `main@upstream`. If a bookmark is in a conflicted state, all
-  its possible targets are included.
-
-  While Git-tracking bookmarks can be selected by `<name>@git`, these bookmarks
-  aren't included in `remote_bookmarks()`.
-
-* `tracked_remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`: All
-  targets of tracked remote bookmarks. Supports the same optional arguments as
-  `remote_bookmarks()`.
-
-* `untracked_remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`:
-  All targets of untracked remote bookmarks. Supports the same optional arguments
-  as `remote_bookmarks()`.
-
-* `tags([pattern])`: All tag targets. If `pattern` is specified,
-  this selects the tags whose name match the given [string
-  pattern](#string-patterns). For example, `tags(v1)` would match the
-  tags `v123` and `rev1` but not the tag `v2`. If a tag is
-  in a conflicted state, all its possible targets are included.
-
-* `git_refs()`:  All Git ref targets as of the last import. If a Git ref
-  is in a conflicted state, all its possible targets are included.
-
-* `git_head()`: The Git `HEAD` target as of the last import.
-
-* `visible_heads()`: All visible heads (same as `heads(all())` if no hidden
-  revisions are mentioned).
-
-* `root()`: The virtual commit that is the oldest ancestor of all other commits.
-
-* `heads(x)`: Commits in `x` that are not ancestors of other commits in `x`.
-  Equivalent to `x ~ ::x-`. Note that this is different from
-  [Mercurial's](https://repo.mercurial-scm.org/hg/help/revsets) `heads(x)`
-  function, which is equivalent to `x ~ x-`.
-
-* `roots(x)`: Commits in `x` that are not descendants of other commits in `x`.
-  Equivalent to `x ~ x+::`. Note that this is different from
-  [Mercurial's](https://repo.mercurial-scm.org/hg/help/revsets) `roots(x)`
-  function, which is equivalent to `x ~ x+`.
-
-* `latest(x, [count])`: Latest `count` commits in `x`, based on committer
-  timestamp. The default `count` is 1.
-
-* `fork_point(x)`: The fork point of all commits in `x`. The fork point is the
-  common ancestor(s) of all commits in `x` which do not have any descendants
-  that are also common ancestors of all commits in `x`. It is equivalent to
-  the revset `heads(::x_1 & ::x_2 & ... & ::x_N)`, where `x_{1..N}` are commits
-  in `x`. If `x` resolves to a single commit, `fork_point(x)` resolves to `x`.
-
-* `bisect(x)`: Finds commits in the input set for which about half of the input
-  set are descendants. The current implementation deals somewhat poorly with
-  non-linear history.
-
-* `exactly(x, count)`: Evaluates `x`, and errors if it is not of exactly size
-  `count`. Otherwise, returns `x`. This is useful in particular with `count=1`
-  when you want to ensure that some revset expression has exactly one target.
-
-* `merges()`: Merge commits.
-
-* `description(pattern)`: Commits that have a description matching the given
-  [string pattern](#string-patterns).
-
-  A non-empty description is usually terminated with newline character. For
-  example, `description(exact:"")` matches commits without description, and
-  `description(exact:"foo\n")` matches commits with description `"foo\n"`.
-
-* `subject(pattern)`: Commits that have a subject matching the given [string
-  pattern](#string-patterns). A subject is the first line of the description
-  (without newline character.)
-
-* `author(pattern)`: Commits with the author's name or email matching the given
-  [string pattern](#string-patterns). Equivalent to `author_name(pattern) |
-  author_email(pattern)`.
-
-* `author_name(pattern)`: Commits with the author's name matching the given
-  [string pattern](#string-patterns).
-
-* `author_email(pattern)`: Commits with the author's email matching the given
-  [string pattern](#string-patterns).
-
-* `author_date(pattern)`: Commits with author dates matching the specified [date
-  pattern](#date-patterns).
-
-* `mine()`: Commits where the author's email matches the email of the current
-  user. Equivalent to `author_email(exact-i:<user-email>)`
-
-* `committer(pattern)`: Commits with the committer's name or email matching the
-  given [string pattern](#string-patterns). Equivalent to
-  `committer_name(pattern) | committer_email(pattern)`.
-
-* `committer_name(pattern)`: Commits with the committer's name matching the
-  given [string pattern](#string-patterns).
-
-* `committer_email(pattern)`: Commits with the committer's email matching the
-  given [string pattern](#string-patterns).
-
-* `committer_date(pattern)`: Commits with committer dates matching the specified
-  [date pattern](#date-patterns).
-
-* `signed()`: Commits that are cryptographically signed.
-
-* `empty()`: Commits modifying no files. This also includes `merges()` without
-  user modifications and `root()`.
-
-* `files(expression)`: Commits modifying paths matching the given [fileset
-  expression](filesets.md).
-
-  Paths are relative to the directory `jj` was invoked from. A directory name
-  will match all files in that directory and its subdirectories.
-
-  For example, `files(foo)` will match files `foo`, `foo/bar`, `foo/bar/baz`.
-  It will *not* match `foobar` or `bar/foo`.
-
-  Some file patterns might need quoting because the `expression` must also be
-  parsable as a revset. For example, `.` has to be quoted in `files(".")`.
-
-* `diff_contains(text, [files])`: Commits containing diffs matching the given
-  `text` pattern line by line.
-
-  The search paths can be narrowed by the `files` expression. All modified files
-  are scanned by default, but it is likely to change in future version to
-  respect the command line path arguments.
-
-  For example, `diff_contains("TODO", "src")` will search revisions where "TODO"
-  is added to or removed from files under "src".
-
-* `conflicts()`: Commits with conflicts.
-
-* `present(x)`: Same as `x`, but evaluated to `none()` if any of the commits
-  in `x` doesn't exist (e.g. is an unknown bookmark name.)
-
-* `coalesce(revsets...)`: Commits in the first revset in the list of `revsets`
-  which does not evaluate to `none()`. If all revsets evaluate to `none()`, then
-  the result of `coalesce` will also be `none()`.
-
-* `working_copies()`: The working copy commits across all the workspaces.
-
-* `at_operation(op, x)`: Evaluates `x` at the specified [operation][]. For
-  example, `at_operation(@-, visible_heads())` will return all heads which were
-  visible at the previous operation.
-
-  Since `at_operation(op, x)` brings all commits that were visible at the
-  operation to the search space, `at_operation(op, x) | all()` is equivalent to
-  `at_operation(op, x) | ::(at_operation(op, x | visible_heads()) |
-  visible_heads())`.
+| Function                                                                    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+|-----------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `parents(x, [depth])`                                                       | `parents(x)` is the same as `x-`.<br/>`parents(x, depth)` returns the parents of `x` at the given `depth`. For instance, `parents(x, 3)` is equivalent to `x---`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `children(x, [depth])`                                                      | `children(x)` is the same as `x+`.<br/>`children(x, depth)` returns the children of `x` at the given `depth`. For instance, `children(x, 3)` is equivalent to `x+++`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `ancestors(x, [depth])`                                                     | `ancestors(x)` is the same as `::x`.<br/>`ancestors(x, depth)` returns the ancestors of `x` limited to the given `depth`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `descendants(x, [depth])`                                                   | `descendants(x)` is the same as `x::`.<br/>`descendants(x, depth)` returns the descendants of `x` limited to the given `depth`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `first_parent(x, [depth])`                                                  | `first_parent(x)` is similar to `parents(x)`, but for merges, it only returns the first parent instead of returning all parents.<br/>The `depth` argument also works similarly, so `first_parent(x, 2)` is equivalent to `first_parent(first_parent(x))`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `first_ancestors(x, [depth])`                                               | Similar to `ancestors(x, [depth])`, but only traverses the first parent of each commit. In Git, the first parent of a merge commit is conventionally the branch into which changes are being merged, so `first_ancestors()` can be used to exclude changes made on other branches.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `reachable(srcs, domain)`                                                   | All commits reachable from `srcs` within `domain`, traversing all parent and child edges.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `connected(x)`                                                              | Same as `x::x`. Useful when `x` includes several commits.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `all()`                                                                     | All visible commits and ancestors of commits explicitly mentioned.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `none()`                                                                    | No commits. This function is rarely useful; it is provided for completeness.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `change_id(prefix)`                                                         | Commits with the given change ID prefix. If the specified change is divergent, this resolves to multiple commits. It is an error to use a non-unique prefix. Unmatched prefix isn't an error.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `commit_id(prefix)`                                                         | Commits with the given commit ID prefix. It is an error to use a non-unique prefix. Unmatched prefix isn't an error.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `bookmarks([pattern])`                                                      | All local bookmark targets. If `pattern` is specified, this selects the bookmarks whose name match the given [string pattern](#string-patterns). For example, `bookmarks(push)` would match the bookmarks `push-123` and `repushed` but not the bookmark `main`. If a bookmark is in a conflicted state, all its possible targets are included.                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`           | All remote bookmarks targets across all remotes. If just the `bookmark_pattern` is specified, the bookmarks whose names match the given [string pattern](#string-patterns) across all remotes are selected. If both `bookmark_pattern` and `remote_pattern` are specified, the selection is further restricted to just the remotes whose names match `remote_pattern`.<br/>For example, `remote_bookmarks(push, ri)` would match the bookmarks `push-123@origin` and `repushed@private` but not `push-123@upstream` or `main@origin` or `main@upstream`. If a bookmark is in a conflicted state, all its possible targets are included.<br/>While Git-tracking bookmarks can be selected by `<name>@git`, these bookmarks aren't included in `remote_bookmarks()`. |
+| `tracked_remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`   | All targets of tracked remote bookmarks. Supports the same optional arguments as `remote_bookmarks()`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `untracked_remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])` | All targets of untracked remote bookmarks. Supports the same optional arguments as `remote_bookmarks()`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `tags([pattern])`                                                           | All tag targets. If `pattern` is specified, this selects the tags whose name match the given [string pattern](#string-patterns). For example, `tags(v1)` would match the tags `v123` and `rev1` but not the tag `v2`. If a tag is in a conflicted state, all its possible targets are included.                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `git_refs()`                                                                | All Git ref targets as of the last import. If a Git ref is in a conflicted state, all its possible targets are included.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `git_head()`                                                                | The Git `HEAD` target as of the last import.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `visible_heads()`                                                           | All visible heads (same as `heads(all())` if no hidden revisions are mentioned).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `root()`                                                                    | The virtual commit that is the oldest ancestor of all other commits.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `heads(x)`                                                                  | Commits in `x` that are not ancestors of other commits in `x`. Equivalent to `x ~ ::x-`. Note that this is different from [Mercurial's](https://repo.mercurial-scm.org/hg/help/revsets) `heads(x)` function, which is equivalent to `x ~ x-`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `roots(x)`                                                                  | Commits in `x` that are not descendants of other commits in `x`.<br/>Equivalent to `x ~ x+::`. Note that this is different from [Mercurial's](https://repo.mercurial-scm.org/hg/help/revsets) `roots(x)` function, which is equivalent to `x ~ x+`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `latest(x, [count])`                                                        | Latest `count` commits in `x`, based on committer timestamp. The default `count` is 1.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `fork_point(x)`                                                             | The fork point of all commits in `x`. The fork point is the common ancestor(s) of all commits in `x` which do not have any descendants that are also common ancestors of all commits in `x`. It is equivalent to the revset `heads(::x_1 & ::x_2 & ... & ::x_N)`, where `x_{1..N}` are commits in `x`. If `x` resolves to a single commit, `fork_point(x)` resolves to `x`.                                                                                                                                                                                                                                                                                                                                                                                        |
+| `bisect(x)`                                                                 | Finds commits in the input set for which about half of the input set are descendants. The current implementation deals somewhat poorly with non-linear history.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `exactly(x, count)`                                                         | Evaluates `x`, and errors if it is not of exactly size `count`. Otherwise, returns `x`. This is useful in particular with `count=1` when you want to ensure that some revset expression has exactly one target.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `merges()`                                                                  | Merge commits.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `description(pattern)`                                                      | Commits that have a description matching the given [string pattern](#string-patterns).<br/> A non-empty description is usually terminated with newline character. For example, `description(exact:"")` matches commits without description, and `description(exact:"foo\n")` matches commits with description `"foo\n"`.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `subject(pattern)`                                                          | Commits that have a subject matching the given [string pattern](#string-patterns). A subject is the first line of the description (without newline character.)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `author(pattern)`                                                           | Commits with the author's name or email matching the given [string pattern](#string-patterns). Equivalent to `author_name(pattern) | author_email(pattern)`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `author_name(pattern)`                                                      | Commits with the author's name matching the given [string pattern](#string-patterns).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `author_email(pattern)`                                                     | Commits with the author's email matching the given [string pattern](#string-patterns).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `author_date(pattern)`                                                      | Commits with author dates matching the specified [date pattern](#date-patterns).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `mine()`                                                                    | Commits where the author's email matches the email of the current user. Equivalent to `author_email(exact-i:<user-email>)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `committer(pattern)`                                                        | Commits with the committer's name or email matching the given [string pattern](#string-patterns). Equivalent to `committer_name(pattern) | committer_email(pattern)`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `committer_name(pattern)`                                                   | Commits with the committer's name matching the given [string pattern](#string-patterns).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `committer_email(pattern)`                                                  | Commits with the committer's email matching the given [string pattern](#string-patterns).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `committer_date(pattern)`                                                   | Commits with committer dates matching the specified [date pattern](#date-patterns).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `signed()`                                                                  | Commits that are cryptographically signed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `empty()`                                                                   | Commits modifying no files. This also includes `merges()` without user modifications and `root()`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `files(expression)`                                                         | Commits modifying paths matching the given [fileset expression](filesets.md).<br/> Paths are relative to the directory `jj` was invoked from. A directory name will match all files in that directory and its subdirectories.<br/> For example, `files(foo)` will match files `foo`, `foo/bar`, `foo/bar/baz`. It will *not* match `foobar` or `bar/foo`.<br/> Some file patterns might need quoting because the `expression` must also be parsable as a revset. For example, `.` has to be quoted in `files(".")`.<br/>                                                                                                                                                                                                                                           |
+| `diff_contains(text, [files])`                                              | Commits containing diffs matching the given `text` pattern line by line.<br/> The search paths can be narrowed by the `files` expression. All modified files are scanned by default, but it is likely to change in future version to respect the command line path arguments.<br/> For example, `diff_contains("TODO", "src")` will search revisions where "TODO" is added to or removed from files under "src".                                                                                                                                                                                                                                                                                                                                                   |
+| `conflicts()`                                                               | Commits with conflicts.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `present(x)`                                                                | Same as `x`, but evaluated to `none()` if any of the commits in `x` doesn't exist (e.g. is an unknown bookmark name.)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `coalesce(revsets...)`                                                      | Commits in the first revset in the list of `revsets` which does not evaluate to `none()`. If all revsets evaluate to `none()`, then the result of `coalesce` will also be `none()`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `working_copies()`                                                          | The working copy commits across all the workspaces.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `at_operation(op, x)`                                                       | Evaluates `x` at the specified [operation][]. For example, `at_operation(@-, visible_heads())` will return all heads which were visible at the previous operation.<br/> Since `at_operation(op, x)` brings all commits that were visible at the operation to the search space, `at_operation(op, x) | all()` is equivalent to `at_operation(op, x) | ::(at_operation(op, x | visible_heads()) | visible_heads())`.                                                                                                                                                                                                                                                                                                                                                 |
 
 [operation]: glossary.md#operation
 
