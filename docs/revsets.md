@@ -62,29 +62,22 @@ by the same name, use `commit_id(abc)`. This is particularly useful in scripts.
 The following operators are supported. `x` and `y` below can be any revset, not
 only symbols.
 
-* `x-`: Parents of `x`, can be empty.
-* `x+`: Children of `x`, can be empty.
-* `x::`: Descendants of `x`, including the commits in `x` itself. Equivalent to
-  `x::visible_heads()` if no hidden revisions are mentioned.
-* `x..`: Revisions that are not ancestors of `x`. Equivalent to `~::x`, and
-  `x..visible_heads()` if no hidden revisions are mentioned.
-* `::x`: Ancestors of `x`, including the commits in `x` itself. Shorthand for
-  `root()::x`.
-* `..x`: Ancestors of `x`, including the commits in `x` itself, but excluding
-  the root commit. Shorthand for `root()..x`. Equivalent to `::x ~ root()`.
-* `x::y`: Descendants of `x` that are also ancestors of `y`. Equivalent
-   to `x:: & ::y`. This is what `git log` calls `--ancestry-path x..y`.
-* `x..y`: Ancestors of `y` that are not also ancestors of `x`. Equivalent to
-  `::y ~ ::x`. This is what `git log` calls `x..y` (i.e. the same as we call it).
-* `::`: All visible commits in the repo. Equivalent to `all()`, and
-  `root()::visible_heads()` if no hidden revisions are mentioned.
-* `..`: All visible commits in the repo, but excluding the root commit.
-  Equivalent to `~root()`, and `root()..visible_heads()` if no hidden revisions
-  are mentioned.
-* `~x`: Revisions that are not in `x`.
-* `x & y`: Revisions that are in both `x` and `y`.
-* `x ~ y`: Revisions that are in `x` but not in `y`.
-* `x | y`: Revisions that are in either `x` or `y` (or both).
+| Operator | Description                                                                                                                                                  |
+|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `x-`     | Parents of `x`, can be empty.                                                                                                                                |
+| `x+`     | Children of `x`, can be empty.                                                                                                                               |
+| `x::`    | Descendants of `x`, including the commits in `x` itself. Equivalent to  `x::visible_heads()` if no hidden revisions are mentioned.                           |
+| `x..`    | Revisions that are not ancestors of `x`. Equivalent to `~::x`, and `x..visible_heads()` if no hidden revisions are mentioned.                                |
+| `::x`    | Ancestors of `x`, including the commits in `x` itself. Shorthand for `root()::x`.                                                                            |
+| `..x`    | Ancestors of `x`, including the commits in `x` itself, but excluding the root commit. Shorthand for `root()..x`. Equivalent to `::x ~ root()`.               |
+| `x::y`   | Descendants of `x` that are also ancestors of `y`. Equivalent to `x:: & ::y`. This is what `git log` calls `--ancestry-path x..y`.                           |
+| `x..y`   | Ancestors of `y` that are not also ancestors of `x`. Equivalent to  `::y ~ ::x`. This is what `git log` calls `x..y` (i.e. the same as we call it).          |
+| `::`     | All visible commits in the repo. Equivalent to `all()`, and `root()::visible_heads()` if no hidden revisions are mentioned.                                  |
+| `..`     | All visible commits in the repo, but excluding the root commit. Equivalent to `~root()`, and `root()..visible_heads()` if no hidden revisions are mentioned. |
+| `~x`     | Revisions that are not in `x`.                                                                                                                               |
+| `x & y`  | Revisions that are in both `x` and `y`.                                                                                                                      |
+| `x ~ y`  | Revisions that are in `x` but not in `y`.                                                                                                                    |
+| `x | y`  | Revisions that are in either `x` or `y` (or both).                                                                                                           |
 
 (listed in order of binding strengths)
 
