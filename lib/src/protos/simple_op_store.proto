@@ -92,8 +92,9 @@ message View {
   reserved 4;
   bytes wc_commit_id = 2 [deprecated = true];
   map<string, bytes> wc_commit_ids = 8;
+  // Local bookmarks and remote bookmarks in legacy form.
   repeated Bookmark bookmarks = 5;
-  repeated Tag tags = 6;
+  repeated Tag local_tags = 6;
   // Introduced in jj 0.34.
   repeated RemoteView remote_views = 11;
   // Only a subset of the refs. For example, does not include refs/notes/.

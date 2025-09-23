@@ -115,10 +115,11 @@ pub struct View {
         ::prost::alloc::string::String,
         ::prost::alloc::vec::Vec<u8>,
     >,
+    /// Local bookmarks and remote bookmarks in legacy form.
     #[prost(message, repeated, tag = "5")]
     pub bookmarks: ::prost::alloc::vec::Vec<Bookmark>,
     #[prost(message, repeated, tag = "6")]
-    pub tags: ::prost::alloc::vec::Vec<Tag>,
+    pub local_tags: ::prost::alloc::vec::Vec<Tag>,
     /// Introduced in jj 0.34.
     #[prost(message, repeated, tag = "11")]
     pub remote_views: ::prost::alloc::vec::Vec<RemoteView>,

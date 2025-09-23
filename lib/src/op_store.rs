@@ -250,7 +250,7 @@ pub struct View {
     /// All head commits. There should be at least one head commit.
     pub head_ids: HashSet<CommitId>,
     pub local_bookmarks: BTreeMap<RefNameBuf, RefTarget>,
-    pub tags: BTreeMap<RefNameBuf, RefTarget>,
+    pub local_tags: BTreeMap<RefNameBuf, RefTarget>,
     pub remote_views: BTreeMap<RemoteNameBuf, RemoteView>,
     pub git_refs: BTreeMap<GitRefNameBuf, RefTarget>,
     /// The commit the Git HEAD points to.
@@ -269,7 +269,7 @@ impl View {
         Self {
             head_ids: HashSet::from([root_commit_id]),
             local_bookmarks: BTreeMap::new(),
-            tags: BTreeMap::new(),
+            local_tags: BTreeMap::new(),
             remote_views: BTreeMap::new(),
             git_refs: BTreeMap::new(),
             git_head: RefTarget::absent(),

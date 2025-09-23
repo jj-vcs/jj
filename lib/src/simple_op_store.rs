@@ -537,8 +537,8 @@ fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
 
     let bookmarks = bookmark_views_to_proto_legacy(&view.local_bookmarks, &view.remote_views);
 
-    let tags = view
-        .tags
+    let local_tags = view
+        .local_tags
         .iter()
         .map(|(name, target)| crate::protos::simple_op_store::Tag {
             name: name.into(),
@@ -569,7 +569,7 @@ fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
         wc_commit_id: Default::default(),
         wc_commit_ids,
         bookmarks,
-        tags,
+        local_tags,
         remote_views,
         git_refs,
         git_head_legacy: Default::default(),
@@ -598,8 +598,8 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
 
     let (local_bookmarks, mut remote_views) = bookmark_views_from_proto_legacy(proto.bookmarks)?;
 
-    let tags = proto
-        .tags
+    let local_tags = proto
+        .local_tags
         .into_iter()
         .map(|tag_proto| {
             let name: RefNameBuf = tag_proto.name.into();
@@ -665,7 +665,7 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
     Ok(View {
         head_ids,
         local_bookmarks,
-        tags,
+        local_tags,
         remote_views,
         git_refs,
         git_head,
@@ -968,7 +968,7 @@ mod tests {
             local_bookmarks: btreemap! {
                 "main".into() => bookmark_main_local_target,
             },
-            tags: btreemap! {
+            local_tags: btreemap! {
                 "v1.0".into() => tag_v1_local_target,
             },
             remote_views: btreemap! {
