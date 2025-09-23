@@ -331,8 +331,10 @@ You can append `-i` after the kind to match case‐insensitively (e.g.
 
 Functions that perform date matching support the following pattern syntax:
 
-* `after:"string"`: Matches dates exactly at or after the given date.
-* `before:"string"`: Matches dates before, but not including, the given date.
+| Date pattern      | Description                                              |
+|-------------------|----------------------------------------------------------|
+| `after:"string"`  | Matches dates exactly at or after the given date.        |
+| `before:"string"` | Matches dates before, but not including, the given date. |
 
 Date strings can be specified in several forms, including:
 
