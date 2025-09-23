@@ -343,11 +343,11 @@ fn test_merge_views_tags() {
     );
     let expected_v2 = RefTarget::normal(v2_tx1.id().clone());
     assert_eq!(
-        repo.view().tags(),
-        &btreemap! {
-            "v1.0".into() => expected_v1,
-            "v2.0".into() => expected_v2,
-        }
+        repo.view().local_tags().collect_vec(),
+        vec![
+            ("v1.0".as_ref(), &expected_v1),
+            ("v2.0".as_ref(), &expected_v2),
+        ]
     );
 }
 

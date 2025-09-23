@@ -925,7 +925,7 @@ impl<'repo> CommitKeywordCache<'repo> {
 
     pub fn tags_index(&self, repo: &dyn Repo) -> &Rc<CommitRefsIndex> {
         self.tags_index
-            .get_or_init(|| Rc::new(build_commit_refs_index(repo.view().tags())))
+            .get_or_init(|| Rc::new(build_commit_refs_index(repo.view().local_tags())))
     }
 
     pub fn git_refs_index(&self, repo: &dyn Repo) -> &Rc<CommitRefsIndex> {

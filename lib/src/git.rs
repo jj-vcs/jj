@@ -750,13 +750,10 @@ fn default_remote_ref_state_for(
 /// `view.git_refs()`. Main difference is that local branches can be moved by
 /// tracking remotes, and such mutation isn't applied to `view.git_refs()` yet.
 fn pinned_commit_ids(view: &View) -> Vec<CommitId> {
-    itertools::chain(
-        view.local_bookmarks().map(|(_, target)| target),
-        view.tags().values(),
-    )
-    .flat_map(|target| target.added_ids())
-    .cloned()
-    .collect()
+    itertools::chain(view.local_bookmarks(), view.local_tags())
+        .flat_map(|(_, target)| target.added_ids())
+        .cloned()
+        .collect()
 }
 
 /// Commits referenced by untracked remote bookmarks/tags including hidden ones.

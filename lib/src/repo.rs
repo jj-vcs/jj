@@ -1843,8 +1843,8 @@ impl MutableRepo {
             self.merge_local_bookmark(name, base_target, other_target);
         }
 
-        let changed_tags = diff_named_ref_targets(base.tags(), other.tags());
-        for (name, (base_target, other_target)) in changed_tags {
+        let changed_local_tags = diff_named_ref_targets(base.local_tags(), other.local_tags());
+        for (name, (base_target, other_target)) in changed_local_tags {
             self.merge_tag(name, base_target, other_target);
         }
 

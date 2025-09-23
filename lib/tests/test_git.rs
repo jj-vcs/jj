@@ -426,7 +426,7 @@ fn test_import_refs_reimport() {
             .is_absent()
     );
 
-    assert!(view.tags().is_empty());
+    assert_eq!(view.local_tags().count(), 0);
 
     assert_eq!(view.git_refs().len(), 3);
     assert_eq!(
@@ -1484,7 +1484,7 @@ fn test_import_refs_empty_git_repo() {
     let repo = tx.commit("test").unwrap();
     assert_eq!(*repo.view().heads(), heads_before);
     assert_eq!(repo.view().bookmarks().count(), 0);
-    assert_eq!(repo.view().tags().len(), 0);
+    assert_eq!(repo.view().local_tags().count(), 0);
     assert_eq!(repo.view().git_refs().len(), 0);
     assert_eq!(repo.view().git_head(), RefTarget::absent_ref());
 }
@@ -3014,10 +3014,8 @@ fn test_fetch_success() {
         }
     );
     assert_eq!(
-        *view.tags(),
-        btreemap! {
-            "v1.0".into() => new_commit_target.clone(),
-        }
+        view.local_tags().collect_vec(),
+        vec![("v1.0".as_ref(), &new_commit_target)],
     );
     assert_eq!(
         view.all_remote_tags().collect_vec(),

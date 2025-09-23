@@ -318,12 +318,13 @@ pub fn show_op_diff(
         }
     }
 
-    let changed_tags =
-        diff_named_ref_targets(from_repo.view().tags(), to_repo.view().tags()).collect_vec();
-    if !changed_tags.is_empty() {
+    let changed_local_tags =
+        diff_named_ref_targets(from_repo.view().local_tags(), to_repo.view().local_tags())
+            .collect_vec();
+    if !changed_local_tags.is_empty() {
         writeln!(formatter)?;
         with_content_format.write(formatter, |formatter| writeln!(formatter, "Changed tags:"))?;
-        for (name, (from_target, to_target)) in changed_tags {
+        for (name, (from_target, to_target)) in changed_local_tags {
             with_content_format.write(formatter, |formatter| {
                 writeln!(formatter, "{name}:", name = name.as_symbol())?;
                 write_ref_target_summary(

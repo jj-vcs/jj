@@ -29,7 +29,6 @@ use crate::op_store::RemoteRef;
 use crate::ref_name::GitRefName;
 use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefName;
-use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteRefSymbol;
 use crate::ref_name::WorkspaceName;
@@ -84,10 +83,6 @@ impl View {
             &self.data.remote_views,
             |view| &view.bookmarks,
         )
-    }
-
-    pub fn tags(&self) -> &BTreeMap<RefNameBuf, RefTarget> {
-        &self.data.local_tags
     }
 
     pub fn git_refs(&self) -> &BTreeMap<GitRefNameBuf, RefTarget> {
@@ -313,6 +308,14 @@ impl View {
         if let Some(remote_view) = self.data.remote_views.remove(old) {
             self.data.remote_views.insert(new.to_owned(), remote_view);
         }
+    }
+
+    /// Iterates local tag `(name, target)`s in lexicographical order.
+    pub fn local_tags(&self) -> impl Iterator<Item = (&RefName, &RefTarget)> {
+        self.data
+            .local_tags
+            .iter()
+            .map(|(name, target)| (name.as_ref(), target))
     }
 
     pub fn get_tag(&self, name: &RefName) -> &RefTarget {
