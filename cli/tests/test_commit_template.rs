@@ -742,6 +742,32 @@ fn test_log_bookmarks() {
 }
 
 #[test]
+fn test_log_tags() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["commit", "-mcommit1"]).success();
+    work_dir.run_jj(["commit", "-mcommit2"]).success();
+    work_dir.run_jj(["tag", "set", "-r@--", "foo"]).success();
+    work_dir.run_jj(["tag", "set", "-r@-", "bar"]).success();
+    work_dir.run_jj(["git", "export"]).success();
+    work_dir
+        .run_jj(["tag", "set", "--allow-move", "-r@-", "foo", "baz"])
+        .success();
+
+    let template = r#"commit_id.short() ++ " " ++ if(tags, tags, "(no tags)") ++ "\n""#;
+    let output = work_dir.run_jj(["log", "-rall()", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    @  510df2613fc8 (no tags)
+    ◆  3f672e728535 bar baz foo*
+    ◆  b876c5f49546 foo@git
+    ◆  000000000000 (no tags)
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_log_git_head() {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");

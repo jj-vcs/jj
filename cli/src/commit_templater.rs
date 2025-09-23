@@ -51,9 +51,11 @@ use jj_lib::merge::Diff;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::op_store::LocalRemoteRefTarget;
 use jj_lib::op_store::OperationId;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
+use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo;
@@ -920,12 +922,12 @@ pub struct CommitKeywordCache<'repo> {
 impl<'repo> CommitKeywordCache<'repo> {
     pub fn bookmarks_index(&self, repo: &dyn Repo) -> &Rc<CommitRefsIndex> {
         self.bookmarks_index
-            .get_or_init(|| Rc::new(build_bookmarks_index(repo)))
+            .get_or_init(|| Rc::new(build_local_remote_refs_index(repo.view().bookmarks())))
     }
 
     pub fn tags_index(&self, repo: &dyn Repo) -> &Rc<CommitRefsIndex> {
         self.tags_index
-            .get_or_init(|| Rc::new(build_commit_refs_index(repo.view().local_tags())))
+            .get_or_init(|| Rc::new(build_local_remote_refs_index(repo.view().tags())))
     }
 
     pub fn git_refs_index(&self, repo: &dyn Repo) -> &Rc<CommitRefsIndex> {
@@ -1058,14 +1060,8 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                 .keyword_cache
                 .bookmarks_index(language.repo)
                 .clone();
-            let out_property = self_property.map(move |commit| {
-                index
-                    .get(commit.id())
-                    .iter()
-                    .filter(|commit_ref| commit_ref.is_local() || !commit_ref.synced)
-                    .cloned()
-                    .collect_vec()
-            });
+            let out_property =
+                self_property.map(move |commit| collect_distinct_refs(index.get(commit.id())));
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1112,7 +1108,8 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let index = language.keyword_cache.tags_index(language.repo).clone();
-            let out_property = self_property.map(move |commit| index.get(commit.id()).to_vec());
+            let out_property =
+                self_property.map(move |commit| collect_distinct_refs(index.get(commit.id())));
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1784,22 +1781,23 @@ impl CommitRefsIndex {
     }
 }
 
-fn build_bookmarks_index(repo: &dyn Repo) -> CommitRefsIndex {
+fn build_local_remote_refs_index<'a>(
+    local_remote_refs: impl IntoIterator<Item = (&'a RefName, LocalRemoteRefTarget<'a>)>,
+) -> CommitRefsIndex {
     let mut index = CommitRefsIndex::default();
-    for (bookmark_name, bookmark_target) in repo.view().bookmarks() {
-        let local_target = bookmark_target.local_target;
-        let remote_refs = bookmark_target.remote_refs;
+    for (name, target) in local_remote_refs {
+        let local_target = target.local_target;
+        let remote_refs = target.remote_refs;
         if local_target.is_present() {
             let commit_ref = CommitRef::local(
-                bookmark_name,
+                name,
                 local_target.clone(),
                 remote_refs.iter().map(|&(_, remote_ref)| remote_ref),
             );
             index.insert(local_target.added_ids(), commit_ref);
         }
         for &(remote_name, remote_ref) in &remote_refs {
-            let commit_ref =
-                CommitRef::remote(bookmark_name, remote_name, remote_ref.clone(), local_target);
+            let commit_ref = CommitRef::remote(name, remote_name, remote_ref.clone(), local_target);
             index.insert(remote_ref.target.added_ids(), commit_ref);
         }
     }
@@ -1815,6 +1813,14 @@ fn build_commit_refs_index<'a, K: Into<String>>(
         index.insert(target.added_ids(), commit_ref);
     }
     index
+}
+
+fn collect_distinct_refs(commit_refs: &[Rc<CommitRef>]) -> Vec<Rc<CommitRef>> {
+    commit_refs
+        .iter()
+        .filter(|commit_ref| commit_ref.is_local() || !commit_ref.synced)
+        .cloned()
+        .collect()
 }
 
 /// Wrapper to render ref/remote name in revset syntax.

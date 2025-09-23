@@ -86,6 +86,13 @@ impl View {
         )
     }
 
+    /// Iterates pair of local and remote tags by tag name.
+    pub fn tags(&self) -> impl Iterator<Item = (&RefName, LocalRemoteRefTarget<'_>)> {
+        op_store::merge_join_ref_views(&self.data.local_tags, &self.data.remote_views, |view| {
+            &view.tags
+        })
+    }
+
     pub fn git_refs(&self) -> &BTreeMap<GitRefNameBuf, RefTarget> {
         &self.data.git_refs
     }

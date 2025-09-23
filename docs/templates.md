@@ -147,13 +147,15 @@ This type cannot be printed. The following methods are defined.
 * `.current_working_copy() -> Boolean`: True for the working-copy commit of the
   current workspace.
 * `.bookmarks() -> List<CommitRef>`: Local and remote bookmarks pointing to the
-  commit. A tracking remote bookmark will be included only if its target is
+  commit. A tracked remote bookmark will be included only if its target is
   different from the local one.
 * `.local_bookmarks() -> List<CommitRef>`: All local bookmarks pointing to the
   commit.
 * `.remote_bookmarks() -> List<CommitRef>`: All remote bookmarks pointing to the
   commit.
-* `.tags() -> List<CommitRef>`
+* `.tags() -> List<CommitRef>`: Local and remote tags pointing to the commit. A
+  tracked remote tag will be included only if its target is different from the
+  local one.
 * `.git_refs() -> List<CommitRef>`
 * `.git_head() -> Boolean`: True for the Git `HEAD` commit.
 * `.divergent() -> Boolean`: True if the commit's change id corresponds to multiple
