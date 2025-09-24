@@ -70,6 +70,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   to fetch during clone. If present, the first matching branch is used as the
   working-copy parent.
 
+* The new `jj git colocation` command provides sub-commands to show the
+  colocation state (`status`) and to convert a non-colocated git repo into
+  a colocated repo (`enable`) and vice-versa `disable`.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer

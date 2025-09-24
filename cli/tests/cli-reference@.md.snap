@@ -51,6 +51,10 @@ This document contains the help content for the `jj` command-line program.
 * [`jj gerrit upload`↴](#jj-gerrit-upload)
 * [`jj git`↴](#jj-git)
 * [`jj git clone`↴](#jj-git-clone)
+* [`jj git colocation`↴](#jj-git-colocation)
+* [`jj git colocation status`↴](#jj-git-colocation-status)
+* [`jj git colocation enable`↴](#jj-git-colocation-enable)
+* [`jj git colocation disable`↴](#jj-git-colocation-disable)
 * [`jj git export`↴](#jj-git-export)
 * [`jj git fetch`↴](#jj-git-fetch)
 * [`jj git import`↴](#jj-git-import)
@@ -1285,6 +1289,7 @@ See this [comparison], including a [table of commands].
 ###### **Subcommands:**
 
 * `clone` — Create a new repo backed by a clone of a Git repo
+* `colocation` — Manage Jujutsu repository colocation with Git
 * `export` — Update the underlying Git repo with changes made in the repo
 * `fetch` — Fetch from a Git remote
 * `import` — Update repo with changes made in the underlying Git repo
@@ -1335,6 +1340,48 @@ The Git repo will be a bare git repo stored inside the `.jj/` directory.
    If not present, all branches are fetched and the repository's default branch is used as parent of the working-copy change.
 
    By default, the specified name matches exactly. Use `glob:` prefix to expand `*` as a glob, e.g. `--branch 'glob:push-*'`. Other wildcard characters such as `?` are *not* supported. Can be repeated to specify multiple branches, in which case the first match of the first `--branch` argument is used as the working-copy parent.
+
+
+
+## `jj git colocation`
+
+Manage Jujutsu repository colocation with Git
+
+**Usage:** `jj git colocation <COMMAND>`
+
+###### **Subcommands:**
+
+* `status` — Show the current colocation status
+* `enable` — Convert into a colocated Jujutsu/Git repository
+* `disable` — Convert into a non-colocated Jujutsu/Git repository
+
+
+
+## `jj git colocation status`
+
+Show the current colocation status
+
+**Usage:** `jj git colocation status`
+
+
+
+## `jj git colocation enable`
+
+Convert into a colocated Jujutsu/Git repository
+
+This moves the underlying Git repository that is found inside the .jj directory to the root of the Jujutsu workspace. This allows you to use Git commands directly in the Jujutsu workspace.
+
+**Usage:** `jj git colocation enable`
+
+
+
+## `jj git colocation disable`
+
+Convert into a non-colocated Jujutsu/Git repository
+
+This moves the Git repository that is at the root of the Jujutsu workspace into the .jj directory. Once this is done you will no longer be able to use Git commands directly in the Jujutsu workspace.
+
+**Usage:** `jj git colocation disable`
 
 
 

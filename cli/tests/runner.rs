@@ -40,6 +40,7 @@ mod test_generate_md_cli_help;
 mod test_gerrit_upload;
 mod test_git_clone;
 mod test_git_colocated;
+mod test_git_colocation;
 mod test_git_fetch;
 mod test_git_import_export;
 mod test_git_init;
