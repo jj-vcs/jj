@@ -5832,7 +5832,15 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <li>Various flags on <code>jj describe</code> and <code>jj commit</code> have been deprecated in favor
   of <code>jj metaedit</code>. They are:</li>
 <li><code>describe</code>: <code>--author</code>, <code>--reset-author</code>, <code>--no-edit</code></li>
-<li><code>commit</code>:   <code>--author</code>, <code>--reset-author</code></li>
+<li>
+<p><code>commit</code>:   <code>--author</code>, <code>--reset-author</code></p>
+</li>
+<li>
+<p>The storage format of remote bookmarks and tags has changed. Remote bookmarks
+  will be written in both old and new formats to retain forward compatibility.
+  Git-tracking tags are also recorded for future native tagging support. This
+  change should be transparent, but let us know if you see anything odd.</p>
+</li>
 </ul>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
