@@ -13,6 +13,7 @@
 // limitations under the License.
 
 mod clone;
+mod colocation;
 mod export;
 mod fetch;
 mod import;
@@ -36,6 +37,8 @@ use jj_lib::store::Store;
 
 use self::clone::GitCloneArgs;
 use self::clone::cmd_git_clone;
+use self::colocation::GitColocationCommand;
+use self::colocation::cmd_git_colocation;
 use self::export::GitExportArgs;
 use self::export::cmd_git_export;
 use self::fetch::GitFetchArgs;
@@ -68,6 +71,8 @@ use crate::ui::Ui;
 #[derive(Subcommand, Clone, Debug)]
 pub enum GitCommand {
     Clone(GitCloneArgs),
+    #[command(subcommand)]
+    Colocation(GitColocationCommand),
     Export(GitExportArgs),
     Fetch(GitFetchArgs),
     Import(GitImportArgs),
@@ -85,6 +90,7 @@ pub fn cmd_git(
 ) -> Result<(), CommandError> {
     match subcommand {
         GitCommand::Clone(args) => cmd_git_clone(ui, command, args),
+        GitCommand::Colocation(subcommand) => cmd_git_colocation(ui, command, subcommand),
         GitCommand::Export(args) => cmd_git_export(ui, command, args),
         GitCommand::Fetch(args) => cmd_git_fetch(ui, command, args),
         GitCommand::Import(args) => cmd_git_import(ui, command, args),
