@@ -111,6 +111,15 @@ fn ensure_key_as_file(key: &str) -> SshResult<Either<PathBuf, tempfile::TempPath
     Ok(either::Right(pub_key_path))
 }
 
+fn parse_fingerprint(output: Vec<u8>) -> SshResult<String> {
+    Ok(parse_utf8_string(output)?
+        .rsplit_once(' ')
+        .ok_or(SshError::BadResult)?
+        .1
+        .trim()
+        .into())
+}
+
 impl SshBackend {
     pub fn new(
         program: OsString,
@@ -276,7 +285,10 @@ impl SigningBackend for SshBackend {
                     Ok(_) => SigStatus::Good,
                     Err(_) => SigStatus::Bad,
                 };
-                Ok(Verification::new(status, None, Some(principal)))
+
+                let key = result.ok().map(parse_fingerprint).transpose()?;
+
+                Ok(Verification::new(status, key, Some(principal)))
             }
             _ => {
                 command
@@ -290,9 +302,9 @@ impl SigningBackend for SshBackend {
                 let result = run_command(&mut command, data);
 
                 match result {
-                    Ok(_) => Ok(Verification::new(
+                    Ok(result) => Ok(Verification::new(
                         SigStatus::Unknown,
-                        None,
+                        Some(parse_fingerprint(result)?),
                         Some("Signature OK. Unknown principal".into()),
                     )),
                     Err(_) => Ok(Verification::new(SigStatus::Bad, None, None)),

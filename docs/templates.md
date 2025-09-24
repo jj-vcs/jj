@@ -240,9 +240,12 @@ _Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
 
 The following methods are defined.
 
-* `.status() -> String`: The signature's status (`"good"`, `"bad"`, `"unknown"`, `"invalid"`).
-* `.key() -> String`: The signature's key id representation (for GPG, this is the key fingerprint).
-* `.display() -> String`: The signature's display string (for GPG this is the formatted primary user ID).
+* `.status() -> String`: The signature's status (`"good"`, `"bad"`, `"unknown"`,
+  `"invalid"`).
+* `.key() -> String`: The signature's key id representation (for GPG and SSH,
+  this is the public key fingerprint).
+* `.display() -> String`: The signature's display string (for GPG, this is the
+  formatted primary user ID; for SSH, this is the principal).
 
 !!! warning
 
