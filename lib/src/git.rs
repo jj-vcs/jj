@@ -1347,7 +1347,7 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
                 .map_err(GitResetHeadError::from_git)?
         }
     } else {
-        build_index_from_merged_tree(&git_repo, parent_tree.clone())?
+        build_index_from_merged_tree(&git_repo, &parent_tree)?
     };
 
     let wc_tree = wc_commit.tree()?;
@@ -1379,7 +1379,7 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
 
 fn build_index_from_merged_tree(
     git_repo: &gix::Repository,
-    merged_tree: MergedTree,
+    merged_tree: &MergedTree,
 ) -> Result<gix::index::File, GitResetHeadError> {
     let mut index = gix::index::File::from_state(
         gix::index::State::new(git_repo.object_hash()),
