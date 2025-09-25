@@ -638,7 +638,7 @@ impl<'a> DiffRenderer<'a> {
         matcher: &dyn Matcher,
         width: usize,
     ) -> Result<(), DiffRenderError> {
-        let from_tree = commit.parent_tree(self.repo)?;
+        let from_tree = commit.parent_tree_async(self.repo).await?;
         let to_tree = commit.tree_async().await?;
         let mut copy_records = CopyRecords::default();
         for parent_id in commit.parent_ids() {
