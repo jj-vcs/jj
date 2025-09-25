@@ -1064,7 +1064,10 @@ impl Backend for GitBackend {
         ))
     }
 
-    async fn get_related_copies(&self, _copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>> {
+    async fn get_related_copies(
+        &self,
+        _copy_id: &CopyId,
+    ) -> BackendResult<Vec<(CopyId, CopyHistory)>> {
         Err(BackendError::Unsupported(
             "The Git backend doesn't support tracked copies yet".to_string(),
         ))
