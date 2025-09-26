@@ -64,8 +64,8 @@ impl From<SshError> for SignError {
 
 type SshResult<T> = Result<T, SshError>;
 
-fn parse_utf8_string(data: Vec<u8>) -> SshResult<String> {
-    String::from_utf8(data).map_err(|_| SshError::BadResult)
+fn parse_utf8_string(data: &[u8]) -> SshResult<&str> {
+    str::from_utf8(data).map_err(|_| SshError::BadResult)
 }
 
 fn run_command(command: &mut Command, stdin: &[u8]) -> SshResult<Vec<u8>> {
@@ -111,7 +111,7 @@ fn ensure_key_as_file(key: &str) -> SshResult<Either<PathBuf, tempfile::TempPath
     Ok(either::Right(pub_key_path))
 }
 
-fn parse_fingerprint(output: Vec<u8>) -> SshResult<String> {
+fn parse_fingerprint(output: &[u8]) -> SshResult<String> {
     Ok(parse_utf8_string(output)?
         .rsplit_once(' ')
         .ok_or(SshError::BadResult)?
@@ -195,7 +195,7 @@ impl SshBackend {
         let output = process.wait_with_output()?;
         tracing::info!(?command, ?output.status, "SSH signing command exited");
 
-        let principal = parse_utf8_string(output.stdout)?
+        let principal = parse_utf8_string(&output.stdout)?
             .split('\n')
             .next()
             .unwrap()
@@ -281,13 +281,10 @@ impl SigningBackend for SshBackend {
 
                 let result = run_command(&mut command, data);
 
-                let status = match result {
-                    Ok(_) => SigStatus::Good,
-                    Err(_) => SigStatus::Bad,
+                let (status, key) = match &result {
+                    Ok(output) => (SigStatus::Good, Some(parse_fingerprint(output)?)),
+                    Err(_) => (SigStatus::Bad, None),
                 };
-
-                let key = result.ok().map(parse_fingerprint).transpose()?;
-
                 Ok(Verification::new(status, key, Some(principal)))
             }
             _ => {
@@ -301,10 +298,10 @@ impl SigningBackend for SshBackend {
 
                 let result = run_command(&mut command, data);
 
-                match result {
-                    Ok(result) => Ok(Verification::new(
+                match &result {
+                    Ok(output) => Ok(Verification::new(
                         SigStatus::Unknown,
-                        Some(parse_fingerprint(result)?),
+                        Some(parse_fingerprint(output)?),
                         Some("Signature OK. Unknown principal".into()),
                     )),
                     Err(_) => Ok(Verification::new(SigStatus::Bad, None, None)),
