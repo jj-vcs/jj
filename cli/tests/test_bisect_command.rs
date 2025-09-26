@@ -66,6 +66,53 @@ fn test_bisect_run() {
 }
 
 #[test]
+fn test_bisect_run_find_first_good() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit(&work_dir, "a", &[]);
+    create_commit(&work_dir, "b", &["a"]);
+    create_commit(&work_dir, "c", &["b"]);
+    create_commit(&work_dir, "d", &["c"]);
+    create_commit(&work_dir, "e", &["d"]);
+    create_commit(&work_dir, "f", &["e"]);
+
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--command=true", "--find-good"]), @r"
+    Now evaluating: royxmykx dffaa0d4 c | c
+    The revision is good.
+
+    Now evaluating: rlvkpnrz 7d980be7 a | a
+    The revision is good.
+
+    Search complete. To discard any revisions created during search, run:
+      jj op restore 9152b6b19cce
+    The first good revision is: rlvkpnrz 7d980be7 a | a
+    [EOF]
+    ------- stderr -------
+    Working copy  (@) now at: lylxulpl 68b3a16f (empty) (no description set)
+    Parent commit (@-)      : royxmykx dffaa0d4 c | c
+    Added 0 files, modified 0 files, removed 3 files
+    Working copy  (@) now at: rsllmpnm 5f328bc5 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Added 0 files, modified 0 files, removed 2 files
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  rsllmpnmslon 5f328bc5fde0 '' files:
+    │ ○  kmkuslswpqwq 8b67af288466 'f' files: f
+    │ ○  znkkpsqqskkl 62d30ded0e8f 'e' files: e
+    │ ○  vruxwmqvtpmx 86be7a223919 'd' files: d
+    │ ○  royxmykxtrkr dffaa0d4dacc 'c' files: c
+    │ ○  zsuskulnrvyr 123b4d91f6e5 'b' files: b
+    ├─╯
+    ○  rlvkpnrzqnoo 7d980be7a1d4 'a' files: a
+    ◆  zzzzzzzzzzzz 000000000000 '' files:
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_bisect_run_write_file() {
     let mut test_env = TestEnvironment::default();
     let bisector_path = fake_bisector_path();

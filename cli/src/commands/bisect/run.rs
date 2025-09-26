@@ -41,6 +41,9 @@ use crate::ui::Ui;
 /// It is assumed that if a given revision is bad, then all its descendants
 /// in the input range are also bad.
 ///
+/// The target of the bisection can be inverted to look for the first good
+/// revision by passing `--find-good`.
+///
 /// Hint: You can pass your shell as evaluation command. You can then run
 /// manual tests in the shell and make sure to exit the shell with appropriate
 /// error code depending on the outcome (e.g. `exit 0` to mark the revision as
@@ -72,6 +75,12 @@ pub(crate) struct BisectRunArgs {
     /// `$JJ_BISECT_TARGET` environment variable.
     #[arg(long, value_name = "COMMAND", required = true)]
     command: CommandNameAndArgs,
+    /// Whether to find the first good revision instead
+    ///
+    /// Inverts the interpretation of exit statuses (excluding special exit
+    /// statuses).
+    #[arg(long, value_name = "TARGET", default_value = "false")]
+    find_good: bool,
 }
 
 #[instrument(skip_all)]
@@ -118,7 +127,13 @@ pub(crate) fn cmd_bisect_run(
                     writeln!(formatter)?;
                 }
 
-                bisector.mark(commit.id().clone(), evaluation);
+                if args.find_good {
+                    // If we're looking for the first good revision,
+                    // invert the evaluation result.
+                    bisector.mark(commit.id().clone(), evaluation.invert());
+                } else {
+                    bisector.mark(commit.id().clone(), evaluation);
+                }
 
                 // Reload the workspace because the evaluation command may run `jj` commands.
                 workspace_command = command.workspace_helper(ui)?;
@@ -140,22 +155,23 @@ pub(crate) fn cmd_bisect_run(
         short_operation_hash(initial_repo.op_id())
     )?;
 
+    let target = if args.find_good { "good" } else { "bad" };
     match bisection_result {
         BisectionResult::Indeterminate => {
-            return Err(user_error(
-                "Could not find the first bad revision. Was the input range empty?",
-            ));
+            return Err(user_error(format!(
+                "Could not find the first {target} revision. Was the input range empty?"
+            )));
         }
-        BisectionResult::Found(first_bad_commits) => {
+        BisectionResult::Found(first_target_commits) => {
             let commit_template = workspace_command.commit_summary_template();
-            if let [first_bad_commit] = first_bad_commits.as_slice() {
-                write!(formatter, "The first bad revision is: ")?;
-                commit_template.format(first_bad_commit, formatter.as_mut())?;
+            if let [first_target_commit] = first_target_commits.as_slice() {
+                write!(formatter, "The first {target} revision is: ")?;
+                commit_template.format(first_target_commit, formatter.as_mut())?;
                 writeln!(formatter)?;
             } else {
-                writeln!(formatter, "The first bad revisions are:")?;
-                for first_bad_commit in first_bad_commits {
-                    commit_template.format(&first_bad_commit, formatter.as_mut())?;
+                writeln!(formatter, "The first {target} revisions are:")?;
+                for first_target_commit in first_target_commits {
+                    commit_template.format(&first_target_commit, formatter.as_mut())?;
                     writeln!(formatter)?;
                 }
             }
