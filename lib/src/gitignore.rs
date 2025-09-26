@@ -69,13 +69,12 @@ impl GitIgnoreFile {
     ) -> Result<Arc<Self>, GitIgnoreError> {
         let mut builder = gitignore::GitignoreBuilder::new(prefix);
         for (i, input_line) in input.split(|b| *b == b'\n').enumerate() {
-            let line =
-                std::str::from_utf8(input_line).map_err(|err| GitIgnoreError::InvalidUtf8 {
-                    path: ignore_path.to_path_buf(),
-                    line_num_for_display: i + 1,
-                    line: String::from_utf8_lossy(input_line).to_string(),
-                    source: err,
-                })?;
+            let line = str::from_utf8(input_line).map_err(|err| GitIgnoreError::InvalidUtf8 {
+                path: ignore_path.to_path_buf(),
+                line_num_for_display: i + 1,
+                line: String::from_utf8_lossy(input_line).to_string(),
+                source: err,
+            })?;
             // The `from` argument doesn't provide any diagnostics or correctness, so it is
             // not required. It only allows retrieving the path from the `Glob` later, which
             // we never do.

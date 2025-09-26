@@ -109,8 +109,7 @@ fn pinentry_get_pw(url: &str) -> Option<String> {
                 continue;
             }
             i += 1;
-            let byte =
-                u8::from_str_radix(std::str::from_utf8(encoded.get(i..i + 2)?).ok()?, 16).ok()?;
+            let byte = u8::from_str_radix(str::from_utf8(encoded.get(i..i + 2)?).ok()?, 16).ok()?;
             decoded.push(byte);
             i += 2;
         }

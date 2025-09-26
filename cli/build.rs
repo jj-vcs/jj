@@ -14,7 +14,6 @@
 
 use std::path::Path;
 use std::process::Command;
-use std::str;
 
 const GIT_HEAD_PATH: &str = "../.git/HEAD";
 const JJ_OP_HEADS_PATH: &str = "../.jj/repo/op_heads/heads";

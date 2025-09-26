@@ -745,7 +745,6 @@ fn write_sanitized(output: &mut impl Write, buf: &[u8]) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use std::error::Error as _;
-    use std::str;
 
     use bstr::BString;
     use indexmap::IndexMap;

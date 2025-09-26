@@ -22,7 +22,6 @@ use std::default::Default;
 use std::fs::File;
 use std::num::NonZeroU32;
 use std::path::PathBuf;
-use std::str;
 use std::sync::Arc;
 
 use bstr::BStr;

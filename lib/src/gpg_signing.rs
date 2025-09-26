@@ -21,7 +21,6 @@ use std::io::Write as _;
 use std::process::Command;
 use std::process::ExitStatus;
 use std::process::Stdio;
-use std::str;
 
 use thiserror::Error;
 

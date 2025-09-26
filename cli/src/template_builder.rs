@@ -918,7 +918,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
 
             let out_property = self_property.and_then(move |haystack| {
                 if let Some(m) = regex.find(haystack.as_bytes()) {
-                    Ok(std::str::from_utf8(m.as_bytes())?.to_owned())
+                    Ok(str::from_utf8(m.as_bytes())?.to_owned())
                 } else {
                     // We don't have optional strings, so empty string is the
                     // right null value.
@@ -1087,7 +1087,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
                             let haystack_bytes = haystack.as_bytes();
                             let replace_bytes = replacement.as_bytes();
                             let result = regex.replacen(haystack_bytes, limit, replace_bytes);
-                            Ok(std::str::from_utf8(&result)?.to_owned())
+                            Ok(str::from_utf8(&result)?.to_owned())
                         }
                     },
                 );
@@ -1098,7 +1098,7 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
                         let haystack_bytes = haystack.as_bytes();
                         let replace_bytes = replacement.as_bytes();
                         let result = regex.replace_all(haystack_bytes, replace_bytes);
-                        Ok(std::str::from_utf8(&result)?.to_owned())
+                        Ok(str::from_utf8(&result)?.to_owned())
                     },
                 );
                 Ok(out_property.into_dyn_wrapped())

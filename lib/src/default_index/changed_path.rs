@@ -21,7 +21,6 @@ use std::fs::File;
 use std::io::Read;
 use std::io::Write as _;
 use std::path::Path;
-use std::str;
 use std::sync::Arc;
 
 use blake2::Blake2b512;

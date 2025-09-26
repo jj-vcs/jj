@@ -28,7 +28,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::slice;
-use std::str;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::SystemTime;

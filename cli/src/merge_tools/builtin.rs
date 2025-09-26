@@ -223,11 +223,10 @@ fn make_diff_sections(
             DiffHunkKind::Matching => {
                 debug_assert!(hunk.contents.iter().all_equal());
                 let text = hunk.contents[0];
-                let text =
-                    std::str::from_utf8(text).map_err(|err| BuiltinToolError::DecodeUtf8 {
-                        source: err,
-                        item: "matching text in diff hunk",
-                    })?;
+                let text = str::from_utf8(text).map_err(|err| BuiltinToolError::DecodeUtf8 {
+                    source: err,
+                    item: "matching text in diff hunk",
+                })?;
                 sections.push(scm_record::Section::Unchanged {
                     lines: text
                         .split_inclusive('\n')
@@ -239,12 +238,12 @@ fn make_diff_sections(
                 let sides = &hunk.contents;
                 assert_eq!(sides.len(), 2, "only two inputs were provided to the diff");
                 let left_side =
-                    std::str::from_utf8(sides[0]).map_err(|err| BuiltinToolError::DecodeUtf8 {
+                    str::from_utf8(sides[0]).map_err(|err| BuiltinToolError::DecodeUtf8 {
                         source: err,
                         item: "left side of diff hunk",
                     })?;
                 let right_side =
-                    std::str::from_utf8(sides[1]).map_err(|err| BuiltinToolError::DecodeUtf8 {
+                    str::from_utf8(sides[1]).map_err(|err| BuiltinToolError::DecodeUtf8 {
                         source: err,
                         item: "right side of diff hunk",
                     })?;
@@ -597,7 +596,7 @@ fn make_merge_sections(
             for hunk in hunks {
                 let section = match hunk.into_resolved() {
                     Ok(contents) => {
-                        let contents = std::str::from_utf8(&contents).map_err(|err| {
+                        let contents = str::from_utf8(&contents).map_err(|err| {
                             BuiltinToolError::DecodeUtf8 {
                                 source: err,
                                 item: "unchanged hunk",
@@ -622,7 +621,7 @@ fn make_merge_sections(
                                 .cycle(),
                             )
                             .map(|(contents, change_type)| -> Result<_, BuiltinToolError> {
-                                let contents = std::str::from_utf8(contents).map_err(|err| {
+                                let contents = str::from_utf8(contents).map_err(|err| {
                                     BuiltinToolError::DecodeUtf8 {
                                         source: err,
                                         item: "conflicting hunk",

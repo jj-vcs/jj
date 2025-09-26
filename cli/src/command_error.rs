@@ -17,7 +17,6 @@ use std::error::Error as _;
 use std::io;
 use std::io::Write as _;
 use std::iter;
-use std::str;
 use std::sync::Arc;
 
 use itertools::Itertools as _;

@@ -27,7 +27,7 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::process::Command;
 use std::process::ExitStatus;
-use std::str;
+use std::str::Utf8Error;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
@@ -923,7 +923,7 @@ fn to_read_object_err(
     }
 }
 
-fn to_invalid_utf8_err(source: str::Utf8Error, id: &impl ObjectId) -> BackendError {
+fn to_invalid_utf8_err(source: Utf8Error, id: &impl ObjectId) -> BackendError {
     BackendError::InvalidUtf8 {
         object_type: id.object_type(),
         hash: id.hex(),
@@ -1814,7 +1814,7 @@ mod tests {
 
         let mut commit_buf = Vec::new();
         commit.write_to(&mut commit_buf).unwrap();
-        let commit_str = std::str::from_utf8(&commit_buf).unwrap();
+        let commit_str = str::from_utf8(&commit_buf).unwrap();
 
         commit
             .extra_headers
@@ -1832,8 +1832,8 @@ mod tests {
         let sig = commit.secure_sig.expect("failed to read the signature");
 
         // converting to string for nicer assert diff
-        assert_eq!(std::str::from_utf8(&sig.sig).unwrap(), secure_sig);
-        assert_eq!(std::str::from_utf8(&sig.data).unwrap(), commit_str);
+        assert_eq!(str::from_utf8(&sig.sig).unwrap(), secure_sig);
+        assert_eq!(str::from_utf8(&sig.data).unwrap(), commit_str);
     }
 
     #[test]
@@ -2344,7 +2344,7 @@ mod tests {
         let obj = git_repo
             .find_object(gix::ObjectId::from_bytes_or_panic(id.as_bytes()))
             .unwrap();
-        insta::assert_snapshot!(std::str::from_utf8(&obj.data).unwrap(), @r"
+        insta::assert_snapshot!(str::from_utf8(&obj.data).unwrap(), @r"
         tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
         author Someone <someone@example.com> 0 +0000
         committer Someone <someone@example.com> 0 +0000
@@ -2362,11 +2362,11 @@ mod tests {
         let sig = commit.secure_sig.expect("failed to read the signature");
         assert_eq!(&sig, &returned_sig);
 
-        insta::assert_snapshot!(std::str::from_utf8(&sig.sig).unwrap(), @r"
+        insta::assert_snapshot!(str::from_utf8(&sig.sig).unwrap(), @r"
         test sig
         hash=03feb0caccbacce2e7b7bca67f4c82292dd487e669ed8a813120c9f82d3fd0801420a1f5d05e1393abfe4e9fc662399ec4a9a1898c5f1e547e0044a52bd4bd29
         ");
-        insta::assert_snapshot!(std::str::from_utf8(&sig.data).unwrap(), @r"
+        insta::assert_snapshot!(str::from_utf8(&sig.data).unwrap(), @r"
         tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
         author Someone <someone@example.com> 0 +0000
         committer Someone <someone@example.com> 0 +0000

@@ -354,7 +354,6 @@ mod platform {
 #[cfg_attr(unix, expect(dead_code))]
 mod fallback {
     use std::ffi::OsStr;
-    use std::str;
 
     use thiserror::Error;
 

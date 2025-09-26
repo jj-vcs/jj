@@ -16,7 +16,6 @@ use std::io;
 use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
-use std::str;
 use std::sync::Arc;
 
 use indoc::writedoc;
