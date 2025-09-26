@@ -241,9 +241,9 @@ fn test_import_refs() {
             state: RemoteRefState::Tracked,
         },
     );
-    assert!(
-        view.get_remote_bookmark(remote_symbol("feature1", "origin"))
-            .is_absent()
+    assert_eq!(
+        view.get_remote_bookmark(remote_symbol("feature1", "origin")),
+        RemoteRef::absent_ref()
     );
     assert_eq!(
         view.get_local_bookmark("feature2".as_ref()),
@@ -256,17 +256,17 @@ fn test_import_refs() {
             state: RemoteRefState::Tracked,
         },
     );
-    assert!(
-        view.get_remote_bookmark(remote_symbol("feature2", "origin"))
-            .is_absent()
+    assert_eq!(
+        view.get_remote_bookmark(remote_symbol("feature2", "origin")),
+        RemoteRef::absent_ref()
     );
     assert_eq!(
         view.get_local_bookmark("feature3".as_ref()),
         &RefTarget::normal(jj_id(commit6))
     );
-    assert!(
-        view.get_remote_bookmark(remote_symbol("feature3", "git"))
-            .is_absent()
+    assert_eq!(
+        view.get_remote_bookmark(remote_symbol("feature3", "git")),
+        RemoteRef::absent_ref()
     );
     assert_eq!(
         view.get_remote_bookmark(remote_symbol("feature3", "origin")),
@@ -421,9 +421,9 @@ fn test_import_refs_reimport() {
             state: RemoteRefState::Tracked,
         },
     );
-    assert!(
-        view.get_remote_bookmark(remote_symbol("feature2", "origin"))
-            .is_absent()
+    assert_eq!(
+        view.get_remote_bookmark(remote_symbol("feature2", "origin")),
+        RemoteRef::absent_ref()
     );
 
     assert_eq!(view.local_tags().count(), 0);
@@ -634,9 +634,9 @@ fn test_import_refs_reimport_with_deleted_remote_ref() {
         view.get_local_bookmark("feature-remote-only".as_ref()),
         &RefTarget::normal(jj_id(commit_remote_only))
     );
-    assert!(
-        view.get_remote_bookmark(remote_symbol("feature-remote-only", "git"))
-            .is_absent()
+    assert_eq!(
+        view.get_remote_bookmark(remote_symbol("feature-remote-only", "git")),
+        RemoteRef::absent_ref()
     );
     assert_eq!(
         view.get_remote_bookmark(remote_symbol("feature-remote-only", "origin")),
@@ -684,9 +684,9 @@ fn test_import_refs_reimport_with_deleted_remote_ref() {
         view.get_local_bookmark("feature-remote-only".as_ref())
             .is_absent()
     );
-    assert!(
-        view.get_remote_bookmark(remote_symbol("feature-remote-only", "origin"))
-            .is_absent()
+    assert_eq!(
+        view.get_remote_bookmark(remote_symbol("feature-remote-only", "origin")),
+        RemoteRef::absent_ref()
     );
     assert!(
         view.get_local_bookmark("feature-remote-and-local".as_ref())
@@ -699,9 +699,9 @@ fn test_import_refs_reimport_with_deleted_remote_ref() {
             state: RemoteRefState::Tracked,
         },
     );
-    assert!(
-        view.get_remote_bookmark(remote_symbol("feature-remote-and-local", "origin"))
-            .is_absent()
+    assert_eq!(
+        view.get_remote_bookmark(remote_symbol("feature-remote-and-local", "origin")),
+        RemoteRef::absent_ref()
     );
     let expected_heads = hashset! {
             jj_id(commit_main),
@@ -762,9 +762,9 @@ fn test_import_refs_reimport_with_moved_remote_ref() {
         view.get_local_bookmark("feature-remote-only".as_ref()),
         &RefTarget::normal(jj_id(commit_remote_only))
     );
-    assert!(
-        view.get_remote_bookmark(remote_symbol("feature-remote-only", "git"))
-            .is_absent()
+    assert_eq!(
+        view.get_remote_bookmark(remote_symbol("feature-remote-only", "git")),
+        RemoteRef::absent_ref()
     );
     assert_eq!(
         view.get_remote_bookmark(remote_symbol("feature-remote-only", "origin")),
@@ -821,9 +821,9 @@ fn test_import_refs_reimport_with_moved_remote_ref() {
         view.get_local_bookmark("feature-remote-only".as_ref()),
         &RefTarget::normal(jj_id(new_commit_remote_only))
     );
-    assert!(
-        view.get_remote_bookmark(remote_symbol("feature-remote-only", "git"))
-            .is_absent()
+    assert_eq!(
+        view.get_remote_bookmark(remote_symbol("feature-remote-only", "git")),
+        RemoteRef::absent_ref()
     );
     assert_eq!(
         view.get_remote_bookmark(remote_symbol("feature-remote-only", "origin")),
@@ -1327,23 +1327,23 @@ fn test_import_some_refs() {
         &commit_feat4_remote_ref
     );
     assert!(view.get_local_bookmark("main".as_ref()).is_absent());
-    assert!(
-        view.get_remote_bookmark(remote_symbol("main", "git"))
-            .is_absent()
+    assert_eq!(
+        view.get_remote_bookmark(remote_symbol("main", "git")),
+        RemoteRef::absent_ref()
     );
-    assert!(
-        view.get_remote_bookmark(remote_symbol("main", "origin"))
-            .is_absent()
+    assert_eq!(
+        view.get_remote_bookmark(remote_symbol("main", "origin")),
+        RemoteRef::absent_ref()
     );
     assert!(!view.heads().contains(&jj_id(commit_main)));
     assert!(view.get_local_bookmark("ignored".as_ref()).is_absent());
-    assert!(
-        view.get_remote_bookmark(remote_symbol("ignored", "git"))
-            .is_absent()
+    assert_eq!(
+        view.get_remote_bookmark(remote_symbol("ignored", "git")),
+        RemoteRef::absent_ref()
     );
-    assert!(
-        view.get_remote_bookmark(remote_symbol("ignored", "origin"))
-            .is_absent()
+    assert_eq!(
+        view.get_remote_bookmark(remote_symbol("ignored", "origin")),
+        RemoteRef::absent_ref()
     );
     assert!(!view.heads().contains(&jj_id(commit_ign)));
 
@@ -2092,15 +2092,13 @@ fn test_export_partial_failure() {
     assert!(git_repo.find_reference("refs/heads/main/sub").is_err());
 
     // Failed bookmarks shouldn't be copied to the "git" remote
-    assert!(
-        mut_repo
-            .get_remote_bookmark(remote_symbol("", "git"))
-            .is_absent()
+    assert_eq!(
+        mut_repo.get_remote_bookmark(remote_symbol("", "git")),
+        RemoteRef::absent()
     );
-    assert!(
-        mut_repo
-            .get_remote_bookmark(remote_symbol("HEAD", "git"))
-            .is_absent()
+    assert_eq!(
+        mut_repo.get_remote_bookmark(remote_symbol("HEAD", "git")),
+        RemoteRef::absent()
     );
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("main", "git")),
@@ -2109,10 +2107,9 @@ fn test_export_partial_failure() {
             state: RemoteRefState::Tracked,
         },
     );
-    assert!(
-        mut_repo
-            .get_remote_bookmark(remote_symbol("main/sub", "git"))
-            .is_absent()
+    assert_eq!(
+        mut_repo.get_remote_bookmark(remote_symbol("main/sub", "git")),
+        RemoteRef::absent()
     );
 
     // Now remove the `main` bookmark and make sure that the `main/sub` gets
@@ -2149,20 +2146,17 @@ fn test_export_partial_failure() {
     );
 
     // Failed bookmarks shouldn't be copied to the "git" remote
-    assert!(
-        mut_repo
-            .get_remote_bookmark(remote_symbol("", "git"))
-            .is_absent()
+    assert_eq!(
+        mut_repo.get_remote_bookmark(remote_symbol("", "git")),
+        RemoteRef::absent()
     );
-    assert!(
-        mut_repo
-            .get_remote_bookmark(remote_symbol("HEAD", "git"))
-            .is_absent()
+    assert_eq!(
+        mut_repo.get_remote_bookmark(remote_symbol("HEAD", "git")),
+        RemoteRef::absent()
     );
-    assert!(
-        mut_repo
-            .get_remote_bookmark(remote_symbol("main", "git"))
-            .is_absent()
+    assert_eq!(
+        mut_repo.get_remote_bookmark(remote_symbol("main", "git")),
+        RemoteRef::absent()
     );
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("main/sub", "git")),
@@ -3066,10 +3060,10 @@ fn test_fetch_prune_deleted_ref() {
     .unwrap();
     assert_eq!(stats.import_stats.abandoned_commits, vec![jj_id(commit)]);
     assert!(tx.repo().get_local_bookmark("main".as_ref()).is_absent());
-    assert!(
+    assert_eq!(
         tx.repo_mut()
-            .get_remote_bookmark(remote_symbol("main", "origin"))
-            .is_absent()
+            .get_remote_bookmark(remote_symbol("main", "origin")),
+        RemoteRef::absent()
     );
 }
 
@@ -3130,17 +3124,17 @@ fn test_fetch_empty_refspecs() {
         None,
     )
     .unwrap();
-    assert!(
+    assert_eq!(
         tx.repo_mut()
-            .get_remote_bookmark(remote_symbol("main", "origin"))
-            .is_absent()
+            .get_remote_bookmark(remote_symbol("main", "origin")),
+        RemoteRef::absent()
     );
     // No remote refs should have been fetched
     git::import_refs(tx.repo_mut(), &git_settings).unwrap();
-    assert!(
+    assert_eq!(
         tx.repo_mut()
-            .get_remote_bookmark(remote_symbol("main", "origin"))
-            .is_absent()
+            .get_remote_bookmark(remote_symbol("main", "origin")),
+        RemoteRef::absent()
     );
 }
 
@@ -3746,9 +3740,9 @@ fn test_push_bookmarks_deletion() {
         view.get_git_ref("refs/remotes/origin/main".as_ref())
             .is_absent()
     );
-    assert!(
-        view.get_remote_bookmark(remote_symbol("main", "origin"))
-            .is_absent()
+    assert_eq!(
+        view.get_remote_bookmark(remote_symbol("main", "origin")),
+        RemoteRef::absent_ref()
     );
 
     // Check that the repo view reflects the changes in the Git repo
@@ -3816,9 +3810,9 @@ fn test_push_bookmarks_mixed_deletion_and_addition() {
         view.get_git_ref("refs/remotes/origin/main".as_ref())
             .is_absent()
     );
-    assert!(
-        view.get_remote_bookmark(remote_symbol("main", "origin"))
-            .is_absent()
+    assert_eq!(
+        view.get_remote_bookmark(remote_symbol("main", "origin")),
+        RemoteRef::absent_ref()
     );
     assert_eq!(
         *view.get_git_ref("refs/remotes/origin/topic".as_ref()),
