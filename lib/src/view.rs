@@ -162,13 +162,20 @@ impl View {
     }
 
     /// Sets local bookmark to point to the given target. If the target is
-    /// absent, and if no associated remote bookmarks exist, the bookmark
-    /// will be removed.
+    /// absent, the local bookmark will be removed. If there are absent remote
+    /// bookmarks tracked by the newly-absent local bookmark, they will also be
+    /// removed.
     pub fn set_local_bookmark_target(&mut self, name: &RefName, target: RefTarget) {
         if target.is_present() {
             self.data.local_bookmarks.insert(name.to_owned(), target);
         } else {
             self.data.local_bookmarks.remove(name);
+            for remote_view in self.data.remote_views.values_mut() {
+                let remote_refs = &mut remote_view.bookmarks;
+                if remote_refs.get(name).is_some_and(RemoteRef::is_absent) {
+                    remote_refs.remove(name);
+                }
+            }
         }
     }
 
@@ -225,9 +232,12 @@ impl View {
     }
 
     /// Sets remote-tracking bookmark to the given target and state. If the
-    /// target is absent, the bookmark will be removed.
+    /// target is absent and if no tracking local bookmark exists, the bookmark
+    /// will be removed.
     pub fn set_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>, remote_ref: RemoteRef) {
-        if remote_ref.is_present() {
+        if remote_ref.is_present()
+            || (remote_ref.is_tracked() && self.get_local_bookmark(symbol.name).is_present())
+        {
             let remote_view = self
                 .data
                 .remote_views
@@ -334,12 +344,19 @@ impl View {
     }
 
     /// Sets local tag to point to the given target. If the target is absent,
-    /// the local tag will be removed.
+    /// the local tag will be removed. If there are absent remote tags tracked
+    /// by the newly-absent local tag, they will also be removed.
     pub fn set_local_tag_target(&mut self, name: &RefName, target: RefTarget) {
         if target.is_present() {
             self.data.local_tags.insert(name.to_owned(), target);
         } else {
             self.data.local_tags.remove(name);
+            for remote_view in self.data.remote_views.values_mut() {
+                let remote_refs = &mut remote_view.tags;
+                if remote_refs.get(name).is_some_and(RemoteRef::is_absent) {
+                    remote_refs.remove(name);
+                }
+            }
         }
     }
 
@@ -397,9 +414,11 @@ impl View {
     }
 
     /// Sets remote-tracking tag to the given target and state. If the target is
-    /// absent, the tag will be removed.
+    /// absent and if no tracking local tag exists, the tag will be removed.
     pub fn set_remote_tag(&mut self, symbol: RemoteRefSymbol<'_>, remote_ref: RemoteRef) {
-        if remote_ref.is_present() {
+        if remote_ref.is_present()
+            || (remote_ref.is_tracked() && self.get_local_tag(symbol.name).is_present())
+        {
             let remote_view = self
                 .data
                 .remote_views
@@ -493,4 +512,123 @@ pub enum RenameWorkspaceError {
 
     #[error("Workspace {} already exists", name.as_symbol())]
     WorkspaceAlreadyExists { name: WorkspaceNameBuf },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::op_store::RemoteRefState;
+
+    fn remote_symbol<'a, N, M>(name: &'a N, remote: &'a M) -> RemoteRefSymbol<'a>
+    where
+        N: AsRef<RefName> + ?Sized,
+        M: AsRef<RemoteName> + ?Sized,
+    {
+        RemoteRefSymbol {
+            name: name.as_ref(),
+            remote: remote.as_ref(),
+        }
+    }
+
+    #[test]
+    fn test_absent_tracked_bookmarks() {
+        let mut view = View {
+            data: op_store::View::make_root(CommitId::from_hex("000000")),
+        };
+        let absent_tracked_ref = RemoteRef {
+            target: RefTarget::absent(),
+            state: RemoteRefState::Tracked,
+        };
+        let present_tracked_ref = RemoteRef {
+            target: RefTarget::normal(CommitId::from_hex("111111")),
+            state: RemoteRefState::Tracked,
+        };
+
+        // Absent remote ref cannot be tracked by absent local ref
+        view.set_remote_bookmark(remote_symbol("foo", "new"), absent_tracked_ref.clone());
+        assert_eq!(
+            view.get_remote_bookmark(remote_symbol("foo", "new")),
+            RemoteRef::absent_ref()
+        );
+
+        // Present remote ref can be tracked by absent local ref
+        view.set_remote_bookmark(remote_symbol("foo", "present"), present_tracked_ref.clone());
+        assert_eq!(
+            view.get_remote_bookmark(remote_symbol("foo", "present")),
+            &present_tracked_ref
+        );
+
+        // Absent remote ref can be tracked by present local ref
+        view.set_local_bookmark_target(
+            "foo".as_ref(),
+            RefTarget::normal(CommitId::from_hex("222222")),
+        );
+        view.set_remote_bookmark(remote_symbol("foo", "new"), absent_tracked_ref.clone());
+        assert_eq!(
+            view.get_remote_bookmark(remote_symbol("foo", "new")),
+            &absent_tracked_ref
+        );
+
+        // Absent remote ref should be removed if local ref becomes absent
+        view.set_local_bookmark_target("foo".as_ref(), RefTarget::absent());
+        assert_eq!(
+            view.get_remote_bookmark(remote_symbol("foo", "new")),
+            RemoteRef::absent_ref()
+        );
+        assert_eq!(
+            view.get_remote_bookmark(remote_symbol("foo", "present")),
+            &present_tracked_ref
+        );
+    }
+
+    #[test]
+    fn test_absent_tracked_tags() {
+        let mut view = View {
+            data: op_store::View::make_root(CommitId::from_hex("000000")),
+        };
+        let absent_tracked_ref = RemoteRef {
+            target: RefTarget::absent(),
+            state: RemoteRefState::Tracked,
+        };
+        let present_tracked_ref = RemoteRef {
+            target: RefTarget::normal(CommitId::from_hex("111111")),
+            state: RemoteRefState::Tracked,
+        };
+
+        // Absent remote ref cannot be tracked by absent local ref
+        view.set_remote_tag(remote_symbol("foo", "new"), absent_tracked_ref.clone());
+        assert_eq!(
+            view.get_remote_tag(remote_symbol("foo", "new")),
+            RemoteRef::absent_ref()
+        );
+
+        // Present remote ref can be tracked by absent local ref
+        view.set_remote_tag(remote_symbol("foo", "present"), present_tracked_ref.clone());
+        assert_eq!(
+            view.get_remote_tag(remote_symbol("foo", "present")),
+            &present_tracked_ref
+        );
+
+        // Absent remote ref can be tracked by present local ref
+        view.set_local_tag_target(
+            "foo".as_ref(),
+            RefTarget::normal(CommitId::from_hex("222222")),
+        );
+        view.set_remote_tag(remote_symbol("foo", "new"), absent_tracked_ref.clone());
+        assert_eq!(
+            view.get_remote_tag(remote_symbol("foo", "new")),
+            &absent_tracked_ref
+        );
+
+        // Absent remote ref should be removed if local ref becomes absent
+        view.set_local_tag_target("foo".as_ref(), RefTarget::absent());
+        assert_eq!(
+            view.get_remote_tag(remote_symbol("foo", "new")),
+            RemoteRef::absent_ref()
+        );
+        assert_eq!(
+            view.get_remote_tag(remote_symbol("foo", "present")),
+            &present_tracked_ref
+        );
+    }
 }
