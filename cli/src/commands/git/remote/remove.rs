@@ -40,6 +40,7 @@ pub fn cmd_git_remote_remove(
     if tx.repo().has_changes() {
         tx.finish(ui, format!("remove git remote {}", args.remote.as_symbol()))
     } else {
-        Ok(()) // Do not print "Nothing changed."
+        // Do not print "Nothing changed." for the remote named "git".
+        Ok(())
     }
 }

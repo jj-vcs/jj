@@ -264,6 +264,7 @@ fn test_git_fetch_with_ignored_refspecs() {
 
     insta::assert_snapshot!(output.stdout, @r"");
     insta::assert_snapshot!(output.stderr, @r"
+    Done importing changes from the underlying Git repo.
     Warning: Ignored refspec `refs/heads/bar` from `origin`: fetch-only refspecs are not supported
     Warning: Ignored refspec `+refs/heads/bar*:refs/tags/bar*` from `origin`: only refs/remotes/ is supported for fetch destinations
     Warning: Ignored refspec `+refs/heads/foo*:refs/remotes/origin/baz*` from `origin`: renaming is not supported
@@ -1243,7 +1244,7 @@ fn test_git_fetch_undo() {
     let output = target_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Restored to operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+    Restored to operation: 8aeac520a856 (2001-02-03 08:05:07) add git remote origin
     [EOF]
     ");
     // The undo works as expected
@@ -1332,7 +1333,7 @@ fn test_fetch_undo_what() {
     let output = work_dir.run_jj(["op", "restore", "--what", "repo", &base_operation_id]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Restored to operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+    Restored to operation: 8aeac520a856 (2001-02-03 08:05:07) add git remote origin
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
@@ -1363,7 +1364,7 @@ fn test_fetch_undo_what() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Restored to operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+    Restored to operation: 8aeac520a856 (2001-02-03 08:05:07) add git remote origin
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"

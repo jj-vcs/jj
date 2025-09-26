@@ -977,6 +977,7 @@ fn test_git_clone_conditional_config() {
     @  new-repo@base new empty commit
     ○  new-repo@base check out git remote's default branch
     ○  new-repo@base fetch from git remote into empty repo
+    ○  new-repo@base add git remote origin
     ○  new-repo@base add workspace 'default'
     ○  @
     [EOF]
@@ -1031,16 +1032,14 @@ fn test_git_clone_invalid_immutable_heads() {
     // The error shouldn't be counted as an immutable working-copy commit. It
     // should be reported.
     let output = root_dir.run_jj(["git", "clone", "source", "clone"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Fetching into new repo in "$TEST_ENV/clone"
-    bookmark: main@origin [new] tracked
     Config error: Invalid `revset-aliases.immutable_heads()`
     Caused by: Revision `unknown` doesn't exist
     For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
-    "#);
+    ");
 }
 
 #[test]
@@ -1070,7 +1069,7 @@ fn test_git_clone_malformed() {
     let output = clone_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation 54bcfa6d5fd7).
+    Error: The working copy is stale (not updated since operation 353078ed182b).
     Hint: Run `jj workspace update-stale` to update it.
     See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy for more information.
     [EOF]

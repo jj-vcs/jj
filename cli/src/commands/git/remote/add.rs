@@ -14,7 +14,6 @@
 
 use jj_lib::git;
 use jj_lib::ref_name::RemoteNameBuf;
-use jj_lib::repo::Repo as _;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
@@ -43,13 +42,15 @@ pub fn cmd_git_remote_add(
     command: &CommandHelper,
     args: &GitRemoteAddArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
+    let mut workspace_command = command.workspace_helper(ui)?;
     let url = absolute_git_url(command.cwd(), &args.url)?;
+    let mut tx = workspace_command.start_transaction();
     git::add_remote(
-        workspace_command.repo().store(),
+        tx.repo_mut(),
         &args.remote,
         &url,
         args.fetch_tags.as_fetch_tags(),
     )?;
+    tx.finish(ui, format!("add git remote {}", args.remote.as_symbol()))?;
     Ok(())
 }

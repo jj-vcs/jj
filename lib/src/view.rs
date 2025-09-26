@@ -26,6 +26,7 @@ use crate::op_store::LocalRemoteRefTarget;
 use crate::op_store::RefTarget;
 use crate::op_store::RefTargetOptionExt as _;
 use crate::op_store::RemoteRef;
+use crate::op_store::RemoteView;
 use crate::ref_name::GitRefName;
 use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefName;
@@ -308,6 +309,16 @@ impl View {
             };
             (name.as_ref(), targets)
         })
+    }
+
+    /// Adds remote view if it doesn't exist.
+    pub fn ensure_remote(&mut self, remote_name: &RemoteName) {
+        if self.data.remote_views.contains_key(remote_name) {
+            return;
+        }
+        self.data
+            .remote_views
+            .insert(remote_name.to_owned(), RemoteView::default());
     }
 
     pub fn remove_remote(&mut self, remote_name: &RemoteName) {

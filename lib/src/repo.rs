@@ -1706,6 +1706,10 @@ impl MutableRepo {
         self.set_remote_bookmark(symbol, remote_ref);
     }
 
+    pub fn ensure_remote(&mut self, remote_name: &RemoteName) {
+        self.view_mut().ensure_remote(remote_name);
+    }
+
     pub fn remove_remote(&mut self, remote_name: &RemoteName) {
         self.view_mut().remove_remote(remote_name);
     }
