@@ -48,6 +48,20 @@ pub enum Evaluation {
     Skip,
 }
 
+impl Evaluation {
+    /// Maps the current evaluation to its inverse.
+    ///
+    /// Maps `Good`->`Bad`, `Bad`->`Good`, and keeps `Skip` as is.
+    pub fn invert(self) -> Self {
+        use Evaluation::*;
+        match self {
+            Good => Bad,
+            Bad => Good,
+            Skip => Skip,
+        }
+    }
+}
+
 /// Performs bisection to find the first bad commit in a range.
 pub struct Bisector<'repo> {
     repo: &'repo dyn Repo,
