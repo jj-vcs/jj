@@ -10,6 +10,10 @@ cargo_nextest_version = "0.9.103"
 rust_version = "1.88"
 uv_version = "0.8.13"
 
+[settings]
+# the default cmd doesn't support shell expansion, use PowerShell instead
+windows_default_inline_shell_args = "pwsh -Command"
+
 [tools]
 # We need cargo-binstall so that Mise would download "cargo:" tools instead of building them.
 "cargo-binstall" = "latest"
@@ -48,6 +52,11 @@ description = "Lint the code with Clippy"
 tools.rust = "{{vars.rust_version}}"
 run = "cargo clippy --workspace --all-targets"
 
+[tasks."check:codespell"]
+description = "Check code for common misspellings"
+tools.uv = "{{vars.uv_version}}"
+run = "uv run codespell $(jj file list)"
+
 [tasks."check:format"]
 description = "Check the code format"
 tools.rust = "nightly"
@@ -71,6 +80,11 @@ run = "zizmor ."
 description = "Fix the clippy alerts"
 tools.rust = "{{vars.rust_version}}"
 run = "cargo clippy --fix"
+
+[tasks."fix:codespell"]
+description = "Fix common code misspellings"
+tools.uv = "{{vars.uv_version}}"
+run = "uv run codespell -w $(jj file list)"
 
 [tasks."fix:format"]
 description = "Format the code"
