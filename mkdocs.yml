@@ -17,6 +17,10 @@ theme:
     - content.tabs.link
     - navigation.instant
 
+  font:
+    # This has the relevant symbols used in the log.
+    code: Google Sans Code
+
   icon:
     repo: fontawesome/brands/github
     edit: material/pencil
