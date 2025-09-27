@@ -37,6 +37,8 @@ y2yxhhHnagH52avUqw5hAAAAAAECAwQF
 static PUBLIC_KEY: &str =
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGj+J6N6SO+4P8dOZqfR1oiay2yxhhHnagH52avUqw5h";
 
+static FINGERPRINT: &str = "SHA256:CaeelDOMvTqGZPjAS9fdbnACrLg68N1Bb9ux5y6GjGw";
+
 struct SshEnvironment {
     _keys: tempfile::TempDir,
     private_key_path: PathBuf,
@@ -145,7 +147,7 @@ fn ssh_signing_roundtrip() {
 
     let check = backend.verify(data, &signature).unwrap();
     assert_eq!(check.status, SigStatus::Good);
-
+    assert_eq!(check.key.unwrap(), FINGERPRINT);
     assert_eq!(check.display.unwrap(), "test@example.com");
 
     let check = backend.verify(b"invalid-commit-data", &signature).unwrap();
@@ -167,6 +169,7 @@ fn ssh_signing_bad_allowed_signers() {
 
     let check = backend.verify(data, &signature).unwrap();
     assert_eq!(check.status, SigStatus::Unknown);
+    assert_eq!(check.key.unwrap(), FINGERPRINT);
     assert_eq!(check.display.unwrap(), "Signature OK. Unknown principal");
 }
 
@@ -184,6 +187,7 @@ fn ssh_signing_missing_allowed_signers() {
 
     let check = backend.verify(data, &signature).unwrap();
     assert_eq!(check.status, SigStatus::Unknown);
+    assert_eq!(check.key.unwrap(), FINGERPRINT);
     assert_eq!(check.display.unwrap(), "Signature OK. Unknown principal");
 }
 
@@ -220,4 +224,5 @@ fn ssh_signing_revocation_unrevoked() {
 
     let check = backend.verify(data, &signature).unwrap();
     assert_eq!(check.status, SigStatus::Good);
+    assert_eq!(check.key.unwrap(), FINGERPRINT);
 }

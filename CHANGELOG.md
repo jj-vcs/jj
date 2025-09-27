@@ -72,6 +72,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj util exec` sets the environment variable `JJ_WORKSPACE_ROOT`
 
+* The `CryptographicSignature.key()` template method now also works for SSH
+  signatures and returns the corresponding public key fingerprint.
+
 ### Fixed bugs
 
 * Fetching repositories that have submodules no longer errors even if
