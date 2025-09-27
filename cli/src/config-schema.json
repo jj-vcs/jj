@@ -943,6 +943,17 @@
                 }
             }
         },
+        "repo-managed-config": {
+            "type": "object",
+            "description": "Settings controlling the repo-managed config feature which loads configuration from .config/jj/config.toml",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Whether to enable this feature",
+                    "default": false
+                }
+            }
+        },
         "--when": {
             "type": "object",
             "description": "Conditions restriction the application of the configuration",

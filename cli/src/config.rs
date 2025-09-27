@@ -21,6 +21,7 @@ use std::fmt;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::Arc;
 use std::sync::LazyLock;
 
 use etcetera::BaseStrategy as _;
@@ -36,6 +37,7 @@ use jj_lib::config::ConfigSource;
 use jj_lib::config::ConfigValue;
 use jj_lib::config::StackedConfig;
 use jj_lib::dsl_util;
+use once_cell::unsync::OnceCell;
 use regex::Captures;
 use regex::Regex;
 use serde::Serialize as _;
@@ -44,6 +46,8 @@ use tracing::instrument;
 use crate::command_error::CommandError;
 use crate::command_error::config_error;
 use crate::command_error::config_error_with_message;
+use crate::command_error::internal_error_with_message;
+use crate::repo_managed_config::RepoManagedConfig;
 use crate::text_util;
 use crate::ui::Ui;
 
@@ -372,18 +376,20 @@ impl UnresolvedConfigEnv {
 #[derive(Clone, Debug)]
 pub struct ConfigEnv {
     home_dir: Option<PathBuf>,
+    state_dir: Option<PathBuf>,
     repo_path: Option<PathBuf>,
+    workspace_root: Option<PathBuf>,
     user_config_paths: Vec<ConfigPath>,
     repo_config_path: Option<ConfigPath>,
     command: Option<String>,
+    repo_managed_layer: OnceCell<Result<Option<Arc<ConfigLayer>>, CommandError>>,
 }
 
 impl ConfigEnv {
     /// Initializes configuration loader based on environment variables.
     pub fn from_environment(ui: &Ui) -> Self {
-        let config_dir = etcetera::choose_base_strategy()
-            .ok()
-            .map(|s| s.config_dir());
+        let strategy = etcetera::choose_base_strategy().ok();
+        let config_dir = strategy.as_ref().map(|s| s.config_dir());
 
         // older versions of jj used a more "GUI" config option,
         // which is not designed for user-editable configuration of CLI utilities.
@@ -409,6 +415,11 @@ impl ConfigEnv {
             .ok()
             .map(|d| dunce::canonicalize(&d).unwrap_or(d));
 
+        let state_dir = strategy
+            .and_then(|s| s.state_dir())
+            .map(|d| dunce::canonicalize(&d).unwrap_or(d))
+            .or_else(|| home_dir.as_deref().map(|d| d.join(".local/state/jj")));
+
         let env = UnresolvedConfigEnv {
             config_dir,
             macos_legacy_config_dir,
@@ -417,10 +428,13 @@ impl ConfigEnv {
         };
         Self {
             home_dir,
+            state_dir,
             repo_path: None,
+            workspace_root: None,
             user_config_paths: env.resolve(ui),
             repo_config_path: None,
             command: None,
+            repo_managed_layer: Default::default(),
         }
     }
 
@@ -488,9 +502,33 @@ impl ConfigEnv {
 
     /// Sets the directory where repo-specific config file is stored. The path
     /// is usually `.jj/repo`.
-    pub fn reset_repo_path(&mut self, path: &Path) {
-        self.repo_path = Some(path.to_owned());
-        self.repo_config_path = Some(ConfigPath::new(path.join("config.toml")));
+    pub fn reset_repo_path(&mut self, repo_path: &Path, workspace_root: &Path) {
+        self.repo_path = Some(repo_path.to_owned());
+        self.workspace_root = Some(workspace_root.to_owned());
+        self.repo_config_path = Some(ConfigPath::new(repo_path.join("config.toml")));
+    }
+
+    /// Returns the repo-managed configuration.
+    pub fn repo_managed_config(&self) -> Result<Option<RepoManagedConfig>, CommandError> {
+        let workspace_root = self.workspace_root.as_deref().map(|d| {
+            dunce::canonicalize(d)
+                .ok()
+                .unwrap_or_else(|| d.to_path_buf())
+        });
+        Ok(
+            match (
+                self.state_dir.as_deref(),
+                self.repo_path.as_deref(),
+                workspace_root.as_deref(),
+            ) {
+                (Some(state_dir), Some(repo_path), Some(workspace_root)) => Some(
+                    RepoManagedConfig::new(state_dir, repo_path, workspace_root).map_err(|e| {
+                        internal_error_with_message("Unable to convert path to bytes", e)
+                    })?,
+                ),
+                _ => None,
+            },
+        )
     }
 
     /// Returns a path to the repo-specific config file.
@@ -527,6 +565,39 @@ impl ConfigEnv {
             .transpose()
     }
 
+    /// Loads repo-managed config file for the user into the given `config`.
+    /// Returns true if a layer was loaded, and false if no layer was loaded.
+    #[instrument(skip(ui))]
+    fn try_reload_repo_managed_config(
+        &self,
+        ui: &Ui,
+        config: &mut RawConfig,
+    ) -> Result<bool, CommandError> {
+        if let Some(repo_config) = self.repo_managed_config()?
+            && let Some(layer) = self
+                .repo_managed_layer
+                .get_or_init(|| {
+                    let workspace_root = self
+                        .workspace_root
+                        .as_deref()
+                        .expect("workspace root must be set");
+                    Ok(repo_config.create_layer(ui, workspace_root)?.map(Arc::new))
+                })
+                .clone()?
+        {
+            let mut_config = config.as_mut();
+            mut_config.add_layer(layer);
+            // Don't allow silly things like a repo-managed-config disabling
+            // repo-managed-configs.
+            mut_config.add_layer(ConfigLayer::parse(
+                ConfigSource::RepoManaged,
+                "repo-managed-config.enabled = true",
+            )?);
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
     /// Loads repo-specific config file into the given `config`. The old
     /// repo-config layer will be replaced if any.
     #[instrument]
@@ -538,15 +609,39 @@ impl ConfigEnv {
         Ok(())
     }
 
-    /// Resolves conditional scopes within the current environment. Returns new
-    /// resolved config.
-    pub fn resolve_config(&self, config: &RawConfig) -> Result<StackedConfig, ConfigGetError> {
+    pub fn resolve_config_without_repo_managed(
+        &self,
+        config: &RawConfig,
+    ) -> Result<StackedConfig, ConfigGetError> {
         let context = ConfigResolutionContext {
             home_dir: self.home_dir.as_deref(),
             repo_path: self.repo_path.as_deref(),
             command: self.command.as_deref(),
         };
         jj_lib::config::resolve(config.as_ref(), &context)
+    }
+
+    /// Resolves conditional scopes within the current environment. Returns new
+    /// resolved config.
+    pub fn resolve_config(
+        &self,
+        ui: &Ui,
+        config: &mut RawConfig,
+    ) -> Result<StackedConfig, CommandError> {
+        let mut resolved = self.resolve_config_without_repo_managed(config)?;
+        // In case you call this function twice, we remove the layers so we don't
+        // duplicate.
+        resolved.remove_layers(ConfigSource::RepoManaged);
+        // The repo-managed config is enabled.
+        Ok(
+            if resolved.get("repo-managed-config.enabled")?
+                && self.try_reload_repo_managed_config(ui, config)?
+            {
+                self.resolve_config_without_repo_managed(config)?
+            } else {
+                resolved
+            },
+        )
     }
 }
 
@@ -1811,10 +1906,13 @@ mod tests {
         };
         ConfigEnv {
             home_dir,
+            state_dir: None,
             repo_path: None,
+            workspace_root: None,
             user_config_paths: env.resolve(&Ui::null()),
             repo_config_path: None,
             command: None,
+            repo_managed_layer: Default::default(),
         }
     }
 }
