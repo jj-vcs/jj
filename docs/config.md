@@ -182,12 +182,12 @@ default-command = ["log", "--reversed"]
 ### Default description
 
 The editor content of a commit description can be populated by the
-`draft_commit_description` template. `self` is a [`Commit`
+`draft_revision_description` template. `self` is a [`Commit`
 object](templates.md#commit-type).
 
 ```toml
 [templates]
-draft_commit_description = '''
+draft_revision_description = '''
 concat(
   coalesce(description, default_commit_description, "\n"),
   surround(
@@ -253,7 +253,7 @@ is ignored.
 ### Commit trailers
 
 You can configure automatic addition of one or more trailers to commit
-descriptions using the `commit_trailers` template.
+descriptions using the `revision_trailers` template.
 
 Each line of the template is an individual trailer, usually in `Key: Value`
 format.
@@ -265,7 +265,7 @@ added again. To deduplicate based only on the trailer key, use the
 
 ```toml
 [templates]
-commit_trailers = '''
+revision_trailers = '''
 format_signed_off_by_trailer(self)
 ++ if(!trailers.contains_key("Change-Id"), format_gerrit_change_id_trailer(self))'''
 ```
