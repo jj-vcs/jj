@@ -3062,6 +3062,7 @@ fn test_evaluate_expression_exactly() {
     let commit1 = write_random_commit(mut_repo);
     let commit2 = write_random_commit_with_parents(mut_repo, &[&commit1]);
 
+    // basics
     assert!(try_evaluate_expression(mut_repo, "exactly(none(), 0)").is_ok());
     assert!(try_evaluate_expression(mut_repo, "exactly(none(), 1)").is_err());
     assert!(try_evaluate_expression(mut_repo, &format!("exactly({}, 1)", commit1.id())).is_ok());
@@ -3077,6 +3078,11 @@ fn test_evaluate_expression_exactly() {
         resolve_commit_ids(mut_repo, &format!("exactly({}, 1)", commit1.id())),
         vec![commit1.id().clone()]
     );
+    // ranges
+    assert!(try_evaluate_expression(mut_repo, r#"exactly(none(), "0..=1")"#).is_ok());
+    assert!(try_evaluate_expression(mut_repo, r#"exactly(none(), "1..=1")"#).is_err());
+    assert!(try_evaluate_expression(mut_repo, r#"exactly(root(), "1..2")"#).is_ok());
+    assert!(try_evaluate_expression(mut_repo, r#"exactly(root()::, "1..=3")"#).is_ok());
 }
 
 #[test]

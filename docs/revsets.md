@@ -318,9 +318,13 @@ revsets (expressions) as arguments.
   set are descendants. The current implementation deals somewhat poorly with
   non-linear history.
 
-* `exactly(x, count)`: Evaluates `x`, and errors if it is not of exactly size
-  `count`. Otherwise, returns `x`. This is useful in particular with `count=1`
-  when you want to ensure that some revset expression has exactly one target.
+* `exactly(x, range)`: Evaluates `x`, and errors if it is not within `range`.
+  Otherwise, returns `x`. This is primarily useful to enforce invariants in
+  your revsets.
+    - `range` may be an integer literal, in which case `x` must always resolve
+      to exactly that number of revisions. e.g. `exactly(root(), 1)`
+    - `range` may be a half-open interval `n..x`, equivalent to `[n, x)` (`x` is excluded)
+    - `range` may be a closed interval `n..=x`, equivalent to `[n, x]` (`x` is included)
 
 * `merges()`: Merge commits.
 
