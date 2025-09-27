@@ -583,7 +583,7 @@ Otherwise, this command is very similar to `jj split`. Differences include:
 
 * `jj commit` doesn't have a `-r` option. It always acts on the working-copy commit (@).
 
-* `jj split` (without `-d/-A/-B`) will move bookmarks forward from the old change to the child change. `jj commit` doesn't move bookmarks forward.
+* `jj split` creates the new commit as a parent of the source commit, and doesn't move the working-copy. `jj commit` creates the new commit as a child of the working-copy, and sets the new commit as the working-copy.
 
 * `jj split` allows you to move the selected changes to a different destination with `-d/-A/-B`.
 
@@ -2651,7 +2651,7 @@ For example, if all you need is the `README.md` and the `lib/` directory, use `j
 
 Split a revision in two
 
-Starts a [diff editor] on the changes in the revision. Edit the right side of the diff until it has the content you want in the new revision. Once you close the editor, your edited content will replace the previous revision. The remaining changes will be put in a new revision on top.
+Starts a [diff editor] on the changes in the revision. Edit the right side of the diff until it has the content you want in the new revision. Once you close the editor, your edited content will be put in a new revision before the original revision, while the remaining changes will replace the original revision.
 
 [diff editor]: https://jj-vcs.github.io/jj/latest/config/#editing-diffs
 
