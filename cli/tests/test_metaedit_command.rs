@@ -485,6 +485,42 @@ fn test_update_empty_author() {
     ");
 }
 
+#[test]
+/// Test that setting the same timestamp twice does nothing (issue #7602)
+fn test_metaedit_set_same_timestamp_twice() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Set the author-timestamp to the same value twice
+    // and check that the second time it does nothing
+    let output = work_dir.run_jj([
+        "metaedit",
+        "--author-timestamp",
+        "2001-02-03 04:05:14.000+07:00",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Modified 1 commits:
+      qpvuntsm 51b97b23 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm 51b97b23 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    // Running it again with the same date has no effect
+    let output = work_dir.run_jj([
+        "metaedit",
+        "--author-timestamp",
+        "2001-02-03 04:05:14.000+07:00",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+}
+
 #[must_use]
 fn get_log(work_dir: &TestWorkDir) -> CommandOutput {
     work_dir.run_jj([

@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj metaedit --author-timestamp` twice with the same value no longer
+edits the change twice in some cases.
+
 ## [0.34.0] - 2025-10-01
 
 ### Release highlights

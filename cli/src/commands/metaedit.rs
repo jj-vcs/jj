@@ -175,7 +175,8 @@ pub(crate) fn cmd_metaedit(
                 // changes.
                 if new_author.name != old_author.name
                     || new_author.email != old_author.email
-                    || new_author.timestamp != commit_builder.author().timestamp
+                    || (new_author.timestamp != commit_builder.author().timestamp
+                        && new_author.timestamp != old_author.timestamp)
                 {
                     commit_builder = commit_builder.set_author(new_author);
                     has_changes = true;
