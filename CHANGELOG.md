@@ -79,6 +79,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is set in `.gitconfig` (but jj still isn't able to fetch the submodules
   or to operate on them).
 
+* `jj metaedit --author-timestamp` twice with the same value no longer
+edits the change twice in some cases.
+
 ## [0.33.0] - 2025-09-03
 
 ### Release highlights
