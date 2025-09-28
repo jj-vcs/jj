@@ -558,6 +558,7 @@ This type cannot be printed. The following methods are defined.
 * `.git([context: Integer]) -> Template`: Format as a Git diff.
 * `.stat([width: Integer]) -> DiffStats`: Calculate stats of changed lines.
 * `.summary() -> Template`: Format as a list of status code and path pairs.
+  Renamed entries are formatted like `"prefix/{source => target}/suffix"`.
 
 ### `TreeDiffEntry` type
 
@@ -571,6 +572,8 @@ This type cannot be printed. The following methods are defined.
   `"copied"`, or `"renamed"`.
 * `.source() -> TreeEntry`: The source (or left) entry.
 * `.target() -> TreeEntry`: The target (or right) entry.
+* `.summary() -> String`: Path to the entry. If the entry is a rename, format it
+  like `"prefix/{source => target}/suffix"` as in `TreeDiff.summary()`.
 
 ### `TreeEntry` type
 
