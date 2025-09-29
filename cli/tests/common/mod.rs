@@ -30,7 +30,10 @@ pub fn fake_bisector_path() -> String {
 pub fn fake_editor_path() -> String {
     let path = assert_cmd::cargo::cargo_bin("fake-editor");
     assert!(path.is_file());
-    path.into_os_string().into_string().unwrap()
+    path.into_os_string()
+        .into_string()
+        .unwrap()
+        .replace("\\", "\\\\")
 }
 
 pub fn fake_diff_editor_path() -> String {

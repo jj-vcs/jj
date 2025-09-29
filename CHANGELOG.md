@@ -79,6 +79,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is set in `.gitconfig` (but jj still isn't able to fetch the submodules
   or to operate on them).
 
+* Setting the editor via `ui.editor`, `$EDITOR`, or `JJ_EDITOR` now respects shell quoting.
+
 ## [0.33.0] - 2025-09-03
 
 ### Release highlights
