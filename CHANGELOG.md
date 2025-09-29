@@ -33,6 +33,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   configuration options which are set.
   [#7774](https://github.com/jj-vcs/jj/issues/7774)
 
+* Setting the editor via `ui.editor`, `$EDITOR`, or `JJ_EDITOR` now respects shell quoting.
+
+>>>>>>> Conflict 1 of 1 ends
 ## [0.37.0] - 2026-01-07
 
 ### Release highlights

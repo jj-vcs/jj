@@ -2391,6 +2391,7 @@ dependencies = [
  "scm-record",
  "serde",
  "serde_json",
+ "shlex",
  "slab",
  "strsim",
  "tempfile",

@@ -790,9 +790,18 @@ impl CommandNameAndArgs {
     pub fn split_name_and_args(&self) -> (Cow<'_, str>, Cow<'_, [String]>) {
         match self {
             Self::String(s) => {
-                // Handle things like `EDITOR=emacs -nw` (TODO: parse shell escapes)
+                if s.contains('"') || s.contains('\'') {
+                    let mut parts = shlex::Shlex::new(s);
+                    let res = (
+                        parts.next().unwrap_or_default().into(),
+                        parts.by_ref().collect(),
+                    );
+                    if !parts.had_error {
+                        return res;
+                    }
+                }
                 let mut args = s.split(' ').map(|s| s.to_owned());
-                (args.next().unwrap().into(), args.collect())
+                (args.next().unwrap_or_default().into(), args.collect())
             }
             Self::Vec(NonEmptyCommandArgsVec(a)) => (Cow::Borrowed(&a[0]), Cow::Borrowed(&a[1..])),
             Self::Structured {
@@ -1020,6 +1029,7 @@ mod tests {
                     empty_string = ''
                     array = ['emacs', '-nw']
                     string = 'emacs -nw'
+                    string_quoted = '\"spaced path/to/emacs\" -nw'
                     structured.env = { KEY1 = 'value1', KEY2 = 'value2' }
                     structured.command = ['emacs', '-nw']
                 "},
@@ -1053,6 +1063,15 @@ mod tests {
         );
         let (name, args) = command_args.split_name_and_args();
         assert_eq!(name, "emacs");
+        assert_eq!(args, ["-nw"].as_ref());
+
+        let command_args: CommandNameAndArgs = config.get("string_quoted").unwrap();
+        assert_eq!(
+            command_args,
+            CommandNameAndArgs::String("\"spaced path/to/emacs\" -nw".to_owned())
+        );
+        let (name, args) = command_args.split_name_and_args();
+        assert_eq!(name, "spaced path/to/emacs");
         assert_eq!(args, ["-nw"].as_ref());
 
         let command_args: CommandNameAndArgs = config.get("structured").unwrap();

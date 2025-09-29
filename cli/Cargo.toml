@@ -95,6 +95,7 @@ sapling-streampager = { workspace = true }
 scm-record = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+shlex = { workspace = true }
 slab = { workspace = true }
 strsim = { workspace = true }
 tempfile = { workspace = true }
