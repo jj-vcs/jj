@@ -1754,6 +1754,14 @@ fn builtin_commit_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
             Ok(out_property.into_dyn_wrapped())
         },
     );
+    map.insert(
+        "synced",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|commit_ref| commit_ref.synced);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
     map
 }
 

@@ -1690,20 +1690,38 @@ fn test_log_full_description_template() {
 #[test]
 fn test_log_anonymize() {
     let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
 
-    work_dir
+    test_env.run_jj_in(".", ["git", "init", "origin"]).success();
+    let origin_dir = test_env.work_dir("origin");
+    let origin_git_repo = origin_dir.root().join(".jj/repo/store/git");
+    let origin_git_repo = origin_git_repo.to_str().unwrap();
+    origin_dir
         .run_jj([
             "describe",
             "-m",
             "this is commit with a multiline description\n\n<full description>",
         ])
         .success();
+    origin_dir
+        .run_jj(["bookmark", "create", "-r@", "b1", "b2", "b3"])
+        .success();
+    origin_dir.run_jj(["git", "export"]).success();
 
-    let output = work_dir.run_jj(["log", "-Tbuiltin_log_redacted"]);
+    test_env
+        .run_jj_in(".", ["git", "clone", origin_git_repo, "local"])
+        .success();
+    let work_dir = test_env.work_dir("local");
+    work_dir
+        .run_jj(["bookmark", "track", "b1@origin", "b2@origin"])
+        .success();
+    work_dir.run_jj(["new", "b1"]).success();
+    work_dir.run_jj(["bookmark", "move", "b1", "-t@"]).success();
+
+    let output = work_dir.run_jj(["log", "-r::", "-Tbuiltin_log_redacted"]);
     insta::assert_snapshot!(output, @r"
-    @  qpvuntsm user-78cd 2001-02-03 08:05:08 37b69cda
+    @  yqosqzyt user-78cd 2001-02-03 08:05:13 bookmark-dc8b* de3c47af
+    │  (empty) (redacted)
+    ◆  qpvuntsm user-78cd 2001-02-03 08:05:08 bookmark-dc8b@remote-86e9 bookmark-56f1 bookmark-ff9e@remote-86e9 37b69cda
     │  (empty) (redacted)
     ◆  zzzzzzzz root() 00000000
     [EOF]

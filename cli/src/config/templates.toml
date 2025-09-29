@@ -452,7 +452,13 @@ separate(" ",
   format_short_change_id_with_hidden_and_divergent_info(commit),
   label("author", format_user_redacted(commit.author())),
   format_timestamp(commit_timestamp(commit)),
-  commit.bookmarks().map(|bookmark| concat("bookmark-", hash(bookmark.name()).substr(0, 4))),
+  commit.bookmarks().map(|bookmark| concat(
+    "bookmark-", hash(bookmark.name()).substr(0, 4),
+    if(bookmark.remote(),
+      "@remote-" ++ hash(bookmark.remote()).substr(0, 4),
+      if(!bookmark.synced(), "*")
+    )
+  )),
   commit.tags().map(|tag| concat("tag-", hash(tag.name()).substr(0, 4))),
   commit.working_copies(),
   if(commit.git_head(), label("git_head", "git_head()")),
