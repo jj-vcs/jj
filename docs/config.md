@@ -1740,12 +1740,12 @@ eol-conversion = "input-output"
 ```
 
 [git-autocrlf]: https://git-scm.com/book/en/v2/Customizing-Git-Git-Configuration#_core_autocrlf
+[gitoxide-is-binary]: https://github.com/GitoxideLabs/gitoxide/blob/073487b38ed40bcd7eb45dc110ae1ce84f9275a9/gix-filter/src/eol/utils.rs#L98-L100
+[git-is-binary]: https://github.com/git/git/blob/f1ca98f609f9a730b9accf24e5558a10a0b41b6c/convert.c#L94-L103
 [^1]: To detect if a file is binary, Jujutsu currently checks if there is NULL
       byte in the file which is different from the algorithm of
       [`gitoxide`][gitoxide-is-binary] or [`git`][git-is-binary]. Jujutsu
       doesn't plan to align the binary detection logic with git.
-[gitoxide-is-binary]: https://github.com/GitoxideLabs/gitoxide/blob/073487b38ed40bcd7eb45dc110ae1ce84f9275a9/gix-filter/src/eol/utils.rs#L98-L100
-[git-is-binary]: https://github.com/git/git/blob/f1ca98f609f9a730b9accf24e5558a10a0b41b6c/convert.c#L94-L103
 
 ## Ways to specify `jj` config: details
 
@@ -1948,9 +1948,9 @@ wip = ["log", "-r", "work"]
 * `--when.platforms`: List of platforms to match.
 
   The values are defined by both
-  [`std::env::consts::FAMILY](https://doc.rust-lang.org/std/env/consts/constant.FAMILY.html)
+  [`std::env::consts::FAMILY`](https://doc.rust-lang.org/std/env/consts/constant.FAMILY.html)
   and
-  [`std::env::consts::OS](https://doc.rust-lang.org/std/env/consts/constant.OS.html).
+  [`std::env::consts::OS`](https://doc.rust-lang.org/std/env/consts/constant.OS.html).
 
   ```toml
   --when.platforms = ["windows"]            # matches only Windows
