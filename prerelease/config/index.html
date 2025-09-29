@@ -4558,6 +4558,11 @@ to copy it to your config file verbatim, but you are welcome to customize it.)</
   and/or generates conflict markers. Usually, <code>jj</code> uses conflict markers of
   length 7, but they can be longer if necessary to make parsing unambiguous.</p>
 </li>
+<li>
+<p><code>$path</code> is replaced with the path in the repository at which the file
+  will be eventually stored. It is relative to the root directory of the
+  repository and uses <code>/</code> as separators.</p>
+</li>
 </ul>
 <p>Unlike <code>diff-args</code> or <code>edit-args</code>, there is no default value for <code>merge-args</code>.
 If <code>merge-args</code> are not specified, the tool cannot be used for conflict
