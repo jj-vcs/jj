@@ -14,7 +14,7 @@ options:
 
 * Using `jj git push --change` will automatically create a bookmark and push it.
 * Using `jj bookmark` commands to create or move a bookmark to either the commit
-  you want to push or a descendant on it. Unlike Git, Jujutsu doesn't do this
+  you want to push or a descendant of it. Unlike Git, Jujutsu doesn't do this
   automatically (see previous question).
 
 ### Where is my commit, why is it not visible in `jj log`?
