@@ -311,6 +311,16 @@ impl View {
         })
     }
 
+    /// Iterates remote `(name, view)`s in lexicographical order.
+    pub fn remote_views_matching(
+        &self,
+        pattern: &StringPattern,
+    ) -> impl Iterator<Item = (&RemoteName, &RemoteView)> {
+        pattern
+            .filter_btree_map_as_deref(&self.data.remote_views)
+            .map(|(name, view)| (name.as_ref(), view))
+    }
+
     /// Adds remote view if it doesn't exist.
     pub fn ensure_remote(&mut self, remote_name: &RemoteName) {
         if self.data.remote_views.contains_key(remote_name) {

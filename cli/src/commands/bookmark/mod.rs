@@ -143,16 +143,23 @@ where
     }
 }
 
-fn find_remote_bookmarks<'a>(
+fn find_trackable_remote_bookmarks<'a>(
     view: &'a View,
     name_patterns: &[RemoteBookmarkNamePattern],
 ) -> Result<Vec<(RemoteRefSymbol<'a>, &'a RemoteRef)>, CommandError> {
     let mut matching_bookmarks = vec![];
     let mut unmatched_patterns = vec![];
     for pattern in name_patterns {
-        let mut matches = view
-            .remote_bookmarks_matching(&pattern.bookmark, &pattern.remote)
-            .peekable();
+        let present_or_tracked_matches =
+            view.remote_bookmarks_matching(&pattern.bookmark, &pattern.remote);
+        let absent_matches =
+            view.remote_views_matching(&pattern.remote)
+                .flat_map(|(remote, remote_view)| {
+                    view.local_bookmarks_matching(&pattern.bookmark)
+                        .filter(|&(name, _)| !remote_view.bookmarks.contains_key(name))
+                        .map(|(name, _)| (name.to_remote_symbol(remote), RemoteRef::absent_ref()))
+                });
+        let mut matches = itertools::chain(present_or_tracked_matches, absent_matches).peekable();
         if matches.peek().is_none() {
             unmatched_patterns.push(pattern);
         }

@@ -18,7 +18,7 @@ use std::rc::Rc;
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 
-use super::find_remote_bookmarks;
+use super::find_trackable_remote_bookmarks;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RemoteBookmarkNamePattern;
 use crate::command_error::CommandError;
@@ -59,7 +59,7 @@ pub fn cmd_bookmark_track(
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
     let mut symbols = Vec::new();
-    for (symbol, remote_ref) in find_remote_bookmarks(repo.view(), &args.names)? {
+    for (symbol, remote_ref) in find_trackable_remote_bookmarks(repo.view(), &args.names)? {
         if remote_ref.is_tracked() {
             writeln!(
                 ui.warning_default(),

@@ -54,6 +54,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   revision is immutable, the user shouldn't take any action, so the red color
   was unnecessarily alarming.
 
+* `jj bookmark track` can now associate new local bookmarks with remote.
+  [#7072](https://github.com/jj-vcs/jj/issues/7072)
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer

@@ -758,10 +758,15 @@ fn test_bookmark_delete_glob() {
     work_dir.run_jj(["bookmark", "create", "foo-4"]).success();
     // Push to create remote-tracking bookmarks
     work_dir.run_jj(["git", "push", "--all"]).success();
+    // Add absent-tracked bookmark
+    work_dir.run_jj(["bookmark", "create", "foo-5"]).success();
+    work_dir
+        .run_jj(["bookmark", "track", "foo-5@origin"])
+        .success();
     let setup_opid = work_dir.current_operation_id();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  bar-2 foo-1 foo-3 foo-4 8e056f6b8c37
+    @  bar-2 foo-1 foo-3 foo-4 foo-5* 8e056f6b8c37
     ◆   000000000000
     [EOF]
     ");
@@ -779,7 +784,7 @@ fn test_bookmark_delete_glob() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  bar-2 foo-1@origin foo-3@origin foo-4 8e056f6b8c37
+    @  bar-2 foo-1@origin foo-3@origin foo-4 foo-5* 8e056f6b8c37
     ◆   000000000000
     [EOF]
     ");
@@ -799,7 +804,7 @@ fn test_bookmark_delete_glob() {
     let output = work_dir.run_jj(["bookmark", "delete", "foo-4", "glob:foo-*", "glob:foo-*"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Deleted 1 bookmarks.
+    Deleted 2 bookmarks.
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -808,7 +813,8 @@ fn test_bookmark_delete_glob() {
     [EOF]
     ");
 
-    // The deleted bookmarks are still there
+    // The deleted bookmarks are still there, whereas absent-tracked bookmarks
+    // aren't.
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     bar-2: qpvuntsm 8e056f6b (empty) commit
       @origin: qpvuntsm 8e056f6b (empty) commit
@@ -1378,19 +1384,26 @@ fn test_bookmark_track_untrack_patterns() {
     [exit status: 2]
     ");
 
-    // Track/untrack unknown bookmark
+    // Track/untrack new bookmark that doesn't exist at remote
     insta::assert_snapshot!(work_dir.run_jj(["bookmark", "track", "main@origin"]), @r"
     ------- stderr -------
-    Error: No such remote bookmark: main@origin
+    Started tracking 1 remote bookmarks.
     [EOF]
-    [exit status: 1]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["bookmark", "untrack", "main@origin"]), @r"
     ------- stderr -------
-    Error: No such remote bookmark: main@origin
+    Stopped tracking 1 remote bookmarks.
     [EOF]
-    [exit status: 1]
     ");
+    insta::assert_snapshot!(
+        work_dir.run_jj(["bookmark", "untrack", "main@origin", "glob:main@o*"]), @r"
+    ------- stderr -------
+    Warning: Remote bookmark not tracked yet: main@origin
+    Nothing changed.
+    [EOF]
+    ");
+
+    // Track/untrack unknown bookmark
     insta::assert_snapshot!(work_dir.run_jj(["bookmark", "track", "glob:maine@*"]), @r"
     ------- stderr -------
     Error: No matching remote bookmarks for patterns: maine@*
@@ -1398,9 +1411,9 @@ fn test_bookmark_track_untrack_patterns() {
     [exit status: 1]
     ");
     insta::assert_snapshot!(
-        work_dir.run_jj(["bookmark", "untrack", "main@origin", "glob:main@o*"]), @r"
+        work_dir.run_jj(["bookmark", "untrack", "maine@origin", "glob:maine@o*"]), @r"
     ------- stderr -------
-    Error: No matching remote bookmarks for patterns: main@origin, main@o*
+    Error: No matching remote bookmarks for patterns: maine@origin, maine@o*
     [EOF]
     [exit status: 1]
     ");
@@ -1452,6 +1465,7 @@ fn test_bookmark_track_untrack_patterns() {
     Warning: Git-tracking bookmark cannot be untracked: feature1@git
     Warning: Remote bookmark not tracked yet: feature2@origin
     Warning: Git-tracking bookmark cannot be untracked: main@git
+    Warning: Remote bookmark not tracked yet: main@origin
     Stopped tracking 1 remote bookmarks.
     [EOF]
     ");
