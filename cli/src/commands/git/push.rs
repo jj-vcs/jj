@@ -783,7 +783,9 @@ fn classify_bookmark_update(
                 "Run `jj bookmark track {remote_symbol}` to import the remote bookmark."
             )),
         }),
-        BookmarkPushAction::Update(update) if update.old_target.is_none() && !allow_new => {
+        // TODO: deprecate --allow-new and make classify_bookmark_push_action()
+        // reject untracked remote?
+        BookmarkPushAction::Update(_) if !targets.remote_ref.is_tracked() && !allow_new => {
             Err(RejectedBookmarkUpdateReason {
                 message: format!("Refusing to create new remote bookmark {remote_symbol}"),
                 hint: Some(

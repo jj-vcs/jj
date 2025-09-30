@@ -598,7 +598,24 @@ fn test_git_push_locally_created_and_rewritten() {
     Dry-run requested, not pushing.
     [EOF]
     ");
-    let output = work_dir.run_jj(["git", "push", "--config=git.push-new-bookmarks=true"]);
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--config=git.push-new-bookmarks=true",
+        "--dry-run",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Add bookmark my to e0cba5e497ee
+    Dry-run requested, not pushing.
+    [EOF]
+    ");
+    // Absent-tracked bookmark can be pushed without --allow-new
+    work_dir
+        .run_jj(["bookmark", "track", "my@origin"])
+        .success();
+    let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -614,7 +631,7 @@ fn test_git_push_locally_created_and_rewritten() {
       @origin: qpvuntsm 9b2e76de (empty) description 1
     bookmark2: zsuskuln 38a20473 (empty) description 2
       @origin: zsuskuln 38a20473 (empty) description 2
-    my: vruxwmqv 5eb416c1 (empty) local 2
+    my: vruxwmqv 9ebc3217 (empty) local 2
       @origin (ahead by 1 commits, behind by 1 commits): vruxwmqv hidden e0cba5e4 (empty) local 1
     [EOF]
     ");
@@ -622,7 +639,7 @@ fn test_git_push_locally_created_and_rewritten() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
-      Move sideways bookmark my from e0cba5e497ee to 5eb416c1ff97
+      Move sideways bookmark my from e0cba5e497ee to 9ebc3217a0b8
     [EOF]
     ");
 }
