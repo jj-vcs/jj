@@ -507,7 +507,7 @@ pub fn import_some_refs(
         let base_target = old_remote_ref.tracked_target();
         let new_remote_ref = RemoteRef {
             target: new_target.clone(),
-            state: if old_remote_ref.is_present() {
+            state: if old_remote_ref != RemoteRef::absent_ref() {
                 old_remote_ref.state
             } else {
                 default_remote_ref_state_for(GitRefKind::Bookmark, symbol, git_settings)
@@ -525,7 +525,7 @@ pub fn import_some_refs(
         let base_target = old_remote_ref.tracked_target();
         let new_remote_ref = RemoteRef {
             target: new_target.clone(),
-            state: if old_remote_ref.is_present() {
+            state: if old_remote_ref != RemoteRef::absent_ref() {
                 old_remote_ref.state
             } else {
                 default_remote_ref_state_for(GitRefKind::Tag, symbol, git_settings)
@@ -656,10 +656,14 @@ fn diff_refs_to_import(
         changed_git_refs.push((full_name.to_owned(), RefTarget::absent()));
     }
     for (RemoteRefKey(symbol), old) in known_remote_bookmarks {
-        changed_remote_bookmarks.push((symbol.to_owned(), (old.clone(), RefTarget::absent())));
+        if old.is_present() {
+            changed_remote_bookmarks.push((symbol.to_owned(), (old.clone(), RefTarget::absent())));
+        }
     }
     for (RemoteRefKey(symbol), old) in known_remote_tags {
-        changed_remote_tags.push((symbol.to_owned(), (old.clone(), RefTarget::absent())));
+        if old.is_present() {
+            changed_remote_tags.push((symbol.to_owned(), (old.clone(), RefTarget::absent())));
+        }
     }
 
     // Stabilize merge order and output.

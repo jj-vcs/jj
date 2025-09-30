@@ -54,6 +54,7 @@ use jj_lib::git::expand_default_fetch_refspecs;
 use jj_lib::git::expand_fetch_refspecs;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::hex_util;
+use jj_lib::merge::Merge;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::LocalRemoteRefTarget;
 use jj_lib::op_store::RefTarget;
@@ -1060,6 +1061,153 @@ fn test_import_refs_reimport_with_deleted_abandoned_untracked_remote_ref() {
             target: RefTarget::normal(jj_id(commit_remote_b)),
             state: RemoteRefState::New,
         },
+    );
+}
+
+#[test]
+fn test_import_refs_reimport_absent_tracked_remote_bookmarks() {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings::from_settings(repo.settings()).unwrap();
+    let absent_tracked_ref = RemoteRef {
+        target: RefTarget::absent(),
+        state: RemoteRefState::Tracked,
+    };
+
+    // Set up absent tracked refs.
+    let mut tx = repo.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+    tx.repo_mut()
+        .set_local_bookmark_target("foo".as_ref(), RefTarget::normal(commit1.id().clone()));
+    tx.repo_mut()
+        .set_remote_bookmark(remote_symbol("foo", "origin"), absent_tracked_ref.clone());
+    tx.repo_mut()
+        .set_remote_bookmark(remote_symbol("foo", "upstream"), absent_tracked_ref.clone());
+    let repo = tx.commit("test").unwrap();
+
+    // Import with no change.
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &git_settings).unwrap();
+    let repo = tx.commit("test").unwrap();
+
+    // Absent tracked remote refs shouldn't be deleted.
+    assert_eq!(
+        repo.view().all_remote_bookmarks().collect_vec(),
+        vec![
+            (remote_symbol("foo", "origin"), &absent_tracked_ref),
+            (remote_symbol("foo", "upstream"), &absent_tracked_ref),
+        ]
+    );
+
+    // foo: commit1
+    // foo@origin: absent -> commit2 (= descendant of commit1)
+    git_repo
+        .reference(
+            "refs/remotes/origin/foo",
+            git_id(&commit2),
+            gix::refs::transaction::PreviousValue::Any,
+            "test",
+        )
+        .unwrap();
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &git_settings).unwrap();
+    let repo = tx.commit("test").unwrap();
+
+    // Tracked refs should be merged and their state should be preserved.
+    assert_eq!(
+        repo.view().get_local_bookmark("foo".as_ref()),
+        &RefTarget::normal(commit2.id().clone())
+    );
+    assert_eq!(
+        repo.view()
+            .get_remote_bookmark(remote_symbol("foo", "origin")),
+        &RemoteRef {
+            target: RefTarget::normal(commit2.id().clone()),
+            state: RemoteRefState::Tracked,
+        }
+    );
+    assert_eq!(
+        repo.view()
+            .get_remote_bookmark(remote_symbol("foo", "upstream")),
+        &absent_tracked_ref
+    );
+}
+
+#[test]
+fn test_import_refs_reimport_absent_tracked_remote_tags() {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings::from_settings(repo.settings()).unwrap();
+    let absent_tracked_ref = RemoteRef {
+        target: RefTarget::absent(),
+        state: RemoteRefState::Tracked,
+    };
+
+    // Set up absent tracked refs.
+    let mut tx = repo.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit(tx.repo_mut());
+    let commit3 = write_random_commit(tx.repo_mut());
+    tx.repo_mut()
+        .set_local_tag_target("bar".as_ref(), RefTarget::normal(commit1.id().clone()));
+    tx.repo_mut()
+        .set_local_tag_target("foo".as_ref(), RefTarget::normal(commit2.id().clone()));
+    tx.repo_mut()
+        .set_remote_tag(remote_symbol("bar", "git"), absent_tracked_ref.clone());
+    tx.repo_mut()
+        .set_remote_tag(remote_symbol("foo", "git"), absent_tracked_ref.clone());
+    let repo = tx.commit("test").unwrap();
+
+    // Import with no change.
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &git_settings).unwrap();
+    let repo = tx.commit("test").unwrap();
+
+    // Absent tracked remote refs shouldn't be deleted.
+    assert_eq!(
+        repo.view().all_remote_tags().collect_vec(),
+        vec![
+            (remote_symbol("bar", "git"), &absent_tracked_ref),
+            (remote_symbol("foo", "git"), &absent_tracked_ref),
+        ]
+    );
+
+    // foo: commit2
+    // foo@git: absent -> commit3 (= sibling of commit4)
+    git_repo
+        .reference(
+            "refs/tags/foo",
+            git_id(&commit3),
+            gix::refs::transaction::PreviousValue::Any,
+            "test",
+        )
+        .unwrap();
+    let mut tx = repo.start_transaction();
+    git::import_refs(tx.repo_mut(), &git_settings).unwrap();
+    let repo = tx.commit("test").unwrap();
+
+    // Tracked refs should be merged and their state should be preserved.
+    assert_eq!(
+        repo.view().get_local_tag("foo".as_ref()),
+        &RefTarget::from_merge(Merge::from_vec(vec![
+            Some(commit2.id().clone()),
+            None,
+            Some(commit3.id().clone()),
+        ])),
+    );
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("bar", "git")),
+        &absent_tracked_ref
+    );
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("foo", "git")),
+        &RemoteRef {
+            target: RefTarget::normal(commit3.id().clone()),
+            state: RemoteRefState::Tracked,
+        }
     );
 }
 
