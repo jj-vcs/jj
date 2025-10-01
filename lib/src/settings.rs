@@ -66,6 +66,21 @@ pub struct RemoteSettings {
     /// String matcher expression whether to track bookmarks automatically.
     #[serde(default)]
     pub auto_track_bookmarks: Option<String>,
+#[derive(Debug, Clone)]
+pub struct GitSettings {
+    pub auto_local_bookmark: bool,
+    pub abandon_unreachable_commits: bool,
+    pub executable_path: PathBuf,
+    pub write_change_id_header: bool,
+    pub colocate: bool,
+#[derive(Debug, Clone)]
+pub struct GitSettings {
+    pub auto_local_bookmark: bool,
+    pub abandon_unreachable_commits: bool,
+    pub executable_path: PathBuf,
+    pub write_change_id_header: bool,
+    pub colocate: bool,
+    pub warn_about_clean: bool,
 }
 
 impl RemoteSettings {
@@ -76,6 +91,38 @@ impl RemoteSettings {
             .table_keys("remotes")
             .map(|name| Ok((name.into(), settings.get(["remotes", name])?)))
             .try_collect()
+impl GitSettings {
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        Ok(Self {
+            auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
+            abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
+            executable_path: settings.get("git.executable-path")?,
+            write_change_id_header: settings.get("git.write-change-id-header")?,
+            colocate: settings.get("git.colocate")?,
+        })
+impl GitSettings {
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        Ok(Self {
+            auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
+            abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
+            executable_path: settings.get("git.executable-path")?,
+            write_change_id_header: settings.get("git.write-change-id-header")?,
+            colocate: settings.get("git.colocate")?,
+            warn_about_clean: settings.get_bool("git.clean-warning")?,
+        })
+    }
+}
+
+impl Default for GitSettings {
+    fn default() -> Self {
+        Self {
+            auto_local_bookmark: false,
+            abandon_unreachable_commits: true,
+            executable_path: PathBuf::from("git"),
+            write_change_id_header: true,
+            colocate: true,
+            warn_about_clean: true,
+        }
     }
 }
 

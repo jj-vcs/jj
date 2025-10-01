@@ -924,7 +924,6 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
     ------- stderr -------
     Done importing changes from the underlying Git repo.
     Initialized repo in "repo"
-    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
@@ -970,7 +969,6 @@ fn test_git_init_colocated_via_config_git_dir_exists() {
     ------- stderr -------
     Done importing changes from the underlying Git repo.
     Initialized repo in "repo"
-    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
@@ -1028,7 +1026,6 @@ fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Initialized repo in "repo"
-    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     // No HEAD ref is available yet

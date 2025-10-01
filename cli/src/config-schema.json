@@ -486,6 +486,11 @@
                     "type": "boolean",
                     "description": "Whether to colocate the working copy with the git repository",
                     "default": true
+                },
+                "clean-warning": {
+                    "type": "boolean",
+                    "description": "Warning about running git clean when using colocated repository",
+                    "default": false
                 }
             }
         },
