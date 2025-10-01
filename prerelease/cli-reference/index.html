@@ -7398,8 +7398,9 @@ does not match the <code>jj help</code> output exactly.</p>
 <p>Run a given command to find the first bad revision.</p>
 <p>Uses binary search to find the first bad revision. Revisions are evaluated by running a given command (see the documentation for <code>--command</code> for details).</p>
 <p>It is assumed that if a given revision is bad, then all its descendants in the input range are also bad.</p>
+<p>The target of the bisection can be inverted to look for the first good revision by passing <code>--find-good</code>.</p>
 <p>Hint: You can pass your shell as evaluation command. You can then run manual tests in the shell and make sure to exit the shell with appropriate error code depending on the outcome (e.g. <code>exit 0</code> to mark the revision as good in Bash or Fish).</p>
-<p><strong>Usage:</strong> <code>jj bisect run --range &lt;REVSETS&gt; --command &lt;COMMAND&gt;</code></p>
+<p><strong>Usage:</strong> <code>jj bisect run [OPTIONS] --range &lt;REVSETS&gt; --command &lt;COMMAND&gt;</code></p>
 <h6 id="options_3"><strong>Options:</strong><a class="headerlink" href="#options_3" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
@@ -7410,6 +7411,11 @@ does not match the <code>jj help</code> output exactly.</p>
 <p><code>--command &lt;COMMAND&gt;</code> — Command to run to determine whether the bug is present</p>
 <p>The command will be run from the workspace root. The exit status of the command will be used to mark revisions as good or bad: status 0 means good, 125 means to skip the revision, 127 (command not found) will abort the bisection, and any other non-zero exit status means the revision is bad.</p>
 <p>The target's commit ID is available to the command in the <code>$JJ_BISECT_TARGET</code> environment variable.</p>
+</li>
+<li>
+<p><code>--find-good</code> — Whether to find the first good revision instead</p>
+<p>Inverts the interpretation of exit statuses (excluding special exit statuses).</p>
+<p>Default value: <code>false</code></p>
 </li>
 </ul>
 <h2 id="jj-bookmark"><code>jj bookmark</code><a class="headerlink" href="#jj-bookmark" title="Permanent link">&para;</a></h2>
