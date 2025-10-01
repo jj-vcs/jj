@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Release highlights
+
+* Support for uploading changes to Gerrit Code Review with `jj gerrit upload`.
+  This lets you submit trees or multiple stacks of work at once. Support for
+  fetching, merging, and other operations is not yet implemented. This should be
+  considered experimental, and we welcome feedback on using it.
+
+* Support for automated bisection using `jj bisect run`; this will continuously
+  bisect a commit range until a given commit is found to trigger a bug.
+
 ### Breaking changes
 
 * Git repositories are now colocated by default. Configure
@@ -56,7 +66,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * External diff commands now support substitution variable `$width` for the
   number of available terminal columns.
 
-* Gerrit support implemented with the new command `jj gerrit upload`
+* The new command `jj gerrit upload` allows you to upload given revisions to an
+  instance of Gerrit Code Review.
 
 * `jj bookmark create/set/move` use the working copy as a default again and
   no longer require an explicit revision argument. This walks back a
