@@ -10,8 +10,29 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
-* Git repositories are now colocated by default. Configure
-  `git.colocate = false` to keep the previous behavior.
+### Deprecations
+
+### New features
+
+### Fixed bugs
+
+## [0.34.0] - 2025-10-01
+
+### Release highlights
+
+* Support for uploading changes to Gerrit Code Review with `jj gerrit upload`.
+  This lets you submit trees or multiple stacks of work at once. Support
+  for fetching changes, submitting changes, and other operations is not yet
+  implemented. This should be considered experimental, and we welcome feedback
+  on using it.
+
+* Support for automated bisection using `jj bisect run`; this will continuously
+  bisect a commit range until a given commit is found to trigger a bug.
+
+### Breaking changes
+
+* Git-based repositories are now colocated by default. Configure `git.colocate =
+  false` to keep the previous behavior.
 
 * Conflicts written by jj < 0.11 are no longer supported. They will now appear
   as regular files with a `.jjconflict` suffix and JSON contents.
@@ -48,7 +69,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   regex with capture groups (e.g. `"hello world".replace(regex:'(\w+) (\w+)', "$2 $1")`).
 
 * A new builtin `hyperlink(url, text)` template alias creates clickable
-  hyperlinks using [OSC8 escape sequences](https://github.com/Alhadis/OSC8-Adoption) for terminals that support them.
+  hyperlinks using [OSC8 escape sequences](https://github.com/Alhadis/OSC8-Adoption)
+  for terminals that support them.
 
 * Added a new conditional configuration `--when.platforms` to include
   settings only on certain platforms.
@@ -56,7 +78,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * External diff commands now support substitution variable `$width` for the
   number of available terminal columns.
 
-* Gerrit support implemented with the new command `jj gerrit upload`
+* The new `jj gerrit upload` command allows you to upload given revisions to an
+  instance of Gerrit Code Review.
 
 * `jj bookmark create/set/move` use the working copy as a default again and
   no longer require an explicit revision argument. This walks back a
@@ -75,9 +98,45 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed bugs
 
 * Fetching repositories that have submodules no longer errors even if
-`submodule.recurse=true`
-  is set in `.gitconfig` (but jj still isn't able to fetch the submodules
-  or to operate on them).
+  `submodule.recurse=true` is set in `.gitconfig` (but jj still isn't able to
+  fetch the submodules or to operate on them).
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Angel Ezquerra (@AngelEzquerra)
+* Anton Älgmyr (@algmyr)
+* Antonin Delpeuch (@wetneb)
+* Austin Seipp (@thoughtpolice)
+* Benjamin Tan (@bnjmnt4n)
+* Conner Petzold (@ConnerPetzold)
+* Daniel Luz (@mernen)
+* Daniele Sassoli (@DanieleSassoli)
+* David Barsky (@davidbarsky)
+* Dinu Blanovschi (@dnbln)
+* Gaëtan Lehmann (@glehmann)
+* George Christou (@gechr)
+* Ian Wrzesinski (@isuffix)
+* Ilya Grigoriev (@ilyagr)
+* Isaac Corbrey (@icorbrey)
+* Ivan Petkov (@ipetkov)
+* Jonas Fierlings (@PigeonF)
+* loudgolem (@phanirithvij)
+* Martin von Zweigbergk (@martinvonz)
+* Matt Stark (@matts1)
+* Matt T. Proud (@matttproud)
+* Michael Pratt (@prattmic)
+* MochikoNyan (@MochikoNyan)
+* Philip Metzger (@PhilipMetzger)
+* Reilly Brogan (@ReillyBrogan)
+* Remo Senekowitsch (@senekor)
+* Reuven Lazarus (@rlazarus)
+* Scott Taylor (@scott2000)
+* Stephen Jennings (@jennings)
+* Steven Sherry (@Steven0351)
+* Theo Buehler (@botovq)
+* Yuya Nishihara (@yuja)
 
 ## [0.33.0] - 2025-09-03
 
