@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::borrow::Borrow;
 use std::collections::VecDeque;
@@ -21,12 +21,15 @@ use std::mem;
 
 use bstr::BStr;
 use bstr::BString;
+use either::Either;
 use itertools::Itertools as _;
 
-use crate::diff::Diff;
+use crate::diff::ContentDiff;
 use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::merge::Merge;
+use crate::merge::SameChange;
+use crate::tree_merge::MergeOptions;
 
 /// A diff line which may contain small hunks originating from both sides.
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -259,6 +262,16 @@ where
     })
 }
 
+/// Granularity of hunks when merging files.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FileMergeHunkLevel {
+    /// Splits into line hunks.
+    Line,
+    /// Splits into word hunks.
+    Word,
+}
+
 /// Merge result in either fully-resolved or conflicts form, akin to
 /// `Result<BString, Vec<Merge<BString>>>`.
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -272,8 +285,8 @@ pub enum MergeResult {
 /// Splits `inputs` into hunks, resolves trivial merge conflicts for each.
 ///
 /// Returns either fully-resolved content or list of partially-resolved hunks.
-pub fn merge_hunks<T: AsRef<[u8]>>(inputs: &Merge<T>) -> MergeResult {
-    merge_inner(inputs)
+pub fn merge_hunks<T: AsRef<[u8]>>(inputs: &Merge<T>, options: &MergeOptions) -> MergeResult {
+    merge_inner(inputs, options)
 }
 
 /// Splits `inputs` into hunks, resolves trivial merge conflicts for each, then
@@ -281,65 +294,130 @@ pub fn merge_hunks<T: AsRef<[u8]>>(inputs: &Merge<T>) -> MergeResult {
 ///
 /// The returned merge object is either fully resolved or conflict having the
 /// same number of terms as the `inputs`.
-pub fn merge<T: AsRef<[u8]>>(inputs: &Merge<T>) -> Merge<BString> {
-    merge_inner(inputs)
+pub fn merge<T: AsRef<[u8]>>(inputs: &Merge<T>, options: &MergeOptions) -> Merge<BString> {
+    merge_inner(inputs, options)
 }
 
 /// Splits `inputs` into hunks, attempts to resolve trivial merge conflicts for
 /// each.
 ///
 /// If all input hunks can be merged successfully, returns the merged content.
-pub fn try_merge<T: AsRef<[u8]>>(inputs: &Merge<T>) -> Option<BString> {
-    merge_inner(inputs)
+pub fn try_merge<T: AsRef<[u8]>>(inputs: &Merge<T>, options: &MergeOptions) -> Option<BString> {
+    merge_inner(inputs, options)
 }
 
-fn merge_inner<'input, T: AsRef<[u8]>, B: FromMergeHunks<'input>>(inputs: &'input Merge<T>) -> B {
+fn merge_inner<'input, T, B>(inputs: &'input Merge<T>, options: &MergeOptions) -> B
+where
+    T: AsRef<[u8]>,
+    B: FromMergeHunks<'input>,
+{
     // TODO: Using the first remove as base (first in the inputs) is how it's
     // usually done for 3-way conflicts. Are there better heuristics when there are
     // more than 3 parts?
     let num_diffs = inputs.removes().len();
-    let diff = Diff::by_line(inputs.removes().chain(inputs.adds()));
-    let hunks = resolve_diff_hunks(&diff, num_diffs);
-    B::from_hunks(hunks)
+    let diff = ContentDiff::by_line(inputs.removes().chain(inputs.adds()));
+    let hunks = resolve_diff_hunks(&diff, num_diffs, options.same_change);
+    match options.hunk_level {
+        FileMergeHunkLevel::Line => B::from_hunks(hunks.map(MergeHunk::Borrowed)),
+        FileMergeHunkLevel::Word => {
+            B::from_hunks(hunks.map(|h| merge_hunk_by_word(h, options.same_change)))
+        }
+    }
+}
+
+fn merge_hunk_by_word(inputs: Merge<&BStr>, same_change: SameChange) -> MergeHunk<'_> {
+    if inputs.is_resolved() {
+        return MergeHunk::Borrowed(inputs);
+    }
+    let num_diffs = inputs.removes().len();
+    let diff = ContentDiff::by_word(inputs.removes().chain(inputs.adds()));
+    let hunks = resolve_diff_hunks(&diff, num_diffs, same_change);
+    // We could instead use collect_merged() to return partially-merged hunk.
+    // This would be more consistent with the line-based merge function, but
+    // might produce surprising results. Partially-merged conflicts would be
+    // hard to review because they would have mixed contexts.
+    if let Some(content) = collect_resolved(hunks.map(MergeHunk::Borrowed)) {
+        MergeHunk::Owned(Merge::resolved(content))
+    } else {
+        drop(diff);
+        MergeHunk::Borrowed(inputs)
+    }
+}
+
+/// `Cow`-like type over `Merge<T>`.
+#[derive(Clone, Debug)]
+enum MergeHunk<'input> {
+    Borrowed(Merge<&'input BStr>),
+    Owned(Merge<BString>),
+}
+
+impl MergeHunk<'_> {
+    fn len(&self) -> usize {
+        match self {
+            MergeHunk::Borrowed(merge) => merge.as_slice().len(),
+            MergeHunk::Owned(merge) => merge.as_slice().len(),
+        }
+    }
+
+    fn iter(&self) -> impl Iterator<Item = &BStr> {
+        match self {
+            MergeHunk::Borrowed(merge) => Either::Left(merge.iter().copied()),
+            MergeHunk::Owned(merge) => Either::Right(merge.iter().map(Borrow::borrow)),
+        }
+    }
+
+    fn as_resolved(&self) -> Option<&BStr> {
+        match self {
+            MergeHunk::Borrowed(merge) => merge.as_resolved().copied(),
+            MergeHunk::Owned(merge) => merge.as_resolved().map(Borrow::borrow),
+        }
+    }
+
+    fn into_owned(self) -> Merge<BString> {
+        match self {
+            MergeHunk::Borrowed(merge) => merge.map(|&s| s.to_owned()),
+            MergeHunk::Owned(merge) => merge,
+        }
+    }
 }
 
 /// `FromIterator` for merge result.
 trait FromMergeHunks<'input>: Sized {
-    fn from_hunks<I: IntoIterator<Item = Merge<&'input BStr>>>(hunks: I) -> Self;
+    fn from_hunks<I: IntoIterator<Item = MergeHunk<'input>>>(hunks: I) -> Self;
 }
 
 impl<'input> FromMergeHunks<'input> for MergeResult {
-    fn from_hunks<I: IntoIterator<Item = Merge<&'input BStr>>>(hunks: I) -> Self {
+    fn from_hunks<I: IntoIterator<Item = MergeHunk<'input>>>(hunks: I) -> Self {
         collect_hunks(hunks)
     }
 }
 
 impl<'input> FromMergeHunks<'input> for Merge<BString> {
-    fn from_hunks<I: IntoIterator<Item = Merge<&'input BStr>>>(hunks: I) -> Self {
+    fn from_hunks<I: IntoIterator<Item = MergeHunk<'input>>>(hunks: I) -> Self {
         collect_merged(hunks)
     }
 }
 
 impl<'input> FromMergeHunks<'input> for Option<BString> {
-    fn from_hunks<I: IntoIterator<Item = Merge<&'input BStr>>>(hunks: I) -> Self {
+    fn from_hunks<I: IntoIterator<Item = MergeHunk<'input>>>(hunks: I) -> Self {
         collect_resolved(hunks)
     }
 }
 
 /// Collects merged hunks into either fully-resolved content or list of
 /// partially-resolved hunks.
-fn collect_hunks<'input>(hunks: impl IntoIterator<Item = Merge<&'input BStr>>) -> MergeResult {
+fn collect_hunks<'input>(hunks: impl IntoIterator<Item = MergeHunk<'input>>) -> MergeResult {
     let mut resolved_hunk = BString::new(vec![]);
     let mut merge_hunks: Vec<Merge<BString>> = vec![];
     for hunk in hunks {
-        if let Some(&content) = hunk.as_resolved() {
+        if let Some(content) = hunk.as_resolved() {
             resolved_hunk.extend_from_slice(content);
         } else {
             if !resolved_hunk.is_empty() {
                 merge_hunks.push(Merge::resolved(resolved_hunk));
                 resolved_hunk = BString::new(vec![]);
             }
-            merge_hunks.push(hunk.map(|&s| s.to_owned()));
+            merge_hunks.push(hunk.into_owned());
         }
     }
 
@@ -355,20 +433,20 @@ fn collect_hunks<'input>(hunks: impl IntoIterator<Item = Merge<&'input BStr>>) -
 
 /// Collects merged hunks back to single `Merge` object, duplicating resolved
 /// hunks to all positive and negative terms.
-fn collect_merged<'input>(hunks: impl IntoIterator<Item = Merge<&'input BStr>>) -> Merge<BString> {
+fn collect_merged<'input>(hunks: impl IntoIterator<Item = MergeHunk<'input>>) -> Merge<BString> {
     let mut maybe_resolved = Merge::resolved(BString::default());
     for hunk in hunks {
-        if let Some(&content) = hunk.as_resolved() {
+        if let Some(content) = hunk.as_resolved() {
             for buf in maybe_resolved.iter_mut() {
                 buf.extend_from_slice(content);
             }
         } else {
             maybe_resolved = match maybe_resolved.into_resolved() {
-                Ok(content) => Merge::from_vec(vec![content; hunk.as_slice().len()]),
+                Ok(content) => Merge::from_vec(vec![content; hunk.len()]),
                 Err(conflict) => conflict,
             };
-            assert_eq!(maybe_resolved.as_slice().len(), hunk.as_slice().len());
-            for (buf, s) in iter::zip(maybe_resolved.iter_mut(), hunk) {
+            assert_eq!(maybe_resolved.as_slice().len(), hunk.len());
+            for (buf, s) in iter::zip(maybe_resolved.iter_mut(), hunk.iter()) {
                 buf.extend_from_slice(s);
             }
         }
@@ -377,19 +455,19 @@ fn collect_merged<'input>(hunks: impl IntoIterator<Item = Merge<&'input BStr>>) 
 }
 
 /// Collects resolved merge hunks. Short-circuits on unresolved hunk.
-fn collect_resolved<'input>(
-    hunks: impl IntoIterator<Item = Merge<&'input BStr>>,
-) -> Option<BString> {
-    hunks
-        .into_iter()
-        .map(|hunk| hunk.into_resolved().ok())
-        .collect()
+fn collect_resolved<'input>(hunks: impl IntoIterator<Item = MergeHunk<'input>>) -> Option<BString> {
+    let mut resolved_content = BString::default();
+    for hunk in hunks {
+        resolved_content.extend_from_slice(hunk.as_resolved()?);
+    }
+    Some(resolved_content)
 }
 
 /// Iterator that attempts to resolve trivial merge conflict for each hunk.
 fn resolve_diff_hunks<'a, 'input>(
-    diff: &'a Diff<'input>,
+    diff: &'a ContentDiff<'input>,
     num_diffs: usize,
+    same_change: SameChange,
 ) -> impl Iterator<Item = Merge<&'input BStr>> + use<'a, 'input> {
     diff.hunks().map(move |diff_hunk| match diff_hunk.kind {
         DiffHunkKind::Matching => {
@@ -401,7 +479,7 @@ fn resolve_diff_hunks<'a, 'input>(
                 diff_hunk.contents[..num_diffs].iter().copied(),
                 diff_hunk.contents[num_diffs..].iter().copied(),
             );
-            match merge.resolve_trivial() {
+            match merge.resolve_trivial(same_change) {
                 Some(&content) => Merge::resolved(content),
                 None => merge,
             }
@@ -774,6 +852,11 @@ mod tests {
 
     #[test]
     fn test_merge_single_hunk() {
+        let options = MergeOptions {
+            hunk_level: FileMergeHunkLevel::Line,
+            same_change: SameChange::Accept,
+        };
+        let merge_hunks = |inputs: &_| merge_hunks(inputs, &options);
         // Unchanged and empty on all sides
         assert_eq!(
             merge_hunks(&conflict([b"", b"", b""])),
@@ -885,6 +968,13 @@ mod tests {
 
     #[test]
     fn test_merge_multi_hunk() {
+        let options = MergeOptions {
+            hunk_level: FileMergeHunkLevel::Line,
+            same_change: SameChange::Accept,
+        };
+        let merge_hunks = |inputs: &_| merge_hunks(inputs, &options);
+        let merge = |inputs: &_| merge(inputs, &options);
+        let try_merge = |inputs: &_| try_merge(inputs, &options);
         // Two sides left one line unchanged, and added conflicting additional lines
         let inputs = conflict([b"a\nb\n", b"a\n", b"a\nc\n"]);
         assert_eq!(
@@ -986,5 +1076,34 @@ mod tests {
             }
         "};
         assert_eq!(merge(&conflict([left, base, right])), resolved(merged));
+    }
+
+    #[test]
+    fn test_merge_hunk_by_word() {
+        let options = MergeOptions {
+            hunk_level: FileMergeHunkLevel::Word,
+            same_change: SameChange::Accept,
+        };
+        let merge = |inputs: &_| merge(inputs, &options);
+        // No context line in between, but "\n" is a context word
+        assert_eq!(
+            merge(&conflict([b"c\nb\n", b"a\nb\n", b"a\nd\n"])),
+            resolved(b"c\nd\n")
+        );
+        // Both sides added to different positions
+        assert_eq!(merge(&conflict([b"a b", b"a", b"c a"])), resolved(b"c a b"));
+        // Both sides added to the same position: can't resolve word-level
+        // conflicts and the whole line should be left as a conflict
+        assert_eq!(
+            merge(&conflict([b"a b", b"a", b"a c"])),
+            conflict([b"a b", b"a", b"a c"])
+        );
+        // One side added, both sides added to the same position: the former
+        // word-level conflict could be resolved, but we preserve the original
+        // content in that case
+        assert_eq!(
+            merge(&conflict([b"a b", b"a", b"x a c"])),
+            conflict([b"a b", b"a", b"x a c"])
+        );
     }
 }

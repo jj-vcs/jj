@@ -53,11 +53,6 @@ pub trait ListTemplate: Template {
     fn join<'a>(self: Box<Self>, separator: Box<dyn Template + 'a>) -> Box<dyn Template + 'a>
     where
         Self: 'a;
-
-    /// Upcasts to the template type.
-    fn into_template<'a>(self: Box<Self>) -> Box<dyn Template + 'a>
-    where
-        Self: 'a;
 }
 
 impl<T: Template + ?Sized> Template for &T {
@@ -594,13 +589,6 @@ where
             separator,
             self.format_item,
         ))
-    }
-
-    fn into_template<'a>(self: Box<Self>) -> Box<dyn Template + 'a>
-    where
-        Self: 'a,
-    {
-        self
     }
 }
 

@@ -29,10 +29,8 @@ use crate::backend::BackendError;
 use crate::backend::MergedTreeId;
 use crate::commit::Commit;
 use crate::dag_walk;
-use crate::fsmonitor::FsmonitorSettings;
 use crate::gitignore::GitIgnoreError;
 use crate::gitignore::GitIgnoreFile;
-use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
 use crate::op_store::OpStoreError;
 use crate::op_store::OperationId;
@@ -50,10 +48,7 @@ use crate::store::Store;
 use crate::transaction::TransactionCommitError;
 
 /// The trait all working-copy implementations must implement.
-pub trait WorkingCopy: Send {
-    /// Should return `self`. For down-casting purposes.
-    fn as_any(&self) -> &dyn Any;
-
+pub trait WorkingCopy: Any + Send {
     /// The name/id of the implementation. Used for choosing the right
     /// implementation when loading a working copy.
     fn name(&self) -> &str;
@@ -76,6 +71,13 @@ pub trait WorkingCopy: Send {
     /// Locks the working copy and returns an instance with methods for updating
     /// the working copy files and state.
     fn start_mutation(&self) -> Result<Box<dyn LockedWorkingCopy>, WorkingCopyStateError>;
+}
+
+impl dyn WorkingCopy {
+    /// Returns reference of the implementation type.
+    pub fn downcast_ref<T: WorkingCopy>(&self) -> Option<&T> {
+        (self as &dyn Any).downcast_ref()
+    }
 }
 
 /// The factory which creates and loads a specific type of working copy.
@@ -102,13 +104,7 @@ pub trait WorkingCopyFactory {
 }
 
 /// A working copy that's being modified.
-pub trait LockedWorkingCopy {
-    /// Should return `self`. For down-casting purposes.
-    fn as_any(&self) -> &dyn Any;
-
-    /// Should return `self`. For down-casting purposes.
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-
+pub trait LockedWorkingCopy: Any {
     /// The operation at the time the lock was taken
     fn old_operation_id(&self) -> &OperationId;
 
@@ -154,6 +150,18 @@ pub trait LockedWorkingCopy {
         self: Box<Self>,
         operation_id: OperationId,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
+}
+
+impl dyn LockedWorkingCopy {
+    /// Returns reference of the implementation type.
+    pub fn downcast_ref<T: LockedWorkingCopy>(&self) -> Option<&T> {
+        (self as &dyn Any).downcast_ref()
+    }
+
+    /// Returns mutable reference of the implementation type.
+    pub fn downcast_mut<T: LockedWorkingCopy>(&mut self) -> Option<&mut T> {
+        (self as &mut dyn Any).downcast_mut()
+    }
 }
 
 /// An error while snapshotting the working copy.
@@ -205,10 +213,6 @@ pub struct SnapshotOptions<'a> {
     // because the TreeState may be long-lived if the library is used in a
     // long-lived process.
     pub base_ignores: Arc<GitIgnoreFile>,
-    /// The fsmonitor (e.g. Watchman) to use, if any.
-    // TODO: Should we make this a field on `LocalWorkingCopy` instead since it's quite specific to
-    // that implementation?
-    pub fsmonitor_settings: FsmonitorSettings,
     /// A callback for the UI to display progress.
     pub progress: Option<&'a SnapshotProgress<'a>>,
     /// For new files that are not already tracked, start tracking them if they
@@ -220,19 +224,6 @@ pub struct SnapshotOptions<'a> {
     /// (depending on implementation)
     /// return `SnapshotError::NewFileTooLarge`.
     pub max_new_file_size: u64,
-}
-
-impl SnapshotOptions<'_> {
-    /// Create an instance for use in tests.
-    pub fn empty_for_test() -> Self {
-        Self {
-            base_ignores: GitIgnoreFile::empty(),
-            fsmonitor_settings: FsmonitorSettings::None,
-            progress: None,
-            start_tracking_matcher: &EverythingMatcher,
-            max_new_file_size: u64::MAX,
-        }
-    }
 }
 
 /// A callback for getting progress updates.

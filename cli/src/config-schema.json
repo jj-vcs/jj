@@ -495,6 +495,44 @@
                 }
             }
         },
+        "gerrit": {
+            "type": "object",
+            "description": "Settings for interacting with Gerrit",
+            "properties": {
+                "default-remote": {
+                    "type": "string",
+                    "description": "The Gerrit remote to interact with"
+                },
+                "default-remote-branch": {
+                    "type": "string",
+                    "description": "The default branch to propose changes for"
+                }
+            }
+        },
+        "merge": {
+            "type": "object",
+            "description": "Merge settings",
+            "properties": {
+                "hunk-level": {
+                    "type": "string",
+                    "description": "Granularity of hunks when merging files",
+                    "enum": [
+                        "line",
+                        "word"
+                    ],
+                    "default": "line"
+                },
+                "same-change": {
+                    "type": "string",
+                    "description": "Whether to resolve conflict that makes the same change at all sides",
+                    "enum": [
+                        "keep",
+                        "accept"
+                    ],
+                    "default": "accept"
+                }
+            }
+        },
         "merge-tools": {
             "type": "object",
             "description": "Tables of custom options to pass to the given merge tool (selected in ui.merge-editor)",
@@ -926,6 +964,52 @@
                     "description": "List of subcommands to match",
                     "items": {
                         "type": "string"
+                    }
+                },
+                "platforms": {
+                    "type": "array",
+                    "description": "List of platforms to match",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "aix",
+                            "android",
+                            "apple",
+                            "dragonfly",
+                            "emscripten",
+                            "espidf",
+                            "fortanix",
+                            "freebsd",
+                            "fuchsia",
+                            "haiku",
+                            "hermit",
+                            "hermit",
+                            "horizon",
+                            "hurd",
+                            "illumos",
+                            "ios",
+                            "itron",
+                            "l4re",
+                            "linux",
+                            "macos",
+                            "netbsd",
+                            "nto",
+                            "openbsd",
+                            "redox",
+                            "solaris",
+                            "solid_asp3",
+                            "tvos",
+                            "uefi",
+                            "unix",
+                            "visionos",
+                            "vita",
+                            "vxworks",
+                            "wasi",
+                            "wasm",
+                            "watchos",
+                            "windows",
+                            "xous"
+                        ]
                     }
                 }
             }

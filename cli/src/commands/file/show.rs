@@ -176,6 +176,7 @@ fn write_tree_entries(
                 let options = ConflictMaterializeOptions {
                     marker_style: workspace_command.env().conflict_marker_style(),
                     marker_len: None,
+                    merge: repo.store().merge_options().clone(),
                 };
                 materialize_merge_result(&file.contents, &mut ui.stdout_formatter(), &options)?;
             }

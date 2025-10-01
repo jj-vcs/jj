@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use itertools::EitherOrBoth;
 
 use crate::backend::CommitId;
 use crate::index::Index;
 use crate::merge::Merge;
+use crate::merge::SameChange;
 use crate::merge::trivial_merge;
 use crate::op_store::RefTarget;
 use crate::op_store::RemoteRef;
@@ -107,7 +108,7 @@ pub fn merge_ref_targets(
     base: &RefTarget,
     right: &RefTarget,
 ) -> RefTarget {
-    if let Some(&resolved) = trivial_merge(&[left, base, right]) {
+    if let Some(&resolved) = trivial_merge(&[left, base, right], SameChange::Accept) {
         return resolved.clone();
     }
 
@@ -120,7 +121,7 @@ pub fn merge_ref_targets(
     .simplify();
     // Suppose left = [A - C + B], base = [B], right = [A], the merge result is
     // [A - C + A], which can now be trivially resolved.
-    if let Some(resolved) = merge.resolve_trivial() {
+    if let Some(resolved) = merge.resolve_trivial(SameChange::Accept) {
         RefTarget::resolved(resolved.clone())
     } else {
         merge_ref_targets_non_trivial(index, &mut merge);
@@ -145,7 +146,8 @@ pub fn merge_remote_refs(
     let target = merge_ref_targets(index, &left.target, &base.target, &right.target);
     // Merged state shouldn't conflict atm since we only have two states, but if
     // it does, keep the original state. The choice is arbitrary.
-    let state = *trivial_merge(&[left.state, base.state, right.state]).unwrap_or(&base.state);
+    let state = *trivial_merge(&[left.state, base.state, right.state], SameChange::Accept)
+        .unwrap_or(&base.state);
     RemoteRef { target, state }
 }
 

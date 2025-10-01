@@ -12,10 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
-#![allow(clippy::let_unit_value)]
+#![expect(missing_docs)]
 
-use std::any::Any;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::error::Error;
@@ -100,6 +98,7 @@ use crate::matchers::PrefixMatcher;
 use crate::merge::Merge;
 use crate::merge::MergeBuilder;
 use crate::merge::MergedTreeValue;
+use crate::merge::SameChange;
 use crate::merged_tree::MergedTree;
 use crate::merged_tree::MergedTreeBuilder;
 use crate::merged_tree::TreeDiffEntry;
@@ -733,7 +732,7 @@ struct FsmonitorMatcher {
 }
 
 /// Settings specific to the tree state of the [`LocalWorkingCopy`] backend.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct TreeStateSettings {
     /// Conflict marker style to use when materializing files or when checking
     /// changed files.
@@ -742,6 +741,8 @@ pub struct TreeStateSettings {
     /// file to the backend, and vice versa when it checks out code onto your
     /// filesystem.
     pub eol_conversion_mode: EolConversionMode,
+    /// The fsmonitor (e.g. Watchman) to use, if any.
+    pub fsmonitor_settings: FsmonitorSettings,
 }
 
 impl TreeStateSettings {
@@ -750,6 +751,7 @@ impl TreeStateSettings {
         Ok(Self {
             conflict_marker_style: user_settings.get("ui.conflict-marker-style")?,
             eol_conversion_mode: EolConversionMode::try_from_settings(user_settings)?,
+            fsmonitor_settings: FsmonitorSettings::from_settings(user_settings)?,
         })
     }
 }
@@ -771,6 +773,7 @@ pub struct TreeState {
     watchman_clock: Option<crate::protos::local_working_copy::WatchmanClock>,
 
     conflict_marker_style: ConflictMarkerStyle,
+    fsmonitor_settings: FsmonitorSettings,
     target_eol_strategy: TargetEolStrategy,
 }
 
@@ -830,6 +833,7 @@ impl TreeState {
         &TreeStateSettings {
             conflict_marker_style,
             eol_conversion_mode,
+            ref fsmonitor_settings,
         }: &TreeStateSettings,
     ) -> Self {
         let tree_id = store.empty_merged_tree_id();
@@ -844,6 +848,7 @@ impl TreeState {
             symlink_support: check_symlink_support().unwrap_or(false),
             watchman_clock: None,
             conflict_marker_style,
+            fsmonitor_settings: fsmonitor_settings.clone(),
             target_eol_strategy: TargetEolStrategy::new(eol_conversion_mode),
         }
     }
@@ -895,7 +900,7 @@ impl TreeState {
                 source: err,
             }
         })?;
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         if proto.tree_ids.is_empty() {
             self.tree_id = MergedTreeId::resolved(TreeId::new(proto.legacy_tree_id.clone()));
         } else {
@@ -914,7 +919,7 @@ impl TreeState {
     }
 
     #[expect(clippy::assigning_clones)]
-    fn save(&mut self) -> Result<(), TreeStateError> {
+    pub fn save(&mut self) -> Result<(), TreeStateError> {
         let mut proto: crate::protos::local_working_copy::TreeState = Default::default();
         match &self.tree_id {
             MergedTreeId::Legacy(_) => {
@@ -1015,7 +1020,6 @@ impl TreeState {
     ) -> Result<(bool, SnapshotStats), SnapshotError> {
         let &SnapshotOptions {
             ref base_ignores,
-            ref fsmonitor_settings,
             progress,
             start_tracking_matcher,
             max_new_file_size,
@@ -1023,12 +1027,12 @@ impl TreeState {
 
         let sparse_matcher = self.sparse_matcher();
 
-        let fsmonitor_clock_needs_save = *fsmonitor_settings != FsmonitorSettings::None;
+        let fsmonitor_clock_needs_save = self.fsmonitor_settings != FsmonitorSettings::None;
         let mut is_dirty = fsmonitor_clock_needs_save;
         let FsmonitorMatcher {
             matcher: fsmonitor_matcher,
             watchman_clock,
-        } = self.make_fsmonitor_matcher(fsmonitor_settings)?;
+        } = self.make_fsmonitor_matcher(&self.fsmonitor_settings)?;
         let fsmonitor_matcher = match fsmonitor_matcher.as_ref() {
             None => &EverythingMatcher,
             Some(fsmonitor_matcher) => fsmonitor_matcher.as_ref(),
@@ -1296,10 +1300,10 @@ impl FileSnapshotter<'_> {
         let name = RepoPathComponent::new(&name_string).unwrap();
         let path = dir.join(name);
         let maybe_current_file_state = file_states.get_at(dir, name);
-        if let Some(file_state) = &maybe_current_file_state {
-            if file_state.file_type == FileType::GitSubmodule {
-                return Ok(None);
-            }
+        if let Some(file_state) = &maybe_current_file_state
+            && file_state.file_type == FileType::GitSubmodule
+        {
+            return Ok(None);
         }
 
         if file_type.is_dir() {
@@ -1579,7 +1583,7 @@ impl FileSnapshotter<'_> {
             // Safe to unwrap because the copy id exists exactly on the file variant
             let copy_id_merge = current_tree_values.to_copy_id_merge().unwrap();
             let copy_id = copy_id_merge
-                .resolve_trivial()
+                .resolve_trivial(SameChange::Accept)
                 .cloned()
                 .flatten()
                 .unwrap_or_else(CopyId::placeholder);
@@ -1795,7 +1799,7 @@ impl TreeState {
         Ok(FileState::for_file(executable, size, &metadata))
     }
 
-    #[cfg_attr(windows, allow(unused_variables))]
+    #[cfg_attr(windows, expect(unused_variables))]
     fn set_executable(&self, disk_path: &Path, executable: bool) -> Result<(), CheckoutError> {
         #[cfg(unix)]
         {
@@ -1872,9 +1876,9 @@ impl TreeState {
         let mut diff_stream = old_tree
             .diff_stream_for_file_system(new_tree, matcher)
             .map(async |TreeDiffEntry { path, values }| match values {
-                Ok((before, after)) => {
-                    let result = materialize_tree_value(&self.store, &path, after).await;
-                    (path, result.map(|value| (before, value)))
+                Ok(diff) => {
+                    let result = materialize_tree_value(&self.store, &path, diff.after).await;
+                    (path, result.map(|value| (diff.before, value)))
                 }
                 Err(err) => (path, Err(err)),
             })
@@ -1959,6 +1963,7 @@ impl TreeState {
                     let options = ConflictMaterializeOptions {
                         marker_style: self.conflict_marker_style,
                         marker_len: Some(conflict_marker_len),
+                        merge: self.store.merge_options().clone(),
                     };
                     let contents = materialize_merge_result_to_bytes(&file.contents, &options);
                     let mut file_state = self
@@ -1998,7 +2003,7 @@ impl TreeState {
         let mut deleted_files = HashSet::new();
         let mut diff_stream = old_tree.diff_stream_for_file_system(new_tree, matcher.as_ref());
         while let Some(TreeDiffEntry { path, values }) = diff_stream.next().await {
-            let (_before, after) = values?;
+            let after = values?.after;
             if after.is_absent() {
                 deleted_files.insert(path);
             } else {
@@ -2118,10 +2123,6 @@ pub struct LocalWorkingCopy {
 }
 
 impl WorkingCopy for LocalWorkingCopy {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn name(&self) -> &str {
         Self::name()
     }
@@ -2348,14 +2349,6 @@ pub struct LockedLocalWorkingCopy {
 }
 
 impl LockedWorkingCopy for LockedLocalWorkingCopy {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
     fn old_operation_id(&self) -> &OperationId {
         &self.old_operation_id
     }

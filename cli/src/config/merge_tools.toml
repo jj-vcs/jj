@@ -20,7 +20,7 @@ edit-args = ["$left", "$right", "$output", "--port", "17376-17380", "--no-browse
 diff-args = ["$left", "$right", "--port", "17376-17380", "--no-browser"]
 
 [merge-tools.difft]
-diff-args = ["--color=always", "$left", "$right"]
+diff-args = ["--color=always", "--width=$width", "$left", "$right"]
 edit-args = []  # Non-interactive diff formatter
 
 [merge-tools.kdiff3]
@@ -43,7 +43,7 @@ edit-args = ["$left", "$output", "$right", "-o", "$output"]
 # algorithm doesn't always maintain comments and spacing in the merge output
 # (even parts without conflicts), but you can remove it if you want to use a full structural merge.
 program = "mergiraf"
-merge-args = ["merge", "$base", "$left", "$right", "-o", "$output", "-l", "$marker_length", "--fast"]
+merge-args = ["merge", "$base", "$left", "$right", "-o", "$output", "-l", "$marker_length", "-p", "$path", "--fast"]
 merge-conflict-exit-codes = [1]
 # Non-interactive merge tool
 edit-args = []

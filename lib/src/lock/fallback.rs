@@ -56,7 +56,7 @@ impl Iterator for BackoffIterator {
 }
 
 // Suppress warning on platforms where specialized lock impl is available
-#[cfg_attr(unix, allow(dead_code))]
+#[cfg_attr(all(unix, not(test)), expect(dead_code))]
 impl FileLock {
     pub fn lock(path: PathBuf) -> Result<Self, FileLockError> {
         let mut options = OpenOptions::new();

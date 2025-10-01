@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::any::Any;
 use std::sync::Arc;
 
 use jj_cli::cli_util::CliRunner;
@@ -174,10 +173,6 @@ impl CommitTemplateLanguageExtension for HexCounter {
 struct EvenDigitsFilter;
 
 impl RevsetFilterExtension for EvenDigitsFilter {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn matches_commit(&self, commit: &Commit) -> bool {
         num_digits_in_id(commit.id()) % 2 == 0
     }

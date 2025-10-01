@@ -18,7 +18,7 @@ use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::conflicts::materialized_diff_stream;
 use jj_lib::copies::CopiesTreeDiffEntry;
 use jj_lib::copies::CopyRecords;
-use jj_lib::diff::Diff;
+use jj_lib::diff::ContentDiff;
 use jj_lib::diff::DiffHunkKind;
 use jj_lib::files;
 use jj_lib::files::MergeResult;
@@ -31,6 +31,7 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::store::Store;
+use jj_lib::tree_merge::MergeOptions;
 use pollster::FutureExt as _;
 use thiserror::Error;
 
@@ -215,18 +216,17 @@ fn make_diff_sections(
     left_contents: &str,
     right_contents: &str,
 ) -> Result<Vec<scm_record::Section<'static>>, BuiltinToolError> {
-    let diff = Diff::by_line([left_contents.as_bytes(), right_contents.as_bytes()]);
+    let diff = ContentDiff::by_line([left_contents.as_bytes(), right_contents.as_bytes()]);
     let mut sections = Vec::new();
     for hunk in diff.hunks() {
         match hunk.kind {
             DiffHunkKind::Matching => {
                 debug_assert!(hunk.contents.iter().all_equal());
                 let text = hunk.contents[0];
-                let text =
-                    std::str::from_utf8(text).map_err(|err| BuiltinToolError::DecodeUtf8 {
-                        source: err,
-                        item: "matching text in diff hunk",
-                    })?;
+                let text = str::from_utf8(text).map_err(|err| BuiltinToolError::DecodeUtf8 {
+                    source: err,
+                    item: "matching text in diff hunk",
+                })?;
                 sections.push(scm_record::Section::Unchanged {
                     lines: text
                         .split_inclusive('\n')
@@ -238,12 +238,12 @@ fn make_diff_sections(
                 let sides = &hunk.contents;
                 assert_eq!(sides.len(), 2, "only two inputs were provided to the diff");
                 let left_side =
-                    std::str::from_utf8(sides[0]).map_err(|err| BuiltinToolError::DecodeUtf8 {
+                    str::from_utf8(sides[0]).map_err(|err| BuiltinToolError::DecodeUtf8 {
                         source: err,
                         item: "left side of diff hunk",
                     })?;
                 let right_side =
-                    std::str::from_utf8(sides[1]).map_err(|err| BuiltinToolError::DecodeUtf8 {
+                    str::from_utf8(sides[1]).map_err(|err| BuiltinToolError::DecodeUtf8 {
                         source: err,
                         item: "right side of diff hunk",
                     })?;
@@ -268,6 +268,7 @@ async fn make_diff_files(
     let materialize_options = ConflictMaterializeOptions {
         marker_style,
         marker_len: None,
+        merge: store.merge_options().clone(),
     };
     let mut diff_stream = materialized_diff_stream(store, tree_diff);
     let mut changed_files = Vec::new();
@@ -536,8 +537,7 @@ fn override_file_executable_bit(
 }
 
 pub fn edit_diff_builtin(
-    left_tree: &MergedTree,
-    right_tree: &MergedTree,
+    [left_tree, right_tree]: [&MergedTree; 2],
     matcher: &dyn Matcher,
     conflict_marker_style: ConflictMarkerStyle,
 ) -> Result<MergedTreeId, BuiltinToolError> {
@@ -596,7 +596,7 @@ fn make_merge_sections(
             for hunk in hunks {
                 let section = match hunk.into_resolved() {
                     Ok(contents) => {
-                        let contents = std::str::from_utf8(&contents).map_err(|err| {
+                        let contents = str::from_utf8(&contents).map_err(|err| {
                             BuiltinToolError::DecodeUtf8 {
                                 source: err,
                                 item: "unchanged hunk",
@@ -621,7 +621,7 @@ fn make_merge_sections(
                                 .cycle(),
                             )
                             .map(|(contents, change_type)| -> Result<_, BuiltinToolError> {
-                                let contents = std::str::from_utf8(contents).map_err(|err| {
+                                let contents = str::from_utf8(contents).map_err(|err| {
                                     BuiltinToolError::DecodeUtf8 {
                                         source: err,
                                         item: "conflicting hunk",
@@ -645,6 +645,7 @@ fn make_merge_sections(
 
 fn make_merge_file(
     merge_tool_file: &MergeToolFile,
+    options: &MergeOptions,
 ) -> Result<scm_record::File<'static>, BuiltinToolError> {
     let file = &merge_tool_file.file;
     let file_mode = if file.executable.expect("should have been resolved") {
@@ -654,7 +655,7 @@ fn make_merge_file(
     };
     // TODO: Maybe we should test binary contents here, and generate per-file
     // Binary section to select either "our" or "their" file.
-    let merge_result = files::merge_hunks(&file.contents);
+    let merge_result = files::merge_hunks(&file.contents, options);
     let sections = make_merge_sections(merge_result)?;
     Ok(scm_record::File {
         old_path: None,
@@ -673,18 +674,21 @@ pub fn edit_merge_builtin(
     tree: &MergedTree,
     merge_tool_files: &[MergeToolFile],
 ) -> Result<MergedTreeId, BuiltinToolError> {
+    let store = tree.store();
     let mut input = scm_record::helpers::CrosstermInput;
     let recorder = scm_record::Recorder::new(
         scm_record::RecordState {
             is_read_only: false,
-            files: merge_tool_files.iter().map(make_merge_file).try_collect()?,
+            files: merge_tool_files
+                .iter()
+                .map(|f| make_merge_file(f, store.merge_options()))
+                .try_collect()?,
             commits: Default::default(),
         },
         &mut input,
     );
     let state = recorder.run()?;
 
-    let store = tree.store();
     let mut tree_builder = MergedTreeBuilder::new(tree.id().clone());
     apply_changes(
         &mut tree_builder,
@@ -1846,7 +1850,7 @@ mod tests {
         let content = extract_as_single_hunk(&merge, store, path)
             .block_on()
             .unwrap();
-        let merge_result = files::merge_hunks(&content);
+        let merge_result = files::merge_hunks(&content, store.merge_options());
         let sections = make_merge_sections(merge_result).unwrap();
         insta::assert_debug_snapshot!(sections, @r#"
         [
@@ -2145,10 +2149,9 @@ mod tests {
                 // If a file mode change was applied, update the base mode.
                 if let Some(scm_record::Section::FileMode { is_checked, mode }) =
                     file.sections.first()
+                    && *is_checked
                 {
-                    if *is_checked {
-                        file.file_mode = *mode;
-                    }
+                    file.file_mode = *mode;
                 }
 
                 // If the file has been renamed, it's now in its new position.

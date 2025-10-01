@@ -130,18 +130,18 @@ pub(crate) fn cmd_absorb(
         ),
     )?;
 
-    if let Some(mut formatter) = ui.status_formatter() {
-        if let Some(commit) = &stats.rewritten_source {
-            let repo = workspace_command.repo().as_ref();
-            if !commit.is_empty(repo)? {
-                writeln!(formatter, "Remaining changes:")?;
-                let diff_renderer = workspace_command.diff_renderer(vec![DiffFormat::Summary]);
-                let matcher = &EverythingMatcher; // also print excluded paths
-                let width = ui.term_width();
-                diff_renderer
-                    .show_patch(ui, formatter.as_mut(), commit, matcher, width)
-                    .block_on()?;
-            }
+    if let Some(mut formatter) = ui.status_formatter()
+        && let Some(commit) = &stats.rewritten_source
+    {
+        let repo = workspace_command.repo().as_ref();
+        if !commit.is_empty(repo)? {
+            writeln!(formatter, "Remaining changes:")?;
+            let diff_renderer = workspace_command.diff_renderer(vec![DiffFormat::Summary]);
+            let matcher = &EverythingMatcher; // also print excluded paths
+            let width = ui.term_width();
+            diff_renderer
+                .show_patch(ui, formatter.as_mut(), commit, matcher, width)
+                .block_on()?;
         }
     }
     Ok(())

@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
-use std::any::Any;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fs;
@@ -100,10 +99,6 @@ struct SimpleOpHeadsStoreLock {
 impl OpHeadsStoreLock for SimpleOpHeadsStoreLock {}
 
 impl OpHeadsStore for SimpleOpHeadsStore {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn name(&self) -> &str {
         Self::name()
     }

@@ -106,6 +106,13 @@
     `rm filename`
   Notes: ''
 
+- Use case: Remove a previously tracked file from the current change, but keep it in the working copy
+  Git command: >
+    `git rm --cached filename`
+  Jujutsu command: >
+    `jj file untrack filename`
+  Notes: 'File name must match an ignore pattern to remain untracked. See <a href="../working-copy/#introduction">the documentation for working copies</a> for more.'
+
 - Use case: Modify a file in the current change
   Git command: >
     `echo stuff >> filename`
@@ -231,6 +238,13 @@
   Jujutsu command: >
     `jj new @ A`
   Notes: ''
+
+- Use case: Check out a named revision (or branch) to examine source
+  Git command: >
+    `git checkout v1.0.1`
+  Jujutsu command: >
+    `jj new v1.0.1`
+  Notes: 'Creates new empty change on top (see `jj new main`)'
 
 - Use case: Move bookmark/branch A onto bookmark/branch B
   Git command: >

@@ -40,12 +40,7 @@ fn test_init_local() {
     let temp_dir = testutils::new_temp_dir();
     let (canonical, uncanonical) = canonicalize(temp_dir.path());
     let (workspace, repo) = Workspace::init_simple(&settings, &uncanonical).unwrap();
-    assert!(
-        repo.store()
-            .backend_impl()
-            .downcast_ref::<GitBackend>()
-            .is_none()
-    );
+    assert!(repo.store().backend_impl::<GitBackend>().is_none());
     assert_eq!(workspace.workspace_root(), &canonical);
 
     // Just test that we can write a commit to the store
@@ -59,11 +54,7 @@ fn test_init_internal_git() {
     let temp_dir = testutils::new_temp_dir();
     let (canonical, uncanonical) = canonicalize(temp_dir.path());
     let (workspace, repo) = Workspace::init_internal_git(&settings, &uncanonical).unwrap();
-    let git_backend = repo
-        .store()
-        .backend_impl()
-        .downcast_ref::<GitBackend>()
-        .unwrap();
+    let git_backend: &GitBackend = repo.store().backend_impl().unwrap();
     let repo_path = canonical.join(".jj").join("repo");
     assert_eq!(workspace.workspace_root(), &canonical);
     assert_eq!(
@@ -87,11 +78,7 @@ fn test_init_colocated_git() {
     let temp_dir = testutils::new_temp_dir();
     let (canonical, uncanonical) = canonicalize(temp_dir.path());
     let (workspace, repo) = Workspace::init_colocated_git(&settings, &uncanonical).unwrap();
-    let git_backend = repo
-        .store()
-        .backend_impl()
-        .downcast_ref::<GitBackend>()
-        .unwrap();
+    let git_backend: &GitBackend = repo.store().backend_impl().unwrap();
     let repo_path = canonical.join(".jj").join("repo");
     assert_eq!(workspace.workspace_root(), &canonical);
     assert_eq!(git_backend.git_repo_path(), canonical.join(".git"));
@@ -120,11 +107,7 @@ fn test_init_external_git() {
         &git_repo_path.join(".git"),
     )
     .unwrap();
-    let git_backend = repo
-        .store()
-        .backend_impl()
-        .downcast_ref::<GitBackend>()
-        .unwrap();
+    let git_backend: &GitBackend = repo.store().backend_impl().unwrap();
     assert_eq!(workspace.workspace_root(), &canonical.join("jj"));
     assert_eq!(
         git_backend.git_repo_path(),

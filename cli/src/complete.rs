@@ -1043,7 +1043,9 @@ mod parse {
                 // -r REV syntax
                 if candidates.contains(&arg.as_ref()) {
                     match args.next() {
-                        Some(val) if !val.starts_with('-') => return Some(val),
+                        Some(val) if !val.starts_with('-') => {
+                            return Some(strip_shell_quotes(&val).into());
+                        }
                         _ => return None,
                     }
                 }
@@ -1060,7 +1062,7 @@ mod parse {
                         None => None,
                     }
                 }) {
-                    return Some(value.into());
+                    return Some(strip_shell_quotes(value).into());
                 };
             }
             None
@@ -1117,6 +1119,16 @@ mod parse {
     pub fn log_revisions() -> Vec<String> {
         let candidates = &["-r", "--revisions"];
         parse_flag(candidates, std::env::args()).collect()
+    }
+
+    fn strip_shell_quotes(s: &str) -> &str {
+        if s.len() >= 2
+            && (s.starts_with('"') && s.ends_with('"') || s.starts_with('\'') && s.ends_with('\''))
+        {
+            &s[1..s.len() - 1]
+        } else {
+            s
+        }
     }
 }
 
@@ -1199,9 +1211,18 @@ mod tests {
     fn test_parse_revision_impl() {
         let good_cases: &[&[&str]] = &[
             &["-r", "foo"],
+            &["-r", "'foo'"],
+            &["-r", "\"foo\""],
+            &["-rfoo"],
+            &["-r'foo'"],
+            &["-r\"foo\""],
             &["--revision", "foo"],
             &["-r=foo"],
+            &["-r='foo'"],
+            &["-r=\"foo\""],
             &["--revision=foo"],
+            &["--revision='foo'"],
+            &["--revision=\"foo\""],
             &["preceding_arg", "-r", "foo"],
             &["-r", "foo", "following_arg"],
         ];

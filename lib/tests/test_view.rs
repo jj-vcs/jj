@@ -14,7 +14,8 @@
 
 use std::collections::BTreeMap;
 
-use jj_lib::op_store::BookmarkTarget;
+use itertools::Itertools as _;
+use jj_lib::op_store::LocalRemoteRefTarget;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
@@ -277,7 +278,7 @@ fn test_merge_views_bookmarks() {
     );
 
     let repo = commit_transactions(vec![tx1, tx2]);
-    let expected_main_bookmark = BookmarkTarget {
+    let expected_main_bookmark = LocalRemoteRefTarget {
         local_target: &RefTarget::from_legacy_form(
             [main_bookmark_local_tx0.id().clone()],
             [
@@ -294,7 +295,7 @@ fn test_merge_views_bookmarks() {
             ("origin".as_ref(), &main_bookmark_origin_tx2_remote_ref),
         ],
     };
-    let expected_feature_bookmark = BookmarkTarget {
+    let expected_feature_bookmark = LocalRemoteRefTarget {
         local_target: &RefTarget::normal(feature_bookmark_tx1.id().clone()),
         remote_refs: vec![],
     };
@@ -317,23 +318,23 @@ fn test_merge_views_tags() {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let v1_tx0 = write_random_commit(mut_repo);
-    mut_repo.set_tag_target("v1.0".as_ref(), RefTarget::normal(v1_tx0.id().clone()));
+    mut_repo.set_local_tag_target("v1.0".as_ref(), RefTarget::normal(v1_tx0.id().clone()));
     let v2_tx0 = write_random_commit(mut_repo);
-    mut_repo.set_tag_target("v2.0".as_ref(), RefTarget::normal(v2_tx0.id().clone()));
+    mut_repo.set_local_tag_target("v2.0".as_ref(), RefTarget::normal(v2_tx0.id().clone()));
     let repo = tx.commit("test").unwrap();
 
     let mut tx1 = repo.start_transaction();
     let v1_tx1 = write_random_commit(tx1.repo_mut());
     tx1.repo_mut()
-        .set_tag_target("v1.0".as_ref(), RefTarget::normal(v1_tx1.id().clone()));
+        .set_local_tag_target("v1.0".as_ref(), RefTarget::normal(v1_tx1.id().clone()));
     let v2_tx1 = write_random_commit(tx1.repo_mut());
     tx1.repo_mut()
-        .set_tag_target("v2.0".as_ref(), RefTarget::normal(v2_tx1.id().clone()));
+        .set_local_tag_target("v2.0".as_ref(), RefTarget::normal(v2_tx1.id().clone()));
 
     let mut tx2 = repo.start_transaction();
     let v1_tx2 = write_random_commit(tx2.repo_mut());
     tx2.repo_mut()
-        .set_tag_target("v1.0".as_ref(), RefTarget::normal(v1_tx2.id().clone()));
+        .set_local_tag_target("v1.0".as_ref(), RefTarget::normal(v1_tx2.id().clone()));
 
     let repo = commit_transactions(vec![tx1, tx2]);
     let expected_v1 = RefTarget::from_legacy_form(
@@ -342,11 +343,112 @@ fn test_merge_views_tags() {
     );
     let expected_v2 = RefTarget::normal(v2_tx1.id().clone());
     assert_eq!(
-        repo.view().tags(),
-        &btreemap! {
-            "v1.0".into() => expected_v1,
-            "v2.0".into() => expected_v2,
-        }
+        repo.view().local_tags().collect_vec(),
+        vec![
+            ("v1.0".as_ref(), &expected_v1),
+            ("v2.0".as_ref(), &expected_v2),
+        ]
+    );
+}
+
+#[test]
+fn test_merge_views_remote_tags() {
+    // Tests merging of remote tags (by performing divergent operations). See
+    // test_refs.rs for tests of merging of individual ref targets.
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let v1_origin_tx0 = write_random_commit(mut_repo);
+    mut_repo.set_remote_tag(
+        remote_symbol("v1.0", "origin"),
+        RemoteRef {
+            target: RefTarget::normal(v1_origin_tx0.id().clone()),
+            state: RemoteRefState::New,
+        },
+    );
+    let v1_upstream_tx0 = write_random_commit(mut_repo);
+    mut_repo.set_remote_tag(
+        remote_symbol("v1.0", "upstream"),
+        RemoteRef {
+            target: RefTarget::normal(v1_upstream_tx0.id().clone()),
+            state: RemoteRefState::Tracked,
+        },
+    );
+    let v2_upstream_tx0 = write_random_commit(mut_repo);
+    mut_repo.set_remote_tag(
+        remote_symbol("v2.0", "upstream"),
+        RemoteRef {
+            target: RefTarget::normal(v2_upstream_tx0.id().clone()),
+            state: RemoteRefState::Tracked,
+        },
+    );
+    let repo = tx.commit("test").unwrap();
+
+    // v1.0@origin: tx0 (new) -> tx1 (new)
+    // v2.0@upstream: tx0 (tracked) -> tx1 (tracked)
+    let mut tx1 = repo.start_transaction();
+    let v1_origin_tx1 = write_random_commit(tx1.repo_mut());
+    tx1.repo_mut().set_remote_tag(
+        remote_symbol("v1.0", "origin"),
+        RemoteRef {
+            target: RefTarget::normal(v1_origin_tx1.id().clone()),
+            state: RemoteRefState::New,
+        },
+    );
+    let v2_upstream_tx1 = write_random_commit(tx1.repo_mut());
+    tx1.repo_mut().set_remote_tag(
+        remote_symbol("v2.0", "upstream"),
+        RemoteRef {
+            target: RefTarget::normal(v2_upstream_tx1.id().clone()),
+            state: RemoteRefState::Tracked,
+        },
+    );
+
+    // v1.0@origin: tx0 (new) -> tx2 (tracked)
+    // v1.0@upstream: tx0 (tracked) -> tx2 (new)
+    let mut tx2 = repo.start_transaction();
+    let v1_origin_tx2 = write_random_commit(tx2.repo_mut());
+    tx2.repo_mut().set_remote_tag(
+        remote_symbol("v1.0", "origin"),
+        RemoteRef {
+            target: RefTarget::normal(v1_origin_tx2.id().clone()),
+            state: RemoteRefState::Tracked,
+        },
+    );
+    let v1_upstream_tx2 = write_random_commit(tx1.repo_mut());
+    tx1.repo_mut().set_remote_tag(
+        remote_symbol("v1.0", "upstream"),
+        RemoteRef {
+            target: RefTarget::normal(v1_upstream_tx2.id().clone()),
+            state: RemoteRefState::New,
+        },
+    );
+
+    let repo = commit_transactions(vec![tx1, tx2]);
+    let expected_v1_origin = RemoteRef {
+        target: RefTarget::from_legacy_form(
+            [v1_origin_tx0.id().clone()],
+            [v1_origin_tx1.id().clone(), v1_origin_tx2.id().clone()],
+        ),
+        state: RemoteRefState::Tracked,
+    };
+    let expected_v1_upstream = RemoteRef {
+        target: RefTarget::normal(v1_upstream_tx2.id().clone()),
+        state: RemoteRefState::New,
+    };
+    let expected_v2_upstream = RemoteRef {
+        target: RefTarget::normal(v2_upstream_tx1.id().clone()),
+        state: RemoteRefState::Tracked,
+    };
+    assert_eq!(
+        repo.view().all_remote_tags().collect_vec(),
+        vec![
+            (remote_symbol("v1.0", "origin"), &expected_v1_origin),
+            (remote_symbol("v1.0", "upstream"), &expected_v1_upstream),
+            (remote_symbol("v2.0", "upstream"), &expected_v2_upstream),
+        ]
     );
 }
 

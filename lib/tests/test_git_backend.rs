@@ -47,10 +47,7 @@ use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
 
 fn get_git_backend(repo: &Arc<ReadonlyRepo>) -> &GitBackend {
-    repo.store()
-        .backend_impl()
-        .downcast_ref::<GitBackend>()
-        .unwrap()
+    repo.store().backend_impl().unwrap()
 }
 
 fn collect_no_gc_refs(git_repo_path: &Path) -> HashSet<CommitId> {

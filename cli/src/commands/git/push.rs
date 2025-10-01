@@ -401,27 +401,24 @@ pub fn cmd_git_push(
     };
     let commits_to_sign =
         validate_commits_ready_to_push(ui, &bookmark_updates, remote, &tx, args, sign_behavior)?;
-    if !args.dry_run && !commits_to_sign.is_empty() {
-        if let Some(sign_behavior) = sign_behavior {
-            let num_updated_signatures = commits_to_sign.len();
-            let num_rebased_descendants;
-            (num_rebased_descendants, bookmark_updates) = sign_commits_before_push(
-                &mut tx,
-                commits_to_sign,
-                sign_behavior,
-                bookmark_updates,
+    if !args.dry_run
+        && !commits_to_sign.is_empty()
+        && let Some(sign_behavior) = sign_behavior
+    {
+        let num_updated_signatures = commits_to_sign.len();
+        let num_rebased_descendants;
+        (num_rebased_descendants, bookmark_updates) =
+            sign_commits_before_push(&mut tx, commits_to_sign, sign_behavior, bookmark_updates)?;
+        if let Some(mut formatter) = ui.status_formatter() {
+            writeln!(
+                formatter,
+                "Updated signatures of {num_updated_signatures} commits"
             )?;
-            if let Some(mut formatter) = ui.status_formatter() {
+            if num_rebased_descendants > 0 {
                 writeln!(
                     formatter,
-                    "Updated signatures of {num_updated_signatures} commits"
+                    "Rebased {num_rebased_descendants} descendant commits"
                 )?;
-                if num_rebased_descendants > 0 {
-                    writeln!(
-                        formatter,
-                        "Rebased {num_rebased_descendants} descendant commits"
-                    )?;
-                }
             }
         }
     }
@@ -585,10 +582,11 @@ fn validate_commits_ready_to_push(
             }
             return Err(error);
         }
-        if let Some(sign_settings) = &sign_settings {
-            if !commit.is_signed() && sign_settings.should_sign(commit.store_commit()) {
-                commits_to_sign.push(commit);
-            }
+        if let Some(sign_settings) = &sign_settings
+            && !commit.is_signed()
+            && sign_settings.should_sign(commit.store_commit())
+        {
+            commits_to_sign.push(commit);
         }
     }
     Ok(commits_to_sign)

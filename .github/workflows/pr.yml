@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run validation script
-        uses: actions/github-script@v7.0.1
+        uses: actions/github-script@v8.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -47,8 +47,8 @@ jobs:
                 + 'format `<topic>: <description>`. Please review the [commit guidelines]'
                 + '(https://jj-vcs.github.io/jj/prerelease/contributing/#commit-guidelines) for '
                 + 'more information.';
-                
-              if (latestReview.state !== 'CHANGES_REQUESTED') {
+
+              if (latestReview?.state !== 'CHANGES_REQUESTED') {
                 await github.rest.pulls.createReview({
                   event: 'REQUEST_CHANGES',
                   ...pullRequest,

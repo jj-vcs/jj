@@ -1100,7 +1100,7 @@ fn test_rebase_descendants_basic_bookmark_update_with_non_local_bookmark() {
     tx.repo_mut()
         .set_remote_bookmark(remote_symbol("main", "origin"), commit_b_remote_ref.clone());
     tx.repo_mut()
-        .set_tag_target("v1".as_ref(), RefTarget::normal(commit_b.id().clone()));
+        .set_local_tag_target("v1".as_ref(), RefTarget::normal(commit_b.id().clone()));
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
@@ -1117,7 +1117,7 @@ fn test_rebase_descendants_basic_bookmark_update_with_non_local_bookmark() {
         commit_b_remote_ref
     );
     assert_eq!(
-        tx.repo().get_tag("v1".as_ref()),
+        tx.repo().get_local_tag("v1".as_ref()),
         RefTarget::normal(commit_b.id().clone())
     );
 

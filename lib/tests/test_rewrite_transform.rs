@@ -161,11 +161,11 @@ fn test_transform_descendants_new_parents_map() {
             &options,
             async |mut rewriter| {
                 let old_commit_id = rewriter.old_commit().id().clone();
-                if old_commit_id != *commit_b.id() {
-                    if let Some(new_commit_c) = rebased.get(commit_c.id()) {
-                        let new_commit_b: &Commit = rebased.get(commit_b.id()).unwrap();
-                        rewriter.replace_parent(new_commit_c.id(), [new_commit_b.id()]);
-                    }
+                if old_commit_id != *commit_b.id()
+                    && let Some(new_commit_c) = rebased.get(commit_c.id())
+                {
+                    let new_commit_b: &Commit = rebased.get(commit_b.id()).unwrap();
+                    rewriter.replace_parent(new_commit_c.id(), [new_commit_b.id()]);
                 }
                 let new_commit = rewriter.rebase().await?.write()?;
                 rebased.insert(old_commit_id, new_commit);

@@ -47,6 +47,8 @@ This document contains the help content for the `jj` command-line program.
 * [`jj file track`↴](#jj-file-track)
 * [`jj file untrack`↴](#jj-file-untrack)
 * [`jj fix`↴](#jj-fix)
+* [`jj gerrit`↴](#jj-gerrit)
+* [`jj gerrit upload`↴](#jj-gerrit-upload)
 * [`jj git`↴](#jj-git)
 * [`jj git clone`↴](#jj-git-clone)
 * [`jj git export`↴](#jj-git-export)
@@ -142,6 +144,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `evolog` — Show how a change has evolved over time
 * `file` — File operations
 * `fix` — Update files with formatting fixes or other changes
+* `gerrit` — Interact with Gerrit Code Review
 * `git` — Commands for working with Git remotes and the underlying Git repo
 * `help` — Print this message or the help of the given subcommand(s)
 * `interdiff` — Compare the changes of two commits
@@ -345,6 +348,8 @@ Create a new bookmark
 
 * `-r`, `--revision <REVSET>` [alias: `to`] — The bookmark's target revision
 
+  Default value: `@`
+
 
 
 ## `jj bookmark delete`
@@ -478,6 +483,8 @@ $ jj bookmark move --from 'heads(::@- & bookmarks())' --to @-
 
 * `-f`, `--from <REVSETS>` — Move bookmarks from the given revisions
 * `-t`, `--to <REVSET>` — Move bookmarks to this revision
+
+  Default value: `@`
 * `-B`, `--allow-backwards` — Allow moving bookmarks backwards or sideways
 
 
@@ -514,6 +521,8 @@ Create or update a bookmark to point to a certain commit
 ###### **Options:**
 
 * `-r`, `--revision <REVSET>` [alias: `to`] — The bookmark's target revision
+
+  Default value: `@`
 * `-B`, `--allow-backwards` — Allow moving the bookmark backwards or sideways
 
 
@@ -589,16 +598,6 @@ Otherwise, this command is very similar to `jj split`. Differences include:
 * `-i`, `--interactive` — Interactively choose which changes to include in the first commit
 * `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
 * `-m`, `--message <MESSAGE>` — The change description to use (don't open editor)
-* `--reset-author` — Reset the author to the configured user
-
-   This resets the author name, email, and timestamp.
-
-   You can use it in combination with the JJ_USER and JJ_EMAIL environment variables to set a different author:
-
-   $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj commit --reset-author
-* `--author <AUTHOR>` — Set author to the provided string
-
-   This changes author name and email while retaining author timestamp for non-discardable commits.
 
 
 
@@ -785,22 +784,9 @@ Starts an editor to let you edit the description of changes. The editor will be 
 * `--stdin` — Read the change description from stdin
 
    If multiple revisions are specified, the same description will be used for all of them.
-* `--no-edit` — Don't open an editor
-
-   This is mainly useful in combination with e.g. `--reset-author`.
 * `--edit` — Open an editor
 
    Forces an editor to open when using `--stdin` or `--message` to allow the message to be edited afterwards.
-* `--reset-author` — Reset the author name, email, and timestamp
-
-   This resets the author name and email to the configured user and sets the author timestamp to the current time.
-
-   You can use it in combination with the JJ_USER and JJ_EMAIL environment variables to set a different author:
-
-   $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj describe --reset-author
-* `--author <AUTHOR>` — Set author to the provided string
-
-   This changes author name and email while retaining author timestamp for non-discardable commits.
 
 
 
@@ -1216,6 +1202,47 @@ output of the first tool.
 
 * `-s`, `--source <REVSETS>` — Fix files in the specified revision(s) and their descendants. If no revisions are specified, this defaults to the `revsets.fix` setting, or `reachable(@, mutable())` if it is not set
 * `--include-unchanged-files` — Fix unchanged files in addition to changed ones. If no paths are specified, all files in the repo will be fixed
+
+
+
+## `jj gerrit`
+
+Interact with Gerrit Code Review
+
+**Usage:** `jj gerrit <COMMAND>`
+
+###### **Subcommands:**
+
+* `upload` — Upload changes to Gerrit for code review, or update existing changes
+
+
+
+## `jj gerrit upload`
+
+Upload changes to Gerrit for code review, or update existing changes.
+
+Uploading in a set of revisions to Gerrit creates a single "change" for each revision included in the revset. These changes are then available for review on your Gerrit instance.
+
+Note: The gerrit commit Id may not match that of your local commit Id, since we add a `Change-Id` footer to the commit message if one does not already exist. This ID is based off the jj Change-Id, but is not the same.
+
+If a change already exists for a given revision (i.e. it contains the same `Change-Id`), this command will update the contents of the existing change to match.
+
+Note: this command takes 1-or-more revsets arguments, each of which can resolve to multiple revisions; so you may post trees or ranges of commits to Gerrit for review all at once.
+
+**Usage:** `jj gerrit upload [OPTIONS]`
+
+###### **Options:**
+
+* `-r`, `--revisions <REVISIONS>` — The revset, selecting which revisions are sent in to Gerrit
+
+   This can be any arbitrary set of commits. Note that when you push a commit at the head of a stack, all ancestors are pushed too. This means that `jj gerrit upload -r foo` is equivalent to `jj gerrit upload -r 'mutable()::foo`.
+* `-b`, `--remote-branch <REMOTE_BRANCH>` — The location where your changes are intended to land
+
+   This should be a branch on the remote. Can be configured with the `gerrit.default-branch` repository option.
+* `--remote <REMOTE>` — The Gerrit remote to push to
+
+   Can be configured with the `gerrit.default-remote` repository option as well. This is typically a full SSH URL for your Gerrit instance.
+* `-n`, `--dry-run` — Do not actually push the changes to Gerrit
 
 
 
@@ -2863,6 +2890,8 @@ Print the JSON schema for the jj TOML config format
 ## `jj util exec`
 
 Execute an external command via jj
+
+This command will have access to the environment variable JJ_WORKSPACE_ROOT.
 
 This is useful for arbitrary aliases.
 

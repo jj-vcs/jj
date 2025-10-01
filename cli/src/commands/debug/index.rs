@@ -41,7 +41,7 @@ pub fn cmd_debug_index(
     let index = index_store
         .get_index_at_op(&op, repo_loader.store())
         .map_err(internal_error)?;
-    if let Some(default_index) = index.as_any().downcast_ref::<DefaultReadonlyIndex>() {
+    if let Some(default_index) = index.downcast_ref::<DefaultReadonlyIndex>() {
         let stats = default_index.stats();
         writeln!(ui.stdout(), "=== Commits ===")?;
         writeln!(ui.stdout(), "Number of commits: {}", stats.num_commits)?;

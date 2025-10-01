@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::io;
 use std::io::Write;
@@ -40,15 +40,17 @@ use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::copies::CopiesTreeDiffEntry;
 use crate::copies::CopiesTreeDiffEntryPath;
-use crate::diff::Diff;
+use crate::diff::ContentDiff;
 use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::files;
 use crate::files::MergeResult;
 use crate::merge::Merge;
 use crate::merge::MergedTreeValue;
+use crate::merge::SameChange;
 use crate::repo_path::RepoPath;
 use crate::store::Store;
+use crate::tree_merge::MergeOptions;
 
 /// Minimum length of conflict markers.
 pub const MIN_CONFLICT_MARKER_LEN: usize = 7;
@@ -269,7 +271,7 @@ pub async fn try_materialize_file_conflict_value(
 /// Resolves conflicts in file executable bit, returns the original state if the
 /// file is deleted and executable bit is unchanged.
 pub fn resolve_file_executable(merge: &Merge<Option<bool>>) -> Option<bool> {
-    let resolved = merge.resolve_trivial().copied()?;
+    let resolved = merge.resolve_trivial(SameChange::Accept).copied()?;
     if resolved.is_some() {
         resolved
     } else {
@@ -281,11 +283,10 @@ pub fn resolve_file_executable(merge: &Merge<Option<bool>>) -> Option<bool> {
 }
 
 /// Describes what style should be used when materializing conflicts.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ConflictMarkerStyle {
     /// Style which shows a snapshot and a series of diffs to apply.
-    #[default]
     Diff,
     /// Style which shows a snapshot for each base and side.
     Snapshot,
@@ -294,10 +295,11 @@ pub enum ConflictMarkerStyle {
 }
 
 /// Options for conflict materialization.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct ConflictMaterializeOptions {
     pub marker_style: ConflictMarkerStyle,
     pub marker_len: Option<usize>,
+    pub merge: MergeOptions,
 }
 
 /// Characters which can be repeated to form a conflict marker line when
@@ -404,7 +406,7 @@ pub fn materialize_merge_result<T: AsRef<[u8]>>(
     output: &mut dyn Write,
     options: &ConflictMaterializeOptions,
 ) -> io::Result<()> {
-    let merge_result = files::merge_hunks(single_hunk);
+    let merge_result = files::merge_hunks(single_hunk, &options.merge);
     match &merge_result {
         MergeResult::Resolved(content) => output.write_all(content),
         MergeResult::Conflict(hunks) => {
@@ -420,7 +422,7 @@ pub fn materialize_merge_result_to_bytes<T: AsRef<[u8]>>(
     single_hunk: &Merge<T>,
     options: &ConflictMaterializeOptions,
 ) -> BString {
-    let merge_result = files::merge_hunks(single_hunk);
+    let merge_result = files::merge_hunks(single_hunk, &options.merge);
     match merge_result {
         MergeResult::Resolved(content) => content,
         MergeResult::Conflict(hunks) => {
@@ -614,12 +616,12 @@ fn materialize_jj_style_conflict(
             continue;
         }
 
-        let diff1 = Diff::by_line([&left, &right1]).hunks().collect_vec();
+        let diff1 = ContentDiff::by_line([&left, &right1]).hunks().collect_vec();
         // Check if the diff against the next positive term is better. Since we want to
         // preserve the order of the terms, we don't match against any later positive
         // terms.
         if let Some(right2) = hunk.get_add(add_index + 1) {
-            let diff2 = Diff::by_line([&left, &right2]).hunks().collect_vec();
+            let diff2 = ContentDiff::by_line([&left, &right2]).hunks().collect_vec();
             if diff_size(&diff2) < diff_size(&diff1) {
                 // If the next positive term is a better match, emit the current positive term
                 // as a snapshot and the next positive term as a diff.
@@ -695,9 +697,9 @@ pub fn materialized_diff_stream<'a>(
                 path,
                 values: Err(err),
             },
-            Ok((before, after)) => {
-                let before_future = materialize_tree_value(store, path.source(), before);
-                let after_future = materialize_tree_value(store, path.target(), after);
+            Ok(values) => {
+                let before_future = materialize_tree_value(store, path.source(), values.before);
+                let after_future = materialize_tree_value(store, path.target(), values.after);
                 let values = try_join!(before_future, after_future);
                 MaterializedTreeDiffEntry { path, values }
             }
@@ -925,7 +927,7 @@ pub async fn update_from_content(
     let simplified_file_ids = file_ids.simplify();
 
     let old_contents = extract_as_single_hunk(&simplified_file_ids, store, path).await?;
-    let old_hunks = files::merge_hunks(&old_contents);
+    let old_hunks = files::merge_hunks(&old_contents, store.merge_options());
 
     // Parse conflicts from the new content using the arity of the simplified
     // conflicts.

@@ -8,6 +8,8 @@ pub struct RefConflictLegacy {
     #[prost(bytes = "vec", repeated, tag = "2")]
     pub adds: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
 }
+/// This is redundant with `RefTargetTerm`. It exists for historical reasons.
+/// TODO: Consider deprecating it.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RefConflict {
     #[prost(message, repeated, tag = "1")]
@@ -23,6 +25,7 @@ pub mod ref_conflict {
         pub value: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
     }
 }
+/// RefTarget that may be serialized in legacy form.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RefTarget {
     /// New `RefConflict` type represents both `commit_id` and `conflict_legacy`.
@@ -42,6 +45,13 @@ pub mod ref_target {
         Conflict(super::RefConflict),
     }
 }
+/// RefTarget term that should be serialized in native form, in which positive
+/// and negative terms alternate.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RefTargetTerm {
+    #[prost(bytes = "vec", optional, tag = "1")]
+    pub value: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RemoteBookmark {
     #[prost(string, tag = "1")]
@@ -59,10 +69,8 @@ pub struct Bookmark {
     /// Unset if the bookmark has been deleted locally.
     #[prost(message, optional, tag = "2")]
     pub local_target: ::core::option::Option<RefTarget>,
-    /// TODO: How would we support renaming remotes while having undo work? If
-    /// the remote name is stored in config, it's going to become a mess if the
-    /// remote is renamed but the configs are left unchanged. Should each remote
-    /// be identified (here and in configs) by a UUID?
+    /// Deprecated since jj 0.34.
+    #[deprecated]
     #[prost(message, repeated, tag = "3")]
     pub remote_bookmarks: ::prost::alloc::vec::Vec<RemoteBookmark>,
 }
@@ -73,10 +81,20 @@ pub struct GitRef {
     /// This field is just for historical reasons (before we had the RefTarget
     /// type). New GitRefs have (only) the target field.
     /// TODO: Delete support for the old format.
+    #[deprecated]
     #[prost(bytes = "vec", tag = "2")]
     pub commit_id: ::prost::alloc::vec::Vec<u8>,
     #[prost(message, optional, tag = "3")]
     pub target: ::core::option::Option<RefTarget>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RemoteRef {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "2")]
+    pub target_terms: ::prost::alloc::vec::Vec<RefTargetTerm>,
+    #[prost(enumeration = "RemoteRefState", tag = "3")]
+    pub state: i32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Tag {
@@ -97,10 +115,14 @@ pub struct View {
         ::prost::alloc::string::String,
         ::prost::alloc::vec::Vec<u8>,
     >,
+    /// Local bookmarks and remote bookmarks in legacy form.
     #[prost(message, repeated, tag = "5")]
     pub bookmarks: ::prost::alloc::vec::Vec<Bookmark>,
     #[prost(message, repeated, tag = "6")]
-    pub tags: ::prost::alloc::vec::Vec<Tag>,
+    pub local_tags: ::prost::alloc::vec::Vec<Tag>,
+    /// Introduced in jj 0.34.
+    #[prost(message, repeated, tag = "11")]
+    pub remote_views: ::prost::alloc::vec::Vec<RemoteView>,
     /// Only a subset of the refs. For example, does not include refs/notes/.
     #[prost(message, repeated, tag = "3")]
     pub git_refs: ::prost::alloc::vec::Vec<GitRef>,
@@ -112,6 +134,18 @@ pub struct View {
     pub git_head_legacy: ::prost::alloc::vec::Vec<u8>,
     #[prost(message, optional, tag = "9")]
     pub git_head: ::core::option::Option<RefTarget>,
+    /// Whether "@git" tags have been migrated to remote_views.
+    #[prost(bool, tag = "12")]
+    pub has_git_refs_migrated_to_remote_tags: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RemoteView {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "2")]
+    pub bookmarks: ::prost::alloc::vec::Vec<RemoteRef>,
+    #[prost(message, repeated, tag = "3")]
+    pub tags: ::prost::alloc::vec::Vec<RemoteRef>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Operation {

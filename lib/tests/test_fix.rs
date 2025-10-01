@@ -84,7 +84,7 @@ fn fix_file(store: &Store, file_to_fix: &FileToFix) -> Result<Option<FileId>, Fi
             .unwrap();
         Ok(Some(new_file_id))
     } else if let Some(rest) = old_content.strip_prefix(b"error:") {
-        Err(make_fix_content_error(std::str::from_utf8(rest).unwrap()))
+        Err(make_fix_content_error(str::from_utf8(rest).unwrap()))
     } else {
         Ok(None)
     }

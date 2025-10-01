@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::borrow::Borrow;
 use std::borrow::Cow;
@@ -22,7 +22,6 @@ use std::default::Default;
 use std::fs::File;
 use std::num::NonZeroU32;
 use std::path::PathBuf;
-use std::str;
 use std::sync::Arc;
 
 use bstr::BStr;
@@ -305,10 +304,7 @@ pub struct UnexpectedGitBackendError;
 
 /// Returns the underlying `GitBackend` implementation.
 pub fn get_git_backend(store: &Store) -> Result<&GitBackend, UnexpectedGitBackendError> {
-    store
-        .backend_impl()
-        .downcast_ref()
-        .ok_or(UnexpectedGitBackendError)
+    store.backend_impl().ok_or(UnexpectedGitBackendError)
 }
 
 /// Returns new thread-local instance to access to the underlying Git repo.
@@ -329,10 +325,14 @@ fn resolve_git_ref_to_commit_id(
     // Try fast path if we have a candidate id which is known to be a commit object.
     if let Some(id) = known_target.as_normal() {
         let raw_ref = &git_ref.inner;
-        if matches!(raw_ref.target.try_id(), Some(oid) if oid.as_bytes() == id.as_bytes()) {
+        if let Some(oid) = raw_ref.target.try_id()
+            && oid.as_bytes() == id.as_bytes()
+        {
             return Some(id.clone());
         }
-        if matches!(raw_ref.peeled, Some(oid) if oid.as_bytes() == id.as_bytes()) {
+        if let Some(oid) = raw_ref.peeled
+            && oid.as_bytes() == id.as_bytes()
+        {
             // Perhaps an annotated tag stored in packed-refs file, and pointing to the
             // already known target commit.
             return Some(id.clone());
@@ -532,9 +532,11 @@ pub fn import_some_refs(
             },
         };
         if new_remote_ref.is_tracked() {
-            mut_repo.merge_tag(symbol.name, base_target, &new_remote_ref.target);
+            mut_repo.merge_local_tag(symbol.name, base_target, &new_remote_ref.target);
         }
-        // TODO: If we add Git-tracking tag, it will be updated here.
+        // Remote-tracking tag is the last known state of the tag in the remote.
+        // It shouldn't diverge even if we had inconsistent view.
+        mut_repo.set_remote_tag(symbol, new_remote_ref);
     }
 
     let abandoned_commits = if git_settings.abandon_unreachable_commits {
@@ -570,7 +572,7 @@ fn abandon_unreachable_commits(
         // Local refs are usually visible, no need to filter out hidden
         RevsetExpression::commits(pinned_commit_ids(mut_repo.view())),
         RevsetExpression::commits(remotely_pinned_commit_ids(mut_repo.view()))
-            // Hidden remote branches should not contribute to pinning
+            // Hidden remote refs should not contribute to pinning
             .intersection(&RevsetExpression::visible_heads().ancestors()),
         RevsetExpression::root(),
     ]);
@@ -607,22 +609,13 @@ fn diff_refs_to_import(
             git_ref_filter(kind, symbol).then_some((full_name.as_ref(), target))
         })
         .collect();
-    // TODO: migrate tags to the remote view, and don't destructure &RemoteRef
     let mut known_remote_bookmarks = view
         .all_remote_bookmarks()
         .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Bookmark, symbol))
-        .map(|(symbol, remote_ref)| (RemoteRefKey(symbol), (&remote_ref.target, remote_ref.state)))
+        .map(|(symbol, remote_ref)| (RemoteRefKey(symbol), remote_ref))
         .collect();
-    // TODO: compare to tags stored in the "git" remote view. Since tags should
-    // never be moved locally in jj, we can consider local tags as merge base.
     let mut known_remote_tags = view
-        .tags()
-        .iter()
-        .map(|(name, target)| {
-            let symbol = name.to_remote_symbol(REMOTE_NAME_FOR_LOCAL_GIT_REPO);
-            let state = RemoteRefState::Tracked;
-            (symbol, (target, state))
-        })
+        .all_remote_tags()
         .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Tag, symbol))
         .map(|(symbol, remote_ref)| (RemoteRefKey(symbol), remote_ref))
         .collect();
@@ -662,19 +655,11 @@ fn diff_refs_to_import(
     for full_name in known_git_refs.into_keys() {
         changed_git_refs.push((full_name.to_owned(), RefTarget::absent()));
     }
-    for (RemoteRefKey(symbol), (old_target, old_state)) in known_remote_bookmarks {
-        let old_remote_ref = RemoteRef {
-            target: old_target.clone(),
-            state: old_state,
-        };
-        changed_remote_bookmarks.push((symbol.to_owned(), (old_remote_ref, RefTarget::absent())));
+    for (RemoteRefKey(symbol), old) in known_remote_bookmarks {
+        changed_remote_bookmarks.push((symbol.to_owned(), (old.clone(), RefTarget::absent())));
     }
-    for (RemoteRefKey(symbol), (old_target, old_state)) in known_remote_tags {
-        let old_remote_ref = RemoteRef {
-            target: old_target.clone(),
-            state: old_state,
-        };
-        changed_remote_tags.push((symbol.to_owned(), (old_remote_ref, RefTarget::absent())));
+    for (RemoteRefKey(symbol), old) in known_remote_tags {
+        changed_remote_tags.push((symbol.to_owned(), (old.clone(), RefTarget::absent())));
     }
 
     // Stabilize merge order and output.
@@ -693,7 +678,7 @@ fn diff_refs_to_import(
 fn collect_changed_refs_to_import(
     actual_git_refs: gix::reference::iter::Iter<'_>,
     known_git_refs: &mut HashMap<&GitRefName, &RefTarget>,
-    known_remote_refs: &mut HashMap<RemoteRefKey<'_>, (&RefTarget, RemoteRefState)>,
+    known_remote_refs: &mut HashMap<RemoteRefKey<'_>, &RemoteRef>,
     changed_git_refs: &mut Vec<(GitRefNameBuf, RefTarget)>,
     changed_remote_refs: &mut Vec<(RemoteRefSymbolBuf, (RemoteRef, RefTarget))>,
     failed_ref_names: &mut Vec<BString>,
@@ -731,15 +716,11 @@ fn collect_changed_refs_to_import(
         }
         // TODO: Make it configurable which remotes are publishing and update public
         // heads here.
-        let (old_remote_target, old_remote_state) = known_remote_refs
+        let old_remote_ref = known_remote_refs
             .remove(&symbol)
-            .unwrap_or_else(|| (RefTarget::absent_ref(), RemoteRefState::New));
-        if new_target != *old_remote_target {
-            let old_remote_ref = RemoteRef {
-                target: old_remote_target.clone(),
-                state: old_remote_state,
-            };
-            changed_remote_refs.push((symbol.to_owned(), (old_remote_ref, new_target)));
+            .unwrap_or_else(|| RemoteRef::absent_ref());
+        if new_target != old_remote_ref.target {
+            changed_remote_refs.push((symbol.to_owned(), (old_remote_ref.clone(), new_target)));
         }
     }
     Ok(())
@@ -758,6 +739,7 @@ fn default_remote_ref_state_for(
                 RemoteRefState::New
             }
         }
+        // TODO: add option to not track tags by default?
         GitRefKind::Tag => RemoteRefState::Tracked,
     }
 }
@@ -768,23 +750,20 @@ fn default_remote_ref_state_for(
 /// `view.git_refs()`. Main difference is that local branches can be moved by
 /// tracking remotes, and such mutation isn't applied to `view.git_refs()` yet.
 fn pinned_commit_ids(view: &View) -> Vec<CommitId> {
-    itertools::chain(
-        view.local_bookmarks().map(|(_, target)| target),
-        view.tags().values(),
-    )
-    .flat_map(|target| target.added_ids())
-    .cloned()
-    .collect()
+    itertools::chain(view.local_bookmarks(), view.local_tags())
+        .flat_map(|(_, target)| target.added_ids())
+        .cloned()
+        .collect()
 }
 
-/// Commits referenced by untracked remote branches including hidden ones.
+/// Commits referenced by untracked remote bookmarks/tags including hidden ones.
 ///
-/// Tracked remote branches aren't included because they should have been merged
+/// Tracked remote refs aren't included because they should have been merged
 /// into the local counterparts, and the changes pulled from one remote should
-/// propagate to the other remotes on later push. OTOH, untracked remote
-/// branches are considered independent refs.
+/// propagate to the other remotes on later push. OTOH, untracked remote refs
+/// are considered independent refs.
 fn remotely_pinned_commit_ids(view: &View) -> Vec<CommitId> {
-    view.all_remote_bookmarks()
+    itertools::chain(view.all_remote_bookmarks(), view.all_remote_tags())
         .filter(|(_, remote_ref)| !remote_ref.is_tracked())
         .map(|(_, remote_ref)| &remote_ref.target)
         .flat_map(|target| target.added_ids())
@@ -1001,6 +980,8 @@ pub fn export_some_refs(
         }
     }
 
+    // TODO: export tags
+
     // Stabilize output, allow binary search.
     failed_bookmarks.sort_unstable_by(|(name1, _), (name2, _)| name1.cmp(name2));
 
@@ -1012,6 +993,7 @@ pub fn export_some_refs(
             git_ref_filter(GitRefKind::Bookmark, symbol) && get(&failed_bookmarks, symbol).is_none()
         },
     );
+    // TODO: copy exportable tags
 
     Ok(GitExportStats { failed_bookmarks })
 }
@@ -1306,46 +1288,57 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
 
     // If there is an ongoing operation (merge, rebase, etc.), we need to clean it
     // up.
-    //
-    // TODO: Polish and upstream this to `gix`.
     if git_repo.state().is_some() {
-        // Based on the files `git2::Repository::cleanup_state` deletes; when
-        // upstreaming this logic should probably become more elaborate to match
-        // `git(1)` behavior.
-        const STATE_FILE_NAMES: &[&str] = &[
-            "MERGE_HEAD",
-            "MERGE_MODE",
-            "MERGE_MSG",
-            "REVERT_HEAD",
-            "CHERRY_PICK_HEAD",
-            "BISECT_LOG",
-        ];
-        const STATE_DIR_NAMES: &[&str] = &["rebase-merge", "rebase-apply", "sequencer"];
-        let handle_err = |err: PathError| match err.source.kind() {
-            std::io::ErrorKind::NotFound => Ok(()),
-            _ => Err(GitResetHeadError::from_git(err)),
-        };
-        for file_name in STATE_FILE_NAMES {
-            let path = git_repo.path().join(file_name);
-            std::fs::remove_file(&path)
-                .context(&path)
-                .or_else(handle_err)?;
-        }
-        for dir_name in STATE_DIR_NAMES {
-            let path = git_repo.path().join(dir_name);
-            std::fs::remove_dir_all(&path)
-                .context(&path)
-                .or_else(handle_err)?;
-        }
+        clear_operation_state(&git_repo)?;
     }
 
-    let parent_tree = wc_commit.parent_tree(mut_repo)?;
+    reset_index(mut_repo, &git_repo, wc_commit)
+}
 
+// TODO: Polish and upstream this to `gix`.
+fn clear_operation_state(git_repo: &gix::Repository) -> Result<(), GitResetHeadError> {
+    // Based on the files `git2::Repository::cleanup_state` deletes; when
+    // upstreaming this logic should probably become more elaborate to match
+    // `git(1)` behavior.
+    const STATE_FILE_NAMES: &[&str] = &[
+        "MERGE_HEAD",
+        "MERGE_MODE",
+        "MERGE_MSG",
+        "REVERT_HEAD",
+        "CHERRY_PICK_HEAD",
+        "BISECT_LOG",
+    ];
+    const STATE_DIR_NAMES: &[&str] = &["rebase-merge", "rebase-apply", "sequencer"];
+    let handle_err = |err: PathError| match err.source.kind() {
+        std::io::ErrorKind::NotFound => Ok(()),
+        _ => Err(GitResetHeadError::from_git(err)),
+    };
+    for file_name in STATE_FILE_NAMES {
+        let path = git_repo.path().join(file_name);
+        std::fs::remove_file(&path)
+            .context(&path)
+            .or_else(handle_err)?;
+    }
+    for dir_name in STATE_DIR_NAMES {
+        let path = git_repo.path().join(dir_name);
+        std::fs::remove_dir_all(&path)
+            .context(&path)
+            .or_else(handle_err)?;
+    }
+    Ok(())
+}
+
+fn reset_index(
+    repo: &dyn Repo,
+    git_repo: &gix::Repository,
+    wc_commit: &Commit,
+) -> Result<(), GitResetHeadError> {
+    let parent_tree = wc_commit.parent_tree(repo)?;
     // Use the merged parent tree as the Git index, allowing `git diff` to show the
     // same changes as `jj diff`. If the merged parent tree has conflicts, then the
     // Git index will also be conflicted.
     let mut index = if let Some(tree) = parent_tree.as_merge().as_resolved() {
-        if tree.id() == mut_repo.store().empty_tree_id() {
+        if tree.id() == repo.store().empty_tree_id() {
             // If the tree is empty, gix can fail to load the object (since Git doesn't
             // require the empty tree to actually be present in the object database), so we
             // just use an empty index directly.
@@ -1361,11 +1354,11 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
                 .map_err(GitResetHeadError::from_git)?
         }
     } else {
-        build_index_from_merged_tree(&git_repo, parent_tree.clone())?
+        build_index_from_merged_tree(git_repo, &parent_tree)?
     };
 
     let wc_tree = wc_commit.tree()?;
-    update_intent_to_add_impl(&git_repo, &mut index, &parent_tree, &wc_tree).block_on()?;
+    update_intent_to_add_impl(git_repo, &mut index, &parent_tree, &wc_tree).block_on()?;
 
     // Match entries in the new index with entries in the old index, and copy stat
     // information if the entry didn't change.
@@ -1386,14 +1379,12 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
 
     index
         .write(gix::index::write::Options::default())
-        .map_err(GitResetHeadError::from_git)?;
-
-    Ok(())
+        .map_err(GitResetHeadError::from_git)
 }
 
 fn build_index_from_merged_tree(
     git_repo: &gix::Repository,
-    merged_tree: MergedTree,
+    merged_tree: &MergedTree,
 ) -> Result<gix::index::File, GitResetHeadError> {
     let mut index = gix::index::File::from_state(
         gix::index::State::new(git_repo.object_hash()),
@@ -1540,9 +1531,9 @@ async fn update_intent_to_add_impl(
     let mut added_paths = vec![];
     let mut removed_paths = HashSet::new();
     while let Some(TreeDiffEntry { path, values }) = diff_stream.next().await {
-        let (before, after) = values?;
-        if before.is_absent() {
-            let executable = match after.as_normal() {
+        let values = values?;
+        if values.before.is_absent() {
+            let executable = match values.after.as_normal() {
                 Some(TreeValue::File {
                     id: _,
                     executable,
@@ -1559,7 +1550,7 @@ async fn update_intent_to_add_impl(
             {
                 added_paths.push((BString::from(path.into_internal_string()), executable));
             }
-        } else if after.is_absent() {
+        } else if values.after.is_absent() {
             removed_paths.insert(BString::from(path.into_internal_string()));
         }
     }

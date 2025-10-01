@@ -14,7 +14,6 @@
 
 use std::path::Path;
 use std::process::Command;
-use std::str;
 
 const GIT_HEAD_PATH: &str = "../.git/HEAD";
 const JJ_OP_HEADS_PATH: &str = "../.jj/repo/op_heads/heads";
@@ -22,17 +21,20 @@ const JJ_OP_HEADS_PATH: &str = "../.jj/repo/op_heads/heads";
 fn main() {
     let version = std::env::var("CARGO_PKG_VERSION").unwrap();
 
-    if Path::new(GIT_HEAD_PATH).exists() {
-        // In colocated repo, .git/HEAD should reflect the working-copy parent.
-        println!("cargo:rerun-if-changed={GIT_HEAD_PATH}");
-    } else if Path::new(JJ_OP_HEADS_PATH).exists() {
-        // op_heads changes when working-copy files are mutated, which is way more
-        // frequent than .git/HEAD.
-        println!("cargo:rerun-if-changed={JJ_OP_HEADS_PATH}");
-    }
     println!("cargo:rerun-if-env-changed=NIX_JJ_GIT_HASH");
+    let git_hash = get_git_hash_from_nix().or_else(|| {
+        if Path::new(GIT_HEAD_PATH).exists() {
+            // In colocated repo, .git/HEAD should reflect the working-copy parent.
+            println!("cargo:rerun-if-changed={GIT_HEAD_PATH}");
+        } else if Path::new(JJ_OP_HEADS_PATH).exists() {
+            // op_heads changes when working-copy files are mutated, which is way more
+            // frequent than .git/HEAD.
+            println!("cargo:rerun-if-changed={JJ_OP_HEADS_PATH}");
+        }
+        get_git_hash_from_jj().or_else(get_git_hash_from_git)
+    });
 
-    if let Some(git_hash) = get_git_hash() {
+    if let Some(git_hash) = git_hash {
         println!("cargo:rustc-env=JJ_VERSION={version}-{git_hash}");
     } else {
         println!("cargo:rustc-env=JJ_VERSION={version}");
@@ -47,14 +49,14 @@ fn main() {
     }
 }
 
-fn get_git_hash() -> Option<String> {
-    if let Some(nix_hash) = std::env::var("NIX_JJ_GIT_HASH")
+fn get_git_hash_from_nix() -> Option<String> {
+    std::env::var("NIX_JJ_GIT_HASH")
         .ok()
         .filter(|s| !s.is_empty())
-    {
-        return Some(nix_hash);
-    }
-    if let Ok(output) = Command::new("jj")
+}
+
+fn get_git_hash_from_jj() -> Option<String> {
+    Command::new("jj")
         .args([
             "--ignore-working-copy",
             "--color=never",
@@ -64,22 +66,27 @@ fn get_git_hash() -> Option<String> {
             "-T=commit_id ++ '-'",
         ])
         .output()
-    {
-        if output.status.success() {
+        .ok()
+        .filter(|output| output.status.success())
+        .map(|output| {
             let mut parent_commits = String::from_utf8(output.stdout).unwrap();
             // If a development version of `jj` is compiled at a merge commit, this will
             // result in several commit ids separated by `-`s.
             parent_commits.truncate(parent_commits.trim_end_matches('-').len());
-            return Some(parent_commits);
-        }
-    }
+            parent_commits
+        })
+}
 
-    if let Ok(output) = Command::new("git").args(["rev-parse", "HEAD"]).output() {
-        if output.status.success() {
-            let line = str::from_utf8(&output.stdout).unwrap();
-            return Some(line.trim_end().to_owned());
-        }
-    }
-
-    None
+fn get_git_hash_from_git() -> Option<String> {
+    Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .map(|output| {
+            str::from_utf8(&output.stdout)
+                .unwrap()
+                .trim_end()
+                .to_owned()
+        })
 }

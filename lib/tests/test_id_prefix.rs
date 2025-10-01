@@ -581,9 +581,9 @@ fn test_id_prefix_shadowed_by_ref() {
     // Longer symbol doesn't count
     let dummy_target = RefTarget::normal(root_commit_id.clone());
     tx.repo_mut()
-        .set_tag_target(commit_id_sym[..2].as_ref(), dummy_target.clone());
+        .set_local_tag_target(commit_id_sym[..2].as_ref(), dummy_target.clone());
     tx.repo_mut()
-        .set_tag_target(change_id_sym[..2].as_ref(), dummy_target.clone());
+        .set_local_tag_target(change_id_sym[..2].as_ref(), dummy_target.clone());
     assert_eq!(index.shortest_commit_prefix_len(tx.repo(), commit.id()), 1);
     assert_eq!(
         index.shortest_change_prefix_len(tx.repo(), commit.change_id()),
@@ -604,11 +604,11 @@ fn test_id_prefix_shadowed_by_ref() {
     // Many-char conflicts
     for n in 3..commit_id_sym.len() {
         tx.repo_mut()
-            .set_tag_target(commit_id_sym[..n].as_ref(), dummy_target.clone());
+            .set_local_tag_target(commit_id_sym[..n].as_ref(), dummy_target.clone());
     }
     for n in 3..change_id_sym.len() {
         tx.repo_mut()
-            .set_tag_target(change_id_sym[..n].as_ref(), dummy_target.clone());
+            .set_local_tag_target(change_id_sym[..n].as_ref(), dummy_target.clone());
     }
     assert_eq!(
         index.shortest_commit_prefix_len(tx.repo(), commit.id()),
@@ -621,9 +621,9 @@ fn test_id_prefix_shadowed_by_ref() {
 
     // Full-char conflicts
     tx.repo_mut()
-        .set_tag_target(commit_id_sym.as_ref(), dummy_target.clone());
+        .set_local_tag_target(commit_id_sym.as_ref(), dummy_target.clone());
     tx.repo_mut()
-        .set_tag_target(change_id_sym.as_ref(), dummy_target.clone());
+        .set_local_tag_target(change_id_sym.as_ref(), dummy_target.clone());
     assert_eq!(
         index.shortest_commit_prefix_len(tx.repo(), commit.id()),
         commit_id_sym.len()

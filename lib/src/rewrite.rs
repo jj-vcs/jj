@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -131,7 +131,7 @@ pub async fn restore_tree(
             values,
         }) = diff_stream.next().await
         {
-            let (source_value, _destination_value) = values?;
+            let source_value = values?.before;
             tree_builder.set_or_remove(repo_path, source_value);
         }
         tree_builder.write_tree(destination.store())
@@ -270,6 +270,9 @@ impl<'repo> CommitRewriter<'repo> {
                 self.old_commit.tree_id().clone(),
             )
         } else {
+            // We wouldn't need to resolve merge conflicts here if the
+            // same-change rule is "keep". See 9d4a97381f30 "rewrite: don't
+            // resolve intermediate parent tree when rebasing" for details.
             let old_base_tree_fut = merge_commit_trees(self.mut_repo, &old_parents);
             let new_base_tree_fut = merge_commit_trees(self.mut_repo, &new_parents);
             let old_tree_fut = self.old_commit.tree_async();
@@ -361,10 +364,10 @@ pub fn rebase_to_dest_parent(
     sources: &[Commit],
     destination: &Commit,
 ) -> BackendResult<MergedTree> {
-    if let [source] = sources {
-        if source.parent_ids() == destination.parent_ids() {
-            return source.tree();
-        }
+    if let [source] = sources
+        && source.parent_ids() == destination.parent_ids()
+    {
+        return source.tree();
     }
     sources.iter().try_fold(
         destination.parent_tree(repo)?,

@@ -141,31 +141,31 @@ pub(crate) fn cmd_duplicate(
 
     let mut tx = workspace_command.start_transaction();
 
-    if let Some((parent_commit_ids, children_commit_ids)) = &location {
-        if !parent_commit_ids.is_empty() {
-            for commit_id in &to_duplicate {
-                for parent_commit_id in parent_commit_ids {
-                    if tx.repo().index().is_ancestor(commit_id, parent_commit_id) {
-                        writeln!(
-                            ui.warning_default(),
-                            "Duplicating commit {} as a descendant of itself",
-                            short_commit_hash(commit_id)
-                        )?;
-                        break;
-                    }
+    if let Some((parent_commit_ids, children_commit_ids)) = &location
+        && !parent_commit_ids.is_empty()
+    {
+        for commit_id in &to_duplicate {
+            for parent_commit_id in parent_commit_ids {
+                if tx.repo().index().is_ancestor(commit_id, parent_commit_id) {
+                    writeln!(
+                        ui.warning_default(),
+                        "Duplicating commit {} as a descendant of itself",
+                        short_commit_hash(commit_id)
+                    )?;
+                    break;
                 }
             }
+        }
 
-            for commit_id in &to_duplicate {
-                for child_commit_id in children_commit_ids {
-                    if tx.repo().index().is_ancestor(child_commit_id, commit_id) {
-                        writeln!(
-                            ui.warning_default(),
-                            "Duplicating commit {} as an ancestor of itself",
-                            short_commit_hash(commit_id)
-                        )?;
-                        break;
-                    }
+        for commit_id in &to_duplicate {
+            for child_commit_id in children_commit_ids {
+                if tx.repo().index().is_ancestor(child_commit_id, commit_id) {
+                    writeln!(
+                        ui.warning_default(),
+                        "Duplicating commit {} as an ancestor of itself",
+                        short_commit_hash(commit_id)
+                    )?;
+                    break;
                 }
             }
         }

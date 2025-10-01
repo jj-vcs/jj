@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::fs;
 use std::io;
@@ -69,13 +69,16 @@ impl GitIgnoreFile {
     ) -> Result<Arc<Self>, GitIgnoreError> {
         let mut builder = gitignore::GitignoreBuilder::new(prefix);
         for (i, input_line) in input.split(|b| *b == b'\n').enumerate() {
-            let line =
-                std::str::from_utf8(input_line).map_err(|err| GitIgnoreError::InvalidUtf8 {
-                    path: ignore_path.to_path_buf(),
-                    line_num_for_display: i + 1,
-                    line: String::from_utf8_lossy(input_line).to_string(),
-                    source: err,
-                })?;
+            if input_line.starts_with(b"#") {
+                continue;
+            }
+
+            let line = str::from_utf8(input_line).map_err(|err| GitIgnoreError::InvalidUtf8 {
+                path: ignore_path.to_path_buf(),
+                line_num_for_display: i + 1,
+                line: String::from_utf8_lossy(input_line).to_string(),
+                source: err,
+            })?;
             // The `from` argument doesn't provide any diagnostics or correctness, so it is
             // not required. It only allows retrieving the path from the `Glob` later, which
             // we never do.
@@ -456,5 +459,21 @@ mod tests {
             .chain("", Path::new(""), b"!/foo/\nfoo/bar.*\n")
             .unwrap();
         assert!(ignore.matches("foo/bar.ext"));
+    }
+
+    #[test]
+    fn test_gitignore_invalid_utf8() {
+        // This tests that comments are not parsed
+        // The following slice is the byte representation of the following comment
+        // string:
+        //#à
+        let non_ascii_bytes = [35, 224];
+
+        let ignore = GitIgnoreFile::empty().chain("", Path::new(""), &non_ascii_bytes);
+        assert!(ignore.is_ok());
+
+        // Test without the leading #
+        let ignore = GitIgnoreFile::empty().chain("", Path::new(""), &non_ascii_bytes[1..]);
+        assert!(ignore.is_err());
     }
 }

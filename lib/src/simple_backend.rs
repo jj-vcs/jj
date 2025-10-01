@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
-use std::any::Any;
 use std::fmt::Debug;
 use std::fs;
 use std::fs::File;
@@ -151,10 +150,6 @@ impl SimpleBackend {
 
 #[async_trait]
 impl Backend for SimpleBackend {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn name(&self) -> &str {
         Self::name()
     }
@@ -355,7 +350,7 @@ impl Backend for SimpleBackend {
     }
 }
 
-#[allow(clippy::assigning_clones)]
+#[expect(clippy::assigning_clones)]
 pub fn commit_to_proto(commit: &Commit) -> crate::protos::simple_store::Commit {
     let mut proto = crate::protos::simple_store::Commit::default();
     for parent in &commit.parents {

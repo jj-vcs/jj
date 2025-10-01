@@ -20,6 +20,8 @@ use crate::ui::Ui;
 
 /// Execute an external command via jj
 ///
+/// This command will have access to the environment variable JJ_WORKSPACE_ROOT.
+///
 /// This is useful for arbitrary aliases.
 ///
 /// !! WARNING !!
@@ -72,27 +74,37 @@ pub(crate) struct UtilExecArgs {
 }
 
 pub fn cmd_util_exec(
-    _ui: &mut Ui,
-    _command: &CommandHelper,
+    _: &mut Ui,
+    command: &CommandHelper,
     args: &UtilExecArgs,
 ) -> Result<(), CommandError> {
-    let status = std::process::Command::new(&args.command)
-        .args(&args.args)
-        .status()
-        .map_err(|err| {
-            user_error_with_message(
-                format!("Failed to execute external command '{}'", &args.command),
-                err,
-            )
-        })?;
+    let workspace_root = command
+        .workspace_loader()
+        .ok()
+        .map(|loader| loader.workspace_root());
+    let mut cmd = std::process::Command::new(&args.command);
+    cmd.args(&args.args);
+
+    if let Some(workspace_root) = workspace_root {
+        cmd.env("JJ_WORKSPACE_ROOT", workspace_root);
+    }
+
+    let status = cmd.status().map_err(|err| {
+        user_error_with_message(
+            format!("Failed to execute external command '{}'", &args.command),
+            err,
+        )
+    })?;
+
+    // Try to match the exit status of the executed process.
+    if let Some(exit_code) = status.code() {
+        std::process::exit(exit_code);
+    }
     if !status.success() {
-        let error_msg = if let Some(exit_code) = status.code() {
-            format!("External command exited with {exit_code}")
-        } else {
-            // signal
-            format!("External command was terminated by: {status}")
-        };
-        return Err(user_error(error_msg));
+        // signal
+        return Err(user_error(format!(
+            "External command was terminated by {status}"
+        )));
     }
     Ok(())
 }

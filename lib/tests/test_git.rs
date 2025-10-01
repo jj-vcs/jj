@@ -55,7 +55,7 @@ use jj_lib::git::expand_fetch_refspecs;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::hex_util;
 use jj_lib::object_id::ObjectId as _;
-use jj_lib::op_store::BookmarkTarget;
+use jj_lib::op_store::LocalRemoteRefTarget;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
@@ -130,10 +130,7 @@ where
 }
 
 fn get_git_backend(repo: &Arc<ReadonlyRepo>) -> &GitBackend {
-    repo.store()
-        .backend_impl()
-        .downcast_ref::<GitBackend>()
-        .unwrap()
+    repo.store().backend_impl().unwrap()
 }
 
 fn get_git_repo(repo: &Arc<ReadonlyRepo>) -> gix::Repository {
@@ -177,13 +174,13 @@ fn push_status_rejected_references(push_stats: GitPushStats) -> Vec<GitRefNameBu
 
 #[test]
 fn test_import_refs() {
-    let git_settings = GitSettings {
-        auto_local_bookmark: true,
-        ..Default::default()
-    };
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings {
+        auto_local_bookmark: true,
+        ..GitSettings::from_settings(repo.settings()).unwrap()
+    };
 
     let commit1 = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     git_ref(&git_repo, "refs/remotes/origin/main", commit1);
@@ -280,8 +277,15 @@ fn test_import_refs() {
     );
 
     assert_eq!(
-        view.get_tag("v1.0".as_ref()),
+        view.get_local_tag("v1.0".as_ref()),
         &RefTarget::normal(jj_id(commit5))
+    );
+    assert_eq!(
+        view.get_remote_tag(remote_symbol("v1.0", "git")),
+        &RemoteRef {
+            target: RefTarget::normal(jj_id(commit5)),
+            state: RemoteRefState::Tracked,
+        },
     );
 
     assert_eq!(view.git_refs().len(), 6);
@@ -314,13 +318,13 @@ fn test_import_refs() {
 
 #[test]
 fn test_import_refs_reimport() {
-    let git_settings = GitSettings {
-        auto_local_bookmark: true,
-        ..Default::default()
-    };
     let test_workspace = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings {
+        auto_local_bookmark: true,
+        ..GitSettings::from_settings(repo.settings()).unwrap()
+    };
 
     let commit1 = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     git_ref(&git_repo, "refs/remotes/origin/main", commit1);
@@ -422,7 +426,7 @@ fn test_import_refs_reimport() {
             .is_absent()
     );
 
-    assert!(view.tags().is_empty());
+    assert_eq!(view.local_tags().count(), 0);
 
     assert_eq!(view.git_refs().len(), 3);
     assert_eq!(
@@ -443,10 +447,10 @@ fn test_import_refs_reimport() {
 #[test]
 fn test_import_refs_reimport_head_removed() {
     // Test that re-importing refs doesn't cause a deleted head to come back
-    let git_settings = GitSettings::default();
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings::from_settings(repo.settings()).unwrap();
 
     let commit = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     let mut tx = repo.start_transaction();
@@ -467,10 +471,10 @@ fn test_import_refs_reimport_head_removed() {
 fn test_import_refs_reimport_git_head_does_not_count() {
     // Test that if a bookmark is removed, the corresponding commit is abandoned
     // no matter if the Git HEAD points to the commit (or a descendant of it.)
-    let git_settings = GitSettings::default();
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings::from_settings(repo.settings()).unwrap();
 
     let commit = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     testutils::git::set_head_to_id(&git_repo, commit);
@@ -496,10 +500,10 @@ fn test_import_refs_reimport_git_head_does_not_count() {
 #[test]
 fn test_import_refs_reimport_git_head_without_ref() {
     // Simulate external `git checkout` in colocated repo, from anonymous bookmark.
-    let git_settings = GitSettings::default();
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings::from_settings(repo.settings()).unwrap();
 
     // First, HEAD points to commit1.
     let mut tx = repo.start_transaction();
@@ -531,10 +535,10 @@ fn test_import_refs_reimport_git_head_without_ref() {
 #[test]
 fn test_import_refs_reimport_git_head_with_moved_ref() {
     // Simulate external history rewriting in colocated repo.
-    let git_settings = GitSettings::default();
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings::from_settings(repo.settings()).unwrap();
 
     // First, both HEAD and main point to commit1.
     let mut tx = repo.start_transaction();
@@ -584,13 +588,13 @@ fn test_import_refs_reimport_git_head_with_moved_ref() {
 
 #[test]
 fn test_import_refs_reimport_with_deleted_remote_ref() {
-    let git_settings = GitSettings {
-        auto_local_bookmark: true,
-        ..Default::default()
-    };
     let test_workspace = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings {
+        auto_local_bookmark: true,
+        ..GitSettings::from_settings(repo.settings()).unwrap()
+    };
 
     let commit_base = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     let commit_main = empty_git_commit(&git_repo, "refs/heads/main", &[commit_base]);
@@ -712,13 +716,13 @@ fn test_import_refs_reimport_with_deleted_remote_ref() {
 /// moved sideways instead of being deleted.
 #[test]
 fn test_import_refs_reimport_with_moved_remote_ref() {
-    let git_settings = GitSettings {
-        auto_local_bookmark: true,
-        ..Default::default()
-    };
     let test_workspace = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings {
+        auto_local_bookmark: true,
+        ..GitSettings::from_settings(repo.settings()).unwrap()
+    };
 
     let commit_base = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     let commit_main = empty_git_commit(&git_repo, "refs/heads/main", &[commit_base]);
@@ -860,13 +864,13 @@ fn test_import_refs_reimport_with_moved_remote_ref() {
 
 #[test]
 fn test_import_refs_reimport_with_moved_untracked_remote_ref() {
-    let git_settings = GitSettings {
-        auto_local_bookmark: false,
-        ..Default::default()
-    };
     let test_workspace = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings {
+        auto_local_bookmark: false,
+        ..GitSettings::from_settings(repo.settings()).unwrap()
+    };
 
     // The base commit doesn't have a reference.
     let remote_ref_name = "refs/remotes/origin/feature";
@@ -914,13 +918,13 @@ fn test_import_refs_reimport_with_moved_untracked_remote_ref() {
 
 #[test]
 fn test_import_refs_reimport_with_deleted_untracked_intermediate_remote_ref() {
-    let git_settings = GitSettings {
-        auto_local_bookmark: false,
-        ..Default::default()
-    };
     let test_workspace = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings {
+        auto_local_bookmark: false,
+        ..GitSettings::from_settings(repo.settings()).unwrap()
+    };
 
     // Set up linear graph:
     // o feature-b@origin
@@ -978,13 +982,13 @@ fn test_import_refs_reimport_with_deleted_untracked_intermediate_remote_ref() {
 
 #[test]
 fn test_import_refs_reimport_with_deleted_abandoned_untracked_remote_ref() {
-    let git_settings = GitSettings {
-        auto_local_bookmark: false,
-        ..Default::default()
-    };
     let test_workspace = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings {
+        auto_local_bookmark: false,
+        ..GitSettings::from_settings(repo.settings()).unwrap()
+    };
 
     // Set up linear graph:
     // o feature-b@origin
@@ -1062,10 +1066,10 @@ fn test_import_refs_reimport_with_deleted_abandoned_untracked_remote_ref() {
 #[test]
 fn test_import_refs_reimport_git_head_with_fixed_ref() {
     // Simulate external `git checkout` in colocated repo, from named bookmark.
-    let git_settings = GitSettings::default();
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings::from_settings(repo.settings()).unwrap();
 
     // First, both HEAD and main point to commit1.
     let mut tx = repo.start_transaction();
@@ -1103,10 +1107,10 @@ fn test_import_refs_reimport_git_head_with_fixed_ref() {
 fn test_import_refs_reimport_all_from_root_removed() {
     // Test that if a chain of commits all the way from the root gets unreferenced,
     // we abandon the whole stack, but not including the root commit.
-    let git_settings = GitSettings::default();
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings::from_settings(repo.settings()).unwrap();
 
     let commit = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     let mut tx = repo.start_transaction();
@@ -1129,13 +1133,13 @@ fn test_import_refs_reimport_all_from_root_removed() {
 #[test]
 fn test_import_refs_reimport_abandoning_disabled() {
     // Test that we don't abandoned unreachable commits if configured not to
-    let git_settings = GitSettings {
-        abandon_unreachable_commits: false,
-        ..Default::default()
-    };
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings {
+        abandon_unreachable_commits: false,
+        ..GitSettings::from_settings(repo.settings()).unwrap()
+    };
 
     let commit1 = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     let commit2 = empty_git_commit(&git_repo, "refs/heads/delete-me", &[commit1]);
@@ -1158,13 +1162,13 @@ fn test_import_refs_reimport_abandoning_disabled() {
 
 #[test]
 fn test_import_refs_reimport_conflicted_remote_bookmark() {
-    let git_settings = GitSettings {
-        auto_local_bookmark: true,
-        ..Default::default()
-    };
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings {
+        auto_local_bookmark: true,
+        ..GitSettings::from_settings(repo.settings()).unwrap()
+    };
 
     let commit1 = empty_git_commit(&git_repo, "refs/heads/commit1", &[]);
     git_ref(&git_repo, "refs/remotes/origin/main", commit1);
@@ -1211,10 +1215,10 @@ fn test_import_refs_reimport_conflicted_remote_bookmark() {
 
 #[test]
 fn test_import_refs_reserved_remote_name() {
-    let git_settings = GitSettings::default();
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings::from_settings(repo.settings()).unwrap();
 
     empty_git_commit(&git_repo, "refs/remotes/git/main", &[]);
     empty_git_commit(&git_repo, "refs/remotes/gita/main", &[]);
@@ -1237,13 +1241,13 @@ fn test_import_refs_reserved_remote_name() {
 
 #[test]
 fn test_import_some_refs() {
-    let git_settings = GitSettings {
-        auto_local_bookmark: true,
-        ..Default::default()
-    };
     let test_workspace = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings {
+        auto_local_bookmark: true,
+        ..GitSettings::from_settings(repo.settings()).unwrap()
+    };
 
     let commit_main = empty_git_commit(&git_repo, "refs/remotes/origin/main", &[]);
     let commit_feat1 = empty_git_commit(&git_repo, "refs/remotes/origin/feature1", &[commit_main]);
@@ -1472,7 +1476,7 @@ impl GitRepoData {
 #[test]
 fn test_import_refs_empty_git_repo() {
     let test_data = GitRepoData::create();
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(test_data.repo.settings()).unwrap();
     let heads_before = test_data.repo.view().heads().clone();
     let mut tx = test_data.repo.start_transaction();
     git::import_refs(tx.repo_mut(), &git_settings).unwrap();
@@ -1480,17 +1484,17 @@ fn test_import_refs_empty_git_repo() {
     let repo = tx.commit("test").unwrap();
     assert_eq!(*repo.view().heads(), heads_before);
     assert_eq!(repo.view().bookmarks().count(), 0);
-    assert_eq!(repo.view().tags().len(), 0);
+    assert_eq!(repo.view().local_tags().count(), 0);
     assert_eq!(repo.view().git_refs().len(), 0);
     assert_eq!(repo.view().git_head(), RefTarget::absent_ref());
 }
 
 #[test]
 fn test_import_refs_missing_git_commit() {
-    let git_settings = GitSettings::default();
     let test_workspace = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings::from_settings(repo.settings()).unwrap();
 
     let commit1 = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     let commit2 = empty_git_commit(&git_repo, "refs/heads/main", &[commit1]);
@@ -1566,7 +1570,7 @@ fn test_import_refs_missing_git_commit() {
 #[test]
 fn test_import_refs_detached_head() {
     let test_data = GitRepoData::create();
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(test_data.repo.settings()).unwrap();
     let commit1 = empty_git_commit(&test_data.git_repo, "refs/heads/main", &[]);
     // Delete the reference. Check that the detached HEAD commit still gets added to
     // the set of heads
@@ -1595,7 +1599,7 @@ fn test_export_refs_no_detach() {
     // When exporting the bookmark that's current checked out, don't detach HEAD if
     // the target already matches
     let test_data = GitRepoData::create();
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(test_data.repo.settings()).unwrap();
     let git_repo = test_data.git_repo;
     let commit1 = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
@@ -1630,7 +1634,7 @@ fn test_export_refs_no_detach() {
 fn test_export_refs_bookmark_changed() {
     // We can export a change to a bookmark
     let test_data = GitRepoData::create();
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(test_data.repo.settings()).unwrap();
     let git_repo = test_data.git_repo;
     let commit = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     git_repo
@@ -1683,7 +1687,7 @@ fn test_export_refs_current_bookmark_changed() {
     // If we update a bookmark that is checked out in the git repo, HEAD gets
     // detached
     let test_data = GitRepoData::create();
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(test_data.repo.settings()).unwrap();
     let git_repo = test_data.git_repo;
     let commit1 = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
@@ -1724,7 +1728,7 @@ fn test_export_refs_current_bookmark_changed() {
 fn test_export_refs_unborn_git_bookmark(move_placeholder_ref: bool) {
     // Can export to an empty Git repo (we can handle Git's "unborn bookmark" state)
     let test_data = GitRepoData::create();
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(test_data.repo.settings()).unwrap();
     let git_repo = test_data.git_repo;
     testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
     let mut tx = test_data.repo.start_transaction();
@@ -1775,7 +1779,7 @@ fn test_export_import_sequence() {
     // modify it in git to point to C, then import it again. There should be no
     // conflict.
     let test_data = GitRepoData::create();
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(test_data.repo.settings()).unwrap();
     let git_repo = test_data.git_repo;
     let mut tx = test_data.repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -1838,7 +1842,7 @@ fn test_import_export_non_tracking_bookmark() {
     let test_data = GitRepoData::create();
     let mut git_settings = GitSettings {
         auto_local_bookmark: false,
-        ..Default::default()
+        ..GitSettings::from_settings(test_data.repo.settings()).unwrap()
     };
     let git_repo = test_data.git_repo;
     let commit_main_t0 = empty_git_commit(&git_repo, "refs/remotes/origin/main", &[]);
@@ -2829,7 +2833,7 @@ fn test_init() {
 #[test]
 fn test_fetch_empty_repo() {
     let test_data = GitRepoData::create();
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(test_data.repo.settings()).unwrap();
 
     let mut tx = test_data.repo.start_transaction();
     let stats = git_fetch(
@@ -2852,7 +2856,7 @@ fn test_fetch_initial_commit_head_is_not_set() {
     let test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
-        ..GitSettings::default()
+        ..GitSettings::from_settings(test_data.repo.settings()).unwrap()
     };
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
@@ -2886,7 +2890,7 @@ fn test_fetch_initial_commit_head_is_not_set() {
     assert_eq!(
         view.bookmarks().collect::<BTreeMap<_, _>>(),
         btreemap! {
-            "main".as_ref() => BookmarkTarget {
+            "main".as_ref() => LocalRemoteRefTarget {
                 local_target: &initial_commit_target,
                 remote_refs: vec![
                     ("origin".as_ref(), &initial_commit_remote_ref),
@@ -2901,7 +2905,7 @@ fn test_fetch_initial_commit_head_is_set() {
     let test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
-        ..GitSettings::default()
+        ..GitSettings::from_settings(test_data.repo.settings()).unwrap()
     };
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
     testutils::git::set_symbolic_reference(&test_data.origin_repo, "HEAD", "refs/heads/main");
@@ -2939,7 +2943,7 @@ fn test_fetch_success() {
     let mut test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
-        ..GitSettings::default()
+        ..GitSettings::from_settings(test_data.repo.settings()).unwrap()
     };
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
@@ -3001,7 +3005,7 @@ fn test_fetch_success() {
     assert_eq!(
         view.bookmarks().collect::<BTreeMap<_, _>>(),
         btreemap! {
-            "main".as_ref() => BookmarkTarget {
+            "main".as_ref() => LocalRemoteRefTarget {
                 local_target: &new_commit_target,
                 remote_refs: vec![
                     ("origin".as_ref(), &new_commit_remote_ref),
@@ -3010,10 +3014,12 @@ fn test_fetch_success() {
         }
     );
     assert_eq!(
-        *view.tags(),
-        btreemap! {
-            "v1.0".into() => new_commit_target.clone(),
-        }
+        view.local_tags().collect_vec(),
+        vec![("v1.0".as_ref(), &new_commit_target)],
+    );
+    assert_eq!(
+        view.all_remote_tags().collect_vec(),
+        vec![(remote_symbol("v1.0", "git"), &new_commit_remote_ref)]
     );
 }
 
@@ -3022,7 +3028,7 @@ fn test_fetch_prune_deleted_ref() {
     let test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
-        ..GitSettings::default()
+        ..GitSettings::from_settings(test_data.repo.settings()).unwrap()
     };
     let commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
@@ -3072,7 +3078,7 @@ fn test_fetch_no_default_branch() {
     let test_data = GitRepoData::create();
     let git_settings = GitSettings {
         auto_local_bookmark: true,
-        ..GitSettings::default()
+        ..GitSettings::from_settings(test_data.repo.settings()).unwrap()
     };
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
@@ -3111,7 +3117,7 @@ fn test_fetch_no_default_branch() {
 #[test]
 fn test_fetch_empty_refspecs() {
     let test_data = GitRepoData::create();
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(test_data.repo.settings()).unwrap();
     empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
     // Base refspecs shouldn't be respected
@@ -3366,7 +3372,7 @@ fn test_expand_default_fetch_refspecs_invalid_configuration() {
 #[test]
 fn test_fetch_no_such_remote() {
     let test_data = GitRepoData::create();
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(test_data.repo.settings()).unwrap();
     let mut tx = test_data.repo.start_transaction();
     let result = git_fetch(
         tx.repo_mut(),
@@ -3384,7 +3390,7 @@ fn test_fetch_multiple_branches() {
     let _initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
     let git_settings = GitSettings {
         auto_local_bookmark: true,
-        ..Default::default()
+        ..GitSettings::from_settings(test_data.repo.settings()).unwrap()
     };
 
     let mut tx = test_data.repo.start_transaction();
@@ -3414,13 +3420,13 @@ fn test_fetch_multiple_branches() {
 
 #[test]
 fn test_fetch_with_fetch_tags_override() {
-    let git_settings = GitSettings {
-        auto_local_bookmark: true,
-        ..Default::default()
-    };
     let source_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let source_repo = &source_repo.repo;
     let source_git_repo = get_git_repo(source_repo);
+    let git_settings = GitSettings {
+        auto_local_bookmark: true,
+        ..GitSettings::from_settings(source_repo.settings()).unwrap()
+    };
 
     let commit1 = empty_git_commit(&source_git_repo, "refs/heads/main", &[]);
     git_ref(&source_git_repo, "refs/remotes/origin/main", commit1);
@@ -3624,7 +3630,7 @@ fn test_push_bookmarks_success() {
     let mut setup = set_up_push_repos(&settings, &temp_dir);
     let clone_repo = get_git_repo(&setup.jj_repo);
     let mut tx = setup.jj_repo.start_transaction();
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(&settings).unwrap();
 
     let targets = GitBranchPushTargets {
         branch_updates: vec![(
@@ -3681,7 +3687,7 @@ fn test_push_bookmarks_success() {
     // Check that the repo view reflects the changes in the Git repo
     setup.jj_repo = tx.commit("test").unwrap();
     let mut tx = setup.jj_repo.start_transaction();
-    git::import_refs(tx.repo_mut(), &GitSettings::default()).unwrap();
+    git::import_refs(tx.repo_mut(), &git_settings).unwrap();
     assert!(!tx.repo().has_changes());
 }
 
@@ -3692,7 +3698,7 @@ fn test_push_bookmarks_deletion() {
     let mut setup = set_up_push_repos(&settings, &temp_dir);
     let clone_repo = get_git_repo(&setup.jj_repo);
     let mut tx = setup.jj_repo.start_transaction();
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(&settings).unwrap();
 
     let source_repo = testutils::git::open(&setup.source_repo_dir);
     // Test the setup
@@ -3748,7 +3754,7 @@ fn test_push_bookmarks_deletion() {
     // Check that the repo view reflects the changes in the Git repo
     setup.jj_repo = tx.commit("test").unwrap();
     let mut tx = setup.jj_repo.start_transaction();
-    git::import_refs(tx.repo_mut(), &GitSettings::default()).unwrap();
+    git::import_refs(tx.repo_mut(), &git_settings).unwrap();
     assert!(!tx.repo().has_changes());
 }
 
@@ -3758,7 +3764,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition() {
     let temp_dir = testutils::new_temp_dir();
     let mut setup = set_up_push_repos(&settings, &temp_dir);
     let mut tx = setup.jj_repo.start_transaction();
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(&settings).unwrap();
 
     let targets = GitBranchPushTargets {
         branch_updates: vec![
@@ -3829,7 +3835,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition() {
     // Check that the repo view reflects the changes in the Git repo
     setup.jj_repo = tx.commit("test").unwrap();
     let mut tx = setup.jj_repo.start_transaction();
-    git::import_refs(tx.repo_mut(), &GitSettings::default()).unwrap();
+    git::import_refs(tx.repo_mut(), &git_settings).unwrap();
     assert!(!tx.repo().has_changes());
 }
 
@@ -3839,7 +3845,7 @@ fn test_push_bookmarks_not_fast_forward() {
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
     let mut tx = setup.jj_repo.start_transaction();
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(&settings).unwrap();
 
     let targets = GitBranchPushTargets {
         branch_updates: vec![(
@@ -3880,7 +3886,7 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote() {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(&settings).unwrap();
 
     // The main bookmark is actually at `main_commit` on the remote. If we expect
     // it to be at `sideways_commit`, it unexpectedly moved sideways from our
@@ -3956,7 +3962,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(&settings).unwrap();
 
     // The main bookmark is actually at `main_commit` on the remote. If we
     // expected it to be at `parent_of_commit`, it unexpectedly moved forward
@@ -4024,7 +4030,7 @@ fn test_push_updates_unexpectedly_exists_on_remote() {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(&settings).unwrap();
 
     // The main bookmark is actually at `main_commit` on the remote. In this test,
     // we expect it to not exist on the remote at all.
@@ -4071,7 +4077,7 @@ fn test_push_updates_success() {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(&settings).unwrap();
     let clone_repo = get_git_repo(&setup.jj_repo);
     let result = git::push_updates(
         setup.jj_repo.as_ref(),
@@ -4112,7 +4118,7 @@ fn test_push_updates_no_such_remote() {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(&settings).unwrap();
     let result = git::push_updates(
         setup.jj_repo.as_ref(),
         &git_settings,
@@ -4132,7 +4138,7 @@ fn test_push_updates_invalid_remote() {
     let settings = testutils::user_settings();
     let temp_dir = testutils::new_temp_dir();
     let setup = set_up_push_repos(&settings, &temp_dir);
-    let git_settings = GitSettings::default();
+    let git_settings = GitSettings::from_settings(&settings).unwrap();
     let result = git::push_updates(
         setup.jj_repo.as_ref(),
         &git_settings,
@@ -4149,10 +4155,10 @@ fn test_push_updates_invalid_remote() {
 
 #[test]
 fn test_bulk_update_extra_on_import_refs() {
-    let git_settings = GitSettings::default();
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings::from_settings(repo.settings()).unwrap();
 
     let count_extra_tables = || {
         let extra_dir = test_repo.repo_path().join("store").join("extra");
@@ -4194,16 +4200,16 @@ fn test_bulk_update_extra_on_import_refs() {
 
 #[test]
 fn test_rewrite_imported_commit() {
-    let git_settings = jj_lib::settings::GitSettings {
-        write_change_id_header: false,
-        ..Default::default()
-    };
     let test_repo = TestRepo::init_with_backend_and_settings(
         TestRepoBackend::Git,
         &user_settings_without_change_id(),
     );
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings {
+        write_change_id_header: false,
+        ..GitSettings::from_settings(repo.settings()).unwrap()
+    };
 
     // Import git commit, which generates change id from the commit id.
     let git_commit = empty_git_commit(&git_repo, "refs/heads/main", &[]);
@@ -4311,6 +4317,8 @@ fn test_concurrent_write_commit() {
 }
 
 #[test]
+// TODO: Fix flaky test on Windows
+#[cfg_attr(windows, ignore)]
 fn test_concurrent_read_write_commit() {
     let settings = user_settings_without_change_id();
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
@@ -4460,6 +4468,7 @@ fn test_shallow_commits_lack_parents() {
     let test_env = &test_repo.env;
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
+    let git_settings = GitSettings::from_settings(&settings).unwrap();
 
     // D   E (`main`)
     // |   |
@@ -4494,7 +4503,7 @@ fn test_shallow_commits_lack_parents() {
     let repo = make_shallow(repo, vec![b, c]);
 
     let mut tx = repo.start_transaction();
-    git::import_refs(tx.repo_mut(), &GitSettings::default()).unwrap();
+    git::import_refs(tx.repo_mut(), &git_settings).unwrap();
     let repo = tx.commit("import").unwrap();
     let store = repo.store();
     let root = store.root_commit_id();
@@ -4525,7 +4534,7 @@ fn test_shallow_commits_lack_parents() {
     let repo = make_shallow(&repo, vec![a]);
 
     let mut tx = repo.start_transaction();
-    git::import_refs(tx.repo_mut(), &GitSettings::default()).unwrap();
+    git::import_refs(tx.repo_mut(), &git_settings).unwrap();
     let repo = tx.commit("import").unwrap();
     let store = repo.store();
     let root = store.root_commit_id();

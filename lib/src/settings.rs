@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -35,7 +35,6 @@ use crate::config::ConfigValue;
 use crate::config::StackedConfig;
 use crate::config::ToConfigNamePath;
 use crate::fmt_util::binary_prefix;
-use crate::fsmonitor::FsmonitorSettings;
 use crate::signing::SignBehavior;
 
 #[derive(Debug, Clone)]
@@ -192,10 +191,6 @@ impl UserSettings {
 
     pub fn user_email(&self) -> &str {
         &self.data.user_email
-    }
-
-    pub fn fsmonitor_settings(&self) -> Result<FsmonitorSettings, ConfigGetError> {
-        FsmonitorSettings::from_settings(self)
     }
 
     // Must not be changed to avoid git pushing older commits with no set email

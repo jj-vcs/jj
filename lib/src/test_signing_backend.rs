@@ -56,7 +56,7 @@ impl SigningBackend for TestSigningBackend {
         else {
             return Err(SignError::InvalidSignatureFormat);
         };
-        let key = (!key.is_empty()).then_some(std::str::from_utf8(key).unwrap().to_owned());
+        let key = (!key.is_empty()).then_some(str::from_utf8(key).unwrap().to_owned());
 
         let sig = self.sign(data, key.as_deref())?;
         if sig == signature {

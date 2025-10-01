@@ -21,7 +21,6 @@ use std::fs::File;
 use std::io::Read;
 use std::io::Write as _;
 use std::path::Path;
-use std::str;
 use std::sync::Arc;
 
 use blake2::Blake2b512;
@@ -41,12 +40,12 @@ use crate::file_util::PathError;
 use crate::file_util::persist_content_addressed_temp_file;
 use crate::index::Index;
 use crate::matchers::EverythingMatcher;
-use crate::merged_tree::resolve_file_values;
 use crate::object_id::ObjectId as _;
 use crate::object_id::id_type;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::rewrite::merge_commit_trees_no_resolve_without_repo;
+use crate::tree_merge::resolve_file_values;
 
 /// Current format version of the changed-path index segment file.
 const FILE_FORMAT_VERSION: u32 = 0;
@@ -211,9 +210,10 @@ impl ReadonlyChangedPathIndexSegment {
 
     fn changed_paths(&self, pos: CommitPosition) -> impl ExactSizeIterator<Item = &RepoPath> {
         let table = self.changed_paths_table(pos);
-        table
-            .chunks_exact(4)
-            .map(|x| PathPosition(u32::from_le_bytes(x.try_into().unwrap())))
+        let (chunks, _remainder) = table.as_chunks();
+        chunks
+            .iter()
+            .map(|&chunk: &[u8; 4]| PathPosition(u32::from_le_bytes(chunk)))
             .map(|pos| self.path(pos))
     }
 
@@ -568,7 +568,9 @@ pub(super) async fn collect_changed_paths(
     commit: &Commit,
 ) -> BackendResult<Vec<RepoPathBuf>> {
     let parents: Vec<_> = commit.parents_async().await?;
-    if matches!(parents.as_slice(), [p] if commit.tree_id() == p.tree_id()) {
+    if let [p] = parents.as_slice()
+        && commit.tree_id() == p.tree_id()
+    {
         return Ok(vec![]);
     }
     // Don't resolve the entire tree. It's cheaper to resolve each conflict file
@@ -580,9 +582,9 @@ pub(super) async fn collect_changed_paths(
     let tree_diff = from_tree.diff_stream(&to_tree, &EverythingMatcher);
     let paths = tree_diff
         .map(|entry| entry.values.map(|values| (entry.path, values)))
-        .try_filter_map(async |(path, (from_value, to_value))| {
-            let from_value = resolve_file_values(store, &path, from_value).await?;
-            Ok((from_value != to_value).then_some(path))
+        .try_filter_map(async |(path, mut diff)| {
+            diff.before = resolve_file_values(store, &path, diff.before).await?;
+            Ok(diff.is_changed().then_some(path))
         })
         .try_collect()
         .await?;

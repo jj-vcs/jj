@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
-use std::any::Any;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fmt;
@@ -448,9 +447,10 @@ impl ReadonlyCommitIndexSegment {
         let table = &self.data[self.parent_overflow_base..self.change_overflow_base];
         let offset = (overflow_pos as usize) * 4;
         let size = (num_parents as usize) * 4;
-        table[offset..][..size]
-            .chunks_exact(4)
-            .map(|chunk| GlobalCommitPosition(u32::from_le_bytes(chunk.try_into().unwrap())))
+        let (chunks, _remainder) = table[offset..][..size].as_chunks();
+        chunks
+            .iter()
+            .map(|&chunk: &[u8; 4]| GlobalCommitPosition(u32::from_le_bytes(chunk)))
             .collect()
     }
 
@@ -461,9 +461,10 @@ impl ReadonlyCommitIndexSegment {
     ) -> impl Iterator<Item = LocalCommitPosition> + use<'_> {
         let table = &self.data[self.change_overflow_base..];
         let offset = (overflow_pos as usize) * 4;
-        table[offset..]
-            .chunks_exact(4)
-            .map(|chunk| LocalCommitPosition(u32::from_le_bytes(chunk.try_into().unwrap())))
+        let (chunks, _remainder) = table[offset..].as_chunks();
+        chunks
+            .iter()
+            .map(|&chunk: &[u8; 4]| LocalCommitPosition(u32::from_le_bytes(chunk)))
     }
 
     /// Binary searches commit id by `prefix`. Returns the lookup position.
@@ -762,10 +763,6 @@ impl Index for DefaultReadonlyIndex {
 }
 
 impl ReadonlyIndex for DefaultReadonlyIndex {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn as_index(&self) -> &dyn Index {
         self
     }

@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
-
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::hash::Hash;

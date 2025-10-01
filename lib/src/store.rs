@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
-use std::any::Any;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::pin::Pin;
@@ -45,6 +44,7 @@ use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::signing::Signer;
 use crate::tree::Tree;
+use crate::tree_merge::MergeOptions;
 
 // There are more tree objects than commits, and trees are often shared across
 // commits.
@@ -58,6 +58,7 @@ pub struct Store {
     signer: Signer,
     commit_cache: Mutex<CLruCache<CommitId, Arc<backend::Commit>>>,
     tree_cache: Mutex<CLruCache<(RepoPathBuf, TreeId), Arc<backend::Tree>>>,
+    merge_options: MergeOptions,
 }
 
 impl Debug for Store {
@@ -69,12 +70,17 @@ impl Debug for Store {
 }
 
 impl Store {
-    pub fn new(backend: Box<dyn Backend>, signer: Signer) -> Arc<Self> {
+    pub fn new(
+        backend: Box<dyn Backend>,
+        signer: Signer,
+        merge_options: MergeOptions,
+    ) -> Arc<Self> {
         Arc::new(Self {
             backend,
             signer,
             commit_cache: Mutex::new(CLruCache::new(COMMIT_CACHE_CAPACITY.try_into().unwrap())),
             tree_cache: Mutex::new(CLruCache::new(TREE_CACHE_CAPACITY.try_into().unwrap())),
+            merge_options,
         })
     }
 
@@ -82,12 +88,18 @@ impl Store {
         self.backend.as_ref()
     }
 
-    pub fn backend_impl(&self) -> &dyn Any {
-        self.backend.as_any()
+    /// Returns backend as the implementation type.
+    pub fn backend_impl<T: Backend>(&self) -> Option<&T> {
+        self.backend.downcast_ref()
     }
 
     pub fn signer(&self) -> &Signer {
         &self.signer
+    }
+
+    /// Default merge options to be used when resolving parent trees.
+    pub fn merge_options(&self) -> &MergeOptions {
+        &self.merge_options
     }
 
     pub fn get_copy_records(

@@ -20,7 +20,7 @@
 //! the parent may have its own parent, and so on. The child file then
 //! represents the union of the entries.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
@@ -436,10 +436,10 @@ impl TableStore {
         let maybe_parent_table = mut_table.parent_file.clone();
         let table = mut_table.save_in(self)?;
         self.add_head(&table)?;
-        if let Some(parent_table) = maybe_parent_table {
-            if parent_table.name != table.name {
-                self.remove_head(&parent_table);
-            }
+        if let Some(parent_table) = maybe_parent_table
+            && parent_table.name != table.name
+        {
+            self.remove_head(&parent_table);
         }
         {
             let mut locked_cache = self.cached_tables.write().unwrap();

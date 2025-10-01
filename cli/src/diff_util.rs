@@ -51,7 +51,7 @@ use jj_lib::copies::CopyRecords;
 use jj_lib::diff::CompareBytesExactly;
 use jj_lib::diff::CompareBytesIgnoreAllWhitespace;
 use jj_lib::diff::CompareBytesIgnoreWhitespaceAmount;
-use jj_lib::diff::Diff;
+use jj_lib::diff::ContentDiff;
 use jj_lib::diff::DiffHunk;
 use jj_lib::diff::DiffHunkKind;
 use jj_lib::diff::find_line_ranges;
@@ -61,6 +61,7 @@ use jj_lib::files::DiffLineHunkSide;
 use jj_lib::files::DiffLineIterator;
 use jj_lib::files::DiffLineNumber;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergeBuilder;
 use jj_lib::merge::MergedTreeValue;
@@ -279,12 +280,12 @@ fn diff_formatter_tool(
     name: &str,
 ) -> Result<Option<ExternalMergeTool>, CommandError> {
     let maybe_tool = merge_tools::get_external_tool_config(settings, name)?;
-    if let Some(tool) = &maybe_tool {
-        if tool.diff_args.is_empty() {
-            return Err(cli_error(format!(
-                "The tool `{name}` cannot be used for diff formatting"
-            )));
-        };
+    if let Some(tool) = &maybe_tool
+        && tool.diff_args.is_empty()
+    {
+        return Err(cli_error(format!(
+            "The tool `{name}` cannot be used for diff formatting"
+        )));
     };
     Ok(maybe_tool)
 }
@@ -515,6 +516,7 @@ impl<'a> DiffRenderer<'a> {
                                 path_converter,
                                 tool,
                                 self.conflict_marker_style,
+                                width,
                             )
                             .await
                         }
@@ -523,11 +525,11 @@ impl<'a> DiffRenderer<'a> {
                             generate_diff(
                                 ui,
                                 writer.as_mut(),
-                                from_tree,
-                                to_tree,
+                                [from_tree, to_tree],
                                 matcher,
                                 tool,
                                 self.conflict_marker_style,
+                                width,
                             )
                             .map_err(DiffRenderError::DiffGenerate)
                         }
@@ -550,6 +552,7 @@ impl<'a> DiffRenderer<'a> {
         let materialize_options = ConflictMaterializeOptions {
             marker_style: self.conflict_marker_style,
             marker_len: None,
+            merge: self.repo.store().merge_options().clone(),
         };
         for format in &self.formats {
             match format {
@@ -710,20 +713,20 @@ pub enum LineCompareMode {
 fn diff_by_line<'input, T: AsRef<[u8]> + ?Sized + 'input>(
     inputs: impl IntoIterator<Item = &'input T>,
     options: &LineDiffOptions,
-) -> Diff<'input> {
+) -> ContentDiff<'input> {
     // TODO: If we add --ignore-blank-lines, its tokenizer will have to attach
     // blank lines to the preceding range. Maybe it can also be implemented as a
     // post-process (similar to refine_changed_regions()) that expands unchanged
     // regions across blank lines.
     match options.compare_mode {
         LineCompareMode::Exact => {
-            Diff::for_tokenizer(inputs, find_line_ranges, CompareBytesExactly)
+            ContentDiff::for_tokenizer(inputs, find_line_ranges, CompareBytesExactly)
         }
         LineCompareMode::IgnoreAllSpace => {
-            Diff::for_tokenizer(inputs, find_line_ranges, CompareBytesIgnoreAllWhitespace)
+            ContentDiff::for_tokenizer(inputs, find_line_ranges, CompareBytesIgnoreAllWhitespace)
         }
         LineCompareMode::IgnoreSpaceChange => {
-            Diff::for_tokenizer(inputs, find_line_ranges, CompareBytesIgnoreWhitespaceAmount)
+            ContentDiff::for_tokenizer(inputs, find_line_ranges, CompareBytesIgnoreWhitespaceAmount)
         }
     }
 }
@@ -790,8 +793,8 @@ fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
             show_color_words_resolved_hunks(formatter, contents, line_number, labels, options)?;
         }
         ConflictDiffMethod::Pair => {
-            let lefts = files::merge(lefts);
-            let rights = files::merge(rights);
+            let lefts = files::merge(lefts, &materialize_options.merge);
+            let rights = files::merge(rights, &materialize_options.merge);
             let contents = [&lefts, &rights];
             show_color_words_conflict_hunks(formatter, contents, line_number, labels, options)?;
         }
@@ -1064,7 +1067,7 @@ fn show_color_words_diff_lines(
     labels: [&str; 2],
     options: &ColorWordsDiffOptions,
 ) -> io::Result<DiffLineNumber> {
-    let word_diff_hunks = Diff::by_word(contents).hunks().collect_vec();
+    let word_diff_hunks = ContentDiff::by_word(contents).hunks().collect_vec();
     let can_inline = match options.max_inline_alternation {
         None => true,     // unlimited
         Some(0) => false, // no need to count alternation
@@ -1337,6 +1340,7 @@ pub async fn show_color_words_diff(
     let materialize_options = ConflictMaterializeOptions {
         marker_style,
         marker_len: None,
+        merge: store.merge_options().clone(),
     };
     let empty_content = || Merge::resolved(BString::default());
     let mut diff_stream = materialized_diff_stream(store, tree_diff);
@@ -1476,6 +1480,7 @@ pub async fn show_color_words_diff(
     Ok(())
 }
 
+#[expect(clippy::too_many_arguments)]
 pub async fn show_file_by_file_diff(
     ui: &Ui,
     formatter: &mut dyn Formatter,
@@ -1484,10 +1489,12 @@ pub async fn show_file_by_file_diff(
     path_converter: &RepoPathUiConverter,
     tool: &ExternalMergeTool,
     marker_style: ConflictMarkerStyle,
+    width: usize,
 ) -> Result<(), DiffRenderError> {
     let materialize_options = ConflictMaterializeOptions {
         marker_style,
         marker_len: None,
+        merge: store.merge_options().clone(),
     };
     let create_file = |path: &RepoPath,
                        wc_dir: &Path,
@@ -1534,11 +1541,18 @@ pub async fn show_file_by_file_diff(
         let right_path = create_file(right_path, &right_wc_dir, right_value)?;
         let patterns = &maplit::hashmap! {
             "left" => left_path
-                .strip_prefix(temp_dir.path()).expect("path should be relative to temp_dir")
-                .to_str().expect("temp_dir should be valid utf-8"),
+                .strip_prefix(temp_dir.path())
+                .expect("path should be relative to temp_dir")
+                .to_str()
+                .expect("temp_dir should be valid utf-8")
+                .to_owned(),
             "right" => right_path
-                .strip_prefix(temp_dir.path()).expect("path should be relative to temp_dir")
-                .to_str().expect("temp_dir should be valid utf-8"),
+                .strip_prefix(temp_dir.path())
+                .expect("path should be relative to temp_dir")
+                .to_str()
+                .expect("temp_dir should be valid utf-8")
+                .to_owned(),
+            "width" => width.to_string(),
         };
 
         let mut writer = formatter.raw()?;
@@ -1753,7 +1767,7 @@ fn unified_diff_hunks<'content>(
             }
             DiffHunkKind::Different => {
                 let [left_lines, right_lines] =
-                    unzip_diff_hunks_to_lines(Diff::by_word(hunk.contents).hunks());
+                    unzip_diff_hunks_to_lines(ContentDiff::by_word(hunk.contents).hunks());
                 current_hunk.extend_removed_lines(left_lines);
                 current_hunk.extend_added_lines(right_lines);
             }
@@ -1889,6 +1903,7 @@ pub async fn show_git_diff(
     let materialize_options = ConflictMaterializeOptions {
         marker_style,
         marker_len: None,
+        merge: store.merge_options().clone(),
     };
     let mut diff_stream = materialized_diff_stream(store, tree_diff);
     while let Some(MaterializedTreeDiffEntry { path, values }) = diff_stream.next().await {
@@ -2004,8 +2019,8 @@ pub async fn show_diff_summary(
     path_converter: &RepoPathUiConverter,
 ) -> Result<(), DiffRenderError> {
     while let Some(CopiesTreeDiffEntry { path, values }) = tree_diff.next().await {
-        let (before, after) = values?;
-        let (label, sigil) = diff_status_label_and_char(&path, &before, &after);
+        let values = values?;
+        let (label, sigil) = diff_status_label_and_char(&path, &values);
         let path = if path.copy_operation().is_some() {
             path_converter.format_copied_path(path.source(), path.target())
         } else {
@@ -2018,8 +2033,7 @@ pub async fn show_diff_summary(
 
 pub fn diff_status_label_and_char(
     path: &CopiesTreeDiffEntryPath,
-    before: &MergedTreeValue,
-    after: &MergedTreeValue,
+    values: &Diff<MergedTreeValue>,
 ) -> (&'static str, char) {
     if let Some(op) = path.copy_operation() {
         match op {
@@ -2027,7 +2041,7 @@ pub fn diff_status_label_and_char(
             CopyOperation::Rename => ("renamed", 'R'),
         }
     } else {
-        match (before.is_present(), after.is_present()) {
+        match (values.before.is_present(), values.after.is_present()) {
             (true, true) => ("modified", 'M'),
             (false, true) => ("added", 'A'),
             (true, false) => ("removed", 'D'),
@@ -2064,6 +2078,7 @@ impl DiffStats {
         let materialize_options = ConflictMaterializeOptions {
             marker_style,
             marker_len: None,
+            merge: store.merge_options().clone(),
         };
         let entries = materialized_diff_stream(store, tree_diff)
             .map(|MaterializedTreeDiffEntry { path, values }| {
@@ -2292,12 +2307,12 @@ pub async fn show_types(
     path_converter: &RepoPathUiConverter,
 ) -> Result<(), DiffRenderError> {
     while let Some(CopiesTreeDiffEntry { path, values }) = tree_diff.next().await {
-        let (before, after) = values?;
+        let values = values?;
         writeln!(
             formatter.labeled("modified"),
             "{}{} {}",
-            diff_summary_char(&before),
-            diff_summary_char(&after),
+            diff_summary_char(&values.before),
+            diff_summary_char(&values.after),
             path_converter.format_copied_path(path.source(), path.target())
         )?;
     }

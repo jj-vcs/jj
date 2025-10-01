@@ -17,6 +17,7 @@ use std::error;
 use std::fmt;
 use std::io;
 use std::io::IsTerminal as _;
+use std::io::PipeWriter;
 use std::io::Stderr;
 use std::io::StderrLock;
 use std::io::Stdout;
@@ -33,7 +34,6 @@ use std::thread::JoinHandle;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::StackedConfig;
-use os_pipe::PipeWriter;
 use tracing::instrument;
 
 use crate::command_error::CommandError;
@@ -97,8 +97,8 @@ impl UiOutput {
         // Use native pipe, which can be attached to child process. The stdout
         // stream could be an in-process channel, but the cost of extra syscalls
         // wouldn't matter.
-        let (out_rd, out_wr) = os_pipe::pipe()?;
-        let (err_rd, err_wr) = os_pipe::pipe()?;
+        let (out_rd, out_wr) = io::pipe()?;
+        let (err_rd, err_wr) = io::pipe()?;
         pager.add_stream(out_rd, "")?;
         pager.add_error_stream(err_rd, "stderr")?;
 
@@ -649,12 +649,12 @@ impl Ui {
         // Parse the default to ensure that the text is valid.
         let default = default.map(|text| (parse(text).expect("default should be valid"), text));
 
-        if !Self::can_prompt() {
-            if let Some((value, text)) = default {
-                // Choose the default automatically without waiting.
-                writeln!(self.stderr(), "{prompt}: {text}")?;
-                return Ok(value);
-            }
+        if !Self::can_prompt()
+            && let Some((value, text)) = default
+        {
+            // Choose the default automatically without waiting.
+            writeln!(self.stderr(), "{prompt}: {text}")?;
+            return Ok(value);
         }
 
         loop {

@@ -64,16 +64,14 @@ applying its reverse diff `-(E-C)`, so the result is `E+(C-E) =
 
 ## Same-change rule
 
-When all sides of a conflict make the same change,
-[we automatically consider it resolved to that value][resolve]. We call this
-"the same-change rule". This behavior matches what Git and Mercurial do.
-Darcs, on the other hand, considers it a  conflict. The automatic conflict
-resolution we do is lossy in terms of conflict algebra; it means that rebasing
-a commit onto a commit that has the same changes (or a subset thereof) and then
-rebasing it back will lose changes (for a real-life example see [bug #6369]).
-We do it because it is more user-friendly in the vast majority of cases. We
-may at some point experiment with a config option to disable the same-change
-rule.
+When all sides of a conflict make the same change, [we automatically consider it
+resolved to that value][resolve] by default. We call this "the same-change
+rule". This behavior matches what Git and Mercurial do. Darcs, on the other
+hand, considers it a conflict. The automatic conflict resolution we do is lossy
+in terms of conflict algebra; it means that rebasing a commit onto a commit that
+has the same changes (or a subset thereof) and then rebasing it back will lose
+changes (for a real-life example see [bug #6369]). We do it because it is more
+user-friendly in the vast majority of cases.
 
 [bug #6369]: https://github.com/jj-vcs/jj/issues/6369
 [merge-rs]: https://github.com/jj-vcs/jj/blob/main/lib/src/merge.rs

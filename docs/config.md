@@ -374,6 +374,9 @@ diff-args = ["--color=always", "$left", "$right"]
 - `$left` and `$right` are replaced with the paths to the left and right
   directories to diff respectively.
 
+- `$width` is replaced with the number of terminal columns available to the diff
+  content.
+
 - If `diff-args` is not specified, `["$left", "$right"]` will be used by default.
 
 - If `diff-args = []`, `jj` will refuse to use this tool for diff formatting.
@@ -1149,6 +1152,10 @@ merge-tool-edits-conflict-markers = true    # See below for an explanation
   and/or generates conflict markers. Usually, `jj` uses conflict markers of
   length 7, but they can be longer if necessary to make parsing unambiguous.
 
+- `$path` is replaced with the path in the repository at which the file
+  will be eventually stored. It is relative to the root directory of the
+  repository and uses `/` as separators.
+
 Unlike `diff-args` or `edit-args`, there is no default value for `merge-args`.
 If `merge-args` are not specified, the tool cannot be used for conflict
 resolution.
@@ -1608,6 +1615,38 @@ you can:
 executable-path = "/path/to/git"
 ```
 
+## Merge settings
+
+### Granularity of hunks
+
+`jj` by default resolves content conflicts by splitting text into line-level
+hunks and merge them. This can be configured to split hunks further into
+word-level hunks.
+
+* `line`: split into line hunks (default)
+* `word`: split into word hunks
+
+```toml
+[merge]
+hunk-level = "line"
+```
+
+### Resolution of same-change conflicts
+
+`jj` by default resolves conflicts if all sides made the same change. This
+matches what Git and Mercurial do (in the 3-way case at least), but not what
+Darcs does. It also means that repeated 3-way merging of multiple trees may give
+different results depending on the order of merging. To turn it off, set
+`same-change = "keep"`.
+
+* `keep`: leave same-change conflict unresolved
+* `accept`: resolve same-change conflict to new value (default)
+
+```toml
+[merge]
+same-change = "accept"
+```
+
 ## Filesystem monitor
 
 In large repositories, it may be beneficial to use a "filesystem monitor" to
@@ -1701,12 +1740,12 @@ eol-conversion = "input-output"
 ```
 
 [git-autocrlf]: https://git-scm.com/book/en/v2/Customizing-Git-Git-Configuration#_core_autocrlf
+[gitoxide-is-binary]: https://github.com/GitoxideLabs/gitoxide/blob/073487b38ed40bcd7eb45dc110ae1ce84f9275a9/gix-filter/src/eol/utils.rs#L98-L100
+[git-is-binary]: https://github.com/git/git/blob/f1ca98f609f9a730b9accf24e5558a10a0b41b6c/convert.c#L94-L103
 [^1]: To detect if a file is binary, Jujutsu currently checks if there is NULL
       byte in the file which is different from the algorithm of
       [`gitoxide`][gitoxide-is-binary] or [`git`][git-is-binary]. Jujutsu
       doesn't plan to align the binary detection logic with git.
-[gitoxide-is-binary]: https://github.com/GitoxideLabs/gitoxide/blob/073487b38ed40bcd7eb45dc110ae1ce84f9275a9/gix-filter/src/eol/utils.rs#L98-L100
-[git-is-binary]: https://github.com/git/git/blob/f1ca98f609f9a730b9accf24e5558a10a0b41b6c/convert.c#L94-L103
 
 ## Ways to specify `jj` config: details
 
@@ -1904,4 +1943,17 @@ wip = ["log", "-r", "work"]
   --when.commands = ["file"]        # matches `jj file show`, `jj file list`, etc
   --when.commands = ["file show"]   # matches `jj file show` but *NOT* `jj file list`
   --when.commands = ["file", "log"] # matches `jj file` *OR* `jj log` (or subcommand of either)
+  ```
+
+* `--when.platforms`: List of platforms to match.
+
+  The values are defined by both
+  [`std::env::consts::FAMILY`](https://doc.rust-lang.org/std/env/consts/constant.FAMILY.html)
+  and
+  [`std::env::consts::OS`](https://doc.rust-lang.org/std/env/consts/constant.OS.html).
+
+  ```toml
+  --when.platforms = ["windows"]            # matches only Windows
+  --when.platforms = ["linux", "freebsd"]   # matches Linux or and FreeBSD, but not macOS
+  --when.platforms = ["unix"]               # matches anything in the Unix family (Linux, FreeBSD, macOS, etc.)
   ```

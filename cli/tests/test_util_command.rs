@@ -147,6 +147,33 @@ fn test_util_exec() {
 #[test]
 fn test_util_exec_fail() {
     let test_env = TestEnvironment::default();
+    let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
+    let output = test_env.run_jj_in(
+        ".",
+        [
+            "util",
+            "exec",
+            "--",
+            formatter_path.to_str().unwrap(),
+            "--badopt",
+        ],
+    );
+    // Ensures only stdout contains text
+    insta::assert_snapshot!(output.normalize_stderr_with(|s| s.replace(".exe", "")), @r###"
+    ------- stderr -------
+    error: unexpected argument '--badopt' found
+
+    Usage: fake-formatter [OPTIONS]
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    "###);
+}
+
+#[test]
+fn test_util_exec_not_found() {
+    let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["util", "exec", "--", "jj-test-missing-program"]);
     insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
     ------- stderr -------
@@ -154,4 +181,28 @@ fn test_util_exec_fail() {
     [EOF]
     [exit status: 1]
     ");
+}
+
+#[cfg(unix)]
+#[test]
+fn test_util_exec_sets_env() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let output = test_env.run_jj_in(
+        ".",
+        [
+            "-R",
+            "repo",
+            "util",
+            "exec",
+            "--",
+            "/bin/sh",
+            "-c",
+            r#"echo "$JJ_WORKSPACE_ROOT""#,
+        ],
+    );
+    insta::assert_snapshot!(output, @r###"
+    $TEST_ENV/repo
+    [EOF]
+    "###);
 }

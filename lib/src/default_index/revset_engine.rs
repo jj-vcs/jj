@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
-
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::cmp::Reverse;
@@ -46,7 +44,7 @@ use crate::backend::MillisSinceEpoch;
 use crate::commit::Commit;
 use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::materialize_tree_value;
-use crate::diff::Diff;
+use crate::diff::ContentDiff;
 use crate::diff::DiffHunkKind;
 use crate::files;
 use crate::graph::GraphNode;
@@ -54,7 +52,6 @@ use crate::matchers::FilesMatcher;
 use crate::matchers::Matcher;
 use crate::matchers::Visit;
 use crate::merge::Merge;
-use crate::merged_tree::resolve_file_values;
 use crate::object_id::ObjectId as _;
 use crate::repo_path::RepoPath;
 use crate::revset::GENERATION_RANGE_FULL;
@@ -67,6 +64,8 @@ use crate::revset::RevsetFilterPredicate;
 use crate::rewrite;
 use crate::store::Store;
 use crate::str_util::StringPattern;
+use crate::tree_merge::MergeOptions;
+use crate::tree_merge::resolve_file_values;
 use crate::union_find;
 
 type BoxedPredicateFn<'a> = Box<
@@ -99,10 +98,6 @@ trait InternalRevset: fmt::Debug + ToPredicateFn {
     fn positions<'a>(&self) -> BoxedRevWalk<'a>
     where
         Self: 'a;
-
-    fn into_predicate<'a>(self: Box<Self>) -> Box<dyn ToPredicateFn + 'a>
-    where
-        Self: 'a;
 }
 
 impl<T: InternalRevset + ?Sized> InternalRevset for Box<T> {
@@ -111,13 +106,6 @@ impl<T: InternalRevset + ?Sized> InternalRevset for Box<T> {
         Self: 'a,
     {
         <T as InternalRevset>::positions(self)
-    }
-
-    fn into_predicate<'a>(self: Box<Self>) -> Box<dyn ToPredicateFn + 'a>
-    where
-        Self: 'a,
-    {
-        <T as InternalRevset>::into_predicate(*self)
     }
 }
 
@@ -313,13 +301,6 @@ impl InternalRevset for EagerRevset {
         let walk = EagerRevWalk::new(self.positions.clone().into_iter());
         Box::new(walk.map(|_index, pos| Ok(pos)))
     }
-
-    fn into_predicate<'a>(self: Box<Self>) -> Box<dyn ToPredicateFn + 'a>
-    where
-        Self: 'a,
-    {
-        self
-    }
 }
 
 impl ToPredicateFn for EagerRevset {
@@ -352,13 +333,6 @@ where
         Self: 'a,
     {
         Box::new(self.walk.clone().map(|_index, pos| Ok(pos)))
-    }
-
-    fn into_predicate<'a>(self: Box<Self>) -> Box<dyn ToPredicateFn + 'a>
-    where
-        Self: 'a,
-    {
-        self
     }
 }
 
@@ -407,13 +381,6 @@ where
             pos.and_then(|pos| Ok(p(index, pos)?.then_some(pos)))
                 .transpose()
         }))
-    }
-
-    fn into_predicate<'a>(self: Box<Self>) -> Box<dyn ToPredicateFn + 'a>
-    where
-        Self: 'a,
-    {
-        self
     }
 }
 
@@ -465,13 +432,6 @@ where
             self.set2.positions(),
             |pos1, pos2| pos1.cmp(pos2).reverse(),
         ))
-    }
-
-    fn into_predicate<'a>(self: Box<Self>) -> Box<dyn ToPredicateFn + 'a>
-    where
-        Self: 'a,
-    {
-        self
     }
 }
 
@@ -560,13 +520,6 @@ where
             self.set2.positions(),
             |pos1, pos2| pos1.cmp(pos2).reverse(),
         ))
-    }
-
-    fn into_predicate<'a>(self: Box<Self>) -> Box<dyn ToPredicateFn + 'a>
-    where
-        Self: 'a,
-    {
-        self
     }
 }
 
@@ -675,13 +628,6 @@ where
             self.set2.positions(),
             |pos1, pos2| pos1.cmp(pos2).reverse(),
         ))
-    }
-
-    fn into_predicate<'a>(self: Box<Self>) -> Box<dyn ToPredicateFn + 'a>
-    where
-        Self: 'a,
-    {
-        self
     }
 }
 
@@ -1048,6 +994,34 @@ impl EvaluationContext<'_> {
                 let candidate_set = self.evaluate(candidates)?;
                 Ok(Box::new(self.take_latest_revset(&*candidate_set, *count)?))
             }
+            ResolvedExpression::HasSize { candidates, count } => {
+                let set = self.evaluate(candidates)?;
+                let positions: Vec<_> = set
+                    .positions()
+                    .attach(index)
+                    .take(count.saturating_add(1))
+                    .try_collect()?;
+                if positions.len() != *count {
+                    // https://github.com/jj-vcs/jj/pull/7252#pullrequestreview-3236259998
+                    // in the default engine we have to evaluate the entire
+                    // revset (which may be very large) to get an exact count;
+                    // we would need to remove .take() above. instead just give
+                    // a vaguely approximate error message
+                    let determiner = if positions.len() > *count {
+                        "more"
+                    } else {
+                        "less"
+                    };
+                    return Err(RevsetEvaluationError::Other(
+                        format!(
+                            "The revset was expected to have {count} elements, but {determiner} \
+                             were provided",
+                        )
+                        .into(),
+                    ));
+                }
+                Ok(Box::new(EagerRevset { positions }))
+            }
             ResolvedExpression::Coalesce(expression1, expression2) => {
                 let set1 = self.evaluate(expression1)?;
                 if set1.positions().attach(index).next().is_some() {
@@ -1089,9 +1063,7 @@ impl EvaluationContext<'_> {
             ResolvedPredicateExpression::Filter(predicate) => {
                 Ok(build_predicate_fn(self.store.clone(), predicate))
             }
-            ResolvedPredicateExpression::Set(expression) => {
-                Ok(self.evaluate(expression)?.into_predicate())
-            }
+            ResolvedPredicateExpression::Set(expression) => Ok(self.evaluate(expression)?),
             ResolvedPredicateExpression::NotIn(complement) => {
                 let set = self.evaluate_predicate(complement)?;
                 Ok(Box::new(NotInPredicate(set)))
@@ -1383,9 +1355,9 @@ async fn has_diff_from_parent(
     let mut tree_diff = from_tree.diff_stream(&to_tree, matcher);
     // TODO: Resolve values concurrently
     while let Some(entry) = tree_diff.next().await {
-        let (from_value, to_value) = entry.values?;
-        let from_value = resolve_file_values(store, &entry.path, from_value).await?;
-        if from_value == to_value {
+        let mut values = entry.values?;
+        values.before = resolve_file_values(store, &entry.path, values.before).await?;
+        if !values.is_changed() {
             continue;
         }
         return Ok(true);
@@ -1409,17 +1381,18 @@ async fn matches_diff_from_parent(
     let mut tree_diff = from_tree.diff_stream(&to_tree, files_matcher);
     // TODO: Resolve values concurrently
     while let Some(entry) = tree_diff.next().await {
-        let (left_value, right_value) = entry.values?;
-        let left_value = resolve_file_values(store, &entry.path, left_value).await?;
-        if left_value == right_value {
+        let mut values = entry.values?;
+        values.before = resolve_file_values(store, &entry.path, values.before).await?;
+        if !values.is_changed() {
             continue;
         }
-        let left_future = materialize_tree_value(store, &entry.path, left_value);
-        let right_future = materialize_tree_value(store, &entry.path, right_value);
+        let left_future = materialize_tree_value(store, &entry.path, values.before);
+        let right_future = materialize_tree_value(store, &entry.path, values.after);
         let (left_value, right_value) = futures::try_join!(left_future, right_future)?;
         let left_contents = to_file_content(&entry.path, left_value).await?;
         let right_contents = to_file_content(&entry.path, right_value).await?;
-        if diff_match_lines(&left_contents, &right_contents, text_pattern)? {
+        let merge_options = store.merge_options();
+        if diff_match_lines(&left_contents, &right_contents, text_pattern, merge_options)? {
             return Ok(true);
         }
     }
@@ -1430,6 +1403,7 @@ fn diff_match_lines(
     lefts: &Merge<BString>,
     rights: &Merge<BString>,
     pattern: &StringPattern,
+    merge_options: &MergeOptions,
 ) -> BackendResult<bool> {
     // Filter lines prior to comparison. This might produce inferior hunks due
     // to lack of contexts, but is way faster than full diff.
@@ -1440,9 +1414,9 @@ fn diff_match_lines(
     } else {
         let lefts: Merge<BString> = lefts.map(|text| match_lines(text, pattern).collect());
         let rights: Merge<BString> = rights.map(|text| match_lines(text, pattern).collect());
-        let lefts = files::merge(&lefts);
-        let rights = files::merge(&rights);
-        let diff = Diff::by_line(lefts.iter().chain(rights.iter()));
+        let lefts = files::merge(&lefts, merge_options);
+        let rights = files::merge(&rights, merge_options);
+        let diff = ContentDiff::by_line(lefts.iter().chain(rights.iter()));
         let different = files::conflict_diff_hunks(diff.hunks(), lefts.as_slice().len())
             .any(|hunk| hunk.kind == DiffHunkKind::Different);
         Ok(different)
@@ -1493,6 +1467,8 @@ mod tests {
     use super::*;
     use crate::default_index::DefaultMutableIndex;
     use crate::default_index::readonly::FieldLengths;
+    use crate::files::FileMergeHunkLevel;
+    use crate::merge::SameChange;
 
     const TEST_FIELD_LENGTHS: FieldLengths = FieldLengths {
         commit_id: 3,
@@ -1880,7 +1856,11 @@ mod tests {
         let left2 = Merge::resolved(conflict2.first().clone());
         let diff = |needle: &str| {
             let pattern = StringPattern::substring(needle);
-            diff_match_lines(&left1, &left2, &pattern).unwrap()
+            let options = MergeOptions {
+                hunk_level: FileMergeHunkLevel::Line,
+                same_change: SameChange::Accept,
+            };
+            diff_match_lines(&left1, &left2, &pattern, &options).unwrap()
         };
 
         assert!(diff(""));
@@ -1901,7 +1881,11 @@ mod tests {
         let (conflict1, conflict2) = diff_match_lines_samples();
         let diff = |needle: &str| {
             let pattern = StringPattern::substring(needle);
-            diff_match_lines(&conflict1, &conflict2, &pattern).unwrap()
+            let options = MergeOptions {
+                hunk_level: FileMergeHunkLevel::Line,
+                same_change: SameChange::Accept,
+            };
+            diff_match_lines(&conflict1, &conflict2, &pattern, &options).unwrap()
         };
 
         assert!(diff(""));
@@ -1926,7 +1910,11 @@ mod tests {
         let base = Merge::resolved(conflict2.get_remove(0).unwrap().clone());
         let diff = |needle: &str| {
             let pattern = StringPattern::substring(needle);
-            diff_match_lines(&base, &conflict2, &pattern).unwrap()
+            let options = MergeOptions {
+                hunk_level: FileMergeHunkLevel::Line,
+                same_change: SameChange::Accept,
+            };
+            diff_match_lines(&base, &conflict2, &pattern, &options).unwrap()
         };
 
         assert!(diff(""));

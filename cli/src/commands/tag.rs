@@ -91,7 +91,7 @@ fn cmd_tag_list(
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
 
-    for (name, target) in view.tags() {
+    for (name, target) in view.local_tags() {
         if !args.names.is_empty()
             && !args
                 .names

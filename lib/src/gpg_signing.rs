@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::ffi::OsString;
 use std::fmt::Debug;
@@ -21,7 +21,6 @@ use std::io::Write as _;
 use std::process::Command;
 use std::process::ExitStatus;
 use std::process::Stdio;
-use std::str;
 
 use thiserror::Error;
 

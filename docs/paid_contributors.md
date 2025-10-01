@@ -7,6 +7,9 @@ contribute or not.
 ## East River Source Control
 
 * benbrittain
+* bts
+* ConnerPetzold
+* davidbarsky
 * ilyagr
 * thoughtpolice
 
@@ -30,8 +33,10 @@ contribute or not.
 * lukegb
 * martinvonz
 * matts1
+* matttproud
 * mlcui-corp
 * orthros
+* prattmic
 * qfel
 * Ralith
 * rdamazio

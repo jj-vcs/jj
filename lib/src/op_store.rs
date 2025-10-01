@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -234,10 +234,10 @@ impl<'a> RefTargetOptionExt for Option<&'a RemoteRef> {
     }
 }
 
-/// Local and remote bookmarks of the same bookmark name.
+/// Local and remote refs of the same name.
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub struct BookmarkTarget<'a> {
-    /// The commit the bookmark points to locally.
+pub struct LocalRemoteRefTarget<'a> {
+    /// The commit the ref points to locally.
     pub local_target: &'a RefTarget,
     /// `(remote_name, remote_ref)` pairs in lexicographical order.
     pub remote_refs: Vec<(&'a RemoteName, &'a RemoteRef)>,
@@ -247,10 +247,10 @@ pub struct BookmarkTarget<'a> {
 /// object represents how the file system looks at a given time.
 #[derive(ContentHash, PartialEq, Eq, Clone, Debug)]
 pub struct View {
-    /// All head commits
+    /// All head commits. There should be at least one head commit.
     pub head_ids: HashSet<CommitId>,
     pub local_bookmarks: BTreeMap<RefNameBuf, RefTarget>,
-    pub tags: BTreeMap<RefNameBuf, RefTarget>,
+    pub local_tags: BTreeMap<RefNameBuf, RefTarget>,
     pub remote_views: BTreeMap<RemoteNameBuf, RemoteView>,
     pub git_refs: BTreeMap<GitRefNameBuf, RefTarget>,
     /// The commit the Git HEAD points to.
@@ -264,28 +264,12 @@ pub struct View {
 }
 
 impl View {
-    /// Creates new truly empty view.
-    ///
-    /// The caller should add at least one commit ID to `head_ids`. The other
-    /// fields may be empty.
-    pub fn empty() -> Self {
-        Self {
-            head_ids: HashSet::new(),
-            local_bookmarks: BTreeMap::new(),
-            tags: BTreeMap::new(),
-            remote_views: BTreeMap::new(),
-            git_refs: BTreeMap::new(),
-            git_head: RefTarget::absent(),
-            wc_commit_ids: BTreeMap::new(),
-        }
-    }
-
     /// Creates new (mostly empty) view containing the given commit as the head.
     pub fn make_root(root_commit_id: CommitId) -> Self {
         Self {
             head_ids: HashSet::from([root_commit_id]),
             local_bookmarks: BTreeMap::new(),
-            tags: BTreeMap::new(),
+            local_tags: BTreeMap::new(),
             remote_views: BTreeMap::new(),
             git_refs: BTreeMap::new(),
             git_head: RefTarget::absent(),
@@ -302,51 +286,51 @@ pub struct RemoteView {
     // whether the bookmark is known to have existed on the remote. We may not want to resurrect
     // the bookmark if the bookmark's state on the remote was just not known.
     pub bookmarks: BTreeMap<RefNameBuf, RemoteRef>,
-    // TODO: pub tags: BTreeMap<RefNameBuf, RemoteRef>,
+    pub tags: BTreeMap<RefNameBuf, RemoteRef>,
 }
 
-/// Iterates pair of local and remote bookmarks by bookmark name.
-pub(crate) fn merge_join_bookmark_views<'a>(
-    local_bookmarks: &'a BTreeMap<RefNameBuf, RefTarget>,
+/// Iterates pair of local and remote refs by name.
+pub(crate) fn merge_join_ref_views<'a>(
+    local_refs: &'a BTreeMap<RefNameBuf, RefTarget>,
     remote_views: &'a BTreeMap<RemoteNameBuf, RemoteView>,
-) -> impl Iterator<Item = (&'a RefName, BookmarkTarget<'a>)> {
-    let mut local_bookmarks_iter = local_bookmarks
+    get_remote_refs: impl FnMut(&RemoteView) -> &BTreeMap<RefNameBuf, RemoteRef>,
+) -> impl Iterator<Item = (&'a RefName, LocalRemoteRefTarget<'a>)> {
+    let mut local_refs_iter = local_refs
         .iter()
-        .map(|(bookmark_name, target)| (&**bookmark_name, target))
+        .map(|(name, target)| (&**name, target))
         .peekable();
-    let mut remote_bookmarks_iter = flatten_remote_bookmarks(remote_views).peekable();
+    let mut remote_refs_iter = flatten_remote_refs(remote_views, get_remote_refs).peekable();
 
     iter::from_fn(move || {
         // Pick earlier bookmark name
-        let (bookmark_name, local_target) = if let Some((symbol, _)) = remote_bookmarks_iter.peek()
-        {
-            local_bookmarks_iter
-                .next_if(|&(local_bookmark_name, _)| local_bookmark_name <= symbol.name)
+        let (name, local_target) = if let Some((symbol, _)) = remote_refs_iter.peek() {
+            local_refs_iter
+                .next_if(|&(local_name, _)| local_name <= symbol.name)
                 .unwrap_or((symbol.name, RefTarget::absent_ref()))
         } else {
-            local_bookmarks_iter.next()?
+            local_refs_iter.next()?
         };
-        let remote_refs = remote_bookmarks_iter
-            .peeking_take_while(|(symbol, _)| symbol.name == bookmark_name)
+        let remote_refs = remote_refs_iter
+            .peeking_take_while(|(symbol, _)| symbol.name == name)
             .map(|(symbol, remote_ref)| (symbol.remote, remote_ref))
             .collect();
-        let bookmark_target = BookmarkTarget {
+        let local_remote_target = LocalRemoteRefTarget {
             local_target,
             remote_refs,
         };
-        Some((bookmark_name, bookmark_target))
+        Some((name, local_remote_target))
     })
 }
 
-/// Iterates bookmark `(symbol, remote_ref)`s in lexicographical order.
-pub(crate) fn flatten_remote_bookmarks(
+/// Iterates `(symbol, remote_ref)`s in lexicographical order.
+pub(crate) fn flatten_remote_refs(
     remote_views: &BTreeMap<RemoteNameBuf, RemoteView>,
+    mut get_remote_refs: impl FnMut(&RemoteView) -> &BTreeMap<RefNameBuf, RemoteRef>,
 ) -> impl Iterator<Item = (RemoteRefSymbol<'_>, &RemoteRef)> {
     remote_views
         .iter()
         .map(|(remote, remote_view)| {
-            remote_view
-                .bookmarks
+            get_remote_refs(remote_view)
                 .iter()
                 .map(move |(name, remote_ref)| (name.to_remote_symbol(remote), remote_ref))
         })
@@ -473,9 +457,7 @@ pub enum OpStoreError {
 
 pub type OpStoreResult<T> = Result<T, OpStoreError>;
 
-pub trait OpStore: Send + Sync + Debug {
-    fn as_any(&self) -> &dyn Any;
-
+pub trait OpStore: Any + Send + Sync + Debug {
     fn name(&self) -> &str;
 
     fn root_operation_id(&self) -> &OperationId;
@@ -502,6 +484,13 @@ pub trait OpStore: Send + Sync + Debug {
     /// concurrently by another process.
     // TODO: return stats?
     fn gc(&self, head_ids: &[OperationId], keep_newer: SystemTime) -> OpStoreResult<()>;
+}
+
+impl dyn OpStore {
+    /// Returns reference of the implementation type.
+    pub fn downcast_ref<T: OpStore>(&self) -> Option<&T> {
+        (self as &dyn Any).downcast_ref()
+    }
 }
 
 #[cfg(test)]
@@ -535,24 +524,28 @@ mod tests {
                     "bookmark1".into() => git_bookmark1_remote_ref.clone(),
                     "bookmark2".into() => git_bookmark2_remote_ref.clone(),
                 },
+                tags: btreemap! {},
             },
             "remote1".into() => RemoteView {
                 bookmarks: btreemap! {
                     "bookmark1".into() => remote1_bookmark1_remote_ref.clone(),
                 },
+                tags: btreemap! {},
             },
             "remote2".into() => RemoteView {
                 bookmarks: btreemap! {
                     "bookmark2".into() => remote2_bookmark2_remote_ref.clone(),
                 },
+                tags: btreemap! {},
             },
         };
         assert_eq!(
-            merge_join_bookmark_views(&local_bookmarks, &remote_views).collect_vec(),
+            merge_join_ref_views(&local_bookmarks, &remote_views, |view| &view.bookmarks)
+                .collect_vec(),
             vec![
                 (
                     "bookmark1".as_ref(),
-                    BookmarkTarget {
+                    LocalRemoteRefTarget {
                         local_target: &local_bookmark1_target,
                         remote_refs: vec![
                             ("git".as_ref(), &git_bookmark1_remote_ref),
@@ -562,7 +555,7 @@ mod tests {
                 ),
                 (
                     "bookmark2".as_ref(),
-                    BookmarkTarget {
+                    LocalRemoteRefTarget {
                         local_target: &local_bookmark2_target.clone(),
                         remote_refs: vec![
                             ("git".as_ref(), &git_bookmark2_remote_ref),
@@ -579,10 +572,11 @@ mod tests {
         };
         let remote_views = btreemap! {};
         assert_eq!(
-            merge_join_bookmark_views(&local_bookmarks, &remote_views).collect_vec(),
+            merge_join_ref_views(&local_bookmarks, &remote_views, |view| &view.bookmarks)
+                .collect_vec(),
             vec![(
                 "bookmark1".as_ref(),
-                BookmarkTarget {
+                LocalRemoteRefTarget {
                     local_target: &local_bookmark1_target,
                     remote_refs: vec![]
                 },
@@ -596,13 +590,15 @@ mod tests {
                 bookmarks: btreemap! {
                     "bookmark1".into() => remote1_bookmark1_remote_ref.clone(),
                 },
+                tags: btreemap! {},
             },
         };
         assert_eq!(
-            merge_join_bookmark_views(&local_bookmarks, &remote_views).collect_vec(),
+            merge_join_ref_views(&local_bookmarks, &remote_views, |view| &view.bookmarks)
+                .collect_vec(),
             vec![(
                 "bookmark1".as_ref(),
-                BookmarkTarget {
+                LocalRemoteRefTarget {
                     local_target: RefTarget::absent_ref(),
                     remote_refs: vec![("remote1".as_ref(), &remote1_bookmark1_remote_ref)],
                 },

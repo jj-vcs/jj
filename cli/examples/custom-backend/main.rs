@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::any::Any;
 use std::path::Path;
 use std::pin::Pin;
 use std::time::SystemTime;
@@ -115,10 +114,6 @@ impl JitBackend {
 
 #[async_trait]
 impl Backend for JitBackend {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn name(&self) -> &str {
         "jit"
     }

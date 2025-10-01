@@ -14,7 +14,6 @@
 
 //! Provides a backend for testing ACLs
 
-use std::any::Any;
 use std::path::Path;
 use std::pin::Pin;
 use std::time::SystemTime;
@@ -87,10 +86,6 @@ impl SecretBackend {
 
 #[async_trait]
 impl Backend for SecretBackend {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn name(&self) -> &str {
         Self::name()
     }

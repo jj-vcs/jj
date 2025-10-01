@@ -209,6 +209,7 @@ fn run_mergetool_external_single_file(
                 .conflict_marker_style
                 .unwrap_or(default_conflict_marker_style),
             marker_len: Some(conflict_marker_len),
+            merge: store.merge_options().clone(),
         };
         materialize_merge_result_to_bytes(&file.contents, &options)
     } else {
@@ -251,6 +252,7 @@ fn run_mergetool_external_single_file(
         })
         .try_collect()?;
     variables.insert("marker_length", conflict_marker_len.to_string());
+    variables.insert("path", repo_path.as_internal_file_string().to_string());
 
     let mut cmd = Command::new(&editor.program);
     cmd.args(interpolate_variables(&editor.merge_args, &variables));
@@ -375,8 +377,7 @@ pub fn run_mergetool_external(
 
 pub fn edit_diff_external(
     editor: &ExternalMergeTool,
-    left_tree: &MergedTree,
-    right_tree: &MergedTree,
+    trees: [&MergedTree; 2],
     matcher: &dyn Matcher,
     instructions: Option<&str>,
     base_ignores: Arc<GitIgnoreFile>,
@@ -392,11 +393,8 @@ pub fn edit_diff_external(
     } else {
         DiffType::TwoWay
     };
-    let store = left_tree.store();
     let diffedit_wc = DiffEditWorkingCopies::check_out(
-        store,
-        left_tree,
-        right_tree,
+        trees,
         matcher,
         diff_type,
         instructions,
@@ -426,33 +424,21 @@ pub fn edit_diff_external(
 pub fn generate_diff(
     ui: &Ui,
     writer: &mut dyn Write,
-    left_tree: &MergedTree,
-    right_tree: &MergedTree,
+    trees: [&MergedTree; 2],
     matcher: &dyn Matcher,
     tool: &ExternalMergeTool,
     default_conflict_marker_style: ConflictMarkerStyle,
+    width: usize,
 ) -> Result<(), DiffGenerateError> {
     let conflict_marker_style = tool
         .conflict_marker_style
         .unwrap_or(default_conflict_marker_style);
-    let store = left_tree.store();
-    let diff_wc = check_out_trees(
-        store,
-        left_tree,
-        right_tree,
-        matcher,
-        DiffType::TwoWay,
-        conflict_marker_style,
-    )?;
+    let diff_wc = check_out_trees(trees, matcher, DiffType::TwoWay, conflict_marker_style)?;
     diff_wc.set_left_readonly()?;
     diff_wc.set_right_readonly()?;
-    invoke_external_diff(
-        ui,
-        writer,
-        tool,
-        diff_wc.temp_dir(),
-        &diff_wc.to_command_variables(true),
-    )
+    let mut patterns = diff_wc.to_command_variables(true);
+    patterns.insert("width", width.to_string());
+    invoke_external_diff(ui, writer, tool, diff_wc.temp_dir(), &patterns)
 }
 
 /// Invokes the specified `tool` directing its output into `writer`.
@@ -461,24 +447,26 @@ pub fn invoke_external_diff(
     writer: &mut dyn Write,
     tool: &ExternalMergeTool,
     diff_dir: &Path,
-    patterns: &HashMap<&str, &str>,
+    patterns: &HashMap<&str, String>,
 ) -> Result<(), DiffGenerateError> {
     // TODO: Somehow propagate --color to the external command?
     let mut cmd = Command::new(&tool.program);
     let mut patterns = patterns.clone();
-    let absolute_left_path = Path::new(diff_dir).join(patterns["left"]);
-    let absolute_right_path = Path::new(diff_dir).join(patterns["right"]);
     if !tool.diff_do_chdir {
+        let absolute_left_path = Path::new(diff_dir).join(&patterns["left"]);
+        let absolute_right_path = Path::new(diff_dir).join(&patterns["right"]);
         patterns.insert(
             "left",
             absolute_left_path
-                .to_str()
+                .into_os_string()
+                .into_string()
                 .expect("temp_dir should be valid utf-8"),
         );
         patterns.insert(
             "right",
             absolute_right_path
-                .to_str()
+                .into_os_string()
+                .into_string()
                 .expect("temp_dir should be valid utf-8"),
         );
     } else {

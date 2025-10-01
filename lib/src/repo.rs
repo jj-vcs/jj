@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -57,6 +57,7 @@ use crate::index::IndexStore;
 use crate::index::MutableIndex;
 use crate::index::ReadonlyIndex;
 use crate::merge::MergeBuilder;
+use crate::merge::SameChange;
 use crate::merge::trivial_merge;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
@@ -105,6 +106,7 @@ use crate::store::Store;
 use crate::submodule_store::SubmoduleStore;
 use crate::transaction::Transaction;
 use crate::transaction::TransactionCommitError;
+use crate::tree_merge::MergeOptions;
 use crate::view::RenameWorkspaceError;
 use crate::view::View;
 
@@ -202,7 +204,9 @@ impl ReadonlyRepo {
         let backend = backend_initializer(settings, &store_path)?;
         let backend_path = store_path.join("type");
         fs::write(&backend_path, backend.name()).context(&backend_path)?;
-        let store = Store::new(backend, signer);
+        let merge_options =
+            MergeOptions::from_settings(settings).map_err(|err| BackendInitError(err.into()))?;
+        let store = Store::new(backend, signer, merge_options);
 
         let op_store_path = repo_path.join("op_store");
         fs::create_dir(&op_store_path).context(&op_store_path)?;
@@ -674,9 +678,12 @@ impl RepoLoader {
         repo_path: &Path,
         store_factories: &StoreFactories,
     ) -> Result<Self, StoreLoadError> {
+        let merge_options =
+            MergeOptions::from_settings(settings).map_err(|err| BackendLoadError(err.into()))?;
         let store = Store::new(
             store_factories.load_backend(settings, &repo_path.join("store"))?,
             Signer::from_settings(settings)?,
+            merge_options,
         );
         let root_op_data = RootOperationData {
             root_commit_id: store.root_commit_id().clone(),
@@ -897,7 +904,7 @@ impl MutableRepo {
     }
 
     pub(crate) fn is_backed_by_default_index(&self) -> bool {
-        self.index.as_any().is::<DefaultMutableIndex>()
+        self.index.downcast_ref::<DefaultMutableIndex>().is_some()
     }
 
     pub fn has_changes(&self) -> bool {
@@ -1456,7 +1463,9 @@ impl MutableRepo {
         // Not using merge_ref_targets(). Since the working-copy pointer moves
         // towards random direction, it doesn't make sense to resolve conflict
         // based on ancestry.
-        let new_id = if let Some(resolved) = trivial_merge(&[self_id, base_id, other_id]) {
+        let new_id = if let Some(resolved) =
+            trivial_merge(&[self_id, base_id, other_id], SameChange::Accept)
+        {
             resolved.cloned()
         } else if self_id.is_none() || other_id.is_none() {
             // We want to remove the workspace even if the self side changed the
@@ -1705,20 +1714,46 @@ impl MutableRepo {
         self.view_mut().rename_remote(old, new);
     }
 
-    pub fn get_tag(&self, name: &RefName) -> RefTarget {
-        self.view.with_ref(|v| v.get_tag(name).clone())
+    pub fn get_local_tag(&self, name: &RefName) -> RefTarget {
+        self.view.with_ref(|v| v.get_local_tag(name).clone())
     }
 
-    pub fn set_tag_target(&mut self, name: &RefName, target: RefTarget) {
-        self.view_mut().set_tag_target(name, target);
+    pub fn set_local_tag_target(&mut self, name: &RefName, target: RefTarget) {
+        self.view_mut().set_local_tag_target(name, target);
     }
 
-    pub fn merge_tag(&mut self, name: &RefName, base_target: &RefTarget, other_target: &RefTarget) {
+    pub fn merge_local_tag(
+        &mut self,
+        name: &RefName,
+        base_target: &RefTarget,
+        other_target: &RefTarget,
+    ) {
         let view = self.view.get_mut();
         let index = self.index.as_index();
-        let self_target = view.get_tag(name);
+        let self_target = view.get_local_tag(name);
         let new_target = merge_ref_targets(index, self_target, base_target, other_target);
-        view.set_tag_target(name, new_target);
+        view.set_local_tag_target(name, new_target);
+    }
+
+    pub fn get_remote_tag(&self, symbol: RemoteRefSymbol<'_>) -> RemoteRef {
+        self.view.with_ref(|v| v.get_remote_tag(symbol).clone())
+    }
+
+    pub fn set_remote_tag(&mut self, symbol: RemoteRefSymbol<'_>, remote_ref: RemoteRef) {
+        self.view_mut().set_remote_tag(symbol, remote_ref);
+    }
+
+    fn merge_remote_tag(
+        &mut self,
+        symbol: RemoteRefSymbol<'_>,
+        base_ref: &RemoteRef,
+        other_ref: &RemoteRef,
+    ) {
+        let view = self.view.get_mut();
+        let index = self.index.as_index();
+        let self_ref = view.get_remote_tag(symbol);
+        let new_ref = merge_remote_refs(index, self_ref, base_ref, other_ref);
+        view.set_remote_tag(symbol, new_ref);
     }
 
     pub fn get_git_ref(&self, name: &GitRefName) -> RefTarget {
@@ -1813,9 +1848,9 @@ impl MutableRepo {
             self.merge_local_bookmark(name, base_target, other_target);
         }
 
-        let changed_tags = diff_named_ref_targets(base.tags(), other.tags());
-        for (name, (base_target, other_target)) in changed_tags {
-            self.merge_tag(name, base_target, other_target);
+        let changed_local_tags = diff_named_ref_targets(base.local_tags(), other.local_tags());
+        for (name, (base_target, other_target)) in changed_local_tags {
+            self.merge_local_tag(name, base_target, other_target);
         }
 
         let changed_git_refs = diff_named_ref_targets(base.git_refs(), other.git_refs());
@@ -1827,6 +1862,12 @@ impl MutableRepo {
             diff_named_remote_refs(base.all_remote_bookmarks(), other.all_remote_bookmarks());
         for (symbol, (base_ref, other_ref)) in changed_remote_bookmarks {
             self.merge_remote_bookmark(symbol, base_ref, other_ref);
+        }
+
+        let changed_remote_tags =
+            diff_named_remote_refs(base.all_remote_tags(), other.all_remote_tags());
+        for (symbol, (base_ref, other_ref)) in changed_remote_tags {
+            self.merge_remote_tag(symbol, base_ref, other_ref);
         }
 
         let new_git_head_target = merge_ref_targets(

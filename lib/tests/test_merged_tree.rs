@@ -27,6 +27,7 @@ use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::FilesMatcher;
 use jj_lib::matchers::Matcher;
 use jj_lib::matchers::PrefixMatcher;
+use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
@@ -47,7 +48,8 @@ use testutils::repo_path_buf;
 use testutils::repo_path_component;
 
 fn diff_entry_tuple(diff: TreeDiffEntry) -> (RepoPathBuf, (MergedTreeValue, MergedTreeValue)) {
-    (diff.path, diff.values.unwrap())
+    let values = diff.values.unwrap();
+    (diff.path, (values.before, values.after))
 }
 
 fn diff_stream_equals_iter(tree1: &MergedTree, tree2: &MergedTree, matcher: &dyn Matcher) {
@@ -675,7 +677,7 @@ fn test_diff_copy_tracing() {
                 source: None,
                 target: modified_path.to_owned()
             },
-            (
+            Diff::new(
                 Merge::resolved(before.path_value(modified_path).unwrap()),
                 Merge::resolved(after.path_value(modified_path).unwrap())
             ),
@@ -688,7 +690,7 @@ fn test_diff_copy_tracing() {
                 source: Some((modified_path.to_owned(), CopyOperation::Copy)),
                 target: copied_path.to_owned(),
             },
-            (
+            Diff::new(
                 Merge::resolved(before.path_value(modified_path).unwrap()),
                 Merge::resolved(after.path_value(copied_path).unwrap()),
             ),
@@ -701,7 +703,7 @@ fn test_diff_copy_tracing() {
                 source: Some((removed_path.to_owned(), CopyOperation::Rename)),
                 target: added_path.to_owned(),
             },
-            (
+            Diff::new(
                 Merge::resolved(before.path_value(removed_path).unwrap()),
                 Merge::resolved(after.path_value(added_path).unwrap())
             ),
@@ -752,7 +754,7 @@ fn test_diff_copy_tracing_file_and_dir() {
                 source: Some((repo_path_buf("b/file"), CopyOperation::Rename)),
                 target: repo_path_buf("a/file"),
             },
-            (
+            Diff::new(
                 before.path_value(repo_path("b/file")).unwrap(),
                 after.path_value(repo_path("a/file")).unwrap(),
             ),
@@ -765,7 +767,7 @@ fn test_diff_copy_tracing_file_and_dir() {
                 source: Some((repo_path_buf("a"), CopyOperation::Rename)),
                 target: repo_path_buf("b"),
             },
-            (
+            Diff::new(
                 before.path_value(repo_path("a")).unwrap(),
                 after.path_value(repo_path("b")).unwrap(),
             ),
@@ -778,7 +780,7 @@ fn test_diff_copy_tracing_file_and_dir() {
                 source: Some((repo_path_buf("c"), CopyOperation::Rename)),
                 target: repo_path_buf("c/file"),
             },
-            (
+            Diff::new(
                 before.path_value(repo_path("c")).unwrap(),
                 after.path_value(repo_path("c/file")).unwrap(),
             ),
@@ -1408,7 +1410,7 @@ fn test_merge_simplify_file_conflict() {
             Merge::resolved(child2_text.as_bytes()),
         ],
     );
-    assert!(files::try_merge(&text_merge.flatten()).is_none());
+    assert!(files::try_merge(&text_merge.flatten(), repo.store().merge_options()).is_none());
 }
 
 /// Like `test_merge_simplify_file_conflict()`, but some of the conflicts are

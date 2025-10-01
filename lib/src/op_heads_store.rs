@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::any::Any;
 use std::collections::HashSet;
@@ -50,9 +50,7 @@ pub enum OpHeadResolutionError {
 pub trait OpHeadsStoreLock {}
 
 /// Manages the set of current heads of the operation log.
-pub trait OpHeadsStore: Send + Sync + Debug {
-    fn as_any(&self) -> &dyn Any;
-
+pub trait OpHeadsStore: Any + Send + Sync + Debug {
     fn name(&self) -> &str;
 
     /// Remove the old op heads and add the new one.
@@ -71,6 +69,13 @@ pub trait OpHeadsStore: Send + Sync + Debug {
     /// operations. It is not needed for correctness; implementations are free
     /// to return a type that doesn't hold a lock.
     fn lock(&self) -> Result<Box<dyn OpHeadsStoreLock + '_>, OpHeadsStoreError>;
+}
+
+impl dyn OpHeadsStore {
+    /// Returns reference of the implementation type.
+    pub fn downcast_ref<T: OpHeadsStore>(&self) -> Option<&T> {
+        (self as &dyn Any).downcast_ref()
+    }
 }
 
 // Given an OpHeadsStore, fetch and resolve its op heads down to one under a

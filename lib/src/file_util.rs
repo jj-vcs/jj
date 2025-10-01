@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::borrow::Cow;
 use std::ffi::OsString;
@@ -108,10 +108,10 @@ pub fn path_to_bytes(path: &Path) -> Result<&[u8], BadPathEncoding> {
 
 /// Expands "~/" to "$HOME/".
 pub fn expand_home_path(path_str: &str) -> PathBuf {
-    if let Some(remainder) = path_str.strip_prefix("~/") {
-        if let Ok(home_dir_str) = std::env::var("HOME") {
-            return PathBuf::from(home_dir_str).join(remainder);
-        }
+    if let Some(remainder) = path_str.strip_prefix("~/")
+        && let Ok(home_dir_str) = std::env::var("HOME")
+    {
+        return PathBuf::from(home_dir_str).join(remainder);
     }
     PathBuf::from(path_str)
 }
@@ -351,10 +351,9 @@ mod platform {
     }
 }
 
-#[cfg_attr(unix, allow(dead_code))]
+#[cfg_attr(unix, expect(dead_code))]
 mod fallback {
     use std::ffi::OsStr;
-    use std::str;
 
     use thiserror::Error;
 

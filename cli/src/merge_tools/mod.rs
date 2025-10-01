@@ -277,7 +277,9 @@ impl DiffEditor {
         base_ignores: Arc<GitIgnoreFile>,
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, MergeToolConfigError> {
-        if matches!(&tool, DiffEditTool::External(mergetool) if mergetool.edit_args.is_empty()) {
+        if let DiffEditTool::External(mergetool) = &tool
+            && mergetool.edit_args.is_empty()
+        {
             return Err(MergeToolConfigError::EditArgsNotConfigured {
                 tool_name: name.to_string(),
             });
@@ -293,15 +295,14 @@ impl DiffEditor {
     /// Starts a diff editor on the two directories.
     pub fn edit(
         &self,
-        left_tree: &MergedTree,
-        right_tree: &MergedTree,
+        trees: [&MergedTree; 2],
         matcher: &dyn Matcher,
         format_instructions: impl FnOnce() -> String,
     ) -> Result<MergedTreeId, DiffEditError> {
         match &self.tool {
             DiffEditTool::Builtin => {
                 Ok(
-                    edit_diff_builtin(left_tree, right_tree, matcher, self.conflict_marker_style)
+                    edit_diff_builtin(trees, matcher, self.conflict_marker_style)
                         .map_err(Box::new)?,
                 )
             }
@@ -309,8 +310,7 @@ impl DiffEditor {
                 let instructions = self.use_instructions.then(format_instructions);
                 edit_diff_external(
                     editor,
-                    left_tree,
-                    right_tree,
+                    trees,
                     matcher,
                     instructions.as_deref(),
                     self.base_ignores.clone(),
@@ -410,7 +410,9 @@ impl MergeEditor {
         path_converter: RepoPathUiConverter,
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, MergeToolConfigError> {
-        if matches!(&tool, MergeTool::External(mergetool) if mergetool.merge_args.is_empty()) {
+        if let MergeTool::External(mergetool) = &tool
+            && mergetool.merge_args.is_empty()
+        {
             return Err(MergeToolConfigError::MergeArgsNotConfigured {
                 tool_name: name.to_string(),
             });

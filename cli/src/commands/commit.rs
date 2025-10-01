@@ -70,6 +70,7 @@ pub(crate) struct CommitArgs {
         add = ArgValueCompleter::new(complete::modified_files),
     )]
     paths: Vec<String>,
+    // TODO: Delete in jj 0.40.0+
     /// Reset the author to the configured user
     ///
     /// This resets the author name, email, and timestamp.
@@ -78,14 +79,16 @@ pub(crate) struct CommitArgs {
     /// environment variables to set a different author:
     ///
     /// $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj commit --reset-author
-    #[arg(long)]
+    #[arg(long, hide = true)]
     reset_author: bool,
+    // TODO: Delete in jj 0.40.0+
     /// Set author to the provided string
     ///
     /// This changes author name and email while retaining author
     /// timestamp for non-discardable commits.
     #[arg(
         long,
+        hide = true,
         conflicts_with = "reset_author",
         value_parser = parse_author
     )]
@@ -98,6 +101,18 @@ pub(crate) fn cmd_commit(
     command: &CommandHelper,
     args: &CommitArgs,
 ) -> Result<(), CommandError> {
+    if args.reset_author {
+        writeln!(
+            ui.warning_default(),
+            "`jj commit --reset-author` is deprecated; use `jj metaedit --update-author` instead"
+        )?;
+    }
+    if args.author.is_some() {
+        writeln!(
+            ui.warning_default(),
+            "`jj commit --author` is deprecated; use `jj metaedit --author` instead"
+        )?;
+    }
     let mut workspace_command = command.workspace_helper(ui)?;
 
     let commit_id = workspace_command
@@ -126,8 +141,7 @@ new working-copy commit.
         )
     };
     let tree_id = diff_selector.select(
-        &base_tree,
-        &commit.tree()?,
+        [&base_tree, &commit.tree()?],
         matcher.as_ref(),
         format_instructions,
     )?;

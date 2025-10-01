@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
 use std::any::Any;
 use std::collections::HashMap;
@@ -162,10 +162,15 @@ pub enum RevsetCommitRef {
 
 /// A custom revset filter expression, defined by an extension.
 pub trait RevsetFilterExtension: std::fmt::Debug + Any + Send + Sync {
-    fn as_any(&self) -> &dyn Any;
-
     /// Returns true iff this filter matches the specified commit.
     fn matches_commit(&self, commit: &Commit) -> bool;
+}
+
+impl dyn RevsetFilterExtension {
+    /// Returns reference of the implementation type.
+    pub fn downcast_ref<T: RevsetFilterExtension>(&self) -> Option<&T> {
+        (self as &dyn Any).downcast_ref()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -291,6 +296,10 @@ pub enum RevsetExpression<St: ExpressionState> {
     Roots(Arc<Self>),
     ForkPoint(Arc<Self>),
     Bisect(Arc<Self>),
+    HasSize {
+        candidates: Arc<Self>,
+        count: usize,
+    },
     Latest {
         candidates: Arc<Self>,
         count: usize,
@@ -523,6 +532,14 @@ impl<St: ExpressionState> RevsetExpression<St> {
         Arc::new(Self::Bisect(self.clone()))
     }
 
+    /// Commits in `self`, the number of which must be exactly equal to `count`.
+    pub fn has_size(self: &Arc<Self>, count: usize) -> Arc<Self> {
+        Arc::new(Self::HasSize {
+            candidates: self.clone(),
+            count,
+        })
+    }
+
     /// Filter all commits by `predicate` in `self`.
     pub fn filtered(self: &Arc<Self>, predicate: RevsetFilterPredicate) -> Arc<Self> {
         self.intersection(&Self::filter(predicate))
@@ -717,6 +734,10 @@ pub enum ResolvedExpression {
     Roots(Box<Self>),
     ForkPoint(Box<Self>),
     Bisect(Box<Self>),
+    HasSize {
+        candidates: Box<Self>,
+        count: usize,
+    },
     Latest {
         candidates: Box<Self>,
         count: usize,
@@ -925,6 +946,12 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         let [expression_arg] = function.expect_exact_arguments()?;
         let expression = lower_expression(diagnostics, expression_arg, context)?;
         Ok(RevsetExpression::bisect(&expression))
+    });
+    map.insert("exactly", |diagnostics, function, context| {
+        let ([candidates_arg, count_arg], []) = function.expect_arguments()?;
+        let candidates = lower_expression(diagnostics, candidates_arg, context)?;
+        let count = expect_literal("integer", count_arg)?;
+        Ok(candidates.has_size(count))
     });
     map.insert("merges", |_diagnostics, function, _context| {
         function.expect_no_arguments()?;
@@ -1445,6 +1472,12 @@ fn try_transform_expression<St: ExpressionState, E>(
             RevsetExpression::Bisect(expression) => {
                 transform_rec(expression, pre, post)?.map(RevsetExpression::Bisect)
             }
+            RevsetExpression::HasSize { candidates, count } => {
+                transform_rec(candidates, pre, post)?.map(|candidates| RevsetExpression::HasSize {
+                    candidates,
+                    count: *count,
+                })
+            }
             RevsetExpression::Latest { candidates, count } => transform_rec(candidates, pre, post)?
                 .map(|candidates| RevsetExpression::Latest {
                     candidates,
@@ -1685,6 +1718,14 @@ where
         RevsetExpression::Bisect(expression) => {
             let expression = folder.fold_expression(expression)?;
             RevsetExpression::Bisect(expression).into()
+        }
+        RevsetExpression::HasSize { candidates, count } => {
+            let candidates = folder.fold_expression(candidates)?;
+            RevsetExpression::HasSize {
+                candidates,
+                count: *count,
+            }
+            .into()
         }
         RevsetExpression::Latest { candidates, count } => {
             let candidates = folder.fold_expression(candidates)?;
@@ -2521,7 +2562,7 @@ impl PartialSymbolResolver for TagResolver {
         repo: &dyn Repo,
         symbol: &str,
     ) -> Result<Option<CommitId>, RevsetResolutionError> {
-        let target = repo.view().get_tag(symbol.as_ref());
+        let target = repo.view().get_local_tag(symbol.as_ref());
         to_resolved_ref("tag", symbol, target)
     }
 }
@@ -2797,7 +2838,7 @@ fn resolve_commit_ref(
         RevsetCommitRef::Tags(pattern) => {
             let commit_ids = repo
                 .view()
-                .tags_matching(pattern)
+                .local_tags_matching(pattern)
                 .flat_map(|(_, target)| target.added_ids())
                 .cloned()
                 .collect();
@@ -3006,6 +3047,10 @@ impl VisibilityResolutionContext<'_> {
                 candidates: self.resolve(candidates).into(),
                 count: *count,
             },
+            RevsetExpression::HasSize { candidates, count } => ResolvedExpression::HasSize {
+                candidates: self.resolve(candidates).into(),
+                count: *count,
+            },
             RevsetExpression::Filter(_) | RevsetExpression::AsFilter(_) => {
                 // Top-level filter without intersection: e.g. "~author(_)" is represented as
                 // `AsFilter(NotIn(Filter(Author(_))))`.
@@ -3127,6 +3172,7 @@ impl VisibilityResolutionContext<'_> {
             | RevsetExpression::Roots(_)
             | RevsetExpression::ForkPoint(_)
             | RevsetExpression::Bisect(_)
+            | RevsetExpression::HasSize { .. }
             | RevsetExpression::Latest { .. } => {
                 ResolvedPredicateExpression::Set(self.resolve(expression).into())
             }

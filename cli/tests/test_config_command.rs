@@ -1252,26 +1252,16 @@ fn test_config_get() {
     ");
 
     let output = test_env.run_jj_in(".", ["config", "get", "table.list"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Config error: Invalid type or value for table.list
-    Caused by: Expected a value convertible to a string, but is an array
-    Hint: Check the config file: $TEST_ENV/config/config0002.toml
-    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    insta::assert_snapshot!(output, @r#"
+    ["list", "value"]
     [EOF]
-    [exit status: 1]
-    ");
+    "#);
 
     let output = test_env.run_jj_in(".", ["config", "get", "table"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Config error: Invalid type or value for table
-    Caused by: Expected a value convertible to a string, but is a table
-    Hint: Check the config file: $TEST_ENV/config/config0003.toml
-    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    insta::assert_snapshot!(output, @r#"
+    { string = "some value 1", int = 123, list = ["list", "value"], overridden = "bar" }
     [EOF]
-    [exit status: 1]
-    ");
+    "#);
 
     let output = test_env.run_jj_in(".", ["config", "get", "table.overridden"]);
     insta::assert_snapshot!(output, @r"
@@ -1717,14 +1707,14 @@ fn test_config_author_change_warning() {
     // for this test, the state (user.email) is needed
     work_dir
         .run_jj_with(|cmd| {
-            cmd.args(["describe", "--reset-author", "--no-edit"])
+            cmd.args(["metaedit", "--update-author"])
                 .env_remove("JJ_EMAIL")
         })
         .success();
 
     let output = work_dir.run_jj(["log"]);
     insta::assert_snapshot!(output, @r"
-    @  qpvuntsm Foo 2001-02-03 08:05:09 f64cf908
+    @  qpvuntsm Foo 2001-02-03 08:05:09 c2090b51
     │  (empty) (no description set)
     ◆  zzzzzzzz root() 00000000
     [EOF]

@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(missing_docs)]
+#![expect(missing_docs)]
 
-use std::any::Any;
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fmt::Debug;
@@ -28,7 +27,7 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::process::Command;
 use std::process::ExitStatus;
-use std::str;
+use std::str::Utf8Error;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
@@ -570,12 +569,8 @@ fn commit_from_git_without_root_parent(
 
     // If the git header has a change-id field, we attempt to convert that to a
     // valid JJ Change Id
-    let change_id = commit
-        .extra_headers()
-        .find(CHANGE_ID_COMMIT_HEADER)
-        .and_then(ChangeId::try_from_reverse_hex)
-        .filter(|val| val.as_bytes().len() == CHANGE_ID_LENGTH)
-        .unwrap_or_else(|| change_id_from_git_commit_id(id));
+    let change_id = extract_change_id_from_commit(&commit)
+        .unwrap_or_else(|| synthetic_change_id_from_git_commit_id(id));
 
     // shallow commits don't have parents their parents actually fetched, so we
     // discard them here
@@ -644,7 +639,20 @@ fn commit_from_git_without_root_parent(
     })
 }
 
-fn change_id_from_git_commit_id(id: &CommitId) -> ChangeId {
+/// Extracts change id from commit headers.
+pub fn extract_change_id_from_commit(commit: &gix::objs::CommitRef) -> Option<ChangeId> {
+    commit
+        .extra_headers()
+        .find(CHANGE_ID_COMMIT_HEADER)
+        .and_then(ChangeId::try_from_reverse_hex)
+        .filter(|val| val.as_bytes().len() == CHANGE_ID_LENGTH)
+}
+
+/// Deterministically creates a change id based on the commit id
+///
+/// Used when we get a commit without a change id. The exact algorithm for the
+/// computation should not be relied upon.
+pub fn synthetic_change_id_from_git_commit_id(id: &CommitId) -> ChangeId {
     // We reverse the bits of the commit id to create the change id. We don't
     // want to use the first bytes unmodified because then it would be ambiguous
     // if a given hash prefix refers to the commit id or the change id. It would
@@ -735,21 +743,21 @@ fn deserialize_extras(commit: &mut Commit, bytes: &[u8]) {
     if !proto.change_id.is_empty() {
         commit.change_id = ChangeId::new(proto.change_id);
     }
-    if let MergedTreeId::Legacy(legacy_tree_id) = &commit.root_tree {
-        if proto.uses_tree_conflict_format {
-            if !proto.root_tree.is_empty() {
-                let merge_builder: MergeBuilder<_> = proto
-                    .root_tree
-                    .iter()
-                    .map(|id_bytes| TreeId::from_bytes(id_bytes))
-                    .collect();
-                commit.root_tree = MergedTreeId::Merge(merge_builder.build());
-            } else {
-                // uses_tree_conflict_format was set but there was no root_tree override in the
-                // proto, which means we should just promote the tree id from the
-                // git commit to be a known-conflict-free tree
-                commit.root_tree = MergedTreeId::resolved(legacy_tree_id.clone());
-            }
+    if let MergedTreeId::Legacy(legacy_tree_id) = &commit.root_tree
+        && proto.uses_tree_conflict_format
+    {
+        if !proto.root_tree.is_empty() {
+            let merge_builder: MergeBuilder<_> = proto
+                .root_tree
+                .iter()
+                .map(|id_bytes| TreeId::from_bytes(id_bytes))
+                .collect();
+            commit.root_tree = MergedTreeId::Merge(merge_builder.build());
+        } else {
+            // uses_tree_conflict_format was set but there was no root_tree override in the
+            // proto, which means we should just promote the tree id from the
+            // git commit to be a known-conflict-free tree
+            commit.root_tree = MergedTreeId::resolved(legacy_tree_id.clone());
         }
     }
     for predecessor in &proto.predecessors {
@@ -915,7 +923,7 @@ fn to_read_object_err(
     }
 }
 
-fn to_invalid_utf8_err(source: str::Utf8Error, id: &impl ObjectId) -> BackendError {
+fn to_invalid_utf8_err(source: Utf8Error, id: &impl ObjectId) -> BackendError {
     BackendError::InvalidUtf8 {
         object_type: id.object_type(),
         hash: id.hex(),
@@ -965,10 +973,6 @@ impl Debug for GitBackend {
 
 #[async_trait]
 impl Backend for GitBackend {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn name(&self) -> &str {
         Self::name()
     }
@@ -1267,11 +1271,11 @@ impl Backend for GitBackend {
             }
         }
         let mut extra_headers: Vec<(BString, BString)> = vec![];
-        if let MergedTreeId::Merge(tree_ids) = &contents.root_tree {
-            if !tree_ids.is_resolved() {
-                let value = tree_ids.iter().map(|id| id.hex()).join(" ");
-                extra_headers.push((JJ_TREES_COMMIT_HEADER.into(), value.into()));
-            }
+        if let MergedTreeId::Merge(tree_ids) = &contents.root_tree
+            && !tree_ids.is_resolved()
+        {
+            let value = tree_ids.iter().map(|id| id.hex()).join(" ");
+            extra_headers.push((JJ_TREES_COMMIT_HEADER.into(), value.into()));
         }
         if self.write_change_id_header {
             extra_headers.push((
@@ -1524,6 +1528,8 @@ recover.
 mod tests {
     use assert_matches::assert_matches;
     use gix::date::parse::TimeBuf;
+    use gix::objs::CommitRef;
+    use indoc::indoc;
     use pollster::FutureExt as _;
 
     use super::*;
@@ -1808,7 +1814,7 @@ mod tests {
 
         let mut commit_buf = Vec::new();
         commit.write_to(&mut commit_buf).unwrap();
-        let commit_str = std::str::from_utf8(&commit_buf).unwrap();
+        let commit_str = str::from_utf8(&commit_buf).unwrap();
 
         commit
             .extra_headers
@@ -1826,8 +1832,78 @@ mod tests {
         let sig = commit.secure_sig.expect("failed to read the signature");
 
         // converting to string for nicer assert diff
-        assert_eq!(std::str::from_utf8(&sig.sig).unwrap(), secure_sig);
-        assert_eq!(std::str::from_utf8(&sig.data).unwrap(), commit_str);
+        assert_eq!(str::from_utf8(&sig.sig).unwrap(), secure_sig);
+        assert_eq!(str::from_utf8(&sig.data).unwrap(), commit_str);
+    }
+
+    #[test]
+    fn change_id_parsing() {
+        let id = |commit_object_bytes: &[u8]| {
+            extract_change_id_from_commit(&CommitRef::from_bytes(commit_object_bytes).unwrap())
+        };
+
+        let commit_with_id = indoc! {b"
+            tree 126799bf8058d1b5c531e93079f4fe79733920dd
+            parent bd50783bdf38406dd6143475cd1a3c27938db2ee
+            author JJ Fan <jjfan@example.com> 1757112665 -0700
+            committer JJ Fan <jjfan@example.com> 1757359886 -0700
+            extra-header blah
+            change-id lkonztmnvsxytrwkxpvuutrmompwylqq
+
+            test-commit
+        "};
+        insta::assert_compact_debug_snapshot!(
+            id(commit_with_id),
+            @r#"Some(ChangeId("efbc06dc4721683f2a45568dbda31e99"))"#
+        );
+
+        let commit_without_id = indoc! {b"
+            tree 126799bf8058d1b5c531e93079f4fe79733920dd
+            parent bd50783bdf38406dd6143475cd1a3c27938db2ee
+            author JJ Fan <jjfan@example.com> 1757112665 -0700
+            committer JJ Fan <jjfan@example.com> 1757359886 -0700
+            extra-header blah
+
+            no id in header
+        "};
+        insta::assert_compact_debug_snapshot!(
+            id(commit_without_id),
+            @"None"
+        );
+
+        let commit = indoc! {b"
+            tree 126799bf8058d1b5c531e93079f4fe79733920dd
+            parent bd50783bdf38406dd6143475cd1a3c27938db2ee
+            author JJ Fan <jjfan@example.com> 1757112665 -0700
+            committer JJ Fan <jjfan@example.com> 1757359886 -0700
+            change-id lkonztmnvsxytrwkxpvuutrmompwylqq
+            extra-header blah
+            change-id abcabcabcabcabcabcabcabcabcabcab
+
+            valid change id first
+        "};
+        insta::assert_compact_debug_snapshot!(
+            id(commit),
+            @r#"Some(ChangeId("efbc06dc4721683f2a45568dbda31e99"))"#
+        );
+
+        // We only look at the first change id if multiple are present, so this should
+        // error
+        let commit = indoc! {b"
+            tree 126799bf8058d1b5c531e93079f4fe79733920dd
+            parent bd50783bdf38406dd6143475cd1a3c27938db2ee
+            author JJ Fan <jjfan@example.com> 1757112665 -0700
+            committer JJ Fan <jjfan@example.com> 1757359886 -0700
+            change-id abcabcabcabcabcabcabcabcabcabcab
+            extra-header blah
+            change-id lkonztmnvsxytrwkxpvuutrmompwylqq
+
+            valid change id first
+        "};
+        insta::assert_compact_debug_snapshot!(
+            id(commit),
+            @"None"
+        );
     }
 
     #[test]
@@ -2268,7 +2344,7 @@ mod tests {
         let obj = git_repo
             .find_object(gix::ObjectId::from_bytes_or_panic(id.as_bytes()))
             .unwrap();
-        insta::assert_snapshot!(std::str::from_utf8(&obj.data).unwrap(), @r"
+        insta::assert_snapshot!(str::from_utf8(&obj.data).unwrap(), @r"
         tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
         author Someone <someone@example.com> 0 +0000
         committer Someone <someone@example.com> 0 +0000
@@ -2286,11 +2362,11 @@ mod tests {
         let sig = commit.secure_sig.expect("failed to read the signature");
         assert_eq!(&sig, &returned_sig);
 
-        insta::assert_snapshot!(std::str::from_utf8(&sig.sig).unwrap(), @r"
+        insta::assert_snapshot!(str::from_utf8(&sig.sig).unwrap(), @r"
         test sig
         hash=03feb0caccbacce2e7b7bca67f4c82292dd487e669ed8a813120c9f82d3fd0801420a1f5d05e1393abfe4e9fc662399ec4a9a1898c5f1e547e0044a52bd4bd29
         ");
-        insta::assert_snapshot!(std::str::from_utf8(&sig.data).unwrap(), @r"
+        insta::assert_snapshot!(str::from_utf8(&sig.data).unwrap(), @r"
         tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
         author Someone <someone@example.com> 0 +0000
         committer Someone <someone@example.com> 0 +0000

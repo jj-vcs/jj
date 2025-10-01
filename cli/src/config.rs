@@ -309,12 +309,11 @@ impl UnresolvedConfigEnv {
             ConfigPath::new(config_dir)
         });
 
-        if let Some(path) = home_config_path {
-            if path.exists()
-                || (platform_config_path.is_none() && legacy_platform_config_path.is_none())
-            {
-                paths.push(path);
-            }
+        if let Some(path) = home_config_path
+            && (path.exists()
+                || (platform_config_path.is_none() && legacy_platform_config_path.is_none()))
+        {
+            paths.push(path);
         }
 
         // This should be the default config created if there's
@@ -325,33 +324,33 @@ impl UnresolvedConfigEnv {
 
         // theoretically these should be an `if let Some(...) = ... && ..., but that
         // isn't stable
-        if let Some(path) = platform_config_dir {
-            if path.exists() {
-                paths.push(path);
-            }
+        if let Some(path) = platform_config_dir
+            && path.exists()
+        {
+            paths.push(path);
         }
 
-        if let Some(path) = legacy_platform_config_path {
-            if path.exists() {
-                Self::warn_for_deprecated_path(
-                    ui,
-                    path.as_path(),
-                    "~/Library/Application Support/jj",
-                    "~/.config/jj",
-                );
-                paths.push(path);
-            }
+        if let Some(path) = legacy_platform_config_path
+            && path.exists()
+        {
+            Self::warn_for_deprecated_path(
+                ui,
+                path.as_path(),
+                "~/Library/Application Support/jj",
+                "~/.config/jj",
+            );
+            paths.push(path);
         }
-        if let Some(path) = legacy_platform_config_dir {
-            if path.exists() {
-                Self::warn_for_deprecated_path(
-                    ui,
-                    path.as_path(),
-                    "~/Library/Application Support/jj",
-                    "~/.config/jj",
-                );
-                paths.push(path);
-            }
+        if let Some(path) = legacy_platform_config_dir
+            && path.exists()
+        {
+            Self::warn_for_deprecated_path(
+                ui,
+                path.as_path(),
+                "~/Library/Application Support/jj",
+                "~/.config/jj",
+            );
+            paths.push(path);
         }
 
         paths

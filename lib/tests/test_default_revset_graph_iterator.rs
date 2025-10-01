@@ -27,11 +27,7 @@ use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
 
 fn revset_for_commits(repo: &ReadonlyRepo, commits: &[&Commit]) -> DefaultReadonlyIndexRevset {
-    let index = repo
-        .readonly_index()
-        .as_any()
-        .downcast_ref::<DefaultReadonlyIndex>()
-        .unwrap();
+    let index: &DefaultReadonlyIndex = repo.readonly_index().downcast_ref().unwrap();
     let expression =
         ResolvedExpression::Commits(commits.iter().map(|commit| commit.id().clone()).collect());
     index

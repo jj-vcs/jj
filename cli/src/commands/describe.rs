@@ -75,10 +75,11 @@ pub(crate) struct DescribeArgs {
     /// for all of them.
     #[arg(long)]
     stdin: bool,
+    // TODO: Delete in jj 0.40.0+
     /// Don't open an editor
     ///
     /// This is mainly useful in combination with e.g. `--reset-author`.
-    #[arg(long, conflicts_with = "edit")]
+    #[arg(long, hide = true, conflicts_with = "edit")]
     no_edit: bool,
     /// Open an editor
     ///
@@ -86,6 +87,7 @@ pub(crate) struct DescribeArgs {
     /// allow the message to be edited afterwards.
     #[arg(long)]
     edit: bool,
+    // TODO: Delete in jj 0.40.0+
     /// Reset the author name, email, and timestamp
     ///
     /// This resets the author name and email to the configured user and sets
@@ -95,14 +97,16 @@ pub(crate) struct DescribeArgs {
     /// environment variables to set a different author:
     ///
     /// $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj describe --reset-author
-    #[arg(long)]
+    #[arg(long, hide = true)]
     reset_author: bool,
+    // TODO: Delete in jj 0.40.0+
     /// Set author to the provided string
     ///
     /// This changes author name and email while retaining author
     /// timestamp for non-discardable commits.
     #[arg(
         long,
+        hide = true,
         conflicts_with = "reset_author",
         value_parser = parse_author
     )]
@@ -115,6 +119,24 @@ pub(crate) fn cmd_describe(
     command: &CommandHelper,
     args: &DescribeArgs,
 ) -> Result<(), CommandError> {
+    if args.no_edit {
+        writeln!(
+            ui.warning_default(),
+            "`jj describe --no-edit` is deprecated; use `jj metaedit` instead"
+        )?;
+    }
+    if args.reset_author {
+        writeln!(
+            ui.warning_default(),
+            "`jj describe --reset-author` is deprecated; use `jj metaedit --update-author` instead"
+        )?;
+    }
+    if args.author.is_some() {
+        writeln!(
+            ui.warning_default(),
+            "`jj describe --author` is deprecated; use `jj metaedit --author` instead"
+        )?;
+    }
     let mut workspace_command = command.workspace_helper(ui)?;
     let commits: Vec<_> = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
         workspace_command

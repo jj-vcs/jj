@@ -65,8 +65,7 @@ where
 }
 
 fn enable_changed_path_index(repo: &ReadonlyRepo) -> Arc<ReadonlyRepo> {
-    let default_index_store: &DefaultIndexStore =
-        repo.index_store().as_any().downcast_ref().unwrap();
+    let default_index_store: &DefaultIndexStore = repo.index_store().downcast_ref().unwrap();
     default_index_store
         .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 0)
         .block_on()
@@ -366,8 +365,7 @@ fn test_index_commits_previous_operations() {
     let repo = tx.commit("test").unwrap();
 
     // Delete index from disk
-    let default_index_store: &DefaultIndexStore =
-        repo.index_store().as_any().downcast_ref().unwrap();
+    let default_index_store: &DefaultIndexStore = repo.index_store().downcast_ref().unwrap();
     default_index_store.reinit().unwrap();
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
@@ -422,8 +420,7 @@ fn test_index_commits_hidden_but_referenced() {
     assert!(repo.index().has_id(commit_c.id()));
 
     // Delete index from disk
-    let default_index_store: &DefaultIndexStore =
-        repo.index_store().as_any().downcast_ref().unwrap();
+    let default_index_store: &DefaultIndexStore = repo.index_store().downcast_ref().unwrap();
     default_index_store.reinit().unwrap();
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
@@ -557,11 +554,11 @@ fn create_n_commits(repo: &Arc<ReadonlyRepo>, num_commits: i32) -> Arc<ReadonlyR
 }
 
 fn as_readonly_index(repo: &Arc<ReadonlyRepo>) -> &DefaultReadonlyIndex {
-    repo.readonly_index().as_any().downcast_ref().unwrap()
+    repo.readonly_index().downcast_ref().unwrap()
 }
 
 fn as_mutable_index(repo: &MutableRepo) -> &DefaultMutableIndex {
-    repo.mutable_index().as_any().downcast_ref().unwrap()
+    repo.mutable_index().downcast_ref().unwrap()
 }
 
 fn commits_by_level(repo: &Arc<ReadonlyRepo>) -> Vec<u32> {
@@ -751,15 +748,14 @@ fn test_reindex_missing_commit() {
     let repo = tx.commit("test").unwrap();
 
     // Remove historical head commit to simulate bad GC.
-    let test_backend: &TestBackend = repo.store().backend_impl().downcast_ref().unwrap();
+    let test_backend: &TestBackend = repo.store().backend_impl().unwrap();
     test_backend.remove_commit_unchecked(missing_commit.id());
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path()); // discard cache
     assert!(repo.store().get_commit(missing_commit.id()).is_err());
 
     // Reindexing error should include the operation id where the commit
     // couldn't be found.
-    let default_index_store: &DefaultIndexStore =
-        repo.index_store().as_any().downcast_ref().unwrap();
+    let default_index_store: &DefaultIndexStore = repo.index_store().downcast_ref().unwrap();
     default_index_store.reinit().unwrap();
     let err = default_index_store
         .build_index_at_operation(repo.operation(), repo.store())
@@ -882,8 +878,7 @@ fn test_build_changed_path_segments() {
     let test_repo = TestRepo::init();
     let repo = test_repo.repo;
     let root_commit_id = repo.store().root_commit_id();
-    let default_index_store: &DefaultIndexStore =
-        repo.index_store().as_any().downcast_ref().unwrap();
+    let default_index_store: &DefaultIndexStore = repo.index_store().downcast_ref().unwrap();
 
     let mut tx = repo.start_transaction();
     for i in 1..10 {
@@ -930,8 +925,7 @@ fn test_build_changed_path_segments_partially_enabled() {
     let test_repo = TestRepo::init();
     let repo = test_repo.repo;
     let root_commit_id = repo.store().root_commit_id();
-    let default_index_store: &DefaultIndexStore =
-        repo.index_store().as_any().downcast_ref().unwrap();
+    let default_index_store: &DefaultIndexStore = repo.index_store().downcast_ref().unwrap();
 
     // Partially enable index by merging two operations
     let tx1 = {

@@ -19,8 +19,6 @@
 //! disk and contains an entry for every commit in the repository. See
 //! [`DefaultReadonlyIndex`] and [`DefaultMutableIndex`].
 
-#![allow(missing_docs)]
-
 mod bit_set;
 mod changed_path;
 mod composite;

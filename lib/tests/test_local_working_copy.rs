@@ -33,6 +33,8 @@ use jj_lib::file_util::try_symlink;
 use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::LocalWorkingCopy;
+use jj_lib::local_working_copy::TreeState;
+use jj_lib::local_working_copy::TreeStateSettings;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
@@ -50,16 +52,17 @@ use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::UntrackedReason;
 use jj_lib::working_copy::WorkingCopy as _;
-use jj_lib::workspace::LockedWorkspace;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::default_working_copy_factories;
 use pollster::FutureExt as _;
 use test_case::test_case;
+use testutils::TestRepo;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
 use testutils::commit_with_tree;
 use testutils::create_tree;
 use testutils::create_tree_with;
+use testutils::empty_snapshot_options;
 use testutils::repo_path;
 use testutils::repo_path_buf;
 use testutils::repo_path_component;
@@ -394,7 +397,7 @@ fn test_checkout_no_op() {
     ws.check_out(repo.op_id().clone(), None, &commit1).unwrap();
 
     // Test the setup: the file should exist on in the tree state.
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(wc.file_states().unwrap().contains_path(file_path));
 
     // Update to commit2 (same tree as commit1)
@@ -403,7 +406,7 @@ fn test_checkout_no_op() {
     assert_eq!(stats, CheckoutStats::default());
 
     // The tree state is unchanged but the recorded operation id is updated.
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(wc.file_states().unwrap().contains_path(file_path));
     assert_eq!(*wc.operation_id(), new_op_id);
 }
@@ -692,7 +695,7 @@ fn test_reset() {
 
     // Test the setup: the file should exist on disk and in the tree state.
     assert!(ignored_path.to_fs_path_unchecked(&workspace_root).is_file());
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(wc.file_states().unwrap().contains_path(ignored_path));
 
     // After we reset to the commit without the file, it should still exist on disk,
@@ -702,7 +705,7 @@ fn test_reset() {
     locked_ws.locked_wc().reset(&commit_without_file).unwrap();
     locked_ws.finish(op_id.clone()).unwrap();
     assert!(ignored_path.to_fs_path_unchecked(&workspace_root).is_file());
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(!wc.file_states().unwrap().contains_path(ignored_path));
     let new_tree = test_workspace.snapshot().unwrap();
     assert_eq!(new_tree.id(), tree_without_file.id());
@@ -714,7 +717,7 @@ fn test_reset() {
     locked_ws.locked_wc().reset(&commit_with_file).unwrap();
     locked_ws.finish(op_id.clone()).unwrap();
     assert!(ignored_path.to_fs_path_unchecked(&workspace_root).is_file());
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(wc.file_states().unwrap().contains_path(ignored_path));
     let new_tree = test_workspace.snapshot().unwrap();
     assert_eq!(new_tree.id(), tree_with_file.id());
@@ -740,12 +743,12 @@ fn test_checkout_discard() {
 
     let ws = &mut test_workspace.workspace;
     ws.check_out(repo.op_id().clone(), None, &commit1).unwrap();
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     let state_path = wc.state_path().to_path_buf();
 
     // Test the setup: the file should exist on disk and in the tree state.
     assert!(file1_path.to_fs_path_unchecked(&workspace_root).is_file());
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(wc.file_states().unwrap().contains_path(file1_path));
 
     // Start a checkout
@@ -766,7 +769,7 @@ fn test_checkout_discard() {
     drop(locked_ws);
 
     // The change should remain in the working copy, but not in memory and not saved
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(wc.file_states().unwrap().contains_path(file1_path));
     assert!(!wc.file_states().unwrap().contains_path(file2_path));
     assert!(!file1_path.to_fs_path_unchecked(&workspace_root).is_file());
@@ -1028,7 +1031,7 @@ fn test_snapshot_racy_timestamps() {
             .unwrap();
         let (new_tree_id, _stats) = locked_ws
             .locked_wc()
-            .snapshot(&SnapshotOptions::empty_for_test())
+            .snapshot(&empty_snapshot_options())
             .unwrap();
         assert_ne!(new_tree_id, previous_tree_id);
         previous_tree_id = new_tree_id;
@@ -1061,7 +1064,7 @@ fn test_snapshot_special_file() {
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
     let (tree_id, _stats) = locked_ws
         .locked_wc()
-        .snapshot(&SnapshotOptions::empty_for_test())
+        .snapshot(&empty_snapshot_options())
         .unwrap();
     locked_ws.finish(OperationId::from_hex("abc123")).unwrap();
     let tree = store.get_root_tree(&tree_id).unwrap();
@@ -1070,7 +1073,7 @@ fn test_snapshot_special_file() {
         tree.entries().map(|(path, _value)| path).collect_vec(),
         to_owned_path_vec(&[file1_path, file2_path])
     );
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert_eq!(
         wc.file_states().unwrap().paths().collect_vec(),
         vec![file1_path, file2_path]
@@ -1086,7 +1089,7 @@ fn test_snapshot_special_file() {
         to_owned_path_vec(&[file2_path])
     );
     let ws = &mut test_workspace.workspace;
-    let wc: &LocalWorkingCopy = ws.working_copy().as_any().downcast_ref().unwrap();
+    let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert_eq!(
         wc.file_states().unwrap().paths().collect_vec(),
         vec![file2_path]
@@ -1348,7 +1351,7 @@ fn test_git_submodule(gitignore_content: &str) {
         .unwrap();
     let snapshot_options = SnapshotOptions {
         base_ignores,
-        ..SnapshotOptions::empty_for_test()
+        ..empty_snapshot_options()
     };
     let mut tx = repo.start_transaction();
 
@@ -1934,15 +1937,20 @@ fn test_check_out_reserved_file_path_vfat(vfat_path_str: &str, file_path_strs: &
 
 #[test]
 fn test_fsmonitor() {
-    let mut test_workspace = TestWorkspace::init();
-    let repo = &test_workspace.repo;
-    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
-
-    let ws = &mut test_workspace.workspace;
-    assert_eq!(
-        ws.working_copy().sparse_patterns().unwrap(),
-        vec![RepoPathBuf::root()]
-    );
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let workspace_root = test_repo.env.root().join("workspace");
+    let state_path = test_repo.env.root().join("state");
+    std::fs::create_dir(&workspace_root).unwrap();
+    std::fs::create_dir(&state_path).unwrap();
+    let tree_state_settings = TreeStateSettings::try_from_user_settings(repo.settings()).unwrap();
+    TreeState::init(
+        repo.store().clone(),
+        workspace_root.clone(),
+        state_path.clone(),
+        &tree_state_settings,
+    )
+    .unwrap();
 
     let foo_path = repo_path("foo");
     let bar_path = repo_path("bar");
@@ -1956,77 +1964,65 @@ fn test_fsmonitor() {
     testutils::write_working_copy_file(&workspace_root, ignored_path, "ignored\n");
     testutils::write_working_copy_file(&workspace_root, gitignore_path, "to/ignored\n");
 
-    let snapshot = |locked_ws: &mut LockedWorkspace, paths: &[&RepoPath]| {
-        let fs_paths = paths
+    let snapshot = |paths: &[&RepoPath]| {
+        let changed_files = paths
             .iter()
             .map(|p| p.to_fs_path_unchecked(Path::new("")))
             .collect();
-        let (tree_id, _stats) = locked_ws
-            .locked_wc()
-            .snapshot(&SnapshotOptions {
-                fsmonitor_settings: FsmonitorSettings::Test {
-                    changed_files: fs_paths,
-                },
-                ..SnapshotOptions::empty_for_test()
-            })
-            .unwrap();
-        tree_id
+        let settings = TreeStateSettings {
+            fsmonitor_settings: FsmonitorSettings::Test { changed_files },
+            ..tree_state_settings.clone()
+        };
+        let mut tree_state = TreeState::load(
+            repo.store().clone(),
+            workspace_root.clone(),
+            state_path.clone(),
+            &settings,
+        )
+        .unwrap();
+        tree_state.snapshot(&empty_snapshot_options()).unwrap();
+        tree_state
     };
 
-    {
-        let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-        let tree_id = snapshot(&mut locked_ws, &[]);
-        assert_eq!(tree_id, repo.store().empty_merged_tree_id());
-    }
+    let tree_state = snapshot(&[]);
+    assert_eq!(
+        *tree_state.current_tree_id(),
+        repo.store().empty_merged_tree_id()
+    );
 
-    {
-        let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-        let tree_id = snapshot(&mut locked_ws, &[foo_path]);
-        insta::assert_snapshot!(testutils::dump_tree(repo.store(), &tree_id), @r#"
-        tree 2a5341b103917cfdb48a
-          file "foo" (e99c2057c15160add351): "foo\n"
-        "#);
-    }
+    let tree_state = snapshot(&[foo_path]);
+    insta::assert_snapshot!(testutils::dump_tree(repo.store(), tree_state.current_tree_id()), @r#"
+    tree 2a5341b103917cfdb48a
+      file "foo" (e99c2057c15160add351): "foo\n"
+    "#);
 
-    {
-        let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-        let tree_id = snapshot(
-            &mut locked_ws,
-            &[foo_path, bar_path, nested_path, ignored_path],
-        );
-        insta::assert_snapshot!(testutils::dump_tree(repo.store(), &tree_id), @r#"
-        tree 1c5c336421714b1df7bb
-          file "bar" (94cc973e7e1aefb7eff6): "bar\n"
-          file "foo" (e99c2057c15160add351): "foo\n"
-          file "path/to/nested" (6209060941cd770c8d46): "nested\n"
-        "#);
-        locked_ws.finish(repo.op_id().clone()).unwrap();
-    }
+    let mut tree_state = snapshot(&[foo_path, bar_path, nested_path, ignored_path]);
+    insta::assert_snapshot!(testutils::dump_tree(repo.store(), tree_state.current_tree_id()), @r#"
+    tree 1c5c336421714b1df7bb
+      file "bar" (94cc973e7e1aefb7eff6): "bar\n"
+      file "foo" (e99c2057c15160add351): "foo\n"
+      file "path/to/nested" (6209060941cd770c8d46): "nested\n"
+    "#);
+    tree_state.save().unwrap();
 
-    {
-        testutils::write_working_copy_file(&workspace_root, foo_path, "updated foo\n");
-        testutils::write_working_copy_file(&workspace_root, bar_path, "updated bar\n");
-        let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-        let tree_id = snapshot(&mut locked_ws, &[foo_path]);
-        insta::assert_snapshot!(testutils::dump_tree(repo.store(), &tree_id), @r#"
-        tree f653dfa18d0b025bdb9e
-          file "bar" (94cc973e7e1aefb7eff6): "bar\n"
-          file "foo" (e0fbd106147cc04ccd05): "updated foo\n"
-          file "path/to/nested" (6209060941cd770c8d46): "nested\n"
-        "#);
-    }
+    testutils::write_working_copy_file(&workspace_root, foo_path, "updated foo\n");
+    testutils::write_working_copy_file(&workspace_root, bar_path, "updated bar\n");
+    let tree_state = snapshot(&[foo_path]);
+    insta::assert_snapshot!(testutils::dump_tree(repo.store(), tree_state.current_tree_id()), @r#"
+    tree f653dfa18d0b025bdb9e
+      file "bar" (94cc973e7e1aefb7eff6): "bar\n"
+      file "foo" (e0fbd106147cc04ccd05): "updated foo\n"
+      file "path/to/nested" (6209060941cd770c8d46): "nested\n"
+    "#);
 
-    {
-        std::fs::remove_file(foo_path.to_fs_path_unchecked(&workspace_root)).unwrap();
-        let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-        let tree_id = snapshot(&mut locked_ws, &[foo_path]);
-        insta::assert_snapshot!(testutils::dump_tree(repo.store(), &tree_id), @r#"
-        tree b7416fc248a038b920c3
-          file "bar" (94cc973e7e1aefb7eff6): "bar\n"
-          file "path/to/nested" (6209060941cd770c8d46): "nested\n"
-        "#);
-        locked_ws.finish(repo.op_id().clone()).unwrap();
-    }
+    std::fs::remove_file(foo_path.to_fs_path_unchecked(&workspace_root)).unwrap();
+    let mut tree_state = snapshot(&[foo_path]);
+    insta::assert_snapshot!(testutils::dump_tree(repo.store(), tree_state.current_tree_id()), @r#"
+    tree b7416fc248a038b920c3
+      file "bar" (94cc973e7e1aefb7eff6): "bar\n"
+      file "path/to/nested" (6209060941cd770c8d46): "nested\n"
+    "#);
+    tree_state.save().unwrap();
 }
 
 #[test]
@@ -2043,7 +2039,7 @@ fn test_snapshot_max_new_file_size() {
     .unwrap();
     let options = SnapshotOptions {
         max_new_file_size: limit as u64,
-        ..SnapshotOptions::empty_for_test()
+        ..empty_snapshot_options()
     };
     test_workspace
         .snapshot_with_options(&options)
