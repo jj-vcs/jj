@@ -116,7 +116,7 @@ pub fn cmd_git_init(
         r#"Initialized repo in "{}""#,
         relative_wc_path.display()
     )?;
-    if colocate {
+    if colocate && command.settings().git_settings()?.warn_about_clean {
         writeln!(
             ui.warning_default(),
             r"Running `git clean -xdf` will remove `.jj/`!",
