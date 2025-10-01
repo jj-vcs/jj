@@ -64,6 +64,7 @@ pub struct GitSettings {
     pub executable_path: PathBuf,
     pub write_change_id_header: bool,
     pub colocate: bool,
+    pub warn_about_clean: bool,
 }
 
 impl GitSettings {
@@ -74,6 +75,7 @@ impl GitSettings {
             executable_path: settings.get("git.executable-path")?,
             write_change_id_header: settings.get("git.write-change-id-header")?,
             colocate: settings.get("git.colocate")?,
+            warn_about_clean: settings.get_bool("git.clean-warning")?,
         })
     }
 }
@@ -86,6 +88,7 @@ impl Default for GitSettings {
             executable_path: PathBuf::from("git"),
             write_change_id_header: true,
             colocate: true,
+            warn_about_clean: true,
         }
     }
 }

@@ -15,6 +15,7 @@ auto-local-bookmark = false
 executable-path = "git"
 write-change-id-header = true
 colocate = true
+clean-warning = true
 
 [operation]
 hostname = ""

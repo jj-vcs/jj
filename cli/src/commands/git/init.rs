@@ -118,10 +118,13 @@ pub fn cmd_git_init(
         relative_wc_path.display()
     )?;
     if colocate {
-        writeln!(
+        if command.settings().git_settings()?.warn_about_clean {
+            writeln!(
             ui.warning_default(),
             r"Running `git clean -xdf` will remove `.jj/`!",
-        )?;
+            )?;
+        }
+        
     }
 
     Ok(())
