@@ -2358,3 +2358,166 @@ fn get_bookmark_output(work_dir: &TestWorkDir) -> CommandOutput {
     // --quiet to suppress deleted bookmarks hint
     work_dir.run_jj(["bookmark", "list", "--all-remotes", "--quiet"])
 }
+
+#[test]
+fn test_bookmark_tug() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    std::fs::write(work_dir.root().join("file1"), "content1").unwrap();
+    work_dir.run_jj(["describe", "-m=first"]).success();
+    work_dir.run_jj(["bookmark", "create", "foo"]).success();
+    work_dir.run_jj(["new", "-m=second"]).success();
+    std::fs::write(work_dir.root().join("file2"), "content2").unwrap();
+    work_dir.run_jj(["new", "-m=third"]).success();
+    std::fs::write(work_dir.root().join("file3"), "content3").unwrap();
+
+    let output = work_dir.run_jj(["bookmark", "tug", "--from=description(first)"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Moved bookmark foo to zsuskuln 22dbdd9a foo | second
+    [EOF]
+    "###);
+}
+
+#[test]
+fn test_bookmark_tug_no_bookmark() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m=first"]).success();
+
+    let output = work_dir.run_jj(["bookmark", "tug", "--from=@"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Error: No bookmarks found on 68a505386f936fff6d718f55005e77ea72589bc1 or its ancestors
+    [EOF]
+    [exit status: 1]
+    "###);
+}
+
+#[test]
+fn test_bookmark_tug_no_descendants() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m=first"]).success();
+    work_dir.run_jj(["bookmark", "create", "foo"]).success();
+
+    let output = work_dir.run_jj(["bookmark", "tug"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Error: No non-empty descendants found for revision 68a505386f936fff6d718f55005e77ea72589bc1
+    [EOF]
+    [exit status: 1]
+    "###);
+}
+
+#[test]
+fn test_bookmark_tug_multiple_bookmarks() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    std::fs::write(work_dir.root().join("file1"), "content1").unwrap();
+    work_dir.run_jj(["describe", "-m=first"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "foo", "bar"])
+        .success();
+    work_dir.run_jj(["new", "-m=second"]).success();
+    std::fs::write(work_dir.root().join("file2"), "content2").unwrap();
+
+    let output = work_dir.run_jj(["bookmark", "tug", "--from=description(first)"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Warning: Multiple bookmarks found on revision c38d5fac53d0539d9caa10495b207732ef170052: bar, foo
+    Hint: Using bookmark: bar
+    Moved bookmark bar to zsuskuln 22dbdd9a bar | second
+    [EOF]
+    "###);
+}
+
+#[test]
+fn test_bookmark_tug_backwards() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    std::fs::write(work_dir.root().join("file1"), "content1").unwrap();
+    work_dir.run_jj(["describe", "-m=first"]).success();
+    work_dir.run_jj(["new", "-m=second"]).success();
+    std::fs::write(work_dir.root().join("file2"), "content2").unwrap();
+    work_dir.run_jj(["bookmark", "create", "foo"]).success();
+    work_dir.run_jj(["new", "root()", "-m=third"]).success();
+    std::fs::write(work_dir.root().join("file3"), "content3").unwrap();
+
+    let output = work_dir.run_jj(["bookmark", "tug", "--from=description(second)"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Error: No non-empty descendants found for revision 63351e1b9362cbf9d47547d2e87a5e3bb8bcab3c
+    [EOF]
+    [exit status: 1]
+    "###);
+
+    let output = work_dir.run_jj([
+        "bookmark",
+        "tug",
+        "--from=description(second)",
+        "--allow-backwards",
+    ]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Error: No non-empty descendants found for revision 63351e1b9362cbf9d47547d2e87a5e3bb8bcab3c
+    [EOF]
+    [exit status: 1]
+    "###);
+}
+
+#[test]
+fn test_bookmark_tug_finds_ancestor_bookmark() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    std::fs::write(work_dir.root().join("file1"), "content1").unwrap();
+    work_dir.run_jj(["describe", "-m=first"]).success();
+    work_dir.run_jj(["bookmark", "create", "foo"]).success();
+    work_dir.run_jj(["new", "-m=second"]).success();
+    std::fs::write(work_dir.root().join("file2"), "content2").unwrap();
+    work_dir.run_jj(["new", "-m=third"]).success();
+    std::fs::write(work_dir.root().join("file3"), "content3").unwrap();
+
+    let output = work_dir.run_jj(["bookmark", "tug"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Moved bookmark foo to zsuskuln 22dbdd9a foo | second
+    [EOF]
+    "###);
+}
+
+#[test]
+fn test_bookmark_tug_from_parent_with_bookmark() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    std::fs::write(work_dir.root().join("file1"), "content1").unwrap();
+    work_dir.run_jj(["describe", "-m=base"]).success();
+    work_dir.run_jj(["new", "-m=parent"]).success();
+    std::fs::write(work_dir.root().join("file2"), "content2").unwrap();
+    work_dir.run_jj(["bookmark", "create", "feature"]).success();
+    work_dir.run_jj(["new", "-m=child1"]).success();
+    std::fs::write(work_dir.root().join("file3"), "content3").unwrap();
+    work_dir.run_jj(["new", "-m=child2"]).success();
+    std::fs::write(work_dir.root().join("file4"), "content4").unwrap();
+
+    let output = work_dir.run_jj(["bookmark", "tug", "--from=@"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Moved bookmark feature to mzvwutvl 48fcc57d feature | child1
+    [EOF]
+    "###);
+}
