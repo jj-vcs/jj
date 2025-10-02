@@ -140,6 +140,9 @@ Thanks to the people who made this release happen!
 * Theo Buehler (@botovq)
 * Yuya Nishihara (@yuja)
 
+* `jj metaedit --author-timestamp` twice with the same value no longer
+edits the change twice in some cases.
+
 ## [0.33.0] - 2025-09-03
 
 ### Release highlights
