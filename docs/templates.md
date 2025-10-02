@@ -221,6 +221,8 @@ The following methods are defined.
   local ref.
 * `.tracking_behind_count() -> SizeHint`: Number of commits behind of the
   tracking local ref.
+* `.synced() -> Boolean`: For a local bookmark, true if synced with all remotes.
+  For a remote bookmark, true if synced with the tracking local bookmark.
 
 ### `ConfigValue` type
 
