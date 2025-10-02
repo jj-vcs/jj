@@ -6041,7 +6041,9 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <li>
 <p><code>jj bookmark create/set/move</code> use the working copy as a default again and
   no longer require an explicit revision argument. This walks back a
-  deprecation from <code>jj 0.26</code>, as the community feedback was mostly negative.</p>
+  deprecation from <code>jj 0.26</code>, as the community feedback was mostly negative.
+  Instead, bookmarking an empty revision now produces a warning, to help you
+  catch the case where you meant to bookmark the parent revision.</p>
 </li>
 <li>
 <p>The revset function <code>exactly(x, n)</code> will now evaluate <code>x</code> and error if it does
