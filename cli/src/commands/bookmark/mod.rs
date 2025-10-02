@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod bump;
 mod create;
 mod delete;
 mod forget;
@@ -32,6 +33,8 @@ use jj_lib::repo::Repo;
 use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
 
+use self::bump::BookmarkBumpArgs;
+use self::bump::cmd_bookmark_bump;
 use self::create::BookmarkCreateArgs;
 use self::create::cmd_bookmark_create;
 use self::delete::BookmarkDeleteArgs;
@@ -84,6 +87,8 @@ pub enum BookmarkCommand {
     #[command(visible_alias("t"))]
     Track(BookmarkTrackArgs),
     Untrack(BookmarkUntrackArgs),
+    #[command(visible_alias("b"))]
+    Bump(BookmarkBumpArgs),
 }
 
 pub fn cmd_bookmark(
@@ -92,6 +97,7 @@ pub fn cmd_bookmark(
     subcommand: &BookmarkCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
+        BookmarkCommand::Bump(args) => cmd_bookmark_bump(ui, command, args),
         BookmarkCommand::Create(args) => cmd_bookmark_create(ui, command, args),
         BookmarkCommand::Delete(args) => cmd_bookmark_delete(ui, command, args),
         BookmarkCommand::Forget(args) => cmd_bookmark_forget(ui, command, args),
