@@ -1095,7 +1095,9 @@ impl MutableRepo {
                 None => &[],
                 Some(rewrite) => rewrite.new_parent_ids(),
             },
-        );
+            |_| panic!("graph has cycle"),
+        )
+        .unwrap();
         let mut new_mapping: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
         for old_id in sorted_ids {
             let Some(rewrite) = self.parent_mapping.get(old_id).filter(|&v| predicate(v)) else {
