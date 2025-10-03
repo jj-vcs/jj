@@ -140,6 +140,8 @@ Thanks to the people who made this release happen!
 * Theo Buehler (@botovq)
 * Yuya Nishihara (@yuja)
 
+* Setting the editor via `ui.editor`, `$EDITOR`, or `JJ_EDITOR` now respects shell quoting.
+
 ## [0.33.0] - 2025-09-03
 
 ### Release highlights
