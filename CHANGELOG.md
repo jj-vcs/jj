@@ -88,7 +88,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   catch the case where you meant to bookmark the parent revision.
 
 * The revset function `exactly(x, n)` will now evaluate `x` and error if it does
-  not have exactly `n` elements.
+  not have the range specified by `n`.
 
 * `jj util exec` now matches the exit status of the program it runs, and
   doesn't print anything.
