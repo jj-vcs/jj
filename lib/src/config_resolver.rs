@@ -765,6 +765,9 @@ mod tests {
         } else if cfg!(target_os = "windows") {
             assert_eq!(resolved_config.layers().len(), 2);
             insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a windows'");
+        } else if cfg!(target_family = "unix") {
+            assert_eq!(resolved_config.layers().len(), 2);
+            insta::assert_snapshot!(resolved_config.layers()[1].data, @"b = 'b unix'");
         } else {
             assert_eq!(resolved_config.layers().len(), 1);
         }
