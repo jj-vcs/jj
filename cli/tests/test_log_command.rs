@@ -113,6 +113,15 @@ fn test_log_with_or_without_diff() {
     [EOF]
     ");
 
+    // `-G` is the short name of --no-graph
+    let output = work_dir.run_jj(["log", "-T", r#"commit_id.short() ++ "\n""#, "-G"]);
+    insta::assert_snapshot!(output, @r"
+    58c940c45833
+    007859d3ad71
+    000000000000
+    [EOF]
+    ");
+
     // `-p` for default diff output, `-s` for summary
     let output = work_dir.run_jj(["log", "-T", "description", "-p", "-s"]);
     insta::assert_snapshot!(output, @r"

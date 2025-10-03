@@ -1649,7 +1649,7 @@ The working-copy commit is indicated by a `@` symbol in the graph. [Immutable re
 
    Applied after revisions are filtered and reordered topologically, but before being reversed.
 * `--reversed` — Show revisions in the opposite order (older revisions first)
-* `--no-graph` — Don't show the graph, show a flat list of revisions
+* `-G`, `--no-graph` — Don't show the graph, show a flat list of revisions
 * `-T`, `--template <TEMPLATE>` — Render each revision using the given template
 
    Run `jj log -T` to list the built-in templates.
