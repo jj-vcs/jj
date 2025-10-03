@@ -14,6 +14,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* The `CryptographicSignature.key()` template method now also works for SSH
+  signatures and returns the corresponding public key fingerprint.
+
 ### Fixed bugs
 
 ## [0.34.0] - 2025-10-01
