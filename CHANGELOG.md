@@ -97,6 +97,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj util exec` sets the environment variable `JJ_WORKSPACE_ROOT`
 
+* Updated the internal executable bit representation in the working copy to
+  allow ignoring executable bit changes when using a nonstandard filesystem. We
+  also try to detect the filesystem's behavior on Unix by default, but it can
+  be overridden manually by setting
+  `working-copy.exec-bit-change = "respect" | "ignore"`.
+
 ### Fixed bugs
 
 * Fetching repositories that have submodules no longer errors even if
