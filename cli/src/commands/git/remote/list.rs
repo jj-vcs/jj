@@ -14,6 +14,8 @@
 
 use std::io::Write as _;
 
+use bstr::BString;
+use gix::Remote;
 use jj_lib::git;
 use jj_lib::repo::Repo as _;
 
@@ -44,12 +46,20 @@ pub fn cmd_git_remote_list(
             }
             None => continue, // ignore empty [remote "<name>"] section
         };
-        // TODO: print push url (by default or by some flag)?
-        let fetch_url = remote
-            .url(gix::remote::Direction::Fetch)
-            .map(|url| url.to_bstring())
-            .unwrap_or_else(|| "<no URL>".into());
-        writeln!(ui.stdout(), "{remote_name} {fetch_url}")?;
+        let fetch_url = get_url(&remote, gix::remote::Direction::Fetch);
+        let push_url = get_url(&remote, gix::remote::Direction::Push);
+        if fetch_url == push_url {
+            writeln!(ui.stdout(), "{remote_name} {fetch_url}")?;
+        } else {
+            writeln!(ui.stdout(), "{remote_name} {fetch_url} (push: {push_url})")?;
+        }
     }
     Ok(())
+}
+
+fn get_url(remote: &Remote, direction: gix::remote::Direction) -> BString {
+    remote
+        .url(direction)
+        .map(|url| url.to_bstring())
+        .unwrap_or_else(|| "<no URL>".into())
 }
