@@ -45,9 +45,9 @@ fn test_backout() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    ○  b8c8e82a19bc Back out "a"
+    ○  2aec8d60fd26 Back out "a"
     │
-    │  This backs out commit 7d980be7a1d499e4d316ab4c01242885032f7eaf.
+    │  This backs out revision 7d980be7a1d499e4d316ab4c01242885032f7eaf.
     @  7d980be7a1d4 a
     ◆  000000000000
     [EOF]
@@ -68,12 +68,12 @@ fn test_backout() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    ○  812d823be175 Back out "Back out "a""
+    ○  e4a50561283b Back out "Back out "a""
     │
-    │  This backs out commit b8c8e82a19bcf6217e065d1aff9a5f0ba807b565.
-    @  b8c8e82a19bc Back out "a"
+    │  This backs out revision 2aec8d60fd2632c0cfdd40fd55a13466500af6b2.
+    @  2aec8d60fd26 Back out "a"
     │
-    │  This backs out commit 7d980be7a1d499e4d316ab4c01242885032f7eaf.
+    │  This backs out revision 7d980be7a1d499e4d316ab4c01242885032f7eaf.
     ○  7d980be7a1d4 a
     ◆  000000000000
     [EOF]
@@ -117,15 +117,15 @@ fn test_backout_multiple() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r#"
-    ○  036128aa5f6e Back out "b"
+    ○  b1a212f89ab2 Back out "b"
     │
-    │  This backs out commit f93a910dbdf0f841e6cf2bc0ab0ba4c336d6f436.
-    ○  156974608bed Back out "c"
+    │  This backs out revision f93a910dbdf0f841e6cf2bc0ab0ba4c336d6f436.
+    ○  024899bba66a Back out "c"
     │
-    │  This backs out commit 05e1f540476f8c4207ff44febbe2ce6e6696dc4b.
-    ○  3f72017241e0 Back out "e"
+    │  This backs out revision 05e1f540476f8c4207ff44febbe2ce6e6696dc4b.
+    ○  8ab5f1ef5092 Back out "e"
     │
-    │  This backs out commit 51a01d6d8cc48a296cb87f8383b34ade3c050363.
+    │  This backs out revision 51a01d6d8cc48a296cb87f8383b34ade3c050363.
     @  51a01d6d8cc4 e
     ○  4b9d123d3b33 d
     ○  05e1f540476f c
@@ -137,14 +137,14 @@ fn test_backout_multiple() {
     // View the output of each backed out commit
     let output = work_dir.run_jj(["show", "@+"]);
     insta::assert_snapshot!(output, @r#"
-    Commit ID: 3f72017241e0a32ab837ae929061cdc05ff04f5b
-    Change ID: wqnwkozpkustnxypnnntnykwrqrkrpvv
-    Author   : Test User <test.user@example.com> (2001-02-03 08:05:19)
-    Committer: Test User <test.user@example.com> (2001-02-03 08:05:19)
+    Revision ID: 8ab5f1ef5092e346da1763441060d1cfd5ac9660
+    Change ID  : wqnwkozpkustnxypnnntnykwrqrkrpvv
+    Author     : Test User <test.user@example.com> (2001-02-03 08:05:19)
+    Committer  : Test User <test.user@example.com> (2001-02-03 08:05:19)
 
         Back out "e"
 
-        This backs out commit 51a01d6d8cc48a296cb87f8383b34ade3c050363.
+        This backs out revision 51a01d6d8cc48a296cb87f8383b34ade3c050363.
 
     Modified regular file a:
        1    1: a
@@ -154,14 +154,14 @@ fn test_backout_multiple() {
     "#);
     let output = work_dir.run_jj(["show", "@++"]);
     insta::assert_snapshot!(output, @r#"
-    Commit ID: 156974608bed539fb98d89c1f6995d962123cdbd
-    Change ID: mouksmquosnpvwqrpsvvxtxpywpnxlss
-    Author   : Test User <test.user@example.com> (2001-02-03 08:05:19)
-    Committer: Test User <test.user@example.com> (2001-02-03 08:05:19)
+    Revision ID: 024899bba66ac12a43cc695d00d6fc238c2384ea
+    Change ID  : mouksmquosnpvwqrpsvvxtxpywpnxlss
+    Author     : Test User <test.user@example.com> (2001-02-03 08:05:19)
+    Committer  : Test User <test.user@example.com> (2001-02-03 08:05:19)
 
         Back out "c"
 
-        This backs out commit 05e1f540476f8c4207ff44febbe2ce6e6696dc4b.
+        This backs out revision 05e1f540476f8c4207ff44febbe2ce6e6696dc4b.
 
     Removed regular file b:
        1     : b
@@ -169,14 +169,14 @@ fn test_backout_multiple() {
     "#);
     let output = work_dir.run_jj(["show", "@+++"]);
     insta::assert_snapshot!(output, @r#"
-    Commit ID: 036128aa5f6eb3770cc8284c0dbe198b2c9a5f62
-    Change ID: tqvpomtpwrqsylrpsxknultrymmqxmxv
-    Author   : Test User <test.user@example.com> (2001-02-03 08:05:19)
-    Committer: Test User <test.user@example.com> (2001-02-03 08:05:19)
+    Revision ID: b1a212f89ab2f2ab0d427643cff523834914b995
+    Change ID  : tqvpomtpwrqsylrpsxknultrymmqxmxv
+    Author     : Test User <test.user@example.com> (2001-02-03 08:05:19)
+    Committer  : Test User <test.user@example.com> (2001-02-03 08:05:19)
 
         Back out "b"
 
-        This backs out commit f93a910dbdf0f841e6cf2bc0ab0ba4c336d6f436.
+        This backs out revision f93a910dbdf0f841e6cf2bc0ab0ba4c336d6f436.
 
     Modified regular file a:
        1    1: a
