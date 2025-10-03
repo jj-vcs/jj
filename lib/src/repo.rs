@@ -45,6 +45,7 @@ use crate::commit::CommitByCommitterTimestamp;
 use crate::commit_builder::CommitBuilder;
 use crate::commit_builder::DetachedCommitBuilder;
 use crate::dag_walk;
+use crate::dag_walk::CycleError;
 use crate::default_index::DefaultIndexStore;
 use crate::default_index::DefaultMutableIndex;
 use crate::default_submodule_store::DefaultSubmoduleStore;
@@ -1072,7 +1073,7 @@ impl MutableRepo {
     fn resolve_rewrite_mapping_with(
         &self,
         mut predicate: impl FnMut(&Rewrite) -> bool,
-    ) -> HashMap<CommitId, Vec<CommitId>> {
+    ) -> Result<HashMap<CommitId, Vec<CommitId>>, CycleError<CommitId>> {
         let sorted_ids = dag_walk::topo_order_forward(
             self.parent_mapping.keys(),
             |&id| id,
@@ -1080,7 +1081,8 @@ impl MutableRepo {
                 None => &[],
                 Some(rewrite) => rewrite.new_parent_ids(),
             },
-        );
+        )
+        .map_err(|CycleError(node)| CycleError(node.clone()))?;
         let mut new_mapping: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
         for old_id in sorted_ids {
             let Some(rewrite) = self.parent_mapping.get(old_id).filter(|&v| predicate(v)) else {
@@ -1097,7 +1099,7 @@ impl MutableRepo {
             );
             new_mapping.insert(old_id.clone(), new_ids);
         }
-        new_mapping
+        Ok(new_mapping)
     }
 
     /// Updates bookmarks, working copies, and anonymous heads after rewriting
@@ -1113,7 +1115,9 @@ impl MutableRepo {
     }
 
     fn update_all_references(&mut self, options: &RewriteRefsOptions) -> BackendResult<()> {
-        let rewrite_mapping = self.resolve_rewrite_mapping_with(|_| true);
+        let rewrite_mapping = self
+            .resolve_rewrite_mapping_with(|_| true)
+            .map_err(|err| BackendError::Other(err.into()))?;
         self.update_local_bookmarks(&rewrite_mapping, options);
         self.update_wc_commits(&rewrite_mapping)?;
         Ok(())

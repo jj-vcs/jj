@@ -25,6 +25,7 @@ use std::mem;
 use itertools::Itertools as _;
 use smallvec::SmallVec;
 use smallvec::smallvec_inline;
+use thiserror::Error;
 
 /// Traverses nodes from `start` in depth-first order.
 pub fn dfs<T, ID, II, NI>(
@@ -37,8 +38,8 @@ where
     II: IntoIterator<Item = T>,
     NI: IntoIterator<Item = T>,
 {
-    let neighbors_fn = move |node: &T| to_ok_iter(neighbors_fn(node));
-    dfs_ok(to_ok_iter(start), id_fn, neighbors_fn).map(Result::unwrap)
+    let neighbors_fn = move |node: &T| to_infallible_iter(neighbors_fn(node));
+    dfs_ok(to_infallible_iter(start), id_fn, neighbors_fn).map(Result::unwrap)
 }
 
 /// Traverses nodes from `start` in depth-first order.
@@ -76,6 +77,11 @@ where
     })
 }
 
+/// The graph has a cycle involving the given item.
+#[derive(Debug, Error)]
+#[error("Cycle in graph involving {0}")]
+pub struct CycleError<T>(pub T);
+
 /// Builds a list of nodes reachable from the `start` where neighbors come
 /// before the node itself.
 ///
@@ -84,15 +90,14 @@ pub fn topo_order_forward<T, ID, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
     mut neighbors_fn: impl FnMut(&T) -> NI,
-) -> Vec<T>
+) -> Result<Vec<T>, CycleError<T>>
 where
     ID: Hash + Eq + Clone,
     II: IntoIterator<Item = T>,
     NI: IntoIterator<Item = T>,
 {
     let neighbors_fn = move |node: &T| to_ok_iter(neighbors_fn(node));
-    let cycle_fn = |_| panic!("graph has cycle");
-    topo_order_forward_ok(to_ok_iter(start), id_fn, neighbors_fn, cycle_fn).unwrap()
+    topo_order_forward_ok(to_ok_iter(start), id_fn, neighbors_fn, CycleError)
 }
 
 /// Builds a list of `Ok` nodes reachable from the `start` where neighbors come
@@ -148,15 +153,14 @@ pub fn topo_order_reverse<T, ID, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
     mut neighbors_fn: impl FnMut(&T) -> NI,
-) -> Vec<T>
+) -> Result<Vec<T>, CycleError<T>>
 where
     ID: Hash + Eq + Clone,
     II: IntoIterator<Item = T>,
     NI: IntoIterator<Item = T>,
 {
     let neighbors_fn = move |node: &T| to_ok_iter(neighbors_fn(node));
-    let cycle_fn = |_| panic!("graph has cycle");
-    topo_order_reverse_ok(to_ok_iter(start), id_fn, neighbors_fn, cycle_fn).unwrap()
+    topo_order_reverse_ok(to_ok_iter(start), id_fn, neighbors_fn, CycleError)
 }
 
 /// Builds a list of `Ok` nodes reachable from the `start` where neighbors come
@@ -195,7 +199,7 @@ pub fn topo_order_reverse_lazy<T, ID, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
     mut neighbors_fn: impl FnMut(&T) -> NI,
-) -> impl Iterator<Item = T>
+) -> impl Iterator<Item = Result<T, CycleError<T>>>
 where
     T: Ord,
     ID: Hash + Eq + Clone,
@@ -203,8 +207,7 @@ where
     NI: IntoIterator<Item = T>,
 {
     let neighbors_fn = move |node: &T| to_ok_iter(neighbors_fn(node));
-    let cycle_fn = |_| panic!("graph has cycle");
-    topo_order_reverse_lazy_ok(to_ok_iter(start), id_fn, neighbors_fn, cycle_fn).map(Result::unwrap)
+    topo_order_reverse_lazy_ok(to_ok_iter(start), id_fn, neighbors_fn, CycleError)
 }
 
 /// Like `topo_order_reverse_ok()`, but can iterate linear DAG lazily.
@@ -447,7 +450,7 @@ pub fn topo_order_reverse_ord<T, ID, II, NI>(
     start: II,
     id_fn: impl Fn(&T) -> ID,
     mut neighbors_fn: impl FnMut(&T) -> NI,
-) -> Vec<T>
+) -> Result<Vec<T>, CycleError<T>>
 where
     T: Ord,
     ID: Hash + Eq + Clone,
@@ -455,8 +458,7 @@ where
     NI: IntoIterator<Item = T>,
 {
     let neighbors_fn = move |node: &T| to_ok_iter(neighbors_fn(node));
-    let cycle_fn = |_| panic!("graph has cycle");
-    topo_order_reverse_ord_ok(to_ok_iter(start), id_fn, neighbors_fn, cycle_fn).unwrap()
+    topo_order_reverse_ord_ok(to_ok_iter(start), id_fn, neighbors_fn, CycleError)
 }
 
 /// Builds a list of `Ok` nodes reachable from the `start` where neighbors come
@@ -567,8 +569,8 @@ where
     II: IntoIterator<Item = T>,
     NI: IntoIterator<Item = T>,
 {
-    let neighbors_fn = move |node: &T| to_ok_iter(neighbors_fn(node));
-    heads_ok(to_ok_iter(start), id_fn, neighbors_fn).unwrap()
+    let neighbors_fn = move |node: &T| to_infallible_iter(neighbors_fn(node));
+    heads_ok(to_infallible_iter(start), id_fn, neighbors_fn).unwrap()
 }
 
 /// Finds `Ok` nodes in the start set that are not reachable from other nodes in
@@ -626,8 +628,14 @@ where
     II2: IntoIterator<Item = T>,
     NI: IntoIterator<Item = T>,
 {
-    let neighbors_fn = move |node: &T| to_ok_iter(neighbors_fn(node));
-    closest_common_node_ok(to_ok_iter(set1), to_ok_iter(set2), id_fn, neighbors_fn).unwrap()
+    let neighbors_fn = move |node: &T| to_infallible_iter(neighbors_fn(node));
+    closest_common_node_ok(
+        to_ok_iter(set1),
+        to_infallible_iter(set2),
+        id_fn,
+        neighbors_fn,
+    )
+    .unwrap()
 }
 
 /// Finds the closest common `Ok` neighbor among the `set1` and `set2`.
@@ -688,8 +696,14 @@ where
     Ok(None)
 }
 
-fn to_ok_iter<T>(iter: impl IntoIterator<Item = T>) -> impl Iterator<Item = Result<T, Infallible>> {
+fn to_ok_iter<T, E>(iter: impl IntoIterator<Item = T>) -> impl Iterator<Item = Result<T, E>> {
     iter.into_iter().map(Ok)
+}
+
+fn to_infallible_iter<T>(
+    iter: impl IntoIterator<Item = T>,
+) -> impl Iterator<Item = Result<T, Infallible>> {
+    to_ok_iter(iter)
 }
 
 #[cfg(test)]
@@ -732,25 +746,31 @@ mod tests {
         let id_fn = |node: &char| *node;
         let neighbors_fn = |node: &char| neighbors[node].clone();
 
-        let common = topo_order_reverse(vec!['C'], id_fn, neighbors_fn);
+        let common = topo_order_reverse(vec!['C'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['C', 'B', 'A']);
-        let common = topo_order_reverse(vec!['C', 'B'], id_fn, neighbors_fn);
+        let common = topo_order_reverse(vec!['C', 'B'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['C', 'B', 'A']);
-        let common = topo_order_reverse(vec!['B', 'C'], id_fn, neighbors_fn);
-        assert_eq!(common, vec!['C', 'B', 'A']);
-
-        let common = topo_order_reverse_lazy(vec!['C'], id_fn, neighbors_fn).collect_vec();
-        assert_eq!(common, vec!['C', 'B', 'A']);
-        let common = topo_order_reverse_lazy(vec!['C', 'B'], id_fn, neighbors_fn).collect_vec();
-        assert_eq!(common, vec!['C', 'B', 'A']);
-        let common = topo_order_reverse_lazy(vec!['B', 'C'], id_fn, neighbors_fn).collect_vec();
+        let common = topo_order_reverse(vec!['B', 'C'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['C', 'B', 'A']);
 
-        let common = topo_order_reverse_ord(vec!['C'], id_fn, neighbors_fn);
+        let common = topo_order_reverse_lazy(vec!['C'], id_fn, neighbors_fn)
+            .map(Result::unwrap)
+            .collect_vec();
         assert_eq!(common, vec!['C', 'B', 'A']);
-        let common = topo_order_reverse_ord(vec!['C', 'B'], id_fn, neighbors_fn);
+        let common = topo_order_reverse_lazy(vec!['C', 'B'], id_fn, neighbors_fn)
+            .map(Result::unwrap)
+            .collect_vec();
         assert_eq!(common, vec!['C', 'B', 'A']);
-        let common = topo_order_reverse_ord(vec!['B', 'C'], id_fn, neighbors_fn);
+        let common = topo_order_reverse_lazy(vec!['B', 'C'], id_fn, neighbors_fn)
+            .map(Result::unwrap)
+            .collect_vec();
+        assert_eq!(common, vec!['C', 'B', 'A']);
+
+        let common = topo_order_reverse_ord(vec!['C'], id_fn, neighbors_fn).unwrap();
+        assert_eq!(common, vec!['C', 'B', 'A']);
+        let common = topo_order_reverse_ord(vec!['C', 'B'], id_fn, neighbors_fn).unwrap();
+        assert_eq!(common, vec!['C', 'B', 'A']);
+        let common = topo_order_reverse_ord(vec!['B', 'C'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['C', 'B', 'A']);
     }
 
@@ -777,27 +797,31 @@ mod tests {
         let id_fn = |node: &char| *node;
         let neighbors_fn = |node: &char| neighbors[node].clone();
 
-        let common = topo_order_reverse(vec!['F'], id_fn, neighbors_fn);
+        let common = topo_order_reverse(vec!['F'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['F', 'E', 'D', 'C', 'B', 'A']);
-        let common = topo_order_reverse(vec!['F', 'E', 'C'], id_fn, neighbors_fn);
+        let common = topo_order_reverse(vec!['F', 'E', 'C'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['F', 'D', 'E', 'C', 'B', 'A']);
-        let common = topo_order_reverse(vec!['F', 'D', 'E'], id_fn, neighbors_fn);
+        let common = topo_order_reverse(vec!['F', 'D', 'E'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['F', 'D', 'C', 'B', 'E', 'A']);
 
-        let common = topo_order_reverse_lazy(vec!['F'], id_fn, neighbors_fn).collect_vec();
+        let common = topo_order_reverse_lazy(vec!['F'], id_fn, neighbors_fn)
+            .map(Result::unwrap)
+            .collect_vec();
         assert_eq!(common, vec!['F', 'E', 'D', 'C', 'B', 'A']);
-        let common =
-            topo_order_reverse_lazy(vec!['F', 'E', 'C'], id_fn, neighbors_fn).collect_vec();
+        let common = topo_order_reverse_lazy(vec!['F', 'E', 'C'], id_fn, neighbors_fn)
+            .map(Result::unwrap)
+            .collect_vec();
         assert_eq!(common, vec!['F', 'D', 'E', 'C', 'B', 'A']);
-        let common =
-            topo_order_reverse_lazy(vec!['F', 'D', 'E'], id_fn, neighbors_fn).collect_vec();
+        let common = topo_order_reverse_lazy(vec!['F', 'D', 'E'], id_fn, neighbors_fn)
+            .map(Result::unwrap)
+            .collect_vec();
         assert_eq!(common, vec!['F', 'D', 'C', 'B', 'E', 'A']);
 
-        let common = topo_order_reverse_ord(vec!['F'], id_fn, neighbors_fn);
+        let common = topo_order_reverse_ord(vec!['F'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['F', 'E', 'D', 'C', 'B', 'A']);
-        let common = topo_order_reverse_ord(vec!['F', 'E', 'C'], id_fn, neighbors_fn);
+        let common = topo_order_reverse_ord(vec!['F', 'E', 'C'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['F', 'E', 'D', 'C', 'B', 'A']);
-        let common = topo_order_reverse_ord(vec!['F', 'D', 'E'], id_fn, neighbors_fn);
+        let common = topo_order_reverse_ord(vec!['F', 'D', 'E'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['F', 'E', 'D', 'C', 'B', 'A']);
     }
 
@@ -831,13 +855,15 @@ mod tests {
         let id_fn = |node: &char| *node;
         let neighbors_fn = |node: &char| neighbors[node].clone();
 
-        let common = topo_order_reverse(vec!['I'], id_fn, neighbors_fn);
+        let common = topo_order_reverse(vec!['I'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['I', 'D', 'B', 'H', 'F', 'G', 'E', 'C', 'A']);
 
-        let common = topo_order_reverse_lazy(vec!['I'], id_fn, neighbors_fn).collect_vec();
+        let common = topo_order_reverse_lazy(vec!['I'], id_fn, neighbors_fn)
+            .map(Result::unwrap)
+            .collect_vec();
         assert_eq!(common, vec!['I', 'D', 'B', 'H', 'F', 'G', 'E', 'C', 'A']);
 
-        let common = topo_order_reverse_ord(vec!['I'], id_fn, neighbors_fn);
+        let common = topo_order_reverse_ord(vec!['I'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['I', 'H', 'G', 'F', 'E', 'D', 'C', 'B', 'A']);
     }
 
@@ -873,13 +899,15 @@ mod tests {
         let id_fn = |node: &char| *node;
         let neighbors_fn = |node: &char| neighbors[node].clone();
 
-        let common = topo_order_reverse(vec!['I'], id_fn, neighbors_fn);
+        let common = topo_order_reverse(vec!['I'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['I', 'h', 'G', 'e', 'C', 'f', 'D', 'b', 'A']);
 
-        let common = topo_order_reverse_lazy(vec!['I'], id_fn, neighbors_fn).collect_vec();
+        let common = topo_order_reverse_lazy(vec!['I'], id_fn, neighbors_fn)
+            .map(Result::unwrap)
+            .collect_vec();
         assert_eq!(common, vec!['I', 'h', 'G', 'e', 'C', 'f', 'D', 'b', 'A']);
 
-        let common = topo_order_reverse_ord(vec!['I'], id_fn, neighbors_fn);
+        let common = topo_order_reverse_ord(vec!['I'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['I', 'h', 'f', 'G', 'e', 'D', 'b', 'C', 'A']);
     }
 
@@ -904,15 +932,17 @@ mod tests {
         let id_fn = |node: &char| *node;
         let neighbors_fn = |node: &char| neighbors[node].clone();
 
-        let common = topo_order_reverse(vec!['E'], id_fn, neighbors_fn);
+        let common = topo_order_reverse(vec!['E'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['E', 'D', 'C', 'B', 'a']);
 
         // The root node 'a' is visited before 'C'. If the graph were split there,
         // the branch 'C->B->a' would be orphaned.
-        let common = topo_order_reverse_lazy(vec!['E'], id_fn, neighbors_fn).collect_vec();
+        let common = topo_order_reverse_lazy(vec!['E'], id_fn, neighbors_fn)
+            .map(Result::unwrap)
+            .collect_vec();
         assert_eq!(common, vec!['E', 'D', 'C', 'B', 'a']);
 
-        let common = topo_order_reverse_ord(vec!['E'], id_fn, neighbors_fn);
+        let common = topo_order_reverse_ord(vec!['E'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['E', 'D', 'C', 'B', 'a']);
     }
 
@@ -941,13 +971,15 @@ mod tests {
         let id_fn = |node: &char| *node;
         let neighbors_fn = |node: &char| neighbors[node].clone();
 
-        let common = topo_order_reverse(vec!['G'], id_fn, neighbors_fn);
+        let common = topo_order_reverse(vec!['G'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['G', 'E', 'F', 'D', 'C', 'B', 'A']);
 
-        let common = topo_order_reverse_lazy(vec!['G'], id_fn, neighbors_fn).collect_vec();
+        let common = topo_order_reverse_lazy(vec!['G'], id_fn, neighbors_fn)
+            .map(Result::unwrap)
+            .collect_vec();
         assert_eq!(common, vec!['G', 'E', 'F', 'D', 'C', 'B', 'A']);
 
-        let common = topo_order_reverse_ord(vec!['G'], id_fn, neighbors_fn);
+        let common = topo_order_reverse_ord(vec!['G'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['G', 'F', 'E', 'D', 'C', 'B', 'A']);
 
         // Iterator can be lazy for linear chunks.
@@ -1012,13 +1044,15 @@ mod tests {
         let id_fn = |node: &char| *node;
         let neighbors_fn = |node: &char| neighbors[node].clone();
 
-        let common = topo_order_reverse(vec!['G'], id_fn, neighbors_fn);
+        let common = topo_order_reverse(vec!['G'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['G', 'F', 'E', 'D', 'c', 'B', 'A']);
 
-        let common = topo_order_reverse_lazy(vec!['G'], id_fn, neighbors_fn).collect_vec();
+        let common = topo_order_reverse_lazy(vec!['G'], id_fn, neighbors_fn)
+            .map(Result::unwrap)
+            .collect_vec();
         assert_eq!(common, vec!['G', 'F', 'E', 'D', 'c', 'B', 'A']);
 
-        let common = topo_order_reverse_ord(vec!['G'], id_fn, neighbors_fn);
+        let common = topo_order_reverse_ord(vec!['G'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['G', 'F', 'E', 'D', 'c', 'B', 'A']);
 
         // Iterator can be lazy for linear chunks. The node 'c' is visited before 'D',
@@ -1084,13 +1118,15 @@ mod tests {
         let id_fn = |node: &char| *node;
         let neighbors_fn = |node: &char| neighbors[node].clone();
 
-        let common = topo_order_reverse(vec!['G'], id_fn, neighbors_fn);
+        let common = topo_order_reverse(vec!['G'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['G', 'f', 'e', 'd', 'C', 'B', 'A']);
 
-        let common = topo_order_reverse_lazy(vec!['G'], id_fn, neighbors_fn).collect_vec();
+        let common = topo_order_reverse_lazy(vec!['G'], id_fn, neighbors_fn)
+            .map(Result::unwrap)
+            .collect_vec();
         assert_eq!(common, vec!['G', 'f', 'e', 'd', 'C', 'B', 'A']);
 
-        let common = topo_order_reverse_ord(vec!['G'], id_fn, neighbors_fn);
+        let common = topo_order_reverse_ord(vec!['G'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['G', 'f', 'e', 'd', 'C', 'B', 'A']);
 
         // Iterator can be lazy for linear chunks.
@@ -1155,13 +1191,15 @@ mod tests {
         let id_fn = |node: &char| *node;
         let neighbors_fn = |node: &char| neighbors[node].clone();
 
-        let common = topo_order_reverse(vec!['F', 'C'], id_fn, neighbors_fn);
+        let common = topo_order_reverse(vec!['F', 'C'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['F', 'E', 'D', 'C', 'B', 'A']);
 
-        let common = topo_order_reverse_lazy(vec!['F', 'C'], id_fn, neighbors_fn).collect_vec();
+        let common = topo_order_reverse_lazy(vec!['F', 'C'], id_fn, neighbors_fn)
+            .map(Result::unwrap)
+            .collect_vec();
         assert_eq!(common, vec!['F', 'E', 'D', 'C', 'B', 'A']);
 
-        let common = topo_order_reverse_ord(vec!['F', 'C'], id_fn, neighbors_fn);
+        let common = topo_order_reverse_ord(vec!['F', 'C'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['F', 'E', 'D', 'C', 'B', 'A']);
     }
 
@@ -1183,13 +1221,15 @@ mod tests {
         let id_fn = |node: &char| *node;
         let neighbors_fn = |node: &char| neighbors[node].clone();
 
-        let common = topo_order_reverse(vec!['D'], id_fn, neighbors_fn);
+        let common = topo_order_reverse(vec!['D'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['D', 'C', 'B', 'A']);
 
-        let common = topo_order_reverse_lazy(vec!['D'], id_fn, neighbors_fn).collect_vec();
+        let common = topo_order_reverse_lazy(vec!['D'], id_fn, neighbors_fn)
+            .map(Result::unwrap)
+            .collect_vec();
         assert_eq!(common, vec!['D', 'C', 'B', 'A']);
 
-        let common = topo_order_reverse_ord(vec!['D'], id_fn, neighbors_fn);
+        let common = topo_order_reverse_ord(vec!['D'], id_fn, neighbors_fn).unwrap();
         assert_eq!(common, vec!['D', 'C', 'B', 'A']);
     }
 
@@ -1208,37 +1248,19 @@ mod tests {
         let id_fn = |node: &char| *node;
         let neighbors_fn = |node: &char| neighbors[node].clone();
 
-        let result = panic::catch_unwind(|| topo_order_reverse(vec!['C'], id_fn, neighbors_fn));
+        let result = topo_order_reverse(vec!['C'], id_fn, neighbors_fn);
         assert!(result.is_err());
 
         topo_order_reverse_lazy(vec!['C'], id_fn, neighbors_fn)
             .take(3)
             .collect_vec(); // sanity check
-        let result = panic::catch_unwind(|| {
-            topo_order_reverse_lazy(vec!['C'], id_fn, neighbors_fn)
-                .take(4)
-                .collect_vec()
-        });
+        let result: Result<Vec<_>, _> = topo_order_reverse_lazy(vec!['C'], id_fn, neighbors_fn)
+            .take(4)
+            .try_collect();
         assert!(result.is_err());
 
-        let result = panic::catch_unwind(|| topo_order_reverse_ord(vec!['C'], id_fn, neighbors_fn));
+        let result = topo_order_reverse_ord(vec!['C'], id_fn, neighbors_fn);
         assert!(result.is_err());
-
-        // Try again with non-panicking cycle handler
-        let neighbors_fn = |node: &char| neighbors[node].iter().copied().map(Ok);
-        let cycle_fn = |node: char| node;
-        assert_matches!(
-            topo_order_reverse_ok([Ok('C')], id_fn, neighbors_fn, cycle_fn),
-            Err('C' | 'B' | 'A')
-        );
-        assert_matches!(
-            topo_order_reverse_lazy_ok([Ok('C')], id_fn, neighbors_fn, cycle_fn).nth(3),
-            Some(Err('C' | 'B' | 'A'))
-        );
-        assert_matches!(
-            topo_order_reverse_ord_ok([Ok('C')], id_fn, neighbors_fn, cycle_fn),
-            Err('C' | 'B' | 'A')
-        );
     }
 
     #[test]
@@ -1260,37 +1282,19 @@ mod tests {
         let id_fn = |node: &char| *node;
         let neighbors_fn = |node: &char| neighbors[node].clone();
 
-        let result = panic::catch_unwind(|| topo_order_reverse(vec!['D'], id_fn, neighbors_fn));
+        let result = topo_order_reverse(vec!['D'], id_fn, neighbors_fn);
         assert!(result.is_err());
 
         topo_order_reverse_lazy(vec!['D'], id_fn, neighbors_fn)
             .take(4)
             .collect_vec(); // sanity check
-        let result = panic::catch_unwind(|| {
-            topo_order_reverse_lazy(vec!['D'], id_fn, neighbors_fn)
-                .take(5)
-                .collect_vec()
-        });
+        let result: Result<Vec<_>, _> = topo_order_reverse_lazy(vec!['D'], id_fn, neighbors_fn)
+            .take(5)
+            .try_collect();
         assert!(result.is_err());
 
-        let result = panic::catch_unwind(|| topo_order_reverse_ord(vec!['D'], id_fn, neighbors_fn));
+        let result = topo_order_reverse_ord(vec!['D'], id_fn, neighbors_fn);
         assert!(result.is_err());
-
-        // Try again with non-panicking cycle handler
-        let neighbors_fn = |node: &char| neighbors[node].iter().copied().map(Ok);
-        let cycle_fn = |node: char| node;
-        assert_matches!(
-            topo_order_reverse_ok([Ok('D')], id_fn, neighbors_fn, cycle_fn),
-            Err('C' | 'B' | 'A')
-        );
-        assert_matches!(
-            topo_order_reverse_lazy_ok([Ok('D')], id_fn, neighbors_fn, cycle_fn).nth(4),
-            Some(Err('C' | 'B' | 'A'))
-        );
-        assert_matches!(
-            topo_order_reverse_ord_ok([Ok('D')], id_fn, neighbors_fn, cycle_fn),
-            Err('C' | 'B' | 'A')
-        );
     }
 
     #[test]
@@ -1312,19 +1316,14 @@ mod tests {
         let id_fn = |node: &char| *node;
         let neighbors_fn = |node: &char| neighbors[node].clone();
 
-        let result =
-            panic::catch_unwind(|| topo_order_reverse_lazy(['D'], id_fn, neighbors_fn).nth(1));
+        let result = topo_order_reverse_lazy(['D'], id_fn, neighbors_fn)
+            .nth(1)
+            .unwrap();
         assert!(result.is_err());
 
-        // Try again with non-panicking cycle handler
+        // Try again with low-level function
         let neighbors_fn = |node: &char| neighbors[node].iter().copied().map(Ok);
         let cycle_fn = |node: char| node;
-        assert_matches!(
-            topo_order_reverse_lazy_ok([Ok('D')], id_fn, neighbors_fn, cycle_fn).nth(1),
-            Some(Err('C' | 'B'))
-        );
-
-        // Try again with low-level function
         let mut start = vec!['D'];
         topo_order_reverse_chunked(&mut start, id_fn, neighbors_fn, cycle_fn).unwrap();
         assert_matches!(
