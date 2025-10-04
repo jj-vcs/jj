@@ -445,6 +445,9 @@ defined.
   Supports capture groups in patterns using `$0` (entire match), `$1`, `$2` etc.
 * `.first_line() -> String`
 * `.lines() -> List<String>`: Split into lines excluding newline characters.
+* `.split(separator: StringPattern, [limit: Integer]) -> List<String>`: Split into
+  substrings using the given `separator` pattern. If `limit` is specified, it
+  determines the maximum number of elements in the result. `limit=0` means unlimited.
 * `.upper() -> String`
 * `.lower() -> String`
 * `.starts_with(needle: Stringify) -> Boolean`
