@@ -1696,6 +1696,11 @@ Modify the metadata of a revision without changing its content
 * `--update-change-id` — Generate a new change-id
 
    This generates a new change-id for the revision.
+* `-m`, `--message <MESSAGE>` — Update the change description
+
+   This updates the change description, without opening the editor.
+
+   Use `jj describe` if you want to use an editor.
 * `--update-author-timestamp` — Update the author timestamp
 
    This updates the author date to now, without modifying the author.

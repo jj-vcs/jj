@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj log -G` is now available as a short form of `jj log --no-graph`.
 
+* `jj metaedit` now accepts `-m`/`--message` option to non-interactively update
+  the change description.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer

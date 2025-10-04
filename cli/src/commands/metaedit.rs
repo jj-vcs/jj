@@ -27,6 +27,7 @@ use crate::cli_util::RevisionArg;
 use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
 use crate::complete;
+use crate::description_util::join_message_paragraphs;
 use crate::text_util::parse_author;
 use crate::ui::Ui;
 
@@ -53,6 +54,14 @@ pub(crate) struct MetaeditArgs {
     /// This generates a new change-id for the revision.
     #[arg(long)]
     update_change_id: bool,
+
+    /// Update the change description
+    ///
+    /// This updates the change description, without opening the editor.
+    ///
+    /// Use `jj describe` if you want to use an editor.
+    #[arg(long = "message", short, value_name = "MESSAGE")]
+    message_paragraphs: Vec<String>,
 
     /// Update the author timestamp
     ///
@@ -140,6 +149,12 @@ pub(crate) fn cmd_metaedit(
         }
     };
 
+    let new_description = if !args.message_paragraphs.is_empty() {
+        Some(join_message_paragraphs(&args.message_paragraphs))
+    } else {
+        None
+    };
+
     let mut num_reparented = 0;
     let commit_ids_set: HashSet<_> = commit_ids.iter().cloned().collect();
     let mut modified: Vec<Commit> = Vec::new();
@@ -179,6 +194,13 @@ pub(crate) fn cmd_metaedit(
                         && new_author.timestamp != old_author.timestamp)
                 {
                     commit_builder = commit_builder.set_author(new_author);
+                    has_changes = true;
+                }
+
+                if let Some(description) = &new_description
+                    && description != commit_builder.description()
+                {
+                    commit_builder = commit_builder.set_description(description);
                     has_changes = true;
                 }
 
