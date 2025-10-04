@@ -14,6 +14,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Templates now support a `.split(separator, [limit])` method on strings to
+  split a string into a list of substrings.
+
 ### Fixed bugs
 
 ## [0.34.0] - 2025-10-01
