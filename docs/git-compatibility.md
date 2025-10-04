@@ -75,7 +75,7 @@ a comparison with Git, including how workflows are different, see the
 
 ## Creating an empty repo
 
-To create an empty repo using the Git backend, use `jj init --git <name>`. Since
+To create an empty repo using the Git backend, use `jj git init <name>`. Since
 the command creates a Jujutsu repo, it will have a `.jj/` directory. The
 underlying Git repo will be inside of that directory (currently in
 `.jj/repo/store/git/`).
