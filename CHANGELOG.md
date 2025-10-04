@@ -30,6 +30,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   as `jj simplify-parents` on the rebased commits.
   [#7711](https://github.com/jj-vcs/jj/issues/7711)
 
+* New setting `training-wheels.edit-revset` which disallows editing revisions
+  in that revset.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04

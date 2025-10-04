@@ -122,6 +122,55 @@ fn test_edit_current() {
 }
 
 #[test]
+fn test_edit_with_training_wheels() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    test_env.add_config(
+        r#"
+        [training-wheels]
+        edit-revset = '~description("no edit\n")'
+    "#,
+    );
+
+    work_dir.write_file("file1", "0");
+    work_dir.run_jj(["commit", "-m", "no edit"]).success();
+    work_dir.write_file("file1", "1");
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["describe", "-m", "second"]).success();
+    work_dir.write_file("file1", "2");
+
+    // Makes the specified commit the working-copy commit
+    let output = work_dir.run_jj(&["edit", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: rlvkpnrz cc3eafeb first
+    Parent commit (@-)      : qpvuntsm 4119f2d0 no edit
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+    let output = get_log_output(&work_dir);
+    insta::assert_snapshot!(output, @r"
+    ○  678e78509f83 second
+    @  cc3eafeb734f first
+    ○  4119f2d05ed7 no edit
+    ◆  000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file1"), @"1");
+
+    // Fails to edit the commit that doesn't match the training-wheels revset
+    let output = work_dir.run_jj(&["edit", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Refusing to edit commit not in training-wheels.edit-revset.
+    Hint: You probably want to use `jj new` instead.
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 // Windows says "Access is denied" when trying to delete the object file.
 #[cfg(unix)]
 fn test_edit_current_wc_commit_missing() {

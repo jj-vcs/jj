@@ -21,6 +21,7 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -61,6 +62,19 @@ pub(crate) fn cmd_edit(
     if workspace_command.get_wc_commit_id() == Some(new_commit.id()) {
         writeln!(ui.status(), "Already editing that commit")?;
     } else {
+        let settings = workspace_command.settings();
+        if let Ok(edit_revset) = settings.get_string("training-wheels.edit-revset") {
+            let edit_revset =
+                workspace_command.parse_revset(ui, &RevisionArg::from(edit_revset))?;
+            let edit_revset = edit_revset.evaluate()?;
+            let edit_allowed = edit_revset.containing_fn();
+            if !(edit_allowed(new_commit.id()))? {
+                return Err(user_error(
+                    "Refusing to edit commit not in training-wheels.edit-revset.",
+                )
+                .hinted("You probably want to use `jj new` instead."));
+            }
+        }
         let mut tx = workspace_command.start_transaction();
         tx.edit(&new_commit)?;
         tx.finish(ui, format!("edit commit {}", new_commit.id().hex()))?;
