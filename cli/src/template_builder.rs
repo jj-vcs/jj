@@ -1040,6 +1040,43 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         },
     );
     map.insert(
+        "split",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let ([separator_node], [limit_node]) = function.expect_arguments()?;
+            let pattern = template_parser::expect_string_pattern(separator_node)?;
+            let regex = pattern.to_regex();
+
+            if let Some(limit_node) = limit_node {
+                let limit_property =
+                    expect_usize_expression(language, diagnostics, build_ctx, limit_node)?;
+                let out_property =
+                    (self_property, limit_property).and_then(move |(haystack, limit)| {
+                        let haystack_bytes = haystack.as_bytes();
+                        if limit == 0 {
+                            Ok(vec![])
+                        } else {
+                            let parts: Vec<_> = regex
+                                .splitn(haystack_bytes, limit)
+                                .map(|part| str::from_utf8(part).map(|s| s.to_owned()))
+                                .try_collect()?;
+                            Ok(parts)
+                        }
+                    });
+                Ok(out_property.into_dyn_wrapped())
+            } else {
+                let out_property = self_property.and_then(move |haystack| {
+                    let haystack_bytes = haystack.as_bytes();
+                    let parts: Vec<_> = regex
+                        .split(haystack_bytes)
+                        .map(|part| str::from_utf8(part).map(|s| s.to_owned()))
+                        .try_collect()?;
+                    Ok(parts)
+                });
+                Ok(out_property.into_dyn_wrapped())
+            }
+        },
+    );
+    map.insert(
         "upper",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
@@ -3082,6 +3119,19 @@ mod tests {
 
         insta::assert_snapshot!(env.render_ok(r#""".lines()"#), @"");
         insta::assert_snapshot!(env.render_ok(r#""a\nb\nc\n".lines()"#), @"a b c");
+
+        insta::assert_snapshot!(env.render_ok(r#""".split(",")"#), @"");
+        insta::assert_snapshot!(env.render_ok(r#""a,b,c".split(",")"#), @"a b c");
+        insta::assert_snapshot!(env.render_ok(r#""a::b::c::d".split("::")"#), @"a b c d");
+        insta::assert_snapshot!(env.render_ok(r#""a,b,c,d".split(",", 0)"#), @"");
+        insta::assert_snapshot!(env.render_ok(r#""a,b,c,d".split(",", 2)"#), @"a b,c,d");
+        insta::assert_snapshot!(env.render_ok(r#""a,b,c,d".split(",", 3)"#), @"a b c,d");
+        insta::assert_snapshot!(env.render_ok(r#""a,b,c,d".split(",", 10)"#), @"a b c d");
+        insta::assert_snapshot!(env.render_ok(r#""abc".split(",", -1)"#), @"<Error: out of range integral type conversion attempted>");
+        insta::assert_snapshot!(env.render_ok(r#"json("a1b2c3".split(regex:'\d+'))"#), @r#"["a","b","c",""]"#);
+        insta::assert_snapshot!(env.render_ok(r#""foo  bar   baz".split(regex:'\s+')"#), @"foo bar baz");
+        insta::assert_snapshot!(env.render_ok(r#""a1b2c3d4".split(regex:'\d+', 3)"#), @"a b c3d4");
+        insta::assert_snapshot!(env.render_ok(r#"json("hello world".split(regex-i:"WORLD"))"#), @r#"["hello ",""]"#);
 
         insta::assert_snapshot!(env.render_ok(r#""".starts_with("")"#), @"true");
         insta::assert_snapshot!(env.render_ok(r#""everything".starts_with("")"#), @"true");

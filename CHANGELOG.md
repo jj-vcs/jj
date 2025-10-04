@@ -14,6 +14,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Templates now support a `.split(separator, [limit])` method on strings to
+  split a string into a list of substrings.
+
 * `jj log -G` is now available as a short form of `jj log --no-graph`.
 
 * `jj metaedit` now accepts `-m`/`--message` option to non-interactively update
