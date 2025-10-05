@@ -23,7 +23,7 @@
         jujutsu = self.packages.${final.system}.jujutsu;
       };
     }
-    // (flake-utils.lib.eachDefaultSystem (system: let
+    // (flake-utils.lib.eachSystem nixpkgs.lib.systems.flakeExposed (system: let
       pkgs = import nixpkgs {
         inherit system;
         overlays = [
