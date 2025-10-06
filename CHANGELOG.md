@@ -12,6 +12,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+ * `jj bisect run --command <cmd>` is deprecated in favor of
+   `jj bisect run -- <cmd>`.
+
 ### New features
 
 * Templates now support a `.split(separator, [limit])` method on strings to
@@ -31,6 +34,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Workspaces may have an additional layered configuration, located at
   `.jj/workspace-config.toml`. `jj config` subcommands which took layer options like
   `--repo` now also support `--workspace`.
+
+* `jj bisect run` accepts the command and arguments to pass to the command
+  directly as positional arguments, such as
+  `jj bisect --range=..main -- cargo check --all-targets`.
 
 ### Fixed bugs
 
