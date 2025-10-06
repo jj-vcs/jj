@@ -26,10 +26,10 @@ jobs:
           os: ubuntu-24.04-arm
           target: aarch64-unknown-linux-musl
         - build: macos-x86_64
-          os: macos-13
+          os: macos-15
           target: x86_64-apple-darwin
         - build: macos-aarch64
-          os: macos-14
+          os: macos-15
           target: aarch64-apple-darwin
         - build: win-x86_64
           os: windows-2022
