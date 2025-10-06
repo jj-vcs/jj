@@ -51,7 +51,12 @@ jobs:
     # is a problem we should fix. in the mean time, this will make these flakes
     # less harmful, as it won't cause builds to spin for multiple hours, requiring
     # manual cancellation.
-    timeout-minutes: 20
+    #
+    # keep a log of updates (along with committed date) below:
+    #
+    # 2025-03-20 (aseipp): peak p99 builds seemed to be long, bump 15m -> 20m
+    # 2025-10-06 (aseipp): x86 macos runners consistently slower, bump 20m -> 25m
+    timeout-minutes: 25
 
     steps:
     - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
