@@ -4032,7 +4032,8 @@ No changes, only trying to get the automated build to work.
 Last release before this changelog started.
 
 
-[unreleased]: https://github.com/jj-vcs/jj/compare/v0.33.0...HEAD
+[unreleased]: https://github.com/jj-vcs/jj/compare/v0.34.0...HEAD
+[0.34.0]: https://github.com/jj-vcs/jj/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/jj-vcs/jj/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/jj-vcs/jj/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/jj-vcs/jj/compare/v0.30.0...v0.31.0
