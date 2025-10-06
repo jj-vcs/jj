@@ -171,7 +171,7 @@ if(commit.root(),
         if(commit.conflict(), label("conflict", "conflict")),
         if(config("ui.show-cryptographic-signatures").as_boolean(),
           format_short_cryptographic_signature(commit.signature())),
-        if(commit.empty(), label("empty", "(empty)")),
+        if(commit.empty(), empty_commit_marker),
         if(commit.description(),
           commit.description().first_line(),
           label(if(commit.empty(), "empty"), description_placeholder),
@@ -195,7 +195,7 @@ if(commit.root(),
     concat(
       format_short_commit_header(commit) ++ "\n",
       separate(" ",
-        if(commit.empty(), label("empty", "(empty)")),
+        if(commit.empty(), empty_commit_marker),
         if(commit.description(),
           commit.description().first_line(),
           label(if(commit.empty(), "empty"), description_placeholder),
@@ -219,7 +219,7 @@ if(commit.root(),
     concat(
       format_short_commit_header_redacted(commit) ++ "\n",
       separate(" ",
-        if(commit.empty(), label("empty", "(empty)")),
+        if(commit.empty(), empty_commit_marker),
         label("description", "(redacted)"),
       ) ++ "\n",
     ),
@@ -240,7 +240,7 @@ if(commit.root(),
     concat(
       format_short_commit_header(commit) ++ "\n",
       separate(" ",
-        if(commit.empty(), label("empty", "(empty)")),
+        if(commit.empty(), empty_commit_marker),
         if(commit.description(),
           commit.description().trim_end() ++ "\n",
           label(if(commit.empty(), "empty"), description_placeholder),
@@ -306,6 +306,7 @@ label(if(op.current_operation(), "current_operation"),
 '''
 
 default_commit_description = '""'
+empty_commit_marker = 'label("empty", "(empty)")'
 description_placeholder = 'label("description placeholder", "(no description set)")'
 email_placeholder = 'label("email placeholder", "(no email set)")'
 name_placeholder = 'label("name placeholder", "(no name set)")'
@@ -343,7 +344,7 @@ label(if(commit.current_working_copy(), "working_copy"),
       refs,
       separate(" ",
         if(commit.conflict(), label("conflict", "(conflict)")),
-        if(commit.empty(), label("empty", "(empty)")),
+        if(commit.empty(), empty_commit_marker),
         if(commit.description(),
           commit.description().first_line(),
           label(if(commit.empty(), "empty"), description_placeholder),

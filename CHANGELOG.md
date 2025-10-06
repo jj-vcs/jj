@@ -25,6 +25,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `CryptographicSignature.key()` template method now also works for SSH
   signatures and returns the corresponding public key fingerprint.
 
+* Added `template-aliases.empty_commit_marker`. Users can override this value in
+  their config to change the "(empty)" label on empty commits.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer

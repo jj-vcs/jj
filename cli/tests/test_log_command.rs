@@ -67,6 +67,7 @@ fn test_log_with_no_template() {
     - default_commit_description
     - description_placeholder
     - email_placeholder
+    - empty_commit_marker
     - git_format_patch_email_headers
     - name_placeholder
     [EOF]
