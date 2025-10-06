@@ -25,6 +25,7 @@ use crate::cli_util::RevisionArg;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::short_operation_hash;
 use crate::command_error::CommandError;
+use crate::command_error::cli_error;
 use crate::command_error::internal_error_with_message;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
@@ -48,6 +49,11 @@ use crate::ui::Ui;
 /// manual tests in the shell and make sure to exit the shell with appropriate
 /// error code depending on the outcome (e.g. `exit 0` to mark the revision as
 /// good in Bash or Fish).
+///
+/// Example: To run `cargo test` with the changes from revision `xyz` applied:
+///
+/// `jj bisect --range v1.0..main -- bash -c "jj duplicate -r xyz -B @ && cargo
+/// test"`
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct BisectRunArgs {
     /// Range of revisions to bisect
@@ -63,6 +69,15 @@ pub(crate) struct BisectRunArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     range: Vec<RevisionArg>,
+    /// Deprecated. Use positional arguments instead.
+    #[arg(
+        long = "command",
+        value_name = "COMMAND",
+        hide = true,
+        conflicts_with = "command"
+    )]
+    legacy_command: Option<CommandNameAndArgs>,
+
     /// Command to run to determine whether the bug is present
     ///
     /// The command will be run from the workspace root. The exit status of the
@@ -73,8 +88,16 @@ pub(crate) struct BisectRunArgs {
     ///
     /// The target's commit ID is available to the command in the
     /// `$JJ_BISECT_TARGET` environment variable.
-    #[arg(long, value_name = "COMMAND", required = true)]
-    command: CommandNameAndArgs,
+    #[arg(value_name = "COMMAND")]
+    command: Option<String>,
+
+    /// Arguments to pass to the command
+    ///
+    /// Hint: Use a `--` separator to allow passing arguments starting with `-`.
+    /// For example `jj bisect run --range=... -- test -f some-file`.
+    #[arg(value_name = "ARGS")]
+    args: Vec<String>,
+
     /// Whether to find the first good revision instead
     ///
     /// Inverts the interpretation of exit statuses (excluding special exit
@@ -90,6 +113,16 @@ pub(crate) fn cmd_bisect_run(
     args: &BisectRunArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
+
+    if let Some(command) = &args.legacy_command {
+        writeln!(
+            ui.warning_default(),
+            "`--command` is deprecated; use positional arguments instead: `jj bisect run \
+             --range=... -- {command}"
+        )?;
+    } else if args.command.is_none() {
+        return Err(cli_error("Command argument is required"));
+    }
 
     let input_range = workspace_command
         .parse_union_revsets(ui, &args.range)?
@@ -111,8 +144,8 @@ pub(crate) fn cmd_bisect_run(
                     writeln!(formatter)?;
                 }
 
-                let evaluation =
-                    evaluate_commit(ui, &mut workspace_command, &args.command, &commit)?;
+                let cmd = get_command(args);
+                let evaluation = evaluate_commit(ui, &mut workspace_command, cmd, &commit)?;
 
                 {
                     let mut formatter = ui.stdout_formatter();
@@ -181,10 +214,20 @@ pub(crate) fn cmd_bisect_run(
     Ok(())
 }
 
+fn get_command(args: &BisectRunArgs) -> std::process::Command {
+    if let Some(command) = &args.command {
+        let mut cmd = std::process::Command::new(command);
+        cmd.args(&args.args);
+        cmd
+    } else {
+        args.legacy_command.as_ref().unwrap().to_command()
+    }
+}
+
 fn evaluate_commit(
     ui: &mut Ui,
     workspace_command: &mut WorkspaceCommandHelper,
-    command: &CommandNameAndArgs,
+    mut cmd: std::process::Command,
     commit: &Commit,
 ) -> Result<Evaluation, CommandError> {
     let mut tx = workspace_command.start_transaction();
@@ -195,7 +238,6 @@ fn evaluate_commit(
         format!("Updated to revision {commit_id_hex} for bisection"),
     )?;
 
-    let mut cmd: std::process::Command = command.to_command();
     let jj_executable_path = std::env::current_exe().map_err(|err| {
         internal_error_with_message("Could not get path for the jj executable", err)
     })?;
