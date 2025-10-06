@@ -2211,6 +2211,41 @@ fn test_squash_to_new_commit() {
        -- operation a8bb9104802c new empty commit
     [EOF]
     ");
+
+    // --before and --after together
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    let output = work_dir.run_jj([
+        "squash",
+        "-m",
+        "file 3&4",
+        "-f",
+        "kkmpptxzrspx::",
+        "--insert-after",
+        "root()",
+        "--insert-before",
+        "rlvkpnrzqnoo",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Created new commit pyoswmwk d5aa6638 file 3&4
+    Rebased 1 descendant commits
+    Working copy  (@) now at: yqnpwwmq 68513612 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz ed79225c file2
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  yqnpwwmqtwyk
+    ○    rlvkpnrzqnoo file2
+    ├─╮  A file2
+    │ ○  pyoswmwkkqyt file 3&4
+    │ │  A file3
+    │ │  A file4
+    ○ │  qpvuntsmwlqt file1
+    ├─╯  A file1
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
 }
 
 #[must_use]

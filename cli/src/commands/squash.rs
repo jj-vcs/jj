@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::collections::HashMap;
+use std::iter::once;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
@@ -273,10 +274,20 @@ pub(crate) fn cmd_squash(
             .write()?;
         let mut rewritten = HashMap::new();
         tx.repo_mut()
-            .transform_descendants(child_ids, async |mut rewriter| {
+            .transform_descendants(child_ids.clone(), async |mut rewriter| {
                 let old_commit_id = rewriter.old_commit().id().clone();
                 for parent_id in &parent_ids {
                     rewriter.replace_parent(parent_id, [commit.id()]);
+                }
+                let new_parents = rewriter.new_parents();
+                if child_ids.contains(&old_commit_id) && !new_parents.contains(commit.id()) {
+                    rewriter.set_new_parents(
+                        new_parents
+                            .iter()
+                            .cloned()
+                            .chain(once(commit.id().clone()))
+                            .collect(),
+                    );
                 }
                 let new_commit = rewriter.rebase().await?.write()?;
                 rewritten.insert(old_commit_id, new_commit);

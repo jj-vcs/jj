@@ -30,6 +30,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj metaedit --author-timestamp` twice with the same value no longer
 edits the change twice in some cases.
 
+* `jj squash`: fixed improper revision rebase when both `--insert-after` and
+  `--insert-before` were used.
+
 ## [0.34.0] - 2025-10-01
 
 ### Release highlights
