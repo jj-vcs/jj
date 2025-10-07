@@ -1052,15 +1052,11 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
                 let out_property =
                     (self_property, limit_property).and_then(move |(haystack, limit)| {
                         let haystack_bytes = haystack.as_bytes();
-                        if limit == 0 {
-                            Ok(vec![])
-                        } else {
-                            let parts: Vec<_> = regex
-                                .splitn(haystack_bytes, limit)
-                                .map(|part| str::from_utf8(part).map(|s| s.to_owned()))
-                                .try_collect()?;
-                            Ok(parts)
-                        }
+                        let parts: Vec<_> = regex
+                            .splitn(haystack_bytes, limit)
+                            .map(|part| str::from_utf8(part).map(|s| s.to_owned()))
+                            .try_collect()?;
+                        Ok(parts)
                     });
                 Ok(out_property.into_dyn_wrapped())
             } else {
