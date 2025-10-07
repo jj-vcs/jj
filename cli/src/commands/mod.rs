@@ -111,6 +111,7 @@ enum Command {
     Describe(describe::DescribeArgs),
     Diff(diff::DiffArgs),
     Diffedit(diffedit::DiffeditArgs),
+    Diffmove(squash::DiffmoveArgs),
     Duplicate(duplicate::DuplicateArgs),
     Edit(edit::EditArgs),
     #[command(alias = "obslog", visible_alias = "evolution-log")]
@@ -184,6 +185,11 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
         Command::Describe(args) => describe::cmd_describe(ui, command_helper, args),
         Command::Diff(args) => diff::cmd_diff(ui, command_helper, args),
         Command::Diffedit(args) => diffedit::cmd_diffedit(ui, command_helper, args),
+        Command::Diffmove(args) => squash::cmd_squash_or_diffmove(
+            ui,
+            command_helper,
+            squash::SquashOrDiffmoveArgs::DiffmoveArgs(args),
+        ),
         Command::Duplicate(args) => duplicate::cmd_duplicate(ui, command_helper, args),
         Command::Edit(args) => edit::cmd_edit(ui, command_helper, args),
         Command::Evolog(args) => evolog::cmd_evolog(ui, command_helper, args),
@@ -216,7 +222,11 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
         Command::Sign(args) => sign::cmd_sign(ui, command_helper, args),
         Command::Sparse(args) => sparse::cmd_sparse(ui, command_helper, args),
         Command::Split(args) => split::cmd_split(ui, command_helper, args),
-        Command::Squash(args) => squash::cmd_squash(ui, command_helper, args),
+        Command::Squash(args) => squash::cmd_squash_or_diffmove(
+            ui,
+            command_helper,
+            squash::SquashOrDiffmoveArgs::SquashArgs(args),
+        ),
         Command::Status(args) => status::cmd_status(ui, command_helper, args),
         Command::Tag(args) => tag::cmd_tag(ui, command_helper, args),
         Command::Undo(args) => undo::cmd_undo(ui, command_helper, args),
