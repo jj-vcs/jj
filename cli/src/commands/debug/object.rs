@@ -74,8 +74,12 @@ pub struct DebugObjectTreeArgs {
 }
 
 #[derive(clap::Args, Clone, Debug)]
+#[command(group(clap::ArgGroup::new("target").required(true)))]
 pub struct DebugObjectViewArgs {
-    id: String,
+    #[arg(group = "target")]
+    id: Option<String>,
+    #[arg(long, group = "target")]
+    op: Option<String>,
 }
 
 pub fn cmd_debug_object(
@@ -125,8 +129,14 @@ pub fn cmd_debug_object(
             writeln!(ui.stdout(), "{:#?}", tree.data())?;
         }
         DebugObjectArgs::View(args) => {
-            let id =
-                ViewId::try_from_hex(&args.id).ok_or_else(|| user_error("Invalid hex view id"))?;
+            let id = if let Some(op_string) = &args.op {
+                let workspace_command = command.workspace_helper_no_snapshot(ui)?;
+                let op = workspace_command.resolve_single_op(op_string)?;
+                op.view_id().clone()
+            } else {
+                ViewId::try_from_hex(args.id.as_ref().unwrap())
+                    .ok_or_else(|| user_error("Invalid hex view id"))?
+            };
             let view = repo_loader.op_store().read_view(&id)?;
             writeln!(ui.stdout(), "{view:#?}")?;
         }
