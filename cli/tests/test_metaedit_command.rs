@@ -411,6 +411,126 @@ fn test_metaedit() {
 }
 
 #[test]
+fn test_metaedit_multiple_revisions() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "a"])
+        .success();
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "b"])
+        .success();
+    work_dir.write_file("file1", "b\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c"])
+        .success();
+    work_dir.write_file("file1", "c\n");
+    // Test the setup
+    insta::assert_snapshot!(get_log(&work_dir), @r"
+    @  Commit ID: 22be6c4e01da7039a1a8c3adb91b8841252bb354
+    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    │  Bookmarks: c
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    │  Bookmarks: b
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
+    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    │  Bookmarks: a
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │
+    │      (no description set)
+    │
+    ◆  Commit ID: 0000000000000000000000000000000000000000
+       Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+       Author   : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+       Committer: (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+
+           (no description set)
+
+    [EOF]
+    ");
+    let setup_opid = work_dir.current_operation_id();
+
+    // Update multiple revisions
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    work_dir.run_jj(["new"]).success();
+    let output = work_dir.run_jj([
+        "metaedit",
+        "--config=user.name=Ove Ridder",
+        "--config=user.email=ove.ridder@example.com",
+        "--update-author",
+        "kkmpptxz::mzvwutvl",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Modified 2 commits:
+      kkmpptxz d84add51 b | (no description set)
+      mzvwutvl 447d6d8a c | (no description set)
+    Rebased 1 descendant commits
+    Working copy  (@) now at: yostqsxw ebd66676 (empty) (no description set)
+    Parent commit (@-)      : mzvwutvl 447d6d8a c | (no description set)
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log(&work_dir), @r"
+    @  Commit ID: ebd66676fa9e0cd2c9f560bc0dc343b8809e4dfe
+    │  Change ID: yostqsxwqrltovqlrlzszywzslusmuup
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:15.000 +07:00)
+    │  Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:16.000 +07:00)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: 447d6d8a12d90ff0f10bbefc552f9272694389d6
+    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    │  Bookmarks: c
+    │  Author   : Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:13.000 +07:00)
+    │  Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:16.000 +07:00)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: d84add5150537e89db428790c0f9413320127f00
+    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
+    │  Bookmarks: b
+    │  Author   : Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:11.000 +07:00)
+    │  Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:16.000 +07:00)
+    │
+    │      (no description set)
+    │
+    ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
+    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    │  Bookmarks: a
+    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │
+    │      (no description set)
+    │
+    ◆  Commit ID: 0000000000000000000000000000000000000000
+       Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+       Author   : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+       Committer: (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+
+           (no description set)
+
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_new_change_id() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
