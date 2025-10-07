@@ -738,16 +738,16 @@ impl RepoLoader {
         let op = op_heads_store::resolve_op_heads(
             self.op_heads_store.as_ref(),
             &self.op_store,
-            |op_heads| self._resolve_op_heads(op_heads),
+            |op_heads| self.resolve_op_heads(op_heads),
         )?;
         let view = op.view()?;
-        self._finish_load(op, view)
+        self.finish_load(op, view)
     }
 
     #[instrument(skip(self))]
     pub fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         let view = op.view()?;
-        self._finish_load(op.clone(), view)
+        self.finish_load(op.clone(), view)
     }
 
     pub fn create_from(
@@ -813,12 +813,12 @@ impl RepoLoader {
         Ok(final_op)
     }
 
-    fn _resolve_op_heads(&self, op_heads: Vec<Operation>) -> Result<Operation, RepoLoaderError> {
+    fn resolve_op_heads(&self, op_heads: Vec<Operation>) -> Result<Operation, RepoLoaderError> {
         assert!(!op_heads.is_empty());
         self.merge_operations(op_heads, Some("reconcile divergent operations"))
     }
 
-    fn _finish_load(
+    fn finish_load(
         &self,
         operation: Operation,
         view: View,
