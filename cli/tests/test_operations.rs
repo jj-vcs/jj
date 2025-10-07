@@ -193,6 +193,7 @@ fn test_op_log_with_no_template() {
     - builtin_config_list
     - builtin_config_list_detailed
     - builtin_draft_commit_description
+    - builtin_draft_revision_description
     - builtin_evolog_compact
     - builtin_log_comfortable
     - builtin_log_compact
@@ -210,10 +211,12 @@ fn test_op_log_with_no_template() {
     - builtin_op_log_redacted
     - commit_summary_separator
     - default_commit_description
+    - default_revision_description
     - description_placeholder
     - email_placeholder
     - git_format_patch_email_headers
     - name_placeholder
+    - revision_summary_separator
     [EOF]
     [exit status: 2]
     ");
@@ -596,7 +599,7 @@ fn test_op_log_word_wrap() {
     ");
 
     // Nested graph widths should be subtracted from the term width
-    let config = r#"templates.commit_summary='"0 1 2 3 4 5 6 7 8 9"'"#;
+    let config = r#"templates.revision_summary='"0 1 2 3 4 5 6 7 8 9"'"#;
     insta::assert_snapshot!(
         render(&["op", "log", "-T''", "--op-diff", "-n1", "--config", config], 15, true), @r"
     @
@@ -2160,7 +2163,7 @@ fn test_op_diff_word_wrap() {
     ");
 
     // Graph width should be subtracted from the term width
-    let config = r#"templates.commit_summary='"0 1 2 3 4 5 6 7 8 9"'"#;
+    let config = r#"templates.revision_summary='"0 1 2 3 4 5 6 7 8 9"'"#;
     insta::assert_snapshot!(
         render(&["op", "diff", "--from=@---", "--config", config], 10, true), @r"
     From operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'

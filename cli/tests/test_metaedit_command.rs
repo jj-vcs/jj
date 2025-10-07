@@ -38,34 +38,34 @@ fn test_metaedit() {
     work_dir.write_file("file1", "c\n");
     // Test the setup
     insta::assert_snapshot!(get_log(&work_dir), @r"
-    @  Commit ID: 22be6c4e01da7039a1a8c3adb91b8841252bb354
-    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
-    │  Bookmarks: c
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
+    @  Revision ID: 22be6c4e01da7039a1a8c3adb91b8841252bb354
+    │  Change ID  : mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    │  Bookmarks  : c
+    │  Author     : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: 75591b1896b4990e7695701fd7cdbb32dba3ff50
-    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
-    │  Bookmarks: b
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
+    ○  Revision ID: 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    │  Change ID  : kkmpptxzrspxrzommnulwmwkkqwworpl
+    │  Bookmarks  : b
+    │  Author     : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
-    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
-    │  Bookmarks: a
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    ○  Revision ID: e6086990958c236d72030f0a2651806aa629f5dd
+    │  Change ID  : qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    │  Bookmarks  : a
+    │  Author     : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
     │
     │      (no description set)
     │
-    ◆  Commit ID: 0000000000000000000000000000000000000000
-       Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
-       Author   : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
-       Committer: (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+    ◆  Revision ID: 0000000000000000000000000000000000000000
+       Change ID  : zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+       Author     : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+       Committer  : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
 
            (no description set)
 
@@ -107,34 +107,34 @@ fn test_metaedit() {
         ])
         .success();
     insta::assert_snapshot!(get_log(&work_dir), @r"
-    @  Commit ID: 6f31b2555777ac2261dd17008b6fdc42619ebe1f
-    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
-    │  Bookmarks: c
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
-    │  Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:17.000 +07:00)
+    @  Revision ID: 6f31b2555777ac2261dd17008b6fdc42619ebe1f
+    │  Change ID  : mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    │  Bookmarks  : c
+    │  Author     : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
+    │  Committer  : Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:17.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: 590c8b6945666401d01269190c1b82cd3311a0cd
-    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
-    │  Bookmarks: b
-    │  Author   : Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:11.000 +07:00)
-    │  Committer: Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:17.000 +07:00)
+    ○  Revision ID: 590c8b6945666401d01269190c1b82cd3311a0cd
+    │  Change ID  : kkmpptxzrspxrzommnulwmwkkqwworpl
+    │  Bookmarks  : b
+    │  Author     : Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:11.000 +07:00)
+    │  Committer  : Ove Ridder <ove.ridder@example.com> (2001-02-03 04:05:17.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
-    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
-    │  Bookmarks: a
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    ○  Revision ID: e6086990958c236d72030f0a2651806aa629f5dd
+    │  Change ID  : qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    │  Bookmarks  : a
+    │  Author     : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
     │
     │      (no description set)
     │
-    ◆  Commit ID: 0000000000000000000000000000000000000000
-       Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
-       Author   : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
-       Committer: (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+    ◆  Revision ID: 0000000000000000000000000000000000000000
+       Change ID  : zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+       Author     : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+       Committer  : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
 
            (no description set)
 
@@ -147,34 +147,34 @@ fn test_metaedit() {
         .run_jj(["metaedit", "--update-author-timestamp", "kkmpptxzrspx"])
         .success();
     insta::assert_snapshot!(get_log(&work_dir), @r"
-    @  Commit ID: b23f6a3f160d122f8d8dacd8d2acff2d29d5ba84
-    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
-    │  Bookmarks: c
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:20.000 +07:00)
+    @  Revision ID: b23f6a3f160d122f8d8dacd8d2acff2d29d5ba84
+    │  Change ID  : mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    │  Bookmarks  : c
+    │  Author     : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 04:05:20.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: f121a0fb72e1790e4116b2e3b6989c795ac7f74b
-    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
-    │  Bookmarks: b
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:20.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:20.000 +07:00)
+    ○  Revision ID: f121a0fb72e1790e4116b2e3b6989c795ac7f74b
+    │  Change ID  : kkmpptxzrspxrzommnulwmwkkqwworpl
+    │  Bookmarks  : b
+    │  Author     : Test User <test.user@example.com> (2001-02-03 04:05:20.000 +07:00)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 04:05:20.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
-    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
-    │  Bookmarks: a
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    ○  Revision ID: e6086990958c236d72030f0a2651806aa629f5dd
+    │  Change ID  : qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    │  Bookmarks  : a
+    │  Author     : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
     │
     │      (no description set)
     │
-    ◆  Commit ID: 0000000000000000000000000000000000000000
-       Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
-       Author   : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
-       Committer: (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+    ◆  Revision ID: 0000000000000000000000000000000000000000
+       Change ID  : zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+       Author     : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+       Committer  : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
 
            (no description set)
 
@@ -192,34 +192,34 @@ fn test_metaedit() {
         ])
         .success();
     insta::assert_snapshot!(get_log(&work_dir), @r"
-    @  Commit ID: 74007c679b9e4f13d1e3d553ef8397586b033421
-    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
-    │  Bookmarks: c
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:23.000 +07:00)
+    @  Revision ID: 74007c679b9e4f13d1e3d553ef8397586b033421
+    │  Change ID  : mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    │  Bookmarks  : c
+    │  Author     : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 04:05:23.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: d070c8adbc590813c81e296591d6b2cac8f3bb41
-    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
-    │  Bookmarks: b
-    │  Author   : Alice <alice@example.com> (2001-02-03 04:05:11.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:23.000 +07:00)
+    ○  Revision ID: d070c8adbc590813c81e296591d6b2cac8f3bb41
+    │  Change ID  : kkmpptxzrspxrzommnulwmwkkqwworpl
+    │  Bookmarks  : b
+    │  Author     : Alice <alice@example.com> (2001-02-03 04:05:11.000 +07:00)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 04:05:23.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
-    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
-    │  Bookmarks: a
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    ○  Revision ID: e6086990958c236d72030f0a2651806aa629f5dd
+    │  Change ID  : qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    │  Bookmarks  : a
+    │  Author     : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
     │
     │      (no description set)
     │
-    ◆  Commit ID: 0000000000000000000000000000000000000000
-       Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
-       Author   : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
-       Committer: (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+    ◆  Revision ID: 0000000000000000000000000000000000000000
+       Change ID  : zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+       Author     : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+       Committer  : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
 
            (no description set)
 
@@ -236,34 +236,34 @@ fn test_metaedit() {
         ])
         .success();
     insta::assert_snapshot!(get_log(&work_dir), @r"
-    @  Commit ID: a527219f85839d58ddb6115fbc4f0f8bc6649266
-    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
-    │  Bookmarks: c
-    │  Author   : Test User <test.user@example.com> (1995-12-19 16:39:57.000 -08:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:26.000 +07:00)
+    @  Revision ID: a527219f85839d58ddb6115fbc4f0f8bc6649266
+    │  Change ID  : mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    │  Bookmarks  : c
+    │  Author     : Test User <test.user@example.com> (1995-12-19 16:39:57.000 -08:00)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 04:05:26.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: 75591b1896b4990e7695701fd7cdbb32dba3ff50
-    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
-    │  Bookmarks: b
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
+    ○  Revision ID: 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    │  Change ID  : kkmpptxzrspxrzommnulwmwkkqwworpl
+    │  Bookmarks  : b
+    │  Author     : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
-    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
-    │  Bookmarks: a
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    ○  Revision ID: e6086990958c236d72030f0a2651806aa629f5dd
+    │  Change ID  : qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    │  Bookmarks  : a
+    │  Author     : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
     │
     │      (no description set)
     │
-    ◆  Commit ID: 0000000000000000000000000000000000000000
-       Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
-       Author   : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
-       Committer: (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+    ◆  Revision ID: 0000000000000000000000000000000000000000
+       Change ID  : zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+       Author     : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+       Committer  : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
 
            (no description set)
 
@@ -288,34 +288,34 @@ fn test_metaedit() {
         .run_jj(["metaedit", "--update-committer-timestamp", "kkmpptxzrspx"])
         .success();
     insta::assert_snapshot!(get_log(&work_dir), @r"
-    @  Commit ID: 6c0aa6574ef6450eaf7eae1391cc6c769c53a50c
-    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
-    │  Bookmarks: c
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:31.000 +07:00)
+    @  Revision ID: 6c0aa6574ef6450eaf7eae1391cc6c769c53a50c
+    │  Change ID  : mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    │  Bookmarks  : c
+    │  Author     : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 04:05:31.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: 0a570dfbbaf794cd15bbdbf28f94785405ef5b3b
-    │  Change ID: kkmpptxzrspxrzommnulwmwkkqwworpl
-    │  Bookmarks: b
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:31.000 +07:00)
+    ○  Revision ID: 0a570dfbbaf794cd15bbdbf28f94785405ef5b3b
+    │  Change ID  : kkmpptxzrspxrzommnulwmwkkqwworpl
+    │  Bookmarks  : b
+    │  Author     : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 04:05:31.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
-    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
-    │  Bookmarks: a
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    ○  Revision ID: e6086990958c236d72030f0a2651806aa629f5dd
+    │  Change ID  : qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    │  Bookmarks  : a
+    │  Author     : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
     │
     │      (no description set)
     │
-    ◆  Commit ID: 0000000000000000000000000000000000000000
-       Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
-       Author   : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
-       Committer: (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+    ◆  Revision ID: 0000000000000000000000000000000000000000
+       Change ID  : zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+       Author     : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+       Committer  : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
 
            (no description set)
 
@@ -442,34 +442,34 @@ fn test_new_change_id() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log(&work_dir), @r"
-    @  Commit ID: 0c3fe2d854b2b492a053156a505d6c40fe783138
-    │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
-    │  Bookmarks: c
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
+    @  Revision ID: 0c3fe2d854b2b492a053156a505d6c40fe783138
+    │  Change ID  : mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    │  Bookmarks  : c
+    │  Author     : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: 01d6741ed708318bcd5911320237066db4b63b53
-    │  Change ID: yqosqzytrlswkspswpqrmlplxylrzsnz
-    │  Bookmarks: b
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
+    ○  Revision ID: 01d6741ed708318bcd5911320237066db4b63b53
+    │  Change ID  : yqosqzytrlswkspswpqrmlplxylrzsnz
+    │  Bookmarks  : b
+    │  Author     : Test User <test.user@example.com> (2001-02-03 04:05:11.000 +07:00)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
     │
     │      (no description set)
     │
-    ○  Commit ID: e6086990958c236d72030f0a2651806aa629f5dd
-    │  Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
-    │  Bookmarks: a
-    │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    ○  Revision ID: e6086990958c236d72030f0a2651806aa629f5dd
+    │  Change ID  : qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    │  Bookmarks  : a
+    │  Author     : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
+    │  Committer  : Test User <test.user@example.com> (2001-02-03 04:05:09.000 +07:00)
     │
     │      (no description set)
     │
-    ◆  Commit ID: 0000000000000000000000000000000000000000
-       Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
-       Author   : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
-       Committer: (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+    ◆  Revision ID: 0000000000000000000000000000000000000000
+       Change ID  : zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+       Author     : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
+       Committer  : (no name set) <(no email set)> (1970-01-01 00:00:00.000 +00:00)
 
            (no description set)
 
@@ -536,10 +536,10 @@ fn test_update_empty_author() {
 
     // show that commit has no author set
     insta::assert_snapshot!(test_env.work_dir("repo").run_jj(["show"]), @r"
-    Commit ID: 42c91a3e183efb4499038d0d9aa3d14b5deafde0
-    Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
-    Author   : (no name set) <(no email set)> (2001-02-03 08:05:07)
-    Committer: (no name set) <(no email set)> (2001-02-03 08:05:07)
+    Revision ID: 42c91a3e183efb4499038d0d9aa3d14b5deafde0
+    Change ID  : qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    Author     : (no name set) <(no email set)> (2001-02-03 08:05:07)
+    Committer  : (no name set) <(no email set)> (2001-02-03 08:05:07)
 
         (no description set)
 
@@ -561,10 +561,10 @@ fn test_update_empty_author() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["show"]), @r"
-    Commit ID: 0f13b5f2ea7fad147c133c81b87d31e7b1b8c564
-    Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
-    Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
-    Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+    Revision ID: 0f13b5f2ea7fad147c133c81b87d31e7b1b8c564
+    Change ID  : qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    Author     : Test User <test.user@example.com> (2001-02-03 08:05:09)
+    Committer  : Test User <test.user@example.com> (2001-02-03 08:05:09)
 
         (no description set)
 

@@ -131,7 +131,7 @@ descriptions:
 
 ```toml
 [templates]
-commit_trailers = '''
+revision_trailers = '''
 if(
   !trailers.contains_key("Change-Id"),
   format_gerrit_change_id_trailer(self)
