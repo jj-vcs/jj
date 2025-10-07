@@ -2305,6 +2305,10 @@ For example:</p>
 <p>This will continuously update the (colored) log output in the terminal.
 The <code>--ignore-working-copy</code> option avoids conflicts with manual operations during the creation of snapshots.
 Martin used watch in a <a href="https://github.com/tmux/tmux/wiki">tmux</a> pane during his presentation <a href="https://www.youtube.com/watch?v=LV0JzI8IcCY">Jujutsu - A Git-compatible VCS</a>.</p>
+<p>A similar result can be achieved with <a href="https://github.com/watchexec/watchexec">watchexec</a>,
+which triggers on op log changes instead of using a two-second interval:</p>
+<div class="highlight"><pre><span></span><code>watchexec<span class="w"> </span>--quiet<span class="w"> </span>--clear<span class="w"> </span>--restart<span class="w"> </span>--watch<span class="o">=</span>.jj/repo/op_heads/heads<span class="w"> </span>--ignore-nothing<span class="w"> </span>--wrap-process<span class="o">=</span>none<span class="w"> </span>--<span class="w"> </span>jj<span class="w"> </span>--ignore-working-copy<span class="w"> </span>log
+</code></pre></div>
 <p>Alternatively, you can use <a href="https://github.com/tim-janik/jj-fzf">jj-fzf</a>, where the central piece is the <code>jj log</code> view and common operations can be carried out via key bindings while the log view updates.</p>
 <p>The wiki lists additional TUIs and GUIs beyond the terminal: <a href="https://github.com/jj-vcs/jj/wiki/GUI-and-TUI">GUI-and-TUI</a></p>
 <h3 id="should-i-colocate-my-repository"><a name="should-i-co-locate-my-repository"></a>Should I colocate my repository?<a class="headerlink" href="#should-i-colocate-my-repository" title="Permanent link">&para;</a></h3>
