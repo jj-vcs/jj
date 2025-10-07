@@ -1150,13 +1150,14 @@ impl WorkspaceCommandHelper {
         if let Some(new_git_head_id) = new_git_head.as_normal() {
             let workspace_name = self.workspace_name().to_owned();
             let new_git_head_commit = tx.repo().store().get_commit(new_git_head_id)?;
-            tx.repo_mut()
+            let wc_commit = tx
+                .repo_mut()
                 .check_out(workspace_name, &new_git_head_commit)?;
             let mut locked_ws = self.workspace.start_working_copy_mutation()?;
             // The working copy was presumably updated by the git command that updated
             // HEAD, so we just need to reset our working copy
             // state to it without updating working copy files.
-            locked_ws.locked_wc().reset(&new_git_head_commit)?;
+            locked_ws.locked_wc().reset(&wc_commit)?;
             tx.repo_mut().rebase_descendants()?;
             self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head")?);
             locked_ws.finish(self.user_repo.repo.op_id().clone())?;
