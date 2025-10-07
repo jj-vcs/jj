@@ -3013,6 +3013,10 @@ that many occurrences are replaced.</p>
 <p><code>.first_line() -&gt; String</code></p>
 </li>
 <li><code>.lines() -&gt; List&lt;String&gt;</code>: Split into lines excluding newline characters.</li>
+<li><code>.split(separator: StringPattern, [limit: Integer]) -&gt; List&lt;String&gt;</code>: Split into
+  substrings by the given <code>separator</code> pattern. If <code>limit</code> is specified, it
+  determines the maximum number of elements in the result, with the remainder
+  of the string returned as the final element. A <code>limit</code> of 0 returns an empty list.</li>
 <li><code>.upper() -&gt; String</code></li>
 <li><code>.lower() -&gt; String</code></li>
 <li><code>.starts_with(needle: Stringify) -&gt; Boolean</code></li>
