@@ -20,6 +20,7 @@ use jj_lib::backend::CommitId;
 use jj_lib::backend::FileId;
 use jj_lib::backend::SymlinkId;
 use jj_lib::backend::TreeId;
+use jj_lib::backend::TreeValue;
 use jj_lib::op_store::OperationId;
 use jj_lib::op_store::ViewId;
 use jj_lib::repo_path::RepoPathBuf;
@@ -27,6 +28,7 @@ use pollster::FutureExt as _;
 use tokio::io::AsyncReadExt as _;
 
 use crate::cli_util::CommandHelper;
+use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::ui::Ui;
@@ -67,10 +69,14 @@ pub struct DebugObjectSymlinkArgs {
 }
 
 #[derive(clap::Args, Clone, Debug)]
+#[command(group(clap::ArgGroup::new("target").required(true)))]
 pub struct DebugObjectTreeArgs {
     #[arg(value_hint = clap::ValueHint::DirPath)]
     dir: String,
-    id: String,
+    #[arg(group = "target")]
+    id: Option<String>,
+    #[arg(long, short, group = "target")]
+    revision: Option<RevisionArg>,
 }
 
 #[derive(clap::Args, Clone, Debug)]
@@ -122,9 +128,20 @@ pub fn cmd_debug_object(
             writeln!(ui.stdout(), "{target}")?;
         }
         DebugObjectArgs::Tree(args) => {
-            let id =
-                TreeId::try_from_hex(&args.id).ok_or_else(|| user_error("Invalid hex tree id"))?;
             let dir = RepoPathBuf::from_internal_string(&args.dir).map_err(user_error)?;
+            let id = if let Some(rev) = &args.revision {
+                let workspace_command = command.workspace_helper_no_snapshot(ui)?;
+                let commit = workspace_command.resolve_single_rev(ui, rev)?;
+                let tree_value = commit.tree()?.path_value(&dir)?;
+                if let Some(Some(TreeValue::Tree(id))) = tree_value.as_resolved() {
+                    id.clone()
+                } else {
+                    return Err(user_error("The path is not a single tree in the commit"));
+                }
+            } else {
+                TreeId::try_from_hex(args.id.as_ref().unwrap())
+                    .ok_or_else(|| user_error("Invalid hex tree id"))?
+            };
             let tree = repo_loader.store().get_tree(dir, &id)?;
             writeln!(ui.stdout(), "{:#?}", tree.data())?;
         }
