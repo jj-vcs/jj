@@ -48,12 +48,14 @@ use jj_lib::copies::CopiesTreeDiffEntry;
 use jj_lib::copies::CopiesTreeDiffEntryPath;
 use jj_lib::copies::CopyOperation;
 use jj_lib::copies::CopyRecords;
+use jj_lib::diff::CalculatedInterDiff;
 use jj_lib::diff::CompareBytesExactly;
 use jj_lib::diff::CompareBytesIgnoreAllWhitespace;
 use jj_lib::diff::CompareBytesIgnoreWhitespaceAmount;
 use jj_lib::diff::ContentDiff;
 use jj_lib::diff::DiffHunk;
 use jj_lib::diff::DiffHunkKind;
+use jj_lib::diff::calculate_inter_diff;
 use jj_lib::diff::find_line_ranges;
 use jj_lib::files;
 use jj_lib::files::ConflictDiffHunk;
@@ -63,7 +65,6 @@ use jj_lib::files::DiffLineNumber;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
-use jj_lib::merge::MergeBuilder;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
@@ -71,7 +72,6 @@ use jj_lib::repo::Repo;
 use jj_lib::repo_path::InvalidRepoPathError;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathUiConverter;
-use jj_lib::rewrite::rebase_to_dest_parent;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
 use pollster::FutureExt as _;
@@ -602,21 +602,13 @@ impl<'a> DiffRenderer<'a> {
         width: usize,
     ) -> Result<(), DiffRenderError> {
         let mut formatter = formatter.labeled("diff");
-        let from_description = if from_commits.is_empty() {
-            Merge::resolved("")
-        } else {
-            // TODO: use common predecessor as the base description?
-            MergeBuilder::from_iter(itertools::intersperse(
-                from_commits.iter().map(|c| c.description()),
-                "",
-            ))
-            .build()
-            .simplify()
-        };
-        let to_description = Merge::resolved(to_commit.description());
-        let from_tree = rebase_to_dest_parent(self.repo, from_commits, to_commit)?;
-        let to_tree = to_commit.tree_async().await?;
-        let copy_records = CopyRecords::default(); // TODO
+        let CalculatedInterDiff {
+            from_description,
+            to_description,
+            from_tree,
+            to_tree,
+            copy_records,
+        } = calculate_inter_diff(self.repo, from_commits, to_commit).await?;
         self.show_diff_commit_descriptions(*formatter, [&from_description, &to_description])?;
         self.show_diff_trees(
             ui,

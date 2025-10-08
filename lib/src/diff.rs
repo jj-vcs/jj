@@ -29,6 +29,15 @@ use itertools::Itertools as _;
 use smallvec::SmallVec;
 use smallvec::smallvec;
 
+use crate::backend::BackendResult;
+use crate::commit::Commit;
+use crate::copies::CopyRecords;
+use crate::merge::Merge;
+use crate::merge::MergeBuilder;
+use crate::merged_tree::MergedTree;
+use crate::repo::Repo;
+use crate::rewrite::rebase_to_dest_parent;
+
 pub fn find_line_ranges(text: &[u8]) -> Vec<Range<usize>> {
     text.split_inclusive(|b| *b == b'\n')
         .scan(0, |total, line| {
@@ -1024,6 +1033,52 @@ pub fn diff<'a, T: AsRef<[u8]> + ?Sized + 'a>(
     diff.refine_changed_regions(find_word_ranges, CompareBytesExactly);
     diff.refine_changed_regions(find_nonword_ranges, CompareBytesExactly);
     diff.hunks().collect()
+}
+
+/// Container for all the values calculated by [`calculate_inter_diff`].
+pub struct CalculatedInterDiff<'a> {
+    /// The merged description of all `from_commits`.
+    pub from_description: Merge<&'a str>,
+    /// The description of `to_commit`.
+    pub to_description: Merge<&'a str>,
+    /// The merged tree of all `from_commits` rebased onto `to_commit`'s parent.
+    pub from_tree: MergedTree,
+    /// The tree of `to_commit`.
+    pub to_tree: MergedTree,
+    /// The copy records (WIP).
+    pub copy_records: CopyRecords,
+}
+
+/// Generates diff between `from_commits` and `to_commit` based off their
+/// parents. The `from_commits` will temporarily be rebased onto the
+/// `to_commit` parents to exclude unrelated changes.
+pub async fn calculate_inter_diff<'a>(
+    repo: &dyn Repo,
+    from_commits: &'a [Commit],
+    to_commit: &'a Commit,
+) -> BackendResult<CalculatedInterDiff<'a>> {
+    let from_description = if from_commits.is_empty() {
+        Merge::resolved("")
+    } else {
+        // TODO: use common predecessor as the base description?
+        MergeBuilder::from_iter(itertools::intersperse(
+            from_commits.iter().map(|c| c.description()),
+            "",
+        ))
+        .build()
+        .simplify()
+    };
+    let to_description = Merge::resolved(to_commit.description());
+    let from_tree = rebase_to_dest_parent(repo, from_commits, to_commit)?;
+    let to_tree = to_commit.tree_async().await?;
+    let copy_records = CopyRecords::default(); // TODO
+    Ok(CalculatedInterDiff {
+        from_description,
+        to_description,
+        from_tree,
+        to_tree,
+        copy_records,
+    })
 }
 
 #[cfg(test)]
