@@ -79,7 +79,7 @@ pub async fn merge_commit_trees_no_resolve_without_repo(
         .try_map_async(async |commit_id| {
             let commit = store.get_commit_async(commit_id).await?;
             let tree = commit.tree_async().await?;
-            Ok::<_, BackendError>(tree.take())
+            Ok::<_, BackendError>(tree.into_merge())
         })
         .await?;
     Ok(MergedTree::new(tree_merge.flatten().simplify()))
