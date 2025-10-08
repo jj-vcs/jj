@@ -81,7 +81,7 @@ fn test_merged_tree_builder_resolves_conflict() {
     let tree2 = create_single_tree(repo, &[(path1, "bar")]);
     let tree3 = create_single_tree(repo, &[(path1, "bar")]);
 
-    let base_tree_id = MergedTreeId::Merge(Merge::from_removes_adds(
+    let base_tree_id = MergedTreeId::new(Merge::from_removes_adds(
         [tree1.id().clone()],
         [tree2.id().clone(), tree3.id().clone()],
     ));

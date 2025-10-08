@@ -557,7 +557,7 @@ fn validate_commits_ready_to_push(
         {
             reasons.push("it has no author and/or committer set");
         }
-        if commit.has_conflict()? {
+        if commit.has_conflict() {
             reasons.push("it has conflicts");
         }
         let is_private = is_private(commit.id())?;

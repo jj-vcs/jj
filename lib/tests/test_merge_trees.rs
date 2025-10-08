@@ -251,12 +251,12 @@ fn test_rebase_on_lossy_merge(same_change: SameChange) {
         SameChange::Keep => assert_eq!(*commit_d2.tree_id(), tree_3.id()),
         SameChange::Accept => {
             let expected_tree_id = Merge::from_vec(vec![
-                tree_2.id().to_merge(),
-                tree_1.id().to_merge(),
-                tree_3.id().to_merge(),
+                tree_2.id().into_merge(),
+                tree_1.id().into_merge(),
+                tree_3.id().into_merge(),
             ])
             .flatten();
-            assert_eq!(*commit_d2.tree_id(), MergedTreeId::Merge(expected_tree_id));
+            assert_eq!(*commit_d2.tree_id(), MergedTreeId::new(expected_tree_id));
         }
     }
 }

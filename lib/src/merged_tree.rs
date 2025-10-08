@@ -206,7 +206,7 @@ impl MergedTree {
 
     /// The tree's id
     pub fn id(&self) -> MergedTreeId {
-        MergedTreeId::Merge(self.trees.map(|tree| tree.id().clone()))
+        MergedTreeId::new(self.trees.map(|tree| tree.id().clone()))
     }
 
     /// Look up the tree at the given path.
@@ -954,9 +954,7 @@ impl Stream for DiffStreamForFileSystem<'_> {
 ///
 /// You start by creating an instance of this type with one or more
 /// base trees. You then add overrides on top. The overrides may be
-/// conflicts. Then you can write the result as a legacy tree
-/// (allowing path-level conflicts) or as multiple conflict-free
-/// trees.
+/// conflicts. Then you can write the result as a merge of trees.
 pub struct MergedTreeBuilder {
     base_tree_id: MergedTreeId,
     overrides: BTreeMap<RepoPathBuf, MergedTreeValue>,
@@ -981,15 +979,12 @@ impl MergedTreeBuilder {
 
     /// Create new tree(s) from the base tree(s) and overrides.
     pub fn write_tree(self, store: &Arc<Store>) -> BackendResult<MergedTreeId> {
-        let base_tree_ids = match self.base_tree_id.clone() {
-            MergedTreeId::Legacy(base_tree_id) => Merge::resolved(base_tree_id),
-            MergedTreeId::Merge(base_tree_ids) => base_tree_ids,
-        };
+        let base_tree_ids = self.base_tree_id.as_merge().clone();
         let new_tree_ids = self.write_merged_trees(base_tree_ids, store)?;
         match new_tree_ids.simplify().into_resolved() {
             Ok(single_tree_id) => Ok(MergedTreeId::resolved(single_tree_id)),
             Err(tree_id) => {
-                let tree = store.get_root_tree(&MergedTreeId::Merge(tree_id))?;
+                let tree = store.get_root_tree(&MergedTreeId::new(tree_id))?;
                 let resolved = tree.resolve().block_on()?;
                 Ok(resolved.id())
             }

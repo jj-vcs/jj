@@ -562,7 +562,7 @@ pub fn dump_tree(store: &Arc<Store>, tree_id: &MergedTreeId) -> String {
         &mut buf,
         "tree {}",
         tree_id
-            .to_merge()
+            .as_merge()
             .iter()
             .map(|tree_id| tree_id.hex())
             .join("&")
