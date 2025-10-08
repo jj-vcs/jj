@@ -152,41 +152,34 @@ pub struct SecureSig {
 
 pub type SigningFn<'a> = dyn FnMut(&[u8]) -> SignResult<Vec<u8>> + Send + 'a;
 
-/// Identifies a single legacy tree, which may have path-level conflicts, or a
-/// merge of multiple trees, where the individual trees do not have conflicts.
-// TODO(#1624): Delete this type at some point in the future, when we decide to drop
-// support for conflicts in older repos, or maybe after we have provided an upgrade
-// mechanism.
-#[derive(ContentHash, Debug, Clone)]
-pub enum MergedTreeId {
-    /// The tree id of a legacy tree
-    Legacy(TreeId),
+/// Identifies a merge of multiple trees. Can be read as a `MergedTree`.
+// TODO: this type doesn't add anything over `Merge<TreeId>` currently, but conflict labels could be
+// added here in the future if we also add them to `MergedTree`.
+#[derive(ContentHash, Debug, PartialEq, Eq, Clone)]
+pub struct MergedTreeId {
     /// The tree id(s) of a merge tree
-    Merge(Merge<TreeId>),
+    tree_ids: Merge<TreeId>,
 }
-
-impl PartialEq for MergedTreeId {
-    /// Overridden to make conflict-free trees be considered equal even if their
-    /// `MergedTreeId` variant is different.
-    fn eq(&self, other: &Self) -> bool {
-        self.to_merge() == other.to_merge()
-    }
-}
-
-impl Eq for MergedTreeId {}
 
 impl MergedTreeId {
     /// Create a resolved `MergedTreeId` from a single regular tree.
     pub fn resolved(tree_id: TreeId) -> Self {
-        Self::Merge(Merge::resolved(tree_id))
+        Self::new(Merge::resolved(tree_id))
     }
 
-    /// Return this id as `Merge<TreeId>`
-    pub fn to_merge(&self) -> Merge<TreeId> {
-        match self {
-            Self::Legacy(tree_id) => Merge::resolved(tree_id.clone()),
-            Self::Merge(tree_ids) => tree_ids.clone(),
-        }
+    /// Create a `MergedTreeId` from a `Merge<TreeId>`.
+    pub fn new(tree_ids: Merge<TreeId>) -> Self {
+        Self { tree_ids }
+    }
+
+    /// Returns the underlying `Merge<TreeId>`.
+    pub fn as_merge(&self) -> &Merge<TreeId> {
+        &self.tree_ids
+    }
+
+    /// Extracts the underlying `Merge<TreeId>`.
+    pub fn into_merge(self) -> Merge<TreeId> {
+        self.tree_ids
     }
 }
 

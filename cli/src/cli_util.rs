@@ -2000,7 +2000,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         print_checkout_stats(ui, stats, new_commit)?;
         if Some(new_commit) != maybe_old_commit
             && let Some(mut formatter) = ui.status_formatter()
-            && new_commit.has_conflict()?
+            && new_commit.has_conflict()
         {
             let conflicts = new_commit.tree()?.conflicts().collect_vec();
             writeln!(

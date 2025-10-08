@@ -1196,7 +1196,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         "conflict",
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
-            let out_property = self_property.and_then(|commit| Ok(commit.has_conflict()?));
+            let out_property = self_property.map(|commit| commit.has_conflict());
             Ok(out_property.into_dyn_wrapped())
         },
     );
