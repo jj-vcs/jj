@@ -2827,6 +2827,9 @@ type</a> are available as keywords. For example,
   local ref.</li>
 <li><code>.tracking_behind_count() -&gt; SizeHint</code>: Number of commits behind of the
   tracking local ref.</li>
+<li><code>.synced() -&gt; Boolean</code>: For a local bookmark, true if synced with all tracked
+  remotes. For a remote bookmark, true if synced with the tracking local
+  bookmark.</li>
 </ul>
 <h3 id="configvalue-type"><code>ConfigValue</code> type<a class="headerlink" href="#configvalue-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
