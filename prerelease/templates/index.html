@@ -2845,9 +2845,12 @@ type</a> are available as keywords. For example,
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: no</em></p>
 <p>The following methods are defined.</p>
 <ul>
-<li><code>.status() -&gt; String</code>: The signature's status (<code>"good"</code>, <code>"bad"</code>, <code>"unknown"</code>, <code>"invalid"</code>).</li>
-<li><code>.key() -&gt; String</code>: The signature's key id representation (for GPG, this is the key fingerprint).</li>
-<li><code>.display() -&gt; String</code>: The signature's display string (for GPG this is the formatted primary user ID).</li>
+<li><code>.status() -&gt; String</code>: The signature's status (<code>"good"</code>, <code>"bad"</code>, <code>"unknown"</code>,
+  <code>"invalid"</code>).</li>
+<li><code>.key() -&gt; String</code>: The signature's key id representation (for GPG and SSH,
+  this is the public key fingerprint).</li>
+<li><code>.display() -&gt; String</code>: The signature's display string (for GPG, this is the
+  formatted primary user ID; for SSH, this is the principal).</li>
 </ul>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
