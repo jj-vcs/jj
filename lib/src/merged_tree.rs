@@ -87,7 +87,7 @@ impl MergedTree {
     }
 
     /// Extracts the underlying `Merge<Tree>`.
-    pub fn take(self) -> Merge<Tree> {
+    pub fn into_merge(self) -> Merge<Tree> {
         self.trees
     }
 

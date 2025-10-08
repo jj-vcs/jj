@@ -737,15 +737,16 @@ fn deserialize_extras(commit: &mut Commit, bytes: &[u8]) {
     if !proto.change_id.is_empty() {
         commit.change_id = ChangeId::new(proto.change_id);
     }
-    if commit.root_tree.as_merge().is_resolved() && proto.uses_tree_conflict_format {
-        if !proto.root_tree.is_empty() {
-            let merge_builder: MergeBuilder<_> = proto
-                .root_tree
-                .iter()
-                .map(|id_bytes| TreeId::from_bytes(id_bytes))
-                .collect();
-            commit.root_tree = MergedTreeId::new(merge_builder.build());
-        }
+    if commit.root_tree.as_merge().is_resolved()
+        && proto.uses_tree_conflict_format
+        && !proto.root_tree.is_empty()
+    {
+        let merge_builder: MergeBuilder<_> = proto
+            .root_tree
+            .iter()
+            .map(|id_bytes| TreeId::from_bytes(id_bytes))
+            .collect();
+        commit.root_tree = MergedTreeId::new(merge_builder.build());
     }
     for predecessor in &proto.predecessors {
         commit.predecessors.push(CommitId::from_bytes(predecessor));
