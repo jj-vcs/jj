@@ -1958,7 +1958,7 @@ Like other commands, `jj op log` snapshots the current working-copy changes and 
 
    Applied after operations are reordered topologically, but before being reversed.
 * `--reversed` — Show operations in the opposite order (older operations first)
-* `--no-graph` — Don't show the graph, show a flat list of operations
+* `-G`, `--no-graph` — Don't show the graph, show a flat list of operations
 * `-T`, `--template <TEMPLATE>` — Render each operation using the given template
 
    You can specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
