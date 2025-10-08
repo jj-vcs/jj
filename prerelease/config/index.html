@@ -3782,11 +3782,7 @@ object</a>.</p>
 <div class="highlight"><pre><span></span><code><span class="k">[templates]</span>
 <span class="n">draft_commit_description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;&#39;</span>
 <span class="s1">concat(</span>
-<span class="s1">  coalesce(description, default_commit_description, &quot;\n&quot;),</span>
-<span class="s1">  surround(</span>
-<span class="s1">    &quot;\nJJ: This commit contains the following changes:\n&quot;, &quot;&quot;,</span>
-<span class="s1">    indent(&quot;JJ:     &quot;, diff.stat(72)),</span>
-<span class="s1">  ),</span>
+<span class="s1">  builtin_draft_commit_description,</span>
 <span class="s1">  &quot;\nJJ: ignore-rest\n&quot;,</span>
 <span class="s1">  diff.git(),</span>
 <span class="s1">)</span>
