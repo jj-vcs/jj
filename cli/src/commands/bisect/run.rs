@@ -80,10 +80,9 @@ pub(crate) struct BisectRunArgs {
 
     /// Command to run to determine whether the bug is present
     ///
-    /// The command will be run from the workspace root. The exit status of the
-    /// command will be used to mark revisions as good or bad:
-    /// status 0 means good, 125 means to skip the revision, 127 (command not
-    /// found) will abort the bisection, and any other non-zero exit status
+    /// The exit status of the command will be used to mark revisions as good or
+    /// bad: status 0 means good, 125 means to skip the revision, 127 (command
+    /// not found) will abort the bisection, and any other non-zero exit status
     /// means the revision is bad.
     ///
     /// The target's commit ID is available to the command in the
