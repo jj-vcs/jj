@@ -64,6 +64,11 @@ pub(crate) struct PrevArgs {
     /// will negate `ui.movement.edit = true`
     #[arg(long, short, conflicts_with = "edit")]
     no_edit: bool,
+    /// Instead of creating a new working-copy commit on top of the target
+    /// commit (like `jj new`), move the working-copy on top of the target
+    /// commit (like `jj rebase`)
+    #[arg(long, short, conflicts_with = "edit")]
+    rebase: bool,
     /// Jump to the previous conflicted ancestor
     #[arg(long, conflicts_with = "offset")]
     conflict: bool,
@@ -76,6 +81,7 @@ impl From<&PrevArgs> for MovementArgs {
             edit: val.edit,
             no_edit: val.no_edit,
             conflict: val.conflict,
+            rebase: val.rebase,
         }
     }
 }
