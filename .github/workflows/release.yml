@@ -70,7 +70,8 @@ jobs:
           echo "ASSET=$staging.zip" >> $GITHUB_ENV
         else
           cp "$outdir/jj" "$staging/"
-          tar czf "$staging.tar.gz" -C "$staging" .
+          cd "$staging"
+          tar czf "../$staging.tar.gz" *
           echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
         fi
       env:
@@ -109,7 +110,9 @@ jobs:
         run: |
           uv run mkdocs build
           archive="jj-${RELEASE_TAG_NAME}-docs-html.tar.gz"
-          tar czf "$archive" -C "rendered-docs" .
+          cd rendered-docs
+          # Does not include `.` in the archive, and would include hidden files if we had any
+          ls -A | tar czf "../$archive" -T -
           echo "ASSET=$archive" >> $GITHUB_ENV
         env:
           MKDOCS_OFFLINE: true
