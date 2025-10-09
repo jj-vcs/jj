@@ -341,21 +341,81 @@ impl MergedTree {
     }
 
     /// Merges this tree with `other`, using `base` as base. Any conflicts will
-    /// be resolved recursively if possible.
-    pub async fn merge(self, base: Self, other: Self) -> BackendResult<Self> {
-        self.merge_no_resolve(base, other).resolve().await
+    /// be resolved recursively if possible. Does not add conflict labels.
+    pub async fn merge_unlabeled(self, base: Self, other: Self) -> BackendResult<Self> {
+        self.merge(base, other, || None).await
+    }
+
+    /// Merges this tree with `other`, using `base` as base. Any conflicts will
+    /// be resolved recursively if possible. If there is a conflict, uses the
+    /// provided labels.
+    pub async fn merge(
+        self,
+        base: Self,
+        other: Self,
+        get_labels: impl FnOnce() -> Option<MergeLabels>,
+    ) -> BackendResult<Self> {
+        self.merge_no_resolve(base, other, get_labels)
+            .resolve()
+            .await
     }
 
     /// Merges this tree with `other`, using `base` as base, without attempting
     /// to resolve file conflicts.
-    pub fn merge_no_resolve(self, base: Self, other: Self) -> Self {
+    pub fn merge_no_resolve(
+        self,
+        base: Self,
+        other: Self,
+        get_labels: impl FnOnce() -> Option<MergeLabels>,
+    ) -> Self {
         let nested = Merge::from_vec(vec![self.trees, base.trees, other.trees]);
-        Self {
-            trees: nested.flatten().simplify(),
-            // TODO: retain labels
-            labels: None,
+        let resolved = nested.map(Merge::is_resolved);
+        let flattened = nested.flatten();
+        let mapping = flattened.get_simplified_mapping();
+        let trees = flattened.apply_simplified_mapping(&mapping);
+        if trees.is_resolved() {
+            return Self {
+                trees,
+                labels: None,
+            };
         }
+
+        let merge_labels: [Option<String>; 3] = get_labels()
+            .map(|m| [Some(m.left), Some(m.base), Some(m.right)])
+            .unwrap_or_default();
+
+        let labels_nested: Option<MergeBuilder<Merge<String>>> =
+            [self.labels, base.labels, other.labels]
+                .into_iter()
+                .zip(merge_labels)
+                .zip(resolved)
+                .map(|((labels, merge_label), resolved)| {
+                    labels.map(Arc::unwrap_or_clone).or_else(|| {
+                        merge_label.and_then(|label| resolved.then(|| Merge::resolved(label)))
+                    })
+                })
+                .collect();
+        let labels = labels_nested.map(|labels_nested| {
+            Arc::new(
+                labels_nested
+                    .build()
+                    .flatten()
+                    .apply_simplified_mapping(&mapping),
+            )
+        });
+
+        Self { trees, labels }
     }
+}
+
+/// Labels for conflicts resulting from a single merge.
+pub struct MergeLabels {
+    /// Label for the left side of the conflict.
+    pub left: String,
+    /// Label for the merge base of the conflict.
+    pub base: String,
+    /// Label for the right side of the conflict.
+    pub right: String,
 }
 
 /// A single entry in a tree diff.

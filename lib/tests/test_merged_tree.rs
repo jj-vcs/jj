@@ -1175,7 +1175,7 @@ fn test_merge_simple() {
     let expected_merged = MergedTree::unlabeled(Merge::resolved(expected));
 
     let merged = side1_merged
-        .merge(base1_merged, side2_merged)
+        .merge_unlabeled(base1_merged, side2_merged)
         .block_on()
         .unwrap();
     assert_eq!(merged, expected_merged);
@@ -1205,7 +1205,7 @@ fn test_merge_partial_resolution() {
     ));
 
     let merged = side1_merged
-        .merge(base1_merged, side2_merged)
+        .merge_unlabeled(base1_merged, side2_merged)
         .block_on()
         .unwrap();
     assert_eq!(merged, expected_merged);
@@ -1240,7 +1240,7 @@ fn test_merge_simplify_only() {
     let expected_merged = MergedTree::unlabeled(Merge::resolved(expected));
 
     let merged = side1_merged
-        .merge(base1_merged, side2_merged)
+        .merge_unlabeled(base1_merged, side2_merged)
         .block_on()
         .unwrap();
     assert_eq!(merged, expected_merged);
@@ -1277,7 +1277,7 @@ fn test_merge_simplify_result() {
     ));
 
     let merged = side1_merged
-        .merge(base1_merged, side2_merged)
+        .merge_unlabeled(base1_merged, side2_merged)
         .block_on()
         .unwrap();
     assert_eq!(merged, expected_merged);
@@ -1388,7 +1388,7 @@ fn test_merge_simplify_file_conflict() {
     let expected_merged = MergedTree::resolved(expected);
 
     let merged = child1_merged
-        .merge(parent_merged, child2_merged)
+        .merge_unlabeled(parent_merged, child2_merged)
         .block_on()
         .unwrap();
     assert_eq!(merged, expected_merged);
@@ -1441,7 +1441,7 @@ fn test_merge_simplify_file_conflict_with_absent() {
     let expected_merged = MergedTree::resolved(expected);
 
     let merged = child1_merged
-        .merge(parent_merged, child2_merged)
+        .merge_unlabeled(parent_merged, child2_merged)
         .block_on()
         .unwrap();
     assert_eq!(merged, expected_merged);
