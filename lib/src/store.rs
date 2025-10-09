@@ -227,7 +227,7 @@ impl Store {
             .as_merge()
             .try_map_async(|id| self.get_tree_async(RepoPathBuf::root(), id))
             .await?;
-        Ok(MergedTree::new(trees))
+        Ok(MergedTree::new(trees, id.labels().clone()))
     }
 
     pub async fn write_tree(

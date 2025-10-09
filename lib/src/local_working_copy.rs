@@ -977,7 +977,7 @@ impl TreeState {
                 .iter()
                 .map(|id| TreeId::new(id.clone()))
                 .collect();
-            self.tree_id = MergedTreeId::new(tree_ids_builder.build());
+            self.tree_id = MergedTreeId::unlabeled(tree_ids_builder.build());
         }
         self.file_states =
             FileStatesMap::from_proto(proto.file_states, proto.is_file_states_sorted);

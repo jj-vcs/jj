@@ -38,6 +38,7 @@ use crate::backend::BackendResult;
 use crate::backend::MergedTreeId;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
+use crate::conflict_labels::ConflictLabels;
 use crate::copies::CopiesTreeDiffEntry;
 use crate::copies::CopiesTreeDiffStream;
 use crate::copies::CopyRecords;
@@ -56,21 +57,30 @@ use crate::tree::Tree;
 use crate::tree_builder::TreeBuilder;
 use crate::tree_merge::merge_trees;
 
-/// Presents a view of a merged set of trees.
+/// Presents a view of a merged set of trees, including conflict labels.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct MergedTree {
     trees: Merge<Tree>,
+    labels: ConflictLabels,
 }
 
 impl MergedTree {
     /// Creates a new `MergedTree` representing a single tree without conflicts.
     pub fn resolved(tree: Tree) -> Self {
-        Self::new(Merge::resolved(tree))
+        Self::unlabeled(Merge::resolved(tree))
     }
 
-    /// Creates a new `MergedTree` representing a merge of a set of trees. The
-    /// individual trees must not have any conflicts.
-    pub fn new(trees: Merge<Tree>) -> Self {
+    /// Creates a new `MergedTree` representing a merge of a set of trees
+    /// without conflict labels. The individual trees must not have any
+    /// conflicts.
+    pub fn unlabeled(trees: Merge<Tree>) -> Self {
+        Self::new(trees, ConflictLabels::unlabeled())
+    }
+
+    /// Creates a new `MergedTree` representing a merge of a set of trees
+    /// with conflict labels. The individual trees must not have any
+    /// conflicts.
+    pub fn new(trees: Merge<Tree>, labels: ConflictLabels) -> Self {
         debug_assert!(trees.iter().map(|tree| tree.dir()).all_equal());
         debug_assert!(
             trees
@@ -78,7 +88,10 @@ impl MergedTree {
                 .map(|tree| Arc::as_ptr(tree.store()))
                 .all_equal()
         );
-        Self { trees }
+        if let Some(num_sides) = labels.num_sides() {
+            assert_eq!(trees.num_sides(), num_sides);
+        }
+        Self { trees, labels }
     }
 
     /// Returns the underlying `Merge<Tree>`.
@@ -86,9 +99,14 @@ impl MergedTree {
         &self.trees
     }
 
-    /// Extracts the underlying `Merge<Tree>`.
+    /// Extracts the underlying `Merge<Tree>`, discarding any conflict labels.
     pub fn into_merge(self) -> Merge<Tree> {
         self.trees
+    }
+
+    /// Returns this merge's conflict labels, if any.
+    pub fn labels(&self) -> &ConflictLabels {
+        &self.labels
     }
 
     /// This tree's directory
@@ -130,7 +148,11 @@ impl MergedTree {
             let re_merged = merge_trees(simplified.clone()).await.unwrap();
             debug_assert_eq!(re_merged, simplified);
         }
-        Ok(Self { trees: simplified })
+        // TODO: retain labels
+        Ok(Self {
+            trees: simplified,
+            labels: ConflictLabels::unlabeled(),
+        })
     }
 
     /// An iterator over the conflicts in this tree, including subtrees.
@@ -178,7 +200,10 @@ impl MergedTree {
                         }
                     })
                     .await?;
-                Ok(Some(Self { trees }))
+                Ok(Some(Self {
+                    trees,
+                    labels: self.labels.clone(),
+                }))
             }
         }
     }
@@ -206,7 +231,10 @@ impl MergedTree {
 
     /// The tree's id
     pub fn id(&self) -> MergedTreeId {
-        MergedTreeId::new(self.trees.map(|tree| tree.id().clone()))
+        MergedTreeId::new(
+            self.trees.map(|tree| tree.id().clone()),
+            self.labels.clone(),
+        )
     }
 
     /// Look up the tree at the given path.
@@ -321,6 +349,8 @@ impl MergedTree {
         let nested = Merge::from_vec(vec![self.trees, base.trees, other.trees]);
         Self {
             trees: nested.flatten().simplify(),
+            // TODO: retain labels
+            labels: ConflictLabels::unlabeled(),
         }
     }
 }
@@ -980,11 +1010,12 @@ impl MergedTreeBuilder {
     /// Create new tree(s) from the base tree(s) and overrides.
     pub fn write_tree(self, store: &Arc<Store>) -> BackendResult<MergedTreeId> {
         let base_tree_ids = self.base_tree_id.as_merge().clone();
+        let base_tree_labels = self.base_tree_id.labels().clone();
         let new_tree_ids = self.write_merged_trees(base_tree_ids, store)?;
         match new_tree_ids.simplify().into_resolved() {
             Ok(single_tree_id) => Ok(MergedTreeId::resolved(single_tree_id)),
             Err(tree_id) => {
-                let tree = store.get_root_tree(&MergedTreeId::new(tree_id))?;
+                let tree = store.get_root_tree(&MergedTreeId::new(tree_id, base_tree_labels))?;
                 let resolved = tree.resolve().block_on()?;
                 Ok(resolved.id())
             }
