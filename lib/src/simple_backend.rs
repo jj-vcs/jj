@@ -23,6 +23,7 @@ use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
@@ -60,6 +61,7 @@ use crate::backend::make_root_commit;
 use crate::content_hash::blake2b_hash;
 use crate::file_util::persist_content_addressed_temp_file;
 use crate::index::Index;
+use crate::merge::Merge;
 use crate::merge::MergeBuilder;
 use crate::object_id::ObjectId;
 use crate::repo_path::RepoPath;
@@ -365,6 +367,10 @@ pub fn commit_to_proto(commit: &Commit) -> crate::protos::simple_store::Commit {
         .iter()
         .map(|id| id.to_bytes())
         .collect();
+    proto.conflict_labels = commit
+        .root_tree
+        .labels()
+        .map_or_else(Vec::new, |labels| labels.as_slice().to_owned());
     proto.change_id = commit.change_id.to_bytes();
     proto.description = commit.description.clone();
     proto.author = Some(signature_to_proto(&commit.author));
@@ -383,7 +389,9 @@ fn commit_from_proto(mut proto: crate::protos::simple_store::Commit) -> Commit {
     let parents = proto.parents.into_iter().map(CommitId::new).collect();
     let predecessors = proto.predecessors.into_iter().map(CommitId::new).collect();
     let merge_builder: MergeBuilder<_> = proto.root_tree.into_iter().map(TreeId::new).collect();
-    let root_tree = MergedTreeId::unlabeled(merge_builder.build());
+    let labels = (!proto.conflict_labels.is_empty())
+        .then(|| Arc::new(Merge::from_vec(proto.conflict_labels)));
+    let root_tree = MergedTreeId::new(merge_builder.build(), labels);
     let change_id = ChangeId::new(proto.change_id);
     Commit {
         parents,
