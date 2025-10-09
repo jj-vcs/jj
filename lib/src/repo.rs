@@ -26,6 +26,7 @@ use std::slice;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
+use jj_lib::user_config::write_user_config;
 use once_cell::sync::OnceCell;
 use pollster::FutureExt as _;
 use thiserror::Error;
@@ -75,6 +76,7 @@ use crate::op_store::RemoteRef;
 use crate::op_store::RemoteRefState;
 use crate::op_store::RootOperationData;
 use crate::operation::Operation;
+use crate::protos::user_config::RepoConfig;
 use crate::ref_name::GitRefName;
 use crate::ref_name::RefName;
 use crate::ref_name::RemoteName;
@@ -107,6 +109,7 @@ use crate::submodule_store::SubmoduleStore;
 use crate::transaction::Transaction;
 use crate::transaction::TransactionCommitError;
 use crate::tree_merge::MergeOptions;
+use crate::user_config::UserConfigError;
 use crate::view::RenameWorkspaceError;
 use crate::view::View;
 
@@ -165,6 +168,8 @@ pub enum RepoInitError {
     OpHeadsStore(#[from] OpHeadsStoreError),
     #[error(transparent)]
     Path(#[from] PathError),
+    #[error(transparent)]
+    UserConfigError(#[from] UserConfigError),
 }
 
 impl ReadonlyRepo {
@@ -201,6 +206,7 @@ impl ReadonlyRepo {
 
         let store_path = repo_path.join("store");
         fs::create_dir(&store_path).context(&store_path)?;
+        write_user_config(&repo_path, &RepoConfig::default())?;
         let backend = backend_initializer(settings, &store_path)?;
         let backend_path = store_path.join("type");
         fs::write(&backend_path, backend.name()).context(&backend_path)?;

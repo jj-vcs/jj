@@ -41,11 +41,12 @@ pub fn cmd_config_unset(
 ) -> Result<(), CommandError> {
     let mut file = args.level.edit_config_file(ui, command)?;
     let old_value = file
+        .file_mut()
         .delete_value(&args.name)
         .map_err(|err| user_error_with_message(format!("Failed to unset {}", args.name), err))?;
     if old_value.is_none() {
         return Err(user_error(format!(r#""{}" doesn't exist"#, args.name)));
     }
-    file.save()?;
+    file.save(false)?;
     Ok(())
 }

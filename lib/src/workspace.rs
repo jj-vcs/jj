@@ -35,6 +35,7 @@ use crate::local_working_copy::LocalWorkingCopy;
 use crate::local_working_copy::LocalWorkingCopyFactory;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store::OperationId;
+use crate::protos::user_config::WorkspaceConfig;
 use crate::ref_name::WorkspaceName;
 use crate::ref_name::WorkspaceNameBuf;
 use crate::repo::BackendInitializer;
@@ -55,6 +56,8 @@ use crate::signing::SignInitError;
 use crate::signing::Signer;
 use crate::simple_backend::SimpleBackend;
 use crate::transaction::TransactionCommitError;
+use crate::user_config::UserConfigError;
+use crate::user_config::write_user_config;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutStats;
 use crate::working_copy::LockedWorkingCopy;
@@ -82,6 +85,8 @@ pub enum WorkspaceInitError {
     SignInit(#[from] SignInitError),
     #[error(transparent)]
     TransactionCommit(#[from] TransactionCommitError),
+    #[error(transparent)]
+    UserConfigError(#[from] UserConfigError),
 }
 
 #[derive(Error, Debug)]
@@ -118,7 +123,10 @@ pub struct Workspace {
 fn create_jj_dir(workspace_root: &Path) -> Result<PathBuf, WorkspaceInitError> {
     let jj_dir = workspace_root.join(".jj");
     match std::fs::create_dir(&jj_dir).context(&jj_dir) {
-        Ok(()) => Ok(jj_dir),
+        Ok(()) => {
+            write_user_config(&jj_dir.join("workspace"), &WorkspaceConfig::default())?;
+            Ok(jj_dir)
+        }
         Err(ref e) if e.source.kind() == io::ErrorKind::AlreadyExists => {
             Err(WorkspaceInitError::DestinationExists(jj_dir))
         }
@@ -311,6 +319,7 @@ impl Workspace {
                 RepoInitError::Backend(err) => WorkspaceInitError::Backend(err),
                 RepoInitError::OpHeadsStore(err) => WorkspaceInitError::OpHeadsStore(err),
                 RepoInitError::Path(err) => WorkspaceInitError::Path(err),
+                RepoInitError::UserConfigError(err) => WorkspaceInitError::UserConfigError(err),
             })?;
             let (working_copy, repo) = init_working_copy(
                 &repo,

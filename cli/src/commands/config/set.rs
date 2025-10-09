@@ -75,9 +75,10 @@ pub fn cmd_config_set(
         check_wc_author(ui, command, &args.value, AuthorChange::Email)?;
     };
 
-    file.set_value(&args.name, &args.value)
+    file.file_mut()
+        .set_value(&args.name, &args.value)
         .map_err(|err| user_error_with_message(format!("Failed to set {}", args.name), err))?;
-    file.save()?;
+    file.save(false)?;
     Ok(())
 }
 
