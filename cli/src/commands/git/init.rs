@@ -168,7 +168,7 @@ fn do_init(
         GitInitMode::Internal
     };
 
-    let settings = command.settings_for_new_workspace(workspace_root)?;
+    let settings = command.settings_for_new_workspace(ui, workspace_root)?;
     match &init_mode {
         GitInitMode::Colocate => {
             let (workspace, repo) = Workspace::init_colocated_git(&settings, workspace_root)?;

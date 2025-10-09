@@ -66,6 +66,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   tags. These keywords may be useful in non-colocated Git repositories where
   local and exported `@git` tags can point to different revisions.
 
+* Per-repo configurations are now signed, preventing you from using
+  configurations created by another user. This means you must now use
+  `jj config edit` to edit in-repo configs instead of manually specifying the
+  path.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
