@@ -622,7 +622,7 @@ fn test_new_change_id() {
 }
 
 #[test]
-fn test_squash_option_mutual_exclusion() {
+fn test_metaedit_option_mutual_exclusion() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
