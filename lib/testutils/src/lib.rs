@@ -599,8 +599,8 @@ macro_rules! assert_tree_eq {
         let left_tree: &::jj_lib::merged_tree::MergedTree = &$left_tree;
         let right_tree: &::jj_lib::merged_tree::MergedTree = &$right_tree;
         assert_eq!(
-            left_tree.tree_ids(),
-            right_tree.tree_ids(),
+            left_tree.tree_ids_and_labels(),
+            right_tree.tree_ids_and_labels(),
             "{}:\n left: {}\nright: {}",
             format_args!($($args)*),
             $crate::dump_tree(left_tree),

@@ -81,7 +81,7 @@ pub async fn merge_commit_trees_no_resolve_without_repo(
             Ok::<_, BackendError>(commit.tree_ids().clone())
         })
         .await?;
-    Ok(MergedTree::new(
+    Ok(MergedTree::unlabeled(
         store.clone(),
         tree_id_merge.flatten().simplify(),
     ))

@@ -280,7 +280,7 @@ fn test_chmod_exec_bit_settings() {
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
     Current operation: OperationId("8c58a72d1118aa7d8b1295949a7fa8c6fcda63a3c89813faf2b8ca599ceebf8adcfcbeb8f0bbb6439c86b47dd68b9cf85074c9e57214c3fb4b632e0c9e87ad65")
-    Current tree: MergedTree { tree_ids: Resolved(TreeId("6d5f482d15035cdd7733b1b551d1fead28d22592")), .. }
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("6d5f482d15035cdd7733b1b551d1fead28d22592")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(false) }             5 <timestamp> None "file"
     [EOF]
     "#); // in-repo: false, on-disk: false (1/4)
@@ -293,7 +293,7 @@ fn test_chmod_exec_bit_settings() {
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
     Current operation: OperationId("3a6a78820e6892164ed55680b92fa679fbb4d6acd4135c7413d1b815bedcd2c24c85ac8f4f96c96f76012f33d31ffbf50473b938feadf36fcd9c92997789aeca")
-    Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), .. }
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(true) }             5 <timestamp> None "file"
     [EOF]
     "#); // in-repo: true, on-disk: true (2/4)
@@ -315,7 +315,7 @@ fn test_chmod_exec_bit_settings() {
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
     Current operation: OperationId("cab1801e16b54d5b413f638bdf74388520b51232c88db6b314ef64b054607ab82ae6ef0b1f707b52aa8d2131511f6f48f8ca52e465621ff38c442b0ec893f309")
-    Current tree: MergedTree { tree_ids: Resolved(TreeId("6d5f482d15035cdd7733b1b551d1fead28d22592")), .. }
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("6d5f482d15035cdd7733b1b551d1fead28d22592")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(true) }             5 <timestamp> None "file"
     [EOF]
     "#); // in-repo: false, on-disk: true (3/4)
@@ -326,7 +326,7 @@ fn test_chmod_exec_bit_settings() {
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
     Current operation: OperationId("def8ce6211dcff6d2784d5309d36079c1cb6eeb70821ae144982c76d38ed76fedc8b84e4daddaac70f6a0aae1c301ff5b60e1baa6ac371dabd77cec3537d2c39")
-    Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), .. }
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(false) }             5 <timestamp> None "file"
     [EOF]
     "#); // in-repo: true, on-disk: false (4/4) Yay! We've observed all possible states!
@@ -359,7 +359,7 @@ fn test_chmod_exec_bit_settings() {
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
     Current operation: OperationId("0cce4e44f0b47cc4404f74fe164536aa57f67b8981726ce6ec88c39d79e266a2586a79d51a065906b6d8b284b39fe0ab023547f65571d1b61a97916f7f7cf4d8")
-    Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), .. }
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(true) }             5 <timestamp> None "file"
     [EOF]
     "#);

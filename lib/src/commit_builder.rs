@@ -303,7 +303,7 @@ impl DetachedCommitBuilder {
     }
 
     pub fn tree(&self) -> MergedTree {
-        MergedTree::new(self.store.clone(), self.commit.root_tree.clone())
+        MergedTree::unlabeled(self.store.clone(), self.commit.root_tree.clone())
     }
 
     pub fn tree_ids(&self) -> &Merge<TreeId> {
