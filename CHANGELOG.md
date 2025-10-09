@@ -74,6 +74,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   colocation state (`status`) and to convert a non-colocated git repo into
   a colocated repo (`enable`) and vice-versa `disable`.
 
+* Conflict labels can now contain more information about where the sides of
+  the conflict came from. Currently, only some commands add conflict labels.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
