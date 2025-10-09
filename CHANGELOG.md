@@ -38,6 +38,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added `jj util backend name` command that prints the backend being used in the
   current repo.
 
+* `jj prev` and `jj next` have gained a `--keep` flag to keep the current changes
+  while moving to the previous or next revision.
+
 ### Fixed bugs
 
 * `jj bookmark forget` no longer prints `Forgot N local bookmarks.` when no
