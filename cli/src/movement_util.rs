@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::io::Write as _;
+use std::iter::once;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
@@ -23,6 +24,10 @@ use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetIteratorExt as _;
+use jj_lib::rewrite::MoveCommitsLocation;
+use jj_lib::rewrite::MoveCommitsTarget;
+use jj_lib::rewrite::RebaseOptions;
+use jj_lib::rewrite::move_commits;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
@@ -37,6 +42,7 @@ pub(crate) struct MovementArgs {
     pub edit: bool,
     pub no_edit: bool,
     pub conflict: bool,
+    pub rebase: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -247,22 +253,49 @@ pub(crate) fn move_to_commit(
 
     let current_wc_id = workspace_command
         .get_wc_commit_id()
+        .cloned()
         .ok_or_else(|| user_error("This command requires a working copy"))?;
 
     let config_edit_flag = workspace_command.settings().get_bool("ui.movement.edit")?;
-    let args = MovementArgsInternal {
-        should_edit: args.edit || (!args.no_edit && config_edit_flag),
+    let should_edit = args.edit || (!args.no_edit && config_edit_flag);
+    if should_edit && args.rebase {
+        return Err(
+            user_error("`--keep` can't be used with `ui.movement.edit` set to `true`")
+                .hinted("Use `--no-edit` or set `ui.movement.edit` to `false`"),
+        );
+    }
+    let args_internal = MovementArgsInternal {
+        should_edit,
         offset: args.offset,
         conflict: args.conflict,
     };
 
-    let target = get_target_commit(ui, &workspace_command, direction, current_wc_id, &args)?;
-    let current_short = short_commit_hash(current_wc_id);
+    let target = get_target_commit(
+        ui,
+        &workspace_command,
+        direction,
+        &current_wc_id,
+        &args_internal,
+    )?;
+    let current_short = short_commit_hash(&current_wc_id);
     let target_short = short_commit_hash(target.id());
     let cmd = direction.cmd();
-    // We're editing, just move to the target commit.
-    if args.should_edit {
-        // We're editing, the target must be rewritable.
+    if args.rebase {
+        workspace_command.check_rewritable(once(&current_wc_id))?;
+        let mut tx = workspace_command.start_transaction();
+        move_commits(
+            tx.repo_mut(),
+            &MoveCommitsLocation {
+                new_parent_ids: vec![target.id().clone()],
+                new_child_ids: vec![],
+                target: MoveCommitsTarget::Commits(vec![current_wc_id]),
+            },
+            &RebaseOptions::default(),
+        )?;
+        tx.finish(ui, format!("{cmd}: {current_short} -> {target_short}"))?;
+    } else if args_internal.should_edit {
+        // We're editing, just move to the target commit.
+        // The target must be rewritable.
         workspace_command.check_rewritable([target.id()])?;
         let mut tx = workspace_command.start_transaction();
         tx.edit(&target)?;
@@ -270,11 +303,11 @@ pub(crate) fn move_to_commit(
             ui,
             format!("{cmd}: {current_short} -> editing {target_short}"),
         )?;
-        return Ok(());
+    } else {
+        let mut tx = workspace_command.start_transaction();
+        // Move the working-copy commit to the new parent.
+        tx.check_out(&target)?;
+        tx.finish(ui, format!("{cmd}: {current_short} -> {target_short}"))?;
     }
-    let mut tx = workspace_command.start_transaction();
-    // Move the working-copy commit to the new parent.
-    tx.check_out(&target)?;
-    tx.finish(ui, format!("{cmd}: {current_short} -> {target_short}"))?;
     Ok(())
 }
