@@ -288,7 +288,7 @@ pub(crate) fn cmd_split(
             // containing the user selected changes as the base for the merge.
             // This results in a tree with the changes the user didn't select.
             target_tree
-                .merge(target.selected_tree.clone(), target.parent_tree.clone())
+                .merge_unlabeled(target.selected_tree.clone(), target.parent_tree.clone())
                 .block_on()?
         } else {
             target_tree

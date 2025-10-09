@@ -29,6 +29,7 @@ use std::sync::Arc;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
 use smallvec::SmallVec;
+use smallvec::smallvec;
 use smallvec::smallvec_inline;
 
 use crate::backend::BackendResult;
@@ -213,6 +214,16 @@ impl<T> Merge<T> {
     pub const fn resolved(value: T) -> Self {
         Self {
             values: smallvec_inline![value],
+        }
+    }
+
+    /// Creates a `Merge` by repeating a single value.
+    pub fn repeated(value: T, num_sides: usize) -> Self
+    where
+        T: Clone,
+    {
+        Self {
+            values: smallvec![value; num_sides * 2 - 1],
         }
     }
 
