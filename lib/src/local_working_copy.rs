@@ -68,6 +68,7 @@ use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::commit::Commit;
 use crate::config::ConfigGetError;
+use crate::conflict_labels::ConflictLabels;
 use crate::conflicts;
 use crate::conflicts::ConflictMarkerStyle;
 use crate::conflicts::ConflictMaterializeOptions;
@@ -977,7 +978,10 @@ impl TreeState {
                 .iter()
                 .map(|id| TreeId::new(id.clone()))
                 .collect();
-            self.tree_id = MergedTreeId::unlabeled(tree_ids_builder.build());
+            self.tree_id = MergedTreeId::new(
+                tree_ids_builder.build(),
+                ConflictLabels::from_vec(proto.conflict_labels),
+            );
         }
         self.file_states =
             FileStatesMap::from_proto(proto.file_states, proto.is_file_states_sorted);
@@ -995,6 +999,7 @@ impl TreeState {
             .iter()
             .map(|id| id.to_bytes())
             .collect();
+        proto.conflict_labels = self.tree_id.labels().as_slice().to_owned();
         proto.file_states = self.file_states.data.clone();
         // `FileStatesMap` is guaranteed to be sorted.
         proto.is_file_states_sorted = true;
