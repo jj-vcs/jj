@@ -1491,6 +1491,9 @@ Add a Git remote
   - `none`:
     Do not fetch any tags
 
+* `--push-url <PUSH_URL>` — The URL used for push
+
+   Local path will be resolved to absolute form
 
 
 
@@ -1531,12 +1534,23 @@ Rename a Git remote
 
 Set the URL of a Git remote
 
-**Usage:** `jj git remote set-url <REMOTE> <URL>`
+**Usage:** `jj git remote set-url [OPTIONS] <REMOTE> [URL]`
 
 ###### **Arguments:**
 
 * `<REMOTE>` — The remote's name
-* `<URL>` — The desired URL or path for `remote`
+* `<URL>` — The URL or path to fetch from
+
+   This is a short form, equivalent to using the explicit --fetch.
+
+   Local path will be resolved to absolute form.
+
+###### **Options:**
+
+* `--push <PUSH>` — The URL or path to push to
+
+   Local path will be resolved to absolute form.
+* `--fetch <FETCH>` — The URL or path to fetch from
 
    Local path will be resolved to absolute form.
 

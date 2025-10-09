@@ -234,6 +234,7 @@ fn configure_remote(
         workspace_command.repo().store(),
         remote_name,
         source,
+        None,
         fetch_tags.as_fetch_tags(),
     )?;
     // Reload workspace to apply new remote configuration to

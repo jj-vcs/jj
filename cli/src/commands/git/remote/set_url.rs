@@ -29,11 +29,25 @@ pub struct GitRemoteSetUrlArgs {
     /// The remote's name
     #[arg(add = ArgValueCandidates::new(complete::git_remotes))]
     remote: RemoteNameBuf,
-    /// The desired URL or path for `remote`
+    /// The URL or path to fetch from
+    ///
+    /// This is a short form, equivalent to using the explicit --fetch.
     ///
     /// Local path will be resolved to absolute form.
     #[arg(value_hint = clap::ValueHint::Url)]
-    url: String,
+    url: Option<String>,
+
+    /// The URL or path to push to
+    ///
+    /// Local path will be resolved to absolute form.
+    #[arg(long, value_hint = clap::ValueHint::Url)]
+    push: Option<String>,
+
+    /// The URL or path to fetch from
+    ///
+    /// Local path will be resolved to absolute form.
+    #[arg(long, value_hint = clap::ValueHint::Url, conflicts_with = "url")]
+    fetch: Option<String>,
 }
 
 pub fn cmd_git_remote_set_url(
@@ -42,7 +56,20 @@ pub fn cmd_git_remote_set_url(
     args: &GitRemoteSetUrlArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
-    let url = absolute_git_url(command.cwd(), &args.url)?;
-    git::set_remote_url(workspace_command.repo().store(), &args.remote, &url)?;
+
+    let process_url = |url: Option<&String>| {
+        url.map(|url| absolute_git_url(command.cwd(), url))
+            .transpose()
+    };
+
+    let fetch_url = process_url(args.url.as_ref().or(args.fetch.as_ref()))?;
+    let push_url = process_url(args.push.as_ref())?;
+
+    git::set_remote_urls(
+        workspace_command.repo().store(),
+        &args.remote,
+        fetch_url.as_deref(),
+        push_url.as_deref(),
+    )?;
     Ok(())
 }

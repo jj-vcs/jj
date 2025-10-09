@@ -55,9 +55,20 @@ fn test_git_remotes() {
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["git", "remote", "add", "bar", "http://example.com/repo/bar"]);
     insta::assert_snapshot!(output, @"");
+    let output = work_dir.run_jj([
+        "git",
+        "remote",
+        "add",
+        "baz",
+        "http://example.com/repo/baz",
+        "--push-url",
+        "git@example.com:repo/baz",
+    ]);
+    insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["git", "remote", "list"]);
     insta::assert_snapshot!(output, @r"
     bar http://example.com/repo/bar
+    baz http://example.com/repo/baz (push: git@example.com:repo/baz)
     foo http://example.com/repo/foo
     [EOF]
     ");
@@ -66,6 +77,7 @@ fn test_git_remotes() {
     let output = work_dir.run_jj(["git", "remote", "list"]);
     insta::assert_snapshot!(output, @r"
     bar http://example.com/repo/bar
+    baz http://example.com/repo/baz (push: git@example.com:repo/baz)
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "remote", "remove", "nonexistent"]);
@@ -83,6 +95,10 @@ fn test_git_remotes() {
     [remote "bar"]
     	url = http://example.com/repo/bar
     	fetch = +refs/heads/*:refs/remotes/bar/*
+    [remote "baz"]
+    	url = http://example.com/repo/baz
+    	pushurl = git@example.com:repo/baz
+    	fetch = +refs/heads/*:refs/remotes/baz/*
     "#);
 }
 
@@ -242,6 +258,142 @@ fn test_git_remote_set_url() {
     	logallrefupdates = false
     [remote "foo"]
     	url = http://example.com/repo/bar
+    	fetch = +refs/heads/*:refs/remotes/foo/*
+    "#);
+    // explicitly set the push url to the same value as fetch works.
+    let output = work_dir.run_jj([
+        "git",
+        "remote",
+        "set-url",
+        "foo",
+        "--push",
+        "https://example.com/repo/bar",
+    ]);
+    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(read_git_config(work_dir.root()), @r#"
+    [core]
+    	repositoryformatversion = 0
+    	bare = true
+    	logallrefupdates = false
+    [remote "foo"]
+    	url = http://example.com/repo/bar
+    	pushurl = https://example.com/repo/bar
+    	fetch = +refs/heads/*:refs/remotes/foo/*
+    "#);
+    let output = work_dir.run_jj([
+        "git",
+        "remote",
+        "set-url",
+        "foo",
+        "--push",
+        "git@example.com:repo/bar",
+    ]);
+    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(read_git_config(work_dir.root()), @r#"
+    [core]
+    	repositoryformatversion = 0
+    	bare = true
+    	logallrefupdates = false
+    [remote "foo"]
+    	url = http://example.com/repo/bar
+    	pushurl = git@example.com:repo/bar
+    	fetch = +refs/heads/*:refs/remotes/foo/*
+    "#);
+    let output = work_dir.run_jj([
+        "git",
+        "remote",
+        "set-url",
+        "foo",
+        "--fetch",
+        "http://example.com/repo/bar2",
+    ]);
+    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(read_git_config(work_dir.root()), @r#"
+    [core]
+    	repositoryformatversion = 0
+    	bare = true
+    	logallrefupdates = false
+    [remote "foo"]
+    	url = http://example.com/repo/bar2
+    	pushurl = git@example.com:repo/bar
+    	fetch = +refs/heads/*:refs/remotes/foo/*
+    "#);
+    let output = work_dir.run_jj([
+        "git",
+        "remote",
+        "set-url",
+        "foo",
+        "http://example.com/repo/bar",
+    ]);
+    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(read_git_config(work_dir.root()), @r#"
+    [core]
+    	repositoryformatversion = 0
+    	bare = true
+    	logallrefupdates = false
+    [remote "foo"]
+    	url = http://example.com/repo/bar
+    	pushurl = git@example.com:repo/bar
+    	fetch = +refs/heads/*:refs/remotes/foo/*
+    "#);
+    let output = work_dir.run_jj([
+        "git",
+        "remote",
+        "set-url",
+        "foo",
+        "https://example.com/repo/baz",
+        "--fetch",
+        "https://example.com/repo/bar2",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    error: the argument '[URL]' cannot be used with '--fetch <FETCH>'
+
+    Usage: jj git remote set-url <REMOTE> <URL>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+    let output = work_dir.run_jj([
+        "git",
+        "remote",
+        "set-url",
+        "foo",
+        "https://example.com/repo/baz",
+        "--push",
+        "git@example.com:/repo/baz",
+    ]);
+    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(read_git_config(work_dir.root()), @r#"
+    [core]
+    	repositoryformatversion = 0
+    	bare = true
+    	logallrefupdates = false
+    [remote "foo"]
+    	url = https://example.com/repo/baz
+    	pushurl = git@example.com:/repo/baz
+    	fetch = +refs/heads/*:refs/remotes/foo/*
+    "#);
+    let output = work_dir.run_jj([
+        "git",
+        "remote",
+        "set-url",
+        "foo",
+        "--fetch",
+        "https://example.com/repo/bar",
+        "--push",
+        "git@example.com:/repo/bar",
+    ]);
+    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(read_git_config(work_dir.root()), @r#"
+    [core]
+    	repositoryformatversion = 0
+    	bare = true
+    	logallrefupdates = false
+    [remote "foo"]
+    	url = https://example.com/repo/bar
+    	pushurl = git@example.com:/repo/bar
     	fetch = +refs/heads/*:refs/remotes/foo/*
     "#);
 }
