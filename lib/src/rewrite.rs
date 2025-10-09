@@ -49,6 +49,7 @@ use crate::repo_path::RepoPath;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetIteratorExt as _;
 use crate::store::Store;
+use crate::tree::Tree;
 
 /// Merges `commits` and tries to resolve any conflicts recursively.
 #[instrument(skip(repo))]
@@ -75,14 +76,21 @@ pub async fn merge_commit_trees_no_resolve_without_repo(
         .map(|commit| commit.id().clone())
         .collect_vec();
     let commit_id_merge = find_recursive_merge_commits(store, index, commit_ids)?;
-    let tree_merge = commit_id_merge
+    let tree_and_label_merge: Merge<Merge<(Tree, Option<String>)>> = commit_id_merge
         .try_map_async(async |commit_id| {
             let commit = store.get_commit_async(commit_id).await?;
             let tree = commit.tree_async().await?;
-            Ok::<_, BackendError>(tree.into_merge())
+            let labels = tree
+                .labels_by_term(Some(&commit.conflict_label()))
+                .map(|label| label.map(str::to_owned));
+            Ok::<_, BackendError>(tree.into_merge().zip(labels))
         })
         .await?;
-    Ok(MergedTree::unlabeled(tree_merge.flatten().simplify()))
+    let (trees, labels) = tree_and_label_merge
+        .flatten()
+        .simplify_by(|(tree, _)| tree)
+        .unzip();
+    Ok(MergedTree::new(trees, labels.transpose().into()))
 }
 
 /// Find the commits to use as input to the recursive merge algorithm.
