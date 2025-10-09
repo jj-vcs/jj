@@ -284,7 +284,9 @@ impl<'repo> CommitRewriter<'repo> {
             let (old_base_tree, new_base_tree) = try_join!(old_base_tree_fut, new_base_tree_fut)?;
             (
                 old_base_tree.tree_ids() == self.old_commit.tree_ids(),
-                new_base_tree.merge(old_base_tree, old_tree).await?,
+                new_base_tree
+                    .merge_unlabeled(old_base_tree, old_tree)
+                    .await?,
             )
         };
         // Ensure we don't abandon commits with multiple parents (merge commits), even
@@ -380,7 +382,7 @@ pub fn rebase_to_dest_parent(
             let source_parent_tree = source.parent_tree(repo)?;
             let source_tree = source.tree();
             destination_tree
-                .merge(source_parent_tree, source_tree)
+                .merge_unlabeled(source_parent_tree, source_tree)
                 .block_on()
         },
     )
@@ -1198,7 +1200,7 @@ pub fn squash_commits<'repo>(
             let source_tree = source.commit.commit.tree();
             // Apply the reverse of the selected changes onto the source
             let new_source_tree = source_tree
-                .merge(
+                .merge_unlabeled(
                     source.commit.selected_tree.clone(),
                     source.commit.parent_tree.clone(),
                 )
@@ -1236,7 +1238,7 @@ pub fn squash_commits<'repo>(
     let mut destination_tree = rewritten_destination.tree();
     for source in &source_commits {
         destination_tree = destination_tree
-            .merge(
+            .merge_unlabeled(
                 source.commit.parent_tree.clone(),
                 source.commit.selected_tree.clone(),
             )
