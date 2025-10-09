@@ -2067,7 +2067,7 @@ Show changes to the repository in an operation
 
 ###### **Options:**
 
-* `--no-graph` — Don't show the graph, show a flat list of modified changes
+* `-G`, `--no-graph` — Don't show the graph, show a flat list of modified changes
 * `-T`, `--template <TEMPLATE>` — Render the operation using the given template
 
    You can specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.

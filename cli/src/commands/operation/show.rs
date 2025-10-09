@@ -35,7 +35,7 @@ pub struct OperationShowArgs {
     #[arg(default_value = "@", add = ArgValueCandidates::new(complete::operations))]
     operation: String,
     /// Don't show the graph, show a flat list of modified changes
-    #[arg(long)]
+    #[arg(long, short = 'G')]
     no_graph: bool,
     /// Render the operation using the given template
     ///
