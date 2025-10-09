@@ -101,6 +101,23 @@ impl ConflictLabels {
             .filter(|label| !label.is_empty())
             .map(String::as_str)
     }
+
+    /// Simplify a merge with the same number of sides while preserving the
+    /// conflict labels corresponding to each side of the merge.
+    pub fn simplify_with<T: PartialEq + Clone>(&self, merge: &Merge<T>) -> (Self, Merge<T>) {
+        if self.has_labels() {
+            let (labels, simplified) = self
+                .labels
+                .as_ref()
+                .zip(merge.as_ref())
+                .simplify_by(|&(_label, item)| item)
+                .unzip();
+            (Self::from_merge(labels.cloned()), simplified.cloned())
+        } else {
+            let simplified = merge.simplify();
+            (Self::unlabeled(), simplified)
+        }
+    }
 }
 
 impl fmt::Debug for ConflictLabels {

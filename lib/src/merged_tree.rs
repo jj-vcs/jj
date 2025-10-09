@@ -157,7 +157,11 @@ impl MergedTree {
         // a resolved merge. However, that function will always preserve the arity of
         // conflicts it cannot resolve. So we simplify the conflict again
         // here to possibly reduce a complex conflict to a simpler one.
-        let simplified = merged.simplify();
+        let (simplified_labels, simplified) = if merged.is_resolved() {
+            (ConflictLabels::unlabeled(), merged)
+        } else {
+            self.labels.simplify_with(&merged)
+        };
         // If debug assertions are enabled, check that the merge was idempotent. In
         // particular,  that this last simplification doesn't enable further automatic
         // resolutions
@@ -165,11 +169,10 @@ impl MergedTree {
             let re_merged = merge_trees(&self.store, simplified.clone()).await.unwrap();
             debug_assert_eq!(re_merged, simplified);
         }
-        // TODO: retain labels
         Ok(Self {
             store: self.store,
             tree_ids: simplified,
-            labels: ConflictLabels::unlabeled(),
+            labels: simplified_labels,
         })
     }
 

@@ -334,6 +334,20 @@ impl<T> Merge<T> {
         simplified_to_original_indices
     }
 
+    /// Apply the mapping returned by [`Self::get_simplified_mapping`].
+    #[must_use]
+    fn apply_simplified_mapping(&self, mapping: &[usize]) -> Self
+    where
+        T: Clone,
+    {
+        // Reorder values based on their new indices in the simplified merge.
+        let values = mapping
+            .iter()
+            .map(|index| self.values[*index].clone())
+            .collect();
+        Self { values }
+    }
+
     /// Simplify the merge by joining diffs like A->B and B->C into A->C.
     /// Also drops trivial diffs like A->A.
     #[must_use]
@@ -342,12 +356,18 @@ impl<T> Merge<T> {
         T: PartialEq + Clone,
     {
         let mapping = self.get_simplified_mapping();
-        // Reorder values based on their new indices in the simplified merge.
-        let values = mapping
-            .iter()
-            .map(|index| self.values[*index].clone())
-            .collect();
-        Self { values }
+        self.apply_simplified_mapping(&mapping)
+    }
+
+    /// Simplify the merge, using a function to choose which values to compare.
+    #[must_use]
+    pub fn simplify_by<'a, U>(&'a self, f: impl FnMut(&'a T) -> U) -> Self
+    where
+        T: Clone,
+        U: PartialEq,
+    {
+        let mapping = self.map(f).get_simplified_mapping();
+        self.apply_simplified_mapping(&mapping)
     }
 
     /// Updates the merge based on the given simplified merge.
@@ -433,6 +453,38 @@ impl<T> Merge<T> {
         Ok(Merge {
             values: values.into(),
         })
+    }
+
+    /// Converts a `&Merge<T>` into a `Merge<&T>`.
+    pub fn as_ref(&self) -> Merge<&T> {
+        let values = self.values.iter().collect();
+        Merge { values }
+    }
+
+    /// Zip two merges which have the same number of terms. Panics if the merges
+    /// don't have the same number of terms.
+    pub fn zip<U>(self, other: Merge<U>) -> Merge<(T, U)> {
+        assert_eq!(self.values.len(), other.values.len());
+        let values = self.values.into_iter().zip(other.values).collect();
+        Merge { values }
+    }
+}
+
+impl<T, U> Merge<(T, U)> {
+    /// Unzips a merge of pairs into a pair of merges.
+    pub fn unzip(self) -> (Merge<T>, Merge<U>) {
+        let (left, right) = self.values.into_iter().unzip();
+        (Merge { values: left }, Merge { values: right })
+    }
+}
+
+impl<T> Merge<&'_ T> {
+    /// Convert a `Merge<&T>` into a `Merge<T>` by cloning each term.
+    pub fn cloned(&self) -> Merge<T>
+    where
+        T: Clone,
+    {
+        self.map(|&term| term.clone())
     }
 }
 
@@ -1140,6 +1192,46 @@ mod tests {
     }
 
     #[test]
+    fn test_simplify_by() {
+        fn enumerate_and_simplify_by(merge: Merge<i32>) -> Merge<(usize, i32)> {
+            let enumerated = Merge::from_vec(merge.iter().copied().enumerate().collect_vec());
+            enumerated.simplify_by(|&(_index, value)| value)
+        }
+
+        // 1-way merge
+        assert_eq!(enumerate_and_simplify_by(c(&[0])), c(&[(0, 0)]));
+        // 3-way merge
+        assert_eq!(enumerate_and_simplify_by(c(&[1, 0, 0])), c(&[(0, 1)]));
+        assert_eq!(
+            enumerate_and_simplify_by(c(&[1, 0, 2])),
+            c(&[(0, 1), (1, 0), (2, 2)])
+        );
+        // 5-way merge
+        assert_eq!(enumerate_and_simplify_by(c(&[0, 0, 0, 0, 0])), c(&[(4, 0)]));
+        assert_eq!(enumerate_and_simplify_by(c(&[0, 0, 0, 0, 1])), c(&[(4, 1)]));
+        assert_eq!(
+            enumerate_and_simplify_by(c(&[0, 0, 0, 1, 2])),
+            c(&[(2, 0), (3, 1), (4, 2)])
+        );
+        assert_eq!(
+            enumerate_and_simplify_by(c(&[0, 1, 2, 2, 0])),
+            c(&[(0, 0), (1, 1), (4, 0)])
+        );
+        assert_eq!(
+            enumerate_and_simplify_by(c(&[0, 1, 2, 2, 2])),
+            c(&[(0, 0), (1, 1), (4, 2)])
+        );
+        assert_eq!(
+            enumerate_and_simplify_by(c(&[0, 1, 2, 2, 3])),
+            c(&[(0, 0), (1, 1), (4, 3)])
+        );
+        assert_eq!(
+            enumerate_and_simplify_by(c(&[0, 1, 2, 3, 4])),
+            c(&[(0, 0), (1, 1), (2, 2), (3, 3), (4, 4)])
+        );
+    }
+
+    #[test]
     fn test_update_from_simplified() {
         // 1-way merge
         assert_eq!(c(&[0]).update_from_simplified(c(&[1])), c(&[1]));
@@ -1319,6 +1411,28 @@ mod tests {
         assert_eq!(
             c(&[c(&[0, 1, 2]), c(&[3, 4, 5]), c(&[6, 7, 8])]).flatten(),
             c(&[0, 1, 2, 5, 4, 3, 6, 7, 8])
+        );
+    }
+
+    #[test]
+    fn test_zip() {
+        // Zip of 1-way merges
+        assert_eq!(c(&[1]).zip(c(&[2])), c(&[(1, 2)]));
+        // Zip of 3-way merges
+        assert_eq!(
+            c(&[1, 2, 3]).zip(c(&[4, 5, 6])),
+            c(&[(1, 4), (2, 5), (3, 6)])
+        );
+    }
+
+    #[test]
+    fn test_unzip() {
+        // 1-way merge
+        assert_eq!(c(&[(1, 2)]).unzip(), (c(&[1]), c(&[2])));
+        // 3-way merge
+        assert_eq!(
+            c(&[(1, 4), (2, 5), (3, 6)]).unzip(),
+            (c(&[1, 2, 3]), c(&[4, 5, 6]))
         );
     }
 }
