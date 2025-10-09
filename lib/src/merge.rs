@@ -290,7 +290,7 @@ impl<T> Merge<T> {
     ///
     /// The merge is simplified by removing identical values in add and remove
     /// values.
-    fn get_simplified_mapping(&self) -> Vec<usize>
+    pub fn get_simplified_mapping(&self) -> Vec<usize>
     where
         T: PartialEq,
     {
@@ -328,6 +328,15 @@ impl<T> Merge<T> {
         T: PartialEq + Clone,
     {
         let mapping = self.get_simplified_mapping();
+        self.apply_simplified_mapping(&mapping)
+    }
+
+    /// Apply the mapping returned by [`Self::get_simplified_mapping`].
+    #[must_use]
+    pub fn apply_simplified_mapping(&self, mapping: &[usize]) -> Self
+    where
+        T: PartialEq + Clone,
+    {
         // Reorder values based on their new indices in the simplified merge.
         let values = mapping
             .iter()
