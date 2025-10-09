@@ -37,6 +37,9 @@ pub struct TreeState {
     /// single (positive) value
     #[prost(bytes = "vec", repeated, tag = "5")]
     pub tree_ids: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
+    /// Labels for the terms of a conflict.
+    #[prost(string, repeated, tag = "7")]
+    pub conflict_labels: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, repeated, tag = "2")]
     pub file_states: ::prost::alloc::vec::Vec<FileStateEntry>,
     #[prost(bool, tag = "6")]
