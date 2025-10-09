@@ -40,6 +40,7 @@ use crate::index::IndexError;
 use crate::matchers::Matcher;
 use crate::matchers::Visit;
 use crate::merge::Merge;
+use crate::merge::MergeBuilder;
 use crate::merged_tree::MergedTree;
 use crate::merged_tree::MergedTreeBuilder;
 use crate::merged_tree::TreeDiffEntry;
@@ -49,6 +50,7 @@ use crate::repo_path::RepoPath;
 use crate::revset::RevsetExpression;
 use crate::revset::RevsetIteratorExt as _;
 use crate::store::Store;
+use crate::tree::Tree;
 
 /// Merges `commits` and tries to resolve any conflicts recursively.
 #[instrument(skip(repo))]
@@ -75,14 +77,46 @@ pub async fn merge_commit_trees_no_resolve_without_repo(
         .map(|commit| commit.id().clone())
         .collect_vec();
     let commit_id_merge = find_recursive_merge_commits(store, index, commit_ids)?;
-    let tree_merge = commit_id_merge
+    let commit_and_tree_merge = commit_id_merge
         .try_map_async(async |commit_id| {
             let commit = store.get_commit_async(commit_id).await?;
             let tree = commit.tree_async().await?;
-            Ok::<_, BackendError>(tree.into_merge())
+            Ok::<_, BackendError>((commit, tree))
         })
         .await?;
-    Ok(MergedTree::unlabeled(tree_merge.flatten().simplify()))
+
+    let labels_nested: Option<MergeBuilder<Merge<String>>> = commit_and_tree_merge
+        .iter()
+        .map(|(commit, trees)| {
+            trees.labels().map(Arc::unwrap_or_clone).or_else(|| {
+                trees
+                    .as_merge()
+                    .is_resolved()
+                    .then(|| Merge::resolved(commit.conflict_label()))
+            })
+        })
+        .collect();
+
+    let tree_merge = commit_and_tree_merge
+        .into_iter()
+        .map(|(_, tree)| tree.into_merge())
+        .collect::<MergeBuilder<Merge<Tree>>>()
+        .build();
+    let flattened_trees = tree_merge.flatten();
+    let mapping = flattened_trees.get_simplified_mapping();
+    let simplified_trees = flattened_trees.apply_simplified_mapping(&mapping);
+
+    let labels = labels_nested
+        .filter(|_| !simplified_trees.is_resolved())
+        .map(|labels_nested| {
+            Arc::new(
+                labels_nested
+                    .build()
+                    .flatten()
+                    .apply_simplified_mapping(&mapping),
+            )
+        });
+    Ok(MergedTree::new(simplified_trees, labels))
 }
 
 /// Find the commits to use as input to the recursive merge algorithm.

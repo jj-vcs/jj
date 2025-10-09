@@ -182,10 +182,10 @@ fn test_restore_conflicted_merge() {
     ");
     insta::assert_snapshot!(work_dir.read_file("file"), @r"
     <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    %%%%%%% Changes from base (rlvkpnrz 1792382a) to side #1 (zsuskuln 45537d53)
     -base
     +a
-    +++++++ Contents of side #2
+    +++++++ Contents of side #2 (royxmykx 89d1b299)
     b
     >>>>>>> Conflict 1 of 1 ends
     ");
@@ -195,10 +195,10 @@ fn test_restore_conflicted_merge() {
     insta::assert_snapshot!(work_dir.run_jj(["diff"]), @r"
     Resolved conflict in file:
        1     : <<<<<<< Conflict 1 of 1
-       2     : %%%%%%% Changes from base to side #1
+       2     : %%%%%%% Changes from base (rlvkpnrz 1792382a) to side #1 (zsuskuln 45537d53)
        3     : -base
        4     : +a
-       5     : +++++++ Contents of side #2
+       5     : +++++++ Contents of side #2 (royxmykx 89d1b299)
        6     : b
        7     : >>>>>>> Conflict 1 of 1 ends
             1: resolution
@@ -234,10 +234,10 @@ fn test_restore_conflicted_merge() {
     insta::assert_snapshot!(work_dir.run_jj(["diff"]), @r"
     Resolved conflict in file:
        1     : <<<<<<< Conflict 1 of 1
-       2     : %%%%%%% Changes from base to side #1
+       2     : %%%%%%% Changes from base (rlvkpnrz 1792382a) to side #1 (zsuskuln 45537d53)
        3     : -base
        4     : +a
-       5     : +++++++ Contents of side #2
+       5     : +++++++ Contents of side #2 (royxmykx 89d1b299)
        6     : b
        7     : >>>>>>> Conflict 1 of 1 ends
             1: resolution
@@ -248,7 +248,7 @@ fn test_restore_conflicted_merge() {
     let output = work_dir.run_jj(["restore"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv 846bb35c conflict | (conflict) (empty) conflict
+    Working copy  (@) now at: vruxwmqv 5d89824a conflict | (conflict) (empty) conflict
     Parent commit (@-)      : zsuskuln 45537d53 a | a
     Parent commit (@-)      : royxmykx 89d1b299 b | b
     Added 0 files, modified 1 files, removed 0 files
@@ -258,10 +258,10 @@ fn test_restore_conflicted_merge() {
     ");
     insta::assert_snapshot!(work_dir.read_file("file"), @r"
     <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    %%%%%%% Changes from base (rlvkpnrz 1792382a) to side #1 (zsuskuln 45537d53)
     -base
     +a
-    +++++++ Contents of side #2
+    +++++++ Contents of side #2 (royxmykx 89d1b299)
     b
     >>>>>>> Conflict 1 of 1 ends
     ");

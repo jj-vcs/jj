@@ -392,7 +392,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: mzvwutvl 268f208f (conflict) (empty) (no description set)
+    Working copy  (@) now at: mzvwutvl 8b726390 (conflict) (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 74e448a1 side-a
     Parent commit (@-)      : zsuskuln 6982bce7 side-b
     Added 0 files, modified 1 files, removed 0 files
@@ -406,21 +406,21 @@ fn test_diffedit_external_tool_conflict_marker_style() {
         std::fs::read_to_string(test_env.env_root().join("before-file")).unwrap(), @r"
     line 1
     <<<<<<< Conflict 1 of 2
-    +++++++ Contents of side #1
+    +++++++ Contents of side #1 (rlvkpnrz 74e448a1)
     line 2.1
     line 2.2
-    ------- Contents of base
+    ------- Contents of base (qpvuntsm 9bd2e004)
     line 2
-    +++++++ Contents of side #2
+    +++++++ Contents of side #2 (zsuskuln 6982bce7)
     line 2.3
     >>>>>>> Conflict 1 of 2 ends
     line 3
     <<<<<<< Conflict 2 of 2
-    +++++++ Contents of side #1
+    +++++++ Contents of side #1 (rlvkpnrz 74e448a1)
     line 4.1
-    ------- Contents of base
+    ------- Contents of base (qpvuntsm 9bd2e004)
     line 4
-    +++++++ Contents of side #2
+    +++++++ Contents of side #2 (zsuskuln 6982bce7)
     line 4.2
     line 4.3
     >>>>>>> Conflict 2 of 2 ends
@@ -434,11 +434,11 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     line 2.3
     line 3
     <<<<<<< Conflict 1 of 1
-    +++++++ Contents of side #1
+    +++++++ Contents of side #1 (rlvkpnrz 74e448a1)
     line 4.1
-    ------- Contents of base
+    ------- Contents of base (qpvuntsm 9bd2e004)
     line 4
-    +++++++ Contents of side #2
+    +++++++ Contents of side #2 (zsuskuln 6982bce7)
     line 4.2
     line 4.3
     >>>>>>> Conflict 1 of 1 ends
@@ -448,19 +448,19 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     insta::assert_snapshot!(work_dir.read_file(file_path), @r"
     line 1
     <<<<<<< Conflict 1 of 2
-    +++++++ Contents of side #1
+    +++++++ Contents of side #1 (rlvkpnrz 74e448a1)
     line 2.1
     line 2.2
-    %%%%%%% Changes from base to side #2
+    %%%%%%% Changes from base (qpvuntsm 9bd2e004) to side #2 (zsuskuln 6982bce7)
     -line 2
     +line 2.3
     >>>>>>> Conflict 1 of 2 ends
     line 3
     <<<<<<< Conflict 2 of 2
-    %%%%%%% Changes from base to side #1
+    %%%%%%% Changes from base (qpvuntsm 9bd2e004) to side #1 (rlvkpnrz 74e448a1)
     -line 4
     +line 4.1
-    +++++++ Contents of side #2
+    +++++++ Contents of side #2 (zsuskuln 6982bce7)
     line 4.2
     line 4.3
     >>>>>>> Conflict 2 of 2 ends
@@ -471,7 +471,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     let output = work_dir.run_jj(["st"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy  (@) : mzvwutvl 268f208f (conflict) (empty) (no description set)
+    Working copy  (@) : mzvwutvl 8b726390 (conflict) (empty) (no description set)
     Parent commit (@-): rlvkpnrz 74e448a1 side-a
     Parent commit (@-): zsuskuln 6982bce7 side-b
     Warning: There are unresolved conflicts at these paths:
@@ -633,8 +633,8 @@ fn test_diffedit_merge() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: yqosqzyt ce686d54 (conflict) (empty) (no description set)
-    Parent commit (@-)      : royxmykx 47cae64e (conflict) merge
+    Working copy  (@) now at: yqosqzyt 1a031ee4 (conflict) (empty) (no description set)
+    Parent commit (@-)      : royxmykx 17b63d75 (conflict) merge
     Added 0 files, modified 0 files, removed 1 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict
@@ -650,10 +650,10 @@ fn test_diffedit_merge() {
     let output = work_dir.run_jj(["file", "show", "file2"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    %%%%%%% Changes from base (qpvuntsm fc6f5e82) to side #1 (mzvwutvl e3b18dc7)
     -a
     +c
-    +++++++ Contents of side #2
+    +++++++ Contents of side #2 (rlvkpnrz 7027fb26)
     b
     >>>>>>> Conflict 1 of 1 ends
     [EOF]
