@@ -15,6 +15,7 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::io;
+use std::io::IsTerminal as _;
 use std::iter;
 
 use itertools::Itertools as _;
@@ -1939,6 +1940,14 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         // .decorated("", "") to trim leading/trailing whitespace
         Ok(Literal(value.decorated("", "")).into_dyn_wrapped())
     });
+    map.insert(
+        "is_terminal_output",
+        |_language, _diagnostics, _build_ctx, function| {
+            function.expect_no_arguments()?;
+            let is_terminal = io::stdout().is_terminal();
+            Ok(Literal(is_terminal).into_dyn_wrapped())
+        },
+    );
     map
 }
 
@@ -3873,5 +3882,13 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok(r#"surround(lt, gt, if(empty_content, "not empty", ""))"#),
             @"");
+    }
+
+    #[test]
+    fn test_is_terminal_output_function() {
+        let env = TestTemplateEnv::new();
+
+        // When running tests, stdout is typically not a terminal, so we expect false
+        insta::assert_snapshot!(env.render_ok(r#"is_terminal_output()"#), @"false");
     }
 }

@@ -93,6 +93,10 @@ The following functions are defined.
 * `surround(prefix: Template, suffix: Template, content: Template) -> Template`:
   Surround **non-empty** content with texts such as parentheses.
 * `config(name: String) -> ConfigValue`: Look up configuration value by `name`.
+* `is_terminal_output() -> Boolean`: Returns true if stdout is connected to a
+  terminal, or false otherwise. This is mostly useful to conditionally output
+  escape codes or other terminal-specific formatting only when writing to
+  a terminal.
 
 ## Built-in Aliases
 
