@@ -19,6 +19,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   filesystem's behavior, but this can be overridden manually by setting
   `working-copy.exec-bit-change = "respect" | "ignore"`.
 
+* Conflict labels can now contain more information about where the sides of
+  the conflict came from. Currently, only some commands add conflict labels.
+
 ### Fixed bugs
 
 ## [0.36.0] - 2025-12-03

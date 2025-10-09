@@ -1395,7 +1395,7 @@ fn test_fix_both_sides_of_conflict() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 3 commits of 3 checked.
-    Working copy  (@) now at: mzvwutvl e1acdc6e (conflict) (empty) (no description set)
+    Working copy  (@) now at: mzvwutvl ad547b24 (conflict) (empty) (no description set)
     Parent commit (@-)      : qpvuntsm 0eae0dae a | (no description set)
     Parent commit (@-)      : kkmpptxz eb61ba8d b | (no description set)
     Added 0 files, modified 1 files, removed 0 files
@@ -1416,9 +1416,9 @@ fn test_fix_both_sides_of_conflict() {
     let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% side #1 compared with base
+    %%%%%%% qpvuntsm c8346c1c compared with zzzzzzzz 00000000
     +CONTENT A
-    +++++++ side #2
+    +++++++ kkmpptxz 7c4518cb
     CONTENT B
     >>>>>>> conflict 1 of 1 ends
     [EOF]
