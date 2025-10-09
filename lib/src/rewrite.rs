@@ -83,7 +83,7 @@ pub async fn merge_commit_trees_no_resolve_without_repo(
             Ok::<_, BackendError>(tree.into_merge())
         })
         .await?;
-    Ok(MergedTree::new(tree_merge.flatten().simplify()))
+    Ok(MergedTree::unlabeled(tree_merge.flatten().simplify()))
 }
 
 /// Find the commits to use as input to the recursive merge algorithm.
@@ -283,7 +283,7 @@ impl<'repo> CommitRewriter<'repo> {
             let (old_base_tree, new_base_tree, old_tree) =
                 try_join!(old_base_tree_fut, new_base_tree_fut, old_tree_fut)?;
             (
-                old_base_tree.id() == *self.old_commit.tree_id(),
+                !old_base_tree.id().has_changes(self.old_commit.tree_id()),
                 new_base_tree.merge(old_base_tree, old_tree).await?.id(),
             )
         };
@@ -292,8 +292,10 @@ impl<'repo> CommitRewriter<'repo> {
         if let [parent] = &new_parents[..] {
             let should_abandon = match empty {
                 EmptyBehavior::Keep => false,
-                EmptyBehavior::AbandonNewlyEmpty => *parent.tree_id() == new_tree_id && !was_empty,
-                EmptyBehavior::AbandonAllEmpty => *parent.tree_id() == new_tree_id,
+                EmptyBehavior::AbandonNewlyEmpty => {
+                    !parent.tree_id().has_changes(&new_tree_id) && !was_empty
+                }
+                EmptyBehavior::AbandonAllEmpty => !parent.tree_id().has_changes(&new_tree_id),
             };
             if should_abandon {
                 self.abandon();
@@ -1130,7 +1132,7 @@ pub struct CommitWithSelection {
 impl CommitWithSelection {
     /// Returns true if the selection contains all changes in the commit.
     pub fn is_full_selection(&self) -> bool {
-        &self.selected_tree.id() == self.commit.tree_id()
+        !self.selected_tree.id().has_changes(self.commit.tree_id())
     }
 
     /// Returns true if the selection matches the parent tree (contains no
@@ -1139,7 +1141,7 @@ impl CommitWithSelection {
     /// Both `is_full_selection()` and `is_empty_selection()`
     /// can be true if the commit is itself empty.
     pub fn is_empty_selection(&self) -> bool {
-        self.selected_tree.id() == self.parent_tree.id()
+        !self.selected_tree.id().has_changes(&self.parent_tree.id())
     }
 }
 
@@ -1329,7 +1331,7 @@ pub fn find_duplicate_divergent_commits(
                 rebase_to_dest_parent(repo, slice::from_ref(target_commit), &ancestor_candidate)?;
             // Check whether the rebased commit would have the same tree as the existing
             // commit if they had the same parents. If so, we can skip this rebased commit.
-            if new_tree.id() == *ancestor_candidate.tree_id() {
+            if !new_tree.id().has_changes(ancestor_candidate.tree_id()) {
                 duplicate_divergent.push(target_commit.clone());
                 break;
             }

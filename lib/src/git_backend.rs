@@ -554,7 +554,7 @@ fn root_tree_from_git_extra_header(value: &BStr) -> Result<MergedTreeId, ()> {
     if tree_ids.len() == 1 || tree_ids.len() % 2 == 0 {
         return Err(());
     }
-    Ok(MergedTreeId::new(Merge::from_vec(tree_ids)))
+    Ok(MergedTreeId::unlabeled(Merge::from_vec(tree_ids)))
 }
 
 fn commit_from_git_without_root_parent(
@@ -748,7 +748,7 @@ fn deserialize_extras(commit: &mut Commit, bytes: &[u8]) {
             .iter()
             .map(|id_bytes| TreeId::from_bytes(id_bytes))
             .collect();
-        commit.root_tree = MergedTreeId::new(merge_builder.build());
+        commit.root_tree = MergedTreeId::unlabeled(merge_builder.build());
     }
     for predecessor in &proto.predecessors {
         commit.predecessors.push(CommitId::from_bytes(predecessor));
@@ -2080,7 +2080,7 @@ mod tests {
         let mut commit = Commit {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
-            root_tree: MergedTreeId::new(root_tree.clone()),
+            root_tree: MergedTreeId::unlabeled(root_tree.clone()),
             change_id: ChangeId::from_hex("abc123"),
             description: "".to_string(),
             author: create_signature(),
