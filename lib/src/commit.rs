@@ -206,6 +206,12 @@ impl Commit {
             .map(|sig| self.store.signer().verify(&self.id, &sig.data, &sig.sig))
             .transpose()
     }
+
+    /// A short string describing the commit to be used in conflict markers.
+    pub fn conflict_label(&self) -> String {
+        // Example: "nlqwxzwn 7dd24e73"
+        format!("{:.8} {:.8}", self.change_id(), self.id)
+    }
 }
 
 pub(crate) fn is_backend_commit_empty(
