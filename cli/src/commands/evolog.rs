@@ -62,7 +62,7 @@ pub(crate) struct EvologArgs {
     #[arg(long)]
     reversed: bool,
     /// Don't show the graph, show a flat list of revisions
-    #[arg(long)]
+    #[arg(long, short = 'G')]
     no_graph: bool,
     /// Render each revision using the given template
     ///
