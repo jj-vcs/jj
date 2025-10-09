@@ -83,6 +83,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `--insert-before` now accepts a revset that resolves to an empty set when
   used with `--insert-after`. The behavior is similar to `--onto`.
 
+* `jj prev` and `jj next` have gained a `--keep` flag to keep the current changes
+  while moving to the previous or next revision.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
