@@ -2550,6 +2550,23 @@ fn test_op_show() {
     - tracked kulxwnxm e1a239a5 Commit 5
     [EOF]
     ");
+
+    // Showing a given operation, without graph
+    let output = work_dir.run_jj(["op", "show", "--no-graph", "31f78a78f68f"]);
+    insta::assert_snapshot!(output, @r"
+    31f78a78f68f test-username@host.example.com 2001-02-03 04:05:27.000 +07:00 - 2001-02-03 04:05:27.000 +07:00
+    new empty commit
+    args: jj new bookmark-1@origin -m 'new commit'
+
+    Changed commits:
+    + tlkvzzqu 8f340dd7 (empty) new commit
+    - qpvuntsm hidden e8849ae1 (empty) (no description set)
+
+    Changed working copy default@:
+    + tlkvzzqu 8f340dd7 (empty) new commit
+    - qpvuntsm hidden e8849ae1 (empty) (no description set)
+    [EOF]
+    ");
 }
 
 #[test]
