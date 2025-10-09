@@ -84,10 +84,10 @@ fn test_chmod_regular_conflict() {
     let output = work_dir.run_jj(["file", "show", "file"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% side #1 compared with base
+    %%%%%%% royxmykx 02247291 compared with rlvkpnrz 1792382a
     -base
     +x
-    +++++++ side #2
+    +++++++ zsuskuln eb0ba805
     n
     >>>>>>> conflict 1 of 1 ends
     [EOF]
@@ -103,10 +103,10 @@ fn test_chmod_regular_conflict() {
     let output = work_dir.run_jj(["file", "show", "file"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% side #1 compared with base
+    %%%%%%% royxmykx 02247291 compared with rlvkpnrz 1792382a
     -base
     +x
-    +++++++ side #2
+    +++++++ zsuskuln eb0ba805
     n
     >>>>>>> conflict 1 of 1 ends
     [EOF]
@@ -120,10 +120,10 @@ fn test_chmod_regular_conflict() {
     let output = work_dir.run_jj(["file", "show", "file"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% side #1 compared with base
+    %%%%%%% royxmykx 02247291 compared with rlvkpnrz 1792382a
     -base
     +x
-    +++++++ side #2
+    +++++++ zsuskuln eb0ba805
     n
     >>>>>>> conflict 1 of 1 ends
     [EOF]
@@ -134,7 +134,7 @@ fn test_chmod_regular_conflict() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
-    Working copy  (@) now at: yostqsxw e5b18f6d conflict | (conflict) conflict
+    Working copy  (@) now at: yostqsxw 1a518549 conflict | (conflict) conflict
     Parent commit (@-)      : royxmykx 02247291 x | x
     Parent commit (@-)      : zsuskuln eb0ba805 n | n
     Added 0 files, modified 1 files, removed 0 files
@@ -214,9 +214,9 @@ fn test_chmod_file_dir_deletion_conflicts() {
     let output = work_dir.run_jj(["file", "show", "-r=file_deletion", "file"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< conflict 1 of 1
-    +++++++ side #1
+    +++++++ zsuskuln bc9cdea1
     a
-    %%%%%%% side #2 compared with base
+    %%%%%%% royxmykx d7d39332 compared with rlvkpnrz 1792382a
     -base
     >>>>>>> conflict 1 of 1 ends
     [EOF]
@@ -224,14 +224,14 @@ fn test_chmod_file_dir_deletion_conflicts() {
     let output = work_dir.run_jj(["file", "chmod", "x", "file", "-r=file_deletion"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kmkuslsw 849406ce file_deletion | (conflict) file_deletion
+    Working copy  (@) now at: kmkuslsw d05f6e6b file_deletion | (conflict) file_deletion
     Parent commit (@-)      : zsuskuln bc9cdea1 file | file
     Parent commit (@-)      : royxmykx d7d39332 deletion | deletion
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion and an executable
     New conflicts appeared in 1 commits:
-      kmkuslsw 849406ce file_deletion | (conflict) file_deletion
+      kmkuslsw d05f6e6b file_deletion | (conflict) file_deletion
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new kmkuslsw
@@ -248,9 +248,9 @@ fn test_chmod_file_dir_deletion_conflicts() {
     let output = work_dir.run_jj(["file", "show", "-r=file_deletion", "file"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< conflict 1 of 1
-    +++++++ side #1
+    +++++++ zsuskuln bc9cdea1
     a
-    %%%%%%% side #2 compared with base
+    %%%%%%% royxmykx d7d39332 compared with rlvkpnrz 1792382a
     -base
     >>>>>>> conflict 1 of 1 ends
     [EOF]
