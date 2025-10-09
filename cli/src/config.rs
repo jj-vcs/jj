@@ -36,6 +36,14 @@ use jj_lib::config::ConfigSource;
 use jj_lib::config::ConfigValue;
 use jj_lib::config::StackedConfig;
 use jj_lib::dsl_util;
+use jj_lib::file_util::IoResultExt as _;
+use jj_lib::protos::user_config::RepoConfig;
+use jj_lib::protos::user_config::WorkspaceConfig;
+use jj_lib::user_config::ConfigType;
+use jj_lib::user_config::UserConfig;
+use jj_lib::user_config::UserConfigError;
+use jj_lib::user_config::read_user_config;
+use jj_lib::user_config::write_user_config;
 use regex::Captures;
 use regex::Regex;
 use serde::Serialize as _;
@@ -44,6 +52,9 @@ use tracing::instrument;
 use crate::command_error::CommandError;
 use crate::command_error::config_error;
 use crate::command_error::config_error_with_message;
+use crate::command_error::internal_error;
+use crate::command_error::internal_error_with_message;
+use crate::command_error::user_error_with_hint;
 use crate::text_util;
 use crate::ui::Ui;
 
@@ -371,10 +382,10 @@ impl UnresolvedConfigEnv {
 pub struct ConfigEnv {
     home_dir: Option<PathBuf>,
     repo_path: Option<PathBuf>,
+    repo_config: UserConfig<RepoConfig>,
     workspace_path: Option<PathBuf>,
+    workspace_config: UserConfig<WorkspaceConfig>,
     user_config_paths: Vec<ConfigPath>,
-    repo_config_path: Option<ConfigPath>,
-    workspace_config_path: Option<ConfigPath>,
     command: Option<String>,
 }
 
@@ -418,10 +429,10 @@ impl ConfigEnv {
         Self {
             home_dir,
             repo_path: None,
+            repo_config: UserConfig::Trusted(Default::default()),
             workspace_path: None,
+            workspace_config: UserConfig::Trusted(Default::default()),
             user_config_paths: env.resolve(ui),
-            repo_config_path: None,
-            workspace_config_path: None,
             command: None,
         }
     }
@@ -488,45 +499,92 @@ impl ConfigEnv {
         Ok(())
     }
 
+    fn load_user_config<T: ConfigType>(
+        &mut self,
+        ui: &Ui,
+        dir: &Path,
+    ) -> Result<UserConfig<T>, CommandError> {
+        let user_config = match read_user_config::<T>(dir) {
+            Err(UserConfigError::LegacyRepo) => {
+                write_user_config(dir, &T::default()).map_err(|e| {
+                    internal_error_with_message("Failed to migrate from legacy repo", e)
+                })?;
+                return Ok(UserConfig::Trusted(Default::default()));
+            }
+            other => other,
+        }
+        .map_err(internal_error)?;
+        if let UserConfig::RepoMoved { from, to, .. } = &user_config {
+            let kind = T::kind();
+            writeln!(
+                ui.warning_default(),
+                "The {kind} has moved from {from} to {to}. For security reasons, we have disabled \
+                 the {kind} config.",
+            )?;
+            writeln!(
+                ui.hint_default(),
+                "Run `jj config edit --{kind}` to review and re-enable"
+            )?;
+        } else if matches!(user_config, UserConfig::InvalidSignature(_)) {
+            let kind = T::kind();
+            writeln!(
+                ui.warning_default(),
+                "The {kind} appears to have been created by someone else. For security reasons, \
+                 we have disabled the {kind} config.",
+            )?;
+            writeln!(
+                ui.hint_default(),
+                "Run `jj config edit --{kind}` to review and re-enable"
+            )?;
+        }
+        Ok(user_config)
+    }
+
     /// Sets the directory where repo-specific config file is stored. The path
     /// is usually `.jj/repo`.
-    pub fn reset_repo_path(&mut self, path: &Path) {
+    pub fn reset_repo_path(&mut self, ui: &Ui, path: &Path) -> Result<(), CommandError> {
         self.repo_path = Some(path.to_owned());
-        self.repo_config_path = Some(ConfigPath::new(path.join("config.toml")));
+        // Provide a grace period for which repos without secure user config
+        // information will be automatically migrated to add it.
+        // If we did not provide this grace period, repo configs would be
+        // disabled for every repo created by an older version of jj.
+        // TODO: After the grace period is over (~jj 0.47), make this act the
+        // same as InvalidSignature or RepoMovedError .
+        let legacy_config = path.join("config.toml");
+        match std::fs::read_to_string(&legacy_config).context(&legacy_config) {
+            Ok(content) => {
+                self.set_repo_config(&content, true)?;
+                std::fs::remove_file(&legacy_config).context(&legacy_config)?;
+            }
+            Err(e) if e.source.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e.into()),
+        }
+        self.repo_config = self.load_user_config::<RepoConfig>(ui, path)?;
+        Ok(())
     }
 
     /// Returns a path to the repo-specific config file.
-    pub fn repo_config_path(&self) -> Option<&Path> {
-        self.repo_config_path.as_ref().map(|p| p.as_path())
+    pub fn repo_config(&self) -> &UserConfig<RepoConfig> {
+        &self.repo_config
     }
 
-    /// Returns a path to the existing repo-specific config file.
-    fn existing_repo_config_path(&self) -> Option<&Path> {
-        match self.repo_config_path {
-            Some(ref path) if path.exists() => Some(path.as_path()),
-            _ => None,
+    pub fn set_repo_config(&self, config: &str, trusted: bool) -> Result<(), CommandError> {
+        if !trusted && !matches!(self.repo_config, UserConfig::Trusted(_)) {
+            return Err(user_error_with_hint(
+                "Attempting to update a non-trusted repo configuration",
+                "Run `jj config edit --repo` first",
+            ));
         }
-    }
-
-    /// Returns repo configuration files for modification. Instantiates one if
-    /// `config` has no repo configuration layers.
-    ///
-    /// If the repo path is unknown, this function returns an empty `Vec`. Since
-    /// the repo config path cannot be a directory, the returned `Vec` should
-    /// have at most one config file.
-    pub fn repo_config_files(
-        &self,
-        config: &RawConfig,
-    ) -> Result<Vec<ConfigFile>, ConfigLoadError> {
-        config_files_for(config, ConfigSource::Repo, || self.new_repo_config_file())
-    }
-
-    fn new_repo_config_file(&self) -> Result<Option<ConfigFile>, ConfigLoadError> {
-        self.repo_config_path()
-            // The path doesn't usually exist, but we shouldn't overwrite it
-            // with an empty config if it did exist.
-            .map(|path| ConfigFile::load_or_empty(ConfigSource::Repo, path))
-            .transpose()
+        if let Some(repo_path) = self.repo_path.as_deref() {
+            write_user_config::<RepoConfig>(
+                repo_path,
+                &RepoConfig {
+                    config: config.to_owned(),
+                },
+            )
+            .map_err(|e| internal_error_with_message("Failed to update repo config", e))?;
+        }
+        Ok(())
     }
 
     /// Loads repo-specific config file into the given `config`. The old
@@ -534,53 +592,43 @@ impl ConfigEnv {
     #[instrument]
     pub fn reload_repo_config(&self, config: &mut RawConfig) -> Result<(), ConfigLoadError> {
         config.as_mut().remove_layers(ConfigSource::Repo);
-        if let Some(path) = self.existing_repo_config_path() {
-            config.as_mut().load_file(ConfigSource::Repo, path)?;
+        if let UserConfig::Trusted(cfg) = &self.repo_config {
+            config
+                .as_mut()
+                .add_layer(ConfigLayer::parse(ConfigSource::Repo, &cfg.config)?);
         }
         Ok(())
     }
 
     /// Sets the directory for the workspace and the workspace-specific config
     /// file.
-    pub fn reset_workspace_path(&mut self, path: &Path) {
+    pub fn reset_workspace_path(&mut self, ui: &Ui, path: &Path) -> Result<(), CommandError> {
         self.workspace_path = Some(path.to_owned());
-        self.workspace_config_path = Some(ConfigPath::new(
-            path.join(".jj").join("workspace-config.toml"),
-        ));
+        self.workspace_config = self.load_user_config::<WorkspaceConfig>(ui, &path.join(".jj"))?;
+        Ok(())
     }
 
-    /// Returns a path to the workspace-specific config file.
-    pub fn workspace_config_path(&self) -> Option<&Path> {
-        self.workspace_config_path.as_ref().map(|p| p.as_path())
+    pub fn workspace_config(&self) -> &UserConfig<WorkspaceConfig> {
+        &self.workspace_config
     }
 
-    /// Returns a path to the existing workspace-specific config file.
-    fn existing_workspace_config_path(&self) -> Option<&Path> {
-        match self.workspace_config_path {
-            Some(ref path) if path.exists() => Some(path.as_path()),
-            _ => None,
+    pub fn set_workspace_config(&self, config: &str, trusted: bool) -> Result<(), CommandError> {
+        if !trusted && !matches!(self.workspace_config, UserConfig::Trusted(_)) {
+            return Err(user_error_with_hint(
+                "Attempting to update a non-trusted repo configuration",
+                "Run `jj config edit --repo` first",
+            ));
         }
-    }
-
-    /// Returns workspace configuration files for modification. Instantiates one
-    /// if `config` has no workspace configuration layers.
-    ///
-    /// If the workspace path is unknown, this function returns an empty `Vec`.
-    /// Since the workspace config path cannot be a directory, the returned
-    /// `Vec` should have at most one config file.
-    pub fn workspace_config_files(
-        &self,
-        config: &RawConfig,
-    ) -> Result<Vec<ConfigFile>, ConfigLoadError> {
-        config_files_for(config, ConfigSource::Workspace, || {
-            self.new_workspace_config_file()
-        })
-    }
-
-    fn new_workspace_config_file(&self) -> Result<Option<ConfigFile>, ConfigLoadError> {
-        self.workspace_config_path()
-            .map(|path| ConfigFile::load_or_empty(ConfigSource::Workspace, path))
-            .transpose()
+        if let Some(workspace_path) = self.workspace_path.as_deref() {
+            write_user_config::<WorkspaceConfig>(
+                &workspace_path.join(".jj"),
+                &WorkspaceConfig {
+                    config: config.to_owned(),
+                },
+            )
+            .map_err(|e| internal_error_with_message("Failed to update workspace config", e))?;
+        }
+        Ok(())
     }
 
     /// Loads workspace-specific config file into the given `config`. The old
@@ -588,8 +636,10 @@ impl ConfigEnv {
     #[instrument]
     pub fn reload_workspace_config(&self, config: &mut RawConfig) -> Result<(), ConfigLoadError> {
         config.as_mut().remove_layers(ConfigSource::Workspace);
-        if let Some(path) = self.existing_workspace_config_path() {
-            config.as_mut().load_file(ConfigSource::Workspace, path)?;
+        if let UserConfig::Trusted(cfg) = &self.workspace_config {
+            config
+                .as_mut()
+                .add_layer(ConfigLayer::parse(ConfigSource::Workspace, &cfg.config)?);
         }
         Ok(())
     }
@@ -631,8 +681,8 @@ fn config_files_for(
 /// 1. Default
 /// 2. Base environment variables
 /// 3. [User configs](https://jj-vcs.github.io/jj/latest/config/)
-/// 4. Repo config `.jj/repo/config.toml`
-/// 5. Workspace config `.jj/workspace-config.toml`
+/// 4. Repo config
+/// 5. Workspace config
 /// 6. Override environment variables
 /// 7. Command-line arguments `--config` and `--config-file`
 ///
@@ -1847,10 +1897,10 @@ mod tests {
         ConfigEnv {
             home_dir,
             repo_path: None,
+            repo_config: UserConfig::Trusted(Default::default()),
             workspace_path: None,
+            workspace_config: UserConfig::Trusted(Default::default()),
             user_config_paths: env.resolve(&Ui::null()),
-            repo_config_path: None,
-            workspace_config_path: None,
             command: None,
         }
     }

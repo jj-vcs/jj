@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::sync::Arc;
+
+use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigLayer;
 use tracing::instrument;
 
@@ -19,6 +22,7 @@ use super::ConfigLevelArgs;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::print_error_sources;
+use crate::commands::config::ConfigFileOrString;
 use crate::ui::Ui;
 
 /// Start an editor on a jj config file.
@@ -40,36 +44,50 @@ pub fn cmd_config_edit(
     let editor = command.text_editor()?;
     let file = args.level.edit_config_file(ui, command)?;
     if !file.path().exists() {
-        file.save()?;
+        file.save(false)?;
     }
 
     // Editing again and again until either of these conditions is met
     // 1. The config is OK
     // 2. The user restores previous one
-    writeln!(ui.status(), "Editing file: {}", file.path().display())?;
+    if matches!(file, ConfigFileOrString::ConfigFile(_)) {
+        writeln!(ui.status(), "Editing file: {}", file.path().display())?;
+    }
     loop {
         editor.edit_file(file.path())?;
 
         // Trying to load back config. If error, prompt to continue editing
-        if let Err(e) = ConfigLayer::load_from_file(file.layer().source, file.path().to_path_buf())
-        {
-            writeln!(
-                ui.warning_default(),
-                "An error has been found inside the config:"
-            )?;
-            print_error_sources(ui, Some(&e))?;
-            let continue_editing = ui.prompt_yes_no(
-                "Do you want to keep editing the file? If not, previous config will be restored.",
-                Some(true),
-            )?;
-            if !continue_editing {
-                // Saving back previous config
-                file.save()?;
+        match ConfigLayer::load_from_file(file.file().layer().source, file.path().to_path_buf()) {
+            Err(e) => {
+                writeln!(
+                    ui.warning_default(),
+                    "An error has been found inside the config:"
+                )?;
+                print_error_sources(ui, Some(&e))?;
+                let continue_editing = ui.prompt_yes_no(
+                    "Do you want to keep editing the file? If not, previous config will be \
+                     restored.",
+                    Some(true),
+                )?;
+                if !continue_editing {
+                    // Saving back previous config
+                    file.save(false)?;
+                    break;
+                }
+            }
+            Ok(f) => {
+                // If it's a config string, it's backed by a temporary file.
+                // So we need to save it to ensure we don't lose it.
+                if let ConfigFileOrString::ConfigString(_, env, td) = file {
+                    ConfigFileOrString::ConfigString(
+                        ConfigFile::from_layer(Arc::new(f)).unwrap(),
+                        env,
+                        td,
+                    )
+                    .save(true)?;
+                }
                 break;
             }
-        } else {
-            // config is OK
-            break;
         }
     }
     Ok(())

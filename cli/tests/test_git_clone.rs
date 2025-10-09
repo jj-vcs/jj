@@ -246,7 +246,7 @@ fn test_git_clone_colocate() {
     );
     // ".jj" directory should be ignored at Git side.
     let git_statuses = git::status(&jj_git_repo);
-    insta::assert_debug_snapshot!(git_statuses, @r#"
+    insta::assert_debug_snapshot!(git_statuses, @r###"
     [
         GitStatus {
             path: ".jj/.gitignore",
@@ -266,8 +266,14 @@ fn test_git_clone_colocate() {
                 Ignored,
             ),
         },
+        GitStatus {
+            path: ".jj/workspace-config.binpb",
+            status: Worktree(
+                Ignored,
+            ),
+        },
     ]
-    "#);
+    "###);
 
     // The old default bookmark "master" shouldn't exist.
     insta::assert_snapshot!(get_bookmark_output(&clone_dir), @r"

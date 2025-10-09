@@ -14,11 +14,9 @@ These are the config settings available to jj/Jujutsu.
 settings are located in [the user config files], which can be found with `jj
 config path --user`.
 
-- The repo settings. These can be edited with `jj config edit --repo` and are
-located in `.jj/repo/config.toml`.
+- The repo settings. These can be edited with `jj config edit --repo`.
 
-- The workspace settings. These can be edited with `jj config edit --workspace`
-and are located in `.jj/workspace-config.toml` in the workspace root.
+- The workspace settings. These can be edited with `jj config edit --workspace`.
 
 - Settings [specified in the command-line](#specifying-config-on-the-command-line).
 
