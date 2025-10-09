@@ -77,12 +77,13 @@ would look like this:
 
 ```text
 <<<<<<< conflict 1 of 1
-%%%%%%% diff from base to side #1
+%%%%%%% diff from: vpxusssl 38d49363 "merge base"
+\\\\\\\        to: rtsqusxu 2768b0b9 "commit A"
  apple
 -grape
 +grapefruit
  orange
-+++++++ side #2
++++++++ ysrnknol 7a20f389 "commit B"
 APPLE
 GRAPE
 ORANGE
@@ -91,7 +92,10 @@ ORANGE
 
 The markers `<<<<<<<` and `>>>>>>>` indicate the start and end of a conflict
 respectively. The marker `+++++++` indicates the start of a snapshot, while the
-marker `%%%%%%%` indicates the start of a diff to apply to the snapshot.
+marker `%%%%%%%` indicates the start of a diff to apply to the snapshot. The
+`\\\\\\\` marker just allows the label to be split across two lines to make it
+more readable.
+
 Therefore, to resolve this conflict, you would apply the diff (changing "grape"
 to "grapefruit") to the snapshot (the side with every line in uppercase),
 editing the file to look like this:
@@ -122,15 +126,15 @@ the `ui.conflict-marker-style` config option to "snapshot":
 
 ```text
 <<<<<<< conflict 1 of 1
-+++++++ side #1
++++++++ rtsqusxu 2768b0b9 "commit A"
 apple
 grapefruit
 orange
-------- base
+------- vpxusssl 38d49363 "merge base"
 apple
 grape
 orange
-+++++++ side #2
++++++++ ysrnknol 7a20f389 "commit B"
 APPLE
 GRAPE
 ORANGE
@@ -143,11 +147,11 @@ conflict markers by setting the `ui.conflict-marker-style` config option to
 "git":
 
 ```text
-<<<<<<< side #1
+<<<<<<< rtsqusxu 2768b0b9 "commit A"
 apple
 grapefruit
 orange
-||||||| base
+||||||| vpxusssl 38d49363 "merge base"
 apple
 grape
 orange
@@ -155,7 +159,7 @@ orange
 APPLE
 GRAPE
 ORANGE
->>>>>>> side #2
+>>>>>>> ysrnknol 7a20f389 "commit B"
 ```
 
 This conflict marker style only supports 2-sided conflicts though, so it falls

@@ -247,7 +247,7 @@ fn test_rewrite_immutable_commands() {
     insta::assert_snapshot!(output, @r"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:14 55c97dc7
     │  (no description set)
-    │ ◆  mzvwutvl test.user@example.com 2001-02-03 08:05:12 main e4459202 conflict
+    │ ◆  mzvwutvl test.user@example.com 2001-02-03 08:05:12 main 7065a923 conflict
     ╭─┤  merge
     │ │
     │ ~
@@ -262,8 +262,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["abandon", "main"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -290,8 +290,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["file", "chmod", "-r=main", "x", "file"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -304,8 +304,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["describe", "main"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -318,8 +318,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["diffedit", "-r=main"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -332,8 +332,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["edit", "main"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -346,8 +346,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["metaedit", "-r=main"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -360,8 +360,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["new", "--insert-before", "main"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -374,8 +374,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["new", "--insert-after", "subject(b)"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -388,8 +388,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["parallelize", "subject(b)", "main"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -402,8 +402,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["rebase", "-s=main", "-d=@"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -430,8 +430,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["rebase", "-r=main", "-d=@"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -444,8 +444,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["resolve", "-r=subject(merge)", "file"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -458,8 +458,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["restore", "-c=main"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -472,8 +472,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["restore", "--into=main"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -486,8 +486,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["split", "-r=main"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -500,8 +500,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["split", "-B=main", "-m", "will fail", "file"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -528,8 +528,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["squash", "--from=main"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -542,8 +542,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["squash", "--into=main"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -556,8 +556,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["squash", "--after=main-"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -570,8 +570,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["squash", "--before=main"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -584,8 +584,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["sign", "-r=main", "--config=signing.backend=test"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
@@ -598,8 +598,8 @@ fn test_rewrite_immutable_commands() {
     let output = work_dir.run_jj(["unsign", "-r=main"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit e44592029478 is immutable
-    Hint: Could not modify commit: mzvwutvl e4459202 main | (conflict) merge
+    Error: Commit 7065a9233f35 is immutable
+    Hint: Could not modify commit: mzvwutvl 7065a923 main | (conflict) merge
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
           - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits

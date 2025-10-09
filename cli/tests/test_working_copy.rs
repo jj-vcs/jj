@@ -208,19 +208,19 @@ fn test_materialize_and_snapshot_different_conflict_markers() {
         .success();
 
     // File should have Git-style conflict markers
-    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file"), @r#"
     line 1
-    <<<<<<< side #1
+    <<<<<<< rlvkpnrz df1cdd77 "side-a"
     line 2 - a
     line 3
-    ||||||| base
+    ||||||| qpvuntsm 2205b3ac "base"
     line 2
     line 3
     =======
     line 2 - b
     line 3 - b
-    >>>>>>> side #2
-    ");
+    >>>>>>> zsuskuln 68dcce1b "side-b"
+    "#);
 
     // Configure to use JJ-style "snapshot" conflict markers
     test_env.add_config(r#"ui.conflict-marker-style = "snapshot""#);
@@ -244,21 +244,21 @@ fn test_materialize_and_snapshot_different_conflict_markers() {
     );
 
     // Git-style markers should be parsed, then rendered with new config
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file b/file
     --- a/file
     +++ b/file
     @@ -2,7 +2,7 @@
      <<<<<<< conflict 1 of 1
-     +++++++ side #1
+     +++++++ rlvkpnrz df1cdd77 "side-a"
      line 2 - a
     -line 3
     +line 3 - a
-     ------- base
+     ------- qpvuntsm 2205b3ac "base"
      line 2
      line 3
     [EOF]
-    ");
+    "#);
 }
 
 #[test]
@@ -333,21 +333,22 @@ fn test_conflict_marker_length_stored_in_working_copy() {
         .success();
 
     // File should be materialized with long conflict markers
-    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file"), @r#"
     line 1
     <<<<<<<<<<< conflict 1 of 1
-    %%%%%%%%%%% diff from base to side #1
+    %%%%%%%%%%% diff from: qpvuntsm 2205b3ac "base"
+    \\\\\\\\\\\        to: rlvkpnrz ccf9527c "side-a"
     -line 2
     -line 3
     +line 2 - left
     +line 3 - left
-    +++++++++++ side #2
+    +++++++++++ zsuskuln d7acaf48 "side-b"
     ======= fake marker
     line 2 - right
     ======= fake marker
     line 3
     >>>>>>>>>>> conflict 1 of 1 ends
-    ");
+    "#);
 
     // The timestamps in the `jj debug local-working-copy` output change, so we want
     // to remove them before asserting the snapshot
@@ -360,9 +361,9 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     // Working copy should contain conflict marker length
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_output), @r#"
-    Current operation: OperationId("55ecb9538ef55d4e5e9b777471fc1e8b6b13211a33a286a7a0440b6c0a047412d3d6a3281cc57c54e702c6ad7c69098fa39c9358b13468677bfd799a0877a827")
-    Current tree: MergedTree { tree_ids: Conflicted([TreeId("381273b50cf73f8c81b3f1502ee89e9bbd6c1518"), TreeId("771f3d31c4588ea40a8864b2a981749888e596c2"), TreeId("f56b8223da0dab22b03b8323ced4946329aeb4e0")]), labels: Unlabeled, .. }
-    Normal { exec_bit: ExecBit(false) }           234 <timestamp> Some(MaterializedConflictData { conflict_marker_len: 11 }) "file"
+    Current operation: OperationId("5d919506f1cbd90a43ce93d739d84c0d7de34bc6eeb934befad2c3a16e2fe635c548ced178e42dde1041e140d7296a7000bc38530f1cfd7ed93a23cfc1e81699")
+    Current tree: MergedTree { tree_ids: Conflicted([TreeId("381273b50cf73f8c81b3f1502ee89e9bbd6c1518"), TreeId("771f3d31c4588ea40a8864b2a981749888e596c2"), TreeId("f56b8223da0dab22b03b8323ced4946329aeb4e0")]), labels: Labeled(["rlvkpnrz ccf9527c \"side-a\"", "qpvuntsm 2205b3ac \"base\"", "zsuskuln d7acaf48 \"side-b\""]), .. }
+    Normal { exec_bit: ExecBit(false) }           313 <timestamp> Some(MaterializedConflictData { conflict_marker_len: 11 }) "file"
     [EOF]
     "#);
 
@@ -394,21 +395,21 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
-    Working copy  (@) : mzvwutvl 0cb93a38 (conflict) (no description set)
+    Working copy  (@) : mzvwutvl 0e1653f0 (conflict) (no description set)
     Parent commit (@-): rlvkpnrz ccf9527c side-a
     Parent commit (@-): zsuskuln d7acaf48 side-b
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file b/file
     --- a/file
     +++ b/file
-    @@ -6,8 +6,10 @@
+    @@ -7,8 +7,10 @@
      +line 2 - left
      +line 3 - left
-     +++++++++++ side #2
+     +++++++++++ zsuskuln d7acaf48 "side-b"
     -======= fake marker
     +<<<<<<< fake marker
     +||||||| fake marker
@@ -418,13 +419,13 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     +>>>>>>> fake marker
      >>>>>>>>>>> conflict 1 of 1 ends
     [EOF]
-    ");
+    "#);
 
     // Working copy should still contain conflict marker length
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_output), @r#"
-    Current operation: OperationId("384bb2f70e28818b136ef65415dcbd68b43bd4bb74ada9932b42a8e34bc8729394b13ca43bd085ff07331e251cea0589a0fb7b5558ed5696d521ab946207e1e7")
-    Current tree: MergedTree { tree_ids: Conflicted([TreeId("381273b50cf73f8c81b3f1502ee89e9bbd6c1518"), TreeId("771f3d31c4588ea40a8864b2a981749888e596c2"), TreeId("3329c18c95f7b7a55c278c2259e9c4ce711fae59")]), labels: Unlabeled, .. }
+    Current operation: OperationId("519e354ba030d15583d3e62196b84337d5c446b632b5f92e98c6af246978ca8b166185a2526c48f51b4c2ca423503d3a8636fccefe7eec5ac0a8ab44061ae4a3")
+    Current tree: MergedTree { tree_ids: Conflicted([TreeId("381273b50cf73f8c81b3f1502ee89e9bbd6c1518"), TreeId("771f3d31c4588ea40a8864b2a981749888e596c2"), TreeId("3329c18c95f7b7a55c278c2259e9c4ce711fae59")]), labels: Labeled(["rlvkpnrz ccf9527c \"side-a\"", "qpvuntsm 2205b3ac \"base\"", "zsuskuln d7acaf48 \"side-b\""]), .. }
     Normal { exec_bit: ExecBit(false) }           274 <timestamp> Some(MaterializedConflictData { conflict_marker_len: 11 }) "file"
     [EOF]
     "#);
@@ -458,7 +459,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     // working copy
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_output), @r#"
-    Current operation: OperationId("bd95b7a5c0805289bf610dfde89a651e4f0d30e77c940106dabf2325225fbe6b214d436a50199c3cdf936c688810f236db2f71539451b1de08c6d02060ecd5c1")
+    Current operation: OperationId("20e0a52b5cb37d14c675e24cf1325cbe2d145b8369ef17b78b7ae5b0a77177c03585d840469732c98d6b1d528309db873f0a52b3b42e67b7440d9a8c644f5667")
     Current tree: MergedTree { tree_ids: Resolved(TreeId("6120567b3cb2472d549753ed3e4b84183d52a650")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(false) }           130 <timestamp> None "file"
     [EOF]

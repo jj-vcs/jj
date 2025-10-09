@@ -208,6 +208,28 @@ impl Commit {
             .map(|sig| self.store.signer().verify(&self.id, &sig.data, &sig.sig))
             .transpose()
     }
+
+    /// A string describing the commit to be used in conflict markers. If a
+    /// description is set, it will include the first line of the description.
+    pub fn conflict_label(&self) -> String {
+        if let Some(subject) = self.description().lines().next() {
+            // Example: nlqwxzwn 7dd24e73 "first line of description"
+            format!(
+                "{} \"{}\"",
+                self.conflict_label_short(),
+                subject.escape_default()
+            )
+        } else {
+            self.conflict_label_short()
+        }
+    }
+
+    /// A short string describing the commit to be used in conflict markers.
+    /// Does not include the commit description.
+    fn conflict_label_short(&self) -> String {
+        // Example: nlqwxzwn 7dd24e73
+        format!("{:.8} {:.8}", self.change_id(), self.id())
+    }
 }
 
 pub(crate) fn is_backend_commit_empty(

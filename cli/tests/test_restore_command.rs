@@ -189,30 +189,32 @@ fn test_restore_conflicted_merge() {
     ◆
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file"), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz 1792382a "base"
+    \\\\\\\        to: zsuskuln 45537d53 "a"
     -base
     +a
-    +++++++ side #2
+    +++++++ royxmykx 89d1b299 "b"
     b
     >>>>>>> conflict 1 of 1 ends
-    ");
+    "#);
 
     // Overwrite the file...
     work_dir.write_file("file", "resolution");
-    insta::assert_snapshot!(work_dir.run_jj(["diff"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff"]), @r#"
     Resolved conflict in file:
        1     : <<<<<<< conflict 1 of 1
-       2     : %%%%%%% diff from base to side #1
-       3     : -base
-       4     : +a
-       5     : +++++++ side #2
-       6     : b
-       7     : >>>>>>> conflict 1 of 1 ends
+       2     : %%%%%%% diff from: rlvkpnrz 1792382a "base"
+       3     : \\\\\\\        to: zsuskuln 45537d53 "a"
+       4     : -base
+       5     : +a
+       6     : +++++++ royxmykx 89d1b299 "b"
+       7     : b
+       8     : >>>>>>> conflict 1 of 1 ends
             1: resolution
     [EOF]
-    ");
+    "#);
 
     // ...and restore it back again.
     let output = work_dir.run_jj(["restore", "file"]);
@@ -240,24 +242,25 @@ fn test_restore_conflicted_merge() {
 
     // The same, but without the `file` argument. Overwrite the file...
     work_dir.write_file("file", "resolution");
-    insta::assert_snapshot!(work_dir.run_jj(["diff"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff"]), @r#"
     Resolved conflict in file:
        1     : <<<<<<< conflict 1 of 1
-       2     : %%%%%%% diff from base to side #1
-       3     : -base
-       4     : +a
-       5     : +++++++ side #2
-       6     : b
-       7     : >>>>>>> conflict 1 of 1 ends
+       2     : %%%%%%% diff from: rlvkpnrz 1792382a "base"
+       3     : \\\\\\\        to: zsuskuln 45537d53 "a"
+       4     : -base
+       5     : +a
+       6     : +++++++ royxmykx 89d1b299 "b"
+       7     : b
+       8     : >>>>>>> conflict 1 of 1 ends
             1: resolution
     [EOF]
-    ");
+    "#);
 
     // ... and restore it back again.
     let output = work_dir.run_jj(["restore"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv e46a78b9 conflict | (conflict) (empty) conflict
+    Working copy  (@) now at: vruxwmqv 60d86a33 conflict | (conflict) (empty) conflict
     Parent commit (@-)      : zsuskuln 45537d53 a | a
     Parent commit (@-)      : royxmykx 89d1b299 b | b
     Added 0 files, modified 1 files, removed 0 files
@@ -265,15 +268,16 @@ fn test_restore_conflicted_merge() {
     file    2-sided conflict
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file"), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz 1792382a "base"
+    \\\\\\\        to: zsuskuln 45537d53 "a"
     -base
     +a
-    +++++++ side #2
+    +++++++ royxmykx 89d1b299 "b"
     b
     >>>>>>> conflict 1 of 1 ends
-    ");
+    "#);
 }
 
 #[test]

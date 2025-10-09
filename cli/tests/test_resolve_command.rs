@@ -52,15 +52,16 @@ fn test_resolution() {
     file    2-sided conflict
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file"), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz 1792382a "base"
+    \\\\\\\        to: zsuskuln 45537d53 "a"
     -base
     +a
-    +++++++ side #2
+    +++++++ royxmykx 89d1b299 "b"
     b
     >>>>>>> conflict 1 of 1 ends
-    ");
+    "#);
     let setup_opid = work_dir.current_operation_id();
 
     // Check that output file starts out empty and resolve the conflict
@@ -81,22 +82,23 @@ fn test_resolution() {
     ");
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @"");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file b/file
     index 0000000000..88425ec521 100644
     --- a/file
     +++ b/file
-    @@ -1,7 +1,1 @@
+    @@ -1,8 +1,1 @@
     -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from base to side #1
+    -%%%%%%% diff from: rlvkpnrz 1792382a "base"
+    -\\\\\\\        to: zsuskuln 45537d53 "a"
     --base
     -+a
-    -+++++++ side #2
+    -+++++++ royxmykx 89d1b299 "b"
     -b
     ->>>>>>> conflict 1 of 1 ends
     +resolution
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     ------- stderr -------
     Error: No conflicts found at this revision
@@ -121,22 +123,23 @@ fn test_resolution() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file b/file
     index 0000000000..88425ec521 100644
     --- a/file
     +++ b/file
-    @@ -1,7 +1,1 @@
+    @@ -1,8 +1,1 @@
     -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from base to side #1
+    -%%%%%%% diff from: rlvkpnrz 1792382a "base"
+    -\\\\\\\        to: zsuskuln 45537d53 "a"
     --base
     -+a
-    -+++++++ side #2
+    -+++++++ royxmykx 89d1b299 "b"
     -b
     ->>>>>>> conflict 1 of 1 ends
     +resolution
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     ------- stderr -------
     Error: No conflicts found at this revision
@@ -160,31 +163,33 @@ fn test_resolution() {
         ])
         .success();
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r"
+        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz 1792382a "base"
+    \\\\\\\        to: zsuskuln 45537d53 "a"
     -base
     +a
-    +++++++ side #2
+    +++++++ royxmykx 89d1b299 "b"
     b
     >>>>>>> conflict 1 of 1 ends
-    ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    "#);
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file b/file
     index 0000000000..88425ec521 100644
     --- a/file
     +++ b/file
-    @@ -1,7 +1,1 @@
+    @@ -1,8 +1,1 @@
     -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from base to side #1
+    -%%%%%%% diff from: rlvkpnrz 1792382a "base"
+    -\\\\\\\        to: zsuskuln 45537d53 "a"
     --base
     -+a
-    -+++++++ side #2
+    -+++++++ royxmykx 89d1b299 "b"
     -b
     ->>>>>>> conflict 1 of 1 ends
     +resolution
     [EOF]
-    ");
+    "#);
 
     // Check that if merge tool leaves conflict markers in output file and
     // `merge-tool-edits-conflict-markers=true`, these markers are properly parsed.
@@ -215,14 +220,14 @@ fn test_resolution() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: file
-    Working copy  (@) now at: vruxwmqv e4a8cd2d conflict | (conflict) conflict
+    Working copy  (@) now at: vruxwmqv 8f3421d9 conflict | (conflict) conflict
     Parent commit (@-)      : zsuskuln 45537d53 a | a
     Parent commit (@-)      : royxmykx 89d1b299 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv e4a8cd2d conflict | (conflict) conflict
+      vruxwmqv 8f3421d9 conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new vruxwmqv
@@ -232,33 +237,35 @@ fn test_resolution() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r"
+        std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz 1792382a "base"
+    \\\\\\\        to: zsuskuln 45537d53 "a"
     -base
     +a
-    +++++++ side #2
+    +++++++ royxmykx 89d1b299 "b"
     b
     >>>>>>> conflict 1 of 1 ends
-    ");
+    "#);
     // Note the "Modified" below
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file b/file
     --- a/file
     +++ b/file
-    @@ -1,7 +1,7 @@
+    @@ -1,8 +1,8 @@
      <<<<<<< conflict 1 of 1
-     %%%%%%% diff from base to side #1
+     %%%%%%% diff from: rlvkpnrz 1792382a "base"
+     \\\\\\\        to: zsuskuln 45537d53 "a"
     --base
     -+a
     +-some
     ++fake
-     +++++++ side #2
+     +++++++ royxmykx 89d1b299 "b"
     -b
     +conflict
      >>>>>>> conflict 1 of 1 ends
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     file    2-sided conflict
     [EOF]
@@ -300,17 +307,18 @@ fn test_resolution() {
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor3")).unwrap(), @"");
     // Note the "Resolved" below
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file b/file
     index 0000000000..0610716cc1 100644
     --- a/file
     +++ b/file
-    @@ -1,7 +1,7 @@
+    @@ -1,8 +1,7 @@
     -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from base to side #1
+    -%%%%%%% diff from: rlvkpnrz 1792382a "base"
+    -\\\\\\\        to: zsuskuln 45537d53 "a"
     --base
     -+a
-    -+++++++ side #2
+    -+++++++ royxmykx 89d1b299 "b"
     -b
     ->>>>>>> conflict 1 of 1 ends
     +<<<<<<<
@@ -321,7 +329,7 @@ fn test_resolution() {
     +conflict
     +>>>>>>>
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     ------- stderr -------
     Error: No conflicts found at this revision
@@ -359,14 +367,14 @@ fn test_resolution() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: file
-    Working copy  (@) now at: vruxwmqv fe2a966d conflict | (conflict) conflict
+    Working copy  (@) now at: vruxwmqv 7abbf396 conflict | (conflict) conflict
     Parent commit (@-)      : zsuskuln 45537d53 a | a
     Parent commit (@-)      : royxmykx 89d1b299 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv fe2a966d conflict | (conflict) conflict
+      vruxwmqv 7abbf396 conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new vruxwmqv
@@ -376,32 +384,33 @@ fn test_resolution() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor4")).unwrap(), @r"
-    <<<<<<< side #1
+        std::fs::read_to_string(test_env.env_root().join("editor4")).unwrap(), @r#"
+    <<<<<<< zsuskuln 45537d53 "a"
     a
-    ||||||| base
+    ||||||| rlvkpnrz 1792382a "base"
     base
     =======
     b
-    >>>>>>> side #2
-    ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    >>>>>>> royxmykx 89d1b299 "b"
+    "#);
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file b/file
     --- a/file
     +++ b/file
-    @@ -1,7 +1,7 @@
+    @@ -1,8 +1,8 @@
      <<<<<<< conflict 1 of 1
-     %%%%%%% diff from base to side #1
+     %%%%%%% diff from: rlvkpnrz 1792382a "base"
+     \\\\\\\        to: zsuskuln 45537d53 "a"
     --base
     -+a
     +-fake
     ++some
-     +++++++ side #2
+     +++++++ royxmykx 89d1b299 "b"
     -b
     +conflict
      >>>>>>> conflict 1 of 1 ends
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     file    2-sided conflict
     [EOF]
@@ -438,14 +447,14 @@ fn test_resolution() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: file
-    Working copy  (@) now at: vruxwmqv 16d4ec9a conflict | (conflict) conflict
+    Working copy  (@) now at: vruxwmqv c7b8c740 conflict | (conflict) conflict
     Parent commit (@-)      : zsuskuln 45537d53 a | a
     Parent commit (@-)      : royxmykx 89d1b299 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv 16d4ec9a conflict | (conflict) conflict
+      vruxwmqv c7b8c740 conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new vruxwmqv
@@ -456,23 +465,24 @@ fn test_resolution() {
     ");
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor5")).unwrap(), @"");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file b/file
     --- a/file
     +++ b/file
-    @@ -1,7 +1,7 @@
+    @@ -1,8 +1,8 @@
      <<<<<<< conflict 1 of 1
-     %%%%%%% diff from base to side #1
+     %%%%%%% diff from: rlvkpnrz 1792382a "base"
+     \\\\\\\        to: zsuskuln 45537d53 "a"
     --base
     -+a
     +-fake
     ++some
-     +++++++ side #2
+     +++++++ royxmykx 89d1b299 "b"
     -b
     +conflict
      >>>>>>> conflict 1 of 1 ends
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     file    2-sided conflict
     [EOF]
@@ -571,7 +581,7 @@ fn test_files_still_have_conflicts() {
     Resolving conflicts in: file1
     Rebased 1 descendant commits
     New conflicts appeared in 1 commits:
-      vruxwmqv 5f31d8ad conflict | (conflict) conflict
+      vruxwmqv 33dabe14 conflict | (conflict) conflict
     Warning: After this operation, some files at this revision still have conflicts:
     file2    2-sided conflict
     [EOF]
@@ -592,13 +602,13 @@ fn test_files_still_have_conflicts() {
     ------- stderr -------
     Resolving conflicts in: file1
     Rebased 1 descendant commits
-    Working copy  (@) now at: znkkpsqq 1577a6a8 c | (conflict) (empty) c
-    Parent commit (@-)      : vruxwmqv c6be5b3d conflict | (conflict) conflict
+    Working copy  (@) now at: znkkpsqq 0c56f122 c | (conflict) (empty) c
+    Parent commit (@-)      : vruxwmqv f3962c75 conflict | (conflict) conflict
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv c6be5b3d conflict | (conflict) conflict
+      vruxwmqv f3962c75 conflict | (conflict) conflict
     Warning: After this operation, some files at this revision still have conflicts:
     file2    2-sided conflict
     [EOF]
@@ -658,15 +668,16 @@ fn test_normal_conflict_input_files() {
     file    2-sided conflict
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file"), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz 1792382a "base"
+    \\\\\\\        to: zsuskuln 45537d53 "a"
     -base
     +a
-    +++++++ side #2
+    +++++++ royxmykx 89d1b299 "b"
     b
     >>>>>>> conflict 1 of 1 ends
-    ");
+    "#);
 
     check_resolve_produces_input_file(&mut test_env, "repo", "file", "base", "base\n");
     check_resolve_produces_input_file(&mut test_env, "repo", "file", "left", "a\n");
@@ -698,14 +709,15 @@ fn test_baseless_conflict_input_files() {
     file    2-sided conflict
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file"), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz 2308e5a2 "base"
+    \\\\\\\        to: zsuskuln e3c7222d "a"
     +a
-    +++++++ side #2
+    +++++++ royxmykx 1f2c13ec "b"
     b
     >>>>>>> conflict 1 of 1 ends
-    ");
+    "#);
 
     check_resolve_produces_input_file(&mut test_env, "repo", "file", "base", "");
     check_resolve_produces_input_file(&mut test_env, "repo", "file", "left", "a\n");
@@ -780,24 +792,26 @@ fn test_simplify_conflict_sides() {
     fileB    2-sided conflict
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.read_file("fileA"), @r"
+    insta::assert_snapshot!(work_dir.read_file("fileA"), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz ca4643d3 "base"
+    \\\\\\\        to: zsuskuln f302fbd1 "a1"
     -base
     +1
-    +++++++ side #2
+    +++++++ royxmykx 128a2559 "a2"
     2
     >>>>>>> conflict 1 of 1 ends
-    ");
-    insta::assert_snapshot!(work_dir.read_file("fileB"), @r"
+    "#);
+    insta::assert_snapshot!(work_dir.read_file("fileB"), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz ca4643d3 "base"
+    \\\\\\\        to: vruxwmqv 5be2d37a "b1"
     -base
     +1
-    +++++++ side #2
+    +++++++ znkkpsqq bd8e6328 "b2"
     2
     >>>>>>> conflict 1 of 1 ends
-    ");
+    "#);
 
     // Conflict should be simplified before being handled by external merge tool.
     check_resolve_produces_input_file(&mut test_env, "repo", "fileA", "base", "base\n");
@@ -833,15 +847,15 @@ fn test_simplify_conflict_sides() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: fileB
-    Working copy  (@) now at: nkmrtpmo e2260d62 conflict | (conflict) conflict
-    Parent commit (@-)      : kmkuslsw 73b61e6e conflictA | (conflict) (empty) conflictA
-    Parent commit (@-)      : lylxulpl 563db74e conflictB | (conflict) (empty) conflictB
+    Working copy  (@) now at: nkmrtpmo e8ca5990 conflict | (conflict) conflict
+    Parent commit (@-)      : kmkuslsw 0fb57c44 conflictA | (conflict) (empty) conflictA
+    Parent commit (@-)      : lylxulpl 4ec7381a conflictB | (conflict) (empty) conflictB
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     fileA    2-sided conflict
     fileB    2-sided conflict
     New conflicts appeared in 1 commits:
-      nkmrtpmo e2260d62 conflict | (conflict) conflict
+      nkmrtpmo e8ca5990 conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new nkmrtpmo
@@ -850,15 +864,16 @@ fn test_simplify_conflict_sides() {
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.read_file("fileB"), @r"
+    insta::assert_snapshot!(work_dir.read_file("fileB"), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz ca4643d3 "base"
+    \\\\\\\        to: vruxwmqv 5be2d37a "b1"
     -base_edited
     +1_edited
-    +++++++ side #2
+    +++++++ znkkpsqq bd8e6328 "b2"
     2_edited
     >>>>>>> conflict 1 of 1 ends
-    ");
+    "#);
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     fileA    2-sided conflict
     fileB    2-sided conflict
@@ -892,14 +907,15 @@ fn test_edit_delete_conflict_input_files() {
     file    2-sided conflict including 1 deletion
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file"), @r#"
     <<<<<<< conflict 1 of 1
-    +++++++ side #1
+    +++++++ zsuskuln 45537d53 "a"
     a
-    %%%%%%% diff from base to side #2
+    %%%%%%% diff from: rlvkpnrz 1792382a "base"
+    \\\\\\\        to: royxmykx d213fd81 "b"
     -base
     >>>>>>> conflict 1 of 1 ends
-    ");
+    "#);
 
     check_resolve_produces_input_file(&mut test_env, "repo", "file", "base", "base\n");
     check_resolve_produces_input_file(&mut test_env, "repo", "file", "left", "a\n");
@@ -1039,25 +1055,27 @@ fn test_resolve_conflicts_with_executable() {
     file2    2-sided conflict including an executable
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.read_file("file1"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file1"), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz b90abfa7 "base"
+    \\\\\\\        to: mzvwutvl 86f7f0e3 "a"
     -base1
     +a1
-    +++++++ side #2
+    +++++++ yqosqzyt 36361412 "b"
     b1
     >>>>>>> conflict 1 of 1 ends
-    "
+    "#
     );
-    insta::assert_snapshot!(work_dir.read_file("file2"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file2"), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz b90abfa7 "base"
+    \\\\\\\        to: mzvwutvl 86f7f0e3 "a"
     -base2
     +a2
-    +++++++ side #2
+    +++++++ yqosqzyt 36361412 "b"
     b2
     >>>>>>> conflict 1 of 1 ends
-    "
+    "#
     );
     let setup_opid = work_dir.current_operation_id();
 
@@ -1067,14 +1085,14 @@ fn test_resolve_conflicts_with_executable() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: file1
-    Working copy  (@) now at: znkkpsqq dd280a2f conflict | (conflict) conflict
+    Working copy  (@) now at: znkkpsqq fd33ac9e conflict | (conflict) conflict
     Parent commit (@-)      : mzvwutvl 86f7f0e3 a | a
     Parent commit (@-)      : yqosqzyt 36361412 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict including an executable
     New conflicts appeared in 1 commits:
-      znkkpsqq dd280a2f conflict | (conflict) conflict
+      znkkpsqq fd33ac9e conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new znkkpsqq
@@ -1083,22 +1101,23 @@ fn test_resolve_conflicts_with_executable() {
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file1 b/file1
     index 0000000000..95cc18629d 100755
     --- a/file1
     +++ b/file1
-    @@ -1,7 +1,1 @@
+    @@ -1,8 +1,1 @@
     -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from base to side #1
+    -%%%%%%% diff from: rlvkpnrz b90abfa7 "base"
+    -\\\\\\\        to: mzvwutvl 86f7f0e3 "a"
     --base1
     -+a1
-    -+++++++ side #2
+    -+++++++ yqosqzyt 36361412 "b"
     -b1
     ->>>>>>> conflict 1 of 1 ends
     +resolution1
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     file2    2-sided conflict including an executable
     [EOF]
@@ -1111,14 +1130,14 @@ fn test_resolve_conflicts_with_executable() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: file2
-    Working copy  (@) now at: znkkpsqq 6a536f34 conflict | (conflict) conflict
+    Working copy  (@) now at: znkkpsqq d8d33d5d conflict | (conflict) conflict
     Parent commit (@-)      : mzvwutvl 86f7f0e3 a | a
     Parent commit (@-)      : yqosqzyt 36361412 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file1    2-sided conflict including an executable
     New conflicts appeared in 1 commits:
-      znkkpsqq 6a536f34 conflict | (conflict) conflict
+      znkkpsqq d8d33d5d conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new znkkpsqq
@@ -1127,22 +1146,23 @@ fn test_resolve_conflicts_with_executable() {
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file2 b/file2
     index 0000000000..775f078581 100755
     --- a/file2
     +++ b/file2
-    @@ -1,7 +1,1 @@
+    @@ -1,8 +1,1 @@
     -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from base to side #1
+    -%%%%%%% diff from: rlvkpnrz b90abfa7 "base"
+    -\\\\\\\        to: mzvwutvl 86f7f0e3 "a"
     --base2
     -+a2
-    -+++++++ side #2
+    -+++++++ yqosqzyt 36361412 "b"
     -b2
     ->>>>>>> conflict 1 of 1 ends
     +resolution2
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     file1    2-sided conflict including an executable
     [EOF]
@@ -1159,17 +1179,18 @@ fn test_resolve_conflicts_with_executable() {
     Added 0 files, modified 2 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file1 b/file1
     index 0000000000..da0f8ed91a 100755
     --- a/file1
     +++ b/file1
-    @@ -1,7 +1,1 @@
+    @@ -1,8 +1,1 @@
     -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from base to side #1
+    -%%%%%%% diff from: rlvkpnrz b90abfa7 "base"
+    -\\\\\\\        to: mzvwutvl 86f7f0e3 "a"
     --base1
     -+a1
-    -+++++++ side #2
+    -+++++++ yqosqzyt 36361412 "b"
     -b1
     ->>>>>>> conflict 1 of 1 ends
     +a1
@@ -1177,17 +1198,18 @@ fn test_resolve_conflicts_with_executable() {
     index 0000000000..c1827f07e1 100755
     --- a/file2
     +++ b/file2
-    @@ -1,7 +1,1 @@
+    @@ -1,8 +1,1 @@
     -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from base to side #1
+    -%%%%%%% diff from: rlvkpnrz b90abfa7 "base"
+    -\\\\\\\        to: mzvwutvl 86f7f0e3 "a"
     --base2
     -+a2
-    -+++++++ side #2
+    -+++++++ yqosqzyt 36361412 "b"
     -b2
     ->>>>>>> conflict 1 of 1 ends
     +a2
     [EOF]
-    ");
+    "#);
 
     // Pick "their" contents, but merges executable bits
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1200,33 +1222,35 @@ fn test_resolve_conflicts_with_executable() {
     Added 0 files, modified 2 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file1 b/file1
     index 0000000000..c9c6af7f78 100755
     --- a/file1
     +++ b/file1
-    @@ -1,7 +1,1 @@
+    @@ -1,8 +1,1 @@
     -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from base to side #1
+    -%%%%%%% diff from: rlvkpnrz b90abfa7 "base"
+    -\\\\\\\        to: mzvwutvl 86f7f0e3 "a"
     --base1
     -+a1
-    -+++++++ side #2
+    -+++++++ yqosqzyt 36361412 "b"
      b1
     ->>>>>>> conflict 1 of 1 ends
     diff --git a/file2 b/file2
     index 0000000000..e6bfff5c1d 100755
     --- a/file2
     +++ b/file2
-    @@ -1,7 +1,1 @@
+    @@ -1,8 +1,1 @@
     -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from base to side #1
+    -%%%%%%% diff from: rlvkpnrz b90abfa7 "base"
+    -\\\\\\\        to: mzvwutvl 86f7f0e3 "a"
     --base2
     -+a2
-    -+++++++ side #2
+    -+++++++ yqosqzyt 36361412 "b"
      b2
     ->>>>>>> conflict 1 of 1 ends
     [EOF]
-    ");
+    "#);
 }
 
 #[test]
@@ -1294,7 +1318,7 @@ fn test_resolve_change_delete_executable() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["log", "--git"]), @r"
-    @    kmkuslsw test.user@example.com 2001-02-03 08:05:18 conflict 861671a0 conflict
+    @    kmkuslsw test.user@example.com 2001-02-03 08:05:18 conflict 2cdaed10 conflict
     ├─╮  (empty) conflict
     │ ○  vruxwmqv test.user@example.com 2001-02-03 08:05:17 b 888b6cc3
     │ │  b
@@ -1395,7 +1419,7 @@ fn test_resolve_change_delete_executable() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: file2
-    Working copy  (@) now at: kmkuslsw 50de8ae5 conflict | (conflict) conflict
+    Working copy  (@) now at: kmkuslsw 9beb3447 conflict | (conflict) conflict
     Parent commit (@-)      : mzvwutvl e2d3924b a | a
     Parent commit (@-)      : vruxwmqv 888b6cc3 b | b
     Added 0 files, modified 1 files, removed 0 files
@@ -1426,7 +1450,7 @@ fn test_resolve_change_delete_executable() {
     let output = work_dir.run_jj(["resolve", "file4", "--tool=:ours"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kmkuslsw 94218b9e conflict | (conflict) conflict
+    Working copy  (@) now at: kmkuslsw a70e40cc conflict | (conflict) conflict
     Parent commit (@-)      : mzvwutvl e2d3924b a | a
     Parent commit (@-)      : vruxwmqv 888b6cc3 b | b
     Added 0 files, modified 1 files, removed 0 files
@@ -1475,16 +1499,16 @@ fn test_pass_path_argument() {
     file    2-sided conflict
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file"), @r#"
     <<<<<<< conflict 1 of 1
-    +++++++ side #1
+    +++++++ zsuskuln 45537d53 "a"
     a
-    ------- base
+    ------- rlvkpnrz 1792382a "base"
     base
-    +++++++ side #2
+    +++++++ royxmykx 89d1b299 "b"
     b
     >>>>>>> conflict 1 of 1 ends
-    "
+    "#
     );
 
     // If the merge tool accepts the "$path" argument, then it should be passed
@@ -1511,23 +1535,23 @@ fn test_pass_path_argument() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file b/file
     index 0000000000..88425ec521 100644
     --- a/file
     +++ b/file
     @@ -1,8 +1,1 @@
     -<<<<<<< conflict 1 of 1
-    -+++++++ side #1
+    -+++++++ zsuskuln 45537d53 "a"
     -a
-    -------- base
+    -------- rlvkpnrz 1792382a "base"
     -base
-    -+++++++ side #2
+    -+++++++ royxmykx 89d1b299 "b"
     -b
     ->>>>>>> conflict 1 of 1 ends
     +resolution
     [EOF]
-    ");
+    "#);
 
     // The output filtered to a non-existent file should display a warning.
     let output = work_dir.run_jj([
@@ -1564,16 +1588,16 @@ fn test_resolve_long_conflict_markers() {
     file    2-sided conflict
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file"), @r#"
     <<<<<<<<<<< conflict 1 of 1
-    +++++++++++ side #1
+    +++++++++++ zsuskuln 10d994ef "a"
     <<<<<<< a
-    ----------- base
+    ----------- rlvkpnrz 04dceede "base"
     ======= base
-    +++++++++++ side #2
+    +++++++++++ royxmykx 7f215575 "b"
     >>>>>>> b
     >>>>>>>>>>> conflict 1 of 1 ends
-    "
+    "#
     );
     let setup_opid = work_dir.current_operation_id();
     // Allow signaling that conflict markers were produced even if not editing
@@ -1601,14 +1625,14 @@ fn test_resolve_long_conflict_markers() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: file
-    Working copy  (@) now at: vruxwmqv c0d761e3 conflict | (conflict) conflict
+    Working copy  (@) now at: vruxwmqv fc3d3226 conflict | (conflict) conflict
     Parent commit (@-)      : zsuskuln 10d994ef a | a
     Parent commit (@-)      : royxmykx 7f215575 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv c0d761e3 conflict | (conflict) conflict
+      vruxwmqv fc3d3226 conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new vruxwmqv
@@ -1617,29 +1641,29 @@ fn test_resolve_long_conflict_markers() {
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file b/file
     --- a/file
     +++ b/file
     @@ -1,8 +1,8 @@
     -<<<<<<<<<<< conflict 1 of 1
-    -+++++++++++ side #1
+    -+++++++++++ zsuskuln 10d994ef "a"
     -<<<<<<< a
-    ------------ base
+    ------------ rlvkpnrz 04dceede "base"
     -======= base
-    -+++++++++++ side #2
+    -+++++++++++ royxmykx 7f215575 "b"
     ->>>>>>> b
     ->>>>>>>>>>> conflict 1 of 1 ends
     +<<<<<<< conflict 1 of 1
-    ++++++++ side #1
+    ++++++++ zsuskuln 10d994ef "a"
     +A
-    +------- base
+    +------- rlvkpnrz 04dceede "base"
     +BASE
-    ++++++++ side #2
+    ++++++++ royxmykx 7f215575 "b"
     +B
     +>>>>>>> conflict 1 of 1 ends
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     file    2-sided conflict
     [EOF]
@@ -1671,14 +1695,14 @@ fn test_resolve_long_conflict_markers() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: file
-    Working copy  (@) now at: vruxwmqv eab21a40 conflict | (conflict) conflict
+    Working copy  (@) now at: vruxwmqv db021ff0 conflict | (conflict) conflict
     Parent commit (@-)      : zsuskuln 10d994ef a | a
     Parent commit (@-)      : royxmykx 7f215575 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv eab21a40 conflict | (conflict) conflict
+      vruxwmqv db021ff0 conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new vruxwmqv
@@ -1688,34 +1712,34 @@ fn test_resolve_long_conflict_markers() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r"
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     <<<<<<<<<<< conflict 1 of 1
-    +++++++++++ side #1
+    +++++++++++ zsuskuln 10d994ef "a"
     <<<<<<< a
-    ----------- base
+    ----------- rlvkpnrz 04dceede "base"
     ======= base
-    +++++++++++ side #2
+    +++++++++++ royxmykx 7f215575 "b"
     >>>>>>> b
     >>>>>>>>>>> conflict 1 of 1 ends
-    ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    "#);
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file b/file
     --- a/file
     +++ b/file
     @@ -1,8 +1,8 @@
      <<<<<<<<<<< conflict 1 of 1
-     +++++++++++ side #1
+     +++++++++++ zsuskuln 10d994ef "a"
     -<<<<<<< a
     +<<<<<<< A
-     ----------- base
+     ----------- rlvkpnrz 04dceede "base"
     -======= base
     +======= BASE
-     +++++++++++ side #2
+     +++++++++++ royxmykx 7f215575 "b"
     ->>>>>>> b
     +>>>>>>> B
      >>>>>>>>>>> conflict 1 of 1 ends
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     file    2-sided conflict
     [EOF]
@@ -1747,14 +1771,14 @@ fn test_resolve_long_conflict_markers() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: file
-    Working copy  (@) now at: vruxwmqv cd9cf2ca conflict | (conflict) conflict
+    Working copy  (@) now at: vruxwmqv 82128b7b conflict | (conflict) conflict
     Parent commit (@-)      : zsuskuln 10d994ef a | a
     Parent commit (@-)      : royxmykx 7f215575 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv cd9cf2ca conflict | (conflict) conflict
+      vruxwmqv 82128b7b conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new vruxwmqv
@@ -1763,24 +1787,24 @@ fn test_resolve_long_conflict_markers() {
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file b/file
     --- a/file
     +++ b/file
     @@ -1,8 +1,8 @@
      <<<<<<<<<<< conflict 1 of 1
-     +++++++++++ side #1
+     +++++++++++ zsuskuln 10d994ef "a"
     -<<<<<<< a
     +<<<<<<< A
-     ----------- base
+     ----------- rlvkpnrz 04dceede "base"
     -======= base
     +======= BASE
-     +++++++++++ side #2
+     +++++++++++ royxmykx 7f215575 "b"
     ->>>>>>> b
     +>>>>>>> B
      >>>>>>>>>>> conflict 1 of 1 ends
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     file    2-sided conflict
     [EOF]
@@ -1843,24 +1867,26 @@ fn test_multiple_conflicts() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        work_dir.read_file("this_file_has_a_very_long_name_to_test_padding"), @r"
+        work_dir.read_file("this_file_has_a_very_long_name_to_test_padding"), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz fa081b8c "base"
+    \\\\\\\        to: zsuskuln 2c821f70 "a"
     -first base
     +first a
-    +++++++ side #2
+    +++++++ royxmykx 4c2029de "b"
     first b
     >>>>>>> conflict 1 of 1 ends
-    ");
-    insta::assert_snapshot!(work_dir.read_file("another_file"), @r"
+    "#);
+    insta::assert_snapshot!(work_dir.read_file("another_file"), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz fa081b8c "base"
+    \\\\\\\        to: zsuskuln 2c821f70 "a"
     -second base
     +second a
-    +++++++ side #2
+    +++++++ royxmykx 4c2029de "b"
     second b
     >>>>>>> conflict 1 of 1 ends
-    ");
+    "#);
     let setup_opid = work_dir.current_operation_id();
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     another_file                        2-sided conflict
@@ -1880,14 +1906,14 @@ fn test_multiple_conflicts() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Resolving conflicts in: another_file
-    Working copy  (@) now at: vruxwmqv 57b85650 conflict | (conflict) conflict
+    Working copy  (@) now at: vruxwmqv 350f498f conflict | (conflict) conflict
     Parent commit (@-)      : zsuskuln 2c821f70 a | a
     Parent commit (@-)      : royxmykx 4c2029de b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     this_file_has_a_very_long_name_to_test_padding 2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv 57b85650 conflict | (conflict) conflict
+      vruxwmqv 350f498f conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new vruxwmqv
@@ -1896,22 +1922,23 @@ fn test_multiple_conflicts() {
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/another_file b/another_file
     index 0000000000..a9fcc7d486 100644
     --- a/another_file
     +++ b/another_file
-    @@ -1,7 +1,1 @@
+    @@ -1,8 +1,1 @@
     -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from base to side #1
+    -%%%%%%% diff from: rlvkpnrz fa081b8c "base"
+    -\\\\\\\        to: zsuskuln 2c821f70 "a"
     --second base
     -+second a
-    -+++++++ side #2
+    -+++++++ royxmykx 4c2029de "b"
     -second b
     ->>>>>>> conflict 1 of 1 ends
     +resolution another_file
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     this_file_has_a_very_long_name_to_test_padding 2-sided conflict
     [EOF]
@@ -1939,17 +1966,18 @@ fn test_multiple_conflicts() {
     )
     .unwrap();
     work_dir.run_jj(["resolve"]).success();
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/another_file b/another_file
     index 0000000000..7903e1c1c7 100644
     --- a/another_file
     +++ b/another_file
-    @@ -1,7 +1,1 @@
+    @@ -1,8 +1,1 @@
     -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from base to side #1
+    -%%%%%%% diff from: rlvkpnrz fa081b8c "base"
+    -\\\\\\\        to: zsuskuln 2c821f70 "a"
     --second base
     -+second a
-    -+++++++ side #2
+    -+++++++ royxmykx 4c2029de "b"
     -second b
     ->>>>>>> conflict 1 of 1 ends
     +first resolution for auto-chosen file
@@ -1957,17 +1985,18 @@ fn test_multiple_conflicts() {
     index 0000000000..f8c72adf17 100644
     --- a/this_file_has_a_very_long_name_to_test_padding
     +++ b/this_file_has_a_very_long_name_to_test_padding
-    @@ -1,7 +1,1 @@
+    @@ -1,8 +1,1 @@
     -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from base to side #1
+    -%%%%%%% diff from: rlvkpnrz fa081b8c "base"
+    -\\\\\\\        to: zsuskuln 2c821f70 "a"
     --first base
     -+first a
-    -+++++++ side #2
+    -+++++++ royxmykx 4c2029de "b"
     -first b
     ->>>>>>> conflict 1 of 1 ends
     +second resolution for auto-chosen file
     [EOF]
-    ");
+    "#);
 
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     ------- stderr -------
@@ -2019,25 +2048,27 @@ fn test_multiple_conflicts_with_error() {
     file2    2-sided conflict
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.read_file("file1"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file1"), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz 6591ac1d "base"
+    \\\\\\\        to: zsuskuln 6c31698c "a"
     -base1
     +a1
-    +++++++ side #2
+    +++++++ royxmykx ba0a5538 "b"
     b1
     >>>>>>> conflict 1 of 1 ends
-    "
+    "#
     );
-    insta::assert_snapshot!(work_dir.read_file("file2"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file2"), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz 6591ac1d "base"
+    \\\\\\\        to: zsuskuln 6c31698c "a"
     -base2
     +a2
-    +++++++ side #2
+    +++++++ royxmykx ba0a5538 "b"
     b2
     >>>>>>> conflict 1 of 1 ends
-    "
+    "#
     );
     let setup_opid = work_dir.current_operation_id();
 
@@ -2052,14 +2083,14 @@ fn test_multiple_conflicts_with_error() {
     ------- stderr -------
     Resolving conflicts in: file1
     Resolving conflicts in: file2
-    Working copy  (@) now at: vruxwmqv 7fb57d04 conflict | (conflict) conflict
+    Working copy  (@) now at: vruxwmqv 3f9429c3 conflict | (conflict) conflict
     Parent commit (@-)      : zsuskuln 6c31698c a | a
     Parent commit (@-)      : royxmykx ba0a5538 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv 7fb57d04 conflict | (conflict) conflict
+      vruxwmqv 3f9429c3 conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new vruxwmqv
@@ -2071,22 +2102,23 @@ fn test_multiple_conflicts_with_error() {
     [EOF]
     [exit status: 1]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file1 b/file1
     index 0000000000..95cc18629d 100644
     --- a/file1
     +++ b/file1
-    @@ -1,7 +1,1 @@
+    @@ -1,8 +1,1 @@
     -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from base to side #1
+    -%%%%%%% diff from: rlvkpnrz 6591ac1d "base"
+    -\\\\\\\        to: zsuskuln 6c31698c "a"
     --base1
     -+a1
-    -+++++++ side #2
+    -+++++++ royxmykx ba0a5538 "b"
     -b1
     ->>>>>>> conflict 1 of 1 ends
     +resolution1
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     file2    2-sided conflict
     [EOF]
@@ -2104,14 +2136,14 @@ fn test_multiple_conflicts_with_error() {
     ------- stderr -------
     Resolving conflicts in: file1
     Resolving conflicts in: file2
-    Working copy  (@) now at: vruxwmqv 0a5265e6 conflict | (conflict) conflict
+    Working copy  (@) now at: vruxwmqv 1d2d9273 conflict | (conflict) conflict
     Parent commit (@-)      : zsuskuln 6c31698c a | a
     Parent commit (@-)      : royxmykx ba0a5538 b | b
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict
     New conflicts appeared in 1 commits:
-      vruxwmqv 0a5265e6 conflict | (conflict) conflict
+      vruxwmqv 1d2d9273 conflict | (conflict) conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new vruxwmqv
@@ -2123,22 +2155,23 @@ fn test_multiple_conflicts_with_error() {
     [EOF]
     [exit status: 1]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file1 b/file1
     index 0000000000..95cc18629d 100644
     --- a/file1
     +++ b/file1
-    @@ -1,7 +1,1 @@
+    @@ -1,8 +1,1 @@
     -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from base to side #1
+    -%%%%%%% diff from: rlvkpnrz 6591ac1d "base"
+    -\\\\\\\        to: zsuskuln 6c31698c "a"
     --base1
     -+a1
-    -+++++++ side #2
+    -+++++++ royxmykx ba0a5538 "b"
     -b1
     ->>>>>>> conflict 1 of 1 ends
     +resolution1
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     file2    2-sided conflict
     [EOF]
@@ -2213,24 +2246,26 @@ fn test_resolve_with_contents_of_side() {
     other    2-sided conflict
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file"), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz ed3e06b2 "base"
+    \\\\\\\        to: zsuskuln 72dced6e "a"
     -base
     +a
-    +++++++ side #2
+    +++++++ vruxwmqv dd35236a "c"
     b
     >>>>>>> conflict 1 of 1 ends
-    ");
-    insta::assert_snapshot!(work_dir.read_file("other"), @r"
+    "#);
+    insta::assert_snapshot!(work_dir.read_file("other"), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz ed3e06b2 "base"
+    \\\\\\\        to: royxmykx e5747f42 "b"
     -base
     +left
-    +++++++ side #2
+    +++++++ vruxwmqv dd35236a "c"
     right
     >>>>>>> conflict 1 of 1 ends
-    ");
+    "#);
     let setup_opid = work_dir.current_operation_id();
 
     // Check that ":ours" merge tool works correctly

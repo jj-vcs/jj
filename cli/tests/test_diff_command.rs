@@ -2471,13 +2471,13 @@ fn test_diff_conflict_sides_differ() {
     // left1+right1.
     work_dir.run_jj(["new", "root()"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @r"
-    ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left2+right2 3d17e6d8 conflict
+    ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left2+right2 fc3e5042 conflict
     ├─╮  (empty) left2+right2
     │ ○  znkkpsqq test.user@example.com 2001-02-03 08:05:17 right2 e57450eb
     │ │  right2
     ○ │  royxmykx test.user@example.com 2001-02-03 08:05:13 left2 b50b218b
     │ │  left2
-    │ │ ×  kmkuslsw test.user@example.com 2001-02-03 08:05:18 left1+right1 98363e39 conflict
+    │ │ ×  kmkuslsw test.user@example.com 2001-02-03 08:05:18 left1+right1 e65cbbc2 conflict
     ╭─┬─╯  (empty) left1+right1
     │ ○  vruxwmqv test.user@example.com 2001-02-03 08:05:15 right1 3fe2e860
     │ │  right1
@@ -2532,43 +2532,45 @@ fn test_diff_conflict_sides_differ() {
     };
 
     // Diff from resolved to conflict
-    insta::assert_snapshot!(diff_git_materialized("base", "left1+right1"), @r"
+    insta::assert_snapshot!(diff_git_materialized("base", "left1+right1"), @r#"
     diff --git a/file b/file
     index 94c99a3280..0000000000 100644
     --- a/file
     +++ b/file
-    @@ -2,3 +2,11 @@
+    @@ -2,3 +2,12 @@
      line 2
     -line 3
     +<<<<<<< conflict 1 of 1
-    ++++++++ side #1
+    ++++++++ zsuskuln 713a980c "left1"
     +left 3.1
     +left 3.2
     +left 3.3
-    +%%%%%%% diff from base to side #2
+    +%%%%%%% diff from: rlvkpnrz aa7e33ed "base"
+    +\\\\\\\        to: vruxwmqv 3fe2e860 "right1"
     +-line 3
     ++right 3.1
     +>>>>>>> conflict 1 of 1 ends
      line 4
     [EOF]
-    ");
-    insta::assert_snapshot!(diff_color_words_materialized("base", "left1+right1"), @r"
+    "#);
+    insta::assert_snapshot!(diff_color_words_materialized("base", "left1+right1"), @r#"
     [38;5;3mCreated conflict in file:[39m
     [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
     [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: line 2
          [38;5;2m   3[39m: [4m[38;5;2m<<<<<<< conflict 1 of 1[24m[39m
-         [38;5;2m   4[39m: [4m[38;5;2m+++++++ side #1[24m[39m
+         [38;5;2m   4[39m: [4m[38;5;2m+++++++ zsuskuln 713a980c "left1"[24m[39m
          [38;5;2m   5[39m: [4m[38;5;2mleft 3.1[24m[39m
          [38;5;2m   6[39m: [4m[38;5;2mleft 3.2[24m[39m
          [38;5;2m   7[39m: [4m[38;5;2mleft 3.3[24m[39m
-         [38;5;2m   8[39m: [4m[38;5;2m%%%%%%% diff from base to side #2[24m[39m
-    [38;5;1m   3[39m [38;5;2m   9[39m: [4m[38;5;2m-[24m[39mline 3
-         [38;5;2m  10[39m: [4m[38;5;2m+right 3.1[24m[39m
-         [38;5;2m  11[39m: [4m[38;5;2m>>>>>>> conflict 1 of 1 ends[24m[39m
-    [2m[38;5;1m   4[0m [2m[38;5;2m  12[0m: line 4
-    [2m[38;5;1m   5[0m [2m[38;5;2m  13[0m: line 5
+         [38;5;2m   8[39m: [4m[38;5;2m%%%%%%% diff from: rlvkpnrz aa7e33ed "base"[24m[39m
+         [38;5;2m   9[39m: [4m[38;5;2m\\\\\\\        to: vruxwmqv 3fe2e860 "right1"[24m[39m
+    [38;5;1m   3[39m [38;5;2m  10[39m: [4m[38;5;2m-[24m[39mline 3
+         [38;5;2m  11[39m: [4m[38;5;2m+right 3.1[24m[39m
+         [38;5;2m  12[39m: [4m[38;5;2m>>>>>>> conflict 1 of 1 ends[24m[39m
+    [2m[38;5;1m   4[0m [2m[38;5;2m  13[0m: line 4
+    [2m[38;5;1m   5[0m [2m[38;5;2m  14[0m: line 5
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(diff_color_words_conflict_pair("base", "left1+right1"), @r"
     [38;5;3mCreated conflict in file:[39m
     [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
@@ -2589,43 +2591,45 @@ fn test_diff_conflict_sides_differ() {
     ");
 
     // Diff from conflict to resolved
-    insta::assert_snapshot!(diff_git_materialized("left1+right1", "base"), @r"
+    insta::assert_snapshot!(diff_git_materialized("left1+right1", "base"), @r#"
     diff --git a/file b/file
     index 0000000000..94c99a3280 100644
     --- a/file
     +++ b/file
-    @@ -2,11 +2,3 @@
+    @@ -2,12 +2,3 @@
      line 2
     -<<<<<<< conflict 1 of 1
-    -+++++++ side #1
+    -+++++++ zsuskuln 713a980c "left1"
     -left 3.1
     -left 3.2
     -left 3.3
-    -%%%%%%% diff from base to side #2
+    -%%%%%%% diff from: rlvkpnrz aa7e33ed "base"
+    -\\\\\\\        to: vruxwmqv 3fe2e860 "right1"
     --line 3
     -+right 3.1
     ->>>>>>> conflict 1 of 1 ends
     +line 3
      line 4
     [EOF]
-    ");
-    insta::assert_snapshot!(diff_color_words_materialized("left1+right1", "base"), @r"
+    "#);
+    insta::assert_snapshot!(diff_color_words_materialized("left1+right1", "base"), @r#"
     [38;5;3mResolved conflict in file:[39m
     [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
     [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: line 2
     [38;5;1m   3[39m     : [4m[38;5;1m<<<<<<< conflict 1 of 1[24m[39m
-    [38;5;1m   4[39m     : [4m[38;5;1m+++++++ side #1[24m[39m
+    [38;5;1m   4[39m     : [4m[38;5;1m+++++++ zsuskuln 713a980c "left1"[24m[39m
     [38;5;1m   5[39m     : [4m[38;5;1mleft 3.1[24m[39m
     [38;5;1m   6[39m     : [4m[38;5;1mleft 3.2[24m[39m
     [38;5;1m   7[39m     : [4m[38;5;1mleft 3.3[24m[39m
-    [38;5;1m   8[39m     : [4m[38;5;1m%%%%%%% diff from base to side #2[24m[39m
-    [38;5;1m   9[39m [38;5;2m   3[39m: [4m[38;5;1m-[24m[39mline 3
-    [38;5;1m  10[39m     : [4m[38;5;1m+right 3.1[24m[39m
-    [38;5;1m  11[39m     : [4m[38;5;1m>>>>>>> conflict 1 of 1 ends[24m[39m
-    [2m[38;5;1m  12[0m [2m[38;5;2m   4[0m: line 4
-    [2m[38;5;1m  13[0m [2m[38;5;2m   5[0m: line 5
+    [38;5;1m   8[39m     : [4m[38;5;1m%%%%%%% diff from: rlvkpnrz aa7e33ed "base"[24m[39m
+    [38;5;1m   9[39m     : [4m[38;5;1m\\\\\\\        to: vruxwmqv 3fe2e860 "right1"[24m[39m
+    [38;5;1m  10[39m [38;5;2m   3[39m: [4m[38;5;1m-[24m[39mline 3
+    [38;5;1m  11[39m     : [4m[38;5;1m+right 3.1[24m[39m
+    [38;5;1m  12[39m     : [4m[38;5;1m>>>>>>> conflict 1 of 1 ends[24m[39m
+    [2m[38;5;1m  13[0m [2m[38;5;2m   4[0m: line 4
+    [2m[38;5;1m  14[0m [2m[38;5;2m   5[0m: line 5
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "base"), @r"
     [38;5;3mResolved conflict in file:[39m
     [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
@@ -2646,36 +2650,50 @@ fn test_diff_conflict_sides_differ() {
     ");
 
     // Diff between conflicts
-    insta::assert_snapshot!(diff_git_materialized("left1+right1", "left2+right2"), @r"
+    insta::assert_snapshot!(diff_git_materialized("left1+right1", "left2+right2"), @r#"
     diff --git a/file b/file
     --- a/file
     +++ b/file
-    @@ -1,2 +1,2 @@
+    @@ -1,5 +1,5 @@
     -line 1
     +left 1.1
      line 2
-    @@ -7,2 +7,3 @@
+     <<<<<<< conflict 1 of 1
+    -+++++++ zsuskuln 713a980c "left1"
+    ++++++++ royxmykx b50b218b "left2"
+     left 3.1
+    @@ -7,4 +7,5 @@
      left 3.3
     +left 3.4
-     %%%%%%% diff from base to side #2
-    @@ -12,2 +13,1 @@
+     %%%%%%% diff from: rlvkpnrz aa7e33ed "base"
+    -\\\\\\\        to: vruxwmqv 3fe2e860 "right1"
+    +\\\\\\\        to: znkkpsqq e57450eb "right2"
+     -line 3
+    @@ -13,2 +14,1 @@
      line 4
     -line 5
     [EOF]
-    ");
-    insta::assert_snapshot!(diff_color_words_materialized("left1+right1", "left2+right2"), @r"
+    "#);
+    insta::assert_snapshot!(diff_color_words_materialized("left1+right1", "left2+right2"), @r#"
     [38;5;3mModified conflict in file:[39m
     [38;5;1m   1[39m [38;5;2m   1[39m: [4m[38;5;1mline[38;5;2mleft[24m[39m [4m[38;5;2m1.[24m[39m1
     [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: line 2
-        ...
+    [2m[38;5;1m   3[0m [2m[38;5;2m   3[0m: <<<<<<< conflict 1 of 1
+    [38;5;1m   4[39m     : [38;5;1m+++++++ [4mzsuskuln[24m [4m713a980c[24m "[4mleft1[24m"[39m
+         [38;5;2m   4[39m: [38;5;2m+++++++ [4mroyxmykx[24m [4mb50b218b[24m "[4mleft2[24m"[39m
+    [2m[38;5;1m   5[0m [2m[38;5;2m   5[0m: left 3.1
+    [2m[38;5;1m   6[0m [2m[38;5;2m   6[0m: left 3.2
     [2m[38;5;1m   7[0m [2m[38;5;2m   7[0m: left 3.3
          [38;5;2m   8[39m: [4m[38;5;2mleft 3.4[24m[39m
-    [2m[38;5;1m   8[0m [2m[38;5;2m   9[0m: %%%%%%% diff from base to side #2
+    [2m[38;5;1m   8[0m [2m[38;5;2m   9[0m: %%%%%%% diff from: rlvkpnrz aa7e33ed "base"
+    [38;5;1m   9[39m     : [38;5;1m\\\\\\\        to: [4mvruxwmqv[24m [4m3fe2e860[24m "[4mright1[24m"[39m
+         [38;5;2m  10[39m: [38;5;2m\\\\\\\        to: [4mznkkpsqq[24m [4me57450eb[24m "[4mright2[24m"[39m
+    [2m[38;5;1m  10[0m [2m[38;5;2m  11[0m: -line 3
         ...
-    [2m[38;5;1m  12[0m [2m[38;5;2m  13[0m: line 4
-    [38;5;1m  13[39m     : [4m[38;5;1mline 5[24m[39m
+    [2m[38;5;1m  13[0m [2m[38;5;2m  14[0m: line 4
+    [38;5;1m  14[39m     : [4m[38;5;1mline 5[24m[39m
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "left2+right2"), @r"
     [38;5;3mModified conflict in file:[39m
     [38;5;1m   1[39m [38;5;2m   1[39m: [4m[38;5;1mline[38;5;2mleft[24m[39m [4m[38;5;2m1.[24m[39m1
@@ -2765,7 +2783,7 @@ fn test_diff_conflict_bases_differ() {
     // left1+right1.
     work_dir.run_jj(["new", "root()"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @r"
-    ×    nkmrtpmo test.user@example.com 2001-02-03 08:05:22 left2+right2 2b31acda conflict
+    ×    nkmrtpmo test.user@example.com 2001-02-03 08:05:22 left2+right2 c5c906ec conflict
     ├─╮  (empty) left2+right2
     │ ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 right2 656695c3
     │ │  right2
@@ -2773,7 +2791,7 @@ fn test_diff_conflict_bases_differ() {
     ├─╯  left2
     ○  vruxwmqv test.user@example.com 2001-02-03 08:05:15 base2 3c4d67e6
     │  base2
-    │ ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left1+right1 602dfc5f conflict
+    │ ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left1+right1 eb28084c conflict
     │ ├─╮  (empty) left1+right1
     │ │ ○  royxmykx test.user@example.com 2001-02-03 08:05:13 right1 3087be1f
     ├───╯  right1
@@ -2815,33 +2833,50 @@ fn test_diff_conflict_bases_differ() {
     };
 
     // Diff between conflicts
-    insta::assert_snapshot!(diff_git_materialized("left1+right1", "left2+right2"), @r"
+    insta::assert_snapshot!(diff_git_materialized("left1+right1", "left2+right2"), @r#"
     diff --git a/file b/file
     --- a/file
     +++ b/file
-    @@ -1,2 +1,1 @@
+    @@ -1,5 +1,4 @@
     -line 1
      line 2
-    @@ -8,3 +7,4 @@
-     %%%%%%% diff from base to side #2
+     <<<<<<< conflict 1 of 1
+    -+++++++ zsuskuln 9e995075 "left1"
+    ++++++++ znkkpsqq 218094ec "left2"
+     left 3.1
+    @@ -7,5 +6,6 @@
+     left 3.3
+    -%%%%%%% diff from: rlvkpnrz 44cfbde6 "base1"
+    -\\\\\\\        to: royxmykx 3087be1f "right1"
     --line 3
+    +%%%%%%% diff from: vruxwmqv 3c4d67e6 "base2"
+    +\\\\\\\        to: kmkuslsw 656695c3 "right2"
     +-line 3.1
     +-line 3.2
      +right 3.1
     [EOF]
-    ");
-    insta::assert_snapshot!(diff_color_words_materialized("left1+right1", "left2+right2"), @r"
+    "#);
+    insta::assert_snapshot!(diff_color_words_materialized("left1+right1", "left2+right2"), @r#"
     [38;5;3mModified conflict in file:[39m
     [38;5;1m   1[39m     : [4m[38;5;1mline 1[24m[39m
     [2m[38;5;1m   2[0m [2m[38;5;2m   1[0m: line 2
-        ...
-    [2m[38;5;1m   8[0m [2m[38;5;2m   7[0m: %%%%%%% diff from base to side #2
-    [38;5;1m   9[39m [38;5;2m   8[39m: -line 3[4m[38;5;2m.1[24m[39m
-    [38;5;1m   9[39m [38;5;2m   9[39m: [4m[38;5;2m-line 3.2[24m[39m
-    [2m[38;5;1m  10[0m [2m[38;5;2m  10[0m: +right 3.1
+    [2m[38;5;1m   3[0m [2m[38;5;2m   2[0m: <<<<<<< conflict 1 of 1
+    [38;5;1m   4[39m     : [38;5;1m+++++++ [4mzsuskuln[24m [4m9e995075[24m "[4mleft1[24m"[39m
+         [38;5;2m   3[39m: [38;5;2m+++++++ [4mznkkpsqq[24m [4m218094ec[24m "[4mleft2[24m"[39m
+    [2m[38;5;1m   5[0m [2m[38;5;2m   4[0m: left 3.1
+    [2m[38;5;1m   6[0m [2m[38;5;2m   5[0m: left 3.2
+    [2m[38;5;1m   7[0m [2m[38;5;2m   6[0m: left 3.3
+    [38;5;1m   8[39m     : [38;5;1m%%%%%%% diff from: [4mrlvkpnrz[24m [4m44cfbde6[24m "[4mbase1[24m"[39m
+    [38;5;1m   9[39m     : [38;5;1m\\\\\\\        to: [4mroyxmykx[24m [4m3087be1f[24m "[4mright1[24m"[39m
+    [38;5;1m  10[39m     : [38;5;1m-[4mline[24m [4m3[24m[39m
+         [38;5;2m   7[39m: [38;5;2m%%%%%%% diff from: [4mvruxwmqv[24m [4m3c4d67e6[24m "[4mbase2[24m"[39m
+         [38;5;2m   8[39m: [38;5;2m\\\\\\\        to: [4mkmkuslsw[24m [4m656695c3[24m "[4mright2[24m"[39m
+         [38;5;2m   9[39m: [38;5;2m-[4mline[24m [4m3.1[24m[39m
+         [38;5;2m  10[39m: [4m[38;5;2m-line 3.2[24m[39m
+    [2m[38;5;1m  11[0m [2m[38;5;2m  11[0m: +right 3.1
         ...
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "left2+right2"), @r"
     [38;5;3mModified conflict in file:[39m
     [38;5;1m   1[39m     : [4m[38;5;1mline 1[24m[39m
@@ -2921,11 +2956,11 @@ fn test_diff_conflict_three_sides() {
     // Test the setup
     work_dir.run_jj(["new", "root()"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @r"
-    ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 side1+side2+side3 8c9bc04f conflict
+    ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 side1+side2+side3 4fc2729a conflict
     ├─╮  (empty) side1+side2+side3
     │ ○  znkkpsqq test.user@example.com 2001-02-03 08:05:17 side3 f73063c9
     │ │  side3
-    × │    kmkuslsw test.user@example.com 2001-02-03 08:05:18 side1+side2 1fc4b03f conflict
+    × │    kmkuslsw test.user@example.com 2001-02-03 08:05:18 side1+side2 46d2298b conflict
     ├───╮  (empty) side1+side2
     │ │ ○  vruxwmqv test.user@example.com 2001-02-03 08:05:15 side2 bc176227
     │ │ │  side2
@@ -2977,38 +3012,31 @@ fn test_diff_conflict_three_sides() {
     };
 
     // Diff between conflicts
-    insta::assert_snapshot!(diff_git_materialized("side1+side2", "side1+side2+side3"), @r"
+    insta::assert_snapshot!(diff_git_materialized("side1+side2", "side1+side2+side3"), @r#"
     diff --git a/file b/file
     --- a/file
     +++ b/file
-    @@ -2,3 +2,3 @@
-     <<<<<<< conflict 1 of 1
-    -%%%%%%% diff from base to side #1
-    +%%%%%%% diff from base #1 to side #1
-     -line 2 base
-    @@ -12,2 +12,5 @@
+    @@ -13,2 +13,6 @@
      line 4 b.2
-    +%%%%%%% diff from base #2 to side #3
+    +%%%%%%% diff from: rlvkpnrz 07965fa1 "base1"
+    +\\\\\\\        to: znkkpsqq f73063c9 "side3"
     + line 2 base
     ++line 3 c.2
      >>>>>>> conflict 1 of 1 ends
     [EOF]
-    ");
-    insta::assert_snapshot!(diff_color_words_materialized("side1+side2", "side1+side2+side3"), @r"
+    "#);
+    insta::assert_snapshot!(diff_color_words_materialized("side1+side2", "side1+side2+side3"), @r#"
     [38;5;3mModified conflict in file:[39m
-    [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
-    [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: <<<<<<< conflict 1 of 1
-    [38;5;1m   3[39m [38;5;2m   3[39m: %%%%%%% diff from base [4m[38;5;2m#1 [24m[39mto side #1
-    [2m[38;5;1m   4[0m [2m[38;5;2m   4[0m: -line 2 base
         ...
-    [2m[38;5;1m  12[0m [2m[38;5;2m  12[0m: line 4 b.2
-         [38;5;2m  13[39m: [4m[38;5;2m%%%%%%% diff from base #2 to side #3[24m[39m
-         [38;5;2m  14[39m: [4m[38;5;2m line 2 base[24m[39m
-         [38;5;2m  15[39m: [4m[38;5;2m+line 3 c.2[24m[39m
-    [2m[38;5;1m  13[0m [2m[38;5;2m  16[0m: >>>>>>> conflict 1 of 1 ends
-    [2m[38;5;1m  14[0m [2m[38;5;2m  17[0m: line 5
+    [2m[38;5;1m  13[0m [2m[38;5;2m  13[0m: line 4 b.2
+         [38;5;2m  14[39m: [4m[38;5;2m%%%%%%% diff from: rlvkpnrz 07965fa1 "base1"[24m[39m
+         [38;5;2m  15[39m: [4m[38;5;2m\\\\\\\        to: znkkpsqq f73063c9 "side3"[24m[39m
+         [38;5;2m  16[39m: [4m[38;5;2m line 2 base[24m[39m
+         [38;5;2m  17[39m: [4m[38;5;2m+line 3 c.2[24m[39m
+    [2m[38;5;1m  14[0m [2m[38;5;2m  18[0m: >>>>>>> conflict 1 of 1 ends
+    [2m[38;5;1m  15[0m [2m[38;5;2m  19[0m: line 5
     [EOF]
-    ");
+    "#);
     insta::assert_snapshot!(diff_color_words_conflict_pair("side1+side2", "side1+side2+side3"), @r"
     [38;5;3mModified conflict in file:[39m
     [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
@@ -3536,23 +3564,23 @@ fn test_diff_external_tool_conflict_marker_style() {
     insta::assert_snapshot!(output, @"");
     // Conflicts should render using "snapshot" format
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("file")).unwrap(), @r"
+        std::fs::read_to_string(test_env.env_root().join("file")).unwrap(), @r#"
     line 1
     line 2.1
     line 2.2
     line 2.3
     line 3
     <<<<<<< conflict 1 of 1
-    +++++++ side #1
+    +++++++ rlvkpnrz 74e448a1 "side-a"
     line 4.1
-    ------- base
+    ------- qpvuntsm 9bd2e004 "base"
     line 4
-    +++++++ side #2
+    +++++++ zsuskuln 6982bce7 "side-b"
     line 4.2
     line 4.3
     >>>>>>> conflict 1 of 1 ends
     line 5
-    ");
+    "#);
 }
 
 #[test]

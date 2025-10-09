@@ -70,6 +70,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Early version of a `jj file search` command for searching for a pattern in
   files (like `git grep`).
 
+* Conflict labels can now contain information about where the sides of a
+  conflict came from (currently this is only supported for conflicts created by
+  certain commands).
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).

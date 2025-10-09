@@ -221,7 +221,7 @@ fn test_new_merge_conflicts() {
     let output = work_dir.run_jj(["new", "2|3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv 0361ec6a (conflict) (empty) (no description set)
+    Working copy  (@) now at: vruxwmqv d85cd009 (conflict) (empty) (no description set)
     Parent commit (@-)      : royxmykx 1b282e07 3 | 3
     Parent commit (@-)      : zsuskuln 7ac709e5 2 | 2
     Added 0 files, modified 1 files, removed 0 files
@@ -229,17 +229,18 @@ fn test_new_merge_conflicts() {
     file    2-sided conflict
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file"), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz a93ed0a5 "1"
+    \\\\\\\        to: royxmykx 1b282e07 "3"
     -1a
     +3a 1a
-    +++++++ side #2
+    +++++++ zsuskuln 7ac709e5 "2"
     1a 2a
     >>>>>>> conflict 1 of 1 ends
     1b
     2c
-    ");
+    "#);
 
     // reset working copy
     work_dir.run_jj(["new", "root()"]).success();
@@ -292,7 +293,7 @@ fn test_new_merge_same_change() {
     let output = work_dir.run_jj(["new", "2|3", "--config=merge.same-change=keep"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: znkkpsqq 453a144b (conflict) (empty) (no description set)
+    Working copy  (@) now at: znkkpsqq af8f7324 (conflict) (empty) (no description set)
     Parent commit (@-)      : royxmykx 1b9fe696 3 | 3
     Parent commit (@-)      : zsuskuln 829e1e90 2 | 2
     Added 1 files, modified 0 files, removed 0 files
@@ -300,15 +301,16 @@ fn test_new_merge_same_change() {
     file    2-sided conflict
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file"), @r#"
     a
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz 2adf972b "1"
+    \\\\\\\        to: royxmykx 1b9fe696 "3"
     +b
-    +++++++ side #2
+    +++++++ zsuskuln 829e1e90 "2"
     b
     >>>>>>> conflict 1 of 1 ends
-    ");
+    "#);
 }
 
 #[test]

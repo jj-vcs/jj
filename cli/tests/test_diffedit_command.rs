@@ -429,7 +429,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: mzvwutvl b9458f20 (conflict) (empty) (no description set)
+    Working copy  (@) now at: mzvwutvl 2fc7c1ba (conflict) (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 74e448a1 side-a
     Parent commit (@-)      : zsuskuln 6982bce7 side-b
     Added 0 files, modified 1 files, removed 0 files
@@ -440,75 +440,77 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     ");
     // Conflicts should render using "snapshot" format in diff editor
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("before-file")).unwrap(), @r"
+        std::fs::read_to_string(test_env.env_root().join("before-file")).unwrap(), @r#"
     line 1
     <<<<<<< conflict 1 of 2
-    +++++++ side #1
+    +++++++ rlvkpnrz 74e448a1 "side-a"
     line 2.1
     line 2.2
-    ------- base
+    ------- qpvuntsm 9bd2e004 "base"
     line 2
-    +++++++ side #2
+    +++++++ zsuskuln 6982bce7 "side-b"
     line 2.3
     >>>>>>> conflict 1 of 2 ends
     line 3
     <<<<<<< conflict 2 of 2
-    +++++++ side #1
+    +++++++ rlvkpnrz 74e448a1 "side-a"
     line 4.1
-    ------- base
+    ------- qpvuntsm 9bd2e004 "base"
     line 4
-    +++++++ side #2
+    +++++++ zsuskuln 6982bce7 "side-b"
     line 4.2
     line 4.3
     >>>>>>> conflict 2 of 2 ends
     line 5
-    ");
+    "#);
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("after-file")).unwrap(), @r"
+        std::fs::read_to_string(test_env.env_root().join("after-file")).unwrap(), @r#"
     line 1
     line 2.1
     line 2.2
     line 2.3
     line 3
     <<<<<<< conflict 1 of 1
-    +++++++ side #1
+    +++++++ rlvkpnrz 74e448a1 "side-a"
     line 4.1
-    ------- base
+    ------- qpvuntsm 9bd2e004 "base"
     line 4
-    +++++++ side #2
+    +++++++ zsuskuln 6982bce7 "side-b"
     line 4.2
     line 4.3
     >>>>>>> conflict 1 of 1 ends
     line 5
-    ");
+    "#);
     // Conflicts should be materialized using "diff" format in working copy
-    insta::assert_snapshot!(work_dir.read_file(file_path), @r"
+    insta::assert_snapshot!(work_dir.read_file(file_path), @r#"
     line 1
     <<<<<<< conflict 1 of 2
-    +++++++ side #1
+    +++++++ rlvkpnrz 74e448a1 "side-a"
     line 2.1
     line 2.2
-    %%%%%%% diff from base to side #2
+    %%%%%%% diff from: qpvuntsm 9bd2e004 "base"
+    \\\\\\\        to: zsuskuln 6982bce7 "side-b"
     -line 2
     +line 2.3
     >>>>>>> conflict 1 of 2 ends
     line 3
     <<<<<<< conflict 2 of 2
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: qpvuntsm 9bd2e004 "base"
+    \\\\\\\        to: rlvkpnrz 74e448a1 "side-a"
     -line 4
     +line 4.1
-    +++++++ side #2
+    +++++++ zsuskuln 6982bce7 "side-b"
     line 4.2
     line 4.3
     >>>>>>> conflict 2 of 2 ends
     line 5
-    ");
+    "#);
 
     // File should be conflicted with no changes
     let output = work_dir.run_jj(["st"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy  (@) : mzvwutvl b9458f20 (conflict) (empty) (no description set)
+    Working copy  (@) : mzvwutvl 2fc7c1ba (conflict) (empty) (no description set)
     Parent commit (@-): rlvkpnrz 74e448a1 side-a
     Parent commit (@-): zsuskuln 6982bce7 side-b
     Warning: There are unresolved conflicts at these paths:
@@ -670,8 +672,8 @@ fn test_diffedit_merge() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: yqosqzyt 5e33630e (conflict) (empty) (no description set)
-    Parent commit (@-)      : royxmykx 501edbda (conflict) merge
+    Working copy  (@) now at: yqosqzyt df15f76d (conflict) (empty) (no description set)
+    Parent commit (@-)      : royxmykx 44a9042a (conflict) merge
     Added 0 files, modified 0 files, removed 1 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict
@@ -687,10 +689,11 @@ fn test_diffedit_merge() {
     let output = work_dir.run_jj(["file", "show", "file2"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: qpvuntsm fc6f5e82
+    \\\\\\\        to: mzvwutvl e3b18dc7
     -a
     +c
-    +++++++ side #2
+    +++++++ rlvkpnrz 7027fb26
     b
     >>>>>>> conflict 1 of 1 ends
     [EOF]
