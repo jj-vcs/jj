@@ -19,6 +19,7 @@ use jj_lib::backend::CopyRecord;
 use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
+use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::copies::CopiesTreeDiffEntryPath;
 use jj_lib::copies::CopyOperation;
 use jj_lib::copies::CopyRecords;
@@ -279,7 +280,10 @@ fn test_resolve_success() {
         ],
     );
 
-    let tree = MergedTree::unlabeled(Merge::from_removes_adds(vec![base1], vec![side1, side2]));
+    let tree = MergedTree::new(
+        Merge::from_vec(vec![side1, base1, side2]),
+        ConflictLabels::from_vec(vec!["left".into(), "base".into(), "right".into()]),
+    );
     let resolved_tree = tree.resolve().block_on().unwrap();
     assert!(resolved_tree.as_merge().is_resolved());
     assert_eq!(
