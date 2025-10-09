@@ -45,6 +45,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj gerrit upload` now supports the `-o` (`--option`) flag, which works like
   `git push -o` (`--push-option`).
 
+* `jj prev` and `jj next` have gained a `--keep` flag to keep the current changes
+  while moving to the previous or next revision.
+
 ### Fixed bugs
 
 * `jj` now creates a new working-copy revision during snapshotting if the
