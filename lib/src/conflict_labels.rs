@@ -95,6 +95,22 @@ impl ConflictLabels {
         self.as_merge()
             .and_then(|merge| merge.get_remove(remove_index).map(String::as_str))
     }
+
+    /// Simplify a merge with the same number of sides while preserving the
+    /// conflict labels corresponding to each side of the merge.
+    pub fn simplify_with<T: PartialEq + Clone>(&self, merge: &Merge<T>) -> (Self, Merge<T>) {
+        if let Some(labels) = self.as_merge() {
+            let (labels, simplified) = labels
+                .as_ref()
+                .zip(merge.as_ref())
+                .simplify_by(|&(_label, item)| item)
+                .unzip();
+            (Self::new(labels.cloned()), simplified.cloned())
+        } else {
+            let simplified = merge.simplify();
+            (Self::unlabeled(), simplified)
+        }
+    }
 }
 
 impl From<Merge<String>> for ConflictLabels {
