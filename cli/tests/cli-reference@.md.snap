@@ -1921,7 +1921,7 @@ Compare changes to the repository between two operations
 * `--operation <OPERATION>` [alias: `op`] — Show repository changes in this operation, compared to its parent
 * `-f`, `--from <FROM>` — Show repository changes from this operation
 * `-t`, `--to <TO>` — Show repository changes to this operation
-* `--no-graph` — Don't show the graph, show a flat list of modified changes
+* `-G`, `--no-graph` — Don't show the graph, show a flat list of modified changes
 * `-p`, `--patch` — Show patch of modifications to changes
 
    If the previous version has different parents, it will be temporarily rebased to the parents of the new version, so the diff is not contaminated by unrelated changes.
