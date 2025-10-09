@@ -109,6 +109,23 @@ impl MergedTree {
         &self.labels
     }
 
+    /// Returns optional labels for each term in a merge. If the merge is
+    /// resolved, returns `resolved_label` instead.
+    pub fn labels_by_term<'a>(&'a self, resolved_label: Option<&'a str>) -> Merge<Option<&'a str>> {
+        if self.trees.is_resolved() {
+            assert!(!self.labels.is_present());
+            Merge::resolved(resolved_label)
+        } else {
+            self.labels.as_merge().map_or_else(
+                || Merge::repeated(None, self.trees.num_sides()),
+                |labels| {
+                    assert_eq!(labels.num_sides(), self.trees.num_sides());
+                    labels.map(|label| Some(label.as_str()))
+                },
+            )
+        }
+    }
+
     /// This tree's directory
     pub fn dir(&self) -> &RepoPath {
         self.trees.first().dir()
@@ -341,20 +358,44 @@ impl MergedTree {
     }
 
     /// Merges this tree with `other`, using `base` as base. Any conflicts will
-    /// be resolved recursively if possible.
-    pub async fn merge(self, base: Self, other: Self) -> BackendResult<Self> {
-        self.merge_no_resolve(base, other).resolve().await
+    /// be resolved recursively if possible. Does not add conflict labels.
+    pub async fn merge_unlabeled(self, base: Self, other: Self) -> BackendResult<Self> {
+        Self::merge(Merge::from_vec(vec![
+            (self, String::new()),
+            (base, String::new()),
+            (other, String::new()),
+        ]))
+        .await
     }
 
-    /// Merges this tree with `other`, using `base` as base, without attempting
+    /// Merges the provided trees into a single `MergedTree`. Any conflicts will
+    /// be resolved recursively if possible. The provided labels are used if a
+    /// conflict arises. However, if one of the input trees is already
+    /// conflicted, the corresponding label will be ignored, and its existing
+    /// labels will be used instead (or if any conflicted tree is unlabeled,
+    /// then the entire result will also be unlabeled).
+    pub async fn merge(merge: Merge<(Self, String)>) -> BackendResult<Self> {
+        Self::merge_no_resolve(merge).resolve().await
+    }
+
+    /// Merges the provided trees into a single `MergedTree`, without attempting
     /// to resolve file conflicts.
-    pub fn merge_no_resolve(self, base: Self, other: Self) -> Self {
-        let nested = Merge::from_vec(vec![self.trees, base.trees, other.trees]);
-        Self {
-            trees: nested.flatten().simplify(),
-            // TODO: retain labels
-            labels: ConflictLabels::unlabeled(),
-        }
+    pub fn merge_no_resolve(merge: Merge<(Self, String)>) -> Self {
+        let flattened_labels: ConflictLabels = merge
+            .map(|(tree, label)| tree.labels_by_term((!label.is_empty()).then_some(label.as_str())))
+            .flatten()
+            .transpose()
+            .into();
+
+        let flattened_trees: Merge<Tree> = merge
+            .into_iter()
+            .map(|(tree, _label)| tree.into_merge())
+            .collect::<MergeBuilder<_>>()
+            .build()
+            .flatten();
+
+        let (labels, trees) = flattened_labels.simplify_with(&flattened_trees);
+        Self { trees, labels }
     }
 }
 

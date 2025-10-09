@@ -29,6 +29,7 @@ use std::sync::Arc;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
 use smallvec::SmallVec;
+use smallvec::smallvec;
 use smallvec::smallvec_inline;
 
 use crate::backend::BackendResult;
@@ -199,6 +200,16 @@ impl<T> Merge<T> {
     pub const fn resolved(value: T) -> Self {
         Self {
             values: smallvec_inline![value],
+        }
+    }
+
+    /// Creates a `Merge` by repeating a single value.
+    pub fn repeated(value: T, num_sides: usize) -> Self
+    where
+        T: Clone,
+    {
+        Self {
+            values: smallvec![value; num_sides * 2 - 1],
         }
     }
 
@@ -550,6 +561,14 @@ impl<T> Merge<Option<T>> {
     /// Returns the value if this is present and non-conflicting.
     pub fn as_normal(&self) -> Option<&T> {
         self.as_resolved()?.as_ref()
+    }
+
+    /// Convert a `Merge<Option<T>>` into an `Option<Merge<T>>`.
+    pub fn transpose(self) -> Option<Merge<T>> {
+        self.values
+            .into_iter()
+            .collect::<Option<_>>()
+            .map(|values| Merge { values })
     }
 
     /// Creates lists of `removes` and `adds` from a `Merge` by dropping
@@ -1344,6 +1363,21 @@ mod tests {
         assert_eq!(
             c(&[(1, 4), (2, 5), (3, 6)]).unzip(),
             (c(&[1, 2, 3]), c(&[4, 5, 6]))
+        );
+    }
+
+    #[test]
+    fn test_transpose() {
+        // 1-way merge
+        assert_eq!(c::<Option<i32>>(&[None]).transpose(), None);
+        assert_eq!(c(&[Some(1)]).transpose(), Some(c(&[1])));
+        // 3-way merge
+        assert_eq!(c::<Option<i32>>(&[None, None, None]).transpose(), None);
+        assert_eq!(c(&[Some(1), None, Some(3)]).transpose(), None);
+        assert_eq!(c(&[Some(1), Some(2), None]).transpose(), None);
+        assert_eq!(
+            c(&[Some(1), Some(2), Some(3)]).transpose(),
+            Some(c(&[1, 2, 3]))
         );
     }
 }
