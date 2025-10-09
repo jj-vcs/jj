@@ -121,7 +121,7 @@ impl Commit {
     }
 
     pub fn tree(&self) -> MergedTree {
-        MergedTree::new(self.store.clone(), self.data.root_tree.clone())
+        MergedTree::unlabeled(self.store.clone(), self.data.root_tree.clone())
     }
 
     pub fn tree_ids(&self) -> &Merge<TreeId> {
