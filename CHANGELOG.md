@@ -52,6 +52,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Unquoted `*` is now allowed in revsets. `bookmarks(glob:foo*)` no longer
   needs quoting.
 
+* `jj prev/next --no-edit` now generates an error if the working-copy has some
+  children.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.
