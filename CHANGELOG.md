@@ -55,6 +55,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj prev/next --no-edit` now generates an error if the working-copy has some
   children.
 
+* `jj prev` and `jj next` have gained a `--rebase` flag to move the current changes
+  while moving to the previous or next revision.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.

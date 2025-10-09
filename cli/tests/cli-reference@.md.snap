@@ -1964,6 +1964,7 @@ B   =>   @
 * `-n`, `--no-edit` — The inverse of `--edit`
 
    Takes precedence over config in `ui.movement.edit`; i.e. will negate `ui.movement.edit = true`
+* `-r`, `--rebase` — Instead of creating a new working-copy commit on top of the target commit (like `jj new`), move the working-copy on top of the target commit (like `jj rebase`)
 * `--conflict` — Jump to the next conflicted descendant
 
 
@@ -2280,6 +2281,7 @@ A        A
 * `-n`, `--no-edit` — The inverse of `--edit`
 
    Takes precedence over config in `ui.movement.edit`; i.e. will negate `ui.movement.edit = true`
+* `-r`, `--rebase` — Instead of creating a new working-copy commit on top of the target commit (like `jj new`), move the working-copy on top of the target commit (like `jj rebase`)
 * `--conflict` — Jump to the previous conflicted ancestor
 
 
