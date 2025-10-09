@@ -38,6 +38,7 @@ use pollster::FutureExt as _;
 use crate::backend::BackendResult;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
+use crate::conflict_labels::ConflictLabels;
 use crate::copies::CopiesTreeDiffEntry;
 use crate::copies::CopiesTreeDiffStream;
 use crate::copies::CopyRecords;
@@ -56,19 +57,20 @@ use crate::tree::Tree;
 use crate::tree_builder::TreeBuilder;
 use crate::tree_merge::merge_trees;
 
-/// Presents a view of a merged set of trees at the root directory. In the
-/// future, this may store additional metadata like conflict labels, so tree IDs
-/// should be compared instead when checking for file changes.
+/// Presents a view of a merged set of trees at the root directory, as well as
+/// conflict labels.
 #[derive(Clone)]
 pub struct MergedTree {
     store: Arc<Store>,
     tree_ids: Merge<TreeId>,
+    labels: ConflictLabels,
 }
 
 impl fmt::Debug for MergedTree {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("MergedTree")
             .field("tree_ids", &self.tree_ids)
+            .field("labels", &self.labels)
             .finish_non_exhaustive()
     }
 }
@@ -76,12 +78,29 @@ impl fmt::Debug for MergedTree {
 impl MergedTree {
     /// Creates a `MergedTree` with the given resolved tree ID.
     pub fn resolved(store: Arc<Store>, tree_id: TreeId) -> Self {
-        Self::new(store, Merge::resolved(tree_id))
+        Self::unlabeled(store, Merge::resolved(tree_id))
+    }
+
+    /// Creates a `MergedTree` with the given tree IDs, without conflict labels.
+    // TODO: remove when all callers are migrated to `MergedTree::new`.
+    pub fn unlabeled(store: Arc<Store>, tree_ids: Merge<TreeId>) -> Self {
+        Self {
+            store,
+            tree_ids,
+            labels: ConflictLabels::unlabeled(),
+        }
     }
 
     /// Creates a `MergedTree` with the given tree IDs.
-    pub fn new(store: Arc<Store>, tree_ids: Merge<TreeId>) -> Self {
-        Self { store, tree_ids }
+    pub fn new(store: Arc<Store>, tree_ids: Merge<TreeId>, labels: ConflictLabels) -> Self {
+        if let Some(num_sides) = labels.num_sides() {
+            assert_eq!(tree_ids.num_sides(), num_sides);
+        }
+        Self {
+            store,
+            tree_ids,
+            labels,
+        }
     }
 
     /// The `Store` associated with this tree.
@@ -95,9 +114,27 @@ impl MergedTree {
         &self.tree_ids
     }
 
-    /// Extracts the underlying tree IDs for this `MergedTree`.
+    /// Extracts the underlying tree IDs for this `MergedTree`, discarding any
+    /// conflict labels.
     pub fn into_tree_ids(self) -> Merge<TreeId> {
         self.tree_ids
+    }
+
+    /// Returns this merge's conflict labels, if any.
+    pub fn labels(&self) -> &ConflictLabels {
+        &self.labels
+    }
+
+    /// Returns both the underlying tree IDs and any conflict labels. This can
+    /// be used to check whether there are changes in files to be materialized
+    /// in the working copy.
+    pub fn tree_ids_and_labels(&self) -> (&Merge<TreeId>, &ConflictLabels) {
+        (&self.tree_ids, &self.labels)
+    }
+
+    /// Extracts the underlying tree IDs and conflict labels.
+    pub fn into_tree_ids_and_labels(self) -> (Merge<TreeId>, ConflictLabels) {
+        (self.tree_ids, self.labels)
     }
 
     /// Reads the merge of tree objects represented by this `MergedTree`.
@@ -128,7 +165,12 @@ impl MergedTree {
             let re_merged = merge_trees(&self.store, simplified.clone()).await.unwrap();
             debug_assert_eq!(re_merged, simplified);
         }
-        Ok(Self::new(self.store, simplified))
+        // TODO: retain labels
+        Ok(Self {
+            store: self.store,
+            tree_ids: simplified,
+            labels: ConflictLabels::unlabeled(),
+        })
     }
 
     /// An iterator over the conflicts in this tree, including subtrees.
@@ -262,7 +304,8 @@ impl MergedTree {
         debug_assert!(Arc::ptr_eq(&base.store, &self.store));
         debug_assert!(Arc::ptr_eq(&other.store, &self.store));
         let nested = Merge::from_vec(vec![self.tree_ids, base.tree_ids, other.tree_ids]);
-        Self::new(self.store, nested.flatten().simplify())
+        // TODO: retain labels
+        Self::unlabeled(self.store, nested.flatten().simplify())
     }
 }
 
@@ -918,11 +961,12 @@ impl MergedTreeBuilder {
     /// Create new tree(s) from the base tree(s) and overrides.
     pub fn write_tree(self) -> BackendResult<MergedTree> {
         let store = self.base_tree.store.clone();
+        let labels = self.base_tree.labels().clone();
         let new_tree_ids = self.write_merged_trees()?;
         match new_tree_ids.simplify().into_resolved() {
             Ok(single_tree_id) => Ok(MergedTree::resolved(store, single_tree_id)),
             Err(tree_ids) => {
-                let tree = MergedTree::new(store, tree_ids);
+                let tree = MergedTree::new(store, tree_ids, labels);
                 tree.resolve().block_on()
             }
         }

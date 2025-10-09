@@ -437,7 +437,8 @@ impl Workspace {
         // regardless, but it's probably not what  the caller wanted, so we let
         // them know.
         if let Some(old_tree) = old_tree
-            && old_tree.tree_ids() != locked_ws.locked_wc().old_tree().tree_ids()
+            && old_tree.tree_ids_and_labels()
+                != locked_ws.locked_wc().old_tree().tree_ids_and_labels()
         {
             return Err(CheckoutError::ConcurrentCheckout);
         }

@@ -1519,7 +1519,7 @@ mod tests {
             let base = testutils::create_single_tree(&test_repo.repo, &[(file_path, "")]);
             let left = testutils::create_single_tree(&test_repo.repo, &[(file_path, "1\n")]);
             let right = testutils::create_single_tree(&test_repo.repo, &[(file_path, "2\n")]);
-            MergedTree::new(
+            MergedTree::unlabeled(
                 store.clone(),
                 Merge::from_vec(vec![
                     left.id().clone(),

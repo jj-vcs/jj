@@ -1310,7 +1310,9 @@ impl WorkspaceCommandHelper {
         &mut self,
     ) -> Result<(LockedWorkspace<'_>, Commit), CommandError> {
         let (mut locked_ws, wc_commit) = self.unchecked_start_working_copy_mutation()?;
-        if wc_commit.tree_ids() != locked_ws.locked_wc().old_tree().tree_ids() {
+        if wc_commit.tree().tree_ids_and_labels()
+            != locked_ws.locked_wc().old_tree().tree_ids_and_labels()
+        {
             return Err(user_error("Concurrent working copy operation. Try again."));
         }
         Ok((locked_ws, wc_commit))
@@ -1924,7 +1926,7 @@ to the current parents may contain changes from multiple commits.
                 .block_on()
                 .map_err(snapshot_command_error)?
         };
-        if new_tree.tree_ids() != wc_commit.tree_ids() {
+        if new_tree.tree_ids_and_labels() != wc_commit.tree().tree_ids_and_labels() {
             let mut tx =
                 start_repo_transaction(&self.user_repo.repo, self.env.command.string_args());
             tx.set_is_snapshot(true);
@@ -2660,7 +2662,9 @@ fn update_stale_working_copy(
 ) -> Result<CheckoutStats, CommandError> {
     // The same check as start_working_copy_mutation(), but with the stale
     // working-copy commit.
-    if stale_commit.tree_ids() != locked_ws.locked_wc().old_tree().tree_ids() {
+    if stale_commit.tree().tree_ids_and_labels()
+        != locked_ws.locked_wc().old_tree().tree_ids_and_labels()
+    {
         return Err(user_error("Concurrent working copy operation. Try again."));
     }
     let stats = locked_ws

@@ -386,7 +386,9 @@ impl WorkingCopyFreshness {
             } else if ancestor_op.id() == wc_operation.id() {
                 // The working copy was not updated when some repo operation committed,
                 // meaning that it's stale compared to the repo view.
-                if locked_wc.old_tree().tree_ids() == wc_commit.tree_ids() {
+                if locked_wc.old_tree().tree_ids_and_labels()
+                    == wc_commit.tree().tree_ids_and_labels()
+                {
                     // The working copy doesn't require any changes
                     Ok(Self::Fresh)
                 } else {

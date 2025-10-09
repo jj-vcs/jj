@@ -186,7 +186,7 @@ fn test_rewrite(backend: TestRepoBackend) {
     let store = repo.store();
     // We have a new store instance, so we need to associate the old tree with the
     // new store instance.
-    let rewritten_tree = MergedTree::new(store.clone(), rewritten_tree.into_tree_ids());
+    let rewritten_tree = MergedTree::unlabeled(store.clone(), rewritten_tree.into_tree_ids());
     let initial_commit = store.get_commit(initial_commit.id()).unwrap();
     let mut tx = repo.start_transaction();
     let rewritten_commit = tx
