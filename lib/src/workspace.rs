@@ -55,6 +55,10 @@ use crate::signing::SignInitError;
 use crate::signing::Signer;
 use crate::simple_backend::SimpleBackend;
 use crate::transaction::TransactionCommitError;
+use crate::user_config::UserConfigError;
+use crate::user_config::UserConfigKey;
+use crate::user_config::WORKSPACE_CONFIG_FILE;
+use crate::user_config::write_user_config;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutStats;
 use crate::working_copy::LockedWorkingCopy;
@@ -82,6 +86,8 @@ pub enum WorkspaceInitError {
     SignInit(#[from] SignInitError),
     #[error(transparent)]
     TransactionCommit(#[from] TransactionCommitError),
+    #[error(transparent)]
+    UserConfigError(#[from] UserConfigError),
 }
 
 #[derive(Error, Debug)]
@@ -115,10 +121,20 @@ pub struct Workspace {
     working_copy: Box<dyn WorkingCopy>,
 }
 
-fn create_jj_dir(workspace_root: &Path) -> Result<PathBuf, WorkspaceInitError> {
+fn create_jj_dir(
+    workspace_root: &Path,
+    key: Option<&UserConfigKey>,
+) -> Result<PathBuf, WorkspaceInitError> {
     let jj_dir = workspace_root.join(".jj");
     match std::fs::create_dir(&jj_dir).context(&jj_dir) {
-        Ok(()) => Ok(jj_dir),
+        Ok(()) => {
+            write_user_config(
+                &jj_dir.join(WORKSPACE_CONFIG_FILE),
+                &Default::default(),
+                key,
+            )?;
+            Ok(jj_dir)
+        }
         Err(ref e) if e.source.kind() == io::ErrorKind::AlreadyExists => {
             Err(WorkspaceInitError::DestinationExists(jj_dir))
         }
@@ -187,11 +203,18 @@ impl Workspace {
     pub fn init_simple(
         user_settings: &UserSettings,
         workspace_root: &Path,
+        key: Option<&UserConfigKey>,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer: &BackendInitializer =
             &|_settings, store_path| Ok(Box::new(SimpleBackend::init(store_path)));
         let signer = Signer::from_settings(user_settings)?;
-        Self::init_with_backend(user_settings, workspace_root, backend_initializer, signer)
+        Self::init_with_backend(
+            user_settings,
+            workspace_root,
+            backend_initializer,
+            signer,
+            key,
+        )
     }
 
     /// Initializes a workspace with a new Git backend and bare Git repo in
@@ -200,6 +223,7 @@ impl Workspace {
     pub fn init_internal_git(
         user_settings: &UserSettings,
         workspace_root: &Path,
+        key: Option<&UserConfigKey>,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer: &BackendInitializer = &|settings, store_path| {
             Ok(Box::new(crate::git_backend::GitBackend::init_internal(
@@ -207,7 +231,13 @@ impl Workspace {
             )?))
         };
         let signer = Signer::from_settings(user_settings)?;
-        Self::init_with_backend(user_settings, workspace_root, backend_initializer, signer)
+        Self::init_with_backend(
+            user_settings,
+            workspace_root,
+            backend_initializer,
+            signer,
+            key,
+        )
     }
 
     /// Initializes a workspace with a new Git backend and Git repo that shares
@@ -216,6 +246,7 @@ impl Workspace {
     pub fn init_colocated_git(
         user_settings: &UserSettings,
         workspace_root: &Path,
+        key: Option<&UserConfigKey>,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer = |settings: &UserSettings,
                                    store_path: &Path|
@@ -237,7 +268,13 @@ impl Workspace {
             Ok(Box::new(backend))
         };
         let signer = Signer::from_settings(user_settings)?;
-        Self::init_with_backend(user_settings, workspace_root, &backend_initializer, signer)
+        Self::init_with_backend(
+            user_settings,
+            workspace_root,
+            &backend_initializer,
+            signer,
+            key,
+        )
     }
 
     /// Initializes a workspace with an existing Git repo at the specified path.
@@ -249,6 +286,7 @@ impl Workspace {
         user_settings: &UserSettings,
         workspace_root: &Path,
         git_repo_path: &Path,
+        key: Option<&UserConfigKey>,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer = |settings: &UserSettings,
                                    store_path: &Path|
@@ -277,7 +315,13 @@ impl Workspace {
             Ok(Box::new(backend))
         };
         let signer = Signer::from_settings(user_settings)?;
-        Self::init_with_backend(user_settings, workspace_root, &backend_initializer, signer)
+        Self::init_with_backend(
+            user_settings,
+            workspace_root,
+            &backend_initializer,
+            signer,
+            key,
+        )
     }
 
     #[expect(clippy::too_many_arguments)]
@@ -292,8 +336,9 @@ impl Workspace {
         submodule_store_initializer: &SubmoduleStoreInitializer,
         working_copy_factory: &dyn WorkingCopyFactory,
         workspace_name: WorkspaceNameBuf,
+        key: Option<&UserConfigKey>,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
-        let jj_dir = create_jj_dir(workspace_root)?;
+        let jj_dir = create_jj_dir(workspace_root, key)?;
         (|| {
             let repo_dir = jj_dir.join("repo");
             std::fs::create_dir(&repo_dir).context(&repo_dir)?;
@@ -306,11 +351,13 @@ impl Workspace {
                 op_heads_store_initializer,
                 index_store_initializer,
                 submodule_store_initializer,
+                key,
             )
             .map_err(|repo_init_err| match repo_init_err {
                 RepoInitError::Backend(err) => WorkspaceInitError::Backend(err),
                 RepoInitError::OpHeadsStore(err) => WorkspaceInitError::OpHeadsStore(err),
                 RepoInitError::Path(err) => WorkspaceInitError::Path(err),
+                RepoInitError::UserConfigError(err) => WorkspaceInitError::UserConfigError(err),
             })?;
             let (working_copy, repo) = init_working_copy(
                 &repo,
@@ -333,6 +380,7 @@ impl Workspace {
         workspace_root: &Path,
         backend_initializer: &BackendInitializer,
         signer: Signer,
+        key: Option<&UserConfigKey>,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         Self::init_with_factories(
             user_settings,
@@ -345,6 +393,7 @@ impl Workspace {
             ReadonlyRepo::default_submodule_store_initializer(),
             &*default_working_copy_factory(),
             WorkspaceName::DEFAULT.to_owned(),
+            key,
         )
     }
 
@@ -354,8 +403,9 @@ impl Workspace {
         repo: &Arc<ReadonlyRepo>,
         working_copy_factory: &dyn WorkingCopyFactory,
         workspace_name: WorkspaceNameBuf,
+        key: Option<&UserConfigKey>,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
-        let jj_dir = create_jj_dir(workspace_root)?;
+        let jj_dir = create_jj_dir(workspace_root, key)?;
 
         let repo_dir = dunce::canonicalize(repo_path).context(repo_path)?;
         let repo_dir_bytes =

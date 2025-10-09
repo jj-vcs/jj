@@ -81,6 +81,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Revsets now support logical operators in string patterns.
 
+* Per-repo configurations are now signed, preventing you from using
+  configurations created by another user. This resolves a longstanding security
+  issue with jj colloquially known as the "zip file problem"
+  ([#1595](https://github.com/jj-vcs/jj/issues/1595))
+
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer

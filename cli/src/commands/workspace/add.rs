@@ -117,6 +117,7 @@ pub fn cmd_workspace_add(
         repo,
         working_copy_factory,
         workspace_name.clone(),
+        command.config_env().signing_key(),
     )?;
     writeln!(
         ui.status(),

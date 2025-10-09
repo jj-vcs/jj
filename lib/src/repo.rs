@@ -26,6 +26,7 @@ use std::slice;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
+use jj_lib::user_config::write_user_config;
 use once_cell::sync::OnceCell;
 use pollster::FutureExt as _;
 use thiserror::Error;
@@ -109,6 +110,9 @@ use crate::submodule_store::SubmoduleStore;
 use crate::transaction::Transaction;
 use crate::transaction::TransactionCommitError;
 use crate::tree_merge::MergeOptions;
+use crate::user_config::REPO_CONFIG_FILE;
+use crate::user_config::UserConfigError;
+use crate::user_config::UserConfigKey;
 use crate::view::RenameWorkspaceError;
 use crate::view::View;
 
@@ -173,6 +177,8 @@ pub enum RepoInitError {
     OpHeadsStore(#[from] OpHeadsStoreError),
     #[error(transparent)]
     Path(#[from] PathError),
+    #[error(transparent)]
+    UserConfigError(#[from] UserConfigError),
 }
 
 impl ReadonlyRepo {
@@ -204,11 +210,13 @@ impl ReadonlyRepo {
         op_heads_store_initializer: &OpHeadsStoreInitializer,
         index_store_initializer: &IndexStoreInitializer,
         submodule_store_initializer: &SubmoduleStoreInitializer,
+        key: Option<&UserConfigKey>,
     ) -> Result<Arc<Self>, RepoInitError> {
         let repo_path = dunce::canonicalize(repo_path).context(repo_path)?;
 
         let store_path = repo_path.join("store");
         fs::create_dir(&store_path).context(&store_path)?;
+        write_user_config(&repo_path.join(REPO_CONFIG_FILE), &Default::default(), key)?;
         let backend = backend_initializer(settings, &store_path)?;
         let backend_path = store_path.join("type");
         fs::write(&backend_path, backend.name()).context(&backend_path)?;

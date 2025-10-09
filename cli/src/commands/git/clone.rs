@@ -257,9 +257,9 @@ fn init_workspace(
 ) -> Result<WorkspaceCommandHelper, CommandError> {
     let settings = command.settings_for_new_workspace(wc_path)?;
     let (workspace, repo) = if colocate {
-        Workspace::init_colocated_git(&settings, wc_path)?
+        Workspace::init_colocated_git(&settings, wc_path, command.config_env().signing_key())?
     } else {
-        Workspace::init_internal_git(&settings, wc_path)?
+        Workspace::init_internal_git(&settings, wc_path, command.config_env().signing_key())?
     };
     let workspace_command = command.for_workable_repo(ui, workspace, repo)?;
     maybe_add_gitignore(&workspace_command)?;

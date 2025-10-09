@@ -80,6 +80,7 @@ fn run_custom_command(
                 &ReadonlyRepo::default_submodule_store_initializer(),
                 &ConflictsWorkingCopyFactory {},
                 WorkspaceName::DEFAULT.to_owned(),
+                None,
             )?;
             Ok(())
         }

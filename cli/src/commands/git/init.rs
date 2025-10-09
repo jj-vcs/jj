@@ -185,15 +185,21 @@ fn do_init(
     };
 
     let settings = command.settings_for_new_workspace(workspace_root)?;
+    let signing_key = command.config_env().signing_key();
     match &init_mode {
         GitInitMode::Colocate => {
-            let (workspace, repo) = Workspace::init_colocated_git(&settings, workspace_root)?;
+            let (workspace, repo) =
+                Workspace::init_colocated_git(&settings, workspace_root, signing_key)?;
             let workspace_command = command.for_workable_repo(ui, workspace, repo)?;
             maybe_add_gitignore(&workspace_command)?;
         }
         GitInitMode::External(git_repo_path) => {
-            let (workspace, repo) =
-                Workspace::init_external_git(&settings, workspace_root, git_repo_path)?;
+            let (workspace, repo) = Workspace::init_external_git(
+                &settings,
+                workspace_root,
+                git_repo_path,
+                signing_key,
+            )?;
             // Import refs first so all the reachable commits are indexed in
             // chronological order.
             let colocated = is_colocated_git_workspace(&workspace, &repo);
@@ -216,7 +222,7 @@ fn do_init(
             print_trackable_remote_bookmarks(ui, workspace_command.repo().view())?;
         }
         GitInitMode::Internal => {
-            Workspace::init_internal_git(&settings, workspace_root)?;
+            Workspace::init_internal_git(&settings, workspace_root, signing_key)?;
         }
     }
     Ok(())
