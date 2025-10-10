@@ -315,6 +315,7 @@ fn test_squash_partial() {
     let output = work_dir.run_jj(["squash", "-r", "b", "nonexistent"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: No matching entries for paths: nonexistent
     Nothing changed.
     [EOF]
     ");
@@ -324,6 +325,7 @@ fn test_squash_partial() {
     let output = work_dir.run_jj(["squash", "b"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
+    Warning: No matching entries for paths: b
     Warning: The argument "b" is being interpreted as a fileset expression. To specify a revset, pass -r "b" instead.
     Nothing changed.
     [EOF]
@@ -803,6 +805,7 @@ fn test_squash_from_to_partial() {
     let output = work_dir.run_jj(["squash", "--from", "c", "nonexistent"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: No matching entries for paths: nonexistent
     Nothing changed.
     [EOF]
     ");
@@ -2132,6 +2135,7 @@ fn test_squash_to_new_commit() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: No matching entries for paths: no file
     Created new commit nsrwusvy c2183685 (empty) (no description set)
     Rebased 5 descendant commits
     Working copy  (@) now at: mzvwutvl cb96ecf9 (empty) (no description set)
