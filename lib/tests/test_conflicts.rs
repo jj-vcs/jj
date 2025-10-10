@@ -829,6 +829,82 @@ fn test_materialize_conflict_two_forward_diffs() {
 }
 
 #[test]
+fn test_materialize_conflict_with_labels() {
+    let test_repo = TestRepo::init();
+    let store = test_repo.repo.store();
+
+    let path = repo_path("file");
+    let side1 = testutils::write_file(store, path, "side 1\n");
+    let base1 = testutils::write_file(store, path, "base 1\n");
+    let side2 = testutils::write_file(store, path, "side 2\n");
+
+    let conflict = Merge::from_vec(vec![Some(side1), Some(base1), Some(side2)]);
+    let conflict_labels = ConflictLabels::from_vec(vec![
+        "side 1 conflict label".into(),
+        "base conflict label".into(),
+        "side 2 conflict label".into(),
+    ]);
+    insta::assert_snapshot!(
+        &materialize_conflict_string_with_labels(
+            store,
+            path,
+            &conflict,
+            &conflict_labels,
+            ConflictMarkerStyle::Diff,
+        ),
+        @r"
+    <<<<<<< conflict 1 of 1
+    %%%%%%% diff from: base conflict label
+    \\\\\\\        to: side 1 conflict label
+    -base 1
+    +side 1
+    +++++++ side 2 conflict label
+    side 2
+    >>>>>>> conflict 1 of 1 ends
+    "
+    );
+
+    insta::assert_snapshot!(
+        &materialize_conflict_string_with_labels(
+            store,
+            path,
+            &conflict,
+            &conflict_labels,
+            ConflictMarkerStyle::Snapshot,
+        ),
+        @r"
+    <<<<<<< conflict 1 of 1
+    +++++++ side 1 conflict label
+    side 1
+    ------- base conflict label
+    base 1
+    +++++++ side 2 conflict label
+    side 2
+    >>>>>>> conflict 1 of 1 ends
+    "
+    );
+
+    insta::assert_snapshot!(
+        &materialize_conflict_string_with_labels(
+            store,
+            path,
+            &conflict,
+            &conflict_labels,
+            ConflictMarkerStyle::Git,
+        ),
+        @r"
+    <<<<<<< side 1 conflict label
+    side 1
+    ||||||| base conflict label
+    base 1
+    =======
+    side 2
+    >>>>>>> side 2 conflict label
+    "
+    );
+}
+
+#[test]
 fn test_parse_conflict_resolved() {
     assert_eq!(
         parse_conflict(
@@ -2408,6 +2484,22 @@ fn materialize_conflict_string(
     conflict: &Merge<Option<FileId>>,
     marker_style: ConflictMarkerStyle,
 ) -> String {
+    materialize_conflict_string_with_labels(
+        store,
+        path,
+        conflict,
+        &ConflictLabels::unlabeled(),
+        marker_style,
+    )
+}
+
+fn materialize_conflict_string_with_labels(
+    store: &Store,
+    path: &RepoPath,
+    conflict: &Merge<Option<FileId>>,
+    conflict_labels: &ConflictLabels,
+    marker_style: ConflictMarkerStyle,
+) -> String {
     let contents = extract_as_single_hunk(conflict, store, path)
         .block_on()
         .unwrap();
@@ -2420,7 +2512,7 @@ fn materialize_conflict_string(
         },
     };
     String::from_utf8(
-        materialize_merge_result_to_bytes(&contents, &ConflictLabels::unlabeled(), &options).into(),
+        materialize_merge_result_to_bytes(&contents, conflict_labels, &options).into(),
     )
     .unwrap()
 }

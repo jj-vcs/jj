@@ -1039,6 +1039,22 @@ fn test_materialize_snapshot_unchanged_conflicts() {
             ..CheckoutStats::default()
         }
     );
+    let materialized_content = std::fs::read_to_string(&disk_path).unwrap();
+    insta::assert_snapshot!(materialized_content, @r"
+    line 1
+    line 2
+    <<<<<<< conflict 1 of 1
+    +++++++ left label
+    left 3.1
+    left 3.2
+    left 3.3
+    %%%%%%% diff from: base label
+    \\\\\\\        to: right label
+    -line 3
+    +right 3.1
+    >>>>>>> conflict 1 of 1 ends
+    line 4
+    ");
 
     // Update mtime to bypass file state comparison.
     let file = File::options().write(true).open(&disk_path).unwrap();

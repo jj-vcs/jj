@@ -334,6 +334,7 @@ enum ConflictMarkerLineChar {
     Add = b'+',
     Remove = b'-',
     Diff = b'%',
+    Note = b'\\',
     GitAncestor = b'|',
     GitSeparator = b'=',
 }
@@ -352,6 +353,7 @@ impl ConflictMarkerLineChar {
             b'+' => Some(Self::Add),
             b'-' => Some(Self::Remove),
             b'%' => Some(Self::Diff),
+            b'\\' => Some(Self::Note),
             b'|' => Some(Self::GitAncestor),
             b'=' => Some(Self::GitSeparator),
             _ => None,
@@ -425,8 +427,7 @@ pub fn choose_materialized_conflict_marker_len<T: AsRef<[u8]>>(single_hunk: &Mer
 
 pub fn materialize_merge_result<T: AsRef<[u8]>>(
     single_hunk: &Merge<T>,
-    // TODO: use labels in conflict markers
-    _labels: &ConflictLabels,
+    labels: &ConflictLabels,
     output: &mut dyn Write,
     options: &ConflictMaterializeOptions,
 ) -> io::Result<()> {
@@ -437,15 +438,14 @@ pub fn materialize_merge_result<T: AsRef<[u8]>>(
             let marker_len = options
                 .marker_len
                 .unwrap_or_else(|| choose_materialized_conflict_marker_len(single_hunk));
-            materialize_conflict_hunks(hunks, options.marker_style, marker_len, output)
+            materialize_conflict_hunks(hunks, options.marker_style, marker_len, labels, output)
         }
     }
 }
 
 pub fn materialize_merge_result_to_bytes<T: AsRef<[u8]>>(
     single_hunk: &Merge<T>,
-    // TODO: use labels in conflict markers
-    _labels: &ConflictLabels,
+    labels: &ConflictLabels,
     options: &ConflictMaterializeOptions,
 ) -> BString {
     let merge_result = files::merge_hunks(single_hunk, &options.merge);
@@ -456,8 +456,14 @@ pub fn materialize_merge_result_to_bytes<T: AsRef<[u8]>>(
                 .marker_len
                 .unwrap_or_else(|| choose_materialized_conflict_marker_len(single_hunk));
             let mut output = Vec::new();
-            materialize_conflict_hunks(&hunks, options.marker_style, marker_len, &mut output)
-                .expect("writing to an in-memory buffer should never fail");
+            materialize_conflict_hunks(
+                &hunks,
+                options.marker_style,
+                marker_len,
+                labels,
+                &mut output,
+            )
+            .expect("writing to an in-memory buffer should never fail");
             output.into()
         }
     }
@@ -467,6 +473,7 @@ fn materialize_conflict_hunks(
     hunks: &[Merge<BString>],
     conflict_marker_style: ConflictMarkerStyle,
     conflict_marker_len: usize,
+    labels: &ConflictLabels,
     output: &mut dyn Write,
 ) -> io::Result<()> {
     let num_conflicts = hunks
@@ -484,7 +491,14 @@ fn materialize_conflict_hunks(
             match (conflict_marker_style, hunk.as_slice()) {
                 // 2-sided conflicts can use Git-style conflict markers
                 (ConflictMarkerStyle::Git, [left, base, right]) => {
-                    materialize_git_style_conflict(left, base, right, conflict_marker_len, output)?;
+                    materialize_git_style_conflict(
+                        left,
+                        base,
+                        right,
+                        conflict_marker_len,
+                        labels,
+                        output,
+                    )?;
                 }
                 _ => {
                     materialize_jj_style_conflict(
@@ -492,6 +506,7 @@ fn materialize_conflict_hunks(
                         &conflict_info,
                         conflict_marker_style,
                         conflict_marker_len,
+                        labels,
                         output,
                     )?;
                 }
@@ -506,13 +521,14 @@ fn materialize_git_style_conflict(
     base: &[u8],
     right: &[u8],
     conflict_marker_len: usize,
+    labels: &ConflictLabels,
     output: &mut dyn Write,
 ) -> io::Result<()> {
     write_conflict_marker(
         output,
         ConflictMarkerLineChar::ConflictStart,
         conflict_marker_len,
-        "side #1",
+        labels.get_add(0).unwrap_or("side #1"),
     )?;
     write_and_ensure_newline(output, left)?;
 
@@ -520,7 +536,7 @@ fn materialize_git_style_conflict(
         output,
         ConflictMarkerLineChar::GitAncestor,
         conflict_marker_len,
-        "base",
+        labels.get_remove(0).unwrap_or("base"),
     )?;
     write_and_ensure_newline(output, base)?;
 
@@ -537,7 +553,7 @@ fn materialize_git_style_conflict(
         output,
         ConflictMarkerLineChar::ConflictEnd,
         conflict_marker_len,
-        "side #2",
+        labels.get_add(1).unwrap_or("side #2"),
     )?;
 
     Ok(())
@@ -548,18 +564,29 @@ fn materialize_jj_style_conflict(
     conflict_info: &str,
     conflict_marker_style: ConflictMarkerStyle,
     conflict_marker_len: usize,
+    labels: &ConflictLabels,
     output: &mut dyn Write,
 ) -> io::Result<()> {
-    let get_side_label = |add_index: usize| -> String { format!("side #{}", add_index + 1) };
+    let get_side_label = |add_index: usize| -> String {
+        labels.get_add(add_index).map_or_else(
+            || format!("side #{}", add_index + 1),
+            |label| label.to_owned(),
+        )
+    };
 
     let get_base_label = |base_index: usize| -> String {
-        // The vast majority of conflicts one actually tries to resolve manually have 1
-        // base.
-        if hunk.removes().len() == 1 {
-            "base".to_string()
-        } else {
-            format!("base #{}", base_index + 1)
-        }
+        labels
+            .get_remove(base_index)
+            .map(|label| label.to_owned())
+            .unwrap_or_else(|| {
+                // The vast majority of conflicts one actually tries to resolve manually have 1
+                // base.
+                if hunk.removes().len() == 1 {
+                    "base".to_string()
+                } else {
+                    format!("base #{}", base_index + 1)
+                }
+            })
     };
 
     // Write a positive snapshot (side) of a conflict
@@ -599,17 +626,34 @@ fn materialize_jj_style_conflict(
                 (_, true) => ADD_NO_EOL_COMMENT,
                 _ => "",
             };
-            write_conflict_marker(
-                output,
-                ConflictMarkerLineChar::Diff,
-                conflict_marker_len,
-                &format!(
-                    "diff from {} to {}{}",
-                    get_base_label(base_index),
-                    get_side_label(add_index),
-                    no_eol_comment
-                ),
-            )?;
+            if labels.get_add(add_index).is_none() && labels.get_remove(base_index).is_none() {
+                // TODO: remove this format when all conflicts have labels
+                // Use simple conflict markers when there are no conflict labels.
+                write_conflict_marker(
+                    output,
+                    ConflictMarkerLineChar::Diff,
+                    conflict_marker_len,
+                    &format!(
+                        "diff from {} to {}{}",
+                        get_base_label(base_index),
+                        get_side_label(add_index),
+                        no_eol_comment
+                    ),
+                )?;
+            } else {
+                write_conflict_marker(
+                    output,
+                    ConflictMarkerLineChar::Diff,
+                    conflict_marker_len,
+                    &format!("diff from: {}", get_base_label(base_index)),
+                )?;
+                write_conflict_marker(
+                    output,
+                    ConflictMarkerLineChar::Note,
+                    conflict_marker_len,
+                    &format!("       to: {}{}", get_side_label(add_index), no_eol_comment),
+                )?;
+            }
             write_diff_hunks(diff, output)
         };
 
@@ -860,6 +904,9 @@ fn parse_jj_style_conflict_hunk(input: &[u8], expected_marker_len: usize) -> Mer
             Some(ConflictMarkerLineChar::Add) => {
                 state = State::Add;
                 adds.push(BString::new(vec![]));
+                continue;
+            }
+            Some(ConflictMarkerLineChar::Note) => {
                 continue;
             }
             _ => {}
