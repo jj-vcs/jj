@@ -324,7 +324,9 @@ impl Backend for TestBackend {
                 copies.keys(),
                 |id| *id,
                 |id| copies.get(*id).unwrap().parents.iter(),
-            ) {
+            )
+            .unwrap()
+            {
                 histories.push(copies.get(id).unwrap().clone());
             }
             Ok(histories)
