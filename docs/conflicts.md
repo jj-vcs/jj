@@ -79,17 +79,17 @@ will materialize the conflict in the working copy using conflict markers, which
 would look like this:
 
 ```text
-<<<<<<< Conflict 1 of 1
-%%%%%%% Changes from base to side #1
+<<<<<<< conflict 1 of 1
+%%%%%%% side #1 compared with base
  apple
 -grape
 +grapefruit
  orange
-+++++++ Contents of side #2
++++++++ side #2
 APPLE
 GRAPE
 ORANGE
->>>>>>> Conflict 1 of 1 ends
+>>>>>>> conflict 1 of 1 ends
 ```
 
 The markers `<<<<<<<` and `>>>>>>>` indicate the start and end of a conflict
@@ -124,20 +124,20 @@ diff, Jujutsu also supports a "snapshot" style, which can be enabled by setting
 the `ui.conflict-marker-style` config option to "snapshot":
 
 ```text
-<<<<<<< Conflict 1 of 1
-+++++++ Contents of side #1
+<<<<<<< conflict 1 of 1
++++++++ side #1
 apple
 grapefruit
 orange
-------- Contents of base
+------- base
 apple
 grape
 orange
-+++++++ Contents of side #2
++++++++ side #2
 APPLE
 GRAPE
 ORANGE
->>>>>>> Conflict 1 of 1 ends
+>>>>>>> conflict 1 of 1 ends
 ```
 
 Some tools expect Git-style conflict markers, so Jujutsu also supports [Git's
@@ -146,11 +146,11 @@ conflict markers by setting the `ui.conflict-marker-style` config option to
 "git":
 
 ```text
-<<<<<<< Side #1 (Conflict 1 of 1)
+<<<<<<< side #1 (conflict 1 of 1)
 apple
 grapefruit
 orange
-||||||| Base
+||||||| base
 apple
 grape
 orange
@@ -158,7 +158,7 @@ orange
 APPLE
 GRAPE
 ORANGE
->>>>>>> Side #2 (Conflict 1 of 1 ends)
+>>>>>>> side #2 (conflict 1 of 1 ends)
 ```
 
 This conflict marker style only supports 2-sided conflicts though, so it falls
@@ -174,15 +174,15 @@ markers and which are just part of the file contents, `jj` sometimes uses
 conflict markers which are longer than normal:
 
 ```text
-<<<<<<<<<<<<<<< Conflict 1 of 1
-%%%%%%%%%%%%%%% Changes from base to side #1
+<<<<<<<<<<<<<<< conflict 1 of 1
+%%%%%%%%%%%%%%% side #1 compared with base
 -Heading
 +HEADING
  =======
-+++++++++++++++ Contents of side #2
++++++++++++++++ side #2
 New Heading
 ===========
->>>>>>>>>>>>>>> Conflict 1 of 1 ends
+>>>>>>>>>>>>>>> conflict 1 of 1 ends
 ```
 
 ## Conflicts with missing terminating newline
@@ -204,13 +204,13 @@ added the missing newline character to make `grape\n`, the resulting conflict
 would look like this:
 
 ```text
-<<<<<<< Conflict 1 of 1
-+++++++ Contents of side #1 (no terminating newline)
+<<<<<<< conflict 1 of 1
++++++++ side #1 (no terminating newline)
 grapefruit
-%%%%%%% Changes from base to side #2 (adds terminating newline)
+%%%%%%% side #2 compared with base (adds terminating newline)
 -grape
 +grape
->>>>>>> Conflict 1 of 1 ends
+>>>>>>> conflict 1 of 1 ends
 ```
 
 Therefore, a resolution of this conflict could be `grapefruit\n`, with the

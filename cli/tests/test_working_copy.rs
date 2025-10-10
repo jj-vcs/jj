@@ -210,16 +210,16 @@ fn test_materialize_and_snapshot_different_conflict_markers() {
     // File should have Git-style conflict markers
     insta::assert_snapshot!(work_dir.read_file("file"), @r"
     line 1
-    <<<<<<< Side #1 (Conflict 1 of 1)
+    <<<<<<< side #1 (conflict 1 of 1)
     line 2 - a
     line 3
-    ||||||| Base
+    ||||||| base
     line 2
     line 3
     =======
     line 2 - b
     line 3 - b
-    >>>>>>> Side #2 (Conflict 1 of 1 ends)
+    >>>>>>> side #2 (conflict 1 of 1 ends)
     ");
 
     // Configure to use JJ-style "snapshot" conflict markers
@@ -249,12 +249,12 @@ fn test_materialize_and_snapshot_different_conflict_markers() {
     --- a/file
     +++ b/file
     @@ -2,7 +2,7 @@
-     <<<<<<< Conflict 1 of 1
-     +++++++ Contents of side #1
+     <<<<<<< conflict 1 of 1
+     +++++++ side #1
      line 2 - a
     -line 3
     +line 3 - a
-     ------- Contents of base
+     ------- base
      line 2
      line 3
     [EOF]
@@ -335,18 +335,18 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     // File should be materialized with long conflict markers
     insta::assert_snapshot!(work_dir.read_file("file"), @r"
     line 1
-    <<<<<<<<<<< Conflict 1 of 1
-    %%%%%%%%%%% Changes from base to side #1
+    <<<<<<<<<<< conflict 1 of 1
+    %%%%%%%%%%% side #1 compared with base
     -line 2
     -line 3
     +line 2 - left
     +line 3 - left
-    +++++++++++ Contents of side #2
+    +++++++++++ side #2
     ======= fake marker
     line 2 - right
     ======= fake marker
     line 3
-    >>>>>>>>>>> Conflict 1 of 1 ends
+    >>>>>>>>>>> conflict 1 of 1 ends
     ");
 
     // The timestamps in the `jj debug local-working-copy` output change, so we want
@@ -362,7 +362,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     insta::assert_snapshot!(output.normalize_stdout_with(redact_output), @r#"
     Current operation: OperationId("53f0bb27f3ac96896abd48a5fb0fdfcf4e61389a70290468a2e1ec1db5389661fc6e4aec6c1d03f1bd7db07cafa9f6a802dc5e78c936c09e7dbd9aea1b4ea2fa")
     Current tree: MergedTree { tree_ids: Conflicted([TreeId("381273b50cf73f8c81b3f1502ee89e9bbd6c1518"), TreeId("771f3d31c4588ea40a8864b2a981749888e596c2"), TreeId("f56b8223da0dab22b03b8323ced4946329aeb4e0")]), labels: Unlabeled, .. }
-    Normal { exec_bit: ExecBit(false) }           249 <timestamp> Some(MaterializedConflictData { conflict_marker_len: 11 }) "file"
+    Normal { exec_bit: ExecBit(false) }           235 <timestamp> Some(MaterializedConflictData { conflict_marker_len: 11 }) "file"
     [EOF]
     "#);
 
@@ -372,20 +372,20 @@ fn test_conflict_marker_length_stored_in_working_copy() {
         "file",
         indoc! {"
             line 1
-            <<<<<<<<<<< Conflict 1 of 1
-            %%%%%%%%%%% Changes from base to side #1
+            <<<<<<<<<<< conflict 1 of 1
+            %%%%%%%%%%% side #1 compared with base
             -line 2
             -line 3
             +line 2 - left
             +line 3 - left
-            +++++++++++ Contents of side #2
+            +++++++++++ side #2
             <<<<<<< fake marker
             ||||||| fake marker
             line 2 - right
             ======= fake marker
             line 3
             >>>>>>> fake marker
-            >>>>>>>>>>> Conflict 1 of 1 ends
+            >>>>>>>>>>> conflict 1 of 1 ends
         "},
     );
 
@@ -408,7 +408,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     @@ -6,8 +6,10 @@
      +line 2 - left
      +line 3 - left
-     +++++++++++ Contents of side #2
+     +++++++++++ side #2
     -======= fake marker
     +<<<<<<< fake marker
     +||||||| fake marker
@@ -416,7 +416,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
      ======= fake marker
      line 3
     +>>>>>>> fake marker
-     >>>>>>>>>>> Conflict 1 of 1 ends
+     >>>>>>>>>>> conflict 1 of 1 ends
     [EOF]
     ");
 
@@ -425,7 +425,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     insta::assert_snapshot!(output.normalize_stdout_with(redact_output), @r#"
     Current operation: OperationId("d9ace267ba6a972d19d345fadcfa2177f42e4ea6c11ff4a44e70c034322c233372edfe6169e14292f0cc5d43d43c42329a7a0fa8231b524a43a73fba96b8f114")
     Current tree: MergedTree { tree_ids: Conflicted([TreeId("381273b50cf73f8c81b3f1502ee89e9bbd6c1518"), TreeId("771f3d31c4588ea40a8864b2a981749888e596c2"), TreeId("3329c18c95f7b7a55c278c2259e9c4ce711fae59")]), labels: Unlabeled, .. }
-    Normal { exec_bit: ExecBit(false) }           289 <timestamp> Some(MaterializedConflictData { conflict_marker_len: 11 }) "file"
+    Normal { exec_bit: ExecBit(false) }           275 <timestamp> Some(MaterializedConflictData { conflict_marker_len: 11 }) "file"
     [EOF]
     "#);
 
