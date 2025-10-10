@@ -1530,17 +1530,23 @@ fn test_check_out_existing_directory_symlink() {
     // under the symlinked directory.
     try_symlink("..", workspace_root.join("parent")).unwrap();
 
-    let file_path = repo_path("parent/escaped");
-    let tree = create_tree(repo, &[(file_path, "contents")]);
+    // Test two file paths writing to the same directory to ensure that
+    // any directory creation optimizations which depend on how
+    // `parent/escaped1` behaved don't allow `parent/escaped2` to be
+    // created
+    let file_path1 = repo_path("parent/escaped1");
+    let file_path2 = repo_path("parent/escaped2");
+    let tree = create_tree(repo, &[(file_path1, "contents"), (file_path2, "contents")]);
     let commit = commit_with_tree(repo.store(), tree);
 
     // Checkout doesn't fail, but the file should be skipped.
     let ws = &mut test_workspace.workspace;
     let stats = ws.check_out(repo.op_id().clone(), None, &commit).unwrap();
-    assert_eq!(stats.skipped_files, 1);
+    assert_eq!(stats.skipped_files, 2);
 
-    // Therefore, "../escaped" shouldn't be created.
-    assert!(!workspace_root.parent().unwrap().join("escaped").exists());
+    // Therefore, "../escaped*" paths shouldn't be created.
+    assert!(!workspace_root.parent().unwrap().join("escaped1").exists());
+    assert!(!workspace_root.parent().unwrap().join("escaped2").exists());
 }
 
 #[test]
@@ -1559,21 +1565,23 @@ fn test_check_out_existing_directory_symlink_icase_fs() {
     // under the symlinked directory.
     try_symlink("..", workspace_root.join("parent")).unwrap();
 
-    let file_path = repo_path("PARENT/escaped");
-    let tree = create_tree(repo, &[(file_path, "contents")]);
+    let file_path1 = repo_path("PARENT/escaped1");
+    let file_path2 = repo_path("PARENT/escaped2");
+    let tree = create_tree(repo, &[(file_path1, "contents"), (file_path2, "contents")]);
     let commit = commit_with_tree(repo.store(), tree);
 
     // Checkout doesn't fail, but the file should be skipped on icase fs.
     let ws = &mut test_workspace.workspace;
     let stats = ws.check_out(repo.op_id().clone(), None, &commit).unwrap();
     if is_icase_fs {
-        assert_eq!(stats.skipped_files, 1);
+        assert_eq!(stats.skipped_files, 2);
     } else {
         assert_eq!(stats.skipped_files, 0);
     }
 
-    // Therefore, "../escaped" shouldn't be created.
-    assert!(!workspace_root.parent().unwrap().join("escaped").exists());
+    // Therefore, "../escaped*" paths shouldn't be created.
+    assert!(!workspace_root.parent().unwrap().join("escaped1").exists());
+    assert!(!workspace_root.parent().unwrap().join("escaped2").exists());
 }
 
 #[test_case(false; "symlink target does not exist")]

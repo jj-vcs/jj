@@ -1942,6 +1942,9 @@ impl TreeState {
                 Err(err) => (path, Err(err)),
             })
             .buffered(self.store.concurrency().max(1));
+
+        let mut prev_created_path: RepoPathBuf = RepoPathBuf::root();
+
         while let Some((path, data)) = diff_stream.next().await {
             let (before, after) = data?;
             if after.is_absent() {
@@ -1968,13 +1971,55 @@ impl TreeState {
                 continue;
             }
 
-            // Create parent directories no matter if after.is_present(). This
-            // ensures that the path never traverses symlinks.
-            let Some(disk_path) = create_parent_dirs(&self.working_copy_path, &path)? else {
-                changed_file_states.push((path, FileState::placeholder()));
-                stats.skipped_files += 1;
-                continue;
+            // This path and the previous one we did work for may have a common prefix. We
+            // can adjust the "working copy" path to the parent directory which we know
+            // is already created. If there is no common prefix, this will by default use
+            // RepoPath::root() as the common prefix.
+            let (common_prefix, adjusted_diff_file_path) =
+                path.split_common_prefix(&prev_created_path);
+
+            let disk_path = if adjusted_diff_file_path.is_root() {
+                // The path being "root" here implies that the entire path has already been
+                // created.
+                //
+                // e.g we may have have already processed a path like: "foo/bar/baz" and this is
+                // our `prev_created_path`.
+                //
+                // and the current path is:
+                // "foo/bar"
+                //
+                // This results in a common prefix of "foo/bar" with empty string for the
+                // remainder since its entire prefix has already been created.
+                // This means that we _dont_ need to create its parent dirs
+                // either.
+
+                path.to_fs_path(self.working_copy_path())?
+            } else {
+                let adjusted_working_copy_path =
+                    common_prefix.to_fs_path(self.working_copy_path())?;
+
+                // Create parent directories no matter if after.is_present(). This
+                // ensures that the path never traverses symlinks.
+                let Some(disk_path) =
+                    create_parent_dirs(&adjusted_working_copy_path, adjusted_diff_file_path)?
+                else {
+                    changed_file_states.push((path, FileState::placeholder()));
+                    stats.skipped_files += 1;
+                    continue;
+                };
+
+                // Cache this path for the next iteration. This must occur after
+                // `create_parent_dirs` to ensure that the path is only set when
+                // no symlinks are encountered. Otherwise there could be
+                // opportunity for a filesystem write-what-where attack.
+                prev_created_path = path
+                    .parent()
+                    .map(RepoPath::to_owned)
+                    .expect("diff path has no parent");
+
+                disk_path
             };
+
             // If the path was present, check reserved path first and delete it.
             let present_file_deleted = before.is_present() && remove_old_file(&disk_path)?;
             // If not, create temporary file to test the path validity.
@@ -1987,11 +2032,17 @@ impl TreeState {
             // TODO: Check that the file has not changed before overwriting/removing it.
             let file_state = match after {
                 MaterializedTreeValue::Absent | MaterializedTreeValue::AccessDenied(_) => {
+                    // Reset the previous path to avoid scenarios where this path is deleted,
+                    // then on the next iteration recreation is skipped because of this
+                    // optimization.
+                    prev_created_path = RepoPathBuf::root();
+
                     let mut parent_dir = disk_path.parent().unwrap();
                     loop {
                         if fs::remove_dir(parent_dir).is_err() {
                             break;
                         }
+
                         parent_dir = parent_dir.parent().unwrap();
                     }
                     deleted_files.insert(path);

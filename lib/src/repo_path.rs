@@ -441,6 +441,74 @@ impl RepoPath {
         };
         RepoPathBuf { value }
     }
+
+    /// Splits this path at its common prefix with `other`.
+    ///
+    /// # Returns
+    ///
+    /// Returns the `(common_prefix, self_remainder)`.
+    ///
+    /// All paths will at least have `RepoPath::root()` as a common prefix,
+    /// therefore even if `self` and `other` have no matching parent component
+    /// this function will always return at least `(RepoPath::root(), self)`.
+    ///
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use jj_lib::repo_path::RepoPath;
+    ///
+    /// let bing_path = RepoPath::from_internal_string("foo/bar/bing").unwrap();
+    ///
+    /// let baz_path = RepoPath::from_internal_string("foo/bar/baz").unwrap();
+    ///
+    /// let foo_bar_path = RepoPath::from_internal_string("foo/bar").unwrap();
+    ///
+    /// assert_eq!(
+    ///     bing_path.split_common_prefix(&baz_path),
+    ///     (foo_bar_path, RepoPath::from_internal_string("bing").unwrap())
+    /// );
+    ///
+    /// let unrelated_path = RepoPath::from_internal_string("no/common/prefix").unwrap();
+    /// assert_eq!(
+    ///     baz_path.split_common_prefix(&unrelated_path),
+    ///     (RepoPath::root(), baz_path)
+    /// );
+    /// ```
+    pub fn split_common_prefix(&self, other: &Self) -> (&Self, &Self) {
+        // Obtain the common prefix between these paths
+        let mut prefix_len = 0;
+
+        let common_components = self
+            .components()
+            .zip(other.components())
+            .take_while(|(prev_comp, this_comp)| prev_comp == this_comp);
+
+        for (self_comp, _other_comp) in common_components {
+            if prefix_len > 0 {
+                // + 1 for all paths to take their separators into account.
+                // We skip the first one since there are ComponentCount - 1 separators in a
+                // path.
+                prefix_len += 1;
+            }
+
+            prefix_len += self_comp.value.len();
+        }
+
+        if prefix_len == 0 {
+            // No common prefix except root
+            return (Self::root(), self);
+        }
+
+        if prefix_len == self.value.len() {
+            return (self, Self::root());
+        }
+
+        let common_prefix = Self::from_internal_string_unchecked(&self.value[..prefix_len]);
+        let remainder = Self::from_internal_string_unchecked(&self.value[prefix_len + 1..]);
+
+        (common_prefix, remainder)
+    }
 }
 
 impl AsRef<Self> for RepoPath {
@@ -1213,6 +1281,49 @@ mod tests {
         assert_eq!(
             format("x/something/1to2.txt", "x/something/something/1to2.txt"),
             "x/something/{ => something}/1to2.txt"
+        );
+    }
+
+    #[test]
+    fn test_split_common_prefix() {
+        assert_eq!(
+            repo_path("foo/bar").split_common_prefix(repo_path("foo/bar/baz")),
+            (repo_path("foo/bar"), repo_path(""))
+        );
+
+        assert_eq!(
+            repo_path("foo/bar/baz").split_common_prefix(repo_path("foo/bar")),
+            (repo_path("foo/bar"), repo_path("baz"))
+        );
+
+        assert_eq!(
+            repo_path("foo/bar/bing").split_common_prefix(repo_path("foo/bar/baz")),
+            (repo_path("foo/bar"), repo_path("bing"))
+        );
+
+        assert_eq!(
+            repo_path("no/common/prefix").split_common_prefix(repo_path("foo/bar/baz")),
+            (RepoPath::root(), repo_path("no/common/prefix"))
+        );
+
+        assert_eq!(
+            repo_path("same/path").split_common_prefix(repo_path("same/path")),
+            (repo_path("same/path"), RepoPath::root())
+        );
+
+        assert_eq!(
+            RepoPath::root().split_common_prefix(repo_path("foo")),
+            (RepoPath::root(), RepoPath::root())
+        );
+
+        assert_eq!(
+            RepoPath::root().split_common_prefix(RepoPath::root()),
+            (RepoPath::root(), RepoPath::root())
+        );
+
+        assert_eq!(
+            repo_path("foo/bar").split_common_prefix(RepoPath::root()),
+            (RepoPath::root(), repo_path("foo/bar"))
         );
     }
 }
