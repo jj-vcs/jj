@@ -106,10 +106,10 @@ fn test_show() {
     let output = work_dir.run_jj(["file", "show", "file1"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    %%%%%%% Changes from base (rlvkpnrz d506fcb9) to side #1 (rebase destination: qpvuntsm eb7b8a1f)
     -b
     +a
-    +++++++ Contents of side #2
+    +++++++ Contents of side #2 (rebased commit: kpqxywon 9433f7fb)
     c
     >>>>>>> Conflict 1 of 1 ends
     [EOF]

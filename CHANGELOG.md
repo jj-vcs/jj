@@ -25,8 +25,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `CryptographicSignature.key()` template method now also works for SSH
   signatures and returns the corresponding public key fingerprint.
 
-* Conflicts resulting from merges now have labels indicating the change ID and
-  commit ID for each side.
+* Conflicts resulting from merges and rebases now have labels indicating the
+  change ID and commit ID for each side.
 
 ### Fixed bugs
 

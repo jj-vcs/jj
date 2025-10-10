@@ -586,7 +586,7 @@ pub type MergedTreeVal<'a> = Merge<Option<&'a TreeValue>>;
 /// tree, it shouldn't be.
 pub type MergedTreeValue = Merge<Option<TreeValue>>;
 
-/// Labels for the sides of a conflict. Reference counted to make iterating over
+/// Labels for the sides of a conflict. Reference-counted to make iterating over
 /// subtrees more efficient.
 pub type ConflictLabels = Arc<Merge<String>>;
 
