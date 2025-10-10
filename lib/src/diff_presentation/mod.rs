@@ -33,7 +33,6 @@ use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::diff::find_line_ranges;
 use crate::merge::Diff;
-use crate::merge::Merge;
 use crate::repo_path::RepoPath;
 
 pub mod unified;
@@ -53,12 +52,6 @@ pub struct FileContent<T> {
     /// false if this file is likely text; true if it is likely binary.
     pub is_binary: bool,
     pub contents: T,
-}
-
-impl FileContent<Merge<BString>> {
-    pub fn is_empty(&self) -> bool {
-        self.contents.as_resolved().is_some_and(|c| c.is_empty())
-    }
 }
 
 pub fn file_content_for_diff<T>(

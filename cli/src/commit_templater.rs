@@ -34,6 +34,7 @@ use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
+use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::copies::CopiesTreeDiffEntry;
@@ -2200,7 +2201,12 @@ impl TreeDiff {
 
     fn into_formatted<F, E>(self, show: F) -> TreeDiffFormatted<F>
     where
-        F: Fn(&mut dyn Formatter, &Store, BoxStream<CopiesTreeDiffEntry>) -> Result<(), E>,
+        F: Fn(
+            &mut dyn Formatter,
+            &Store,
+            BoxStream<CopiesTreeDiffEntry>,
+            Diff<&ConflictLabels>,
+        ) -> Result<(), E>,
         E: Into<TemplatePropertyError>,
     {
         TreeDiffFormatted { diff: self, show }
@@ -2215,14 +2221,21 @@ struct TreeDiffFormatted<F> {
 
 impl<F, E> Template for TreeDiffFormatted<F>
 where
-    F: Fn(&mut dyn Formatter, &Store, BoxStream<CopiesTreeDiffEntry>) -> Result<(), E>,
+    F: Fn(
+        &mut dyn Formatter,
+        &Store,
+        BoxStream<CopiesTreeDiffEntry>,
+        Diff<&ConflictLabels>,
+    ) -> Result<(), E>,
     E: Into<TemplatePropertyError>,
 {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
         let show = &self.show;
         let store = self.diff.from_tree.store();
         let tree_diff = self.diff.diff_stream();
-        show(formatter.as_mut(), store, tree_diff).or_else(|err| formatter.handle_error(err.into()))
+        let conflict_labels = Diff::new(self.diff.from_tree.labels(), self.diff.to_tree.labels());
+        show(formatter.as_mut(), store, tree_diff, conflict_labels)
+            .or_else(|err| formatter.handle_error(err.into()))
     }
 }
 
@@ -2268,11 +2281,12 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                     if let Some(context) = context {
                         options.context = context;
                     }
-                    diff.into_formatted(move |formatter, store, tree_diff| {
+                    diff.into_formatted(move |formatter, store, tree_diff, conflict_labels| {
                         diff_util::show_color_words_diff(
                             formatter,
                             store,
                             tree_diff,
+                            conflict_labels,
                             path_converter,
                             &options,
                             conflict_marker_style,
@@ -2310,10 +2324,11 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                     if let Some(context) = context {
                         options.context = context;
                     }
-                    diff.into_formatted(move |formatter, store, tree_diff| {
+                    diff.into_formatted(move |formatter, store, trees, tree_diff| {
                         diff_util::show_git_diff(
                             formatter,
                             store,
+                            trees,
                             tree_diff,
                             &options,
                             conflict_marker_style,
@@ -2366,7 +2381,7 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
             let path_converter = language.path_converter;
             let template = self_property
                 .map(move |diff| {
-                    diff.into_formatted(move |formatter, _store, tree_diff| {
+                    diff.into_formatted(move |formatter, _store, tree_diff, _conflict_labels| {
                         diff_util::show_diff_summary(formatter, tree_diff, path_converter)
                             .block_on()
                     })
