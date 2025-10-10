@@ -90,15 +90,15 @@ fn test_materialize_conflict_basic() {
         @r"
     line 1
     line 2
-    <<<<<<< Conflict 1 of 1
-    +++++++ Contents of side #1
+    <<<<<<< conflict 1 of 1
+    +++++++ side #1
     left 3.1
     left 3.2
     left 3.3
-    %%%%%%% Changes from base to side #2
+    %%%%%%% side #2 compared with base
     -line 3
     +right 3.1
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     line 4
     line 5
     "
@@ -114,15 +114,15 @@ fn test_materialize_conflict_basic() {
         @r"
     line 1
     line 2
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% side #1 compared with base
     -line 3
     +right 3.1
-    +++++++ Contents of side #2
+    +++++++ side #2
     left 3.1
     left 3.2
     left 3.3
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     line 4
     line 5
     "
@@ -137,16 +137,16 @@ fn test_materialize_conflict_basic() {
         @r"
     line 1
     line 2
-    <<<<<<< Conflict 1 of 1
-    +++++++ Contents of side #1
+    <<<<<<< conflict 1 of 1
+    +++++++ side #1
     left 3.1
     left 3.2
     left 3.3
-    ------- Contents of base
+    ------- base
     line 3
-    +++++++ Contents of side #2
+    +++++++ side #2
     right 3.1
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     line 4
     line 5
     "
@@ -161,15 +161,15 @@ fn test_materialize_conflict_basic() {
         @r"
     line 1
     line 2
-    <<<<<<< Side #1 (Conflict 1 of 1)
+    <<<<<<< side #1 (conflict 1 of 1)
     left 3.1
     left 3.2
     left 3.3
-    ||||||| Base
+    ||||||| base
     line 3
     =======
     right 3.1
-    >>>>>>> Side #2 (Conflict 1 of 1 ends)
+    >>>>>>> side #2 (conflict 1 of 1 ends)
     line 4
     line 5
     "
@@ -244,21 +244,21 @@ fn test_materialize_conflict_three_sides() {
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff),
         @r"
     line 1
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base #1 to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% side #1 compared with base #1
     -line 2 base
     -line 3 base
     +line 2 a.1
     +line 3 a.2
      line 4 base
-    +++++++ Contents of side #2
+    +++++++ side #2
     line 2 b.1
     line 3 base
     line 4 b.2
-    %%%%%%% Changes from base #2 to side #3
+    %%%%%%% side #3 compared with base #2
      line 2 base
     +line 3 c.2
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     line 5
     "
     );
@@ -267,21 +267,21 @@ fn test_materialize_conflict_three_sides() {
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::DiffExperimental),
         @r"
     line 1
-    <<<<<<< Conflict 1 of 1
-    +++++++ Contents of side #1
+    <<<<<<< conflict 1 of 1
+    +++++++ side #1
     line 2 a.1
     line 3 a.2
     line 4 base
-    %%%%%%% Changes from base #1 to side #2
+    %%%%%%% side #2 compared with base #1
     -line 2 base
     +line 2 b.1
      line 3 base
     -line 4 base
     +line 4 b.2
-    %%%%%%% Changes from base #2 to side #3
+    %%%%%%% side #3 compared with base #2
      line 2 base
     +line 3 c.2
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     line 5
     "
     );
@@ -290,25 +290,25 @@ fn test_materialize_conflict_three_sides() {
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Snapshot),
         @r"
     line 1
-    <<<<<<< Conflict 1 of 1
-    +++++++ Contents of side #1
+    <<<<<<< conflict 1 of 1
+    +++++++ side #1
     line 2 a.1
     line 3 a.2
     line 4 base
-    ------- Contents of base #1
+    ------- base #1
     line 2 base
     line 3 base
     line 4 base
-    +++++++ Contents of side #2
+    +++++++ side #2
     line 2 b.1
     line 3 base
     line 4 b.2
-    ------- Contents of base #2
+    ------- base #2
     line 2 base
-    +++++++ Contents of side #3
+    +++++++ side #3
     line 2 base
     line 3 c.2
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     line 5
     "
     );
@@ -318,25 +318,25 @@ fn test_materialize_conflict_three_sides() {
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Git),
         @r"
     line 1
-    <<<<<<< Conflict 1 of 1
-    +++++++ Contents of side #1
+    <<<<<<< conflict 1 of 1
+    +++++++ side #1
     line 2 a.1
     line 3 a.2
     line 4 base
-    ------- Contents of base #1
+    ------- base #1
     line 2 base
     line 3 base
     line 4 base
-    +++++++ Contents of side #2
+    +++++++ side #2
     line 2 b.1
     line 3 base
     line 4 b.2
-    ------- Contents of base #2
+    ------- base #2
     line 2 base
-    +++++++ Contents of side #3
+    +++++++ side #3
     line 2 base
     line 3 c.2
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     line 5
     "
     );
@@ -399,19 +399,19 @@ fn test_materialize_conflict_multi_rebase_conflicts() {
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff),
         @r"
     line 1
-    <<<<<<< Conflict 1 of 1
-    +++++++ Contents of side #1
+    <<<<<<< conflict 1 of 1
+    +++++++ side #1
     line 2 a.1
     line 2 a.2
     line 2 a.3
-    %%%%%%% Changes from base #1 to side #2
+    %%%%%%% side #2 compared with base #1
     -line 2 base
     +line 2 b.1
     +line 2 b.2
-    %%%%%%% Changes from base #2 to side #3
+    %%%%%%% side #3 compared with base #2
     -line 2 base
     +line 2 c.1
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     line 3
     "
     );
@@ -423,19 +423,19 @@ fn test_materialize_conflict_multi_rebase_conflicts() {
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff),
         @r"
     line 1
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base #1 to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% side #1 compared with base #1
     -line 2 base
     +line 2 c.1
-    %%%%%%% Changes from base #2 to side #2
+    %%%%%%% side #2 compared with base #2
     -line 2 base
     +line 2 b.1
     +line 2 b.2
-    +++++++ Contents of side #3
+    +++++++ side #3
     line 2 a.1
     line 2 a.2
     line 2 a.3
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     line 3
     "
     );
@@ -447,19 +447,19 @@ fn test_materialize_conflict_multi_rebase_conflicts() {
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff),
         @r"
     line 1
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base #1 to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% side #1 compared with base #1
     -line 2 base
     +line 2 c.1
-    +++++++ Contents of side #2
+    +++++++ side #2
     line 2 a.1
     line 2 a.2
     line 2 a.3
-    %%%%%%% Changes from base #2 to side #3
+    %%%%%%% side #3 compared with base #2
     -line 2 base
     +line 2 b.1
     +line 2 b.2
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     line 3
     "
     );
@@ -515,25 +515,25 @@ fn test_materialize_parse_roundtrip() {
     insta::assert_snapshot!(
         materialized,
         @r"
-    <<<<<<< Conflict 1 of 2
-    +++++++ Contents of side #1
+    <<<<<<< conflict 1 of 2
+    +++++++ side #1
     line 1 left
     line 2 left
-    %%%%%%% Changes from base to side #2
+    %%%%%%% side #2 compared with base
     -line 1
     +line 1 right
      line 2
-    >>>>>>> Conflict 1 of 2 ends
+    >>>>>>> conflict 1 of 2 ends
     line 3
-    <<<<<<< Conflict 2 of 2
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 2 of 2
+    %%%%%%% side #1 compared with base
      line 4
     -line 5
     +line 5 left
-    +++++++ Contents of side #2
+    +++++++ side #2
     line 4 right
     line 5 right
-    >>>>>>> Conflict 2 of 2 ends
+    >>>>>>> conflict 2 of 2 ends
     "
     );
 
@@ -644,12 +644,12 @@ fn test_materialize_conflict_no_newlines_at_eof() {
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
     insta::assert_snapshot!(materialized,
         @r"
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1 (adds terminating newline)
+    <<<<<<< conflict 1 of 1
+    %%%%%%% side #1 compared with base (adds terminating newline)
     -base
-    +++++++ Contents of side #2 (no terminating newline)
+    +++++++ side #2 (no terminating newline)
     right
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     "
     );
     // The conflict markers are parsed with the trailing newline, but it is removed
@@ -722,12 +722,12 @@ fn test_materialize_conflict_modify_delete() {
     insta::assert_snapshot!(&materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff), @r"
     line 1
     line 2
-    <<<<<<< Conflict 1 of 1
-    +++++++ Contents of side #1
+    <<<<<<< conflict 1 of 1
+    +++++++ side #1
     modified
-    %%%%%%% Changes from base to side #2
+    %%%%%%% side #2 compared with base
     -line 3
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     line 4
     line 5
     "
@@ -741,12 +741,12 @@ fn test_materialize_conflict_modify_delete() {
     insta::assert_snapshot!(&materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff), @r"
     line 1
     line 2
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% side #1 compared with base
     -line 3
-    +++++++ Contents of side #2
+    +++++++ side #2
     modified
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     line 4
     line 5
     "
@@ -758,16 +758,16 @@ fn test_materialize_conflict_modify_delete() {
         vec![Some(modified_id.clone()), None],
     );
     insta::assert_snapshot!(&materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff), @r"
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% side #1 compared with base
      line 1
      line 2
     -line 3
     +modified
      line 4
      line 5
-    +++++++ Contents of side #2
-    >>>>>>> Conflict 1 of 1 ends
+    +++++++ side #2
+    >>>>>>> conflict 1 of 1 ends
     "
     );
 }
@@ -812,18 +812,93 @@ fn test_materialize_conflict_two_forward_diffs() {
     insta::assert_snapshot!(
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff),
         @r"
-    <<<<<<< Conflict 1 of 1
-    +++++++ Contents of side #1
+    <<<<<<< conflict 1 of 1
+    +++++++ side #1
     A
-    %%%%%%% Changes from base #1 to side #2
+    %%%%%%% side #2 compared with base #1
      B
-    %%%%%%% Changes from base #2 to side #3
+    %%%%%%% side #3 compared with base #2
     -C
     +D
-    %%%%%%% Changes from base #3 to side #4
+    %%%%%%% side #4 compared with base #3
     -E
     +C
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
+    "
+    );
+}
+
+#[test]
+fn test_materialize_conflict_with_labels() {
+    let test_repo = TestRepo::init();
+    let store = test_repo.repo.store();
+
+    let path = repo_path("file");
+    let side1 = testutils::write_file(store, path, "side 1\n");
+    let base1 = testutils::write_file(store, path, "base 1\n");
+    let side2 = testutils::write_file(store, path, "side 2\n");
+
+    let conflict = Merge::from_vec(vec![Some(side1), Some(base1), Some(side2)]);
+    let conflict_labels = ConflictLabels::from_vec(vec![
+        "commit 1".into(),
+        "commit 2".into(),
+        "commit 3".into(),
+    ]);
+    insta::assert_snapshot!(
+        &materialize_conflict_string_with_labels(
+            store,
+            path,
+            &conflict,
+            &conflict_labels,
+            ConflictMarkerStyle::Diff,
+        ),
+        @r"
+    <<<<<<< conflict 1 of 1
+    %%%%%%% commit 1 compared with commit 2
+    -base 1
+    +side 1
+    +++++++ commit 3
+    side 2
+    >>>>>>> conflict 1 of 1 ends
+    "
+    );
+
+    insta::assert_snapshot!(
+        &materialize_conflict_string_with_labels(
+            store,
+            path,
+            &conflict,
+            &conflict_labels,
+            ConflictMarkerStyle::Snapshot,
+        ),
+        @r"
+    <<<<<<< conflict 1 of 1
+    +++++++ commit 1
+    side 1
+    ------- commit 2
+    base 1
+    +++++++ commit 3
+    side 2
+    >>>>>>> conflict 1 of 1 ends
+    "
+    );
+
+    insta::assert_snapshot!(
+        &materialize_conflict_string_with_labels(
+            store,
+            path,
+            &conflict,
+            &conflict_labels,
+            ConflictMarkerStyle::Git,
+        ),
+        @r"
+    <<<<<<< commit 1 (conflict 1 of 1)
+    side 1
+    ||||||| commit 2
+    base 1
+    =======
+    side 2
+    >>>>>>> commit 3 (conflict 1 of 1 ends)
     "
     );
 }
@@ -1582,13 +1657,13 @@ fn test_parse_conflict_mixed_header_styles() {
     insta::assert_debug_snapshot!(
         parse_conflict(indoc! {b"
             line 1
-            <<<<<<< Conflict 1 of 1
-            +++++++ Contents of side #1
+            <<<<<<< conflict 1 of 1
+            +++++++ side #1
             ======= ignored
-            ------- Contents of base
+            ------- base
             ||||||| ignored
-            +++++++ Contents of side #2
-            >>>>>>> Conflict 1 of 1 ends
+            +++++++ side #2
+            >>>>>>> conflict 1 of 1 ends
             line 5
             "},
             2,
@@ -1618,13 +1693,13 @@ fn test_parse_conflict_mixed_header_styles() {
     insta::assert_debug_snapshot!(
         parse_conflict(indoc! {b"
             line 1
-            <<<<<<< Side #1 (Conflict 1 of 1)
-            ||||||| Base
+            <<<<<<< side #1 (conflict 1 of 1)
+            ||||||| base
             ------- ignored
             %%%%%%% ignored
             =======
             +++++++ ignored
-            >>>>>>> Side #2 (Conflict 1 of 1 ends)
+            >>>>>>> side #2 (conflict 1 of 1 ends)
             line 5
             "},
             2,
@@ -1781,21 +1856,21 @@ fn test_update_conflict_from_content_simplified_conflict() {
     insta::assert_snapshot!(
         materialized,
         @r"
-    <<<<<<< Conflict 1 of 2
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 1 of 2
+    %%%%%%% side #1 compared with base
     -line 1
     +left 1
-    +++++++ Contents of side #2
+    +++++++ side #2
     right 1
-    >>>>>>> Conflict 1 of 2 ends
+    >>>>>>> conflict 1 of 2 ends
     line 2
-    <<<<<<< Conflict 2 of 2
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 2 of 2
+    %%%%%%% side #1 compared with base
     -line 3
     +left 3
-    +++++++ Contents of side #2
+    +++++++ side #2
     right 3
-    >>>>>>> Conflict 2 of 2 ends
+    >>>>>>> conflict 2 of 2 ends
     "
     );
     assert_eq!(parse(materialized.as_bytes()), conflict);
@@ -1889,23 +1964,23 @@ fn test_update_conflict_from_content_with_long_markers() {
     let materialized =
         materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Snapshot);
     insta::assert_snapshot!(materialized, @r"
-    <<<<<<<<<<<<<<<< Conflict 1 of 2
-    ++++++++++++++++ Contents of side #1
+    <<<<<<<<<<<<<<<< conflict 1 of 2
+    ++++++++++++++++ side #1
     <<<< left 1
-    ---------------- Contents of base
+    ---------------- base
     line 1
-    ++++++++++++++++ Contents of side #2
+    ++++++++++++++++ side #2
     >>>>>>> right 1
-    >>>>>>>>>>>>>>>> Conflict 1 of 2 ends
+    >>>>>>>>>>>>>>>> conflict 1 of 2 ends
     line 2
-    <<<<<<<<<<<<<<<< Conflict 2 of 2
-    ++++++++++++++++ Contents of side #1
+    <<<<<<<<<<<<<<<< conflict 2 of 2
+    ++++++++++++++++ side #1
     <<<<<<<<<<<< left 3
-    ---------------- Contents of base
+    ---------------- base
     line 3
-    ++++++++++++++++ Contents of side #2
+    ++++++++++++++++ side #2
     >>>>>>>>>>>> right 3
-    >>>>>>>>>>>>>>>> Conflict 2 of 2 ends
+    >>>>>>>>>>>>>>>> conflict 2 of 2 ends
     "
     );
 
@@ -1991,14 +2066,14 @@ fn test_update_conflict_from_content_with_long_markers() {
     insta::assert_snapshot!(
         materialize_conflict_string(store, path, &new_conflict, ConflictMarkerStyle::Snapshot),
         @r"
-    <<<<<<<<<<< Conflict 1 of 1
-    +++++++++++ Contents of side #1
+    <<<<<<<<<<< conflict 1 of 1
+    +++++++++++ side #1
     <<<< left 1
-    ----------- Contents of base
+    ----------- base
     line 1
-    +++++++++++ Contents of side #2
+    +++++++++++ side #2
     >>>>>>> right 1
-    >>>>>>>>>>> Conflict 1 of 1 ends
+    >>>>>>>>>>> conflict 1 of 1 ends
     line 2
     line 3
     "
@@ -2026,22 +2101,22 @@ fn test_update_conflict_from_content_no_eol() {
     insta::assert_snapshot!(materialized,
         @r"
     line 1
-    <<<<<<< Conflict 1 of 2
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 1 of 2
+    %%%%%%% side #1 compared with base
     -line 2
     +line 2 left
-    +++++++ Contents of side #2
+    +++++++ side #2
     line 2 right
-    >>>>>>> Conflict 1 of 2 ends
+    >>>>>>> conflict 1 of 2 ends
     line 3
-    <<<<<<< Conflict 2 of 2
-    +++++++ Contents of side #1
+    <<<<<<< conflict 2 of 2
+    +++++++ side #1
     base
     left
-    %%%%%%% Changes from base to side #2 (no terminating newline)
+    %%%%%%% side #2 compared with base (no terminating newline)
     -base
     +right
-    >>>>>>> Conflict 2 of 2 ends
+    >>>>>>> conflict 2 of 2 ends
     "
     );
     assert_eq!(
@@ -2062,24 +2137,24 @@ fn test_update_conflict_from_content_no_eol() {
     insta::assert_snapshot!(materialized,
         @r"
     line 1
-    <<<<<<< Conflict 1 of 2
-    +++++++ Contents of side #1
+    <<<<<<< conflict 1 of 2
+    +++++++ side #1
     line 2 left
-    ------- Contents of base
+    ------- base
     line 2
-    +++++++ Contents of side #2
+    +++++++ side #2
     line 2 right
-    >>>>>>> Conflict 1 of 2 ends
+    >>>>>>> conflict 1 of 2 ends
     line 3
-    <<<<<<< Conflict 2 of 2
-    +++++++ Contents of side #1
+    <<<<<<< conflict 2 of 2
+    +++++++ side #1
     base
     left
-    ------- Contents of base (no terminating newline)
+    ------- base (no terminating newline)
     base
-    +++++++ Contents of side #2 (no terminating newline)
+    +++++++ side #2 (no terminating newline)
     right
-    >>>>>>> Conflict 2 of 2 ends
+    >>>>>>> conflict 2 of 2 ends
     "
     );
     assert_eq!(
@@ -2100,22 +2175,22 @@ fn test_update_conflict_from_content_no_eol() {
     insta::assert_snapshot!(materialized,
         @r"
     line 1
-    <<<<<<< Side #1 (Conflict 1 of 2)
+    <<<<<<< side #1 (conflict 1 of 2)
     line 2 left
-    ||||||| Base
+    ||||||| base
     line 2
     =======
     line 2 right
-    >>>>>>> Side #2 (Conflict 1 of 2 ends)
+    >>>>>>> side #2 (conflict 1 of 2 ends)
     line 3
-    <<<<<<< Side #1 (Conflict 2 of 2)
+    <<<<<<< side #1 (conflict 2 of 2)
     base
     left
-    ||||||| Base
+    ||||||| base
     base
     =======
     right
-    >>>>>>> Side #2 (Conflict 2 of 2 ends)
+    >>>>>>> side #2 (conflict 2 of 2 ends)
     "
     );
     assert_eq!(
@@ -2169,26 +2244,26 @@ fn test_update_conflict_from_content_no_eol_in_diff_hunk() {
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
     insta::assert_snapshot!(materialized,
         @r"
-    <<<<<<< Conflict 1 of 1
-    +++++++ Contents of side #1
+    <<<<<<< conflict 1 of 1
+    +++++++ side #1
     side
-    %%%%%%% Changes from base #1 to side #2 (adds terminating newline)
+    %%%%%%% side #2 compared with base #1 (adds terminating newline)
      add newline
     -line
     +line
-    %%%%%%% Changes from base #2 to side #3 (removes terminating newline)
+    %%%%%%% side #3 compared with base #2 (removes terminating newline)
      remove newline
     -line
     +line
-    %%%%%%% Changes from base #3 to side #4 (no terminating newline)
+    %%%%%%% side #4 compared with base #3 (no terminating newline)
      no newline
     -line 1
     +line 2
-    %%%%%%% Changes from base #4 to side #5
+    %%%%%%% side #5 compared with base #4
      with newline
     -line 1
     +line 2
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     "
     );
     assert_eq!(
@@ -2225,12 +2300,12 @@ fn test_update_conflict_from_content_only_no_eol_change() {
     insta::assert_snapshot!(materialized,
         @r"
     line 1
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1 (removes terminating newline)
+    <<<<<<< conflict 1 of 1
+    %%%%%%% side #1 compared with base (removes terminating newline)
     +line 2
-    +++++++ Contents of side #2
+    +++++++ side #2
     line 2
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     "
     );
     assert_eq!(
@@ -2303,21 +2378,21 @@ fn test_update_from_content_malformed_conflict() {
         materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
     insta::assert_snapshot!(materialized, @r"
     line 1
-    <<<<<<< Conflict 1 of 2
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 1 of 2
+    %%%%%%% side #1 compared with base
     -line 2
     +line 2 left
-    +++++++ Contents of side #2
+    +++++++ side #2
     line 2 right
-    >>>>>>> Conflict 1 of 2 ends
+    >>>>>>> conflict 1 of 2 ends
     line 3
-    <<<<<<< Conflict 2 of 2
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 2 of 2
+    %%%%%%% side #1 compared with base
     -line 4
     +line 4 left
-    +++++++ Contents of side #2
+    +++++++ side #2
     line 4 right
-    >>>>>>> Conflict 2 of 2 ends
+    >>>>>>> conflict 2 of 2 ends
     line 5
     "
     );
@@ -2408,6 +2483,22 @@ fn materialize_conflict_string(
     conflict: &Merge<Option<FileId>>,
     marker_style: ConflictMarkerStyle,
 ) -> String {
+    materialize_conflict_string_with_labels(
+        store,
+        path,
+        conflict,
+        &ConflictLabels::unlabeled(),
+        marker_style,
+    )
+}
+
+fn materialize_conflict_string_with_labels(
+    store: &Store,
+    path: &RepoPath,
+    conflict: &Merge<Option<FileId>>,
+    conflict_labels: &ConflictLabels,
+    marker_style: ConflictMarkerStyle,
+) -> String {
     let contents = extract_as_single_hunk(conflict, store, path)
         .block_on()
         .unwrap();
@@ -2420,7 +2511,7 @@ fn materialize_conflict_string(
         },
     };
     String::from_utf8(
-        materialize_merge_result_to_bytes(&contents, &ConflictLabels::unlabeled(), &options).into(),
+        materialize_merge_result_to_bytes(&contents, conflict_labels, &options).into(),
     )
     .unwrap()
 }

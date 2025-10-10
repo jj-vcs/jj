@@ -189,13 +189,13 @@ fn test_new_merge_conflicts() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.read_file("file"), @r"
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% side #1 compared with base
     -1a
     +3a 1a
-    +++++++ Contents of side #2
+    +++++++ side #2
     1a 2a
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     1b
     2c
     ");
@@ -261,12 +261,12 @@ fn test_new_merge_same_change() {
     ");
     insta::assert_snapshot!(work_dir.read_file("file"), @r"
     a
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% side #1 compared with base
     +b
-    +++++++ Contents of side #2
+    +++++++ side #2
     b
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     ");
 }
 
