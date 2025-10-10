@@ -43,4 +43,5 @@ contribute or not.
 * solson
 * spectral54
 * steadmon
+* zstewar1
 * zygoloid
