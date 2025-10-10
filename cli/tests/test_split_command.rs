@@ -76,7 +76,7 @@ fn test_split_by_paths() {
     Selected changes : qpvuntsm 6dbc7747 (no description set)
     Remaining changes: zsuskuln 42cbbc02 (no description set)
     Working copy  (@) now at: zsuskuln 42cbbc02 (no description set)
-    Parent commit (@-)      : qpvuntsm 6dbc7747 (no description set)
+    Parent revision (@-)    : qpvuntsm 6dbc7747 (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(
@@ -132,7 +132,7 @@ fn test_split_by_paths() {
     Selected changes : qpvuntsm 9fd1c9e1 (no description set)
     Remaining changes: znkkpsqq 41e0da21 (empty) (no description set)
     Working copy  (@) now at: zsuskuln a06e40b8 (no description set)
-    Parent commit (@-)      : znkkpsqq 41e0da21 (empty) (no description set)
+    Parent revision (@-)    : znkkpsqq 41e0da21 (empty) (no description set)
     [EOF]
     ");
 
@@ -163,7 +163,7 @@ fn test_split_by_paths() {
     Selected changes : qpvuntsm 49416632 (empty) (no description set)
     Remaining changes: lylxulpl 718afbf5 (no description set)
     Working copy  (@) now at: zsuskuln 0ed53ee6 (no description set)
-    Parent commit (@-)      : lylxulpl 718afbf5 (no description set)
+    Parent revision (@-)    : lylxulpl 718afbf5 (no description set)
     [EOF]
     ");
 
@@ -212,7 +212,7 @@ fn test_split_with_non_empty_description() {
     Selected changes : qpvuntsm c7f7b14b part 1
     Remaining changes: kkmpptxz ac33a5a9 part 2
     Working copy  (@) now at: kkmpptxz ac33a5a9 part 2
-    Parent commit (@-)      : qpvuntsm c7f7b14b part 1
+    Parent revision (@-)    : qpvuntsm c7f7b14b part 1
     [EOF]
     "#);
 
@@ -272,7 +272,7 @@ fn test_split_with_default_description() {
     Selected changes : qpvuntsm ff633dcc TESTED=TODO
     Remaining changes: rlvkpnrz b1d20b7e (no description set)
     Working copy  (@) now at: rlvkpnrz b1d20b7e (no description set)
-    Parent commit (@-)      : qpvuntsm ff633dcc TESTED=TODO
+    Parent revision (@-)    : qpvuntsm ff633dcc TESTED=TODO
     [EOF]
     "#);
 
@@ -353,7 +353,7 @@ fn test_split_with_descendants() {
     Selected changes : qpvuntsm 74306e35 Add file1
     Remaining changes: royxmykx 0a37745e Add file2
     Working copy  (@) now at: kkmpptxz 7ee84812 Add file4
-    Parent commit (@-)      : rlvkpnrz d335bd94 Add file3
+    Parent revision (@-)    : rlvkpnrz d335bd94 Add file3
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -470,8 +470,8 @@ fn test_split_with_merge_child() {
     Selected changes : kkmpptxz cc199567 Add file1
     Remaining changes: royxmykx e488409f Add file2
     Working copy  (@) now at: zsuskuln ace61421 (empty) 2
-    Parent commit (@-)      : qpvuntsm 884fe9b9 (empty) 1
-    Parent commit (@-)      : royxmykx e488409f Add file2
+    Parent revision (@-)    : qpvuntsm 884fe9b9 (empty) 1
+    Parent revision (@-)    : royxmykx e488409f Add file2
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -520,7 +520,7 @@ fn test_split_parallel_no_descendants() {
     Selected changes : qpvuntsm 7bcd474c TESTED=TODO
     Remaining changes: kkmpptxz 431886f6 (no description set)
     Working copy  (@) now at: kkmpptxz 431886f6 (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     "#);
@@ -647,7 +647,7 @@ fn test_split_parallel_with_descendants() {
     Selected changes : qpvuntsm 18c85f56 Add file1
     Remaining changes: vruxwmqv cbdfd9cf Add file2
     Working copy  (@) now at: vruxwmqv cbdfd9cf Add file2
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -726,9 +726,9 @@ fn test_split_parallel_with_merge_child() {
     Selected changes : kkmpptxz cc199567 Add file1
     Remaining changes: royxmykx 82a5c527 Add file2
     Working copy  (@) now at: zsuskuln b7cdcdec (empty) 2
-    Parent commit (@-)      : qpvuntsm 884fe9b9 (empty) 1
-    Parent commit (@-)      : kkmpptxz cc199567 Add file1
-    Parent commit (@-)      : royxmykx 82a5c527 Add file2
+    Parent revision (@-)    : qpvuntsm 884fe9b9 (empty) 1
+    Parent revision (@-)    : kkmpptxz cc199567 Add file1
+    Parent revision (@-)    : royxmykx 82a5c527 Add file2
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -805,7 +805,7 @@ fn test_split_interactive() {
     Selected changes : qpvuntsm c664a51b (no description set)
     Remaining changes: rlvkpnrz 7e5d65b1 (no description set)
     Working copy  (@) now at: rlvkpnrz 7e5d65b1 (no description set)
-    Parent commit (@-)      : qpvuntsm c664a51b (no description set)
+    Parent revision (@-)    : qpvuntsm c664a51b (no description set)
     [EOF]
     ");
 
@@ -882,7 +882,7 @@ fn test_split_interactive_with_paths() {
     Selected changes : rlvkpnrz cdc9960a (no description set)
     Remaining changes: kkmpptxz 7255f070 (no description set)
     Working copy  (@) now at: kkmpptxz 7255f070 (no description set)
-    Parent commit (@-)      : rlvkpnrz cdc9960a (no description set)
+    Parent revision (@-)    : rlvkpnrz cdc9960a (no description set)
     [EOF]
     ");
 
@@ -1081,7 +1081,7 @@ fn test_split_with_non_empty_description_and_trailers() {
     Selected changes : qpvuntsm c7f7b14b part 1
     Remaining changes: kkmpptxz ac33a5a9 part 2
     Working copy  (@) now at: kkmpptxz ac33a5a9 part 2
-    Parent commit (@-)      : qpvuntsm c7f7b14b part 1
+    Parent revision (@-)    : qpvuntsm c7f7b14b part 1
     [EOF]
     "#);
 
@@ -1139,7 +1139,7 @@ fn test_split_with_message() {
     Selected changes : qpvuntsm f2a70519 fix in file1
     Remaining changes: kkmpptxz cac11766 my feature
     Working copy  (@) now at: kkmpptxz cac11766 my feature
-    Parent commit (@-)      : qpvuntsm f2a70519 fix in file1
+    Parent revision (@-)    : qpvuntsm f2a70519 fix in file1
     [EOF]
     ");
 
@@ -1165,7 +1165,7 @@ fn test_split_with_message() {
     Selected changes : qpvuntsm d01cf12d fix in file1
     Remaining changes: royxmykx b1556ed9 my feature
     Working copy  (@) now at: royxmykx b1556ed9 my feature
-    Parent commit (@-)      : qpvuntsm d01cf12d fix in file1
+    Parent revision (@-)    : qpvuntsm d01cf12d fix in file1
     [EOF]
     ");
 
@@ -1375,7 +1375,7 @@ fn test_split_move_first_commit() {
     Selected changes : nmzmmopx 72225233 file1
     Remaining changes: qpvuntsm 98b70782 file2
     Working copy  (@) now at: royxmykx c3dd10b0 (empty) (no description set)
-    Parent commit (@-)      : nmzmmopx 72225233 file1
+    Parent revision (@-)    : nmzmmopx 72225233 file1
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -1416,7 +1416,7 @@ fn test_split_move_first_commit() {
     Selected changes : nlrtlrxv 1b6975b0 file1
     Remaining changes: qpvuntsm 905586dd file2
     Working copy  (@) now at: royxmykx 85be9860 (empty) (no description set)
-    Parent commit (@-)      : nlrtlrxv 1b6975b0 file1
+    Parent revision (@-)    : nlrtlrxv 1b6975b0 file1
     Added 4 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -1495,7 +1495,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
             Selected changes : qpvuntsm a481fe8a "*le-signet*" | first-commit
             Remaining changes: mzvwutvl 5f597a6e second-commit
             Working copy  (@) now at: mzvwutvl 5f597a6e second-commit
-            Parent commit (@-)      : qpvuntsm a481fe8a "*le-signet*" | first-commit
+            Parent revision (@-)    : qpvuntsm a481fe8a "*le-signet*" | first-commit
             [EOF]
             "#);
             }
@@ -1515,7 +1515,7 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
             Selected changes : qpvuntsm a481fe8a first-commit
             Remaining changes: mzvwutvl 5f597a6e "*le-signet*" | second-commit
             Working copy  (@) now at: mzvwutvl 5f597a6e "*le-signet*" | second-commit
-            Parent commit (@-)      : qpvuntsm a481fe8a first-commit
+            Parent revision (@-)    : qpvuntsm a481fe8a first-commit
             [EOF]
             "#);
             }

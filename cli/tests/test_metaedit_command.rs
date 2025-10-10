@@ -558,7 +558,7 @@ fn test_new_change_id() {
       yqosqzyt 01d6741e b | (no description set)
     Rebased 1 descendant commits
     Working copy  (@) now at: mzvwutvl 0c3fe2d8 c | (no description set)
-    Parent commit (@-)      : yqosqzyt 01d6741e b | (no description set)
+    Parent revision (@-)    : yqosqzyt 01d6741e b | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log(&work_dir), @r"
@@ -677,7 +677,7 @@ fn test_update_empty_author() {
     Modified 1 commits:
       qpvuntsm 0f13b5f2 (empty) (no description set)
     Working copy  (@) now at: qpvuntsm 0f13b5f2 (empty) (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["show"]), @r"
