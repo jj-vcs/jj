@@ -1649,12 +1649,12 @@ mod tests {
                             SectionChangedLine {
                                 is_checked: false,
                                 change_type: Removed,
-                                line: "<<<<<<< Conflict 1 of 1\n",
+                                line: "<<<<<<< conflict 1 of 1\n",
                             },
                             SectionChangedLine {
                                 is_checked: false,
                                 change_type: Removed,
-                                line: "%%%%%%% Changes from base to side #1\n",
+                                line: "%%%%%%% side #1 compared with base\n",
                             },
                             SectionChangedLine {
                                 is_checked: false,
@@ -1664,7 +1664,7 @@ mod tests {
                             SectionChangedLine {
                                 is_checked: false,
                                 change_type: Removed,
-                                line: "+++++++ Contents of side #2\n",
+                                line: "+++++++ side #2\n",
                             },
                             SectionChangedLine {
                                 is_checked: false,
@@ -1674,7 +1674,7 @@ mod tests {
                             SectionChangedLine {
                                 is_checked: false,
                                 change_type: Removed,
-                                line: ">>>>>>> Conflict 1 of 1 ends\n",
+                                line: ">>>>>>> conflict 1 of 1 ends\n",
                             },
                             SectionChangedLine {
                                 is_checked: false,

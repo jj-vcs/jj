@@ -73,13 +73,13 @@ fn test_evolog_with_or_without_diff() {
     │  my description
     │  -- operation 3499115d3831 snapshot working copy
     │  Resolved conflict in file1:
-    │     1     : <<<<<<< Conflict 1 of 1
-    │     2     : %%%%%%% Changes from base to side #1
+    │     1     : <<<<<<< conflict 1 of 1
+    │     2     : %%%%%%% side #1 compared with base
     │     3     : -foo
-    │     4     : +++++++ Contents of side #2
+    │     4     : +++++++ side #2
     │     5     : foo
     │     6     : bar
-    │     7    1: >>>>>>> Conflict 1 of 1 endsresolved
+    │     7    1: >>>>>>> conflict 1 of 1 endsresolved
     ×  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 7f56b2a0 conflict
     │  my description
     │  -- operation eb87ec366530 rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
@@ -164,13 +164,13 @@ fn test_evolog_with_or_without_diff() {
     --- a/file1
     +++ b/file1
     @@ -1,7 +1,1 @@
-    -<<<<<<< Conflict 1 of 1
-    -%%%%%%% Changes from base to side #1
+    -<<<<<<< conflict 1 of 1
+    -%%%%%%% side #1 compared with base
     --foo
-    -+++++++ Contents of side #2
+    -+++++++ side #2
     -foo
     -bar
-    ->>>>>>> Conflict 1 of 1 ends
+    ->>>>>>> conflict 1 of 1 ends
     +resolved
     rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 7f56b2a0 conflict
     my description
@@ -418,14 +418,14 @@ fn test_evolog_squash() {
     ├─┬─╮  squashed 3
     │ │ │  -- operation 838e6d867fda squash commits into 5ec0619af5cb4f7707a556a71a6f96af0bc294d2
     │ │ │  Modified commit description:
-    │ │ │     1     : <<<<<<< Conflict 1 of 1
-    │ │ │     2     : +++++++ Contents of side #1
+    │ │ │     1     : <<<<<<< conflict 1 of 1
+    │ │ │     2     : +++++++ side #1
     │ │ │     3    1: squashed 2
-    │ │ │     4     : %%%%%%% Changes from base #1 to side #2
+    │ │ │     4     : %%%%%%% side #2 compared with base #1
     │ │ │     5     : +fourth
-    │ │ │     6    1: %%%%%%% Changes from base #2 to side #3
+    │ │ │     6    1: %%%%%%% side #3 compared with base #2
     │ │ │     7     : +fifth
-    │ │ │     8     : >>>>>>> Conflict 1 of 1 ends
+    │ │ │     8    1: >>>>>>> conflict 1 of 1 ends
     │ │ ○  vruxwmqv hidden test.user@example.com 2001-02-03 08:05:15 770795d0
     │ │ │  fifth
     │ │ │  -- operation 1d38c000b52d snapshot working copy
@@ -450,12 +450,12 @@ fn test_evolog_squash() {
     ├─╮  squashed 2
     │ │  -- operation fa9796d12627 squash commits into 690858846504af0e42fde980fdacf9851559ebb8
     │ │  Modified commit description:
-    │ │     1     : <<<<<<< Conflict 1 of 1
-    │ │     2     : +++++++ Contents of side #1
+    │ │     1     : <<<<<<< conflict 1 of 1
+    │ │     2     : +++++++ side #1
     │ │     3    1: squashed 1
-    │ │     4    1: %%%%%%% Changes from base to side #2
+    │ │     4    1: %%%%%%% side #2 compared with base
     │ │     5     : +third
-    │ │     6     : >>>>>>> Conflict 1 of 1 ends
+    │ │     6    1: >>>>>>> conflict 1 of 1 ends
     │ │  Removed regular file file2:
     │ │     1     : foo2
     │ │  Removed regular file file3:
@@ -483,12 +483,12 @@ fn test_evolog_squash() {
     ├─╮  squashed 1
     │ │  -- operation 65c81703100d squash commits into 5878cbe03cdf599c9353e5a1a52a01f4c5e0e0fa
     │ │  Modified commit description:
-    │ │     1     : <<<<<<< Conflict 1 of 1
-    │ │     2     : %%%%%%% Changes from base to side #1
+    │ │     1     : <<<<<<< conflict 1 of 1
+    │ │     2     : %%%%%%% side #1 compared with base
     │ │     3     : +first
-    │ │     4     : +++++++ Contents of side #2
+    │ │     4     : +++++++ side #2
     │ │     5     : second
-    │ │     6     : >>>>>>> Conflict 1 of 1 ends
+    │ │     6     : >>>>>>> conflict 1 of 1 ends
     │ │          1: squashed 1
     │ ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:10 a3759c9d
     │ │  second
