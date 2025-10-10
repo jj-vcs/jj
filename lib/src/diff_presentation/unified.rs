@@ -113,7 +113,11 @@ pub fn git_diff_part(
             hash = DUMMY_HASH.to_owned();
             content = FileContent {
                 is_binary: false, // TODO: are we sure this is never binary?
-                contents: materialize_merge_result_to_bytes(&file.contents, materialize_options),
+                contents: materialize_merge_result_to_bytes(
+                    &file.contents,
+                    &file.labels,
+                    materialize_options,
+                ),
             };
         }
         MaterializedTreeValue::OtherConflict { id } => {
