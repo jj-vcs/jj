@@ -1943,15 +1943,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             if self.working_copy_shared_with_git {
                 let old_tree = wc_commit.tree().map_err(snapshot_command_error)?;
                 let new_tree = commit.tree().map_err(snapshot_command_error)?;
-                jj_lib::git::update_intent_to_add(
-                    self.user_repo.repo.as_ref(),
-                    &old_tree,
-                    &new_tree,
-                )
-                .map_err(snapshot_command_error)?;
-
-                let stats = jj_lib::git::export_refs(mut_repo).map_err(snapshot_command_error)?;
-                crate::git_util::print_git_export_stats(ui, &stats)
+                export_working_copy_changes_to_git(ui, mut_repo, &old_tree, &new_tree)
                     .map_err(snapshot_command_error)?;
             }
 
@@ -2350,6 +2342,29 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
 
         Ok(advanceable_bookmarks)
     }
+}
+
+#[cfg(feature = "git")]
+pub fn export_working_copy_changes_to_git(
+    ui: &Ui,
+    mut_repo: &mut MutableRepo,
+    old_tree: &MergedTree,
+    new_tree: &MergedTree,
+) -> Result<(), CommandError> {
+    let repo = mut_repo.base_repo().as_ref();
+    jj_lib::git::update_intent_to_add(repo, old_tree, new_tree)?;
+    let stats = jj_lib::git::export_refs(mut_repo)?;
+    crate::git_util::print_git_export_stats(ui, &stats)?;
+    Ok(())
+}
+#[cfg(not(feature = "git"))]
+pub fn export_working_copy_changes_to_git(
+    _ui: &Ui,
+    _mut_repo: &mut MutableRepo,
+    _old_tree: &MergedTree,
+    _new_tree: &MergedTree,
+) -> Result<(), CommandError> {
+    Ok(())
 }
 
 /// An ongoing [`Transaction`] tied to a particular workspace.

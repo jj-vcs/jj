@@ -22,6 +22,7 @@ use jj_lib::repo::Repo as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
+use crate::cli_util::export_working_copy_changes_to_git;
 use crate::cli_util::print_snapshot_stats;
 use crate::command_error::CommandError;
 use crate::command_error::user_error_with_hint;
@@ -58,6 +59,8 @@ pub(crate) fn cmd_file_untrack(
     let auto_tracking_matcher = workspace_command.auto_tracking_matcher(ui)?;
     let options =
         workspace_command.snapshot_options_with_start_tracking_matcher(&auto_tracking_matcher)?;
+
+    let working_copy_shared_with_git = workspace_command.working_copy_shared_with_git();
 
     let mut tx = workspace_command.start_transaction().into_inner();
     let (mut locked_ws, wc_commit) = workspace_command.start_working_copy_mutation()?;
@@ -108,6 +111,9 @@ Make sure they're ignored, then try again.",
     let num_rebased = tx.repo_mut().rebase_descendants()?;
     if num_rebased > 0 {
         writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
+    }
+    if working_copy_shared_with_git {
+        export_working_copy_changes_to_git(ui, tx.repo_mut(), &wc_tree, &new_commit.tree()?)?;
     }
     let repo = tx.commit("untrack paths")?;
     locked_ws.finish(repo.op_id().clone())?;
