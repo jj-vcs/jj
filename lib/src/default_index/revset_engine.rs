@@ -42,6 +42,7 @@ use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::backend::MillisSinceEpoch;
 use crate::commit::Commit;
+use crate::conflict_labels::ConflictLabels;
 use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::materialize_tree_value;
 use crate::diff::ContentDiff;
@@ -1382,8 +1383,11 @@ async fn matches_diff_from_parent(
         if !values.is_changed() {
             continue;
         }
-        let left_future = materialize_tree_value(store, &entry.path, values.before);
-        let right_future = materialize_tree_value(store, &entry.path, values.after);
+        let conflict_labels = ConflictLabels::unlabeled();
+        let left_future =
+            materialize_tree_value(store, &entry.path, values.before, &conflict_labels);
+        let right_future =
+            materialize_tree_value(store, &entry.path, values.after, &conflict_labels);
         let (left_value, right_value) = futures::try_join!(left_future, right_future)?;
         let left_contents = to_file_content(&entry.path, left_value).await?;
         let right_contents = to_file_content(&entry.path, right_value).await?;
