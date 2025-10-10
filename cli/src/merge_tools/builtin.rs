@@ -23,6 +23,7 @@ use jj_lib::diff::DiffHunkKind;
 use jj_lib::files;
 use jj_lib::files::MergeResult;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
@@ -178,7 +179,12 @@ fn read_file_contents(
             // Since scm_record doesn't support diffs of conflicts, file
             // conflicts are compared in materialized form. The UI would look
             // scary, but it can at least allow squashing resolved hunks.
-            let buf = materialize_merge_result_to_bytes(&file.contents, materialize_options).into();
+            let buf = materialize_merge_result_to_bytes(
+                &file.contents,
+                &file.labels,
+                materialize_options,
+            )
+            .into();
             // TODO: Render the ID somehow?
             let contents = buf_to_file_contents(None, buf);
             Ok(FileInfo {
@@ -262,6 +268,8 @@ fn make_diff_sections(
 
 async fn make_diff_files(
     store: &Arc<Store>,
+    left_tree: &MergedTree,
+    right_tree: &MergedTree,
     tree_diff: BoxStream<'_, CopiesTreeDiffEntry>,
     marker_style: ConflictMarkerStyle,
 ) -> Result<(Vec<RepoPathBuf>, Vec<scm_record::File<'static>>), BuiltinToolError> {
@@ -270,7 +278,8 @@ async fn make_diff_files(
         marker_len: None,
         merge: store.merge_options().clone(),
     };
-    let mut diff_stream = materialized_diff_stream(store, tree_diff);
+    let conflict_labels = Diff::new(left_tree.labels(), right_tree.labels());
+    let mut diff_stream = materialized_diff_stream(store, tree_diff, conflict_labels);
     let mut changed_files = Vec::new();
     let mut files = Vec::new();
     while let Some(entry) = diff_stream.next().await {
@@ -545,8 +554,14 @@ pub fn edit_diff_builtin(
     // TODO: handle copy tracking
     let copy_records = CopyRecords::default();
     let tree_diff = left_tree.diff_stream_with_copies(right_tree, matcher, &copy_records);
-    let (changed_files, files) =
-        make_diff_files(&store, tree_diff, conflict_marker_style).block_on()?;
+    let (changed_files, files) = make_diff_files(
+        &store,
+        left_tree,
+        right_tree,
+        tree_diff,
+        conflict_marker_style,
+    )
+    .block_on()?;
     let mut input = scm_record::helpers::CrosstermInput;
     let recorder = scm_record::Recorder::new(
         scm_record::RecordState {
@@ -754,9 +769,15 @@ mod tests {
     ) -> (Vec<RepoPathBuf>, Vec<scm_record::File<'static>>) {
         let copy_records = CopyRecords::default();
         let tree_diff = left_tree.diff_stream_with_copies(right_tree, matcher, &copy_records);
-        make_diff_files(store, tree_diff, ConflictMarkerStyle::Diff)
-            .block_on()
-            .unwrap()
+        make_diff_files(
+            store,
+            left_tree,
+            right_tree,
+            tree_diff,
+            ConflictMarkerStyle::Diff,
+        )
+        .block_on()
+        .unwrap()
     }
 
     fn apply_diff(
