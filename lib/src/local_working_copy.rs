@@ -1971,7 +1971,11 @@ impl TreeState {
                         marker_len: Some(conflict_marker_len),
                         merge: self.store.merge_options().clone(),
                     };
-                    let contents = materialize_merge_result_to_bytes(&file.contents, &options);
+                    let contents = materialize_merge_result_to_bytes(
+                        &file.contents,
+                        &ConflictLabels::unlabeled(),
+                        &options,
+                    );
                     let mut file_state = self
                         .write_conflict(&disk_path, &contents, file.executable.unwrap_or(false))
                         .await?;

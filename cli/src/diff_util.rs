@@ -37,6 +37,7 @@ use jj_lib::backend::CopyRecord;
 use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
 use jj_lib::config::ConfigGetError;
+use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::conflicts::MaterializedFileValue;
@@ -787,8 +788,16 @@ fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
     }
     match options.conflict {
         ConflictDiffMethod::Materialize => {
-            let left = materialize_merge_result_to_bytes(lefts, materialize_options);
-            let right = materialize_merge_result_to_bytes(rights, materialize_options);
+            let left = materialize_merge_result_to_bytes(
+                lefts,
+                &ConflictLabels::unlabeled(),
+                materialize_options,
+            );
+            let right = materialize_merge_result_to_bytes(
+                rights,
+                &ConflictLabels::unlabeled(),
+                materialize_options,
+            );
             let contents = [&left, &right].map(BStr::new);
             show_color_words_resolved_hunks(formatter, contents, line_number, labels, options)?;
         }
@@ -1254,7 +1263,13 @@ fn diff_content(
         path,
         value,
         |content| content,
-        |contents| materialize_merge_result_to_bytes(&contents, materialize_options),
+        |contents| {
+            materialize_merge_result_to_bytes(
+                &contents,
+                &ConflictLabels::unlabeled(),
+                materialize_options,
+            )
+        },
     )
 }
 
@@ -1626,7 +1641,11 @@ fn git_diff_part(
             hash = DUMMY_HASH.to_owned();
             content = FileContent {
                 is_binary: false, // TODO: are we sure this is never binary?
-                contents: materialize_merge_result_to_bytes(&file.contents, materialize_options),
+                contents: materialize_merge_result_to_bytes(
+                    &file.contents,
+                    &ConflictLabels::unlabeled(),
+                    materialize_options,
+                ),
             };
         }
         MaterializedTreeValue::OtherConflict { id } => {
@@ -2006,6 +2025,7 @@ fn show_git_diff_texts<T: AsRef<[u8]>>(
         Some(text) => Cow::Borrowed(BStr::new(text)),
         None => Cow::Owned(materialize_merge_result_to_bytes(
             content,
+            &ConflictLabels::unlabeled(),
             materialize_options,
         )),
     });

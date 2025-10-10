@@ -9,6 +9,7 @@ use jj_lib::backend::BackendResult;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
+use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::ConflictMaterializeOptions;
@@ -178,7 +179,12 @@ fn read_file_contents(
             // Since scm_record doesn't support diffs of conflicts, file
             // conflicts are compared in materialized form. The UI would look
             // scary, but it can at least allow squashing resolved hunks.
-            let buf = materialize_merge_result_to_bytes(&file.contents, materialize_options).into();
+            let buf = materialize_merge_result_to_bytes(
+                &file.contents,
+                &ConflictLabels::unlabeled(),
+                materialize_options,
+            )
+            .into();
             // TODO: Render the ID somehow?
             let contents = buf_to_file_contents(None, buf);
             Ok(FileInfo {
@@ -1628,12 +1634,12 @@ mod tests {
                             SectionChangedLine {
                                 is_checked: false,
                                 change_type: Removed,
-                                line: "<<<<<<< Conflict 1 of 1\n",
+                                line: "<<<<<<< conflict 1 of 1\n",
                             },
                             SectionChangedLine {
                                 is_checked: false,
                                 change_type: Removed,
-                                line: "%%%%%%% Changes from base to side #1\n",
+                                line: "%%%%%%% side #1 compared with base\n",
                             },
                             SectionChangedLine {
                                 is_checked: false,
@@ -1643,7 +1649,7 @@ mod tests {
                             SectionChangedLine {
                                 is_checked: false,
                                 change_type: Removed,
-                                line: "+++++++ Contents of side #2\n",
+                                line: "+++++++ side #2\n",
                             },
                             SectionChangedLine {
                                 is_checked: false,
@@ -1653,7 +1659,7 @@ mod tests {
                             SectionChangedLine {
                                 is_checked: false,
                                 change_type: Removed,
-                                line: ">>>>>>> Conflict 1 of 1 ends\n",
+                                line: ">>>>>>> conflict 1 of 1 ends\n",
                             },
                             SectionChangedLine {
                                 is_checked: false,

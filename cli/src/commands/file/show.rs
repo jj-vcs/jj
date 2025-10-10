@@ -17,6 +17,7 @@ use std::io::Write as _;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
+use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::conflicts::MaterializedTreeValue;
 use jj_lib::conflicts::materialize_merge_result;
@@ -178,7 +179,12 @@ fn write_tree_entries(
                     marker_len: None,
                     merge: repo.store().merge_options().clone(),
                 };
-                materialize_merge_result(&file.contents, &mut ui.stdout_formatter(), &options)?;
+                materialize_merge_result(
+                    &file.contents,
+                    &ConflictLabels::unlabeled(),
+                    &mut ui.stdout_formatter(),
+                    &options,
+                )?;
             }
             MaterializedTreeValue::OtherConflict { id } => {
                 ui.stdout_formatter().write_all(id.describe().as_bytes())?;

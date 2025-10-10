@@ -33,6 +33,7 @@ use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::CommitId;
 use crate::commit::Commit;
+use crate::conflict_labels::ConflictLabels;
 use crate::conflicts::ConflictMarkerStyle;
 use crate::conflicts::ConflictMaterializeOptions;
 use crate::conflicts::MaterializedTreeValue;
@@ -454,7 +455,11 @@ async fn get_file_contents(
                     same_change: SameChange::Accept,
                 },
             };
-            Ok(materialize_merge_result_to_bytes(&file.contents, &options))
+            Ok(materialize_merge_result_to_bytes(
+                &file.contents,
+                &ConflictLabels::unlabeled(),
+                &options,
+            ))
         }
         _ => Ok(BString::default()),
     }
