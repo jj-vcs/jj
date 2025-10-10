@@ -67,13 +67,13 @@ fn test_restore() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: kkmpptxz 315c9388 (conflict) (no description set)
+    Working copy  (@) now at: kkmpptxz ec83eac4 (conflict) (no description set)
     Parent commit (@-)      : rlvkpnrz 67841e01 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict including 1 deletion
     New conflicts appeared in 1 commits:
-      kkmpptxz 315c9388 (conflict) (no description set)
+      kkmpptxz ec83eac4 (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new kkmpptxz

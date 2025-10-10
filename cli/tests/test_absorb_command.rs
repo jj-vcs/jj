@@ -424,13 +424,13 @@ fn test_absorb_conflict() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
-    Working copy  (@) now at: kkmpptxz 01e6cd99 (conflict) (no description set)
+    Working copy  (@) now at: kkmpptxz fd856fef (conflict) (no description set)
     Parent commit (@-)      : qpvuntsm e35bcaff 1
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file1    2-sided conflict
     New conflicts appeared in 1 commits:
-      kkmpptxz 01e6cd99 (conflict) (no description set)
+      kkmpptxz fd856fef (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new kkmpptxz
@@ -441,16 +441,17 @@ fn test_absorb_conflict() {
     ");
 
     let conflict_content = work_dir.read_file("file1");
-    insta::assert_snapshot!(conflict_content, @r"
+    insta::assert_snapshot!(conflict_content, @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: zzzzzzzz 00000000 (parents of rebased commit)
+    \\\\\\\        to: qpvuntsm e35bcaff "1" (rebase destination)
     +1a
     +1b
-    +++++++ side #2
+    +++++++ kkmpptxz e05db987 (rebased commit)
     2a
     2b
     >>>>>>> conflict 1 of 1 ends
-    ");
+    "#);
 
     // Cannot absorb from conflict
     let output = work_dir.run_jj(["absorb"]);

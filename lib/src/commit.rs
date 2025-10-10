@@ -232,6 +232,17 @@ impl Commit {
     }
 }
 
+// If there is a single commit, returns the detailed conflict label for that
+// commit. If there are multiple commits, joins the short conflict labels of
+// each commit.
+pub fn conflict_label_for_commits(commits: &[Commit]) -> String {
+    if commits.len() == 1 {
+        commits[0].conflict_label()
+    } else {
+        commits.iter().map(Commit::conflict_label_short).join(", ")
+    }
+}
+
 pub(crate) fn is_backend_commit_empty(
     repo: &dyn Repo,
     store: &Arc<Store>,

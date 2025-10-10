@@ -33,6 +33,7 @@ use crate::backend::BackendResult;
 use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::commit::CommitIteratorExt as _;
+use crate::commit::conflict_label_for_commits;
 use crate::commit_builder::CommitBuilder;
 use crate::index::Index;
 use crate::index::IndexResult;
@@ -282,9 +283,27 @@ impl<'repo> CommitRewriter<'repo> {
             let (old_base_tree, new_base_tree) = try_join!(old_base_tree_fut, new_base_tree_fut)?;
             (
                 old_base_tree.tree_ids() == self.old_commit.tree_ids(),
-                new_base_tree
-                    .merge_unlabeled(old_base_tree, old_tree)
-                    .await?,
+                MergedTree::merge(Merge::from_vec(vec![
+                    (
+                        new_base_tree,
+                        format!(
+                            "{} (rebase destination)",
+                            conflict_label_for_commits(&new_parents)
+                        ),
+                    ),
+                    (
+                        old_base_tree,
+                        format!(
+                            "{} (parents of rebased commit)",
+                            conflict_label_for_commits(&old_parents)
+                        ),
+                    ),
+                    (
+                        old_tree,
+                        format!("{} (rebased commit)", self.old_commit.conflict_label()),
+                    ),
+                ]))
+                .await?,
             )
         };
         // Ensure we don't abandon commits with multiple parents (merge commits), even
