@@ -27,6 +27,7 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::print_conflicted_paths;
 use crate::cli_util::print_snapshot_stats;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::diff_util::DiffFormat;
 use crate::diff_util::get_copy_records;
@@ -70,9 +71,8 @@ pub(crate) fn cmd_status(
         .get_wc_commit_id()
         .map(|id| repo.store().get_commit(id))
         .transpose()?;
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+    let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
+    let matcher = fileset_expression.to_matcher();
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
@@ -80,6 +80,8 @@ pub(crate) fn cmd_status(
     if let Some(wc_commit) = &maybe_wc_commit {
         let parent_tree = wc_commit.parent_tree(repo.as_ref())?;
         let tree = wc_commit.tree();
+
+        print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
 
         let wc_has_changes = tree.tree_ids() != parent_tree.tree_ids();
         let wc_has_untracked = !snapshot_stats.untracked_paths.is_empty();
@@ -111,7 +113,7 @@ pub(crate) fn cmd_status(
                 writeln!(formatter, "Untracked paths:")?;
                 visit_collapsed_untracked_files(
                     snapshot_stats.untracked_paths.keys(),
-                    tree,
+                    tree.clone(),
                     |path, is_dir| {
                         let ui_path = workspace_command.path_converter().format_file_path(path);
                         writeln!(
