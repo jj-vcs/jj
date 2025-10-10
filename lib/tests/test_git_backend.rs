@@ -23,8 +23,10 @@ use futures::executor::block_on_stream;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::CopyRecord;
 use jj_lib::commit::Commit;
+use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::git_backend::JJ_TREES_COMMIT_HEADER;
+use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::ReadonlyRepo;
@@ -37,6 +39,7 @@ use maplit::hashmap;
 use maplit::hashset;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
+use testutils::assert_tree_eq;
 use testutils::commit_with_tree;
 use testutils::create_random_commit;
 use testutils::create_single_tree;
@@ -368,4 +371,53 @@ fn test_jj_trees_header_with_one_tree() {
         },
     )
     "#);
+}
+
+#[test]
+fn test_conflict_headers_roundtrip() {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = test_repo.repo;
+
+    let tree_1 = create_single_tree(&repo, &[(repo_path("file"), "aaa")]);
+    let tree_2 = create_single_tree(&repo, &[(repo_path("file"), "bbb")]);
+    let tree_3 = create_single_tree(&repo, &[(repo_path("file"), "ccc")]);
+    let tree_4 = create_single_tree(&repo, &[(repo_path("file"), "ddd")]);
+    let tree_5 = create_single_tree(&repo, &[(repo_path("file"), "eee")]);
+    let tree_6 = create_single_tree(&repo, &[(repo_path("file"), "fff")]);
+    let tree_7 = create_single_tree(&repo, &[(repo_path("file"), "ggg")]);
+
+    // This creates a Git commit header with leading and trailing newlines to ensure
+    // that it can still be parsed correctly. The resulting `jj:conflict-labels`
+    // header value will look like `\nbase 1\nside 2\n\nside 3\n\n\n`.
+    let merged_tree = MergedTree::new(
+        repo.store().clone(),
+        Merge::from_vec(vec![
+            tree_1.id().clone(),
+            tree_2.id().clone(),
+            tree_3.id().clone(),
+            tree_4.id().clone(),
+            tree_5.id().clone(),
+            tree_6.id().clone(),
+            tree_7.id().clone(),
+        ]),
+        ConflictLabels::from_vec(vec![
+            "".into(),
+            "base 1".into(),
+            "side 2".into(),
+            "".into(),
+            "side 3".into(),
+            "".into(),
+            "".into(),
+        ]),
+    );
+
+    // Create a commit with the conflicted tree.
+    let commit = commit_with_tree(repo.store(), merged_tree.clone());
+    // Clear cached commit to ensure it is re-read.
+    repo.store().clear_caches();
+    // Conflict trees and labels should be preserved on read.
+    assert_tree_eq!(
+        repo.store().get_commit(commit.id()).unwrap().tree(),
+        merged_tree
+    );
 }

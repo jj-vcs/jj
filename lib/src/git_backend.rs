@@ -96,6 +96,7 @@ const CHANGE_ID_LENGTH: usize = 16;
 const NO_GC_REF_NAMESPACE: &str = "refs/jj/keep/";
 
 pub const JJ_TREES_COMMIT_HEADER: &str = "jj:trees";
+pub const JJ_CONFLICT_LABELS_COMMIT_HEADER: &str = "jj:conflict-labels";
 pub const CHANGE_ID_COMMIT_HEADER: &str = "change-id";
 
 #[derive(Debug, Error)]
@@ -532,6 +533,23 @@ fn gix_open_opts_from_settings(settings: &UserSettings) -> gix::open::Options {
         .strict_config(true)
 }
 
+/// Parses the `jj:conflict-labels` header value if present.
+fn extract_conflict_labels_from_commit(commit: &gix::objs::CommitRef) -> Merge<String> {
+    let Some(value) = commit
+        .extra_headers()
+        .find(JJ_CONFLICT_LABELS_COMMIT_HEADER)
+    else {
+        return Merge::resolved(String::new());
+    };
+
+    str::from_utf8(value)
+        .expect("labels should be valid utf8")
+        .split_terminator('\n')
+        .map(str::to_owned)
+        .collect::<MergeBuilder<_>>()
+        .build()
+}
+
 /// Parses the `jj:trees` header value if present, otherwise returns the
 /// resolved tree ID from Git.
 fn extract_root_tree_from_commit(commit: &gix::objs::CommitRef) -> Result<Merge<TreeId>, ()> {
@@ -582,6 +600,9 @@ fn commit_from_git_without_root_parent(
             .map(|oid| CommitId::from_bytes(oid.as_bytes()))
             .collect_vec()
     };
+    // If the commit is a conflict, the conflict labels are stored in a commit
+    // header separately from the trees.
+    let conflict_labels = extract_conflict_labels_from_commit(&commit);
     // Conflicted commits written before we started using the `jj:trees` header
     // (~March 2024) may have the root trees stored in the extra metadata table
     // instead. For such commits, we'll update the root tree later when we read the
@@ -620,8 +641,7 @@ fn commit_from_git_without_root_parent(
         predecessors: vec![],
         // If this commit has associated extra metadata, we may reset this later.
         root_tree,
-        // TODO: store conflict labels
-        conflict_labels: Merge::resolved(String::new()),
+        conflict_labels,
         change_id,
         description,
         author,
@@ -1248,6 +1268,21 @@ impl Backend for GitBackend {
             }
         }
         let mut extra_headers: Vec<(BString, BString)> = vec![];
+        if !contents.conflict_labels.is_resolved() {
+            // Labels cannot contain '\n' since we use it as a separator in the header.
+            assert!(
+                contents
+                    .conflict_labels
+                    .iter()
+                    .all(|label| !label.contains('\n'))
+            );
+            let mut joined_with_newlines = contents.conflict_labels.iter().join("\n");
+            joined_with_newlines.push('\n');
+            extra_headers.push((
+                JJ_CONFLICT_LABELS_COMMIT_HEADER.into(),
+                joined_with_newlines.into(),
+            ));
+        }
         if !tree_ids.is_resolved() {
             let value = tree_ids.iter().map(|id| id.hex()).join(" ");
             extra_headers.push((JJ_TREES_COMMIT_HEADER.into(), value.into()));
