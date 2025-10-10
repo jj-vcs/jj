@@ -25,6 +25,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `CryptographicSignature.key()` template method now also works for SSH
   signatures and returns the corresponding public key fingerprint.
 
+* `jj status` now throws a warning when the fileset does not exist.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer

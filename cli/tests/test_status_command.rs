@@ -108,6 +108,18 @@ fn test_status_filtered() {
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
+
+    // The filtered output should emit a warning.
+    let output = work_dir.run_jj(["status", "file_nonexistent"]);
+    insta::assert_snapshot!(output, @r#"
+    Working copy changes:
+    Working copy  (@) : qpvuntsm 2f169edb (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ------- stderr -------
+    Warning: No matching entries for paths: file_nonexistent
+    [EOF]
+    "#);
 }
 
 // See <https://github.com/jj-vcs/jj/issues/3108>
