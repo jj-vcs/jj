@@ -2054,7 +2054,9 @@ impl TreeState {
             .diff_stream_for_file_system(new_tree, matcher, include_unchanged_conflicts)
             .map(async |TreeDiffEntry { path, values }| match values {
                 Ok(diff) => {
-                    let result = materialize_tree_value(&self.store, &path, diff.after).await;
+                    let result =
+                        materialize_tree_value(&self.store, &path, diff.after, new_tree.labels())
+                            .await;
                     (path, result.map(|value| (diff.before, value)))
                 }
                 Err(err) => (path, Err(err)),
@@ -2206,7 +2208,8 @@ impl TreeState {
                         self.exec_policy,
                         get_prev_exec,
                     );
-                    let contents = materialize_merge_result_to_bytes(&file.contents, &options);
+                    let contents =
+                        materialize_merge_result_to_bytes(&file.contents, &file.labels, &options);
                     let mut file_state =
                         self.write_conflict(&disk_path, &contents, exec_bit).await?;
                     file_state.materialized_conflict_data = Some(MaterializedConflictData {

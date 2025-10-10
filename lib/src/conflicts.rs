@@ -38,6 +38,7 @@ use crate::backend::FileId;
 use crate::backend::SymlinkId;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
+use crate::conflict_labels::ConflictLabels;
 use crate::copies::CopiesTreeDiffEntry;
 use crate::copies::CopiesTreeDiffEntryPath;
 use crate::diff::ContentDiff;
@@ -186,6 +187,8 @@ pub struct MaterializedFileConflictValue {
     pub unsimplified_ids: Merge<Option<FileId>>,
     /// Simplified file ids, in which redundant id pairs are dropped.
     pub ids: Merge<Option<FileId>>,
+    /// Simplified conflict labels, matching `ids`.
+    pub labels: ConflictLabels,
     /// File contents corresponding to the simplified `ids`.
     // TODO: or Vec<(FileId, Box<dyn Read>)> so that caller can stop reading
     // when null bytes found?
@@ -203,8 +206,9 @@ pub async fn materialize_tree_value(
     store: &Store,
     path: &RepoPath,
     value: MergedTreeValue,
+    conflict_labels: &ConflictLabels,
 ) -> BackendResult<MaterializedTreeValue> {
-    match materialize_tree_value_no_access_denied(store, path, value).await {
+    match materialize_tree_value_no_access_denied(store, path, value, conflict_labels).await {
         Err(BackendError::ReadAccessDenied { source, .. }) => {
             Ok(MaterializedTreeValue::AccessDenied(source))
         }
@@ -216,6 +220,7 @@ async fn materialize_tree_value_no_access_denied(
     store: &Store,
     path: &RepoPath,
     value: MergedTreeValue,
+    conflict_labels: &ConflictLabels,
 ) -> BackendResult<MaterializedTreeValue> {
     match value.into_resolved() {
         Ok(None) => Ok(MaterializedTreeValue::Absent),
@@ -238,10 +243,14 @@ async fn materialize_tree_value_no_access_denied(
         }
         Ok(Some(TreeValue::GitSubmodule(id))) => Ok(MaterializedTreeValue::GitSubmodule(id)),
         Ok(Some(TreeValue::Tree(id))) => Ok(MaterializedTreeValue::Tree(id)),
-        Err(conflict) => match try_materialize_file_conflict_value(store, path, &conflict).await? {
-            Some(file) => Ok(MaterializedTreeValue::FileConflict(file)),
-            None => Ok(MaterializedTreeValue::OtherConflict { id: conflict }),
-        },
+        Err(conflict) => {
+            match try_materialize_file_conflict_value(store, path, &conflict, conflict_labels)
+                .await?
+            {
+                Some(file) => Ok(MaterializedTreeValue::FileConflict(file)),
+                None => Ok(MaterializedTreeValue::OtherConflict { id: conflict }),
+            }
+        }
     }
 }
 
@@ -251,18 +260,20 @@ pub async fn try_materialize_file_conflict_value(
     store: &Store,
     path: &RepoPath,
     conflict: &MergedTreeValue,
+    conflict_labels: &ConflictLabels,
 ) -> BackendResult<Option<MaterializedFileConflictValue>> {
     let (Some(unsimplified_ids), Some(executable_bits)) =
         (conflict.to_file_merge(), conflict.to_executable_merge())
     else {
         return Ok(None);
     };
-    let ids = unsimplified_ids.simplify();
+    let (labels, ids) = conflict_labels.simplify_with(&unsimplified_ids);
     let contents = extract_as_single_hunk(&ids, store, path).await?;
     let executable = resolve_file_executable(&executable_bits);
     Ok(Some(MaterializedFileConflictValue {
         unsimplified_ids,
         ids,
+        labels,
         contents,
         executable,
         copy_id: Some(CopyId::placeholder()),
@@ -414,6 +425,8 @@ pub fn choose_materialized_conflict_marker_len<T: AsRef<[u8]>>(single_hunk: &Mer
 
 pub fn materialize_merge_result<T: AsRef<[u8]>>(
     single_hunk: &Merge<T>,
+    // TODO: use labels in conflict markers
+    _labels: &ConflictLabels,
     output: &mut dyn Write,
     options: &ConflictMaterializeOptions,
 ) -> io::Result<()> {
@@ -431,6 +444,8 @@ pub fn materialize_merge_result<T: AsRef<[u8]>>(
 
 pub fn materialize_merge_result_to_bytes<T: AsRef<[u8]>>(
     single_hunk: &Merge<T>,
+    // TODO: use labels in conflict markers
+    _labels: &ConflictLabels,
     options: &ConflictMaterializeOptions,
 ) -> BString {
     let merge_result = files::merge_hunks(single_hunk, &options.merge);
@@ -708,6 +723,7 @@ pub struct MaterializedTreeDiffEntry {
 pub fn materialized_diff_stream(
     store: &Store,
     tree_diff: BoxStream<'_, CopiesTreeDiffEntry>,
+    conflict_labels: Diff<&ConflictLabels>,
 ) -> impl Stream<Item = MaterializedTreeDiffEntry> {
     tree_diff
         .map(async |CopiesTreeDiffEntry { path, values }| match values {
@@ -716,8 +732,18 @@ pub fn materialized_diff_stream(
                 values: Err(err),
             },
             Ok(values) => {
-                let before_future = materialize_tree_value(store, path.source(), values.before);
-                let after_future = materialize_tree_value(store, path.target(), values.after);
+                let before_future = materialize_tree_value(
+                    store,
+                    path.source(),
+                    values.before,
+                    conflict_labels.before,
+                );
+                let after_future = materialize_tree_value(
+                    store,
+                    path.target(),
+                    values.after,
+                    conflict_labels.after,
+                );
                 let values = try_join!(before_future, after_future)
                     .map(|(before, after)| Diff { before, after });
                 MaterializedTreeDiffEntry { path, values }

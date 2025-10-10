@@ -15,6 +15,7 @@
 use indoc::indoc;
 use itertools::Itertools as _;
 use jj_lib::backend::FileId;
+use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN;
@@ -2418,5 +2419,8 @@ fn materialize_conflict_string(
             same_change: SameChange::Accept,
         },
     };
-    String::from_utf8(materialize_merge_result_to_bytes(&contents, &options).into()).unwrap()
+    String::from_utf8(
+        materialize_merge_result_to_bytes(&contents, &ConflictLabels::unlabeled(), &options).into(),
+    )
+    .unwrap()
 }
