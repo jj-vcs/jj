@@ -2394,5 +2394,5 @@ fn materialize_conflict_string(
             same_change: SameChange::Accept,
         },
     };
-    String::from_utf8(materialize_merge_result_to_bytes(&contents, &options).into()).unwrap()
+    String::from_utf8(materialize_merge_result_to_bytes(&contents, None, &options).into()).unwrap()
 }

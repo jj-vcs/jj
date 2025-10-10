@@ -45,6 +45,7 @@ use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::files;
 use crate::files::MergeResult;
+use crate::merge::ConflictLabels;
 use crate::merge::Merge;
 use crate::merge::MergedTreeValue;
 use crate::merge::SameChange;
@@ -403,6 +404,7 @@ pub fn choose_materialized_conflict_marker_len<T: AsRef<[u8]>>(single_hunk: &Mer
 
 pub fn materialize_merge_result<T: AsRef<[u8]>>(
     single_hunk: &Merge<T>,
+    labels: Option<ConflictLabels>,
     output: &mut dyn Write,
     options: &ConflictMaterializeOptions,
 ) -> io::Result<()> {
@@ -413,13 +415,20 @@ pub fn materialize_merge_result<T: AsRef<[u8]>>(
             let marker_len = options
                 .marker_len
                 .unwrap_or_else(|| choose_materialized_conflict_marker_len(single_hunk));
-            materialize_conflict_hunks(hunks, options.marker_style, marker_len, output)
+            materialize_conflict_hunks(
+                hunks,
+                options.marker_style,
+                marker_len,
+                labels.as_ref(),
+                output,
+            )
         }
     }
 }
 
 pub fn materialize_merge_result_to_bytes<T: AsRef<[u8]>>(
     single_hunk: &Merge<T>,
+    labels: Option<ConflictLabels>,
     options: &ConflictMaterializeOptions,
 ) -> BString {
     let merge_result = files::merge_hunks(single_hunk, &options.merge);
@@ -430,8 +439,14 @@ pub fn materialize_merge_result_to_bytes<T: AsRef<[u8]>>(
                 .marker_len
                 .unwrap_or_else(|| choose_materialized_conflict_marker_len(single_hunk));
             let mut output = Vec::new();
-            materialize_conflict_hunks(&hunks, options.marker_style, marker_len, &mut output)
-                .expect("writing to an in-memory buffer should never fail");
+            materialize_conflict_hunks(
+                &hunks,
+                options.marker_style,
+                marker_len,
+                labels.as_ref(),
+                &mut output,
+            )
+            .expect("writing to an in-memory buffer should never fail");
             output.into()
         }
     }
@@ -441,6 +456,7 @@ fn materialize_conflict_hunks(
     hunks: &[Merge<BString>],
     conflict_marker_style: ConflictMarkerStyle,
     conflict_marker_len: usize,
+    labels: Option<&ConflictLabels>,
     output: &mut dyn Write,
 ) -> io::Result<()> {
     let num_conflicts = hunks
@@ -464,6 +480,7 @@ fn materialize_conflict_hunks(
                         right,
                         &conflict_info,
                         conflict_marker_len,
+                        labels,
                         output,
                     )?;
                 }
@@ -473,6 +490,7 @@ fn materialize_conflict_hunks(
                         &conflict_info,
                         conflict_marker_style,
                         conflict_marker_len,
+                        labels,
                         output,
                     )?;
                 }
@@ -488,13 +506,17 @@ fn materialize_git_style_conflict(
     right: &[u8],
     conflict_info: &str,
     conflict_marker_len: usize,
+    labels: Option<&ConflictLabels>,
     output: &mut dyn Write,
 ) -> io::Result<()> {
     write_conflict_marker(
         output,
         ConflictMarkerLineChar::ConflictStart,
         conflict_marker_len,
-        &format!("Side #1 ({conflict_info})"),
+        &format!(
+            "Side #1{} ({conflict_info})",
+            maybe_conflict_label(labels.and_then(|labels| labels.get_add(0)))
+        ),
     )?;
     write_and_ensure_newline(output, left)?;
 
@@ -502,7 +524,10 @@ fn materialize_git_style_conflict(
         output,
         ConflictMarkerLineChar::GitAncestor,
         conflict_marker_len,
-        "Base",
+        &format!(
+            "Base{}",
+            maybe_conflict_label(labels.and_then(|labels| labels.get_remove(0)))
+        ),
     )?;
     write_and_ensure_newline(output, base)?;
 
@@ -519,7 +544,10 @@ fn materialize_git_style_conflict(
         output,
         ConflictMarkerLineChar::ConflictEnd,
         conflict_marker_len,
-        &format!("Side #2 ({conflict_info} ends)"),
+        &format!(
+            "Side #2{} ({conflict_info} ends)",
+            maybe_conflict_label(labels.and_then(|labels| labels.get_add(1)))
+        ),
     )?;
 
     Ok(())
@@ -530,6 +558,7 @@ fn materialize_jj_style_conflict(
     conflict_info: &str,
     conflict_marker_style: ConflictMarkerStyle,
     conflict_marker_len: usize,
+    labels: Option<&ConflictLabels>,
     output: &mut dyn Write,
 ) -> io::Result<()> {
     // Write a positive snapshot (side) of a conflict
@@ -539,28 +568,45 @@ fn materialize_jj_style_conflict(
             ConflictMarkerLineChar::Add,
             conflict_marker_len,
             &format!(
-                "Contents of side #{}{}",
+                "Contents of side #{}{}{}",
                 add_index + 1,
+                maybe_conflict_label(labels.and_then(|labels| labels.get_add(add_index))),
                 maybe_no_eol_comment(data)
             ),
         )?;
         write_and_ensure_newline(output, data)
     };
 
+    // The vast majority of conflicts one actually tries to resolve manually have 1
+    // base.
+    let get_base_str = |base_index: usize| -> String {
+        if hunk.removes().len() == 1 {
+            "base".to_string()
+        } else {
+            format!("base #{}", base_index + 1)
+        }
+    };
+
     // Write a negative snapshot (base) of a conflict
-    let write_base = |base_str: &str, data: &[u8], output: &mut dyn Write| {
+    let write_base = |base_index: usize, data: &[u8], output: &mut dyn Write| {
+        let base_str = get_base_str(base_index);
         write_conflict_marker(
             output,
             ConflictMarkerLineChar::Remove,
             conflict_marker_len,
-            &format!("Contents of {base_str}{}", maybe_no_eol_comment(data)),
+            &format!(
+                "Contents of {base_str}{}{}",
+                maybe_conflict_label(labels.and_then(|labels| labels.get_remove(base_index))),
+                maybe_no_eol_comment(data)
+            ),
         )?;
         write_and_ensure_newline(output, data)
     };
 
     // Write a diff from a negative term to a positive term
     let write_diff =
-        |base_str: &str, add_index: usize, diff: &[DiffHunk], output: &mut dyn Write| {
+        |base_index: usize, add_index: usize, diff: &[DiffHunk], output: &mut dyn Write| {
+            let base_str = get_base_str(base_index);
             let no_eol_remove = diff
                 .last()
                 .is_some_and(|diff_hunk| has_no_eol(diff_hunk.contents[0]));
@@ -578,8 +624,10 @@ fn materialize_jj_style_conflict(
                 ConflictMarkerLineChar::Diff,
                 conflict_marker_len,
                 &format!(
-                    "Changes from {base_str} to side #{}{no_eol_comment}",
-                    add_index + 1
+                    "Changes from {base_str}{} to side #{}{}{no_eol_comment}",
+                    maybe_conflict_label(labels.and_then(|labels| labels.get_remove(base_index))),
+                    add_index + 1,
+                    maybe_conflict_label(labels.and_then(|labels| labels.get_add(add_index)))
                 ),
             )?;
             write_diff_hunks(diff, output)
@@ -593,25 +641,17 @@ fn materialize_jj_style_conflict(
     )?;
     let mut add_index = 0;
     for (base_index, left) in hunk.removes().enumerate() {
-        // The vast majority of conflicts one actually tries to resolve manually have 1
-        // base.
-        let base_str = if hunk.removes().len() == 1 {
-            "base".to_string()
-        } else {
-            format!("base #{}", base_index + 1)
-        };
-
         let Some(right1) = hunk.get_add(add_index) else {
             // If we have no more positive terms, emit the remaining negative terms as
             // snapshots.
-            write_base(&base_str, left, output)?;
+            write_base(base_index, left, output)?;
             continue;
         };
 
         // For any style other than "diff", always emit sides and bases separately
         if conflict_marker_style != ConflictMarkerStyle::Diff {
             write_side(add_index, right1, output)?;
-            write_base(&base_str, left, output)?;
+            write_base(base_index, left, output)?;
             add_index += 1;
             continue;
         }
@@ -626,13 +666,13 @@ fn materialize_jj_style_conflict(
                 // If the next positive term is a better match, emit the current positive term
                 // as a snapshot and the next positive term as a diff.
                 write_side(add_index, right1, output)?;
-                write_diff(&base_str, add_index + 1, &diff2, output)?;
+                write_diff(base_index, add_index + 1, &diff2, output)?;
                 add_index += 2;
                 continue;
             }
         }
 
-        write_diff(&base_str, add_index, &diff1, output)?;
+        write_diff(base_index, add_index, &diff1, output)?;
         add_index += 1;
     }
 
@@ -647,6 +687,10 @@ fn materialize_jj_style_conflict(
         &format!("{conflict_info} ends"),
     )?;
     Ok(())
+}
+
+fn maybe_conflict_label(label: Option<&String>) -> String {
+    label.map_or_else(String::new, |label| format!(" ({label})"))
 }
 
 fn maybe_no_eol_comment(slice: &[u8]) -> &'static str {

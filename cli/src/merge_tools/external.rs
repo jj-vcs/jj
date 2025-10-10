@@ -20,6 +20,7 @@ use jj_lib::conflicts::choose_materialized_conflict_marker_len;
 use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::ConflictLabels;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
@@ -184,6 +185,7 @@ fn run_mergetool_external_single_file(
     store: &Store,
     merge_tool_file: &MergeToolFile,
     default_conflict_marker_style: ConflictMarkerStyle,
+    conflict_labels: Option<ConflictLabels>,
     tree_builder: &mut MergedTreeBuilder,
 ) -> Result<(), ConflictResolveError> {
     let MergeToolFile {
@@ -211,7 +213,7 @@ fn run_mergetool_external_single_file(
             marker_len: Some(conflict_marker_len),
             merge: store.merge_options().clone(),
         };
-        materialize_merge_result_to_bytes(&file.contents, &options)
+        materialize_merge_result_to_bytes(&file.contents, conflict_labels, &options)
     } else {
         BString::default()
     };
@@ -353,6 +355,7 @@ pub fn run_mergetool_external(
             tree.store(),
             merge_tool_file,
             default_conflict_marker_style,
+            tree.labels(),
             &mut tree_builder,
         ) {
             Ok(()) => {}
