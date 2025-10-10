@@ -17,7 +17,6 @@ use std::io::Write as _;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
-use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::conflicts::MaterializedTreeValue;
 use jj_lib::conflicts::materialize_merge_result;
@@ -25,6 +24,7 @@ use jj_lib::conflicts::materialize_tree_value;
 use jj_lib::file_util::copy_async_to_sync;
 use jj_lib::fileset::FilePattern;
 use jj_lib::fileset::FilesetExpression;
+use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use pollster::FutureExt as _;
@@ -118,7 +118,7 @@ pub(crate) fn cmd_file_show(
                 path: path.to_owned(),
                 value,
             };
-            write_tree_entries(ui, &workspace_command, &template, [Ok(entry)])?;
+            write_tree_entries(ui, &workspace_command, &template, &tree, [Ok(entry)])?;
             return Ok(());
         }
     }
@@ -129,6 +129,7 @@ pub(crate) fn cmd_file_show(
         ui,
         &workspace_command,
         &template,
+        &tree,
         tree.entries_matching(matcher.as_ref())
             .map(|(path, value)| Ok((path, value?)))
             .map_ok(|(path, value)| TreeEntry { path, value }),
@@ -153,6 +154,7 @@ fn write_tree_entries(
     ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
     template: &TemplateRenderer<TreeEntry>,
+    tree: &MergedTree,
     entries: impl IntoIterator<Item = BackendResult<TreeEntry>>,
 ) -> Result<(), CommandError> {
     let repo = workspace_command.repo();
@@ -160,7 +162,8 @@ fn write_tree_entries(
         let entry = entry?;
         template.format(&entry, ui.stdout_formatter().as_mut())?;
         let materialized =
-            materialize_tree_value(repo.store(), &entry.path, entry.value).block_on()?;
+            materialize_tree_value(repo.store(), &entry.path, entry.value, tree.labels())
+                .block_on()?;
         match materialized {
             MaterializedTreeValue::Absent => panic!("absent values should be excluded"),
             MaterializedTreeValue::AccessDenied(err) => {
@@ -181,7 +184,7 @@ fn write_tree_entries(
                 };
                 materialize_merge_result(
                     &file.contents,
-                    &ConflictLabels::unlabeled(),
+                    &file.labels,
                     &mut ui.stdout_formatter(),
                     &options,
                 )?;

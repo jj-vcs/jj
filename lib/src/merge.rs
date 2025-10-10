@@ -46,7 +46,7 @@ use crate::tree::Tree;
 ///
 /// This is not a diff in the `patch(1)` sense. See `diff::ContentDiff` for
 /// that.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Diff<T> {
     /// The state before
     pub before: T,

@@ -12,7 +12,6 @@ use itertools::Itertools as _;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
-use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::conflicts::ConflictMaterializeOptions;
@@ -212,7 +211,7 @@ fn run_mergetool_external_single_file(
             marker_len: Some(conflict_marker_len),
             merge: store.merge_options().clone(),
         };
-        materialize_merge_result_to_bytes(&file.contents, &ConflictLabels::unlabeled(), &options)
+        materialize_merge_result_to_bytes(&file.contents, &file.labels, &options)
     } else {
         BString::default()
     };
