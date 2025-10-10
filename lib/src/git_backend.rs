@@ -98,6 +98,7 @@ const CHANGE_ID_LENGTH: usize = 16;
 const NO_GC_REF_NAMESPACE: &str = "refs/jj/keep/";
 
 pub const JJ_TREES_COMMIT_HEADER: &str = "jj:trees";
+pub const JJ_CONFLICT_LABELS_COMMIT_HEADER: &str = "jj:conflict-labels";
 pub const CHANGE_ID_COMMIT_HEADER: &str = "change-id";
 
 #[derive(Debug, Error)]
@@ -582,6 +583,19 @@ fn commit_from_git_without_root_parent(
             .map(|oid| CommitId::from_bytes(oid.as_bytes()))
             .collect_vec()
     };
+    // If the commit is a conflict, the conflict labels are stored in a commit
+    // header separately from the trees.
+    let conflict_labels: ConflictLabels = commit
+        .extra_headers()
+        .find(JJ_CONFLICT_LABELS_COMMIT_HEADER)
+        .map(|header| {
+            str::from_utf8(header)
+                .expect("labels should be valid utf8")
+                .split_terminator('\n')
+                .collect::<MergeBuilder<_>>()
+                .build()
+        })
+        .into();
     // Conflicted commits written before we started using the `jj:trees` header
     // (~March 2024) may have the root trees stored in the extra metadata table
     // instead. For such commits, we'll update the root tree later when we read the
@@ -628,8 +642,7 @@ fn commit_from_git_without_root_parent(
         predecessors: vec![],
         // If this commit has associated extra metadata, we may reset this later.
         root_tree,
-        // TODO: store conflict labels
-        conflict_labels: ConflictLabels::unlabeled(),
+        conflict_labels,
         change_id,
         description,
         author,
@@ -1256,6 +1269,14 @@ impl Backend for GitBackend {
             }
         }
         let mut extra_headers: Vec<(BString, BString)> = vec![];
+        if let Some(conflict_labels) = contents.conflict_labels.as_merge() {
+            // Labels cannot contain '\n' since we use it as a separator in the header.
+            assert!(conflict_labels.iter().all(|label| !label.contains('\n')));
+            extra_headers.push((
+                JJ_CONFLICT_LABELS_COMMIT_HEADER.into(),
+                conflict_labels.iter().join("\n").into(),
+            ));
+        }
         if !tree_ids.is_resolved() {
             let value = tree_ids.iter().map(|id| id.hex()).join(" ");
             extra_headers.push((JJ_TREES_COMMIT_HEADER.into(), value.into()));
