@@ -338,10 +338,10 @@ Then run `jj squash` to move the resolution into the conflicted commit.
 
 $ cat file1
 <<<<<<< conflict 1 of 1
-%%%%%%% side #1 compared with base
+%%%%%%% rebase destination (nuvyytnq 5dda2f09) compared with ovknlmro 7d7c6e6b
 -b1
 +a
-+++++++ side #2
++++++++ rebased commit (puqltutt daa6ffd5)
 b2
 >>>>>>> conflict 1 of 1 ends
 

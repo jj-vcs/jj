@@ -1245,7 +1245,7 @@ fn test_git_colocated_update_index_rebase_conflict() {
         .success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  535388c5aab1b3a33fdc04a4bf8033de0d1b86ec left
+    @  dcceaec5f93fbe640cdc45a880e2be7a5f38584b left
     ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right git_head()
     ○  1861378a9167e6561bf8ce4a6fef2d7c0897dd87 base
     ◆  0000000000000000000000000000000000000000
@@ -1264,8 +1264,8 @@ fn test_git_colocated_update_index_rebase_conflict() {
     work_dir.run_jj(["new"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  04ebd7523ac6107ccdd5bc34600a073b94e43299
-    ×  535388c5aab1b3a33fdc04a4bf8033de0d1b86ec left git_head()
+    @  67b687cd95c53b410c2291a008b24f03c3ad3e70
+    ×  dcceaec5f93fbe640cdc45a880e2be7a5f38584b left git_head()
     ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right
     ○  1861378a9167e6561bf8ce4a6fef2d7c0897dd87 base
     ◆  0000000000000000000000000000000000000000
