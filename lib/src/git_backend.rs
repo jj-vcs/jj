@@ -72,6 +72,7 @@ use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::backend::make_root_commit;
 use crate::config::ConfigGetError;
+use crate::conflict_labels::ConflictLabels;
 use crate::file_util;
 use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
@@ -98,6 +99,7 @@ const CHANGE_ID_LENGTH: usize = 16;
 const NO_GC_REF_NAMESPACE: &str = "refs/jj/keep/";
 
 pub const JJ_TREES_COMMIT_HEADER: &str = "jj:trees";
+pub const JJ_CONFLICT_LABELS_COMMIT_HEADER: &str = "jj:conflict-labels";
 pub const CHANGE_ID_COMMIT_HEADER: &str = "change-id";
 
 #[derive(Debug, Error)]
@@ -539,7 +541,10 @@ fn gix_open_opts_from_settings(settings: &UserSettings) -> gix::open::Options {
 }
 
 /// Parses the `jj:trees` header value.
-fn root_tree_from_git_extra_header(value: &BStr) -> Result<MergedTreeId, ()> {
+fn root_tree_from_git_extra_header(
+    value: &BStr,
+    conflict_labels: ConflictLabels,
+) -> Result<MergedTreeId, ()> {
     let mut tree_ids = SmallVec::new();
     for hex in value.split(|b| *b == b' ') {
         let tree_id = TreeId::try_from_hex(hex).ok_or(())?;
@@ -554,7 +559,10 @@ fn root_tree_from_git_extra_header(value: &BStr) -> Result<MergedTreeId, ()> {
     if tree_ids.len() == 1 || tree_ids.len() % 2 == 0 {
         return Err(());
     }
-    Ok(MergedTreeId::unlabeled(Merge::from_vec(tree_ids)))
+    Ok(MergedTreeId::new(
+        Merge::from_vec(tree_ids),
+        conflict_labels,
+    ))
 }
 
 fn commit_from_git_without_root_parent(
@@ -582,6 +590,19 @@ fn commit_from_git_without_root_parent(
             .map(|oid| CommitId::from_bytes(oid.as_bytes()))
             .collect_vec()
     };
+    // If the commit is a conflict, the conflict labels are stored in a commit
+    // header separately from the trees.
+    let conflict_labels: ConflictLabels = commit
+        .extra_headers()
+        .find(JJ_CONFLICT_LABELS_COMMIT_HEADER)
+        .map(|header| {
+            str::from_utf8(header)
+                .expect("labels should be valid utf8")
+                .split_terminator('\n')
+                .collect::<MergeBuilder<_>>()
+                .build()
+        })
+        .into();
     // Conflicted commits written before we started using the `jj:trees` header
     // (~March 2024) may have the root trees stored in the extra metadata table
     // instead. For such commits, we'll update the root tree later when we read the
@@ -589,7 +610,7 @@ fn commit_from_git_without_root_parent(
     let root_tree = commit
         .extra_headers()
         .find(JJ_TREES_COMMIT_HEADER)
-        .map(root_tree_from_git_extra_header)
+        .map(|header| root_tree_from_git_extra_header(header, conflict_labels))
         .transpose()
         .map_err(|()| to_read_object_err("Invalid jj:trees header", id))?
         .unwrap_or_else(|| {
@@ -1256,6 +1277,19 @@ impl Backend for GitBackend {
         }
         let mut extra_headers: Vec<(BString, BString)> = vec![];
         if !tree_ids.is_resolved() {
+            if let Some(conflict_labels) = contents.root_tree.labels().as_merge() {
+                // We use '\n' to separate the labels in the header, so they cannot contain '\n'
+                // and they should not be empty (since trailing newline might be stripped).
+                assert!(
+                    conflict_labels
+                        .iter()
+                        .all(|label| !label.is_empty() && !label.contains('\n'))
+                );
+                extra_headers.push((
+                    JJ_CONFLICT_LABELS_COMMIT_HEADER.into(),
+                    conflict_labels.iter().join("\n").into(),
+                ));
+            }
             let value = tree_ids.iter().map(|id| id.hex()).join(" ");
             extra_headers.push((JJ_TREES_COMMIT_HEADER.into(), value.into()));
         }
