@@ -282,12 +282,22 @@ impl<'repo> CommitRewriter<'repo> {
             let old_tree_fut = self.old_commit.tree_async();
             let (old_base_tree, new_base_tree, old_tree) =
                 try_join!(old_base_tree_fut, new_base_tree_fut, old_tree_fut)?;
+            let old_commit_label = self.old_commit.conflict_label();
             (
                 !old_base_tree.id().has_changes(self.old_commit.tree_id()),
-                new_base_tree
-                    .merge_unlabeled(old_base_tree, old_tree)
-                    .await?
-                    .id(),
+                MergedTree::merge(Merge::from_vec(vec![
+                    (
+                        new_base_tree,
+                        format!(
+                            "rebase destination ({})",
+                            new_parents.iter().map(Commit::conflict_label).join(", ")
+                        ),
+                    ),
+                    (old_base_tree, format!("parents of {old_commit_label}")),
+                    (old_tree, format!("rebased commit ({old_commit_label})")),
+                ]))
+                .await?
+                .id(),
             )
         };
         // Ensure we don't abandon commits with multiple parents (merge commits), even

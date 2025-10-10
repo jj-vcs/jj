@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
@@ -256,10 +255,7 @@ fn test_rebase_on_lossy_merge(same_change: SameChange) {
                 tree_3.id().into_merge(),
             ])
             .flatten();
-            assert_eq!(
-                *commit_d2.tree_id(),
-                MergedTreeId::unlabeled(expected_tree_id)
-            );
+            assert_eq!(*commit_d2.tree_id().as_merge(), expected_tree_id);
         }
     }
 }
