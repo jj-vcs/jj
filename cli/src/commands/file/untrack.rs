@@ -59,6 +59,9 @@ pub(crate) fn cmd_file_untrack(
     let options =
         workspace_command.snapshot_options_with_start_tracking_matcher(&auto_tracking_matcher)?;
 
+    #[cfg(feature = "git")]
+    let working_copy_shared_with_git = workspace_command.working_copy_shared_with_git();
+
     let mut tx = workspace_command.start_transaction().into_inner();
     let (mut locked_ws, wc_commit) = workspace_command.start_working_copy_mutation()?;
     // Create a new tree without the unwanted files
@@ -108,6 +111,15 @@ Make sure they're ignored, then try again.",
     let num_rebased = tx.repo_mut().rebase_descendants()?;
     if num_rebased > 0 {
         writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
+    }
+    #[cfg(feature = "git")]
+    if working_copy_shared_with_git {
+        let old_tree = wc_tree;
+        let new_tree = new_commit.tree()?;
+        jj_lib::git::update_intent_to_add(tx.repo(), &old_tree, &new_tree)?;
+
+        let stats = jj_lib::git::export_refs(tx.repo_mut())?;
+        crate::git_util::print_git_export_stats(ui, &stats)?;
     }
     let repo = tx.commit("untrack paths")?;
     locked_ws.finish(repo.op_id().clone())?;
