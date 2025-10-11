@@ -25,6 +25,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `CryptographicSignature.key()` template method now also works for SSH
   signatures and returns the corresponding public key fingerprint.
 
+* Workspaces may have an additional layered configuration, located at
+  `.jj/workspace-config.toml`. `jj config` subcommands which took layer options like
+  `--repo` now also support `--workspace`.
+
+* Add support for `--when.workspaces` config scopes.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer

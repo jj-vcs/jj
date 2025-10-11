@@ -954,6 +954,13 @@
                         "type": "string"
                     }
                 },
+                "workspaces": {
+                    "type": "array",
+                    "description": "List of paths to match the workspace path prefix",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "commands": {
                     "type": "array",
                     "description": "List of subcommands to match",
@@ -977,7 +984,6 @@
                             "freebsd",
                             "fuchsia",
                             "haiku",
-                            "hermit",
                             "hermit",
                             "horizon",
                             "hurd",
