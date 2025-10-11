@@ -12,6 +12,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+ * `jj bisect run --command <cmd>` is deprecated in favor of
+   `jj bisect run -- <cmd>`.
+
 ### New features
 
 * Templates now support a `.split(separator, [limit])` method on strings to
@@ -24,6 +27,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The `CryptographicSignature.key()` template method now also works for SSH
   signatures and returns the corresponding public key fingerprint.
+
+* `jj bisect run` accepts the command and arguments to pass to the command
+  directly as positional arguments, such as
+  `jj bisect --range=..main -- cargo check --all-targets`.
 
 ### Fixed bugs
 
