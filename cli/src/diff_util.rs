@@ -120,7 +120,7 @@ pub struct DiffFormatArgs {
     ///
     /// Typically useful for shell commands like:
     ///    `jj diff -r @- --name-only | xargs perl -pi -e's/OLD/NEW/g`
-    #[arg(long)]
+    #[arg(long, short = 'o')]
     pub name_only: bool,
     /// Show a Git-format diff
     #[arg(long)]
