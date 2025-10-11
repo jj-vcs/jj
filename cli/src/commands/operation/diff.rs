@@ -75,7 +75,7 @@ pub struct OperationDiffArgs {
     )]
     to: Option<String>,
     /// Don't show the graph, show a flat list of modified changes
-    #[arg(long)]
+    #[arg(long, short = 'G')]
     no_graph: bool,
     /// Show patch of modifications to changes
     ///

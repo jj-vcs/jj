@@ -1771,6 +1771,37 @@ fn test_op_diff_sibling() {
     - qpvuntsm hidden b1ca67e2 (empty) B
     [EOF]
     ");
+
+    // no graph
+    let output = work_dir.run_jj([
+        "op",
+        "diff",
+        "--at-op",
+        p2_op_id,
+        "--from",
+        p2_op_id,
+        "--to",
+        p1_op_id,
+        "--summary",
+        "--no-graph",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    From operation: 252ff3a5a0e6 (2001-02-03 08:05:12) describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+      To operation: 7bba3a63b73b (2001-02-03 08:05:11) new empty commit
+
+    Changed commits:
+    - qpvuntsm hidden b1ca67e2 (empty) B
+    + mzvwutvl 08c63613 (empty) A
+    + zsuskuln 47b9525e A.2
+    A file2
+    + kkmpptxz 6c70a4f7 A.1
+    A file1
+
+    Changed working copy default@:
+    + mzvwutvl 08c63613 (empty) A
+    - qpvuntsm hidden b1ca67e2 (empty) B
+    [EOF]
+    ");
 }
 
 #[test]
@@ -2548,6 +2579,23 @@ fn test_op_show() {
     bookmark-2@origin:
     + untracked (absent)
     - tracked kulxwnxm e1a239a5 Commit 5
+    [EOF]
+    ");
+
+    // Showing a given operation, without graph
+    let output = work_dir.run_jj(["op", "show", "--no-graph", "31f78a78f68f"]);
+    insta::assert_snapshot!(output, @r"
+    31f78a78f68f test-username@host.example.com 2001-02-03 04:05:27.000 +07:00 - 2001-02-03 04:05:27.000 +07:00
+    new empty commit
+    args: jj new bookmark-1@origin -m 'new commit'
+
+    Changed commits:
+    + tlkvzzqu 8f340dd7 (empty) new commit
+    - qpvuntsm hidden e8849ae1 (empty) (no description set)
+
+    Changed working copy default@:
+    + tlkvzzqu 8f340dd7 (empty) new commit
+    - qpvuntsm hidden e8849ae1 (empty) (no description set)
     [EOF]
     ");
 }

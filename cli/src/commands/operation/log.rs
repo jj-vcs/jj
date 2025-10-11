@@ -57,7 +57,7 @@ pub struct OperationLogArgs {
     #[arg(long)]
     reversed: bool,
     /// Don't show the graph, show a flat list of operations
-    #[arg(long)]
+    #[arg(long, short = 'G')]
     no_graph: bool,
     /// Render each operation using the given template
     ///
