@@ -2109,7 +2109,7 @@ fn test_op_diff_word_wrap() {
     // ui.log-word-wrap option works, and diff stat respects content width
     insta::assert_snapshot!(render(&["op", "diff", "--from=@---", "--stat"], 40, true), @r"
     From operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
-      To operation: 71099f032083 (2001-02-03 08:05:08) snapshot working copy
+      To operation: 29afeeeba314 (2001-02-03 08:05:08) snapshot working copy
 
     Changed commits:
     ○  + sqpuoqvx f6f32c19 (no description
@@ -2164,7 +2164,7 @@ fn test_op_diff_word_wrap() {
     insta::assert_snapshot!(
         render(&["op", "diff", "--from=@---", "--config", config], 10, true), @r"
     From operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
-      To operation: 71099f032083 (2001-02-03 08:05:08) snapshot working copy
+      To operation: 29afeeeba314 (2001-02-03 08:05:08) snapshot working copy
 
     Changed
     commits:
