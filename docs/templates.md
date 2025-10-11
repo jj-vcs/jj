@@ -128,17 +128,22 @@ _Conversion: `Boolean`: no, `Serialize`: yes, `Template`: no_
 This type cannot be printed. The following methods are defined.
 
 * `.description() -> String`
-* `.trailers() -> List<Trailer>`
+* `.trailers() -> List<Trailer>`: The trailers at the end of the commit
+  description that are formatted as `<key>: <value>`. These are returned in the
+  same order as they appear in the description, and there may be multiple
+  `Trailer`s with the same key.
 * `.change_id() -> ChangeId`
 * `.commit_id() -> CommitId`
 * `.parents() -> List<Commit>`
 * `.author() -> Signature`
 * `.committer() -> Signature`
-* `.signature() -> Option<CryptographicSignature>`: Cryptographic signature if the
-  commit was signed.
+* `.signature() -> Option<CryptographicSignature>`: Cryptographic signature if
+  the commit was signed.
 * `.mine() -> Boolean`: Commits where the author's email matches the email of
   the current user.
-* `.working_copies() -> List<WorkspaceRef>`: For multi-workspace repositories, returns a list of workspace references for each workspace whose working-copy commit matches the current commit.
+* `.working_copies() -> List<WorkspaceRef>`: For multi-workspace repositories,
+  returns a list of workspace references for each workspace whose working-copy
+  commit matches the current commit.
 * `.current_working_copy() -> Boolean`: True for the working-copy commit of the
   current workspace.
 * `.bookmarks() -> List<CommitRef>`: Local and remote bookmarks pointing to the
@@ -156,7 +161,8 @@ This type cannot be printed. The following methods are defined.
 * `.hidden() -> Boolean`: True if the commit is not visible (a.k.a. abandoned).
 * `.immutable() -> Boolean`: True if the commit is included in [the set of
   immutable commits](config.md#set-of-immutable-commits).
-* `.contained_in(revset: String) -> Boolean`: True if the commit is included in [the provided revset](revsets.md).
+* `.contained_in(revset: String) -> Boolean`: True if the commit is included in
+  [the provided revset](revsets.md).
 * `.conflict() -> Boolean`: True if the commit contains merge conflicts.
 * `.empty() -> Boolean`: True if the commit modifies no files.
 * `.diff([files: String]) -> TreeDiff`: Changes from the parents within [the
