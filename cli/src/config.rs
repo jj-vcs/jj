@@ -322,8 +322,6 @@ impl UnresolvedConfigEnv {
             paths.push(path);
         }
 
-        // theoretically these should be an `if let Some(...) = ... && ..., but that
-        // isn't stable
         if let Some(path) = platform_config_dir
             && path.exists()
         {
@@ -602,6 +600,7 @@ impl ConfigEnv {
         let context = ConfigResolutionContext {
             home_dir: self.home_dir.as_deref(),
             repo_path: self.repo_path.as_deref(),
+            workspace_path: self.workspace_path.as_deref(),
             command: self.command.as_deref(),
         };
         jj_lib::config::resolve(config.as_ref(), &context)
