@@ -1933,6 +1933,11 @@ wip = ["log", "-r", "work"]
   is in the main workspace if you're using multiple workspaces with `jj
   workspace`.
 
+* `--when.workspaces`: List of paths to match the workspace path prefix.
+
+  The same concerns about the path as for `--when.repositories` applies.
+
+  Use `jj root` to see the workspace root directory.
 
 * `--when.commands`: List of subcommands to match.
 

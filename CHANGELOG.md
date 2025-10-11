@@ -29,6 +29,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `.jj/workspace-config.toml`. `jj config` subcommands which took layer options like
   `--repo` now also support `--workspace`.
 
+* Add support for `--when.workspaces` config scopes.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
