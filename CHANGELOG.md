@@ -25,6 +25,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `CryptographicSignature.key()` template method now also works for SSH
   signatures and returns the corresponding public key fingerprint.
 
+* Templates now support an `is_terminal_output()` function that returns true if
+  stdout is connected to a terminal.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
