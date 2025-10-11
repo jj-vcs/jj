@@ -36,6 +36,12 @@ pub struct GitRemoteAddArgs {
     /// Configure when to fetch tags
     #[arg(long, value_enum, default_value_t = FetchTagsMode::Included)]
     fetch_tags: FetchTagsMode,
+
+    /// The URL used for push
+    ///
+    /// Local path will be resolved to absolute form
+    #[arg(long, value_hint = clap::ValueHint::Url)]
+    push_url: Option<String>,
 }
 
 pub fn cmd_git_remote_add(
@@ -45,10 +51,17 @@ pub fn cmd_git_remote_add(
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
     let url = absolute_git_url(command.cwd(), &args.url)?;
+    let push_url = args
+        .push_url
+        .as_deref()
+        .map(|url| absolute_git_url(command.cwd(), url))
+        .transpose()?;
+
     git::add_remote(
         workspace_command.repo().store(),
         &args.remote,
         &url,
+        push_url.as_deref(),
         args.fetch_tags.as_fetch_tags(),
     )?;
     Ok(())
