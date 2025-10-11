@@ -1763,6 +1763,7 @@ The working-copy commit is indicated by a `@` symbol in the graph. [Immutable re
 
    [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 * `-p`, `--patch` — Show patch
+* `--count` — Print the number of commits instead of showing them
 * `-s`, `--summary` — For each path, show only whether it was modified, added, or deleted
 * `--stat` — Show a histogram of the changes
 * `--types` — For each path, show only its type before and after

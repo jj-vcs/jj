@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::cmp::min;
+
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
@@ -116,6 +118,9 @@ pub(crate) struct LogArgs {
     /// Show patch
     #[arg(long, short = 'p')]
     patch: bool,
+    /// Print the number of commits instead of showing them
+    #[arg(long, conflicts_with_all = ["DiffFormatArgs", "no_graph", "patch", "reversed", "template"])]
+    count: bool,
     #[command(flatten)]
     diff_format: DiffFormatArgs,
 }
@@ -150,12 +155,32 @@ pub(crate) fn cmd_log(
         }
         expression
     };
+
+    let revset = revset_expression.evaluate()?;
+
+    if args.count {
+        let (lower, upper) = revset.count_estimate()?;
+        let limit = args.limit.unwrap_or(usize::MAX);
+        let count = if limit <= lower {
+            limit
+        } else if upper == Some(lower) {
+            min(lower, limit)
+        } else {
+            revset
+                .iter()
+                .take(limit)
+                .process_results(|iter| iter.count())?
+        };
+        let mut formatter = ui.stdout_formatter();
+        writeln!(formatter, "{count}")?;
+        return Ok(());
+    }
+
     let prio_revset = settings.get_string("revsets.log-graph-prioritize")?;
     let prio_revset = workspace_command.parse_revset(ui, &RevisionArg::from(prio_revset))?;
 
     let repo = workspace_command.repo();
     let matcher = fileset_expression.to_matcher();
-    let revset = revset_expression.evaluate()?;
 
     let store = repo.store();
     let diff_renderer = workspace_command.diff_renderer_for_log(&args.diff_format, args.patch)?;

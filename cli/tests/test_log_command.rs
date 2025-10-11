@@ -1757,3 +1757,34 @@ fn test_log_anonymize() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_log_count() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.run_jj(["describe", "-m", "first"]).success();
+    work_dir.run_jj(["new", "-m", "second"]).success();
+    work_dir.write_file("file2", "bar\n");
+    work_dir.run_jj(["new", "-m", "third"]).success();
+
+    let output = work_dir.run_jj(["log", "--count"]);
+    insta::assert_snapshot!(output, @r"
+    4
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "--count", "-r", "all() ~ root()"]);
+    insta::assert_snapshot!(output, @r"
+    3
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["log", "--count", "--limit", "2"]);
+    insta::assert_snapshot!(output, @r"
+    2
+    [EOF]
+    ");
+}
