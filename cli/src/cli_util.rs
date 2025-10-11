@@ -359,9 +359,11 @@ impl CommandHelper {
         let mut config_env = self.data.config_env.clone();
         let mut raw_config = self.data.raw_config.clone();
         let repo_path = workspace_root.join(".jj").join("repo");
-        config_env.reset_repo_path(&repo_path);
+        config_env.reset_repo_path(&repo_path, workspace_root);
+        // Since it's a new workspace, we don't need to bother loading the
+        // repo-managed config.
         config_env.reload_repo_config(&mut raw_config)?;
-        let mut config = config_env.resolve_config(&raw_config)?;
+        let mut config = config_env.resolve_config_without_repo_managed(&raw_config)?;
         // No migration messages here, which would usually be emitted before.
         jj_lib::config::migrate(&mut config, &self.data.config_migrations)?;
         Ok(self.data.settings.with_new_config(config)?)
@@ -3822,10 +3824,10 @@ impl<'a> CliRunner<'a> {
             .map_err(|err| map_workspace_load_error(err, Some(".")));
         config_env.reload_user_config(&mut raw_config)?;
         if let Ok(loader) = &maybe_cwd_workspace_loader {
-            config_env.reset_repo_path(loader.repo_path());
+            config_env.reset_repo_path(loader.repo_path(), loader.workspace_root());
             config_env.reload_repo_config(&mut raw_config)?;
         }
-        let mut config = config_env.resolve_config(&raw_config)?;
+        let mut config = config_env.resolve_config(ui, &mut raw_config)?;
         migrate_config(&mut config)?;
         ui.reset(&config)?;
 
@@ -3837,7 +3839,7 @@ impl<'a> CliRunner<'a> {
         let (args, config_layers) = parse_early_args(&self.app, &string_args)?;
         if !config_layers.is_empty() {
             raw_config.as_mut().extend_layers(config_layers);
-            config = config_env.resolve_config(&raw_config)?;
+            config = config_env.resolve_config(ui, &mut raw_config)?;
             migrate_config(&mut config)?;
             ui.reset(&config)?;
         }
@@ -3866,7 +3868,7 @@ impl<'a> CliRunner<'a> {
                 .workspace_loader_factory
                 .create(&abs_path)
                 .map_err(|err| map_workspace_load_error(err, Some(path)))?;
-            config_env.reset_repo_path(loader.repo_path());
+            config_env.reset_repo_path(loader.repo_path(), loader.workspace_root());
             config_env.reload_repo_config(&mut raw_config)?;
             Ok(loader)
         } else {
@@ -3874,7 +3876,7 @@ impl<'a> CliRunner<'a> {
         };
 
         // Apply workspace configs, --config arguments, and --when.commands.
-        config = config_env.resolve_config(&raw_config)?;
+        config = config_env.resolve_config(ui, &mut raw_config)?;
         migrate_config(&mut config)?;
         ui.reset(&config)?;
 
@@ -3884,6 +3886,7 @@ impl<'a> CliRunner<'a> {
                 ConfigSource::Default => "default-provided",
                 ConfigSource::EnvBase | ConfigSource::EnvOverrides => "environment-provided",
                 ConfigSource::User => "user-level",
+                ConfigSource::RepoManaged => "repo-managed-level",
                 ConfigSource::Repo => "repo-level",
                 ConfigSource::CommandArg => "CLI-provided",
             };
