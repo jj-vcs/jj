@@ -67,6 +67,9 @@ pub(crate) struct PrevArgs {
     /// Jump to the previous conflicted ancestor
     #[arg(long, conflicts_with = "offset")]
     conflict: bool,
+    /// Keep the changes when moving to the next revision
+    #[arg(long, short, conflicts_with = "edit")]
+    keep: bool,
 }
 
 impl From<&PrevArgs> for MovementArgs {
@@ -76,6 +79,7 @@ impl From<&PrevArgs> for MovementArgs {
             edit: val.edit,
             no_edit: val.no_edit,
             conflict: val.conflict,
+            keep: val.keep,
         }
     }
 }

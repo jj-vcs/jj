@@ -71,6 +71,9 @@ pub(crate) struct NextArgs {
     /// Jump to the next conflicted descendant
     #[arg(long, conflicts_with = "offset")]
     conflict: bool,
+    /// Keep the changes when moving to the next revision
+    #[arg(long, short, conflicts_with = "edit")]
+    keep: bool,
 }
 
 impl From<&NextArgs> for MovementArgs {
@@ -80,6 +83,7 @@ impl From<&NextArgs> for MovementArgs {
             edit: val.edit,
             no_edit: val.no_edit,
             conflict: val.conflict,
+            keep: val.keep,
         }
     }
 }
