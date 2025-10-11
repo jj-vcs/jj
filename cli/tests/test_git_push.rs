@@ -1407,8 +1407,8 @@ fn test_git_push_conflict() {
     let output = work_dir.run_jj(["git", "push", "--all"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Won't push commit 654e715becca since it has conflicts
-    Hint: Rejected commit: yostqsxw 654e715b my-bookmark | (conflict) third
+    Error: Won't push commit 0b9c8b70b10b since it has conflicts
+    Hint: Rejected commit: yostqsxw 0b9c8b70 my-bookmark | (conflict) third
     [EOF]
     [exit status: 1]
     ");

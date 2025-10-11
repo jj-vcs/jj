@@ -114,7 +114,9 @@ pub(crate) fn cmd_backout(
     {
         let old_base_tree = commit_to_back_out.parent_tree(tx.repo())?;
         let old_tree = commit_to_back_out.tree()?;
-        let new_tree = new_base_tree.merge(old_tree, old_base_tree).block_on()?;
+        let new_tree = new_base_tree
+            .merge_unlabeled(old_tree, old_base_tree)
+            .block_on()?;
         let new_parent_ids = parents.iter().map(|commit| commit.id().clone()).collect();
         let new_commit = tx
             .repo_mut()

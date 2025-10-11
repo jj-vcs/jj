@@ -1312,7 +1312,7 @@ fn build_predicate_fn(
         RevsetFilterPredicate::HasConflict => box_pure_predicate_fn(move |index, pos| {
             let entry = index.commits().entry_by_pos(pos);
             let commit = store.get_commit(&entry.commit_id())?;
-            Ok(commit.has_conflict()?)
+            Ok(commit.has_conflict())
         }),
         RevsetFilterPredicate::Signed => box_pure_predicate_fn(move |index, pos| {
             let entry = index.commits().entry_by_pos(pos);
@@ -1339,10 +1339,10 @@ async fn has_diff_from_parent(
     let parents: Vec<_> = commit.parents_async().await?;
     if let [parent] = parents.as_slice() {
         // Fast path: no need to load the root tree
-        let unchanged = commit.tree_id() == parent.tree_id();
+        let changed = commit.tree_id().has_changes(parent.tree_id());
         if matcher.visit(RepoPath::root()) == Visit::AllRecursively {
-            return Ok(!unchanged);
-        } else if unchanged {
+            return Ok(changed);
+        } else if !changed {
             return Ok(false);
         }
     }

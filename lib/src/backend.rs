@@ -29,6 +29,7 @@ use tokio::io::AsyncRead;
 use crate::content_hash::ContentHash;
 use crate::hex_util;
 use crate::index::Index;
+use crate::merge::ConflictLabels;
 use crate::merge::Merge;
 use crate::object_id::ObjectId as _;
 use crate::object_id::id_type;
@@ -152,41 +153,57 @@ pub struct SecureSig {
 
 pub type SigningFn<'a> = dyn FnMut(&[u8]) -> SignResult<Vec<u8>> + Send + 'a;
 
-/// Identifies a single legacy tree, which may have path-level conflicts, or a
-/// merge of multiple trees, where the individual trees do not have conflicts.
-// TODO(#1624): Delete this type at some point in the future, when we decide to drop
-// support for conflicts in older repos, or maybe after we have provided an upgrade
-// mechanism.
-#[derive(ContentHash, Debug, Clone)]
-pub enum MergedTreeId {
-    /// The tree id of a legacy tree
-    Legacy(TreeId),
+/// Identifies a merge of multiple trees, including conflict labels. Can be read
+/// as a `MergedTree`.
+#[derive(ContentHash, Debug, PartialEq, Eq, Clone)]
+pub struct MergedTreeId {
     /// The tree id(s) of a merge tree
-    Merge(Merge<TreeId>),
+    tree_ids: Merge<TreeId>,
+    /// The labels for the sides of the merged tree (if any)
+    labels: Option<ConflictLabels>,
 }
-
-impl PartialEq for MergedTreeId {
-    /// Overridden to make conflict-free trees be considered equal even if their
-    /// `MergedTreeId` variant is different.
-    fn eq(&self, other: &Self) -> bool {
-        self.to_merge() == other.to_merge()
-    }
-}
-
-impl Eq for MergedTreeId {}
 
 impl MergedTreeId {
     /// Create a resolved `MergedTreeId` from a single regular tree.
     pub fn resolved(tree_id: TreeId) -> Self {
-        Self::Merge(Merge::resolved(tree_id))
+        Self::unlabeled(Merge::resolved(tree_id))
     }
 
-    /// Return this id as `Merge<TreeId>`
-    pub fn to_merge(&self) -> Merge<TreeId> {
-        match self {
-            Self::Legacy(tree_id) => Merge::resolved(tree_id.clone()),
-            Self::Merge(tree_ids) => tree_ids.clone(),
+    /// Create a `MergedTreeId` from a `Merge<TreeId>` without conflict labels.
+    pub fn unlabeled(tree_ids: Merge<TreeId>) -> Self {
+        Self::new(tree_ids, None)
+    }
+
+    /// Create a `MergedTreeId` from a `Merge<TreeId>` with conflict labels.
+    pub fn new(tree_ids: Merge<TreeId>, labels: Option<ConflictLabels>) -> Self {
+        if let Some(labels) = &labels {
+            assert!(!tree_ids.is_resolved());
+            assert_eq!(tree_ids.num_sides(), labels.num_sides());
         }
+        Self { tree_ids, labels }
+    }
+
+    /// Returns the underlying `Merge<TreeId>`.
+    pub fn as_merge(&self) -> &Merge<TreeId> {
+        &self.tree_ids
+    }
+
+    /// Extracts the underlying `Merge<TreeId>`, discarding any conflict labels.
+    pub fn into_merge(self) -> Merge<TreeId> {
+        self.tree_ids
+    }
+
+    /// Check whether a `MergedTreeId` has changes compared to another
+    /// `MergedTreeId`, ignoring any conflict labels. This is the comparison
+    /// that should be used to check if a commit is empty, since conflict labels
+    /// are just metadata which doesn't count as a file change.
+    pub fn has_changes(&self, other: &Self) -> bool {
+        self.tree_ids != other.tree_ids
+    }
+
+    /// Returns this merge's conflict labels, if any.
+    pub fn labels(&self) -> Option<ConflictLabels> {
+        self.labels.clone()
     }
 }
 

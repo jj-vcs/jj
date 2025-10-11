@@ -2461,13 +2461,13 @@ fn test_diff_conflict_sides_differ() {
     // left1+right1.
     work_dir.run_jj(["new", "root()"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @r"
-    ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left2+right2 530ede8c conflict
+    ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left2+right2 7e111ade conflict
     ├─╮  (empty) left2+right2
     │ ○  znkkpsqq test.user@example.com 2001-02-03 08:05:17 right2 e57450eb
     │ │  right2
     ○ │  royxmykx test.user@example.com 2001-02-03 08:05:13 left2 b50b218b
     │ │  left2
-    │ │ ×  kmkuslsw test.user@example.com 2001-02-03 08:05:18 left1+right1 83cdbdb5 conflict
+    │ │ ×  kmkuslsw test.user@example.com 2001-02-03 08:05:18 left1+right1 0ebb5659 conflict
     ╭─┬─╯  (empty) left1+right1
     │ ○  vruxwmqv test.user@example.com 2001-02-03 08:05:15 right1 3fe2e860
     │ │  right1
@@ -2531,11 +2531,11 @@ fn test_diff_conflict_sides_differ() {
      line 2
     -line 3
     +<<<<<<< Conflict 1 of 1
-    ++++++++ Contents of side #1
+    ++++++++ Contents of side #1 (zsuskuln 713a980c)
     +left 3.1
     +left 3.2
     +left 3.3
-    +%%%%%%% Changes from base to side #2
+    +%%%%%%% Changes from base (rlvkpnrz aa7e33ed) to side #2 (vruxwmqv 3fe2e860)
     +-line 3
     ++right 3.1
     +>>>>>>> Conflict 1 of 1 ends
@@ -2547,11 +2547,11 @@ fn test_diff_conflict_sides_differ() {
     [38;5;1m   1[39m [38;5;2m   1[39m: line 1
     [38;5;1m   2[39m [38;5;2m   2[39m: line 2
          [38;5;2m   3[39m: [4m[38;5;2m<<<<<<< Conflict 1 of 1[24m[39m
-         [38;5;2m   4[39m: [4m[38;5;2m+++++++ Contents of side #1[24m[39m
+         [38;5;2m   4[39m: [4m[38;5;2m+++++++ Contents of side #1 (zsuskuln 713a980c)[24m[39m
          [38;5;2m   5[39m: [4m[38;5;2mleft 3.1[24m[39m
          [38;5;2m   6[39m: [4m[38;5;2mleft 3.2[24m[39m
          [38;5;2m   7[39m: [4m[38;5;2mleft 3.3[24m[39m
-         [38;5;2m   8[39m: [4m[38;5;2m%%%%%%% Changes from base to side #2[24m[39m
+         [38;5;2m   8[39m: [4m[38;5;2m%%%%%%% Changes from base (rlvkpnrz aa7e33ed) to side #2 (vruxwmqv 3fe2e860)[24m[39m
     [38;5;1m   3[39m [38;5;2m   9[39m: [4m[38;5;2m-[24m[39mline 3
          [38;5;2m  10[39m: [4m[38;5;2m+right 3.1[24m[39m
          [38;5;2m  11[39m: [4m[38;5;2m>>>>>>> Conflict 1 of 1 ends[24m[39m
@@ -2587,11 +2587,11 @@ fn test_diff_conflict_sides_differ() {
     @@ -2,11 +2,3 @@
      line 2
     -<<<<<<< Conflict 1 of 1
-    -+++++++ Contents of side #1
+    -+++++++ Contents of side #1 (zsuskuln 713a980c)
     -left 3.1
     -left 3.2
     -left 3.3
-    -%%%%%%% Changes from base to side #2
+    -%%%%%%% Changes from base (rlvkpnrz aa7e33ed) to side #2 (vruxwmqv 3fe2e860)
     --line 3
     -+right 3.1
     ->>>>>>> Conflict 1 of 1 ends
@@ -2604,11 +2604,11 @@ fn test_diff_conflict_sides_differ() {
     [38;5;1m   1[39m [38;5;2m   1[39m: line 1
     [38;5;1m   2[39m [38;5;2m   2[39m: line 2
     [38;5;1m   3[39m     : [4m[38;5;1m<<<<<<< Conflict 1 of 1[24m[39m
-    [38;5;1m   4[39m     : [4m[38;5;1m+++++++ Contents of side #1[24m[39m
+    [38;5;1m   4[39m     : [4m[38;5;1m+++++++ Contents of side #1 (zsuskuln 713a980c)[24m[39m
     [38;5;1m   5[39m     : [4m[38;5;1mleft 3.1[24m[39m
     [38;5;1m   6[39m     : [4m[38;5;1mleft 3.2[24m[39m
     [38;5;1m   7[39m     : [4m[38;5;1mleft 3.3[24m[39m
-    [38;5;1m   8[39m     : [4m[38;5;1m%%%%%%% Changes from base to side #2[24m[39m
+    [38;5;1m   8[39m     : [4m[38;5;1m%%%%%%% Changes from base (rlvkpnrz aa7e33ed) to side #2 (vruxwmqv 3fe2e860)[24m[39m
     [38;5;1m   9[39m [38;5;2m   3[39m: [4m[38;5;1m-[24m[39mline 3
     [38;5;1m  10[39m     : [4m[38;5;1m+right 3.1[24m[39m
     [38;5;1m  11[39m     : [4m[38;5;1m>>>>>>> Conflict 1 of 1 ends[24m[39m
@@ -2640,14 +2640,20 @@ fn test_diff_conflict_sides_differ() {
     diff --git a/file b/file
     --- a/file
     +++ b/file
-    @@ -1,2 +1,2 @@
+    @@ -1,5 +1,5 @@
     -line 1
     +left 1.1
      line 2
-    @@ -7,2 +7,3 @@
+     <<<<<<< Conflict 1 of 1
+    -+++++++ Contents of side #1 (zsuskuln 713a980c)
+    ++++++++ Contents of side #1 (royxmykx b50b218b)
+     left 3.1
+    @@ -7,3 +7,4 @@
      left 3.3
+    -%%%%%%% Changes from base (rlvkpnrz aa7e33ed) to side #2 (vruxwmqv 3fe2e860)
     +left 3.4
-     %%%%%%% Changes from base to side #2
+    +%%%%%%% Changes from base (rlvkpnrz aa7e33ed) to side #2 (znkkpsqq e57450eb)
+     -line 3
     @@ -12,2 +13,1 @@
      line 4
     -line 5
@@ -2657,10 +2663,16 @@ fn test_diff_conflict_sides_differ() {
     [38;5;3mModified conflict in file:[39m
     [38;5;1m   1[39m [38;5;2m   1[39m: [4m[38;5;1mline[38;5;2mleft[24m[39m [4m[38;5;2m1.[24m[39m1
     [38;5;1m   2[39m [38;5;2m   2[39m: line 2
-        ...
+    [38;5;1m   3[39m [38;5;2m   3[39m: <<<<<<< Conflict 1 of 1
+    [38;5;1m   4[39m     : [38;5;1m+++++++ Contents of side #1 ([4mzsuskuln[24m [4m713a980c[24m)[39m
+         [38;5;2m   4[39m: [38;5;2m+++++++ Contents of side #1 ([4mroyxmykx[24m [4mb50b218b[24m)[39m
+    [38;5;1m   5[39m [38;5;2m   5[39m: left 3.1
+    [38;5;1m   6[39m [38;5;2m   6[39m: left 3.2
     [38;5;1m   7[39m [38;5;2m   7[39m: left 3.3
+    [38;5;1m   8[39m     : [38;5;1m%%%%%%% Changes from base (rlvkpnrz aa7e33ed) to side #2 ([4mvruxwmqv[24m [4m3fe2e860[24m)[39m
          [38;5;2m   8[39m: [4m[38;5;2mleft 3.4[24m[39m
-    [38;5;1m   8[39m [38;5;2m   9[39m: %%%%%%% Changes from base to side #2
+         [38;5;2m   9[39m: [38;5;2m%%%%%%% Changes from base (rlvkpnrz aa7e33ed) to side #2 ([4mznkkpsqq[24m [4me57450eb[24m)[39m
+    [38;5;1m   9[39m [38;5;2m  10[39m: -line 3
         ...
     [38;5;1m  12[39m [38;5;2m  13[39m: line 4
     [38;5;1m  13[39m     : [4m[38;5;1mline 5[24m[39m
@@ -2755,7 +2767,7 @@ fn test_diff_conflict_bases_differ() {
     // left1+right1.
     work_dir.run_jj(["new", "root()"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @r"
-    ×    nkmrtpmo test.user@example.com 2001-02-03 08:05:22 left2+right2 22cb40d9 conflict
+    ×    nkmrtpmo test.user@example.com 2001-02-03 08:05:22 left2+right2 59fe9ac0 conflict
     ├─╮  (empty) left2+right2
     │ ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 right2 656695c3
     │ │  right2
@@ -2763,7 +2775,7 @@ fn test_diff_conflict_bases_differ() {
     ├─╯  left2
     ○  vruxwmqv test.user@example.com 2001-02-03 08:05:15 base2 3c4d67e6
     │  base2
-    │ ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left1+right1 1711cb65 conflict
+    │ ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left1+right1 abb83634 conflict
     │ ├─╮  (empty) left1+right1
     │ │ ○  royxmykx test.user@example.com 2001-02-03 08:05:13 right1 3087be1f
     ├───╯  right1
@@ -2809,12 +2821,18 @@ fn test_diff_conflict_bases_differ() {
     diff --git a/file b/file
     --- a/file
     +++ b/file
-    @@ -1,2 +1,1 @@
+    @@ -1,5 +1,4 @@
     -line 1
      line 2
-    @@ -8,3 +7,4 @@
-     %%%%%%% Changes from base to side #2
+     <<<<<<< Conflict 1 of 1
+    -+++++++ Contents of side #1 (zsuskuln 9e995075)
+    ++++++++ Contents of side #1 (znkkpsqq 218094ec)
+     left 3.1
+    @@ -7,4 +6,5 @@
+     left 3.3
+    -%%%%%%% Changes from base (rlvkpnrz 44cfbde6) to side #2 (royxmykx 3087be1f)
     --line 3
+    +%%%%%%% Changes from base (vruxwmqv 3c4d67e6) to side #2 (kmkuslsw 656695c3)
     +-line 3.1
     +-line 3.2
      +right 3.1
@@ -2824,10 +2842,17 @@ fn test_diff_conflict_bases_differ() {
     [38;5;3mModified conflict in file:[39m
     [38;5;1m   1[39m     : [4m[38;5;1mline 1[24m[39m
     [38;5;1m   2[39m [38;5;2m   1[39m: line 2
-        ...
-    [38;5;1m   8[39m [38;5;2m   7[39m: %%%%%%% Changes from base to side #2
-    [38;5;1m   9[39m [38;5;2m   8[39m: -line 3[4m[38;5;2m.1[24m[39m
-    [38;5;1m   9[39m [38;5;2m   9[39m: [4m[38;5;2m-line 3.2[24m[39m
+    [38;5;1m   3[39m [38;5;2m   2[39m: <<<<<<< Conflict 1 of 1
+    [38;5;1m   4[39m     : [38;5;1m+++++++ Contents of side #1 ([4mzsuskuln[24m [4m9e995075[24m)[39m
+         [38;5;2m   3[39m: [38;5;2m+++++++ Contents of side #1 ([4mznkkpsqq[24m [4m218094ec[24m)[39m
+    [38;5;1m   5[39m [38;5;2m   4[39m: left 3.1
+    [38;5;1m   6[39m [38;5;2m   5[39m: left 3.2
+    [38;5;1m   7[39m [38;5;2m   6[39m: left 3.3
+    [38;5;1m   8[39m     : [38;5;1m%%%%%%% Changes from base ([4mrlvkpnrz[24m [4m44cfbde6[24m) to side #2 ([4mroyxmykx[24m [4m3087be1f[24m)[39m
+    [38;5;1m   9[39m     : [38;5;1m-[4mline[24m [4m3[24m[39m
+         [38;5;2m   7[39m: [38;5;2m%%%%%%% Changes from base ([4mvruxwmqv[24m [4m3c4d67e6[24m) to side #2 ([4mkmkuslsw[24m [4m656695c3[24m)[39m
+         [38;5;2m   8[39m: [38;5;2m-[4mline[24m [4m3.1[24m[39m
+         [38;5;2m   9[39m: [4m[38;5;2m-line 3.2[24m[39m
     [38;5;1m  10[39m [38;5;2m  10[39m: +right 3.1
         ...
     [EOF]
@@ -2911,11 +2936,11 @@ fn test_diff_conflict_three_sides() {
     // Test the setup
     work_dir.run_jj(["new", "root()"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @r"
-    ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 side1+side2+side3 ac1efd43 conflict
+    ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 side1+side2+side3 dc9c9180 conflict
     ├─╮  (empty) side1+side2+side3
     │ ○  znkkpsqq test.user@example.com 2001-02-03 08:05:17 side3 f73063c9
     │ │  side3
-    × │    kmkuslsw test.user@example.com 2001-02-03 08:05:18 side1+side2 a1f24e10 conflict
+    × │    kmkuslsw test.user@example.com 2001-02-03 08:05:18 side1+side2 2636a1ea conflict
     ├───╮  (empty) side1+side2
     │ │ ○  vruxwmqv test.user@example.com 2001-02-03 08:05:15 side2 bc176227
     │ │ │  side2
@@ -2973,12 +2998,12 @@ fn test_diff_conflict_three_sides() {
     +++ b/file
     @@ -2,3 +2,3 @@
      <<<<<<< Conflict 1 of 1
-    -%%%%%%% Changes from base to side #1
-    +%%%%%%% Changes from base #1 to side #1
+    -%%%%%%% Changes from base (zsuskuln 75289ea3) to side #1 (royxmykx 3a079496)
+    +%%%%%%% Changes from base #1 (zsuskuln 75289ea3) to side #1 (royxmykx 3a079496)
      -line 2 base
     @@ -12,2 +12,5 @@
      line 4 b.2
-    +%%%%%%% Changes from base #2 to side #3
+    +%%%%%%% Changes from base #2 (rlvkpnrz 07965fa1) to side #3 (znkkpsqq f73063c9)
     + line 2 base
     ++line 3 c.2
      >>>>>>> Conflict 1 of 1 ends
@@ -2988,11 +3013,11 @@ fn test_diff_conflict_three_sides() {
     [38;5;3mModified conflict in file:[39m
     [38;5;1m   1[39m [38;5;2m   1[39m: line 1
     [38;5;1m   2[39m [38;5;2m   2[39m: <<<<<<< Conflict 1 of 1
-    [38;5;1m   3[39m [38;5;2m   3[39m: %%%%%%% Changes from base [4m[38;5;2m#1 [24m[39mto side #1
+    [38;5;1m   3[39m [38;5;2m   3[39m: %%%%%%% Changes from base [4m[38;5;2m#1 [24m[39m(zsuskuln 75289ea3) to side #1 (royxmykx 3a079496)
     [38;5;1m   4[39m [38;5;2m   4[39m: -line 2 base
         ...
     [38;5;1m  12[39m [38;5;2m  12[39m: line 4 b.2
-         [38;5;2m  13[39m: [4m[38;5;2m%%%%%%% Changes from base #2 to side #3[24m[39m
+         [38;5;2m  13[39m: [4m[38;5;2m%%%%%%% Changes from base #2 (rlvkpnrz 07965fa1) to side #3 (znkkpsqq f73063c9)[24m[39m
          [38;5;2m  14[39m: [4m[38;5;2m line 2 base[24m[39m
          [38;5;2m  15[39m: [4m[38;5;2m+line 3 c.2[24m[39m
     [38;5;1m  13[39m [38;5;2m  16[39m: >>>>>>> Conflict 1 of 1 ends
@@ -3557,11 +3582,11 @@ fn test_diff_external_tool_conflict_marker_style() {
     line 2.3
     line 3
     <<<<<<< Conflict 1 of 1
-    +++++++ Contents of side #1
+    +++++++ Contents of side #1 (rlvkpnrz 74e448a1)
     line 4.1
-    ------- Contents of base
+    ------- Contents of base (qpvuntsm 9bd2e004)
     line 4
-    +++++++ Contents of side #2
+    +++++++ Contents of side #2 (zsuskuln 6982bce7)
     line 4.2
     line 4.3
     >>>>>>> Conflict 1 of 1 ends

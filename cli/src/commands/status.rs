@@ -141,7 +141,7 @@ pub(crate) fn cmd_status(
             writeln!(formatter)?;
         }
 
-        if wc_commit.has_conflict()? {
+        if wc_commit.has_conflict() {
             // TODO: Conflicts should also be filtered by the `matcher`. See the related
             // TODO on `MergedTree::conflicts()`.
             let conflicts = wc_commit.tree()?.conflicts().collect_vec();
@@ -169,7 +169,7 @@ pub(crate) fn cmd_status(
         } else {
             for parent in wc_commit.parents() {
                 let parent = parent?;
-                if parent.has_conflict()? {
+                if parent.has_conflict() {
                     writeln!(
                         formatter.labeled("hint").with_heading("Hint: "),
                         "Conflict in parent commit has been resolved in working copy"

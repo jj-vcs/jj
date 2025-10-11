@@ -422,7 +422,7 @@ fn test_conflict_subdirectory() {
     let tree1 = create_tree(repo, &[(path, "0")]);
     let commit1 = commit_with_tree(repo.store(), tree1.id());
     let tree2 = create_tree(repo, &[(path, "1")]);
-    let merged_tree = tree1.merge(empty_tree, tree2).block_on().unwrap();
+    let merged_tree = tree1.merge_unlabeled(empty_tree, tree2).block_on().unwrap();
     let merged_commit = commit_with_tree(repo.store(), merged_tree.id());
     let repo = &test_workspace.repo;
     let ws = &mut test_workspace.workspace;
@@ -541,7 +541,7 @@ fn test_tree_builder_file_directory_transition() {
     let workspace_root = ws.workspace_root().to_owned();
     let mut check_out_tree = |tree_id: &TreeId| {
         let tree = repo.store().get_tree(RepoPathBuf::root(), tree_id).unwrap();
-        let commit = commit_with_tree(repo.store(), MergedTreeId::Legacy(tree.id().clone()));
+        let commit = commit_with_tree(repo.store(), MergedTreeId::resolved(tree.id().clone()));
         ws.check_out(repo.op_id().clone(), None, &commit).unwrap();
     };
 
@@ -844,10 +844,10 @@ fn test_materialize_snapshot_conflicted_files() {
     let base2_tree = create_tree(repo, &[(file1_path, "b\n"), (file2_path, "3\n")]);
     let side3_tree = create_tree(repo, &[(file1_path, "c\n"), (file2_path, "3\n")]);
     let merged_tree = side1_tree
-        .merge(base1_tree, side2_tree)
+        .merge_unlabeled(base1_tree, side2_tree)
         .block_on()
         .unwrap()
-        .merge(base2_tree, side3_tree)
+        .merge_unlabeled(base2_tree, side3_tree)
         .block_on()
         .unwrap();
     let commit = commit_with_tree(repo.store(), merged_tree.id());
@@ -975,7 +975,10 @@ fn test_materialize_snapshot_unchanged_conflicts() {
     let base_tree = create_tree(repo, &[(file_path, base_content)]);
     let left_tree = create_tree(repo, &[(file_path, left_content)]);
     let right_tree = create_tree(repo, &[(file_path, right_content)]);
-    let merged_tree = left_tree.merge(base_tree, right_tree).block_on().unwrap();
+    let merged_tree = left_tree
+        .merge_unlabeled(base_tree, right_tree)
+        .block_on()
+        .unwrap();
     let commit = commit_with_tree(repo.store(), merged_tree.id());
 
     test_workspace

@@ -135,7 +135,7 @@ pub(crate) fn cmd_resolve(
     // be printed by the `tx.finish()` instead.
     if workspace_command.get_wc_commit_id() != Some(new_commit.id())
         && let Some(mut formatter) = ui.status_formatter()
-        && new_commit.has_conflict()?
+        && new_commit.has_conflict()
     {
         let new_tree = new_commit.tree()?;
         let new_conflicts = new_tree.conflicts().collect_vec();

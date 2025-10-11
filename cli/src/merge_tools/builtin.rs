@@ -23,6 +23,7 @@ use jj_lib::diff::DiffHunkKind;
 use jj_lib::files;
 use jj_lib::files::MergeResult;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::ConflictLabels;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
@@ -124,6 +125,7 @@ fn buf_to_file_contents(hash: Option<String>, buf: Vec<u8>) -> FileContents {
 fn read_file_contents(
     materialized_value: MaterializedTreeValue,
     path: &RepoPath,
+    conflict_labels: Option<ConflictLabels>,
     materialize_options: &ConflictMaterializeOptions,
 ) -> Result<FileInfo, BuiltinToolError> {
     match materialized_value {
@@ -178,7 +180,12 @@ fn read_file_contents(
             // Since scm_record doesn't support diffs of conflicts, file
             // conflicts are compared in materialized form. The UI would look
             // scary, but it can at least allow squashing resolved hunks.
-            let buf = materialize_merge_result_to_bytes(&file.contents, materialize_options).into();
+            let buf = materialize_merge_result_to_bytes(
+                &file.contents,
+                conflict_labels,
+                materialize_options,
+            )
+            .into();
             // TODO: Render the ID somehow?
             let contents = buf_to_file_contents(None, buf);
             Ok(FileInfo {
@@ -262,6 +269,8 @@ fn make_diff_sections(
 
 async fn make_diff_files(
     store: &Arc<Store>,
+    left_tree: &MergedTree,
+    right_tree: &MergedTree,
     tree_diff: BoxStream<'_, CopiesTreeDiffEntry>,
     marker_style: ConflictMarkerStyle,
 ) -> Result<(Vec<RepoPathBuf>, Vec<scm_record::File<'static>>), BuiltinToolError> {
@@ -277,8 +286,18 @@ async fn make_diff_files(
         let left_path = entry.path.source();
         let right_path = entry.path.target();
         let (left_value, right_value) = entry.values?;
-        let left_info = read_file_contents(left_value, left_path, &materialize_options)?;
-        let right_info = read_file_contents(right_value, right_path, &materialize_options)?;
+        let left_info = read_file_contents(
+            left_value,
+            left_path,
+            left_tree.labels(),
+            &materialize_options,
+        )?;
+        let right_info = read_file_contents(
+            right_value,
+            right_path,
+            right_tree.labels(),
+            &materialize_options,
+        )?;
         let mut sections = Vec::new();
 
         if left_info.file_mode != right_info.file_mode {
@@ -545,8 +564,14 @@ pub fn edit_diff_builtin(
     // TODO: handle copy tracking
     let copy_records = CopyRecords::default();
     let tree_diff = left_tree.diff_stream_with_copies(right_tree, matcher, &copy_records);
-    let (changed_files, files) =
-        make_diff_files(&store, tree_diff, conflict_marker_style).block_on()?;
+    let (changed_files, files) = make_diff_files(
+        &store,
+        left_tree,
+        right_tree,
+        tree_diff,
+        conflict_marker_style,
+    )
+    .block_on()?;
     let mut input = scm_record::helpers::CrosstermInput;
     let recorder = scm_record::Recorder::new(
         scm_record::RecordState {
@@ -754,9 +779,15 @@ mod tests {
     ) -> (Vec<RepoPathBuf>, Vec<scm_record::File<'static>>) {
         let copy_records = CopyRecords::default();
         let tree_diff = left_tree.diff_stream_with_copies(right_tree, matcher, &copy_records);
-        make_diff_files(store, tree_diff, ConflictMarkerStyle::Diff)
-            .block_on()
-            .unwrap()
+        make_diff_files(
+            store,
+            left_tree,
+            right_tree,
+            tree_diff,
+            ConflictMarkerStyle::Diff,
+        )
+        .block_on()
+        .unwrap()
     }
 
     fn apply_diff(
@@ -1604,7 +1635,7 @@ mod tests {
             let base = testutils::create_single_tree(&test_repo.repo, &[(file_path, "")]);
             let left = testutils::create_single_tree(&test_repo.repo, &[(file_path, "1\n")]);
             let right = testutils::create_single_tree(&test_repo.repo, &[(file_path, "2\n")]);
-            MergedTree::new(Merge::from_vec(vec![left, base, right]))
+            MergedTree::unlabeled(Merge::from_vec(vec![left, base, right]))
         };
         let right_tree = testutils::create_tree(&test_repo.repo, &[(file_path, "resolved\n")]);
 

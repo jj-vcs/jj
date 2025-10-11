@@ -61,6 +61,7 @@ use jj_lib::files::DiffLineHunkSide;
 use jj_lib::files::DiffLineIterator;
 use jj_lib::files::DiffLineNumber;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::ConflictLabels;
 use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergeBuilder;
@@ -452,6 +453,7 @@ impl<'a> DiffRenderer<'a> {
         width: usize,
     ) -> Result<(), DiffRenderError> {
         let store = self.repo.store();
+        let trees = Diff::new(from_tree, to_tree);
         let path_converter = self.path_converter;
         for format in &self.formats {
             match format {
@@ -484,6 +486,7 @@ impl<'a> DiffRenderer<'a> {
                     show_git_diff(
                         formatter,
                         store,
+                        trees,
                         tree_diff,
                         options,
                         self.conflict_marker_style,
@@ -496,6 +499,7 @@ impl<'a> DiffRenderer<'a> {
                     show_color_words_diff(
                         formatter,
                         store,
+                        trees,
                         tree_diff,
                         path_converter,
                         options,
@@ -512,6 +516,7 @@ impl<'a> DiffRenderer<'a> {
                                 ui,
                                 formatter,
                                 store,
+                                trees,
                                 tree_diff,
                                 path_converter,
                                 tool,
@@ -569,6 +574,7 @@ impl<'a> DiffRenderer<'a> {
                         [DUMMY_PATH, DUMMY_PATH],
                         [from_description, to_description],
                         options,
+                        Diff::new(None, None),
                         &materialize_options,
                     )?;
                 }
@@ -578,6 +584,7 @@ impl<'a> DiffRenderer<'a> {
                         formatter,
                         [from_description, to_description],
                         options,
+                        Diff::new(None, None),
                         &materialize_options,
                     )?;
                 }
@@ -776,6 +783,7 @@ fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
     formatter: &mut dyn Formatter,
     [lefts, rights]: [&Merge<T>; 2],
     options: &ColorWordsDiffOptions,
+    conflict_labels: Diff<Option<ConflictLabels>>,
     materialize_options: &ConflictMaterializeOptions,
 ) -> io::Result<()> {
     let line_number = DiffLineNumber { left: 1, right: 1 };
@@ -787,8 +795,16 @@ fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
     }
     match options.conflict {
         ConflictDiffMethod::Materialize => {
-            let left = materialize_merge_result_to_bytes(lefts, materialize_options);
-            let right = materialize_merge_result_to_bytes(rights, materialize_options);
+            let left = materialize_merge_result_to_bytes(
+                lefts,
+                conflict_labels.before,
+                materialize_options,
+            );
+            let right = materialize_merge_result_to_bytes(
+                rights,
+                conflict_labels.after,
+                materialize_options,
+            );
             let contents = [&left, &right].map(BStr::new);
             show_color_words_resolved_hunks(formatter, contents, line_number, labels, options)?;
         }
@@ -1248,13 +1264,16 @@ fn file_content_for_diff<T>(
 fn diff_content(
     path: &RepoPath,
     value: MaterializedTreeValue,
+    conflict_labels: Option<ConflictLabels>,
     materialize_options: &ConflictMaterializeOptions,
 ) -> BackendResult<FileContent<BString>> {
     diff_content_with(
         path,
         value,
         |content| content,
-        |contents| materialize_merge_result_to_bytes(&contents, materialize_options),
+        |contents| {
+            materialize_merge_result_to_bytes(&contents, conflict_labels, materialize_options)
+        },
     )
 }
 
@@ -1332,6 +1351,7 @@ fn basic_diff_file_type(value: &MaterializedTreeValue) -> &'static str {
 pub async fn show_color_words_diff(
     formatter: &mut dyn Formatter,
     store: &Store,
+    trees: Diff<&MergedTree>,
     tree_diff: BoxStream<'_, CopiesTreeDiffEntry>,
     path_converter: &RepoPathUiConverter,
     options: &ColorWordsDiffOptions,
@@ -1342,6 +1362,7 @@ pub async fn show_color_words_diff(
         marker_len: None,
         merge: store.merge_options().clone(),
     };
+    let conflict_labels = trees.map(|tree| tree.labels());
     let empty_content = || Merge::resolved(BString::default());
     let mut diff_stream = materialized_diff_stream(store, tree_diff);
     while let Some(MaterializedTreeDiffEntry { path, values }) = diff_stream.next().await {
@@ -1386,6 +1407,7 @@ pub async fn show_color_words_diff(
                     formatter,
                     [&empty_content(), &right_content.contents],
                     options,
+                    conflict_labels.clone(),
                     &materialize_options,
                 )?;
             }
@@ -1453,6 +1475,7 @@ pub async fn show_color_words_diff(
                     formatter,
                     [&left_content.contents, &right_content.contents],
                     options,
+                    conflict_labels.clone(),
                     &materialize_options,
                 )?;
             }
@@ -1472,6 +1495,7 @@ pub async fn show_color_words_diff(
                     formatter,
                     [&left_content.contents, &empty_content()],
                     options,
+                    conflict_labels.clone(),
                     &materialize_options,
                 )?;
             }
@@ -1485,6 +1509,7 @@ pub async fn show_file_by_file_diff(
     ui: &Ui,
     formatter: &mut dyn Formatter,
     store: &Store,
+    trees: Diff<&MergedTree>,
     tree_diff: BoxStream<'_, CopiesTreeDiffEntry>,
     path_converter: &RepoPathUiConverter,
     tool: &ExternalMergeTool,
@@ -1498,11 +1523,12 @@ pub async fn show_file_by_file_diff(
     };
     let create_file = |path: &RepoPath,
                        wc_dir: &Path,
+                       tree: &MergedTree,
                        value: MaterializedTreeValue|
      -> Result<PathBuf, DiffRenderError> {
         let fs_path = path.to_fs_path(wc_dir)?;
         std::fs::create_dir_all(fs_path.parent().unwrap())?;
-        let content = diff_content(path, value, &materialize_options)?;
+        let content = diff_content(path, value, tree.labels(), &materialize_options)?;
         std::fs::write(&fs_path, content.contents)?;
         Ok(fs_path)
     };
@@ -1537,8 +1563,8 @@ pub async fn show_file_by_file_diff(
             }
             _ => {}
         }
-        let left_path = create_file(left_path, &left_wc_dir, left_value)?;
-        let right_path = create_file(right_path, &right_wc_dir, right_value)?;
+        let left_path = create_file(left_path, &left_wc_dir, trees.before, left_value)?;
+        let right_path = create_file(right_path, &right_wc_dir, trees.after, right_value)?;
         let patterns = &maplit::hashmap! {
             "left" => left_path
                 .strip_prefix(temp_dir.path())
@@ -1572,6 +1598,7 @@ struct GitDiffPart {
 fn git_diff_part(
     path: &RepoPath,
     value: MaterializedTreeValue,
+    conflict_labels: Option<ConflictLabels>,
     materialize_options: &ConflictMaterializeOptions,
 ) -> Result<GitDiffPart, DiffRenderError> {
     const DUMMY_HASH: &str = "0000000000";
@@ -1626,7 +1653,11 @@ fn git_diff_part(
             hash = DUMMY_HASH.to_owned();
             content = FileContent {
                 is_binary: false, // TODO: are we sure this is never binary?
-                contents: materialize_merge_result_to_bytes(&file.contents, materialize_options),
+                contents: materialize_merge_result_to_bytes(
+                    &file.contents,
+                    conflict_labels,
+                    materialize_options,
+                ),
             };
         }
         MaterializedTreeValue::OtherConflict { id } => {
@@ -1896,6 +1927,7 @@ fn show_diff_line_tokens(
 pub async fn show_git_diff(
     formatter: &mut dyn Formatter,
     store: &Store,
+    trees: Diff<&MergedTree>,
     tree_diff: BoxStream<'_, CopiesTreeDiffEntry>,
     options: &UnifiedDiffOptions,
     marker_style: ConflictMarkerStyle,
@@ -1913,8 +1945,18 @@ pub async fn show_git_diff(
         let right_path_string = right_path.as_internal_file_string();
         let (left_value, right_value) = values?;
 
-        let left_part = git_diff_part(left_path, left_value, &materialize_options)?;
-        let right_part = git_diff_part(right_path, right_value, &materialize_options)?;
+        let left_part = git_diff_part(
+            left_path,
+            left_value,
+            trees.before.labels(),
+            &materialize_options,
+        )?;
+        let right_part = git_diff_part(
+            right_path,
+            right_value,
+            trees.after.labels(),
+            &materialize_options,
+        )?;
 
         {
             let mut formatter = formatter.labeled("file_header");
@@ -1994,6 +2036,7 @@ fn show_git_diff_texts<T: AsRef<[u8]>>(
     [left_path, right_path]: [&str; 2],
     contents: [&Merge<T>; 2],
     options: &UnifiedDiffOptions,
+    conflict_labels: Diff<Option<ConflictLabels>>,
     materialize_options: &ConflictMaterializeOptions,
 ) -> io::Result<()> {
     {
@@ -2002,13 +2045,23 @@ fn show_git_diff_texts<T: AsRef<[u8]>>(
         writeln!(formatter, "--- {left_path}")?;
         writeln!(formatter, "+++ {right_path}")?;
     }
-    let [left, right] = contents.map(|content| match content.as_resolved() {
-        Some(text) => Cow::Borrowed(BStr::new(text)),
-        None => Cow::Owned(materialize_merge_result_to_bytes(
-            content,
-            materialize_options,
-        )),
-    });
+    fn materialize_contents<'a, T: AsRef<[u8]>>(
+        contents: &'a Merge<T>,
+        labels: Option<ConflictLabels>,
+        materialize_options: &ConflictMaterializeOptions,
+    ) -> Cow<'a, BStr> {
+        match contents.as_resolved() {
+            Some(text) => Cow::Borrowed(BStr::new(text)),
+            None => Cow::Owned(materialize_merge_result_to_bytes(
+                contents,
+                labels,
+                materialize_options,
+            )),
+        }
+    }
+    let [left_contents, right_contents] = contents;
+    let left = materialize_contents(left_contents, conflict_labels.before, materialize_options);
+    let right = materialize_contents(right_contents, conflict_labels.after, materialize_options);
     show_unified_diff_hunks(formatter, [left.as_ref(), right.as_ref()], options)
 }
 
@@ -2083,8 +2136,8 @@ impl DiffStats {
         let entries = materialized_diff_stream(store, tree_diff)
             .map(|MaterializedTreeDiffEntry { path, values }| {
                 let (left, right) = values?;
-                let left_content = diff_content(path.source(), left, &materialize_options)?;
-                let right_content = diff_content(path.target(), right, &materialize_options)?;
+                let left_content = diff_content(path.source(), left, None, &materialize_options)?;
+                let right_content = diff_content(path.target(), right, None, &materialize_options)?;
                 let stat = get_diff_stat_entry(path, [&left_content, &right_content], options);
                 BackendResult::Ok(stat)
             })

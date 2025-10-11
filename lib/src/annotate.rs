@@ -454,7 +454,11 @@ async fn get_file_contents(
                     same_change: SameChange::Accept,
                 },
             };
-            Ok(materialize_merge_result_to_bytes(&file.contents, &options))
+            Ok(materialize_merge_result_to_bytes(
+                &file.contents,
+                tree.labels(),
+                &options,
+            ))
         }
         _ => Ok(BString::default()),
     }

@@ -180,7 +180,7 @@ fn test_new_merge_conflicts() {
     let output = work_dir.run_jj(["new", "2|3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv 5234fbf2 (conflict) (empty) (no description set)
+    Working copy  (@) now at: vruxwmqv 78699dbc (conflict) (empty) (no description set)
     Parent commit (@-)      : royxmykx 1b282e07 3 | 3
     Parent commit (@-)      : zsuskuln 7ac709e5 2 | 2
     Added 0 files, modified 1 files, removed 0 files
@@ -190,10 +190,10 @@ fn test_new_merge_conflicts() {
     ");
     insta::assert_snapshot!(work_dir.read_file("file"), @r"
     <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    %%%%%%% Changes from base (rlvkpnrz a93ed0a5) to side #1 (royxmykx 1b282e07)
     -1a
     +3a 1a
-    +++++++ Contents of side #2
+    +++++++ Contents of side #2 (zsuskuln 7ac709e5)
     1a 2a
     >>>>>>> Conflict 1 of 1 ends
     1b
@@ -251,7 +251,7 @@ fn test_new_merge_same_change() {
     let output = work_dir.run_jj(["new", "2|3", "--config=merge.same-change=keep"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: znkkpsqq 0d655a01 (conflict) (empty) (no description set)
+    Working copy  (@) now at: znkkpsqq 7f8ea854 (conflict) (empty) (no description set)
     Parent commit (@-)      : royxmykx 1b9fe696 3 | 3
     Parent commit (@-)      : zsuskuln 829e1e90 2 | 2
     Added 1 files, modified 0 files, removed 0 files
@@ -262,9 +262,9 @@ fn test_new_merge_same_change() {
     insta::assert_snapshot!(work_dir.read_file("file"), @r"
     a
     <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    %%%%%%% Changes from base (rlvkpnrz 2adf972b) to side #1 (royxmykx 1b9fe696)
     +b
-    +++++++ Contents of side #2
+    +++++++ Contents of side #2 (zsuskuln 829e1e90)
     b
     >>>>>>> Conflict 1 of 1 ends
     ");

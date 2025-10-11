@@ -909,7 +909,9 @@ impl TreeState {
                 .iter()
                 .map(|id| TreeId::new(id.clone()))
                 .collect();
-            self.tree_id = MergedTreeId::Merge(tree_ids_builder.build());
+            let labels = (!proto.conflict_labels.is_empty())
+                .then(|| Arc::new(Merge::from_vec(proto.conflict_labels)));
+            self.tree_id = MergedTreeId::new(tree_ids_builder.build(), labels);
         }
         self.file_states =
             FileStatesMap::from_proto(proto.file_states, proto.is_file_states_sorted);
@@ -918,18 +920,19 @@ impl TreeState {
         Ok(())
     }
 
-    #[expect(clippy::assigning_clones)]
+    #[expect(clippy::assigning_clones, clippy::field_reassign_with_default)]
     pub fn save(&mut self) -> Result<(), TreeStateError> {
         let mut proto: crate::protos::local_working_copy::TreeState = Default::default();
-        match &self.tree_id {
-            MergedTreeId::Legacy(_) => {
-                unreachable!();
-            }
-            MergedTreeId::Merge(tree_ids) => {
-                proto.tree_ids = tree_ids.iter().map(|id| id.to_bytes()).collect();
-            }
-        }
-
+        proto.tree_ids = self
+            .tree_id
+            .as_merge()
+            .iter()
+            .map(|id| id.to_bytes())
+            .collect();
+        proto.conflict_labels = self
+            .tree_id
+            .labels()
+            .map_or_else(Vec::new, |labels| labels.as_slice().to_owned());
         proto.file_states = self.file_states.data.clone();
         // `FileStatesMap` is guaranteed to be sorted.
         proto.is_file_states_sorted = true;
@@ -1965,7 +1968,11 @@ impl TreeState {
                         marker_len: Some(conflict_marker_len),
                         merge: self.store.merge_options().clone(),
                     };
-                    let contents = materialize_merge_result_to_bytes(&file.contents, &options);
+                    let contents = materialize_merge_result_to_bytes(
+                        &file.contents,
+                        new_tree.labels(),
+                        &options,
+                    );
                     let mut file_state = self
                         .write_conflict(&disk_path, &contents, file.executable.unwrap_or(false))
                         .await?;
