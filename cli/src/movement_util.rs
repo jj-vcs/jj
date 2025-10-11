@@ -157,6 +157,26 @@ fn get_target_commit(
     args: &MovementArgsInternal,
 ) -> Result<Commit, CommandError> {
     let wc_revset = RevsetExpression::commit(working_commit_id.clone());
+
+    // If we're not editing, the working-copy shouldn't have any children
+    if !args.should_edit {
+        let has_children = !wc_revset
+            .children()
+            .evaluate(workspace_command.repo().as_ref())?
+            .is_empty();
+        if has_children {
+            let mut cmd_err = user_error("The working copy must not have any children");
+            cmd_err.add_formatted_hint_with(|formatter| {
+                write!(
+                    formatter,
+                    "Create a new commit on top of this one or use --edit"
+                )?;
+                Ok(())
+            });
+            return Err(cmd_err);
+        }
+    }
+
     // If we're editing, start at the working-copy commit. Otherwise, start from
     // its direct parent(s).
     let start_revset = if args.should_edit {
