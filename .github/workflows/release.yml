@@ -70,7 +70,8 @@ jobs:
           echo "ASSET=$staging.zip" >> $GITHUB_ENV
         else
           cp "$outdir/jj" "$staging/"
-          tar czf "$staging.tar.gz" -C "$staging" .
+          cd "$staging"
+          tar czf "../$staging.tar.gz" *
           echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
         fi
       env:
