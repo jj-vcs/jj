@@ -212,7 +212,7 @@ fn make_section_changed_lines(
         .collect()
 }
 
-fn make_diff_sections(
+pub fn make_diff_sections(
     left_contents: &str,
     right_contents: &str,
 ) -> Result<Vec<scm_record::Section<'static>>, BuiltinToolError> {
