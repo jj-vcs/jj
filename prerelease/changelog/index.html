@@ -5974,6 +5974,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p>Added <code>template-aliases.empty_commit_marker</code>. Users can override this value in
   their config to change the "(empty)" label on empty commits.</p>
 </li>
+<li>
+<p>Workspaces may have an additional layered configuration, located at
+  <code>.jj/workspace-config.toml</code>. <code>jj config</code> subcommands which took layer options like
+  <code>--repo</code> now also support <code>--workspace</code>.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>

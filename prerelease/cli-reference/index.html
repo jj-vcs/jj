@@ -7647,12 +7647,13 @@ does not match the <code>jj help</code> output exactly.</p>
 <h2 id="jj-config-edit"><code>jj config edit</code><a class="headerlink" href="#jj-config-edit" title="Permanent link">&para;</a></h2>
 <p>Start an editor on a jj config file.</p>
 <p>Creates the file if it doesn't already exist regardless of what the editor does.</p>
-<p><strong>Usage:</strong> <code>jj config edit &lt;--user|--repo&gt;</code></p>
+<p><strong>Usage:</strong> <code>jj config edit &lt;--user|--repo|--workspace&gt;</code></p>
 <p><strong>Command Alias:</strong> <code>e</code></p>
 <h6 id="options_10"><strong>Options:</strong><a class="headerlink" href="#options_10" title="Permanent link">&para;</a></h6>
 <ul>
 <li><code>--user</code> — Target the user-level config</li>
 <li><code>--repo</code> — Target the repo-level config</li>
+<li><code>--workspace</code> — Target the workspace-level config</li>
 </ul>
 <h2 id="jj-config-get"><code>jj config get</code><a class="headerlink" href="#jj-config-get" title="Permanent link">&para;</a></h2>
 <p>Get the value of a given config option.</p>
@@ -7682,6 +7683,7 @@ Martin von Zweigbergk</p>
 <li><code>--include-overridden</code> — Allow printing overridden values</li>
 <li><code>--user</code> — Target the user-level config</li>
 <li><code>--repo</code> — Target the repo-level config</li>
+<li><code>--workspace</code> — Target the workspace-level config</li>
 <li>
 <p><code>-T</code>, <code>--template &lt;TEMPLATE&gt;</code> — Render each variable using the given template</p>
 <p>The following keywords are available in the template expression:</p>
@@ -7702,16 +7704,17 @@ Martin von Zweigbergk</p>
 <p>Print the paths to the config files</p>
 <p>A config file at that path may or may not exist.</p>
 <p>See <code>jj config edit</code> if you'd like to immediately edit a file.</p>
-<p><strong>Usage:</strong> <code>jj config path &lt;--user|--repo&gt;</code></p>
+<p><strong>Usage:</strong> <code>jj config path &lt;--user|--repo|--workspace&gt;</code></p>
 <p><strong>Command Alias:</strong> <code>p</code></p>
 <h6 id="options_12"><strong>Options:</strong><a class="headerlink" href="#options_12" title="Permanent link">&para;</a></h6>
 <ul>
 <li><code>--user</code> — Target the user-level config</li>
 <li><code>--repo</code> — Target the repo-level config</li>
+<li><code>--workspace</code> — Target the workspace-level config</li>
 </ul>
 <h2 id="jj-config-set"><code>jj config set</code><a class="headerlink" href="#jj-config-set" title="Permanent link">&para;</a></h2>
 <p>Update a config file to set the given option to a given value</p>
-<p><strong>Usage:</strong> <code>jj config set &lt;--user|--repo&gt; &lt;NAME&gt; &lt;VALUE&gt;</code></p>
+<p><strong>Usage:</strong> <code>jj config set &lt;--user|--repo|--workspace&gt; &lt;NAME&gt; &lt;VALUE&gt;</code></p>
 <p><strong>Command Alias:</strong> <code>s</code></p>
 <h6 id="arguments_14"><strong>Arguments:</strong><a class="headerlink" href="#arguments_14" title="Permanent link">&para;</a></h6>
 <ul>
@@ -7726,10 +7729,11 @@ Martin von Zweigbergk</p>
 <ul>
 <li><code>--user</code> — Target the user-level config</li>
 <li><code>--repo</code> — Target the repo-level config</li>
+<li><code>--workspace</code> — Target the workspace-level config</li>
 </ul>
 <h2 id="jj-config-unset"><code>jj config unset</code><a class="headerlink" href="#jj-config-unset" title="Permanent link">&para;</a></h2>
 <p>Update a config file to unset the given option</p>
-<p><strong>Usage:</strong> <code>jj config unset &lt;--user|--repo&gt; &lt;NAME&gt;</code></p>
+<p><strong>Usage:</strong> <code>jj config unset &lt;--user|--repo|--workspace&gt; &lt;NAME&gt;</code></p>
 <p><strong>Command Alias:</strong> <code>u</code></p>
 <h6 id="arguments_15"><strong>Arguments:</strong><a class="headerlink" href="#arguments_15" title="Permanent link">&para;</a></h6>
 <ul>
@@ -7739,6 +7743,7 @@ Martin von Zweigbergk</p>
 <ul>
 <li><code>--user</code> — Target the user-level config</li>
 <li><code>--repo</code> — Target the repo-level config</li>
+<li><code>--workspace</code> — Target the workspace-level config</li>
 </ul>
 <h2 id="jj-describe"><code>jj describe</code><a class="headerlink" href="#jj-describe" title="Permanent link">&para;</a></h2>
 <p>Update the change description or other metadata [default alias: desc]</p>
