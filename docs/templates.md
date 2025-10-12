@@ -540,8 +540,14 @@ The following methods are defined.
   format string](https://docs.rs/chrono/latest/chrono/format/strftime/).
 * `.utc() -> Timestamp`: Convert timestamp into UTC timezone.
 * `.local() -> Timestamp`: Convert timestamp into local timezone.
-* `.after(date: String) -> Boolean`: True if the timestamp is exactly at or after the given date.
-* `.before(date: String) -> Boolean`: True if the timestamp is before, but not including, the given date.
+* `.after(date: String) -> Boolean`: True if the timestamp is exactly at or
+  after the given date. Supported date formats are the same as the revset
+  [Date pattern type].
+* `.before(date: String) -> Boolean`: True if the timestamp is before, but
+  not including, the given date. Supported date formats are the same as the
+  revset [Date pattern type].
+
+[Date pattern type]: revsets.md#date-patterns
 
 ### `TimestampRange` type
 
