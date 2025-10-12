@@ -2742,17 +2742,22 @@ type</a> are available as keywords. For example,
 <p>This type cannot be printed. The following methods are defined.</p>
 <ul>
 <li><code>.description() -&gt; String</code></li>
-<li><code>.trailers() -&gt; List&lt;Trailer&gt;</code></li>
+<li><code>.trailers() -&gt; List&lt;Trailer&gt;</code>: The trailers at the end of the commit
+  description that are formatted as <code>&lt;key&gt;: &lt;value&gt;</code>. These are returned in the
+  same order as they appear in the description, and there may be multiple
+  <code>Trailer</code>s with the same key.</li>
 <li><code>.change_id() -&gt; ChangeId</code></li>
 <li><code>.commit_id() -&gt; CommitId</code></li>
 <li><code>.parents() -&gt; List&lt;Commit&gt;</code></li>
 <li><code>.author() -&gt; Signature</code></li>
 <li><code>.committer() -&gt; Signature</code></li>
-<li><code>.signature() -&gt; Option&lt;CryptographicSignature&gt;</code>: Cryptographic signature if the
-  commit was signed.</li>
+<li><code>.signature() -&gt; Option&lt;CryptographicSignature&gt;</code>: Cryptographic signature if
+  the commit was signed.</li>
 <li><code>.mine() -&gt; Boolean</code>: Commits where the author's email matches the email of
   the current user.</li>
-<li><code>.working_copies() -&gt; List&lt;WorkspaceRef&gt;</code>: For multi-workspace repositories, returns a list of workspace references for each workspace whose working-copy commit matches the current commit.</li>
+<li><code>.working_copies() -&gt; List&lt;WorkspaceRef&gt;</code>: For multi-workspace repositories,
+  returns a list of workspace references for each workspace whose working-copy
+  commit matches the current commit.</li>
 <li><code>.current_working_copy() -&gt; Boolean</code>: True for the working-copy commit of the
   current workspace.</li>
 <li><code>.bookmarks() -&gt; List&lt;CommitRef&gt;</code>: Local and remote bookmarks pointing to the
@@ -2770,7 +2775,8 @@ type</a> are available as keywords. For example,
 <li><code>.hidden() -&gt; Boolean</code>: True if the commit is not visible (a.k.a. abandoned).</li>
 <li><code>.immutable() -&gt; Boolean</code>: True if the commit is included in <a href="../config/#set-of-immutable-commits">the set of
   immutable commits</a>.</li>
-<li><code>.contained_in(revset: String) -&gt; Boolean</code>: True if the commit is included in <a href="../revsets/">the provided revset</a>.</li>
+<li><code>.contained_in(revset: String) -&gt; Boolean</code>: True if the commit is included in
+  <a href="../revsets/">the provided revset</a>.</li>
 <li><code>.conflict() -&gt; Boolean</code>: True if the commit contains merge conflicts.</li>
 <li><code>.empty() -&gt; Boolean</code>: True if the commit modifies no files.</li>
 <li><code>.diff([files: String]) -&gt; TreeDiff</code>: Changes from the parents within <a href="../filesets/">the
