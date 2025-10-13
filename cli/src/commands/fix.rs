@@ -29,7 +29,10 @@ use jj_lib::fix::FixError;
 use jj_lib::fix::ParallelFileFixer;
 use jj_lib::fix::fix_files;
 use jj_lib::matchers::Matcher;
+use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPathUiConverter;
+use jj_lib::revset::RevsetExpression;
+use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
 use pollster::FutureExt as _;
@@ -38,6 +41,7 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::command_error::config_error;
 use crate::command_error::print_parse_diagnostics;
@@ -143,9 +147,8 @@ pub(crate) fn cmd_fix(
     .evaluate_to_commit_ids()?
     .try_collect()?;
     workspace_command.check_rewritable(root_commits.iter())?;
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+    let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
+    let matcher = fileset_expression.to_matcher();
 
     let mut tx = workspace_command.start_transaction();
     let mut parallel_fixer = ParallelFileFixer::new(|store, file_to_fix| {
@@ -159,11 +162,12 @@ pub(crate) fn cmd_fix(
         )
         .block_on()
     });
+    let repo_mut = tx.repo_mut();
     let summary = fix_files(
-        root_commits,
+        root_commits.clone(),
         &matcher,
         args.include_unchanged_files,
-        tx.repo_mut(),
+        repo_mut,
         &mut parallel_fixer,
     )
     .block_on()?;
@@ -173,6 +177,23 @@ pub(crate) fn cmd_fix(
         summary.num_fixed_commits,
         summary.num_checked_commits
     )?;
+
+    // NOTE: This is being duplicated, because we also do it inside `fix_files`.
+    // TODO: Store the `commits` in the `FixSummary` struct or return them from
+    // `fix_files`.
+    let trees = RevsetExpression::commits(root_commits.clone())
+        .evaluate(repo_mut)?
+        .iter()
+        .commits(repo_mut.store())
+        .map(|commit| commit.unwrap().tree().unwrap())
+        .collect_vec();
+    print_unmatched_explicit_paths(
+        ui,
+        tx.base_workspace_helper(),
+        &fileset_expression,
+        trees.iter(),
+    )?;
+
     tx.finish(ui, format!("fixed {} commits", summary.num_fixed_commits))
 }
 
