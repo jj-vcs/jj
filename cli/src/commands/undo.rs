@@ -22,6 +22,8 @@ use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
+#[cfg(feature = "git")]
+use crate::commands::git::is_push_operation;
 use crate::commands::operation::DEFAULT_REVERT_WHAT;
 use crate::commands::operation::RevertWhatToRestore;
 use crate::commands::operation::revert::OperationRevertArgs;
@@ -148,6 +150,14 @@ pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result
             .loader()
             .load_operation(&id_of_restored_op)?;
     }
+    #[cfg(feature = "git")]
+    if is_push_operation(&op_to_undo) {
+        writeln!(
+            ui.warning_default(),
+            "Undoing a push operation often leads to conflicted bookmarks."
+        )?;
+        writeln!(ui.hint_default(), "To avoid this, run `jj redo` now.")?;
+    };
 
     let mut op_to_restore = match op_to_undo.parents().at_most_one() {
         Ok(Some(parent_of_op_to_undo)) => parent_of_op_to_undo?,

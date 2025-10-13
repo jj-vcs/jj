@@ -33,6 +33,7 @@ use jj_lib::git::GitBranchPushTargets;
 use jj_lib::git::GitPushStats;
 use jj_lib::index::IndexResult;
 use jj_lib::op_store::RefTarget;
+use jj_lib::operation::Operation;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
@@ -205,6 +206,8 @@ fn make_bookmark_term(bookmark_names: &[impl fmt::Display]) -> String {
 
 const DEFAULT_REMOTE: &RemoteName = RemoteName::new("origin");
 
+const TX_DESC_PUSH: &str = "push ";
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum BookmarkMoveDirection {
     Forward,
@@ -246,7 +249,7 @@ pub fn cmd_git_push(
             }
         }
         tx_description = format!(
-            "push all bookmarks to git remote {remote}",
+            "{TX_DESC_PUSH}all bookmarks to git remote {remote}",
             remote = remote.as_symbol()
         );
     } else if args.tracked {
@@ -267,7 +270,7 @@ pub fn cmd_git_push(
             }
         }
         tx_description = format!(
-            "push all tracked bookmarks to git remote {remote}",
+            "{TX_DESC_PUSH}all tracked bookmarks to git remote {remote}",
             remote = remote.as_symbol()
         );
     } else if args.deleted {
@@ -289,7 +292,7 @@ pub fn cmd_git_push(
             }
         }
         tx_description = format!(
-            "push all deleted bookmarks to git remote {remote}",
+            "{TX_DESC_PUSH}all deleted bookmarks to git remote {remote}",
             remote = remote.as_symbol()
         );
     } else {
@@ -381,7 +384,7 @@ pub fn cmd_git_push(
         }
 
         tx_description = format!(
-            "push {names} to git remote {remote}",
+            "{TX_DESC_PUSH}{names} to git remote {remote}",
             names = make_bookmark_term(
                 &bookmark_updates
                     .iter()
@@ -1021,4 +1024,8 @@ fn find_bookmarks_targeted_by_revisions<'a>(
         })
         .collect_vec();
     Ok(bookmarks_targeted)
+}
+
+pub fn is_push_operation(op: &Operation) -> bool {
+    op.metadata().description.starts_with(TX_DESC_PUSH)
 }
