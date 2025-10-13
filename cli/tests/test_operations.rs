@@ -407,9 +407,9 @@ fn test_op_log_template() {
     [EOF]
     "#);
 
-    // Test the default template, i.e. with relative start time and duration. We
-    // don't generally use that template because it depends on the current time,
-    // so we need to reset the time range format here.
+    // Test a template with relative start time and duration, a previous default.
+    // We don't generally use this style of template because it depends on the
+    // current time, so we need to reset the time range format here.
     test_env.add_config(
         r#"
 [template-aliases]

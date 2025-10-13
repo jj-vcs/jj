@@ -393,16 +393,16 @@ commands to interact with it. To list the operations, use `jj op log`:
 
 ```shell
 $ jj op log
-@  d3b77addea49 martinvonz@vonz.svl.corp.google.com 3 minutes ago, lasted 3 milliseconds
+@  d3b77addea49 martinvonz@vonz.svl.corp.google.com 2025-05-12 00:27:27, lasted 3 milliseconds
 │  squash commits into f7fb5943a6b9460eb106dba2fac5cac1625c6f7a
 │  args: jj squash
-○  6fc1873c1180 martinvonz@vonz.svl.corp.google.com 3 minutes ago, lasted 1 milliseconds
+○  6fc1873c1180 martinvonz@vonz.svl.corp.google.com 2025-05-12 00:27:27, lasted 1 milliseconds
 │  snapshot working copy
 │  args: jj st
-○  ed91f7bcc1fb martinvonz@vonz.svl.corp.google.com 6 minutes ago, lasted 1 milliseconds
+○  ed91f7bcc1fb martinvonz@vonz.svl.corp.google.com 2025-05-12 00:24:21, lasted 1 milliseconds
 │  new empty commit
 │  args: jj new puqltutt
-○  367400773f87 martinvonz@vonz.svl.corp.google.com 12 minutes ago, lasted 3 milliseconds
+○  367400773f87 martinvonz@vonz.svl.corp.google.com 2025-05-12 00:18:08, lasted 3 milliseconds
 │  rebase commit daa6ffd5a09a8a7d09a65796194e69b7ed0a566d and descendants
 │  args: jj rebase -s puqltutt -d nuvyytnq
 [many more lines]

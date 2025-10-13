@@ -648,12 +648,12 @@ Can be customized by the `format_timestamp()` template alias.
 'format_timestamp(timestamp)' = 'timestamp.ago()'
 ```
 
-`jj op log` defaults to relative timestamps. To use absolute timestamps, you
-will need to modify the `format_time_range()` template alias.
+`jj op log` displays elapsed time with absolute local timestamps. To use relative
+timestamps, you will need to modify the `format_time_range()` template alias.
 
 ```toml
 [template-aliases]
-'format_time_range(time_range)' = 'time_range.start() ++ " - " ++ time_range.end()'
+'format_time_range(time_range)' = 'time_range.end().ago() ++ label("time", ", lasted ") ++ time_range.duration()'
 ```
 
 ### Author format

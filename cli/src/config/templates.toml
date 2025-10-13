@@ -332,7 +332,7 @@ commit_summary_separator = 'label("separator", " | ")'
 # the moment when the repo was actually modified due to this operation. TODO:
 # This macro might need a better name, e.g. `format_operation_time_range`.
 'format_time_range(time_range)' = '''
-  time_range.end().ago() ++ label("time", ", lasted ") ++ time_range.duration()'''
+  format_timestamp(time_range.end()) ++ label("time", ", lasted ") ++ time_range.duration()'''
 'format_timestamp(timestamp)' = 'timestamp.local().format("%Y-%m-%d %H:%M:%S")'
 
 'format_commit_summary_with_refs(commit, refs)' = '''

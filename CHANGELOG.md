@@ -39,6 +39,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   directly as positional arguments, such as
   `jj bisect --range=..main -- cargo check --all-targets`.
 
+* The default alias for formatting time ranges, used by `jj op log`,
+  now shows the absolute local end time and duration. 
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
