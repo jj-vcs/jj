@@ -846,10 +846,6 @@
             "type": "object",
             "description": "Definitions for the templates that various jj commands use",
             "properties": {
-                "backout_description": {
-                    "type": "string",
-                    "description": "The description of commits backed out by `jj backout` (deprecated; use `revert_description` instead)"
-                },
                 "bookmark_list": {
                     "type": "string",
                     "description": "`jj bookmark list`'s output"

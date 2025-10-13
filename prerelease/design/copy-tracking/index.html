@@ -1706,9 +1706,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#backing-out-the-parent-commit-should-be-a-no-op" class="md-nav__link">
+  <a href="#reverting-the-parent-commit-should-be-a-no-op" class="md-nav__link">
     <span class="md-ellipsis">
-      Backing out the parent commit should be a no-op
+      Reverting the parent commit should be a no-op
     </span>
   </a>
   
@@ -2125,9 +2125,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#backing-out-the-parent-commit-should-be-a-no-op" class="md-nav__link">
+  <a href="#reverting-the-parent-commit-should-be-a-no-op" class="md-nav__link">
     <span class="md-ellipsis">
-      Backing out the parent commit should be a no-op
+      Reverting the parent commit should be a no-op
     </span>
   </a>
   
@@ -2493,8 +2493,8 @@ should ideally preserve this property when possible.</p>
 <span class="gp">$ </span>jj<span class="w"> </span>rebase<span class="w"> </span>-r<span class="w"> </span>C<span class="w"> </span>-d<span class="w"> </span>A
 <span class="gp">$ </span>jj<span class="w"> </span>rebase<span class="w"> </span>-r<span class="w"> </span>C<span class="w"> </span>-d<span class="w"> </span>B<span class="w"> </span><span class="c1"># Takes us back to the state above</span>
 </code></pre></div></p>
-<h4 id="backing-out-the-parent-commit-should-be-a-no-op">Backing out the parent commit should be a no-op<a class="headerlink" href="#backing-out-the-parent-commit-should-be-a-no-op" title="Permanent link">&para;</a></h4>
-<p>Patches should be reversible so you can make a change and then back it out, and
+<h4 id="reverting-the-parent-commit-should-be-a-no-op">Reverting the parent commit should be a no-op<a class="headerlink" href="#reverting-the-parent-commit-should-be-a-no-op" title="Permanent link">&para;</a></h4>
+<p>Patches should be reversible so you can make a change and then revert it, and
 end up with an empty diff across both commits.</p>
 <p>For example:
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>log
@@ -2502,7 +2502,7 @@ end up with an empty diff across both commits.</p>
 <span class="go">|</span>
 <span class="go">A add foo</span>
 
-<span class="gp">$ </span>jj<span class="w"> </span>backout<span class="w"> </span>-r<span class="w"> </span>B<span class="w"> </span>-d<span class="w"> </span>B
+<span class="gp">$ </span>jj<span class="w"> </span>revert<span class="w"> </span>-r<span class="w"> </span>B<span class="w"> </span>-d<span class="w"> </span>B
 <span class="gp">$ </span>jj<span class="w"> </span>diff<span class="w"> </span>--from<span class="w"> </span>B-<span class="w"> </span>--to<span class="w"> </span>B+<span class="w"> </span><span class="c1"># Should be empty</span>
 </code></pre></div></p>
 <h4 id="parallelizeserialize">Parallelize/serialize<a class="headerlink" href="#parallelizeserialize" title="Permanent link">&para;</a></h4>
