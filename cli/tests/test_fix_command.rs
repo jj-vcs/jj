@@ -536,6 +536,16 @@ fn test_relative_paths() {
     unfixed
     [EOF]
     ");
+
+    // The output filtered to a non-existent file should display a warning.
+    let output = work_dir.run_jj(["fix", "nonexistent"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: No matching entries for paths: nonexistent
+    Fixed 0 commits of 1 checked.
+    Nothing changed.
+    [EOF]
+    ");
 }
 
 #[test]
@@ -743,6 +753,50 @@ fn test_fix_sibling_commit() {
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "child2"]);
     insta::assert_snapshot!(output, @"child2[EOF]");
+}
+
+#[test]
+fn test_fix_descendant_commits() {
+    let mut test_env = TestEnvironment::default();
+    set_up_fake_formatter(&mut test_env, &["--uppercase"]);
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file("parent", "parent");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "parent"])
+        .success();
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("child1", "child1");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "child1"])
+        .success();
+    work_dir.run_jj(["new", "-r", "parent"]).success();
+    work_dir.write_file("child2", "child2");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "child2"])
+        .success();
+
+    let output = work_dir.run_jj(["fix", "-s", "parent", "child1", "child2", "nonexistent"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: No matching entries for paths: nonexistent
+    Fixed 2 commits of 3 checked.
+    Working copy  (@) now at: mzvwutvl 48a5dc7d child2 | (no description set)
+    Parent commit (@-)      : qpvuntsm c9cb6288 parent | (no description set)
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "parent", "-r", "parent"]);
+    insta::assert_snapshot!(output, @"parent[EOF]");
+    let output = work_dir.run_jj(["file", "show", "child1", "-r", "child1"]);
+    insta::assert_snapshot!(output, @r"
+    CHILD1
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "child2", "-r", "child2"]);
+    insta::assert_snapshot!(output, @"
+    CHILD2
+    [EOF]");
 }
 
 #[test]
@@ -1486,6 +1540,7 @@ fn test_all_files() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: No matching entries for paths: does_not.exist
     Fixed 2 commits of 2 checked.
     Working copy  (@) now at: rlvkpnrz d8503fee child
     Parent commit (@-)      : qpvuntsm 62c6ee98 parent
