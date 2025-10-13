@@ -130,6 +130,7 @@ pub(crate) fn cmd_log(
     let settings = workspace_command.settings();
 
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
+    let mut explicit_paths = fileset_expression.explicit_paths().collect_vec();
     let revset_expression = {
         // only use default revset if neither revset nor path are specified
         let mut expression = if args.revisions.is_empty() && args.paths.is_empty() {
@@ -263,13 +264,19 @@ pub(crate) fn cmd_log(
                         .block_on()?;
                 }
 
-                let node_symbol = format_template(ui, &Some(commit), &node_template);
+                let commit = Some(commit);
+                let node_symbol = format_template(ui, &commit, &node_template);
                 graph.add_node(
                     &key,
                     &graphlog_edges,
                     &node_symbol,
                     &String::from_utf8_lossy(&buffer),
                 )?;
+
+                let tree = commit.map(|c| c.tree()).unwrap();
+                // TODO: propagate errors
+                explicit_paths.retain(|&path| tree.path_value(path).unwrap().is_absent());
+
                 for elided_target in elided_targets {
                     let elided_key = (elided_target, true);
                     let real_key = (elided_key.0.clone(), false);
@@ -309,7 +316,22 @@ pub(crate) fn cmd_log(
                         .show_patch(ui, formatter, &commit, matcher.as_ref(), width)
                         .block_on()?;
                 }
+
+                let tree = commit.tree();
+                // TODO: propagate errors
+                explicit_paths.retain(|&path| tree.path_value(path).unwrap().is_absent());
             }
+        }
+
+        if !explicit_paths.is_empty() {
+            let ui_paths = explicit_paths
+                .iter()
+                .map(|&path| workspace_command.format_file_path(path))
+                .join(", ");
+            writeln!(
+                ui.warning_default(),
+                "No matching entries for paths: {ui_paths}"
+            )?;
         }
     }
 
