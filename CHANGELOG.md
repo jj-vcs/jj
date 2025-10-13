@@ -66,6 +66,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   tags. These keywords may be useful in non-colocated Git repositories where
   local and exported `@git` tags can point to different revisions.
 
+* Updated the executable bit representation in the local working copy to allow
+  ignoring executable bit changes on Unix. By default we try to detect the
+  filesystem's behavior, but this can be overridden manually by setting
+  `working-copy.exec-bit-change = "respect" | "ignore"`.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
