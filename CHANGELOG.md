@@ -10,6 +10,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* The deprecated flag `--summary` of `jj abandon` has been removed.
+
 ### Deprecations
 
  * `jj bisect run --command <cmd>` is deprecated in favor of
