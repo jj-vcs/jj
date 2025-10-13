@@ -158,6 +158,7 @@ fn test_split_by_paths() {
     let output = work_dir.run_jj(["split", "-r", "@-", "nonexistent"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: No matching entries for paths: nonexistent
     Warning: No changes have been selected, so the new revision will be empty
     Rebased 1 descendant commits
     Selected changes : qpvuntsm 49416632 (empty) (no description set)
@@ -178,6 +179,20 @@ fn test_split_by_paths() {
     let output = work_dir.run_jj(["diff", "-s", "-r", "@-"]);
     insta::assert_snapshot!(output, @r"
     A file2
+    [EOF]
+    ");
+
+    work_dir.run_jj(["new"]).success();
+    // Splitting a commit with deleted files should not show a warning.
+    work_dir.remove_file("file1");
+    let output = work_dir.run_jj(["split", "file1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: All changes have been selected, so the original revision will become empty
+    Selected changes : uyznsvlq 971ccc0b (no description set)
+    Remaining changes: xznxytkn a267cd96 (empty) (no description set)
+    Working copy  (@) now at: smwtzssm 6715dc2c (empty) (no description set)
+    Parent commit (@-)      : uyznsvlq 971ccc0b (no description set)
     [EOF]
     ");
 }

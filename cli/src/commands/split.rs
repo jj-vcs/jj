@@ -38,6 +38,7 @@ use crate::cli_util::RevisionArg;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
 use crate::cli_util::compute_commit_location;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::command_error::user_error_with_hint;
 use crate::complete;
@@ -166,9 +167,9 @@ impl SplitArgs {
             ));
         }
         workspace_command.check_rewritable([target_commit.id()])?;
-        let matcher = workspace_command
-            .parse_file_patterns(ui, &self.paths)?
-            .to_matcher();
+        let repo = workspace_command.repo();
+        let fileset_expression = workspace_command.parse_file_patterns(ui, &self.paths)?;
+        let matcher = fileset_expression.to_matcher();
         let diff_selector = workspace_command.diff_selector(
             ui,
             self.tool.as_deref(),
@@ -188,6 +189,18 @@ impl SplitArgs {
         } else {
             Default::default()
         };
+
+        print_unmatched_explicit_paths(
+            ui,
+            workspace_command,
+            &fileset_expression,
+            [
+                // We check the parent commit to account for deleted files.
+                &target_commit.parent_tree(repo.as_ref())?,
+                &target_commit.tree(),
+            ],
+        )?;
+
         Ok(ResolvedSplitArgs {
             target_commit,
             matcher,
