@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::io;
+use std::io::Read as _;
+
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indoc::writedoc;
@@ -61,8 +64,25 @@ pub(crate) struct CommitArgs {
     )]
     tool: Option<String>,
     /// The change description to use (don't open editor)
-    #[arg(long = "message", short, value_name = "MESSAGE")]
+    #[arg(
+        long = "message",
+        short,
+        value_name = "MESSAGE",
+        conflicts_with = "stdin"
+    )]
     message_paragraphs: Vec<String>,
+    /// Read the change description from stdin
+    ///
+    /// Diff selection runs before we read stdin, so console-based diff editors
+    /// remain usable.
+    #[arg(long)]
+    stdin: bool,
+    /// Open an editor
+    ///
+    /// Forces an editor to open when using `--stdin` or `--message` to
+    /// allow the message to be edited afterwards.
+    #[arg(long)]
+    edit: bool,
     /// Put these paths in the first commit
     #[arg(
         value_name = "FILESETS",
@@ -167,18 +187,37 @@ new working-copy commit.
         commit_builder.set_author(new_author);
     }
 
-    let description = if !args.message_paragraphs.is_empty() {
-        let mut description = join_message_paragraphs(&args.message_paragraphs);
-        if !description.is_empty() {
+    let provided_description = if args.stdin {
+        let mut buffer = String::new();
+        io::stdin().read_to_string(&mut buffer)?;
+        Some(buffer)
+    } else if !args.message_paragraphs.is_empty() {
+        Some(join_message_paragraphs(&args.message_paragraphs))
+    } else {
+        None
+    };
+
+    let description = if let Some(mut description) = provided_description {
+        commit_builder.set_description(&description);
+        if args.edit || !description.is_empty() {
             // The first trailer would become the first line of the description.
             // Also, a commit with no description is treated in a special way in jujutsu: it
             // can be discarded as soon as it's no longer the working copy. Adding a
-            // trailer to an empty description would break that logic.
-            commit_builder.set_description(description);
+            // trailer to an empty description would break that logic unless the user
+            // explicitly opens the editor to review it.
             description = add_trailers(ui, &tx, &commit_builder)?;
         }
-        description
+        if args.edit {
+            commit_builder.set_description(&description);
+            let temp_commit = commit_builder.write_hidden()?;
+            let intro = "";
+            let template = description_template(ui, &tx, intro, &temp_commit)?;
+            edit_description(&text_editor, &template)?
+        } else {
+            description
+        }
     } else {
+        // No description provided, must use editor
         let description = add_trailers(ui, &tx, &commit_builder)?;
         commit_builder.set_description(description);
         let temp_commit = commit_builder.write_hidden()?;
