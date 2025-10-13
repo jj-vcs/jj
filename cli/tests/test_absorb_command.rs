@@ -810,9 +810,10 @@ fn test_absorb_paths() {
     work_dir.write_file("file1", "1A\n");
     work_dir.write_file("file2", "1A\n");
 
-    let output = work_dir.run_jj(["absorb", "unknown"]);
+    let output = work_dir.run_jj(["absorb", "nonexistent"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: No matching entries for paths: nonexistent
     Nothing changed.
     [EOF]
     ");

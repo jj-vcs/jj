@@ -21,6 +21,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj squash` now accepts `--editor` / `-E` to edit the squashed commit message.
 
+* All `jj` commands show a warning when the provided `fileset` expression 
+  doesn't match any files.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.
