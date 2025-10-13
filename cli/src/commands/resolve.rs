@@ -21,6 +21,7 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::print_conflicted_paths;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::complete;
@@ -87,15 +88,17 @@ pub(crate) fn cmd_resolve(
     args: &ResolveArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+    let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
+    let matcher = fileset_expression.to_matcher();
     let commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
     let tree = commit.tree();
     let conflicts = tree
         .conflicts()
         .filter(|path| matcher.matches(&path.0))
         .collect_vec();
+
+    print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
+
     if conflicts.is_empty() {
         return Err(cli_error(if args.paths.is_empty() {
             "No conflicts found at this revision"

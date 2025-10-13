@@ -1438,6 +1438,21 @@ fn test_pass_path_argument() {
     +resolution
     [EOF]
     ");
+
+    // The output filtered to a non-existent file should display a warning.
+    let output = work_dir.run_jj([
+        "resolve",
+        "nonexistent",
+        "file",
+        r#"--config=merge-tools.fake-editor.merge-args=["$output", "$path"]"#,
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: No matching entries for paths: nonexistent
+    Error: No conflicts found at the given path(s)
+    [EOF]
+    [exit status: 2]
+    ");
 }
 
 #[test]
