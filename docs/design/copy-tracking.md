@@ -76,9 +76,9 @@ $ jj rebase -r C -d B # Takes us back to the state above
 ```
 
 
-#### Backing out the parent commit should be a no-op
+#### Reverting the parent commit should be a no-op
 
-Patches should be reversible so you can make a change and then back it out, and
+Patches should be reversible so you can make a change and then revert it, and
 end up with an empty diff across both commits.
 
 For example:
@@ -88,7 +88,7 @@ B rename foo->bar
 |
 A add foo
 
-$ jj backout -r B -d B
+$ jj revert -r B -d B
 $ jj diff --from B- --to B+ # Should be empty
 ```
 

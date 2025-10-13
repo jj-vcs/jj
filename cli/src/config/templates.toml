@@ -1,12 +1,4 @@
 [templates]
-backout_description = '''
-concat(
-  'Back out "' ++ description.first_line() ++ '"' ++ "\n",
-  "\n",
-  "This backs out commit " ++ commit_id ++ ".\n",
-)
-'''
-
 bookmark_list = '''
 if(remote,
   if(tracked,

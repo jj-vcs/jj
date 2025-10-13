@@ -12,6 +12,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The deprecated flag `--summary` of `jj abandon` has been removed.
 
+* The deprecated command `jj backout` has been removed, use `jj revert` instead.
+
 ### Deprecations
 
  * `jj bisect run --command <cmd>` is deprecated in favor of
