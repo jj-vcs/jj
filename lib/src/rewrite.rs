@@ -36,7 +36,7 @@ use crate::commit::Commit;
 use crate::commit::CommitIteratorExt as _;
 use crate::commit_builder::CommitBuilder;
 use crate::index::Index;
-use crate::index::IndexError;
+use crate::index::IndexResult;
 use crate::matchers::Matcher;
 use crate::matchers::Visit;
 use crate::merge::Merge;
@@ -218,7 +218,7 @@ impl<'repo> CommitRewriter<'repo> {
 
     /// If a merge commit would end up with one parent being an ancestor of the
     /// other, then filter out the ancestor.
-    pub fn simplify_ancestor_merge(&mut self) -> Result<(), IndexError> {
+    pub fn simplify_ancestor_merge(&mut self) -> IndexResult<()> {
         let head_set: HashSet<_> = self
             .mut_repo
             .index()

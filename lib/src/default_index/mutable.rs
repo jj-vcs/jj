@@ -59,6 +59,7 @@ use crate::file_util::persist_content_addressed_temp_file;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
 use crate::index::IndexError;
+use crate::index::IndexResult;
 use crate::index::MutableIndex;
 use crate::index::ReadonlyIndex;
 use crate::object_id::HexPrefix;
@@ -564,21 +565,18 @@ impl Index for DefaultMutableIndex {
         self.0.common_ancestors(set1, set2)
     }
 
-    fn all_heads_for_gc(&self) -> Result<Box<dyn Iterator<Item = CommitId> + '_>, IndexError> {
+    fn all_heads_for_gc(&self) -> IndexResult<Box<dyn Iterator<Item = CommitId> + '_>> {
         self.0.all_heads_for_gc()
     }
 
-    fn heads(
-        &self,
-        candidates: &mut dyn Iterator<Item = &CommitId>,
-    ) -> Result<Vec<CommitId>, IndexError> {
+    fn heads(&self, candidates: &mut dyn Iterator<Item = &CommitId>) -> IndexResult<Vec<CommitId>> {
         self.0.heads(candidates)
     }
 
     fn changed_paths_in_commit(
         &self,
         commit_id: &CommitId,
-    ) -> Result<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>, IndexError> {
+    ) -> IndexResult<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>> {
         self.0.changed_paths_in_commit(commit_id)
     }
 
@@ -603,7 +601,7 @@ impl MutableIndex for DefaultMutableIndex {
         Box::new(ChangeIdIndexImpl::new(self, heads))
     }
 
-    fn add_commit(&mut self, commit: &Commit) -> Result<(), IndexError> {
+    fn add_commit(&mut self, commit: &Commit) -> IndexResult<()> {
         Self::add_commit(self, commit)
             .block_on()
             .map_err(|err| IndexError::Other(err.into()))

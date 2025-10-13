@@ -55,6 +55,9 @@ pub enum IndexError {
     Other(Box<dyn std::error::Error + Send + Sync>),
 }
 
+/// Result of [`Index`] operations.
+pub type IndexResult<T> = Result<T, IndexError>;
+
 /// Defines the interface for types that provide persistent storage for an
 /// index.
 pub trait IndexStore: Any + Send + Sync + Debug {
@@ -121,22 +124,19 @@ pub trait Index: Send + Sync {
     /// that should be preserved on garbage collection.
     ///
     /// The iteration order is unspecified.
-    fn all_heads_for_gc(&self) -> Result<Box<dyn Iterator<Item = CommitId> + '_>, IndexError>;
+    fn all_heads_for_gc(&self) -> IndexResult<Box<dyn Iterator<Item = CommitId> + '_>>;
 
     /// Returns the subset of commit IDs in `candidates` which are not ancestors
     /// of other commits in `candidates`. If a commit id is duplicated in the
     /// `candidates` list it will appear at most once in the output.
-    fn heads(
-        &self,
-        candidates: &mut dyn Iterator<Item = &CommitId>,
-    ) -> Result<Vec<CommitId>, IndexError>;
+    fn heads(&self, candidates: &mut dyn Iterator<Item = &CommitId>) -> IndexResult<Vec<CommitId>>;
 
     /// Returns iterator over paths changed at the specified commit. The paths
     /// are sorted. Returns `None` if the commit wasn't indexed.
     fn changed_paths_in_commit(
         &self,
         commit_id: &CommitId,
-    ) -> Result<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>, IndexError>;
+    ) -> IndexResult<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>>;
 
     /// Resolves the revset `expression` against the index and corresponding
     /// `store`.
@@ -173,7 +173,7 @@ pub trait MutableIndex: Any {
         heads: &mut dyn Iterator<Item = &CommitId>,
     ) -> Box<dyn ChangeIdIndex + '_>;
 
-    fn add_commit(&mut self, commit: &Commit) -> Result<(), IndexError>;
+    fn add_commit(&mut self, commit: &Commit) -> IndexResult<()>;
 
     fn merge_in(&mut self, other: &dyn ReadonlyIndex);
 }

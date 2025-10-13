@@ -43,7 +43,7 @@ use crate::backend::CommitId;
 use crate::hex_util;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
-use crate::index::IndexError;
+use crate::index::IndexResult;
 use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId as _;
 use crate::object_id::PrefixResolution;
@@ -589,21 +589,21 @@ impl Index for CompositeIndex {
         self.commits().common_ancestors(set1, set2)
     }
 
-    fn all_heads_for_gc(&self) -> Result<Box<dyn Iterator<Item = CommitId> + '_>, IndexError> {
+    fn all_heads_for_gc(&self) -> IndexResult<Box<dyn Iterator<Item = CommitId> + '_>> {
         Ok(Box::new(self.commits().all_heads()))
     }
 
     fn heads(
         &self,
         candidate_ids: &mut dyn Iterator<Item = &CommitId>,
-    ) -> Result<Vec<CommitId>, IndexError> {
+    ) -> IndexResult<Vec<CommitId>> {
         Ok(self.commits().heads(candidate_ids))
     }
 
     fn changed_paths_in_commit(
         &self,
         commit_id: &CommitId,
-    ) -> Result<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>, IndexError> {
+    ) -> IndexResult<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>> {
         let Some(paths) = self
             .commits()
             .commit_id_to_pos(commit_id)

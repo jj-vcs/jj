@@ -49,7 +49,7 @@ use crate::backend::CommitId;
 use crate::graph::GraphNode;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
-use crate::index::IndexError;
+use crate::index::IndexResult;
 use crate::index::MutableIndex;
 use crate::index::ReadonlyIndex;
 use crate::object_id::HexPrefix;
@@ -732,21 +732,18 @@ impl Index for DefaultReadonlyIndex {
         self.0.common_ancestors(set1, set2)
     }
 
-    fn all_heads_for_gc(&self) -> Result<Box<dyn Iterator<Item = CommitId> + '_>, IndexError> {
+    fn all_heads_for_gc(&self) -> IndexResult<Box<dyn Iterator<Item = CommitId> + '_>> {
         self.0.all_heads_for_gc()
     }
 
-    fn heads(
-        &self,
-        candidates: &mut dyn Iterator<Item = &CommitId>,
-    ) -> Result<Vec<CommitId>, IndexError> {
+    fn heads(&self, candidates: &mut dyn Iterator<Item = &CommitId>) -> IndexResult<Vec<CommitId>> {
         self.0.heads(candidates)
     }
 
     fn changed_paths_in_commit(
         &self,
         commit_id: &CommitId,
-    ) -> Result<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>, IndexError> {
+    ) -> IndexResult<Option<Box<dyn Iterator<Item = RepoPathBuf> + '_>>> {
         self.0.changed_paths_in_commit(commit_id)
     }
 
