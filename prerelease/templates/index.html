@@ -3185,6 +3185,9 @@ functions will be shadowed by name, and can't co-exist with aliases.</p>
 <p>Show machine-readable list of full commit and change IDs:</p>
 <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>--no-graph<span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;commit_id ++ &quot; &quot; ++ change_id ++ &quot;\n&quot;&#39;</span>
 </code></pre></div>
+<p>Print the description of the current commit, defaulting to <code>(no description set)</code>:</p>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>-r<span class="w"> </span>@<span class="w"> </span>--no-graph<span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;coalesce(description, &quot;(no description set)\n&quot;)&#39;</span>
+</code></pre></div>
 
 
 
