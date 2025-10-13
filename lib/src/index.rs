@@ -43,6 +43,9 @@ pub enum IndexStoreError {
     Write(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
 
+/// Result of [`IndexStore`] operations.
+pub type IndexStoreResult<T> = Result<T, IndexStoreError>;
+
 /// Returned by [`Index`] backend in the event of an error.
 #[derive(Debug, Error)]
 pub enum IndexError {
@@ -71,7 +74,7 @@ pub trait IndexStore: Any + Send + Sync + Debug {
         &self,
         op: &Operation,
         store: &Arc<Store>,
-    ) -> Result<Box<dyn ReadonlyIndex>, IndexStoreError>;
+    ) -> IndexStoreResult<Box<dyn ReadonlyIndex>>;
 
     /// Writes `index` to the index store and returns a read-only version of the
     /// index.
@@ -79,7 +82,7 @@ pub trait IndexStore: Any + Send + Sync + Debug {
         &self,
         index: Box<dyn MutableIndex>,
         op: &Operation,
-    ) -> Result<Box<dyn ReadonlyIndex>, IndexStoreError>;
+    ) -> IndexStoreResult<Box<dyn ReadonlyIndex>>;
 }
 
 impl dyn IndexStore {
