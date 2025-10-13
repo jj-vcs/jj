@@ -793,28 +793,6 @@ fn parse_config_arg_item(item_str: &str) -> Result<(ConfigNamePathBuf, ConfigVal
 /// List of rules to migrate deprecated config variables.
 pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
     vec![
-        // TODO: Delete in jj 0.33+
-        ConfigMigrationRule::rename_update_value(
-            "signing.sign-all",
-            "signing.behavior",
-            |old_value| {
-                if old_value
-                    .as_bool()
-                    .ok_or("signing.sign-all expects a boolean")?
-                {
-                    Ok("own".into())
-                } else {
-                    Ok("keep".into())
-                }
-            },
-        ),
-        // TODO: Delete in jj 0.34+
-        ConfigMigrationRule::rename_value(
-            "core.watchman.register_snapshot_trigger",
-            "fsmonitor.watchman.register-snapshot-trigger",
-        ),
-        // TODO: Delete in jj 0.34+
-        ConfigMigrationRule::rename_value("diff.format", "ui.diff.format"),
         // TODO: Delete in jj 0.35.0+
         ConfigMigrationRule::rename_update_value(
             "ui.default-description",

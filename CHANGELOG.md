@@ -14,6 +14,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The deprecated command `jj backout` has been removed, use `jj revert` instead.
 
+* The following deprecated config options have been removed:
+  - `signing.sign-all`
+  - `core.watchman.register_snapshot_trigger`
+  - `diff.format`
+
 ### Deprecations
 
  * `jj bisect run --command <cmd>` is deprecated in favor of
