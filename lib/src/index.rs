@@ -32,15 +32,16 @@ use crate::revset::Revset;
 use crate::revset::RevsetEvaluationError;
 use crate::store::Store;
 
-/// Returned if an error occurs while reading an index from the [`IndexStore`].
+/// Returned by [`IndexStore`] in the event of an error.
 #[derive(Debug, Error)]
-#[error(transparent)]
-pub struct IndexReadError(pub Box<dyn std::error::Error + Send + Sync>);
-
-/// Returned if an error occurs while writing an index to the [`IndexStore`].
-#[derive(Debug, Error)]
-#[error(transparent)]
-pub struct IndexWriteError(pub Box<dyn std::error::Error + Send + Sync>);
+pub enum IndexStoreError {
+    /// Error reading a [`ReadonlyIndex`] from the [`IndexStore`].
+    #[error("Failed to read index")]
+    Read(#[source] Box<dyn std::error::Error + Send + Sync>),
+    /// Error writing a [`MutableIndex`] to the [`IndexStore`].
+    #[error("Failed to write index")]
+    Write(#[source] Box<dyn std::error::Error + Send + Sync>),
+}
 
 /// Returned by [`Index`] backend in the event of an error.
 #[derive(Debug, Error)]
@@ -67,7 +68,7 @@ pub trait IndexStore: Any + Send + Sync + Debug {
         &self,
         op: &Operation,
         store: &Arc<Store>,
-    ) -> Result<Box<dyn ReadonlyIndex>, IndexReadError>;
+    ) -> Result<Box<dyn ReadonlyIndex>, IndexStoreError>;
 
     /// Writes `index` to the index store and returns a read-only version of the
     /// index.
@@ -75,7 +76,7 @@ pub trait IndexStore: Any + Send + Sync + Debug {
         &self,
         index: Box<dyn MutableIndex>,
         op: &Operation,
-    ) -> Result<Box<dyn ReadonlyIndex>, IndexWriteError>;
+    ) -> Result<Box<dyn ReadonlyIndex>, IndexStoreError>;
 }
 
 impl dyn IndexStore {

@@ -52,8 +52,8 @@ use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
-use crate::index::IndexReadError;
 use crate::index::IndexStore;
+use crate::index::IndexStoreError;
 use crate::index::MutableIndex;
 use crate::index::ReadonlyIndex;
 use crate::merge::MergeBuilder;
@@ -630,7 +630,7 @@ pub enum RepoLoaderError {
     #[error(transparent)]
     Backend(#[from] BackendError),
     #[error(transparent)]
-    IndexRead(#[from] IndexReadError),
+    IndexStore(#[from] IndexStoreError),
     #[error(transparent)]
     OpHeadResolution(#[from] OpHeadResolutionError),
     #[error(transparent)]

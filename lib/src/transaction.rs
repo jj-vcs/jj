@@ -22,7 +22,7 @@ use thiserror::Error;
 
 use crate::backend::Timestamp;
 use crate::dag_walk;
-use crate::index::IndexWriteError;
+use crate::index::IndexStoreError;
 use crate::index::ReadonlyIndex;
 use crate::op_heads_store::OpHeadsStore;
 use crate::op_heads_store::OpHeadsStoreError;
@@ -43,7 +43,7 @@ use crate::view::View;
 #[derive(Debug, Error)]
 #[error("Failed to commit new operation")]
 pub enum TransactionCommitError {
-    IndexWrite(#[from] IndexWriteError),
+    IndexStore(#[from] IndexStoreError),
     OpHeadsStore(#[from] OpHeadsStoreError),
     OpStore(#[from] OpStoreError),
 }

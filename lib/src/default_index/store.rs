@@ -51,9 +51,8 @@ use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::file_util::persist_temp_file;
 use crate::index::Index as _;
-use crate::index::IndexReadError;
 use crate::index::IndexStore;
-use crate::index::IndexWriteError;
+use crate::index::IndexStoreError;
 use crate::index::MutableIndex;
 use crate::index::ReadonlyIndex;
 use crate::object_id::ObjectId as _;
@@ -562,7 +561,7 @@ impl IndexStore for DefaultIndexStore {
         &self,
         op: &Operation,
         store: &Arc<Store>,
-    ) -> Result<Box<dyn ReadonlyIndex>, IndexReadError> {
+    ) -> Result<Box<dyn ReadonlyIndex>, IndexStoreError> {
         let field_lengths = FieldLengths {
             commit_id: store.commit_id_length(),
             change_id: store.change_id_length(),
@@ -591,12 +590,13 @@ impl IndexStore for DefaultIndexStore {
                         eprintln!("{err} (maybe the format has changed): {error}. Reindexing...");
                     }
                 }
-                self.reinit().map_err(|err| IndexReadError(err.into()))?;
+                self.reinit()
+                    .map_err(|err| IndexStoreError::Read(err.into()))?;
                 self.build_index_at_operation(op, store).block_on()
             }
             result => result,
         }
-        .map_err(|err| IndexReadError(err.into()))?;
+        .map_err(|err| IndexStoreError::Read(err.into()))?;
         Ok(Box::new(index))
     }
 
@@ -604,13 +604,13 @@ impl IndexStore for DefaultIndexStore {
         &self,
         index: Box<dyn MutableIndex>,
         op: &Operation,
-    ) -> Result<Box<dyn ReadonlyIndex>, IndexWriteError> {
+    ) -> Result<Box<dyn ReadonlyIndex>, IndexStoreError> {
         let index: Box<DefaultMutableIndex> = index
             .downcast()
             .expect("index to merge in must be a DefaultMutableIndex");
         let index = self
             .save_mutable_index(*index, op.id())
-            .map_err(|err| IndexWriteError(err.into()))?;
+            .map_err(|err| IndexStoreError::Write(err.into()))?;
         Ok(Box::new(index))
     }
 }
