@@ -2838,10 +2838,12 @@ pub fn print_unmatched_explicit_paths<'a>(
     for tree in trees {
         // TODO: propagate errors
         explicit_paths.retain(|&path| tree.path_value(path).unwrap().is_absent());
-        if explicit_paths.is_empty() {
-            return Ok(());
-        }
     }
+
+    if explicit_paths.is_empty() {
+        return Ok(());
+    }
+
     let ui_paths = explicit_paths
         .iter()
         .map(|&path| workspace_command.format_file_path(path))
