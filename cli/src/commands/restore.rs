@@ -24,6 +24,7 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::complete;
@@ -141,9 +142,8 @@ pub(crate) fn cmd_restore(
     }
     workspace_command.check_rewritable([to_commit.id()])?;
 
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+    let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
+    let matcher = fileset_expression.to_matcher();
     let diff_selector =
         workspace_command.diff_selector(ui, args.tool.as_deref(), args.interactive)?;
     let to_tree = to_commit.tree();
@@ -168,6 +168,14 @@ pub(crate) fn cmd_restore(
         &matcher,
         format_instructions,
     )?;
+
+    print_unmatched_explicit_paths(
+        ui,
+        &workspace_command,
+        &fileset_expression,
+        [&to_tree, &from_tree],
+    )?;
+
     if new_tree.tree_ids() == to_commit.tree_ids() {
         writeln!(ui.status(), "Nothing changed.")?;
     } else {

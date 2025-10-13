@@ -156,6 +156,15 @@ fn test_restore() {
     D file1
     [EOF]
     ");
+
+    // The output filtered to a non-existent file should display a warning.
+    let output = work_dir.run_jj(["restore", "nonexistent"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: No matching entries for paths: nonexistent
+    Nothing changed.
+    [EOF]
+    ");
 }
 
 // Much of this test is copied from test_resolve_command
