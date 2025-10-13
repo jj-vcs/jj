@@ -47,7 +47,6 @@ use super::revset_engine::RevsetImpl;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::graph::GraphNode;
-use crate::index::AllHeadsForGcUnsupported;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
 use crate::index::IndexError;
@@ -733,9 +732,7 @@ impl Index for DefaultReadonlyIndex {
         self.0.common_ancestors(set1, set2)
     }
 
-    fn all_heads_for_gc(
-        &self,
-    ) -> Result<Box<dyn Iterator<Item = CommitId> + '_>, AllHeadsForGcUnsupported> {
+    fn all_heads_for_gc(&self) -> Result<Box<dyn Iterator<Item = CommitId> + '_>, IndexError> {
         self.0.all_heads_for_gc()
     }
 

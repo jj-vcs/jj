@@ -41,7 +41,6 @@ use super::revset_engine;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::hex_util;
-use crate::index::AllHeadsForGcUnsupported;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
 use crate::index::IndexError;
@@ -590,9 +589,7 @@ impl Index for CompositeIndex {
         self.commits().common_ancestors(set1, set2)
     }
 
-    fn all_heads_for_gc(
-        &self,
-    ) -> Result<Box<dyn Iterator<Item = CommitId> + '_>, AllHeadsForGcUnsupported> {
+    fn all_heads_for_gc(&self) -> Result<Box<dyn Iterator<Item = CommitId> + '_>, IndexError> {
         Ok(Box::new(self.commits().all_heads()))
     }
 

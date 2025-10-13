@@ -42,16 +42,17 @@ pub struct IndexReadError(pub Box<dyn std::error::Error + Send + Sync>);
 #[error(transparent)]
 pub struct IndexWriteError(pub Box<dyn std::error::Error + Send + Sync>);
 
-/// Returned by [`Index`] backend in case of an error.
+/// Returned by [`Index`] backend in the event of an error.
 #[derive(Debug, Error)]
-#[error(transparent)]
-pub struct IndexError(pub Box<dyn std::error::Error + Send + Sync>);
-
-/// An error returned if `Index::all_heads_for_gc()` is not supported by the
-/// index backend.
-#[derive(Debug, Error)]
-#[error("Cannot collect all heads by index of this type")]
-pub struct AllHeadsForGcUnsupported;
+pub enum IndexError {
+    /// Error returned if [`Index::all_heads_for_gc()`] is not supported by the
+    /// [`Index`] backend.
+    #[error("Cannot collect all heads by index of this type")]
+    AllHeadsForGcUnsupported,
+    /// Some other index error.
+    #[error(transparent)]
+    Other(Box<dyn std::error::Error + Send + Sync>),
+}
 
 /// Defines the interface for types that provide persistent storage for an
 /// index.
@@ -119,9 +120,7 @@ pub trait Index: Send + Sync {
     /// that should be preserved on garbage collection.
     ///
     /// The iteration order is unspecified.
-    fn all_heads_for_gc(
-        &self,
-    ) -> Result<Box<dyn Iterator<Item = CommitId> + '_>, AllHeadsForGcUnsupported>;
+    fn all_heads_for_gc(&self) -> Result<Box<dyn Iterator<Item = CommitId> + '_>, IndexError>;
 
     /// Returns the subset of commit IDs in `candidates` which are not ancestors
     /// of other commits in `candidates`. If a commit id is duplicated in the

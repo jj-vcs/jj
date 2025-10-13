@@ -56,7 +56,6 @@ use crate::commit::Commit;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::file_util::persist_content_addressed_temp_file;
-use crate::index::AllHeadsForGcUnsupported;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
 use crate::index::IndexError;
@@ -565,9 +564,7 @@ impl Index for DefaultMutableIndex {
         self.0.common_ancestors(set1, set2)
     }
 
-    fn all_heads_for_gc(
-        &self,
-    ) -> Result<Box<dyn Iterator<Item = CommitId> + '_>, AllHeadsForGcUnsupported> {
+    fn all_heads_for_gc(&self) -> Result<Box<dyn Iterator<Item = CommitId> + '_>, IndexError> {
         self.0.all_heads_for_gc()
     }
 
@@ -609,7 +606,7 @@ impl MutableIndex for DefaultMutableIndex {
     fn add_commit(&mut self, commit: &Commit) -> Result<(), IndexError> {
         Self::add_commit(self, commit)
             .block_on()
-            .map_err(|err| IndexError(err.into()))
+            .map_err(|err| IndexError::Other(err.into()))
     }
 
     fn merge_in(&mut self, other: &dyn ReadonlyIndex) {
