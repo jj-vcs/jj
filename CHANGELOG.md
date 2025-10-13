@@ -25,6 +25,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `--editor`, which ensures an editor will be opened with the commit
   description even if one was provided via `--message`/`-m`.
 
+* All `jj` commands show a warning when the provided `fileset` expression 
+  doesn't match any files.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.

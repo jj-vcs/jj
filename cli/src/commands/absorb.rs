@@ -22,6 +22,7 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
 use crate::complete;
@@ -81,13 +82,19 @@ pub(crate) fn cmd_absorb(
         .parse_union_revsets(ui, &args.into)?
         .resolve()?;
 
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+    let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
+    let matcher = fileset_expression.to_matcher();
 
     let repo = workspace_command.repo().as_ref();
-    let source = AbsorbSource::from_commit(repo, source_commit)?;
+    let source = AbsorbSource::from_commit(repo, source_commit.clone())?;
     let selected_trees = split_hunks_to_trees(repo, &source, &destinations, &matcher).block_on()?;
+
+    print_unmatched_explicit_paths(
+        ui,
+        &workspace_command,
+        &fileset_expression,
+        [&source_commit.tree()],
+    )?;
 
     let path_converter = workspace_command.path_converter();
     for (path, reason) in selected_trees.skipped_paths {
