@@ -5988,6 +5988,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   directly as positional arguments, such as
   <code>jj bisect --range=..main -- cargo check --all-targets</code>.</p>
 </li>
+<li>
+<p>Divergent changes are no longer marked red in immutable revisions. Since the
+  revision is immutable, the user shouldn't take any action, so the red color
+  was unnecessarily alarming.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
