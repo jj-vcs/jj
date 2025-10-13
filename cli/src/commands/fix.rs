@@ -19,8 +19,8 @@ use std::process::Stdio;
 
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
-use jj_lib::backend::CommitId;
 use jj_lib::backend::FileId;
+use jj_lib::commit::Commit;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
@@ -29,7 +29,9 @@ use jj_lib::fix::FixError;
 use jj_lib::fix::ParallelFileFixer;
 use jj_lib::fix::fix_files;
 use jj_lib::matchers::Matcher;
+use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPathUiConverter;
+use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
 use pollster::FutureExt as _;
@@ -38,6 +40,7 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::command_error::config_error;
 use crate::command_error::print_parse_diagnostics;
@@ -142,13 +145,25 @@ pub(crate) fn cmd_fix(
     }
     .resolve()?;
     workspace_command.check_rewritable_expr(&target_expr)?;
-    let root_commits: Vec<CommitId> = target_expr
-        .evaluate(workspace_command.repo().as_ref())?
+
+    let repo = workspace_command.repo();
+
+    let commits: Vec<Commit> = target_expr
+        .descendants()
+        .evaluate(repo.as_ref())?
         .iter()
+        .commits(repo.store())
         .try_collect()?;
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+
+    let commit_ids = commits
+        .iter()
+        .map(|commit| commit.id().clone())
+        .collect_vec();
+
+    let trees: Vec<_> = commits.iter().map(|commit| commit.tree()).collect();
+
+    let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
+    let matcher = fileset_expression.to_matcher();
 
     let mut tx = workspace_command.start_transaction();
     let mut parallel_fixer = ParallelFileFixer::new(|store, file_to_fix| {
@@ -162,8 +177,11 @@ pub(crate) fn cmd_fix(
         )
         .block_on()
     });
+
+    print_unmatched_explicit_paths(ui, tx.base_workspace_helper(), &fileset_expression, &trees)?;
+
     let summary = fix_files(
-        root_commits,
+        commit_ids,
         &matcher,
         args.include_unchanged_files,
         tx.repo_mut(),
