@@ -605,6 +605,14 @@ different versions and call the right command.
 like the one at Google (if you're using the library, you will not be able to
 detect custom backends and more).
 
+### Why is Jujutsu a separate project? Why were the features not contributed to Git instead?
+
+The project started as an experiment with the idea of representing the working
+copy by a regular commit. I (@martinvonz) considered how this feature would
+impact the Git CLI if it were added to Git. My conclusion was that it would
+effectively result in deprecating most existing Git commands and flags in favor
+of new commands and flags, especially considering I wanted to also support
+revsets. This seemed unlikely to be accepted by the Git project.
 
 [bookmarks_conflicts]: bookmarks.md#conflicts
 
