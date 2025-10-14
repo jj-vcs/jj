@@ -960,36 +960,8 @@ pub fn export_some_refs(
         }
     }
 
-    let mut failed_bookmarks = bookmarks.failed;
-    for (symbol, old_oid) in bookmarks.to_delete {
-        let Some(git_ref_name) = to_git_ref_name(GitRefKind::Bookmark, symbol.as_ref()) else {
-            failed_bookmarks.push((symbol, FailedRefExportReason::InvalidGitName));
-            continue;
-        };
-        if let Err(reason) = delete_git_ref(&git_repo, &git_ref_name, &old_oid) {
-            failed_bookmarks.push((symbol, reason));
-        } else {
-            let new_target = RefTarget::absent();
-            mut_repo.set_git_ref_target(&git_ref_name, new_target);
-        }
-    }
-    for (symbol, (old_oid, new_oid)) in bookmarks.to_update {
-        let Some(git_ref_name) = to_git_ref_name(GitRefKind::Bookmark, symbol.as_ref()) else {
-            failed_bookmarks.push((symbol, FailedRefExportReason::InvalidGitName));
-            continue;
-        };
-        if let Err(reason) = update_git_ref(&git_repo, &git_ref_name, old_oid, new_oid) {
-            failed_bookmarks.push((symbol, reason));
-        } else {
-            let new_target = RefTarget::normal(CommitId::from_bytes(new_oid.as_bytes()));
-            mut_repo.set_git_ref_target(&git_ref_name, new_target);
-        }
-    }
-
+    let failed_bookmarks = export_refs_to_git(mut_repo, &git_repo, GitRefKind::Bookmark, bookmarks);
     // TODO: export tags
-
-    // Stabilize output, allow binary search.
-    failed_bookmarks.sort_unstable_by(|(name1, _), (name2, _)| name1.cmp(name2));
 
     copy_exportable_local_bookmarks_to_remote_view(
         mut_repo,
@@ -1002,6 +974,43 @@ pub fn export_some_refs(
     // TODO: copy exportable tags
 
     Ok(GitExportStats { failed_bookmarks })
+}
+
+fn export_refs_to_git(
+    mut_repo: &mut MutableRepo,
+    git_repo: &gix::Repository,
+    kind: GitRefKind,
+    refs: RefsToExport,
+) -> Vec<(RemoteRefSymbolBuf, FailedRefExportReason)> {
+    let mut failed = refs.failed;
+    for (symbol, old_oid) in refs.to_delete {
+        let Some(git_ref_name) = to_git_ref_name(kind, symbol.as_ref()) else {
+            failed.push((symbol, FailedRefExportReason::InvalidGitName));
+            continue;
+        };
+        if let Err(reason) = delete_git_ref(git_repo, &git_ref_name, &old_oid) {
+            failed.push((symbol, reason));
+        } else {
+            let new_target = RefTarget::absent();
+            mut_repo.set_git_ref_target(&git_ref_name, new_target);
+        }
+    }
+    for (symbol, (old_oid, new_oid)) in refs.to_update {
+        let Some(git_ref_name) = to_git_ref_name(kind, symbol.as_ref()) else {
+            failed.push((symbol, FailedRefExportReason::InvalidGitName));
+            continue;
+        };
+        if let Err(reason) = update_git_ref(git_repo, &git_ref_name, old_oid, new_oid) {
+            failed.push((symbol, reason));
+        } else {
+            let new_target = RefTarget::normal(CommitId::from_bytes(new_oid.as_bytes()));
+            mut_repo.set_git_ref_target(&git_ref_name, new_target);
+        }
+    }
+
+    // Stabilize output, allow binary search.
+    failed.sort_unstable_by(|(name1, _), (name2, _)| name1.cmp(name2));
+    failed
 }
 
 fn copy_exportable_local_bookmarks_to_remote_view(
@@ -1073,15 +1082,23 @@ fn diff_refs_to_export(
             .or_insert((target, RefTarget::absent_ref()));
     }
 
+    let root_commit_target = RefTarget::normal(root_commit_id.clone());
+    let bookmarks = collect_changed_refs_to_export(&all_bookmark_targets, &root_commit_target);
+    AllRefsToExport { bookmarks }
+}
+
+fn collect_changed_refs_to_export(
+    old_new_ref_targets: &HashMap<RemoteRefSymbol, (&RefTarget, &RefTarget)>,
+    root_commit_target: &RefTarget,
+) -> RefsToExport {
     let mut to_update = Vec::new();
     let mut to_delete = Vec::new();
     let mut failed = Vec::new();
-    let root_commit_target = RefTarget::normal(root_commit_id.clone());
-    for (symbol, (old_target, new_target)) in all_bookmark_targets {
+    for (&symbol, &(old_target, new_target)) in old_new_ref_targets {
         if new_target == old_target {
             continue;
         }
-        if *new_target == root_commit_target {
+        if new_target == root_commit_target {
             // Git doesn't have a root commit
             failed.push((symbol.to_owned(), FailedRefExportReason::OnRootCommit));
             continue;
@@ -1113,12 +1130,10 @@ fn diff_refs_to_export(
     to_update.sort_unstable_by(|(sym1, _), (sym2, _)| sym1.cmp(sym2));
     to_delete.sort_unstable_by(|(sym1, _), (sym2, _)| sym1.cmp(sym2));
     failed.sort_unstable_by(|(sym1, _), (sym2, _)| sym1.cmp(sym2));
-    AllRefsToExport {
-        bookmarks: RefsToExport {
-            to_update,
-            to_delete,
-            failed,
-        },
+    RefsToExport {
+        to_update,
+        to_delete,
+        failed,
     }
 }
 
