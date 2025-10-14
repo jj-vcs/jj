@@ -430,6 +430,27 @@ impl View {
         }
     }
 
+    /// Iterates over `(name, {local_ref, remote_ref})`s for every tag present
+    /// locally and/or on the specified remote, in lexicographical order.
+    ///
+    /// Note that this does *not* take into account whether the local tag tracks
+    /// the remote tag or not. Missing values are represented as
+    /// [`RefTarget::absent_ref()`] or [`RemoteRef::absent_ref()`].
+    pub fn local_remote_tags(
+        &self,
+        remote_name: &RemoteName,
+    ) -> impl Iterator<Item = (&RefName, LocalAndRemoteRef<'_>)> + use<'_> {
+        refs::iter_named_local_remote_refs(self.local_tags(), self.remote_tags(remote_name)).map(
+            |(name, (local_target, remote_ref))| {
+                let targets = LocalAndRemoteRef {
+                    local_target,
+                    remote_ref,
+                };
+                (name, targets)
+            },
+        )
+    }
+
     pub fn get_git_ref(&self, name: &GitRefName) -> &RefTarget {
         self.data.git_refs.get(name).flatten()
     }

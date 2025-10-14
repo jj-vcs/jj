@@ -14,6 +14,7 @@
 
 use std::io::Write as _;
 
+use indoc::indoc;
 use testutils::git;
 
 use crate::common::CommandOutput;
@@ -72,8 +73,14 @@ fn get_bookmark_output(work_dir: &TestWorkDir) -> CommandOutput {
 
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
-    let template =
-        r#"commit_id.short() ++ " \"" ++ description.first_line() ++ "\" " ++ bookmarks"#;
+    let template = indoc! {r#"
+        separate(" ",
+          commit_id.short(),
+          '"' ++ description.first_line() ++ '"',
+          bookmarks,
+          tags,
+        ) ++ "\n"
+    "#};
     work_dir.run_jj(["log", "-T", template, "-r", "all()"])
 }
 
@@ -1197,7 +1204,7 @@ fn test_git_fetch_undo() {
     let test_env = TestEnvironment::default();
     test_env.add_config("git.auto-local-bookmark = true");
     let source_dir = test_env.work_dir("source");
-    git::init(source_dir.root());
+    let git_repo = git::init(source_dir.root());
 
     // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
     let output = test_env.run_jj_in(".", ["git", "clone", "source", "target"]);
@@ -1209,25 +1216,36 @@ fn test_git_fetch_undo() {
     "#);
     let target_dir = test_env.work_dir("target");
 
-    let source_log = create_colocated_repo_and_bookmarks_from_trunk1(&source_dir);
-    insta::assert_snapshot!(source_log, @r#"
-       ===== Source git repo contents =====
+    create_colocated_repo_and_bookmarks_from_trunk1(&source_dir);
+    git_repo
+        .reference(
+            "refs/tags/tag1",
+            git_repo.find_reference("refs/heads/trunk1").unwrap().id(),
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            "create tag",
+        )
+        .unwrap();
+    insta::assert_snapshot!(get_log_output(&source_dir), @r#"
     @  bc83465a3090 "b" b
     │ ○  d4d535f1d579 "a2" a2
     ├─╯
     │ ○  c8303692b8e2 "a1" a1
     ├─╯
-    ○  382881770501 "trunk1" trunk1
+    ◆  382881770501 "trunk1" trunk1 tag1
     ◆  000000000000 ""
+    [EOF]
+    ------- stderr -------
+    Done importing changes from the underlying Git repo.
     [EOF]
     "#);
 
-    // Fetch 2 bookmarks
+    // Fetch 2 bookmarks and tags
     let output = target_dir.run_jj(["git", "fetch", "--branch", "b", "--branch", "a1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     bookmark: a1@origin [new] tracked
     bookmark: b@origin  [new] tracked
+    tag: tag1@git [new] 
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
@@ -1235,7 +1253,7 @@ fn test_git_fetch_undo() {
     │ ○  bc83465a3090 "b" b
     │ │ ○  c8303692b8e2 "a1" a1
     │ ├─╯
-    │ ○  382881770501 "trunk1"
+    │ ◆  382881770501 "trunk1" tag1
     ├─╯
     ◆  000000000000 ""
     [EOF]
@@ -1252,17 +1270,18 @@ fn test_git_fetch_undo() {
     ◆  000000000000 ""
     [EOF]
     "#);
-    // Now try to fetch just one bookmark
+    // Now try to fetch just one bookmark and tags
     let output = target_dir.run_jj(["git", "fetch", "--branch", "b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     bookmark: b@origin [new] tracked
+    tag: tag1@git [new] 
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
     @  e8849ae12c70 ""
     │ ○  bc83465a3090 "b" b
-    │ ○  382881770501 "trunk1"
+    │ ◆  382881770501 "trunk1" tag1
     ├─╯
     ◆  000000000000 ""
     [EOF]

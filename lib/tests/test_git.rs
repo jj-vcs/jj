@@ -1760,6 +1760,7 @@ fn test_export_refs_no_detach() {
     // Do an initial export to make sure `main` is considered
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
     assert_eq!(
         mut_repo.get_git_ref("refs/heads/main".as_ref()),
         RefTarget::normal(jj_id(commit1))
@@ -1802,6 +1803,7 @@ fn test_export_refs_bookmark_changed() {
     mut_repo.rebase_descendants().unwrap();
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
 
     let new_commit = create_random_commit(mut_repo)
         .set_parents(vec![jj_id(commit)])
@@ -1810,6 +1812,7 @@ fn test_export_refs_bookmark_changed() {
     mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(new_commit.id().clone()));
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
     assert_eq!(
         mut_repo.get_git_ref("refs/heads/main".as_ref()),
         RefTarget::normal(new_commit.id().clone())
@@ -1831,6 +1834,46 @@ fn test_export_refs_bookmark_changed() {
 }
 
 #[test]
+fn test_export_refs_tag_changed() {
+    // We can export a change to a tag
+    let test_data = GitRepoData::create();
+    let git_settings = GitSettings::from_settings(test_data.repo.settings()).unwrap();
+    let git_repo = test_data.git_repo;
+    let commit = empty_git_commit(&git_repo, "refs/tags/v1.0", &[]);
+
+    let mut tx = test_data.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    git::import_head(mut_repo).unwrap();
+    git::import_refs(mut_repo, &git_settings).unwrap();
+    mut_repo.rebase_descendants().unwrap();
+    let stats = git::export_refs(mut_repo).unwrap();
+    assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
+
+    let new_commit = create_random_commit(mut_repo)
+        .set_parents(vec![jj_id(commit)])
+        .write()
+        .unwrap();
+    mut_repo.set_local_tag_target("v1.0".as_ref(), RefTarget::normal(new_commit.id().clone()));
+    let stats = git::export_refs(mut_repo).unwrap();
+    assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
+    assert_eq!(
+        mut_repo.get_git_ref("refs/tags/v1.0".as_ref()),
+        RefTarget::normal(new_commit.id().clone())
+    );
+    assert_eq!(
+        git_repo
+            .find_reference("refs/tags/v1.0")
+            .unwrap()
+            .peel_to_commit()
+            .unwrap()
+            .id(),
+        git_id(&new_commit)
+    );
+}
+
+#[test]
 fn test_export_refs_current_bookmark_changed() {
     // If we update a bookmark that is checked out in the git repo, HEAD gets
     // detached
@@ -1846,6 +1889,7 @@ fn test_export_refs_current_bookmark_changed() {
     mut_repo.rebase_descendants().unwrap();
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
 
     let new_commit = create_random_commit(mut_repo)
         .set_parents(vec![jj_id(commit1)])
@@ -1854,6 +1898,7 @@ fn test_export_refs_current_bookmark_changed() {
     mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(new_commit.id().clone()));
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
     assert_eq!(
         mut_repo.get_git_ref("refs/heads/main".as_ref()),
         RefTarget::normal(new_commit.id().clone())
@@ -1871,6 +1916,49 @@ fn test_export_refs_current_bookmark_changed() {
     assert!(git_repo.head().unwrap().is_detached(), "HEAD is detached");
 }
 
+#[test]
+fn test_export_refs_current_tag_changed() {
+    // If we update a tag that is checked out in the git repo, HEAD gets
+    // detached
+    let test_data = GitRepoData::create();
+    let git_settings = GitSettings::from_settings(test_data.repo.settings()).unwrap();
+    let git_repo = test_data.git_repo;
+    let commit1 = empty_git_commit(&git_repo, "refs/tags/v1.0", &[]);
+    testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/tags/v1.0");
+    let mut tx = test_data.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    git::import_head(mut_repo).unwrap();
+    git::import_refs(mut_repo, &git_settings).unwrap();
+    mut_repo.rebase_descendants().unwrap();
+    let stats = git::export_refs(mut_repo).unwrap();
+    assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
+
+    let new_commit = create_random_commit(mut_repo)
+        .set_parents(vec![jj_id(commit1)])
+        .write()
+        .unwrap();
+    mut_repo.set_local_tag_target("v1.0".as_ref(), RefTarget::normal(new_commit.id().clone()));
+    let stats = git::export_refs(mut_repo).unwrap();
+    assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
+    assert_eq!(
+        mut_repo.get_git_ref("refs/tags/v1.0".as_ref()),
+        RefTarget::normal(new_commit.id().clone())
+    );
+    assert_eq!(
+        git_repo
+            .find_reference("refs/tags/v1.0")
+            .unwrap()
+            .peel_to_commit()
+            .unwrap()
+            .id()
+            .detach(),
+        git_id(&new_commit)
+    );
+    assert!(git_repo.head().unwrap().is_detached());
+}
+
 #[test_case(false; "without moved placeholder ref")]
 #[test_case(true; "with moved placeholder ref")]
 fn test_export_refs_unborn_git_bookmark(move_placeholder_ref: bool) {
@@ -1886,6 +1974,7 @@ fn test_export_refs_unborn_git_bookmark(move_placeholder_ref: bool) {
     mut_repo.rebase_descendants().unwrap();
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
     assert!(git_repo.head().unwrap().is_unborn(), "HEAD is unborn");
 
     let new_commit = write_random_commit(mut_repo);
@@ -1902,6 +1991,7 @@ fn test_export_refs_unborn_git_bookmark(move_placeholder_ref: bool) {
     }
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
     assert_eq!(
         mut_repo.get_git_ref("refs/heads/main".as_ref()),
         RefTarget::normal(new_commit.id().clone())
@@ -1956,6 +2046,7 @@ fn test_export_import_sequence() {
     // Export the bookmark to git
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
     assert_eq!(
         mut_repo.get_git_ref("refs/heads/main".as_ref()),
         RefTarget::normal(commit_b.id().clone())
@@ -2023,6 +2114,7 @@ fn test_import_export_non_tracking_bookmark() {
     // Export the bookmark to git
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
     assert_eq!(
         mut_repo.get_git_ref("refs/heads/main".as_ref()),
         RefTarget::absent()
@@ -2111,21 +2203,23 @@ fn test_export_conflicts() {
     mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_a.id().clone()));
     mut_repo
         .set_local_bookmark_target("feature".as_ref(), RefTarget::normal(commit_a.id().clone()));
+    mut_repo.set_local_tag_target("v1.0".as_ref(), RefTarget::normal(commit_a.id().clone()));
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
 
     // Create a conflict and export. It should not be exported, but other changes
     // should be.
     mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_b.id().clone()));
-    mut_repo.set_local_bookmark_target(
-        "feature".as_ref(),
-        RefTarget::from_legacy_form(
-            [commit_a.id().clone()],
-            [commit_b.id().clone(), commit_c.id().clone()],
-        ),
+    let conflict_target = RefTarget::from_legacy_form(
+        [commit_a.id().clone()],
+        [commit_b.id().clone(), commit_c.id().clone()],
     );
+    mut_repo.set_local_bookmark_target("feature".as_ref(), conflict_target.clone());
+    mut_repo.set_local_tag_target("v1.0".as_ref(), conflict_target.clone());
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
     assert_eq!(
         git_repo
             .find_reference("refs/heads/feature")
@@ -2142,6 +2236,14 @@ fn test_export_conflicts() {
             .id(),
         git_id(&commit_b)
     );
+    assert_eq!(
+        git_repo
+            .find_reference("refs/tags/v1.0")
+            .unwrap()
+            .target()
+            .id(),
+        git_id(&commit_a)
+    );
 
     // Conflicted bookmarks shouldn't be copied to the "git" remote
     assert_eq!(
@@ -2155,6 +2257,13 @@ fn test_export_conflicts() {
         mut_repo.get_remote_bookmark(remote_symbol("main", "git")),
         RemoteRef {
             target: RefTarget::normal(commit_b.id().clone()),
+            state: RemoteRefState::Tracked,
+        },
+    );
+    assert_eq!(
+        mut_repo.get_remote_tag(remote_symbol("v1.0", "git")),
+        RemoteRef {
+            target: RefTarget::normal(commit_a.id().clone()),
             state: RemoteRefState::Tracked,
         },
     );
@@ -2180,6 +2289,7 @@ fn test_export_bookmark_on_root_commit() {
         stats.failed_bookmarks[0].1,
         FailedRefExportReason::OnRootCommit
     );
+    assert!(stats.failed_tags.is_empty());
 }
 
 #[test]
@@ -2193,12 +2303,21 @@ fn test_export_partial_failure() {
     let target = RefTarget::normal(commit_a.id().clone());
     // Empty string is disallowed by Git
     mut_repo.set_local_bookmark_target("".as_ref(), target.clone());
+    mut_repo.set_local_tag_target("".as_ref(), target.clone());
     // Branch named HEAD is disallowed by Git CLI
     mut_repo.set_local_bookmark_target("HEAD".as_ref(), target.clone());
     mut_repo.set_local_bookmark_target("main".as_ref(), target.clone());
     // `main/sub` will conflict with `main` in Git, at least when using loose ref
     // storage
     mut_repo.set_local_bookmark_target("main/sub".as_ref(), target.clone());
+    // Non-git remote tags are ignored since there are no remote tags in Git
+    mut_repo.set_remote_tag(
+        remote_symbol("v1.0", "origin"),
+        RemoteRef {
+            target: target.clone(),
+            state: RemoteRefState::Tracked,
+        },
+    );
     let stats = git::export_refs(mut_repo).unwrap();
     assert_eq!(stats.failed_bookmarks.len(), 3);
     assert_eq!(
@@ -2225,6 +2344,12 @@ fn test_export_partial_failure() {
         stats.failed_bookmarks[2].1,
         FailedRefExportReason::FailedToSet(_)
     );
+    assert_eq!(stats.failed_tags.len(), 1);
+    assert_eq!(stats.failed_tags[0].0.as_ref(), remote_symbol("", "git"));
+    assert_matches!(
+        stats.failed_tags[0].1,
+        FailedRefExportReason::InvalidGitName
+    );
 
     // The `main` bookmark should have succeeded but the other should have failed
     assert!(git_repo.find_reference("refs/heads/").is_err());
@@ -2238,8 +2363,9 @@ fn test_export_partial_failure() {
         git_id(&commit_a)
     );
     assert!(git_repo.find_reference("refs/heads/main/sub").is_err());
+    assert!(git_repo.find_reference("refs/tags/").is_err());
 
-    // Failed bookmarks shouldn't be copied to the "git" remote
+    // Failed bookmarks/tags shouldn't be copied to the "git" remote
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("", "git")),
         RemoteRef::absent()
@@ -2257,6 +2383,10 @@ fn test_export_partial_failure() {
     );
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("main/sub", "git")),
+        RemoteRef::absent()
+    );
+    assert_eq!(
+        mut_repo.get_remote_tag(remote_symbol("", "git")),
         RemoteRef::absent()
     );
 
@@ -2281,6 +2411,12 @@ fn test_export_partial_failure() {
         stats.failed_bookmarks[1].1,
         FailedRefExportReason::InvalidGitName
     );
+    assert_eq!(stats.failed_tags.len(), 1);
+    assert_eq!(stats.failed_tags[0].0.as_ref(), remote_symbol("", "git"));
+    assert_matches!(
+        stats.failed_tags[0].1,
+        FailedRefExportReason::InvalidGitName
+    );
     assert!(git_repo.find_reference("refs/heads/").is_err());
     assert!(git_repo.find_reference("refs/heads/HEAD").is_err());
     assert!(git_repo.find_reference("refs/heads/main").is_err());
@@ -2292,8 +2428,9 @@ fn test_export_partial_failure() {
             .id(),
         git_id(&commit_a)
     );
+    assert!(git_repo.find_reference("refs/tags/").is_err());
 
-    // Failed bookmarks shouldn't be copied to the "git" remote
+    // Failed bookmarks/tags shouldn't be copied to the "git" remote
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("", "git")),
         RemoteRef::absent()
@@ -2312,6 +2449,10 @@ fn test_export_partial_failure() {
             target: target.clone(),
             state: RemoteRefState::Tracked,
         },
+    );
+    assert_eq!(
+        mut_repo.get_remote_tag(remote_symbol("", "git")),
+        RemoteRef::absent()
     );
 }
 
@@ -2354,6 +2495,7 @@ fn test_export_reexport_transitions() {
     }
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
 
     // Make changes on the jj side
     for bookmark in ["AXA", "AXB", "AXX"] {
@@ -2487,9 +2629,15 @@ fn test_export_undo_reexport() {
     // Initial export
     let commit_a = write_random_commit(mut_repo);
     let target_a = RefTarget::normal(commit_a.id().clone());
+    let remote_ref_a = RemoteRef {
+        target: target_a.clone(),
+        state: RemoteRefState::Tracked,
+    };
     mut_repo.set_local_bookmark_target("main".as_ref(), target_a.clone());
+    mut_repo.set_local_tag_target("v1.0".as_ref(), target_a.clone());
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
     assert_eq!(
         git_repo
             .find_reference("refs/heads/main")
@@ -2498,21 +2646,33 @@ fn test_export_undo_reexport() {
             .id(),
         git_id(&commit_a)
     );
+    assert_eq!(
+        git_repo
+            .find_reference("refs/tags/v1.0")
+            .unwrap()
+            .target()
+            .id(),
+        git_id(&commit_a)
+    );
     assert_eq!(mut_repo.get_git_ref("refs/heads/main".as_ref()), target_a);
+    assert_eq!(mut_repo.get_git_ref("refs/tags/v1.0".as_ref()), target_a);
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("main", "git")),
-        RemoteRef {
-            target: target_a.clone(),
-            state: RemoteRefState::Tracked,
-        },
+        remote_ref_a
+    );
+    assert_eq!(
+        mut_repo.get_remote_tag(remote_symbol("v1.0", "git")),
+        remote_ref_a
     );
 
     // Undo remote changes only
     mut_repo.set_remote_bookmark(remote_symbol("main", "git"), RemoteRef::absent());
+    mut_repo.set_remote_tag(remote_symbol("v1.0", "git"), RemoteRef::absent());
 
-    // Reexport should update the Git-tracking bookmark
+    // Reexport should update the Git-tracking bookmark/tag
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
     assert_eq!(
         git_repo
             .find_reference("refs/heads/main")
@@ -2521,13 +2681,23 @@ fn test_export_undo_reexport() {
             .id(),
         git_id(&commit_a)
     );
+    assert_eq!(
+        git_repo
+            .find_reference("refs/tags/v1.0")
+            .unwrap()
+            .target()
+            .id(),
+        git_id(&commit_a)
+    );
     assert_eq!(mut_repo.get_git_ref("refs/heads/main".as_ref()), target_a);
+    assert_eq!(mut_repo.get_git_ref("refs/tags/v1.0".as_ref()), target_a);
     assert_eq!(
         mut_repo.get_remote_bookmark(remote_symbol("main", "git")),
-        RemoteRef {
-            target: target_a.clone(),
-            state: RemoteRefState::Tracked,
-        },
+        remote_ref_a
+    );
+    assert_eq!(
+        mut_repo.get_remote_tag(remote_symbol("v1.0", "git")),
+        remote_ref_a
     );
 }
 

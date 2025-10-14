@@ -584,19 +584,30 @@ pub fn print_git_export_stats(ui: &Ui, stats: &GitExportStats) -> Result<(), std
             }
             writeln!(formatter)?;
         }
-        drop(formatter);
-        if stats
-            .failed_bookmarks
-            .iter()
-            .any(|(_, reason)| matches!(reason, FailedRefExportReason::FailedToSet(_)))
-        {
-            writeln!(
-                ui.hint_default(),
-                r#"Git doesn't allow a branch name that looks like a parent directory of
-another (e.g. `foo` and `foo/bar`). Try to rename the bookmarks that failed to
-export or their "parent" bookmarks."#,
-            )?;
+    }
+    if !stats.failed_tags.is_empty() {
+        writeln!(ui.warning_default(), "Failed to export some tags:")?;
+        let mut formatter = ui.stderr_formatter();
+        for (symbol, reason) in &stats.failed_tags {
+            write!(formatter, "  ")?;
+            write!(formatter.labeled("tag"), "{symbol}")?;
+            for err in iter::successors(Some(reason as &dyn error::Error), |err| err.source()) {
+                write!(formatter, ": {err}")?;
+            }
+            writeln!(formatter)?;
         }
+    }
+    if itertools::chain(&stats.failed_bookmarks, &stats.failed_tags)
+        .any(|(_, reason)| matches!(reason, FailedRefExportReason::FailedToSet(_)))
+    {
+        writedoc!(
+            ui.hint_default(),
+            r#"
+            Git doesn't allow a branch/tag name that looks like a parent directory of
+            another (e.g. `foo` and `foo/bar`). Try to rename the bookmarks/tags that failed
+            to export or their "parent" bookmarks/tags.
+            "#,
+        )?;
     }
     Ok(())
 }

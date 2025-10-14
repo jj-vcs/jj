@@ -869,11 +869,16 @@ pub enum FailedRefExportReason {
 pub struct GitExportStats {
     /// Remote bookmarks that couldn't be exported, sorted by `symbol`.
     pub failed_bookmarks: Vec<(RemoteRefSymbolBuf, FailedRefExportReason)>,
+    /// Remote tags that couldn't be exported, sorted by `symbol`.
+    ///
+    /// Since Git doesn't have remote tags, this list only contains `@git` tags.
+    pub failed_tags: Vec<(RemoteRefSymbolBuf, FailedRefExportReason)>,
 }
 
 #[derive(Debug)]
 struct AllRefsToExport {
     bookmarks: RefsToExport,
+    tags: RefsToExport,
 }
 
 #[derive(Debug)]
@@ -889,16 +894,14 @@ struct RefsToExport {
     failed: Vec<(RemoteRefSymbolBuf, FailedRefExportReason)>,
 }
 
-/// Export changes to bookmarks made in the Jujutsu repo compared to our last
-/// seen view of the Git repo in `mut_repo.view().git_refs()`.
+/// Export changes to bookmarks and tags made in the Jujutsu repo compared to
+/// our last seen view of the Git repo in `mut_repo.view().git_refs()`.
 ///
-/// We ignore changed bookmarks that are conflicted (were also changed in the
-/// Git repo compared to our last remembered view of the Git repo). These will
-/// be marked conflicted by the next `jj git import`.
+/// We ignore changed refs that are conflicted (were also changed in the Git
+/// repo compared to our last remembered view of the Git repo). These will be
+/// marked conflicted by the next `jj git import`.
 ///
-/// We do not export tags and other refs at the moment, since these aren't
-/// supposed to be modified by JJ. For them, the Git state is considered
-/// authoritative.
+/// New/updated tags are exported as Git lightweight tags.
 pub fn export_refs(mut_repo: &mut MutableRepo) -> Result<GitExportStats, GitExportError> {
     export_some_refs(mut_repo, |_, _| true)
 }
@@ -916,7 +919,7 @@ pub fn export_some_refs(
 
     let git_repo = get_git_repo(mut_repo.store())?;
 
-    let AllRefsToExport { bookmarks } = diff_refs_to_export(
+    let AllRefsToExport { bookmarks, tags } = diff_refs_to_export(
         mut_repo.view(),
         mut_repo.store().root_commit_id(),
         &git_ref_filter,
@@ -925,7 +928,7 @@ pub fn export_some_refs(
     // TODO: Also check other worktrees' HEAD.
     if let Ok(head_ref) = git_repo.find_reference("HEAD") {
         let target_name = head_ref.target().try_name().map(|name| name.to_owned());
-        if let Some((GitRefKind::Bookmark, symbol)) = target_name
+        if let Some((kind, symbol)) = target_name
             .as_ref()
             .and_then(|name| str::from_utf8(name.as_bstr()).ok())
             .and_then(|name| parse_git_ref(name.as_ref()))
@@ -942,9 +945,13 @@ pub fn export_some_refs(
                 )) => None, // Unborn ref should be considered absent
                 Err(err) => return Err(GitExportError::from_git(err)),
             };
-            let new_oid = if let Some((_old_oid, new_oid)) = get(&bookmarks.to_update, symbol) {
+            let refs = match kind {
+                GitRefKind::Bookmark => &bookmarks,
+                GitRefKind::Tag => &tags,
+            };
+            let new_oid = if let Some((_old_oid, new_oid)) = get(&refs.to_update, symbol) {
                 Some(new_oid)
-            } else if get(&bookmarks.to_delete, symbol).is_some() {
+            } else if get(&refs.to_delete, symbol).is_some() {
                 None
             } else {
                 current_oid.as_ref()
@@ -961,7 +968,7 @@ pub fn export_some_refs(
     }
 
     let failed_bookmarks = export_refs_to_git(mut_repo, &git_repo, GitRefKind::Bookmark, bookmarks);
-    // TODO: export tags
+    let failed_tags = export_refs_to_git(mut_repo, &git_repo, GitRefKind::Tag, tags);
 
     copy_exportable_local_bookmarks_to_remote_view(
         mut_repo,
@@ -971,9 +978,15 @@ pub fn export_some_refs(
             git_ref_filter(GitRefKind::Bookmark, symbol) && get(&failed_bookmarks, symbol).is_none()
         },
     );
-    // TODO: copy exportable tags
+    copy_exportable_local_tags_to_remote_view(mut_repo, REMOTE_NAME_FOR_LOCAL_GIT_REPO, |name| {
+        let symbol = name.to_remote_symbol(REMOTE_NAME_FOR_LOCAL_GIT_REPO);
+        git_ref_filter(GitRefKind::Tag, symbol) && get(&failed_tags, symbol).is_none()
+    });
 
-    Ok(GitExportStats { failed_bookmarks })
+    Ok(GitExportStats {
+        failed_bookmarks,
+        failed_tags,
+    })
 }
 
 fn export_refs_to_git(
@@ -1040,14 +1053,40 @@ fn copy_exportable_local_bookmarks_to_remote_view(
     }
 }
 
-/// Calculates diff of bookmarks to be exported.
+fn copy_exportable_local_tags_to_remote_view(
+    mut_repo: &mut MutableRepo,
+    remote: &RemoteName,
+    name_filter: impl Fn(&RefName) -> bool,
+) {
+    let new_local_tags = mut_repo
+        .view()
+        .local_remote_tags(remote)
+        .filter_map(|(name, targets)| {
+            // TODO: filter out untracked tags (if we add support for untracked @git tags)
+            let old_target = &targets.remote_ref.target;
+            let new_target = targets.local_target;
+            (!new_target.has_conflict() && old_target != new_target).then_some((name, new_target))
+        })
+        .filter(|&(name, _)| name_filter(name))
+        .map(|(name, new_target)| (name.to_owned(), new_target.clone()))
+        .collect_vec();
+    for (name, new_target) in new_local_tags {
+        let new_remote_ref = RemoteRef {
+            target: new_target,
+            state: RemoteRefState::Tracked,
+        };
+        mut_repo.set_remote_tag(name.to_remote_symbol(remote), new_remote_ref);
+    }
+}
+
+/// Calculates diff of bookmarks and tags to be exported.
 fn diff_refs_to_export(
     view: &View,
     root_commit_id: &CommitId,
     git_ref_filter: impl Fn(GitRefKind, RemoteRefSymbol<'_>) -> bool,
 ) -> AllRefsToExport {
     // Local targets will be copied to the "git" remote if successfully exported. So
-    // the local bookmarks are considered to be the new "git" remote bookmarks.
+    // the local refs are considered to be the new "git" remote refs.
     let mut all_bookmark_targets: HashMap<RemoteRefSymbol, (&RefTarget, &RefTarget)> =
         itertools::chain(
             view.local_bookmarks().map(|(name, target)| {
@@ -1061,6 +1100,16 @@ fn diff_refs_to_export(
         .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Bookmark, symbol))
         .map(|(symbol, new_target)| (symbol, (RefTarget::absent_ref(), new_target)))
         .collect();
+    // Remote tags aren't included because Git has no such concept.
+    let mut all_tag_targets: HashMap<RemoteRefSymbol, (&RefTarget, &RefTarget)> = view
+        .local_tags()
+        .map(|(name, target)| {
+            let symbol = name.to_remote_symbol(REMOTE_NAME_FOR_LOCAL_GIT_REPO);
+            (symbol, target)
+        })
+        .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Tag, symbol))
+        .map(|(symbol, new_target)| (symbol, (RefTarget::absent_ref(), new_target)))
+        .collect();
     let known_git_refs = view
         .git_refs()
         .iter()
@@ -1069,14 +1118,16 @@ fn diff_refs_to_export(
                 parse_git_ref(full_name).expect("stored git ref should be parsable");
             ((kind, symbol), target)
         })
-        .filter(|&((kind, symbol), _)| {
-            // There are two situations where remote bookmarks get out of sync:
-            // 1. `jj bookmark forget --include-remotes`
-            // 2. `jj op revert`/`restore` in colocated repo
-            kind == GitRefKind::Bookmark && git_ref_filter(kind, symbol)
-        });
-    for ((_kind, symbol), target) in known_git_refs {
-        all_bookmark_targets
+        // There are two situations where remote refs get out of sync:
+        // 1. `jj bookmark forget --include-remotes`
+        // 2. `jj op revert`/`restore` in colocated repo
+        .filter(|&((kind, symbol), _)| git_ref_filter(kind, symbol));
+    for ((kind, symbol), target) in known_git_refs {
+        let ref_targets = match kind {
+            GitRefKind::Bookmark => &mut all_bookmark_targets,
+            GitRefKind::Tag => &mut all_tag_targets,
+        };
+        ref_targets
             .entry(symbol)
             .and_modify(|(old_target, _)| *old_target = target)
             .or_insert((target, RefTarget::absent_ref()));
@@ -1084,7 +1135,8 @@ fn diff_refs_to_export(
 
     let root_commit_target = RefTarget::normal(root_commit_id.clone());
     let bookmarks = collect_changed_refs_to_export(&all_bookmark_targets, &root_commit_target);
-    AllRefsToExport { bookmarks }
+    let tags = collect_changed_refs_to_export(&all_tag_targets, &root_commit_target);
+    AllRefsToExport { bookmarks, tags }
 }
 
 fn collect_changed_refs_to_export(
