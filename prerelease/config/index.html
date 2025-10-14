@@ -5160,6 +5160,11 @@ is in the main workspace if you're using multiple workspaces with <code>jj
 workspace</code>.</p>
 </li>
 <li>
+<p><code>--when.workspaces</code>: List of paths to match the workspace path prefix.</p>
+<p>The same concerns about the path as for <code>--when.repositories</code> applies.</p>
+<p>Use <code>jj root</code> to see the workspace root directory.</p>
+</li>
+<li>
 <p><code>--when.commands</code>: List of subcommands to match.</p>
 <p>Subcommands are space-separated and matched by prefix.</p>
 <div class="highlight"><pre><span></span><code><span class="n">--when</span><span class="p">.</span><span class="n">commands</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;file&quot;</span><span class="p">]</span><span class="w">        </span><span class="c1"># matches `jj file show`, `jj file list`, etc</span>
