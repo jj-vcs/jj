@@ -39,7 +39,8 @@ links to more details where applicable and available. There's a
   then you issue a later command to update the bookmark.
 * **Conflicts can be committed.** No commands fail because of merge conflicts.
   The conflicts are instead recorded in commits and you can resolve them later.
-  [Details](conflicts.md).
+  [Details](conflicts.md). This lets us rebase conflict and conflict
+  resolutions, and thereby addressing most `git rerere` use cases.
 * **Descendant commits are automatically rebased.** Whenever you rewrite a
   commit (e.g. by running `jj rebase`), all its descendants commits will
   automatically be rebased on top. Branches pointing to it will also get
