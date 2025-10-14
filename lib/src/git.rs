@@ -872,17 +872,21 @@ pub struct GitExportStats {
 }
 
 #[derive(Debug)]
+struct AllRefsToExport {
+    bookmarks: RefsToExport,
+}
+
+#[derive(Debug)]
 struct RefsToExport {
-    /// Remote bookmark `(symbol, (old_oid, new_oid))`s to update, sorted by
-    /// `symbol`.
-    bookmarks_to_update: Vec<(RemoteRefSymbolBuf, (Option<gix::ObjectId>, gix::ObjectId))>,
-    /// Remote bookmark `(symbol, old_oid)`s to delete, sorted by `symbol`.
+    /// Remote `(symbol, (old_oid, new_oid))`s to update, sorted by `symbol`.
+    to_update: Vec<(RemoteRefSymbolBuf, (Option<gix::ObjectId>, gix::ObjectId))>,
+    /// Remote `(symbol, old_oid)`s to delete, sorted by `symbol`.
     ///
-    /// Deletion has to be exported first to avoid conflict with new bookmarks
-    /// on file-system.
-    bookmarks_to_delete: Vec<(RemoteRefSymbolBuf, gix::ObjectId)>,
-    /// Remote bookmarks that couldn't be exported, sorted by `symbol`.
-    failed_bookmarks: Vec<(RemoteRefSymbolBuf, FailedRefExportReason)>,
+    /// Deletion has to be exported first to avoid conflict with new refs on
+    /// file-system.
+    to_delete: Vec<(RemoteRefSymbolBuf, gix::ObjectId)>,
+    /// Remote refs that couldn't be exported, sorted by `symbol`.
+    failed: Vec<(RemoteRefSymbolBuf, FailedRefExportReason)>,
 }
 
 /// Export changes to bookmarks made in the Jujutsu repo compared to our last
@@ -912,11 +916,7 @@ pub fn export_some_refs(
 
     let git_repo = get_git_repo(mut_repo.store())?;
 
-    let RefsToExport {
-        bookmarks_to_update,
-        bookmarks_to_delete,
-        mut failed_bookmarks,
-    } = diff_refs_to_export(
+    let AllRefsToExport { bookmarks } = diff_refs_to_export(
         mut_repo.view(),
         mut_repo.store().root_commit_id(),
         &git_ref_filter,
@@ -942,9 +942,9 @@ pub fn export_some_refs(
                 )) => None, // Unborn ref should be considered absent
                 Err(err) => return Err(GitExportError::from_git(err)),
             };
-            let new_oid = if let Some((_old_oid, new_oid)) = get(&bookmarks_to_update, symbol) {
+            let new_oid = if let Some((_old_oid, new_oid)) = get(&bookmarks.to_update, symbol) {
                 Some(new_oid)
-            } else if get(&bookmarks_to_delete, symbol).is_some() {
+            } else if get(&bookmarks.to_delete, symbol).is_some() {
                 None
             } else {
                 current_oid.as_ref()
@@ -959,7 +959,9 @@ pub fn export_some_refs(
             }
         }
     }
-    for (symbol, old_oid) in bookmarks_to_delete {
+
+    let mut failed_bookmarks = bookmarks.failed;
+    for (symbol, old_oid) in bookmarks.to_delete {
         let Some(git_ref_name) = to_git_ref_name(GitRefKind::Bookmark, symbol.as_ref()) else {
             failed_bookmarks.push((symbol, FailedRefExportReason::InvalidGitName));
             continue;
@@ -971,7 +973,7 @@ pub fn export_some_refs(
             mut_repo.set_git_ref_target(&git_ref_name, new_target);
         }
     }
-    for (symbol, (old_oid, new_oid)) in bookmarks_to_update {
+    for (symbol, (old_oid, new_oid)) in bookmarks.to_update {
         let Some(git_ref_name) = to_git_ref_name(GitRefKind::Bookmark, symbol.as_ref()) else {
             failed_bookmarks.push((symbol, FailedRefExportReason::InvalidGitName));
             continue;
@@ -1034,7 +1036,7 @@ fn diff_refs_to_export(
     view: &View,
     root_commit_id: &CommitId,
     git_ref_filter: impl Fn(GitRefKind, RemoteRefSymbol<'_>) -> bool,
-) -> RefsToExport {
+) -> AllRefsToExport {
     // Local targets will be copied to the "git" remote if successfully exported. So
     // the local bookmarks are considered to be the new "git" remote bookmarks.
     let mut all_bookmark_targets: HashMap<RemoteRefSymbol, (&RefTarget, &RefTarget)> =
@@ -1071,9 +1073,9 @@ fn diff_refs_to_export(
             .or_insert((target, RefTarget::absent_ref()));
     }
 
-    let mut bookmarks_to_update = Vec::new();
-    let mut bookmarks_to_delete = Vec::new();
-    let mut failed_bookmarks = Vec::new();
+    let mut to_update = Vec::new();
+    let mut to_delete = Vec::new();
+    let mut failed = Vec::new();
     let root_commit_target = RefTarget::normal(root_commit_id.clone());
     for (symbol, (old_target, new_target)) in all_bookmark_targets {
         if new_target == old_target {
@@ -1081,7 +1083,7 @@ fn diff_refs_to_export(
         }
         if *new_target == root_commit_target {
             // Git doesn't have a root commit
-            failed_bookmarks.push((symbol.to_owned(), FailedRefExportReason::OnRootCommit));
+            failed.push((symbol.to_owned(), FailedRefExportReason::OnRootCommit));
             continue;
         }
         let old_oid = if let Some(id) = old_target.as_normal() {
@@ -1089,7 +1091,7 @@ fn diff_refs_to_export(
         } else if old_target.has_conflict() {
             // The old git ref should only be a conflict if there were concurrent import
             // operations while the value changed. Don't overwrite these values.
-            failed_bookmarks.push((symbol.to_owned(), FailedRefExportReason::ConflictedOldState));
+            failed.push((symbol.to_owned(), FailedRefExportReason::ConflictedOldState));
             continue;
         } else {
             assert!(old_target.is_absent());
@@ -1097,24 +1099,26 @@ fn diff_refs_to_export(
         };
         if let Some(id) = new_target.as_normal() {
             let new_oid = gix::ObjectId::from_bytes_or_panic(id.as_bytes());
-            bookmarks_to_update.push((symbol.to_owned(), (old_oid, new_oid)));
+            to_update.push((symbol.to_owned(), (old_oid, new_oid)));
         } else if new_target.has_conflict() {
             // Skip conflicts and leave the old value in git_refs
             continue;
         } else {
             assert!(new_target.is_absent());
-            bookmarks_to_delete.push((symbol.to_owned(), old_oid.unwrap()));
+            to_delete.push((symbol.to_owned(), old_oid.unwrap()));
         }
     }
 
     // Stabilize export order and output, allow binary search.
-    bookmarks_to_update.sort_unstable_by(|(sym1, _), (sym2, _)| sym1.cmp(sym2));
-    bookmarks_to_delete.sort_unstable_by(|(sym1, _), (sym2, _)| sym1.cmp(sym2));
-    failed_bookmarks.sort_unstable_by(|(sym1, _), (sym2, _)| sym1.cmp(sym2));
-    RefsToExport {
-        bookmarks_to_update,
-        bookmarks_to_delete,
-        failed_bookmarks,
+    to_update.sort_unstable_by(|(sym1, _), (sym2, _)| sym1.cmp(sym2));
+    to_delete.sort_unstable_by(|(sym1, _), (sym2, _)| sym1.cmp(sym2));
+    failed.sort_unstable_by(|(sym1, _), (sym2, _)| sym1.cmp(sym2));
+    AllRefsToExport {
+        bookmarks: RefsToExport {
+            to_update,
+            to_delete,
+            failed,
+        },
     }
 }
 
