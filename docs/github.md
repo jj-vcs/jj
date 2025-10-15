@@ -40,8 +40,10 @@ $ jj commit -m 'feat(bar): add support for bar'
 # Create a bookmark so we can push it to GitHub. Note that we created the bookmark
 # on the working-copy commit's *parent* because the working copy itself is empty.
 $ jj bookmark create bar -r @- # `bar` now contains the previous two commits.
+# Set the bookmark to be tracked on the remote.
+$ jj bookmark track bar@origin
 # Push the bookmark to GitHub (pushes only `bar`)
-$ jj git push --allow-new
+$ jj git push
 ```
 
 While it's possible to create a bookmark in advance and commit on top of it in a
@@ -74,7 +76,8 @@ $ # Do some more work.
 $ jj commit -m "Update tutorial"
 # Create a bookmark on the working-copy commit's parent
 $ jj bookmark create doc-update -r @-
-$ jj git push --allow-new
+$ jj bookmark track doc-update@origin
+$ jj git push
 ```
 
 ## Working in a Jujutsu repository

@@ -592,7 +592,7 @@ fn test_git_push_locally_created_and_rewritten() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Refusing to create new remote bookmark my@origin
-    Hint: Use --allow-new to push new bookmark. Use --remote to specify the remote to push to.
+    Hint: Run `jj bookmark track my@origin` and try again.
     Nothing changed.
     [EOF]
     ");
@@ -600,6 +600,7 @@ fn test_git_push_locally_created_and_rewritten() {
     let output = work_dir.run_jj(["git", "push", "--allow-new", "--dry-run"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: --allow-new is deprecated, track bookmarks manually or configure remotes.<name>.auto-track-bookmarks instead.
     Changes to push to origin:
       Add bookmark my to e0cba5e497ee
     Dry-run requested, not pushing.
@@ -870,7 +871,7 @@ fn test_git_push_changes() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Bookmark already exists: push-yostqsxwqrlt
-    Hint: Use 'jj bookmark move' to move it, and 'jj git push -b push-yostqsxwqrlt [--allow-new]' to push it
+    Hint: Use 'jj bookmark move' to move it, and 'jj git push -b push-yostqsxwqrlt' to push it
     [EOF]
     [exit status: 1]
     ");
@@ -1017,7 +1018,7 @@ fn test_git_push_changes_with_name() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Bookmark already exists: b1
-    Hint: Use 'jj bookmark move' to move it, and 'jj git push -b b1 [--allow-new]' to push it
+    Hint: Use 'jj bookmark move' to move it, and 'jj git push -b b1' to push it
     [EOF]
     [exit status: 1]
     ");
@@ -1372,7 +1373,7 @@ fn test_git_push_mixed() {
     ------- stderr -------
     Creating bookmark push-yqosqzytrlsw for revision yqosqzytrlsw
     Error: Refusing to create new remote bookmark bookmark-1@origin
-    Hint: Use --allow-new to push new bookmark. Use --remote to specify the remote to push to.
+    Hint: Run `jj bookmark track bookmark-1@origin` and try again.
     [EOF]
     [exit status: 1]
     ");
@@ -1387,6 +1388,7 @@ fn test_git_push_mixed() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: --allow-new is deprecated, track bookmarks manually or configure remotes.<name>.auto-track-bookmarks instead.
     Creating bookmark push-yqosqzytrlsw for revision yqosqzytrlsw
     Changes to push to origin:
       Add bookmark push-yqosqzytrlsw to 0f8164cd580b
@@ -2144,7 +2146,7 @@ fn test_git_push_sign_on_push() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Refusing to create new remote bookmark bookmark3@origin
-    Hint: Use --allow-new to push new bookmark. Use --remote to specify the remote to push to.
+    Hint: Run `jj bookmark track bookmark3@origin` and try again.
     Changes to push to origin:
       Move forward bookmark bookmark2 from d45e2adce0ad to 48ea83e9499c
     [EOF]

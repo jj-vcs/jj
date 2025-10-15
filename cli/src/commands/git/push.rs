@@ -138,10 +138,11 @@ pub struct GitPushArgs {
     /// correspond to missing local bookmarks.
     #[arg(long, conflicts_with = "specific")]
     deleted: bool,
+    // TODO: Delete in jj 0.42.0+
     /// Allow pushing new bookmarks
     ///
     /// Newly-created remote bookmarks will be tracked automatically.
-    #[arg(long, short = 'N', conflicts_with = "what")]
+    #[arg(long, short = 'N', hide = true, conflicts_with = "what")]
     allow_new: bool,
     /// Allow pushing commits with empty descriptions
     #[arg(long)]
@@ -183,7 +184,7 @@ pub struct GitPushArgs {
     /// Specify a new bookmark name and a revision to push under that name, e.g.
     /// '--named myfeature=@'
     ///
-    /// Does not require --allow-new.
+    /// Automatically tracks the bookmark if it is new.
     #[arg(
         long,
         value_name = "NAME=REVISION",
@@ -218,6 +219,13 @@ pub fn cmd_git_push(
     command: &CommandHelper,
     args: &GitPushArgs,
 ) -> Result<(), CommandError> {
+    if args.allow_new {
+        writeln!(
+            ui.warning_default(),
+            "--allow-new is deprecated, track bookmarks manually or configure \
+             remotes.<name>.auto-track-bookmarks instead."
+        )?;
+    }
     let mut workspace_command = command.workspace_helper(ui)?;
 
     let default_remote;
@@ -334,6 +342,7 @@ pub fn cmd_git_push(
         }
 
         let view = tx.repo().view();
+        // TODO: Delete in jj 0.42.0+
         let allow_new = args.allow_new || tx.settings().get("git.push-new-bookmarks")?;
         let bookmarks_by_name = find_bookmarks_to_push(view, &args.bookmark, remote)?;
         for &(name, targets) in &bookmarks_by_name {
@@ -792,11 +801,9 @@ fn classify_bookmark_update(
         BookmarkPushAction::Update(_) if !targets.remote_ref.is_tracked() && !allow_new => {
             Err(RejectedBookmarkUpdateReason {
                 message: format!("Refusing to create new remote bookmark {remote_symbol}"),
-                hint: Some(
-                    "Use --allow-new to push new bookmark. Use --remote to specify the remote to \
-                     push to."
-                        .to_owned(),
-                ),
+                hint: Some(format!(
+                    "Run `jj bookmark track {remote_symbol}` and try again."
+                )),
             })
         }
         BookmarkPushAction::Update(update) if update.new_target.is_none() && !allow_delete => {
@@ -821,10 +828,7 @@ fn ensure_new_bookmark_name(repo: &dyn Repo, name: &RefName) -> Result<(), Comma
     if repo.view().get_local_bookmark(name).is_present() {
         return Err(user_error_with_hint(
             format!("Bookmark already exists: {symbol}"),
-            format!(
-                "Use 'jj bookmark move' to move it, and 'jj git push -b {symbol} [--allow-new]' \
-                 to push it"
-            ),
+            format!("Use 'jj bookmark move' to move it, and 'jj git push -b {symbol}' to push it"),
         ));
     }
     if has_tracked_remote_bookmarks(repo, name) {

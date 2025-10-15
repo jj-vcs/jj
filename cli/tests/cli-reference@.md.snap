@@ -1532,9 +1532,6 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
 * `--deleted` — Push all deleted bookmarks
 
    Only tracked bookmarks can be successfully deleted on the remote. A warning will be printed if any untracked bookmarks on the remote correspond to missing local bookmarks.
-* `-N`, `--allow-new` — Allow pushing new bookmarks
-
-   Newly-created remote bookmarks will be tracked automatically.
 * `--allow-empty-description` — Allow pushing commits with empty descriptions
 * `--allow-private` — Allow pushing commits that are private
 
@@ -1545,7 +1542,7 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
    The created bookmark will be tracked automatically. Use the `templates.git_push_bookmark` setting to customize the generated bookmark name. The default is `"push-" ++ change_id.short()`.
 * `--named <NAME=REVISION>` — Specify a new bookmark name and a revision to push under that name, e.g. '--named myfeature=@'
 
-   Does not require --allow-new.
+   Automatically tracks the bookmark if it is new.
 * `--dry-run` — Only display what will change on the remote
 
 

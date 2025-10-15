@@ -45,6 +45,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   For more details, refer to [the docs](
   docs/config/#automatic-tracking-of-bookmarks).
 
+* The flag `--allow-new` on `jj git push` is deprecated. In order to push new
+  bookmarks, please track them with `jj bookmark track`. Alternatively, consider
+  setting up an auto-tracking configuration to avoid the chore of tracking
+  bookmarks manually. For example:
+  ```toml
+  [remote.origin]
+  auto-track-bookmarks = "glob:*"
+  ```
+  For more details, refer to [the docs](
+  docs/config/#automatic-tracking-of-bookmarks).
+
 ### New features
 
 * `jj commit`, `jj describe`, `jj squash`, and `jj split` now accept
