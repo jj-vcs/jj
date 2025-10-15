@@ -1582,17 +1582,6 @@ abandon-unreachable-commits = false
 
 [reachable]: https://git-scm.com/docs/gitglossary/#Documentation/gitglossary.txt-aiddefreachableareachable
 
-### Allow pushing new bookmarks
-
-`jj git push` does not push newly-created bookmarks by default.
-If you do not want to specify `--allow-new` every time you have created a new
-bookmark, you may want to allow new bookmarks to be pushed by default:
-
-```toml
-[git]
-push-new-bookmarks = true
-```
-
 ### Generated bookmark names on push
 
 `jj git push --change` generates bookmark names with a prefix of "push-" by

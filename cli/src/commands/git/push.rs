@@ -140,9 +140,6 @@ pub struct GitPushArgs {
     /// Allow pushing new bookmarks
     ///
     /// Newly-created remote bookmarks will be tracked automatically.
-    ///
-    /// This can also be turned on by the `git.push-new-bookmarks` setting. If
-    /// it's set to `true`, `--allow-new` is no-op.
     #[arg(long, short = 'N', conflicts_with = "what")]
     allow_new: bool,
     /// Allow pushing commits with empty descriptions

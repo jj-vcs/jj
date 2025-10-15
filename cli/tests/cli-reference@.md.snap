@@ -1535,8 +1535,6 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
 * `-N`, `--allow-new` — Allow pushing new bookmarks
 
    Newly-created remote bookmarks will be tracked automatically.
-
-   This can also be turned on by the `git.push-new-bookmarks` setting. If it's set to `true`, `--allow-new` is no-op.
 * `--allow-empty-description` — Allow pushing commits with empty descriptions
 * `--allow-private` — Allow pushing commits that are private
 

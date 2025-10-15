@@ -606,6 +606,9 @@ fn test_git_push_locally_created_and_rewritten() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Deprecated CLI-provided config: `git.push-new-bookmarks` is deprecated; use `remotes.<name>.auto-track-bookmarks` instead.
+    Example: jj config set --user remotes.origin.auto-track-bookmarks 'glob:*'
+    For details, see: https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks
     Changes to push to origin:
       Add bookmark my to e0cba5e497ee
     Dry-run requested, not pushing.

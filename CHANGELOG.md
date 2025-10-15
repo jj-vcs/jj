@@ -36,9 +36,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj describe --edit` is deprecated in favor of `--editor`.
 
-* The config option `git.auto-local-bookmark` is deprecated
-  in favor of `remotes.<name>.auto-track-bookmarks`. See
-  <https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks>.
+* The config options `git.auto-local-bookmark` and `git.push-new-bookmarks` are
+  deprecated in favor of `remotes.<name>.auto-track-bookmarks`. For example:
+  ```toml
+  [remote.origin]
+  auto-track-bookmarks = "glob:*"
+  ```
+  For more details, refer to [the docs](
+  docs/config/#automatic-tracking-of-bookmarks).
 
 ### New features
 
