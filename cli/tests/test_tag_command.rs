@@ -17,7 +17,7 @@ use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 
 #[test]
-fn test_tag_set() {
+fn test_tag_set_delete() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -66,6 +66,34 @@ fn test_tag_set() {
     @  13cbd51558a6
     ◆  bbc749308d7f baz foo
     ◆  b876c5f49546 bar
+    ◆  000000000000
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["tag", "delete", "foo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Deleted 1 tags.
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  13cbd51558a6
+    ◆  bbc749308d7f baz
+    ◆  b876c5f49546 bar
+    ◆  000000000000
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["tag", "delete", "glob:b*"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Deleted 2 tags.
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  13cbd51558a6
+    ○  bbc749308d7f
+    ○  b876c5f49546
     ◆  000000000000
     [EOF]
     ");
@@ -159,6 +187,29 @@ fn test_tag_bad_name() {
     ------- stderr -------
     Created 1 tags pointing to qpvuntsm b876c5f4 (empty) commit1
     [EOF]
+    ");
+}
+
+#[test]
+fn test_tag_unknown() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["tag", "delete", "unknown"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: No such tag: unknown
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["tag", "delete", "glob:unknown*"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: No matching tags for patterns: unknown*
+    [EOF]
+    [exit status: 1]
     ");
 }
 

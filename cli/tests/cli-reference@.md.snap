@@ -96,6 +96,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj squash`↴](#jj-squash)
 * [`jj status`↴](#jj-status)
 * [`jj tag`↴](#jj-tag)
+* [`jj tag delete`↴](#jj-tag-delete)
 * [`jj tag list`↴](#jj-tag-list)
 * [`jj tag set`↴](#jj-tag-set)
 * [`jj undo`↴](#jj-undo)
@@ -2782,8 +2783,29 @@ Manage tags
 
 ###### **Subcommands:**
 
+* `delete` — Delete existing tags
 * `list` — List tags
 * `set` — Create or update tags
+
+
+
+## `jj tag delete`
+
+Delete existing tags
+
+Revisions referred to by the deleted tags are not abandoned.
+
+**Usage:** `jj tag delete <NAMES>...`
+
+**Command Alias:** `d`
+
+###### **Arguments:**
+
+* `<NAMES>` — Tag names to delete
+
+   By default, the specified name matches exactly. Use `glob:` prefix to select tags by [wildcard pattern].
+
+   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
 
 
 
