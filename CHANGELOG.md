@@ -58,6 +58,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Tracked bookmarks can be pushed without `--allow-new`.
   [#7072](https://github.com/jj-vcs/jj/issues/7072)
 
+* `jj commit` now accepts `--stdin` to read the commit message from stdin,
+  matching the behavior of `jj describe`. This allows passing multi-line
+  messages without shell escaping issues.
+
+* `jj commit` now accepts `--edit` to open an editor after providing a message
+  via `--stdin` or `-m`, enabling two-stage message refinement.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer

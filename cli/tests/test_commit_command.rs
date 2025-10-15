@@ -588,6 +588,79 @@ fn test_commit_trailers() {
     ");
 }
 
+#[test]
+fn test_commit_with_description_from_stdin() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    let output = work_dir
+        .run_jj_with(|cmd| cmd.args(["commit", "--stdin"]).write_stdin("Multi-line\n\ncommit message"))
+        .success();
+    insta::assert_snapshot!(output);
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@-", "-Tdescription"]);
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn test_commit_with_empty_description_from_stdin() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    let output = work_dir
+        .run_jj_with(|cmd| cmd.args(["commit", "--stdin"]).write_stdin(""))
+        .success();
+    insta::assert_snapshot!(get_log_output(&work_dir));
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn test_commit_with_description_from_stdin_and_edit() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    std::fs::write(&edit_script, ["write\nedited message"].join("\0")).unwrap();
+    work_dir
+        .run_jj_with(|cmd| cmd.args(["commit", "--stdin", "--edit"]).write_stdin("from stdin"))
+        .success();
+
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@-", "-Tdescription"]);
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn test_commit_stdin_conflicts_with_message() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args(["commit", "--stdin", "-m", "message"])
+            .write_stdin("stdin")
+    });
+    insta::assert_snapshot!(output);
+}
+
+#[test]
+fn test_commit_stdin_conflicts_with_interactive() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args(["commit", "--stdin", "--interactive"])
+            .write_stdin("stdin")
+    });
+    insta::assert_snapshot!(output);
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"commit_id.short() ++ " " ++ description"#;
