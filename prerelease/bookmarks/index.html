@@ -731,9 +731,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#bookmark-movement" class="md-nav__link">
+  <a href="#bookmark-updates" class="md-nav__link">
     <span class="md-ellipsis">
-      Bookmark movement
+      Bookmark updates
     </span>
   </a>
   
@@ -1937,9 +1937,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#bookmark-movement" class="md-nav__link">
+  <a href="#bookmark-updates" class="md-nav__link">
     <span class="md-ellipsis">
-      Bookmark movement
+      Bookmark updates
     </span>
   </a>
   
@@ -2116,17 +2116,15 @@ Then, <code>jj git fetch</code> tracks every <em>newly fetched</em> bookmark wit
 Branches that already existed before the <code>jj git fetch</code> are not affected. This
 is similar to Mercurial, which fetches all its bookmarks (equivalent to Git's
 branches) by default.</p>
-<h2 id="bookmark-movement">Bookmark movement<a class="headerlink" href="#bookmark-movement" title="Permanent link">&para;</a></h2>
-<p>Currently Jujutsu automatically moves local bookmarks when these conditions are
+<h2 id="bookmark-updates">Bookmark updates<a class="headerlink" href="#bookmark-updates" title="Permanent link">&para;</a></h2>
+<p>Currently Jujutsu automatically updates local bookmarks when these conditions are
 met:</p>
 <ul>
 <li>When a commit has been rewritten (e.g, when you rebase) bookmarks and the
    working-copy will move along with it.</li>
-<li>When a commit has been abandoned, all associated bookmarks will be moved
-   to its parent(s). If a working copy was pointing to the abandoned commit,
-   then a new working-copy commit will be created on top of the parent(s).</li>
+<li>When a commit has been abandoned, all associated bookmarks will be deleted.</li>
 </ul>
-<p>You could describe the movement as following along the change-id of the
+<p>You could describe the updates as following along the change-id of the
 current bookmark commit, even if it isn't entirely accurate.</p>
 <h2 id="pushing-bookmarks-safety-checks">Pushing bookmarks: Safety checks<a class="headerlink" href="#pushing-bookmarks-safety-checks" title="Permanent link">&para;</a></h2>
 <p>Before <code>jj git push</code> actually moves, creates, or deletes a remote bookmark, it
