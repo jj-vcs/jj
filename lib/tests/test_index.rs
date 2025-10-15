@@ -25,7 +25,7 @@ use jj_lib::default_index::DefaultIndexStore;
 use jj_lib::default_index::DefaultIndexStoreError;
 use jj_lib::default_index::DefaultMutableIndex;
 use jj_lib::default_index::DefaultReadonlyIndex;
-use jj_lib::index::Index as _;
+use jj_lib::index::Index;
 use jj_lib::object_id::HexPrefix;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::object_id::PrefixResolution;
@@ -78,6 +78,10 @@ fn collect_changed_paths(repo: &ReadonlyRepo, commit_id: &CommitId) -> Option<Ve
         .changed_paths_in_commit(commit_id)
         .unwrap()
         .map(|paths| paths.collect())
+}
+
+fn index_has_id(index: &dyn Index, commit_id: &CommitId) -> bool {
+    index.has_id(commit_id).unwrap()
 }
 
 #[test]
@@ -412,12 +416,12 @@ fn test_index_commits_hidden_but_referenced() {
             state: jj_lib::op_store::RemoteRefState::New,
         },
     );
-    let repo = tx.commit("test").unwrap();
 
+    let repo = tx.commit("test").unwrap();
     // All commits should be indexed
-    assert!(repo.index().has_id(commit_a.id()));
-    assert!(repo.index().has_id(commit_b.id()));
-    assert!(repo.index().has_id(commit_c.id()));
+    assert!(index_has_id(repo.index(), commit_a.id()));
+    assert!(index_has_id(repo.index(), commit_b.id()));
+    assert!(index_has_id(repo.index(), commit_c.id()));
 
     // Delete index from disk
     let default_index_store: &DefaultIndexStore = repo.index_store().downcast_ref().unwrap();
@@ -425,9 +429,9 @@ fn test_index_commits_hidden_but_referenced() {
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
     // All commits should be reindexed
-    assert!(repo.index().has_id(commit_a.id()));
-    assert!(repo.index().has_id(commit_b.id()));
-    assert!(repo.index().has_id(commit_c.id()));
+    assert!(index_has_id(repo.index(), commit_a.id()));
+    assert!(index_has_id(repo.index(), commit_b.id()));
+    assert!(index_has_id(repo.index(), commit_c.id()));
 }
 
 #[test]
@@ -536,7 +540,7 @@ fn test_index_commits_incremental_already_indexed() {
     let commit_a = write_random_commit_with_parents(tx.repo_mut(), &[&root_commit]);
     let repo = tx.commit("test").unwrap();
 
-    assert!(repo.index().has_id(commit_a.id()));
+    assert!(index_has_id(repo.index(), commit_a.id()));
     assert_eq!(as_readonly_index(&repo).num_commits(), 1 + 1);
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -641,7 +645,7 @@ fn test_reindex_no_segments_dir() {
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
     let repo = tx.commit("test").unwrap();
-    assert!(repo.index().has_id(commit_a.id()));
+    assert!(index_has_id(repo.index(), commit_a.id()));
 
     // jj <= 0.14 doesn't have "segments" directory
     let segments_dir = test_repo.repo_path().join("index").join("segments");
@@ -649,7 +653,7 @@ fn test_reindex_no_segments_dir() {
     fs::remove_dir_all(&segments_dir).unwrap();
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
-    assert!(repo.index().has_id(commit_a.id()));
+    assert!(index_has_id(repo.index(), commit_a.id()));
 }
 
 #[test]
@@ -662,7 +666,7 @@ fn test_reindex_corrupt_segment_files() {
     let mut tx = repo.start_transaction();
     let commit_a = write_random_commit(tx.repo_mut());
     let repo = tx.commit("test").unwrap();
-    assert!(repo.index().has_id(commit_a.id()));
+    assert!(index_has_id(repo.index(), commit_a.id()));
 
     // Corrupt the index files
     let segments_dir = test_repo.repo_path().join("index").join("segments");
@@ -678,7 +682,7 @@ fn test_reindex_corrupt_segment_files() {
     }
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
-    assert!(repo.index().has_id(commit_a.id()));
+    assert!(index_has_id(repo.index(), commit_a.id()));
 }
 
 #[test]

@@ -4625,7 +4625,7 @@ fn test_concurrent_write_commit() {
 
     // The index should be consistent with the store.
     for commit_id in commit_change_ids.keys() {
-        assert!(repo.index().has_id(commit_id));
+        assert!(repo.index().has_id(commit_id).unwrap());
         let commit = repo.store().get_commit(commit_id).unwrap();
         assert_eq!(
             repo.resolve_change_id(commit.change_id()).unwrap(),
@@ -4751,7 +4751,7 @@ fn test_concurrent_read_write_commit() {
     // The index should be consistent with the store.
     let repo = repo.reload_at_head().unwrap();
     for commit_id in &commit_ids {
-        assert!(repo.index().has_id(commit_id));
+        assert!(repo.index().has_id(commit_id).unwrap());
         let commit = repo.store().get_commit(commit_id).unwrap();
         assert_eq!(
             repo.resolve_change_id(commit.change_id()).unwrap(),
@@ -4873,7 +4873,7 @@ fn test_shallow_commits_lack_parents() {
         "unshallowed commits have correct parents"
     );
     // FIXME: new ancestors should be indexed
-    assert!(!repo.index().has_id(&jj_id(a)));
+    assert!(!repo.index().has_id(&jj_id(a)).unwrap());
 }
 
 #[test]

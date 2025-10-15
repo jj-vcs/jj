@@ -581,8 +581,8 @@ impl Index for CompositeIndex {
         Ok(self.commits().resolve_commit_id_prefix(prefix))
     }
 
-    fn has_id(&self, commit_id: &CommitId) -> bool {
-        self.commits().has_id(commit_id)
+    fn has_id(&self, commit_id: &CommitId) -> IndexResult<bool> {
+        Ok(self.commits().has_id(commit_id))
     }
 
     fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> bool {

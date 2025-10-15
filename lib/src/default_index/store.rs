@@ -51,6 +51,8 @@ use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::file_util::persist_temp_file;
 use crate::index::Index as _;
+use crate::index::IndexError;
+use crate::index::IndexResult;
 use crate::index::IndexStore;
 use crate::index::IndexStoreError;
 use crate::index::IndexStoreResult;
@@ -95,6 +97,8 @@ pub enum DefaultIndexStoreError {
         op_id: OperationId,
         source: BackendError,
     },
+    #[error("Failed to access the index")]
+    AccessIndex(#[source] IndexError),
     #[error(transparent)]
     OpStore(#[from] OpStoreError),
 }
@@ -316,10 +320,11 @@ impl DefaultIndexStore {
         );
         // Build a list of ancestors of heads where parents come after the
         // commit itself.
-        let parent_index_has_id = |id: &CommitId| {
-            maybe_parent_index
-                .as_ref()
-                .is_some_and(|index| index.has_id(id))
+        let parent_index_has_id = |id: &CommitId| -> IndexResult<bool> {
+            match maybe_parent_index.as_ref() {
+                Some(parent_index) => parent_index.has_id(id),
+                None => Ok(false),
+            }
         };
         let get_commit_with_op = |commit_id: &CommitId, op_id: &OperationId| {
             let op_id = op_id.clone();
@@ -342,7 +347,10 @@ impl DefaultIndexStore {
             let mut ancestors = HashSet::new();
             let mut work = historical_heads.keys().cloned().collect_vec();
             while let Some(commit_id) = work.pop() {
-                if ancestors.contains(&commit_id) || parent_index_has_id(&commit_id) {
+                if ancestors.contains(&commit_id)
+                    || parent_index_has_id(&commit_id)
+                        .map_err(DefaultIndexStoreError::AccessIndex)?
+                {
                     continue;
                 }
                 if let Ok(commit) = store.get_commit(&commit_id) {
@@ -354,11 +362,23 @@ impl DefaultIndexStore {
         } else {
             HashSet::new()
         };
+        let get_commit_with_op_if_parent_missing =
+            |(commit_id, op_id): (&CommitId, &OperationId)| -> Option<Result<_, _>> {
+                parent_index_has_id(commit_id)
+                    .map_err(DefaultIndexStoreError::AccessIndex)
+                    .and_then(|parent_has_id| {
+                        if parent_has_id {
+                            Ok(None)
+                        } else {
+                            get_commit_with_op(commit_id, op_id).map(Some)
+                        }
+                    })
+                    .transpose()
+            };
         let commits = dag_walk::topo_order_reverse_ord_ok(
             historical_heads
                 .iter()
-                .filter(|&(commit_id, _)| !parent_index_has_id(commit_id))
-                .map(|(commit_id, op_id)| get_commit_with_op(commit_id, op_id)),
+                .filter_map(get_commit_with_op_if_parent_missing),
             |(CommitByCommitterTimestamp(commit), _)| commit.id().clone(),
             |(CommitByCommitterTimestamp(commit), op_id)| {
                 let keep_predecessors =
@@ -370,8 +390,8 @@ impl DefaultIndexStore {
                         .into_iter()
                         .flatten(),
                 )
-                .filter(|&id| !parent_index_has_id(id))
-                .map(|commit_id| get_commit_with_op(commit_id, op_id))
+                .map(|commit_id| (commit_id, op_id))
+                .filter_map(get_commit_with_op_if_parent_missing)
                 .collect_vec()
             },
             |_| panic!("graph has cycle"),

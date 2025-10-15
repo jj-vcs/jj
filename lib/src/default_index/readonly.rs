@@ -723,7 +723,7 @@ impl Index for DefaultReadonlyIndex {
         self.0.resolve_commit_id_prefix(prefix)
     }
 
-    fn has_id(&self, commit_id: &CommitId) -> bool {
+    fn has_id(&self, commit_id: &CommitId) -> IndexResult<bool> {
         self.0.has_id(commit_id)
     }
 
