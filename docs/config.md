@@ -1499,35 +1499,6 @@ Note that unlike `git.fetch`, `git.push` can currently only be a single remote.
 This is not a hard limitation, and could be changed in the future if there is
 demand.
 
-### Automatic local bookmark creation
-
-When `jj` imports a new remote-tracking bookmark from Git, it can also create a
-local bookmark with the same name. This feature is disabled by default because it
-may be undesirable in some repositories, e.g.:
-
-- There is a remote with a lot of historical bookmarks that you don't
-  want to be exported to the colocated Git workspace.
-- There are multiple remotes with conflicting views of that bookmark,
-  resulting in an unhelpful conflicted state.
-
-You can enable this behavior by setting `git.auto-local-bookmark` like so,
-
-```toml
-[git]
-auto-local-bookmark = true
-```
-
-This setting is applied only to new remote bookmarks. Existing remote bookmarks
-can be tracked individually by using `jj bookmark track`/`untrack` commands.
-
-```shell
-# import feature1 bookmark and start tracking it
-jj bookmark track feature1@origin
-# delete local gh-pages bookmark and stop tracking it
-jj bookmark delete gh-pages
-jj bookmark untrack gh-pages@upstream
-```
-
 ### Automatic tracking of bookmarks
 
 You can configure which bookmarks to track automatically per remote, using the

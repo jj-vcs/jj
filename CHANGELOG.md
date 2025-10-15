@@ -32,6 +32,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj describe --edit` is deprecated in favor of `--editor`.
 
+* The config option `git.auto-local-bookmark` is
+  deprecated in favor of `sync.auto-track-bookmarks`. See
+  <https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks>.
+
 ### New features
 
 * `jj commit`, `jj describe`, `jj squash`, and `jj split` now accept
