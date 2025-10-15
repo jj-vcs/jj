@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::str_util::StringPattern;
@@ -19,6 +20,7 @@ use jj_lib::str_util::StringPattern;
 use super::find_local_tags;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
+use crate::complete;
 use crate::ui::Ui;
 
 /// Delete existing tags
@@ -36,7 +38,7 @@ pub struct TagDeleteArgs {
     #[arg(
         required = true,
         value_parser = StringPattern::parse,
-        // TODO: add = ArgValueCandidates::new(complete::local_tags),
+        add = ArgValueCandidates::new(complete::local_tags),
     )]
     names: Vec<StringPattern>,
 }

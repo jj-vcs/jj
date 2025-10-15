@@ -52,6 +52,16 @@ if(normal_target,
     "(conflicted bookmark)",
 )
 '''"#;
+const TAG_HELP_TEMPLATE: &str = r#"template-aliases.'tag_help()'='''
+" " ++
+if(normal_target,
+    if(normal_target.description(),
+        normal_target.description().first_line(),
+        "(no description set)",
+    ),
+    "(conflicted tag)",
+)
+'''"#;
 
 /// A helper function for various completer functions. It returns
 /// (candidate, help) assuming they are separated by a space.
@@ -167,6 +177,27 @@ pub fn bookmarks() -> Vec<CompletionCandidate> {
                     .help(help)
                     .display_order(Some(display_order))
             })
+            .collect())
+    })
+}
+
+pub fn local_tags() -> Vec<CompletionCandidate> {
+    with_jj(|jj, _| {
+        let output = jj
+            .build()
+            .arg("tag")
+            .arg("list")
+            .arg("--config")
+            .arg(TAG_HELP_TEMPLATE)
+            .arg("--template")
+            .arg(r#"if(!remote, name ++ tag_help()) ++ "\n""#)
+            .output()
+            .map_err(user_error)?;
+
+        Ok(String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(split_help_text)
+            .map(|(name, help)| CompletionCandidate::new(name).help(help))
             .collect())
     })
 }

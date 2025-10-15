@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::op_store::RefTarget;
@@ -46,7 +47,7 @@ pub struct TagSetArgs {
     #[arg(
         required = true,
         value_parser = revset_util::parse_tag_name,
-        // TODO: add = ArgValueCandidates::new(complete::local_tags),
+        add = ArgValueCandidates::new(complete::local_tags),
     )]
     names: Vec<RefNameBuf>,
 }

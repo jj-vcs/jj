@@ -291,6 +291,33 @@ fn test_bookmark_names() {
 }
 
 #[test]
+fn test_tag_names() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["commit", "-mcommit1"]).success();
+    work_dir
+        .run_jj(["tag", "set", "-r@-", "aaa-local"])
+        .success();
+    work_dir
+        .run_jj(["tag", "set", "-r@-", "bbb-local"])
+        .success();
+
+    let output = work_dir.complete_fish(["tag", "set", "a"]);
+    insta::assert_snapshot!(output, @r"
+    aaa-local	commit1
+    [EOF]
+    ");
+
+    let output = work_dir.complete_fish(["tag", "delete", "b"]);
+    insta::assert_snapshot!(output, @r"
+    bbb-local	commit1
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_global_arg_repository_is_respected() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
