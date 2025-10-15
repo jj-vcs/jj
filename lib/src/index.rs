@@ -116,7 +116,7 @@ pub trait Index: Send + Sync {
 
     /// Returns true if `ancestor_id` commit is an ancestor of the
     /// `descendant_id` commit, or if `ancestor_id` equals `descendant_id`.
-    fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> bool;
+    fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> IndexResult<bool>;
 
     /// Returns the best common ancestor or ancestors of the commits in `set1`
     /// and `set2`. A "best common ancestor" has no descendants that are also

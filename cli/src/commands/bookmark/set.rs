@@ -75,7 +75,7 @@ pub fn cmd_bookmark_set(
         } else if old_target.as_normal() != Some(target_commit.id()) {
             moved_bookmark_count += 1;
         }
-        if !args.allow_backwards && !is_fast_forward(repo, old_target, target_commit.id()) {
+        if !args.allow_backwards && !is_fast_forward(repo, old_target, target_commit.id())? {
             return Err(user_error_with_hint(
                 format!(
                     "Refusing to move bookmark backwards or sideways: {name}",

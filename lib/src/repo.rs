@@ -1134,7 +1134,9 @@ impl MutableRepo {
 
     fn update_all_references(&mut self, options: &RewriteRefsOptions) -> BackendResult<()> {
         let rewrite_mapping = self.resolve_rewrite_mapping_with(|_| true)?;
-        self.update_local_bookmarks(&rewrite_mapping, options);
+        self.update_local_bookmarks(&rewrite_mapping, options)
+            // TODO: indexing error shouldn't be a "BackendError"
+            .map_err(|err| BackendError::Other(err.into()))?;
         self.update_wc_commits(&rewrite_mapping)?;
         Ok(())
     }
@@ -1143,7 +1145,7 @@ impl MutableRepo {
         &mut self,
         rewrite_mapping: &HashMap<CommitId, Vec<CommitId>>,
         options: &RewriteRefsOptions,
-    ) {
+    ) -> IndexResult<()> {
         let changed_branches = self
             .view()
             .local_bookmarks()
@@ -1169,8 +1171,9 @@ impl MutableRepo {
                 RefTarget::from_merge(MergeBuilder::from_iter(ids).build())
             };
 
-            self.merge_local_bookmark(&bookmark_name, &old_target, &new_target);
+            self.merge_local_bookmark(&bookmark_name, &old_target, &new_target)?;
         }
+        Ok(())
     }
 
     fn update_wc_commits(
@@ -1684,12 +1687,13 @@ impl MutableRepo {
         name: &RefName,
         base_target: &RefTarget,
         other_target: &RefTarget,
-    ) {
+    ) -> IndexResult<()> {
         let view = self.view.get_mut();
         let index = self.index.as_index();
         let self_target = view.get_local_bookmark(name);
-        let new_target = merge_ref_targets(index, self_target, base_target, other_target);
+        let new_target = merge_ref_targets(index, self_target, base_target, other_target)?;
         self.set_local_bookmark_target(name, new_target);
+        Ok(())
     }
 
     pub fn get_remote_bookmark(&self, symbol: RemoteRefSymbol<'_>) -> RemoteRef {
@@ -1706,22 +1710,24 @@ impl MutableRepo {
         symbol: RemoteRefSymbol<'_>,
         base_ref: &RemoteRef,
         other_ref: &RemoteRef,
-    ) {
+    ) -> IndexResult<()> {
         let view = self.view.get_mut();
         let index = self.index.as_index();
         let self_ref = view.get_remote_bookmark(symbol);
-        let new_ref = merge_remote_refs(index, self_ref, base_ref, other_ref);
+        let new_ref = merge_remote_refs(index, self_ref, base_ref, other_ref)?;
         view.set_remote_bookmark(symbol, new_ref);
+        Ok(())
     }
 
     /// Merges the specified remote bookmark in to local bookmark, and starts
     /// tracking it.
-    pub fn track_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>) {
+    pub fn track_remote_bookmark(&mut self, symbol: RemoteRefSymbol<'_>) -> IndexResult<()> {
         let mut remote_ref = self.get_remote_bookmark(symbol);
         let base_target = remote_ref.tracked_target();
-        self.merge_local_bookmark(symbol.name, base_target, &remote_ref.target);
+        self.merge_local_bookmark(symbol.name, base_target, &remote_ref.target)?;
         remote_ref.state = RemoteRefState::Tracked;
         self.set_remote_bookmark(symbol, remote_ref);
+        Ok(())
     }
 
     /// Stops tracking the specified remote bookmark.
@@ -1756,12 +1762,13 @@ impl MutableRepo {
         name: &RefName,
         base_target: &RefTarget,
         other_target: &RefTarget,
-    ) {
+    ) -> IndexResult<()> {
         let view = self.view.get_mut();
         let index = self.index.as_index();
         let self_target = view.get_local_tag(name);
-        let new_target = merge_ref_targets(index, self_target, base_target, other_target);
+        let new_target = merge_ref_targets(index, self_target, base_target, other_target)?;
         view.set_local_tag_target(name, new_target);
+        Ok(())
     }
 
     pub fn get_remote_tag(&self, symbol: RemoteRefSymbol<'_>) -> RemoteRef {
@@ -1777,12 +1784,13 @@ impl MutableRepo {
         symbol: RemoteRefSymbol<'_>,
         base_ref: &RemoteRef,
         other_ref: &RemoteRef,
-    ) {
+    ) -> IndexResult<()> {
         let view = self.view.get_mut();
         let index = self.index.as_index();
         let self_ref = view.get_remote_tag(symbol);
-        let new_ref = merge_remote_refs(index, self_ref, base_ref, other_ref);
+        let new_ref = merge_remote_refs(index, self_ref, base_ref, other_ref)?;
         view.set_remote_tag(symbol, new_ref);
+        Ok(())
     }
 
     pub fn get_git_ref(&self, name: &GitRefName) -> RefTarget {
@@ -1798,12 +1806,13 @@ impl MutableRepo {
         name: &GitRefName,
         base_target: &RefTarget,
         other_target: &RefTarget,
-    ) {
+    ) -> IndexResult<()> {
         let view = self.view.get_mut();
         let index = self.index.as_index();
         let self_target = view.get_git_ref(name);
-        let new_target = merge_ref_targets(index, self_target, base_target, other_target);
+        let new_target = merge_ref_targets(index, self_target, base_target, other_target)?;
         view.set_git_ref_target(name, new_target);
+        Ok(())
     }
 
     pub fn git_head(&self) -> RefTarget {
@@ -1841,7 +1850,7 @@ impl MutableRepo {
         self.index.merge_in(other_repo.readonly_index())
     }
 
-    fn merge_view(&mut self, base: &View, other: &View) -> BackendResult<()> {
+    fn merge_view(&mut self, base: &View, other: &View) -> Result<(), RepoLoaderError> {
         let changed_wc_commits = diff_named_commit_ids(base.wc_commit_ids(), other.wc_commit_ids());
         for (name, (base_id, other_id)) in changed_wc_commits {
             self.merge_wc_commit(name, base_id, other_id);
@@ -1874,29 +1883,29 @@ impl MutableRepo {
         let changed_local_bookmarks =
             diff_named_ref_targets(base.local_bookmarks(), other.local_bookmarks());
         for (name, (base_target, other_target)) in changed_local_bookmarks {
-            self.merge_local_bookmark(name, base_target, other_target);
+            self.merge_local_bookmark(name, base_target, other_target)?;
         }
 
         let changed_local_tags = diff_named_ref_targets(base.local_tags(), other.local_tags());
         for (name, (base_target, other_target)) in changed_local_tags {
-            self.merge_local_tag(name, base_target, other_target);
+            self.merge_local_tag(name, base_target, other_target)?;
         }
 
         let changed_git_refs = diff_named_ref_targets(base.git_refs(), other.git_refs());
         for (name, (base_target, other_target)) in changed_git_refs {
-            self.merge_git_ref(name, base_target, other_target);
+            self.merge_git_ref(name, base_target, other_target)?;
         }
 
         let changed_remote_bookmarks =
             diff_named_remote_refs(base.all_remote_bookmarks(), other.all_remote_bookmarks());
         for (symbol, (base_ref, other_ref)) in changed_remote_bookmarks {
-            self.merge_remote_bookmark(symbol, base_ref, other_ref);
+            self.merge_remote_bookmark(symbol, base_ref, other_ref)?;
         }
 
         let changed_remote_tags =
             diff_named_remote_refs(base.all_remote_tags(), other.all_remote_tags());
         for (symbol, (base_ref, other_ref)) in changed_remote_tags {
-            self.merge_remote_tag(symbol, base_ref, other_ref);
+            self.merge_remote_tag(symbol, base_ref, other_ref)?;
         }
 
         let new_git_head_target = merge_ref_targets(
@@ -1904,7 +1913,7 @@ impl MutableRepo {
             self.view().git_head(),
             base.git_head(),
             other.git_head(),
-        );
+        )?;
         self.set_git_head_target(new_git_head_target);
 
         Ok(())

@@ -84,6 +84,14 @@ fn index_has_id(index: &dyn Index, commit_id: &CommitId) -> bool {
     index.has_id(commit_id).unwrap()
 }
 
+fn is_ancestor(
+    index: &DefaultReadonlyIndex,
+    ancestor_id: &CommitId,
+    descendant_id: &CommitId,
+) -> bool {
+    index.is_ancestor(ancestor_id, descendant_id).unwrap()
+}
+
 #[test]
 fn test_index_commits_empty_repo() {
     let test_repo = TestRepo::init();
@@ -152,19 +160,19 @@ fn test_index_commits_standard_cases() {
     assert_eq!(index.generation_number(commit_g.id()).unwrap(), 6);
     assert_eq!(index.generation_number(commit_h.id()).unwrap(), 5);
 
-    assert!(index.is_ancestor(root_commit_id, commit_a.id()));
-    assert!(!index.is_ancestor(commit_a.id(), root_commit_id));
+    assert!(is_ancestor(index, root_commit_id, commit_a.id()));
+    assert!(!is_ancestor(index, commit_a.id(), root_commit_id));
 
-    assert!(index.is_ancestor(root_commit_id, commit_b.id()));
-    assert!(!index.is_ancestor(commit_b.id(), root_commit_id));
+    assert!(is_ancestor(index, root_commit_id, commit_b.id()));
+    assert!(!is_ancestor(index, commit_b.id(), root_commit_id));
 
-    assert!(!index.is_ancestor(commit_b.id(), commit_c.id()));
+    assert!(!is_ancestor(index, commit_b.id(), commit_c.id()));
 
-    assert!(index.is_ancestor(commit_a.id(), commit_b.id()));
-    assert!(index.is_ancestor(commit_a.id(), commit_e.id()));
-    assert!(index.is_ancestor(commit_a.id(), commit_f.id()));
-    assert!(index.is_ancestor(commit_a.id(), commit_g.id()));
-    assert!(index.is_ancestor(commit_a.id(), commit_h.id()));
+    assert!(is_ancestor(index, commit_a.id(), commit_b.id()));
+    assert!(is_ancestor(index, commit_a.id(), commit_e.id()));
+    assert!(is_ancestor(index, commit_a.id(), commit_f.id()));
+    assert!(is_ancestor(index, commit_a.id(), commit_g.id()));
+    assert!(is_ancestor(index, commit_a.id(), commit_h.id()));
 }
 
 #[test]
@@ -229,11 +237,13 @@ fn test_index_commits_criss_cross() {
     // The left and right commits of the same generation should not be ancestors of
     // each other
     for generation in 0..num_generations {
-        assert!(!index.is_ancestor(
+        assert!(!is_ancestor(
+            index,
             left_commits[generation].id(),
             right_commits[generation].id()
         ));
-        assert!(!index.is_ancestor(
+        assert!(!is_ancestor(
+            index,
             right_commits[generation].id(),
             left_commits[generation].id()
         ));
@@ -244,12 +254,18 @@ fn test_index_commits_criss_cross() {
     for generation in 1..num_generations {
         for ancestor_side in &[&left_commits, &right_commits] {
             for descendant_side in &[&left_commits, &right_commits] {
-                assert!(index.is_ancestor(ancestor_side[0].id(), descendant_side[generation].id()));
-                assert!(index.is_ancestor(
+                assert!(is_ancestor(
+                    index,
+                    ancestor_side[0].id(),
+                    descendant_side[generation].id()
+                ));
+                assert!(is_ancestor(
+                    index,
                     ancestor_side[generation - 1].id(),
                     descendant_side[generation].id()
                 ));
-                assert!(index.is_ancestor(
+                assert!(is_ancestor(
+                    index,
                     ancestor_side[generation / 2].id(),
                     descendant_side[generation].id()
                 ));

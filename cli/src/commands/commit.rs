@@ -208,7 +208,7 @@ new working-copy commit.
             .write()?;
 
         // Does nothing if there's no bookmarks to advance.
-        tx.advance_bookmarks(advanceable_bookmarks, new_commit.id());
+        tx.advance_bookmarks(advanceable_bookmarks, new_commit.id())?;
 
         for name in workspace_names {
             tx.repo_mut().edit(name, &new_wc_commit).unwrap();

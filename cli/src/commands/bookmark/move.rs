@@ -15,6 +15,7 @@
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
+use jj_lib::iter_util::fallible_find;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::str_util::StringPattern;
@@ -136,9 +137,13 @@ pub fn cmd_bookmark_move(
     }
 
     if !args.allow_backwards
-        && let Some((name, _)) = matched_bookmarks
-            .iter()
-            .find(|(_, old_target)| !is_fast_forward(repo.as_ref(), old_target, target_commit.id()))
+        && let Some((name, _)) = fallible_find(
+            matched_bookmarks.iter(),
+            |(_, old_target)| -> Result<_, CommandError> {
+                let is_ff = is_fast_forward(repo.as_ref(), old_target, target_commit.id())?;
+                Ok(!is_ff)
+            },
+        )?
     {
         return Err(user_error_with_hint(
             format!(

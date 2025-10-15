@@ -554,7 +554,7 @@ fn check_rebase_destinations(
                 short_commit_hash(commit.id()),
             )));
         }
-        if repo.index().is_ancestor(commit.id(), parent_id) {
+        if repo.index().is_ancestor(commit.id(), parent_id)? {
             return Err(user_error(format!(
                 "Cannot rebase {} onto descendant {}",
                 short_commit_hash(commit.id()),

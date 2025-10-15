@@ -18,6 +18,8 @@ use itertools::EitherOrBoth;
 
 use crate::backend::CommitId;
 use crate::index::Index;
+use crate::index::IndexResult;
+use crate::iter_util::fallible_position;
 use crate::merge::Merge;
 use crate::merge::SameChange;
 use crate::merge::trivial_merge;
@@ -107,9 +109,9 @@ pub fn merge_ref_targets(
     left: &RefTarget,
     base: &RefTarget,
     right: &RefTarget,
-) -> RefTarget {
+) -> IndexResult<RefTarget> {
     if let Some(&resolved) = trivial_merge(&[left, base, right], SameChange::Accept) {
-        return resolved.clone();
+        return Ok(resolved.clone());
     }
 
     let mut merge = Merge::from_vec(vec![
@@ -122,12 +124,12 @@ pub fn merge_ref_targets(
     // Suppose left = [A - C + B], base = [B], right = [A], the merge result is
     // [A - C + A], which can now be trivially resolved.
     if let Some(resolved) = merge.resolve_trivial(SameChange::Accept) {
-        RefTarget::resolved(resolved.clone())
+        Ok(RefTarget::resolved(resolved.clone()))
     } else {
-        merge_ref_targets_non_trivial(index, &mut merge);
+        merge_ref_targets_non_trivial(index, &mut merge)?;
         // TODO: Maybe better to try resolve_trivial() again, but the result is
         // unreliable since merge_ref_targets_non_trivial() is order dependent.
-        RefTarget::from_merge(merge)
+        Ok(RefTarget::from_merge(merge))
     }
 }
 
@@ -136,31 +138,35 @@ pub fn merge_remote_refs(
     left: &RemoteRef,
     base: &RemoteRef,
     right: &RemoteRef,
-) -> RemoteRef {
+) -> IndexResult<RemoteRef> {
     // Just merge target and state fields separately. Strictly speaking, merging
     // target-only change and state-only change shouldn't automatically mark the
     // new target as tracking. However, many faulty merges will end up in local
     // or remote target conflicts (since fast-forwardable move can be safely
     // "tracked"), and the conflicts will require user intervention anyway. So
     // there wouldn't be much reason to handle these merges precisely.
-    let target = merge_ref_targets(index, &left.target, &base.target, &right.target);
+    let target = merge_ref_targets(index, &left.target, &base.target, &right.target)?;
     // Merged state shouldn't conflict atm since we only have two states, but if
     // it does, keep the original state. The choice is arbitrary.
     let state = *trivial_merge(&[left.state, base.state, right.state], SameChange::Accept)
         .unwrap_or(&base.state);
-    RemoteRef { target, state }
+    Ok(RemoteRef { target, state })
 }
 
-fn merge_ref_targets_non_trivial(index: &dyn Index, conflict: &mut Merge<Option<CommitId>>) {
-    while let Some((remove_index, add_index)) = find_pair_to_remove(index, conflict) {
+fn merge_ref_targets_non_trivial(
+    index: &dyn Index,
+    conflict: &mut Merge<Option<CommitId>>,
+) -> IndexResult<()> {
+    while let Some((remove_index, add_index)) = find_pair_to_remove(index, conflict)? {
         conflict.swap_remove(remove_index, add_index);
     }
+    Ok(())
 }
 
 fn find_pair_to_remove(
     index: &dyn Index,
     conflict: &Merge<Option<CommitId>>,
-) -> Option<(usize, usize)> {
+) -> IndexResult<Option<(usize, usize)>> {
     // If a "remove" is an ancestor of two different "adds" and one of the
     // "adds" is an ancestor of the other, then pick the descendant.
     for (add_index1, add1) in conflict.adds().enumerate() {
@@ -169,20 +175,22 @@ fn find_pair_to_remove(
             // combination should be somehow weighted?
             let (add_index, add_id) = match (add1, add2) {
                 (Some(id1), Some(id2)) if id1 == id2 => (add_index1, id1),
-                (Some(id1), Some(id2)) if index.is_ancestor(id1, id2) => (add_index1, id1),
-                (Some(id1), Some(id2)) if index.is_ancestor(id2, id1) => (add_index2, id2),
+                (Some(id1), Some(id2)) if index.is_ancestor(id1, id2)? => (add_index1, id1),
+                (Some(id1), Some(id2)) if index.is_ancestor(id2, id1)? => (add_index2, id2),
                 _ => continue,
             };
-            if let Some(remove_index) = conflict.removes().position(|remove| match remove {
-                Some(id) => index.is_ancestor(id, add_id),
-                None => true, // Absent ref can be considered a root
-            }) {
-                return Some((remove_index, add_index));
+            if let Some(remove_index) =
+                fallible_position(conflict.removes(), |remove| match remove {
+                    Some(id) => index.is_ancestor(id, add_id),
+                    None => Ok(true), // Absent ref can be considered a root
+                })?
+            {
+                return Ok(Some((remove_index, add_index)));
             }
         }
     }
 
-    None
+    Ok(None)
 }
 
 /// Pair of local and remote targets.
