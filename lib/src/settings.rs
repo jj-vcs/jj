@@ -14,12 +14,14 @@
 
 #![expect(missing_docs)]
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use chrono::DateTime;
+use itertools::Itertools as _;
 use rand::prelude::*;
 use rand_chacha::ChaCha20Rng;
 use serde::Deserialize;
@@ -36,6 +38,7 @@ use crate::config::StackedConfig;
 use crate::config::ToConfigNamePath;
 use crate::fmt_util::binary_prefix;
 use crate::signing::SignBehavior;
+use crate::str_util::StringPattern;
 
 #[derive(Debug, Clone)]
 pub struct UserSettings {
@@ -63,6 +66,7 @@ pub struct GitSettings {
     pub executable_path: PathBuf,
     pub write_change_id_header: bool,
     pub colocate: bool,
+    pub remotes: HashMap<String, RemoteSettings>,
 }
 
 impl GitSettings {
@@ -73,8 +77,36 @@ impl GitSettings {
             executable_path: settings.get("git.executable-path")?,
             write_change_id_header: settings.get("git.write-change-id-header")?,
             colocate: settings.get("git.colocate")?,
+            remotes: settings
+                .table_keys("remotes")
+                // Sort keys early so errors are deterministic.
+                .sorted()
+                .map(|name| {
+                    Ok((
+                        name.to_string(),
+                        RemoteSettings {
+                            auto_track_bookmarks: settings.get_value_with(
+                                ["remotes", name, "auto-track-bookmarks"],
+                                |value| {
+                                    StringPattern::parse(
+                                        value
+                                            .as_str()
+                                            .ok_or_else(|| "expected a string".to_string())?,
+                                    )
+                                    .map_err(|e| e.to_string())
+                                },
+                            )?,
+                        },
+                    ))
+                })
+                .try_collect()?,
         })
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct RemoteSettings {
+    pub auto_track_bookmarks: StringPattern,
 }
 
 /// Commit signing settings, describes how to and if to sign commits.

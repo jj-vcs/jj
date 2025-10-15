@@ -18,6 +18,7 @@ use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::ref_name::RefNameBuf;
+use jj_lib::str_util::StringMatcher;
 
 use super::is_fast_forward;
 use crate::cli_util::CommandHelper;
@@ -90,11 +91,34 @@ pub fn cmd_bookmark_set(
     }
 
     let mut tx = workspace_command.start_transaction();
-    for bookmark_name in bookmark_names {
-        tx.repo_mut().set_local_bookmark_target(
-            bookmark_name,
-            RefTarget::normal(target_commit.id().clone()),
-        );
+    let git_settings = tx.settings().git_settings()?;
+    let readonly_repo = tx.base_repo().clone();
+    for name in bookmark_names {
+        let newly_created = !readonly_repo.view().get_local_bookmark(name).is_present();
+        tx.repo_mut()
+            .set_local_bookmark_target(name, RefTarget::normal(target_commit.id().clone()));
+        if newly_created {
+            for (remote_name, remote_settings) in &git_settings.remotes {
+                if !remote_settings.auto_track_bookmarks.is_match(name.as_str()) {
+                    continue;
+                }
+                let Some((remote, view)) = readonly_repo
+                    .view()
+                    .remote_views_matching(&StringMatcher::Exact(remote_name.to_owned()))
+                    .next()
+                else {
+                    continue;
+                };
+                let symbol = name.to_remote_symbol(remote);
+                if view.bookmarks.contains_key(name) {
+                    writeln!(
+                        ui.warning_default(),
+                        "Auto-tracking bookmark that exists on the remote: {symbol}"
+                    )?;
+                }
+                tx.repo_mut().track_remote_bookmark(symbol)?;
+            }
+        }
     }
 
     if let Some(mut formatter) = ui.status_formatter() {
