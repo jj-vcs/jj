@@ -568,9 +568,10 @@ impl AsCompositeIndex for CompositeIndex {
 
 // In revset engine, we need to convert &CompositeIndex to &dyn Index.
 impl Index for CompositeIndex {
-    fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> usize {
-        self.commits()
-            .shortest_unique_commit_id_prefix_len(commit_id)
+    fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> IndexResult<usize> {
+        Ok(self
+            .commits()
+            .shortest_unique_commit_id_prefix_len(commit_id))
     }
 
     fn resolve_commit_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<CommitId> {
