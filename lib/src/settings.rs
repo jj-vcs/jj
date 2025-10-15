@@ -14,12 +14,14 @@
 
 #![expect(missing_docs)]
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use chrono::DateTime;
+use itertools::Itertools as _;
 use rand::prelude::*;
 use rand_chacha::ChaCha20Rng;
 use serde::Deserialize;
@@ -35,7 +37,9 @@ use crate::config::ConfigValue;
 use crate::config::StackedConfig;
 use crate::config::ToConfigNamePath;
 use crate::fmt_util::binary_prefix;
+use crate::ref_name::RemoteNameBuf;
 use crate::signing::SignBehavior;
+use crate::str_util::StringPattern;
 
 #[derive(Debug, Clone)]
 pub struct UserSettings {
@@ -63,6 +67,7 @@ pub struct GitSettings {
     pub executable_path: PathBuf,
     pub write_change_id_header: bool,
     pub colocate: bool,
+    pub remotes: HashMap<RemoteNameBuf, RemoteSettings>,
 }
 
 impl GitSettings {
@@ -73,7 +78,40 @@ impl GitSettings {
             executable_path: settings.get("git.executable-path")?,
             write_change_id_header: settings.get("git.write-change-id-header")?,
             colocate: settings.get("git.colocate")?,
+            remotes: RemoteSettings::table_from_settings(settings)?,
         })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RemoteSettings {
+    pub auto_track_bookmarks: StringPattern,
+}
+
+impl RemoteSettings {
+    pub fn table_from_settings(
+        settings: &UserSettings,
+    ) -> Result<HashMap<RemoteNameBuf, Self>, ConfigGetError> {
+        settings
+            .table_keys("remotes")
+            .map(|name| {
+                Ok((
+                    name.into(),
+                    Self {
+                        auto_track_bookmarks: settings.get_value_with(
+                            ["remotes", name, "auto-track-bookmarks"],
+                            |value| -> Result<_, Box<dyn std::error::Error + Send + Sync>> {
+                                Ok(StringPattern::parse(
+                                    value
+                                        .as_str()
+                                        .ok_or_else(|| "expected a string".to_string())?,
+                                )?)
+                            },
+                        )?,
+                    },
+                ))
+            })
+            .try_collect()
     }
 }
 
@@ -216,6 +254,12 @@ impl UserSettings {
 
     pub fn git_settings(&self) -> Result<GitSettings, ConfigGetError> {
         GitSettings::from_settings(self)
+    }
+
+    pub fn remote_settings(
+        &self,
+    ) -> Result<HashMap<RemoteNameBuf, RemoteSettings>, ConfigGetError> {
+        RemoteSettings::table_from_settings(self)
     }
 
     // separate from sign_settings as those two are needed in pretty different

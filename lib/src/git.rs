@@ -755,7 +755,17 @@ fn default_remote_ref_state_for(
 ) -> RemoteRefState {
     match kind {
         GitRefKind::Bookmark => {
-            if symbol.remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO || git_settings.auto_local_bookmark {
+            if symbol.remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO
+                || git_settings.auto_local_bookmark
+                || git_settings
+                    .remotes
+                    .get(symbol.remote)
+                    .is_some_and(|remote_settings| {
+                        remote_settings
+                            .auto_track_bookmarks
+                            .is_match(symbol.name.as_str())
+                    })
+            {
                 RemoteRefState::Tracked
             } else {
                 RemoteRefState::New

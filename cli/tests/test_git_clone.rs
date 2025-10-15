@@ -1245,6 +1245,51 @@ fn test_git_clone_branch() {
     ");
 }
 
+#[test]
+fn test_git_clone_auto_track_bookmarks() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    test_env.add_config(
+        "
+        [remotes.origin]
+        auto-track-bookmarks = 'glob:mine/*'
+        ",
+    );
+
+    root_dir
+        .run_jj(["git", "init", "--colocate", "origin"])
+        .success();
+    let origin_dir = test_env.work_dir("origin");
+    origin_dir.run_jj(["b", "c", "mine/foo"]).success();
+    origin_dir.run_jj(["b", "c", "not-mine/foo"]).success();
+    origin_dir.run_jj(["commit", "-mfoo"]).success();
+    let output = origin_dir.run_jj(["show", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    Commit ID: d7828da83253475bf10c2ae6bd3f0f84bf4604c1
+    Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    Bookmarks: mine/foo not-mine/foo mine/foo@git not-mine/foo@git
+    Author   : Test User <test.user@example.com> (2001-02-03 08:05:10)
+    Committer: Test User <test.user@example.com> (2001-02-03 08:05:10)
+
+        foo
+
+    [EOF]
+    ");
+
+    root_dir
+        .run_jj(["git", "clone", "origin/.git", "repo"])
+        .success();
+    let repo_dir = test_env.work_dir("repo");
+
+    let output = get_bookmark_output(&repo_dir);
+    insta::assert_snapshot!(output, @r"
+    mine/foo: qpvuntsm d7828da8 (empty) foo
+      @origin: qpvuntsm d7828da8 (empty) foo
+    not-mine/foo@origin: qpvuntsm d7828da8 (empty) foo
+    [EOF]
+    ");
+}
+
 #[must_use]
 fn get_bookmark_output(work_dir: &TestWorkDir) -> CommandOutput {
     work_dir.run_jj(["bookmark", "list", "--all-remotes"])

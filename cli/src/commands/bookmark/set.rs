@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashSet;
+
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
@@ -64,14 +66,14 @@ pub fn cmd_bookmark_set(
     let target_commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
     let repo = workspace_command.repo().as_ref();
     let bookmark_names = &args.names;
-    let mut new_bookmark_count = 0;
+    let mut new_bookmarks = HashSet::new();
     let mut moved_bookmark_count = 0;
     for name in bookmark_names {
         let old_target = repo.view().get_local_bookmark(name);
         // If a bookmark is absent locally but is still tracking remote bookmarks,
         // we are resurrecting the local bookmark, not "creating" a new bookmark.
         if old_target.is_absent() && !has_tracked_remote_bookmarks(repo, name) {
-            new_bookmark_count += 1;
+            new_bookmarks.insert(name);
         } else if old_target.as_normal() != Some(target_commit.id()) {
             moved_bookmark_count += 1;
         }
@@ -90,14 +92,33 @@ pub fn cmd_bookmark_set(
     }
 
     let mut tx = workspace_command.start_transaction();
-    for bookmark_name in bookmark_names {
-        tx.repo_mut().set_local_bookmark_target(
-            bookmark_name,
-            RefTarget::normal(target_commit.id().clone()),
-        );
+    let remote_settings = tx.settings().remote_settings()?;
+    let readonly_repo = tx.base_repo().clone();
+    for name in bookmark_names {
+        tx.repo_mut()
+            .set_local_bookmark_target(name, RefTarget::normal(target_commit.id().clone()));
+        if new_bookmarks.contains(name) {
+            for (remote_name, settings) in &remote_settings {
+                if !settings.auto_track_bookmarks.is_match(name.as_str()) {
+                    continue;
+                }
+                let Some(view) = readonly_repo.view().get_remote_view(remote_name) else {
+                    continue;
+                };
+                let symbol = name.to_remote_symbol(remote_name);
+                if view.bookmarks.contains_key(name) {
+                    writeln!(
+                        ui.warning_default(),
+                        "Auto-tracking bookmark that exists on the remote: {symbol}"
+                    )?;
+                }
+                tx.repo_mut().track_remote_bookmark(symbol)?;
+            }
+        }
     }
 
     if let Some(mut formatter) = ui.status_formatter() {
+        let new_bookmark_count = new_bookmarks.len();
         if new_bookmark_count > 0 {
             write!(
                 formatter,

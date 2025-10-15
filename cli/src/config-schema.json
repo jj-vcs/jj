@@ -491,6 +491,20 @@
                 }
             }
         },
+        "remotes": {
+            "type": "object",
+            "description": "Settings related to specific remotes",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "auto-track-bookmarks": {
+                        "type": "string",
+                        "description": "A string pattern describing the bookmarks to automatically track with this remote. It will be applied to any new bookmark, created or fetched. See https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks",
+                        "default": ""
+                    }
+                }
+            }
+        },
         "gerrit": {
             "type": "object",
             "description": "Settings for interacting with Gerrit",

@@ -2421,6 +2421,82 @@ fn test_bookmark_list_sort_overriding_config() {
     ");
 }
 
+#[test]
+fn test_create_and_set_auto_track_bookmarks() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    root_dir
+        .run_jj(["git", "init", "--colocate", "origin"])
+        .success();
+    test_env.add_config(
+        "
+        [remotes.origin]
+        auto-track-bookmarks = 'glob:mine/*'
+        [remotes.fork]
+        auto-track-bookmarks = 'glob:*'
+        ",
+    );
+
+    root_dir.run_jj(["git", "init", "repo"]).success();
+    let repo_dir = test_env.work_dir("repo");
+    repo_dir
+        .run_jj(["git", "remote", "add", "origin", "../origin/.git"])
+        .success();
+    repo_dir
+        .run_jj(["git", "remote", "add", "fork", "dummy"])
+        .success();
+
+    // jj bookmark create obeys remotes.<name>.auto-track-bookmarks
+    repo_dir
+        .run_jj(["bookmark", "create", "mine/create", "not-mine/create"])
+        .success();
+    let output = repo_dir.run_jj([
+        "bookmark",
+        "list",
+        "--all",
+        "mine/create",
+        "not-mine/create",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    mine/create: rlvkpnrz 7eb1c95e (empty) (no description set)
+      @fork (not created yet)
+      @origin (not created yet)
+    not-mine/create: rlvkpnrz 7eb1c95e (empty) (no description set)
+      @fork (not created yet)
+    [EOF]
+    ");
+    repo_dir.run_jj(["commit", "--message", "create"]).success();
+
+    // jj bookmark set obeys remotes.<name>.auto-track-bookmarks
+    repo_dir
+        .run_jj(["bookmark", "set", "mine/set", "not-mine/set"])
+        .success();
+    let output = repo_dir.run_jj(["bookmark", "list", "--all", "mine/set", "not-mine/set"]);
+    insta::assert_snapshot!(output, @r"
+    mine/set: yqosqzyt 5fbe2b20 (empty) (no description set)
+      @fork (not created yet)
+      @origin (not created yet)
+    not-mine/set: yqosqzyt 5fbe2b20 (empty) (no description set)
+      @fork (not created yet)
+    [EOF]
+    ");
+    repo_dir.run_jj(["commit", "--message", "set"]).success();
+
+    // jj bookmark create warns when auto-tracking existing bookmark
+    repo_dir.run_jj(["git", "push"]).success();
+    repo_dir
+        .run_jj(["bookmark", "forget", "mine/create"])
+        .success();
+    let output = repo_dir.run_jj(["bookmark", "create", "mine/create"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: Target revision is empty.
+    Warning: Auto-tracking bookmark that exists on the remote: mine/create@origin
+    Created 1 bookmarks pointing to znkkpsqq 2e899fb8 mine/create* | (empty) (no description set)
+    [EOF]
+    ");
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"bookmarks ++ " " ++ commit_id.short()"#;

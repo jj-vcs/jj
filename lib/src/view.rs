@@ -328,6 +328,11 @@ impl View {
             .map(|(name, view)| (name.as_ref(), view))
     }
 
+    /// Returns the remote view for `name`.
+    pub fn get_remote_view(&self, name: &RemoteName) -> Option<&RemoteView> {
+        self.data.remote_views.get(name)
+    }
+
     /// Adds remote view if it doesn't exist.
     pub fn ensure_remote(&mut self, remote_name: &RemoteName) {
         if self.data.remote_views.contains_key(remote_name) {

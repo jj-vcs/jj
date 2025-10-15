@@ -55,6 +55,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj prev/next --no-edit` now generates an error if the working-copy has some
   children.
 
+* A new config option `remotes.<name>.auto-track-bookmarks` can be set to a
+  pattern. New bookmarks matching it will automatically track that remote.
+  See <https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks>.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.
