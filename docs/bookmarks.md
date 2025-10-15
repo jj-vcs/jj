@@ -132,7 +132,7 @@ This command omits local Git-tracking bookmarks by default.
 You can see if a specific bookmark is tracked with `jj bookmark list --tracked <bookmark name>`.
 
 
-### Automatic tracking of bookmarks & `git.auto-local-bookmark` option
+### Automatic tracking of bookmarks & `auto-track-bookmarks` option
 
 There are two situations where `jj` tracks bookmarks automatically. `jj git
 clone` automatically sets up the default remote bookmark (e.g. `main@origin`) as
@@ -143,11 +143,14 @@ By default, every other remote bookmark is marked as "not tracked" when it's
 fetched. If desired, you need to manually `jj bookmark track` them. This works
 well for repositories where multiple people work on a large number of bookmarks.
 
-The default can be changed by setting the config `git.auto-local-bookmark = true`.
+The default can be changed by setting the config `remotes.<name>.auto-track-bookmarks = "glob:*"`.
 Then, `jj git fetch` tracks every *newly fetched* bookmark with a local bookmark.
 Branches that already existed before the `jj git fetch` are not affected. This
 is similar to Mercurial, which fetches all its bookmarks (equivalent to Git's
-branches) by default.
+branches) by default. Similarly, all newly created local bookmarks
+will be marked as "tracked", preparing them to be pushed with
+the next `jj git push` command. See ["Automatic tracking of
+bookmarks"](config.md#automatic-tracking-of-bookmarks) for details.
 
 ## Bookmark updates
 

@@ -680,6 +680,7 @@ fn test_git_clone_remote_default_bookmark() {
     ]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
+    Warning: Deprecated CLI-provided config: `git.auto-local-bookmark` is deprecated; use `remotes.<name>.auto-track-bookmarks` instead.
     Fetching into new repo in "$TEST_ENV/clone5"
     bookmark: feature1@origin [new] tracked
     bookmark: main@origin     [new] tracked

@@ -765,6 +765,20 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
             "core.watchman.register-snapshot-trigger",
             "fsmonitor.watchman.register-snapshot-trigger",
         ),
+        // TODO: Delete in jj 0.42.0+
+        ConfigMigrationRule::custom(
+            |layer| {
+                let Ok(Some(val)) = layer.look_up_item("git.auto-local-bookmark") else {
+                    return false;
+                };
+                val.as_bool().is_some_and(|b| b)
+            },
+            |_| {
+                Ok("`git.auto-local-bookmark` is deprecated; use \
+                    `remotes.<name>.auto-track-bookmarks` instead."
+                    .into())
+            },
+        ),
     ]
 }
 

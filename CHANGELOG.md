@@ -36,6 +36,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj describe --edit` is deprecated in favor of `--editor`.
 
+* The config option `git.auto-local-bookmark` is deprecated
+  in favor of `remotes.<name>.auto-track-bookmarks`. See
+  <https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks>.
+
 ### New features
 
 * `jj commit`, `jj describe`, `jj squash`, and `jj split` now accept
@@ -3111,9 +3115,6 @@ Thanks to the people who made this release happen!
 
   If the deduced tracking flags are wrong, use `jj branch track`/`untrack`
   commands to fix them up.
-
-  See [automatic local branch creation](docs/config.md#automatic-local-bookmark-creation)
-  for details.
 
 * Non-tracking remote branches aren't listed by default. Use `jj branch list
   --all` to show all local and remote branches.

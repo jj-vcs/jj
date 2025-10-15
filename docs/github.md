@@ -166,7 +166,7 @@ local bookmarks. This means that if you want to iterate or test another
 contributor's bookmark, you'll need to do `jj new <bookmark>@<remote>` onto it.
 
 If you want to import all remote bookmarks including inactive ones, set
-`git.auto-local-bookmark = true` in the config file. Then you can specify a
+`remotes.<name>.auto-track-bookmarks = "glob:*"` in the config file. Then you can specify a
 contributor's bookmark as `jj new <bookmark>` instead of `jj new <bookmark>@<remote>`.
 
 You can find more information on that setting [here][auto-bookmark].
@@ -237,7 +237,7 @@ the [tutorial][tut].
     If you're wondering why we prefer clean commits in this project, see
     e.g. [this blog post][stacked]
 
-[auto-bookmark]: config.md#automatic-local-bookmark-creation
+[auto-bookmark]: config.md#automatic-tracking-of-bookmarks
 [detached]: https://git-scm.com/docs/git-checkout#_detached_head
 [gh]: https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
 [tut]: tutorial.md#conflicts
