@@ -151,6 +151,9 @@ fn test_id_prefix() {
             .shortest_commit_prefix_len(repo.as_ref(), commit_id)
             .unwrap()
     };
+    let resolve_commit_prefix = |index: &IdPrefixIndex, prefix: HexPrefix| {
+        index.resolve_commit_prefix(repo.as_ref(), &prefix).unwrap()
+    };
     let shortest_change_prefix_len = |index: &IdPrefixIndex, change_id| {
         index
             .shortest_change_prefix_len(repo.as_ref(), change_id)
@@ -167,22 +170,13 @@ fn test_id_prefix() {
 
     assert_eq!(shortest_commit_prefix_len(&index, commits[7].id()), 2);
     assert_eq!(shortest_commit_prefix_len(&index, commits[16].id()), 1);
+    assert_eq!(resolve_commit_prefix(&index, prefix("1")), AmbiguousMatch);
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("1")),
-        AmbiguousMatch
-    );
-    assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("18")),
+        resolve_commit_prefix(&index, prefix("18")),
         SingleMatch(commits[7].id().clone())
     );
-    assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("10")),
-        NoMatch
-    );
-    assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("180")),
-        NoMatch
-    );
+    assert_eq!(resolve_commit_prefix(&index, prefix("10")), NoMatch);
+    assert_eq!(resolve_commit_prefix(&index, prefix("180")), NoMatch);
     assert_eq!(
         shortest_change_prefix_len(&index, commits[2].change_id()),
         2
@@ -209,12 +203,12 @@ fn test_id_prefix() {
     assert_eq!(shortest_commit_prefix_len(&index, commits[7].id()), 1);
     // Shorter prefix within the set can be used
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("1")),
+        resolve_commit_prefix(&index, prefix("1")),
         SingleMatch(commits[7].id().clone())
     );
     // Can still resolve commits outside the set
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("19")),
+        resolve_commit_prefix(&index, prefix("19")),
         SingleMatch(commits[10].id().clone())
     );
     assert_eq!(
@@ -233,12 +227,9 @@ fn test_id_prefix() {
     let context = context.disambiguate_within(expression);
     let index = context.populate(repo.as_ref()).unwrap();
     assert_eq!(shortest_commit_prefix_len(&index, root_commit_id), 1);
+    assert_eq!(resolve_commit_prefix(&index, prefix("")), AmbiguousMatch);
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("")),
-        AmbiguousMatch
-    );
-    assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix("0")),
+        resolve_commit_prefix(&index, prefix("0")),
         SingleMatch(root_commit_id.clone())
     );
     assert_eq!(shortest_change_prefix_len(&index, root_change_id), 1);
@@ -473,6 +464,9 @@ fn test_id_prefix_hidden() {
             .shortest_commit_prefix_len(repo.as_ref(), commit_id)
             .unwrap()
     };
+    let resolve_commit_prefix = |index: &IdPrefixIndex, prefix: HexPrefix| {
+        index.resolve_commit_prefix(repo.as_ref(), &prefix).unwrap()
+    };
     let shortest_change_prefix_len = |index: &IdPrefixIndex, change_id| {
         index
             .shortest_change_prefix_len(repo.as_ref(), change_id)
@@ -492,11 +486,11 @@ fn test_id_prefix_hidden() {
         3
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix(&hidden_commit.id().hex()[..1])),
+        resolve_commit_prefix(&index, prefix(&hidden_commit.id().hex()[..1])),
         AmbiguousMatch
     );
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix(&hidden_commit.id().hex()[..2])),
+        resolve_commit_prefix(&index, prefix(&hidden_commit.id().hex()[..2])),
         SingleMatch(hidden_commit.id().clone())
     );
     assert_eq!(
@@ -520,7 +514,7 @@ fn test_id_prefix_hidden() {
     );
     // Short commit id can be resolved even if it's hidden.
     assert_eq!(
-        index.resolve_commit_prefix(repo.as_ref(), &prefix(&hidden_commit.id().hex()[..1])),
+        resolve_commit_prefix(&index, prefix(&hidden_commit.id().hex()[..1])),
         SingleMatch(hidden_commit.id().clone())
     );
     // OTOH, hidden change id should never be found. The resolution might be

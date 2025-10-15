@@ -160,7 +160,7 @@ impl IdPrefixIndex<'_> {
         &self,
         repo: &dyn Repo,
         prefix: &HexPrefix,
-    ) -> PrefixResolution<CommitId> {
+    ) -> IndexResult<PrefixResolution<CommitId>> {
         if let Some(indexes) = self.indexes {
             let resolution = indexes
                 .commit_index
@@ -173,13 +173,13 @@ impl IdPrefixIndex<'_> {
                     // The disambiguation set may be loaded from a different repo,
                     // and contain a commit that doesn't exist in the current repo.
                     if repo.index().has_id(&id) {
-                        return PrefixResolution::SingleMatch(id);
+                        return Ok(PrefixResolution::SingleMatch(id));
                     } else {
-                        return PrefixResolution::NoMatch;
+                        return Ok(PrefixResolution::NoMatch);
                     }
                 }
                 PrefixResolution::AmbiguousMatch => {
-                    return PrefixResolution::AmbiguousMatch;
+                    return Ok(PrefixResolution::AmbiguousMatch);
                 }
             }
         }
