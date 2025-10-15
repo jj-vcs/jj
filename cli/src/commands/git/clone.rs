@@ -365,7 +365,7 @@ fn fetch_new_remote(
         let remote_symbol = name.to_remote_symbol(remote_name);
         let remote_ref = tx.repo().get_remote_bookmark(remote_symbol);
         if remote_ref.is_present() {
-            tx.repo_mut().track_remote_bookmark(remote_symbol);
+            tx.repo_mut().track_remote_bookmark(remote_symbol)?;
         }
     }
     print_git_import_stats(ui, tx.repo(), &import_stats, true)?;

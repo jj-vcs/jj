@@ -146,7 +146,7 @@ pub(crate) fn cmd_duplicate(
     {
         for commit_id in &to_duplicate {
             for parent_commit_id in parent_commit_ids {
-                if tx.repo().index().is_ancestor(commit_id, parent_commit_id) {
+                if tx.repo().index().is_ancestor(commit_id, parent_commit_id)? {
                     writeln!(
                         ui.warning_default(),
                         "Duplicating commit {} as a descendant of itself",
@@ -159,7 +159,7 @@ pub(crate) fn cmd_duplicate(
 
         for commit_id in &to_duplicate {
             for child_commit_id in children_commit_ids {
-                if tx.repo().index().is_ancestor(child_commit_id, commit_id) {
+                if tx.repo().index().is_ancestor(child_commit_id, commit_id)? {
                     writeln!(
                         ui.warning_default(),
                         "Duplicating commit {} as an ancestor of itself",

@@ -116,7 +116,7 @@ pub trait Index: Send + Sync {
 
     /// Returns true if `ancestor_id` commit is an ancestor of the
     /// `descendant_id` commit, or if `ancestor_id` equals `descendant_id`.
-    fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> bool;
+    fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> IndexResult<bool>;
 
     /// Returns the best common ancestor or ancestors of the commits in `set1`
     /// and `set2`. A "best common ancestor" has no descendants that are also
@@ -221,4 +221,25 @@ pub trait ChangeIdIndex: Send + Sync {
     ///   additional fact that it's the entire key). This case is extremely
     ///   unlikely for hashes with 12+ hexadecimal characters.
     fn shortest_unique_prefix_len(&self, change_id: &ChangeId) -> IndexResult<usize>;
+}
+
+/// Helper function to determine if any of the candidate ancestor IDs are an
+/// ancestor of descendant_id.
+pub fn any_is_ancestor<'a>(
+    index: &dyn Index,
+    ancestor_candidates: impl IntoIterator<Item = &'a CommitId>,
+    descendant_id: &CommitId,
+) -> IndexResult<bool> {
+    let found = ancestor_candidates
+        .into_iter()
+        .find_map(
+            |ancestor_id| match index.is_ancestor(ancestor_id, descendant_id) {
+                Ok(true) => Some(Ok(true)),
+                Ok(false) => None,
+                Err(e) => Some(Err(e)),
+            },
+        )
+        .transpose()?
+        .unwrap_or(false);
+    Ok(found)
 }

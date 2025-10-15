@@ -102,6 +102,14 @@ mod tests {
         index.stats()
     }
 
+    fn is_ancestor(
+        index: &DefaultMutableIndex,
+        ancestor_id: &CommitId,
+        descendant_id: &CommitId,
+    ) -> bool {
+        index.is_ancestor(ancestor_id, descendant_id).unwrap()
+    }
+
     #[test_case(false; "memory")]
     #[test_case(true; "file")]
     fn index_empty(on_disk: bool) {
@@ -1034,17 +1042,17 @@ mod tests {
         index.add_commit_data(id_4.clone(), new_change_id(), &[id_1.clone()]);
         index.add_commit_data(id_5.clone(), new_change_id(), &[id_4.clone(), id_2.clone()]);
 
-        assert!(index.is_ancestor(&id_0, &id_0));
-        assert!(index.is_ancestor(&id_0, &id_1));
-        assert!(index.is_ancestor(&id_2, &id_3));
-        assert!(index.is_ancestor(&id_2, &id_5));
-        assert!(index.is_ancestor(&id_1, &id_5));
-        assert!(index.is_ancestor(&id_0, &id_5));
-        assert!(!index.is_ancestor(&id_1, &id_0));
-        assert!(!index.is_ancestor(&id_5, &id_3));
-        assert!(!index.is_ancestor(&id_3, &id_5));
-        assert!(!index.is_ancestor(&id_2, &id_4));
-        assert!(!index.is_ancestor(&id_4, &id_2));
+        assert!(is_ancestor(&index, &id_0, &id_0));
+        assert!(is_ancestor(&index, &id_0, &id_1));
+        assert!(is_ancestor(&index, &id_2, &id_3));
+        assert!(is_ancestor(&index, &id_2, &id_5));
+        assert!(is_ancestor(&index, &id_1, &id_5));
+        assert!(is_ancestor(&index, &id_0, &id_5));
+        assert!(!is_ancestor(&index, &id_1, &id_0));
+        assert!(!is_ancestor(&index, &id_5, &id_3));
+        assert!(!is_ancestor(&index, &id_3, &id_5));
+        assert!(!is_ancestor(&index, &id_2, &id_4));
+        assert!(!is_ancestor(&index, &id_4, &id_2));
     }
 
     #[test]
