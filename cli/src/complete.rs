@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashSet;
 use std::io::BufRead as _;
 use std::path::Path;
 
@@ -107,7 +108,20 @@ pub fn tracked_bookmarks() -> Vec<CompletionCandidate> {
 
 pub fn untracked_bookmarks() -> Vec<CompletionCandidate> {
     with_jj(|jj, _settings| {
-        let output = jj
+        let remotes = jj
+            .build()
+            .arg("git")
+            .arg("remote")
+            .arg("list")
+            .output()
+            .map_err(user_error)?;
+        let remotes = String::from_utf8_lossy(&remotes.stdout);
+        let remotes = remotes
+            .lines()
+            .filter_map(|l| l.split_whitespace().next())
+            .collect_vec();
+
+        let bookmark_table = jj
             .build()
             .arg("bookmark")
             .arg("list")
@@ -116,18 +130,44 @@ pub fn untracked_bookmarks() -> Vec<CompletionCandidate> {
             .arg(BOOKMARK_HELP_TEMPLATE)
             .arg("--template")
             .arg(
-                r#"if(remote && !tracked && remote != "git",
-                    name ++ '@' ++ remote ++ bookmark_help() ++ "\n"
+                r#"
+                if(remote != "git",
+                    if(!remote, name) ++ "\t" ++
+                    if(remote, name ++ "@" ++ remote) ++ "\t" ++
+                    if(tracked, "tracked") ++ "\t" ++
+                    bookmark_help() ++ "\n"
                 )"#,
             )
             .output()
             .map_err(user_error)?;
+        let bookmark_table = String::from_utf8_lossy(&bookmark_table.stdout);
 
-        Ok(String::from_utf8_lossy(&output.stdout)
-            .lines()
-            .map(|line| {
-                let (name, help) = split_help_text(line);
-                CompletionCandidate::new(name).help(help)
+        let mut possible_bookmarks_to_track = Vec::new();
+        let mut already_tracked_bookmarks = HashSet::new();
+
+        for line in bookmark_table.lines() {
+            let [local, remote, tracked, help] =
+                line.split('\t').collect_array().unwrap_or_default();
+
+            if !local.is_empty() {
+                possible_bookmarks_to_track.extend(
+                    remotes
+                        .iter()
+                        .map(|remote| (format!("{local}@{remote}"), help)),
+                );
+            } else if tracked.is_empty() {
+                possible_bookmarks_to_track.push((remote.to_owned(), help));
+            } else {
+                already_tracked_bookmarks.insert(remote);
+            }
+        }
+        possible_bookmarks_to_track
+            .retain(|(bookmark, _help)| !already_tracked_bookmarks.contains(&bookmark.as_str()));
+
+        Ok(possible_bookmarks_to_track
+            .into_iter()
+            .map(|(bookmark, help)| {
+                CompletionCandidate::new(bookmark).help(Some(help.to_string().into()))
             })
             .collect())
     })

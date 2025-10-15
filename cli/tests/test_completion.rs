@@ -264,7 +264,8 @@ fn test_bookmark_names() {
 
     let output = work_dir.complete_fish(["bookmark", "track", "a"]);
     insta::assert_snapshot!(output, @r"
-    aaa-untracked@origin	x
+    aaa-local@origin	 x
+    aaa-untracked@origin	 x
     [EOF]
     ");
 
