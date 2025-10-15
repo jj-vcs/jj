@@ -149,18 +149,16 @@ Branches that already existed before the `jj git fetch` are not affected. This
 is similar to Mercurial, which fetches all its bookmarks (equivalent to Git's
 branches) by default.
 
-## Bookmark movement
+## Bookmark updates
 
-Currently Jujutsu automatically moves local bookmarks when these conditions are
+Currently Jujutsu automatically updates local bookmarks when these conditions are
 met:
 
  * When a commit has been rewritten (e.g, when you rebase) bookmarks and the
    working-copy will move along with it.
- * When a commit has been abandoned, all associated bookmarks will be moved
-   to its parent(s). If a working copy was pointing to the abandoned commit,
-   then a new working-copy commit will be created on top of the parent(s).
+ * When a commit has been abandoned, all associated bookmarks will be deleted.
 
-You could describe the movement as following along the change-id of the
+You could describe the updates as following along the change-id of the
 current bookmark commit, even if it isn't entirely accurate.
 
 ## Pushing bookmarks: Safety checks

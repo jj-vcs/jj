@@ -702,7 +702,11 @@ fn test_reset() {
     // but it should not be in the tree state, and it should not get added when we
     // commit the working copy (because it's ignored).
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-    locked_ws.locked_wc().reset(&commit_without_file).unwrap();
+    locked_ws
+        .locked_wc()
+        .reset(&commit_without_file)
+        .block_on()
+        .unwrap();
     locked_ws.finish(op_id.clone()).unwrap();
     assert!(ignored_path.to_fs_path_unchecked(&workspace_root).is_file());
     let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
@@ -714,7 +718,11 @@ fn test_reset() {
     // tracked. The file should become tracked (even though it's ignored).
     let ws = &mut test_workspace.workspace;
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-    locked_ws.locked_wc().reset(&commit_with_file).unwrap();
+    locked_ws
+        .locked_wc()
+        .reset(&commit_with_file)
+        .block_on()
+        .unwrap();
     locked_ws.finish(op_id.clone()).unwrap();
     assert!(ignored_path.to_fs_path_unchecked(&workspace_root).is_file());
     let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
@@ -753,7 +761,11 @@ fn test_checkout_discard() {
 
     // Start a checkout
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-    locked_ws.locked_wc().check_out(&commit2).unwrap();
+    locked_ws
+        .locked_wc()
+        .check_out(&commit2)
+        .block_on()
+        .unwrap();
     // The change should be reflected in the working copy but not saved
     assert!(!file1_path.to_fs_path_unchecked(&workspace_root).is_file());
     assert!(file2_path.to_fs_path_unchecked(&workspace_root).is_file());
@@ -1032,6 +1044,7 @@ fn test_snapshot_racy_timestamps() {
         let (new_tree_id, _stats) = locked_ws
             .locked_wc()
             .snapshot(&empty_snapshot_options())
+            .block_on()
             .unwrap();
         assert_ne!(new_tree_id, previous_tree_id);
         previous_tree_id = new_tree_id;
@@ -1065,6 +1078,7 @@ fn test_snapshot_special_file() {
     let (tree_id, _stats) = locked_ws
         .locked_wc()
         .snapshot(&empty_snapshot_options())
+        .block_on()
         .unwrap();
     locked_ws.finish(OperationId::from_hex("abc123")).unwrap();
     let tree = store.get_root_tree(&tree_id).unwrap();
@@ -1191,7 +1205,7 @@ fn test_gitignores_in_ignored_dir() {
         .workspace
         .start_working_copy_mutation()
         .unwrap();
-    locked_ws.locked_wc().reset(&commit2).unwrap();
+    locked_ws.locked_wc().reset(&commit2).block_on().unwrap();
     locked_ws.finish(OperationId::from_hex("abc123")).unwrap();
 
     let new_tree = test_workspace.snapshot().unwrap();
@@ -1732,7 +1746,7 @@ fn test_check_out_reserved_file_path(file_path_str: &str) {
 
     // Pretend that the checkout somehow succeeded.
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-    locked_ws.locked_wc().reset(&commit1).unwrap();
+    locked_ws.locked_wc().reset(&commit1).block_on().unwrap();
     locked_ws.finish(repo.op_id().clone()).unwrap();
     if ![".git", ".jj"].contains(&file_path_str) {
         std::fs::create_dir_all(disk_path.parent().unwrap()).unwrap();
@@ -1787,7 +1801,7 @@ fn test_check_out_reserved_file_path_icase_fs(file_path_str: &str) {
 
     // Pretend that the checkout somehow succeeded.
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-    locked_ws.locked_wc().reset(&commit1).unwrap();
+    locked_ws.locked_wc().reset(&commit1).block_on().unwrap();
     locked_ws.finish(repo.op_id().clone()).unwrap();
     std::fs::create_dir_all(disk_path.parent().unwrap()).unwrap();
     std::fs::write(&disk_path, "").unwrap();
@@ -1848,7 +1862,7 @@ fn test_check_out_reserved_file_path_hfs_plus(file_path_str: &str) {
 
     // Pretend that the checkout somehow succeeded.
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-    locked_ws.locked_wc().reset(&commit1).unwrap();
+    locked_ws.locked_wc().reset(&commit1).block_on().unwrap();
     locked_ws.finish(repo.op_id().clone()).unwrap();
     std::fs::create_dir_all(disk_path.parent().unwrap()).unwrap();
     std::fs::write(&disk_path, "").unwrap();
@@ -1914,7 +1928,7 @@ fn test_check_out_reserved_file_path_vfat(vfat_path_str: &str, file_path_strs: &
 
     // Pretend that the checkout somehow succeeded.
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-    locked_ws.locked_wc().reset(&commit1).unwrap();
+    locked_ws.locked_wc().reset(&commit1).block_on().unwrap();
     locked_ws.finish(repo.op_id().clone()).unwrap();
     if is_vfat {
         std::fs::create_dir_all(vfat_disk_path.parent().unwrap()).unwrap();

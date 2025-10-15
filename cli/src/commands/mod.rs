@@ -14,7 +14,6 @@
 
 mod abandon;
 mod absorb;
-mod backout;
 #[cfg(feature = "bench")]
 mod bench;
 mod bisect;
@@ -94,8 +93,6 @@ const STYLES: Styles = Styles::styled()
 enum Command {
     Abandon(abandon::AbandonArgs),
     Absorb(absorb::AbsorbArgs),
-    // TODO: Remove in jj 0.34+
-    Backout(backout::BackoutArgs),
     #[cfg(feature = "bench")]
     #[command(subcommand)]
     Bench(bench::BenchCommand),
@@ -173,7 +170,6 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
     match &subcommand {
         Command::Abandon(args) => abandon::cmd_abandon(ui, command_helper, args),
         Command::Absorb(args) => absorb::cmd_absorb(ui, command_helper, args),
-        Command::Backout(args) => backout::cmd_backout(ui, command_helper, args),
         #[cfg(feature = "bench")]
         Command::Bench(args) => bench::cmd_bench(ui, command_helper, args),
         Command::Bisect(args) => bisect::cmd_bisect(ui, command_helper, args),

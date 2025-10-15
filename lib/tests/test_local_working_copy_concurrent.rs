@@ -20,6 +20,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::default_working_copy_factories;
+use pollster::FutureExt as _;
 use testutils::TestWorkspace;
 use testutils::commit_with_tree;
 use testutils::create_tree;
@@ -144,6 +145,7 @@ fn test_checkout_parallel() {
                 let (new_tree_id, _stats) = locked_ws
                     .locked_wc()
                     .snapshot(&empty_snapshot_options())
+                    .block_on()
                     .unwrap();
                 assert!(tree_ids.contains(&new_tree_id));
             });

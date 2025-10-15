@@ -80,9 +80,9 @@ fn test_git_export_conflicting_git_refs() {
         ------- stderr -------
         Warning: Failed to export some bookmarks:
           main/sub@git: Failed to set: ...
-        Hint: Git doesn't allow a branch name that looks like a parent directory of
-        another (e.g. `foo` and `foo/bar`). Try to rename the bookmarks that failed to
-        export or their "parent" bookmarks.
+        Hint: Git doesn't allow a branch/tag name that looks like a parent directory of
+        another (e.g. `foo` and `foo/bar`). Try to rename the bookmarks/tags that failed
+        to export or their "parent" bookmarks/tags.
         [EOF]
         "#);
     });
@@ -330,9 +330,9 @@ fn test_git_import_export_stats_color() {
     ------- stderr -------
     [1m[38;5;3mWarning: [39mFailed to export some bookmarks:[0m
       [38;5;5m"un:exportable"@git[39m: Failed to set: A reference must be a valid tag name as well: A ref must not contain invalid bytes or ascii control characters: ":"
-    [1m[38;5;6mHint: [0m[39mGit doesn't allow a branch name that looks like a parent directory of[39m
-    [39manother (e.g. `foo` and `foo/bar`). Try to rename the bookmarks that failed to[39m
-    [39mexport or their "parent" bookmarks.[39m
+    [1m[38;5;6mHint: [0m[39mGit doesn't allow a branch/tag name that looks like a parent directory of[39m
+    [39manother (e.g. `foo` and `foo/bar`). Try to rename the bookmarks/tags that failed[39m
+    [39mto export or their "parent" bookmarks/tags.[39m
     [EOF]
     "#);
 

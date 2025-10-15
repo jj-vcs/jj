@@ -19,6 +19,7 @@ mod set;
 
 use clap::Subcommand;
 use jj_lib::repo_path::RepoPathBuf;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use self::edit::SparseEditArgs;
@@ -70,6 +71,7 @@ fn update_sparse_patterns_with(
     let stats = locked_ws
         .locked_wc()
         .set_sparse_patterns(new_patterns)
+        .block_on()
         .map_err(|err| internal_error_with_message("Failed to update working copy paths", err))?;
     let operation_id = locked_ws.locked_wc().old_operation_id().clone();
     locked_ws.finish(operation_id)?;

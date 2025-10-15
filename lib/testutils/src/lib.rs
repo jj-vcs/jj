@@ -343,7 +343,7 @@ impl TestWorkspace {
         options: &SnapshotOptions,
     ) -> Result<(MergedTree, SnapshotStats), SnapshotError> {
         let mut locked_ws = self.workspace.start_working_copy_mutation().unwrap();
-        let (tree_id, stats) = locked_ws.locked_wc().snapshot(options)?;
+        let (tree_id, stats) = locked_ws.locked_wc().snapshot(options).block_on()?;
         // arbitrary operation id
         locked_ws.finish(self.repo.op_id().clone()).unwrap();
         Ok((self.repo.store().get_root_tree(&tree_id).unwrap(), stats))

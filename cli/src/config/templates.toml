@@ -1,19 +1,11 @@
 [templates]
-backout_description = '''
-concat(
-  'Back out "' ++ description.first_line() ++ '"' ++ "\n",
-  "\n",
-  "This backs out commit " ++ commit_id ++ ".\n",
-)
-'''
-
 bookmark_list = '''
 if(remote,
   if(tracked,
     "  " ++ separate(" ",
       label("bookmark", "@" ++ remote),
-      format_tracked_remote_ref_distances(self),
-    ) ++ format_ref_targets(self),
+      if(present, format_tracked_remote_ref_distances(self)),
+    ) ++ if(present, format_ref_targets(self), " (not created yet)"),
     label("bookmark", name ++ "@" ++ remote) ++ format_ref_targets(self),
   ),
   label("bookmark", name) ++ if(present, format_ref_targets(self), " (deleted)"),

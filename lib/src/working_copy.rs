@@ -21,7 +21,9 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -104,7 +106,8 @@ pub trait WorkingCopyFactory {
 }
 
 /// A working copy that's being modified.
-pub trait LockedWorkingCopy: Any {
+#[async_trait]
+pub trait LockedWorkingCopy: Any + Send {
     /// The operation at the time the lock was taken
     fn old_operation_id(&self) -> &OperationId;
 
@@ -112,23 +115,23 @@ pub trait LockedWorkingCopy: Any {
     fn old_tree_id(&self) -> &MergedTreeId;
 
     /// Snapshot the working copy. Returns the tree id and stats.
-    fn snapshot(
+    async fn snapshot(
         &mut self,
         options: &SnapshotOptions,
     ) -> Result<(MergedTreeId, SnapshotStats), SnapshotError>;
 
     /// Check out the specified commit in the working copy.
-    fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError>;
+    async fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError>;
 
     /// Update the workspace name.
     fn rename_workspace(&mut self, new_workspace_name: WorkspaceNameBuf);
 
     /// Update to another commit without touching the files in the working copy.
-    fn reset(&mut self, commit: &Commit) -> Result<(), ResetError>;
+    async fn reset(&mut self, commit: &Commit) -> Result<(), ResetError>;
 
     /// Update to another commit without touching the files in the working copy,
     /// without assuming that the previous tree exists.
-    fn recover(&mut self, commit: &Commit) -> Result<(), ResetError>;
+    async fn recover(&mut self, commit: &Commit) -> Result<(), ResetError>;
 
     /// See `WorkingCopy::sparse_patterns()`
     fn sparse_patterns(&self) -> Result<&[RepoPathBuf], WorkingCopyStateError>;
@@ -139,14 +142,14 @@ pub trait LockedWorkingCopy: Any {
     // `SparseNotSupported` variants for working copies that don't support sparse
     // checkouts (e.g. because they use a virtual file system so there's no reason
     // to use sparse).
-    fn set_sparse_patterns(
+    async fn set_sparse_patterns(
         &mut self,
         new_sparse_patterns: Vec<RepoPathBuf>,
     ) -> Result<CheckoutStats, CheckoutError>;
 
     /// Finish the modifications to the working copy by writing the updated
     /// states to disk. Returns the new (unlocked) working copy.
-    fn finish(
+    async fn finish(
         self: Box<Self>,
         operation_id: OperationId,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError>;
@@ -433,7 +436,7 @@ pub fn create_and_check_out_recovery_commit(
     repo_mut.set_wc_commit(workspace_name, new_commit.id().clone())?;
 
     let repo = tx.commit("recovery commit")?;
-    locked_wc.recover(&new_commit)?;
+    locked_wc.recover(&new_commit).block_on()?;
 
     Ok((repo, new_commit))
 }

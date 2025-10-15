@@ -19,9 +19,11 @@ use itertools::Itertools as _;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::repo::Repo as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
+use crate::cli_util::export_working_copy_changes_to_git;
 use crate::cli_util::print_snapshot_stats;
 use crate::command_error::CommandError;
 use crate::command_error::user_error_with_hint;
@@ -59,6 +61,8 @@ pub(crate) fn cmd_file_untrack(
     let options =
         workspace_command.snapshot_options_with_start_tracking_matcher(&auto_tracking_matcher)?;
 
+    let working_copy_shared_with_git = workspace_command.working_copy_shared_with_git();
+
     let mut tx = workspace_command.start_transaction().into_inner();
     let (mut locked_ws, wc_commit) = workspace_command.start_working_copy_mutation()?;
     // Create a new tree without the unwanted files
@@ -74,10 +78,10 @@ pub(crate) fn cmd_file_untrack(
         .set_tree_id(new_tree_id)
         .write()?;
     // Reset the working copy to the new commit
-    locked_ws.locked_wc().reset(&new_commit)?;
+    locked_ws.locked_wc().reset(&new_commit).block_on()?;
     // Commit the working copy again so we can inform the user if paths couldn't be
     // untracked because they're not ignored.
-    let (wc_tree_id, stats) = locked_ws.locked_wc().snapshot(&options)?;
+    let (wc_tree_id, stats) = locked_ws.locked_wc().snapshot(&options).block_on()?;
     if wc_tree_id != *new_commit.tree_id() {
         let wc_tree = store.get_root_tree(&wc_tree_id)?;
         let added_back = wc_tree.entries_matching(matcher.as_ref()).collect_vec();
@@ -102,12 +106,15 @@ Make sure they're ignored, then try again.",
         } else {
             // This means there were some concurrent changes made in the working copy. We
             // don't want to mix those in, so reset the working copy again.
-            locked_ws.locked_wc().reset(&new_commit)?;
+            locked_ws.locked_wc().reset(&new_commit).block_on()?;
         }
     }
     let num_rebased = tx.repo_mut().rebase_descendants()?;
     if num_rebased > 0 {
         writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
+    }
+    if working_copy_shared_with_git {
+        export_working_copy_changes_to_git(ui, tx.repo_mut(), &wc_tree, &new_commit.tree()?)?;
     }
     let repo = tx.commit("untrack paths")?;
     locked_ws.finish(repo.op_id().clone())?;

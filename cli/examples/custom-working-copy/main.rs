@@ -16,6 +16,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use itertools::Itertools as _;
 use jj_cli::cli_util::CliRunner;
 use jj_cli::cli_util::CommandHelper;
@@ -222,9 +223,10 @@ impl WorkingCopyFactory for ConflictsWorkingCopyFactory {
 
 struct LockedConflictsWorkingCopy {
     wc_path: PathBuf,
-    inner: Box<dyn LockedWorkingCopy>,
+    inner: Box<dyn LockedWorkingCopy + Send>,
 }
 
+#[async_trait]
 impl LockedWorkingCopy for LockedConflictsWorkingCopy {
     fn old_operation_id(&self) -> &OperationId {
         self.inner.old_operation_id()
@@ -234,7 +236,7 @@ impl LockedWorkingCopy for LockedConflictsWorkingCopy {
         self.inner.old_tree_id()
     }
 
-    fn snapshot(
+    async fn snapshot(
         &mut self,
         options: &SnapshotOptions,
     ) -> Result<(MergedTreeId, SnapshotStats), SnapshotError> {
@@ -246,47 +248,47 @@ impl LockedWorkingCopy for LockedConflictsWorkingCopy {
             )?,
             ..options.clone()
         };
-        self.inner.snapshot(&options)
+        self.inner.snapshot(&options).await
     }
 
-    fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError> {
+    async fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError> {
         let conflicts = commit
             .tree()?
             .conflicts()
             .map(|(path, _value)| format!("{}\n", path.as_internal_file_string()))
             .join("");
         std::fs::write(self.wc_path.join(".conflicts"), conflicts).unwrap();
-        self.inner.check_out(commit)
+        self.inner.check_out(commit).await
     }
 
     fn rename_workspace(&mut self, new_name: WorkspaceNameBuf) {
         self.inner.rename_workspace(new_name);
     }
 
-    fn reset(&mut self, commit: &Commit) -> Result<(), ResetError> {
-        self.inner.reset(commit)
+    async fn reset(&mut self, commit: &Commit) -> Result<(), ResetError> {
+        self.inner.reset(commit).await
     }
 
-    fn recover(&mut self, commit: &Commit) -> Result<(), ResetError> {
-        self.inner.recover(commit)
+    async fn recover(&mut self, commit: &Commit) -> Result<(), ResetError> {
+        self.inner.recover(commit).await
     }
 
     fn sparse_patterns(&self) -> Result<&[RepoPathBuf], WorkingCopyStateError> {
         self.inner.sparse_patterns()
     }
 
-    fn set_sparse_patterns(
+    async fn set_sparse_patterns(
         &mut self,
         new_sparse_patterns: Vec<RepoPathBuf>,
     ) -> Result<CheckoutStats, CheckoutError> {
-        self.inner.set_sparse_patterns(new_sparse_patterns)
+        self.inner.set_sparse_patterns(new_sparse_patterns).await
     }
 
-    fn finish(
+    async fn finish(
         self: Box<Self>,
         operation_id: OperationId,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
-        let inner = self.inner.finish(operation_id)?;
+        let inner = self.inner.finish(operation_id).await?;
         Ok(Box::new(ConflictsWorkingCopy {
             inner,
             working_copy_path: self.wc_path,

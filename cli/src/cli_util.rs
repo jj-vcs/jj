@@ -1159,7 +1159,7 @@ impl WorkspaceCommandHelper {
             // The working copy was presumably updated by the git command that updated
             // HEAD, so we just need to reset our working copy
             // state to it without updating working copy files.
-            locked_ws.locked_wc().reset(&wc_commit)?;
+            locked_ws.locked_wc().reset(&wc_commit).block_on()?;
             tx.repo_mut().rebase_descendants()?;
             self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head")?);
             locked_ws.finish(self.user_repo.repo.op_id().clone())?;
@@ -1911,6 +1911,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             locked_ws
                 .locked_wc()
                 .snapshot(&options)
+                .block_on()
                 .map_err(snapshot_command_error)?
         };
         if new_tree_id != *wc_commit.tree_id() {
@@ -1943,15 +1944,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             if self.working_copy_shared_with_git {
                 let old_tree = wc_commit.tree().map_err(snapshot_command_error)?;
                 let new_tree = commit.tree().map_err(snapshot_command_error)?;
-                jj_lib::git::update_intent_to_add(
-                    self.user_repo.repo.as_ref(),
-                    &old_tree,
-                    &new_tree,
-                )
-                .map_err(snapshot_command_error)?;
-
-                let stats = jj_lib::git::export_refs(mut_repo).map_err(snapshot_command_error)?;
-                crate::git_util::print_git_export_stats(ui, &stats)
+                export_working_copy_changes_to_git(ui, mut_repo, &old_tree, &new_tree)
                     .map_err(snapshot_command_error)?;
             }
 
@@ -2352,6 +2345,29 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
     }
 }
 
+#[cfg(feature = "git")]
+pub fn export_working_copy_changes_to_git(
+    ui: &Ui,
+    mut_repo: &mut MutableRepo,
+    old_tree: &MergedTree,
+    new_tree: &MergedTree,
+) -> Result<(), CommandError> {
+    let repo = mut_repo.base_repo().as_ref();
+    jj_lib::git::update_intent_to_add(repo, old_tree, new_tree)?;
+    let stats = jj_lib::git::export_refs(mut_repo)?;
+    crate::git_util::print_git_export_stats(ui, &stats)?;
+    Ok(())
+}
+#[cfg(not(feature = "git"))]
+pub fn export_working_copy_changes_to_git(
+    _ui: &Ui,
+    _mut_repo: &mut MutableRepo,
+    _old_tree: &MergedTree,
+    _new_tree: &MergedTree,
+) -> Result<(), CommandError> {
+    Ok(())
+}
+
 /// An ongoing [`Transaction`] tied to a particular workspace.
 ///
 /// `WorkspaceCommandTransaction`s are created with
@@ -2549,7 +2565,7 @@ pub fn start_repo_transaction(repo: &Arc<ReadonlyRepo>, string_args: &[String]) 
 }
 
 fn update_stale_working_copy(
-    mut locked_ws: LockedWorkspace,
+    mut locked_ws: LockedWorkspace<'_>,
     op_id: OperationId,
     stale_commit: &Commit,
     new_commit: &Commit,
@@ -2559,12 +2575,16 @@ fn update_stale_working_copy(
     if stale_commit.tree_id() != locked_ws.locked_wc().old_tree_id() {
         return Err(user_error("Concurrent working copy operation. Try again."));
     }
-    let stats = locked_ws.locked_wc().check_out(new_commit).map_err(|err| {
-        internal_error_with_message(
-            format!("Failed to check out commit {}", new_commit.id().hex()),
-            err,
-        )
-    })?;
+    let stats = locked_ws
+        .locked_wc()
+        .check_out(new_commit)
+        .block_on()
+        .map_err(|err| {
+            internal_error_with_message(
+                format!("Failed to check out commit {}", new_commit.id().hex()),
+                err,
+            )
+        })?;
     locked_ws.finish(op_id)?;
 
     Ok(stats)

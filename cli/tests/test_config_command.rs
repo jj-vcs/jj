@@ -1580,6 +1580,12 @@ fn test_config_conditional() {
             [[--scope]]
             --when.repositories = ['~/repo2']
             foo = 'repo2'
+            [[--scope]]
+            --when.workspaces = ['~/repo2']
+            foo2 = 'repo2'
+            [[--scope]]
+            --when.workspaces = ['~/repo2_1']
+            foo2 = 'repo2_1'
 
             [[--scope]]
             --when.commands = ['config']
@@ -1596,6 +1602,10 @@ fn test_config_conditional() {
     let home_dir = test_env.work_dir(test_env.home_dir());
     let work_dir1 = home_dir.dir("repo1");
     let work_dir2 = home_dir.dir("repo2");
+    let work_dir2_1 = home_dir.dir("repo2_1");
+    work_dir2
+        .run_jj(&["workspace", "add", "../repo2_1"])
+        .success();
 
     // get and list should refer to the resolved config
     let output = test_env.run_jj_in(".", ["config", "get", "foo"]);
@@ -1637,6 +1647,15 @@ fn test_config_conditional() {
     let output = work_dir2.run_jj(["config", "list", "--user"]);
     insta::assert_snapshot!(output, @r"
     foo = 'repo2'
+    foo2 = 'repo2'
+    baz = 'config'
+    qux = 'list'
+    [EOF]
+    ");
+    let output = work_dir2_1.run_jj(["config", "list", "--user"]);
+    insta::assert_snapshot!(output, @r"
+    foo = 'repo2'
+    foo2 = 'repo2_1'
     baz = 'config'
     qux = 'list'
     [EOF]
@@ -1667,6 +1686,12 @@ fn test_config_conditional() {
     [[--scope]]
     --when.repositories = ['~/repo2']
     foo = 'repo2'
+    [[--scope]]
+    --when.workspaces = ['~/repo2']
+    foo2 = 'repo2'
+    [[--scope]]
+    --when.workspaces = ['~/repo2_1']
+    foo2 = 'repo2_1'
 
     [[--scope]]
     --when.commands = ['config']
@@ -1691,6 +1716,12 @@ fn test_config_conditional() {
     [[--scope]]
     --when.repositories = ['~/repo2']
     foo = 'repo2'
+    [[--scope]]
+    --when.workspaces = ['~/repo2']
+    foo2 = 'repo2'
+    [[--scope]]
+    --when.workspaces = ['~/repo2_1']
+    foo2 = 'repo2_1'
 
     [[--scope]]
     --when.commands = ['config']

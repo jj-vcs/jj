@@ -10,6 +10,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* The deprecated flag `--summary` of `jj abandon` has been removed.
+
+* The deprecated command `jj backout` has been removed, use `jj revert` instead.
+
+* The following deprecated config options have been removed:
+  - `signing.sign-all`
+  - `core.watchman.register_snapshot_trigger`
+  - `diff.format`
+
 ### Deprecations
 
  * `jj bisect run --command <cmd>` is deprecated in favor of
@@ -35,9 +44,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `.jj/workspace-config.toml`. `jj config` subcommands which took layer options like
   `--repo` now also support `--workspace`.
 
+* Add support for `--when.workspaces` config scopes.
+
 * `jj bisect run` accepts the command and arguments to pass to the command
   directly as positional arguments, such as
   `jj bisect --range=..main -- cargo check --all-targets`.
+
+* Divergent changes are no longer marked red in immutable revisions. Since the
+  revision is immutable, the user shouldn't take any action, so the red color
+  was unnecessarily alarming.
+
+* `jj bookmark track` can now associate new local bookmarks with remote.
+  Tracked bookmarks can be pushed without `--allow-new`.
+  [#7072](https://github.com/jj-vcs/jj/issues/7072)
 
 * `jj commit` now accepts `--stdin` to read the commit message from stdin,
   matching the behavior of `jj describe`. This allows passing multi-line
@@ -53,6 +72,9 @@ edits the change twice in some cases.
 
 * `jj squash`: fixed improper revision rebase when both `--insert-after` and
   `--insert-before` were used.
+
+* `jj undo` can now revert "fetch"/"import" operation that involves tag updates.
+  [#6325](https://github.com/jj-vcs/jj/issues/6325)
 
 ## [0.34.0] - 2025-10-01
 

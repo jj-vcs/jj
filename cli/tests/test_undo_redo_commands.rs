@@ -49,6 +49,7 @@ fn test_undo_merge_operation() {
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
     Error: Cannot undo a merge operation
+    Hint: Consider using `jj op restore` instead
     [EOF]
     [exit status: 1]
     ");

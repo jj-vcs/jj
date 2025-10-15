@@ -225,17 +225,19 @@ fn init_workspace(
 fn configure_remote(
     ui: &Ui,
     command: &CommandHelper,
-    workspace_command: WorkspaceCommandHelper,
+    mut workspace_command: WorkspaceCommandHelper,
     remote_name: &RemoteName,
     source: &str,
     fetch_tags: FetchTagsMode,
 ) -> Result<WorkspaceCommandHelper, CommandError> {
+    let mut tx = workspace_command.start_transaction();
     git::add_remote(
-        workspace_command.repo().store(),
+        tx.repo_mut(),
         remote_name,
         source,
         fetch_tags.as_fetch_tags(),
     )?;
+    tx.finish(ui, format!("add git remote {}", remote_name.as_symbol()))?;
     // Reload workspace to apply new remote configuration to
     // gix::ThreadSafeRepository behind the store.
     let workspace = command.load_workspace_at(

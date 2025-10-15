@@ -43,8 +43,10 @@ const SCOPE_TABLE_KEY: &str = "--scope";
 pub struct ConfigResolutionContext<'a> {
     /// Home directory. `~` will be substituted with this path.
     pub home_dir: Option<&'a Path>,
-    /// Repository path, which is usually `<workspace_root>/.jj/repo`.
+    /// Repository path, which is usually `<main_workspace_root>/.jj/repo`.
     pub repo_path: Option<&'a Path>,
+    /// Workspace path: `<workspace_root>`.
+    pub workspace_path: Option<&'a Path>,
     /// Space-separated subcommand. `jj file show ...` should result in `"file
     /// show"`.
     pub command: Option<&'a str>,
@@ -62,6 +64,8 @@ pub struct ConfigResolutionContext<'a> {
 struct ScopeCondition {
     /// Paths to match the repository path prefix.
     pub repositories: Option<Vec<PathBuf>>,
+    /// Paths to match the workspace path prefix.
+    pub workspaces: Option<Vec<PathBuf>>,
     /// Commands to match. Subcommands are matched space-separated.
     /// - `--when.commands = ["foo"]` -> matches "foo", "foo bar", "foo bar baz"
     /// - `--when.commands = ["foo bar"]` -> matches "foo bar", "foo bar baz",
@@ -70,7 +74,6 @@ struct ScopeCondition {
     /// Platforms to match. The values are defined by `std::env::consts::FAMILY`
     /// and `std::env::consts::OS`.
     pub platforms: Option<Vec<String>>,
-    // TODO: maybe add "workspaces"?
 }
 
 impl ScopeCondition {
@@ -92,11 +95,17 @@ impl ScopeCondition {
                 *path = new_path;
             }
         }
+        for path in self.workspaces.as_mut().into_iter().flatten() {
+            if let Some(new_path) = expand_home(path, context.home_dir)? {
+                *path = new_path;
+            }
+        }
         Ok(self)
     }
 
     fn matches(&self, context: &ConfigResolutionContext) -> bool {
         matches_path_prefix(self.repositories.as_deref(), context.repo_path)
+            && matches_path_prefix(self.workspaces.as_deref(), context.workspace_path)
             && matches_platform(self.platforms.as_deref())
             && matches_command(self.commands.as_deref(), context.command)
     }
@@ -440,12 +449,14 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: None,
+            workspace_path: None,
             command: None,
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new("/foo")),
+            workspace_path: None,
             command: None,
         };
         assert!(condition.matches(&context));
@@ -455,6 +466,7 @@ mod tests {
     fn test_condition_repo_path() {
         let condition = ScopeCondition {
             repositories: Some(["/foo", "/bar"].map(PathBuf::from).into()),
+            workspaces: None,
             commands: None,
             platforms: None,
         };
@@ -462,30 +474,35 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: None,
+            workspace_path: None,
             command: None,
         };
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new("/foo")),
+            workspace_path: None,
             command: None,
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new("/fooo")),
+            workspace_path: None,
             command: None,
         };
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new("/foo/baz")),
+            workspace_path: None,
             command: None,
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new("/bar")),
+            workspace_path: None,
             command: None,
         };
         assert!(condition.matches(&context));
@@ -495,6 +512,7 @@ mod tests {
     fn test_condition_repo_path_windows() {
         let condition = ScopeCondition {
             repositories: Some(["c:/foo", r"d:\bar/baz"].map(PathBuf::from).into()),
+            workspaces: None,
             commands: None,
             platforms: None,
         };
@@ -502,24 +520,28 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new(r"c:\foo")),
+            workspace_path: None,
             command: None,
         };
         assert_eq!(condition.matches(&context), cfg!(windows));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new(r"c:\foo\baz")),
+            workspace_path: None,
             command: None,
         };
         assert_eq!(condition.matches(&context), cfg!(windows));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new(r"d:\foo")),
+            workspace_path: None,
             command: None,
         };
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: Some(Path::new(r"d:/bar\baz")),
+            workspace_path: None,
             command: None,
         };
         assert_eq!(condition.matches(&context), cfg!(windows));
@@ -538,6 +560,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: None,
+            workspace_path: None,
             command: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -575,6 +598,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: None,
+            workspace_path: None,
             command: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -614,6 +638,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: None,
+            workspace_path: None,
             command: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -623,6 +648,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/foo/.jj/repo")),
+            workspace_path: None,
             command: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -634,6 +660,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/bar/.jj/repo")),
+            workspace_path: None,
             command: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -644,6 +671,75 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/home/dir/baz/.jj/repo")),
+            workspace_path: None,
+            command: None,
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 2);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #1 baz'");
+    }
+
+    #[test]
+    fn test_resolve_workspace_path() {
+        let mut source_config = StackedConfig::empty();
+        source_config.add_layer(new_user_layer(indoc! {"
+            a = 'a #0'
+            [[--scope]]
+            --when.workspaces = ['/foo']
+            a = 'a #0.1 foo'
+            [[--scope]]
+            --when.workspaces = ['/foo', '/bar']
+            a = 'a #0.2 foo|bar'
+            [[--scope]]
+            --when.workspaces = []
+            a = 'a #0.3 none'
+        "}));
+        source_config.add_layer(new_user_layer(indoc! {"
+            --when.workspaces = ['~/baz']
+            a = 'a #1 baz'
+            [[--scope]]
+            --when.workspaces = ['/foo']  # should never be enabled
+            a = 'a #1.1 baz&foo'
+        "}));
+
+        let context = ConfigResolutionContext {
+            home_dir: Some(Path::new("/home/dir")),
+            repo_path: None,
+            workspace_path: None,
+            command: None,
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 1);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+
+        let context = ConfigResolutionContext {
+            home_dir: Some(Path::new("/home/dir")),
+            repo_path: None,
+            workspace_path: Some(Path::new("/foo")),
+            command: None,
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 3);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.1 foo'");
+        insta::assert_snapshot!(resolved_config.layers()[2].data, @"a = 'a #0.2 foo|bar'");
+
+        let context = ConfigResolutionContext {
+            home_dir: Some(Path::new("/home/dir")),
+            repo_path: None,
+            workspace_path: Some(Path::new("/bar")),
+            command: None,
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 2);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.2 foo|bar'");
+
+        let context = ConfigResolutionContext {
+            home_dir: Some(Path::new("/home/dir")),
+            repo_path: None,
+            workspace_path: Some(Path::new("/home/dir/baz")),
             command: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -674,6 +770,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: None,
+            workspace_path: None,
             command: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -683,6 +780,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: None,
+            workspace_path: None,
             command: Some("foo"),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -694,6 +792,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: None,
+            workspace_path: None,
             command: Some("bar"),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -704,6 +803,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: None,
+            workspace_path: None,
             command: Some("foo baz"),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -717,6 +817,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: None,
             repo_path: None,
+            workspace_path: None,
             command: Some("fooqux"),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -747,6 +848,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: None,
+            workspace_path: None,
             command: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -787,6 +889,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: None,
+            workspace_path: None,
             command: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -797,6 +900,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/foo")),
+            workspace_path: None,
             command: Some("other"),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -807,6 +911,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/qux")),
+            workspace_path: None,
             command: Some("ABC"),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -817,6 +922,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/bar")),
+            workspace_path: None,
             command: Some("DEF"),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
@@ -835,6 +941,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/foo/.jj/repo")),
+            workspace_path: None,
             command: None,
         };
         assert_matches!(
@@ -853,6 +960,7 @@ mod tests {
         let context = ConfigResolutionContext {
             home_dir: Some(Path::new("/home/dir")),
             repo_path: Some(Path::new("/foo/.jj/repo")),
+            workspace_path: None,
             command: None,
         };
         assert_matches!(

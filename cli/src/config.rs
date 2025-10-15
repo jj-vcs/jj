@@ -322,8 +322,6 @@ impl UnresolvedConfigEnv {
             paths.push(path);
         }
 
-        // theoretically these should be an `if let Some(...) = ... && ..., but that
-        // isn't stable
         if let Some(path) = platform_config_dir
             && path.exists()
         {
@@ -602,6 +600,7 @@ impl ConfigEnv {
         let context = ConfigResolutionContext {
             home_dir: self.home_dir.as_deref(),
             repo_path: self.repo_path.as_deref(),
+            workspace_path: self.workspace_path.as_deref(),
             command: self.command.as_deref(),
         };
         jj_lib::config::resolve(config.as_ref(), &context)
@@ -793,28 +792,6 @@ fn parse_config_arg_item(item_str: &str) -> Result<(ConfigNamePathBuf, ConfigVal
 /// List of rules to migrate deprecated config variables.
 pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
     vec![
-        // TODO: Delete in jj 0.33+
-        ConfigMigrationRule::rename_update_value(
-            "signing.sign-all",
-            "signing.behavior",
-            |old_value| {
-                if old_value
-                    .as_bool()
-                    .ok_or("signing.sign-all expects a boolean")?
-                {
-                    Ok("own".into())
-                } else {
-                    Ok("keep".into())
-                }
-            },
-        ),
-        // TODO: Delete in jj 0.34+
-        ConfigMigrationRule::rename_value(
-            "core.watchman.register_snapshot_trigger",
-            "fsmonitor.watchman.register-snapshot-trigger",
-        ),
-        // TODO: Delete in jj 0.34+
-        ConfigMigrationRule::rename_value("diff.format", "ui.diff.format"),
         // TODO: Delete in jj 0.35.0+
         ConfigMigrationRule::rename_update_value(
             "ui.default-description",

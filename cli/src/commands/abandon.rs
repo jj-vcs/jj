@@ -56,9 +56,6 @@ pub(crate) struct AbandonArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     revisions_opt: Vec<RevisionArg>,
-    // TODO: Remove in jj 0.34+
-    #[arg(long, short, hide = true)]
-    summary: bool,
     /// Do not delete bookmarks pointing to the revisions to abandon
     ///
     /// Bookmarks will be moved to the parent revisions instead.
@@ -75,9 +72,6 @@ pub(crate) fn cmd_abandon(
     command: &CommandHelper,
     args: &AbandonArgs,
 ) -> Result<(), CommandError> {
-    if args.summary {
-        writeln!(ui.warning_default(), "--summary is no longer supported.")?;
-    }
     let mut workspace_command = command.workspace_helper(ui)?;
     let to_abandon = {
         let targets: Vec<_> = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {

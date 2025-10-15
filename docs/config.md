@@ -1080,7 +1080,7 @@ Using `ui.diff-editor = "vimdiff"` is possible but not recommended. For a better
 experience, you can follow [instructions from the Wiki] to configure the
 [DirDiff Vim plugin] and/or the [vimtabdiff Python script].
 
-[instructions from the Wiki]: https://github.com/jj-vcs/jj/wiki/Vim#using-vim-as-a-diff-tool
+[instructions from the Wiki]: https://github.com/jj-vcs/jj/wiki/Vim,-Neovim#using-vim-as-a-diff-tool
 
 [DirDiff Vim plugin]: https://github.com/will133/vim-dirdiff
 [vimtabdiff Python script]: https://github.com/balki/vimtabdiff
@@ -1933,6 +1933,11 @@ wip = ["log", "-r", "work"]
   is in the main workspace if you're using multiple workspaces with `jj
   workspace`.
 
+* `--when.workspaces`: List of paths to match the workspace path prefix.
+
+  The same concerns about the path as for `--when.repositories` applies.
+
+  Use `jj root` to see the workspace root directory.
 
 * `--when.commands`: List of subcommands to match.
 

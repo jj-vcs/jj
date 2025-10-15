@@ -352,6 +352,9 @@ fn test_git_remote_named_git() {
     insta::assert_snapshot!(output, @r"
     bar http://example.com/repo/repo
     [EOF]
+    ------- stderr -------
+    Done importing changes from the underlying Git repo.
+    [EOF]
     ");
     insta::assert_snapshot!(read_git_config(work_dir.root()), @r#"
     [core]

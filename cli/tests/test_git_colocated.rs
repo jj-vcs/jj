@@ -116,6 +116,8 @@ fn test_git_colocated_intent_to_add() {
     Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 file2.txt
     ");
 
+    let op_id_new_file = work_dir.current_operation_id();
+
     // After creating a new commit, it should not longer be marked as intent-to-add
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file2.txt", "contents");
@@ -137,6 +139,17 @@ fn test_git_colocated_intent_to_add() {
     work_dir.remove_file("file2.txt");
     work_dir.run_jj(["status"]).success();
     insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    Unconflicted Mode(FILE) 0839b2e9412b ctime=0:0 mtime=0:0 size=0 flags=0 file1.txt
+    ");
+
+    // If we untrack the file, it's removed from the index
+    work_dir
+        .run_jj(["op", "restore", op_id_new_file.as_str()])
+        .success();
+    work_dir.write_file(".gitignore", "file2.txt");
+    work_dir.run_jj(["file", "untrack", "file2.txt"]).success();
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 .gitignore
     Unconflicted Mode(FILE) 0839b2e9412b ctime=0:0 mtime=0:0 size=0 flags=0 file1.txt
     ");
 }
@@ -563,9 +576,9 @@ fn test_git_colocated_conflicting_git_refs() {
         Created 1 bookmarks pointing to qpvuntsm e8849ae1 main main/sub | (empty) (no description set)
         Warning: Failed to export some bookmarks:
           main/sub@git: Failed to set: ...
-        Hint: Git doesn't allow a branch name that looks like a parent directory of
-        another (e.g. `foo` and `foo/bar`). Try to rename the bookmarks that failed to
-        export or their "parent" bookmarks.
+        Hint: Git doesn't allow a branch/tag name that looks like a parent directory of
+        another (e.g. `foo` and `foo/bar`). Try to rename the bookmarks/tags that failed
+        to export or their "parent" bookmarks/tags.
         [EOF]
         "#);
     });

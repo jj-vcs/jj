@@ -26,6 +26,7 @@ use crate::op_store::LocalRemoteRefTarget;
 use crate::op_store::RefTarget;
 use crate::op_store::RefTargetOptionExt as _;
 use crate::op_store::RemoteRef;
+use crate::op_store::RemoteView;
 use crate::ref_name::GitRefName;
 use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefName;
@@ -310,6 +311,26 @@ impl View {
         })
     }
 
+    /// Iterates remote `(name, view)`s in lexicographical order.
+    pub fn remote_views_matching(
+        &self,
+        pattern: &StringPattern,
+    ) -> impl Iterator<Item = (&RemoteName, &RemoteView)> {
+        pattern
+            .filter_btree_map_as_deref(&self.data.remote_views)
+            .map(|(name, view)| (name.as_ref(), view))
+    }
+
+    /// Adds remote view if it doesn't exist.
+    pub fn ensure_remote(&mut self, remote_name: &RemoteName) {
+        if self.data.remote_views.contains_key(remote_name) {
+            return;
+        }
+        self.data
+            .remote_views
+            .insert(remote_name.to_owned(), RemoteView::default());
+    }
+
     pub fn remove_remote(&mut self, remote_name: &RemoteName) {
         self.data.remote_views.remove(remote_name);
     }
@@ -428,6 +449,27 @@ impl View {
         } else if let Some(remote_view) = self.data.remote_views.get_mut(symbol.remote) {
             remote_view.tags.remove(symbol.name);
         }
+    }
+
+    /// Iterates over `(name, {local_ref, remote_ref})`s for every tag present
+    /// locally and/or on the specified remote, in lexicographical order.
+    ///
+    /// Note that this does *not* take into account whether the local tag tracks
+    /// the remote tag or not. Missing values are represented as
+    /// [`RefTarget::absent_ref()`] or [`RemoteRef::absent_ref()`].
+    pub fn local_remote_tags(
+        &self,
+        remote_name: &RemoteName,
+    ) -> impl Iterator<Item = (&RefName, LocalAndRemoteRef<'_>)> + use<'_> {
+        refs::iter_named_local_remote_refs(self.local_tags(), self.remote_tags(remote_name)).map(
+            |(name, (local_target, remote_ref))| {
+                let targets = LocalAndRemoteRef {
+                    local_target,
+                    remote_ref,
+                };
+                (name, targets)
+            },
+        )
     }
 
     pub fn get_git_ref(&self, name: &GitRefName) -> &RefTarget {
