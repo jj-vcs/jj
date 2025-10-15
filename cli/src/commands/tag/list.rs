@@ -24,13 +24,6 @@ use crate::complete;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
-/// Manage tags.
-#[derive(clap::Subcommand, Clone, Debug)]
-pub enum TagCommand {
-    #[command(visible_alias("l"))]
-    List(TagListArgs),
-}
-
 /// List tags.
 #[derive(clap::Args, Clone, Debug)]
 pub struct TagListArgs {
@@ -58,17 +51,7 @@ pub struct TagListArgs {
     template: Option<String>,
 }
 
-pub fn cmd_tag(
-    ui: &mut Ui,
-    command: &CommandHelper,
-    subcommand: &TagCommand,
-) -> Result<(), CommandError> {
-    match subcommand {
-        TagCommand::List(args) => cmd_tag_list(ui, command, args),
-    }
-}
-
-fn cmd_tag_list(
+pub fn cmd_tag_list(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &TagListArgs,
