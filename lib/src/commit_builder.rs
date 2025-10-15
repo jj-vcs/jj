@@ -368,7 +368,13 @@ impl DetachedCommitBuilder {
         let predecessors = self.commit.predecessors.clone();
         let commit = write_to_store(&self.store, self.commit, &self.sign_settings)?;
         // FIXME: Google's index.has_id() always returns true.
-        if mut_repo.is_backed_by_default_index() && mut_repo.index().has_id(commit.id()) {
+        if mut_repo.is_backed_by_default_index()
+            && mut_repo
+                .index()
+                .has_id(commit.id())
+                // TODO: indexing error shouldn't be a "BackendError"
+                .map_err(|err| BackendError::Other(err.into()))?
+        {
             // Recording existing commit as new would create cycle in
             // predecessors/parent mappings within the current transaction, and
             // in predecessors graph globally.
