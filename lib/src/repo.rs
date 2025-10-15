@@ -1629,9 +1629,23 @@ impl MutableRepo {
                         commit
                             .parent_ids()
                             .iter()
-                            .filter(|id| !self.index().has_id(id))
-                            .map(|id| self.store().get_commit(id))
-                            .map_ok(CommitByCommitterTimestamp)
+                            .filter_map(|id| {
+                                self.index()
+                                    .has_id(id)
+                                    // TODO: indexing error shouldn't be a "BackendError"
+                                    .map_err(|err| BackendError::Other(err.into()))
+                                    .and_then(|has_id| {
+                                        if has_id {
+                                            Ok(None)
+                                        } else {
+                                            self.store()
+                                                .get_commit(id)
+                                                .map(CommitByCommitterTimestamp)
+                                                .map(Some)
+                                        }
+                                    })
+                                    .transpose()
+                            })
                             .collect_vec()
                     },
                     |_| panic!("graph has cycle"),

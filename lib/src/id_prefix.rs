@@ -172,7 +172,7 @@ impl IdPrefixIndex<'_> {
                 PrefixResolution::SingleMatch(id) => {
                     // The disambiguation set may be loaded from a different repo,
                     // and contain a commit that doesn't exist in the current repo.
-                    if repo.index().has_id(&id) {
+                    if repo.index().has_id(&id)? {
                         return Ok(PrefixResolution::SingleMatch(id));
                     } else {
                         return Ok(PrefixResolution::NoMatch);
