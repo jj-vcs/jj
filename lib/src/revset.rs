@@ -2620,7 +2620,10 @@ impl CommitPrefixResolver<'_> {
             .transpose()
             .map_err(|err| RevsetResolutionError::Other(err.into()))?
             .unwrap_or(IdPrefixIndex::empty());
-        match index.resolve_commit_prefix(repo, prefix) {
+        match index
+            .resolve_commit_prefix(repo, prefix)
+            .map_err(|err| RevsetResolutionError::Other(err.into()))?
+        {
             PrefixResolution::AmbiguousMatch => {
                 Err(RevsetResolutionError::AmbiguousCommitIdPrefix(prefix.hex()))
             }
