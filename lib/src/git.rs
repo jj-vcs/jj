@@ -42,6 +42,7 @@ use crate::file_util::PathError;
 use crate::git_backend::GitBackend;
 use crate::git_subprocess::GitSubprocessContext;
 use crate::git_subprocess::GitSubprocessError;
+use crate::index::IndexError;
 use crate::matchers::EverythingMatcher;
 use crate::merged_tree::MergedTree;
 use crate::merged_tree::TreeDiffEntry;
@@ -382,7 +383,9 @@ pub enum GitImportError {
         err: BackendError,
     },
     #[error(transparent)]
-    Backend(BackendError),
+    Backend(#[from] BackendError),
+    #[error(transparent)]
+    Index(#[from] IndexError),
     #[error(transparent)]
     Git(Box<dyn std::error::Error + Send + Sync>),
     #[error(transparent)]
@@ -466,29 +469,37 @@ pub fn import_some_refs(
     // changed_git_refs, but such targets should have already been imported to
     // the backend.
     let index = mut_repo.index();
-    let missing_head_ids = changed_git_refs
+    let missing_head_ids: Vec<&CommitId> = changed_git_refs
         .iter()
         .flat_map(|(_, new_target)| new_target.added_ids())
-        .filter(|&id| !index.has_id(id));
+        .filter_map(|id| match index.has_id(id) {
+            Ok(false) => Some(Ok(id)),
+            Ok(true) => None,
+            Err(e) => Some(Err(e)),
+        })
+        .try_collect()?;
     let heads_imported = git_backend.import_head_commits(missing_head_ids).is_ok();
 
     // Import new remote heads
     let mut head_commits = Vec::new();
-    let get_commit = |id| {
+    let get_commit = |id: &CommitId, symbol: &RemoteRefSymbolBuf| {
+        let missing_ref_err = |err| GitImportError::MissingRefAncestor {
+            symbol: symbol.clone(),
+            err,
+        };
         // If bulk-import failed, try again to find bad head or ref.
-        if !heads_imported && !index.has_id(id) {
-            git_backend.import_head_commits([id])?;
+        if !heads_imported && !index.has_id(id).map_err(GitImportError::Index)? {
+            git_backend
+                .import_head_commits([id])
+                .map_err(missing_ref_err)?;
         }
-        store.get_commit(id)
+        store.get_commit(id).map_err(missing_ref_err)
     };
     for (symbol, (_, new_target)) in
         itertools::chain(&changed_remote_bookmarks, &changed_remote_tags)
     {
         for id in new_target.added_ids() {
-            let commit = get_commit(id).map_err(|err| GitImportError::MissingRefAncestor {
-                symbol: symbol.clone(),
-                err,
-            })?;
+            let commit = get_commit(id, symbol)?;
             head_commits.push(commit);
         }
     }
@@ -807,7 +818,7 @@ pub fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
     // Import new head
     if let Some(head_id) = &new_git_head_id {
         let index = mut_repo.index();
-        if !index.has_id(head_id) {
+        if !index.has_id(head_id)? {
             git_backend.import_head_commits([head_id]).map_err(|err| {
                 GitImportError::MissingHeadTarget {
                     id: head_id.clone(),

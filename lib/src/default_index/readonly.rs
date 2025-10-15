@@ -628,6 +628,10 @@ impl DefaultReadonlyIndex {
         self.0.changed_paths()
     }
 
+    pub(super) fn has_id_impl(&self, commit_id: &CommitId) -> bool {
+        self.0.commits().has_id(commit_id)
+    }
+
     /// Returns the number of all indexed commits.
     pub fn num_commits(&self) -> u32 {
         self.0.commits().num_commits()
@@ -723,8 +727,8 @@ impl Index for DefaultReadonlyIndex {
         self.0.resolve_commit_id_prefix(prefix)
     }
 
-    fn has_id(&self, commit_id: &CommitId) -> bool {
-        self.0.has_id(commit_id)
+    fn has_id(&self, commit_id: &CommitId) -> IndexResult<bool> {
+        Ok(self.has_id_impl(commit_id))
     }
 
     fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> bool {

@@ -429,6 +429,7 @@ impl From<WalkPredecessorsError> for CommandError {
     fn from(err: WalkPredecessorsError) -> Self {
         match err {
             WalkPredecessorsError::Backend(err) => err.into(),
+            WalkPredecessorsError::Index(err) => err.into(),
             WalkPredecessorsError::OpStore(err) => err.into(),
             WalkPredecessorsError::CycleDetected(_) => internal_error(err),
         }
@@ -551,6 +552,7 @@ jj currently does not support partial clones. To use jj with this repository, tr
                         .to_string(),
                 ),
                 GitImportError::Backend(_) => None,
+                GitImportError::Index(_) => None,
                 GitImportError::Git(_) => None,
                 GitImportError::UnexpectedBackend(_) => None,
             };

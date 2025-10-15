@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use jj_lib::backend::CommitId;
+use jj_lib::index::Index;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
@@ -42,6 +43,10 @@ where
         name: name.as_ref(),
         remote: remote.as_ref(),
     }
+}
+
+fn index_has_id(index: &dyn Index, commit_id: &CommitId) -> bool {
+    index.has_id(commit_id).unwrap()
 }
 
 #[test]
@@ -354,14 +359,15 @@ fn test_add_head_success() {
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
+
     assert!(!mut_repo.view().heads().contains(new_commit.id()));
-    assert!(!mut_repo.index().has_id(new_commit.id()));
+    assert!(!index_has_id(mut_repo.index(), new_commit.id()));
     mut_repo.add_head(&new_commit).unwrap();
     assert!(mut_repo.view().heads().contains(new_commit.id()));
-    assert!(mut_repo.index().has_id(new_commit.id()));
+    assert!(index_has_id(mut_repo.index(), new_commit.id()));
     let repo = tx.commit("test").unwrap();
     assert!(repo.view().heads().contains(new_commit.id()));
-    assert!(repo.index().has_id(new_commit.id()));
+    assert!(index_has_id(repo.index(), new_commit.id()));
 }
 
 #[test]
@@ -414,9 +420,9 @@ fn test_add_head_not_immediate_child() {
         mut_repo.view().heads(),
         &hashset! {initial.id().clone(), child.id().clone()}
     );
-    assert!(mut_repo.index().has_id(initial.id()));
-    assert!(mut_repo.index().has_id(rewritten.id()));
-    assert!(mut_repo.index().has_id(child.id()));
+    assert!(index_has_id(mut_repo.index(), initial.id()));
+    assert!(index_has_id(mut_repo.index(), rewritten.id()));
+    assert!(index_has_id(mut_repo.index(), child.id()));
 }
 
 #[test]
@@ -441,17 +447,17 @@ fn test_remove_head() {
     assert!(!heads.contains(commit3.id()));
     assert!(!heads.contains(commit2.id()));
     assert!(!heads.contains(commit1.id()));
-    assert!(mut_repo.index().has_id(commit1.id()));
-    assert!(mut_repo.index().has_id(commit2.id()));
-    assert!(mut_repo.index().has_id(commit3.id()));
+    assert!(index_has_id(mut_repo.index(), commit1.id()));
+    assert!(index_has_id(mut_repo.index(), commit2.id()));
+    assert!(index_has_id(mut_repo.index(), commit3.id()));
     let repo = tx.commit("test").unwrap();
     let heads = repo.view().heads().clone();
     assert!(!heads.contains(commit3.id()));
     assert!(!heads.contains(commit2.id()));
     assert!(!heads.contains(commit1.id()));
-    assert!(repo.index().has_id(commit1.id()));
-    assert!(repo.index().has_id(commit2.id()));
-    assert!(repo.index().has_id(commit3.id()));
+    assert!(index_has_id(repo.index(), commit1.id()));
+    assert!(index_has_id(repo.index(), commit2.id()));
+    assert!(index_has_id(repo.index(), commit3.id()));
 }
 
 #[test]
