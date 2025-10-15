@@ -146,6 +146,11 @@ fn test_id_prefix() {
     ");
 
     let prefix = |x| HexPrefix::try_from_hex(x).unwrap();
+    let shortest_commit_prefix_len = |index: &IdPrefixIndex, commit_id| {
+        index
+            .shortest_commit_prefix_len(repo.as_ref(), commit_id)
+            .unwrap()
+    };
     let shortest_change_prefix_len = |index: &IdPrefixIndex, change_id| {
         index
             .shortest_change_prefix_len(repo.as_ref(), change_id)
@@ -160,14 +165,8 @@ fn test_id_prefix() {
     let context = IdPrefixContext::default();
     let index = context.populate(repo.as_ref()).unwrap();
 
-    assert_eq!(
-        index.shortest_commit_prefix_len(repo.as_ref(), commits[7].id()),
-        2
-    );
-    assert_eq!(
-        index.shortest_commit_prefix_len(repo.as_ref(), commits[16].id()),
-        1
-    );
+    assert_eq!(shortest_commit_prefix_len(&index, commits[7].id()), 2);
+    assert_eq!(shortest_commit_prefix_len(&index, commits[16].id()), 1);
     assert_eq!(
         index.resolve_commit_prefix(repo.as_ref(), &prefix("1")),
         AmbiguousMatch
@@ -207,10 +206,7 @@ fn test_id_prefix() {
     let context = context.disambiguate_within(expression);
     let index = context.populate(repo.as_ref()).unwrap();
     // The prefix is now shorter
-    assert_eq!(
-        index.shortest_commit_prefix_len(repo.as_ref(), commits[7].id()),
-        1
-    );
+    assert_eq!(shortest_commit_prefix_len(&index, commits[7].id()), 1);
     // Shorter prefix within the set can be used
     assert_eq!(
         index.resolve_commit_prefix(repo.as_ref(), &prefix("1")),
@@ -236,10 +232,7 @@ fn test_id_prefix() {
     let expression = RevsetExpression::commit(root_commit_id.clone());
     let context = context.disambiguate_within(expression);
     let index = context.populate(repo.as_ref()).unwrap();
-    assert_eq!(
-        index.shortest_commit_prefix_len(repo.as_ref(), root_commit_id),
-        1
-    );
+    assert_eq!(shortest_commit_prefix_len(&index, root_commit_id), 1);
     assert_eq!(
         index.resolve_commit_prefix(repo.as_ref(), &prefix("")),
         AmbiguousMatch
@@ -475,6 +468,11 @@ fn test_id_prefix_hidden() {
     let repo = tx.commit("test").unwrap();
 
     let prefix = |x: &str| HexPrefix::try_from_hex(x).unwrap();
+    let shortest_commit_prefix_len = |index: &IdPrefixIndex, commit_id| {
+        index
+            .shortest_commit_prefix_len(repo.as_ref(), commit_id)
+            .unwrap()
+    };
     let shortest_change_prefix_len = |index: &IdPrefixIndex, change_id| {
         index
             .shortest_change_prefix_len(repo.as_ref(), change_id)
@@ -488,10 +486,7 @@ fn test_id_prefix_hidden() {
     // --------------------------------
     let context = IdPrefixContext::default();
     let index = context.populate(repo.as_ref()).unwrap();
-    assert_eq!(
-        index.shortest_commit_prefix_len(repo.as_ref(), hidden_commit.id()),
-        2
-    );
+    assert_eq!(shortest_commit_prefix_len(&index, hidden_commit.id()), 2);
     assert_eq!(
         shortest_change_prefix_len(&index, hidden_commit.change_id()),
         3
@@ -518,10 +513,7 @@ fn test_id_prefix_hidden() {
     let expression = RevsetExpression::commit(hidden_commit.id().clone());
     let context = context.disambiguate_within(expression);
     let index = context.populate(repo.as_ref()).unwrap();
-    assert_eq!(
-        index.shortest_commit_prefix_len(repo.as_ref(), hidden_commit.id()),
-        1
-    );
+    assert_eq!(shortest_commit_prefix_len(&index, hidden_commit.id()), 1);
     assert_eq!(
         shortest_change_prefix_len(&index, hidden_commit.change_id()),
         1
@@ -568,10 +560,12 @@ fn test_id_prefix_shadowed_by_ref() {
 
     let context = IdPrefixContext::default();
     let index = context.populate(tx.repo()).unwrap();
+    let shortest_commit_prefix_len =
+        |repo: &MutableRepo, commit_id| index.shortest_commit_prefix_len(repo, commit_id).unwrap();
     let shortest_change_prefix_len =
         |repo: &MutableRepo, change_id| index.shortest_change_prefix_len(repo, change_id).unwrap();
 
-    assert_eq!(index.shortest_commit_prefix_len(tx.repo(), commit.id()), 1);
+    assert_eq!(shortest_commit_prefix_len(tx.repo(), commit.id()), 1);
     assert_eq!(shortest_change_prefix_len(tx.repo(), commit.change_id()), 1);
 
     // Longer symbol doesn't count
@@ -580,7 +574,7 @@ fn test_id_prefix_shadowed_by_ref() {
         .set_local_tag_target(commit_id_sym[..2].as_ref(), dummy_target.clone());
     tx.repo_mut()
         .set_local_tag_target(change_id_sym[..2].as_ref(), dummy_target.clone());
-    assert_eq!(index.shortest_commit_prefix_len(tx.repo(), commit.id()), 1);
+    assert_eq!(shortest_commit_prefix_len(tx.repo(), commit.id()), 1);
     assert_eq!(shortest_change_prefix_len(tx.repo(), commit.change_id()), 1);
 
     // 1-char conflict with bookmark, 2-char with tag
@@ -588,7 +582,7 @@ fn test_id_prefix_shadowed_by_ref() {
         .set_local_bookmark_target(commit_id_sym[..1].as_ref(), dummy_target.clone());
     tx.repo_mut()
         .set_local_bookmark_target(change_id_sym[..1].as_ref(), dummy_target.clone());
-    assert_eq!(index.shortest_commit_prefix_len(tx.repo(), commit.id()), 3);
+    assert_eq!(shortest_commit_prefix_len(tx.repo(), commit.id()), 3);
     assert_eq!(shortest_change_prefix_len(tx.repo(), commit.change_id()), 3);
 
     // Many-char conflicts
@@ -601,7 +595,7 @@ fn test_id_prefix_shadowed_by_ref() {
             .set_local_tag_target(change_id_sym[..n].as_ref(), dummy_target.clone());
     }
     assert_eq!(
-        index.shortest_commit_prefix_len(tx.repo(), commit.id()),
+        shortest_commit_prefix_len(tx.repo(), commit.id()),
         commit_id_sym.len()
     );
     assert_eq!(
@@ -615,7 +609,7 @@ fn test_id_prefix_shadowed_by_ref() {
     tx.repo_mut()
         .set_local_tag_target(change_id_sym.as_ref(), dummy_target.clone());
     assert_eq!(
-        index.shortest_commit_prefix_len(tx.repo(), commit.id()),
+        shortest_commit_prefix_len(tx.repo(), commit.id()),
         commit_id_sym.len()
     );
     assert_eq!(

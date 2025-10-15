@@ -712,7 +712,7 @@ impl AsCompositeIndex for DefaultReadonlyIndex {
 }
 
 impl Index for DefaultReadonlyIndex {
-    fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> usize {
+    fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> IndexResult<usize> {
         self.0.shortest_unique_commit_id_prefix_len(commit_id)
     }
 
