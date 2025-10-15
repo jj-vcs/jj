@@ -1860,13 +1860,22 @@ then you issue a later command to update the bookmark.</p>
 <li>
 <p><strong>Conflicts can be committed.</strong> No commands fail because of merge conflicts.
   The conflicts are instead recorded in commits and you can resolve them later.
-  <a href="../conflicts/">Details</a>.</p>
+  <a href="../conflicts/">Details</a>. This lets us rebase conflict and conflict
+  resolutions, and thereby addressing most <code>git rerere</code> use cases.</p>
 </li>
 <li><strong>Descendant commits are automatically rebased.</strong> Whenever you rewrite a
   commit (e.g. by running <code>jj rebase</code>), all its descendants commits will
   automatically be rebased on top. Branches pointing to it will also get
   updated, and so will the working copy if it points to any of the rebased
   commits.</li>
+<li><strong>No "evil merges".</strong> In Git, a merge commit that contains changes that are
+  not in any parent are called <a href="https://git-scm.com/docs/gitglossary#Documentation/gitglossary.txt-evilmerge">evil merges</a>. We believe the reason for this
+  opinionated term is that Git has historically not been very good at working
+  with such commits. For example, <code>git show</code> doesn't show them well (without
+  <code>--remerge-diff</code> from 2022), and <code>git rebase</code> drops the changes (without
+  <code>--rebase-merges</code> from 2018). Jujutsu defines the changes in a commit as
+  being relative to the auto-merged parents in all contexts, so you can safely
+  include change in merge commits.</li>
 <li><strong>Bookmarks/branches are identified by their names (across remotes).</strong> For
   example, if you pull from a remote that has a <code>main</code> branch, you'll get a
   bookmark by that name in your local repo. If you then move it and push back to
