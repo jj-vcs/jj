@@ -58,6 +58,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Tracked bookmarks can be pushed without `--allow-new`.
   [#7072](https://github.com/jj-vcs/jj/issues/7072)
 
+* New `jj tag set` command to create/update tags locally. Updated tags will be
+  exported to Git as lightweight tags.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer

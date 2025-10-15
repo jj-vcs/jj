@@ -75,6 +75,7 @@ use crate::merge_tools::DiffEditError;
 use crate::merge_tools::MergeToolConfigError;
 use crate::merge_tools::MergeToolPartialResolutionError;
 use crate::revset_util::BookmarkNameParseError;
+use crate::revset_util::TagNameParseError;
 use crate::revset_util::UserRevsetEvaluationError;
 use crate::template_parser::TemplateParseError;
 use crate::template_parser::TemplateParseErrorKind;
@@ -773,11 +774,16 @@ fn find_source_parse_error_hint(err: &dyn error::Error) -> Option<String> {
     } else if let Some(source) = source.downcast_ref() {
         string_pattern_parse_error_hint(source)
     } else if let Some(source) = source.downcast_ref() {
+        tag_name_parse_error_hint(source)
+    } else if let Some(source) = source.downcast_ref() {
         template_parse_error_hint(source)
     } else {
         None
     }
 }
+
+const REVSET_SYMBOL_HINT: &str = "See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help \
+                                  -k revsets` for how to quote symbols.";
 
 fn bookmark_name_parse_error_hint(err: &BookmarkNameParseError) -> Option<String> {
     use revset::ExpressionKind;
@@ -785,11 +791,7 @@ fn bookmark_name_parse_error_hint(err: &BookmarkNameParseError) -> Option<String
         Ok(ExpressionKind::RemoteSymbol(symbol)) => Some(format!(
             "Looks like remote bookmark. Run `jj bookmark track {symbol}` to track it."
         )),
-        _ => Some(
-            "See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for how \
-             to quote symbols."
-                .into(),
-        ),
+        _ => Some(REVSET_SYMBOL_HINT.to_owned()),
     }
 }
 
@@ -937,6 +939,10 @@ fn string_pattern_parse_error_hint(err: &StringPatternParseError) -> Option<Stri
         ),
         StringPatternParseError::GlobPattern(_) | StringPatternParseError::Regex(_) => None,
     }
+}
+
+fn tag_name_parse_error_hint(_: &TagNameParseError) -> Option<String> {
+    Some(REVSET_SYMBOL_HINT.to_owned())
 }
 
 fn template_parse_error_hint(err: &TemplateParseError) -> Option<String> {

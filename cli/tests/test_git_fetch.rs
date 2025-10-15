@@ -1205,7 +1205,7 @@ fn test_git_fetch_undo() {
     let test_env = TestEnvironment::default();
     test_env.add_config("git.auto-local-bookmark = true");
     let source_dir = test_env.work_dir("source");
-    let git_repo = git::init(source_dir.root());
+    git::init(source_dir.root());
 
     // Clone an empty repo. The target repo is a normal `jj` repo, *not* colocated
     let output = test_env.run_jj_in(".", ["git", "clone", "source", "target"]);
@@ -1218,14 +1218,9 @@ fn test_git_fetch_undo() {
     let target_dir = test_env.work_dir("target");
 
     create_colocated_repo_and_bookmarks_from_trunk1(&source_dir);
-    git_repo
-        .reference(
-            "refs/tags/tag1",
-            git_repo.find_reference("refs/heads/trunk1").unwrap().id(),
-            gix::refs::transaction::PreviousValue::MustNotExist,
-            "create tag",
-        )
-        .unwrap();
+    source_dir
+        .run_jj(["tag", "set", "-rtrunk1", "tag1"])
+        .success();
     insta::assert_snapshot!(get_log_output(&source_dir), @r#"
     @  bc83465a3090 "b" b
     │ ○  d4d535f1d579 "a2" a2
@@ -1234,9 +1229,6 @@ fn test_git_fetch_undo() {
     ├─╯
     ◆  382881770501 "trunk1" trunk1 tag1
     ◆  000000000000 ""
-    [EOF]
-    ------- stderr -------
-    Done importing changes from the underlying Git repo.
     [EOF]
     "#);
 

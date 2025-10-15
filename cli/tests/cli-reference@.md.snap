@@ -97,6 +97,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj status`↴](#jj-status)
 * [`jj tag`↴](#jj-tag)
 * [`jj tag list`↴](#jj-tag-list)
+* [`jj tag set`↴](#jj-tag-set)
 * [`jj undo`↴](#jj-undo)
 * [`jj unsign`↴](#jj-unsign)
 * [`jj util`↴](#jj-util)
@@ -2782,6 +2783,7 @@ Manage tags
 ###### **Subcommands:**
 
 * `list` — List tags
+* `set` — Create or update tags
 
 
 
@@ -2810,6 +2812,27 @@ List tags
    [`CommitRef` type]: https://jj-vcs.github.io/jj/latest/templates/#commitref-type
 
    [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
+
+
+
+## `jj tag set`
+
+Create or update tags
+
+**Usage:** `jj tag set [OPTIONS] <NAMES>...`
+
+**Command Alias:** `s`
+
+###### **Arguments:**
+
+* `<NAMES>` — Tag names to create or update
+
+###### **Options:**
+
+* `-r`, `--revision <REVSET>` [alias: `to`] — Target revision to point to
+
+  Default value: `@`
+* `--allow-move` — Allow moving existing tags
 
 
 

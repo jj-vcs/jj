@@ -330,3 +330,16 @@ pub fn parse_bookmark_name(text: &str) -> Result<RefNameBuf, BookmarkNameParseEr
             source,
         })
 }
+
+#[derive(Debug, Error)]
+#[error("Failed to parse tag name: {}", source.kind())]
+pub struct TagNameParseError {
+    pub source: RevsetParseError,
+}
+
+/// Parses tag name specified in revset syntax.
+pub fn parse_tag_name(text: &str) -> Result<RefNameBuf, TagNameParseError> {
+    revset::parse_symbol(text)
+        .map(Into::into)
+        .map_err(|source| TagNameParseError { source })
+}

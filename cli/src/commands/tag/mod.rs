@@ -13,9 +13,12 @@
 // limitations under the License.
 
 mod list;
+mod set;
 
 use self::list::TagListArgs;
 use self::list::cmd_tag_list;
+use self::set::TagSetArgs;
+use self::set::cmd_tag_set;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
@@ -25,6 +28,8 @@ use crate::ui::Ui;
 pub enum TagCommand {
     #[command(visible_alias("l"))]
     List(TagListArgs),
+    #[command(visible_alias("s"))]
+    Set(TagSetArgs),
 }
 
 pub fn cmd_tag(
@@ -34,5 +39,6 @@ pub fn cmd_tag(
 ) -> Result<(), CommandError> {
     match subcommand {
         TagCommand::List(args) => cmd_tag_list(ui, command, args),
+        TagCommand::Set(args) => cmd_tag_set(ui, command, args),
     }
 }
