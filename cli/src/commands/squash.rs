@@ -35,6 +35,7 @@ use crate::cli_util::DiffSelector;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::WorkspaceCommandTransaction;
 use crate::cli_util::compute_commit_location;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
@@ -302,10 +303,10 @@ pub(crate) fn cmd_squash(
         commit
     };
 
-    let matcher = tx
+    let fileset_expression = tx
         .base_workspace_helper()
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+        .parse_file_patterns(ui, &args.paths)?;
+    let matcher = fileset_expression.to_matcher();
     let diff_selector =
         tx.base_workspace_helper()
             .diff_selector(ui, args.tool.as_deref(), args.interactive)?;
@@ -377,6 +378,7 @@ pub(crate) fn cmd_squash(
         }
         let commit = commit_builder.write(tx.repo_mut())?;
         let num_rebased = tx.repo_mut().rebase_descendants()?;
+
         if let Some(mut formatter) = ui.status_formatter() {
             if insert_destination_commit {
                 write!(formatter, "Created new commit ")?;
@@ -419,7 +421,16 @@ pub(crate) fn cmd_squash(
             }
         }
     }
+
+    print_unmatched_explicit_paths(
+        ui,
+        tx.base_workspace_helper(),
+        &fileset_expression,
+        source_commits.iter().map(|commit| &commit.selected_tree),
+    )?;
+
     tx.finish(ui, tx_description)?;
+
     Ok(())
 }
 

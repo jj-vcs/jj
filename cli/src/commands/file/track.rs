@@ -23,6 +23,7 @@ use jj_lib::working_copy::UntrackedReason;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::cli_util::print_untracked_files;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
@@ -51,13 +52,12 @@ pub(crate) fn cmd_file_track(
     args: &FileTrackArgs,
 ) -> Result<(), CommandError> {
     let (mut workspace_command, auto_stats) = command.workspace_helper_with_stats(ui)?;
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+    let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
+    let matcher = fileset_expression.to_matcher();
     let options = workspace_command.snapshot_options_with_start_tracking_matcher(&matcher)?;
 
     let mut tx = workspace_command.start_transaction().into_inner();
-    let (mut locked_ws, _wc_commit) = workspace_command.start_working_copy_mutation()?;
+    let (mut locked_ws, wc_commit) = workspace_command.start_working_copy_mutation()?;
     let (_tree_id, track_stats) = locked_ws.locked_wc().snapshot(&options)?;
     let num_rebased = tx.repo_mut().rebase_descendants()?;
     if num_rebased > 0 {
@@ -70,6 +70,12 @@ pub(crate) fn cmd_file_track(
         auto_stats,
         track_stats,
         workspace_command.env().path_converter(),
+    )?;
+    print_unmatched_explicit_paths(
+        ui,
+        &workspace_command,
+        &fileset_expression,
+        [&wc_commit.tree().unwrap()],
     )?;
     Ok(())
 }
