@@ -24,6 +24,7 @@ mod untrack;
 
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
+use jj_lib::index::any_is_ancestor;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::RefName;
@@ -181,15 +182,19 @@ fn find_trackable_remote_bookmarks<'a>(
     }
 }
 
-fn is_fast_forward(repo: &dyn Repo, old_target: &RefTarget, new_target_id: &CommitId) -> bool {
+fn is_fast_forward(
+    repo: &dyn Repo,
+    old_target: &RefTarget,
+    new_target_id: &CommitId,
+) -> Result<bool, CommandError> {
     if old_target.is_present() {
         // Strictly speaking, "all" old targets should be ancestors, but we allow
         // conflict resolution by setting bookmark to "any" of the old target
         // descendants.
-        old_target
-            .added_ids()
-            .any(|old| repo.index().is_ancestor(old, new_target_id))
+
+        any_is_ancestor(repo.index(), old_target.added_ids(), new_target_id)
+            .map_err(|err| err.into())
     } else {
-        true
+        Ok(true)
     }
 }

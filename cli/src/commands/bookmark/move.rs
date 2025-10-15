@@ -138,7 +138,14 @@ pub fn cmd_bookmark_move(
     if !args.allow_backwards
         && let Some((name, _)) = matched_bookmarks
             .iter()
-            .find(|(_, old_target)| !is_fast_forward(repo.as_ref(), old_target, target_commit.id()))
+            .find_map(|(name, old_target)| {
+                match is_fast_forward(repo.as_ref(), old_target, target_commit.id()) {
+                    Ok(true) => None,
+                    Ok(false) => Some(Ok((name, old_target))),
+                    Err(e) => Some(Err(e)),
+                }
+            })
+            .transpose()?
     {
         return Err(user_error_with_hint(
             format!(

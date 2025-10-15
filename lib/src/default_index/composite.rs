@@ -585,8 +585,8 @@ impl Index for CompositeIndex {
         Ok(self.commits().has_id(commit_id))
     }
 
-    fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> bool {
-        self.commits().is_ancestor(ancestor_id, descendant_id)
+    fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> IndexResult<bool> {
+        Ok(self.commits().is_ancestor(ancestor_id, descendant_id))
     }
 
     fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> Vec<CommitId> {

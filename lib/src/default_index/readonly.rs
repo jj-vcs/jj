@@ -727,7 +727,7 @@ impl Index for DefaultReadonlyIndex {
         self.0.has_id(commit_id)
     }
 
-    fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> bool {
+    fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> IndexResult<bool> {
         self.0.is_ancestor(ancestor_id, descendant_id)
     }
 
