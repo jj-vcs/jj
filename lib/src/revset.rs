@@ -4026,6 +4026,18 @@ mod tests {
             ),
         )
         "#);
+        insta::assert_debug_snapshot!(
+            parse_with_workspace(r#"files(~(foo))"#, WorkspaceName::DEFAULT).unwrap(),
+            @r#"
+        Filter(
+            File(
+                Difference(
+                    All,
+                    Pattern(PrefixPath("foo")),
+                ),
+            ),
+        )
+        "#);
         insta::assert_debug_snapshot!(parse("signed()").unwrap(), @"Filter(Signed)");
     }
 

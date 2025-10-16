@@ -251,10 +251,11 @@ fn parse_as_string_literal(pair: Pair<Rule>) -> String {
 
 fn parse_primary_node(pair: Pair<Rule>) -> FilesetParseResult<ExpressionNode> {
     assert_eq!(pair.as_rule(), Rule::primary);
+    let span = pair.as_span();
     let first = pair.into_inner().next().unwrap();
-    let span = first.as_span();
     let expr = match first.as_rule() {
-        Rule::expression => return parse_expression_node(first),
+        // Ignore inner span to preserve parenthesized expression as such.
+        Rule::expression => parse_expression_node(first)?.kind,
         Rule::function => {
             let function = Box::new(parse_function_call_node(first)?);
             ExpressionKind::FunctionCall(function)
@@ -625,10 +626,19 @@ mod tests {
         // Expression span
         assert_eq!(parse_program(" ~ x ").unwrap().span.as_str(), "~ x");
         assert_eq!(parse_program(" x |y ").unwrap().span.as_str(), "x |y");
+        assert_eq!(parse_program(" (x) ").unwrap().span.as_str(), "(x)");
+        assert_eq!(parse_program("~( x|y) ").unwrap().span.as_str(), "~( x|y)");
     }
 
     #[test]
     fn test_parse_function_call() {
+        fn unwrap_function_call(node: ExpressionNode<'_>) -> Box<FunctionCallNode<'_>> {
+            match node.kind {
+                ExpressionKind::FunctionCall(function) => function,
+                _ => panic!("unexpected expression: {node:?}"),
+            }
+        }
+
         assert_matches!(
             parse_into_kind("foo()"),
             Ok(ExpressionKind::FunctionCall(_))
@@ -645,6 +655,14 @@ mod tests {
         assert!(parse_into_kind("foo(a  , , )").is_err());
         assert_eq!(parse_normalized("foo(a,b,)"), parse_normalized("foo(a,b)"));
         assert!(parse_into_kind("foo(a,,b)").is_err());
+
+        // Expression span
+        let function = unwrap_function_call(parse_program("foo( a, (b) , ~(c) )").unwrap());
+        assert_eq!(function.name_span.as_str(), "foo");
+        assert_eq!(function.args_span.as_str(), "a, (b) , ~(c)");
+        assert_eq!(function.args[0].span.as_str(), "a");
+        assert_eq!(function.args[1].span.as_str(), "(b)");
+        assert_eq!(function.args[2].span.as_str(), "~(c)");
     }
 
     #[test]

@@ -77,6 +77,9 @@ edits the change twice in some cases.
 * `jj undo` can now revert "fetch"/"import" operation that involves tag updates.
   [#6325](https://github.com/jj-vcs/jj/issues/6325)
 
+* Fixed parsing of `files(expr)` revset expression including parentheses.
+  [#7747](https://github.com/jj-vcs/jj/issues/7747)
+
 ## [0.34.0] - 2025-10-01
 
 ### Release highlights
