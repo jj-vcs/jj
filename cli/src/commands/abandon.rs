@@ -74,16 +74,21 @@ pub(crate) fn cmd_abandon(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let to_abandon = {
-        let targets: Vec<_> = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
+        let target_expr = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
             workspace_command
                 .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
         } else {
             workspace_command.parse_revset(ui, &RevisionArg::AT)?
         }
-        .evaluate_to_commit_ids()?
-        .try_collect()?;
-        let visible: IndexSet<_> = RevsetExpression::commits(targets.clone())
-            .intersection(&RevsetExpression::visible_heads().ancestors())
+        .resolve()?;
+        let visible_expr = target_expr.intersection(&RevsetExpression::visible_heads().ancestors());
+        workspace_command.check_rewritable_expr(&visible_expr)?;
+        let visible: IndexSet<_> = visible_expr
+            .evaluate(workspace_command.repo().as_ref())?
+            .iter()
+            .try_collect()?;
+
+        let targets: Vec<_> = target_expr
             .evaluate(workspace_command.repo().as_ref())?
             .iter()
             .try_collect()?;
@@ -100,7 +105,6 @@ pub(crate) fn cmd_abandon(
         writeln!(ui.status(), "No revisions to abandon.")?;
         return Ok(());
     }
-    workspace_command.check_rewritable(&to_abandon)?;
 
     let mut tx = workspace_command.start_transaction();
     let options = RewriteRefsOptions {

@@ -1773,10 +1773,17 @@ to the current parents may contain changes from multiple commits.
         &self,
         commits: impl IntoIterator<Item = &'a CommitId>,
     ) -> Result<(), CommandError> {
-        let repo = self.repo().as_ref();
         let commit_ids = commits.into_iter().cloned().collect_vec();
         let to_rewrite_expr = RevsetExpression::commits(commit_ids);
-        let Some(commit_id) = self.env.find_immutable_commit(repo, &to_rewrite_expr)? else {
+        self.check_rewritable_expr(&to_rewrite_expr)
+    }
+
+    pub fn check_rewritable_expr(
+        &self,
+        to_rewrite_expr: &Arc<ResolvedRevsetExpression>,
+    ) -> Result<(), CommandError> {
+        let repo = self.repo().as_ref();
+        let Some(commit_id) = self.env.find_immutable_commit(repo, to_rewrite_expr)? else {
             return Ok(());
         };
         let error = if &commit_id == repo.store().root_commit_id() {
