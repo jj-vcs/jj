@@ -99,7 +99,10 @@ pub fn find_recursive_merge_commits(
     } else {
         let mut result = Merge::resolved(commit_ids[0].clone());
         for (i, other_commit_id) in commit_ids.iter().enumerate().skip(1) {
-            let ancestor_ids = index.common_ancestors(&commit_ids[0..i], &commit_ids[i..][..1]);
+            let ancestor_ids = index
+                .common_ancestors(&commit_ids[0..i], &commit_ids[i..][..1])
+                // TODO: indexing error shouldn't be a "BackendError"
+                .map_err(|err| BackendError::Other(err.into()))?;
             let ancestor_merge = find_recursive_merge_commits(store, index, ancestor_ids)?;
             result = Merge::from_vec(vec![
                 result,
