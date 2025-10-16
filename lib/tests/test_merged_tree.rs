@@ -54,15 +54,16 @@ fn diff_entry_tuple(diff: TreeDiffEntry) -> (RepoPathBuf, (MergedTreeValue, Merg
 }
 
 fn diff_stream_equals_iter(tree1: &MergedTree, tree2: &MergedTree, matcher: &dyn Matcher) {
-    let iter_diff: Vec<_> = TreeDiffIterator::new(tree1, tree2, matcher)
+    let iter_diff: Vec<_> = TreeDiffIterator::new(tree1, tree2, matcher, false)
         .map(|diff| (diff.path, diff.values.unwrap()))
         .collect();
     let max_concurrent_reads = 10;
     tree1.store().clear_caches();
-    let stream_diff: Vec<_> = TreeDiffStreamImpl::new(tree1, tree2, matcher, max_concurrent_reads)
-        .map(|diff| (diff.path, diff.values.unwrap()))
-        .collect()
-        .block_on();
+    let stream_diff: Vec<_> =
+        TreeDiffStreamImpl::new(tree1, tree2, matcher, max_concurrent_reads, false)
+            .map(|diff| (diff.path, diff.values.unwrap()))
+            .collect()
+            .block_on();
     assert_eq!(stream_diff, iter_diff);
 }
 
@@ -958,6 +959,44 @@ fn test_diff_conflicted() {
         .collect_vec();
     assert_eq!(actual_diff, expected_diff);
     diff_stream_equals_iter(&right_merged, &left_merged, &EverythingMatcher);
+    // Test diff stream for filesystem without unchanged conflicts
+    let actual_diff: Vec<_> = left_merged
+        .diff_stream_for_file_system(&right_merged, &EverythingMatcher, false)
+        .map(diff_entry_tuple)
+        .collect()
+        .block_on();
+    let expected_diff = [path2, path3, path4]
+        .iter()
+        .map(|&path| {
+            (
+                path.to_owned(),
+                (
+                    left_merged.path_value(path).unwrap(),
+                    right_merged.path_value(path).unwrap(),
+                ),
+            )
+        })
+        .collect_vec();
+    assert_eq!(actual_diff, expected_diff);
+    // Test diff stream for filesystem with unchanged conflicts
+    let actual_diff: Vec<_> = left_merged
+        .diff_stream_for_file_system(&right_merged, &EverythingMatcher, true)
+        .map(diff_entry_tuple)
+        .collect()
+        .block_on();
+    let expected_diff = [path1, path2, path3, path4]
+        .iter()
+        .map(|&path| {
+            (
+                path.to_owned(),
+                (
+                    left_merged.path_value(path).unwrap(),
+                    right_merged.path_value(path).unwrap(),
+                ),
+            )
+        })
+        .collect_vec();
+    assert_eq!(actual_diff, expected_diff);
 }
 
 #[test]
