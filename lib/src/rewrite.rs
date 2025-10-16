@@ -1277,13 +1277,17 @@ pub fn find_duplicate_divergent_commits(
     // commits with the same change ID which are not being rebased.
     let divergent_changes: Vec<(&Commit, Vec<CommitId>)> = target_commits
         .iter()
-        .map(|target_commit| {
+        .map(|target_commit| -> Result<_, BackendError> {
             let mut ancestor_candidates = repo
                 .resolve_change_id(target_commit.change_id())
+                // TODO: indexing error shouldn't be a "BackendError"
+                .map_err(|err| BackendError::Other(err.into()))?
                 .unwrap_or_default();
             ancestor_candidates.retain(|commit_id| !target_commit_ids.contains(commit_id));
-            (target_commit, ancestor_candidates)
+            Ok((target_commit, ancestor_candidates))
         })
+        .try_collect::<_, Vec<_>, _>()?
+        .into_iter()
         .filter(|(_, candidates)| !candidates.is_empty())
         .collect();
     if divergent_changes.is_empty() {

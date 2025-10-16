@@ -33,6 +33,7 @@ use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::backend::MergedTreeId;
 use crate::backend::Signature;
+use crate::index::IndexResult;
 use crate::merged_tree::MergedTree;
 use crate::repo::Repo;
 use crate::rewrite::merge_commit_trees;
@@ -176,9 +177,9 @@ impl Commit {
     }
 
     ///  A commit is hidden if its commit id is not in the change id index.
-    pub fn is_hidden(&self, repo: &dyn Repo) -> bool {
-        let maybe_entries = repo.resolve_change_id(self.change_id());
-        maybe_entries.is_none_or(|entries| !entries.contains(&self.id))
+    pub fn is_hidden(&self, repo: &dyn Repo) -> IndexResult<bool> {
+        let maybe_entries = repo.resolve_change_id(self.change_id())?;
+        Ok(maybe_entries.is_none_or(|entries| !entries.contains(&self.id)))
     }
 
     /// A commit is discardable if it has no change from its parent, and an
