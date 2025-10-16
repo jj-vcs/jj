@@ -109,6 +109,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Templates now support `Serialize` operations on the result of `map()` and
   `if()`, when supported by the underlying type.
 
+* New `diff_lines_added()` and `diff_lines_removed()` revset functions for
+  matching content on only one side of a diff.
+
 * `jj bookmark rename` now supports `--overwrite-existing` to allow renaming a
   bookmark even if the new name already exists, effectively replacing the
   existing bookmark.
