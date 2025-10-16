@@ -27,7 +27,6 @@ use std::mem;
 use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::slice;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -915,7 +914,7 @@ impl WorkspaceCommandEnvironment {
     fn find_immutable_commit(
         &self,
         repo: &dyn Repo,
-        commit_ids: &[CommitId],
+        to_rewrite_expr: &Arc<ResolvedRevsetExpression>,
     ) -> Result<Option<CommitId>, CommandError> {
         let immutable_expression = if self.command.global_args().ignore_immutable {
             UserRevsetExpression::root()
@@ -927,19 +926,19 @@ impl WorkspaceCommandEnvironment {
         // must not be calculated and cached against arbitrary repo. It's also
         // unlikely that the immutable expression contains short hashes.
         let id_prefix_context = IdPrefixContext::new(self.command.revset_extensions().clone());
-        let to_rewrite_revset = RevsetExpression::commits(commit_ids.to_vec());
-        let mut expression = RevsetExpressionEvaluator::new(
+        let immutable_expr = RevsetExpressionEvaluator::new(
             repo,
             self.command.revset_extensions().clone(),
             &id_prefix_context,
             immutable_expression,
-        );
-        expression.intersect_with(&to_rewrite_revset);
+        )
+        .resolve()
+        .map_err(|e| config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e))?;
 
-        let mut commit_id_iter = expression.evaluate_to_commit_ids().map_err(|e| {
-            config_error_with_message("Invalid `revset-aliases.immutable_heads()`", e)
-        })?;
-
+        let mut commit_id_iter = immutable_expr
+            .intersection(to_rewrite_expr)
+            .evaluate(repo)?
+            .iter();
         Ok(commit_id_iter.next().transpose()?)
     }
 
@@ -1776,7 +1775,8 @@ to the current parents may contain changes from multiple commits.
     ) -> Result<(), CommandError> {
         let repo = self.repo().as_ref();
         let commit_ids = commits.into_iter().cloned().collect_vec();
-        let Some(commit_id) = self.env.find_immutable_commit(repo, &commit_ids)? else {
+        let to_rewrite_expr = RevsetExpression::commits(commit_ids);
+        let Some(commit_id) = self.env.find_immutable_commit(repo, &to_rewrite_expr)? else {
             return Ok(());
         };
         let error = if &commit_id == repo.store().root_commit_id() {
@@ -1799,16 +1799,15 @@ to the current parents may contain changes from multiple commits.
             // find_immutable_commit().
             let id_prefix_context =
                 IdPrefixContext::new(self.env.command.revset_extensions().clone());
-            let to_rewrite_expr = RevsetExpression::commits(commit_ids);
             let (lower_bound, upper_bound) = RevsetExpressionEvaluator::new(
                 repo,
                 self.env.command.revset_extensions().clone(),
                 &id_prefix_context,
-                self.env
-                    .immutable_expression()
-                    .intersection(&to_rewrite_expr.descendants()),
+                self.env.immutable_expression(),
             )
-            .evaluate()?
+            .resolve()?
+            .intersection(&to_rewrite_expr.descendants())
+            .evaluate(repo)?
             .count_estimate()?;
             let exact = upper_bound == Some(lower_bound);
             let or_more = if exact { "" } else { " or more" };
@@ -2041,7 +2040,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         for (name, wc_commit_id) in &tx.repo().view().wc_commit_ids().clone() {
             if self
                 .env
-                .find_immutable_commit(tx.repo(), slice::from_ref(wc_commit_id))?
+                .find_immutable_commit(tx.repo(), &RevsetExpression::commit(wc_commit_id.clone()))?
                 .is_some()
             {
                 let wc_commit = tx.repo().store().get_commit(wc_commit_id)?;
