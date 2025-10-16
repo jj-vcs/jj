@@ -1949,7 +1949,8 @@ a comparison with Git, including how workflows are different, see the
   <a href="../bookmarks/">how branches work in Jujutsu</a>
   and <a href="#branches">how they interoperate with Git</a>.</li>
 <li><strong>Tags: Partial.</strong> You can check out tagged commits by name (pointed to be
-  either annotated or lightweight tags), but you cannot create new tags.</li>
+  either annotated or lightweight tags.) You can also create lightweight tags,
+  but you cannot create annotated tags.</li>
 <li><strong>.gitignore: Yes.</strong> Patterns in <code>.gitignore</code> files are supported. So are
   ignores in <code>.git/info/exclude</code> or configured via Git's <code>core.excludesfile</code>
   config. Since working-copy files are snapshotted by every <code>jj</code> command, you
