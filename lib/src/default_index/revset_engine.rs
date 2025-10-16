@@ -58,6 +58,7 @@ use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId as _;
 use crate::object_id::PrefixResolution;
 use crate::repo_path::RepoPath;
+use crate::revset::DiffMatchSide;
 use crate::revset::GENERATION_RANGE_FULL;
 use crate::revset::ResolvedExpression;
 use crate::revset::ResolvedPredicateExpression;
@@ -1316,9 +1317,10 @@ fn build_predicate_fn(
                 Ok(has_diff_from_parent(&store, index, &commit, &*matcher).block_on()?)
             })
         }
-        RevsetFilterPredicate::DiffLines { text, files } => {
+        RevsetFilterPredicate::DiffLines { text, files, side } => {
             let text_matcher = Rc::new(text.to_matcher());
             let files_matcher: Rc<dyn Matcher> = files.to_matcher().into();
+            let side = *side;
             box_pure_predicate_fn(move |index, pos| {
                 let narrowed_files_matcher;
                 let files_matcher = if let Some(paths) = index.changed_paths().changed_paths(pos) {
@@ -1335,10 +1337,15 @@ fn build_predicate_fn(
                 };
                 let entry = index.commits().entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
-                Ok(
-                    matches_diff_from_parent(&store, index, &commit, &text_matcher, files_matcher)
-                        .block_on()?,
+                Ok(matches_diff_from_parent(
+                    &store,
+                    index,
+                    &commit,
+                    &text_matcher,
+                    files_matcher,
+                    side,
                 )
+                .block_on()?)
             })
         }
         RevsetFilterPredicate::HasConflict => box_pure_predicate_fn(move |index, pos| {
@@ -1403,6 +1410,7 @@ async fn matches_diff_from_parent(
     commit: &Commit,
     text_matcher: &StringMatcher,
     files_matcher: &dyn Matcher,
+    side: DiffMatchSide,
 ) -> BackendResult<bool> {
     let parents: Vec<_> = commit.parents_async().await?;
     // Conflict resolution is expensive, try that only for matched files.
@@ -1427,7 +1435,13 @@ async fn matches_diff_from_parent(
         let left_contents = to_file_content(&entry.path, left_value).await?;
         let right_contents = to_file_content(&entry.path, right_value).await?;
         let merge_options = store.merge_options();
-        if diff_match_lines(&left_contents, &right_contents, text_matcher, merge_options)? {
+        if diff_match_lines(
+            &left_contents,
+            &right_contents,
+            text_matcher,
+            merge_options,
+            side,
+        )? {
             return Ok(true);
         }
     }
@@ -1439,10 +1453,13 @@ fn diff_match_lines(
     rights: &Merge<BString>,
     matcher: &StringMatcher,
     merge_options: &MergeOptions,
+    side: DiffMatchSide,
 ) -> BackendResult<bool> {
     // Filter lines prior to comparison. This might produce inferior hunks due
     // to lack of contexts, but is way faster than full diff.
-    if let (Some(left), Some(right)) = (lefts.as_resolved(), rights.as_resolved()) {
+    if side == DiffMatchSide::Either
+        && let (Some(left), Some(right)) = (lefts.as_resolved(), rights.as_resolved())
+    {
         let left_lines = matcher.match_lines(left);
         let right_lines = matcher.match_lines(right);
         Ok(left_lines.ne(right_lines))
@@ -1452,8 +1469,15 @@ fn diff_match_lines(
         let lefts = files::merge(&lefts, merge_options);
         let rights = files::merge(&rights, merge_options);
         let diff = ContentDiff::by_line(itertools::chain(&lefts, &rights));
-        let different = files::conflict_diff_hunks(diff.hunks(), lefts.as_slice().len())
-            .any(|hunk| hunk.kind == DiffHunkKind::Different);
+        let mut hunks = files::conflict_diff_hunks(diff.hunks(), lefts.as_slice().len());
+        let different = hunks.any(|hunk| {
+            hunk.kind == DiffHunkKind::Different
+                && match side {
+                    DiffMatchSide::Either => true,
+                    DiffMatchSide::Left => hunk.lefts.iter().any(|lines| !lines.is_empty()),
+                    DiffMatchSide::Right => hunk.rights.iter().any(|lines| !lines.is_empty()),
+                }
+        });
         Ok(different)
     }
 }
@@ -1878,78 +1902,262 @@ mod tests {
         let (conflict1, conflict2) = diff_match_lines_samples();
         let left1 = Merge::resolved(conflict1.first().clone());
         let left2 = Merge::resolved(conflict2.first().clone());
+        let options = MergeOptions {
+            hunk_level: FileMergeHunkLevel::Line,
+            same_change: SameChange::Accept,
+        };
         let diff = |needle: &str| {
             let matcher = StringPattern::substring(needle).to_matcher();
-            let options = MergeOptions {
-                hunk_level: FileMergeHunkLevel::Line,
-                same_change: SameChange::Accept,
-            };
-            diff_match_lines(&left1, &left2, &matcher, &options).unwrap()
+            diff_match_lines(&left1, &left2, &matcher, &options, DiffMatchSide::Either).unwrap()
+        };
+        let diff_left1 = |needle: &str| {
+            let matcher = StringPattern::substring(needle).to_matcher();
+            diff_match_lines(&left1, &left2, &matcher, &options, DiffMatchSide::Left).unwrap()
+        };
+        let diff_left2 = |needle: &str| {
+            let matcher = StringPattern::substring(needle).to_matcher();
+            diff_match_lines(&left1, &left2, &matcher, &options, DiffMatchSide::Right).unwrap()
         };
 
         assert!(diff(""));
+        assert!(diff_left1(""));
+        assert!(diff_left2(""));
+
         assert!(!diff("no match"));
+        assert!(!diff_left1("no_match"));
+        assert!(!diff_left2("no_match"));
+
         assert!(diff("line "));
+        assert!(diff_left1("line "));
+        assert!(!diff_left2("line "));
+
         assert!(diff(" 1"));
+        assert!(diff_left1(" 1"));
+        assert!(diff_left2(" 1"));
+
         assert!(!diff(" 2"));
+        assert!(!diff_left1(" 2"));
+        assert!(!diff_left2(" 2"));
+
         assert!(diff(" 3"));
+        assert!(!diff_left1(" 3"));
+        assert!(diff_left2(" 3"));
+
         assert!(!diff(" 3.1"));
+        assert!(!diff_left1(" 3.1"));
+        assert!(!diff_left2(" 3.1"));
+
         assert!(!diff(" 3.2"));
+        assert!(!diff_left1(" 3.2"));
+        assert!(!diff_left2(" 3.2"));
+
         assert!(diff(" 3.3"));
+        assert!(!diff_left1(" 3.3"));
+        assert!(diff_left2(" 3.3"));
+
         assert!(!diff(" 4"));
+        assert!(!diff_left1(" 4"));
+        assert!(!diff_left2(" 4"));
+
         assert!(!diff(" 5"));
+        assert!(!diff_left1(" 5"));
+        assert!(!diff_left2(" 5"));
     }
 
     #[test]
     fn test_diff_match_lines_between_conflicts() {
         let (conflict1, conflict2) = diff_match_lines_samples();
+        let options = MergeOptions {
+            hunk_level: FileMergeHunkLevel::Line,
+            same_change: SameChange::Accept,
+        };
         let diff = |needle: &str| {
             let matcher = StringPattern::substring(needle).to_matcher();
-            let options = MergeOptions {
-                hunk_level: FileMergeHunkLevel::Line,
-                same_change: SameChange::Accept,
-            };
-            diff_match_lines(&conflict1, &conflict2, &matcher, &options).unwrap()
+            diff_match_lines(
+                &conflict1,
+                &conflict2,
+                &matcher,
+                &options,
+                DiffMatchSide::Either,
+            )
+            .unwrap()
+        };
+        let diff_c1 = |needle: &str| {
+            let matcher = StringPattern::substring(needle).to_matcher();
+            diff_match_lines(
+                &conflict1,
+                &conflict2,
+                &matcher,
+                &options,
+                DiffMatchSide::Left,
+            )
+            .unwrap()
+        };
+        let diff_c2 = |needle: &str| {
+            let matcher = StringPattern::substring(needle).to_matcher();
+            diff_match_lines(
+                &conflict1,
+                &conflict2,
+                &matcher,
+                &options,
+                DiffMatchSide::Right,
+            )
+            .unwrap()
         };
 
         assert!(diff(""));
+        assert!(diff_c1(""));
+        assert!(diff_c2(""));
+
         assert!(!diff("no match"));
+        assert!(!diff_c1("no_match"));
+        assert!(!diff_c2("no_match"));
+
         assert!(diff("line "));
+        assert!(diff_c1("line "));
+        assert!(!diff_c2("line "));
+
         assert!(diff(" 1"));
+        assert!(diff_c1(" 1"));
+        assert!(diff_c2(" 1"));
+
         assert!(!diff(" 2"));
+        assert!(!diff_c1(" 2"));
+        assert!(!diff_c2(" 2"));
+
         assert!(diff(" 3"));
+        assert!(diff_c1(" 3"));
+        assert!(diff_c2(" 3"));
+
         // " 3.1" and " 3.2" could be considered different because the hunk
         // includes a changed line " 3.3". However, we filters out unmatched
         // lines first, therefore the changed line is omitted from the hunk.
         assert!(!diff(" 3.1"));
+        assert!(!diff_c1(" 3.1"));
+        assert!(!diff_c2(" 3.1"));
+
         assert!(!diff(" 3.2"));
+        assert!(!diff_c1(" 3.2"));
+        assert!(!diff_c2(" 3.2"));
+
         assert!(diff(" 3.3"));
+        assert!(!diff_c1(" 3.3"));
+        assert!(diff_c2(" 3.3"));
+
         assert!(!diff(" 4"));
+        assert!(!diff_c1(" 4"));
+        assert!(!diff_c2(" 4"));
+
         assert!(!diff(" 5")); // per A-B+A=A rule
+        assert!(!diff_c1(" 5"));
+        assert!(!diff_c2(" 5"));
     }
 
     #[test]
     fn test_diff_match_lines_between_resolved_and_conflict() {
         let (_conflict1, conflict2) = diff_match_lines_samples();
         let base = Merge::resolved(conflict2.get_remove(0).unwrap().clone());
+        let options = MergeOptions {
+            hunk_level: FileMergeHunkLevel::Line,
+            same_change: SameChange::Accept,
+        };
         let diff = |needle: &str| {
             let matcher = StringPattern::substring(needle).to_matcher();
-            let options = MergeOptions {
-                hunk_level: FileMergeHunkLevel::Line,
-                same_change: SameChange::Accept,
-            };
-            diff_match_lines(&base, &conflict2, &matcher, &options).unwrap()
+            diff_match_lines(&base, &conflict2, &matcher, &options, DiffMatchSide::Either).unwrap()
+        };
+        let diff_base = |needle: &str| {
+            let matcher = StringPattern::substring(needle).to_matcher();
+            diff_match_lines(&base, &conflict2, &matcher, &options, DiffMatchSide::Left).unwrap()
+        };
+        let diff_c2 = |needle: &str| {
+            let matcher = StringPattern::substring(needle).to_matcher();
+            diff_match_lines(&base, &conflict2, &matcher, &options, DiffMatchSide::Right).unwrap()
         };
 
         assert!(diff(""));
+        assert!(diff_base(""));
+        assert!(diff_c2(""));
+
         assert!(!diff("no match"));
+        assert!(!diff_base("no match"));
+        assert!(!diff_c2("no match"));
+
         assert!(diff("line "));
+        assert!(diff_base("line "));
+        assert!(diff_c2("line "));
+
         assert!(diff(" 1"));
+        assert!(diff_base(" 1"));
+        assert!(diff_c2(" 1"));
+
         assert!(!diff(" 2"));
+        assert!(!diff_base(" 2"));
+        assert!(!diff_c2(" 2"));
+
         assert!(diff(" 3"));
+        assert!(diff_base(" 3"));
+        assert!(diff_c2(" 3"));
+
         assert!(diff(" 3.1"));
+        assert!(!diff_base(" 3.1"));
+        assert!(diff_c2(" 3.1"));
+
         assert!(diff(" 3.2"));
+        assert!(!diff_base(" 3.2"));
+        assert!(diff_c2(" 3.2"));
+
         assert!(!diff(" 4"));
+        assert!(!diff_base(" 4"));
+        assert!(!diff_c2(" 4"));
+
         assert!(diff(" 5"));
+        assert!(!diff_base(" 5"));
+        assert!(diff_c2(" 5"));
+    }
+
+    #[test]
+    fn test_diff_match_lines_with_repeated_lines() {
+        let left = Merge::resolved(BString::from(indoc! {"
+            twice_left
+            twice_left
+            twice_both
+            twice_both
+            twice_right
+        "}));
+        let right = Merge::resolved(BString::from(indoc! {"
+            twice_left
+            twice_both
+            twice_both
+            twice_right
+            twice_right
+        "}));
+        let options = MergeOptions {
+            hunk_level: FileMergeHunkLevel::Line,
+            same_change: SameChange::Accept,
+        };
+        let diff = |needle: &str| {
+            let matcher = StringPattern::substring(needle).to_matcher();
+            diff_match_lines(&left, &right, &matcher, &options, DiffMatchSide::Either).unwrap()
+        };
+        let diff_left = |needle: &str| {
+            let matcher = StringPattern::substring(needle).to_matcher();
+            diff_match_lines(&left, &right, &matcher, &options, DiffMatchSide::Left).unwrap()
+        };
+        let diff_right = |needle: &str| {
+            let matcher = StringPattern::substring(needle).to_matcher();
+            diff_match_lines(&left, &right, &matcher, &options, DiffMatchSide::Right).unwrap()
+        };
+
+        assert!(diff("twice_left"));
+        assert!(diff_left("twice_left"));
+        assert!(!diff_right("twice_left"));
+
+        assert!(!diff("twice_both"));
+        assert!(!diff_left("twice_both"));
+        assert!(!diff_right("twice_both"));
+
+        assert!(diff("twice_right"));
+        assert!(!diff_left("twice_right"));
+        assert!(diff_right("twice_right"));
     }
 }

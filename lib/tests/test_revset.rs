@@ -4763,13 +4763,39 @@ fn test_evaluate_expression_diff_lines(indexed: bool) {
         ]
     );
     assert_eq!(
+        query("diff_lines_added(*2*)"),
+        vec![commit3.id().clone(), commit2.id().clone()]
+    );
+    assert_eq!(
+        query("diff_lines_removed(*2*)"),
+        vec![commit4.id().clone(), commit3.id().clone()]
+    );
+
+    assert_eq!(
         query("diff_lines(*3*)"),
         vec![commit4.id().clone(), commit3.id().clone()]
     );
+    assert_eq!(query("diff_lines_added(*3*)"), vec![commit3.id().clone()]);
+    assert_eq!(query("diff_lines_removed(*3*)"), vec![commit4.id().clone()]);
+
     assert_eq!(query("diff_lines('*2 3*')"), vec![commit3.id().clone()]);
+    assert_eq!(
+        query("diff_lines_added('*2 3*')"),
+        vec![commit3.id().clone()]
+    );
+    assert_eq!(query("diff_lines_removed('*2 3*')"), vec![]);
+
     assert_eq!(
         query("diff_lines('*1 3*')"),
         vec![commit4.id().clone(), commit3.id().clone()]
+    );
+    assert_eq!(
+        query("diff_lines_added('*1 3*')"),
+        vec![commit3.id().clone()]
+    );
+    assert_eq!(
+        query("diff_lines_removed('*1 3*')"),
+        vec![commit4.id().clone()]
     );
 
     // should match line with eol
@@ -4779,6 +4805,18 @@ fn test_evaluate_expression_diff_lines(indexed: bool) {
         )),
         vec![commit3.id().clone(), commit1.id().clone()]
     );
+    assert_eq!(
+        query(&format!(
+            "diff_lines_added('1', {normal_inserted_modified_removed:?})",
+        )),
+        vec![commit1.id().clone()]
+    );
+    assert_eq!(
+        query(&format!(
+            "diff_lines_removed('1', {normal_inserted_modified_removed:?})",
+        )),
+        vec![commit3.id().clone()]
+    );
 
     // should match line without eol
     assert_eq!(
@@ -4786,6 +4824,18 @@ fn test_evaluate_expression_diff_lines(indexed: bool) {
             "diff_lines('1', {noeol_modified_modified_clean:?})",
         )),
         vec![commit2.id().clone(), commit1.id().clone()]
+    );
+    assert_eq!(
+        query(&format!(
+            "diff_lines_added('1', {noeol_modified_modified_clean:?})",
+        )),
+        vec![commit1.id().clone()]
+    );
+    assert_eq!(
+        query(&format!(
+            "diff_lines_removed('1', {noeol_modified_modified_clean:?})",
+        )),
+        vec![commit2.id().clone()]
     );
 
     // exact:'' should match blank line
@@ -4797,9 +4847,34 @@ fn test_evaluate_expression_diff_lines(indexed: bool) {
     );
     assert_eq!(
         query(&format!(
+            "diff_lines_added(exact:'', {empty_clean_inserted_deleted:?})",
+        )),
+        vec![]
+    );
+    assert_eq!(
+        query(&format!(
+            "diff_lines_removed(exact:'', {empty_clean_inserted_deleted:?})",
+        )),
+        vec![]
+    );
+
+    assert_eq!(
+        query(&format!(
             "diff_lines(exact:'', {blank_clean_inserted_clean:?})",
         )),
         vec![commit1.id().clone()]
+    );
+    assert_eq!(
+        query(&format!(
+            "diff_lines_added(exact:'', {blank_clean_inserted_clean:?})",
+        )),
+        vec![commit1.id().clone()]
+    );
+    assert_eq!(
+        query(&format!(
+            "diff_lines_removed(exact:'', {blank_clean_inserted_clean:?})",
+        )),
+        vec![]
     );
 
     // substring:'' should match anything but clean
@@ -4811,9 +4886,34 @@ fn test_evaluate_expression_diff_lines(indexed: bool) {
     );
     assert_eq!(
         query(&format!(
+            "diff_lines_added(substring:'', {empty_clean_inserted_deleted:?})",
+        )),
+        vec![commit3.id().clone()]
+    );
+    assert_eq!(
+        query(&format!(
+            "diff_lines_removed(substring:'', {empty_clean_inserted_deleted:?})",
+        )),
+        vec![commit4.id().clone()]
+    );
+
+    assert_eq!(
+        query(&format!(
             "diff_lines(substring:'', {blank_clean_inserted_clean:?})",
         )),
         vec![commit3.id().clone(), commit1.id().clone()]
+    );
+    assert_eq!(
+        query(&format!(
+            "diff_lines_added(substring:'', {blank_clean_inserted_clean:?})",
+        )),
+        vec![commit3.id().clone(), commit1.id().clone()]
+    );
+    assert_eq!(
+        query(&format!(
+            "diff_lines_removed(substring:'', {blank_clean_inserted_clean:?})",
+        )),
+        vec![]
     );
 }
 
@@ -4875,12 +4975,38 @@ fn test_evaluate_expression_diff_lines_conflict(indexed: bool) {
         vec![commit1.id().clone()]
     );
     assert_eq!(
+        resolve_commit_ids(mut_repo, "diff_lines_added('0')"),
+        vec![commit1.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "diff_lines_removed('0')"),
+        vec![]
+    );
+
+    assert_eq!(
         resolve_commit_ids(mut_repo, "diff_lines('1')"),
         vec![commit2.id().clone(), commit1.id().clone()]
     );
     assert_eq!(
+        resolve_commit_ids(mut_repo, "diff_lines_added('1')"),
+        vec![commit1.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "diff_lines_removed('1')"),
+        vec![commit2.id().clone()]
+    );
+
+    assert_eq!(
         resolve_commit_ids(mut_repo, "diff_lines('2')"),
         vec![commit2.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "diff_lines_added('2')"),
+        vec![commit2.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "diff_lines_removed('2')"),
+        vec![]
     );
 }
 
@@ -4948,6 +5074,20 @@ fn test_evaluate_expression_file_merged_parents(indexed: bool) {
         ]
     );
     assert_eq!(
+        query("diff_lines_added(regex:'[1234]', 'file1')"),
+        vec![
+            commit4.id().clone(),
+            commit3.id().clone(),
+            commit2.id().clone(),
+            commit1.id().clone(),
+        ]
+    );
+    assert_eq!(
+        query("diff_lines_removed(regex:'[1234]', 'file1')"),
+        vec![commit4.id().clone()]
+    );
+
+    assert_eq!(
         query("diff_lines(regex:'[1234]', 'file2')"),
         vec![
             commit3.id().clone(),
@@ -4955,6 +5095,15 @@ fn test_evaluate_expression_file_merged_parents(indexed: bool) {
             commit1.id().clone(),
         ]
     );
+    assert_eq!(
+        query("diff_lines_added(regex:'[1234]', 'file2')"),
+        vec![
+            commit3.id().clone(),
+            commit2.id().clone(),
+            commit1.id().clone(),
+        ]
+    );
+    assert_eq!(query("diff_lines_removed(regex:'[1234]', 'file2')"), vec![]);
 }
 
 #[test]

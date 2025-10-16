@@ -179,6 +179,13 @@ impl dyn RevsetFilterExtension {
     }
 }
 
+#[derive(Eq, Copy, Clone, Debug, PartialEq)]
+pub enum DiffMatchSide {
+    Either,
+    Left,
+    Right,
+}
+
 #[derive(Clone, Debug)]
 pub enum RevsetFilterPredicate {
     /// Commits with number of parents in the range.
@@ -205,6 +212,7 @@ pub enum RevsetFilterPredicate {
     DiffLines {
         text: StringExpression,
         files: FilesetExpression,
+        side: DiffMatchSide,
     },
     /// Commits with conflicts
     HasConflict,
@@ -1119,20 +1127,34 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         }
         let ([text_arg], [files_opt_arg]) = function.expect_arguments()?;
         let text = expect_string_expression(diagnostics, text_arg, context)?;
-        let files = if let Some(files_arg) = files_opt_arg {
-            let ctx = context.workspace.as_ref().ok_or_else(|| {
-                RevsetParseError::with_span(
-                    RevsetParseErrorKind::FsPathWithoutWorkspace,
-                    files_arg.span,
-                )
-            })?;
-            expect_fileset_expression(diagnostics, files_arg, ctx.path_converter)?
-        } else {
-            // TODO: defaults to CLI path arguments?
-            // https://github.com/jj-vcs/jj/issues/2933#issuecomment-1925870731
-            FilesetExpression::all()
+        let files = expand_optional_files_arg(files_opt_arg, diagnostics, context)?;
+        let predicate = RevsetFilterPredicate::DiffLines {
+            text,
+            files,
+            side: DiffMatchSide::Either,
         };
-        let predicate = RevsetFilterPredicate::DiffLines { text, files };
+        Ok(RevsetExpression::filter(predicate))
+    });
+    map.insert("diff_lines_added", |diagnostics, function, context| {
+        let ([text_arg], [files_opt_arg]) = function.expect_arguments()?;
+        let text = expect_string_expression(diagnostics, text_arg, context)?;
+        let files = expand_optional_files_arg(files_opt_arg, diagnostics, context)?;
+        let predicate = RevsetFilterPredicate::DiffLines {
+            text,
+            files,
+            side: DiffMatchSide::Right,
+        };
+        Ok(RevsetExpression::filter(predicate))
+    });
+    map.insert("diff_lines_removed", |diagnostics, function, context| {
+        let ([text_arg], [files_opt_arg]) = function.expect_arguments()?;
+        let text = expect_string_expression(diagnostics, text_arg, context)?;
+        let files = expand_optional_files_arg(files_opt_arg, diagnostics, context)?;
+        let predicate = RevsetFilterPredicate::DiffLines {
+            text,
+            files,
+            side: DiffMatchSide::Left,
+        };
         Ok(RevsetExpression::filter(predicate))
     });
     // TODO: Remove diff_contains() in jj 0.44+
@@ -1172,6 +1194,26 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
     });
     map
 });
+
+fn expand_optional_files_arg(
+    files_opt_arg: Option<&ExpressionNode>,
+    diagnostics: &mut RevsetDiagnostics,
+    context: &LoweringContext,
+) -> Result<FilesetExpression, RevsetParseError> {
+    if let Some(files_arg) = files_opt_arg {
+        let ctx = context.workspace.as_ref().ok_or_else(|| {
+            RevsetParseError::with_span(
+                RevsetParseErrorKind::FsPathWithoutWorkspace,
+                files_arg.span,
+            )
+        })?;
+        expect_fileset_expression(diagnostics, files_arg, ctx.path_converter)
+    } else {
+        // TODO: defaults to CLI path arguments?
+        // https://github.com/jj-vcs/jj/issues/2933#issuecomment-1925870731
+        Ok(FilesetExpression::all())
+    }
+}
 
 /// Parses the given `node` as a fileset expression.
 pub fn expect_fileset_expression(
