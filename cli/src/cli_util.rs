@@ -917,10 +917,11 @@ impl WorkspaceCommandEnvironment {
         repo: &dyn Repo,
         commit_ids: &[CommitId],
     ) -> Result<Option<CommitId>, CommandError> {
-        if self.command.global_args().ignore_immutable {
-            let root_id = repo.store().root_commit_id();
-            return Ok(commit_ids.iter().find(|id| *id == root_id).cloned());
-        }
+        let immutable_expression = if self.command.global_args().ignore_immutable {
+            UserRevsetExpression::root()
+        } else {
+            self.immutable_expression()
+        };
 
         // Not using self.id_prefix_context() because the disambiguation data
         // must not be calculated and cached against arbitrary repo. It's also
@@ -931,7 +932,7 @@ impl WorkspaceCommandEnvironment {
             repo,
             self.command.revset_extensions().clone(),
             &id_prefix_context,
-            self.immutable_expression(),
+            immutable_expression,
         );
         expression.intersect_with(&to_rewrite_revset);
 
