@@ -62,6 +62,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New `jj tag set`/`delete` commands to create/update/delete tags locally.
   Updated tags will be exported to Git as lightweight tags.
 
+* A new config option `git.auto-track-bookmarks` can be set to a string
+  pattern. New bookmarks that match the pattern will automatically be tracked.
+  See <https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks>.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer

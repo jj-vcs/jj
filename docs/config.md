@@ -1530,6 +1530,55 @@ jj bookmark delete gh-pages
 jj bookmark untrack gh-pages@upstream
 ```
 
+### Automatic tracking of bookmarks
+
+You can configure a string pattern of new bookmarks to track automatically,
+for example:
+
+```toml
+[git]
+auto-track-bookmarks = "glob:*@*"
+```
+
+This will simply track all bookmarks, local or remote. There are various
+reasons to restrict which bookmarks to track:
+
+When collaborating with other people via the same remote, you may not want to
+track all the bookmarks of your collaborators. Similarly, you may not want to
+push all your bookmarks to the remote at all. Some may only be intended for
+local use. Many people use a "personal prefix" in their bookmark names. This
+marks a bookmark as belonging to one person, making it possible to track and
+push only bookmarks with that prefix. For example, Alice may set her
+configuration like so:
+
+```toml
+[git]
+auto-track-bookmarks = "glob:alice/*@*"
+```
+
+That way, bookmarks pushed by other people (who probably use a different prefix
+or none at all) are not tracked automatically. At the same time, Alice can
+create bookmarks without the prefix for local-only use. You can also configure
+Jujutsu to use your prefix for generated bookmark names, see the section
+["Generated bookmark names on push"](#generated-bookmark-names-on-push).
+
+Another reason to restrict the bookmarks to track may be that you're not
+collaborating with people using the same remote, but different ones. For example,
+if you make a fork on GitHub, your fork will usually be called "origin", while
+the repository you forked from is usually called "upstream". In that case,
+you may only want to track bookmarks with the remote "origin". The following
+configuration can be used to achieve that:
+
+```toml
+[git]
+auto-track-bookmarks = "glob:*@origin"
+```
+
+Lastly, you may be working on different repositories with different conventions
+and needs. In that case, it can be handy to apply different configuration to
+different (groups of) repositories. Read about how to do that in the section
+["Conditional variables"](conditional-variables).
+
 ### Automatic local bookmark creation on `jj git clone`
 
 When cloning a new Git repository, `jj` by default creates a local bookmark

@@ -17,10 +17,10 @@ use std::rc::Rc;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
+use jj_lib::str_util::RemoteBookmarkNamePattern;
 
 use super::find_trackable_remote_bookmarks;
 use crate::cli_util::CommandHelper;
-use crate::cli_util::RemoteBookmarkNamePattern;
 use crate::command_error::CommandError;
 use crate::commit_templater::CommitRef;
 use crate::complete;

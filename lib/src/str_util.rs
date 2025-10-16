@@ -20,6 +20,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::fmt::Debug;
 use std::ops::Deref;
+use std::str::FromStr;
 
 use bstr::ByteSlice as _;
 use either::Either;
@@ -379,6 +380,61 @@ impl fmt::Display for StringPattern {
     /// Shows the original string of this pattern.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.as_str())
+    }
+}
+
+/// Pattern to be tested against a bookmark name and its remote.
+#[derive(Clone, Debug)]
+pub struct RemoteBookmarkNamePattern {
+    /// The pattern to be tested against the bookmark name.
+    pub bookmark: StringPattern,
+    /// The pattern to be tested against the remote.
+    pub remote: StringPattern,
+}
+
+impl FromStr for RemoteBookmarkNamePattern {
+    type Err = String;
+
+    fn from_str(src: &str) -> Result<Self, Self::Err> {
+        // The kind prefix applies to both bookmark and remote fragments. It's
+        // weird that unanchored patterns like substring:bookmark@remote is split
+        // into two, but I can't think of a better syntax.
+        // TODO: should we disable substring pattern? what if we added regex?
+        let (maybe_kind, pat) = src
+            .split_once(':')
+            .map_or((None, src), |(kind, pat)| (Some(kind), pat));
+        let to_pattern = |pat: &str| {
+            if let Some(kind) = maybe_kind {
+                StringPattern::from_str_kind(pat, kind).map_err(|err| err.to_string())
+            } else {
+                Ok(StringPattern::exact(pat))
+            }
+        };
+        // TODO: maybe reuse revset parser to handle bookmark/remote name containing @
+        let (bookmark, remote) = pat.rsplit_once('@').ok_or_else(|| {
+            "remote bookmark must be specified in bookmark@remote form".to_owned()
+        })?;
+        Ok(Self {
+            bookmark: to_pattern(bookmark)?,
+            remote: to_pattern(remote)?,
+        })
+    }
+}
+
+impl RemoteBookmarkNamePattern {
+    /// Returns true if both the bookmark pattern and remote pattern matches
+    /// input strings exactly.
+    pub fn is_exact(&self) -> bool {
+        self.bookmark.is_exact() && self.remote.is_exact()
+    }
+}
+
+impl fmt::Display for RemoteBookmarkNamePattern {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: use revset::format_remote_symbol() if FromStr is migrated to
+        // the revset parser.
+        let Self { bookmark, remote } = self;
+        write!(f, "{bookmark}@{remote}")
     }
 }
 

@@ -18,6 +18,7 @@ use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::ref_name::RefNameBuf;
+use jj_lib::repo::Repo as _;
 
 use super::is_fast_forward;
 use crate::cli_util::CommandHelper;
@@ -90,11 +91,28 @@ pub fn cmd_bookmark_set(
     }
 
     let mut tx = workspace_command.start_transaction();
+    let git_settings = tx.settings().git_settings()?;
+    let remotes = tx
+        .repo()
+        .view()
+        .remote_views_matching(&git_settings.auto_track_bookmarks.remote)
+        .map(|(remote, _)| remote.to_owned())
+        .collect_vec();
     for bookmark_name in bookmark_names {
         tx.repo_mut().set_local_bookmark_target(
             bookmark_name,
             RefTarget::normal(target_commit.id().clone()),
         );
+        if git_settings
+            .auto_track_bookmarks
+            .bookmark
+            .is_match(bookmark_name.as_str())
+        {
+            for remote in &remotes {
+                tx.repo_mut()
+                    .track_remote_bookmark(bookmark_name.to_remote_symbol(remote));
+            }
+        }
     }
 
     if let Some(mut formatter) = ui.status_formatter() {

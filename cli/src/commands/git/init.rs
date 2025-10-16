@@ -227,8 +227,8 @@ fn init_git_refs(
         return Ok(repo);
     }
     if colocated {
-        // If git.auto-local-bookmark = true, local bookmarks could be created for
-        // the imported remote branches.
+        // If git.auto-local-bookmark = true or git.auto-track-bookmarks is set,
+        // local bookmarks could be created for the imported remote branches.
         let stats = git::export_refs(tx.repo_mut())?;
         print_git_export_stats(ui, &stats)?;
     }

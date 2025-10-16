@@ -428,6 +428,11 @@
                     "description": "Whether jj creates a local bookmark with the same name when it imports a remote-tracking branch from git. See https://jj-vcs.github.io/jj/latest/config/#automatic-local-bookmark-creation",
                     "default": false
                 },
+                "auto-track-bookmarks": {
+                    "type": "string",
+                    "description": "A string pattern that determines which bookmarks will automatically be put in the tracked state. The default matches nothing. This applies to both newly created local bookmarks as well as remote-tracking branches imported from git. See https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks",
+                    "default": "@"
+                },
                 "abandon-unreachable-commits": {
                     "type": "boolean",
                     "description": "Whether jj should abandon commits that became unreachable in Git.",

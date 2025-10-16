@@ -29,6 +29,7 @@ use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::Repo;
+use jj_lib::str_util::RemoteBookmarkNamePattern;
 use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
 
@@ -51,7 +52,6 @@ use self::track::cmd_bookmark_track;
 use self::untrack::BookmarkUntrackArgs;
 use self::untrack::cmd_bookmark_untrack;
 use crate::cli_util::CommandHelper;
-use crate::cli_util::RemoteBookmarkNamePattern;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::ui::Ui;

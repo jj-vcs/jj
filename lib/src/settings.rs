@@ -36,6 +36,7 @@ use crate::config::StackedConfig;
 use crate::config::ToConfigNamePath;
 use crate::fmt_util::binary_prefix;
 use crate::signing::SignBehavior;
+use crate::str_util::RemoteBookmarkNamePattern;
 
 #[derive(Debug, Clone)]
 pub struct UserSettings {
@@ -59,6 +60,7 @@ struct UserSettingsData {
 #[derive(Debug, Clone)]
 pub struct GitSettings {
     pub auto_local_bookmark: bool,
+    pub auto_track_bookmarks: RemoteBookmarkNamePattern,
     pub abandon_unreachable_commits: bool,
     pub executable_path: PathBuf,
     pub write_change_id_header: bool,
@@ -69,6 +71,12 @@ impl GitSettings {
     pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
         Ok(Self {
             auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
+            auto_track_bookmarks: settings.get_value_with("git.auto-track-bookmarks", |value| {
+                value
+                    .as_str()
+                    .ok_or_else(|| "expected a string".to_string())?
+                    .parse()
+            })?,
             abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
             executable_path: settings.get("git.executable-path")?,
             write_change_id_header: settings.get("git.write-change-id-header")?,
