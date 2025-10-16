@@ -2761,13 +2761,17 @@ type</a> are available as keywords. For example,
 <li><code>.current_working_copy() -&gt; Boolean</code>: True for the working-copy commit of the
   current workspace.</li>
 <li><code>.bookmarks() -&gt; List&lt;CommitRef&gt;</code>: Local and remote bookmarks pointing to the
-  commit. A tracking remote bookmark will be included only if its target is
+  commit. A tracked remote bookmark will be included only if its target is
   different from the local one.</li>
 <li><code>.local_bookmarks() -&gt; List&lt;CommitRef&gt;</code>: All local bookmarks pointing to the
   commit.</li>
 <li><code>.remote_bookmarks() -&gt; List&lt;CommitRef&gt;</code>: All remote bookmarks pointing to the
   commit.</li>
-<li><code>.tags() -&gt; List&lt;CommitRef&gt;</code></li>
+<li><code>.tags() -&gt; List&lt;CommitRef&gt;</code>: Local and remote tags pointing to the commit. A
+  tracked remote tag will be included only if its target is different from the
+  local one.</li>
+<li><code>.local_tags() -&gt; List&lt;CommitRef&gt;</code>: All local tags pointing to the commit.</li>
+<li><code>.remote_tags() -&gt; List&lt;CommitRef&gt;</code>: All remote tags pointing to the commit.</li>
 <li><code>.git_refs() -&gt; List&lt;CommitRef&gt;</code></li>
 <li><code>.git_head() -&gt; Boolean</code>: True for the Git <code>HEAD</code> commit.</li>
 <li><code>.divergent() -&gt; Boolean</code>: True if the commit's change id corresponds to multiple
