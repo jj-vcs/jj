@@ -589,8 +589,8 @@ impl Index for CompositeIndex {
         Ok(self.commits().is_ancestor(ancestor_id, descendant_id))
     }
 
-    fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> Vec<CommitId> {
-        self.commits().common_ancestors(set1, set2)
+    fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> IndexResult<Vec<CommitId>> {
+        Ok(self.commits().common_ancestors(set1, set2))
     }
 
     fn all_heads_for_gc(&self) -> IndexResult<Box<dyn Iterator<Item = CommitId> + '_>> {
