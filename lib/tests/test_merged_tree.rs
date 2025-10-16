@@ -56,13 +56,13 @@ fn diff_entry_tuple(diff: TreeDiffEntry) -> (RepoPathBuf, (MergedTreeValue, Merg
 fn diff_stream_equals_iter(tree1: &MergedTree, tree2: &MergedTree, matcher: &dyn Matcher) {
     let trees1 = tree1.as_merge();
     let trees2 = tree2.as_merge();
-    let iter_diff: Vec<_> = TreeDiffIterator::new(trees1, trees2, matcher)
+    let iter_diff: Vec<_> = TreeDiffIterator::new(trees1, trees2, matcher, false)
         .map(|diff| (diff.path, diff.values.unwrap()))
         .collect();
     let max_concurrent_reads = 10;
     tree1.store().clear_caches();
     let stream_diff: Vec<_> =
-        TreeDiffStreamImpl::new(trees1, trees2, matcher, max_concurrent_reads)
+        TreeDiffStreamImpl::new(trees1, trees2, matcher, max_concurrent_reads, false)
             .map(|diff| (diff.path, diff.values.unwrap()))
             .collect()
             .block_on();
