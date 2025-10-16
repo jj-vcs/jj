@@ -1072,43 +1072,6 @@ mod tests {
             parse_into_kind("foo | -"),
             Err(RevsetParseErrorKind::SyntaxError)
         );
-        // Space is allowed around infix operators and function arguments
-        assert_eq!(
-            parse_normalized(
-                "   description(  arg1 ) ~    file(  arg1 ,   arg2 )  ~ visible_heads(  )  ",
-            ),
-            parse_normalized("(description(arg1) ~ file(arg1, arg2)) ~ visible_heads()"),
-        );
-        // Space is allowed around keyword arguments
-        assert_eq!(
-            parse_normalized("remote_bookmarks( remote  =   foo  )"),
-            parse_normalized("remote_bookmarks(remote=foo)"),
-        );
-
-        // Trailing comma isn't allowed for empty argument
-        assert!(parse_into_kind("bookmarks(,)").is_err());
-        // Trailing comma is allowed for the last argument
-        assert_eq!(
-            parse_normalized("bookmarks(a,)"),
-            parse_normalized("bookmarks(a)")
-        );
-        assert_eq!(
-            parse_normalized("bookmarks(a ,  )"),
-            parse_normalized("bookmarks(a)")
-        );
-        assert!(parse_into_kind("bookmarks(,a)").is_err());
-        assert!(parse_into_kind("bookmarks(a,,)").is_err());
-        assert!(parse_into_kind("bookmarks(a  , , )").is_err());
-        assert_eq!(
-            parse_normalized("file(a,b,)"),
-            parse_normalized("file(a, b)")
-        );
-        assert!(parse_into_kind("file(a,,b)").is_err());
-        assert_eq!(
-            parse_normalized("remote_bookmarks(a,remote=b  , )"),
-            parse_normalized("remote_bookmarks(a, remote=b)"),
-        );
-        assert!(parse_into_kind("remote_bookmarks(a,,remote=b)").is_err());
     }
 
     #[test]
@@ -1413,6 +1376,47 @@ mod tests {
                 remote: "術".into()
             }))
         );
+    }
+
+    #[test]
+    fn test_parse_function_call() {
+        // Space is allowed around infix operators and function arguments
+        assert_eq!(
+            parse_normalized(
+                "   description(  arg1 ) ~    file(  arg1 ,   arg2 )  ~ visible_heads(  )  ",
+            ),
+            parse_normalized("(description(arg1) ~ file(arg1, arg2)) ~ visible_heads()"),
+        );
+        // Space is allowed around keyword arguments
+        assert_eq!(
+            parse_normalized("remote_bookmarks( remote  =   foo  )"),
+            parse_normalized("remote_bookmarks(remote=foo)"),
+        );
+
+        // Trailing comma isn't allowed for empty argument
+        assert!(parse_into_kind("bookmarks(,)").is_err());
+        // Trailing comma is allowed for the last argument
+        assert_eq!(
+            parse_normalized("bookmarks(a,)"),
+            parse_normalized("bookmarks(a)")
+        );
+        assert_eq!(
+            parse_normalized("bookmarks(a ,  )"),
+            parse_normalized("bookmarks(a)")
+        );
+        assert!(parse_into_kind("bookmarks(,a)").is_err());
+        assert!(parse_into_kind("bookmarks(a,,)").is_err());
+        assert!(parse_into_kind("bookmarks(a  , , )").is_err());
+        assert_eq!(
+            parse_normalized("file(a,b,)"),
+            parse_normalized("file(a, b)")
+        );
+        assert!(parse_into_kind("file(a,,b)").is_err());
+        assert_eq!(
+            parse_normalized("remote_bookmarks(a,remote=b  , )"),
+            parse_normalized("remote_bookmarks(a, remote=b)"),
+        );
+        assert!(parse_into_kind("remote_bookmarks(a,,remote=b)").is_err());
     }
 
     #[test]
