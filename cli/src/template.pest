@@ -101,7 +101,7 @@ string_pattern = ${
     string_pattern_identifier ~ pattern_kind_op ~ any_string_literal
 }
 
-primary = _{
+primary = {
   ("(" ~ template ~ ")")
   | function
   | lambda

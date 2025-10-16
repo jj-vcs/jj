@@ -480,22 +480,25 @@ fn parse_raw_string_literal(pair: Pair<Rule>) -> String {
 fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
     assert_eq!(pair.as_rule(), Rule::term);
     let mut inner = pair.into_inner();
-    let expr = inner.next().unwrap();
-    let span = expr.as_span();
-    let primary = match expr.as_rule() {
+    let primary = inner.next().unwrap();
+    assert_eq!(primary.as_rule(), Rule::primary);
+    let primary_span = primary.as_span();
+    let expr = primary.into_inner().next().unwrap();
+    let primary_kind = match expr.as_rule() {
         Rule::string_literal => {
             let text = STRING_LITERAL_PARSER.parse(expr.into_inner());
-            ExpressionNode::new(ExpressionKind::String(text), span)
+            ExpressionKind::String(text)
         }
         Rule::raw_string_literal => {
             let text = parse_raw_string_literal(expr);
-            ExpressionNode::new(ExpressionKind::String(text), span)
+            ExpressionKind::String(text)
         }
         Rule::integer_literal => {
             let value = expr.as_str().parse().map_err(|err| {
-                TemplateParseError::expression("Invalid integer literal", span).with_source(err)
+                TemplateParseError::expression("Invalid integer literal", expr.as_span())
+                    .with_source(err)
             })?;
-            ExpressionNode::new(ExpressionKind::Integer(value), span)
+            ExpressionKind::Integer(value)
         }
         Rule::string_pattern => {
             let [kind, op, literal] = expr.into_inner().collect_array().unwrap();
@@ -510,25 +513,27 @@ fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
                 }
             };
             // The actual parsing and construction of the pattern is deferred to later.
-            ExpressionNode::new(ExpressionKind::StringPattern { kind, value: text }, span)
+            ExpressionKind::StringPattern { kind, value: text }
         }
-        Rule::identifier => ExpressionNode::new(parse_identifier_or_literal(expr), span),
+        Rule::identifier => parse_identifier_or_literal(expr),
         Rule::function => {
             let function = Box::new(FUNCTION_CALL_PARSER.parse(
                 expr,
                 parse_identifier_name,
                 parse_template_node,
             )?);
-            ExpressionNode::new(ExpressionKind::FunctionCall(function), span)
+            ExpressionKind::FunctionCall(function)
         }
         Rule::lambda => {
             let lambda = Box::new(parse_lambda_node(expr)?);
-            ExpressionNode::new(ExpressionKind::Lambda(lambda), span)
+            ExpressionKind::Lambda(lambda)
         }
-        Rule::template => parse_template_node(expr)?,
+        // Ignore inner span to preserve parenthesized expression as such.
+        Rule::template => parse_template_node(expr)?.kind,
         other => panic!("unexpected term: {other:?}"),
     };
-    inner.try_fold(primary, |object, chain| {
+    let primary_node = ExpressionNode::new(primary_kind, primary_span);
+    inner.try_fold(primary_node, |object, chain| {
         assert_eq!(chain.as_rule(), Rule::function);
         let span = object.span.start_pos().span(&chain.as_span().end_pos());
         let method = Box::new(MethodCallNode {
@@ -1006,10 +1011,26 @@ mod tests {
         // Expression span
         assert_eq!(parse_template(" ! x ").unwrap().span.as_str(), "! x");
         assert_eq!(parse_template(" x ||y ").unwrap().span.as_str(), "x ||y");
+        assert_eq!(parse_template(" (x) ").unwrap().span.as_str(), "(x)");
+        assert_eq!(
+            parse_template(" ! (x ||y) ").unwrap().span.as_str(),
+            "! (x ||y)"
+        );
+        assert_eq!(
+            parse_template("(x ++ y ) ").unwrap().span.as_str(),
+            "(x ++ y )"
+        );
     }
 
     #[test]
     fn test_function_call_syntax() {
+        fn unwrap_function_call(node: ExpressionNode<'_>) -> Box<FunctionCallNode<'_>> {
+            match node.kind {
+                ExpressionKind::FunctionCall(function) => function,
+                _ => panic!("unexpected expression: {node:?}"),
+            }
+        }
+
         // Trailing comma isn't allowed for empty argument
         assert!(parse_template(r#" "".first_line() "#).is_ok());
         assert!(parse_template(r#" "".first_line(,) "#).is_err());
@@ -1036,6 +1057,19 @@ mod tests {
         assert!(parse_template("f(false=0)").is_err());
         // Function arguments can be any expression
         assert!(parse_template("f(false)").is_ok());
+
+        // Expression span
+        let function =
+            unwrap_function_call(parse_template("foo( a, (b) , -(c), d = (e) )").unwrap());
+        assert_eq!(function.name_span.as_str(), "foo");
+        // Because we use the implicit WHITESPACE rule, we have little control
+        // over leading/trailing whitespaces.
+        assert_eq!(function.args_span.as_str(), "a, (b) , -(c), d = (e) ");
+        assert_eq!(function.args[0].span.as_str(), "a");
+        assert_eq!(function.args[1].span.as_str(), "(b)");
+        assert_eq!(function.args[2].span.as_str(), "-(c)");
+        assert_eq!(function.keyword_args[0].name_span.as_str(), "d");
+        assert_eq!(function.keyword_args[0].value.span.as_str(), "(e)");
     }
 
     #[test]
