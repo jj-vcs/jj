@@ -302,6 +302,7 @@ impl MergedTree {
         &self,
         other: &Self,
         matcher: &'matcher dyn Matcher,
+        include_unchanged_conflicts: bool,
     ) -> TreeDiffStream<'matcher> {
         let concurrency = self.store().concurrency();
         if concurrency <= 1 {
@@ -309,6 +310,7 @@ impl MergedTree {
                 &self.trees,
                 &other.trees,
                 matcher,
+                include_unchanged_conflicts,
             )))
         } else {
             Box::pin(TreeDiffStreamImpl::new(
@@ -316,6 +318,7 @@ impl MergedTree {
                 &other.trees,
                 matcher,
                 concurrency,
+                include_unchanged_conflicts,
             ))
         }
     }
@@ -326,19 +329,23 @@ impl MergedTree {
         other: &Self,
         matcher: &'matcher dyn Matcher,
     ) -> TreeDiffStream<'matcher> {
-        stream_without_trees(self.diff_stream_internal(other, matcher))
+        stream_without_trees(self.diff_stream_internal(other, matcher, false))
     }
 
     /// Like `diff_stream()` but files in a removed tree will be returned before
-    /// a file that replaces it.
+    /// a file that replaces it. If `include_unchanged_conflicts` is true, then
+    /// conflicted files will be returned even if they are unchanged.
     pub fn diff_stream_for_file_system<'matcher>(
         &self,
         other: &Self,
         matcher: &'matcher dyn Matcher,
+        include_unchanged_conflicts: bool,
     ) -> TreeDiffStream<'matcher> {
-        Box::pin(DiffStreamForFileSystem::new(
-            self.diff_stream_internal(other, matcher),
-        ))
+        Box::pin(DiffStreamForFileSystem::new(self.diff_stream_internal(
+            other,
+            matcher,
+            include_unchanged_conflicts,
+        )))
     }
 
     /// Like `diff_stream()` but takes the given copy records into account.
@@ -472,6 +479,7 @@ pub fn all_merged_tree_entries(
 fn merged_tree_entry_diff<'a>(
     trees1: &'a Merge<Tree>,
     trees2: &'a Merge<Tree>,
+    include_unchanged_conflicts: bool,
 ) -> impl Iterator<Item = (&'a RepoPathComponent, Diff<MergedTreeVal<'a>>)> {
     itertools::merge_join_by(
         all_tree_entries(trees1),
@@ -483,7 +491,9 @@ fn merged_tree_entry_diff<'a>(
         EitherOrBoth::Left((name, value1)) => (name, Diff::new(value1, Merge::absent())),
         EitherOrBoth::Right((name, value2)) => (name, Diff::new(Merge::absent(), value2)),
     })
-    .filter(|(_, diff)| diff.is_changed())
+    .filter(move |(_, diff)| {
+        diff.is_changed() || (include_unchanged_conflicts && !diff.after.is_resolved())
+    })
 }
 
 fn trees_value<'a>(trees: &'a Merge<Tree>, basename: &RepoPathComponent) -> MergedTreeVal<'a> {
@@ -639,6 +649,7 @@ pub struct TreeDiffIterator<'matcher> {
     store: Arc<Store>,
     stack: Vec<TreeDiffDir>,
     matcher: &'matcher dyn Matcher,
+    include_unchanged_conflicts: bool,
 }
 
 struct TreeDiffDir {
@@ -647,17 +658,29 @@ struct TreeDiffDir {
 
 impl<'matcher> TreeDiffIterator<'matcher> {
     /// Creates a iterator over the differences between two trees.
-    pub fn new(trees1: &Merge<Tree>, trees2: &Merge<Tree>, matcher: &'matcher dyn Matcher) -> Self {
+    pub fn new(
+        trees1: &Merge<Tree>,
+        trees2: &Merge<Tree>,
+        matcher: &'matcher dyn Matcher,
+        include_unchanged_conflicts: bool,
+    ) -> Self {
         assert!(Arc::ptr_eq(trees1.first().store(), trees2.first().store()));
         let root_dir = RepoPath::root();
         let mut stack = Vec::new();
         if !matcher.visit(root_dir).is_nothing() {
-            stack.push(TreeDiffDir::from_trees(root_dir, trees1, trees2, matcher));
+            stack.push(TreeDiffDir::from_trees(
+                root_dir,
+                trees1,
+                trees2,
+                matcher,
+                include_unchanged_conflicts,
+            ));
         };
         Self {
             store: trees1.first().store().clone(),
             stack,
             matcher,
+            include_unchanged_conflicts,
         }
     }
 
@@ -681,9 +704,10 @@ impl TreeDiffDir {
         trees1: &Merge<Tree>,
         trees2: &Merge<Tree>,
         matcher: &dyn Matcher,
+        include_unchanged_conflicts: bool,
     ) -> Self {
         let mut entries = vec![];
-        for (name, diff) in merged_tree_entry_diff(trees1, trees2) {
+        for (name, diff) in merged_tree_entry_diff(trees1, trees2, include_unchanged_conflicts) {
             let path = dir.join(name);
             let tree_before = diff.before.is_tree();
             let tree_after = diff.after.is_tree();
@@ -745,8 +769,13 @@ impl Iterator for TreeDiffIterator<'_> {
                         });
                     }
                 };
-                let subdir =
-                    TreeDiffDir::from_trees(&path, &before_tree, &after_tree, self.matcher);
+                let subdir = TreeDiffDir::from_trees(
+                    &path,
+                    &before_tree,
+                    &after_tree,
+                    self.matcher,
+                    self.include_unchanged_conflicts,
+                );
                 self.stack.push(subdir);
             };
             if diff.before.is_file_like() || diff.after.is_file_like() {
@@ -787,6 +816,7 @@ pub struct TreeDiffStreamImpl<'matcher> {
     /// limit because we have a file item that's blocked by pending subdirectory
     /// items.
     max_queued_items: usize,
+    include_unchanged_conflicts: bool,
 }
 
 impl<'matcher> TreeDiffStreamImpl<'matcher> {
@@ -797,6 +827,7 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
         trees2: &Merge<Tree>,
         matcher: &'matcher dyn Matcher,
         max_concurrent_reads: usize,
+        include_unchanged_conflicts: bool,
     ) -> Self {
         assert!(Arc::ptr_eq(trees1.first().store(), trees2.first().store()));
         let mut stream = Self {
@@ -806,6 +837,7 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
             pending_trees: BTreeMap::new(),
             max_concurrent_reads,
             max_queued_items: 10000,
+            include_unchanged_conflicts,
         };
         stream.add_dir_diff_items(RepoPath::root(), trees1, trees2);
         stream
@@ -838,7 +870,9 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
     }
 
     fn add_dir_diff_items(&mut self, dir: &RepoPath, trees1: &Merge<Tree>, trees2: &Merge<Tree>) {
-        for (basename, diff) in merged_tree_entry_diff(trees1, trees2) {
+        for (basename, diff) in
+            merged_tree_entry_diff(trees1, trees2, self.include_unchanged_conflicts)
+        {
             let path = dir.join(basename);
             let tree_before = diff.before.is_tree();
             let tree_after = diff.after.is_tree();
