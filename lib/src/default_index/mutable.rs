@@ -564,7 +564,7 @@ impl Index for DefaultMutableIndex {
         self.0.is_ancestor(ancestor_id, descendant_id)
     }
 
-    fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> Vec<CommitId> {
+    fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> IndexResult<Vec<CommitId>> {
         self.0.common_ancestors(set1, set2)
     }
 

@@ -121,7 +121,7 @@ pub trait Index: Send + Sync {
     /// Returns the best common ancestor or ancestors of the commits in `set1`
     /// and `set2`. A "best common ancestor" has no descendants that are also
     /// common ancestors.
-    fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> Vec<CommitId>;
+    fn common_ancestors(&self, set1: &[CommitId], set2: &[CommitId]) -> IndexResult<Vec<CommitId>>;
 
     /// Heads among all indexed commits at the associated operation.
     ///
