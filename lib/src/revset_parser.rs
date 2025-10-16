@@ -23,7 +23,6 @@ use std::sync::LazyLock;
 use itertools::Itertools as _;
 use pest::Parser as _;
 use pest::iterators::Pair;
-use pest::iterators::Pairs;
 use pest::pratt_parser::Assoc;
 use pest::pratt_parser::Op;
 use pest::pratt_parser::PrattParser;
@@ -469,7 +468,7 @@ pub fn parse_program(revset_str: &str) -> Result<ExpressionNode<'_>, RevsetParse
     let mut pairs = RevsetParser::parse(Rule::program, revset_str)?;
     let first = pairs.next().unwrap();
     match first.as_rule() {
-        Rule::expression => parse_expression_node(first.into_inner()),
+        Rule::expression => parse_expression_node(first),
         Rule::program_modifier => {
             let [lhs, op] = first.into_inner().collect_array().unwrap();
             let rhs = pairs.next().unwrap();
@@ -480,7 +479,7 @@ pub fn parse_program(revset_str: &str) -> Result<ExpressionNode<'_>, RevsetParse
             let modifier = Box::new(ModifierNode {
                 name: lhs.as_str(),
                 name_span: lhs.as_span(),
-                body: parse_expression_node(rhs.into_inner())?,
+                body: parse_expression_node(rhs)?,
             });
             let expr = ExpressionKind::Modifier(modifier);
             Ok(ExpressionNode::new(expr, span))
@@ -489,7 +488,7 @@ pub fn parse_program(revset_str: &str) -> Result<ExpressionNode<'_>, RevsetParse
     }
 }
 
-fn parse_expression_node(pairs: Pairs<Rule>) -> Result<ExpressionNode, RevsetParseError> {
+fn parse_expression_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseError> {
     fn not_prefix_op(
         op: &Pair<Rule>,
         similar_op: impl Into<String>,
@@ -614,7 +613,7 @@ fn parse_expression_node(pairs: Pairs<Rule>) -> Result<ExpressionNode, RevsetPar
             let expr = ExpressionKind::Binary(op_kind, lhs, rhs);
             Ok(ExpressionNode::new(expr, span))
         })
-        .parse(pairs)
+        .parse(pair.into_inner())
 }
 
 fn parse_primary_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseError> {
@@ -622,12 +621,12 @@ fn parse_primary_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseErr
     let mut pairs = pair.into_inner();
     let first = pairs.next().unwrap();
     let expr = match first.as_rule() {
-        Rule::expression => return parse_expression_node(first.into_inner()),
+        Rule::expression => return parse_expression_node(first),
         Rule::function => {
             let function = Box::new(FUNCTION_CALL_PARSER.parse(
                 first,
                 |pair| Ok(pair.as_str()),
-                |pair| parse_expression_node(pair.into_inner()),
+                |pair| parse_expression_node(pair),
             )?);
             ExpressionKind::FunctionCall(function)
         }
