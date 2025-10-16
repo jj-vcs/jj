@@ -62,6 +62,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New `jj tag set`/`delete` commands to create/update/delete tags locally.
   Updated tags will be exported to Git as lightweight tags.
 
+* New commit template keywords `local`/`remote_tags` to show only local/remote
+  tags. These keywords may be useful in non-colocated Git repositories where
+  local and exported `@git` tags can point to different revisions.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer

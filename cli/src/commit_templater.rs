@@ -1073,14 +1073,8 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                 .keyword_cache
                 .bookmarks_index(language.repo)
                 .clone();
-            let out_property = self_property.map(move |commit| {
-                index
-                    .get(commit.id())
-                    .iter()
-                    .filter(|commit_ref| commit_ref.is_local())
-                    .cloned()
-                    .collect_vec()
-            });
+            let out_property =
+                self_property.map(move |commit| collect_local_refs(index.get(commit.id())));
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1092,14 +1086,8 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                 .keyword_cache
                 .bookmarks_index(language.repo)
                 .clone();
-            let out_property = self_property.map(move |commit| {
-                index
-                    .get(commit.id())
-                    .iter()
-                    .filter(|commit_ref| commit_ref.is_remote())
-                    .cloned()
-                    .collect_vec()
-            });
+            let out_property =
+                self_property.map(move |commit| collect_remote_refs(index.get(commit.id())));
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1110,6 +1098,26 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             let index = language.keyword_cache.tags_index(language.repo).clone();
             let out_property =
                 self_property.map(move |commit| collect_distinct_refs(index.get(commit.id())));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "local_tags",
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let index = language.keyword_cache.tags_index(language.repo).clone();
+            let out_property =
+                self_property.map(move |commit| collect_local_refs(index.get(commit.id())));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "remote_tags",
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let index = language.keyword_cache.tags_index(language.repo).clone();
+            let out_property =
+                self_property.map(move |commit| collect_remote_refs(index.get(commit.id())));
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1819,6 +1827,22 @@ fn collect_distinct_refs(commit_refs: &[Rc<CommitRef>]) -> Vec<Rc<CommitRef>> {
     commit_refs
         .iter()
         .filter(|commit_ref| commit_ref.is_local() || !commit_ref.synced)
+        .cloned()
+        .collect()
+}
+
+fn collect_local_refs(commit_refs: &[Rc<CommitRef>]) -> Vec<Rc<CommitRef>> {
+    commit_refs
+        .iter()
+        .filter(|commit_ref| commit_ref.is_local())
+        .cloned()
+        .collect()
+}
+
+fn collect_remote_refs(commit_refs: &[Rc<CommitRef>]) -> Vec<Rc<CommitRef>> {
+    commit_refs
+        .iter()
+        .filter(|commit_ref| commit_ref.is_remote())
         .cloned()
         .collect()
 }

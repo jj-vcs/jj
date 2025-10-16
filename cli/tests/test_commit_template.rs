@@ -765,6 +765,16 @@ fn test_log_tags() {
     ◆  000000000000 (no tags)
     [EOF]
     ");
+
+    let template = r#"separate(" ", "L:", local_tags, "R:", remote_tags) ++ "\n""#;
+    let output = work_dir.run_jj(["log", "-rall()", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    @  L: R:
+    ◆  L: bar baz foo* R: bar@git
+    ◆  L: R: foo@git
+    ◆  L: R:
+    [EOF]
+    ");
 }
 
 #[test]
