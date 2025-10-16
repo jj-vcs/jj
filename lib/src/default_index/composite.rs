@@ -650,9 +650,9 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
     // If `SingleMatch` is returned, the commits including in the set are all
     // visible. `AmbiguousMatch` may be returned even if the prefix is unique
     // within the visible entries.
-    fn resolve_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<Vec<CommitId>> {
+    fn resolve_prefix(&self, prefix: &HexPrefix) -> IndexResult<PrefixResolution<Vec<CommitId>>> {
         let index = self.index.as_composite().commits();
-        match index.resolve_change_id_prefix(prefix) {
+        let prefix = match index.resolve_change_id_prefix(prefix) {
             PrefixResolution::NoMatch => PrefixResolution::NoMatch,
             PrefixResolution::SingleMatch((_change_id, positions)) => {
                 debug_assert!(positions.is_sorted_by(|a, b| a < b));
@@ -670,7 +670,8 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
                 }
             }
             PrefixResolution::AmbiguousMatch => PrefixResolution::AmbiguousMatch,
-        }
+        };
+        Ok(prefix)
     }
 
     // Calculates the shortest prefix length of the given `change_id` among all

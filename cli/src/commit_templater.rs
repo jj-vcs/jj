@@ -46,6 +46,7 @@ use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::id_prefix::IdPrefixIndex;
+use jj_lib::index::IndexResult;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Diff;
 use jj_lib::merge::MergedTreeValue;
@@ -1147,10 +1148,11 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let repo = language.repo;
-            let out_property = self_property.map(|commit| {
+            let out_property = self_property.and_then(|commit| {
                 // The given commit could be hidden in e.g. `jj evolog`.
-                let maybe_entries = repo.resolve_change_id(commit.change_id());
-                maybe_entries.map_or(0, |entries| entries.len()) > 1
+                let maybe_entries = repo.resolve_change_id(commit.change_id())?;
+                let divergent = maybe_entries.map_or(0, |entries| entries.len()) > 1;
+                Ok(divergent)
             });
             Ok(out_property.into_dyn_wrapped())
         },
@@ -1160,7 +1162,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let repo = language.repo;
-            let out_property = self_property.map(|commit| commit.is_hidden(repo));
+            let out_property = self_property.and_then(|commit| Ok(commit.is_hidden(repo)?));
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -1901,11 +1903,11 @@ fn builtin_repo_path_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, R
 }
 
 trait ShortestIdPrefixLen {
-    fn shortest_prefix_len(&self, repo: &dyn Repo, index: &IdPrefixIndex) -> usize;
+    fn shortest_prefix_len(&self, repo: &dyn Repo, index: &IdPrefixIndex) -> IndexResult<usize>;
 }
 
 impl ShortestIdPrefixLen for ChangeId {
-    fn shortest_prefix_len(&self, repo: &dyn Repo, index: &IdPrefixIndex) -> usize {
+    fn shortest_prefix_len(&self, repo: &dyn Repo, index: &IdPrefixIndex) -> IndexResult<usize> {
         index.shortest_change_prefix_len(repo, self)
     }
 }
@@ -1933,8 +1935,8 @@ fn builtin_change_id_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, C
 }
 
 impl ShortestIdPrefixLen for CommitId {
-    fn shortest_prefix_len(&self, repo: &dyn Repo, index: &IdPrefixIndex) -> usize {
-        index.shortest_commit_prefix_len(repo, self)
+    fn shortest_prefix_len(&self, repo: &dyn Repo, index: &IdPrefixIndex) -> IndexResult<usize> {
+        Ok(index.shortest_commit_prefix_len(repo, self))
     }
 }
 
@@ -2020,11 +2022,11 @@ where
             };
             // The length of the id printed will be the maximum of the minimum
             // `len` and the length of the shortest unique prefix.
-            let out_property = (self_property, len_property).map(move |(id, len)| {
-                let prefix_len = id.shortest_prefix_len(repo, &index);
+            let out_property = (self_property, len_property).and_then(move |(id, len)| {
+                let prefix_len = id.shortest_prefix_len(repo, &index)?;
                 let mut hex = format!("{id:.len$}", len = max(prefix_len, len.unwrap_or(0)));
                 let rest = hex.split_off(prefix_len);
-                ShortestIdPrefix { prefix: hex, rest }
+                Ok(ShortestIdPrefix { prefix: hex, rest })
             });
             Ok(out_property.into_dyn_wrapped())
         },

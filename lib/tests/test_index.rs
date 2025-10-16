@@ -1197,6 +1197,7 @@ fn test_change_id_index() {
     let resolve_prefix = |prefix: &str| {
         change_id_index
             .resolve_prefix(&HexPrefix::try_from_hex(prefix).unwrap())
+            .unwrap()
             .map(HashSet::from_iter)
     };
     // Ambiguous matches
@@ -1238,6 +1239,7 @@ fn test_change_id_index() {
     let resolve_prefix = |prefix: &str| {
         change_id_index
             .resolve_prefix(&HexPrefix::try_from_hex(prefix).unwrap())
+            .unwrap()
             .map(HashSet::from_iter)
     };
     assert_eq!(

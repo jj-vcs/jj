@@ -52,6 +52,7 @@ use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
+use crate::index::IndexResult;
 use crate::index::IndexStore;
 use crate::index::IndexStoreError;
 use crate::index::MutableIndex;
@@ -125,17 +126,20 @@ pub trait Repo {
 
     fn submodule_store(&self) -> &Arc<dyn SubmoduleStore>;
 
-    fn resolve_change_id(&self, change_id: &ChangeId) -> Option<Vec<CommitId>> {
+    fn resolve_change_id(&self, change_id: &ChangeId) -> IndexResult<Option<Vec<CommitId>>> {
         // Replace this if we added more efficient lookup method.
         let prefix = HexPrefix::from_id(change_id);
-        match self.resolve_change_id_prefix(&prefix) {
-            PrefixResolution::NoMatch => None,
-            PrefixResolution::SingleMatch(entries) => Some(entries),
+        match self.resolve_change_id_prefix(&prefix)? {
+            PrefixResolution::NoMatch => Ok(None),
+            PrefixResolution::SingleMatch(entries) => Ok(Some(entries)),
             PrefixResolution::AmbiguousMatch => panic!("complete change_id should be unambiguous"),
         }
     }
 
-    fn resolve_change_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<Vec<CommitId>>;
+    fn resolve_change_id_prefix(
+        &self,
+        prefix: &HexPrefix,
+    ) -> IndexResult<PrefixResolution<Vec<CommitId>>>;
 
     fn shortest_unique_change_id_prefix_len(&self, target_id_bytes: &ChangeId) -> usize;
 }
@@ -351,7 +355,10 @@ impl Repo for ReadonlyRepo {
         self.loader.submodule_store()
     }
 
-    fn resolve_change_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<Vec<CommitId>> {
+    fn resolve_change_id_prefix(
+        &self,
+        prefix: &HexPrefix,
+    ) -> IndexResult<PrefixResolution<Vec<CommitId>>> {
         self.change_id_index().resolve_prefix(prefix)
     }
 
@@ -1976,7 +1983,10 @@ impl Repo for MutableRepo {
         self.base_repo.submodule_store()
     }
 
-    fn resolve_change_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<Vec<CommitId>> {
+    fn resolve_change_id_prefix(
+        &self,
+        prefix: &HexPrefix,
+    ) -> IndexResult<PrefixResolution<Vec<CommitId>>> {
         let change_id_index = self.index.change_id_index(&mut self.view().heads().iter());
         change_id_index.resolve_prefix(prefix)
     }

@@ -2660,7 +2660,10 @@ impl ChangePrefixResolver<'_> {
             .transpose()
             .map_err(|err| RevsetResolutionError::Other(err.into()))?
             .unwrap_or(IdPrefixIndex::empty());
-        match index.resolve_change_prefix(repo, prefix) {
+        match index
+            .resolve_change_prefix(repo, prefix)
+            .map_err(|err| RevsetResolutionError::Other(err.into()))?
+        {
             PrefixResolution::AmbiguousMatch => Err(
                 RevsetResolutionError::AmbiguousChangeIdPrefix(prefix.reverse_hex()),
             ),
