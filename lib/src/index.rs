@@ -215,5 +215,5 @@ pub trait ChangeIdIndex: Send + Sync {
     ///   order to disambiguate, you need every letter of the key *and* the
     ///   additional fact that it's the entire key). This case is extremely
     ///   unlikely for hashes with 12+ hexadecimal characters.
-    fn shortest_unique_prefix_len(&self, change_id: &ChangeId) -> usize;
+    fn shortest_unique_prefix_len(&self, change_id: &ChangeId) -> IndexResult<usize>;
 }

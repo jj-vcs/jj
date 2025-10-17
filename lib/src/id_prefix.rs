@@ -261,7 +261,7 @@ impl IdPrefixIndex<'_> {
         {
             return Ok(lookup.shortest_unique_prefix_len());
         }
-        Ok(repo.shortest_unique_change_id_prefix_len(change_id))
+        repo.shortest_unique_change_id_prefix_len(change_id)
     }
 }
 
