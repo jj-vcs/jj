@@ -1995,10 +1995,9 @@ a comparison with Git, including how workflows are different, see the
 <li><strong>Git LFS: No.</strong> (<a href="https://github.com/jj-vcs/jj/issues/80">#80</a>)</li>
 </ul>
 <h2 id="creating-an-empty-repo">Creating an empty repo<a class="headerlink" href="#creating-an-empty-repo" title="Permanent link">&para;</a></h2>
-<p>To create an empty repo using the Git backend, use <code>jj git init &lt;name&gt;</code>. Since
-the command creates a Jujutsu repo, it will have a <code>.jj/</code> directory. The
-underlying Git repo will be inside of that directory (currently in
-<code>.jj/repo/store/git/</code>).</p>
+<p>To create an empty repo using the Git backend, use <code>jj git init &lt;name&gt;</code>. This
+creates a <a href="#co-located-jujutsugit-repos">colocated</a> Jujutsu repo, there will be
+a <code>.jj</code> directory and a <code>.git</code> directory.</p>
 <h2 id="creating-a-repo-backed-by-an-existing-git-repo">Creating a repo backed by an existing Git repo<a class="headerlink" href="#creating-a-repo-backed-by-an-existing-git-repo" title="Permanent link">&para;</a></h2>
 <p>To create a Jujutsu repo backed by a Git repo you already have on disk, use
 <code>jj git init --git-repo=&lt;path to Git repo&gt; &lt;name&gt;</code>. The repo will work similar
