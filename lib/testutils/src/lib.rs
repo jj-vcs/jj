@@ -31,6 +31,7 @@ use jj_lib::backend::Backend;
 use jj_lib::backend::BackendInitError;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
+use jj_lib::backend::CopyHistory;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::FileId;
 use jj_lib::backend::MergedTreeId;
@@ -423,6 +424,7 @@ impl TestTreeBuilder {
             path: path.to_owned(),
             contents: contents.as_ref().to_vec(),
             executable: false,
+            copy_history: None,
         }
     }
 
@@ -452,11 +454,17 @@ pub struct TestTreeFileEntryBuilder<'a> {
     path: RepoPathBuf,
     contents: Vec<u8>,
     executable: bool,
+    copy_history: Option<CopyHistory>,
 }
 
 impl TestTreeFileEntryBuilder<'_> {
     pub fn executable(mut self, executable: bool) -> Self {
         self.executable = executable;
+        self
+    }
+
+    pub fn copy_history(mut self, copy_history: &CopyHistory) -> Self {
+        self.copy_history = Some(copy_history.clone());
         self
     }
 }
@@ -470,12 +478,22 @@ impl Drop for TestTreeFileEntryBuilder<'_> {
             .block_on()
             .unwrap();
         let path = std::mem::replace(&mut self.path, RepoPathBuf::root());
+        let copy_id = if let Some(copy_history) = self.copy_history.as_ref() {
+            self.tree_builder
+                .store()
+                .backend()
+                .write_copy(copy_history)
+                .block_on()
+                .unwrap()
+        } else {
+            CopyId::placeholder()
+        };
         self.tree_builder.set(
             path,
             TreeValue::File {
                 id,
                 executable: self.executable,
-                copy_id: CopyId::placeholder(),
+                copy_id,
             },
         );
     }
@@ -511,6 +529,17 @@ pub fn create_tree(repo: &Arc<ReadonlyRepo>, path_contents: &[(&RepoPath, &str)]
     create_tree_with(repo, |builder| {
         for (path, contents) in path_contents {
             builder.file(path, contents);
+        }
+    })
+}
+
+pub fn create_tree_with_copy_history(
+    repo: &Arc<ReadonlyRepo>,
+    path_contents: &[(&RepoPath, &str, &CopyHistory)],
+) -> MergedTree {
+    create_tree_with(repo, |builder| {
+        for (path, contents, history) in path_contents {
+            builder.file(path, contents).copy_history(history);
         }
     })
 }
