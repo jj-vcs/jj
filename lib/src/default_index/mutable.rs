@@ -597,8 +597,8 @@ impl MutableIndex for DefaultMutableIndex {
     fn change_id_index(
         &self,
         heads: &mut dyn Iterator<Item = &CommitId>,
-    ) -> Box<dyn ChangeIdIndex + '_> {
-        Box::new(ChangeIdIndexImpl::new(self, heads))
+    ) -> IndexResult<Box<dyn ChangeIdIndex + '_>> {
+        Ok(Box::new(ChangeIdIndexImpl::new(self, heads)))
     }
 
     fn add_commit(&mut self, commit: &Commit) -> IndexResult<()> {

@@ -154,8 +154,10 @@ pub trait Index: Send + Sync {
 pub trait ReadonlyIndex: Any + Send + Sync {
     fn as_index(&self) -> &dyn Index;
 
-    fn change_id_index(&self, heads: &mut dyn Iterator<Item = &CommitId>)
-    -> Box<dyn ChangeIdIndex>;
+    fn change_id_index(
+        &self,
+        heads: &mut dyn Iterator<Item = &CommitId>,
+    ) -> IndexResult<Box<dyn ChangeIdIndex>>;
 
     fn start_modification(&self) -> Box<dyn MutableIndex>;
 }
@@ -174,7 +176,7 @@ pub trait MutableIndex: Any {
     fn change_id_index(
         &self,
         heads: &mut dyn Iterator<Item = &CommitId>,
-    ) -> Box<dyn ChangeIdIndex + '_>;
+    ) -> IndexResult<Box<dyn ChangeIdIndex + '_>>;
 
     fn add_commit(&mut self, commit: &Commit) -> IndexResult<()>;
 

@@ -764,8 +764,8 @@ impl ReadonlyIndex for DefaultReadonlyIndex {
     fn change_id_index(
         &self,
         heads: &mut dyn Iterator<Item = &CommitId>,
-    ) -> Box<dyn ChangeIdIndex> {
-        Box::new(ChangeIdIndexImpl::new(self.clone(), heads))
+    ) -> IndexResult<Box<dyn ChangeIdIndex>> {
+        Ok(Box::new(ChangeIdIndexImpl::new(self.clone(), heads)))
     }
 
     fn start_modification(&self) -> Box<dyn MutableIndex> {
