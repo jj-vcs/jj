@@ -680,9 +680,9 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
     // The returned length is usually a few digits longer than the minimum
     // length necessary to disambiguate within the visible entries since hidden
     // entries are also considered when determining the prefix length.
-    fn shortest_unique_prefix_len(&self, change_id: &ChangeId) -> usize {
+    fn shortest_unique_prefix_len(&self, change_id: &ChangeId) -> IndexResult<usize> {
         let index = self.index.as_composite().commits();
-        index.shortest_unique_change_id_prefix_len(change_id)
+        Ok(index.shortest_unique_change_id_prefix_len(change_id))
     }
 }
 
