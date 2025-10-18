@@ -589,9 +589,14 @@ impl ConfigFile {
         }
     }
 
+    /// Retrieves serialized data.
+    pub fn text(&self) -> String {
+        self.layer.data.to_string()
+    }
+
     /// Writes serialized data to the source file.
     pub fn save(&self) -> Result<(), ConfigFileSaveError> {
-        fs::write(self.path(), self.layer.data.to_string())
+        fs::write(self.path(), self.text())
             .context(self.path())
             .map_err(ConfigFileSaveError)
     }

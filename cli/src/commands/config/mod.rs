@@ -24,6 +24,7 @@ use std::path::Path;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
+use jj_lib::file_util::IoResultExt as _;
 use tracing::instrument;
 
 use self::edit::ConfigEditArgs;
@@ -60,6 +61,40 @@ pub(crate) struct ConfigLevelArgs {
     workspace: bool,
 }
 
+enum ConfigFileOrString<'a> {
+    ConfigFile(ConfigFile),
+    ConfigString(ConfigFile, &'a ConfigEnv, tempfile::TempDir),
+}
+
+impl ConfigFileOrString<'_> {
+    fn file(&self) -> &ConfigFile {
+        match self {
+            Self::ConfigFile(f) | Self::ConfigString(f, ..) => f,
+        }
+    }
+
+    fn file_mut(&mut self) -> &mut ConfigFile {
+        match self {
+            Self::ConfigFile(f) | Self::ConfigString(f, ..) => f,
+        }
+    }
+
+    fn path(&self) -> &Path {
+        self.file().path()
+    }
+
+    fn save(&self, trust: bool) -> Result<(), CommandError> {
+        match self {
+            Self::ConfigFile(f) => Ok(f.save()?),
+            Self::ConfigString(f, env, ..) => match f.layer().source {
+                ConfigSource::Repo => env.set_repo_config(&f.text(), trust),
+                ConfigSource::Workspace => env.set_workspace_config(&f.text(), trust),
+                _ => panic!("Bad config source"),
+            },
+        }
+    }
+}
+
 impl ConfigLevelArgs {
     fn get_source_kind(&self) -> Option<ConfigSource> {
         if self.user {
@@ -81,25 +116,23 @@ impl ConfigLevelArgs {
             }
             Ok(paths)
         } else if self.repo {
-            config_env
-                .repo_config_path()
-                .map(|p| vec![p])
-                .ok_or_else(|| user_error("No repo config path found"))
+            Err(user_error(
+                "Repo configs are not present on disk. Use `jj config edit --repo",
+            ))
         } else if self.workspace {
-            config_env
-                .workspace_config_path()
-                .map(|p| vec![p])
-                .ok_or_else(|| user_error("No workspace config path found"))
+            Err(user_error(
+                "Workspace configs are not present on disk. Use `jj config edit --workspace",
+            ))
         } else {
             panic!("No config_level provided")
         }
     }
 
-    fn edit_config_file(
+    fn edit_config_file<'a>(
         &self,
         ui: &Ui,
-        command: &CommandHelper,
-    ) -> Result<ConfigFile, CommandError> {
+        command: &'a CommandHelper,
+    ) -> Result<ConfigFileOrString<'a>, CommandError> {
         let config_env = command.config_env();
         let config = command.raw_config();
         let pick_one = |mut files: Vec<ConfigFile>, not_found_error: &str| {
@@ -118,20 +151,29 @@ impl ConfigLevelArgs {
             files.pop().ok_or_else(|| user_error(not_found_error))
         };
         if self.user {
-            pick_one(
+            Ok(ConfigFileOrString::ConfigFile(pick_one(
                 config_env.user_config_files(config)?,
                 "No user config path found to edit",
-            )
-        } else if self.repo {
-            pick_one(
-                config_env.repo_config_files(config)?,
-                "No repo config path found to edit",
-            )
-        } else if self.workspace {
-            pick_one(
-                config_env.workspace_config_files(config)?,
-                "No workspace config path found to edit",
-            )
+            )?))
+        } else if self.repo || self.workspace {
+            // Throw an error if we're not currently in a workspace.
+            command.workspace_loader()?;
+            let td = tempfile::TempDir::new()?;
+            let path = td.path().join("config.toml");
+            let (content, source) = if self.repo {
+                (&config_env.repo_config().get().config, ConfigSource::Repo)
+            } else {
+                (
+                    &config_env.workspace_config().get().config,
+                    ConfigSource::Workspace,
+                )
+            };
+            std::fs::write(&path, content).context(&path)?;
+            Ok(ConfigFileOrString::ConfigString(
+                ConfigFile::load_or_empty(source, &path)?,
+                config_env,
+                td,
+            ))
         } else {
             panic!("No config_level provided")
         }
