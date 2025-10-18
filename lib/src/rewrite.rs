@@ -39,6 +39,7 @@ use crate::index::Index;
 use crate::index::IndexError;
 use crate::matchers::Matcher;
 use crate::matchers::Visit;
+use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merged_tree::MergeLabels;
 use crate::merged_tree::MergedTree;
@@ -1162,6 +1163,20 @@ impl CommitWithSelection {
     pub fn is_empty_selection(&self) -> bool {
         !self.selected_tree.id().has_changes(&self.parent_tree.id())
     }
+
+    /// Returns conflict labels for the diff represented by this selection.
+    pub fn conflict_labels(&self) -> BackendResult<Diff<String>> {
+        let commit_label = self.commit.conflict_label();
+        let parent_label = format!("parents of {commit_label}");
+        if self.is_full_selection() {
+            Ok(Diff::new(parent_label, commit_label))
+        } else {
+            Ok(Diff::new(
+                parent_label,
+                format!("selected changes from {commit_label}"),
+            ))
+        }
+    }
 }
 
 /// Resulting commit builder and stats to be returned by [`squash_commits()`].
@@ -1184,6 +1199,7 @@ pub fn squash_commits<'repo>(
 ) -> BackendResult<Option<SquashedCommit<'repo>>> {
     struct SourceCommit<'a> {
         commit: &'a CommitWithSelection,
+        labels: Diff<String>,
         abandon: bool,
     }
     let mut source_commits = vec![];
@@ -1200,6 +1216,7 @@ pub fn squash_commits<'repo>(
         // squash -r`)? The source tree will be unchanged in that case.
         source_commits.push(SourceCommit {
             commit: source,
+            labels: source.conflict_labels()?,
             abandon,
         });
     }
@@ -1217,9 +1234,14 @@ pub fn squash_commits<'repo>(
             let source_tree = source.commit.commit.tree()?;
             // Apply the reverse of the selected changes onto the source
             let new_source_tree = source_tree
-                .merge_unlabeled(
+                .merge(
                     source.commit.selected_tree.clone(),
                     source.commit.parent_tree.clone(),
+                    MergeLabels {
+                        left: &source.commit.commit.conflict_label(),
+                        base: &source.labels.after,
+                        right: &source.labels.before,
+                    },
                 )
                 .block_on()?;
             repo.rewrite_commit(&source.commit.commit)
@@ -1250,11 +1272,17 @@ pub fn squash_commits<'repo>(
     }
     // Apply the selected changes onto the destination
     let mut destination_tree = rewritten_destination.tree()?;
+    let destination_label = format!("squash destination ({})", destination.conflict_label());
     for source in &source_commits {
         destination_tree = destination_tree
-            .merge_unlabeled(
+            .merge(
                 source.commit.parent_tree.clone(),
                 source.commit.selected_tree.clone(),
+                MergeLabels {
+                    left: &destination_label,
+                    base: &source.labels.before,
+                    right: &format!("squashed commit ({})", source.labels.after),
+                },
             )
             .block_on()?;
     }
