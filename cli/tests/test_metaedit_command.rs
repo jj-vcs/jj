@@ -659,7 +659,7 @@ fn test_metaedit_option_mutual_exclusion() {
 }
 
 #[test]
-fn test_update_empty_author() {
+fn test_update_empty_author_or_email() {
     let mut test_env = TestEnvironment::default();
 
     // get rid of test author config
@@ -692,6 +692,58 @@ fn test_update_empty_author() {
     Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+
+        (no description set)
+
+    [EOF]
+    ");
+
+    // confirm user / email can be cleared/restored separately
+    // leave verbose to see no-email warning + hint
+    test_env.add_env_var("JJ_EMAIL", "");
+    let work_dir = test_env.work_dir("repo");
+    insta::assert_snapshot!(work_dir.run_jj(["metaedit", "--update-author"]), @r#"
+    ------- stderr -------
+    Modified 1 commits:
+      qpvuntsm 234908d4 (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm 234908d4 (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Warning: Email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
+    Hint: To configure, run:
+      jj config set --user user.email "someone@example.com"
+    [EOF]
+    "#);
+    insta::assert_snapshot!(work_dir.run_jj(["show"]), @r"
+    Commit ID: 234908d4748ff3224a87888d8b52a4923e1a89a5
+    Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    Author   : Test User <(no email set)> (2001-02-03 08:05:09)
+    Committer: Test User <(no email set)> (2001-02-03 08:05:11)
+
+        (no description set)
+
+    [EOF]
+    ");
+
+    // confirm no-name warning + hint
+    test_env.add_env_var("JJ_USER", "");
+    test_env.add_env_var("JJ_EMAIL", "test.user@example.com");
+    let work_dir = test_env.work_dir("repo");
+    insta::assert_snapshot!(work_dir.run_jj(["metaedit", "--update-author"]), @r#"
+    ------- stderr -------
+    Modified 1 commits:
+      qpvuntsm ac5048cf (empty) (no description set)
+    Working copy  (@) now at: qpvuntsm ac5048cf (empty) (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Warning: Name not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
+    Hint: To configure, run:
+      jj config set --user user.name "Some One"
+    [EOF]
+    "#);
+    insta::assert_snapshot!(work_dir.run_jj(["show"]), @r"
+    Commit ID: ac5048cf35372ddc30e2590271781a3eab0bcaf8
+    Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    Author   : (no name set) <test.user@example.com> (2001-02-03 08:05:09)
+    Committer: (no name set) <test.user@example.com> (2001-02-03 08:05:13)
 
         (no description set)
 
