@@ -21,6 +21,7 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fmt::Write as _;
 use std::hash::Hash;
+use std::iter;
 use std::iter::zip;
 use std::ops::Deref;
 use std::slice;
@@ -224,6 +225,15 @@ impl<T> Merge<T> {
             let (remove, add) = diff.both().expect("must have one more adds than removes");
             values.extend([remove, add]);
         }
+        Self { values }
+    }
+
+    /// Creates a `Merge` from a first side and a series of diffs to apply to
+    /// that side.
+    pub fn from_diffs(first_side: T, diffs: impl IntoIterator<Item = Diff<T>>) -> Self {
+        let values = iter::once(first_side)
+            .chain(diffs.into_iter().flat_map(Diff::into_array))
+            .collect();
         Self { values }
     }
 
@@ -972,6 +982,19 @@ mod tests {
     fn test_diff_into_array() {
         let diff = Diff::new(1, 2);
         assert_eq!(diff.into_array(), [1, 2]);
+    }
+
+    #[test]
+    fn test_merge_from_diffs() {
+        assert_eq!(Merge::from_diffs(1, []), Merge::resolved(1));
+        assert_eq!(
+            Merge::from_diffs(1, [Diff::new(2, 3)]),
+            Merge::from_vec(vec![1, 2, 3])
+        );
+        assert_eq!(
+            Merge::from_diffs(1, [Diff::new(2, 3), Diff::new(4, 5)]),
+            Merge::from_vec(vec![1, 2, 3, 4, 5])
+        );
     }
 
     fn c<T: Clone>(terms: &[T]) -> Merge<T> {
