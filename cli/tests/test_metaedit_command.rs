@@ -95,7 +95,7 @@ fn test_metaedit() {
     [EOF]
     ");
 
-    // Update author
+    // Update author, ensure the commit can be specified with -r too
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     work_dir
         .run_jj([
@@ -103,6 +103,7 @@ fn test_metaedit() {
             "--config=user.name=Ove Ridder",
             "--config=user.email=ove.ridder@example.com",
             "--update-author",
+            "-r",
             "kkmpptxzrspx",
         ])
         .success();
