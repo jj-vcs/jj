@@ -170,9 +170,28 @@ You can disable colocation with the `--no-colocate` flag on the commands
 
 ### Converting a repo into a colocated repo
 
-A Jujutsu repo backed by a Git repo has a full Git repo inside, so it is
-technically possible (though not officially supported) to convert it into a
-colocated repo like so:
+A Jujutsu repo backed by a Git repo has a full Git repo inside, which can be
+converted into a colocated repo using the `jj git colocation` command.
+
+To check the current colocation status of your repository:
+
+```bash
+jj git colocation status
+```
+
+To convert to a colocated repo:
+
+```bash
+jj git colocation enable
+```
+
+To convert to a non-colocated repo:
+
+```bash
+jj git colocation disable
+```
+
+The `jj colocation enable` command automates the following manual process:
 
 ```bash
 # Ignore the .jj directory in Git
@@ -194,9 +213,6 @@ jj new && jj undo
 
     Instead of the `echo -n ...` line, use:
     `Set-Content -Path .jj/repo/store/git_target -Value ../../../.git -NoNewLine`
-
-We may officially support this in the future. If you try this, we would
-appreciate feedback and bug reports.
 
 ## Branches
 
