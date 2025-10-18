@@ -66,6 +66,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   tags. These keywords may be useful in non-colocated Git repositories where
   local and exported `@git` tags can point to different revisions.
 
+* `jj prev/next --no-edit` now generates an error if the working-copy has some
+  children.
+
+* `jj prev` and `jj next` have gained a `--rebase` flag to move the current changes
+  while moving to the previous or next revision.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
