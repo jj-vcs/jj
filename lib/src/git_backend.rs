@@ -583,8 +583,10 @@ fn commit_from_git_without_root_parent(
             .map(|oid| CommitId::from_bytes(oid.as_bytes()))
             .collect_vec()
     };
-    // If this commit is a conflict, we'll update the root tree later, when we read
-    // the extra metadata.
+    // Conflicted commits written before we started using the `jj:trees` header
+    // (~March 2024) may have the root trees stored in the extra metadata table
+    // instead. For such commits, we'll update the root tree later when we read the
+    // extra metadata.
     let root_tree = commit
         .extra_headers()
         .find(JJ_TREES_COMMIT_HEADER)
