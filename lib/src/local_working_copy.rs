@@ -623,16 +623,16 @@ fn can_create_new_file(disk_path: &Path) -> Result<bool, CheckoutError> {
     // name ".git" or ".jj", git/jj CLI could be tricked to load configuration
     // from an attacker-controlled location. So we first test the path by
     // creating an empty file.
-    let new_file_created = match OpenOptions::new()
+    let new_file = match OpenOptions::new()
         .write(true)
         .create_new(true) // Don't overwrite, don't follow symlink
         .open(disk_path)
     {
-        Ok(_) => true,
-        Err(err) if err.kind() == io::ErrorKind::AlreadyExists => false,
+        Ok(file) => Some(file),
+        Err(err) if err.kind() == io::ErrorKind::AlreadyExists => None,
         // Workaround for "Access is denied. (os error 5)" error on Windows.
         Err(_) => match disk_path.symlink_metadata() {
-            Ok(_) => false,
+            Ok(_) => None,
             Err(err) => {
                 return Err(CheckoutError::Other {
                     message: format!("Failed to stat {}", disk_path.display()),
@@ -641,47 +641,114 @@ fn can_create_new_file(disk_path: &Path) -> Result<bool, CheckoutError> {
             }
         },
     };
-    reject_reserved_existing_path(disk_path).inspect_err(|_| {
-        if new_file_created {
-            fs::remove_file(disk_path).ok();
-        }
-    })?;
-    if new_file_created {
+
+    let new_file_created = new_file.is_some();
+
+    if let Some(new_file) = new_file {
+        reject_reserved_existing_file(new_file, disk_path).inspect_err(|_| {
+            // We keep the error from `reject_reserved_existing_file`
+            let _ = fs::remove_file(disk_path);
+        })?;
+
         fs::remove_file(disk_path).map_err(|err| CheckoutError::Other {
             message: format!("Failed to remove temporary file {}", disk_path.display()),
             err: err.into(),
         })?;
+    } else {
+        reject_reserved_existing_path(disk_path)?;
     }
     Ok(new_file_created)
 }
 
 const RESERVED_DIR_NAMES: &[&str] = &[".git", ".jj"];
 
+fn same_file_handle_from_path(disk_path: &Path) -> io::Result<Option<same_file::Handle>> {
+    match same_file::Handle::from_path(disk_path) {
+        Ok(handle) => Ok(Some(handle)),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(err) => Err(err),
+    }
+}
+
+/// Wrapper for [`reject_reserved_existing_handle`] which avoids a syscall
+/// by converting the provided `file` to a `same_file::Handle` via its
+/// file descriptor.
+///
+/// See [`reject_reserved_existing_handle`] for more info.
+fn reject_reserved_existing_file(file: File, disk_path: &Path) -> Result<(), CheckoutError> {
+    // Note: since the file is open, we don't expect that it's possible for
+    // `io::ErrorKind::NotFound` to be a possible error returned here.
+    let file_handle = same_file::Handle::from_file(file).map_err(|err| CheckoutError::Other {
+        message: format!("Failed to validate path {}", disk_path.display()),
+        err: err.into(),
+    })?;
+
+    reject_reserved_existing_handle(file_handle, disk_path)
+}
+
+/// Wrapper for [`reject_reserved_existing_handle`] which converts
+/// the provided `disk_path` to a `same_file::Handle`.
+///
+/// See [`reject_reserved_existing_handle`] for more info.
+///
+/// # Remarks
+///
+/// Incurs an additional syscall cost to open and close the file
+/// descriptor/`HANDLE` for `disk_path`.
+fn reject_reserved_existing_path(disk_path: &Path) -> Result<(), CheckoutError> {
+    let Some(disk_handle) =
+        same_file_handle_from_path(disk_path).map_err(|err| CheckoutError::Other {
+            message: format!("Failed to validate path {}", disk_path.display()),
+            err: err.into(),
+        })?
+    else {
+        // If the existing disk_path pointed to the reserved path, we would have
+        // gotten a handle back. Since we got nothing, the file does not exist
+        // and cannot be a reserved path name.
+        return Ok(());
+    };
+
+    reject_reserved_existing_handle(disk_handle, disk_path)
+}
+
 /// Suppose the `disk_path` exists, checks if the last component points to
 /// ".git" or ".jj" in the same parent directory.
-fn reject_reserved_existing_path(disk_path: &Path) -> Result<(), CheckoutError> {
+///
+/// `disk_handle` is expected to be a handle to the file described by
+/// `disk_path`.
+///
+/// # Remarks
+///
+/// Incurs a syscall cost to open and close a file descriptor/`HANDLE` for
+/// each filename in `RESERVED_DIR_NAMES`.
+fn reject_reserved_existing_handle(
+    disk_handle: same_file::Handle,
+    disk_path: &Path,
+) -> Result<(), CheckoutError> {
     let parent_dir_path = disk_path.parent().expect("content path shouldn't be root");
     for name in RESERVED_DIR_NAMES {
         let reserved_path = parent_dir_path.join(name);
-        match same_file::is_same_file(disk_path, &reserved_path) {
-            Ok(true) => {
-                return Err(CheckoutError::ReservedPathComponent {
-                    path: disk_path.to_owned(),
-                    name,
-                });
-            }
-            Ok(false) => {}
-            // If the existing disk_path pointed to the reserved path, the
-            // reserved path would exist.
-            Err(err) if err.kind() == io::ErrorKind::NotFound => {}
-            Err(err) => {
-                return Err(CheckoutError::Other {
-                    message: format!("Failed to validate path {}", disk_path.display()),
-                    err: err.into(),
-                });
-            }
+
+        let Some(reserved_handle) =
+            same_file_handle_from_path(&reserved_path).map_err(|err| CheckoutError::Other {
+                message: format!("Failed to validate path {}", disk_path.display()),
+                err: err.into(),
+            })?
+        else {
+            // If the existing disk_path pointed to the reserved path, we would have
+            // gotten a handle back. Since we got nothing, the file does not exist
+            // and cannot be a reserved path name.
+            continue;
+        };
+
+        if disk_handle == reserved_handle {
+            return Err(CheckoutError::ReservedPathComponent {
+                path: disk_path.to_owned(),
+                name,
+            });
         }
     }
+
     Ok(())
 }
 
