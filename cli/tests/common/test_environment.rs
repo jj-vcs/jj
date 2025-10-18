@@ -130,6 +130,10 @@ impl TestEnvironment {
         cmd.env("JJ_OP_HOSTNAME", "host.example.com");
         cmd.env("JJ_OP_USERNAME", "test-username");
         cmd.env("JJ_TZ_OFFSET_MINS", "660");
+        // Coverage files should not pollute the working directory
+        if let Some(cov_var) = std::env::var_os("LLVM_PROFILE_FILE") {
+            cmd.env("LLVM_PROFILE_FILE", cov_var);
+        }
         for (key, value) in &self.env_vars {
             cmd.env(key, value);
         }
