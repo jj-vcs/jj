@@ -872,13 +872,13 @@ fn test_squash_from_multiple() {
 
     // Squash a few commits sideways
     let output = work_dir.run_jj(["squash", "--from=b", "--from=c", "--into=d"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: kpqxywon 0b695306 f | (no description set)
-    Parent commit (@-)      : yostqsxw ff064d52 e | (no description set)
+    Working copy  (@) now at: kpqxywon 5c538630 f | (no description set)
+    Parent commit (@-)      : yostqsxw fd2940e4 e | (no description set)
     New conflicts appeared in 1 commits:
-      yqosqzyt 61130da4 d | (conflict) (no description set)
+      yqosqzyt c31cb991 d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new yqosqzyt
@@ -886,12 +886,12 @@ fn test_squash_from_multiple() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  0b6953066ee0 f
-    ○    ff064d529578 e
+    @  5c5386309539 f
+    ○    fd2940e4f9c1 e
     ├─╮
-    × │  61130da4e714 d
+    × │  c31cb991c9be d
     ├─╯
     ○  e88768e65e67 a b c
     ◆  000000000000 (empty)
@@ -901,13 +901,13 @@ fn test_squash_from_multiple() {
     let output = work_dir.run_jj(["file", "show", "-r=d", "file"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% side #1 compared with base #1
+    %%%%%%% squash destination (yqosqzyt 8acbb715) compared with parents of kkmpptxz fed4d1a2
     -a
     +d
-    %%%%%%% side #2 compared with base #2
+    %%%%%%% squashed commit (kkmpptxz fed4d1a2) compared with parents of mzvwutvl d7e94ec7
     -a
     +b
-    +++++++ side #3
+    +++++++ squashed commit (mzvwutvl d7e94ec7)
     c
     >>>>>>> conflict 1 of 1 ends
     [EOF]
@@ -1016,13 +1016,13 @@ fn test_squash_from_multiple_partial() {
 
     // Partially squash a few commits sideways
     let output = work_dir.run_jj(["squash", "--from=b|c", "--into=d", "file1"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: kpqxywon a724910c f | (no description set)
-    Parent commit (@-)      : yostqsxw 1bc405e1 e | (no description set)
+    Working copy  (@) now at: kpqxywon 5f09dbd4 f | (no description set)
+    Parent commit (@-)      : yostqsxw 602ec1ab e | (no description set)
     New conflicts appeared in 1 commits:
-      yqosqzyt 7ddfe685 d | (conflict) (no description set)
+      yqosqzyt ed2751a9 d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new yqosqzyt
@@ -1030,15 +1030,15 @@ fn test_squash_from_multiple_partial() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  a724910cd361 f
-    ○      1bc405e12b68 e
+    @  5f09dbd46785 f
+    ○      602ec1ab8c78 e
     ├─┬─╮
     │ │ ○  e9db15b956c4 b
     │ ○ │  83cbe51db94d c
     │ ├─╯
-    × │  7ddfe6857387 d
+    × │  ed2751a98f74 d
     ├─╯
     ○  64ea60be8d77 a
     ◆  000000000000 (empty)
@@ -1059,13 +1059,13 @@ fn test_squash_from_multiple_partial() {
     let output = work_dir.run_jj(["file", "show", "-r=d", "file1"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% side #1 compared with base #1
+    %%%%%%% squash destination (yqosqzyt f6812ff8) compared with parents of kkmpptxz f2c9709f
     -a
     +d
-    %%%%%%% side #2 compared with base #2
+    %%%%%%% squashed commit (selected changes from kkmpptxz f2c9709f) compared with parents of mzvwutvl aa908686
     -a
     +b
-    +++++++ side #3
+    +++++++ squashed commit (selected changes from mzvwutvl aa908686)
     c
     >>>>>>> conflict 1 of 1 ends
     [EOF]
