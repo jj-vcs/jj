@@ -298,7 +298,7 @@ pub enum RevsetExpression<St: ExpressionState> {
     Bisect(Arc<Self>),
     HasSize {
         candidates: Arc<Self>,
-        count: usize,
+        range: Range<usize>,
     },
     Latest {
         candidates: Arc<Self>,
@@ -533,10 +533,10 @@ impl<St: ExpressionState> RevsetExpression<St> {
     }
 
     /// Commits in `self`, the number of which must be exactly equal to `count`.
-    pub fn has_size(self: &Arc<Self>, count: usize) -> Arc<Self> {
+    pub fn has_size(self: &Arc<Self>, range: Range<usize>) -> Arc<Self> {
         Arc::new(Self::HasSize {
             candidates: self.clone(),
-            count,
+            range,
         })
     }
 
@@ -736,7 +736,7 @@ pub enum ResolvedExpression {
     Bisect(Box<Self>),
     HasSize {
         candidates: Box<Self>,
-        count: usize,
+        range: Range<usize>,
     },
     Latest {
         candidates: Box<Self>,
@@ -948,10 +948,13 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         Ok(RevsetExpression::bisect(&expression))
     });
     map.insert("exactly", |diagnostics, function, context| {
-        let ([candidates_arg, count_arg], []) = function.expect_arguments()?;
+        let ([candidates_arg, range_arg], []) = function.expect_arguments()?;
         let candidates = lower_expression(diagnostics, candidates_arg, context)?;
-        let count = expect_literal("integer", count_arg)?;
-        Ok(candidates.has_size(count))
+        let range_str: String = expect_literal("string", range_arg)?;
+        let range = parse_range(&range_str)
+            .map_err(|msg| RevsetParseError::expression(msg, range_arg.span))?;
+
+        Ok(candidates.has_size(range))
     });
     map.insert("merges", |_diagnostics, function, _context| {
         function.expect_no_arguments()?;
@@ -1159,6 +1162,44 @@ pub fn expect_date_pattern(
             RevsetParseError::expression("Invalid date pattern", node.span).with_source(err)
         })
     })
+}
+
+fn parse_range(s: &str) -> Result<Range<usize>, String> {
+    if let Ok(n) = s.parse::<usize>() {
+        return Ok(n..n + 1);
+    }
+
+    // inclusive range syntax (a..=b)
+    if let Some((start_str, end_str)) = s.split_once("..=") {
+        let start = start_str
+            .parse::<usize>()
+            .map_err(|_| format!("Invalid start of range: {start_str}"))?;
+        let end = end_str
+            .parse::<usize>()
+            .map_err(|_| format!("Invalid end of range: {end_str}"))?;
+        if start > end {
+            return Err(format!("Invalid range: start ({start}) > end ({end})"));
+        }
+        return Ok(start..end + 1);
+    }
+
+    // exclusive range syntax (a..b)
+    if let Some((start_str, end_str)) = s.split_once("..") {
+        let start = start_str
+            .parse::<usize>()
+            .map_err(|_| format!("Invalid start of range: {start_str}"))?;
+        let end = end_str
+            .parse::<usize>()
+            .map_err(|_| format!("Invalid end of range: {end_str}"))?;
+        if start > end {
+            return Err(format!("Invalid range: start ({start}) > end ({end})"));
+        }
+        return Ok(start..end);
+    }
+
+    Err(format!(
+        "Invalid range syntax: '{s}'. Expected format: 'n', 'n..m', or 'n..=m'"
+    ))
 }
 
 fn parse_remote_bookmarks_arguments(
@@ -1472,10 +1513,10 @@ fn try_transform_expression<St: ExpressionState, E>(
             RevsetExpression::Bisect(expression) => {
                 transform_rec(expression, pre, post)?.map(RevsetExpression::Bisect)
             }
-            RevsetExpression::HasSize { candidates, count } => {
+            RevsetExpression::HasSize { candidates, range } => {
                 transform_rec(candidates, pre, post)?.map(|candidates| RevsetExpression::HasSize {
                     candidates,
-                    count: *count,
+                    range: range.clone(),
                 })
             }
             RevsetExpression::Latest { candidates, count } => transform_rec(candidates, pre, post)?
@@ -1719,11 +1760,11 @@ where
             let expression = folder.fold_expression(expression)?;
             RevsetExpression::Bisect(expression).into()
         }
-        RevsetExpression::HasSize { candidates, count } => {
+        RevsetExpression::HasSize { candidates, range } => {
             let candidates = folder.fold_expression(candidates)?;
             RevsetExpression::HasSize {
                 candidates,
-                count: *count,
+                range: range.clone(),
             }
             .into()
         }
@@ -3047,9 +3088,9 @@ impl VisibilityResolutionContext<'_> {
                 candidates: self.resolve(candidates).into(),
                 count: *count,
             },
-            RevsetExpression::HasSize { candidates, count } => ResolvedExpression::HasSize {
+            RevsetExpression::HasSize { candidates, range } => ResolvedExpression::HasSize {
                 candidates: self.resolve(candidates).into(),
-                count: *count,
+                range: range.clone(),
             },
             RevsetExpression::Filter(_) | RevsetExpression::AsFilter(_) => {
                 // Top-level filter without intersection: e.g. "~author(_)" is represented as

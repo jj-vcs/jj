@@ -994,32 +994,48 @@ impl EvaluationContext<'_> {
                 let candidate_set = self.evaluate(candidates)?;
                 Ok(Box::new(self.take_latest_revset(&*candidate_set, *count)?))
             }
-            ResolvedExpression::HasSize { candidates, count } => {
+            ResolvedExpression::HasSize { candidates, range } => {
                 let set = self.evaluate(candidates)?;
+                // Take at most count.end elements to check the range
+                // We take one extra to detect if there are more elements than allowed
                 let positions: Vec<_> = set
                     .positions()
                     .attach(index)
-                    .take(count.saturating_add(1))
+                    .take(range.end.saturating_add(1))
                     .try_collect()?;
-                if positions.len() != *count {
+
+                if !range.contains(&positions.len()) {
                     // https://github.com/jj-vcs/jj/pull/7252#pullrequestreview-3236259998
                     // in the default engine we have to evaluate the entire
                     // revset (which may be very large) to get an exact count;
                     // we would need to remove .take() above. instead just give
                     // a vaguely approximate error message
-                    let determiner = if positions.len() > *count {
-                        "more"
+                    let expected = if range.start == range.end.saturating_sub(1) {
+                        // Range represents exactly one value
+                        format!("exactly {} elements", range.start)
                     } else {
-                        "less"
+                        format!(
+                            "between {} and {} elements",
+                            range.start,
+                            range.end.saturating_sub(1)
+                        )
                     };
+
+                    let actual = if positions.len() > range.end {
+                        "more".to_string()
+                    } else {
+                        format!("{}", positions.len())
+                    };
+
                     return Err(RevsetEvaluationError::Other(
                         format!(
-                            "The revset was expected to have {count} elements, but {determiner} \
-                             were provided",
+                            "The revset was expected to have {expected}, but {actual} were \
+                             provided"
                         )
                         .into(),
                     ));
                 }
+
                 Ok(Box::new(EagerRevset { positions }))
             }
             ResolvedExpression::Coalesce(expression1, expression2) => {
