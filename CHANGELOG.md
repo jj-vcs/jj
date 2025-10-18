@@ -19,6 +19,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `core.watchman.register_snapshot_trigger`
   - `diff.format`
 
+* Specifying multiple bookmark arguments for `jj bookmark move` is deprecated.
+  Moving multiple bookmarks at once can still be done with a string pattern.
+
 ### Deprecations
 
  * `jj bisect run --command <cmd>` is deprecated in favor of
