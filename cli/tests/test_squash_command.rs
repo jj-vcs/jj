@@ -362,7 +362,7 @@ fn test_squash_partial() {
 }
 
 #[test]
-fn test_squash_keep_emptied() {
+fn test_amend() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -391,22 +391,22 @@ fn test_squash_keep_emptied() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["squash", "-r", "b", "--keep-emptied"]);
-    insta::assert_snapshot!(output, @r"
+    let output = work_dir.run_jj(["amend", "-r", "b", "-m", "foo"]);
+    insta::assert_snapshot!(output, @r###"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: mzvwutvl 093590e0 c | (no description set)
-    Parent commit (@-)      : kkmpptxz 357946cf b | (empty) (no description set)
+    Working copy  (@) now at: mzvwutvl b34c7e04 c | (no description set)
+    Parent commit (@-)      : kkmpptxz 4d5527a5 b | (empty) (no description set)
     [EOF]
-    ");
-    // With --keep-emptied, b remains even though it is now empty.
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  093590e044bd c
-    ○  357946cf85df b (empty)
-    ○  2269fb3b12f5 a
+    "###);
+    // With amend b remains even though it is now empty.
+    insta::assert_snapshot!(get_log_output(&work_dir), @r###"
+    @  b34c7e040136 c
+    ○  4d5527a53208 b (empty)
+    ○  f2c844473038 a foo
     ◆  000000000000 (empty)
     [EOF]
-    ");
+    "###);
     let output = work_dir.run_jj(["file", "show", "file1", "-r", "a"]);
     insta::assert_snapshot!(output, @r"
     b

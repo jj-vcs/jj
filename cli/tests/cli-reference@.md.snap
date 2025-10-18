@@ -36,6 +36,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj describe`↴](#jj-describe)
 * [`jj diff`↴](#jj-diff)
 * [`jj diffedit`↴](#jj-diffedit)
+* [`jj amend`↴](#jj-amend)
 * [`jj duplicate`↴](#jj-duplicate)
 * [`jj edit`↴](#jj-edit)
 * [`jj evolog`↴](#jj-evolog)
@@ -141,6 +142,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `describe` — Update the change description or other metadata [default alias: desc]
 * `diff` — Compare file contents between two revisions
 * `diffedit` — Touch up the content changes in a revision with a diff editor
+* `amend` — Move changes from a revision into another revision
 * `duplicate` — Create new changes with the same content as existing ones
 * `edit` — Sets the specified revision as the working-copy revision
 * `evolog` — Show how a change has evolved over time
@@ -168,7 +170,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `simplify-parents` — Simplify parent edges for the specified revision(s)
 * `sparse` — Manage which paths from the working-copy commit are present in the working copy
 * `split` — Split a revision in two
-* `squash` — Move changes from a revision into another revision
+* `squash` — Combine revisions by moving changes from a revision into another revision
 * `status` — Show high-level repo status [default alias: st]
 * `tag` — Manage tags
 * `undo` — Undo the last operation
@@ -906,6 +908,35 @@ See `jj restore` if you want to move entire files from one revision to another. 
 * `--restore-descendants` — Preserve the content (not the diff) when rebasing descendants
 
    When rebasing a descendant on top of the rewritten revision, its diff compared to its parent(s) is normally preserved, i.e. the same way that descendants are always rebased. This flag makes it so the content/state is preserved instead of preserving the diff.
+
+
+
+## `jj amend`
+
+Move changes from a revision into another revision
+
+With the `-r` option, moves the changes from the specified revision to the parent revision. Fails if there are several parent revisions (i.e., the given revision is a merge).
+
+With the `--from` and/or `--into` options, moves changes from/to the given revisions. If either is left out, it defaults to the working-copy commit. For example, `jj squash --into @--` moves changes from the working-copy commit to the grandparent.
+
+EXPERIMENTAL FEATURES
+
+An alternative squashing UI is available via the `-d`, `-A`, and `-B` options. They can be used together with one or more `--from` options (if no `--from` is specified, `--from @` is assumed).
+
+**Usage:** `jj amend [OPTIONS] [FILESETS]...`
+
+###### **Arguments:**
+
+* `<FILESETS>` — Move only changes to these paths (instead of all paths)
+
+###### **Options:**
+
+* `-r`, `--revision <REVSET>` — Revision to squash into its parent (default: @). Incompatible with the experimental `-d`/`-A`/`-B` options
+* `-f`, `--from <REVSETS>` — Revision(s) to squash from (default: @)
+* `-t`, `--into <REVSET>` [alias: `to`] — Revision to squash into (default: @)
+* `-i`, `--interactive` — Interactively choose which parts to squash
+* `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
+* `-m`, `--message <MESSAGE>` — The description to overwrite for the destination revision
 
 
 
@@ -2715,13 +2746,15 @@ Splitting an empty commit is not supported because the same effect can be achiev
 
 ## `jj squash`
 
-Move changes from a revision into another revision
+Combine revisions by moving changes from a revision into another revision.
+
+Note: If you aren't trying to merge the revision metadata (eg. description, bookmarks), or if you want to do a partial squash, you probably want `jj amend`.
 
 With the `-r` option, moves the changes from the specified revision to the parent revision. Fails if there are several parent revisions (i.e., the given revision is a merge).
 
 With the `--from` and/or `--into` options, moves changes from/to the given revisions. If either is left out, it defaults to the working-copy commit. For example, `jj squash --into @--` moves changes from the working-copy commit to the grandparent.
 
-If, after moving changes out, the source revision is empty compared to its parent(s), and `--keep-emptied` is not set, it will be abandoned. Without `--interactive` or paths, the source revision will always be empty.
+If, after moving changes out, the source revision is empty compared to its parent(s), it will be abandoned. Without `--interactive` or paths, the source revision will always be empty.
 
 If the source was abandoned and both the source and destination had a non-empty description, you will be asked for the combined description. If either was empty, then the other one will be used.
 
@@ -2742,13 +2775,13 @@ An alternative squashing UI is available via the `-d`, `-A`, and `-B` options. T
 * `-r`, `--revision <REVSET>` — Revision to squash into its parent (default: @). Incompatible with the experimental `-d`/`-A`/`-B` options
 * `-f`, `--from <REVSETS>` — Revision(s) to squash from (default: @)
 * `-t`, `--into <REVSET>` [alias: `to`] — Revision to squash into (default: @)
+* `-i`, `--interactive` — Interactively choose which parts to squash
+* `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
+* `-m`, `--message <MESSAGE>` — The description to use for squashed revision (don't open editor)
+* `-u`, `--use-destination-message` — Use the description of the destination revision and discard the description(s) of the source revision(s)
 * `-d`, `--destination <REVSETS>` — (Experimental) The revision(s) to use as parent for the new commit (can be repeated to create a merge commit)
 * `-A`, `--insert-after <REVSETS>` [alias: `after`] — (Experimental) The revision(s) to insert the new commit after (can be repeated to create a merge commit)
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — (Experimental) The revision(s) to insert the new commit before (can be repeated to create a merge commit)
-* `-m`, `--message <MESSAGE>` — The description to use for squashed revision (don't open editor)
-* `-u`, `--use-destination-message` — Use the description of the destination revision and discard the description(s) of the source revision(s)
-* `-i`, `--interactive` — Interactively choose which parts to squash
-* `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
 * `-k`, `--keep-emptied` — The source revision will not be abandoned
 
 

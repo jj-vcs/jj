@@ -47,7 +47,11 @@ use crate::description_util::join_message_paragraphs;
 use crate::description_util::try_combine_messages;
 use crate::ui::Ui;
 
-/// Move changes from a revision into another revision
+/// Combine revisions by moving changes from a revision into another revision.
+///
+/// Note: If you aren't trying to merge the revision metadata
+/// (eg. description, bookmarks), or if you want to do a partial squash,
+/// you probably want `jj amend`.
 ///
 /// With the `-r` option, moves the changes from the specified revision to the
 /// parent revision. Fails if there are several parent revisions (i.e., the
@@ -59,8 +63,8 @@ use crate::ui::Ui;
 /// commit to the grandparent.
 ///
 /// If, after moving changes out, the source revision is empty compared to its
-/// parent(s), and `--keep-emptied` is not set, it will be abandoned. Without
-/// `--interactive` or paths, the source revision will always be empty.
+/// parent(s), it will be abandoned. Without `--interactive` or paths, the
+/// source revision will always be empty.
 ///
 /// If the source was abandoned and both the source and destination had a
 /// non-empty description, you will be asked for the combined description. If
@@ -76,34 +80,17 @@ use crate::ui::Ui;
 /// (if no `--from` is specified, `--from @` is assumed).
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct SquashArgs {
-    /// Revision to squash into its parent (default: @). Incompatible with the
-    /// experimental `-d`/`-A`/`-B` options.
-    #[arg(
-        long,
-        short,
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
-    )]
-    revision: Option<RevisionArg>,
+    #[clap(flatten)]
+    pub(crate) common: CommonArgs,
 
-    /// Revision(s) to squash from (default: @)
-    #[arg(
-        long, short,
-        conflicts_with = "revision",
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
-    )]
-    from: Vec<RevisionArg>,
+    /// The description to use for squashed revision (don't open editor)
+    #[arg(long = "message", short, value_name = "MESSAGE")]
+    pub(crate) message_paragraphs: Vec<String>,
 
-    /// Revision to squash into (default: @)
-    #[arg(
-        long, short = 't',
-        conflicts_with = "revision",
-        visible_alias = "to",
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
-    )]
-    into: Option<RevisionArg>,
+    /// Use the description of the destination revision and discard the
+    /// description(s) of the source revision(s)
+    #[arg(long, short, conflicts_with = "message_paragraphs")]
+    pub(crate) use_destination_message: bool,
 
     /// (Experimental) The revision(s) to use as parent for the new commit (can
     /// be repeated to create a merge commit)
@@ -145,14 +132,67 @@ pub(crate) struct SquashArgs {
     )]
     insert_before: Option<Vec<RevisionArg>>,
 
-    /// The description to use for squashed revision (don't open editor)
-    #[arg(long = "message", short, value_name = "MESSAGE")]
-    message_paragraphs: Vec<String>,
+    /// The source revision will not be abandoned
+    #[arg(long, short)]
+    keep_emptied: bool,
+}
 
-    /// Use the description of the destination revision and discard the
-    /// description(s) of the source revision(s)
-    #[arg(long, short, conflicts_with = "message_paragraphs")]
-    use_destination_message: bool,
+/// Move changes from a revision into another revision
+///
+/// With the `-r` option, moves the changes from the specified revision to the
+/// parent revision. Fails if there are several parent revisions (i.e., the
+/// given revision is a merge).
+///
+/// With the `--from` and/or `--into` options, moves changes from/to the given
+/// revisions. If either is left out, it defaults to the working-copy commit.
+/// For example, `jj squash --into @--` moves changes from the working-copy
+/// commit to the grandparent.
+///
+/// EXPERIMENTAL FEATURES
+///
+/// An alternative squashing UI is available via the `-d`, `-A`, and `-B`
+/// options. They can be used together with one or more `--from` options
+/// (if no `--from` is specified, `--from @` is assumed).
+#[derive(clap::Args, Clone, Debug)]
+pub(crate) struct AmendArgs {
+    #[clap(flatten)]
+    common: CommonArgs,
+
+    /// The description to overwrite for the destination revision.
+    #[arg(long = "message", short, value_name = "MESSAGE")]
+    pub(crate) message_paragraphs: Vec<String>,
+}
+
+#[derive(clap::Args, Clone, Debug)]
+pub(crate) struct CommonArgs {
+    /// Revision to squash into its parent (default: @). Incompatible with the
+    /// experimental `-d`/`-A`/`-B` options.
+    #[arg(
+        long,
+        short,
+        value_name = "REVSET",
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+    )]
+    revision: Option<RevisionArg>,
+
+    /// Revision(s) to squash from (default: @)
+    #[arg(
+        long, short,
+        conflicts_with = "revision",
+        value_name = "REVSETS",
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+    )]
+    from: Vec<RevisionArg>,
+
+    /// Revision to squash into (default: @)
+    #[arg(
+        long, short = 't',
+        conflicts_with = "revision",
+        visible_alias = "to",
+        value_name = "REVSET",
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+    )]
+    into: Option<RevisionArg>,
 
     /// Interactively choose which parts to squash
     #[arg(long, short)]
@@ -173,20 +213,59 @@ pub(crate) struct SquashArgs {
         add = ArgValueCompleter::new(complete::squash_revision_files),
     )]
     paths: Vec<String>,
+}
 
-    /// The source revision will not be abandoned
-    #[arg(long, short)]
-    keep_emptied: bool,
+pub(crate) enum SquashOrAmendArgs<'a> {
+    SquashArgs(&'a SquashArgs),
+    AmendArgs(&'a AmendArgs),
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_squash(
+pub(crate) fn cmd_squash_or_amend(
     ui: &mut Ui,
     command: &CommandHelper,
-    args: &SquashArgs,
+    args: SquashOrAmendArgs,
 ) -> Result<(), CommandError> {
+    let keep_emptied = match args {
+        SquashOrAmendArgs::SquashArgs(args) => {
+            if args.keep_emptied {
+                writeln!(
+                    ui.warning_default(),
+                    "`jj squash --keep-emptied` has been deprecated and replaced with `jj amend`",
+                )?;
+            }
+            args.keep_emptied
+        }
+        SquashOrAmendArgs::AmendArgs(_) => true,
+    };
+    let message_paragraphs = match args {
+        SquashOrAmendArgs::SquashArgs(args) => &args.message_paragraphs,
+        SquashOrAmendArgs::AmendArgs(args) => &args.message_paragraphs,
+    };
+    let use_destination_message = match args {
+        SquashOrAmendArgs::SquashArgs(args) => args.use_destination_message,
+        SquashOrAmendArgs::AmendArgs(_) => Default::default(),
+    };
+    let insert_before = match args {
+        SquashOrAmendArgs::SquashArgs(args) => &args.insert_before,
+        SquashOrAmendArgs::AmendArgs(_) => &None,
+    };
+    let insert_after = match args {
+        SquashOrAmendArgs::SquashArgs(args) => &args.insert_after,
+        SquashOrAmendArgs::AmendArgs(_) => &None,
+    };
+    let destination = match args {
+        SquashOrAmendArgs::SquashArgs(args) => &args.destination,
+        SquashOrAmendArgs::AmendArgs(_) => &None,
+    };
+
+    let args = match args {
+        SquashOrAmendArgs::SquashArgs(args) => &args.common,
+        SquashOrAmendArgs::AmendArgs(args) => &args.common,
+    };
+
     let insert_destination_commit =
-        args.destination.is_some() || args.insert_after.is_some() || args.insert_before.is_some();
+        destination.is_some() || insert_after.is_some() || insert_before.is_some();
 
     let mut workspace_command = command.workspace_helper(ui)?;
 
@@ -253,9 +332,9 @@ pub(crate) fn cmd_squash(
         let (parent_ids, child_ids) = compute_commit_location(
             ui,
             tx.base_workspace_helper(),
-            args.destination.as_deref(),
-            args.insert_after.as_deref(),
-            args.insert_before.as_deref(),
+            destination.as_deref(),
+            insert_after.as_deref(),
+            insert_before.as_deref(),
             "squashed commit",
         )?;
         let parent_commits: Vec<_> = parent_ids
@@ -310,15 +389,12 @@ pub(crate) fn cmd_squash(
         tx.base_workspace_helper()
             .diff_selector(ui, args.tool.as_deref(), args.interactive)?;
     let text_editor = tx.base_workspace_helper().text_editor()?;
-    let description = SquashedDescription::from_args(args);
+    let description = SquashedDescription::from_args(message_paragraphs, use_destination_message);
 
     let source_commits = select_diff(&tx, &sources, &destination, &matcher, &diff_selector)?;
-    if let Some(squashed) = rewrite::squash_commits(
-        tx.repo_mut(),
-        &source_commits,
-        &destination,
-        args.keep_emptied,
-    )? {
+    if let Some(squashed) =
+        rewrite::squash_commits(tx.repo_mut(), &source_commits, &destination, keep_emptied)?
+    {
         let mut commit_builder = squashed.commit_builder.detach();
         let new_description = match description {
             SquashedDescription::Exact(description) => {
@@ -434,14 +510,14 @@ enum SquashedDescription {
 }
 
 impl SquashedDescription {
-    fn from_args(args: &SquashArgs) -> Self {
+    fn from_args(message_paragraphs: &[String], use_destination_message: bool) -> Self {
         // These options are incompatible and Clap is configured to prevent this.
-        assert!(args.message_paragraphs.is_empty() || !args.use_destination_message);
+        assert!(message_paragraphs.is_empty() || !use_destination_message);
 
-        if !args.message_paragraphs.is_empty() {
-            let desc = join_message_paragraphs(&args.message_paragraphs);
+        if !message_paragraphs.is_empty() {
+            let desc = join_message_paragraphs(message_paragraphs);
             Self::Exact(desc)
-        } else if args.use_destination_message {
+        } else if use_destination_message {
             Self::UseDestination
         } else {
             Self::Combine

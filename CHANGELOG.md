@@ -66,6 +66,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   tags. These keywords may be useful in non-colocated Git repositories where
   local and exported `@git` tags can point to different revisions.
 
+* `jj amend` moves diffs between revisions, (similar to squash)
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
