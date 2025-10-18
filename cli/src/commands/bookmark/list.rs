@@ -459,7 +459,7 @@ mod tests {
         Arc::new(backend::Commit {
             parents: vec![],
             predecessors: vec![],
-            root_tree: MergedTreeId::Legacy(TreeId::new(vec![])),
+            root_tree: MergedTreeId::resolved(TreeId::new(vec![])),
             change_id: ChangeId::new(vec![]),
             description: String::new(),
             author,

@@ -151,12 +151,8 @@ impl Commit {
         is_backend_commit_empty(repo, &self.store, &self.data)
     }
 
-    pub fn has_conflict(&self) -> BackendResult<bool> {
-        if let MergedTreeId::Merge(tree_ids) = self.tree_id() {
-            Ok(!tree_ids.is_resolved())
-        } else {
-            Ok(self.tree()?.has_conflict())
-        }
+    pub fn has_conflict(&self) -> bool {
+        !self.tree_id().as_merge().is_resolved()
     }
 
     pub fn change_id(&self) -> &ChangeId {
