@@ -20,8 +20,9 @@ use std::iter;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::Signature;
-use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::object_id::ObjectId as _;
+use jj_lib::repo::Repo as _;
+use jj_lib::revset::RevsetIteratorExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -138,19 +139,23 @@ pub(crate) fn cmd_describe(
         )?;
     }
     let mut workspace_command = command.workspace_helper(ui)?;
-    let commits: Vec<_> = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
+    let target_expr = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
         workspace_command
             .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
     } else {
         workspace_command.parse_revset(ui, &RevisionArg::AT)?
     }
-    .evaluate_to_commits()?
-    .try_collect()?; // in reverse topological order
+    .resolve()?;
+    workspace_command.check_rewritable_expr(&target_expr)?;
+    let commits: Vec<_> = target_expr
+        .evaluate(workspace_command.repo().as_ref())?
+        .iter()
+        .commits(workspace_command.repo().store()) // in reverse topological order
+        .try_collect()?;
     if commits.is_empty() {
         writeln!(ui.status(), "No revisions to describe.")?;
         return Ok(());
     }
-    workspace_command.check_rewritable(commits.iter().ids())?;
     let text_editor = workspace_command.text_editor()?;
 
     let mut tx = workspace_command.start_transaction();

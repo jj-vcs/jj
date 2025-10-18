@@ -134,15 +134,18 @@ pub(crate) fn cmd_fix(
     let workspace_root = workspace_command.workspace_root().to_owned();
     let path_converter = workspace_command.path_converter().to_owned();
     let tools_config = get_tools_config(ui, workspace_command.settings())?;
-    let root_commits: Vec<CommitId> = if args.source.is_empty() {
+    let target_expr = if args.source.is_empty() {
         let revs = workspace_command.settings().get_string("revsets.fix")?;
         workspace_command.parse_revset(ui, &RevisionArg::from(revs))?
     } else {
         workspace_command.parse_union_revsets(ui, &args.source)?
     }
-    .evaluate_to_commit_ids()?
-    .try_collect()?;
-    workspace_command.check_rewritable(root_commits.iter())?;
+    .resolve()?;
+    workspace_command.check_rewritable_expr(&target_expr)?;
+    let root_commits: Vec<CommitId> = target_expr
+        .evaluate(workspace_command.repo().as_ref())?
+        .iter()
+        .try_collect()?;
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();

@@ -56,24 +56,23 @@ pub(crate) fn cmd_simplify_parents(
             .get_string("revsets.simplify-parents")?;
         workspace_command
             .parse_revset(ui, &RevisionArg::from(revs))?
-            .expression()
-            .clone()
+            .resolve()?
     } else {
         workspace_command
             .parse_union_revsets(ui, &args.source)?
-            .expression()
+            .resolve()?
             .descendants()
             .union(
-                workspace_command
+                &workspace_command
                     .parse_union_revsets(ui, &args.revisions)?
-                    .expression(),
+                    .resolve()?,
             )
     };
-    let commit_ids: Vec<_> = workspace_command
-        .attach_revset_evaluator(revs)
-        .evaluate_to_commit_ids()?
+    workspace_command.check_rewritable_expr(&revs)?;
+    let commit_ids: Vec<_> = revs
+        .evaluate(workspace_command.repo().as_ref())?
+        .iter()
         .try_collect()?;
-    workspace_command.check_rewritable(&commit_ids)?;
     let commit_ids_set: HashSet<_> = commit_ids.iter().cloned().collect();
     let num_orig_commits = commit_ids.len();
 

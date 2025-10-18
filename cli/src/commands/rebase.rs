@@ -425,11 +425,14 @@ fn plan_rebase_revisions(
     revisions: &[RevisionArg],
     rebase_destination: &RebaseDestinationArgs,
 ) -> Result<MoveCommitsLocation, CommandError> {
-    let target_commit_ids: Vec<_> = workspace_command
+    let target_expr = workspace_command
         .parse_union_revsets(ui, revisions)?
-        .evaluate_to_commit_ids()?
+        .resolve()?;
+    workspace_command.check_rewritable_expr(&target_expr)?;
+    let target_commit_ids: Vec<_> = target_expr
+        .evaluate(workspace_command.repo().as_ref())?
+        .iter()
         .try_collect()?; // in reverse topological order
-    workspace_command.check_rewritable(&target_commit_ids)?;
 
     let (new_parent_ids, new_child_ids) = compute_commit_location(
         ui,
@@ -519,12 +522,12 @@ fn plan_rebase_branch(
     let roots_expression = RevsetExpression::commits(new_parent_ids.clone())
         .range(&RevsetExpression::commits(branch_commit_ids))
         .roots();
+    workspace_command.check_rewritable_expr(&roots_expression)?;
     let root_commit_ids: Vec<_> = roots_expression
         .evaluate(workspace_command.repo().as_ref())
         .unwrap()
         .iter()
         .try_collect()?;
-    workspace_command.check_rewritable(&root_commit_ids)?;
     if rebase_destination.destination.is_some() && new_child_ids.is_empty() {
         for id in &root_commit_ids {
             let commit = workspace_command.repo().store().get_commit(id)?;

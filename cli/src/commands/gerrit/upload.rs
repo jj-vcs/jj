@@ -167,16 +167,18 @@ pub fn cmd_gerrit_upload(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
 
-    let revisions: Vec<_> = workspace_command
+    let target_expr = workspace_command
         .parse_union_revsets(ui, &args.revisions)?
-        .evaluate_to_commit_ids()?
+        .resolve()?;
+    workspace_command.check_rewritable_expr(&target_expr)?;
+    let revisions: Vec<_> = target_expr
+        .evaluate(workspace_command.repo().as_ref())?
+        .iter()
         .try_collect()?;
     if revisions.is_empty() {
         writeln!(ui.status(), "No revisions to upload.")?;
         return Ok(());
     }
-
-    workspace_command.check_rewritable(revisions.iter())?;
 
     // If you have the changes main -> A -> B, and then run `jj gerrit upload -r B`,
     // then that uploads both A and B. Thus, we need to ensure that A also

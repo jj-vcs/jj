@@ -18,6 +18,7 @@ use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::signing::SignBehavior;
 
 use crate::cli_util::CommandHelper;
@@ -76,11 +77,16 @@ pub fn cmd_sign(ui: &mut Ui, command: &CommandHelper, args: &SignArgs) -> Result
         workspace_command.parse_revset(ui, &RevisionArg::from(revset_string))?
     } else {
         workspace_command.parse_union_revsets(ui, &args.revisions)?
-    };
+    }
+    .resolve()?;
 
-    let to_sign: IndexSet<Commit> = revset_expression.evaluate_to_commits()?.try_collect()?;
+    workspace_command.check_rewritable_expr(&revset_expression)?;
 
-    workspace_command.check_rewritable(to_sign.iter().ids())?;
+    let to_sign: IndexSet<Commit> = revset_expression
+        .evaluate(workspace_command.repo().as_ref())?
+        .iter()
+        .commits(workspace_command.repo().store())
+        .try_collect()?;
 
     let mut tx = workspace_command.start_transaction();
 

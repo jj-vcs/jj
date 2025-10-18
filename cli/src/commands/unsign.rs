@@ -17,6 +17,8 @@ use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
+use jj_lib::repo::Repo as _;
+use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::signing::SignBehavior;
 
 use crate::cli_util::CommandHelper;
@@ -50,12 +52,15 @@ pub fn cmd_unsign(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
 
-    let commits: IndexSet<Commit> = workspace_command
+    let target_expr = workspace_command
         .parse_union_revsets(ui, &args.revisions)?
-        .evaluate_to_commits()?
+        .resolve()?;
+    workspace_command.check_rewritable_expr(&target_expr)?;
+    let commits: IndexSet<Commit> = target_expr
+        .evaluate(workspace_command.repo().as_ref())?
+        .iter()
+        .commits(workspace_command.repo().store())
         .try_collect()?;
-
-    workspace_command.check_rewritable(commits.iter().ids())?;
 
     let to_unsign: IndexSet<Commit> = commits
         .into_iter()
