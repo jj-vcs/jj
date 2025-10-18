@@ -41,8 +41,16 @@ use crate::ui::Ui;
 
 /// Update the change description or other metadata [default alias: desc]
 ///
-/// Starts an editor to let you edit the description of changes. The editor
-/// will be $EDITOR, or `nano` if that's not defined (`Notepad` on Windows).
+/// Starts a text editor to let you edit the description of changes.
+///
+/// The editor is set via config option `ui.editor`. You can change this by
+/// running:
+///
+/// $ jj config set ui.editor <your-editor>
+///
+/// If this config option is not set, environment variables VISUAL and EDITOR
+/// will be tried in that order. If these are not set, `nano` (`Notepad` on
+/// Windows) will be used.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct DescribeArgs {
     /// The revision(s) whose description to edit (default: @)
