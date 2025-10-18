@@ -680,20 +680,13 @@ fn test_update_empty_author() {
     [EOF]
     ");
 
-    // restore test author config
+    // restore test author config, exercise --quiet
     test_env.add_env_var("JJ_USER", "Test User");
     test_env.add_env_var("JJ_EMAIL", "test.user@example.com");
     let work_dir = test_env.work_dir("repo");
 
     // update existing commit with restored test author config
-    insta::assert_snapshot!(work_dir.run_jj(["metaedit", "--update-author"]), @r"
-    ------- stderr -------
-    Modified 1 commits:
-      qpvuntsm 0f13b5f2 (empty) (no description set)
-    Working copy  (@) now at: qpvuntsm 0f13b5f2 (empty) (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
-    [EOF]
-    ");
+    insta::assert_snapshot!(work_dir.run_jj(["metaedit", "--update-author", "--quiet"]), @"");
     insta::assert_snapshot!(work_dir.run_jj(["show"]), @r"
     Commit ID: 0f13b5f2ea7fad147c133c81b87d31e7b1b8c564
     Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
