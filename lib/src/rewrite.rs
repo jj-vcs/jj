@@ -1174,6 +1174,7 @@ impl CommitWithSelection {
         &self,
         parent_tree_label: &str,
         selected_tree_label: &str,
+        full_selection_label: &str,
     ) -> BackendResult<Diff<(MergedTree, String)>> {
         let parents: Vec<_> = self.commit.parents().try_collect()?;
         let parent_tree_label = format!(
@@ -1183,9 +1184,9 @@ impl CommitWithSelection {
 
         let commit_label = self.commit.conflict_label();
         let selected_tree_label = if self.is_full_selection() {
-            format!("{commit_label} ({selected_tree_label})")
+            format!("{commit_label} ({full_selection_label})")
         } else {
-            format!("{selected_tree_label} (selected from {commit_label})")
+            format!("{selected_tree_label} (from {commit_label})")
         };
 
         Ok(Diff::new(
@@ -1215,6 +1216,7 @@ pub fn squash_commits<'repo>(
 ) -> BackendResult<Option<SquashedCommit<'repo>>> {
     struct SourceCommit<'a> {
         commit: &'a CommitWithSelection,
+        diff: Diff<(MergedTree, String)>,
         abandon: bool,
     }
     let mut source_commits = vec![];
@@ -1231,6 +1233,11 @@ pub fn squash_commits<'repo>(
         // squash -r`)? The source tree will be unchanged in that case.
         source_commits.push(SourceCommit {
             commit: source,
+            diff: source.diff_with_labels(
+                "parents of squashed commit",
+                "selected changes for squash",
+                "squashed commit",
+            )?,
             abandon,
         });
     }
@@ -1247,12 +1254,11 @@ pub fn squash_commits<'repo>(
         } else {
             let source_tree = source.commit.commit.tree();
             // Apply the reverse of the selected changes onto the source
-            let new_source_tree = source_tree
-                .merge_unlabeled(
-                    source.commit.selected_tree.clone(),
-                    source.commit.parent_tree.clone(),
-                )
-                .block_on()?;
+            let new_source_tree = MergedTree::merge(Merge::from_diffs(
+                (source_tree, source.commit.commit.conflict_label()),
+                [source.diff.clone().invert()],
+            ))
+            .block_on()?;
             repo.rewrite_commit(&source.commit.commit)
                 .set_tree(new_source_tree)
                 .write()?;
@@ -1282,22 +1288,21 @@ pub fn squash_commits<'repo>(
             };
         })?;
     }
-    // Apply the selected changes onto the destination
-    let mut destination_tree = rewritten_destination.tree();
-    for source in &source_commits {
-        destination_tree = destination_tree
-            .merge_unlabeled(
-                source.commit.parent_tree.clone(),
-                source.commit.selected_tree.clone(),
-            )
-            .block_on()?;
-    }
     let mut predecessors = vec![destination.id().clone()];
     predecessors.extend(
         source_commits
             .iter()
             .map(|source| source.commit.commit.id().clone()),
     );
+    // Apply the selected changes onto the destination
+    let destination_tree = MergedTree::merge(Merge::from_diffs(
+        (
+            rewritten_destination.tree(),
+            format!("{} (squash destination)", destination.conflict_label()),
+        ),
+        source_commits.into_iter().map(|source| source.diff),
+    ))
+    .block_on()?;
 
     let commit_builder = repo
         .rewrite_commit(&rewritten_destination)
