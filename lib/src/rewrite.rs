@@ -41,6 +41,7 @@ use crate::index::ResolvedChangeTargets;
 use crate::iter_util::fallible_any;
 use crate::matchers::Matcher;
 use crate::matchers::Visit;
+use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
 use crate::merged_tree::MergedTreeBuilder;
@@ -1164,6 +1165,33 @@ impl CommitWithSelection {
     /// can be true if the commit is itself empty.
     pub fn is_empty_selection(&self) -> bool {
         self.selected_tree.tree_ids() == self.parent_tree.tree_ids()
+    }
+
+    /// Returns a diff of labeled trees which represents the selected changes.
+    /// This can be used with `MergedTree::merge` and `Merge::from_diffs` to
+    /// apply the selected changes to a tree.
+    pub fn diff_with_labels(
+        &self,
+        parent_tree_label: &str,
+        selected_tree_label: &str,
+    ) -> BackendResult<Diff<(MergedTree, String)>> {
+        let parents: Vec<_> = self.commit.parents().try_collect()?;
+        let parent_tree_label = format!(
+            "{} ({parent_tree_label})",
+            conflict_label_for_commits(&parents)
+        );
+
+        let commit_label = self.commit.conflict_label();
+        let selected_tree_label = if self.is_full_selection() {
+            format!("{commit_label} ({selected_tree_label})")
+        } else {
+            format!("{selected_tree_label} (selected from {commit_label})")
+        };
+
+        Ok(Diff::new(
+            (self.parent_tree.clone(), parent_tree_label),
+            (self.selected_tree.clone(), selected_tree_label),
+        ))
     }
 }
 
