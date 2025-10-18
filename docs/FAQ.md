@@ -216,11 +216,11 @@ can create a `.gitignore` file in that directory containing only `*`. This will
 ignore everything in the directory including the `.gitignore` file itself.
 
 If `$EDITOR` integration is important, something like `scratchpad.*` may be more
-helpful, as you can keep the filename extension intact (it
-matches `scratchpad.md`, `scratchpad.rs` and more). Another option is to add a
-directory to the global `.gitignore` which then stores all your temporary files
-and notes. For example, you could add `scratch/` to `~/.git/ignore` and then
-store arbitrary files in `<your-git-repo>/scratch/`.
+helpful, as you can keep the filename extension intact (it matches
+`scratchpad.md`, `scratchpad.rs` and more). Another option is to add a directory
+which would store all your temporary files and notes to your configured global
+gitignore file. For example, you could add `scratch/` to it and then store
+arbitrary files in `<your-git-repo>/scratch/`.
 
 You can find more details on `gitignore` files [here][gitignore].
 
