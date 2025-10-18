@@ -66,6 +66,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   tags. These keywords may be useful in non-colocated Git repositories where
   local and exported `@git` tags can point to different revisions.
 
+* Conflict labels can now contain more information about where the sides of
+  the conflict came from. Currently, only some commands add conflict labels.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
