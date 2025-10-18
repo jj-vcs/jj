@@ -179,7 +179,12 @@ pub fn read_user_config<T: ConfigType>(d: &Path) -> Result<UserConfig<T>, UserCo
     };
     let secure_config = SecureUserConfig::decode(&*buf)?;
     let config = T::decode(&*secure_config.storage)?;
-    let key = signing_key()?;
+    let key = match signing_key() {
+        Ok(key) => key,
+        // If we're unable to determine the signing key, we unfortunately can't
+        // really do anything but trust it.
+        Err(_) => return Ok(UserConfig::Trusted(config)),
+    };
 
     let sign = |s: &str| {
         let mut to_sign = secure_config.storage.clone();
@@ -220,17 +225,18 @@ pub fn write_user_config<T: ConfigType>(d: &Path, config: &T) -> Result<(), User
         .to_string_lossy()
         .to_string();
 
-    let key = signing_key()?;
-    let mut to_sign = content.clone();
-    to_sign.extend(salt);
-    to_sign.extend(canonical.as_bytes());
-    let signature = key.sign(&to_sign);
+    let signature = signing_key().ok().map(|key| {
+        let mut to_sign = content.clone();
+        to_sign.extend(salt);
+        to_sign.extend(canonical.as_bytes());
+        key.sign(&to_sign).to_vec()
+    });
 
     let secure_config = SecureUserConfig {
         storage: content,
         salt: salt.to_vec(),
         path: canonical,
-        signature: signature.to_vec(),
+        signature: signature.unwrap_or_default(),
     };
 
     // Atomically write to the file.
