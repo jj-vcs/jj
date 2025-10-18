@@ -411,6 +411,19 @@ fn test_metaedit() {
 }
 
 #[test]
+fn test_metaedit_no_matching_revisions() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let output = work_dir.run_jj(["metaedit", "--update-change-id", "none()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    No revisions to modify.
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_metaedit_multiple_revisions() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
