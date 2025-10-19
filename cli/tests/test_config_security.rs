@@ -197,8 +197,22 @@ fn test_legacy_config_migration() {
     insta::assert_snapshot!(output, @r###"
     bar
     [EOF]
+    ------- stderr -------
+    Warning: Migrating from legacy repo config file (`$REPO_DIR/config.toml`) to secure configuration
+    Hint: In the future, use `jj config edit --repo` to edit your config files instead
+    [EOF]
     "###);
 
     assert!(!legacy_config.exists());
     assert!(new_config.exists());
+
+    std::fs::write(&legacy_config, "foo = \"baz\"").unwrap();
+    let output = work_dir.run_jj(["config", "get", "foo"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Error: Attempting to use the legacy repo config on a new repo
+    Hint: Use `jj config edit --repo` to edit your repo config instead
+    [EOF]
+    [exit status: 1]
+    "###);
 }

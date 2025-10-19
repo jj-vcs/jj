@@ -552,13 +552,33 @@ impl ConfigEnv {
         // as InvalidSignature or RepoMovedError.
         let legacy_config = path.join("config.toml");
         match std::fs::read_to_string(&legacy_config).context(&legacy_config) {
-            Ok(content) => {
-                self.set_repo_config(&content, true)?;
-                std::fs::remove_file(&legacy_config).context(&legacy_config)?;
-            }
+            Ok(content) => match read_user_config::<RepoConfig>(path) {
+                Ok(_) => {
+                    return Err(user_error_with_hint(
+                        "Attempting to use the legacy repo config on a new repo",
+                        "Use `jj config edit --repo` to edit your repo config instead",
+                    ));
+                }
+                Err(UserConfigError::LegacyRepo) => {
+                    writeln!(
+                        ui.warning_default(),
+                        "Migrating from legacy repo config file (`$REPO_DIR/config.toml`) to \
+                         secure configuration",
+                    )?;
+                    writeln!(
+                        ui.hint_default(),
+                        "In the future, use `jj config edit --repo` to edit your config files \
+                         instead"
+                    )?;
+                    self.set_repo_config(&content, true)?;
+                    std::fs::remove_file(&legacy_config).context(&legacy_config)?;
+                }
+                Err(e) => return Err(internal_error(e)),
+            },
             Err(e) if e.source.kind() == std::io::ErrorKind::NotFound => {}
             Err(e) => return Err(e.into()),
         }
+
         self.repo_config = self.load_user_config::<RepoConfig>(ui, path)?;
         Ok(())
     }
