@@ -252,7 +252,7 @@ impl ReadonlyRepo {
             submodule_store,
         };
 
-        let root_operation = loader.root_operation();
+        let root_operation = loader.root_operation().block_on();
         let root_view = root_operation.view().expect("failed to read root view");
         assert!(!root_view.heads().is_empty());
         let index = loader
@@ -317,7 +317,7 @@ impl ReadonlyRepo {
     }
 
     pub fn reload_at_head(&self) -> Result<Arc<Self>, RepoLoaderError> {
-        self.loader().load_at_head()
+        self.loader().load_at_head().block_on()
     }
 
     #[instrument]
@@ -736,12 +736,13 @@ impl RepoLoader {
         &self.submodule_store
     }
 
-    pub fn load_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+    pub async fn load_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         let op = op_heads_store::resolve_op_heads(
             self.op_heads_store.as_ref(),
             &self.op_store,
             |op_heads| self.resolve_op_heads(op_heads),
-        )?;
+        )
+        .await?;
         let view = op.view()?;
         self.finish_load(op, view)
     }
@@ -772,20 +773,21 @@ impl RepoLoader {
     // load_operation() will be moved there.
 
     /// Returns the root operation.
-    pub fn root_operation(&self) -> Operation {
+    pub async fn root_operation(&self) -> Operation {
         self.load_operation(self.op_store.root_operation_id())
+            .await
             .expect("failed to read root operation")
     }
 
     /// Loads the specified operation from the operation store.
-    pub fn load_operation(&self, id: &OperationId) -> OpStoreResult<Operation> {
-        let data = self.op_store.read_operation(id).block_on()?;
+    pub async fn load_operation(&self, id: &OperationId) -> OpStoreResult<Operation> {
+        let data = self.op_store.read_operation(id).await?;
         Ok(Operation::new(self.op_store.clone(), id.clone(), data))
     }
 
     /// Merges the given `operations` into a single operation. Returns the root
     /// operation if the `operations` is empty.
-    pub fn merge_operations(
+    pub async fn merge_operations(
         &self,
         operations: Vec<Operation>,
         tx_description: Option<&str>,
@@ -793,7 +795,7 @@ impl RepoLoader {
         let num_operations = operations.len();
         let mut operations = operations.into_iter();
         let Some(base_op) = operations.next() else {
-            return Ok(self.root_operation());
+            return Ok(self.root_operation().await);
         };
         let final_op = if num_operations > 1 {
             let base_repo = self.load_at(&base_op)?;
@@ -815,9 +817,13 @@ impl RepoLoader {
         Ok(final_op)
     }
 
-    fn resolve_op_heads(&self, op_heads: Vec<Operation>) -> Result<Operation, RepoLoaderError> {
+    async fn resolve_op_heads(
+        &self,
+        op_heads: Vec<Operation>,
+    ) -> Result<Operation, RepoLoaderError> {
         assert!(!op_heads.is_empty());
         self.merge_operations(op_heads, Some("reconcile divergent operations"))
+            .await
     }
 
     fn finish_load(
@@ -1385,7 +1391,7 @@ impl MutableRepo {
             async |rewriter| {
                 if rewriter.parents_changed() {
                     let old_commit = rewriter.old_commit().clone();
-                    let rebased_commit = rebase_commit_with_options(rewriter, options)?;
+                    let rebased_commit = rebase_commit_with_options(rewriter, options).await?;
                     progress(old_commit, rebased_commit);
                 }
                 Ok(())

@@ -32,6 +32,7 @@ use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RewriteRefsOptions;
 use jj_lib::rewrite::compute_move_commits;
 use jj_lib::rewrite::find_duplicate_divergent_commits;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -395,7 +396,8 @@ pub(crate) fn cmd_rebase(
     let mut computed_move = compute_move_commits(tx.repo(), &loc)?;
     if !args.keep_divergent {
         let abandoned_divergent =
-            find_duplicate_divergent_commits(tx.repo(), &loc.new_parent_ids, &loc.target)?;
+            find_duplicate_divergent_commits(tx.repo(), &loc.new_parent_ids, &loc.target)
+                .block_on()?;
         computed_move.record_to_abandon(abandoned_divergent.iter().map(Commit::id).cloned());
         if !abandoned_divergent.is_empty()
             && let Some(mut formatter) = ui.status_formatter()

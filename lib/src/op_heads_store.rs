@@ -21,7 +21,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::dag_walk;
@@ -85,22 +84,23 @@ impl dyn OpHeadsStore {
 // lock.
 //
 // This routine is defined outside the trait because it must support generics.
-pub fn resolve_op_heads<E>(
+pub async fn resolve_op_heads<E, Fut>(
     op_heads_store: &dyn OpHeadsStore,
     op_store: &Arc<dyn OpStore>,
-    resolver: impl FnOnce(Vec<Operation>) -> Result<Operation, E>,
+    resolver: impl FnOnce(Vec<Operation>) -> Fut,
 ) -> Result<Operation, E>
 where
     E: From<OpHeadResolutionError> + From<OpHeadsStoreError> + From<OpStoreError>,
+    Fut: Future<Output = Result<Operation, E>>,
 {
     // This can be empty if the OpHeadsStore doesn't support atomic updates.
     // For example, all entries ahead of a readdir() pointer could be deleted by
     // another concurrent process.
-    let mut op_heads = op_heads_store.get_op_heads().block_on()?;
+    let mut op_heads = op_heads_store.get_op_heads().await?;
 
     if op_heads.len() == 1 {
         let operation_id = op_heads.pop().unwrap();
-        let operation = op_store.read_operation(&operation_id).block_on()?;
+        let operation = op_store.read_operation(&operation_id).await?;
         return Ok(Operation::new(op_store.clone(), operation_id, operation));
     }
 
@@ -112,8 +112,8 @@ where
     // Note that the locking isn't necessary for correctness of merge; we take
     // the lock only to prevent other concurrent processes from doing the same
     // work (and producing another set of divergent heads).
-    let _lock = op_heads_store.lock().block_on()?;
-    let op_head_ids = op_heads_store.get_op_heads().block_on()?;
+    let _lock = op_heads_store.lock().await?;
+    let op_head_ids = op_heads_store.get_op_heads().await?;
 
     if op_head_ids.is_empty() {
         return Err(OpHeadResolutionError::NoHeads.into());
@@ -121,17 +121,16 @@ where
 
     if op_head_ids.len() == 1 {
         let op_head_id = op_head_ids[0].clone();
-        let op_head = op_store.read_operation(&op_head_id).block_on()?;
+        let op_head = op_store.read_operation(&op_head_id).await?;
         return Ok(Operation::new(op_store.clone(), op_head_id, op_head));
     }
 
-    let op_heads: Vec<_> = op_head_ids
-        .iter()
-        .map(|op_id: &OperationId| -> Result<Operation, OpStoreError> {
-            let data = op_store.read_operation(op_id).block_on()?;
-            Ok(Operation::new(op_store.clone(), op_id.clone(), data))
-        })
-        .try_collect()?;
+    let mut op_heads = vec![];
+    for op_id in &op_head_ids {
+        let data = op_store.read_operation(op_id).await?;
+        op_heads.push(Operation::new(op_store.clone(), op_id.clone(), data));
+    }
+
     // Remove ancestors so we don't create merge operation with an operation and its
     // ancestor
     let op_head_ids_before: HashSet<_> = op_heads.iter().map(|op| op.id().clone()).collect();
@@ -152,16 +151,16 @@ where
     if let [op_head] = &*op_heads {
         op_heads_store
             .update_op_heads(&ancestor_op_heads, op_head.id())
-            .block_on()?;
+            .await?;
         return Ok(op_head.clone());
     }
 
     op_heads.sort_by_key(|op| op.metadata().time.end.timestamp);
-    let new_op = resolver(op_heads)?;
+    let new_op = resolver(op_heads).await?;
     let mut old_op_heads = ancestor_op_heads;
     old_op_heads.extend_from_slice(new_op.parent_ids());
     op_heads_store
         .update_op_heads(&old_op_heads, new_op.id())
-        .block_on()?;
+        .await?;
     Ok(new_op)
 }

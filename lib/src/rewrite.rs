@@ -25,7 +25,6 @@ use futures::try_join;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::backend::BackendError;
@@ -326,7 +325,7 @@ pub enum RebasedCommit {
     Abandoned { parent_id: CommitId },
 }
 
-pub fn rebase_commit_with_options(
+pub async fn rebase_commit_with_options(
     mut rewriter: CommitRewriter<'_>,
     options: &RebaseOptions,
 ) -> BackendResult<RebasedCommit> {
@@ -344,10 +343,7 @@ pub fn rebase_commit_with_options(
         _ => None,
     };
     let new_parents_len = rewriter.new_parents.len();
-    if let Some(builder) = rewriter
-        .rebase_with_empty_behavior(options.empty)
-        .block_on()?
-    {
+    if let Some(builder) = rewriter.rebase_with_empty_behavior(options.empty).await? {
         let new_commit = builder.write()?;
         Ok(RebasedCommit::Rewritten(new_commit))
     } else {
@@ -359,7 +355,7 @@ pub fn rebase_commit_with_options(
 }
 
 /// Moves changes from `sources` to the `destination` parent, returns new tree.
-pub fn rebase_to_dest_parent(
+pub async fn rebase_to_dest_parent(
     repo: &dyn Repo,
     sources: &[Commit],
     destination: &Commit,
@@ -369,16 +365,17 @@ pub fn rebase_to_dest_parent(
     {
         return source.tree();
     }
-    sources.iter().try_fold(
-        destination.parent_tree(repo)?,
-        |destination_tree, source| {
-            let source_parent_tree = source.parent_tree(repo)?;
-            let source_tree = source.tree()?;
-            destination_tree
-                .merge(source_parent_tree, source_tree)
-                .block_on()
-        },
-    )
+
+    let mut destination_tree = destination.parent_tree(repo)?;
+    for source in sources {
+        let source_parent_tree = source.parent_tree(repo)?;
+        let source_tree = source.tree()?;
+        destination_tree = destination_tree
+            .merge(source_parent_tree, source_tree)
+            .await?;
+    }
+
+    Ok(destination_tree)
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
@@ -828,7 +825,8 @@ fn apply_move_commits(
                     } else {
                         rebase_descendant_options
                     },
-                )?;
+                )
+                .await?;
                 if let RebasedCommit::Abandoned { .. } = rebased_commit {
                     num_abandoned_empty += 1;
                 } else if is_target_commit {
@@ -1150,7 +1148,7 @@ pub struct SquashedCommit<'repo> {
 /// Squash `sources` into `destination` and return a [`SquashedCommit`] for the
 /// resulting commit. Caller is responsible for setting the description and
 /// finishing the commit.
-pub fn squash_commits<'repo>(
+pub async fn squash_commits<'repo>(
     repo: &'repo mut MutableRepo,
     sources: &[CommitWithSelection],
     destination: &Commit,
@@ -1195,7 +1193,7 @@ pub fn squash_commits<'repo>(
                     source.commit.selected_tree.clone(),
                     source.commit.parent_tree.clone(),
                 )
-                .block_on()?;
+                .await?;
             repo.rewrite_commit(&source.commit.commit)
                 .set_tree_id(new_source_tree.id().clone())
                 .write()?;
@@ -1230,7 +1228,7 @@ pub fn squash_commits<'repo>(
                 source.commit.parent_tree.clone(),
                 source.commit.selected_tree.clone(),
             )
-            .block_on()?;
+            .await?;
     }
     let mut predecessors = vec![destination.id().clone()];
     predecessors.extend(
@@ -1252,7 +1250,7 @@ pub fn squash_commits<'repo>(
 /// Find divergent commits from the target that are already present with
 /// identical contents in the destination. These commits should be able to be
 /// safely abandoned.
-pub fn find_duplicate_divergent_commits(
+pub async fn find_duplicate_divergent_commits(
     repo: &dyn Repo,
     new_parent_ids: &[CommitId],
     target: &MoveCommitsTarget,
@@ -1316,7 +1314,8 @@ pub fn find_duplicate_divergent_commits(
 
             let ancestor_candidate = repo.store().get_commit(&ancestor_candidate_id)?;
             let new_tree =
-                rebase_to_dest_parent(repo, slice::from_ref(target_commit), &ancestor_candidate)?;
+                rebase_to_dest_parent(repo, slice::from_ref(target_commit), &ancestor_candidate)
+                    .await?;
             // Check whether the rebased commit would have the same tree as the existing
             // commit if they had the same parents. If so, we can skip this rebased commit.
             if new_tree.id() == *ancestor_candidate.tree_id() {
