@@ -21,6 +21,7 @@ use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 
+use async_trait::async_trait;
 use thiserror::Error;
 
 use crate::backend::BackendInitError;
@@ -98,12 +99,13 @@ struct SimpleOpHeadsStoreLock {
 
 impl OpHeadsStoreLock for SimpleOpHeadsStoreLock {}
 
+#[async_trait]
 impl OpHeadsStore for SimpleOpHeadsStore {
     fn name(&self) -> &str {
         Self::name()
     }
 
-    fn update_op_heads(
+    async fn update_op_heads(
         &self,
         old_ids: &[OperationId],
         new_id: &OperationId,
@@ -124,7 +126,7 @@ impl OpHeadsStore for SimpleOpHeadsStore {
         Ok(())
     }
 
-    fn get_op_heads(&self) -> Result<Vec<OperationId>, OpHeadsStoreError> {
+    async fn get_op_heads(&self) -> Result<Vec<OperationId>, OpHeadsStoreError> {
         let mut op_heads = vec![];
         for op_head_entry in
             std::fs::read_dir(&self.dir).map_err(|err| OpHeadsStoreError::Read(err.into()))?
@@ -144,7 +146,7 @@ impl OpHeadsStore for SimpleOpHeadsStore {
         Ok(op_heads)
     }
 
-    fn lock(&self) -> Result<Box<dyn OpHeadsStoreLock + '_>, OpHeadsStoreError> {
+    async fn lock(&self) -> Result<Box<dyn OpHeadsStoreLock + '_>, OpHeadsStoreError> {
         let lock = FileLock::lock(self.dir.join("lock"))
             .map_err(|err| OpHeadsStoreError::Lock(err.into()))?;
         Ok(Box::new(SimpleOpHeadsStoreLock { _lock: lock }))

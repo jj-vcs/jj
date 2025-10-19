@@ -19,7 +19,9 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::dag_walk;
@@ -50,25 +52,26 @@ pub enum OpHeadResolutionError {
 pub trait OpHeadsStoreLock {}
 
 /// Manages the set of current heads of the operation log.
+#[async_trait]
 pub trait OpHeadsStore: Any + Send + Sync + Debug {
     fn name(&self) -> &str;
 
     /// Remove the old op heads and add the new one.
     ///
     /// The old op heads must not contain the new one.
-    fn update_op_heads(
+    async fn update_op_heads(
         &self,
         old_ids: &[OperationId],
         new_id: &OperationId,
     ) -> Result<(), OpHeadsStoreError>;
 
-    fn get_op_heads(&self) -> Result<Vec<OperationId>, OpHeadsStoreError>;
+    async fn get_op_heads(&self) -> Result<Vec<OperationId>, OpHeadsStoreError>;
 
     /// Optionally takes a lock on the op heads store. The purpose of the lock
     /// is to prevent concurrent processes from resolving the same divergent
     /// operations. It is not needed for correctness; implementations are free
     /// to return a type that doesn't hold a lock.
-    fn lock(&self) -> Result<Box<dyn OpHeadsStoreLock + '_>, OpHeadsStoreError>;
+    async fn lock(&self) -> Result<Box<dyn OpHeadsStoreLock + '_>, OpHeadsStoreError>;
 }
 
 impl dyn OpHeadsStore {
@@ -93,7 +96,7 @@ where
     // This can be empty if the OpHeadsStore doesn't support atomic updates.
     // For example, all entries ahead of a readdir() pointer could be deleted by
     // another concurrent process.
-    let mut op_heads = op_heads_store.get_op_heads()?;
+    let mut op_heads = op_heads_store.get_op_heads().block_on()?;
 
     if op_heads.len() == 1 {
         let operation_id = op_heads.pop().unwrap();
@@ -109,8 +112,8 @@ where
     // Note that the locking isn't necessary for correctness of merge; we take
     // the lock only to prevent other concurrent processes from doing the same
     // work (and producing another set of divergent heads).
-    let _lock = op_heads_store.lock()?;
-    let op_head_ids = op_heads_store.get_op_heads()?;
+    let _lock = op_heads_store.lock().block_on()?;
+    let op_head_ids = op_heads_store.get_op_heads().block_on()?;
 
     if op_head_ids.is_empty() {
         return Err(OpHeadResolutionError::NoHeads.into());
@@ -147,7 +150,9 @@ where
 
     // Return without creating a merge operation
     if let [op_head] = &*op_heads {
-        op_heads_store.update_op_heads(&ancestor_op_heads, op_head.id())?;
+        op_heads_store
+            .update_op_heads(&ancestor_op_heads, op_head.id())
+            .block_on()?;
         return Ok(op_head.clone());
     }
 
@@ -155,6 +160,8 @@ where
     let new_op = resolver(op_heads)?;
     let mut old_op_heads = ancestor_op_heads;
     old_op_heads.extend_from_slice(new_op.parent_ids());
-    op_heads_store.update_op_heads(&old_op_heads, new_op.id())?;
+    op_heads_store
+        .update_op_heads(&old_op_heads, new_op.id())
+        .block_on()?;
     Ok(new_op)
 }
