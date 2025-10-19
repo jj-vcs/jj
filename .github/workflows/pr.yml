@@ -67,7 +67,7 @@ jobs:
             }
             else {
               // All commits are formatted correctly, dismiss any change requests.
-              if (latestReview) {
+              if (latestReview && latestReview.state === 'CHANGES_REQUESTED') {
                 await github.rest.pulls.dismissReview({
                   message: 'All commits are now correctly formatted. Thank you for your contribution!',
                   review_id: latestReview.id,
