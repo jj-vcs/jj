@@ -93,13 +93,14 @@ pub fn resolve_op_for_load(
     let op_store = repo_loader.op_store();
     let op_heads_store = repo_loader.op_heads_store().as_ref();
     let get_current_op = || {
-        op_heads_store::resolve_op_heads(op_heads_store, op_store, |op_heads| {
+        op_heads_store::resolve_op_heads(op_heads_store, op_store, |op_heads| async move {
             Err(OpsetResolutionError::MultipleOperations {
                 expr: "@".to_owned(),
                 candidates: op_heads.iter().map(|op| op.id().clone()).collect(),
             }
             .into())
         })
+        .block_on()
     };
     let get_head_ops = || get_current_head_ops(op_store, op_heads_store);
     resolve_single_op(op_store, get_current_op, get_head_ops, op_str)
@@ -147,7 +148,7 @@ fn resolve_single_op(
     let head_ops = op_postfix.contains('+').then(get_head_ops).transpose()?;
     let mut operation = match op_symbol {
         "@" => get_current_op(),
-        s => resolve_single_op_from_store(op_store, s),
+        s => resolve_single_op_from_store(op_store, s).block_on(),
     }?;
     for (i, c) in op_postfix.chars().enumerate() {
         let mut neighbor_ops = match c {
@@ -177,7 +178,7 @@ fn resolve_single_op(
     Ok(operation)
 }
 
-fn resolve_single_op_from_store(
+async fn resolve_single_op_from_store(
     op_store: &Arc<dyn OpStore>,
     op_str: &str,
 ) -> Result<Operation, OpsetEvaluationError> {
@@ -186,12 +187,12 @@ fn resolve_single_op_from_store(
     }
     let prefix = HexPrefix::try_from_hex(op_str)
         .ok_or_else(|| OpsetResolutionError::InvalidIdPrefix(op_str.to_owned()))?;
-    match op_store.resolve_operation_id_prefix(&prefix).block_on()? {
+    match op_store.resolve_operation_id_prefix(&prefix).await? {
         PrefixResolution::NoMatch => {
             Err(OpsetResolutionError::NoSuchOperation(op_str.to_owned()).into())
         }
         PrefixResolution::SingleMatch(op_id) => {
-            let data = op_store.read_operation(&op_id).block_on()?;
+            let data = op_store.read_operation(&op_id).await?;
             Ok(Operation::new(op_store.clone(), op_id, data))
         }
         PrefixResolution::AmbiguousMatch => {

@@ -529,7 +529,7 @@ impl CommandHelper {
         let workspace = self.load_workspace()?;
         let op_id = workspace.working_copy().operation_id();
 
-        match workspace.repo_loader().load_operation(op_id) {
+        match workspace.repo_loader().load_operation(op_id).block_on() {
             Ok(op) => {
                 let repo = workspace.repo_loader().load_at(&op)?;
                 let mut workspace_command = self.for_workable_repo(ui, workspace, repo)?;
@@ -642,7 +642,7 @@ impl CommandHelper {
             op_heads_store::resolve_op_heads(
                 repo_loader.op_heads_store().as_ref(),
                 repo_loader.op_store(),
-                |op_heads| {
+                |op_heads| async {
                     writeln!(
                         ui.status(),
                         "Concurrent modification detected, resolving automatically.",
@@ -668,6 +668,7 @@ impl CommandHelper {
                         .clone())
                 },
             )
+            .block_on()
         }
     }
 

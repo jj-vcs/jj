@@ -368,7 +368,10 @@ impl WorkingCopyFreshness {
             // The working copy isn't stale, and no need to reload the repo.
             Ok(Self::Fresh)
         } else {
-            let wc_operation = repo.loader().load_operation(locked_wc.old_operation_id())?;
+            let wc_operation = repo
+                .loader()
+                .load_operation(locked_wc.old_operation_id())
+                .block_on()?;
             let repo_operation = repo.operation();
             let ancestor_op = dag_walk::closest_common_node_ok(
                 [Ok(wc_operation.clone())],
