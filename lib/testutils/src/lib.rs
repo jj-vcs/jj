@@ -262,6 +262,7 @@ impl TestRepo {
             ReadonlyRepo::default_index_store_initializer(),
             ReadonlyRepo::default_submodule_store_initializer(),
         )
+        .block_on()
         .unwrap();
 
         Self {
@@ -626,6 +627,7 @@ pub fn write_random_commit_with_parents(mut_repo: &mut MutableRepo, parents: &[&
     create_random_commit(mut_repo)
         .set_parents(parents.iter().map(|commit| commit.id().clone()).collect())
         .write()
+        .block_on()
         .unwrap()
 }
 

@@ -76,7 +76,8 @@ pub(crate) fn cmd_file_untrack(
         .repo_mut()
         .rewrite_commit(&wc_commit)
         .set_tree_id(new_tree_id)
-        .write()?;
+        .write()
+        .block_on()?;
     // Reset the working copy to the new commit
     locked_ws.locked_wc().reset(&new_commit).block_on()?;
     // Commit the working copy again so we can inform the user if paths couldn't be

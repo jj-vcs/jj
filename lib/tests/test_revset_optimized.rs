@@ -58,6 +58,7 @@ fn write_new_commit<'a>(
     repo.new_commit(parents, tree_id)
         .set_description(desc)
         .write()
+        .block_on()
         .unwrap()
 }
 
@@ -383,6 +384,7 @@ fn test_rewritten() {
         .rewrite_commit(&commits[2])
         .set_description("2b")
         .write()
+        .block_on()
         .unwrap();
     commits.push(commit2b);
     commits.extend(rebase_descendants(tx.repo_mut()));

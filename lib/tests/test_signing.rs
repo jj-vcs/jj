@@ -74,11 +74,13 @@ fn manual(backend: TestRepoBackend) {
     let commit1 = create_random_commit(tx.repo_mut())
         .set_sign_behavior(SignBehavior::Own)
         .write()
+        .block_on()
         .unwrap();
     let commit2 = create_random_commit(tx.repo_mut())
         .set_sign_behavior(SignBehavior::Own)
         .set_author(someone_else())
         .write()
+        .block_on()
         .unwrap();
     tx.commit("test").block_on().unwrap();
 
@@ -103,12 +105,13 @@ fn keep_on_rewrite(backend: TestRepoBackend) {
     let commit = create_random_commit(tx.repo_mut())
         .set_sign_behavior(SignBehavior::Own)
         .write()
+        .block_on()
         .unwrap();
     tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let rewritten = mut_repo.rewrite_commit(&commit).write().unwrap();
+    let rewritten = mut_repo.rewrite_commit(&commit).write().block_on().unwrap();
 
     let commit = repo.store().get_commit(rewritten.id()).unwrap();
     assert_eq!(commit.verification().unwrap(), good_verification());
@@ -128,6 +131,7 @@ fn manual_drop_on_rewrite(backend: TestRepoBackend) {
     let commit = create_random_commit(tx.repo_mut())
         .set_sign_behavior(SignBehavior::Own)
         .write()
+        .block_on()
         .unwrap();
     tx.commit("test").block_on().unwrap();
 
@@ -137,6 +141,7 @@ fn manual_drop_on_rewrite(backend: TestRepoBackend) {
         .rewrite_commit(&commit)
         .set_sign_behavior(SignBehavior::Drop)
         .write()
+        .block_on()
         .unwrap();
 
     let commit = repo.store().get_commit(rewritten.id()).unwrap();
@@ -157,6 +162,7 @@ fn forced(backend: TestRepoBackend) {
     let commit = create_random_commit(tx.repo_mut())
         .set_author(someone_else())
         .write()
+        .block_on()
         .unwrap();
     tx.commit("test").block_on().unwrap();
 
@@ -196,6 +202,7 @@ fn drop_behavior(backend: TestRepoBackend) {
     let commit = create_random_commit(tx.repo_mut())
         .set_sign_behavior(SignBehavior::Own)
         .write()
+        .block_on()
         .unwrap();
     tx.commit("test").block_on().unwrap();
 
@@ -204,7 +211,7 @@ fn drop_behavior(backend: TestRepoBackend) {
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let rewritten = mut_repo.rewrite_commit(&original_commit).write().unwrap();
+    let rewritten = mut_repo.rewrite_commit(&original_commit).write().block_on().unwrap();
 
     let rewritten_commit = repo.store().get_commit(rewritten.id()).unwrap();
     assert_eq!(rewritten_commit.verification().unwrap(), None);

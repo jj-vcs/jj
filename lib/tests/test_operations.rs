@@ -198,12 +198,14 @@ fn test_isolation() {
         .rewrite_commit(&initial)
         .set_description("rewrite1")
         .write()
+        .block_on()
         .unwrap();
     mut_repo1.rebase_descendants().block_on().unwrap();
     let rewrite2 = mut_repo2
         .rewrite_commit(&initial)
         .set_description("rewrite2")
         .write()
+        .block_on()
         .unwrap();
     mut_repo2.rebase_descendants().block_on().unwrap();
 
@@ -239,6 +241,7 @@ fn test_stored_commit_predecessors() {
         .rewrite_commit(&commit1)
         .set_description("rewritten")
         .write()
+        .block_on()
         .unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").block_on().unwrap();
@@ -506,6 +509,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         .rewrite_commit(&commit_a0)
         .set_description("a1")
         .write()
+        .block_on()
         .unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
     let [commit_b1] = head_commits(tx.repo()).try_into().unwrap();
@@ -525,6 +529,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         .rewrite_commit(&commit_a1)
         .set_description("a2")
         .write()
+        .block_on()
         .unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo_4 = tx.commit("op4").block_on().unwrap();

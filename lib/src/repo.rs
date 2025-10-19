@@ -27,7 +27,6 @@ use std::sync::Arc;
 
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
-use pollster::FutureExt as _;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -187,15 +186,15 @@ impl ReadonlyRepo {
     }
 
     #[expect(clippy::too_many_arguments)]
-    pub fn init(
+    pub async fn init(
         settings: &UserSettings,
         repo_path: &Path,
-        backend_initializer: &BackendInitializer,
+        backend_initializer: &BackendInitializer<'_>,
         signer: Signer,
-        op_store_initializer: &OpStoreInitializer,
-        op_heads_store_initializer: &OpHeadsStoreInitializer,
-        index_store_initializer: &IndexStoreInitializer,
-        submodule_store_initializer: &SubmoduleStoreInitializer,
+        op_store_initializer: &OpStoreInitializer<'_>,
+        op_heads_store_initializer: &OpHeadsStoreInitializer<'_>,
+        index_store_initializer: &IndexStoreInitializer<'_>,
+        submodule_store_initializer: &SubmoduleStoreInitializer<'_>,
     ) -> Result<Arc<Self>, RepoInitError> {
         let repo_path = dunce::canonicalize(repo_path).context(repo_path)?;
 
@@ -225,7 +224,7 @@ impl ReadonlyRepo {
         fs::write(&op_heads_type_path, op_heads_store.name()).context(&op_heads_type_path)?;
         op_heads_store
             .update_op_heads(&[], op_store.root_operation_id())
-            .block_on()?;
+            .await?;
         let op_heads_store: Arc<dyn OpHeadsStore> = Arc::from(op_heads_store);
 
         let index_path = repo_path.join("index");
@@ -252,16 +251,16 @@ impl ReadonlyRepo {
             submodule_store,
         };
 
-        let root_operation = loader.root_operation().block_on();
+        let root_operation = loader.root_operation().await;
         let root_view = root_operation
             .view()
-            .block_on()
+            .await
             .expect("failed to read root view");
         assert!(!root_view.heads().is_empty());
         let index = loader
             .index_store
             .get_index_at_op(&root_operation, &loader.store)
-            .block_on()
+            .await
             // If the root op index couldn't be read, the index backend wouldn't
             // be initialized properly.
             .map_err(|err| BackendInitError(err.into()))?;
@@ -748,13 +747,13 @@ impl RepoLoader {
         )
         .await?;
         let view = op.view().await?;
-        self.finish_load(op, view)
+        self.finish_load(op, view).await
     }
 
     #[instrument(skip(self))]
     pub async fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         let view = op.view().await?;
-        self.finish_load(op.clone(), view)
+        self.finish_load(op.clone(), view).await
     }
 
     pub fn create_from(
@@ -830,7 +829,7 @@ impl RepoLoader {
             .await
     }
 
-    fn finish_load(
+    async fn finish_load(
         &self,
         operation: Operation,
         view: View,
@@ -838,7 +837,7 @@ impl RepoLoader {
         let index = self
             .index_store
             .get_index_at_op(&operation, &self.store)
-            .block_on()?;
+            .await?;
         let repo = ReadonlyRepo {
             loader: self.clone(),
             operation,
@@ -1117,20 +1116,20 @@ impl MutableRepo {
 
     /// Updates bookmarks, working copies, and anonymous heads after rewriting
     /// and/or abandoning commits.
-    pub fn update_rewritten_references(
+    pub async fn update_rewritten_references(
         &mut self,
         options: &RewriteRefsOptions,
     ) -> BackendResult<()> {
-        self.update_all_references(options)?;
+        self.update_all_references(options).await?;
         self.update_heads()
             .map_err(|err| err.into_backend_error())?;
         Ok(())
     }
 
-    fn update_all_references(&mut self, options: &RewriteRefsOptions) -> BackendResult<()> {
+    async fn update_all_references(&mut self, options: &RewriteRefsOptions) -> BackendResult<()> {
         let rewrite_mapping = self.resolve_rewrite_mapping_with(|_| true);
         self.update_local_bookmarks(&rewrite_mapping, options);
-        self.update_wc_commits(&rewrite_mapping)?;
+        self.update_wc_commits(&rewrite_mapping).await?;
         Ok(())
     }
 
@@ -1168,7 +1167,7 @@ impl MutableRepo {
         }
     }
 
-    fn update_wc_commits(
+    async fn update_wc_commits(
         &mut self,
         rewrite_mapping: &HashMap<CommitId, Vec<CommitId>>,
     ) -> BackendResult<()> {
@@ -1197,10 +1196,11 @@ impl MutableRepo {
                     .iter()
                     .map(|id| self.store().get_commit(id))
                     .try_collect()?;
-                let merged_parents_tree = merge_commit_trees(self, &new_commits).block_on()?;
+                let merged_parents_tree = merge_commit_trees(self, &new_commits).await?;
                 let commit = self
                     .new_commit(new_commit_ids.clone(), merged_parents_tree.id().clone())
-                    .write()?;
+                    .write()
+                    .await?;
                 recreated_wc_commits.insert(old_commit_id, commit.clone());
                 commit
             };
@@ -1359,7 +1359,7 @@ impl MutableRepo {
             let rewriter = CommitRewriter::new(self, old_commit, new_parent_ids);
             callback(rewriter).await?;
         }
-        self.update_rewritten_references(options)?;
+        self.update_rewritten_references(options).await?;
         // Since we didn't necessarily visit all descendants of rewritten commits (e.g.
         // if they were rewritten in the callback), there can still be commits left to
         // rebase, so we don't clear `parent_mapping` here.
@@ -1442,7 +1442,7 @@ impl MutableRepo {
         self.transform_descendants(roots, async |rewriter| {
             if rewriter.parents_changed() {
                 let builder = rewriter.reparent();
-                builder.write()?;
+                builder.write().await?;
                 num_reparented += 1;
             }
             Ok(())
@@ -1508,14 +1508,15 @@ impl MutableRepo {
         self.view_mut().rename_workspace(old_name, new_name)
     }
 
-    pub fn check_out(
+    pub async fn check_out(
         &mut self,
         name: WorkspaceNameBuf,
         commit: &Commit,
     ) -> Result<Commit, CheckOutCommitError> {
         let wc_commit = self
             .new_commit(vec![commit.id().clone()], commit.tree_id().clone())
-            .write()?;
+            .write()
+            .await?;
         self.edit(name, &wc_commit)?;
         Ok(wc_commit)
     }

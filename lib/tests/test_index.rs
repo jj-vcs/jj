@@ -832,6 +832,7 @@ fn test_changed_path_segments() {
         .repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree1.id())
         .write()
+        .block_on()
         .unwrap();
     let repo = tx.commit("test").block_on().unwrap();
     let stats = as_readonly_index(&repo).stats();
@@ -853,6 +854,7 @@ fn test_changed_path_segments() {
         .repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree2.id())
         .write()
+        .block_on()
         .unwrap();
     let repo = tx.commit("test").block_on().unwrap();
     let stats = as_readonly_index(&repo).stats();
@@ -886,6 +888,7 @@ fn test_build_changed_path_segments() {
         tx.repo_mut()
             .new_commit(vec![root_commit_id.clone()], tree.id())
             .write()
+            .block_on()
             .unwrap();
     }
     let repo = tx.commit("test").block_on().unwrap();
@@ -935,6 +938,7 @@ fn test_build_changed_path_segments_partially_enabled() {
             tx.repo_mut()
                 .new_commit(vec![root_commit_id.clone()], tree.id())
                 .write()
+                .block_on()
                 .unwrap();
         }
         let repo = tx.commit("test").block_on().unwrap();
@@ -944,6 +948,7 @@ fn test_build_changed_path_segments_partially_enabled() {
         tx.repo_mut()
             .new_commit(vec![root_commit_id.clone()], tree.id())
             .write()
+            .block_on()
             .unwrap();
         tx
     };
@@ -953,6 +958,7 @@ fn test_build_changed_path_segments_partially_enabled() {
         tx2.repo_mut()
             .new_commit(vec![root_commit_id.clone()], tree.id())
             .write()
+            .block_on()
             .unwrap();
     }
     let repo = commit_transactions(vec![tx1, tx2]);
@@ -1006,6 +1012,7 @@ fn test_merge_changed_path_segments_both_enabled() {
     tx.repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree1.id())
         .write()
+        .block_on()
         .unwrap();
     let repo = tx.commit("test").block_on().unwrap();
 
@@ -1014,11 +1021,13 @@ fn test_merge_changed_path_segments_both_enabled() {
     tx1.repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree2.id())
         .write()
+        .block_on()
         .unwrap();
     let mut tx2 = repo.start_transaction();
     tx2.repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree3.id())
         .write()
+        .block_on()
         .unwrap();
     let repo = commit_transactions(vec![tx1, tx2]);
     let stats = as_readonly_index(&repo).stats();
@@ -1046,6 +1055,7 @@ fn test_merge_changed_path_segments_enabled_and_disabled() {
         tx.repo_mut()
             .new_commit(vec![root_commit_id.clone()], tree1.id())
             .write()
+            .block_on()
             .unwrap();
         let repo = tx.commit("test").block_on().unwrap();
         let repo = enable_changed_path_index(&repo);
@@ -1053,6 +1063,7 @@ fn test_merge_changed_path_segments_enabled_and_disabled() {
         tx.repo_mut()
             .new_commit(vec![root_commit_id.clone()], tree2.id())
             .write()
+            .block_on()
             .unwrap();
         tx
     };
@@ -1060,6 +1071,7 @@ fn test_merge_changed_path_segments_enabled_and_disabled() {
     tx2.repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree3.id())
         .write()
+        .block_on()
         .unwrap();
     let repo = commit_transactions(vec![tx1, tx2]);
     let stats = as_readonly_index(&repo).stats();
@@ -1100,16 +1112,19 @@ fn test_commit_is_empty(indexed: bool) {
         .repo_mut()
         .new_commit(vec![root_commit_id.clone()], root_tree_id.clone())
         .write()
+        .block_on()
         .unwrap();
     let commit2 = tx
         .repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree2.id())
         .write()
+        .block_on()
         .unwrap();
     let commit3 = tx
         .repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree3.id())
         .write()
+        .block_on()
         .unwrap();
     let commit4 = tx
         .repo_mut()
@@ -1122,6 +1137,7 @@ fn test_commit_is_empty(indexed: bool) {
             tree4.id(),
         )
         .write()
+        .block_on()
         .unwrap();
     let repo = tx.commit("test").block_on().unwrap();
 
@@ -1172,6 +1188,7 @@ fn test_change_id_index() {
             .set_change_id(ChangeId::from_hex(change_id))
             .set_description(format!("commit {commit_number}"))
             .write()
+            .block_on()
             .unwrap()
     };
     let commit_1 = commit_with_change_id("abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");

@@ -1158,7 +1158,8 @@ impl WorkspaceCommandHelper {
             let new_git_head_commit = tx.repo().store().get_commit(new_git_head_id)?;
             let wc_commit = tx
                 .repo_mut()
-                .check_out(workspace_name, &new_git_head_commit)?;
+                .check_out(workspace_name, &new_git_head_commit)
+                .block_on()?;
             let mut locked_ws = self.workspace.start_working_copy_mutation()?;
             // The working copy was presumably updated by the git command that updated
             // HEAD, so we just need to reset our working copy
@@ -1931,6 +1932,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                 .rewrite_commit(&wc_commit)
                 .set_tree_id(new_tree_id)
                 .write()
+                .block_on()
                 .map_err(snapshot_command_error)?;
             mut_repo
                 .set_wc_commit(workspace_name, commit.id().clone())
@@ -2054,7 +2056,9 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                 .is_some()
             {
                 let wc_commit = tx.repo().store().get_commit(wc_commit_id)?;
-                tx.repo_mut().check_out(name.clone(), &wc_commit)?;
+                tx.repo_mut()
+                    .check_out(name.clone(), &wc_commit)
+                    .block_on()?;
                 writeln!(
                     ui.warning_default(),
                     "The working-copy commit in workspace '{name}' became immutable, so a new \
@@ -2420,7 +2424,7 @@ impl WorkspaceCommandTransaction<'_> {
     pub fn check_out(&mut self, commit: &Commit) -> Result<Commit, CheckOutCommitError> {
         let name = self.helper.workspace_name().to_owned();
         self.id_prefix_context.take(); // invalidate
-        self.tx.repo_mut().check_out(name, commit)
+        self.tx.repo_mut().check_out(name, commit).block_on()
     }
 
     pub fn edit(&mut self, commit: &Commit) -> Result<(), EditCommitError> {

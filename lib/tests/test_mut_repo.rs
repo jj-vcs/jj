@@ -76,6 +76,7 @@ fn test_checkout() {
     let wc_commit = tx
         .repo_mut()
         .check_out(ws_name.clone(), &wc_commit_parent)
+        .block_on()
         .unwrap();
     assert_eq!(wc_commit.tree_id(), wc_commit_parent.tree_id());
     assert_eq!(wc_commit.parent_ids().len(), 1);
@@ -121,6 +122,7 @@ fn test_edit_previous_empty() {
             repo.store().empty_merged_tree_id(),
         )
         .write()
+        .block_on()
         .unwrap();
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     mut_repo.edit(ws_name.clone(), &old_wc_commit).unwrap();
@@ -159,6 +161,7 @@ fn test_edit_previous_empty_merge() {
         )
         .set_tree_id(old_parent_tree.id())
         .write()
+        .block_on()
         .unwrap();
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     mut_repo.edit(ws_name.clone(), &old_wc_commit).unwrap();
@@ -188,6 +191,7 @@ fn test_edit_previous_empty_with_description() {
         )
         .set_description("not empty")
         .write()
+        .block_on()
         .unwrap();
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     mut_repo.edit(ws_name.clone(), &old_wc_commit).unwrap();
@@ -216,6 +220,7 @@ fn test_edit_previous_empty_with_local_bookmark() {
             repo.store().empty_merged_tree_id(),
         )
         .write()
+        .block_on()
         .unwrap();
     mut_repo.set_local_bookmark_target("b".as_ref(), RefTarget::normal(old_wc_commit.id().clone()));
     let ws_name = WorkspaceName::DEFAULT.to_owned();
@@ -245,6 +250,7 @@ fn test_edit_previous_empty_with_other_workspace() {
             repo.store().empty_merged_tree_id(),
         )
         .write()
+        .block_on()
         .unwrap();
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     mut_repo.edit(ws_name.clone(), &old_wc_commit).unwrap();
@@ -277,6 +283,7 @@ fn test_edit_previous_empty_non_head() {
             repo.store().empty_merged_tree_id(),
         )
         .write()
+        .block_on()
         .unwrap();
     let old_child = mut_repo
         .new_commit(
@@ -284,6 +291,7 @@ fn test_edit_previous_empty_non_head() {
             old_wc_commit.tree_id().clone(),
         )
         .write()
+        .block_on()
         .unwrap();
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     mut_repo.edit(ws_name.clone(), &old_wc_commit).unwrap();
@@ -402,6 +410,7 @@ fn test_add_head_not_immediate_child() {
         .set_change_id(initial.change_id().clone())
         .set_predecessors(vec![initial.id().clone()])
         .write()
+        .block_on()
         .unwrap();
     let child = write_random_commit_with_parents(tx.repo_mut(), &[&rewritten]);
     drop(tx);
@@ -656,6 +665,7 @@ fn test_remove_wc_commit_previous_discardable() {
             repo.store().empty_merged_tree_id(),
         )
         .write()
+        .block_on()
         .unwrap();
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     mut_repo.edit(ws_name.clone(), &old_wc_commit).unwrap();
@@ -703,6 +713,7 @@ fn test_reparent_descendants() {
         .rewrite_commit(&commit_a)
         .set_tree_id(create_random_tree(&repo))
         .write()
+        .block_on()
         .unwrap();
     let reparented = mut_repo.reparent_descendants().block_on().unwrap();
     // "child_a_b", "grandchild_a_b" and "child_a" (3 commits) must have been

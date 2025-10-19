@@ -20,6 +20,7 @@ use jj_lib::file_util::PathError;
 use jj_lib::settings::UserSettings;
 use jj_lib::trailer::parse_description_trailers;
 use jj_lib::trailer::parse_trailers;
+use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::cli_util::WorkspaceCommandTransaction;
@@ -343,7 +344,7 @@ pub fn combine_messages_for_editing(
             .chain(destination)
             .flat_map(|commit| parse_description_trailers(commit.description()))
             .collect();
-        let commit = commit_builder.write_hidden()?;
+        let commit = commit_builder.write_hidden().block_on()?;
         let trailer_lines = template
             .format_plain_text(&commit)
             .into_string()
@@ -432,7 +433,7 @@ pub fn add_trailers(
     commit_builder: &DetachedCommitBuilder,
 ) -> Result<String, CommandError> {
     if let Some(renderer) = parse_trailers_template(ui, tx)? {
-        let commit = commit_builder.write_hidden()?;
+        let commit = commit_builder.write_hidden().block_on()?;
         add_trailers_with_template(&renderer, &commit)
     } else {
         Ok(commit_builder.description().to_owned())

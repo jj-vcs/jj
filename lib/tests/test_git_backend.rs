@@ -89,6 +89,7 @@ fn make_commit(
     tx.repo_mut()
         .new_commit(parents, tree.id())
         .write()
+        .block_on()
         .unwrap()
 }
 
@@ -129,6 +130,7 @@ fn test_gc() {
         .set_parents(vec![commit_f.id().clone()])
         .set_predecessors(vec![commit_d.id().clone()])
         .write()
+        .block_on()
         .unwrap();
     let repo = tx.commit("test").block_on().unwrap();
     assert_eq!(

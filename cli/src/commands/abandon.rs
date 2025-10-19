@@ -117,10 +117,10 @@ pub(crate) fn cmd_abandon(
                 if to_abandon.contains(rewriter.old_commit().id()) {
                     rewriter.abandon();
                 } else if args.restore_descendants {
-                    rewriter.reparent().write()?;
+                    rewriter.reparent().write().await?;
                     num_rebased += 1;
                 } else {
-                    rewriter.rebase().await?.write()?;
+                    rewriter.rebase().await?.write().await?;
                     num_rebased += 1;
                 }
                 Ok(())

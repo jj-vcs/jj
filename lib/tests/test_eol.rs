@@ -223,6 +223,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
         .repo_mut()
         .new_commit(vec![root_commit.id().clone()], tree.id())
         .write()
+        .block_on()
         .unwrap();
     tx.commit("commit parent1").block_on().unwrap();
 
@@ -242,6 +243,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
         .repo_mut()
         .new_commit(vec![root_commit.id().clone()], tree.id())
         .write()
+        .block_on()
         .unwrap();
     tx.commit("commit parent2").block_on().unwrap();
 
@@ -429,12 +431,14 @@ fn test_eol_conversion_update_conflicts(
         .repo_mut()
         .new_commit(vec![root_commit.id().clone()], tree.id())
         .write()
+        .block_on()
         .unwrap();
     let tree = testutils::create_tree(&test_workspace.repo, &[(file_repo_path, parent2_contents)]);
     let parent2_commit = tx
         .repo_mut()
         .new_commit(vec![root_commit.id().clone()], tree.id())
         .write()
+        .block_on()
         .unwrap();
     tx.commit("commit parent 2").block_on().unwrap();
 

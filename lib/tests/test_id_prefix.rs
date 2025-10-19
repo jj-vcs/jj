@@ -66,6 +66,7 @@ fn test_id_prefix() {
             .set_author(signature.clone())
             .set_committer(signature)
             .write()
+            .block_on()
             .unwrap()
     };
     let mut commits = vec![create_commit(root_commit_id)];
@@ -291,6 +292,7 @@ fn test_id_prefix_divergent() {
                 .set_committer(signature)
                 .set_change_id(change_id)
                 .write()
+                .block_on()
                 .unwrap()
         };
 
@@ -427,6 +429,7 @@ fn test_id_prefix_hidden() {
             .set_author(signature.clone())
             .set_committer(signature)
             .write()
+            .block_on()
             .unwrap();
         commits.push(commit);
     }
@@ -563,6 +566,7 @@ fn test_id_prefix_shadowed_by_ref() {
             repo.store().empty_merged_tree_id(),
         )
         .write()
+        .block_on()
         .unwrap();
 
     let commit_id_sym = commit.id().to_string();
