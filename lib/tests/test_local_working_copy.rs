@@ -291,8 +291,8 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
             files.push((*left_kind, *right_kind, path.clone()));
         }
     }
-    let left_tree_id = left_tree_builder.write_tree(&store).unwrap();
-    let right_tree_id = right_tree_builder.write_tree(&store).unwrap();
+    let left_tree_id = left_tree_builder.write_tree(&store).block_on().unwrap();
+    let right_tree_id = right_tree_builder.write_tree(&store).block_on().unwrap();
     let left_commit = commit_with_tree(&store, left_tree_id);
     let right_commit = commit_with_tree(&store, right_tree_id.clone());
 
@@ -578,7 +578,7 @@ fn test_tree_builder_file_directory_transition() {
             copy_id: CopyId::placeholder(),
         },
     );
-    let tree_id = tree_builder.write_tree().unwrap();
+    let tree_id = tree_builder.write_tree().block_on().unwrap();
     check_out_tree(&tree_id);
     assert!(parent_path.to_fs_path_unchecked(&workspace_root).is_file());
     assert!(!child_path.to_fs_path_unchecked(&workspace_root).exists());
@@ -594,7 +594,7 @@ fn test_tree_builder_file_directory_transition() {
             copy_id: CopyId::placeholder(),
         },
     );
-    let tree_id = tree_builder.write_tree().unwrap();
+    let tree_id = tree_builder.write_tree().block_on().unwrap();
     check_out_tree(&tree_id);
     assert!(parent_path.to_fs_path_unchecked(&workspace_root).is_dir());
     assert!(child_path.to_fs_path_unchecked(&workspace_root).is_file());
@@ -610,7 +610,7 @@ fn test_tree_builder_file_directory_transition() {
             copy_id: CopyId::placeholder(),
         },
     );
-    let tree_id = tree_builder.write_tree().unwrap();
+    let tree_id = tree_builder.write_tree().block_on().unwrap();
     check_out_tree(&tree_id);
     assert!(parent_path.to_fs_path_unchecked(&workspace_root).is_file());
     assert!(!child_path.to_fs_path_unchecked(&workspace_root).exists());
@@ -1436,7 +1436,7 @@ fn test_git_submodule(gitignore_content: &str) {
         Merge::normal(TreeValue::GitSubmodule(submodule_id1)),
     );
 
-    let tree_id1 = tree_builder.write_tree(&store).unwrap();
+    let tree_id1 = tree_builder.write_tree(&store).block_on().unwrap();
     let commit1 = commit_with_tree(repo.store(), tree_id1.clone());
 
     let mut tree_builder = MergedTreeBuilder::new(tree_id1.clone());
@@ -1445,7 +1445,7 @@ fn test_git_submodule(gitignore_content: &str) {
         submodule_path.to_owned(),
         Merge::normal(TreeValue::GitSubmodule(submodule_id2)),
     );
-    let tree_id2 = tree_builder.write_tree(&store).unwrap();
+    let tree_id2 = tree_builder.write_tree(&store).block_on().unwrap();
     let commit2 = commit_with_tree(repo.store(), tree_id2.clone());
 
     let ws = &mut test_workspace.workspace;

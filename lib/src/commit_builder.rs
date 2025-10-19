@@ -16,8 +16,6 @@
 
 use std::sync::Arc;
 
-use pollster::FutureExt as _;
-
 use crate::backend;
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
@@ -420,5 +418,5 @@ async fn write_to_store(
 
     store
         .write_commit(commit, should_sign.then_some(&mut &sign_fn))
-        .block_on()
+        .await
 }

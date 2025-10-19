@@ -313,7 +313,7 @@ pub async fn absorb_hunks(
             return Ok(());
         };
         // Merge hunks between source parent tree and selected tree
-        let selected_tree_id = tree_builder.write_tree(&store)?;
+        let selected_tree_id = tree_builder.write_tree(&store).await?;
         let commit_builder = rewriter.rebase().await?;
         let destination_tree = store.get_root_tree(commit_builder.tree_id())?;
         let selected_tree = store.get_root_tree(&selected_tree_id)?;
