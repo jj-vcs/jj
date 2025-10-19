@@ -17,8 +17,6 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use pollster::FutureExt as _;
-
 use crate::backend;
 use crate::backend::BackendResult;
 use crate::backend::TreeId;
@@ -75,7 +73,7 @@ impl TreeBuilder {
         }
     }
 
-    pub fn write_tree(self) -> BackendResult<TreeId> {
+    pub async fn write_tree(self) -> BackendResult<TreeId> {
         if self.overrides.is_empty() {
             return Ok(self.base_tree_id);
         }
@@ -112,14 +110,14 @@ impl TreeBuilder {
                 } else {
                     let data =
                         backend::Tree::from_sorted_entries(cur_entries.into_iter().collect());
-                    let tree = store.write_tree(&dir, data).block_on()?;
+                    let tree = store.write_tree(&dir, data).await?;
                     parent_entries.insert(basename.to_owned(), TreeValue::Tree(tree.id().clone()));
                 }
             } else {
                 // We're writing the root tree. Write it even if empty. Return its id.
                 assert!(trees_to_write.is_empty());
                 let data = backend::Tree::from_sorted_entries(cur_entries.into_iter().collect());
-                let written_tree = store.write_tree(&dir, data).block_on()?;
+                let written_tree = store.write_tree(&dir, data).await?;
                 return Ok(written_tree.id().clone());
             }
         }
