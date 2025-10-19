@@ -8340,6 +8340,11 @@ output of the first tool.</p>
   Do not fetch any tags</li>
 </ul>
 </li>
+<li>
+<p><code>-b</code>, <code>--branch &lt;BRANCH&gt;</code> — Name of the branch to fetch and use as the parent of the working-copy change</p>
+<p>If not present, all branches are fetched and the repository's default branch is used as parent of the working-copy change.</p>
+<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to expand <code>*</code> as a glob, e.g. <code>--branch 'glob:push-*'</code>. Other wildcard characters such as <code>?</code> are <em>not</em> supported. Can be repeated to specify multiple branches, in which case the first match of the first <code>--branch</code> argument is used as the working-copy parent.</p>
+</li>
 </ul>
 <h2 id="jj-git-export"><code>jj git export</code><a class="headerlink" href="#jj-git-export" title="Permanent link">&para;</a></h2>
 <p>Update the underlying Git repo with changes made in the repo</p>
