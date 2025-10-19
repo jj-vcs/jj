@@ -755,7 +755,7 @@ fn test_describe_author() {
         .success();
     insta::assert_snapshot!(get_signatures(), @r"
     @  Super Seeder super.seeder@example.com 2001-02-03 04:05:12.000 +07:00
-    │  Test User test.user@example.com 2001-02-03 04:05:12.000 +07:00
+    │  Test User test.user@example.com 2001-02-03 04:05:11.000 +07:00
     ○  Test User test.user@example.com 2001-02-03 04:05:09.000 +07:00
     │  Test User test.user@example.com 2001-02-03 04:05:09.000 +07:00
     ○  Test User test.user@example.com 2001-02-03 04:05:08.000 +07:00
@@ -841,7 +841,7 @@ fn test_describe_author() {
     ○  Test User test.user@example.com 2001-02-03 04:05:14.000 +07:00
     │  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:18.000 +07:00
     ○  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:18.000 +07:00
-    │  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:18.000 +07:00
+    │  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:17.000 +07:00
     ~
     [EOF]
     ");
@@ -899,7 +899,7 @@ fn test_describe_with_edit_and_message_args_opens_editor() {
     let output = work_dir.run_jj(["describe", "-m", "message from command line", "--edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm f9bee6de (empty) message from command line
+    Working copy  (@) now at: qpvuntsm 25024d3b (empty) message from command line
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -928,7 +928,7 @@ fn test_describe_change_with_existing_message_with_edit_and_message_args_opens_e
     let output = work_dir.run_jj(["describe", "-m", "new message", "--edit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm f8f14f7c (empty) new message
+    Working copy  (@) now at: qpvuntsm 727d5d7d (empty) new message
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -1132,7 +1132,7 @@ fn test_add_trailer_committer() {
     let output = work_dir.run_jj(["describe", "--config", "user.email=foo@bar.net"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: qpvuntsm b7dafa2c (empty) Message from CLI
+    Working copy  (@) now at: qpvuntsm 3e981207 (empty) Message from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -1166,8 +1166,8 @@ fn test_add_trailer_committer() {
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv b6148729 (empty) Signed-off-by: test.user@example.com
-    Parent commit (@-)      : qpvuntsm b7dafa2c (empty) Message from CLI
+    Working copy  (@) now at: vruxwmqv f1a41ec2 (empty) Signed-off-by: test.user@example.com
+    Parent commit (@-)      : qpvuntsm 3e981207 (empty) Message from CLI
     [EOF]
     ");
 

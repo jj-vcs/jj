@@ -171,8 +171,10 @@ pub(crate) fn cmd_restore(
         let mut tx = workspace_command.start_transaction();
         tx.repo_mut()
             .rewrite_commit(&to_commit)
+            .block_on()
             .set_tree_id(new_tree_id)
-            .write()?;
+            .write()
+            .block_on()?;
         // rebase_descendants early; otherwise the new commit would always have
         // a conflicted change id at this point.
         let (num_rebased, extra_msg) = if args.restore_descendants {

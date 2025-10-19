@@ -17,6 +17,7 @@ use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::ref_name::RefNameBuf;
+use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -79,7 +80,7 @@ pub fn cmd_tag_set(
             moved_count += 1;
         }
     }
-    if target_commit.is_discardable(repo)? {
+    if target_commit.is_discardable(repo).block_on()? {
         writeln!(ui.warning_default(), "Target revision is empty.")?;
     }
 

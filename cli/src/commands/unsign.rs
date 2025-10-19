@@ -78,16 +78,17 @@ pub fn cmd_unsign(
             to_unsign.iter().ids().cloned().collect_vec(),
             async |rewriter| {
                 let old_commit = rewriter.old_commit().clone();
-                let commit_builder = rewriter.reparent();
+                let commit_builder = rewriter.reparent().await;
 
                 if to_unsign.contains(&old_commit) {
                     let new_commit = commit_builder
                         .set_sign_behavior(SignBehavior::Drop)
-                        .write()?;
+                        .write()
+                        .await?;
 
                     unsigned_commits.push(new_commit);
                 } else {
-                    commit_builder.write()?;
+                    commit_builder.write().await?;
                     num_reparented += 1;
                 }
                 Ok(())

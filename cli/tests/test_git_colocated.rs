@@ -857,16 +857,16 @@ fn test_git_colocated_concurrent_checkout() {
     ------- stderr -------
     Warning: Failed to update Git HEAD ref
     Caused by: The reference "HEAD" should have content dc0b92dfa0af129b2929fa1789fc896b075782b2, actual content was 091e39feb0aba632ab9a9503ceb1dddeac4dd496
-    Working copy  (@) now at: mzvwutvl cf0ddbb4 (empty) (no description set)
-    Parent commit (@-)      : zsuskuln b6786455 (empty) commit3
+    Working copy  (@) now at: mzvwutvl bdca84d5 (empty) (no description set)
+    Parent commit (@-)      : zsuskuln aa79b089 (empty) commit3
     [EOF]
     "#);
 
     // git_head() isn't updated because the export failed
     insta::assert_snapshot!(work_dir.run_jj(["log", "--summary", "--ignore-working-copy"]), @r"
-    @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 cf0ddbb4
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 bdca84d5
     │  (empty) (no description set)
-    ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 b6786455
+    ○  zsuskuln test.user@example.com 2001-02-03 08:05:09 aa79b089
     │  (empty) commit3
     ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 git_head() dc0b92df
     │  commit2
@@ -884,7 +884,7 @@ fn test_git_colocated_concurrent_checkout() {
     insta::assert_snapshot!(work_dir.run_jj(["log", "--summary"]), @r"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:13 9529e8f5
     │  (empty) (no description set)
-    │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 b6786455
+    │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:09 aa79b089
     │ │  (empty) commit3
     │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 dc0b92df
     ├─╯  commit2

@@ -230,7 +230,7 @@ pub fn cmd_git_clone(
         if let Some(commit_id) = working_branch_remote_ref.target.as_normal().cloned() {
             let mut tx = workspace_command.start_transaction();
             if let Ok(commit) = tx.repo().store().get_commit(&commit_id) {
-                tx.check_out(&commit)?;
+                tx.check_out(&commit).block_on()?;
             }
             tx.finish(
                 ui,

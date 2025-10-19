@@ -16,6 +16,7 @@ use std::io::Write as _;
 
 use clap_complete::ArgValueCompleter;
 use jj_lib::object_id::ObjectId as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -54,7 +55,7 @@ pub(crate) fn cmd_edit(
         writeln!(ui.status(), "Already editing that commit")?;
     } else {
         let mut tx = workspace_command.start_transaction();
-        tx.edit(&new_commit)?;
+        tx.edit(&new_commit).block_on()?;
         tx.finish(ui, format!("edit commit {}", new_commit.id().hex()))?;
     }
     Ok(())

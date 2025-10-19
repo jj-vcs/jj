@@ -51,24 +51,28 @@ fn test_simplify_conflict_after_resolving_parent() {
         .repo_mut()
         .new_commit(vec![repo.store().root_commit_id().clone()], tree_a.id())
         .write()
+        .block_on()
         .unwrap();
     let tree_b = create_tree(repo, &[(path, "Abc\ndef\nghi\n")]);
     let commit_b = tx
         .repo_mut()
         .new_commit(vec![commit_a.id().clone()], tree_b.id())
         .write()
+        .block_on()
         .unwrap();
     let tree_c = create_tree(repo, &[(path, "Abc\ndef\nGhi\n")]);
     let commit_c = tx
         .repo_mut()
         .new_commit(vec![commit_b.id().clone()], tree_c.id())
         .write()
+        .block_on()
         .unwrap();
     let tree_d = create_tree(repo, &[(path, "abC\ndef\nghi\n")]);
     let commit_d = tx
         .repo_mut()
         .new_commit(vec![commit_a.id().clone()], tree_d.id())
         .write()
+        .block_on()
         .unwrap();
 
     let commit_b2 = rebase_commit(tx.repo_mut(), commit_b, vec![commit_d.id().clone()])
@@ -89,14 +93,16 @@ fn test_simplify_conflict_after_resolving_parent() {
     let commit_b3 = tx
         .repo_mut()
         .rewrite_commit(&commit_b2)
+        .block_on()
         .set_tree_id(tree_b3.id())
         .write()
+        .block_on()
         .unwrap();
     let commit_c3 = rebase_commit(tx.repo_mut(), commit_c2, vec![commit_b3.id().clone()])
         .block_on()
         .unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // The conflict should now be resolved.
     let tree_c2 = commit_c3.tree().unwrap();
@@ -150,14 +156,17 @@ fn test_rebase_linearize_lossy_merge(same_change: SameChange) {
     let commit_a = repo_mut
         .new_commit(vec![repo.store().root_commit_id().clone()], tree_1.id())
         .write()
+        .block_on()
         .unwrap();
     let commit_b = repo_mut
         .new_commit(vec![commit_a.id().clone()], tree_2.id())
         .write()
+        .block_on()
         .unwrap();
     let commit_c = repo_mut
         .new_commit(vec![commit_a.id().clone()], tree_2.id())
         .write()
+        .block_on()
         .unwrap();
     let commit_d = repo_mut
         .new_commit(
@@ -165,11 +174,12 @@ fn test_rebase_linearize_lossy_merge(same_change: SameChange) {
             tree_2.id(),
         )
         .write()
+        .block_on()
         .unwrap();
 
     match same_change {
-        SameChange::Keep => assert!(!commit_d.is_empty(repo_mut).unwrap()),
-        SameChange::Accept => assert!(commit_d.is_empty(repo_mut).unwrap()),
+        SameChange::Keep => assert!(!commit_d.is_empty(repo_mut).block_on().unwrap()),
+        SameChange::Accept => assert!(commit_d.is_empty(repo_mut).block_on().unwrap()),
     }
 
     let commit_d2 = rebase_commit(repo_mut, commit_d, vec![commit_b.id().clone()])
@@ -213,14 +223,17 @@ fn test_rebase_on_lossy_merge(same_change: SameChange) {
     let commit_a = repo_mut
         .new_commit(vec![repo.store().root_commit_id().clone()], tree_1.id())
         .write()
+        .block_on()
         .unwrap();
     let commit_b = repo_mut
         .new_commit(vec![commit_a.id().clone()], tree_2.id())
         .write()
+        .block_on()
         .unwrap();
     let commit_c = repo_mut
         .new_commit(vec![commit_a.id().clone()], tree_2.id())
         .write()
+        .block_on()
         .unwrap();
     let commit_d = repo_mut
         .new_commit(
@@ -228,16 +241,18 @@ fn test_rebase_on_lossy_merge(same_change: SameChange) {
             tree_2.id(),
         )
         .write()
+        .block_on()
         .unwrap();
 
     match same_change {
-        SameChange::Keep => assert!(!commit_d.is_empty(repo_mut).unwrap()),
-        SameChange::Accept => assert!(commit_d.is_empty(repo_mut).unwrap()),
+        SameChange::Keep => assert!(!commit_d.is_empty(repo_mut).block_on().unwrap()),
+        SameChange::Accept => assert!(commit_d.is_empty(repo_mut).block_on().unwrap()),
     }
 
     let commit_c2 = repo_mut
         .new_commit(vec![commit_a.id().clone()], tree_3.id())
         .write()
+        .block_on()
         .unwrap();
     let commit_d2 = rebase_commit(
         repo_mut,

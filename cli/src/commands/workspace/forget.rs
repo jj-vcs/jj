@@ -15,6 +15,7 @@
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::ref_name::WorkspaceNameBuf;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -64,7 +65,7 @@ pub fn cmd_workspace_forget(
     // undo correctly restores all of them at once.
     let mut tx = workspace_command.start_transaction();
     wss.iter()
-        .try_for_each(|ws| tx.repo_mut().remove_wc_commit(ws))?;
+        .try_for_each(|ws| tx.repo_mut().remove_wc_commit(ws).block_on())?;
     let description = if let [ws] = wss.as_slice() {
         format!("forget workspace {}", ws.as_symbol())
     } else {

@@ -361,7 +361,7 @@ pub fn commit_transactions(txs: Vec<Transaction>) -> Arc<ReadonlyRepo> {
     let repo_loader = txs[0].base_repo().loader().clone();
     let mut op_ids = vec![];
     for tx in txs {
-        op_ids.push(tx.commit("test").unwrap().op_id().clone());
+        op_ids.push(tx.commit("test").block_on().unwrap().op_id().clone());
         std::thread::sleep(std::time::Duration::from_millis(1));
     }
     let repo = repo_loader.load_at_head().block_on().unwrap();
@@ -439,7 +439,7 @@ impl TestTreeBuilder {
     }
 
     pub fn write_single_tree(self) -> Tree {
-        let id = self.tree_builder.write_tree().unwrap();
+        let id = self.tree_builder.write_tree().block_on().unwrap();
         self.store.get_tree(RepoPathBuf::root(), &id).unwrap()
     }
 
@@ -626,6 +626,7 @@ pub fn write_random_commit_with_parents(mut_repo: &mut MutableRepo, parents: &[&
     create_random_commit(mut_repo)
         .set_parents(parents.iter().map(|commit| commit.id().clone()).collect())
         .write()
+        .block_on()
         .unwrap()
 }
 

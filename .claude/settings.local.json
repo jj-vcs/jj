@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo nextest r -p jj-lib)",
+      "Bash(cargo build -p jj-cli)",
+      "Bash(grep -B 3 \"the \\`?\\` operator can only be applied to values\")",
+      "Bash(awk -F: '{print $1}')"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

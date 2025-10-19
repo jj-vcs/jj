@@ -438,7 +438,7 @@ fn apply_diff_builtin(
             Ok(new_value)
         },
     )?;
-    tree_builder.write_tree(store)
+    tree_builder.write_tree(store).block_on()
 }
 
 fn apply_changes(
@@ -712,7 +712,7 @@ pub fn edit_merge_builtin(
             }))
         },
     )?;
-    Ok(tree_builder.write_tree(store)?)
+    Ok(tree_builder.write_tree(store).block_on()?)
 }
 
 #[cfg(test)]

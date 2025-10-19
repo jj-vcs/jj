@@ -205,7 +205,7 @@ pub(crate) fn cmd_metaedit(
                     || rewriter.parents_changed();
 
                 let old_author = rewriter.old_commit().author().clone();
-                let mut commit_builder = rewriter.reparent();
+                let mut commit_builder = rewriter.reparent().await;
                 let mut new_author = commit_builder.author().clone();
                 if let Some((name, email)) = args.author.clone() {
                     new_author.name = name;
@@ -246,11 +246,11 @@ pub(crate) fn cmd_metaedit(
                 }
 
                 if rewrite {
-                    let new_commit = commit_builder.write()?;
+                    let new_commit = commit_builder.write().await?;
                     modified.push(new_commit);
                 }
             } else if rewriter.parents_changed() {
-                rewriter.reparent().write()?;
+                rewriter.reparent().await.write().await?;
                 num_reparented += 1;
             }
             Ok(())

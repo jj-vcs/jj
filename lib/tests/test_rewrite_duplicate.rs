@@ -49,28 +49,33 @@ fn test_duplicate_linear_contents() {
             empty_tree_id.clone(),
         )
         .write()
+        .block_on()
         .unwrap();
     let commit_b = tx
         .repo_mut()
         .new_commit(vec![commit_a.id().clone()], tree_1.id())
         .write()
+        .block_on()
         .unwrap();
     let commit_c = tx
         .repo_mut()
         .new_commit(vec![commit_b.id().clone()], tree_1_2.id())
         .write()
+        .block_on()
         .unwrap();
     let commit_d = tx
         .repo_mut()
         .new_commit(vec![commit_c.id().clone()], tree_2.id())
         .write()
+        .block_on()
         .unwrap();
     let commit_e = tx
         .repo_mut()
         .new_commit(vec![commit_d.id().clone()], tree_2.id())
         .write()
+        .block_on()
         .unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let duplicate_in_between = |tx: &mut Transaction,
                                 target_commits: &[&CommitId],

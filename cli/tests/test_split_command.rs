@@ -73,10 +73,10 @@ fn test_split_by_paths() {
     let output = work_dir.run_jj(["split", "file2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Selected changes : qpvuntsm 6dbc7747 (no description set)
-    Remaining changes: zsuskuln 42cbbc02 (no description set)
-    Working copy  (@) now at: zsuskuln 42cbbc02 (no description set)
-    Parent commit (@-)      : qpvuntsm 6dbc7747 (no description set)
+    Selected changes : qpvuntsm a34f1c0a (no description set)
+    Remaining changes: zsuskuln 98bc8111 (no description set)
+    Working copy  (@) now at: zsuskuln 98bc8111 (no description set)
+    Parent commit (@-)      : qpvuntsm a34f1c0a (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(
@@ -107,7 +107,7 @@ fn test_split_by_paths() {
     ");
     insta::assert_snapshot!(get_recorded_dates(&work_dir, "@-"), @r"
     Author date:  2001-02-03 04:05:08.000 +07:00
-    Committer date: 2001-02-03 04:05:10.000 +07:00[EOF]
+    Committer date: 2001-02-03 04:05:09.000 +07:00[EOF]
     ");
 
     let output = work_dir.run_jj(["diff", "-s", "-r", "@-"]);
@@ -129,10 +129,10 @@ fn test_split_by_paths() {
     ------- stderr -------
     Warning: All changes have been selected, so the original revision will become empty
     Rebased 1 descendant commits
-    Selected changes : qpvuntsm 9fd1c9e1 (no description set)
-    Remaining changes: znkkpsqq 41e0da21 (empty) (no description set)
-    Working copy  (@) now at: zsuskuln a06e40b8 (no description set)
-    Parent commit (@-)      : znkkpsqq 41e0da21 (empty) (no description set)
+    Selected changes : qpvuntsm 567a0327 (no description set)
+    Remaining changes: znkkpsqq 384f3074 (empty) (no description set)
+    Working copy  (@) now at: zsuskuln cf415960 (no description set)
+    Parent commit (@-)      : znkkpsqq 384f3074 (empty) (no description set)
     [EOF]
     ");
 
@@ -802,10 +802,10 @@ fn test_split_interactive() {
     let output = work_dir.run_jj(["split"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Selected changes : qpvuntsm c664a51b (no description set)
-    Remaining changes: rlvkpnrz 7e5d65b1 (no description set)
-    Working copy  (@) now at: rlvkpnrz 7e5d65b1 (no description set)
-    Parent commit (@-)      : qpvuntsm c664a51b (no description set)
+    Selected changes : qpvuntsm 38f3e84b (no description set)
+    Remaining changes: rlvkpnrz e1b703cc (no description set)
+    Working copy  (@) now at: rlvkpnrz e1b703cc (no description set)
+    Parent commit (@-)      : qpvuntsm 38f3e84b (no description set)
     [EOF]
     ");
 
@@ -834,10 +834,10 @@ fn test_split_interactive() {
 
     let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
-    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 7e5d65b1
+    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 e1b703cc
     │  (no description set)
     │  A file2
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 c664a51b
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:07 38f3e84b
     │  (no description set)
     │  A file1
     ◆  zzzzzzzz root() 00000000
@@ -879,10 +879,10 @@ fn test_split_interactive_with_paths() {
     let output = work_dir.run_jj(["split", "-i", "file1", "file2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Selected changes : rlvkpnrz cdc9960a (no description set)
-    Remaining changes: kkmpptxz 7255f070 (no description set)
-    Working copy  (@) now at: kkmpptxz 7255f070 (no description set)
-    Parent commit (@-)      : rlvkpnrz cdc9960a (no description set)
+    Selected changes : rlvkpnrz bacc24e0 (no description set)
+    Remaining changes: kkmpptxz 87bcc20a (no description set)
+    Working copy  (@) now at: kkmpptxz 87bcc20a (no description set)
+    Parent commit (@-)      : rlvkpnrz bacc24e0 (no description set)
     [EOF]
     ");
 
@@ -900,11 +900,11 @@ fn test_split_interactive_with_paths() {
 
     let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
-    @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 7255f070
+    @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 87bcc20a
     │  (no description set)
     │  M file2
     │  M file3
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 cdc9960a
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 bacc24e0
     │  (no description set)
     │  A file1
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 ff687a2f
@@ -1492,10 +1492,10 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
             insta::allow_duplicates! {
             insta::assert_snapshot!(output, @r#"
             ------- stderr -------
-            Selected changes : qpvuntsm a481fe8a "*le-signet*" | first-commit
-            Remaining changes: mzvwutvl 5f597a6e second-commit
-            Working copy  (@) now at: mzvwutvl 5f597a6e second-commit
-            Parent commit (@-)      : qpvuntsm a481fe8a "*le-signet*" | first-commit
+            Selected changes : qpvuntsm 54c7e261 "*le-signet*" | first-commit
+            Remaining changes: mzvwutvl 9595f566 second-commit
+            Working copy  (@) now at: mzvwutvl 9595f566 second-commit
+            Parent commit (@-)      : qpvuntsm 54c7e261 "*le-signet*" | first-commit
             [EOF]
             "#);
             }
@@ -1512,10 +1512,10 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
             insta::allow_duplicates! {
             insta::assert_snapshot!(output, @r#"
             ------- stderr -------
-            Selected changes : qpvuntsm a481fe8a first-commit
-            Remaining changes: mzvwutvl 5f597a6e "*le-signet*" | second-commit
-            Working copy  (@) now at: mzvwutvl 5f597a6e "*le-signet*" | second-commit
-            Parent commit (@-)      : qpvuntsm a481fe8a first-commit
+            Selected changes : qpvuntsm 54c7e261 first-commit
+            Remaining changes: mzvwutvl 9595f566 "*le-signet*" | second-commit
+            Working copy  (@) now at: mzvwutvl 9595f566 "*le-signet*" | second-commit
+            Parent commit (@-)      : qpvuntsm 54c7e261 first-commit
             [EOF]
             "#);
             }

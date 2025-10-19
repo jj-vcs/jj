@@ -28,6 +28,7 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::view::View;
 use jj_lib::workspace::Workspace;
+use pollster::FutureExt as _;
 
 use super::write_repository_level_trunk_alias;
 use crate::cli_util::CommandHelper;
@@ -206,7 +207,7 @@ fn do_init(
                 jj_lib::git::import_head(tx.repo_mut())?;
                 if let Some(git_head_id) = tx.repo().view().git_head().as_normal().cloned() {
                     let git_head_commit = tx.repo().store().get_commit(&git_head_id)?;
-                    tx.check_out(&git_head_commit)?;
+                    tx.check_out(&git_head_commit).block_on()?;
                 }
                 if tx.repo().has_changes() {
                     tx.finish(ui, "import git head")?;
@@ -247,7 +248,7 @@ fn init_git_refs(
         let stats = git::export_refs(tx.repo_mut())?;
         print_git_export_stats(ui, &stats)?;
     }
-    let repo = tx.commit("import git refs")?;
+    let repo = tx.commit("import git refs").block_on()?;
     writeln!(
         ui.status(),
         "Done importing changes from the underlying Git repo."

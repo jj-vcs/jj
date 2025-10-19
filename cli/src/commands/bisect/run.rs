@@ -18,6 +18,7 @@ use jj_lib::bisect::Bisector;
 use jj_lib::bisect::Evaluation;
 use jj_lib::commit::Commit;
 use jj_lib::object_id::ObjectId as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -231,7 +232,7 @@ fn evaluate_commit(
 ) -> Result<Evaluation, CommandError> {
     let mut tx = workspace_command.start_transaction();
     let commit_id_hex = commit.id().hex();
-    tx.check_out(commit)?;
+    tx.check_out(commit).block_on()?;
     tx.finish(
         ui,
         format!("Updated to revision {commit_id_hex} for bisection"),

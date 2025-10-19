@@ -1172,7 +1172,7 @@ impl TreeState {
                 .merge_in(changed_file_states, &deleted_files);
         });
         trace_span!("write tree").in_scope(|| -> Result<(), BackendError> {
-            let new_tree_id = tree_builder.write_tree(&self.store)?;
+            let new_tree_id = tree_builder.write_tree(&self.store).block_on()?;
             is_dirty |= new_tree_id != self.tree_id;
             self.tree_id = new_tree_id;
             Ok(())
@@ -2436,7 +2436,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
     async fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError> {
         // TODO: Write a "pending_checkout" file with the new TreeId so we can
         // continue an interrupted update if we find such a file.
-        let new_tree = commit.tree()?;
+        let new_tree = commit.tree_async().await?;
         let tree_state = self.wc.tree_state_mut()?;
         if tree_state.tree_id != *commit.tree_id() {
             let stats = tree_state.check_out(&new_tree)?;
@@ -2452,14 +2452,14 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
     }
 
     async fn reset(&mut self, commit: &Commit) -> Result<(), ResetError> {
-        let new_tree = commit.tree()?;
+        let new_tree = commit.tree_async().await?;
         self.wc.tree_state_mut()?.reset(&new_tree).await?;
         self.tree_state_dirty = true;
         Ok(())
     }
 
     async fn recover(&mut self, commit: &Commit) -> Result<(), ResetError> {
-        let new_tree = commit.tree()?;
+        let new_tree = commit.tree_async().await?;
         self.wc.tree_state_mut()?.recover(&new_tree).await?;
         self.tree_state_dirty = true;
         Ok(())

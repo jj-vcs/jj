@@ -130,8 +130,8 @@ fn test_commit_with_empty_description_from_editor() {
     std::fs::write(&edit_script, ["dump editor0"].join("\0")).unwrap();
     let output = work_dir.run_jj(["commit"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  51b556e22ca0
-    ○  cc8ff2284a8c
+    @  40c40b7eac94
+    ○  eefea669356c
     ◆  000000000000
     [EOF]
     ");
@@ -147,8 +147,8 @@ fn test_commit_with_empty_description_from_editor() {
     Hint: The commit message was left empty.
     If this was not intentional, run `jj undo` to restore the previous state.
     Or run `jj desc @-` to add a description to the parent commit.
-    Working copy  (@) now at: rlvkpnrz 51b556e2 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm cc8ff228 (empty) (no description set)
+    Working copy  (@) now at: rlvkpnrz 40c40b7e (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm eefea669 (empty) (no description set)
     [EOF]
     ");
 }
@@ -216,10 +216,10 @@ fn test_commit_interactive() {
 
     let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
-    @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 9b0176ab
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 4643943a
     │  (no description set)
     │  A file2
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:11 6e6fa925
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:10 6b719873
     │  add files
     │  A file1
     ◆  zzzzzzzz root() 00000000
@@ -255,8 +255,8 @@ fn test_commit_interactive_with_paths() {
     let output = work_dir.run_jj(["commit", "-i", "file1", "file2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz 50f426df (no description set)
-    Parent commit (@-)      : rlvkpnrz eb640375 edit
+    Working copy  (@) now at: kkmpptxz 6b1e6d78 (no description set)
+    Parent commit (@-)      : rlvkpnrz 650fbb28 edit
     [EOF]
     ");
 
@@ -273,11 +273,11 @@ fn test_commit_interactive_with_paths() {
 
     let output = work_dir.run_jj(["log", "--summary"]);
     insta::assert_snapshot!(output, @r"
-    @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 50f426df
+    @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 6b1e6d78
     │  (no description set)
     │  M file2
     │  M file3
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 eb640375
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 650fbb28
     │  edit
     │  A file1
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 ff687a2f

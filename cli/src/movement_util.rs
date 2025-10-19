@@ -23,6 +23,7 @@ use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetIteratorExt as _;
+use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
@@ -252,7 +253,7 @@ pub(crate) fn move_to_commit(
         // We're editing, the target must be rewritable.
         workspace_command.check_rewritable([target.id()])?;
         let mut tx = workspace_command.start_transaction();
-        tx.edit(&target)?;
+        tx.edit(&target).block_on()?;
         tx.finish(
             ui,
             format!("{cmd}: {current_short} -> editing {target_short}"),
@@ -261,7 +262,7 @@ pub(crate) fn move_to_commit(
     }
     let mut tx = workspace_command.start_transaction();
     // Move the working-copy commit to the new parent.
-    tx.check_out(&target)?;
+    tx.check_out(&target).block_on()?;
     tx.finish(ui, format!("{cmd}: {current_short} -> {target_short}"))?;
     Ok(())
 }

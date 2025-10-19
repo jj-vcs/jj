@@ -30,6 +30,7 @@ use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetExpression;
+use pollster::FutureExt as _;
 use testutils::TestRepo;
 use testutils::create_tree;
 use testutils::read_file;
@@ -55,6 +56,7 @@ fn create_commit_fn(
             .set_committer(signature.clone())
             .set_description(description)
             .write()
+            .block_on()
             .unwrap()
     }
 }
@@ -70,8 +72,10 @@ fn annotate_within(
     domain: &Arc<ResolvedRevsetExpression>,
     file_path: &RepoPath,
 ) -> String {
-    let mut annotator = FileAnnotator::from_commit(commit, file_path).unwrap();
-    annotator.compute(repo, domain).unwrap();
+    let mut annotator = FileAnnotator::from_commit(commit, file_path)
+        .block_on()
+        .unwrap();
+    annotator.compute(repo, domain).block_on().unwrap();
     format_annotation(repo, &annotator.to_annotation())
 }
 
@@ -82,7 +86,10 @@ fn annotate_parent_tree(repo: &dyn Repo, commit: &Commit, file_path: &RepoPath) 
         value => panic!("unexpected path value: {value:?}"),
     };
     let mut annotator = FileAnnotator::with_file_content(commit.id(), file_path, text);
-    annotator.compute(repo, &RevsetExpression::all()).unwrap();
+    annotator
+        .compute(repo, &RevsetExpression::all())
+        .block_on()
+        .unwrap();
     format_annotation(repo, &annotator.to_annotation())
 }
 
@@ -210,7 +217,9 @@ fn test_annotate_merge_simple() {
     ");
 
     // Calculate incrementally
-    let mut annotator = FileAnnotator::from_commit(&commit4, file_path).unwrap();
+    let mut annotator = FileAnnotator::from_commit(&commit4, file_path)
+        .block_on()
+        .unwrap();
     assert_eq!(annotator.pending_commits().collect_vec(), [commit4.id()]);
     insta::assert_snapshot!(format_annotation(tx.repo(), &annotator.to_annotation()), @r"
     commit4:1*: 2
@@ -226,6 +235,7 @@ fn test_annotate_merge_simple() {
                 commit2.id().clone(),
             ]),
         )
+        .block_on()
         .unwrap();
     assert_eq!(annotator.pending_commits().collect_vec(), [commit1.id()]);
     insta::assert_snapshot!(format_annotation(tx.repo(), &annotator.to_annotation()), @r"
@@ -238,6 +248,7 @@ fn test_annotate_merge_simple() {
             tx.repo(),
             &RevsetExpression::commits(vec![commit1.id().clone()]),
         )
+        .block_on()
         .unwrap();
     assert!(annotator.pending_commits().next().is_none());
     insta::assert_snapshot!(format_annotation(tx.repo(), &annotator.to_annotation()), @r"

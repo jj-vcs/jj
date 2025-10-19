@@ -19,6 +19,7 @@ use std::iter;
 
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
+use jj_lib::backend::BackendError;
 use jj_lib::backend::Signature;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
@@ -186,7 +187,7 @@ pub(crate) fn cmd_describe(
     let mut commit_builders = commits
         .iter()
         .map(|commit| {
-            let mut commit_builder = tx.repo_mut().rewrite_commit(commit).detach();
+            let mut commit_builder = tx.repo_mut().rewrite_commit(commit).block_on().detach();
             if let Some(description) = &shared_description {
                 commit_builder.set_description(description);
             }
@@ -215,7 +216,7 @@ pub(crate) fn cmd_describe(
             // can be discarded as soon as it's no longer the working copy. Adding a
             // trailer to an empty description would break that logic.
             if use_editor || !commit_builder.description().is_empty() {
-                let temp_commit = commit_builder.write_hidden()?;
+                let temp_commit = commit_builder.write_hidden().block_on()?;
                 let new_description = add_trailers_with_template(&trailer_template, &temp_commit)?;
                 commit_builder.set_description(new_description);
             }
@@ -229,6 +230,7 @@ pub(crate) fn cmd_describe(
             .map(|(commit, commit_builder)| {
                 commit_builder
                     .write_hidden()
+                    .block_on()
                     .map(|temp_commit| (commit.id(), temp_commit))
             })
             .try_collect()?;
@@ -284,8 +286,10 @@ pub(crate) fn cmd_describe(
                 || old_commit.author().name != commit_builder.author().name
                 || old_commit.author().email != commit_builder.author().email
         })
-        .map(|(old_commit, commit_builder)| (old_commit.id(), commit_builder))
-        .collect();
+        .map(|(old_commit, commit_builder)| -> Result<_, BackendError> {
+            Ok((old_commit.id(), commit_builder))
+        })
+        .collect::<Result<_, _>>()?;
 
     let mut num_described = 0;
     let mut num_reparented = 0;
@@ -300,17 +304,18 @@ pub(crate) fn cmd_describe(
             commit_builders.keys().map(|&id| id.clone()).collect(),
             async |rewriter| {
                 let old_commit_id = rewriter.old_commit().id().clone();
-                let commit_builder = rewriter.reparent();
+                let commit_builder = rewriter.reparent().await;
                 if let Some(temp_builder) = commit_builders.get(&old_commit_id) {
                     commit_builder
                         .set_description(temp_builder.description())
                         .set_author(temp_builder.author().clone())
                         // Copy back committer for consistency with author timestamp
                         .set_committer(temp_builder.committer().clone())
-                        .write()?;
+                        .write()
+                        .await?;
                     num_described += 1;
                 } else {
-                    commit_builder.write()?;
+                    commit_builder.write().await?;
                     num_reparented += 1;
                 }
                 Ok(())

@@ -202,7 +202,7 @@ pub(crate) fn cmd_new(
         description = add_trailers(ui, &tx, &commit_builder)?;
     }
     commit_builder.set_description(&description);
-    let new_commit = commit_builder.write(tx.repo_mut())?;
+    let new_commit = commit_builder.write(tx.repo_mut()).block_on()?;
 
     let child_commits: Vec<_> = child_commit_ids
         .iter()
@@ -229,7 +229,7 @@ pub(crate) fn cmd_new(
             writeln!(formatter)?;
         }
     } else {
-        tx.edit(&new_commit)?;
+        tx.edit(&new_commit).block_on()?;
         // The description of the new commit will be printed by tx.finish()
     }
     if num_rebased > 0 {

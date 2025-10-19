@@ -95,7 +95,7 @@ pub(crate) fn cmd_simplify_parents(
             let num_new_heads = rewriter.new_parents().len();
 
             if rewriter.parents_changed() {
-                rewriter.reparent().write()?;
+                rewriter.reparent().await.write().await?;
 
                 if num_new_heads < num_old_heads {
                     simplified_commits += 1;

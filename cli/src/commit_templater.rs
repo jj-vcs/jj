@@ -1207,7 +1207,8 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let repo = language.repo;
-            let out_property = self_property.and_then(|commit| Ok(commit.is_empty(repo)?));
+            let out_property =
+                self_property.and_then(|commit| Ok(commit.is_empty(repo).block_on()?));
             Ok(out_property.into_dyn_wrapped())
         },
     );

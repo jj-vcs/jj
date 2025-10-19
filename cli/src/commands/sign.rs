@@ -99,7 +99,7 @@ pub fn cmd_sign(ui: &mut Ui, command: &CommandHelper, args: &SignArgs) -> Result
             to_sign.iter().ids().cloned().collect_vec(),
             async |rewriter| {
                 let old_commit = rewriter.old_commit().clone();
-                let mut commit_builder = rewriter.reparent();
+                let mut commit_builder = rewriter.reparent().await;
 
                 if to_sign.contains(&old_commit) {
                     if let Some(key) = &args.key {
@@ -108,11 +108,12 @@ pub fn cmd_sign(ui: &mut Ui, command: &CommandHelper, args: &SignArgs) -> Result
 
                     let new_commit = commit_builder
                         .set_sign_behavior(SignBehavior::Force)
-                        .write()?;
+                        .write()
+                        .await?;
 
                     signed_commits.push(new_commit);
                 } else {
-                    commit_builder.write()?;
+                    commit_builder.write().await?;
                     num_reparented += 1;
                 }
 

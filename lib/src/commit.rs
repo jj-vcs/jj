@@ -23,7 +23,6 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use futures::future::try_join_all;
-use itertools::Itertools as _;
 use pollster::FutureExt as _;
 
 use crate::backend;
@@ -150,11 +149,11 @@ impl Commit {
 
     /// Returns whether commit's content is empty. Commit description is not
     /// taken into consideration.
-    pub fn is_empty(&self, repo: &dyn Repo) -> BackendResult<bool> {
+    pub async fn is_empty(&self, repo: &dyn Repo) -> BackendResult<bool> {
         if let Some(empty) = is_commit_empty_by_index(repo, &self.id)? {
             return Ok(empty);
         }
-        is_backend_commit_empty(repo, &self.store, &self.data)
+        is_backend_commit_empty(repo, &self.store, &self.data).await
     }
 
     pub fn has_conflict(&self) -> bool {
@@ -189,8 +188,8 @@ impl Commit {
 
     /// A commit is discardable if it has no change from its parent, and an
     /// empty description.
-    pub fn is_discardable(&self, repo: &dyn Repo) -> BackendResult<bool> {
-        Ok(self.description().is_empty() && self.is_empty(repo)?)
+    pub async fn is_discardable(&self, repo: &dyn Repo) -> BackendResult<bool> {
+        Ok(self.description().is_empty() && self.is_empty(repo).await?)
     }
 
     /// A quick way to just check if a signature is present.
@@ -208,20 +207,20 @@ impl Commit {
     }
 }
 
-pub(crate) fn is_backend_commit_empty(
+pub(crate) async fn is_backend_commit_empty(
     repo: &dyn Repo,
     store: &Arc<Store>,
     commit: &backend::Commit,
 ) -> BackendResult<bool> {
     if let [parent_id] = &*commit.parents {
-        return Ok(commit.root_tree == *store.get_commit(parent_id)?.tree_id());
+        return Ok(commit.root_tree == *store.get_commit_async(parent_id).await?.tree_id());
     }
-    let parents: Vec<_> = commit
-        .parents
-        .iter()
-        .map(|id| store.get_commit(id))
-        .try_collect()?;
-    let parent_tree = merge_commit_trees(repo, &parents).block_on()?;
+    let mut parents = vec![];
+    for parent_id in &commit.parents {
+        let commit = store.get_commit_async(&parent_id).await?;
+        parents.push(commit);
+    }
+    let parent_tree = merge_commit_trees(repo, &parents).await?;
     Ok(commit.root_tree == parent_tree.id())
 }
 

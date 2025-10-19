@@ -148,7 +148,10 @@ impl SplitArgs {
         workspace_command: &WorkspaceCommandHelper,
     ) -> Result<ResolvedSplitArgs, CommandError> {
         let target_commit = workspace_command.resolve_single_rev(ui, &self.revision)?;
-        if target_commit.is_empty(workspace_command.repo().as_ref())? {
+        if target_commit
+            .is_empty(workspace_command.repo().as_ref())
+            .block_on()?
+        {
             return Err(user_error_with_hint(
                 format!(
                     "Refusing to split empty commit {}.",
@@ -227,7 +230,11 @@ pub(crate) fn cmd_split(
 
     // Create the first commit, which includes the changes selected by the user.
     let first_commit = {
-        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
+        let mut commit_builder = tx
+            .repo_mut()
+            .rewrite_commit(&target.commit)
+            .block_on()
+            .detach();
         commit_builder.set_tree_id(target.selected_tree.id());
         if use_move_flags {
             commit_builder.clear_rewrite_source();
@@ -246,13 +253,13 @@ pub(crate) fn cmd_split(
         } else {
             let new_description = add_trailers(ui, &tx, &commit_builder)?;
             commit_builder.set_description(new_description);
-            let temp_commit = commit_builder.write_hidden()?;
+            let temp_commit = commit_builder.write_hidden().block_on()?;
             let intro = "Enter a description for the selected changes.";
             let template = description_template(ui, &tx, intro, &temp_commit)?;
             edit_description(&text_editor, &template)?
         };
         commit_builder.set_description(description);
-        commit_builder.write(tx.repo_mut())?
+        commit_builder.write(tx.repo_mut()).block_on()?
     };
 
     // Create the second commit, which includes everything the user didn't
@@ -274,7 +281,11 @@ pub(crate) fn cmd_split(
         } else {
             vec![first_commit.id().clone()]
         };
-        let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
+        let mut commit_builder = tx
+            .repo_mut()
+            .rewrite_commit(&target.commit)
+            .block_on()
+            .detach();
         commit_builder
             .set_parents(parents)
             .set_tree_id(new_tree.id());
@@ -294,13 +305,13 @@ pub(crate) fn cmd_split(
         } else {
             let new_description = add_trailers(ui, &tx, &commit_builder)?;
             commit_builder.set_description(new_description);
-            let temp_commit = commit_builder.write_hidden()?;
+            let temp_commit = commit_builder.write_hidden().block_on()?;
             let intro = "Enter a description for the remaining changes.";
             let template = description_template(ui, &tx, intro, &temp_commit)?;
             edit_description(&text_editor, &template)?
         };
         commit_builder.set_description(description);
-        commit_builder.write(tx.repo_mut())?
+        commit_builder.write(tx.repo_mut()).block_on()?
     };
 
     let (first_commit, second_commit, num_rebased) = if use_move_flags {
@@ -342,7 +353,7 @@ fn move_first_commit(
     tx.repo_mut()
         .transform_descendants(vec![target.commit.id().clone()], async |rewriter| {
             let old_commit_id = rewriter.old_commit().id().clone();
-            let new_commit = rewriter.rebase().await?.write()?;
+            let new_commit = rewriter.rebase().await?.write().await?;
             rewritten_commits.insert(old_commit_id, new_commit.id().clone());
             Ok(())
         })
@@ -426,7 +437,7 @@ fn rewrite_descendants(
             } else {
                 rewriter.replace_parent(first_commit.id(), [second_commit.id()]);
             }
-            rewriter.rebase().await?.write()?;
+            rewriter.rebase().await?.write().await?;
             Ok(())
         })
         .block_on()?;
@@ -434,7 +445,9 @@ fn rewrite_descendants(
     // where the target commit is the working copy commit.
     for (name, working_copy_commit) in tx.base_repo().clone().view().wc_commit_ids() {
         if working_copy_commit == target.commit.id() {
-            tx.repo_mut().edit(name.clone(), &second_commit)?;
+            tx.repo_mut()
+                .edit(name.clone(), &second_commit)
+                .block_on()?;
         }
     }
 
