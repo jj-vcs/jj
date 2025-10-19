@@ -2480,7 +2480,8 @@ fn reload_repo_at_operation(
         .map_err(|err| RevsetResolutionError::Other(err.into()))?;
     base_repo.reload_at(&operation).map_err(|err| match err {
         RepoLoaderError::Backend(err) => RevsetResolutionError::Backend(err),
-        RepoLoaderError::IndexStore(_)
+        RepoLoaderError::Index(_)
+        | RepoLoaderError::IndexStore(_)
         | RepoLoaderError::OpHeadResolution(_)
         | RepoLoaderError::OpHeadsStoreError(_)
         | RepoLoaderError::OpStore(_)

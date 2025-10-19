@@ -117,7 +117,7 @@ pub fn cmd_op_diff(
     let mut tx = to_repo.start_transaction();
     // Merge index from `from_repo` to `to_repo`, so commits in `from_repo` are
     // accessible.
-    tx.repo_mut().merge_index(&from_repo);
+    tx.repo_mut().merge_index(&from_repo)?;
     let merged_repo = tx.repo();
 
     let diff_renderer = {

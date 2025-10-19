@@ -607,11 +607,12 @@ impl MutableIndex for DefaultMutableIndex {
             .map_err(|err| IndexError::Other(err.into()))
     }
 
-    fn merge_in(&mut self, other: &dyn ReadonlyIndex) {
+    fn merge_in(&mut self, other: &dyn ReadonlyIndex) -> IndexResult<()> {
         let other: &DefaultReadonlyIndex = other
             .downcast_ref()
             .expect("index to merge in must be a DefaultReadonlyIndex");
         Self::merge_in(self, other);
+        Ok(())
     }
 }
 

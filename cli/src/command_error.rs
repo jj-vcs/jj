@@ -35,6 +35,7 @@ use jj_lib::fileset::FilesetParseError;
 use jj_lib::fileset::FilesetParseErrorKind;
 use jj_lib::fix::FixError;
 use jj_lib::gitignore::GitIgnoreError;
+use jj_lib::index::IndexError;
 use jj_lib::op_heads_store::OpHeadResolutionError;
 use jj_lib::op_heads_store::OpHeadsStoreError;
 use jj_lib::op_store::OpStoreError;
@@ -325,6 +326,12 @@ impl From<BackendError> for CommandError {
             BackendError::Unsupported(_) => user_error(err),
             _ => internal_error_with_message("Unexpected error from backend", err),
         }
+    }
+}
+
+impl From<IndexError> for CommandError {
+    fn from(err: IndexError) -> Self {
+        internal_error_with_message("Unexpected error from index", err)
     }
 }
 

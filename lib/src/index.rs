@@ -178,7 +178,7 @@ pub trait MutableIndex: Any {
 
     fn add_commit(&mut self, commit: &Commit) -> IndexResult<()>;
 
-    fn merge_in(&mut self, other: &dyn ReadonlyIndex);
+    fn merge_in(&mut self, other: &dyn ReadonlyIndex) -> IndexResult<()>;
 }
 
 impl dyn MutableIndex {

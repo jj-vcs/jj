@@ -52,6 +52,7 @@ use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
+use crate::index::IndexError;
 use crate::index::IndexResult;
 use crate::index::IndexStore;
 use crate::index::IndexStoreError;
@@ -639,6 +640,8 @@ pub fn read_store_type(
 pub enum RepoLoaderError {
     #[error(transparent)]
     Backend(#[from] BackendError),
+    #[error(transparent)]
+    Index(#[from] IndexError),
     #[error(transparent)]
     IndexStore(#[from] IndexStoreError),
     #[error(transparent)]
@@ -1810,13 +1813,13 @@ impl MutableRepo {
         &mut self,
         base_repo: &ReadonlyRepo,
         other_repo: &ReadonlyRepo,
-    ) -> BackendResult<()> {
+    ) -> Result<(), RepoLoaderError> {
         // First, merge the index, so we can take advantage of a valid index when
         // merging the view. Merging in base_repo's index isn't typically
         // necessary, but it can be if base_repo is ahead of either self or other_repo
         // (e.g. because we're undoing an operation that hasn't been published).
-        self.index.merge_in(base_repo.readonly_index());
-        self.index.merge_in(other_repo.readonly_index());
+        self.index.merge_in(base_repo.readonly_index())?;
+        self.index.merge_in(other_repo.readonly_index())?;
 
         self.view.ensure_clean(|v| self.enforce_view_invariants(v));
         self.merge_view(&base_repo.view, &other_repo.view)?;
@@ -1824,8 +1827,8 @@ impl MutableRepo {
         Ok(())
     }
 
-    pub fn merge_index(&mut self, other_repo: &ReadonlyRepo) {
-        self.index.merge_in(other_repo.readonly_index());
+    pub fn merge_index(&mut self, other_repo: &ReadonlyRepo) -> IndexResult<()> {
+        self.index.merge_in(other_repo.readonly_index())
     }
 
     fn merge_view(&mut self, base: &View, other: &View) -> BackendResult<()> {
