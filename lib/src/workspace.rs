@@ -139,7 +139,9 @@ fn init_working_copy(
     let mut tx = repo.start_transaction();
     tx.repo_mut()
         .check_out(workspace_name.clone(), &repo.store().root_commit())?;
-    let repo = tx.commit(format!("add workspace '{}'", workspace_name.as_symbol()))?;
+    let repo = tx
+        .commit(format!("add workspace '{}'", workspace_name.as_symbol()))
+        .block_on()?;
 
     let working_copy = working_copy_factory.init_working_copy(
         repo.store().clone(),
@@ -425,7 +427,7 @@ impl Workspace {
         })
     }
 
-    pub fn check_out(
+    pub async fn check_out(
         &mut self,
         operation_id: OperationId,
         old_tree_id: Option<&MergedTreeId>,
