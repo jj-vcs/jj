@@ -19,6 +19,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::RewriteRefsOptions;
 use maplit::hashmap;
 use maplit::hashset;
+use pollster::FutureExt as _;
 use testutils::TestRepo;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
@@ -172,6 +173,7 @@ fn test_transform_descendants_new_parents_map() {
                 Ok(())
             },
         )
+        .block_on()
         .unwrap();
     assert_eq!(rebased.len(), 5);
     let new_commit_b = rebased.get(commit_b.id()).unwrap();

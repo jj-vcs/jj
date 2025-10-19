@@ -199,13 +199,13 @@ fn test_isolation() {
         .set_description("rewrite1")
         .write()
         .unwrap();
-    mut_repo1.rebase_descendants().unwrap();
+    mut_repo1.rebase_descendants().block_on().unwrap();
     let rewrite2 = mut_repo2
         .rewrite_commit(&initial)
         .set_description("rewrite2")
         .write()
         .unwrap();
-    mut_repo2.rebase_descendants().unwrap();
+    mut_repo2.rebase_descendants().block_on().unwrap();
 
     // Neither transaction has committed yet, so each transaction sees its own
     // commit.
@@ -240,7 +240,7 @@ fn test_stored_commit_predecessors() {
         .set_description("rewritten")
         .write()
         .unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").block_on().unwrap();
 
     // Reload operation from disk.
@@ -473,7 +473,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
 
     let repo_at = |id: &OperationId| {
         let op = loader.load_operation(id).block_on().unwrap();
-        loader.load_at(&op).unwrap()
+        loader.load_at(&op).block_on().unwrap()
     };
     let head_commits = |repo: &dyn Repo| {
         repo.view()
@@ -501,14 +501,14 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         .set_description("a1")
         .write()
         .unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let [commit_b1] = head_commits(tx.repo()).try_into().unwrap();
     tx.repo_mut().add_head(&commit_b0).unwrap(); // resurrect rewritten commits
     let repo_2 = tx.commit("op2").block_on().unwrap();
 
     let mut tx = repo_2.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_b0);
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo_3 = tx.commit("op3").block_on().unwrap();
 
     let mut tx = repo_3.start_transaction();
@@ -520,7 +520,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         .set_description("a2")
         .write()
         .unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo_4 = tx.commit("op4").block_on().unwrap();
 
     let repo_4 = if op_stores_commit_predecessors {

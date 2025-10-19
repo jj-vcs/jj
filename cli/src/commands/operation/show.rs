@@ -79,8 +79,8 @@ pub fn cmd_op_show(
     let merged_parent_op = repo_loader
         .merge_operations(parent_ops.clone(), None)
         .block_on()?;
-    let parent_repo = repo_loader.load_at(&merged_parent_op)?;
-    let repo = repo_loader.load_at(&op)?;
+    let parent_repo = repo_loader.load_at(&merged_parent_op).block_on()?;
+    let repo = repo_loader.load_at(&op).block_on()?;
 
     let id_prefix_context = workspace_env.new_id_prefix_context();
     let commit_summary_template = {

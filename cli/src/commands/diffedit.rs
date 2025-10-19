@@ -164,7 +164,7 @@ don't make any changes, then the operation will be aborted.",
                 " (while preserving their content)",
             )
         } else {
-            (tx.repo_mut().rebase_descendants()?, "")
+            (tx.repo_mut().rebase_descendants().block_on()?, "")
         };
         if let Some(mut formatter) = ui.status_formatter()
             && num_rebased > 0

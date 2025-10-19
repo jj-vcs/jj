@@ -14,6 +14,7 @@
 
 use clap_complete::ArgValueCandidates;
 use jj_lib::object_id::ObjectId as _;
+use pollster::FutureExt as _;
 
 use super::DEFAULT_REVERT_WHAT;
 use super::RevertWhatToRestore;
@@ -53,7 +54,7 @@ pub fn cmd_op_restore(
     let target_op = workspace_command.resolve_single_op(&args.operation)?;
     let mut tx = workspace_command.start_transaction();
     let new_view = view_with_desired_portions_restored(
-        target_op.view()?.store_view(),
+        target_op.view().block_on()?.store_view(),
         tx.base_repo().view().store_view(),
         &args.what,
     );

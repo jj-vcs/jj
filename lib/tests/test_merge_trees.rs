@@ -95,7 +95,7 @@ fn test_simplify_conflict_after_resolving_parent() {
     let commit_c3 = rebase_commit(tx.repo_mut(), commit_c2, vec![commit_b3.id().clone()])
         .block_on()
         .unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").block_on().unwrap();
 
     // The conflict should now be resolved.

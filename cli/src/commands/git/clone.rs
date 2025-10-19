@@ -275,7 +275,7 @@ fn configure_remote(
         .repo_loader()
         .load_operation(workspace_command.repo().op_id())
         .block_on()?;
-    let repo = workspace.repo_loader().load_at(&op)?;
+    let repo = workspace.repo_loader().load_at(&op).block_on()?;
     command.for_workable_repo(ui, workspace, repo)
 }
 

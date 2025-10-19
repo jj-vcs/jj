@@ -484,7 +484,11 @@ fn test_acl() {
     )
     .unwrap();
     // Reload commits from the store associated with the workspace
-    let repo = ws.repo_loader().load_at(repo.operation()).unwrap();
+    let repo = ws
+        .repo_loader()
+        .load_at(repo.operation())
+        .block_on()
+        .unwrap();
     let commit1 = repo.store().get_commit(commit1.id()).unwrap();
     let commit2 = repo.store().get_commit(commit2.id()).unwrap();
 

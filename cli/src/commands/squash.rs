@@ -378,7 +378,7 @@ pub(crate) fn cmd_squash(
             );
         }
         let commit = commit_builder.write(tx.repo_mut())?;
-        let num_rebased = tx.repo_mut().rebase_descendants()?;
+        let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
         if let Some(mut formatter) = ui.status_formatter() {
             if insert_destination_commit {
                 write!(formatter, "Created new commit ")?;

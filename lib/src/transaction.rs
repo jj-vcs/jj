@@ -104,8 +104,8 @@ impl Transaction {
         )?
         .unwrap();
         let repo_loader = self.base_repo().loader();
-        let base_repo = repo_loader.load_at(&ancestor_op)?;
-        let other_repo = repo_loader.load_at(&other_op)?;
+        let base_repo = repo_loader.load_at(&ancestor_op).block_on()?;
+        let other_repo = repo_loader.load_at(&other_op).block_on()?;
         self.parent_ops.push(other_op);
         let merged_repo = self.repo_mut();
         merged_repo.merge(&base_repo, &other_repo)?;

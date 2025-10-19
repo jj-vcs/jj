@@ -288,7 +288,7 @@ impl DefaultIndexStore {
         for op in &ops_to_visit {
             for commit_id in itertools::chain(
                 op.all_referenced_commit_ids(),
-                op.view()?.all_referenced_commit_ids(),
+                op.view().await?.all_referenced_commit_ids(),
             ) {
                 if !historical_heads.contains_key(commit_id) {
                     historical_heads.insert(commit_id.clone(), op.id().clone());
