@@ -345,7 +345,7 @@ fn move_first_commit(
             let new_commit = rewriter.rebase().await?.write()?;
             rewritten_commits.insert(old_commit_id, new_commit.id().clone());
             Ok(())
-        })?;
+        }).block_on()?;
 
     let new_parent_ids: Vec<_> = new_parent_ids
         .iter()
@@ -428,7 +428,7 @@ fn rewrite_descendants(
             rewriter.rebase().await?.write()?;
             Ok(())
         },
-    )?;
+    ).block_on()?;
     // Move the working copy commit (@) to the second commit for any workspaces
     // where the target commit is the working copy commit.
     for (name, working_copy_commit) in tx.base_repo().clone().view().wc_commit_ids() {

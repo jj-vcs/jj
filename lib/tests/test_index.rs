@@ -70,7 +70,7 @@ fn enable_changed_path_index(repo: &ReadonlyRepo) -> Arc<ReadonlyRepo> {
         .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 0)
         .block_on()
         .unwrap();
-    repo.reload_at(repo.operation()).unwrap()
+    repo.reload_at(repo.operation()).block_on().unwrap()
 }
 
 fn collect_changed_paths(repo: &ReadonlyRepo, commit_id: &CommitId) -> Option<Vec<RepoPathBuf>> {
@@ -726,7 +726,7 @@ fn test_reindex_from_merged_operation() {
     // When re-indexing, one of the merge parent operations will be selected as
     // the parent index segment. The commits in the other side should still be
     // reachable.
-    let repo = repo.reload_at(operation_to_reload).unwrap();
+    let repo = repo.reload_at(operation_to_reload).block_on().unwrap();
     let index = as_readonly_index(&repo);
     assert_eq!(index.num_commits(), 4);
 }
@@ -788,7 +788,7 @@ fn test_read_legacy_operation_link_file() {
     fs::remove_dir_all(&op_links_dir).unwrap();
 
     // Reload repo and index
-    let repo = repo.reload_at(repo.operation()).unwrap();
+    let repo = repo.reload_at(repo.operation()).block_on().unwrap();
     let _ = repo.readonly_index();
     // Existing index should still be readable, so new operation link file won't
     // be created
@@ -895,7 +895,7 @@ fn test_build_changed_path_segments() {
         .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 4)
         .block_on()
         .unwrap();
-    let repo = repo.reload_at(repo.operation()).unwrap();
+    let repo = repo.reload_at(repo.operation()).block_on().unwrap();
     let stats = as_readonly_index(&repo).stats();
     assert_eq!(stats.changed_path_commits_range, Some(6..10));
     assert_eq!(stats.changed_path_levels.len(), 1);
@@ -908,7 +908,7 @@ fn test_build_changed_path_segments() {
         .build_changed_path_index_at_operation(repo.op_id(), repo.store(), u32::MAX)
         .block_on()
         .unwrap();
-    let repo = repo.reload_at(repo.operation()).unwrap();
+    let repo = repo.reload_at(repo.operation()).block_on().unwrap();
     let stats = as_readonly_index(&repo).stats();
     assert_eq!(stats.changed_path_commits_range, Some(0..10));
     assert_eq!(stats.changed_path_levels.len(), 2);
@@ -969,7 +969,7 @@ fn test_build_changed_path_segments_partially_enabled() {
         .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 2)
         .block_on()
         .unwrap();
-    let repo = repo.reload_at(repo.operation()).unwrap();
+    let repo = repo.reload_at(repo.operation()).block_on().unwrap();
     let stats = as_readonly_index(&repo).stats();
     assert_eq!(stats.changed_path_commits_range, Some(5..8));
     assert_eq!(stats.changed_path_levels.len(), 1);
@@ -982,7 +982,7 @@ fn test_build_changed_path_segments_partially_enabled() {
         .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 3)
         .block_on()
         .unwrap();
-    let repo = repo.reload_at(repo.operation()).unwrap();
+    let repo = repo.reload_at(repo.operation()).block_on().unwrap();
     let stats = as_readonly_index(&repo).stats();
     assert_eq!(stats.changed_path_commits_range, Some(4..10));
     assert_eq!(stats.changed_path_levels.len(), 1);

@@ -23,7 +23,6 @@ use std::sync::Arc;
 use bstr::BString;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::annotate::FileAnnotator;
@@ -285,7 +284,7 @@ pub struct AbsorbStats {
 
 /// Merges selected trees into the specified commits. Abandons the source commit
 /// if it becomes discardable.
-pub fn absorb_hunks(
+pub async fn absorb_hunks(
     repo: &mut MutableRepo,
     source: &AbsorbSource,
     mut selected_trees: HashMap<CommitId, MergedTreeBuilder>,
@@ -320,7 +319,7 @@ pub fn absorb_hunks(
         let selected_tree = store.get_root_tree(&selected_tree_id)?;
         let new_tree = destination_tree
             .merge(source.parent_tree.clone(), selected_tree)
-            .block_on()?;
+            .await?;
         let mut predecessors = commit_builder.predecessors().to_vec();
         predecessors.push(source.commit.id().clone());
         let new_commit = commit_builder
@@ -329,7 +328,8 @@ pub fn absorb_hunks(
             .write()?;
         rewritten_destinations.push(new_commit);
         Ok(())
-    })?;
+    })
+    .await?;
     Ok(AbsorbStats {
         rewritten_source,
         rewritten_destinations,

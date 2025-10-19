@@ -293,7 +293,7 @@ pub(crate) fn cmd_squash(
                 rewritten.insert(old_commit_id, new_commit);
                 num_rebased += 1;
                 Ok(())
-            })?;
+            }).block_on()?;
         for source in &mut *sources {
             if let Some(rewritten_source) = rewritten.remove(source.id()) {
                 *source = rewritten_source;
