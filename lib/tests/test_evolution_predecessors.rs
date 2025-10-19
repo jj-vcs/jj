@@ -111,7 +111,7 @@ fn test_walk_predecessors_basic_legacy_op() {
         let mut data = repo2.operation().store_operation().clone();
         data.commit_predecessors = None;
         let op_id = loader.op_store().write_operation(&data).block_on().unwrap();
-        let op = loader.load_operation(&op_id).unwrap();
+        let op = loader.load_operation(&op_id).block_on().unwrap();
         loader.load_at(&op).unwrap()
     };
 
@@ -452,7 +452,7 @@ fn test_walk_predecessors_direct_cycle_within_op() {
             commit1.id().clone() => vec![commit1.id().clone()],
         });
         let op_id = loader.op_store().write_operation(&data).block_on().unwrap();
-        let op = loader.load_operation(&op_id).unwrap();
+        let op = loader.load_operation(&op_id).block_on().unwrap();
         loader.load_at(&op).unwrap()
     };
     assert_matches!(
@@ -481,7 +481,7 @@ fn test_walk_predecessors_indirect_cycle_within_op() {
             commit3.id().clone() => vec![commit2.id().clone()],
         });
         let op_id = loader.op_store().write_operation(&data).block_on().unwrap();
-        let op = loader.load_operation(&op_id).unwrap();
+        let op = loader.load_operation(&op_id).block_on().unwrap();
         loader.load_at(&op).unwrap()
     };
     assert_matches!(

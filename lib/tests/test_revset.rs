@@ -1166,7 +1166,7 @@ fn test_evaluate_expression_root_and_checkout() {
     let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
 
-    let root_operation = repo.loader().root_operation();
+    let root_operation = repo.loader().root_operation().block_on();
     let root_repo = repo.reload_at(&root_operation).unwrap();
 
     let mut tx = repo.start_transaction();

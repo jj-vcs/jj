@@ -16,6 +16,7 @@ use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::OperationId;
+use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
@@ -146,7 +147,8 @@ pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result
         op_to_undo = workspace_command
             .repo()
             .loader()
-            .load_operation(&id_of_restored_op)?;
+            .load_operation(&id_of_restored_op)
+            .block_on()?;
     }
 
     let mut op_to_restore = match op_to_undo.parents().at_most_one() {
@@ -180,7 +182,8 @@ pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result
         op_to_restore = workspace_command
             .repo()
             .loader()
-            .load_operation(&id_of_original_op)?;
+            .load_operation(&id_of_original_op)
+            .block_on()?;
     }
 
     let mut tx = workspace_command.start_transaction();
