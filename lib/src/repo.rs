@@ -268,6 +268,7 @@ impl ReadonlyRepo {
         let index = loader
             .index_store
             .get_index_at_op(&root_operation, &loader.store)
+            .block_on()
             // If the root op index couldn't be read, the index backend wouldn't
             // be initialized properly.
             .map_err(|err| BackendInitError(err.into()))?;
@@ -844,7 +845,10 @@ impl RepoLoader {
         operation: Operation,
         view: View,
     ) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
-        let index = self.index_store.get_index_at_op(&operation, &self.store)?;
+        let index = self
+            .index_store
+            .get_index_at_op(&operation, &self.store)
+            .block_on()?;
         let repo = ReadonlyRepo {
             loader: self.clone(),
             operation,
