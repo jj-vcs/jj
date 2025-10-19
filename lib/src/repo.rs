@@ -804,7 +804,7 @@ impl RepoLoader {
             let base_repo = self.load_at(&base_op).await?;
             let mut tx = base_repo.start_transaction();
             for other_op in operations {
-                tx.merge_operation(other_op)?;
+                tx.merge_operation(other_op).await?;
                 tx.repo_mut().rebase_descendants().await?;
             }
             let tx_description = tx_description.map_or_else(
