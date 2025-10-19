@@ -22,6 +22,7 @@ use jj_lib::refs::diff_named_ref_targets;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::rewrite::RewriteRefsOptions;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -107,23 +108,25 @@ pub(crate) fn cmd_abandon(
         delete_abandoned_bookmarks: !args.retain_bookmarks,
     };
     let mut num_rebased = 0;
-    tx.repo_mut().transform_descendants_with_options(
-        to_abandon.iter().cloned().collect(),
-        &HashMap::new(),
-        &options,
-        async |rewriter| {
-            if to_abandon.contains(rewriter.old_commit().id()) {
-                rewriter.abandon();
-            } else if args.restore_descendants {
-                rewriter.reparent().write()?;
-                num_rebased += 1;
-            } else {
-                rewriter.rebase().await?.write()?;
-                num_rebased += 1;
-            }
-            Ok(())
-        },
-    )?;
+    tx.repo_mut()
+        .transform_descendants_with_options(
+            to_abandon.iter().cloned().collect(),
+            &HashMap::new(),
+            &options,
+            async |rewriter| {
+                if to_abandon.contains(rewriter.old_commit().id()) {
+                    rewriter.abandon();
+                } else if args.restore_descendants {
+                    rewriter.reparent().write()?;
+                    num_rebased += 1;
+                } else {
+                    rewriter.rebase().await?.write()?;
+                    num_rebased += 1;
+                }
+                Ok(())
+            },
+        )
+        .block_on()?;
 
     let deleted_bookmarks = diff_named_ref_targets(
         tx.base_repo().view().local_bookmarks(),

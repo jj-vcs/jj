@@ -469,7 +469,7 @@ impl CommandHelper {
     ) -> Result<WorkspaceCommandHelper, CommandError> {
         let workspace = self.load_workspace()?;
         let op_head = self.resolve_operation(ui, workspace.repo_loader())?;
-        let repo = workspace.repo_loader().load_at(&op_head)?;
+        let repo = workspace.repo_loader().load_at(&op_head).block_on()?;
         let env = self.workspace_environment(ui, &workspace)?;
         revset_util::warn_unresolvable_trunk(ui, repo.as_ref(), &env.revset_parse_context())?;
         WorkspaceCommandHelper::new(ui, workspace, repo, env, self.is_at_head_operation())
@@ -532,7 +532,7 @@ impl CommandHelper {
 
         match workspace.repo_loader().load_operation(op_id).block_on() {
             Ok(op) => {
-                let repo = workspace.repo_loader().load_at(&op)?;
+                let repo = workspace.repo_loader().load_at(&op).block_on()?;
                 let mut workspace_command = self.for_workable_repo(ui, workspace, repo)?;
 
                 // Snapshot the current working copy on top of the last known working-copy
@@ -648,12 +648,12 @@ impl CommandHelper {
                         ui.status(),
                         "Concurrent modification detected, resolving automatically.",
                     )?;
-                    let base_repo = repo_loader.load_at(&op_heads[0])?;
+                    let base_repo = repo_loader.load_at(&op_heads[0]).await?;
                     // TODO: It may be helpful to print each operation we're merging here
                     let mut tx = start_repo_transaction(&base_repo, &self.data.string_args);
                     for other_op_head in op_heads.into_iter().skip(1) {
                         tx.merge_operation(other_op_head)?;
-                        let num_rebased = tx.repo_mut().rebase_descendants()?;
+                        let num_rebased = tx.repo_mut().rebase_descendants().await?;
                         if num_rebased > 0 {
                             writeln!(
                                 ui.status(),
@@ -1162,7 +1162,7 @@ impl WorkspaceCommandHelper {
             // HEAD, so we just need to reset our working copy
             // state to it without updating working copy files.
             locked_ws.locked_wc().reset(&wc_commit).block_on()?;
-            tx.repo_mut().rebase_descendants()?;
+            tx.repo_mut().rebase_descendants().block_on()?;
             self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head").block_on()?);
             locked_ws.finish(self.user_repo.repo.op_id().clone())?;
             if old_git_head.is_present() {
@@ -1201,7 +1201,7 @@ impl WorkspaceCommandHelper {
 
         let mut tx = tx.into_inner();
         // Rebase here to show slightly different status message.
-        let num_rebased = tx.repo_mut().rebase_descendants()?;
+        let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
         if num_rebased > 0 {
             writeln!(
                 ui.status(),
@@ -1933,6 +1933,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             // Rebase descendants
             let num_rebased = mut_repo
                 .rebase_descendants()
+                .block_on()
                 .map_err(snapshot_command_error)?;
             if num_rebased > 0 {
                 writeln!(
@@ -2035,7 +2036,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             writeln!(ui.status(), "Nothing changed.")?;
             return Ok(());
         }
-        let num_rebased = tx.repo_mut().rebase_descendants()?;
+        let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
         if num_rebased > 0 {
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
         }

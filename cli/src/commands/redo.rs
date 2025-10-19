@@ -151,7 +151,7 @@ pub fn cmd_redo(ui: &mut Ui, command: &CommandHelper, _: &RedoArgs) -> Result<()
 
     let mut tx = workspace_command.start_transaction();
     let new_view = view_with_desired_portions_restored(
-        op_to_restore.view()?.store_view(),
+        op_to_restore.view().block_on()?.store_view(),
         tx.base_repo().view().store_view(),
         &DEFAULT_REVERT_WHAT,
     );

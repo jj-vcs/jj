@@ -471,7 +471,7 @@ fn test_id_prefix_hidden() {
 
     let hidden_commit = &commits[8];
     tx.repo_mut().record_abandoned_commit(hidden_commit);
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").block_on().unwrap();
 
     let prefix = |x: &str| HexPrefix::try_from_hex(x).unwrap();

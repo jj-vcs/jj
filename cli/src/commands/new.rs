@@ -218,7 +218,7 @@ pub(crate) fn cmd_new(
         rebase_commit(tx.repo_mut(), child_commit, new_parent_ids).block_on()?;
         num_rebased += 1;
     }
-    num_rebased += tx.repo_mut().rebase_descendants()?;
+    num_rebased += tx.repo_mut().rebase_descendants().block_on()?;
 
     if args.no_edit {
         if let Some(mut formatter) = ui.status_formatter() {

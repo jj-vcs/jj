@@ -25,6 +25,7 @@ use futures::try_join;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::backend::BackendError;
@@ -482,7 +483,7 @@ impl ComputedMoveCommits {
         mut_repo: &mut MutableRepo,
         options: &RebaseOptions,
     ) -> BackendResult<MoveCommitsStats> {
-        apply_move_commits(mut_repo, self, options)
+        apply_move_commits(mut_repo, self, options).block_on()
     }
 }
 
@@ -790,7 +791,7 @@ pub fn compute_move_commits(
     })
 }
 
-fn apply_move_commits(
+async fn apply_move_commits(
     mut_repo: &mut MutableRepo,
     commits: ComputedMoveCommits,
     options: &RebaseOptions,
@@ -808,40 +809,42 @@ fn apply_move_commits(
     };
 
     let mut rebased_commits: HashMap<CommitId, RebasedCommit> = HashMap::new();
-    mut_repo.transform_commits(
-        commits.descendants,
-        &commits.commit_new_parents_map,
-        &options.rewrite_refs,
-        async |rewriter| {
-            let old_commit_id = rewriter.old_commit().id().clone();
-            if commits.to_abandon.contains(&old_commit_id) {
-                rewriter.abandon();
-            } else if rewriter.parents_changed() {
-                let is_target_commit = commits.target_commit_ids.contains(&old_commit_id);
-                let rebased_commit = rebase_commit_with_options(
-                    rewriter,
-                    if is_target_commit {
-                        options
+    mut_repo
+        .transform_commits(
+            commits.descendants,
+            &commits.commit_new_parents_map,
+            &options.rewrite_refs,
+            async |rewriter| {
+                let old_commit_id = rewriter.old_commit().id().clone();
+                if commits.to_abandon.contains(&old_commit_id) {
+                    rewriter.abandon();
+                } else if rewriter.parents_changed() {
+                    let is_target_commit = commits.target_commit_ids.contains(&old_commit_id);
+                    let rebased_commit = rebase_commit_with_options(
+                        rewriter,
+                        if is_target_commit {
+                            options
+                        } else {
+                            rebase_descendant_options
+                        },
+                    )
+                    .await?;
+                    if let RebasedCommit::Abandoned { .. } = rebased_commit {
+                        num_abandoned_empty += 1;
+                    } else if is_target_commit {
+                        num_rebased_targets += 1;
                     } else {
-                        rebase_descendant_options
-                    },
-                )
-                .await?;
-                if let RebasedCommit::Abandoned { .. } = rebased_commit {
-                    num_abandoned_empty += 1;
-                } else if is_target_commit {
-                    num_rebased_targets += 1;
+                        num_rebased_descendants += 1;
+                    }
+                    rebased_commits.insert(old_commit_id, rebased_commit);
                 } else {
-                    num_rebased_descendants += 1;
+                    num_skipped_rebases += 1;
                 }
-                rebased_commits.insert(old_commit_id, rebased_commit);
-            } else {
-                num_skipped_rebases += 1;
-            }
 
-            Ok(())
-        },
-    )?;
+                Ok(())
+            },
+        )
+        .await?;
 
     Ok(MoveCommitsStats {
         num_rebased_targets,
@@ -1218,7 +1221,8 @@ pub async fn squash_commits<'repo>(
                 RebasedCommit::Rewritten(commit) => commit,
                 RebasedCommit::Abandoned { .. } => panic!("all commits should be kept"),
             };
-        })?;
+        })
+        .await?;
     }
     // Apply the selected changes onto the destination
     let mut destination_tree = rewritten_destination.tree()?;

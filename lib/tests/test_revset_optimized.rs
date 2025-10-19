@@ -67,6 +67,7 @@ fn rebase_descendants(repo: &mut MutableRepo) -> Vec<Commit> {
         RebasedCommit::Rewritten(commit) => commits.push(commit),
         RebasedCommit::Abandoned { .. } => {}
     })
+    .block_on()
     .unwrap();
     commits
 }
