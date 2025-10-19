@@ -25,6 +25,7 @@ use std::path::Path;
 use std::slice;
 use std::sync::Arc;
 
+use futures::future::try_join_all;
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
 use thiserror::Error;
@@ -1198,14 +1199,16 @@ impl MutableRepo {
             );
             let new_wc_commit = if !abandoned_old_commit {
                 // We arbitrarily pick a new working-copy commit among the candidates.
-                self.store().get_commit(&new_commit_ids[0])?
+                self.store().get_commit_async(&new_commit_ids[0]).await?
             } else if let Some(commit) = recreated_wc_commits.get(old_commit_id) {
                 commit.clone()
             } else {
-                let new_commits: Vec<_> = new_commit_ids
-                    .iter()
-                    .map(|id| self.store().get_commit(id))
-                    .try_collect()?;
+                let new_commits: Vec<_> = try_join_all(
+                    new_commit_ids
+                        .iter()
+                        .map(|id| self.store().get_commit_async(id)),
+                )
+                .await?;
                 let merged_parents_tree = merge_commit_trees(self, &new_commits).await?;
                 let commit = self
                     .new_commit(new_commit_ids.clone(), merged_parents_tree.id().clone())

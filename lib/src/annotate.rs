@@ -343,7 +343,7 @@ async fn process_commit(
         let parent_source = match state.commit_source_map.entry(parent_commit_id.clone()) {
             hash_map::Entry::Occupied(entry) => entry.into_mut(),
             hash_map::Entry::Vacant(entry) => {
-                let commit = repo.store().get_commit(entry.key())?;
+                let commit = repo.store().get_commit_async(entry.key()).await?;
                 entry.insert(Source::load(&commit, file_name).await?)
             }
         };
