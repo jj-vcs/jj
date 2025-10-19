@@ -17,7 +17,6 @@
 use std::sync::Arc;
 
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::backend::Timestamp;
@@ -95,7 +94,7 @@ impl Transaction {
         &mut self.mut_repo
     }
 
-    pub fn merge_operation(&mut self, other_op: Operation) -> Result<(), RepoLoaderError> {
+    pub async fn merge_operation(&mut self, other_op: Operation) -> Result<(), RepoLoaderError> {
         let ancestor_op = dag_walk::closest_common_node_ok(
             self.parent_ops.iter().cloned().map(Ok),
             [Ok(other_op.clone())],
@@ -104,8 +103,8 @@ impl Transaction {
         )?
         .unwrap();
         let repo_loader = self.base_repo().loader();
-        let base_repo = repo_loader.load_at(&ancestor_op).block_on()?;
-        let other_repo = repo_loader.load_at(&other_op).block_on()?;
+        let base_repo = repo_loader.load_at(&ancestor_op).await?;
+        let other_repo = repo_loader.load_at(&other_op).await?;
         self.parent_ops.push(other_op);
         let merged_repo = self.repo_mut();
         merged_repo.merge(&base_repo, &other_repo)?;
@@ -121,7 +120,7 @@ impl Transaction {
         self,
         description: impl Into<String>,
     ) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
-        self.write(description).await?.publish()
+        self.write(description).await?.publish().await
     }
 
     /// Writes the transaction to the operation store, but does not publish it.
@@ -218,11 +217,11 @@ impl UnpublishedOperation {
         self.repo.operation()
     }
 
-    pub fn publish(self) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
-        let _lock = self.op_heads_store.lock().block_on()?;
+    pub async fn publish(self) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
+        let _lock = self.op_heads_store.lock().await?;
         self.op_heads_store
             .update_op_heads(self.operation().parent_ids(), self.operation().id())
-            .block_on()?;
+            .await?;
         Ok(self.repo)
     }
 

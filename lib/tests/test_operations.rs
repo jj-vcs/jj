@@ -72,7 +72,7 @@ fn test_unpublished_operation() {
     let op_id1 = unpublished_op.operation().id().clone();
     assert_ne!(op_id1, op_id0);
     assert_eq!(list_dir(&op_heads_dir), vec![op_id0.hex()]);
-    unpublished_op.publish().unwrap();
+    unpublished_op.publish().block_on().unwrap();
     assert_eq!(list_dir(&op_heads_dir), vec![op_id1.hex()]);
 }
 
