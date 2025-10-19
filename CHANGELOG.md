@@ -453,6 +453,9 @@ Thanks to the people who made this release happen!
 * `jj fix` commands now replace `$root` with the workspace's root path. This is
   useful for tools stored inside the workspace.
 
+* commit trailers now respect `JJ:` prefixes and ignore them when not using an
+  editor.
+
 ### Fixed bugs
 
 * Fixed an error in `jj util gc` caused by the empty blob being missing from

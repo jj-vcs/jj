@@ -22,6 +22,7 @@ use itertools::Itertools as _;
 use jj_lib::backend::Signature;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::object_id::ObjectId as _;
+use once_cell::unsync::Lazy;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -202,6 +203,12 @@ pub(crate) fn cmd_describe(
     let use_editor = args.edit || (shared_description.is_none() && !args.no_edit);
 
     if let Some(trailer_template) = parse_trailers_template(ui, &tx)? {
+        let comment_re = Lazy::new(|| {
+            regex::RegexBuilder::new("^JJ: .*\n?")
+                .multi_line(true)
+                .build()
+                .unwrap()
+        });
         for commit_builder in &mut commit_builders {
             // The first trailer would become the first line of the description.
             // Also, a commit with no description is treated in a special way in jujutsu: it
@@ -210,7 +217,13 @@ pub(crate) fn cmd_describe(
             if use_editor || !commit_builder.description().is_empty() {
                 let temp_commit = commit_builder.write_hidden()?;
                 let new_description = add_trailers_with_template(&trailer_template, &temp_commit)?;
-                commit_builder.set_description(new_description);
+                commit_builder.set_description(if use_editor {
+                    new_description
+                } else {
+                    // The trailer can contain JJ: ... comments.
+                    // Strip them out if we're not using an editor
+                    comment_re.replace_all(&new_description, "").to_string()
+                });
             }
         }
     }
