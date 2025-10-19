@@ -408,10 +408,15 @@ fn test_config_layer_override_default() {
     "#);
 
     // Repo
-    work_dir.write_file(
-        ".jj/repo/config.toml",
-        format!("{config_key} = {value}\n", value = to_toml_value("repo")),
-    );
+    work_dir
+        .run_jj([
+            "config",
+            "set",
+            "--repo",
+            config_key,
+            &format!("{}", to_toml_value("repo")),
+        ])
+        .success();
     let output = work_dir.run_jj(["config", "list", config_key]);
     insta::assert_snapshot!(output, @r#"
     merge-tools.vimdiff.program = "repo"
@@ -488,10 +493,15 @@ fn test_config_layer_override_env() {
     "#);
 
     // Repo
-    work_dir.write_file(
-        ".jj/repo/config.toml",
-        format!("{config_key} = {value}\n", value = to_toml_value("repo")),
-    );
+    work_dir
+        .run_jj([
+            "config",
+            "set",
+            "--repo",
+            config_key,
+            &format!("{}", to_toml_value("repo")),
+        ])
+        .success();
     let output = work_dir.run_jj(["config", "list", config_key]);
     insta::assert_snapshot!(output, @r#"
     ui.editor = "repo"
@@ -554,13 +564,15 @@ fn test_config_layer_workspace() {
         .success();
 
     // Repo
-    main_dir.write_file(
-        ".jj/repo/config.toml",
-        format!(
-            "{config_key} = {value}\n",
-            value = to_toml_value("main-repo")
-        ),
-    );
+    main_dir
+        .run_jj([
+            "config",
+            "set",
+            "--repo",
+            config_key,
+            &format!("{}", to_toml_value("main-repo")),
+        ])
+        .success();
     let output = main_dir.run_jj(["config", "list", config_key]);
     insta::assert_snapshot!(output, @r#"
     ui.editor = "main-repo"
