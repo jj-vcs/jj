@@ -19,6 +19,7 @@ use std::thread;
 use jj_lib::dag_walk;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
+use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
@@ -32,9 +33,16 @@ fn count_non_merge_operations(repo: &Arc<ReadonlyRepo>) -> usize {
     for op_id in dag_walk::dfs(
         vec![op_id],
         |op_id| op_id.clone(),
-        |op_id| op_store.read_operation(op_id).unwrap().parents,
+        |op_id| op_store.read_operation(op_id).block_on().unwrap().parents,
     ) {
-        if op_store.read_operation(&op_id).unwrap().parents.len() <= 1 {
+        if op_store
+            .read_operation(&op_id)
+            .block_on()
+            .unwrap()
+            .parents
+            .len()
+            <= 1
+        {
             num_ops += 1;
         }
     }

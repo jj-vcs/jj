@@ -23,6 +23,7 @@ use std::iter;
 use std::sync::LazyLock;
 use std::time::SystemTime;
 
+use async_trait::async_trait;
 use itertools::Itertools as _;
 use thiserror::Error;
 
@@ -457,21 +458,22 @@ pub enum OpStoreError {
 
 pub type OpStoreResult<T> = Result<T, OpStoreError>;
 
+#[async_trait]
 pub trait OpStore: Any + Send + Sync + Debug {
     fn name(&self) -> &str;
 
     fn root_operation_id(&self) -> &OperationId;
 
-    fn read_view(&self, id: &ViewId) -> OpStoreResult<View>;
+    async fn read_view(&self, id: &ViewId) -> OpStoreResult<View>;
 
-    fn write_view(&self, contents: &View) -> OpStoreResult<ViewId>;
+    async fn write_view(&self, contents: &View) -> OpStoreResult<ViewId>;
 
-    fn read_operation(&self, id: &OperationId) -> OpStoreResult<Operation>;
+    async fn read_operation(&self, id: &OperationId) -> OpStoreResult<Operation>;
 
-    fn write_operation(&self, contents: &Operation) -> OpStoreResult<OperationId>;
+    async fn write_operation(&self, contents: &Operation) -> OpStoreResult<OperationId>;
 
     /// Resolves an unambiguous operation ID prefix.
-    fn resolve_operation_id_prefix(
+    async fn resolve_operation_id_prefix(
         &self,
         prefix: &HexPrefix,
     ) -> OpStoreResult<PrefixResolution<OperationId>>;

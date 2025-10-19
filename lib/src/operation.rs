@@ -23,6 +23,8 @@ use std::hash::Hasher;
 use std::iter;
 use std::sync::Arc;
 
+use pollster::FutureExt as _;
+
 use crate::backend::CommitId;
 use crate::op_store;
 use crate::op_store::OpStore;
@@ -107,13 +109,13 @@ impl Operation {
     pub fn parents(&self) -> impl ExactSizeIterator<Item = OpStoreResult<Self>> + use<'_> {
         let op_store = &self.op_store;
         self.data.parents.iter().map(|parent_id| {
-            let data = op_store.read_operation(parent_id)?;
+            let data = op_store.read_operation(parent_id).block_on()?;
             Ok(Self::new(op_store.clone(), parent_id.clone(), data))
         })
     }
 
     pub fn view(&self) -> OpStoreResult<View> {
-        let data = self.op_store.read_view(&self.data.view_id)?;
+        let data = self.op_store.read_view(&self.data.view_id).block_on()?;
         Ok(View::new(data))
     }
 

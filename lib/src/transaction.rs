@@ -141,7 +141,10 @@ impl Transaction {
         let (mut_index, view, predecessors) = mut_repo.consume();
 
         let operation = {
-            let view_id = base_repo.op_store().write_view(view.store_view())?;
+            let view_id = base_repo
+                .op_store()
+                .write_view(view.store_view())
+                .block_on()?;
             self.op_metadata.description = description.into();
             self.op_metadata.time.end = self.end_time.unwrap_or_else(Timestamp::now);
             let parents = self.parent_ops.iter().map(|op| op.id().clone()).collect();
@@ -151,7 +154,10 @@ impl Transaction {
                 metadata: self.op_metadata,
                 commit_predecessors: Some(predecessors),
             };
-            let new_op_id = base_repo.op_store().write_operation(&store_operation)?;
+            let new_op_id = base_repo
+                .op_store()
+                .write_operation(&store_operation)
+                .block_on()?;
             Operation::new(base_repo.op_store().clone(), new_op_id, store_operation)
         };
 

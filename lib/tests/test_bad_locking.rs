@@ -19,6 +19,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::repo::StoreFactories;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::default_working_copy_factories;
+use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
@@ -159,7 +160,11 @@ fn test_bad_locking_children(backend: TestRepoBackend) {
     assert!(merged_repo.view().heads().contains(child1.id()));
     assert!(merged_repo.view().heads().contains(child2.id()));
     let op_id = merged_repo.op_id().clone();
-    let op = merged_repo.op_store().read_operation(&op_id).unwrap();
+    let op = merged_repo
+        .op_store()
+        .read_operation(&op_id)
+        .block_on()
+        .unwrap();
     assert_eq!(op.parents.len(), 2);
 }
 

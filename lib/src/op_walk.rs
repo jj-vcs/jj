@@ -186,12 +186,12 @@ fn resolve_single_op_from_store(
     }
     let prefix = HexPrefix::try_from_hex(op_str)
         .ok_or_else(|| OpsetResolutionError::InvalidIdPrefix(op_str.to_owned()))?;
-    match op_store.resolve_operation_id_prefix(&prefix)? {
+    match op_store.resolve_operation_id_prefix(&prefix).block_on()? {
         PrefixResolution::NoMatch => {
             Err(OpsetResolutionError::NoSuchOperation(op_str.to_owned()).into())
         }
         PrefixResolution::SingleMatch(op_id) => {
-            let data = op_store.read_operation(&op_id)?;
+            let data = op_store.read_operation(&op_id).block_on()?;
             Ok(Operation::new(op_store.clone(), op_id, data))
         }
         PrefixResolution::AmbiguousMatch => {
@@ -211,7 +211,7 @@ pub fn get_current_head_ops(
         .block_on()?
         .into_iter()
         .map(|id| -> OpStoreResult<Operation> {
-            let data = op_store.read_operation(&id)?;
+            let data = op_store.read_operation(&id).block_on()?;
             Ok(Operation::new(op_store.clone(), id, data))
         })
         .try_collect()?;
@@ -377,7 +377,7 @@ pub fn reparent_range(
             .filter_map(|id| rewritten_ids.get(id).or_else(|| dest_once.take()))
             .cloned()
             .collect();
-        let new_id = op_store.write_operation(&data)?;
+        let new_id = op_store.write_operation(&data).block_on()?;
         rewritten_ids.insert(old_op.id().clone(), new_id);
     }
 

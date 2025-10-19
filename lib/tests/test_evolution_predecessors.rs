@@ -29,6 +29,7 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::settings::UserSettings;
 use maplit::btreemap;
+use pollster::FutureExt as _;
 use testutils::TestRepo;
 use testutils::commit_transactions;
 use testutils::write_random_commit;
@@ -109,7 +110,7 @@ fn test_walk_predecessors_basic_legacy_op() {
     let repo2 = {
         let mut data = repo2.operation().store_operation().clone();
         data.commit_predecessors = None;
-        let op_id = loader.op_store().write_operation(&data).unwrap();
+        let op_id = loader.op_store().write_operation(&data).block_on().unwrap();
         let op = loader.load_operation(&op_id).unwrap();
         loader.load_at(&op).unwrap()
     };
@@ -450,7 +451,7 @@ fn test_walk_predecessors_direct_cycle_within_op() {
         data.commit_predecessors = Some(btreemap! {
             commit1.id().clone() => vec![commit1.id().clone()],
         });
-        let op_id = loader.op_store().write_operation(&data).unwrap();
+        let op_id = loader.op_store().write_operation(&data).block_on().unwrap();
         let op = loader.load_operation(&op_id).unwrap();
         loader.load_at(&op).unwrap()
     };
@@ -479,7 +480,7 @@ fn test_walk_predecessors_indirect_cycle_within_op() {
             commit2.id().clone() => vec![commit1.id().clone()],
             commit3.id().clone() => vec![commit2.id().clone()],
         });
-        let op_id = loader.op_store().write_operation(&data).unwrap();
+        let op_id = loader.op_store().write_operation(&data).block_on().unwrap();
         let op = loader.load_operation(&op_id).unwrap();
         loader.load_at(&op).unwrap()
     };
