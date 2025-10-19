@@ -308,10 +308,15 @@ fn test_alias_in_repo_config() {
     work_dir2.create_dir("sub");
 
     test_env.add_config(r#"aliases.l = ['log', '-r@', '--no-graph', '-T"user alias\n"']"#);
-    work_dir1.write_file(
-        ".jj/repo/config.toml",
-        r#"aliases.l = ['log', '-r@', '--no-graph', '-T"repo1 alias\n"']"#,
-    );
+    work_dir1
+        .run_jj([
+            "config",
+            "set",
+            "--repo",
+            "aliases.l",
+            r#"['log', '-r@', '--no-graph', '-T"repo1 alias\n"']"#,
+        ])
+        .success();
 
     // In repo1 sub directory, aliases can be loaded from the repo1 config.
     let output = test_env.run_jj_in(work_dir1.root().join("sub"), ["l"]);

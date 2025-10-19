@@ -330,9 +330,9 @@ fn test_config_list_origin() {
         "--config",
         "test-cli-key=test-cli-val",
     ]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @r###"
     test-key = "test-val" # user $TEST_ENV/config/config.toml
-    test-layered-key = "test-layered-val" # repo $TEST_ENV/repo/.jj/repo/config.toml
+    test-layered-key = "test-layered-val" # repo
     user.name = "Test User" # env
     user.email = "test.user@example.com" # env
     debug.commit-timestamp = "2001-02-03T04:05:11+07:00" # env
@@ -342,7 +342,7 @@ fn test_config_list_origin() {
     operation.username = "test-username" # env
     test-cli-key = "test-cli-val" # cli
     [EOF]
-    "#);
+    "###);
 
     let output = work_dir.run_jj([
         "config",
@@ -408,10 +408,15 @@ fn test_config_layer_override_default() {
     "#);
 
     // Repo
-    work_dir.write_file(
-        ".jj/repo/config.toml",
-        format!("{config_key} = {value}\n", value = to_toml_value("repo")),
-    );
+    work_dir
+        .run_jj([
+            "config",
+            "set",
+            "--repo",
+            config_key,
+            &format!("{}", to_toml_value("repo")),
+        ])
+        .success();
     let output = work_dir.run_jj(["config", "list", config_key]);
     insta::assert_snapshot!(output, @r#"
     merge-tools.vimdiff.program = "repo"
@@ -488,10 +493,15 @@ fn test_config_layer_override_env() {
     "#);
 
     // Repo
-    work_dir.write_file(
-        ".jj/repo/config.toml",
-        format!("{config_key} = {value}\n", value = to_toml_value("repo")),
-    );
+    work_dir
+        .run_jj([
+            "config",
+            "set",
+            "--repo",
+            config_key,
+            &format!("{}", to_toml_value("repo")),
+        ])
+        .success();
     let output = work_dir.run_jj(["config", "list", config_key]);
     insta::assert_snapshot!(output, @r#"
     ui.editor = "repo"
@@ -554,13 +564,15 @@ fn test_config_layer_workspace() {
         .success();
 
     // Repo
-    main_dir.write_file(
-        ".jj/repo/config.toml",
-        format!(
-            "{config_key} = {value}\n",
-            value = to_toml_value("main-repo")
-        ),
-    );
+    main_dir
+        .run_jj([
+            "config",
+            "set",
+            "--repo",
+            config_key,
+            &format!("{}", to_toml_value("main-repo")),
+        ])
+        .success();
     let output = main_dir.run_jj(["config", "list", config_key]);
     insta::assert_snapshot!(output, @r#"
     ui.editor = "main-repo"
@@ -716,41 +728,49 @@ fn test_config_set_for_repo() {
     work_dir
         .run_jj(["config", "set", "--repo", "test-table.foo", "true"])
         .success();
-    // Ensure test-key successfully written to user config.
-    let repo_config_toml = work_dir.read_file(".jj/repo/config.toml");
-    insta::assert_snapshot!(repo_config_toml, @r#"
-    #:schema https://jj-vcs.github.io/jj/latest/config-schema.json
 
-    test-key = "test-val"
-
-    [test-table]
-    foo = true
-    "#);
+    let output = work_dir.run_jj(["config", "get", "test-key"]);
+    insta::assert_snapshot!(output, @r###"
+    test-val
+    [EOF]
+    "###);
+    let output = work_dir.run_jj(["config", "get", "test-table.foo"]);
+    insta::assert_snapshot!(output, @r###"
+    true
+    [EOF]
+    "###);
 }
 
 #[test]
 fn test_config_set_for_workspace() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-    work_dir.run_jj(["new"]).success();
-    work_dir
+    let repo_dir = test_env.work_dir("repo");
+    repo_dir.run_jj(["new"]).success();
+    repo_dir
         .run_jj(["workspace", "add", "--name", "second", "../secondary"])
         .success();
-    let work_dir = test_env.work_dir("secondary");
+    let ws_dir = test_env.work_dir("secondary");
 
     // set in workspace
-    work_dir
+    ws_dir
         .run_jj(["config", "set", "--workspace", "test-key", "ws-val"])
         .success();
 
-    // Read workspace config
-    let workspace_config = work_dir.read_file(".jj/workspace-config.toml");
-    insta::assert_snapshot!(workspace_config, @r#"
-    #:schema https://jj-vcs.github.io/jj/latest/config-schema.json
+    let output = ws_dir.run_jj(["config", "get", "test-key"]);
+    insta::assert_snapshot!(output, @r###"
+    ws-val
+    [EOF]
+    "###);
 
-    test-key = "ws-val"
-    "#);
+    let output = repo_dir.run_jj(["config", "get", "test-key"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Config error: Value not found for test-key
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    "###);
 }
 
 #[test]
@@ -957,35 +977,68 @@ fn test_config_unset_for_repo() {
     work_dir
         .run_jj(["config", "set", "--repo", "test-key", "test-val"])
         .success();
+    let output = work_dir.run_jj(["config", "get", "test-key"]);
+    insta::assert_snapshot!(output, @r###"
+    test-val
+    [EOF]
+    "###);
+
     work_dir
         .run_jj(["config", "unset", "--repo", "test-key"])
         .success();
-
-    let repo_config_toml = work_dir.read_file(".jj/repo/config.toml");
-    insta::assert_snapshot!(repo_config_toml, @"");
+    let output = work_dir.run_jj(["config", "get", "test-key"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Config error: Value not found for test-key
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    "###);
 }
 
 #[test]
 fn test_config_unset_for_workspace() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    let work_dir = test_env.work_dir("repo");
-    work_dir.run_jj(["new"]).success();
-    work_dir
+    let repo_dir = test_env.work_dir("repo");
+    repo_dir.run_jj(["new"]).success();
+    repo_dir
         .run_jj(["workspace", "add", "--name", "second", "../secondary"])
         .success();
-    let work_dir = test_env.work_dir("secondary");
+    let ws_dir = test_env.work_dir("secondary");
 
     // set then unset
-    work_dir
+    ws_dir
         .run_jj(["config", "set", "--workspace", "foo", "bar"])
         .success();
-    work_dir
+
+    let output = ws_dir.run_jj(["config", "get", "foo"]);
+    insta::assert_snapshot!(output, @r###"
+    bar
+    [EOF]
+    "###);
+
+    let output = repo_dir.run_jj(["config", "get", "foo"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Config error: Value not found for foo
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    "###);
+
+    ws_dir
         .run_jj(["config", "unset", "--workspace", "foo"])
         .success();
 
-    let workspace_config = work_dir.read_file(".jj/workspace-config.toml");
-    insta::assert_snapshot!(workspace_config, @"");
+    let output = ws_dir.run_jj(["config", "get", "foo"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Config error: Value not found for foo
+    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    "###);
 }
 
 #[test]
@@ -1120,18 +1173,15 @@ fn test_config_edit_repo() {
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
-    let repo_config_path = work_dir
-        .root()
-        .join(PathBuf::from_iter([".jj", "repo", "config.toml"]));
-    assert!(!repo_config_path.exists());
-
-    std::fs::write(edit_script, "dump-path path").unwrap();
+    std::fs::write(edit_script, "write\nfoo = \"bar\"").unwrap();
     work_dir.run_jj(["config", "edit", "--repo"]).success();
 
-    let edited_path =
-        PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path")).unwrap());
-    assert_eq!(edited_path, dunce::simplified(&repo_config_path));
-    assert!(repo_config_path.exists(), "new file should be created");
+    let output = work_dir.run_jj(["config", "get", "foo"]);
+    insta::assert_snapshot!(output, @r###"
+    bar
+    [EOF]
+    "###
+    );
 }
 
 #[test]
@@ -1152,9 +1202,8 @@ fn test_config_edit_invalid_config() {
             .args(["config", "edit", "--repo"])
             .write_stdin("Y\n")
     });
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r###"
     ------- stderr -------
-    Editing file: $TEST_ENV/repo/.jj/repo/config.toml
     Warning: An error has been found inside the config:
     Caused by:
     1: Configuration cannot be parsed as TOML document
@@ -1165,7 +1214,7 @@ fn test_config_edit_invalid_config() {
     key with no value, expected `=`
 
     Do you want to keep editing the file? If not, previous config will be restored. (Yn): [EOF]
-    ");
+    "###);
 
     let output = work_dir.run_jj(["config", "get", "test"]);
     insta::assert_snapshot!(output, @r"
@@ -1181,9 +1230,8 @@ fn test_config_edit_invalid_config() {
             .args(["config", "edit", "--repo"])
             .write_stdin("n\n")
     });
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r###"
     ------- stderr -------
-    Editing file: $TEST_ENV/repo/.jj/repo/config.toml
     Warning: An error has been found inside the config:
     Caused by:
     1: Configuration cannot be parsed as TOML document
@@ -1194,7 +1242,7 @@ fn test_config_edit_invalid_config() {
     key with no value, expected `=`
 
     Do you want to keep editing the file? If not, previous config will be restored. (Yn): [EOF]
-    ");
+    "###);
 
     let output = work_dir.run_jj(["config", "get", "test"]);
     insta::assert_snapshot!(output, @r"
@@ -1225,21 +1273,23 @@ fn test_config_path() {
         "jj config path shouldn't create new file"
     );
 
-    insta::assert_snapshot!(work_dir.run_jj(["config", "path", "--repo"]), @r"
-    $TEST_ENV/repo/.jj/repo/config.toml
+    insta::assert_snapshot!(work_dir.run_jj(["config", "path", "--repo"]), @r###"
+    ------- stderr -------
+    Error: Repo configs are not present on disk. Use `jj config edit --repo
     [EOF]
-    ");
+    [exit status: 1]
+    "###);
     assert!(
         !repo_config_path.exists(),
         "jj config path shouldn't create new file"
     );
 
-    insta::assert_snapshot!(test_env.run_jj_in(".", ["config", "path", "--repo"]), @r"
+    insta::assert_snapshot!(test_env.run_jj_in(".", ["config", "path", "--repo"]), @r###"
     ------- stderr -------
-    Error: No repo config path found
+    Error: Repo configs are not present on disk. Use `jj config edit --repo
     [EOF]
     [exit status: 1]
-    ");
+    "###);
 }
 
 #[test]
@@ -1277,12 +1327,12 @@ fn test_config_only_loads_toml_files() {
 fn test_config_edit_repo_outside_repo() {
     let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["config", "edit", "--repo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r###"
     ------- stderr -------
-    Error: No repo config path found to edit
+    Error: There is no jj repo in "."
     [EOF]
     [exit status: 1]
-    ");
+    "###);
 }
 
 #[test]

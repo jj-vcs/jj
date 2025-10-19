@@ -21,7 +21,6 @@ mod push;
 mod remote;
 mod root;
 
-use std::io::Write as _;
 use std::path::Path;
 
 use clap::Subcommand;
@@ -30,9 +29,11 @@ use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
 use jj_lib::git;
 use jj_lib::git::UnexpectedGitBackendError;
+use jj_lib::protos::user_config::RepoConfig;
 use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::store::Store;
+use jj_lib::user_config::write_user_config;
 
 use self::clone::GitCloneArgs;
 use self::clone::cmd_git_clone;
@@ -53,6 +54,7 @@ use self::root::cmd_git_root;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::command_error::CommandError;
+use crate::command_error::internal_error;
 use crate::command_error::user_error_with_message;
 use crate::ui::Ui;
 
@@ -127,7 +129,13 @@ fn write_repository_level_trunk_alias(
     let mut file = ConfigFile::load_or_empty(ConfigSource::Repo, repo_path.join("config.toml"))?;
     file.set_value(["revset-aliases", "trunk()"], symbol.to_string())
         .expect("initial repo config shouldn't have invalid values");
-    file.save()?;
+    write_user_config(
+        repo_path,
+        &RepoConfig {
+            config: file.text(),
+        },
+    )
+    .map_err(internal_error)?;
     writeln!(
         ui.status(),
         "Setting the revset alias `trunk()` to `{symbol}`",

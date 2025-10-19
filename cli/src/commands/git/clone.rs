@@ -211,7 +211,7 @@ fn init_workspace(
     wc_path: &Path,
     colocate: bool,
 ) -> Result<WorkspaceCommandHelper, CommandError> {
-    let settings = command.settings_for_new_workspace(wc_path)?;
+    let settings = command.settings_for_new_workspace(ui, wc_path)?;
     let (workspace, repo) = if colocate {
         Workspace::init_colocated_git(&settings, wc_path)?
     } else {
