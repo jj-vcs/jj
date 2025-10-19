@@ -32,6 +32,7 @@ use jj_lib::operation::Operation;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::settings::UserSettings;
+use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::TestRepo;
 use testutils::write_random_commit;
@@ -247,7 +248,7 @@ fn test_stored_commit_predecessors() {
     // Save operation without the predecessors as old jj would do.
     let mut data = op.store_operation().clone();
     data.commit_predecessors = None;
-    let op_id = loader.op_store().write_operation(&data).unwrap();
+    let op_id = loader.op_store().write_operation(&data).block_on().unwrap();
     assert_ne!(&op_id, op.id());
     let op = loader.load_operation(&op_id).unwrap();
     assert!(!op.stores_commit_predecessors());
@@ -526,7 +527,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         // fall back to the legacy code path immediately.
         let mut data = repo_4.operation().store_operation().clone();
         data.commit_predecessors = None;
-        let op_id = op_store.write_operation(&data).unwrap();
+        let op_id = op_store.write_operation(&data).block_on().unwrap();
         repo_at(&op_id)
     };
 

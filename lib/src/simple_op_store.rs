@@ -26,7 +26,9 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
+use async_trait::async_trait;
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 use prost::Message as _;
 use smallvec::SmallVec;
 use tempfile::NamedTempFile;
@@ -134,6 +136,7 @@ impl SimpleOpStore {
     }
 }
 
+#[async_trait]
 impl OpStore for SimpleOpStore {
     fn name(&self) -> &str {
         Self::name()
@@ -143,7 +146,7 @@ impl OpStore for SimpleOpStore {
         &self.root_operation_id
     }
 
-    fn read_view(&self, id: &ViewId) -> OpStoreResult<View> {
+    async fn read_view(&self, id: &ViewId) -> OpStoreResult<View> {
         if *id == self.root_view_id {
             return Ok(View::make_root(self.root_data.root_commit_id.clone()));
         }
@@ -158,7 +161,7 @@ impl OpStore for SimpleOpStore {
         view_from_proto(proto).map_err(|err| to_read_error(err.into(), id))
     }
 
-    fn write_view(&self, view: &View) -> OpStoreResult<ViewId> {
+    async fn write_view(&self, view: &View) -> OpStoreResult<ViewId> {
         let dir = self.views_dir();
         let temp_file = NamedTempFile::new_in(&dir)
             .context(&dir)
@@ -180,7 +183,7 @@ impl OpStore for SimpleOpStore {
         Ok(id)
     }
 
-    fn read_operation(&self, id: &OperationId) -> OpStoreResult<Operation> {
+    async fn read_operation(&self, id: &OperationId) -> OpStoreResult<Operation> {
         if *id == self.root_operation_id {
             return Ok(Operation::make_root(self.root_view_id.clone()));
         }
@@ -202,7 +205,7 @@ impl OpStore for SimpleOpStore {
         Ok(operation)
     }
 
-    fn write_operation(&self, operation: &Operation) -> OpStoreResult<OperationId> {
+    async fn write_operation(&self, operation: &Operation) -> OpStoreResult<OperationId> {
         assert!(!operation.parents.is_empty());
         let dir = self.operations_dir();
         let temp_file = NamedTempFile::new_in(&dir)
@@ -225,7 +228,7 @@ impl OpStore for SimpleOpStore {
         Ok(id)
     }
 
-    fn resolve_operation_id_prefix(
+    async fn resolve_operation_id_prefix(
         &self,
         prefix: &HexPrefix,
     ) -> OpStoreResult<PrefixResolution<OperationId>> {
@@ -298,7 +301,11 @@ impl OpStore for SimpleOpStore {
         // Reachable objects are resolved without considering the keep_newer
         // parameter. We could collect ancestors of the "new" operations here,
         // but more files can be added anyway after that.
-        let read_op = |id: &OperationId| self.read_operation(id).map(|data| (id.clone(), data));
+        let read_op = |id: &OperationId| {
+            self.read_operation(id)
+                .block_on()
+                .map(|data| (id.clone(), data))
+        };
         let reachable_ops: HashMap<OperationId, Operation> = dag_walk::dfs_ok(
             head_ids.iter().map(read_op),
             |(id, _)| id.clone(),
@@ -1063,8 +1070,8 @@ mod tests {
         };
         let store = SimpleOpStore::init(temp_dir.path(), root_data).unwrap();
         let view = create_view();
-        let view_id = store.write_view(&view).unwrap();
-        let read_view = store.read_view(&view_id).unwrap();
+        let view_id = store.write_view(&view).block_on().unwrap();
+        let read_view = store.read_view(&view_id).block_on().unwrap();
         assert_eq!(read_view, view);
     }
 
@@ -1076,8 +1083,8 @@ mod tests {
         };
         let store = SimpleOpStore::init(temp_dir.path(), root_data).unwrap();
         let operation = create_operation();
-        let op_id = store.write_operation(&operation).unwrap();
-        let read_operation = store.read_operation(&op_id).unwrap();
+        let op_id = store.write_operation(&operation).block_on().unwrap();
+        let read_operation = store.read_operation(&op_id).block_on().unwrap();
         assert_eq!(read_operation, operation);
     }
 

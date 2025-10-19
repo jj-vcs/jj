@@ -777,7 +777,7 @@ impl RepoLoader {
 
     /// Loads the specified operation from the operation store.
     pub fn load_operation(&self, id: &OperationId) -> OpStoreResult<Operation> {
-        let data = self.op_store.read_operation(id)?;
+        let data = self.op_store.read_operation(id).block_on()?;
         Ok(Operation::new(self.op_store.clone(), id.clone(), data))
     }
 

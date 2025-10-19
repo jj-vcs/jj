@@ -117,7 +117,7 @@ pub fn cmd_debug_object(
         DebugObjectArgs::Operation(args) => {
             let id = OperationId::try_from_hex(&args.id)
                 .ok_or_else(|| user_error("Invalid hex operation id"))?;
-            let operation = repo_loader.op_store().read_operation(&id)?;
+            let operation = repo_loader.op_store().read_operation(&id).block_on()?;
             writeln!(ui.stdout(), "{operation:#?}")?;
         }
         DebugObjectArgs::Symlink(args) => {
@@ -154,7 +154,7 @@ pub fn cmd_debug_object(
                 ViewId::try_from_hex(args.id.as_ref().unwrap())
                     .ok_or_else(|| user_error("Invalid hex view id"))?
             };
-            let view = repo_loader.op_store().read_view(&id)?;
+            let view = repo_loader.op_store().read_view(&id).block_on()?;
             writeln!(ui.stdout(), "{view:#?}")?;
         }
     }

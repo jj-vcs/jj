@@ -20,6 +20,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::dag_walk;
@@ -97,7 +98,7 @@ where
 
     if op_heads.len() == 1 {
         let operation_id = op_heads.pop().unwrap();
-        let operation = op_store.read_operation(&operation_id)?;
+        let operation = op_store.read_operation(&operation_id).block_on()?;
         return Ok(Operation::new(op_store.clone(), operation_id, operation));
     }
 
@@ -118,14 +119,14 @@ where
 
     if op_head_ids.len() == 1 {
         let op_head_id = op_head_ids[0].clone();
-        let op_head = op_store.read_operation(&op_head_id)?;
+        let op_head = op_store.read_operation(&op_head_id).block_on()?;
         return Ok(Operation::new(op_store.clone(), op_head_id, op_head));
     }
 
     let op_heads: Vec<_> = op_head_ids
         .iter()
         .map(|op_id: &OperationId| -> Result<Operation, OpStoreError> {
-            let data = op_store.read_operation(op_id)?;
+            let data = op_store.read_operation(op_id).block_on()?;
             Ok(Operation::new(op_store.clone(), op_id.clone(), data))
         })
         .try_collect()?;
