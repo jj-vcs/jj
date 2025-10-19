@@ -19,6 +19,7 @@ use jj_cli::cli_util::CommandHelper;
 use jj_cli::cli_util::RevisionArg;
 use jj_cli::command_error::CommandError;
 use jj_cli::ui::Ui;
+use pollster::FutureExt as _;
 
 #[derive(clap::Parser, Clone, Debug)]
 enum CustomCommand {
@@ -47,7 +48,8 @@ fn run_custom_command(
                 .repo_mut()
                 .rewrite_commit(&commit)
                 .set_description("Frobnicated!")
-                .write()?;
+                .write()
+                .block_on()?;
             tx.finish(ui, "frobnicate")?;
             writeln!(
                 ui.status(),

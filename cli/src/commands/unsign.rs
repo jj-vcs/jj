@@ -83,11 +83,11 @@ pub fn cmd_unsign(
                 if to_unsign.contains(&old_commit) {
                     let new_commit = commit_builder
                         .set_sign_behavior(SignBehavior::Drop)
-                        .write()?;
+                        .write().await?;
 
                     unsigned_commits.push(new_commit);
                 } else {
-                    commit_builder.write()?;
+                    commit_builder.write().await?;
                     num_reparented += 1;
                 }
                 Ok(())

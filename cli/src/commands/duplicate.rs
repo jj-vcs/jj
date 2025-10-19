@@ -201,7 +201,7 @@ pub(crate) fn cmd_duplicate(
         )
         .block_on()?
     } else {
-        duplicate_commits_onto_parents(tx.repo_mut(), &to_duplicate, &new_descs)?
+        duplicate_commits_onto_parents(tx.repo_mut(), &to_duplicate, &new_descs).block_on()?
     };
 
     if let Some(mut formatter) = ui.status_formatter() {

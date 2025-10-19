@@ -144,7 +144,7 @@ pub async fn rebase_commit(
 ) -> BackendResult<Commit> {
     let rewriter = CommitRewriter::new(mut_repo, old_commit, new_parents);
     let builder = rewriter.rebase().await?;
-    builder.write()
+    builder.write().await
 }
 
 /// Helps rewrite a commit.
@@ -344,7 +344,7 @@ pub async fn rebase_commit_with_options(
     };
     let new_parents_len = rewriter.new_parents.len();
     if let Some(builder) = rewriter.rebase_with_empty_behavior(options.empty).await? {
-        let new_commit = builder.write()?;
+        let new_commit = builder.write().await?;
         Ok(RebasedCommit::Rewritten(new_commit))
     } else {
         assert_eq!(new_parents_len, 1);
@@ -968,7 +968,10 @@ pub async fn duplicate_commits(
         if let Some(desc) = target_descriptions.get(original_commit_id) {
             new_commit_builder = new_commit_builder.set_description(desc);
         }
-        duplicated_old_to_new.insert(original_commit_id.clone(), new_commit_builder.write()?);
+        duplicated_old_to_new.insert(
+            original_commit_id.clone(),
+            new_commit_builder.write().await?,
+        );
     }
 
     // Replace the original commit IDs in `target_head_ids` with the duplicated
@@ -1005,7 +1008,7 @@ pub async fn duplicate_commits(
                 rewriter.set_new_parents(child_new_parent_ids.into_iter().collect());
             }
             num_rebased += 1;
-            rewriter.rebase().await?.write()?;
+            rewriter.rebase().await?.write().await?;
             Ok(())
         })
         .await?;
@@ -1025,7 +1028,7 @@ pub async fn duplicate_commits(
 /// If `target_descriptions` is not empty, it will be consulted to retrieve the
 /// new descriptions of the target commits, falling back to the original if
 /// the map does not contain an entry for a given commit.
-pub fn duplicate_commits_onto_parents(
+pub async fn duplicate_commits_onto_parents(
     mut_repo: &mut MutableRepo,
     target_commits: &[CommitId],
     target_descriptions: &HashMap<CommitId, String>,
@@ -1039,7 +1042,10 @@ pub fn duplicate_commits_onto_parents(
     // Topological order ensures that any parents of the original commit are
     // either not in `target_commits` or were already duplicated.
     for original_commit_id in target_commits.iter().rev() {
-        let original_commit = mut_repo.store().get_commit(original_commit_id)?;
+        let original_commit = mut_repo
+            .store()
+            .get_commit_async(original_commit_id)
+            .await?;
         let new_parent_ids = original_commit
             .parent_ids()
             .iter()
@@ -1058,7 +1064,10 @@ pub fn duplicate_commits_onto_parents(
         if let Some(desc) = target_descriptions.get(original_commit_id) {
             new_commit_builder = new_commit_builder.set_description(desc);
         }
-        duplicated_old_to_new.insert(original_commit_id.clone(), new_commit_builder.write()?);
+        duplicated_old_to_new.insert(
+            original_commit_id.clone(),
+            new_commit_builder.write().await?,
+        );
     }
 
     Ok(DuplicateCommitsStats {
@@ -1203,7 +1212,8 @@ pub async fn squash_commits<'repo>(
                 .await?;
             repo.rewrite_commit(&source.commit.commit)
                 .set_tree_id(new_source_tree.id().clone())
-                .write()?;
+                .write()
+                .await?;
         }
     }
 

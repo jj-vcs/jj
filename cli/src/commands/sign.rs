@@ -108,11 +108,11 @@ pub fn cmd_sign(ui: &mut Ui, command: &CommandHelper, args: &SignArgs) -> Result
 
                     let new_commit = commit_builder
                         .set_sign_behavior(SignBehavior::Force)
-                        .write()?;
+                        .write().await?;
 
                     signed_commits.push(new_commit);
                 } else {
-                    commit_builder.write()?;
+                    commit_builder.write().await?;
                     num_reparented += 1;
                 }
 

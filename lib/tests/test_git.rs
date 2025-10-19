@@ -368,6 +368,7 @@ fn test_import_refs_reimport() {
     let commit6 = create_random_commit(tx.repo_mut())
         .set_parents(vec![jj_id(commit2)])
         .write()
+        .block_on()
         .unwrap();
     tx.repo_mut()
         .set_local_bookmark_target("feature2".as_ref(), RefTarget::normal(commit6.id().clone()));
@@ -1614,6 +1615,7 @@ impl GitRepoData {
             ReadonlyRepo::default_index_store_initializer(),
             ReadonlyRepo::default_submodule_store_initializer(),
         )
+        .block_on()
         .unwrap();
         Self {
             _temp_dir: temp_dir,
@@ -1811,6 +1813,7 @@ fn test_export_refs_bookmark_changed() {
     let new_commit = create_random_commit(mut_repo)
         .set_parents(vec![jj_id(commit)])
         .write()
+        .block_on()
         .unwrap();
     mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(new_commit.id().clone()));
     let stats = git::export_refs(mut_repo).unwrap();
@@ -1856,6 +1859,7 @@ fn test_export_refs_tag_changed() {
     let new_commit = create_random_commit(mut_repo)
         .set_parents(vec![jj_id(commit)])
         .write()
+        .block_on()
         .unwrap();
     mut_repo.set_local_tag_target("v1.0".as_ref(), RefTarget::normal(new_commit.id().clone()));
     let stats = git::export_refs(mut_repo).unwrap();
@@ -1897,6 +1901,7 @@ fn test_export_refs_current_bookmark_changed() {
     let new_commit = create_random_commit(mut_repo)
         .set_parents(vec![jj_id(commit1)])
         .write()
+        .block_on()
         .unwrap();
     mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(new_commit.id().clone()));
     let stats = git::export_refs(mut_repo).unwrap();
@@ -1940,6 +1945,7 @@ fn test_export_refs_current_tag_changed() {
     let new_commit = create_random_commit(mut_repo)
         .set_parents(vec![jj_id(commit1)])
         .write()
+        .block_on()
         .unwrap();
     mut_repo.set_local_tag_target("v1.0".as_ref(), RefTarget::normal(new_commit.id().clone()));
     let stats = git::export_refs(mut_repo).unwrap();
@@ -2723,10 +2729,12 @@ fn test_reset_head_to_root() {
     let commit1 = mut_repo
         .new_commit(vec![root_commit_id.clone()], tree_id.clone())
         .write()
+        .block_on()
         .unwrap();
     let commit2 = mut_repo
         .new_commit(vec![commit1.id().clone()], tree_id.clone())
         .write()
+        .block_on()
         .unwrap();
 
     // Set Git HEAD to commit2's parent (i.e. commit1)
@@ -2876,10 +2884,12 @@ fn test_reset_head_with_index() {
     let commit1 = mut_repo
         .new_commit(vec![root_commit_id.clone()], tree_id.clone())
         .write()
+        .block_on()
         .unwrap();
     let commit2 = mut_repo
         .new_commit(vec![commit1.id().clone()], tree_id.clone())
         .write()
+        .block_on()
         .unwrap();
 
     // Set Git HEAD to commit2's parent (i.e. commit1)
@@ -2932,11 +2942,13 @@ fn test_reset_head_with_index_no_conflict() {
     let parent_commit = mut_repo
         .new_commit(vec![repo.store().root_commit_id().clone()], tree_id.clone())
         .write()
+        .block_on()
         .unwrap();
 
     let wc_commit = mut_repo
         .new_commit(vec![parent_commit.id().clone()], tree_id.clone())
         .write()
+        .block_on()
         .unwrap();
 
     // Reset head to working copy commit
@@ -3018,14 +3030,17 @@ fn test_reset_head_with_index_merge_conflict() {
             base_tree_id.clone(),
         )
         .write()
+        .block_on()
         .unwrap();
     let left_commit = mut_repo
         .new_commit(vec![base_commit.id().clone()], left_tree_id.clone())
         .write()
+        .block_on()
         .unwrap();
     let right_commit = mut_repo
         .new_commit(vec![base_commit.id().clone()], right_tree_id.clone())
         .write()
+        .block_on()
         .unwrap();
 
     // Create working copy commit with resolution of conflict by taking the right
@@ -3037,6 +3052,7 @@ fn test_reset_head_with_index_merge_conflict() {
             right_tree_id.clone(),
         )
         .write()
+        .block_on()
         .unwrap();
 
     // Reset head to working copy commit with merge conflict
@@ -3090,6 +3106,7 @@ fn test_reset_head_with_index_file_directory_conflict() {
             left_tree_id.clone(),
         )
         .write()
+        .block_on()
         .unwrap();
     let right_commit = mut_repo
         .new_commit(
@@ -3097,6 +3114,7 @@ fn test_reset_head_with_index_file_directory_conflict() {
             right_tree_id.clone(),
         )
         .write()
+        .block_on()
         .unwrap();
 
     let wc_commit = mut_repo
@@ -3105,6 +3123,7 @@ fn test_reset_head_with_index_file_directory_conflict() {
             repo.store().empty_merged_tree_id().clone(),
         )
         .write()
+        .block_on()
         .unwrap();
 
     // Reset head to working copy commit with file-directory conflict
@@ -3139,6 +3158,7 @@ fn test_init() {
         ReadonlyRepo::default_index_store_initializer(),
         ReadonlyRepo::default_submodule_store_initializer(),
     )
+    .block_on()
     .unwrap();
     // The refs were *not* imported -- it's the caller's responsibility to import
     // any refs they care about.
@@ -3903,6 +3923,7 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
         ReadonlyRepo::default_index_store_initializer(),
         ReadonlyRepo::default_submodule_store_initializer(),
     )
+    .block_on()
     .unwrap();
     get_git_backend(&jj_repo)
         .import_head_commits(&[jj_id(initial_git_commit)])
@@ -4550,6 +4571,7 @@ fn test_rewrite_imported_commit() {
         .set_committer(imported_commit.committer().clone())
         .set_description(imported_commit.description())
         .write()
+        .block_on()
         .unwrap();
     let repo = tx.commit("test").block_on().unwrap();
 
@@ -4595,6 +4617,7 @@ fn test_concurrent_write_commit() {
                 let commit = create_rooted_commit(tx.repo_mut())
                     .set_description("racy commit")
                     .write()
+                    .block_on()
                     .unwrap();
                 tx.commit(format!("writer {i}")).block_on().unwrap();
                 sender
@@ -4683,6 +4706,7 @@ fn test_concurrent_read_write_commit() {
                 let commit = create_rooted_commit(tx.repo_mut())
                     .set_description(format!("commit {i}"))
                     .write()
+                    .block_on()
                     .unwrap();
                 tx.commit(format!("writer {i}")).block_on().unwrap();
                 assert_eq!(commit.id(), commit_id);

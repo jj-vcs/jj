@@ -56,6 +56,7 @@ fn create_commit_fn(
             .set_committer(signature.clone())
             .set_description(description)
             .write()
+            .block_on()
             .unwrap()
     }
 }

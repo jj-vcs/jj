@@ -200,7 +200,7 @@ pub(crate) fn cmd_new(
         description = add_trailers(ui, &tx, &commit_builder)?;
     }
     commit_builder.set_description(&description);
-    let new_commit = commit_builder.write(tx.repo_mut())?;
+    let new_commit = commit_builder.write(tx.repo_mut()).block_on()?;
 
     let child_commits: Vec<_> = child_commit_ids
         .iter()

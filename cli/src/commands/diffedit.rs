@@ -155,7 +155,8 @@ don't make any changes, then the operation will be aborted.",
         tx.repo_mut()
             .rewrite_commit(&target_commit)
             .set_tree_id(tree_id)
-            .write()?;
+            .write()
+            .block_on()?;
         // rebase_descendants early; otherwise `new_commit` would always have
         // a conflicted change id at this point.
         let (num_rebased, extra_msg) = if args.restore_descendants {

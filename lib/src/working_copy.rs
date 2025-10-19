@@ -434,7 +434,8 @@ pub async fn create_and_check_out_recovery_commit(
     let new_commit = repo_mut
         .new_commit(vec![commit_id.clone()], commit.tree_id().clone())
         .set_description(description)
-        .write()?;
+        .write()
+        .await?;
     repo_mut.set_wc_commit(workspace_name, new_commit.id().clone())?;
 
     let repo = tx.commit("recovery commit").await?;

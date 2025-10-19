@@ -86,6 +86,7 @@ fn test_merge_criss_cross() {
             .new_commit(parents, tree_id)
             .set_description(description)
             .write()
+            .block_on()
             .unwrap()
     };
     let commit_a = make_commit(
@@ -887,6 +888,7 @@ fn test_rebase_descendants_repeated() {
         .rewrite_commit(&commit_b)
         .set_description("b2")
         .write()
+        .block_on()
         .unwrap();
     let rebase_map =
         rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
@@ -911,6 +913,7 @@ fn test_rebase_descendants_repeated() {
         .rewrite_commit(&commit_b2)
         .set_description("b3")
         .write()
+        .block_on()
         .unwrap();
     let rebase_map =
         rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
@@ -946,6 +949,7 @@ fn test_rebase_descendants_contents() {
         .repo_mut()
         .new_commit(vec![repo.store().root_commit_id().clone()], tree1.id())
         .write()
+        .block_on()
         .unwrap();
     let path2 = repo_path("file2");
     let tree2 = create_tree(repo, &[(path2, "content")]);
@@ -953,6 +957,7 @@ fn test_rebase_descendants_contents() {
         .repo_mut()
         .new_commit(vec![commit_a.id().clone()], tree2.id())
         .write()
+        .block_on()
         .unwrap();
     let path3 = repo_path("file3");
     let tree3 = create_tree(repo, &[(path3, "content")]);
@@ -960,6 +965,7 @@ fn test_rebase_descendants_contents() {
         .repo_mut()
         .new_commit(vec![commit_b.id().clone()], tree3.id())
         .write()
+        .block_on()
         .unwrap();
     let path4 = repo_path("file4");
     let tree4 = create_tree(repo, &[(path4, "content")]);
@@ -967,6 +973,7 @@ fn test_rebase_descendants_contents() {
         .repo_mut()
         .new_commit(vec![commit_a.id().clone()], tree4.id())
         .write()
+        .block_on()
         .unwrap();
 
     tx.repo_mut()
@@ -1016,7 +1023,7 @@ fn test_rebase_descendants_basic_bookmark_update() {
     let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
-    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().unwrap();
+    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().block_on().unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
@@ -1055,12 +1062,14 @@ fn test_rebase_descendants_bookmark_move_two_steps() {
         .rewrite_commit(&commit_b)
         .set_description("different")
         .write()
+        .block_on()
         .unwrap();
     let commit_c2 = tx
         .repo_mut()
         .rewrite_commit(&commit_c)
         .set_description("more different")
         .write()
+        .block_on()
         .unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
     let heads = tx.repo().view().heads();
@@ -1104,7 +1113,7 @@ fn test_rebase_descendants_basic_bookmark_update_with_non_local_bookmark() {
     let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
-    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().unwrap();
+    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().block_on().unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
@@ -1217,13 +1226,14 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
     let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
-    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().unwrap();
+    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().block_on().unwrap();
     // Different description so they're not the same commit
     let commit_b3 = tx
         .repo_mut()
         .rewrite_commit(&commit_b)
         .set_description("different")
         .write()
+        .block_on()
         .unwrap();
     // Different description so they're not the same commit
     let commit_b4 = tx
@@ -1231,6 +1241,7 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
         .rewrite_commit(&commit_b)
         .set_description("more different")
         .write()
+        .block_on()
         .unwrap();
     tx.repo_mut().set_divergent_rewrite(
         commit_b.id().clone(),
@@ -1240,12 +1251,13 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
             commit_b4.id().clone(),
         ],
     );
-    let commit_b41 = tx.repo_mut().rewrite_commit(&commit_b4).write().unwrap();
+    let commit_b41 = tx.repo_mut().rewrite_commit(&commit_b4).write().block_on().unwrap();
     let commit_b42 = tx
         .repo_mut()
         .rewrite_commit(&commit_b4)
         .set_description("different")
         .write()
+        .block_on()
         .unwrap();
     tx.repo_mut().set_divergent_rewrite(
         commit_b4.id().clone(),
@@ -1309,21 +1321,23 @@ fn test_rebase_descendants_rewrite_updates_bookmark_conflict() {
     let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
-    let commit_a2 = tx.repo_mut().rewrite_commit(&commit_a).write().unwrap();
+    let commit_a2 = tx.repo_mut().rewrite_commit(&commit_a).write().block_on().unwrap();
     // Different description so they're not the same commit
     let commit_a3 = tx
         .repo_mut()
         .rewrite_commit(&commit_a)
         .set_description("different")
         .write()
+        .block_on()
         .unwrap();
-    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().unwrap();
+    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().block_on().unwrap();
     // Different description so they're not the same commit
     let commit_b3 = tx
         .repo_mut()
         .rewrite_commit(&commit_b)
         .set_description("different")
         .write()
+        .block_on()
         .unwrap();
     tx.repo_mut().set_divergent_rewrite(
         commit_a.id().clone(),
@@ -1393,6 +1407,7 @@ fn test_rebase_descendants_rewrite_resolves_bookmark_conflict() {
         .rewrite_commit(&commit_b)
         .set_parents(vec![commit_c.id().clone()])
         .write()
+        .block_on()
         .unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
     assert_eq!(
@@ -1586,6 +1601,7 @@ fn test_rebase_descendants_update_checkout() {
         .rewrite_commit(&commit_b)
         .set_description("C")
         .write()
+        .block_on()
         .unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").block_on().unwrap();
@@ -1732,6 +1748,7 @@ fn test_empty_commit_option(empty_behavior: EmptyBehavior) {
             )
             .set_tree_id(tree.id())
             .write()
+            .block_on()
             .unwrap()
     };
     let commit_b = create_commit(&[&commit_a], &tree_b);
@@ -1850,25 +1867,30 @@ fn test_rebase_abandoning_empty() {
         .set_parents(vec![commit_c.id().clone()])
         .set_tree_id(commit_c.tree_id().clone())
         .write()
+        .block_on()
         .unwrap();
     let commit_e = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_c.id().clone()])
         .set_tree_id(commit_c.tree_id().clone())
         .write()
+        .block_on()
         .unwrap();
     let commit_b2 = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_a.id().clone()])
         .set_tree_id(commit_b.tree_id().clone())
         .write()
+        .block_on()
         .unwrap();
     let commit_f = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_e.id().clone()])
         .write()
+        .block_on()
         .unwrap();
     let commit_g = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_e.id().clone()])
         .set_tree_id(commit_e.tree_id().clone())
         .write()
+        .block_on()
         .unwrap();
 
     let workspace = WorkspaceNameBuf::from("ws");
@@ -1994,6 +2016,7 @@ fn test_find_duplicate_divergent_commits() {
                 store.change_id_length()
             ]))
             .write()
+            .block_on()
             .unwrap()
     };
 

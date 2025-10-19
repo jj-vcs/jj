@@ -978,6 +978,7 @@ impl MergedTreeBuilder {
     }
 
     /// Create new tree(s) from the base tree(s) and overrides.
+    // TODO BWB
     pub fn write_tree(self, store: &Arc<Store>) -> BackendResult<MergedTreeId> {
         let base_tree_ids = self.base_tree_id.as_merge().clone();
         let new_tree_ids = self.write_merged_trees(base_tree_ids, store)?;
