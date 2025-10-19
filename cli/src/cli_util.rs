@@ -638,7 +638,7 @@ impl CommandHelper {
         repo_loader: &RepoLoader,
     ) -> Result<Operation, CommandError> {
         if let Some(op_str) = &self.data.global_args.at_operation {
-            Ok(op_walk::resolve_op_for_load(repo_loader, op_str)?)
+            Ok(op_walk::resolve_op_for_load(repo_loader, op_str).block_on()?)
         } else {
             op_heads_store::resolve_op_heads(
                 repo_loader.op_heads_store().as_ref(),
@@ -1544,7 +1544,7 @@ to the current parents may contain changes from multiple commits.
     }
 
     pub fn resolve_single_op(&self, op_str: &str) -> Result<Operation, OpsetEvaluationError> {
-        op_walk::resolve_op_with_repo(self.repo(), op_str)
+        op_walk::resolve_op_with_repo(self.repo(), op_str).block_on()
     }
 
     /// Resolve a revset to a single revision. Return an error if the revset is
