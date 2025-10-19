@@ -1861,6 +1861,7 @@ to the current parents may contain changes from multiple commits.
                 Ok(WorkingCopyFreshness::Updated(wc_operation)) => {
                     let repo = repo
                         .reload_at(&wc_operation)
+                        .block_on()
                         .map_err(snapshot_command_error)?;
                     let wc_commit = if let Some(wc_commit) = get_wc_commit(&repo)? {
                         wc_commit

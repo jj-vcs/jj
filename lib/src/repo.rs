@@ -319,13 +319,13 @@ impl ReadonlyRepo {
         Transaction::new(mut_repo, self.settings())
     }
 
-    pub fn reload_at_head(&self) -> Result<Arc<Self>, RepoLoaderError> {
-        self.loader().load_at_head().block_on()
+    pub async fn reload_at_head(&self) -> Result<Arc<Self>, RepoLoaderError> {
+        self.loader().load_at_head().await
     }
 
     #[instrument]
-    pub fn reload_at(&self, operation: &Operation) -> Result<Arc<Self>, RepoLoaderError> {
-        self.loader().load_at(operation).block_on()
+    pub async fn reload_at(&self, operation: &Operation) -> Result<Arc<Self>, RepoLoaderError> {
+        self.loader().load_at(operation).await
     }
 }
 
@@ -1303,14 +1303,14 @@ impl MutableRepo {
     /// adds new descendants, then the callback will not be called for those.
     /// Similarly, if the callback rewrites unrelated commits, then the callback
     /// will not be called for descendants of those commits.
-    pub fn transform_descendants(
+    pub async fn transform_descendants(
         &mut self,
         roots: Vec<CommitId>,
         callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
     ) -> BackendResult<()> {
         let options = RewriteRefsOptions::default();
         self.transform_descendants_with_options(roots, &HashMap::new(), &options, callback)
-            .block_on()
+            .await
     }
 
     /// Rewrite descendants of the given roots with options.
@@ -1432,7 +1432,7 @@ impl MutableRepo {
     /// be recursively reparented onto the new version of their parents.
     /// The content of those descendants will remain untouched.
     /// Returns the number of reparented descendants.
-    pub fn reparent_descendants(&mut self) -> BackendResult<usize> {
+    pub async fn reparent_descendants(&mut self) -> BackendResult<usize> {
         let roots = self.parent_mapping.keys().cloned().collect_vec();
         let mut num_reparented = 0;
         self.transform_descendants(roots, async |rewriter| {
@@ -1442,7 +1442,8 @@ impl MutableRepo {
                 num_reparented += 1;
             }
             Ok(())
-        })?;
+        })
+        .await?;
         self.parent_mapping.clear();
         Ok(num_reparented)
     }

@@ -704,7 +704,7 @@ fn test_reparent_descendants() {
         .set_tree_id(create_random_tree(&repo))
         .write()
         .unwrap();
-    let reparented = mut_repo.reparent_descendants().unwrap();
+    let reparented = mut_repo.reparent_descendants().block_on().unwrap();
     // "child_a_b", "grandchild_a_b" and "child_a" (3 commits) must have been
     // reparented.
     assert_eq!(reparented, 3);

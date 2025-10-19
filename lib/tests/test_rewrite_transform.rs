@@ -62,6 +62,7 @@ fn test_transform_descendants_sync() {
             }
             Ok(())
         })
+        .block_on()
         .unwrap();
     assert_eq!(rebased.len(), 4);
     let new_commit_b = rebased.get(commit_b.id()).unwrap();
@@ -110,6 +111,7 @@ fn test_transform_descendants_sync_linearize_merge() {
             rebased.insert(old_commit_id, new_commit);
             Ok(())
         })
+        .block_on()
         .unwrap();
     assert_eq!(rebased.len(), 1);
     let new_commit_c = rebased.get(commit_c.id()).unwrap();

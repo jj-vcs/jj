@@ -22,6 +22,7 @@ use itertools::Itertools as _;
 use jj_lib::backend::Signature;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::object_id::ObjectId as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -288,26 +289,28 @@ pub(crate) fn cmd_describe(
     // `MutableRepo::transform_descendants` prevents us from rewriting the same
     // commit multiple times, and adding additional entries in the predecessor
     // chain.
-    tx.repo_mut().transform_descendants(
-        commit_builders.keys().map(|&id| id.clone()).collect(),
-        async |rewriter| {
-            let old_commit_id = rewriter.old_commit().id().clone();
-            let commit_builder = rewriter.reparent();
-            if let Some(temp_builder) = commit_builders.get(&old_commit_id) {
-                commit_builder
-                    .set_description(temp_builder.description())
-                    .set_author(temp_builder.author().clone())
-                    // Copy back committer for consistency with author timestamp
-                    .set_committer(temp_builder.committer().clone())
-                    .write()?;
-                num_described += 1;
-            } else {
-                commit_builder.write()?;
-                num_reparented += 1;
-            }
-            Ok(())
-        },
-    )?;
+    tx.repo_mut()
+        .transform_descendants(
+            commit_builders.keys().map(|&id| id.clone()).collect(),
+            async |rewriter| {
+                let old_commit_id = rewriter.old_commit().id().clone();
+                let commit_builder = rewriter.reparent();
+                if let Some(temp_builder) = commit_builders.get(&old_commit_id) {
+                    commit_builder
+                        .set_description(temp_builder.description())
+                        .set_author(temp_builder.author().clone())
+                        // Copy back committer for consistency with author timestamp
+                        .set_committer(temp_builder.committer().clone())
+                        .write()?;
+                    num_described += 1;
+                } else {
+                    commit_builder.write()?;
+                    num_reparented += 1;
+                }
+                Ok(())
+            },
+        )
+        .block_on()?;
     if num_described > 1 {
         writeln!(ui.status(), "Updated {num_described} commits")?;
     }

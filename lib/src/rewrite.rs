@@ -982,29 +982,31 @@ pub async fn duplicate_commits(
 
     // Rebase new children onto the target heads.
     let children_commit_ids_set: HashSet<CommitId> = children_commit_ids.iter().cloned().collect();
-    mut_repo.transform_descendants(children_commit_ids.to_vec(), async |mut rewriter| {
-        if children_commit_ids_set.contains(rewriter.old_commit().id()) {
-            let mut child_new_parent_ids = IndexSet::new();
-            for old_parent_id in rewriter.old_commit().parent_ids() {
-                // If the original parents of the new children are the new parents of
-                // `target_head_ids`, replace them with `target_head_ids` since we are
-                // "inserting" the target commits in between the new parents and the new
-                // children.
-                if parent_commit_ids.contains(old_parent_id) {
-                    child_new_parent_ids.extend(target_head_ids.clone());
-                } else {
-                    child_new_parent_ids.insert(old_parent_id.clone());
+    mut_repo
+        .transform_descendants(children_commit_ids.to_vec(), async |mut rewriter| {
+            if children_commit_ids_set.contains(rewriter.old_commit().id()) {
+                let mut child_new_parent_ids = IndexSet::new();
+                for old_parent_id in rewriter.old_commit().parent_ids() {
+                    // If the original parents of the new children are the new parents of
+                    // `target_head_ids`, replace them with `target_head_ids` since we are
+                    // "inserting" the target commits in between the new parents and the new
+                    // children.
+                    if parent_commit_ids.contains(old_parent_id) {
+                        child_new_parent_ids.extend(target_head_ids.clone());
+                    } else {
+                        child_new_parent_ids.insert(old_parent_id.clone());
+                    }
                 }
+                // If not already present, add `target_head_ids` as parents of the new child
+                // commit.
+                child_new_parent_ids.extend(target_head_ids.clone());
+                rewriter.set_new_parents(child_new_parent_ids.into_iter().collect());
             }
-            // If not already present, add `target_head_ids` as parents of the new child
-            // commit.
-            child_new_parent_ids.extend(target_head_ids.clone());
-            rewriter.set_new_parents(child_new_parent_ids.into_iter().collect());
-        }
-        num_rebased += 1;
-        rewriter.rebase().await?.write()?;
-        Ok(())
-    })?;
+            num_rebased += 1;
+            rewriter.rebase().await?.write()?;
+            Ok(())
+        })
+        .await?;
 
     Ok(DuplicateCommitsStats {
         duplicated_commits: duplicated_old_to_new,

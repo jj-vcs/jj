@@ -25,6 +25,7 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::backend::BackendError;
@@ -2478,14 +2479,17 @@ fn reload_repo_at_operation(
     let base_repo = repo.base_repo();
     let operation = op_walk::resolve_op_with_repo(base_repo, op_str)
         .map_err(|err| RevsetResolutionError::Other(err.into()))?;
-    base_repo.reload_at(&operation).map_err(|err| match err {
-        RepoLoaderError::Backend(err) => RevsetResolutionError::Backend(err),
-        RepoLoaderError::IndexRead(_)
-        | RepoLoaderError::OpHeadResolution(_)
-        | RepoLoaderError::OpHeadsStoreError(_)
-        | RepoLoaderError::OpStore(_)
-        | RepoLoaderError::TransactionCommit(_) => RevsetResolutionError::Other(err.into()),
-    })
+    base_repo
+        .reload_at(&operation)
+        .block_on()
+        .map_err(|err| match err {
+            RepoLoaderError::Backend(err) => RevsetResolutionError::Backend(err),
+            RepoLoaderError::IndexRead(_)
+            | RepoLoaderError::OpHeadResolution(_)
+            | RepoLoaderError::OpHeadsStoreError(_)
+            | RepoLoaderError::OpStore(_)
+            | RepoLoaderError::TransactionCommit(_) => RevsetResolutionError::Other(err.into()),
+        })
 }
 
 fn resolve_remote_bookmark(

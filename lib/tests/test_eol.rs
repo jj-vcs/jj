@@ -246,7 +246,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     tx.commit("commit parent2").block_on().unwrap();
 
     // Reload the repo to pick up the new commits.
-    test_workspace.repo = test_workspace.repo.reload_at_head().unwrap();
+    test_workspace.repo = test_workspace.repo.reload_at_head().block_on().unwrap();
     // Create the merge commit.
     let tree = merge_commit_trees(&*test_workspace.repo, &[parent1_commit, parent2_commit])
         .block_on()
@@ -439,7 +439,7 @@ fn test_eol_conversion_update_conflicts(
     tx.commit("commit parent 2").block_on().unwrap();
 
     // Reload the repo to pick up the new commits.
-    test_workspace.repo = test_workspace.repo.reload_at_head().unwrap();
+    test_workspace.repo = test_workspace.repo.reload_at_head().block_on().unwrap();
     // Create the merge commit.
     let tree = merge_commit_trees(&*test_workspace.repo, &[parent1_commit, parent2_commit])
         .block_on()

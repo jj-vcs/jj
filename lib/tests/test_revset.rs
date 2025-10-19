@@ -129,7 +129,7 @@ fn build_changed_path_index(repo: &ReadonlyRepo) -> Arc<ReadonlyRepo> {
         .build_changed_path_index_at_operation(repo.op_id(), repo.store(), u32::MAX)
         .block_on()
         .unwrap();
-    repo.reload_at(repo.operation()).unwrap()
+    repo.reload_at(repo.operation()).block_on().unwrap()
 }
 
 #[test]
@@ -1167,7 +1167,7 @@ fn test_evaluate_expression_root_and_checkout() {
     let repo = &test_workspace.repo;
 
     let root_operation = repo.loader().root_operation().block_on();
-    let root_repo = repo.reload_at(&root_operation).unwrap();
+    let root_repo = repo.reload_at(&root_operation).block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();

@@ -177,7 +177,7 @@ pub(crate) fn cmd_restore(
         // a conflicted change id at this point.
         let (num_rebased, extra_msg) = if args.restore_descendants {
             (
-                tx.repo_mut().reparent_descendants()?,
+                tx.repo_mut().reparent_descendants().block_on()?,
                 " (while preserving their content)",
             )
         } else {
