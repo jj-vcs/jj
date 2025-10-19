@@ -499,12 +499,13 @@ pub async fn move_commits(
     loc: &MoveCommitsLocation,
     options: &RebaseOptions,
 ) -> BackendResult<MoveCommitsStats> {
-    compute_move_commits(mut_repo, loc)?
+    compute_move_commits(mut_repo, loc)
+        .await?
         .apply(mut_repo, options)
         .await
 }
 
-pub fn compute_move_commits(
+pub async fn compute_move_commits(
     repo: &MutableRepo,
     loc: &MoveCommitsLocation,
 ) -> BackendResult<ComputedMoveCommits> {
@@ -553,10 +554,12 @@ pub fn compute_move_commits(
                 .try_collect()
                 .map_err(|err| err.into_backend_error())?;
 
-            connected_target_commits = target_commit_ids
-                .iter()
-                .map(|id| repo.store().get_commit(id))
-                .try_collect()?;
+            connected_target_commits = try_join_all(
+                target_commit_ids
+                    .iter()
+                    .map(|id| repo.store().get_commit_async(id)),
+            )
+            .await?;
             // We don't have to compute the internal parents for the connected target set,
             // since the connected target set is the same as the target set.
             connected_target_commits_internal_parents = HashMap::new();
@@ -569,7 +572,7 @@ pub fn compute_move_commits(
     // ancestors which are not in the target set as parents.
     let mut target_commits_external_parents: HashMap<CommitId, IndexSet<CommitId>> = HashMap::new();
     for id in target_commit_ids.iter().rev() {
-        let commit = repo.store().get_commit(id)?;
+        let commit = repo.store().get_commit_async(id).await?;
         let mut new_parents = IndexSet::new();
         for old_parent in commit.parent_ids() {
             if let Some(parents) = target_commits_external_parents.get(old_parent) {
@@ -658,15 +661,17 @@ pub fn compute_move_commits(
             if let Some(children) = target_commit_external_descendants.get(id) {
                 new_children.extend(children.iter().cloned());
             } else {
-                new_children.push(repo.store().get_commit(id)?);
+                new_children.push(repo.store().get_commit_async(id).await?);
             }
         }
         new_children
     } else {
-        loc.new_child_ids
-            .iter()
-            .map(|id| repo.store().get_commit(id))
-            .try_collect()?
+        try_join_all(
+            loc.new_child_ids
+                .iter()
+                .map(|id| repo.store().get_commit_async(id)),
+        )
+        .await?
     };
 
     // Compute the parents of the new children, which will include the heads of the
@@ -1273,10 +1278,14 @@ pub async fn find_duplicate_divergent_commits(
     target: &MoveCommitsTarget,
 ) -> BackendResult<Vec<Commit>> {
     let target_commits: Vec<Commit> = match target {
-        MoveCommitsTarget::Commits(commit_ids) => commit_ids
-            .iter()
-            .map(|commit_id| repo.store().get_commit(commit_id))
-            .try_collect()?,
+        MoveCommitsTarget::Commits(commit_ids) => {
+            try_join_all(
+                commit_ids
+                    .iter()
+                    .map(|commit_id| repo.store().get_commit_async(commit_id)),
+            )
+            .await?
+        }
         MoveCommitsTarget::Roots(root_ids) => RevsetExpression::commits(root_ids.clone())
             .descendants()
             .evaluate(repo)
@@ -1329,7 +1338,10 @@ pub async fn find_duplicate_divergent_commits(
                 continue;
             }
 
-            let ancestor_candidate = repo.store().get_commit(&ancestor_candidate_id)?;
+            let ancestor_candidate = repo
+                .store()
+                .get_commit_async(&ancestor_candidate_id)
+                .await?;
             let new_tree =
                 rebase_to_dest_parent(repo, slice::from_ref(target_commit), &ancestor_candidate)
                     .await?;
