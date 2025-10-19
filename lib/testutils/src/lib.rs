@@ -361,7 +361,7 @@ pub fn commit_transactions(txs: Vec<Transaction>) -> Arc<ReadonlyRepo> {
     let repo_loader = txs[0].base_repo().loader().clone();
     let mut op_ids = vec![];
     for tx in txs {
-        op_ids.push(tx.commit("test").unwrap().op_id().clone());
+        op_ids.push(tx.commit("test").block_on().unwrap().op_id().clone());
         std::thread::sleep(std::time::Duration::from_millis(1));
     }
     let repo = repo_loader.load_at_head().block_on().unwrap();

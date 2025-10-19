@@ -117,17 +117,17 @@ impl Transaction {
     }
 
     /// Writes the transaction to the operation store and publishes it.
-    pub fn commit(
+    pub async fn commit(
         self,
         description: impl Into<String>,
     ) -> Result<Arc<ReadonlyRepo>, TransactionCommitError> {
-        self.write(description)?.publish()
+        self.write(description).await?.publish()
     }
 
     /// Writes the transaction to the operation store, but does not publish it.
     /// That means that a repo can be loaded at the operation, but the
     /// operation will not be seen when loading the repo at head.
-    pub fn write(
+    pub async fn write(
         mut self,
         description: impl Into<String>,
     ) -> Result<UnpublishedOperation, TransactionCommitError> {
@@ -141,10 +141,7 @@ impl Transaction {
         let (mut_index, view, predecessors) = mut_repo.consume();
 
         let operation = {
-            let view_id = base_repo
-                .op_store()
-                .write_view(view.store_view())
-                .block_on()?;
+            let view_id = base_repo.op_store().write_view(view.store_view()).await?;
             self.op_metadata.description = description.into();
             self.op_metadata.time.end = self.end_time.unwrap_or_else(Timestamp::now);
             let parents = self.parent_ops.iter().map(|op| op.id().clone()).collect();
@@ -157,7 +154,7 @@ impl Transaction {
             let new_op_id = base_repo
                 .op_store()
                 .write_operation(&store_operation)
-                .block_on()?;
+                .await?;
             Operation::new(base_repo.op_store().clone(), new_op_id, store_operation)
         };
 

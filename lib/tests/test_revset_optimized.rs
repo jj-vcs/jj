@@ -34,6 +34,7 @@ use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RebasedCommit;
 use jj_lib::settings::UserSettings;
+use pollster::FutureExt as _;
 use proptest::prelude::*;
 use testutils::TestRepo;
 
@@ -190,7 +191,7 @@ fn test_mostly_linear() {
     let commits = vec![
         commit0, commit1, commit2, commit3, commit4, commit5, commit6, commit7, commit8, commit9,
     ];
-    let repo = tx.commit("a").unwrap();
+    let repo = tx.commit("a").block_on().unwrap();
 
     // Commit ids for reference
     insta::assert_snapshot!(
@@ -244,7 +245,7 @@ fn test_weird_merges() {
     let commits = vec![
         commit0, commit1, commit2, commit3, commit4, commit5, commit6, commit7, commit8,
     ];
-    let repo = tx.commit("a").unwrap();
+    let repo = tx.commit("a").block_on().unwrap();
 
     // Commit ids for reference
     insta::assert_snapshot!(
@@ -301,18 +302,18 @@ fn test_feature_branches() {
     let commit3 = write_new_commit(tx.repo_mut(), "3", [&commit0]);
     let commit4 = write_new_commit(tx.repo_mut(), "4", [&commit3]);
     let commit5 = write_new_commit(tx.repo_mut(), "5", [&commit4]);
-    let repo = tx.commit("a").unwrap();
+    let repo = tx.commit("a").block_on().unwrap();
 
     // Merge branch 2
     let mut tx = repo.start_transaction();
     let commit6 = write_new_commit(tx.repo_mut(), "6", [&commit0, &commit2]);
-    let repo = tx.commit("a").unwrap();
+    let repo = tx.commit("a").block_on().unwrap();
 
     // Fetch merged branch 7
     let mut tx = repo.start_transaction();
     let commit7 = write_new_commit(tx.repo_mut(), "7", [&commit6]);
     let commit8 = write_new_commit(tx.repo_mut(), "8", [&commit6, &commit7]);
-    let repo = tx.commit("a").unwrap();
+    let repo = tx.commit("a").block_on().unwrap();
 
     // Merge branch 5
     let mut tx = repo.start_transaction();
@@ -320,7 +321,7 @@ fn test_feature_branches() {
     let commits = vec![
         commit0, commit1, commit2, commit3, commit4, commit5, commit6, commit7, commit8, commit9,
     ];
-    let repo = tx.commit("a").unwrap();
+    let repo = tx.commit("a").block_on().unwrap();
 
     // Commit ids for reference
     insta::assert_snapshot!(
@@ -372,7 +373,7 @@ fn test_rewritten() {
     let commit4 = write_new_commit(tx.repo_mut(), "4", [&commit1]);
     let commit5 = write_new_commit(tx.repo_mut(), "5", [&commit4, &commit2]);
     let mut commits = vec![commit0, commit1, commit2, commit3, commit4, commit5];
-    let repo = tx.commit("a").unwrap();
+    let repo = tx.commit("a").block_on().unwrap();
 
     // Rewrite 2, rebase 3 and 5
     let mut tx = repo.start_transaction();
@@ -384,13 +385,13 @@ fn test_rewritten() {
         .unwrap();
     commits.push(commit2b);
     commits.extend(rebase_descendants(tx.repo_mut()));
-    let repo = tx.commit("b").unwrap();
+    let repo = tx.commit("b").block_on().unwrap();
 
     // Abandon 4, rebase 5
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commits[4]);
     commits.extend(rebase_descendants(tx.repo_mut()));
-    let repo = tx.commit("c").unwrap();
+    let repo = tx.commit("c").block_on().unwrap();
 
     // Commit ids for reference
     insta::assert_snapshot!(

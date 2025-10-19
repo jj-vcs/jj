@@ -808,7 +808,7 @@ impl RepoLoader {
                 || format!("merge {num_operations} operations"),
                 |tx_description| tx_description.to_string(),
             );
-            let merged_repo = tx.write(tx_description)?.leave_unpublished();
+            let merged_repo = tx.write(tx_description).await?.leave_unpublished();
             merged_repo.operation().clone()
         } else {
             base_op

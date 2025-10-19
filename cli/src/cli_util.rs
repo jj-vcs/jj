@@ -663,7 +663,8 @@ impl CommandHelper {
                         }
                     }
                     Ok(tx
-                        .write("reconcile divergent operations")?
+                        .write("reconcile divergent operations")
+                        .await?
                         .leave_unpublished()
                         .operation()
                         .clone())
@@ -1162,7 +1163,7 @@ impl WorkspaceCommandHelper {
             // state to it without updating working copy files.
             locked_ws.locked_wc().reset(&wc_commit).block_on()?;
             tx.repo_mut().rebase_descendants()?;
-            self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head")?);
+            self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head").block_on()?);
             locked_ws.finish(self.user_repo.repo.op_id().clone())?;
             if old_git_head.is_present() {
                 writeln!(
@@ -1951,6 +1952,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
 
             let repo = tx
                 .commit("snapshot working copy")
+                .block_on()
                 .map_err(snapshot_command_error)?;
             self.user_repo = ReadonlyUserRepo::new(repo);
         }
@@ -2088,7 +2090,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             crate::git_util::print_git_export_stats(ui, &stats)?;
         }
 
-        self.user_repo = ReadonlyUserRepo::new(tx.commit(description)?);
+        self.user_repo = ReadonlyUserRepo::new(tx.commit(description).block_on()?);
 
         // Update working copy before reporting repo changes, so that
         // potential errors while reporting changes (broken pipe, etc)
@@ -2846,6 +2848,7 @@ pub fn update_working_copy(
     // warning for most commands (but be an error for the checkout command)
     let stats = workspace
         .check_out(repo.op_id().clone(), old_tree_id.as_ref(), new_commit)
+        .block_on()
         .map_err(|err| {
             internal_error_with_message(
                 format!("Failed to check out commit {}", new_commit.id().hex()),
