@@ -19,6 +19,7 @@ use jj_lib::annotate::FileAnnotator;
 use jj_lib::annotate::LineOrigin;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -103,8 +104,10 @@ pub(crate) fn cmd_file_annotate(
     // Note that this is probably different from "--skip REVS", which won't
     // exclude the revisions, but will ignore diffs in those revisions as if
     // ancestor revisions had new content.
-    let mut annotator = FileAnnotator::from_commit(&starting_commit, &file_path)?;
-    annotator.compute(repo.as_ref(), &RevsetExpression::all())?;
+    let mut annotator = FileAnnotator::from_commit(&starting_commit, &file_path).block_on()?;
+    annotator
+        .compute(repo.as_ref(), &RevsetExpression::all())
+        .block_on()?;
     let annotation = annotator.to_annotation();
 
     render_file_annotation(repo.as_ref(), ui, &template, &annotation)?;
