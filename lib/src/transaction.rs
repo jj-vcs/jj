@@ -157,7 +157,10 @@ impl Transaction {
             Operation::new(base_repo.op_store().clone(), new_op_id, store_operation)
         };
 
-        let index = base_repo.index_store().write_index(mut_index, &operation)?;
+        let index = base_repo
+            .index_store()
+            .write_index(mut_index, &operation)
+            .await?;
         let unpublished = UnpublishedOperation::new(base_repo.loader(), operation, view, index);
         Ok(unpublished)
     }
