@@ -555,7 +555,9 @@ impl CommandHelper {
                     locked_ws.locked_wc(),
                     &desired_wc_commit,
                     &repo,
-                )? {
+                )
+                .block_on()?
+                {
                     WorkingCopyFreshness::Fresh | WorkingCopyFreshness::Updated(_) => {
                         writeln!(
                             ui.status(),
@@ -1281,7 +1283,8 @@ operation that was subsequently lost (or was at least unavailable when you ran
 what the parent commits are supposed to be. That means that the diff compared
 to the current parents may contain changes from multiple commits.
 ",
-        )?;
+        )
+        .block_on()?;
 
         writeln!(
             ui.status(),
@@ -1863,7 +1866,9 @@ to the current parents may contain changes from multiple commits.
         let old_op_id = locked_ws.locked_wc().old_operation_id().clone();
 
         let (repo, wc_commit) =
-            match WorkingCopyFreshness::check_stale(locked_ws.locked_wc(), &wc_commit, &repo) {
+            match WorkingCopyFreshness::check_stale(locked_ws.locked_wc(), &wc_commit, &repo)
+                .block_on()
+            {
                 Ok(WorkingCopyFreshness::Fresh) => (repo, wc_commit),
                 Ok(WorkingCopyFreshness::Updated(wc_operation)) => {
                     let repo = repo
