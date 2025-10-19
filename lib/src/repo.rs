@@ -223,7 +223,9 @@ impl ReadonlyRepo {
         let op_heads_store = op_heads_store_initializer(settings, &op_heads_path)?;
         let op_heads_type_path = op_heads_path.join("type");
         fs::write(&op_heads_type_path, op_heads_store.name()).context(&op_heads_type_path)?;
-        op_heads_store.update_op_heads(&[], op_store.root_operation_id())?;
+        op_heads_store
+            .update_op_heads(&[], op_store.root_operation_id())
+            .block_on()?;
         let op_heads_store: Arc<dyn OpHeadsStore> = Arc::from(op_heads_store);
 
         let index_path = repo_path.join("index");
