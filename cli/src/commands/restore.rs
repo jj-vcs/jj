@@ -50,7 +50,7 @@ pub(crate) struct RestoreArgs {
     #[arg(
         value_name = "FILESETS",
         value_hint = clap::ValueHint::AnyPath,
-        add = ArgValueCompleter::new(complete::modified_range_files),
+        add = ArgValueCompleter::new(complete::modified_changes_in_or_range_files),
     )]
     paths: Vec<String>,
     /// Revision to restore from (source)

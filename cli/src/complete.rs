@@ -922,6 +922,13 @@ pub fn modified_revision_or_range_files(current: &std::ffi::OsStr) -> Vec<Comple
     modified_range_files(current)
 }
 
+pub fn modified_changes_in_or_range_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    if let Some(rev) = parse::changes_in() {
+        return modified_files_from_rev((rev, None), current);
+    }
+    modified_range_files(current)
+}
+
 pub fn revision_conflicted_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     conflicted_files_from_rev(&parse::revision_or_wc(), current)
 }
@@ -1152,6 +1159,14 @@ mod parse {
         parse_revision_impl(std::env::args())
     }
 
+    pub fn parse_changes_in_impl(args: impl Iterator<Item = String>) -> Option<String> {
+        parse_flag(&["-c", "--changes-in"], args).next()
+    }
+
+    pub fn changes_in() -> Option<String> {
+        parse_changes_in_impl(std::env::args())
+    }
+
     pub fn revision_or_wc() -> String {
         revision().unwrap_or_else(|| "@".into())
     }
@@ -1310,6 +1325,29 @@ mod tests {
             );
         }
         let bad_cases: &[&[&str]] = &[&[], &["-r"], &["foo"], &["-R", "foo"], &["-R=foo"]];
+        for case in bad_cases {
+            let args = case.iter().map(|s| s.to_string());
+            assert_eq!(parse::parse_revision_impl(args), None, "case: {case:?}");
+        }
+    }
+
+    #[test]
+    fn test_parse_changes_in_impl() {
+        let good_cases: &[&[&str]] = &[
+            &["-c", "foo"],
+            &["--changes-in", "foo"],
+            &["-cfoo"],
+            &["--changes-in=foo"],
+        ];
+        for case in good_cases {
+            let args = case.iter().map(|s| s.to_string());
+            assert_eq!(
+                parse::parse_changes_in_impl(args),
+                Some("foo".into()),
+                "case: {case:?}",
+            );
+        }
+        let bad_cases: &[&[&str]] = &[&[], &["-c"], &["-r"], &["foo"]];
         for case in bad_cases {
             let args = case.iter().map(|s| s.to_string());
             assert_eq!(parse::parse_revision_impl(args), None, "case: {case:?}");
