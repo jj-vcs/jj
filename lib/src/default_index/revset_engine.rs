@@ -1010,7 +1010,7 @@ impl EvaluationContext<'_> {
                     let determiner = if positions.len() > *count {
                         "more"
                     } else {
-                        "less"
+                        "fewer"
                     };
                     return Err(RevsetEvaluationError::Other(
                         format!(
