@@ -1013,11 +1013,8 @@ impl EvaluationContext<'_> {
                         "fewer"
                     };
                     return Err(RevsetEvaluationError::Other(
-                        format!(
-                            "The revset was expected to have {count} elements, but {determiner} \
-                             were provided",
-                        )
-                        .into(),
+                        format!("The revset has {determiner} than the expected {count} revisions")
+                            .into(),
                     ));
                 }
                 Ok(Box::new(EagerRevset { positions }))
