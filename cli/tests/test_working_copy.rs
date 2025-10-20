@@ -268,13 +268,11 @@ fn test_snapshot_invalid_ignore_pattern() {
     // Test invalid pattern in .gitignore
     work_dir.write_file(".gitignore", " []\n");
     insta::assert_snapshot!(work_dir.run_jj(["st"]), @r"
-    ------- stderr -------
-    Internal error: Failed to snapshot the working copy
-    Caused by:
-    1: Failed to parse ignore patterns from file $TEST_ENV/repo/.gitignore
-    2: error parsing glob ' []': unclosed character class; missing ']'
+    Working copy changes:
+    A .gitignore
+    Working copy  (@) : qpvuntsm c9cf4826 (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
-    [exit status: 255]
     ");
 
     // Test invalid UTF-8 in .gitignore

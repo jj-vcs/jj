@@ -817,7 +817,7 @@ mod tests {
                 dir: "foo/bar",
                 pattern: Glob {
                     glob: "b{ar,az}",
-                    re: "(?-u)^b(?:az|ar)$",
+                    re: "(?-u)^b(?:ar|az)$",
                     opts: _,
                     tokens: _,
                 },
