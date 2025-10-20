@@ -72,8 +72,9 @@ The following functions are defined.
   append the `ellipsis` to the result.
 * `hash(content: Stringify) -> String`:
   Hash the input and return a hexadecimal string representation of the digest.
-* `label(label: Stringify, content: Template) -> Template`: Apply label to
-  the content. The `label` is evaluated as a space-separated string.
+* `label(label: Stringify, content: Template) -> Template`: Apply a custom
+  [color label](#color-labels) to the content. The `label` is evaluated as a
+  space-separated string.
 * `raw_escape_sequence(content: Template) -> Template`: Preserves any escape
   sequences in `content` (i.e., bypasses sanitization) and strips labels.
   Note: This function is intended for escape sequences and as such, its output
@@ -621,20 +622,39 @@ The following methods are defined.
 
 ## Color labels
 
-Template fragments are usually labeled with the command name, the context (or
-the top-level object), and the method names. You can [customize the output
-colors][config-colors] by using these labels.
+You can [customize the output colors][config-colors] by using color labels. `jj`
+adds some labels automatically; they can also be added manually.
 
-For example, the following template is labeled as `op_log operation id short`:
+Template fragments are usually **automatically** labeled with the command name,
+the context (or the top-level object), and the method names. For example, the
+following template is labeled as `op_log operation id short` automatically:
 
 ```sh
 jj op log -T 'self.id().short()'
 ```
 
-In addition to that, you can insert arbitrary labels by `label(label, content)`
-function.
+The exact names of such labels are often straightforward, but are not currently
+documented. You can discover the actual label names used with the
+`--color=debug` option, e.g.
 
-To inspect how output fragments are labeled, use `--color=debug` option.
+```sh
+jj op log -T 'self.id().short()' --color=debug
+```
+
+Additionally, you can **manually** insert arbitrary labels using the
+`label(label, content)` function. For example,
+
+```sh
+jj op log -T '"ID: " ++ self.id().short().substr(0, 1) ++ label("id short",  "<redacted>")'
+```
+
+will print "ID:" in the default style, and the string `<redacted>` in the same
+style as the first character of the id. It would also be fine to use an
+arbitrary template instead of the string `"<redacted>"`, possibly including
+nested invocations of `label()`.
+
+You are free to use custom label names as well. This will only have a visible
+effect if you also [customize their colors][config-colors] explicitly.
 
 [config-colors]: config.md#custom-colors-and-styles
 
