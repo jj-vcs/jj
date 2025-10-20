@@ -939,6 +939,32 @@
                 }
             }
         },
+        "hooks": {
+            "type": "object",
+            "description": "Settings for jj hooks",
+            "properties": {
+               "pre-upload": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "description": "Each pre-upload tool will run once, and be passed all commits to be uploaded in reverse jj log order (topological)",
+                        "properties": {
+                           "enabled": {
+                                "type": "boolean",
+                                "description": "Disables this tool if set to false",
+                                "default": true
+                            },
+                            "order": {
+                                "type": "integer",
+                                "description": "Hooks are run in ascending order on (order, name)",
+                                "default": 0
+                            }
+                        }
+                    },
+                    "description": "Settings for pre-upload hooks"
+                }
+            }
+        },
         "--when": {
             "type": "object",
             "description": "Conditions restriction the application of the configuration",
