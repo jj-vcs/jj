@@ -553,3 +553,53 @@ fn test_status_untracked_files() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_status_hide_untracked() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(r#"snapshot.auto-track = "none()""#);
+
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("untracked-file", "...");
+    let sub_dir = work_dir.create_dir("sub");
+    sub_dir.write_file("untracked-file", "...");
+
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    Untracked paths:
+    ? sub/
+    ? untracked-file
+    Working copy  (@) : qpvuntsm e8849ae1 (empty) (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["status", "--hide-untracked"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    The working copy has no changes.
+    Working copy  (@) : qpvuntsm e8849ae1 (empty) (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    test_env.add_config(r#"ui.status-hide-untracked=true"#);
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    The working copy has no changes.
+    Working copy  (@) : qpvuntsm e8849ae1 (empty) (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["status", "--no-hide-untracked"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    Untracked paths:
+    ? sub/
+    ? untracked-file
+    Working copy  (@) : qpvuntsm e8849ae1 (empty) (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+}
