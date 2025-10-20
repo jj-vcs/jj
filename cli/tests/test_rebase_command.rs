@@ -2728,7 +2728,7 @@ fn test_rebase_skip_emptied() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-d=b", "--skip-emptied"]);
+    let output = work_dir.run_jj(["rebase", "-d=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 commits to destination
@@ -2762,12 +2762,7 @@ fn test_rebase_skip_emptied() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj([
-        "rebase",
-        "-r=description('will become empty')",
-        "-d=b",
-        "--skip-emptied",
-    ]);
+    let output = work_dir.run_jj(["rebase", "-r=description('will become empty')", "-d=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
@@ -2823,7 +2818,7 @@ fn test_rebase_skip_emptied_descendants() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-r", "b", "--before", "c", "--skip-emptied"]);
+    let output = work_dir.run_jj(["rebase", "-r", "b", "--before", "c"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Skipped rebase of 1 commits that were already in place
@@ -3042,7 +3037,7 @@ fn test_rebase_skip_duplicate_divergent() {
 
     // Rebase with "--keep-divergent" shouldn't skip any duplicates
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    insta::assert_snapshot!(work_dir.run_jj(["rebase", "-s", "c", "-d", "d", "--keep-divergent"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["rebase", "-s", "c", "-d", "d", "--keep-divergent", "--keep-emptied"]), @r"
     ------- stderr -------
     Rebased 2 commits to destination
     [EOF]

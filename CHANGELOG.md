@@ -19,6 +19,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `core.watchman.register_snapshot_trigger`
   - `diff.format`
 
+* `jj rebase --skip-emptied` is now the default. Use `--keep-emptied` instead
+  to disable this.
+
 ### Deprecations
 
  * `jj bisect run --command <cmd>` is deprecated in favor of

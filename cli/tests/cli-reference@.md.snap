@@ -2213,6 +2213,10 @@ rebased to:
   parents and to rebase the targets and their descendants onto the rebased
   revisions
 
+If a non-merge commit is made empty by the rebase, it is skipped and
+abandoned. This usually happens when you attempt to rebase a commit that has
+since been submitted onto trunk.
+
 See the sections below for details about the different ways of specifying
 which revisions to rebase where.
 
@@ -2429,7 +2433,7 @@ J           J
 * `-d`, `--destination <REVSETS>` — The revision(s) to rebase onto (can be repeated to create a merge commit)
 * `-A`, `--insert-after <REVSETS>` [alias: `after`] — The revision(s) to insert after (can be repeated to create a merge commit)
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — The revision(s) to insert before (can be repeated to create a merge commit)
-* `--skip-emptied` — If true, when rebasing would produce an empty commit, the commit is abandoned. It will not be abandoned if it was already empty before the rebase. Will never skip merge commits with multiple non-empty parents
+* `--keep-emptied` — If true, when rebasing would produce an empty commit, the commit is not abandoned
 * `--keep-divergent` — Keep divergent commits while rebasing
 
    Without this flag, divergent commits are abandoned while rebasing if another commit with the same change ID is already present in the destination with identical changes.

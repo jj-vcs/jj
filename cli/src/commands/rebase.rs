@@ -69,6 +69,10 @@ use crate::ui::Ui;
 ///   parents and to rebase the targets and their descendants onto the rebased
 ///   revisions
 ///
+/// If a non-merge commit is made empty by the rebase, it is skipped and
+/// abandoned. This usually happens when you attempt to rebase a commit that has
+/// since been submitted onto trunk.
+///
 /// See the sections below for details about the different ways of specifying
 /// which revisions to rebase where.
 ///
@@ -314,12 +318,14 @@ pub(crate) struct RebaseArgs {
     #[command(flatten)]
     destination: RebaseDestinationArgs,
 
-    /// If true, when rebasing would produce an empty commit, the commit is
-    /// abandoned. It will not be abandoned if it was already empty before the
-    /// rebase. Will never skip merge commits with multiple non-empty
-    /// parents.
-    #[arg(long)]
+    /// Does nothing (this is the default). Kept for compatibility.
+    #[arg(long, hide = true)]
     skip_emptied: bool,
+
+    /// If true, when rebasing would produce an empty commit, the commit is
+    /// not abandoned.
+    #[arg(long)]
+    keep_emptied: bool,
 
     /// Keep divergent commits while rebasing
     ///
@@ -372,10 +378,16 @@ pub(crate) fn cmd_rebase(
     command: &CommandHelper,
     args: &RebaseArgs,
 ) -> Result<(), CommandError> {
+    if args.skip_emptied {
+        writeln!(
+            ui.warning_default(),
+            "rebase --skip-emptied is no longer required and is now the default",
+        )?;
+    }
     let rebase_options = RebaseOptions {
-        empty: match args.skip_emptied {
-            true => EmptyBehavior::AbandonNewlyEmpty,
-            false => EmptyBehavior::Keep,
+        empty: match args.keep_emptied {
+            true => EmptyBehavior::Keep,
+            false => EmptyBehavior::AbandonNewlyEmpty,
         },
         rewrite_refs: RewriteRefsOptions {
             delete_abandoned_bookmarks: false,
