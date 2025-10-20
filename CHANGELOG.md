@@ -70,6 +70,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   to fetch during clone. If present, the first matching branch is used as the
   working-copy parent.
 
+* `jj status` supports hiding the list of untracked files with flag `--hide-untracked`
+  and config option `ui.status-hide-untracked`.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer

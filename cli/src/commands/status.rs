@@ -50,6 +50,10 @@ pub(crate) struct StatusArgs {
     /// Restrict the status display to these paths
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
     paths: Vec<String>,
+
+    /// Hide untracked paths
+    #[arg(long)]
+    hide_untracked: bool,
 }
 
 #[instrument(skip_all)]
@@ -75,13 +79,15 @@ pub(crate) fn cmd_status(
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
+    let hide_untracked =
+        args.hide_untracked || command.settings().get_bool("ui.status-hide-untracked")?;
 
     if let Some(wc_commit) = &maybe_wc_commit {
         let parent_tree = wc_commit.parent_tree(repo.as_ref())?;
         let tree = wc_commit.tree()?;
 
         let wc_has_changes = tree.id() != parent_tree.id();
-        let wc_has_untracked = !snapshot_stats.untracked_paths.is_empty();
+        let wc_has_untracked = !snapshot_stats.untracked_paths.is_empty() && !hide_untracked;
         if !wc_has_changes && !wc_has_untracked {
             writeln!(formatter, "The working copy has no changes.")?;
         } else {
