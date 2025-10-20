@@ -1456,13 +1456,14 @@ signature details.
 
 ### Default colocation
 
-When creating a git-backed Jujutsu repository, you can disable colocation which
-places the `.git` directory next to the `.jj` directory. Colocation allows some
-amount of two-way interoperability, but it can perform worse in large repos.
+When creating a Git-backed Jujutsu repository, they use "colocated" mode by
+default, which places the `.git` directory next to the `.jj` directory.
+Colocation allows some amount of two-way interoperability, but it can perform
+worse in large repos.
 
 The setting `git.colocate` is a boolean option that controls whether or not the
-`jj git init` and `jj git clone` commands should create colocated repositories
-by default. By default, `git.colocate` is set to `true`.
+`jj git init` and `jj git clone` commands should create colocated working copies
+by default. Set `git.colocate` to `false` to disable it.
 
 See [Colocated Jujutsu/Git repos](git-compatibility.md#colocated-jujutsugit-repos) for more information.
 
