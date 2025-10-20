@@ -45,7 +45,7 @@ pub enum GitIgnoreError {
 /// Models the effective contents of multiple .gitignore files.
 #[derive(Debug)]
 pub struct GitIgnoreFile {
-    parent: Option<Arc<GitIgnoreFile>>,
+    parent: Option<Arc<Self>>,
     matcher: gitignore::Gitignore,
 }
 

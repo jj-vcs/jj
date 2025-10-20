@@ -270,11 +270,11 @@ pub enum FilesetExpression {
     ///
     /// Use `FilesetExpression::union_all()` to construct a union expression.
     /// It will normalize 0-ary or 1-ary union.
-    UnionAll(Vec<FilesetExpression>),
+    UnionAll(Vec<Self>),
     /// Matches both expressions.
-    Intersection(Box<FilesetExpression>, Box<FilesetExpression>),
+    Intersection(Box<Self>, Box<Self>),
     /// Matches the first expression, but not the second expression.
-    Difference(Box<FilesetExpression>, Box<FilesetExpression>),
+    Difference(Box<Self>, Box<Self>),
 }
 
 impl FilesetExpression {

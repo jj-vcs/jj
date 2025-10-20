@@ -65,7 +65,7 @@ pub trait TableSegment {
 
 pub struct ReadonlyTable {
     key_size: usize,
-    parent_file: Option<Arc<ReadonlyTable>>,
+    parent_file: Option<Arc<Self>>,
     name: String,
     // Number of entries not counting the parent file
     num_local_entries: usize,

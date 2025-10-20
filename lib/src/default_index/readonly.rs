@@ -250,7 +250,7 @@ impl CommitGraphEntry<'_> {
 //       ids
 // TODO: add a fanout table like git's commit graph has?
 pub(super) struct ReadonlyCommitIndexSegment {
-    parent_file: Option<Arc<ReadonlyCommitIndexSegment>>,
+    parent_file: Option<Arc<Self>>,
     num_parent_commits: u32,
     id: CommitIndexSegmentId,
     field_lengths: FieldLengths,

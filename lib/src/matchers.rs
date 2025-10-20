@@ -456,7 +456,7 @@ impl<M1: Matcher, M2: Matcher> Matcher for IntersectionMatcher<M1, M2> {
 /// Tree that maps `RepoPath` to value of type `V`.
 #[derive(Clone, Default, Eq, PartialEq)]
 struct RepoPathTree<V> {
-    entries: HashMap<RepoPathComponentBuf, RepoPathTree<V>>,
+    entries: HashMap<RepoPathComponentBuf, Self>,
     value: V,
 }
 
