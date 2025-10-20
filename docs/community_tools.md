@@ -3,64 +3,31 @@
 **Important:** Many of these are not complete yet, just like Jujutsu itself.
 But they already simplify many workflows and can improve your experience.
 
+## GUIs
 
-## Diffedit3
+### Judo for JJ - Cross-platform GUI desktop app
 
-Diffedit3 is a web-based alternate to Meld, as it no longer is packaged and
-available for all Distros. Its creator is also a frequent contributor.
+Judo is a GUI desktop app that aims to provide an end to end JJ workflow in its
+UI. It has op log support, apply/revert hunks and lines of diffs, combined diffs
+of multiple commits, interdiffs between commits, custom revset support, and more.
 
-Find it [here][diffedit3]
+Find it [here][judojj].
 
-## GG - GUI for JJ
+### GG - GUI for JJ
 
 GG is a cross platform GUI for Jujutsu which makes all graph manipulating
 workflows quite easy. Take a look at its README.md as it quite descriptive.
 
 Find it [here][gg].
 
-## Hunk.nvim
-
-Hunk.nvim is a Neovim based diff-editor for Jujutsu which can be used as an
-alternative to the default `:builtin` diff-editor.
-
-Find it [here][hunk.nvim].
-
-## JJ-FZF
-
-Centered around the `jj log` graph view, jj-fzf provides previews of diffs, the
-evolution-log, browses the op log and offers a large number of key bindings for
-commonly used `jj` operations from rebase to undo, and helps with divergent commits.
-
-Find it [here][jj-fzf].
-
-## JJ TUI
-
-This is TUI for Jujutsu built in Ocaml, it is unopiniated and its creator is
-open to feedback.
-
-Find it [here][jj_tui].
-
-## Jujutsu Kaizen
+### Jujutsu Kaizen
 
 Jujutsu Kaizen is a plugin for Visual Studio Code. The goal of this extension is to bring the great UX of Jujutsu into the VS Code UI.
 Its developers are currently focused on achieving parity for commonly used features of VS Code's built-in Git extension, such as the various operations possible via the Source Control view.
 
 Find it [here][jjk].
 
-## LazyJJ
-
-lazyjj is a lazygit inspired TUI for Jujutsu.
-
-Find it [here][lazyjj].
-
-## Visual Jujutsu
-
-VJJ is a fzf (fuzzy finder) wrapper for Jujutsu, which is meant to be used
-interactively in the terminal.
-
-Find it [here][vjj].
-
-## VisualJJ
+### VisualJJ
 
 VisualJJ is a plugin for Visual Studio Code which provides native integration
 for Jujutsu, not relying on Git colocation. Unlike other tools on this page,
@@ -68,17 +35,63 @@ VisualJJ is not open-source.
 
 Find it [here][visualjj].
 
-## Jujutsu UI
+### Selvejj
+
+Selvejj is a JetBrains plugin for integrating Jujutsu as a first-class VCS within the IDE.
+
+Find it [here][selvejj].
+
+## Command line tools and TUIs (terminal user interfaces)
+
+### JJ-FZF
+
+Centered around the `jj log` graph view, jj-fzf provides previews of diffs, the
+evolution-log, browses the op log and offers a large number of key bindings for
+commonly used `jj` operations from rebase to undo, and helps with divergent commits.
+
+Find it [here][jj-fzf].
+
+### JJ TUI
+
+This is TUI for Jujutsu built in Ocaml, it is unopiniated and its creator is
+open to feedback.
+
+Find it [here][jj_tui].
+
+### LazyJJ
+
+lazyjj is a lazygit inspired TUI for Jujutsu.
+
+Find it [here][lazyjj].
+
+### Visual Jujutsu
+
+VJJ is a fzf (fuzzy finder) wrapper for Jujutsu, which is meant to be used
+interactively in the terminal.
+
+Find it [here][vjj].
+
+### Jujutsu UI
 
 jjui is a terminal user interface for working with Jujutsu version control system.
 
 Find it [here][jjui].
 
-## Selvejj
+## Other tools
 
-Selvejj is a JetBrains plugin for integrating Jujutsu as a first-class VCS within the IDE.
+### Diffedit3
 
-Find it [here][selvejj].
+Diffedit3 is a web-based alternate to Meld, as it no longer is packaged and
+available for all Distros. Its creator is also a frequent contributor.
+
+Find it [here][diffedit3]
+
+### Hunk.nvim
+
+Hunk.nvim is a Neovim based diff-editor for Jujutsu which can be used as an
+alternative to the default `:builtin` diff-editor.
+
+Find it [here][hunk.nvim].
 
 <!-- TODO: Add benbrittains/cultivate when its ready -->
 ## Finding other integrations
@@ -99,3 +112,4 @@ You can find other community contributed tools and integrations in our
 [Wiki]: https://github.com/jj-vcs/jj/wiki
 [jjui]: https://github.com/idursun/jjui
 [selvejj]: https://selvejj.com
+[judojj]: https://judojj.com
