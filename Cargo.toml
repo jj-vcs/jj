@@ -22,14 +22,14 @@ assert_matches = "1.5.0"
 async-trait = "0.1.89"
 blake2 = "0.10.6"
 bstr = "1.11.3"
-clap = { version = "4.5.48", features = [
+clap = { version = "4.5.50", features = [
     "derive",
     "deprecated",
     "wrap_help",
     "string",
 ] }
-clap_complete = { version = "4.5.58", features = ["unstable-dynamic"] }
-clap_complete_nushell = "4.5.8"
+clap_complete = { version = "4.5.59", features = ["unstable-dynamic"] }
+clap_complete_nushell = "4.5.9"
 # Update clap-markdown manually since test_generate_md_cli_help snapshot
 # will need regenerating.
 clap-markdown = "=0.1.5"
@@ -40,8 +40,8 @@ chrono = { version = "0.4.42", default-features = false, features = [
     "serde",
 ] }
 clru = "0.6.2"
-criterion = "0.5.1"
-crossterm = { version = "0.28", default-features = false, features = ["windows"] }
+criterion = "0.7.0"
+crossterm = { version = "0.29", default-features = false, features = ["windows"] }
 datatest-stable = "0.3.3"
 digest = "0.10.7"
 dunce = "1.0.5"
@@ -59,12 +59,12 @@ gix = { version = "0.73.0", default-features = false, features = [
 globset = "0.4.16"
 hashbrown = { version = "0.16.0", default-features = false, features = ["inline-more"] }
 ignore = "0.4.24"
-indexmap = { version = "2.11.4", features = ["serde"] }
+indexmap = { version = "2.12.0", features = ["serde"] }
 indoc = "2.0.6"
 insta = { version = "1.43.2", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
 itertools = "0.14.0"
-jsonschema = { version = "0.32.1", default-features = false }
+jsonschema = { version = "0.33.0", default-features = false }
 libc = { version = "0.2.177" }
 maplit = "1.0.2"
 nix = "0.30.1"
@@ -77,7 +77,7 @@ pretty_assertions = "1.4.1"
 proc-macro2 = "1.0.96"
 proptest = "1.8.0"
 proptest-derive = "0.6.0"
-proptest-state-machine = "0.3.1"
+proptest-state-machine = "0.5.0"
 prost = "0.14.1"
 prost-build = "0.14.1"
 quote = "1.0.41"
@@ -102,14 +102,14 @@ smallvec = { version = "1.15.1", features = [
     "union",
 ] }
 strsim = "0.11.1"
-syn = "2.0.104"
+syn = "2.0.107"
 rustversion = "1.0.22"
 tempfile = "3.23.0"
 test-case = "3.3.1"
 textwrap = "0.16.2"
 thiserror = "2.0.17"
-timeago = { version = "0.4.2", default-features = false }
-tokio = { version = "1.47.1", features = ["io-util"] }
+timeago = { version = "0.5.0", default-features = false }
+tokio = { version = "1.48.0", features = ["io-util"] }
 toml = "0.9.8"
 toml_edit = { version = "0.23.7", features = ["serde"] }
 tracing = "0.1.41"
@@ -124,7 +124,7 @@ unicode-width = "0.2.0"
 version_check = "0.9.5"
 watchman_client = { version = "0.9.0" }
 whoami = "1.6.1"
-winreg = "0.52"
+winreg = "0.55"
 
 # put all inter-workspace libraries, i.e. those that use 'path = ...' here in
 # their own (alphabetically sorted) block
