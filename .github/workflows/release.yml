@@ -153,3 +153,38 @@ jobs:
           RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
       - name: "Show `git diff --stat`"
         run: git diff --stat gh-pages^ gh-pages || echo "(No diffs)"
+
+  copr-build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+        with:
+          python-version: 3.11
+      - name: Install uv
+        uses: astral-sh/setup-uv@3259c6206f993105e3a61b142c2d97bf4b9ef83d
+        with:
+          version: "0.5.1"
+      - name: Write version to copr.spec
+        run: |
+          VERSION=${RELEASE_TAG_NAME#v}
+          # needs the tag to be 'v<jj version>'
+          sed -i "s/{{version}}/$VERSION/" copr.spec
+        env:
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+      - name: Start COPR build
+        run: |
+          # setup copr-cli auth
+          echo "[copr-cli]" > ~/.config/copr
+          echo "login = ${{ secrets.COPR_LOGIN }}" >> ~/.config/copr
+          echo "username = jj-vcs" >> ~/.config/copr
+          echo "token = ${{ secrets.COPR_TOKEN }}" >> ~/.config/copr
+          echo "copr_url = https://copr.fedorainfracloud.org" >> ~/.config/copr
+          chmod 600 ~/.config/copr
+
+          uvx copr-cli build jj-vcs/jj copr.spec --enable-net=on --nowait
