@@ -4783,12 +4783,13 @@ Type</a> provides methods to retrieve
 signature details.</p>
 <h2 id="git-settings">Git settings<a class="headerlink" href="#git-settings" title="Permanent link">&para;</a></h2>
 <h3 id="default-colocation">Default colocation<a class="headerlink" href="#default-colocation" title="Permanent link">&para;</a></h3>
-<p>When creating a git-backed Jujutsu repository, you can disable colocation which
-places the <code>.git</code> directory next to the <code>.jj</code> directory. Colocation allows some
-amount of two-way interoperability, but it can perform worse in large repos.</p>
+<p>When creating a Git-backed Jujutsu repository, they use "colocated" mode by
+default, which places the <code>.git</code> directory next to the <code>.jj</code> directory.
+Colocation allows some amount of two-way interoperability, but it can perform
+worse in large repos.</p>
 <p>The setting <code>git.colocate</code> is a boolean option that controls whether or not the
-<code>jj git init</code> and <code>jj git clone</code> commands should create colocated repositories
-by default. By default, <code>git.colocate</code> is set to <code>true</code>.</p>
+<code>jj git init</code> and <code>jj git clone</code> commands should create colocated working copies
+by default. Set <code>git.colocate</code> to <code>false</code> to disable it.</p>
 <p>See <a href="../git-compatibility/#colocated-jujutsugit-repos">Colocated Jujutsu/Git repos</a> for more information.</p>
 <h3 id="default-remotes-for-jj-git-fetch-and-jj-git-push">Default remotes for <code>jj git fetch</code> and <code>jj git push</code><a class="headerlink" href="#default-remotes-for-jj-git-fetch-and-jj-git-push" title="Permanent link">&para;</a></h3>
 <p>By default, if a single remote exists it is used for <code>jj git fetch</code> and <code>jj git
