@@ -86,7 +86,7 @@ pub(crate) fn cmd_absorb(
         .to_matcher();
 
     let repo = workspace_command.repo().as_ref();
-    let source = AbsorbSource::from_commit(repo, source_commit)?;
+    let source = AbsorbSource::from_commit(repo, source_commit).block_on()?;
     let selected_trees = split_hunks_to_trees(repo, &source, &destinations, &matcher).block_on()?;
 
     let path_converter = workspace_command.path_converter();

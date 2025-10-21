@@ -363,13 +363,13 @@ pub async fn rebase_to_dest_parent(
     if let [source] = sources
         && source.parent_ids() == destination.parent_ids()
     {
-        return source.tree();
+        return source.tree_async().await;
     }
 
-    let mut destination_tree = destination.parent_tree(repo)?;
+    let mut destination_tree = destination.parent_tree_async(repo).await?;
     for source in sources {
-        let source_parent_tree = source.parent_tree(repo)?;
-        let source_tree = source.tree()?;
+        let source_parent_tree = source.parent_tree_async(repo).await?;
+        let source_tree = source.tree_async().await?;
         destination_tree = destination_tree
             .merge(source_parent_tree, source_tree)
             .await?;
@@ -1207,7 +1207,7 @@ pub async fn squash_commits<'repo>(
             repo.record_abandoned_commit(&source.commit.commit);
             abandoned_commits.push(source.commit.commit.clone());
         } else {
-            let source_tree = source.commit.commit.tree()?;
+            let source_tree = source.commit.commit.tree_async().await?;
             // Apply the reverse of the selected changes onto the source
             let new_source_tree = source_tree
                 .merge(
@@ -1244,7 +1244,7 @@ pub async fn squash_commits<'repo>(
         .await?;
     }
     // Apply the selected changes onto the destination
-    let mut destination_tree = rewritten_destination.tree()?;
+    let mut destination_tree = rewritten_destination.tree_async().await?;
     for source in &source_commits {
         destination_tree = destination_tree
             .merge(

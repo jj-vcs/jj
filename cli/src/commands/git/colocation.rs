@@ -275,7 +275,7 @@ fn set_git_head_to_wc_parent(
     wc_commit: &Commit,
 ) -> Result<(), CommandError> {
     let mut tx = workspace_command.start_transaction();
-    git::reset_head(tx.repo_mut(), wc_commit)?;
+    git::reset_head(tx.repo_mut(), wc_commit).block_on()?;
     if tx.repo().has_changes() {
         tx.finish(ui, "set git head to working copy parent")?;
     }

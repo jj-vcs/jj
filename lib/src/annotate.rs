@@ -269,7 +269,7 @@ impl Source {
     }
 
     async fn load(commit: &Commit, file_path: &RepoPath) -> Result<Self, BackendError> {
-        let tree = commit.tree()?;
+        let tree = commit.tree_async().await?;
         let text = get_file_contents(commit.store(), file_path, &tree).await?;
         Ok(Self::new(text))
     }
