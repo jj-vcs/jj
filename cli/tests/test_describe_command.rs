@@ -266,6 +266,19 @@ fn test_describe_editor_env() {
 }
 
 #[test]
+fn test_describe_no_matching_revisions() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let output = work_dir.run_jj(["describe", "none()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    No revisions to describe.
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_describe_multiple_commits() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
