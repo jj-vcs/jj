@@ -79,9 +79,10 @@ fn repo_supports_git_colocation_commands(
     git::get_git_backend(workspace_command.repo().store())?;
 
     // Ensure that this is the main workspace
-    if workspace_command.repo_path().is_file() {
+    let repo_dir = workspace_command.workspace_root().join(".jj").join("repo");
+    if repo_dir.is_file() {
         return Err(user_error(
-            "This command cannot be used in a non-main Jujutsu workspace.",
+            "This command cannot be used in a non-main Jujutsu workspace",
         ));
     }
     Ok(())

@@ -253,3 +253,40 @@ fn test_git_colocation_status_colocated() {
     Hint: To disable colocation, run: `jj git colocation disable`
     [EOF]");
 }
+
+#[test]
+fn test_git_colocation_in_secondary_workspace() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--no-colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+    let secondary_dir = test_env.work_dir("secondary");
+
+    let output = secondary_dir.run_jj(["git", "colocation", "status"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: This command cannot be used in a non-main Jujutsu workspace
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = secondary_dir.run_jj(["git", "colocation", "enable"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: This command cannot be used in a non-main Jujutsu workspace
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = secondary_dir.run_jj(["git", "colocation", "disable"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: This command cannot be used in a non-main Jujutsu workspace
+    [EOF]
+    [exit status: 1]
+    ");
+}
