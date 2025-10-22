@@ -1,9 +1,16 @@
-# Community-built tools around Jujutsu
+# Community-built tools around Jujutsu (alphabetical)
 
 **Important:** Many of these are not complete yet, just like Jujutsu itself.
 But they already simplify many workflows and can improve your experience.
 
 ## GUIs
+
+### GG - GUI for JJ
+
+GG is a cross platform GUI for Jujutsu which makes all graph manipulating
+workflows quite easy. Take a look at its README.md as it quite descriptive.
+
+Find it [here][gg].
 
 ### Judo for JJ - Cross-platform GUI desktop app
 
@@ -13,19 +20,18 @@ of multiple commits, interdiffs between commits, custom revset support, and more
 
 Find it [here][judojj].
 
-### GG - GUI for JJ
-
-GG is a cross platform GUI for Jujutsu which makes all graph manipulating
-workflows quite easy. Take a look at its README.md as it quite descriptive.
-
-Find it [here][gg].
-
 ### Jujutsu Kaizen
 
 Jujutsu Kaizen is a plugin for Visual Studio Code. The goal of this extension is to bring the great UX of Jujutsu into the VS Code UI.
 Its developers are currently focused on achieving parity for commonly used features of VS Code's built-in Git extension, such as the various operations possible via the Source Control view.
 
 Find it [here][jjk].
+
+### Selvejj
+
+Selvejj is a JetBrains plugin for integrating Jujutsu as a first-class VCS within the IDE.
+
+Find it [here][selvejj].
 
 ### VisualJJ
 
@@ -34,12 +40,6 @@ for Jujutsu, not relying on Git colocation. Unlike other tools on this page,
 VisualJJ is not open-source.
 
 Find it [here][visualjj].
-
-### Selvejj
-
-Selvejj is a JetBrains plugin for integrating Jujutsu as a first-class VCS within the IDE.
-
-Find it [here][selvejj].
 
 ## Command line tools and TUIs (terminal user interfaces)
 
@@ -58,6 +58,12 @@ open to feedback.
 
 Find it [here][jj_tui].
 
+### Jujutsu UI
+
+jjui is a terminal user interface for working with Jujutsu version control system.
+
+Find it [here][jjui].
+
 ### LazyJJ
 
 lazyjj is a lazygit inspired TUI for Jujutsu.
@@ -70,12 +76,6 @@ VJJ is a fzf (fuzzy finder) wrapper for Jujutsu, which is meant to be used
 interactively in the terminal.
 
 Find it [here][vjj].
-
-### Jujutsu UI
-
-jjui is a terminal user interface for working with Jujutsu version control system.
-
-Find it [here][jjui].
 
 ## Other tools
 
@@ -106,10 +106,10 @@ You can find other community contributed tools and integrations in our
 [jj-fzf]: https://github.com/tim-janik/jj-fzf
 [jj_tui]: https://github.com/faldor20/jj_tui
 [jjk]: https://github.com/keanemind/jjk
-[lazyjj]: https://github.com/Cretezy/lazyjj
-[vjj]: https://github.com/noahmayr/vjj
-[visualjj]: https://www.visualjj.com
-[Wiki]: https://github.com/jj-vcs/jj/wiki
 [jjui]: https://github.com/idursun/jjui
-[selvejj]: https://selvejj.com
 [judojj]: https://judojj.com
+[lazyjj]: https://github.com/Cretezy/lazyjj
+[selvejj]: https://selvejj.com
+[visualjj]: https://www.visualjj.com
+[vjj]: https://github.com/noahmayr/vjj
+[Wiki]: https://github.com/jj-vcs/jj/wiki
