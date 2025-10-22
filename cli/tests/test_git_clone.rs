@@ -1107,10 +1107,7 @@ fn test_git_clone_with_global_git_remote_config() {
                 prune = true
         "#},
     );
-    test_env.add_env_var(
-        "GIT_CONFIG_GLOBAL",
-        test_env.env_root().join("git-config").to_str().unwrap(),
-    );
+    test_env.add_env_var("GIT_CONFIG_GLOBAL", test_env.env_root().join("git-config"));
 
     let root_dir = test_env.work_dir("");
     let git_repo_path = root_dir.root().join("source");

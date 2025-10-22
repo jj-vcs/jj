@@ -15,6 +15,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::ffi::OsString;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -36,7 +37,7 @@ pub struct TestEnvironment {
     env_root: PathBuf,
     home_dir: PathBuf,
     config_path: PathBuf,
-    env_vars: HashMap<String, String>,
+    env_vars: HashMap<OsString, OsString>,
     config_file_number: RefCell<i64>,
     command_number: RefCell<i64>,
 }
@@ -202,7 +203,7 @@ impl TestEnvironment {
         .unwrap();
     }
 
-    pub fn add_env_var(&mut self, key: impl Into<String>, val: impl Into<String>) {
+    pub fn add_env_var(&mut self, key: impl Into<OsString>, val: impl Into<OsString>) {
         self.env_vars.insert(key.into(), val.into());
     }
 
@@ -211,7 +212,7 @@ impl TestEnvironment {
     pub fn set_up_fake_bisector(&mut self) -> PathBuf {
         let bisection_script = self.env_root().join("bisection_script");
         std::fs::write(&bisection_script, "").unwrap();
-        self.add_env_var("BISECTION_SCRIPT", bisection_script.to_str().unwrap());
+        self.add_env_var("BISECTION_SCRIPT", &bisection_script);
         bisection_script
     }
 
@@ -230,7 +231,7 @@ impl TestEnvironment {
         "#});
         let edit_script = self.env_root().join("edit_script");
         std::fs::write(&edit_script, "").unwrap();
-        self.add_env_var("EDIT_SCRIPT", edit_script.to_str().unwrap());
+        self.add_env_var("EDIT_SCRIPT", &edit_script);
         edit_script
     }
 
@@ -244,7 +245,7 @@ impl TestEnvironment {
         "#});
         let edit_script = self.env_root().join("diff_edit_script");
         std::fs::write(&edit_script, "").unwrap();
-        self.add_env_var("DIFF_EDIT_SCRIPT", edit_script.to_str().unwrap());
+        self.add_env_var("DIFF_EDIT_SCRIPT", &edit_script);
         edit_script
     }
 

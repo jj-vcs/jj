@@ -544,10 +544,7 @@ fn test_git_remote_with_global_git_remote_config() {
                 fetch = +refs/heads/*:refs/remotes/foo/*
         "#},
     );
-    test_env.add_env_var(
-        "GIT_CONFIG_GLOBAL",
-        test_env.env_root().join("git-config").to_str().unwrap(),
-    );
+    test_env.add_env_var("GIT_CONFIG_GLOBAL", test_env.env_root().join("git-config"));
 
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
