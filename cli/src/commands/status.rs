@@ -26,6 +26,7 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::print_conflicted_paths;
 use crate::cli_util::print_snapshot_stats;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::diff_util::DiffFormat;
 use crate::diff_util::get_copy_records;
@@ -69,9 +70,8 @@ pub(crate) fn cmd_status(
         .get_wc_commit_id()
         .map(|id| repo.store().get_commit(id))
         .transpose()?;
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+    let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
+    let matcher = fileset_expression.to_matcher();
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
@@ -110,7 +110,7 @@ pub(crate) fn cmd_status(
                 writeln!(formatter, "Untracked paths:")?;
                 visit_collapsed_untracked_files(
                     snapshot_stats.untracked_paths.keys(),
-                    tree,
+                    tree.clone(),
                     |path, is_dir| {
                         let ui_path = workspace_command.path_converter().format_file_path(path);
                         writeln!(
@@ -178,6 +178,13 @@ pub(crate) fn cmd_status(
                 }
             }
         }
+
+        print_unmatched_explicit_paths(
+            ui,
+            &workspace_command,
+            &fileset_expression,
+            [&parent_tree, &tree],
+        )?;
     } else {
         writeln!(formatter, "No working copy")?;
     }

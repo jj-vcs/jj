@@ -315,6 +315,7 @@ fn test_squash_partial() {
     let output = work_dir.run_jj(["squash", "-r", "b", "nonexistent"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: No matching entries for paths: nonexistent
     Nothing changed.
     [EOF]
     ");
@@ -325,6 +326,7 @@ fn test_squash_partial() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Warning: The argument "b" is being interpreted as a fileset expression. To specify a revset, pass -r "b" instead.
+    Warning: No matching entries for paths: b
     Nothing changed.
     [EOF]
     "#);

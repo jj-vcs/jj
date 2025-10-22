@@ -21,6 +21,7 @@ use jj_lib::graph::GraphEdge;
 use jj_lib::graph::GraphEdgeType;
 use jj_lib::graph::TopoGroupedGraphIterator;
 use jj_lib::graph::reverse_graph;
+use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
@@ -33,6 +34,7 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::format_template;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
@@ -179,6 +181,7 @@ pub(crate) fn cmd_log(
             .labeled(["log", "commit", "node"]);
     }
 
+    let mut trees: Vec<MergedTree> = vec![];
     {
         ui.request_pager();
         let mut formatter = ui.stdout_formatter();
@@ -250,6 +253,8 @@ pub(crate) fn cmd_log(
                 if !buffer.ends_with(b"\n") {
                     buffer.push(b'\n');
                 }
+
+                trees.push(commit.tree().unwrap());
                 if let Some(renderer) = &diff_renderer {
                     let mut formatter = ui.new_formatter(&mut buffer);
                     renderer
@@ -303,6 +308,8 @@ pub(crate) fn cmd_log(
                 let commit = commit_or_error?;
                 with_content_format
                     .write(formatter, |formatter| template.format(&commit, formatter))?;
+
+                trees.push(commit.tree().unwrap());
                 if let Some(renderer) = &diff_renderer {
                     let width = ui.term_width();
                     renderer
@@ -312,6 +319,8 @@ pub(crate) fn cmd_log(
             }
         }
     }
+
+    print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, trees.iter())?;
 
     // Check to see if the user might have specified a path when they intended
     // to specify a revset.

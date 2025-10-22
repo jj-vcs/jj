@@ -134,6 +134,21 @@ fn test_interdiff_paths() {
        1    1: barbaz
     [EOF]
     ");
+
+    // The output filtered to a non-existent file should display a warning.
+    let output = work_dir.run_jj([
+        "interdiff",
+        "--from",
+        "left",
+        "--to",
+        "right",
+        "nonexistent",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: No matching entries for paths: nonexistent
+    [EOF]
+    ");
 }
 
 #[test]

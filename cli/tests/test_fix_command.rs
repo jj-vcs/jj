@@ -510,6 +510,16 @@ fn test_relative_paths() {
     unfixed
     [EOF]
     ");
+
+    // The output filtered to a non-existent file should display a warning.
+    let output = work_dir.run_jj(["fix", "nonexistent"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: No matching entries for paths: nonexistent
+    Fixed 0 commits of 1 checked.
+    Nothing changed.
+    [EOF]
+    ");
 }
 
 #[test]

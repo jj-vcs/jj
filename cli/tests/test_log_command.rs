@@ -856,6 +856,24 @@ fn test_log_filtered_by_path() {
     work_dir.write_file("file1", "foo\nbar\n");
     work_dir.write_file("file2", "baz\n");
 
+    // The output filtered to a non-existent file should display a warning.
+    let output = work_dir.run_jj(["log", "-r", "@-", "-T", "description", "nonexistent"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: No matching entries for paths: nonexistent
+    [EOF]
+    "#);
+
+    // The output filtered to a non-existent file should display a warning.
+    // The warning should be displayed at the beginning of the output.
+    let output = work_dir.run_jj(["log", "-T", "description", "nonexistent"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: No matching entries for paths: nonexistent
+    Warning: The argument "nonexistent" is being interpreted as a fileset expression. To specify a revset, pass -r "nonexistent" instead.
+    [EOF]
+    "#);
+
     let output = work_dir.run_jj(["log", "-T", "description", "file1"]);
     insta::assert_snapshot!(output, @r"
     @  second

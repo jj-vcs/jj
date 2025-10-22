@@ -19,8 +19,8 @@ use std::process::Stdio;
 
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
-use jj_lib::backend::CommitId;
 use jj_lib::backend::FileId;
+use jj_lib::commit::Commit;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
@@ -38,6 +38,7 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::command_error::config_error;
 use crate::command_error::print_parse_diagnostics;
@@ -134,18 +135,25 @@ pub(crate) fn cmd_fix(
     let workspace_root = workspace_command.workspace_root().to_owned();
     let path_converter = workspace_command.path_converter().to_owned();
     let tools_config = get_tools_config(ui, workspace_command.settings())?;
-    let root_commits: Vec<CommitId> = if args.source.is_empty() {
+    let root_commits: Vec<Commit> = if args.source.is_empty() {
         let revs = workspace_command.settings().get_string("revsets.fix")?;
         workspace_command.parse_revset(ui, &RevisionArg::from(revs))?
     } else {
         workspace_command.parse_union_revsets(ui, &args.source)?
     }
-    .evaluate_to_commit_ids()?
+    .evaluate_to_commits()?
     .try_collect()?;
-    workspace_command.check_rewritable(root_commits.iter())?;
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+    let root_commit_ids = root_commits
+        .iter()
+        .map(|commit| commit.id().clone())
+        .collect_vec();
+    let root_trees = root_commits
+        .iter()
+        .map(|commit| commit.tree().unwrap())
+        .collect_vec();
+    workspace_command.check_rewritable(root_commit_ids.iter())?;
+    let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
+    let matcher = fileset_expression.to_matcher();
 
     let mut tx = workspace_command.start_transaction();
     let mut parallel_fixer = ParallelFileFixer::new(|store, file_to_fix| {
@@ -159,8 +167,16 @@ pub(crate) fn cmd_fix(
         )
         .block_on()
     });
+
+    print_unmatched_explicit_paths(
+        ui,
+        tx.base_workspace_helper(),
+        &fileset_expression,
+        root_trees.iter(),
+    )?;
+
     let summary = fix_files(
-        root_commits,
+        root_commit_ids,
         &matcher,
         args.include_unchanged_files,
         tx.repo_mut(),
