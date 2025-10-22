@@ -2084,9 +2084,18 @@ time.</p>
 </li>
 </ul>
 <h3 id="converting-a-repo-into-a-colocated-repo">Converting a repo into a colocated repo<a class="headerlink" href="#converting-a-repo-into-a-colocated-repo" title="Permanent link">&para;</a></h3>
-<p>A Jujutsu repo backed by a Git repo has a full Git repo inside, so it is
-technically possible (though not officially supported) to convert it into a
-colocated repo like so:</p>
+<p>A Jujutsu repo backed by a Git repo has a full Git repo inside, which can be
+converted into a colocated repo using the <code>jj git colocation</code> command.</p>
+<p>To check the current colocation status of your repository:</p>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>git<span class="w"> </span>colocation<span class="w"> </span>status
+</code></pre></div>
+<p>To convert to a colocated repo:</p>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>git<span class="w"> </span>colocation<span class="w"> </span><span class="nb">enable</span>
+</code></pre></div>
+<p>To convert to a non-colocated repo:</p>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>git<span class="w"> </span>colocation<span class="w"> </span>disable
+</code></pre></div>
+<p>The <code>jj colocation enable</code> command automates the following manual process:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Ignore the .jj directory in Git</span>
 <span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;/*&#39;</span><span class="w"> </span>&gt;<span class="w"> </span>.jj/.gitignore
 <span class="c1"># Move the Git repo</span>
@@ -2105,8 +2114,6 @@ to complain about the contents of <code>git_target</code>.</p>
 <p>Instead of the <code>echo -n ...</code> line, use:
 <code>Set-Content -Path .jj/repo/store/git_target -Value ../../../.git -NoNewLine</code></p>
 </div>
-<p>We may officially support this in the future. If you try this, we would
-appreciate feedback and bug reports.</p>
 <h2 id="branches">Branches<a class="headerlink" href="#branches" title="Permanent link">&para;</a></h2>
 <p>TODO: Describe how branches are mapped</p>
 <h2 id="format-mapping-details">Format mapping details<a class="headerlink" href="#format-mapping-details" title="Permanent link">&para;</a></h2>
