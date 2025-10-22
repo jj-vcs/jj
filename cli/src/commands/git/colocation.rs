@@ -52,9 +52,9 @@ pub struct GitColocationDisableArgs {}
 /// Manage Jujutsu repository colocation with Git
 #[derive(clap::Subcommand, Clone, Debug)]
 pub enum GitColocationCommand {
-    Status(GitColocationStatusArgs),
-    Enable(GitColocationEnableArgs),
     Disable(GitColocationDisableArgs),
+    Enable(GitColocationEnableArgs),
+    Status(GitColocationStatusArgs),
 }
 
 pub fn cmd_git_colocation(
@@ -63,9 +63,9 @@ pub fn cmd_git_colocation(
     subcommand: &GitColocationCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
-        GitColocationCommand::Status(args) => cmd_git_colocation_status(ui, command, args),
-        GitColocationCommand::Enable(args) => cmd_git_colocation_enable(ui, command, args),
         GitColocationCommand::Disable(args) => cmd_git_colocation_disable(ui, command, args),
+        GitColocationCommand::Enable(args) => cmd_git_colocation_enable(ui, command, args),
+        GitColocationCommand::Status(args) => cmd_git_colocation_status(ui, command, args),
     }
 }
 

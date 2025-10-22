@@ -52,9 +52,9 @@ This document contains the help content for the `jj` command-line program.
 * [`jj git`↴](#jj-git)
 * [`jj git clone`↴](#jj-git-clone)
 * [`jj git colocation`↴](#jj-git-colocation)
-* [`jj git colocation status`↴](#jj-git-colocation-status)
-* [`jj git colocation enable`↴](#jj-git-colocation-enable)
 * [`jj git colocation disable`↴](#jj-git-colocation-disable)
+* [`jj git colocation enable`↴](#jj-git-colocation-enable)
+* [`jj git colocation status`↴](#jj-git-colocation-status)
 * [`jj git export`↴](#jj-git-export)
 * [`jj git fetch`↴](#jj-git-fetch)
 * [`jj git import`↴](#jj-git-import)
@@ -1351,17 +1351,19 @@ Manage Jujutsu repository colocation with Git
 
 ###### **Subcommands:**
 
-* `status` — Show the current colocation status
-* `enable` — Convert into a colocated Jujutsu/Git repository
 * `disable` — Convert into a non-colocated Jujutsu/Git repository
+* `enable` — Convert into a colocated Jujutsu/Git repository
+* `status` — Show the current colocation status
 
 
 
-## `jj git colocation status`
+## `jj git colocation disable`
 
-Show the current colocation status
+Convert into a non-colocated Jujutsu/Git repository
 
-**Usage:** `jj git colocation status`
+This moves the Git repository that is at the root of the Jujutsu workspace into the .jj directory. Once this is done you will no longer be able to use Git commands directly in the Jujutsu workspace.
+
+**Usage:** `jj git colocation disable`
 
 
 
@@ -1375,13 +1377,11 @@ This moves the underlying Git repository that is found inside the .jj directory 
 
 
 
-## `jj git colocation disable`
+## `jj git colocation status`
 
-Convert into a non-colocated Jujutsu/Git repository
+Show the current colocation status
 
-This moves the Git repository that is at the root of the Jujutsu workspace into the .jj directory. Once this is done you will no longer be able to use Git commands directly in the Jujutsu workspace.
-
-**Usage:** `jj git colocation disable`
+**Usage:** `jj git colocation status`
 
 
 
