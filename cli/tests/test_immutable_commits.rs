@@ -609,3 +609,23 @@ fn test_rewrite_immutable_commands() {
     [exit status: 1]
     "#);
 }
+
+#[test]
+fn test_immutable_log() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["new"]).success();
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "@-""#);
+    // The immutable commits should be indicated in the graph even with
+    // `--ignore-immutable`
+    let output = work_dir.run_jj(["log", "--ignore-immutable"]);
+    insta::assert_snapshot!(output, @r"
+    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 43444d88
+    │  (empty) (no description set)
+    ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
+    │  (empty) (no description set)
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+}
