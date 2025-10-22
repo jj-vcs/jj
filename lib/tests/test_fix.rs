@@ -94,6 +94,7 @@ fn create_commit(tx: &mut Transaction, parents: Vec<CommitId>, tree_id: MergedTr
     tx.repo_mut()
         .new_commit(parents, tree_id)
         .write()
+        .block_on()
         .unwrap()
         .id()
         .clone()

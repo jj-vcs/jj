@@ -86,7 +86,7 @@ fn test_merged_tree_builder_resolves_conflict() {
         [tree2.id().clone(), tree3.id().clone()],
     ));
     let tree_builder = MergedTreeBuilder::new(base_tree_id);
-    let tree_id = tree_builder.write_tree(store).unwrap();
+    let tree_id = tree_builder.write_tree(store).block_on().unwrap();
     assert_eq!(tree_id, MergedTreeId::resolved(tree2.id().clone()));
 }
 

@@ -20,6 +20,7 @@ use jj_lib::backend::Timestamp;
 use jj_lib::commit::Commit;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::time_util::parse_datetime;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -210,15 +211,16 @@ pub(crate) fn cmd_metaedit(
                 }
 
                 if has_changes {
-                    let new_commit = commit_builder.write()?;
+                    let new_commit = commit_builder.write().await?;
                     modified.push(new_commit);
                 }
             } else if rewriter.parents_changed() {
-                rewriter.reparent().write()?;
+                rewriter.reparent().write().await?;
                 num_reparented += 1;
             }
             Ok(())
-        })?;
+        })
+        .block_on()?;
     if !modified.is_empty() {
         writeln!(ui.status(), "Modified {} commits:", modified.len())?;
         if let Some(mut formatter) = ui.status_formatter() {

@@ -17,6 +17,7 @@ use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::operation::Operation;
 use jj_lib::repo::Repo as _;
+use pollster::FutureExt as _;
 
 use super::DEFAULT_REVERT_WHAT;
 use super::RevertWhatToRestore;
@@ -65,8 +66,8 @@ pub fn cmd_op_revert(
 
     let mut tx = workspace_command.start_transaction();
     let repo_loader = tx.base_repo().loader();
-    let bad_repo = repo_loader.load_at(&bad_op)?;
-    let parent_repo = repo_loader.load_at(&parent_of_bad_op)?;
+    let bad_repo = repo_loader.load_at(&bad_op).block_on()?;
+    let parent_repo = repo_loader.load_at(&parent_of_bad_op).block_on()?;
     tx.repo_mut().merge(&bad_repo, &parent_repo)?;
     let new_view = view_with_desired_portions_restored(
         tx.repo().view().store_view(),

@@ -29,6 +29,7 @@ use futures::Stream;
 use futures::StreamExt as _;
 use futures::future::BoxFuture;
 use futures::future::try_join;
+use futures::future::try_join_all;
 use futures::stream::BoxStream;
 use itertools::EitherOrBoth;
 use itertools::Itertools as _;
@@ -978,20 +979,20 @@ impl MergedTreeBuilder {
     }
 
     /// Create new tree(s) from the base tree(s) and overrides.
-    pub fn write_tree(self, store: &Arc<Store>) -> BackendResult<MergedTreeId> {
+    pub async fn write_tree(self, store: &Arc<Store>) -> BackendResult<MergedTreeId> {
         let base_tree_ids = self.base_tree_id.as_merge().clone();
-        let new_tree_ids = self.write_merged_trees(base_tree_ids, store)?;
+        let new_tree_ids = self.write_merged_trees(base_tree_ids, store).await?;
         match new_tree_ids.simplify().into_resolved() {
             Ok(single_tree_id) => Ok(MergedTreeId::resolved(single_tree_id)),
             Err(tree_id) => {
                 let tree = store.get_root_tree(&MergedTreeId::new(tree_id))?;
-                let resolved = tree.resolve().block_on()?;
+                let resolved = tree.resolve().await?;
                 Ok(resolved.id())
             }
         }
     }
 
-    fn write_merged_trees(
+    async fn write_merged_trees(
         self,
         mut base_tree_ids: Merge<TreeId>,
         store: &Arc<Store>,
@@ -1028,10 +1029,11 @@ impl MergedTreeBuilder {
         // TODO: This can be made more efficient. If there's a single resolved conflict
         // in `dir/file`, we shouldn't have to write the `dir/` and root trees more than
         // once.
-        let merge_builder: MergeBuilder<TreeId> = tree_builders
+        let futures: Vec<_> = tree_builders
             .into_iter()
             .map(|builder| builder.write_tree())
-            .try_collect()?;
-        Ok(merge_builder.build())
+            .collect();
+        let merge = Merge::from_vec(try_join_all(futures).await?);
+        Ok(merge)
     }
 }

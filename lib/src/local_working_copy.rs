@@ -1105,7 +1105,7 @@ impl TreeState {
                 .merge_in(changed_file_states, &deleted_files);
         });
         trace_span!("write tree").in_scope(|| -> Result<(), BackendError> {
-            let new_tree_id = tree_builder.write_tree(&self.store)?;
+            let new_tree_id = tree_builder.write_tree(&self.store).block_on()?;
             is_dirty |= new_tree_id != self.tree_id;
             self.tree_id = new_tree_id;
             Ok(())

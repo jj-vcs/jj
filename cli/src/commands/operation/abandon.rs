@@ -65,12 +65,12 @@ pub fn cmd_op_abandon(
     if command.global_args().at_operation.is_some() {
         return Err(cli_error("--at-op is not respected"));
     }
-    let current_head_ops = op_walk::get_current_head_ops(op_store, op_heads_store.as_ref())?;
-    let resolve_op = |op_str| op_walk::resolve_op_at(op_store, &current_head_ops, op_str);
+    let current_head_ops = op_walk::get_current_head_ops(op_store, op_heads_store.as_ref()).block_on()?;
+    let resolve_op = |op_str| op_walk::resolve_op_at(op_store, &current_head_ops, op_str).block_on();
     let (abandon_root_op, abandon_head_ops) =
         if let Some((root_op_str, head_op_str)) = args.operation.split_once("..") {
             let root_op = if root_op_str.is_empty() {
-                repo_loader.root_operation()
+                repo_loader.root_operation().block_on()
             } else {
                 resolve_op(root_op_str)?
             };
@@ -111,7 +111,8 @@ pub fn cmd_op_abandon(
         &abandon_head_ops,
         &current_head_ops,
         &abandon_root_op,
-    )?;
+    )
+    .block_on()?;
     assert_eq!(
         current_head_ops.len(),
         stats.new_head_ids.len(),

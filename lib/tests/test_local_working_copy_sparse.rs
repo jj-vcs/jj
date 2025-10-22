@@ -63,6 +63,7 @@ fn test_sparse_checkout() {
     test_workspace
         .workspace
         .check_out(repo.op_id().clone(), None, &commit)
+        .block_on()
         .unwrap();
     let ws = &mut test_workspace.workspace;
 
@@ -223,6 +224,7 @@ fn test_sparse_commit() {
     test_workspace
         .workspace
         .check_out(repo.op_id().clone(), None, &commit)
+        .block_on()
         .unwrap();
 
     // Set sparse patterns to only dir1/

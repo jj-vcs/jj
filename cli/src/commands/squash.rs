@@ -271,7 +271,8 @@ pub(crate) fn cmd_squash(
         let commit = tx
             .repo_mut()
             .new_commit(parent_ids.clone(), merged_tree.id())
-            .write()?;
+            .write()
+            .block_on()?;
         let mut rewritten = HashMap::new();
         tx.repo_mut()
             .transform_descendants(child_ids.clone(), async |mut rewriter| {
@@ -289,11 +290,12 @@ pub(crate) fn cmd_squash(
                             .collect(),
                     );
                 }
-                let new_commit = rewriter.rebase().await?.write()?;
+                let new_commit = rewriter.rebase().await?.write().await?;
                 rewritten.insert(old_commit_id, new_commit);
                 num_rebased += 1;
                 Ok(())
-            })?;
+            })
+            .block_on()?;
         for source in &mut *sources {
             if let Some(rewritten_source) = rewritten.remove(source.id()) {
                 *source = rewritten_source;
@@ -318,7 +320,9 @@ pub(crate) fn cmd_squash(
         &source_commits,
         &destination,
         args.keep_emptied,
-    )? {
+    )
+    .block_on()?
+    {
         let mut commit_builder = squashed.commit_builder.detach();
         let new_description = match description {
             SquashedDescription::Exact(description) => {
@@ -356,7 +360,7 @@ pub(crate) fn cmd_squash(
                     )?;
                     // It's weird that commit.description() contains "JJ: " lines, but works.
                     commit_builder.set_description(combined);
-                    let temp_commit = commit_builder.write_hidden()?;
+                    let temp_commit = commit_builder.write_hidden().block_on()?;
                     let intro = "Enter a description for the combined commit.";
                     let template = description_template(ui, &tx, intro, &temp_commit)?;
                     edit_description(&text_editor, &template)?
@@ -375,8 +379,8 @@ pub(crate) fn cmd_squash(
                     .collect(),
             );
         }
-        let commit = commit_builder.write(tx.repo_mut())?;
-        let num_rebased = tx.repo_mut().rebase_descendants()?;
+        let commit = commit_builder.write(tx.repo_mut()).block_on()?;
+        let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
         if let Some(mut formatter) = ui.status_formatter() {
             if insert_destination_commit {
                 write!(formatter, "Created new commit ")?;

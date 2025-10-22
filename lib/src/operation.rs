@@ -114,8 +114,8 @@ impl Operation {
         })
     }
 
-    pub fn view(&self) -> OpStoreResult<View> {
-        let data = self.op_store.read_view(&self.data.view_id).block_on()?;
+    pub async fn view(&self) -> OpStoreResult<View> {
+        let data = self.op_store.read_view(&self.data.view_id).await?;
         Ok(View::new(data))
     }
 

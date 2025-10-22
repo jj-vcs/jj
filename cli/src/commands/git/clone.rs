@@ -28,6 +28,7 @@ use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringPattern;
 use jj_lib::workspace::Workspace;
+use pollster::FutureExt as _;
 
 use super::write_repository_level_trunk_alias;
 use crate::cli_util::CommandHelper;
@@ -272,8 +273,9 @@ fn configure_remote(
     )?;
     let op = workspace
         .repo_loader()
-        .load_operation(workspace_command.repo().op_id())?;
-    let repo = workspace.repo_loader().load_at(&op)?;
+        .load_operation(workspace_command.repo().op_id())
+        .block_on()?;
+    let repo = workspace.repo_loader().load_at(&op).block_on()?;
     command.for_workable_repo(ui, workspace, repo)
 }
 

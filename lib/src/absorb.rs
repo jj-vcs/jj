@@ -23,7 +23,6 @@ use std::sync::Arc;
 use bstr::BString;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::annotate::FileAnnotator;
@@ -136,7 +135,7 @@ pub async fn split_hunks_to_trees(
         // Compute annotation of parent (= left) content to map right hunks
         let mut annotator =
             FileAnnotator::with_file_content(source.commit.id(), left_path, left_text.clone());
-        annotator.compute(repo, destinations)?;
+        annotator.compute(repo, destinations).await?;
         let annotation = annotator.to_annotation();
         let annotation_ranges = annotation
             .compact_line_ranges()
@@ -285,7 +284,7 @@ pub struct AbsorbStats {
 
 /// Merges selected trees into the specified commits. Abandons the source commit
 /// if it becomes discardable.
-pub fn absorb_hunks(
+pub async fn absorb_hunks(
     repo: &mut MutableRepo,
     source: &AbsorbSource,
     mut selected_trees: HashMap<CommitId, MergedTreeBuilder>,
@@ -303,33 +302,35 @@ pub fn absorb_hunks(
             if commit_builder.is_discardable()? {
                 commit_builder.abandon();
             } else {
-                rewritten_source = Some(commit_builder.write()?);
+                rewritten_source = Some(commit_builder.write().await?);
                 num_rebased += 1;
             }
             return Ok(());
         }
         let Some(tree_builder) = selected_trees.remove(rewriter.old_commit().id()) else {
-            rewriter.rebase().await?.write()?;
+            rewriter.rebase().await?.write().await?;
             num_rebased += 1;
             return Ok(());
         };
         // Merge hunks between source parent tree and selected tree
-        let selected_tree_id = tree_builder.write_tree(&store)?;
+        let selected_tree_id = tree_builder.write_tree(&store).await?;
         let commit_builder = rewriter.rebase().await?;
         let destination_tree = store.get_root_tree(commit_builder.tree_id())?;
         let selected_tree = store.get_root_tree(&selected_tree_id)?;
         let new_tree = destination_tree
             .merge(source.parent_tree.clone(), selected_tree)
-            .block_on()?;
+            .await?;
         let mut predecessors = commit_builder.predecessors().to_vec();
         predecessors.push(source.commit.id().clone());
         let new_commit = commit_builder
             .set_tree_id(new_tree.id())
             .set_predecessors(predecessors)
-            .write()?;
+            .write()
+            .await?;
         rewritten_destinations.push(new_commit);
         Ok(())
-    })?;
+    })
+    .await?;
     Ok(AbsorbStats {
         rewritten_source,
         rewritten_destinations,

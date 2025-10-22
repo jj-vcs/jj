@@ -178,6 +178,7 @@ fn test_init_load_non_utf8_path() {
     use std::os::unix::ffi::OsStrExt as _;
 
     use jj_lib::workspace::default_working_copy_factories;
+    use pollster::FutureExt as _;
     use testutils::TestEnvironment;
 
     let settings = testutils::user_settings();
@@ -202,7 +203,7 @@ fn test_init_load_non_utf8_path() {
     .unwrap();
 
     // Just test that we can write a commit to the store
-    let repo = workspace.repo_loader().load_at_head().unwrap();
+    let repo = workspace.repo_loader().load_at_head().block_on().unwrap();
     let mut tx = repo.start_transaction();
     write_random_commit(tx.repo_mut());
 }

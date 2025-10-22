@@ -59,11 +59,11 @@ fn test_commit_parallel(backend: TestRepoBackend) {
             s.spawn(move || {
                 let mut tx = repo.start_transaction();
                 write_random_commit(tx.repo_mut());
-                tx.commit("test").unwrap();
+                tx.commit("test").block_on().unwrap();
             });
         }
     });
-    let repo = repo.reload_at_head().unwrap();
+    let repo = repo.reload_at_head().block_on().unwrap();
     // One commit per thread plus the commit from the initial working-copy on top of
     // the root commit
     assert_eq!(repo.view().heads().len(), num_threads + 1);
@@ -90,7 +90,7 @@ fn test_commit_parallel_instances(backend: TestRepoBackend) {
             s.spawn(move || {
                 let mut tx = repo.start_transaction();
                 write_random_commit(tx.repo_mut());
-                tx.commit("test").unwrap();
+                tx.commit("test").block_on().unwrap();
             });
         }
     });

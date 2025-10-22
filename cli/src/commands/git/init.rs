@@ -28,6 +28,7 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::view::View;
 use jj_lib::workspace::Workspace;
+use pollster::FutureExt as _;
 
 use super::write_repository_level_trunk_alias;
 use crate::cli_util::CommandHelper;
@@ -232,7 +233,7 @@ fn init_git_refs(
         let stats = git::export_refs(tx.repo_mut())?;
         print_git_export_stats(ui, &stats)?;
     }
-    let repo = tx.commit("import git refs")?;
+    let repo = tx.commit("import git refs").block_on()?;
     writeln!(
         ui.status(),
         "Done importing changes from the underlying Git repo."

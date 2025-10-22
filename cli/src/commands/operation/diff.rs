@@ -109,9 +109,11 @@ pub fn cmd_op_diff(
     let graph_style = GraphStyle::from_settings(settings)?;
     let with_content_format = LogContentFormat::new(ui, settings)?;
 
-    let merged_from_op = repo_loader.merge_operations(from_ops.clone(), None)?;
-    let from_repo = repo_loader.load_at(&merged_from_op)?;
-    let to_repo = repo_loader.load_at(&to_op)?;
+    let merged_from_op = repo_loader
+        .merge_operations(from_ops.clone(), None)
+        .block_on()?;
+    let from_repo = repo_loader.load_at(&merged_from_op).block_on()?;
+    let to_repo = repo_loader.load_at(&to_op).block_on()?;
 
     // Create a new transaction starting from `to_repo`.
     let mut tx = to_repo.start_transaction();

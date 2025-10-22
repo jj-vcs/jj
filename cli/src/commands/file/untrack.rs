@@ -71,12 +71,13 @@ pub(crate) fn cmd_file_untrack(
     for (path, _value) in wc_tree.entries_matching(matcher.as_ref()) {
         tree_builder.set_or_remove(path, Merge::absent());
     }
-    let new_tree_id = tree_builder.write_tree(&store)?;
+    let new_tree_id = tree_builder.write_tree(&store).block_on()?;
     let new_commit = tx
         .repo_mut()
         .rewrite_commit(&wc_commit)
         .set_tree_id(new_tree_id)
-        .write()?;
+        .write()
+        .block_on()?;
     // Reset the working copy to the new commit
     locked_ws.locked_wc().reset(&new_commit).block_on()?;
     // Commit the working copy again so we can inform the user if paths couldn't be
@@ -109,14 +110,14 @@ Make sure they're ignored, then try again.",
             locked_ws.locked_wc().reset(&new_commit).block_on()?;
         }
     }
-    let num_rebased = tx.repo_mut().rebase_descendants()?;
+    let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
     if num_rebased > 0 {
         writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
     }
     if working_copy_shared_with_git {
         export_working_copy_changes_to_git(ui, tx.repo_mut(), &wc_tree, &new_commit.tree()?)?;
     }
-    let repo = tx.commit("untrack paths")?;
+    let repo = tx.commit("untrack paths").block_on()?;
     locked_ws.finish(repo.op_id().clone())?;
     print_snapshot_stats(ui, &stats, workspace_command.env().path_converter())?;
     Ok(())

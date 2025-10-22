@@ -27,7 +27,6 @@ use std::sync::Arc;
 use bstr::BStr;
 use bstr::BString;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
@@ -162,8 +161,11 @@ impl FileAnnotator {
     /// Initializes annotator for a specific file in the `starting_commit`.
     ///
     /// If the file is not found, the result would be empty.
-    pub fn from_commit(starting_commit: &Commit, file_path: &RepoPath) -> BackendResult<Self> {
-        let source = Source::load(starting_commit, file_path)?;
+    pub async fn from_commit(
+        starting_commit: &Commit,
+        file_path: &RepoPath,
+    ) -> BackendResult<Self> {
+        let source = Source::load(starting_commit, file_path).await?;
         Ok(Self::with_source(starting_commit.id(), file_path, source))
     }
 
@@ -213,12 +215,12 @@ impl FileAnnotator {
     /// The `domain` expression narrows the range of ancestors to search. It
     /// will be intersected as `domain & ::pending_commits & files(file_path)`.
     /// The `pending_commits` is assumed to be included in the `domain`.
-    pub fn compute(
+    pub async fn compute(
         &mut self,
         repo: &dyn Repo,
         domain: &Arc<ResolvedRevsetExpression>,
     ) -> Result<(), RevsetEvaluationError> {
-        process_commits(repo, &mut self.state, domain, &self.file_path)
+        process_commits(repo, &mut self.state, domain, &self.file_path).await
     }
 
     /// Remaining commit ids to visit from.
@@ -266,9 +268,9 @@ impl Source {
         }
     }
 
-    fn load(commit: &Commit, file_path: &RepoPath) -> Result<Self, BackendError> {
+    async fn load(commit: &Commit, file_path: &RepoPath) -> Result<Self, BackendError> {
         let tree = commit.tree()?;
-        let text = get_file_contents(commit.store(), file_path, &tree).block_on()?;
+        let text = get_file_contents(commit.store(), file_path, &tree).await?;
         Ok(Self::new(text))
     }
 
@@ -293,7 +295,7 @@ pub struct LineOrigin {
 
 /// Starting from the source commits, compute changes at that commit relative to
 /// its direct parents, updating the mappings as we go.
-fn process_commits(
+async fn process_commits(
     repo: &dyn Repo,
     state: &mut AnnotationState,
     domain: &Arc<ResolvedRevsetExpression>,
@@ -313,7 +315,7 @@ fn process_commits(
     state.num_unresolved_roots = 0;
     for node in revset.iter_graph() {
         let (commit_id, edge_list) = node?;
-        process_commit(repo, file_name, state, &commit_id, &edge_list)?;
+        process_commit(repo, file_name, state, &commit_id, &edge_list).await?;
         if state.commit_source_map.len() == state.num_unresolved_roots {
             // No more lines to propagate to ancestors.
             break;
@@ -325,7 +327,7 @@ fn process_commits(
 /// For a given commit, for each parent, we compare the version in the parent
 /// tree with the current version, updating the mappings for any lines in
 /// common. If the parent doesn't have the file, we skip it.
-fn process_commit(
+async fn process_commit(
     repo: &dyn Repo,
     file_name: &RepoPath,
     state: &mut AnnotationState,
@@ -341,8 +343,8 @@ fn process_commit(
         let parent_source = match state.commit_source_map.entry(parent_commit_id.clone()) {
             hash_map::Entry::Occupied(entry) => entry.into_mut(),
             hash_map::Entry::Vacant(entry) => {
-                let commit = repo.store().get_commit(entry.key())?;
-                entry.insert(Source::load(&commit, file_name)?)
+                let commit = repo.store().get_commit_async(entry.key()).await?;
+                entry.insert(Source::load(&commit, file_name).await?)
             }
         };
 

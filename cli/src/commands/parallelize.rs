@@ -20,6 +20,7 @@ use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -114,36 +115,38 @@ pub(crate) fn cmd_parallelize(
         new_child_parents.insert(commit.id().clone(), new_parents);
     }
 
-    tx.repo_mut().transform_descendants(
-        target_commits.iter().ids().cloned().collect_vec(),
-        async |mut rewriter| {
-            // Commits in the target set do not depend on each other but they still depend
-            // on other parents
-            if let Some(new_parents) = new_target_parents.get(rewriter.old_commit().id()) {
-                rewriter.set_new_rewritten_parents(new_parents);
-            } else if rewriter
-                .old_commit()
-                .parent_ids()
-                .iter()
-                .any(|id| new_child_parents.contains_key(id))
-            {
-                let mut new_parents = vec![];
-                for parent in rewriter.old_commit().parent_ids() {
-                    if let Some(parents) = new_child_parents.get(parent) {
-                        new_parents.extend(parents.iter().cloned());
-                    } else {
-                        new_parents.push(parent.clone());
+    tx.repo_mut()
+        .transform_descendants(
+            target_commits.iter().ids().cloned().collect_vec(),
+            async |mut rewriter| {
+                // Commits in the target set do not depend on each other but they still depend
+                // on other parents
+                if let Some(new_parents) = new_target_parents.get(rewriter.old_commit().id()) {
+                    rewriter.set_new_rewritten_parents(new_parents);
+                } else if rewriter
+                    .old_commit()
+                    .parent_ids()
+                    .iter()
+                    .any(|id| new_child_parents.contains_key(id))
+                {
+                    let mut new_parents = vec![];
+                    for parent in rewriter.old_commit().parent_ids() {
+                        if let Some(parents) = new_child_parents.get(parent) {
+                            new_parents.extend(parents.iter().cloned());
+                        } else {
+                            new_parents.push(parent.clone());
+                        }
                     }
+                    rewriter.set_new_rewritten_parents(&new_parents);
                 }
-                rewriter.set_new_rewritten_parents(&new_parents);
-            }
-            if rewriter.parents_changed() {
-                let builder = rewriter.rebase().await?;
-                builder.write()?;
-            }
-            Ok(())
-        },
-    )?;
+                if rewriter.parents_changed() {
+                    let builder = rewriter.rebase().await?;
+                    builder.write().await?;
+                }
+                Ok(())
+            },
+        )
+        .block_on()?;
 
     tx.finish(ui, format!("parallelize {} commits", target_commits.len()))
 }

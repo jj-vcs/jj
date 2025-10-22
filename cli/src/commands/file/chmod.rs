@@ -16,6 +16,7 @@ use clap_complete::ArgValueCompleter;
 use jj_lib::backend::TreeValue;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::object_id::ObjectId as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -119,11 +120,12 @@ pub(crate) fn cmd_file_chmod(
         tree_builder.set_or_remove(repo_path, tree_value);
     }
 
-    let new_tree_id = tree_builder.write_tree(store)?;
+    let new_tree_id = tree_builder.write_tree(store).block_on()?;
     tx.repo_mut()
         .rewrite_commit(&commit)
         .set_tree_id(new_tree_id)
-        .write()?;
+        .write()
+        .block_on()?;
     tx.finish(
         ui,
         format!(

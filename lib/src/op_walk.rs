@@ -21,7 +21,6 @@ use std::slice;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::dag_walk;
@@ -86,42 +85,43 @@ pub enum OpsetResolutionError {
 }
 
 /// Resolves operation set expression without loading a repo.
-pub fn resolve_op_for_load(
+pub async fn resolve_op_for_load(
     repo_loader: &RepoLoader,
     op_str: &str,
 ) -> Result<Operation, OpsetEvaluationError> {
     let op_store = repo_loader.op_store();
     let op_heads_store = repo_loader.op_heads_store().as_ref();
-    let get_current_op = || {
-        op_heads_store::resolve_op_heads(op_heads_store, op_store, |op_heads| {
+    let get_current_op = || async {
+        op_heads_store::resolve_op_heads(op_heads_store, op_store, |op_heads| async move {
             Err(OpsetResolutionError::MultipleOperations {
                 expr: "@".to_owned(),
                 candidates: op_heads.iter().map(|op| op.id().clone()).collect(),
             }
             .into())
         })
+        .await
     };
-    let get_head_ops = || get_current_head_ops(op_store, op_heads_store);
-    resolve_single_op(op_store, get_current_op, get_head_ops, op_str)
+    let get_head_ops = async || get_current_head_ops(op_store, op_heads_store).await;
+    resolve_single_op(op_store, get_current_op, get_head_ops, op_str).await
 }
 
 /// Resolves operation set expression against the loaded repo.
 ///
 /// The "@" symbol will be resolved to the operation the repo was loaded at.
-pub fn resolve_op_with_repo(
+pub async fn resolve_op_with_repo(
     repo: &ReadonlyRepo,
     op_str: &str,
 ) -> Result<Operation, OpsetEvaluationError> {
-    resolve_op_at(repo.op_store(), slice::from_ref(repo.operation()), op_str)
+    resolve_op_at(repo.op_store(), slice::from_ref(repo.operation()), op_str).await
 }
 
 /// Resolves operation set expression at the given head operations.
-pub fn resolve_op_at(
+pub async fn resolve_op_at(
     op_store: &Arc<dyn OpStore>,
     head_ops: &[Operation],
     op_str: &str,
 ) -> Result<Operation, OpsetEvaluationError> {
-    let get_current_op = || match head_ops {
+    let get_current_op = async || match head_ops {
         [head_op] => Ok(head_op.clone()),
         [] => Err(OpsetResolutionError::EmptyOperations("@".to_owned()).into()),
         _ => Err(OpsetResolutionError::MultipleOperations {
@@ -130,24 +130,28 @@ pub fn resolve_op_at(
         }
         .into()),
     };
-    let get_head_ops = || Ok(head_ops.to_vec());
-    resolve_single_op(op_store, get_current_op, get_head_ops, op_str)
+    let get_head_ops = async || Ok(head_ops.to_vec());
+    resolve_single_op(op_store, get_current_op, get_head_ops, op_str).await
 }
 
 /// Resolves operation set expression with the given "@" symbol resolution
 /// callbacks.
-fn resolve_single_op(
+async fn resolve_single_op(
     op_store: &Arc<dyn OpStore>,
-    get_current_op: impl FnOnce() -> Result<Operation, OpsetEvaluationError>,
-    get_head_ops: impl FnOnce() -> Result<Vec<Operation>, OpsetEvaluationError>,
+    get_current_op: impl AsyncFnOnce() -> Result<Operation, OpsetEvaluationError>,
+    get_head_ops: impl AsyncFnOnce() -> Result<Vec<Operation>, OpsetEvaluationError>,
     op_str: &str,
 ) -> Result<Operation, OpsetEvaluationError> {
     let op_symbol = op_str.trim_end_matches(['-', '+']);
     let op_postfix = &op_str[op_symbol.len()..];
-    let head_ops = op_postfix.contains('+').then(get_head_ops).transpose()?;
+    let head_ops: Option<Vec<Operation>> = if op_postfix.contains('+') {
+        Some(get_head_ops().await?)
+    } else {
+        None
+    };
     let mut operation = match op_symbol {
-        "@" => get_current_op(),
-        s => resolve_single_op_from_store(op_store, s),
+        "@" => get_current_op().await,
+        s => resolve_single_op_from_store(op_store, s).await,
     }?;
     for (i, c) in op_postfix.chars().enumerate() {
         let mut neighbor_ops = match c {
@@ -177,7 +181,7 @@ fn resolve_single_op(
     Ok(operation)
 }
 
-fn resolve_single_op_from_store(
+async fn resolve_single_op_from_store(
     op_store: &Arc<dyn OpStore>,
     op_str: &str,
 ) -> Result<Operation, OpsetEvaluationError> {
@@ -186,12 +190,12 @@ fn resolve_single_op_from_store(
     }
     let prefix = HexPrefix::try_from_hex(op_str)
         .ok_or_else(|| OpsetResolutionError::InvalidIdPrefix(op_str.to_owned()))?;
-    match op_store.resolve_operation_id_prefix(&prefix).block_on()? {
+    match op_store.resolve_operation_id_prefix(&prefix).await? {
         PrefixResolution::NoMatch => {
             Err(OpsetResolutionError::NoSuchOperation(op_str.to_owned()).into())
         }
         PrefixResolution::SingleMatch(op_id) => {
-            let data = op_store.read_operation(&op_id).block_on()?;
+            let data = op_store.read_operation(&op_id).await?;
             Ok(Operation::new(op_store.clone(), op_id, data))
         }
         PrefixResolution::AmbiguousMatch => {
@@ -202,19 +206,18 @@ fn resolve_single_op_from_store(
 
 /// Loads the current head operations. The returned operations may contain
 /// redundant ones which are ancestors of the other heads.
-pub fn get_current_head_ops(
+pub async fn get_current_head_ops(
     op_store: &Arc<dyn OpStore>,
     op_heads_store: &dyn OpHeadsStore,
 ) -> Result<Vec<Operation>, OpsetEvaluationError> {
-    let mut head_ops: Vec<_> = op_heads_store
-        .get_op_heads()
-        .block_on()?
-        .into_iter()
-        .map(|id| -> OpStoreResult<Operation> {
-            let data = op_store.read_operation(&id).block_on()?;
-            Ok(Operation::new(op_store.clone(), id, data))
-        })
-        .try_collect()?;
+    let op_ids = op_heads_store.get_op_heads().await?;
+
+    let mut head_ops = Vec::with_capacity(op_ids.len());
+    for id in op_ids {
+        let data = op_store.read_operation(&id).await?;
+        head_ops.push(Operation::new(op_store.clone(), id, data));
+    }
+
     // To stabilize output, sort in the same order as resolve_op_heads()
     head_ops.sort_by_key(|op| op.metadata().time.end.timestamp);
     Ok(head_ops)
@@ -351,7 +354,7 @@ pub struct ReparentStats {
 /// If the source operation range `root_ops..head_ops` was empty, the
 /// `new_head_ids` will be `[dest_op.id()]`, meaning the `dest_op` is the head.
 // TODO: Find better place to host this function. It might be an OpStore method.
-pub fn reparent_range(
+pub async fn reparent_range(
     op_store: &dyn OpStore,
     root_ops: &[Operation],
     head_ops: &[Operation],
@@ -377,7 +380,7 @@ pub fn reparent_range(
             .filter_map(|id| rewritten_ids.get(id).or_else(|| dest_once.take()))
             .cloned()
             .collect();
-        let new_id = op_store.write_operation(&data).block_on()?;
+        let new_id = op_store.write_operation(&data).await?;
         rewritten_ids.insert(old_op.id().clone(), new_id);
     }
 

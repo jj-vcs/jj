@@ -246,13 +246,13 @@ pub(crate) fn cmd_split(
         } else {
             let new_description = add_trailers(ui, &tx, &commit_builder)?;
             commit_builder.set_description(new_description);
-            let temp_commit = commit_builder.write_hidden()?;
+            let temp_commit = commit_builder.write_hidden().block_on()?;
             let intro = "Enter a description for the selected changes.";
             let template = description_template(ui, &tx, intro, &temp_commit)?;
             edit_description(&text_editor, &template)?
         };
         commit_builder.set_description(description);
-        commit_builder.write(tx.repo_mut())?
+        commit_builder.write(tx.repo_mut()).block_on()?
     };
 
     // Create the second commit, which includes everything the user didn't
@@ -294,13 +294,13 @@ pub(crate) fn cmd_split(
         } else {
             let new_description = add_trailers(ui, &tx, &commit_builder)?;
             commit_builder.set_description(new_description);
-            let temp_commit = commit_builder.write_hidden()?;
+            let temp_commit = commit_builder.write_hidden().block_on()?;
             let intro = "Enter a description for the remaining changes.";
             let template = description_template(ui, &tx, intro, &temp_commit)?;
             edit_description(&text_editor, &template)?
         };
         commit_builder.set_description(description);
-        commit_builder.write(tx.repo_mut())?
+        commit_builder.write(tx.repo_mut()).block_on()?
     };
 
     let (first_commit, second_commit, num_rebased) = if use_move_flags {
@@ -311,9 +311,10 @@ pub(crate) fn cmd_split(
             second_commit,
             new_parent_ids,
             new_child_ids,
-        )?
+        )
+        .block_on()?
     } else {
-        rewrite_descendants(&mut tx, &target, first_commit, second_commit, parallel)?
+        rewrite_descendants(&mut tx, &target, first_commit, second_commit, parallel).block_on()?
     };
     if let Some(mut formatter) = ui.status_formatter() {
         if num_rebased > 0 {
@@ -329,8 +330,8 @@ pub(crate) fn cmd_split(
     Ok(())
 }
 
-fn move_first_commit(
-    tx: &mut WorkspaceCommandTransaction,
+async fn move_first_commit(
+    tx: &mut WorkspaceCommandTransaction<'_>,
     target: &CommitWithSelection,
     mut first_commit: Commit,
     mut second_commit: Commit,
@@ -342,10 +343,11 @@ fn move_first_commit(
     tx.repo_mut()
         .transform_descendants(vec![target.commit.id().clone()], async |rewriter| {
             let old_commit_id = rewriter.old_commit().id().clone();
-            let new_commit = rewriter.rebase().await?.write()?;
+            let new_commit = rewriter.rebase().await?.write().await?;
             rewritten_commits.insert(old_commit_id, new_commit.id().clone());
             Ok(())
-        })?;
+        })
+        .await?;
 
     let new_parent_ids: Vec<_> = new_parent_ids
         .iter()
@@ -371,7 +373,8 @@ fn move_first_commit(
             },
             simplify_ancestor_merge: false,
         },
-    )?;
+    )
+    .await?;
 
     // 1 for the transformation of the original commit to the second commit
     // that was inserted in rewritten_commits
@@ -396,8 +399,8 @@ fn move_first_commit(
     Ok((first_commit, second_commit, num_rebased))
 }
 
-fn rewrite_descendants(
-    tx: &mut WorkspaceCommandTransaction,
+async fn rewrite_descendants(
+    tx: &mut WorkspaceCommandTransaction<'_>,
     target: &CommitWithSelection,
     first_commit: Commit,
     second_commit: Commit,
@@ -412,9 +415,8 @@ fn rewrite_descendants(
             .set_rewritten_commit(target.commit.id().clone(), second_commit.id().clone());
     }
     let mut num_rebased = 0;
-    tx.repo_mut().transform_descendants(
-        vec![target.commit.id().clone()],
-        async |mut rewriter| {
+    tx.repo_mut()
+        .transform_descendants(vec![target.commit.id().clone()], async |mut rewriter| {
             num_rebased += 1;
             if parallel && legacy_bookmark_behavior {
                 // The old_parent is the second commit due to the rewrite above.
@@ -425,10 +427,10 @@ fn rewrite_descendants(
             } else {
                 rewriter.replace_parent(first_commit.id(), [second_commit.id()]);
             }
-            rewriter.rebase().await?.write()?;
+            rewriter.rebase().await?.write().await?;
             Ok(())
-        },
-    )?;
+        })
+        .await?;
     // Move the working copy commit (@) to the second commit for any workspaces
     // where the target commit is the working copy commit.
     for (name, working_copy_commit) in tx.base_repo().clone().view().wc_commit_ids() {

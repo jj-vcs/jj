@@ -469,7 +469,7 @@ impl CommandHelper {
     ) -> Result<WorkspaceCommandHelper, CommandError> {
         let workspace = self.load_workspace()?;
         let op_head = self.resolve_operation(ui, workspace.repo_loader())?;
-        let repo = workspace.repo_loader().load_at(&op_head)?;
+        let repo = workspace.repo_loader().load_at(&op_head).block_on()?;
         let env = self.workspace_environment(ui, &workspace)?;
         revset_util::warn_unresolvable_trunk(ui, repo.as_ref(), &env.revset_parse_context())?;
         WorkspaceCommandHelper::new(ui, workspace, repo, env, self.is_at_head_operation())
@@ -530,9 +530,9 @@ impl CommandHelper {
         let workspace = self.load_workspace()?;
         let op_id = workspace.working_copy().operation_id();
 
-        match workspace.repo_loader().load_operation(op_id) {
+        match workspace.repo_loader().load_operation(op_id).block_on() {
             Ok(op) => {
-                let repo = workspace.repo_loader().load_at(&op)?;
+                let repo = workspace.repo_loader().load_at(&op).block_on()?;
                 let mut workspace_command = self.for_workable_repo(ui, workspace, repo)?;
 
                 // Snapshot the current working copy on top of the last known working-copy
@@ -556,7 +556,9 @@ impl CommandHelper {
                     locked_ws.locked_wc(),
                     &desired_wc_commit,
                     &repo,
-                )? {
+                )
+                .block_on()?
+                {
                     WorkingCopyFreshness::Fresh | WorkingCopyFreshness::Updated(_) => {
                         writeln!(
                             ui.status(),
@@ -638,22 +640,22 @@ impl CommandHelper {
         repo_loader: &RepoLoader,
     ) -> Result<Operation, CommandError> {
         if let Some(op_str) = &self.data.global_args.at_operation {
-            Ok(op_walk::resolve_op_for_load(repo_loader, op_str)?)
+            Ok(op_walk::resolve_op_for_load(repo_loader, op_str).block_on()?)
         } else {
             op_heads_store::resolve_op_heads(
                 repo_loader.op_heads_store().as_ref(),
                 repo_loader.op_store(),
-                |op_heads| {
+                |op_heads| async {
                     writeln!(
                         ui.status(),
                         "Concurrent modification detected, resolving automatically.",
                     )?;
-                    let base_repo = repo_loader.load_at(&op_heads[0])?;
+                    let base_repo = repo_loader.load_at(&op_heads[0]).await?;
                     // TODO: It may be helpful to print each operation we're merging here
                     let mut tx = start_repo_transaction(&base_repo, &self.data.string_args);
                     for other_op_head in op_heads.into_iter().skip(1) {
-                        tx.merge_operation(other_op_head)?;
-                        let num_rebased = tx.repo_mut().rebase_descendants()?;
+                        tx.merge_operation(other_op_head).await?;
+                        let num_rebased = tx.repo_mut().rebase_descendants().await?;
                         if num_rebased > 0 {
                             writeln!(
                                 ui.status(),
@@ -663,12 +665,14 @@ impl CommandHelper {
                         }
                     }
                     Ok(tx
-                        .write("reconcile divergent operations")?
+                        .write("reconcile divergent operations")
+                        .await?
                         .leave_unpublished()
                         .operation()
                         .clone())
                 },
             )
+            .block_on()
         }
     }
 
@@ -1154,14 +1158,15 @@ impl WorkspaceCommandHelper {
             let new_git_head_commit = tx.repo().store().get_commit(new_git_head_id)?;
             let wc_commit = tx
                 .repo_mut()
-                .check_out(workspace_name, &new_git_head_commit)?;
+                .check_out(workspace_name, &new_git_head_commit)
+                .block_on()?;
             let mut locked_ws = self.workspace.start_working_copy_mutation()?;
             // The working copy was presumably updated by the git command that updated
             // HEAD, so we just need to reset our working copy
             // state to it without updating working copy files.
             locked_ws.locked_wc().reset(&wc_commit).block_on()?;
-            tx.repo_mut().rebase_descendants()?;
-            self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head")?);
+            tx.repo_mut().rebase_descendants().block_on()?;
+            self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head").block_on()?);
             locked_ws.finish(self.user_repo.repo.op_id().clone())?;
             if old_git_head.is_present() {
                 writeln!(
@@ -1199,7 +1204,7 @@ impl WorkspaceCommandHelper {
 
         let mut tx = tx.into_inner();
         // Rebase here to show slightly different status message.
-        let num_rebased = tx.repo_mut().rebase_descendants()?;
+        let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
         if num_rebased > 0 {
             writeln!(
                 ui.status(),
@@ -1279,7 +1284,8 @@ operation that was subsequently lost (or was at least unavailable when you ran
 what the parent commits are supposed to be. That means that the diff compared
 to the current parents may contain changes from multiple commits.
 ",
-        )?;
+        )
+        .block_on()?;
 
         writeln!(
             ui.status(),
@@ -1542,7 +1548,7 @@ to the current parents may contain changes from multiple commits.
     }
 
     pub fn resolve_single_op(&self, op_str: &str) -> Result<Operation, OpsetEvaluationError> {
-        op_walk::resolve_op_with_repo(self.repo(), op_str)
+        op_walk::resolve_op_with_repo(self.repo(), op_str).block_on()
     }
 
     /// Resolve a revset to a single revision. Return an error if the revset is
@@ -1854,11 +1860,14 @@ to the current parents may contain changes from multiple commits.
         let old_op_id = locked_ws.locked_wc().old_operation_id().clone();
 
         let (repo, wc_commit) =
-            match WorkingCopyFreshness::check_stale(locked_ws.locked_wc(), &wc_commit, &repo) {
+            match WorkingCopyFreshness::check_stale(locked_ws.locked_wc(), &wc_commit, &repo)
+                .block_on()
+            {
                 Ok(WorkingCopyFreshness::Fresh) => (repo, wc_commit),
                 Ok(WorkingCopyFreshness::Updated(wc_operation)) => {
                     let repo = repo
                         .reload_at(&wc_operation)
+                        .block_on()
                         .map_err(snapshot_command_error)?;
                     let wc_commit = if let Some(wc_commit) = get_wc_commit(&repo)? {
                         wc_commit
@@ -1923,6 +1932,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                 .rewrite_commit(&wc_commit)
                 .set_tree_id(new_tree_id)
                 .write()
+                .block_on()
                 .map_err(snapshot_command_error)?;
             mut_repo
                 .set_wc_commit(workspace_name, commit.id().clone())
@@ -1931,6 +1941,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             // Rebase descendants
             let num_rebased = mut_repo
                 .rebase_descendants()
+                .block_on()
                 .map_err(snapshot_command_error)?;
             if num_rebased > 0 {
                 writeln!(
@@ -1950,6 +1961,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
 
             let repo = tx
                 .commit("snapshot working copy")
+                .block_on()
                 .map_err(snapshot_command_error)?;
             self.user_repo = ReadonlyUserRepo::new(repo);
         }
@@ -2032,7 +2044,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             writeln!(ui.status(), "Nothing changed.")?;
             return Ok(());
         }
-        let num_rebased = tx.repo_mut().rebase_descendants()?;
+        let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
         if num_rebased > 0 {
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
         }
@@ -2044,7 +2056,9 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                 .is_some()
             {
                 let wc_commit = tx.repo().store().get_commit(wc_commit_id)?;
-                tx.repo_mut().check_out(name.clone(), &wc_commit)?;
+                tx.repo_mut()
+                    .check_out(name.clone(), &wc_commit)
+                    .block_on()?;
                 writeln!(
                     ui.warning_default(),
                     "The working-copy commit in workspace '{name}' became immutable, so a new \
@@ -2087,7 +2101,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             crate::git_util::print_git_export_stats(ui, &stats)?;
         }
 
-        self.user_repo = ReadonlyUserRepo::new(tx.commit(description)?);
+        self.user_repo = ReadonlyUserRepo::new(tx.commit(description).block_on()?);
 
         // Update working copy before reporting repo changes, so that
         // potential errors while reporting changes (broken pipe, etc)
@@ -2410,7 +2424,7 @@ impl WorkspaceCommandTransaction<'_> {
     pub fn check_out(&mut self, commit: &Commit) -> Result<Commit, CheckOutCommitError> {
         let name = self.helper.workspace_name().to_owned();
         self.id_prefix_context.take(); // invalidate
-        self.tx.repo_mut().check_out(name, commit)
+        self.tx.repo_mut().check_out(name, commit).block_on()
     }
 
     pub fn edit(&mut self, commit: &Commit) -> Result<(), EditCommitError> {
@@ -2845,6 +2859,7 @@ pub fn update_working_copy(
     // warning for most commands (but be an error for the checkout command)
     let stats = workspace
         .check_out(repo.op_id().clone(), old_tree_id.as_ref(), new_commit)
+        .block_on()
         .map_err(|err| {
             internal_error_with_message(
                 format!("Failed to check out commit {}", new_commit.id().hex()),

@@ -19,6 +19,7 @@ use clap_complete::ArgValueCompleter;
 use indoc::formatdoc;
 use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -171,16 +172,17 @@ pub(crate) fn cmd_restore(
         tx.repo_mut()
             .rewrite_commit(&to_commit)
             .set_tree_id(new_tree_id)
-            .write()?;
+            .write()
+            .block_on()?;
         // rebase_descendants early; otherwise the new commit would always have
         // a conflicted change id at this point.
         let (num_rebased, extra_msg) = if args.restore_descendants {
             (
-                tx.repo_mut().reparent_descendants()?,
+                tx.repo_mut().reparent_descendants().block_on()?,
                 " (while preserving their content)",
             )
         } else {
-            (tx.repo_mut().rebase_descendants()?, "")
+            (tx.repo_mut().rebase_descendants().block_on()?, "")
         };
         if let Some(mut formatter) = ui.status_formatter()
             && num_rebased > 0
