@@ -95,6 +95,7 @@ impl Rule {
             Self::raw_string_content => None,
             Self::raw_string_literal => None,
             Self::at_op => Some("@"),
+            Self::question_op => Some("?"),
             Self::pattern_kind_op => Some(":"),
             Self::parents_op => Some("-"),
             Self::children_op => Some("+"),
@@ -196,6 +197,8 @@ pub enum RevsetParseErrorKind {
     InParameterExpansion(String),
     #[error("Alias `{0}` expanded recursively")]
     RecursiveAlias(String),
+    #[error("`{0}` is not a valid generation number")]
+    InvalidGeneration(String),
 }
 
 impl RevsetParseError {
@@ -319,6 +322,11 @@ fn rename_rules_in_pest_error(mut err: pest::error::Error<Rule>) -> pest::error:
 pub enum ExpressionKind<'i> {
     /// Unquoted symbol.
     Identifier(&'i str),
+    /// Unquoted symbol with generation, like `xyz?2`.
+    IdentifierWithGeneration {
+        identifier: &'i str,
+        generation: &'i str,
+    },
     /// Quoted symbol or string.
     String(String),
     /// `<kind>:<value>`
@@ -354,7 +362,8 @@ impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
     {
         match self {
             Self::Identifier(name) => folder.fold_identifier(name, span),
-            Self::String(_)
+            Self::IdentifierWithGeneration { .. }
+            | Self::String(_)
             | Self::StringPattern { .. }
             | Self::RemoteSymbol(_)
             | ExpressionKind::AtWorkspace(_)
@@ -642,6 +651,20 @@ fn parse_primary_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseErr
         // Identifier without "@" may be substituted by aliases. Primary expression including "@"
         // is considered an indecomposable unit, and no alias substitution would be made.
         Rule::identifier if pairs.peek().is_none() => ExpressionKind::Identifier(first.as_str()),
+        // Identifier followed by "?" indicates a generation, and is only valid if unquoted.
+        Rule::identifier
+            if pairs
+                .peek()
+                .is_some_and(|op| op.as_rule() == Rule::question_op) =>
+        {
+            let _ = pairs.next();
+            let second = pairs.next().expect("should have generation");
+            assert_eq!(second.as_rule(), Rule::identifier);
+            ExpressionKind::IdentifierWithGeneration {
+                identifier: first.as_str(),
+                generation: second.as_str(),
+            }
+        }
         Rule::identifier | Rule::string_literal | Rule::raw_string_literal => {
             let name = parse_as_string_literal(first);
             match pairs.next() {
@@ -928,6 +951,7 @@ mod tests {
 
         let normalized_kind = match node.kind {
             ExpressionKind::Identifier(_)
+            | ExpressionKind::IdentifierWithGeneration { .. }
             | ExpressionKind::String(_)
             | ExpressionKind::StringPattern { .. }
             | ExpressionKind::RemoteSymbol(_)

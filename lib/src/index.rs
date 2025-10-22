@@ -190,13 +190,52 @@ impl dyn MutableIndex {
     }
 }
 
+#[derive(Clone, Debug)]
+#[allow(missing_docs)] // TODO
+pub struct ResolvedChangeId {
+    /// All visible commits with this change ID. If supported by the index, the
+    /// commits should be sorted from most to least recent.
+    pub visible: Vec<CommitId>,
+    /// Hidden commits with this change ID. If this cannot be implemented
+    /// efficiently, the index implementation is free to leave this empty. If
+    /// non-empty, the commits should be sorted from most to least recent.
+    pub hidden: Vec<CommitId>,
+}
+
+#[allow(missing_docs)] // TODO
+impl ResolvedChangeId {
+    pub fn into_visible(self) -> Option<Vec<CommitId>> {
+        if self.visible.is_empty() {
+            None
+        } else {
+            Some(self.visible)
+        }
+    }
+
+    pub fn at_generation(&self, generation: u32) -> Option<&CommitId> {
+        self.visible
+            .get(generation as usize)
+            .or_else(|| self.hidden.get(generation as usize - self.visible.len()))
+    }
+
+    pub fn find_generation(&self, commit_id: &CommitId) -> Option<u32> {
+        self.visible
+            .iter()
+            .chain(&self.hidden)
+            .position(|visible_id| visible_id == commit_id)
+            .map(|generation| {
+                generation
+                    .try_into()
+                    .expect("should be fewer than u32::MAX commits with a change ID")
+            })
+    }
+}
+
 /// Defines the interface for types that provide an index of the commits in a
 /// repository by [`ChangeId`].
 pub trait ChangeIdIndex: Send + Sync {
     /// Resolve an unambiguous change ID prefix to the commit IDs in the index.
-    ///
-    /// The order of the returned commit IDs is unspecified.
-    fn resolve_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<Vec<CommitId>>;
+    fn resolve_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<ResolvedChangeId>;
 
     /// This function returns the shortest length of a prefix of `key` that
     /// disambiguates it from every other key in the index.

@@ -806,7 +806,7 @@ fn test_git_fetch_all() {
     a2: yqosqzyt d4d535f1 a2
       @origin: yqosqzyt d4d535f1 a2
     b: yostqsxw 0fbbc495 new_descr_for_b_to_create_conflict
-      @origin (ahead by 1 commits, behind by 1 commits): yostqsxw hidden bc83465a b
+      @origin (ahead by 1 commits, behind by 1 commits): yostqsxw?1 (hidden) bc83465a b
     trunk1: kkmpptxz 38288177 trunk1
       @origin: kkmpptxz 38288177 trunk1
     [EOF]
@@ -827,10 +827,10 @@ fn test_git_fetch_all() {
     a2: yqosqzyt baad96fe a2
       @origin: yqosqzyt baad96fe a2
     b (conflicted):
-      - yostqsxw hidden bc83465a b
-      + yostqsxw?? 0fbbc495 new_descr_for_b_to_create_conflict
-      + yostqsxw?? 6fc6fe17 b
-      @origin (behind by 1 commits): yostqsxw?? 6fc6fe17 b
+      - yostqsxw?2 (hidden) bc83465a b
+      + yostqsxw?1 0fbbc495 new_descr_for_b_to_create_conflict
+      + yostqsxw?0 6fc6fe17 b
+      @origin (behind by 1 commits): yostqsxw?0 6fc6fe17 b
     trunk1: kkmpptxz 38288177 trunk1
       @origin: kkmpptxz 38288177 trunk1
     trunk2: uyznsvlq e80d998a trunk2
@@ -1033,10 +1033,10 @@ fn test_git_fetch_some_of_many_bookmarks() {
     a2: yqosqzyt d4d535f1 a2
       @origin: yqosqzyt d4d535f1 a2
     b (conflicted):
-      - yostqsxw hidden bc83465a b
-      + yostqsxw?? c62db311 new_descr_for_b_to_create_conflict
-      + yostqsxw?? 2b30dbc9 b
-      @origin (behind by 1 commits): yostqsxw?? 2b30dbc9 b
+      - yostqsxw?2 (hidden) bc83465a b
+      + yostqsxw?1 c62db311 new_descr_for_b_to_create_conflict
+      + yostqsxw?0 2b30dbc9 b
+      @origin (behind by 1 commits): yostqsxw?0 2b30dbc9 b
     [EOF]
     ");
     // Now, let's fetch a2 and double-check that fetching a1 and b again doesn't do
@@ -1069,10 +1069,10 @@ fn test_git_fetch_some_of_many_bookmarks() {
     a2: yqosqzyt 841140b1 a2
       @origin: yqosqzyt 841140b1 a2
     b (conflicted):
-      - yostqsxw hidden bc83465a b
-      + yostqsxw?? c62db311 new_descr_for_b_to_create_conflict
-      + yostqsxw?? 2b30dbc9 b
-      @origin (behind by 1 commits): yostqsxw?? 2b30dbc9 b
+      - yostqsxw?2 (hidden) bc83465a b
+      + yostqsxw?1 c62db311 new_descr_for_b_to_create_conflict
+      + yostqsxw?0 2b30dbc9 b
+      @origin (behind by 1 commits): yostqsxw?0 2b30dbc9 b
     [EOF]
     ");
 }
@@ -1349,7 +1349,7 @@ fn test_fetch_undo_what() {
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     b (deleted)
-      @origin: yostqsxw hidden bc83465a b
+      @origin: yostqsxw?0 (hidden) bc83465a b
     [EOF]
     ");
 
@@ -1360,7 +1360,7 @@ fn test_fetch_undo_what() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     b (deleted)
-      @origin: yostqsxw hidden bc83465a b
+      @origin: yostqsxw?0 (hidden) bc83465a b
     newbookmark: qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");

@@ -22,6 +22,7 @@ use std::ops::Range;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use either::Either;
 use itertools::Itertools as _;
 use ref_cast::RefCastCustom;
 use ref_cast::ref_cast_custom;
@@ -45,6 +46,7 @@ use crate::index::AllHeadsForGcUnsupported;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
 use crate::index::IndexError;
+use crate::index::ResolvedChangeId;
 use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId as _;
 use crate::object_id::PrefixResolution;
@@ -653,7 +655,7 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
     // If `SingleMatch` is returned, the commits including in the set are all
     // visible. `AmbiguousMatch` may be returned even if the prefix is unique
     // within the visible entries.
-    fn resolve_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<Vec<CommitId>> {
+    fn resolve_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<ResolvedChangeId> {
         let index = self.index.as_composite().commits();
         match index.resolve_change_id_prefix(prefix) {
             PrefixResolution::NoMatch => PrefixResolution::NoMatch,
@@ -661,15 +663,22 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
                 debug_assert!(positions.is_sorted_by(|a, b| a < b));
                 let mut reachable_set = self.reachable_set.lock().unwrap();
                 reachable_set.visit_until(index, *positions.first().unwrap());
-                let reachable_commit_ids = positions
-                    .iter()
-                    .filter(|&&pos| reachable_set.contains(pos))
-                    .map(|&pos| index.entry_by_pos(pos).commit_id())
-                    .collect_vec();
-                if reachable_commit_ids.is_empty() {
+                let (mut visible, mut hidden): (Vec<_>, Vec<_>) =
+                    positions.iter().partition_map(|&pos| {
+                        let commit_id = index.entry_by_pos(pos).commit_id();
+                        if reachable_set.contains(pos) {
+                            Either::Left(commit_id)
+                        } else {
+                            Either::Right(commit_id)
+                        }
+                    });
+                if visible.is_empty() && hidden.is_empty() {
                     PrefixResolution::NoMatch
                 } else {
-                    PrefixResolution::SingleMatch(reachable_commit_ids)
+                    // Most recent commits should appear first, so we need to reverse these.
+                    visible.reverse();
+                    hidden.reverse();
+                    PrefixResolution::SingleMatch(ResolvedChangeId { visible, hidden })
                 }
             }
             PrefixResolution::AmbiguousMatch => PrefixResolution::AmbiguousMatch,

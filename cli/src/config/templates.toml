@@ -415,14 +415,14 @@ separate(" ",
 # commit id to refer to a hidden revision regardless.
 'format_short_change_id_with_hidden_and_divergent_info(commit)' = '''
 if(commit.hidden(),
-  label("hidden",
-    format_short_change_id(commit.change_id()) ++ " hidden"
-  ),
-  label(if(commit.divergent(), "divergent"),
-    format_short_change_id(commit.change_id()) ++ if(commit.divergent(), "??")
+  label("hidden", format_short_change_id(commit.change_id()) ++ format_change_generation(commit) ++ " (hidden)"),
+  if(commit.divergent(),
+    label("divergent", format_short_change_id(commit.change_id()) ++ format_change_generation(commit)),
+    format_short_change_id(commit.change_id())
   )
 )
 '''
+'format_change_generation(commit)' = 'label("generation", surround("?", "", commit.change_generation()))'
 
 'format_short_commit_header(commit)' = '''
 separate(" ",

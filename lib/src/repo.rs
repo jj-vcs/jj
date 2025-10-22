@@ -56,6 +56,7 @@ use crate::index::IndexReadError;
 use crate::index::IndexStore;
 use crate::index::MutableIndex;
 use crate::index::ReadonlyIndex;
+use crate::index::ResolvedChangeId;
 use crate::merge::MergeBuilder;
 use crate::merge::SameChange;
 use crate::merge::trivial_merge;
@@ -125,7 +126,7 @@ pub trait Repo {
 
     fn submodule_store(&self) -> &Arc<dyn SubmoduleStore>;
 
-    fn resolve_change_id(&self, change_id: &ChangeId) -> Option<Vec<CommitId>> {
+    fn resolve_change_id(&self, change_id: &ChangeId) -> Option<ResolvedChangeId> {
         // Replace this if we added more efficient lookup method.
         let prefix = HexPrefix::from_id(change_id);
         match self.resolve_change_id_prefix(&prefix) {
@@ -135,7 +136,7 @@ pub trait Repo {
         }
     }
 
-    fn resolve_change_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<Vec<CommitId>>;
+    fn resolve_change_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<ResolvedChangeId>;
 
     fn shortest_unique_change_id_prefix_len(&self, target_id_bytes: &ChangeId) -> usize;
 }
@@ -351,7 +352,7 @@ impl Repo for ReadonlyRepo {
         self.loader.submodule_store()
     }
 
-    fn resolve_change_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<Vec<CommitId>> {
+    fn resolve_change_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<ResolvedChangeId> {
         self.change_id_index().resolve_prefix(prefix)
     }
 
@@ -1976,7 +1977,7 @@ impl Repo for MutableRepo {
         self.base_repo.submodule_store()
     }
 
-    fn resolve_change_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<Vec<CommitId>> {
+    fn resolve_change_id_prefix(&self, prefix: &HexPrefix) -> PrefixResolution<ResolvedChangeId> {
         let change_id_index = self.index.change_id_index(&mut self.view().heads().iter());
         change_id_index.resolve_prefix(prefix)
     }
