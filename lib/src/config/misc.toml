@@ -51,6 +51,7 @@ name = ""
 
 [working-copy]
 eol-conversion = "none"
+exec-bit-change = "auto"
 
 [experimental]
 record-predecessors-in-commit = true

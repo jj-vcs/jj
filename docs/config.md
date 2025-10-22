@@ -1810,6 +1810,47 @@ eol-conversion = "input-output"
       [`gitoxide`][gitoxide-is-binary] or [`git`][git-is-binary]. Jujutsu
       doesn't plan to align the binary detection logic with git.
 
+### Respect or ignore executable bit permission changes
+
+Whether to respect or ignore changes to the executable bit for files on Unix.
+This option is unused on Windows.
+
+```toml
+[working-copy]
+exec-bit-change = "respect" | "ignore" | "auto" (default)
+```
+
+On Unix systems, files have a permission bit for whether they are executable as
+scripts or binary code. Jujutsu stores this state in the repository and will
+update it for files as you operate on a repository. If you set your working
+copy to a commit where a file is recorded as executable or not, `jj` will
+adjust the permission of that file. If you change a file's executable bit
+through the filesystem, `jj` will record that change when taking a snapshot.
+
+Setting this to `"ignore"` will make Jujutsu ignore the executable bit on the
+filesystem when updating the state for the repository. In addition, `jj` will
+not attempt to modify a file's executable bit and will add new files as
+"not executable." This is already the behavior on Windows, and having the
+option to enable this behavior is useful for Unix users dual-booting Windows,
+Windows users accessing files from WSL, or anyone experimenting with other
+filesystem configurations.
+
+On Unix if `"auto"` is set (the default), `jj` will try to detect whether the
+filesystem supports changing executable bits to choose between `"respect"` or
+`"ignore"`. On errors, we assume `"respect"`, except if permission was denied
+which will assume `"ignore"`.
+
+On Windows, files have no executable bit so this option is unused.
+
+You can always use `jj file chmod` to update the recorded executable bit for a
+file manually. If this option is `"respect"`, `jj` will also attempt to
+propagate that change to the filesystem.
+
+Note that if you modify a file's executable bit before changing this setting
+from `"ignore"` or  `"auto"` to `"respect"`, `jj` may not update the stored
+executable bit until you modify the file's contents or update its modification
+time, e.g. with `touch`.
+
 ## Ways to specify `jj` config: details
 
 ### User config files

@@ -135,6 +135,16 @@ enum ExecChangePolicy {
     Respect,
 }
 
+/// The executable bit change setting as exposed to the user.
+#[derive(Clone, Copy, Debug, Default, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ExecChangeSetting {
+    Ignore,
+    Respect,
+    #[default]
+    Auto,
+}
+
 impl ExecChangePolicy {
     /// Get the executable bit policy based on user settings and executable bit
     /// support in the working copy's state path.
@@ -142,16 +152,22 @@ impl ExecChangePolicy {
     /// On Unix we check whether executable bits are supported in the working
     /// copy to determine respect/ignorance, but we default to respect.
     #[cfg_attr(windows, expect(unused_variables))]
-    fn new(state_path: &Path) -> Self {
+    fn new(exec_change_setting: ExecChangeSetting, state_path: &Path) -> Self {
         #[cfg(windows)]
         return Self::Ignore;
         #[cfg(unix)]
-        return match crate::file_util::check_executable_bit_support(state_path) {
-            Ok(false) => Self::Ignore,
-            Ok(true) => Self::Respect,
-            Err(err) => {
-                tracing::warn!(?err, "Error when checking for executable bit support");
-                Self::Respect
+        return match exec_change_setting {
+            ExecChangeSetting::Ignore => Self::Ignore,
+            ExecChangeSetting::Respect => Self::Respect,
+            ExecChangeSetting::Auto => {
+                match crate::file_util::check_executable_bit_support(state_path) {
+                    Ok(false) => Self::Ignore,
+                    Ok(true) => Self::Respect,
+                    Err(err) => {
+                        tracing::warn!(?err, "Error when checking for executable bit support");
+                        Self::Respect
+                    }
+                }
             }
         };
     }
@@ -888,6 +904,8 @@ pub struct TreeStateSettings {
     /// file to the backend, and vice versa when it checks out code onto your
     /// filesystem.
     pub eol_conversion_mode: EolConversionMode,
+    /// Whether to ignore changes to the executable bit for files on Unix.
+    pub exec_change_setting: ExecChangeSetting,
     /// The fsmonitor (e.g. Watchman) to use, if any.
     pub fsmonitor_settings: FsmonitorSettings,
 }
@@ -898,6 +916,7 @@ impl TreeStateSettings {
         Ok(Self {
             conflict_marker_style: user_settings.get("ui.conflict-marker-style")?,
             eol_conversion_mode: EolConversionMode::try_from_settings(user_settings)?,
+            exec_change_setting: user_settings.get("working-copy.exec-bit-change")?,
             fsmonitor_settings: FsmonitorSettings::from_settings(user_settings)?,
         })
     }
@@ -981,10 +1000,11 @@ impl TreeState {
         &TreeStateSettings {
             conflict_marker_style,
             eol_conversion_mode,
+            exec_change_setting,
             ref fsmonitor_settings,
         }: &TreeStateSettings,
     ) -> Self {
-        let exec_policy = ExecChangePolicy::new(&state_path);
+        let exec_policy = ExecChangePolicy::new(exec_change_setting, &state_path);
         Self {
             store: store.clone(),
             working_copy_path,

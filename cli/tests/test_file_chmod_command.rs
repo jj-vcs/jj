@@ -12,10 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+#[cfg(unix)]
+use std::path::Path;
+
+#[cfg(unix)]
+use regex::Regex;
+
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 use crate::common::create_commit_with_files;
+
+/// Assert that a file's executable bit matches the expected value.
+#[cfg(unix)]
+#[track_caller]
+fn assert_file_executable(path: &Path, expected: bool) {
+    let perms = path.metadata().unwrap().permissions();
+    let actual = (perms.mode() & 0o100) == 0o100;
+    assert_eq!(actual, expected);
+}
+
+/// Set the executable bit of a file on the filesystem.
+#[cfg(unix)]
+#[track_caller]
+pub fn set_file_executable(path: &Path, executable: bool) {
+    let prev_mode = path.metadata().unwrap().permissions().mode();
+    let is_executable = prev_mode & 0o100 != 0;
+    assert_ne!(executable, is_executable, "why are you calling this?");
+    let new_mode = if executable { 0o755 } else { 0o644 };
+    std::fs::set_permissions(path, PermissionsExt::from_mode(new_mode)).unwrap();
+}
 
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
@@ -227,4 +255,189 @@ fn test_chmod_file_dir_deletion_conflicts() {
     >>>>>>> Conflict 1 of 1 ends
     [EOF]
     ");
+}
+
+#[cfg(unix)]
+#[test]
+fn test_chmod_exec_bit_settings() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let path = &work_dir.root().join("file");
+
+    // The timestamps in the `jj debug local-working-copy` output change, so we want
+    // to remove them before asserting the snapshot
+    let timestamp_regex = Regex::new(r"\b\d{10,}\b").unwrap();
+    let redact_timestamp = |output: String| {
+        let output = timestamp_regex.replace_all(&output, "<timestamp>");
+        output.into_owned()
+    };
+
+    // Load with an explicit "auto" value to test the deserialization.
+    test_env.add_config(r#"working-copy.exec-bit-change = "auto""#);
+    create_commit_with_files(&work_dir, "base", &[], &[("file", "base\n")]);
+
+    let output = work_dir.run_jj(["debug", "local-working-copy"]);
+    insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
+    Current operation: OperationId("8c58a72d1118aa7d8b1295949a7fa8c6fcda63a3c89813faf2b8ca599ceebf8adcfcbeb8f0bbb6439c86b47dd68b9cf85074c9e57214c3fb4b632e0c9e87ad65")
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("6d5f482d15035cdd7733b1b551d1fead28d22592")), .. }
+    Normal { exec_bit: ExecBit(false) }             5 <timestamp> None "file"
+    [EOF]
+    "#); // in-repo: false, on-disk: false (1/4)
+
+    // 1. Start respecting the executable bit
+    test_env.add_config(r#"working-copy.exec-bit-change = "respect""#);
+    create_commit_with_files(&work_dir, "respect", &["base"], &[]);
+
+    set_file_executable(path, true);
+    let output = work_dir.run_jj(["debug", "local-working-copy"]);
+    insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
+    Current operation: OperationId("3a6a78820e6892164ed55680b92fa679fbb4d6acd4135c7413d1b815bedcd2c24c85ac8f4f96c96f76012f33d31ffbf50473b938feadf36fcd9c92997789aeca")
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), .. }
+    Normal { exec_bit: ExecBit(true) }             5 <timestamp> None "file"
+    [EOF]
+    "#); // in-repo: true, on-disk: true (2/4)
+
+    work_dir.run_jj(["file", "chmod", "n", "file"]).success();
+    assert_file_executable(path, false);
+
+    work_dir.run_jj(["file", "chmod", "x", "file"]).success();
+    assert_file_executable(path, true);
+
+    // 2. Now ignore the executable bit
+    create_commit_with_files(&work_dir, "ignore", &["base"], &[]);
+    test_env.add_config(r#"working-copy.exec-bit-change = "ignore""#);
+    set_file_executable(path, true);
+
+    // chmod should affect the repo state, but not the on-disk file.
+    work_dir.run_jj(["file", "chmod", "n", "file"]).success();
+    assert_file_executable(path, true);
+    let output = work_dir.run_jj(["debug", "local-working-copy"]);
+    insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
+    Current operation: OperationId("cab1801e16b54d5b413f638bdf74388520b51232c88db6b314ef64b054607ab82ae6ef0b1f707b52aa8d2131511f6f48f8ca52e465621ff38c442b0ec893f309")
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("6d5f482d15035cdd7733b1b551d1fead28d22592")), .. }
+    Normal { exec_bit: ExecBit(true) }             5 <timestamp> None "file"
+    [EOF]
+    "#); // in-repo: false, on-disk: true (3/4)
+
+    set_file_executable(path, false);
+    work_dir.run_jj(["file", "chmod", "x", "file"]).success();
+    assert_file_executable(path, false);
+    let output = work_dir.run_jj(["debug", "local-working-copy"]);
+    insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
+    Current operation: OperationId("def8ce6211dcff6d2784d5309d36079c1cb6eeb70821ae144982c76d38ed76fedc8b84e4daddaac70f6a0aae1c301ff5b60e1baa6ac371dabd77cec3537d2c39")
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), .. }
+    Normal { exec_bit: ExecBit(false) }             5 <timestamp> None "file"
+    [EOF]
+    "#); // in-repo: true, on-disk: false (4/4) Yay! We've observed all possible states!
+
+    // 3. Go back to respecting the executable bit
+    test_env.add_config(r#"working-copy.exec-bit-change = "respect""#);
+    work_dir.write_file("file", "update the file so respect notices the new state\n");
+
+    assert_file_executable(path, false);
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @r"
+    Working copy changes:
+    M file
+    Working copy  (@) : znkkpsqq 71681768 ignore | ignore
+    Parent commit (@-): rlvkpnrz 1792382a base | base
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "chmod", "x", "file"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: znkkpsqq ef0a25b6 ignore | ignore
+    Parent commit (@-)      : rlvkpnrz 1792382a base | base
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+    assert_file_executable(path, true);
+
+    work_dir.run_jj(["new", "base"]).success();
+    set_file_executable(path, true);
+    let output = work_dir.run_jj(["debug", "local-working-copy"]);
+    insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
+    Current operation: OperationId("0cce4e44f0b47cc4404f74fe164536aa57f67b8981726ce6ec88c39d79e266a2586a79d51a065906b6d8b284b39fe0ab023547f65571d1b61a97916f7f7cf4d8")
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), .. }
+    Normal { exec_bit: ExecBit(true) }             5 <timestamp> None "file"
+    [EOF]
+    "#);
+}
+
+#[cfg(unix)]
+#[test]
+fn test_chmod_exec_bit_ignore() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let path = &work_dir.root().join("file");
+
+    test_env.add_config(r#"working-copy.exec-bit-change = "ignore""#);
+
+    create_commit_with_files(&work_dir, "base", &[], &[("file", "base\n")]);
+    assert_file_executable(path, false);
+
+    // 1. Reverting to "in-repo: true, on-disk: false" works.
+    create_commit_with_files(&work_dir, "repo-x-disk-n", &["base"], &[]);
+    work_dir.run_jj(["file", "chmod", "x", "file"]).success();
+    assert_file_executable(path, false);
+
+    // Commit, update the file, then reset the file.
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file(path, "something");
+    work_dir.run_jj(["abandon"]).success();
+    // The on-disk exec bit should remain false.
+    assert_file_executable(path, false);
+
+    // 2. Reverting to "in-repo: false, on-disk: true" works.
+    create_commit_with_files(&work_dir, "repo-n-disk-x", &["base"], &[]);
+    set_file_executable(path, true);
+    work_dir.run_jj(["file", "chmod", "n", "file"]).success();
+    assert_file_executable(path, true);
+
+    // Commit, update the file, then reset the file.
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file(path, "something");
+    work_dir.run_jj(["abandon"]).success();
+    // The on-disk exec bit should remain true.
+    assert_file_executable(path, true);
+}
+
+#[cfg(unix)]
+#[test]
+fn test_chmod_exec_bit_ignore_then_respect() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let path = &work_dir.root().join("file");
+
+    // Start while ignoring executable bits.
+    test_env.add_config(r#"working-copy.exec-bit-change = "ignore""#);
+    create_commit_with_files(&work_dir, "base", &[], &[("file", "base\n")]);
+
+    // Set the in-repo executable bit to true.
+    let output = work_dir.run_jj(["file", "chmod", "x", "file"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Working copy  (@) now at: rlvkpnrz cb3f99cb base | base
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    "#);
+    assert_file_executable(path, false);
+
+    test_env.add_config(r#"working-copy.exec-bit-change = "respect""#);
+    work_dir.write_file("file", "update the file so respect notices the new state\n");
+
+    // This simultaneously snapshots and updates the executable bit.
+    let output = work_dir.run_jj(["file", "chmod", "x", "file"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: rlvkpnrz 96872a96 base | base
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+    assert_file_executable(path, true);
 }
