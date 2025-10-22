@@ -120,11 +120,11 @@ impl TestEnvironment {
         // We want to keep the "PATH" environment variable to allow accessing
         // executables like `git` from the PATH.
         cmd.env("PATH", std::env::var_os("PATH").unwrap_or_default());
-        cmd.env("HOME", self.home_dir.to_str().unwrap());
+        cmd.env("HOME", &self.home_dir);
         // Prevent git.subprocess from reading outside git config
         cmd.env("GIT_CONFIG_SYSTEM", "/dev/null");
         cmd.env("GIT_CONFIG_GLOBAL", "/dev/null");
-        cmd.env("JJ_CONFIG", self.config_path.to_str().unwrap());
+        cmd.env("JJ_CONFIG", &self.config_path);
         cmd.env("JJ_USER", "Test User");
         cmd.env("JJ_EMAIL", "test.user@example.com");
         cmd.env("JJ_OP_HOSTNAME", "host.example.com");
